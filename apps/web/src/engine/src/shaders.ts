@@ -2789,10 +2789,18 @@ export const WC_FIELD_OP_FRAG = `
    *  scales it. What the diffusion would have produced for a single paint,
    *  in one pass instead of the schedule. */
   uniform vec3 u_tau;
+  /** Mode 3: a + b - c, three fields - the reveal's kept picture plus what a
+   *  live batch just changed (s17.12): the tile after the batch less the
+   *  tile before it. */
+  uniform sampler2D u_c;
   varying vec2 v_uv;
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 2.5) {
+      gl_FragColor = clamp(a + b - texture2D(u_c, v_uv), 0.0, 1.0);
+      return;
+    }
     if (u_mode > 1.5) {
       gl_FragColor = vec4(a.b * u_tau / 4.0, a.b);
       return;

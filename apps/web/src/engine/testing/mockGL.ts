@@ -138,6 +138,7 @@ export class MockGL {
   readonly TRIANGLES = ENUM.TRIANGLES
   readonly FLOAT = ENUM.FLOAT
   readonly BLEND = ENUM.BLEND
+  readonly SCISSOR_TEST = 0x0c11
   readonly ONE = ENUM.ONE
   readonly ONE_MINUS_SRC_ALPHA = ENUM.ONE_MINUS_SRC_ALPHA
   readonly ZERO = ENUM.ZERO
@@ -622,6 +623,10 @@ export class MockGL {
   // viewport to the full target size), a composite draw can now rasterize
   // into a sub-rect. Recorded here and consulted by _rasterComposite.
   viewport(x: number, y: number, w: number, h: number): void { this._viewport = { x, y, w, h } }
+  // (#536, s17.12) The reveal's keep-fresh limits a field op to the batch's
+  // rect with a scissor; nothing here rasterizes that pass, so recording the
+  // rect is all the mock needs to do.
+  scissor(_x: number, _y: number, _w: number, _h: number): void {}
   // Tracked since #330: BLEND used to be enabled at every dab/composite draw
   // call site in this codebase (beginDraw/beginErase/_compositeTextures) and
   // disabled only around the 'papergen'/'display' passes this mock doesn't

@@ -5368,7 +5368,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_k', 'u_mode', 'u_tau'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
@@ -8293,12 +8293,13 @@ export class PencilEngine implements PencilEngineAPI {
       // all, which for the brush pen is guaranteed by _bakeDabOpacity (ADR 009
       // §9 — pressure drives width, never alpha). The marker's branch ignores
       // this argument entirely and reads its own inkLoad texture instead.
+      const revealPrev = this._revealBeforeBatch(tile, compositeBounds)
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, inkColor, color, drawable[0].opacity,
         fieldSeed, spreadPx, fringeWater, migratePx,
         profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
       )
-      this._revealKeepFresh(tile, compositeBounds)
+      this._revealAfterBatch(tile, compositeBounds, revealPrev)
     }
 
     scratch.noteFinish({
@@ -8375,18 +8376,87 @@ export class PencilEngine implements PencilEngineAPI {
    *  fading in through a reveal that predates it. Under the brush the
    *  earlier settle therefore snaps to its dry target; everywhere else the
    *  reveal keeps running. */
-  private _revealKeepFresh(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }): void {
-    const reveal = this._washReveals.get(tile.buffer)
-    if (!reveal) return
+  /** The rect of `bounds` inside `tile`, bottom-up GL, or null if empty. */
+  private _revealRect(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }): [number, number, number, number] | null {
     const { buffer, originX, originY } = tile
     const x0 = Math.max(Math.floor(bounds.minX), originX)
     const y0 = Math.max(Math.floor(bounds.minY), originY)
     const x1 = Math.min(Math.ceil(bounds.maxX), originX + buffer.width)
     const y1 = Math.min(Math.ceil(bounds.maxY), originY + buffer.height)
-    if (x1 <= x0 || y1 <= y0) return
+    if (x1 <= x0 || y1 <= y0) return null
     // Top-down world → bottom-up GL, as _gatherSmudgePatch does it.
-    const glX = x0 - originX, glY = buffer.height - (y1 - originY)
-    buffer.copyRegionInto(reveal.before, glX, glY, glX, glY, x1 - x0, y1 - y0)
+    return [x0 - originX, buffer.height - (y1 - originY), x1 - x0, y1 - y0]
+  }
+
+  /** A live batch is about to composite `bounds` into a tile that is still
+   *  converging on a settle: keep what the tile holds there now, so the batch's
+   *  CHANGE can be added to the kept picture afterwards (_revealAfterBatch).
+   *  Returns the pooled copy, or null when there is no reveal to keep honest. */
+  private _revealBeforeBatch(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }): AccumulationBuffer | null {
+    if (!this._washReveals.has(tile.buffer)) return null
+    const rect = this._revealRect(tile, bounds)
+    if (!rect) return null
+    const prev = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+    tile.buffer.copyRegionInto(prev, rect[0], rect[1], rect[0], rect[1], rect[2], rect[3])
+    return prev
+  }
+
+  /** …and after the composite: kept += (tile now − tile before), inside the
+   *  batch's rect. The new paint shows at once under the brush while the
+   *  earlier settle goes on easing in around and under it.
+   *
+   *  It used to copy the tile's rect over the kept picture outright, which
+   *  snapped the reveal to its dry target inside the rect — and the rect is
+   *  the batch's dabs padded by the composite's whole reach, most of a blot
+   *  for one touch on it: "касаюсь пером — состояние всего пятна резко
+   *  меняется". Adding the difference keeps the reveal's remaining delta
+   *  where the batch did not paint. */
+  private _revealAfterBatch(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }, prev: AccumulationBuffer | null): void {
+    if (!prev) return
+    const reveal = this._washReveals.get(tile.buffer)
+    const rect = this._revealRect(tile, bounds)
+    if (reveal && rect) {
+      const sum = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+      this._fieldOp(sum, reveal.before, tile.buffer, 3, 1, { c: prev, scissor: rect })
+      sum.copyRegionInto(reveal.before, rect[0], rect[1], rect[0], rect[1], rect[2], rect[3])
+      this._ribbonScratchPool.release(sum)
+    }
+    this._ribbonScratchPool.release(prev)
+  }
+
+  /** One WC_FIELD_OP_FRAG step between same-sized buffers — see the shader
+   *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
+   *  pixels) limits the write to a rect, everything outside it untouched. */
+  private _fieldOp(
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3, k: number,
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number] } = {},
+  ): void {
+    const { gl } = this
+    out.beginReplaceDraw()
+    if (opts.scissor) {
+      gl.enable(gl.SCISSOR_TEST)
+      gl.scissor(opts.scissor[0], opts.scissor[1], opts.scissor[2], opts.scissor[3])
+    }
+    gl.useProgram(this._fieldOpProg)
+    const u = this._fieldOpUni
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._fieldOpPosLoc)
+    gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, a.texture)
+    gl.uniform1i(u.u_a, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, b.texture)
+    gl.uniform1i(u.u_b, 1)
+    gl.activeTexture(gl.TEXTURE2)
+    gl.bindTexture(gl.TEXTURE_2D, (opts.c ?? b).texture)
+    gl.uniform1i(u.u_c, 2)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.uniform1f(u.u_k, k)
+    gl.uniform1f(u.u_mode, mode)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
+    out.endDraw()
   }
 
   /** Drops every reveal that has run out, or whose layer is gone. */
@@ -8528,25 +8598,8 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
 
-    const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void => {
-      out.beginReplaceDraw()
-      gl.useProgram(this._fieldOpProg)
-      const u = this._fieldOpUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._fieldOpPosLoc)
-      gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, a.texture)
-      gl.uniform1i(u.u_a, 0)
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, b.texture)
-      gl.uniform1i(u.u_b, 1)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.uniform1f(u.u_k, k)
-      gl.uniform1f(u.u_mode, mode)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      out.endDraw()
-    }
+    const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
+      this._fieldOp(out, a, b, mode, k)
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
     // schedule over c; the sum back into whichever of the pair is free.
