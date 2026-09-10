@@ -68,7 +68,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -8099,7 +8099,9 @@ export class PencilEngine implements PencilEngineAPI {
         // much of each is left after that much travel. depositPerRadius already
         // carries the nominal pigment setting, so only the remaining *fraction*
         // multiplies it here.
-        const water = profile.waterDepletion ? profile.waterLevel * watercolorWaterLoad(used) : 1
+        // (#536, §17.21) …and a clean-water brush does not run down at all.
+        const load = profile.waterDepletion && watercolorBrushRunsDry(profile.pigmentStrength) ? watercolorWaterLoad(used) : 1
+        const water = profile.waterDepletion ? profile.waterLevel * load : 1
         // (#536, §17.14) …by the brush's water: a wet brush spends the same
         // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
         const pigmentLeft = profile.waterDepletion
@@ -8114,7 +8116,7 @@ export class PencilEngine implements PencilEngineAPI {
         excessByDab.set(dab, excess)
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
-        if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, water))
+        if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
         // The stamps' share of the dose, doubled back up because the legacy
         // formula's 0.5 assumed an even split with the bands.
         const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1

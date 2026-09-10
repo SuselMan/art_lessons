@@ -17,7 +17,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
-  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
@@ -65,6 +65,32 @@ describe('watercolor preset (#468, ADR 011 §5)', () => {
     // which lives in GLSL and tops an ordinary pass out well under 1), and an
     // assertion that reaches for two of the three is the kind that goes off
     // when nothing a painter could see has moved.
+  })
+})
+
+describe('standing water (#536, ADR 011 §17.21)', () => {
+  it('follows the load, not the water setting: a 40 % brush lays a 40 % puddle that fades like a full one', () => {
+    // Clean water (retain 1) on dry paper.
+    expect(watercolorStandingWater(1, 1, 0, 1)).toBeCloseTo(1, 9)
+    expect(watercolorStandingWater(0.4, 1, 0, 1)).toBeCloseTo(0.4, 9)
+    const full = watercolorStandingWater(1, 1, 0, watercolorWaterLoad(20))
+    const damp = watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(20))
+    expect(damp / full).toBeCloseTo(0.4, 9)
+    expect(full).toBeGreaterThan(0.25)
+    expect(full).toBeLessThan(0.5)
+    // Run dry: nothing stands, at any setting.
+    expect(watercolorStandingWater(1, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)
+    expect(watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)
+  })
+
+  it('runs a brush dry only when it carries pigment', () => {
+    expect(watercolorBrushRunsDry(0)).toBe(false)
+    expect(watercolorBrushRunsDry(0.01)).toBe(true)
+  })
+
+  it('keeps everything on paper that is already wet, whatever the retention', () => {
+    expect(watercolorStandingWater(1, 0.15, 1, 1)).toBeCloseTo(1, 9)
+    expect(watercolorStandingWater(1, 0.15, 0, 1)).toBeCloseTo(0.15, 9)
   })
 })
 

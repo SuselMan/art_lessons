@@ -681,27 +681,38 @@ describe('water first, then paint (#536)', () => {
     return lastStroke(engine)
   }
 
-  it('wets the sheet where the brush still had water, not where it had run dry (§17.21)', async () => {
-    // One long clean-water stroke, many radii of it. The head leaves a puddle;
-    // the tail, with the brush's water long gone (watercolorWaterLoad), leaves
-    // the sheet as dry as it found it — the same cut the wash's coverage .b
-    // record makes, so the sheen and the diffusion agree on where the puddle
-    // is. Before this the field took the nominal mix for every dab.
-    const engine = setupLayer(640, 64)
-    await paperReady(engine)
+  function longLine(engine: PencilEngine, preset: string) {
     engine.setActiveLayer('L')
     engine.setTool('watercolor')
-    engine.setPencil(WATER)
+    engine.setPencil(preset)
     engine.setSize(12)
     const pts = []
     for (let x = 8; x <= 620; x += 4) pts.push({ x, y: 32 })
     simulateStroke(engine, pts)
     const now = performance.now()
     const field = engine['_paperWet']
-    const head = field.sample('L', 24, 32, now)
-    const tail = field.sample('L', 600, 32, now)
+    return { head: field.sample('L', 24, 32, now), tail: field.sample('L', 600, 32, now) }
+  }
+
+  it('wets the sheet where the brush still had water, not where it had run dry (§17.21)', async () => {
+    // One long loaded stroke, many radii of it. The head leaves a puddle;
+    // the tail, with the brush's water long gone (watercolorWaterLoad), leaves
+    // the sheet as dry as it found it — the same cut the wash's coverage .b
+    // record makes, so the sheen and the diffusion agree on where the puddle
+    // is. Before this the field took the nominal mix for every dab.
+    const engine = setupLayer(640, 64)
+    await paperReady(engine)
+    const { head, tail } = longLine(engine, 'normal:100:80:PB29:round')
     expect(head).toBeGreaterThan(0.6)
     expect(tail).toBeLessThan(0.05)
+  })
+
+  it('never runs a clean-water brush dry — wetting for wet-in-wet is one gesture (§17.21)', async () => {
+    const engine = setupLayer(640, 64)
+    await paperReady(engine)
+    const { head, tail } = longLine(engine, WATER)
+    expect(head).toBeGreaterThan(0.6)
+    expect(tail).toBeGreaterThan(0.6)
   })
 
   it('records nothing on dry paper — most strokes carry no field at all', async () => {

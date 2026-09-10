@@ -78,8 +78,11 @@ describe('every shader declares what it uses (#536)', () => {
     // the puddle from; the two passes below write coverage .b, which the
     // diffusion runs in. Same edges, or the puddle you see and the puddle
     // the paint runs in are two different puddles.
-    const gate = `smoothstep(${WC_STANDING_GATE_LO.toFixed(2)}, ${WC_STANDING_GATE_HI.toFixed(2)}, `
-    expect(RIBBON_FRAG).toContain(gate + 'bandWater)')
-    expect(DAB_FRAG).toContain(gate + 'u_inkWater)')
+    for (const frag of [RIBBON_FRAG, DAB_FRAG]) {
+      expect(frag).toContain(`const float WC_STANDING_LO = ${WC_STANDING_GATE_LO.toFixed(2)};`)
+      expect(frag).toContain(`const float WC_STANDING_HI = ${WC_STANDING_GATE_HI.toFixed(1)};`)
+    }
+    expect(RIBBON_FRAG).toContain('wcStandingGate(bandWater, u_washWater)')
+    expect(DAB_FRAG).toContain('wcStandingGate(u_inkWater, u_washWater)')
   })
 })

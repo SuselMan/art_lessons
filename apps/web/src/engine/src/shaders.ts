@@ -310,6 +310,15 @@ const WC_NOISE_GLSL = `
   // unchanged - the comb redistributes the dose across the hairs, it does
   // not add or remove any. wcHairAmp is how far toward that comb the brush
   // is; wet, none at all.
+  // (#536, s17.21) How much of a dab's delivered water stands on the sheet,
+  // by the brush's LOAD - its water at the dab over the nominal mix - linear
+  // from the floor to a full brush. The CPU twin, watercolorStandingGate,
+  // feeds the live wetness field the same number.
+  const float WC_STANDING_LO = 0.04;
+  const float WC_STANDING_HI = 1.0;
+  float wcStandingGate(float brushWater, float washWater) {
+    return clamp((brushWater / max(washWater, 1e-4) - WC_STANDING_LO) / (WC_STANDING_HI - WC_STANDING_LO), 0.0, 1.0);
+  }
   const float WC_HAIR_WET_LO = 0.25;
   const float WC_HAIR_WET_HI = 0.75;
   float wcHairAmp(float bristleInk, float brushWater) {
@@ -505,7 +514,7 @@ ${WC_NOISE_GLSL}
       ? (u_depthWrite > 0.5
           ? vec4(amount * v_inkStrength * u_tau / WC_DEPTH_SCALE, amount * v_inkStrength)
           : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount))
-      : vec4(acrossEncoded * amount, amount, amount * max(bandWet, u_washWater * mix(u_waterRetain, 1.0, bandWet) * smoothstep(0.05, 0.35, bandWater)), amount);
+      : vec4(acrossEncoded * amount, amount, amount * max(bandWet, u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
   }
 `;
 
@@ -1255,7 +1264,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * smoothstep(0.05, 0.35, u_inkWater)), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
 

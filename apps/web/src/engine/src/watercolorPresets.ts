@@ -586,7 +586,13 @@ function smoothstepJs(edge0: number, edge1: number, x: number): number {
 //  #536 — 12, from 20. "Кисть явно должна кончаться быстрее" after the first
 //  build where the depletion was visible at all; the previous numbers were
 //  chosen when none of it reached a pixel.
-const WATER_RUN_RADII = 12
+//  (#536, §17.21) 20 again, from 12. The 12 was chosen when the only thing
+//  the water clock showed was the mark, and the pigment still ran 48 radii
+//  with a floor; the pigment run has since come down to 32/8 with no floor,
+//  and now that the standing water is drawn from the same clock, 12 made the
+//  puddle end long before the mark did: "вода заканчивается гораздо быстрее
+//  чем штрих".
+const WATER_RUN_RADII = 20
 /** (#536, §17.18) 0.04, from 0.22. The old floor meant a brush never ran
  *  dry along a stroke — "почему вода в кисти не заканчивается никогда?" — so
  *  the dry-brush tail (contact breaking up, hairs showing) could not happen
@@ -708,6 +714,17 @@ export function watercolorWaterLoad(usedRadii: number): number {
   return WATER_FLOOR + (1 - WATER_FLOOR) * Math.exp(-usedRadii / WATER_RUN_RADII)
 }
 
+/** (#536, §17.21) Whether the brush's water runs out along a stroke at all:
+ *  only when it carries pigment. A clean-water brush is a bottomless one —
+ *  "вода без пигмента могла бы вообще не заканчиваться, удобно было бы для
+ *  рисования по мокрому": wetting the sheet for wet-in-wet is one long
+ *  gesture, and a puddle that stops where the clock says it does is a puddle
+ *  the hand has to lay in instalments. The pigment clock is untouched — it is
+ *  the paint that has to run out along a line, and a water brush has none. */
+export function watercolorBrushRunsDry(pigment: number): boolean {
+  return pigment > 0
+}
+
 /** (#536) The half-width of the brush *being held*, recovered from one dab it
  *  made — as opposed to the half-width of that particular footprint.
  *
@@ -819,12 +836,22 @@ const WATERCOLOR_RETAIN_DAMP = 0.15
 const WATERCOLOR_RETAIN_FLOODED = 0.85
 const WATERCOLOR_RETAIN_FROM = 0.25
 
-/** (#536, §17.21) Where along the brush's own water the standing water it
- *  leaves is cut: full above HI, none below LO, smoothstep between. The
- *  shaders write the same two numbers into coverage .b (RIBBON_FRAG and
- *  DAB_FRAG mode 6 — shaders.test.ts holds them to these). */
-export const WC_STANDING_GATE_LO = 0.05
-export const WC_STANDING_GATE_HI = 0.35
+/** (#536, §17.21) How much of the delivered water stands on the sheet, by
+ *  the brush's LOAD — the fraction of its water left (watercolorWaterLoad),
+ *  not the water itself: linear from nothing at the floor to everything at a
+ *  full brush. The shaders write the same rule into coverage .b (wcStandingGate
+ *  in WC_NOISE_GLSL — shaders.test.ts holds them to these numbers).
+ *
+ *  It was smoothstep(0.05, 0.35) on the absolute water, which made the water
+ *  SETTING shorten the puddle: at 40 % water the brush read as nearly dry from
+ *  its second radius, and the puddle was gone while the mark went on for
+ *  twenty. On the load, a 40 % brush lays a 40 % puddle that fades along the
+ *  stroke exactly as a full one does. */
+export const WC_STANDING_GATE_LO = WATER_FLOOR
+export const WC_STANDING_GATE_HI = 1.0
+export function watercolorStandingGate(load: number): number {
+  return clamp01((load - WC_STANDING_GATE_LO) / (WC_STANDING_GATE_HI - WC_STANDING_GATE_LO))
+}
 
 /** (#536, §17.21) The standing water one dab leaves on the sheet — the
  *  number the live wetness field is fed, and the same number the ribbon
@@ -842,13 +869,12 @@ export const WC_STANDING_GATE_HI = 0.35
  *  `mixWater` the preset's nominal water, `retain` what dry paper keeps of it
  *  (1 for clean water, watercolorWaterRetention for pigment), `paperWet` the
  *  wetness the dab was laid into (already-wet paper keeps everything), and
- *  `brushWater` the brush's water as it stands at this dab, after the clocks.
- *  What the field records is the max with what was there; the shader takes
- *  the same max against the recorded wetness. */
-export function watercolorStandingWater(mixWater: number, retain: number, paperWet: number, brushWater: number): number {
+ *  `load` the fraction of the brush's water left at this dab, after the
+ *  clocks (watercolorWaterLoad). What the field records is the max with what
+ *  was there; the shader takes the same max against the recorded wetness. */
+export function watercolorStandingWater(mixWater: number, retain: number, paperWet: number, load: number): number {
   const w = clamp01(paperWet)
-  const t = clamp01((brushWater - WC_STANDING_GATE_LO) / (WC_STANDING_GATE_HI - WC_STANDING_GATE_LO))
-  return mixWater * (retain + (1 - retain) * w) * t * t * (3 - 2 * t)
+  return mixWater * (retain + (1 - retain) * w) * watercolorStandingGate(load)
 }
 
 // ─── Wet-in-wet: the halo (#536, ADR 011 §17.10) ───────────────────────────
