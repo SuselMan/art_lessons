@@ -193,7 +193,14 @@ export function registerForkRoutes(app: FastifyInstance): void {
           parentRoomId: source.id,
         },
       })
-      await tx.roomParticipant.create({ data: { roomId: forkId, userId } })
+      // (#552) The copy is filed where its source is filed. `folderId` lives
+      // on the participant row, not on the room (folders are per-user, see
+      // roomFolderRoutes.ts), so a fork created without it lands at the root
+      // of "Мои уроки" — a teacher copying a lesson out of a course folder
+      // got the copy back in a different place from the original every time.
+      // The value is this user's own placement of the source, which is the
+      // only folder we may write here: another participant's is theirs.
+      await tx.roomParticipant.create({ data: { roomId: forkId, userId, folderId: membership?.folderId ?? null } })
       if (palette) await tx.roomPalette.create({ data: { roomId: forkId, colors: palette.colors } })
       if (layerState) {
         await tx.roomLayerState.create({
@@ -231,6 +238,9 @@ export function registerForkRoutes(app: FastifyInstance): void {
     })
 
     const created = await prisma.room.findUniqueOrThrow({ where: { id: forkId } })
-    return reply.code(201).send({ room: toWireRoom(created) })
+    // (#552) With its placement, so the caller can put the card where the copy
+    // really is instead of assuming the folder it is looking at — from search
+    // results those are two different folders.
+    return reply.code(201).send({ room: toWireRoom({ ...created, folderId: membership?.folderId ?? null }) })
   })
 }
