@@ -403,6 +403,30 @@ modules:
     adr: [008-selection]
     tags: [редактирование]
 
+  - id: room-shapes
+    title: Фигуры
+    layer: editor-logic
+    owns: >-
+      Инструмент фигур целиком, от жеста до операции: прямоугольник, эллипс, polystar и линия,
+      их рамка и числовой ввод, пара цветов «обводка и заливка», и общий механизм
+      незакоммиченной сессии — фигура правится, пока её не подтвердили.
+    files:
+      - apps/web/src/pages/Room/shapeTool.ts
+      - apps/web/src/pages/Room/useShapeTool.ts
+      - apps/web/src/pages/Room/useCommittableSession.ts
+      - apps/web/src/pages/Room/ShapeFrameFields.*
+      - apps/web/src/pages/Room/ShapeColorPair.*
+    issues: [525, 529, 530]
+    notes:
+      - >-
+        Незакоммиченная сессия вынесена отдельно от самих фигур намеренно: то же самое нужно
+        всякому инструменту, который сначала показывает результат, а потом спрашивает
+        «оставляем?».
+      - >-
+        Растеризация фигуры живёт не здесь, а в engine-raster (SDF-шейдер) — и попадает под
+        правило кросс-девайсной детерминированности.
+    tags: [инструменты, фигуры]
+
   - id: room-diagnostics
     title: Диагностика комнаты
     layer: editor-logic
@@ -898,6 +922,7 @@ modules:
     files:
       - apps/web/src/engine/src/shaders.ts
       - apps/web/src/engine/src/floodFill*.ts
+      - apps/web/src/engine/src/shapeGeometry*.ts
       - apps/web/src/engine/src/selectionMask*.ts
       - apps/web/src/engine/src/matrix*.ts
       - apps/web/src/engine/src/utils.ts
@@ -1019,6 +1044,7 @@ modules:
       - packages/shared/src/rejectReason.test.ts
       - packages/shared/src/transformMatrix.test.ts
       - packages/shared/src/toolset.test.ts
+      - packages/shared/src/shapeBounds.test.ts
     tags: [контракт, операции]
 
   - id: shared-dab-codec

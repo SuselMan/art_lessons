@@ -55,6 +55,10 @@ import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCanvasTap } from './useCanvasTap'
 import { ClickTracker } from './clickTracker'
+import { useCommittableSession } from './useCommittableSession'
+import { ShapeColorPair } from './ShapeColorPair'
+import { useShapeTool } from './useShapeTool'
+import { ShapeFrameFields, ShapeRatioPresets } from './ShapeFrameFields'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -108,6 +112,7 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
+  isShapeTool, toolColorField,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
@@ -706,6 +711,9 @@ export function Room() {
   useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? '') }))
   const toolSettings = useRoomStore(s => s.toolSettings)
   const setToolSetting = useRoomStore(s => s.setToolSetting)
+  // (#529) Which of a shape's two colours every colour control is acting on.
+  const shapeSwatch = useRoomStore(s => s.shapeSwatch)
+  const setShapeSwatch = useRoomStore(s => s.setShapeSwatch)
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
   // front pattern as toolSettings above; null until the panel's
   // ever been dragged in this room, in which case it renders at its
@@ -2799,8 +2807,21 @@ export function Room() {
   // question this answers is "whose colour am I editing", so it asks the
   // capability (isColorCapableTool) of the tool actually selected, and only
   // falls back for the tools that own no colour at all.
+  // (#529) Choosing a colour also switches that swatch back on.
+  //
+  // Only the shapes have a swatch to switch on, and this is the whole of what
+  // "off" means for them — an explicit absence, not a transparent colour. A
+  // person who reaches for the palette with an empty fill selected is asking
+  // for a fill; making them press the crossed-out circle again first would be
+  // an extra step whose only outcome is the one they already chose (Ilya,
+  // 05.09).
+  const applyToolColor = useCallback((toolId: ColorCapableTool, value: [number, number, number]) => {
+    setToolSetting(toolId, toolColorField(toolId, shapeSwatch), value)
+    if (isShapeTool(toolId)) setToolSetting(toolId, shapeSwatch === 'fill' ? 'fillOn' : 'strokeOn', true)
+  }, [setToolSetting, shapeSwatch])
+
   const colorTool: ColorCapableTool = isColorCapableTool(tool) ? tool : lastDrawingTool
-  const colorToolColor = getToolColor(toolSettings, colorTool)
+  const colorToolColor = getToolColor(toolSettings, colorTool, shapeSwatch)
   // (#405) Where a picked colour lands: the tool the eyedropper hands the
   // canvas back to, if that tool owns a colour at all. The issue asks for the
   // colour to be written "into the tool you returned to" — for the eraser or
@@ -2819,7 +2840,7 @@ export function Room() {
   // field of their own — the engine keeps one current color regardless of
   // which tool is active, so it should already hold what the next drawing
   // stroke will use.
-  const activeColor = getToolColor(toolSettings, pickedColorTool)
+  const activeColor = getToolColor(toolSettings, pickedColorTool, shapeSwatch)
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor, engineEpoch])
   // FloatingToolPanel (#157) is an eight-slot compass the user lays out
   // themselves: any slot holds any tool the left toolbar holds, or undo/redo,
@@ -3462,7 +3483,7 @@ export function Room() {
       // selected used to silently repaint the pencil's swatch instead, so the
       // picked color never showed up in the stroke that followed. See
       // pickedColorTool for the eraser/smudge case, which owns no color.
-      setToolSetting(pickedColorTool, 'color', picked)
+      applyToolColor(pickedColorTool, picked)
       // (#405) The eyedropper's one schema field, wired at last. It has been
       // in TOOL_SCHEMAS since #196 with nothing behind it, which was tolerable
       // only because the eyedropper was a mode and its settings never reached
@@ -3843,98 +3864,28 @@ export function Room() {
     setTransformBounds, setTransformCenterOverride,
   ])
 
-  // (#401) Best-effort save for the one exit React never reports: the page
-  // going away. `pagehide` covers reload, tab close and bfcache;
-  // `visibilitychange` catches the mobile cases where the tab is frozen
-  // without pagehide ever firing.
-  //
-  // It stays best-effort on purpose: the operation goes through the Outbox,
-  // whose IndexedDB write is async, and a teardown gives no guarantee it
-  // completes. (#405) It used to be the belt on top of the idle auto-commit's
-  // two-second exposure window; with that gone this is one of the two things
-  // standing between an open session and a closed tab, and the other one —
-  // the warning below — is the half that can actually stop the tab closing.
-  useEffect(() => {
-    if (!transformActive) return
-    const save = () => commitTransformSessionRef.current(false)
-    const onVisibility = () => { if (document.visibilityState === 'hidden') save() }
-    window.addEventListener('pagehide', save)
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => {
-      window.removeEventListener('pagehide', save)
-      document.removeEventListener('visibilitychange', onVisibility)
-    }
-  }, [transformActive])
-
-  // (#405) An open transform session is unsent work, so it goes behind the
-  // same guard unsent work already has: `holdReload()`, which is what arms the
-  // room's beforeunload prompt and what tells the service-worker updater a new
-  // build may not be applied silently right now (#313/#400 — see
-  // lib/reloadSafety, and the beforeunload effect near the top of this file).
-  //
-  // #401 considered this and decided against it, explicitly on the grounds
-  // that the idle auto-commit would have saved the session anyway. Removing
-  // the auto-commit removes that reasoning, so the hold goes on.
-  //
-  // Deliberately its own hold rather than leaning on the room-wide one that
-  // covers the whole editor today: the two are held for different reasons, and
-  // if the room-wide hold is ever narrowed to "only while something is
-  // actually unsent" — which is what its own comment says it is a broad
-  // stand-in for — a session would silently stop being protected. Nested holds
-  // are free (reloadSafety counts them for exactly this).
-  useEffect(() => {
-    if (!transformActive) return
-    return holdReload()
-  }, [transformActive])
-
-  // (#405/#407) A click or tap on the canvas past the gizmo applies the session
-  // and puts the transform tool down, handing the canvas back to the drawing
-  // tool — the "I'm done here" gesture that costs no keyboard, which matters
-  // because the tablet has none. It used to apply and immediately re-arm on the
-  // result; the gizmo staying put after the gesture that meant *done* read as
-  // the tap not having worked.
-  //
-  // A *click*, deliberately, not a press: a drag that starts outside the frame
-  // is a pan (or a rotate begun just outside a corner and dragged away), and
-  // ending someone's edit because they moved the view would be worse than the
-  // auto-commit this replaces. (#408) The budget for how far it may wander is
-  // its own, though — CLICK_MOVE_THRESHOLD_PX, not the minimal-UI tap's 4 px;
-  // see that constant for why sharing one number was wrong rather than tidy.
+  // (#528) The three clauses every uncommitted session needs — best-effort
+  // save on the way out of the page, a reload hold while it is open, and the
+  // click-past-it gesture — now live in one hook, shared with the shape tool.
+  // Each of the three is a separately-earned bug (#401, #405, #407/#408); see
+  // useCommittableSession for what each one cost.
   //
   // "Past the gizmo" includes past the rotate zones, which reach ~40 screen px
   // beyond each corner — they are part of the gizmo's own hit area (see
   // data-transform-gizmo), so a press there rotates and never lands here.
-  //
-  // Native listeners on the viewport rather than React props on it: the gizmo,
-  // the ruler catcher and the canvas are all inside, each with their own
-  // handlers, and this has to see presses that none of them claimed without
-  // being written into every one of them.
-  useEffect(() => {
-    if (!transformActive || !vpEl) return
-    // (#408) Per-pointer bookkeeping, not one slot for whichever pressed last —
-    // see ClickTracker for what a tablet's second pointer used to do to the
-    // pen's click, and why this recognizer is a sibling of TapTracker rather
-    // than a mode of it.
-    const clicks = new ClickTracker()
-
-    const onDown = (e: PointerEvent) => {
-      // Held Space owns every drag while it is down, including this one — the
-      // same precedence the gizmo handles and the cursor already follow. (This
-      // effect only runs while `tool === 'transform'`, so since #443 that is
-      // the whole of what `handActiveRef` can mean here.)
-      if (handActiveRef.current) return
-      // (#408) Primary button only. The middle one pans (see useViewport), and
-      // a pan that happens to travel nowhere is still not "I'm done here".
-      if (e.button !== 0) return
-      if ((e.target as Element | null)?.closest('[data-transform-gizmo]')) return
-      clicks.down(e.pointerId, e.clientX, e.clientY)
-    }
-    const onMove = (e: PointerEvent) => { clicks.move(e.pointerId, e.clientX, e.clientY) }
-    const onUp = (e: PointerEvent) => {
-      if (!clicks.up(e.pointerId)) return
-      // Bake once and do *not* re-arm — the tool is going down on the next
-      // line, so a fresh session would be opened only to be torn straight
-      // back down.
+  useCommittableSession({
+    active: transformActive,
+    commit: useCallback(() => commitTransformSessionRef.current(false), []),
+    vpEl,
+    handActiveRef,
+    ownControlsSelector: '[data-transform-gizmo]',
+    onClickPast: useCallback(() => {
+      // (#405/#407) Applies the session and puts the transform tool down,
+      // handing the canvas back to the drawing tool — the "I'm done here"
+      // gesture that costs no keyboard, which matters because the tablet has
+      // none. Bake once and do *not* re-arm: the tool is going down on the next
+      // line, so a fresh session would be opened only to be torn straight back
+      // down.
       commitTransformSessionRef.current(false)
       // (#446) …and the selection goes with it. This gesture already means
       // "I am done here" — it applies the edit and puts the tool down — so
@@ -3950,22 +3901,8 @@ export function Room() {
       // way to finish one transform and start another without a trip to the
       // toolbar.
       setTool(drawingToolRef.current)
-    }
-    // A cancelled pointer (the browser taking the gesture over for a scroll or
-    // a system gesture) is not a click, and must not be treated as one.
-    const onCancel = (e: PointerEvent) => { clicks.cancel(e.pointerId) }
-
-    vpEl.addEventListener('pointerdown', onDown)
-    vpEl.addEventListener('pointermove', onMove)
-    vpEl.addEventListener('pointerup', onUp)
-    vpEl.addEventListener('pointercancel', onCancel)
-    return () => {
-      vpEl.removeEventListener('pointerdown', onDown)
-      vpEl.removeEventListener('pointermove', onMove)
-      vpEl.removeEventListener('pointerup', onUp)
-      vpEl.removeEventListener('pointercancel', onCancel)
-    }
-  }, [transformActive, vpEl, setTool, setSelection])
+    }, [setSelection, setTool]),
+  })
 
   // Viewport rect for the ruler's own pointer math — see handleRulerHover for
   // why it is cached rather than read per move.
@@ -4313,6 +4250,41 @@ export function Room() {
   // "from whatever is active right now".
   const paintTargetIdRef = useRef(paintTargetId)
   paintTargetIdRef.current = paintTargetId
+
+  // (#530) The shape tool's own session. Everything it needs is already here
+  // for the tools next to it: the same paint target, the same lock ref, the
+  // same dispatch. What it adds is a frame that stays editable after the pen
+  // comes up — see useShapeTool.
+  const shapeActive = isShapeTool(tool)
+  const shape = useShapeTool({
+    active: shapeActive,
+    config,
+    vpEl,
+    vpRef,
+    engineRef,
+    paintTargetIdRef,
+    paintTargetLockedRef,
+    handActiveRef,
+    dispatchOp,
+  })
+  const shapeFrame = shape.frame
+  // Read through a ref by the key handler, which is installed once: it must
+  // see the current session, not the one that was open when it was bound.
+  const shapeRef = useRef(shape)
+  shapeRef.current = shape
+  // The same three clauses the transform session gets, for the same reasons —
+  // one mechanism, two tools (#528). A click past an open shape applies it and
+  // leaves the tool in hand: unlike a transform, drawing shapes is something
+  // you do several of in a row.
+  useCommittableSession({
+    active: shapeFrame !== null,
+    commit: shape.commit,
+    vpEl,
+    handActiveRef,
+    ownControlsSelector: '[data-transform-gizmo]',
+    onClickPast: shape.commit,
+  })
+
 
   // (#453) The fill's one gesture: a tap works out the region and emits an
   // `area_fill`. Two pieces of state around it, both for the same reason —
@@ -6363,6 +6335,15 @@ export function Room() {
         if (e.key === 'Enter') { commitTransformSessionRef.current(true); e.preventDefault(); return }
         if (e.key === 'Escape') { resetTransformSessionRef.current(); e.preventDefault(); return }
       }
+      // (#530) An open shape answers the same two keys the same way, and for
+      // the same reason it is unbindable: Enter and Esc are the platform's
+      // confirm and cancel, and an unconfirmed shape must always have a way to
+      // be finished or abandoned. Esc leaves no trace on the undo stack —
+      // nothing was ever committed.
+      if (useRoomStore.getState().shapeFrame) {
+        if (e.key === 'Enter') { shapeRef.current.commit(); e.preventDefault(); return }
+        if (e.key === 'Escape') { shapeRef.current.cancel(); e.preventDefault(); return }
+      }
       // (#446) The selection's own three unbindable keys, in the same place
       // and for the same reason as the two above: Enter and Esc are the
       // platform's confirm and cancel, and a rebind able to move them could
@@ -7134,6 +7115,34 @@ export function Room() {
             ><Icon name="format_color_fill" /></button>
           )}
 
+          {/* (#525) The shape tool, next to the fill for the same reason the
+              fill sits next to the selection: it is not a brush, and it puts a
+              region of pixels down in one gesture rather than laying a stroke.
+
+              One button rather than four (Ilya, 05.09). The four shapes are
+              four ways of doing one thing, so which one it draws is a modifier
+              in the quick column — the same call the selection tool makes about
+              its three ways of marking a region.
+
+              (#541) It wears a composite glyph rather than the shape currently
+              selected. Wearing the selection read as "this is the rectangle
+              tool" and hid the fact that there are four; which one is in hand
+              is already said, in words and a picture, by the kind picker right
+              next to it.
+
+              (#548) Behind the room's toolset like every other button here.
+              It was the one that wasn't, because the toolset and this tool were
+              built in parallel branches and neither knew about the other. */}
+          {toolOffered('shape') && (
+            <button
+              className={clsx(styles.toolIconBtn, shapeActive && styles.toolIconBtnActive)}
+              title={t('tool.shapeTitle')}
+              aria-label={t('tool.shape')}
+              aria-pressed={shapeActive}
+              onClick={() => selectTool('shape')}
+            ><Icon name="shapes" /></button>
+          )}
+
           <div className={styles.toolDivider} />
 
           {/* (#405) Selects the grid tool; whether the grid is *drawn* is its
@@ -7223,8 +7232,46 @@ export function Room() {
           uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
           styles.strokeBlockable,
         )}>
+          {/* (#529) A shape's two colours are one control, not two swatches:
+              which of them the palette and the picker act on is a choice, and
+              trading them is a gesture. See ShapeColorPair. */}
+          {isShapeTool(settingsToolId) && (
+            <ShapeColorPair
+              strokeColor={getToolColor(toolSettings, settingsToolId, 'stroke')}
+              strokeOn={toolSettings[settingsToolId].strokeOn !== false}
+              fillColor={'fillColor' in TOOL_SCHEMAS[settingsToolId]
+                ? getToolColor(toolSettings, settingsToolId, 'fill')
+                : null}
+              fillOn={toolSettings[settingsToolId].fillOn === true}
+              active={shapeSwatch}
+              onSelect={setShapeSwatch}
+              onToggleActive={() => {
+                const key = shapeSwatch === 'fill' ? 'fillOn' : 'strokeOn'
+                setToolSetting(settingsToolId, key, toolSettings[settingsToolId][key] === false)
+              }}
+              onSwap={() => {
+                // Trades the colours themselves, not which one is selected —
+                // the same thing X does in every other editor, and the reason
+                // it is a swap rather than two edits is that the pair is what
+                // the user is looking at.
+                const stroke = getToolColor(toolSettings, settingsToolId, 'stroke')
+                const fill = getToolColor(toolSettings, settingsToolId, 'fill')
+                const strokeOn = toolSettings[settingsToolId].strokeOn !== false
+                const fillOn = toolSettings[settingsToolId].fillOn === true
+                setToolSetting(settingsToolId, 'strokeColor', fill)
+                setToolSetting(settingsToolId, 'fillColor', stroke)
+                setToolSetting(settingsToolId, 'strokeOn', fillOn)
+                setToolSetting(settingsToolId, 'fillOn', strokeOn)
+              }}
+              onExpand={openColorPicker}
+            />
+          )}
           {Object.entries(TOOL_SCHEMAS[settingsToolId])
             .filter(([, descriptor]) => descriptor.quickAccess)
+            // The two colour fields are drawn by ShapeColorPair above; left in
+            // the schema because the full settings panel still lists them, and
+            // because they are what persistence and defaults are built from.
+            .filter(([key]) => key !== 'strokeColor' && key !== 'fillColor')
             .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
             .map(([key, descriptor]) => (
               <SettingField
@@ -7236,6 +7283,13 @@ export function Room() {
                 onExpand={key === 'color' ? openColorPicker : undefined}
               />
             ))}
+          {/* (#530) The numbers behind the drag, and only while a shape is
+              open: they edit *this* shape, not the tool. For a frame around a
+              thumbnail sketch this is arguably more of the tool than the drag
+              is — an exact size cannot be set with a pen. The ratio presets
+              live in the full settings panel instead (Ilya, 05.09): the rail is
+              for what a hand reaches for mid-gesture. */}
+          {shapeFrame && <ShapeFrameFields frame={shapeFrame} onChange={shape.setFrame} />}
           {/* (#446) What can be done with a selection, as buttons rather than
               only as Ctrl+C/X/V. A tablet is a first-class target here and has
               no modifier keys at all: without these, cut/copy/paste — the half
@@ -7329,7 +7383,7 @@ export function Room() {
               // pointer path, which is where the two would drift apart.
               style={{
                 width: '100%', height: '100%',
-                pointerEvents: (roomContentReady && !editingBlocked && !handActive) ? undefined : 'none',
+                pointerEvents: (roomContentReady && !editingBlocked && !handActive && !shapeActive) ? undefined : 'none',
               }}
             />
             {/* (#470) The transform moved here, off the canvas.
@@ -7387,6 +7441,37 @@ export function Room() {
                 is the selected tool. */}
             {!config.infinite && rulerVisible && rulerLine && (
               <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
+            )}
+            {/* (#530) The shape's own handles are the transform gizmo's: same
+                component, same hit areas, same rotate zones. Only what a drag
+                *means* differs — a shape has no pixels yet, so a handle edits
+                the frame it will be drawn from (see shapeTool.ts). */}
+            {!config.infinite && shapeFrame && (
+              <div className={styles.shapeGizmoLayer}>
+              <TransformGizmo
+                bounds={{
+                  x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
+                  y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
+                  width: Math.abs(shapeFrame.width),
+                  height: Math.abs(shapeFrame.height),
+                }}
+                center={{
+                  x: shapeFrame.x + shapeFrame.width / 2,
+                  y: shapeFrame.y + shapeFrame.height / 2,
+                }}
+                matrix={rotateAboutMatrix(
+                  shapeFrame.angle,
+                  shapeFrame.x + shapeFrame.width / 2,
+                  shapeFrame.y + shapeFrame.height / 2,
+                )}
+                zoom={vp.zoom}
+                angleRad={vp.angle}
+                mode="free"
+                onHandleDown={shape.onHandleDown}
+                onCenterDown={e => shape.onHandleDown('body', e)}
+                onCenterDoubleClick={() => {}}
+              />
+              </div>
             )}
             {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
@@ -7486,6 +7571,33 @@ export function Room() {
               )}
               {rulerVisible && rulerLine && (
                 <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
+              )}
+              {shapeFrame && (
+                <div className={styles.shapeGizmoLayer}>
+                <TransformGizmo
+                  bounds={{
+                    x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
+                    y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
+                    width: Math.abs(shapeFrame.width),
+                    height: Math.abs(shapeFrame.height),
+                  }}
+                  center={{
+                    x: shapeFrame.x + shapeFrame.width / 2,
+                    y: shapeFrame.y + shapeFrame.height / 2,
+                  }}
+                  matrix={rotateAboutMatrix(
+                    shapeFrame.angle,
+                    shapeFrame.x + shapeFrame.width / 2,
+                    shapeFrame.y + shapeFrame.height / 2,
+                  )}
+                  zoom={vp.zoom}
+                  angleRad={vp.angle}
+                  mode="free"
+                  onHandleDown={shape.onHandleDown}
+                  onCenterDown={e => shape.onHandleDown('body', e)}
+                  onCenterDoubleClick={() => {}}
+                />
+                </div>
               )}
               {transformActive && transformBounds && (
                 <TransformGizmo
@@ -7715,14 +7827,14 @@ export function Room() {
                   <>
                     <ColorPicker
                       value={colorToolColor}
-                      onChange={v => setToolSetting(colorTool, 'color', v)}
+                      onChange={v => applyToolColor(colorTool, v)}
                       mode={colorPickerMode}
                       onModeChange={setColorPickerMode}
                     />
                     <PaletteBar
                       palette={palette}
                       value={colorToolColor}
-                      onSelect={v => setToolSetting(colorTool, 'color', v)}
+                      onSelect={v => applyToolColor(colorTool, v)}
                       onAdd={addPaletteColor}
                       onRemove={removePaletteColor}
                     />
@@ -7783,6 +7895,12 @@ export function Room() {
                         onExpand={key === 'color' ? openColorPicker : undefined}
                       />
                     ))}
+                    {/* (#530) The ratio presets, here rather than in the quick
+                        column (Ilya, 05.09): picking 3:4 is a decision made
+                        once, and the rail is for what a hand reaches for
+                        mid-gesture. Only while a shape is open — they resize
+                        that shape, not the tool. */}
+                    {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={shape.setFrame} />}
                   </div>
                 ),
               },
@@ -7811,7 +7929,7 @@ export function Room() {
           onRedo={handleRedo}
           primaryColor={colorToolColor}
           palette={palette}
-          onSelectColor={v => setToolSetting(colorTool, 'color', v)}
+          onSelectColor={v => applyToolColor(colorTool, v)}
           onOpenColorPicker={openColorPicker}
           roomId={id ?? ''}
           position={panelPosition}

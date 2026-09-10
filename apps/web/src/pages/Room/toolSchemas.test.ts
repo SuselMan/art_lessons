@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { en } from '../../i18n/en'
+import { ru } from '../../i18n/ru'
+
 import {
   loadToolSettings, saveToolSettings, defaultToolSettings,
   LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize, stepEnumOption,
@@ -305,7 +308,14 @@ describe('option pickers (#335, #391)', () => {
         // third since #501. None of those is a second decision: it is the same
         // nib on another tool, so it gets the same question about what its
         // angle is measured against.
-        'marker.anchor', 'watercolor.anchor', 'charcoal.anchor'].sort(),
+        'marker.anchor', 'watercolor.anchor', 'charcoal.anchor',
+        // … and the shape tool's four (#529): which shape it draws, and the
+        // three geometric choices its stroke makes — where it sits against the
+        // contour, how it turns a corner, how it ends. Each is picked the same
+        // way a mode is, and each is drawn rather than named: they are
+        // differences between two pictures of the same thing, which is exactly
+        // what a word fails to convey.
+        'shape.kind', 'shape.strokeAlign', 'shape.strokeJoin', 'shape.cap'].sort(),
     )
   })
 
@@ -449,6 +459,45 @@ describe('degreesMinutesParse (#335)', () => {
   })
 })
 
+describe('quick-column labels (#543)', () => {
+  // Every slider in the rail is captioned by its own name — a bare vertical bar
+  // with a number over it says nothing, and three of them in a row (a shape's
+  // stroke width, corner radius and star points) say nothing three times.
+  //
+  // The rail is 56px wide and the caption gets two lines of 9px, which is about
+  // ten characters a line. So the constraint is real and belongs in a test:
+  // what breaks is not the build but a name silently clipped mid-word on a
+  // tablet, in one language only.
+  const LABEL_BUDGET = 22
+
+  const quickSliders = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
+    Object.entries(TOOL_SCHEMAS[toolId])
+      .filter(([, d]) => d.quickAccess && d.uiControls[0] === 'slider')
+      .map(([key, d]) => ({ toolId, key, nameKey: d.nameKey })),
+  )
+
+  it('captions every quick-access slider', () => {
+    expect(quickSliders.length).toBeGreaterThan(0)
+    for (const { toolId, key, nameKey } of quickSliders) {
+      expect(nameKey, `${toolId}.${key} has no name to show`).toBeTruthy()
+    }
+  })
+
+  it('keeps every caption short enough to read in the rail, in both languages', () => {
+    const tooLong: string[] = []
+    for (const { toolId, key, nameKey } of quickSliders) {
+      for (const [locale, dict] of [['en', en], ['ru', ru]] as const) {
+        // Field names are plain strings; the plural forms in the dictionary
+        // belong to counted messages, none of which label a control.
+        const text = dict[nameKey]
+        if (typeof text !== 'string') throw new Error(`${nameKey} is not a plain string`)
+        if (text.length > LABEL_BUDGET) tooLong.push(`${toolId}.${key} (${locale}): "${text}"`)
+      }
+    }
+    expect(tooLong).toEqual([])
+  })
+})
+
 describe('slider scales (#390)', () => {
   const numberFields = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
     Object.entries(TOOL_SCHEMAS[toolId])
@@ -483,14 +532,22 @@ describe('slider scales (#390)', () => {
       // range that narrow is indistinguishable from a straight line, and the
       // scale is claimed by this list to mean something.
       'annotatePen.size',
+      // (#529) A shape's stroke width is a continuous px size like the brush
+      // widths here and belongs to this list for the same reason: it runs
+      // 0.5..200 and everything anyone reaches for is in the first tenth of
+      // that. (The list is in sorted order, which is why it is interleaved
+      // rather than appended.)
       'brushPen.size', 'charcoal.size', 'colorPencil.size', 'digitalBrush.size', 'eraser.size',
-      'marker.size', 'pencil.size', 'smudge.size', 'watercolor.size',
+      'marker.size', 'pencil.size', 'shape.strokeWidth', 'smudge.size', 'watercolor.size',
     ])
   })
 
   it('leaves every other numeric field on the default linear scale', () => {
     for (const { toolId, key, valueType } of numberFields) {
-      if (key === 'size') continue
+      // The two field names that mean "a continuous size in canvas pixels" —
+      // see the list above, which is where *which* tools have them is pinned
+      // down. Everything else (percent, degrees, counts) is linear by meaning.
+      if (key === 'size' || key === 'strokeWidth') continue
       expect(valueType.scale, `${toolId}.${key} should be linear`).toBeUndefined()
     }
   })

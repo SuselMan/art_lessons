@@ -1,0 +1,85 @@
+/* (#529) The stroke/fill pair in the quick settings column. Sized off the
+   same 22px circle SettingField's own toolbar swatch uses, so a shape's
+   colours sit at the same weight in the column as every other tool's one
+   colour does. */
+
+.pair {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  flex-shrink: 0;
+  transition: transform var(--duration-fast);
+}
+
+.swatch:hover { transform: scale(1.1); }
+
+/* The one in hand gets a ring outside its own border rather than a thicker
+   border: a border change would move the colour's edge, and these two circles
+   are compared to each other by eye. */
+.swatchActive {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+/* "No colour": the red diagonal. Centred by translating the bar back by half
+   its own height *before* the rotation — with `top: 50%` alone the rotation
+   turns the bar about a point 1px below the circle's centre, which is exactly
+   the off-centre line this replaces. */
+.none {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.none::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 50%;
+  height: 2px;
+  background: var(--color-error);
+  transform: translateY(-50%) rotate(-45deg);
+  transform-origin: center;
+}
+
+/* Between the two swatches rather than beside them: the arrows point at the
+   circles they trade. */
+.swap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  color: var(--color-text-dim);
+  font-size: 16px;
+}
+
+.swap:hover { color: var(--color-text); }
+
+.action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  font-size: 16px;
+}
+
+.action:hover { color: var(--color-text); background: var(--color-surface-hover); }
+
+.action[aria-pressed='true'] {
+  color: var(--color-accent);
+  background: var(--color-surface-hover);
+}
