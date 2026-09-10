@@ -1,4 +1,4 @@
-import { pointOnCircle, type Point } from '../../../lib/angles'
+import { pointOnCircle, wrapDegrees, type Point } from '../../../lib/angles'
 
 /** The classic saturation/value triangle inside the hue ring (#341).
  *
@@ -8,15 +8,37 @@ import { pointOnCircle, type Point } from '../../../lib/angles'
  *  way round as the square mode: white one way, saturation the other, black
  *  below. Someone switching modes keeps their bearings.
  *
- *  The triangle does not rotate with hue (decided 29.07): the hue corner
- *  changes color, but nothing moves. A target that turns under a finger is
- *  harder to hit, and "Painter did it" is an argument from habit, not from
- *  use. */
+ *  **The triangle turns with the hue** (Ilya, 10.09), the way Krita's does.
+ *  This reverses the call made on 29.07, which was that nothing should move
+ *  because a target that turns under a finger is harder to hit. What that
+ *  reasoning missed is what the turning buys: the pure-hue corner stays next to
+ *  the point on the ring you just left, so hue and saturation are one
+ *  continuous movement rather than a jump across the wheel — and the
+ *  complementary hue sits directly opposite that corner, which is the whole of
+ *  "what is the contrast to this" read off one line. The price is that white
+ *  and black no longer live at fixed corners; that is the trade, and it is the
+ *  one Krita and Painter both make.
+ *
+ *  Only the *corners* turn here. The bitmap behind them is painted once in the
+ *  canonical orientation below and rotated as an element, because the per-pixel
+ *  weights are the expensive part and making them depend on hue would put a
+ *  full barycentric solve per pixel into every frame of a ring drag. See
+ *  SvTriangle. */
 
-/** Compass angles (0 = up, clockwise) of the hue, white and black corners. */
+/** Compass angles (0 = up, clockwise) of the hue, white and black corners in
+ *  the canonical, unrotated orientation — the one the bitmap is painted in. */
 const HUE_ANGLE = 60
 const WHITE_ANGLE = 300
 const BLACK_ANGLE = 180
+
+/** How far the triangle is turned for a given hue: enough to bring the
+ *  canonical hue corner around to the hue's own place on the ring, which is at
+ *  compass angle `hue` (see ringGeometry — hue 0 is at 12 o'clock, increasing
+ *  clockwise). Clockwise-positive, so it can be handed straight to a CSS
+ *  `rotate()` and to `rotatePoint` without a sign flip at either call site. */
+export function triangleRotation(hue: number): number {
+  return wrapDegrees(hue - HUE_ANGLE)
+}
 
 export interface TriangleCorners {
   hue: Point

@@ -365,6 +365,8 @@ export const en = {
   // ── project: side panel ────────────────────────────────────────────────
   'room.panel.layers': 'Layers',
   'room.panel.color': 'Color',
+  'color.pin': 'Pin to the side panel',
+  'color.unpin': 'Unpin',
   'room.panel.toolSettings': 'Tool settings',
   'room.panel.participants': 'Participants',
   'room.noToolSettings': 'This tool has no settings yet.',

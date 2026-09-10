@@ -43,6 +43,7 @@ const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
 const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
 const COMPACT_STORAGE_KEY = 'al_compact_layout'
 const COLOR_PICKER_MODE_STORAGE_KEY = 'al_color_picker_mode'
+const COLOR_PICKER_DOCKED_STORAGE_KEY = 'al_color_picker_docked'
 const LAST_PAPER_TYPE_STORAGE_KEY = 'al_last_paper_type'
 const SOUND_ENABLED_STORAGE_KEY = 'al_sound_enabled'
 const SOUND_VOLUME_STORAGE_KEY = 'al_sound_volume'
@@ -265,6 +266,21 @@ export interface SettingsStore {
   setTheme: (theme: Theme) => void
   colorPickerMode: ColorPickerMode
   setColorPickerMode: (mode: ColorPickerMode) => void
+  /** (#542) Whether the colour surface is pinned open in the side panel rather
+   *  than opening as a popover off the well.
+   *
+   *  Two presentations of one component, not two places: the popover is right
+   *  for a decision (pick a colour, get back to the drawing), the pinned panel
+   *  for a process (stroke, nudge the colour, stroke again) — a loop in which a
+   *  popover has to be reopened for every nudge and covers the canvas and the
+   *  quick settings while it is up. Every desktop paint editor offers both for
+   *  exactly this reason; the touch-first ones offer only the popover, which is
+   *  also what minimal UI gets here, there being no panel to pin to.
+   *
+   *  A preference about how a person works, so it lives here and outlives the
+   *  room, alongside the picker's own shape. */
+  colorPickerDocked: boolean
+  setColorPickerDocked: (docked: boolean) => void
   /** One switch for every sound the app makes — graphite on paper and the
    *  interface's own clicks alike (#321). They were two independent settings
    *  and nobody wants one of them. */
@@ -335,6 +351,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(THEME_STORAGE_KEY, theme)
     applyTheme(theme)
     set({ theme })
+  },
+  colorPickerDocked: readStoredBoolean(COLOR_PICKER_DOCKED_STORAGE_KEY, false),
+  setColorPickerDocked: docked => {
+    localStorage.setItem(COLOR_PICKER_DOCKED_STORAGE_KEY, String(docked))
+    set({ colorPickerDocked: docked })
   },
   colorPickerMode: initialColorPickerMode(),
   setColorPickerMode: mode => {

@@ -21,9 +21,18 @@
 
 /* The part in hand gets a ring *outside* its own border rather than a thicker
    border: a border change would move the colour's edge, and the two parts of
-   this glyph are compared to each other by eye. */
+   this glyph are compared to each other by eye.
+
+   Two layers, and both matter (Ilya, 10.09). The accent is 1px, not 2: at 2 it
+   stopped reading as a marker and started reading as a third colour in a glyph
+   that only has room for two. And a 1px separator in the glyph's own border
+   colour goes *between* the accent and whatever it surrounds — without it, a
+   stroke set to something near the accent simply vanished into the halo drawn
+   right against it, which is the one case where the marker eats the thing it is
+   marking. The first shadow layer is the inner one, so the order here is
+   separator then accent. */
 .wellActive {
-  box-shadow: 0 0 0 2px var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-border-strong), 0 0 0 2px var(--color-accent);
 }
 
 /* The fill. Positioned by an inline `inset` equal to the ring's width, which is
@@ -37,9 +46,12 @@
 }
 
 /* Eats 2px of the band rather than sitting outside the glyph — the accent has
-   to say *which of the two* is selected, so it has to be inside the outer edge. */
+   to say *which of the two* is selected, so it has to be inside the outer edge.
+   Same separator-then-accent pair as .wellActive above, and this is the case
+   that needed it: here the halo is drawn straight onto the ring's own colour,
+   so a violet stroke with the fill selected lost its ring entirely. */
 .coreActive {
-  box-shadow: 0 0 0 2px var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-border-strong), 0 0 0 2px var(--color-accent);
 }
 
 /* "No colour": the red diagonal, on a white ground. Clipped to its own round

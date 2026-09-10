@@ -68,6 +68,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'more_vert': '\u{e5d4}',
   'move_down': '\u{eb61}',
   'palette': '\u{e3b7}',
+  'push_pin': '\u{f10d}',
   'water_drop': '\u{e798}',
   'humidity_low': '\u{f164}',
   'humidity_mid': '\u{f165}',

@@ -81,6 +81,7 @@ export const MATERIAL_ICON_NAMES = [
   'more_vert',
   'move_down',
   'palette',
+  'push_pin',
   'water_drop',
   // #468 v4 — the watercolor mix presets (dry / damp / wet). A trio by design:
   // three variants of one glyph read as points on a scale, which is what the
