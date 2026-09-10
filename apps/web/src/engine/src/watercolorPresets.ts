@@ -838,19 +838,30 @@ const WATERCOLOR_RETAIN_FROM = 0.25
 
 /** (#536, §17.21) How much of the delivered water stands on the sheet, by
  *  the brush's LOAD — the fraction of its water left (watercolorWaterLoad),
- *  not the water itself: linear from nothing at the floor to everything at a
- *  full brush. The shaders write the same rule into coverage .b (wcStandingGate
- *  in WC_NOISE_GLSL — shaders.test.ts holds them to these numbers).
+ *  not the water itself: the whole film while the load is above HI, none at
+ *  the floor, smoothstep between. The shaders write the same rule into
+ *  coverage .b (wcStandingGate in WC_NOISE_GLSL — shaders.test.ts holds them
+ *  to these numbers).
  *
  *  It was smoothstep(0.05, 0.35) on the absolute water, which made the water
  *  SETTING shorten the puddle: at 40 % water the brush read as nearly dry from
  *  its second radius, and the puddle was gone while the mark went on for
  *  twenty. On the load, a 40 % brush lays a 40 % puddle that fades along the
- *  stroke exactly as a full one does. */
+ *  stroke exactly as a full one does.
+ *
+ *  Then linear in the load, which still ended the puddle before the mark
+ *  ("лужа всё ещё кончается раньше, чем штрих"): a saturated brush does not
+ *  lay a thinner film with every radius — the hairs hold more than they can
+ *  release, so the film stays whole over the body of the stroke and gives out
+ *  where the brush does. Full to HI = 0.35 of the load, which with the run of
+ *  20 radii is the first ~21; half at load 0.2, ~32 radii, where the pigment
+ *  has reached its own e-fold and the hairs are showing; gone at the floor.
+ *  The puddle now lasts the wet body of the mark and ends with its dry tail. */
 export const WC_STANDING_GATE_LO = WATER_FLOOR
-export const WC_STANDING_GATE_HI = 1.0
+export const WC_STANDING_GATE_HI = 0.35
 export function watercolorStandingGate(load: number): number {
-  return clamp01((load - WC_STANDING_GATE_LO) / (WC_STANDING_GATE_HI - WC_STANDING_GATE_LO))
+  const t = clamp01((load - WC_STANDING_GATE_LO) / (WC_STANDING_GATE_HI - WC_STANDING_GATE_LO))
+  return t * t * (3 - 2 * t)
 }
 
 /** (#536, §17.21) The standing water one dab leaves on the sheet — the

@@ -73,11 +73,14 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     // Clean water (retain 1) on dry paper.
     expect(watercolorStandingWater(1, 1, 0, 1)).toBeCloseTo(1, 9)
     expect(watercolorStandingWater(0.4, 1, 0, 1)).toBeCloseTo(0.4, 9)
-    const full = watercolorStandingWater(1, 1, 0, watercolorWaterLoad(20))
-    const damp = watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(20))
+    const full = watercolorStandingWater(1, 1, 0, watercolorWaterLoad(40))
+    const damp = watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(40))
     expect(damp / full).toBeCloseTo(0.4, 9)
-    expect(full).toBeGreaterThan(0.25)
-    expect(full).toBeLessThan(0.5)
+    // The film is whole over the body of the stroke and gives out with the
+    // brush: still whole at one run, half way gone at two.
+    expect(watercolorStandingWater(1, 1, 0, watercolorWaterLoad(20))).toBeGreaterThan(0.9)
+    expect(full).toBeGreaterThan(0.2)
+    expect(full).toBeLessThan(0.7)
     // Run dry: nothing stands, at any setting.
     expect(watercolorStandingWater(1, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)
     expect(watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)

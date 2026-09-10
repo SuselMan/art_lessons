@@ -311,13 +311,13 @@ const WC_NOISE_GLSL = `
   // not add or remove any. wcHairAmp is how far toward that comb the brush
   // is; wet, none at all.
   // (#536, s17.21) How much of a dab's delivered water stands on the sheet,
-  // by the brush's LOAD - its water at the dab over the nominal mix - linear
-  // from the floor to a full brush. The CPU twin, watercolorStandingGate,
-  // feeds the live wetness field the same number.
+  // by the brush's LOAD - its water at the dab over the nominal mix: the
+  // whole film above HI, none at the floor. The CPU twin,
+  // watercolorStandingGate, feeds the live wetness field the same number.
   const float WC_STANDING_LO = 0.04;
-  const float WC_STANDING_HI = 1.0;
+  const float WC_STANDING_HI = 0.35;
   float wcStandingGate(float brushWater, float washWater) {
-    return clamp((brushWater / max(washWater, 1e-4) - WC_STANDING_LO) / (WC_STANDING_HI - WC_STANDING_LO), 0.0, 1.0);
+    return smoothstep(WC_STANDING_LO, WC_STANDING_HI, brushWater / max(washWater, 1e-4));
   }
   const float WC_HAIR_WET_LO = 0.25;
   const float WC_HAIR_WET_HI = 0.75;
