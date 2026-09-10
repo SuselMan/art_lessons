@@ -7128,14 +7128,20 @@ export function Room() {
               selected. Wearing the selection read as "this is the rectangle
               tool" and hid the fact that there are four; which one is in hand
               is already said, in words and a picture, by the kind picker right
-              next to it. */}
-          <button
-            className={clsx(styles.toolIconBtn, shapeActive && styles.toolIconBtnActive)}
-            title={t('tool.shapeTitle')}
-            aria-label={t('tool.shape')}
-            aria-pressed={shapeActive}
-            onClick={() => selectTool('shape')}
-          ><Icon name="shapes" /></button>
+              next to it.
+
+              (#548) Behind the room's toolset like every other button here.
+              It was the one that wasn't, because the toolset and this tool were
+              built in parallel branches and neither knew about the other. */}
+          {toolOffered('shape') && (
+            <button
+              className={clsx(styles.toolIconBtn, shapeActive && styles.toolIconBtnActive)}
+              title={t('tool.shapeTitle')}
+              aria-label={t('tool.shape')}
+              aria-pressed={shapeActive}
+              onClick={() => selectTool('shape')}
+            ><Icon name="shapes" /></button>
+          )}
 
           <div className={styles.toolDivider} />
 

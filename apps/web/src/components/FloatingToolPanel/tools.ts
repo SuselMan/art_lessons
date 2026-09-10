@@ -43,7 +43,7 @@ export type FloatingSecondaryTool = (typeof FLOATING_SECONDARY_TOOLS)[number]
  *  buttons and became something that can replace the toolbar. Until the slots
  *  were user-assignable there was no reason to name these at all: no fixed
  *  slot could have shown them, so minimal UI simply had no ruler. */
-export const FLOATING_UTILITY_TOOLS = ['hand', 'ruler', 'transform', 'selection', 'fill', 'grid'] as const
+export const FLOATING_UTILITY_TOOLS = ['hand', 'ruler', 'transform', 'selection', 'fill', 'shape', 'grid'] as const
 
 export type FloatingUtilityTool = (typeof FLOATING_UTILITY_TOOLS)[number]
 
@@ -97,5 +97,6 @@ export const TOOL_DISPLAY: Record<FloatingPanelTool, ToolFace> = {
   transform: { icon: 'free-transform', labelKey: 'tool.transform' },
   selection: { icon: 'highlight_alt', labelKey: 'tool.selection' },
   fill: { icon: 'format_color_fill', labelKey: 'tool.fill' },
+  shape: { icon: 'shapes', labelKey: 'tool.shape' },
   grid: { icon: 'grid_on', labelKey: 'tool.grid' },
 }

@@ -220,7 +220,10 @@ export function isRoomAccessMode(value: unknown): value is RoomAccessMode {
 export const TOGGLEABLE_TOOLS = [
   'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'digitalBrush',
   'eraser', 'smudge', 'eyedropper',
-  'hand', 'ruler', 'transform', 'selection', 'fill', 'grid',
+  // (#525) The shape tool is one entry, not four: which of the four shapes it
+  // draws is a setting on the tool, so a room cannot offer the ellipse and
+  // withhold the star, and there is nothing here to say if it could.
+  'hand', 'ruler', 'transform', 'selection', 'fill', 'shape', 'grid',
 ] as const
 
 export type ToggleableTool = (typeof TOGGLEABLE_TOOLS)[number]
