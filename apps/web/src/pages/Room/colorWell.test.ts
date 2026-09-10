@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 
 import { colorWellState, effectiveSwatch } from './colorWell'
-import { defaultToolSettings, type ToolSettingsMap } from './toolSchemas'
+import { defaultToolSettings, type ToolSettingsMap, type ToolSettingsValue } from './toolSchemas'
 
 // (#542) The rule behind the one colour glyph. Everything visual about the well
 // is rendering, which this repo's node-run tests cannot reach — what they can
 // reach, and what actually decides whether the well tells the truth, is this.
 
-function settings(shape: Record<string, unknown> = {}): ToolSettingsMap {
+function settings(shape: ToolSettingsValue = {}): ToolSettingsMap {
   const map = defaultToolSettings()
   map.shape = { ...map.shape, ...shape }
   return map

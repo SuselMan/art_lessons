@@ -480,6 +480,9 @@ modules:
     files:
       - apps/web/src/components/ColorWell/**
       - apps/web/src/components/ColorFlyout/**
+      # Only the module itself: its test lands in room-viewport's catch-all
+      # glob over apps/web/src/pages/Room/*.test.ts, like every other Room test.
+      - apps/web/src/pages/Room/colorWell.ts
       - apps/web/src/components/ColorPicker/**
       - apps/web/src/components/PaletteBar/**
     issues: [542]
@@ -724,6 +727,8 @@ modules:
       - apps/web/src/lib/useDraggablePosition.ts
       - apps/web/src/lib/useDraggablePosition.test.ts
       - apps/web/src/lib/usePopupAnchor.ts
+      - apps/web/src/lib/popupPlacement.ts
+      - apps/web/src/lib/popupPlacement.test.ts
       - apps/web/src/lib/useDismissOnOutside.ts
       - apps/web/src/lib/useCompactLayout.ts
       - apps/web/src/lib/deviceType.ts

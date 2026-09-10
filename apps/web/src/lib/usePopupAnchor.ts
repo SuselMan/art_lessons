@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
 import { useDismissOnOutside } from './useDismissOnOutside'
+import { placePopup } from './popupPlacement'
 
 /** Distance kept between the popup and the viewport edges when clamping. */
 const VIEWPORT_MARGIN = 8
@@ -20,6 +21,13 @@ interface PopupAnchorOptions<T extends HTMLElement> {
    *  moment of opening, not at the moment the popup is written. Without this,
    *  "one flyout, two anchors" needs two mounted copies of the flyout. */
   triggerRef?: React.RefObject<T | null>
+  /** (#542) Where the popup sits relative to the trigger. `below` is what a
+   *  dropdown does and stays the default. `right` is for a trigger in a
+   *  vertical rail against the edge of the screen: dropping below it there
+   *  covers the rest of the rail, so the colour flyout would hide the tool it
+   *  is setting the colour for. Flips to the trigger's other side when the
+   *  preferred one has no room, exactly as `below` flips above. */
+  placement?: 'below' | 'right'
   /** Give the popup at least the trigger's own width. What a `<select>`-style
    *  dropdown wants (the list reads as an extension of the closed field) and
    *  what an icon-button's menu does not. */
@@ -55,7 +63,10 @@ interface PopupAnchor<T extends HTMLElement, P extends HTMLElement> {
 export function usePopupAnchor<T extends HTMLElement, P extends HTMLElement>(
   open: boolean,
   onDismiss: () => void,
-  { align = 'right', matchTriggerWidth = false, remeasureKey, triggerRef: externalTriggerRef }: PopupAnchorOptions<T> = {},
+  {
+    align = 'right', matchTriggerWidth = false, remeasureKey,
+    triggerRef: externalTriggerRef, placement = 'below',
+  }: PopupAnchorOptions<T> = {},
 ): PopupAnchor<T, P> {
   const ownTriggerRef = useRef<T>(null)
   const triggerRef = externalTriggerRef ?? ownTriggerRef
@@ -79,14 +90,14 @@ export function usePopupAnchor<T extends HTMLElement, P extends HTMLElement>(
     const { width, height } = popupEl.getBoundingClientRect()
     const m = VIEWPORT_MARGIN
 
-    // Flip above the trigger rather than merely sliding up when there's no
-    // room below, so the popup never covers the row it belongs to.
-    let top = rect.bottom + ANCHOR_GAP
-    if (top + height > window.innerHeight - m) top = rect.top - height - ANCHOR_GAP
-    top = Math.max(m, Math.min(top, window.innerHeight - height - m))
-
-    const preferredLeft = align === 'left' ? rect.left : rect.right - width
-    const left = Math.max(m, Math.min(preferredLeft, window.innerWidth - width - m))
+    // The flip-and-clamp itself lives in popupPlacement.ts — everything here
+    // is measurement, and the arithmetic is worth being able to test without a
+    // browser (#542).
+    const { top, left } = placePopup(
+      rect, { width, height },
+      { width: window.innerWidth, height: window.innerHeight },
+      { placement, align, margin: m, gap: ANCHOR_GAP },
+    )
 
     setPos({
       top, left,
@@ -97,7 +108,7 @@ export function usePopupAnchor<T extends HTMLElement, P extends HTMLElement>(
       // taller than the screen has already been clamped to the top edge above.
       maxHeight: window.innerHeight - 2 * m,
     })
-  }, [open, align, matchTriggerWidth, remeasureKey, triggerRef])
+  }, [open, align, matchTriggerWidth, remeasureKey, triggerRef, placement])
 
   useLayoutEffect(() => {
     if (!open) return

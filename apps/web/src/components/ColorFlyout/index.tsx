@@ -66,7 +66,11 @@ export function ColorFlyout({
 }: ColorFlyoutProps) {
   const t = useT()
   const { popupRef, style } = usePopupAnchor<HTMLElement, HTMLDivElement>(open, onDismiss, {
-    align: 'left',
+    // Beside the well, never under it. Both wells this hangs off sit inside
+    // something worth keeping in view while a colour is being chosen — the
+    // tool rail, and the floating panel's own ring of slots — and a popup this
+    // tall dropped below either of them covers it whole.
+    placement: 'right',
     triggerRef: anchorRef,
     // The stroke/fill row appears and disappears with the tool, and the
     // palette grows as colours are saved from inside this very popover — both
