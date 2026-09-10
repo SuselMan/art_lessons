@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
   JoinDenial, AnnotationShape,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, toWireMatrix, unpackDabs, type ToggleableTool } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, toWireMatrix, unpackDabs, type ToggleableTool } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
@@ -114,7 +114,7 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
-  isShapeTool, toolColorField,
+  isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { TOOL_PHOTOS } from './toolTypeImages'
@@ -2901,6 +2901,20 @@ export function Room() {
   // one the button is wearing. The eraser and the smudge are their own buttons
   // beside it and must not light this one.
   const drawingGroupActive = isPrimaryDrawingTool(tool)
+  // (#544) The same three things for the shapes, with one difference that
+  // matters: these options are values of one tool's `kind` setting, not tools.
+  // The chooser therefore reads and writes the setting — and the labels and
+  // icons come from that setting's own schema, so the rail cannot come to
+  // disagree with the settings panel about what a polystar is called.
+  const shapeKind = shapeKindOf(toolSettings)
+  const shapeKindOptions = useMemo<PickerOption[]>(
+    () => SHAPE_KINDS.map(kind => ({
+      value: kind,
+      label: t(SHAPE_KIND_LABEL_KEYS[kind]),
+      icon: SHAPE_KIND_ICONS[kind],
+    })),
+    [t],
+  )
   // Which slots light up. Deliberately null for the tools no slot can name —
   // which, now that every toolbar tool can sit in a slot, means only the
   // annotation set, and the panel is not on screen alongside those anyway
@@ -7103,23 +7117,39 @@ export function Room() {
               in the quick column — the same call the selection tool makes about
               its three ways of marking a region.
 
-              (#541) It wears a composite glyph rather than the shape currently
-              selected. Wearing the selection read as "this is the rectangle
-              tool" and hid the fact that there are four; which one is in hand
-              is already said, in words and a picture, by the kind picker right
-              next to it.
+              (#541, revised in #544) It wore a composite glyph for a while,
+              and the reason was sound at the time: wearing the current shape
+              read as "this is the rectangle tool" and hid the fact that there
+              are four. What answers that now is the corner mark, which says
+              "there is a choice here" without spending the icon on it — so the
+              icon goes back to doing the job every other button in this rail
+              does, naming what is in hand.
+
+              The one way this button differs from the drawing group above:
+              choosing here changes a *setting* of one tool rather than which
+              tool is in hand. So the chooser also takes the tool — picking a
+              star from the rail while the ruler is in hand means "draw a
+              star", not "remember that I like stars".
 
               (#548) Behind the room's toolset like every other button here.
               It was the one that wasn't, because the toolset and this tool were
               built in parallel branches and neither knew about the other. */}
           {toolOffered('shape') && (
-            <button
-              className={clsx(styles.toolIconBtn, shapeActive && styles.toolIconBtnActive)}
-              title={t('tool.shapeTitle')}
-              aria-label={t('tool.shape')}
-              aria-pressed={shapeActive}
-              onClick={() => selectTool('shape')}
-            ><Icon name="shapes" /></button>
+            <ToolGroupButton
+              className={styles.toolIconBtn}
+              activeClassName={styles.toolIconBtnActive}
+              active={shapeActive}
+              icon={SHAPE_KIND_ICONS[shapeKind]}
+              title={t('tool.shapeTitle', { shape: t(SHAPE_KIND_LABEL_KEYS[shapeKind]) })}
+              label={t('tool.shape')}
+              options={shapeKindOptions}
+              value={shapeKind}
+              onSelect={value => {
+                setToolSetting('shape', 'kind', value)
+                selectTool('shape')
+              }}
+              onActivate={() => selectTool('shape')}
+            />
           )}
 
           <div className={styles.toolDivider} />

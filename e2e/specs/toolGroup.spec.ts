@@ -101,6 +101,35 @@ test.describe('the drawing-tool group (#544)', () => {
     await expect(page.locator(GROUP)).toHaveAttribute('aria-pressed', 'false')
   })
 
+  // (#525/#541) The shapes are the second group, and the one that works
+  // differently underneath: its four options are values of one tool's `kind`
+  // setting rather than four tools. The gesture is deliberately identical
+  // anyway — a rail button with a corner mark behaves one way or the
+  // difference is the user's problem, not the code's.
+  test('the shape button is the same group, over a setting instead of a tool', async ({ page }) => {
+    await englishRoom(page)
+    await createRoom(page)
+    await waitForRoomReady(page)
+
+    const shape = page.locator('aside button[aria-label="Shape"]')
+    await shape.click()
+    await expect(shape).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator(LIST)).toHaveCount(0)
+
+    await shape.click()
+    await expect(page.locator(LIST)).toBeVisible()
+    await page.locator(`${LIST} [role="option"]`, { hasText: 'Star' }).click()
+    await expect(page.locator(LIST)).toHaveCount(0)
+
+    // Choosing a shape also takes the tool, and the star's own settings are
+    // what proves the kind actually changed rather than only the icon.
+    await expect(shape).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('aside').nth(1)).toContainText('Points')
+    // (#544) And the kind is gone from the quick column — it lives on the
+    // button now, and one value with two homes is what this removed.
+    await expect(page.locator('aside').nth(1)).not.toContainText('Rectangle')
+  })
+
   test('a room offering one material has nothing to choose, so it offers no chooser', async ({ page }) => {
     await englishRoom(page)
     await createRoom(page, 'E2E one material')

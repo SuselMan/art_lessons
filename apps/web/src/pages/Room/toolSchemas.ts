@@ -1028,6 +1028,16 @@ export const SHAPE_KIND_ICONS: Record<ShapeKind, IconName> = {
   line: 'horizontal_rule',
 }
 
+/** (#544) Named rather than written inline in the schema below, because the
+ *  toolbar's shape button reads the same four labels for its chooser. Two
+ *  copies would be two places for "polystar" to be renamed in. */
+export const SHAPE_KIND_LABEL_KEYS: Record<ShapeKind, TranslationKey> = {
+  rectangle: 'tool.rectangle',
+  ellipse: 'tool.ellipse',
+  polystar: 'tool.polystar',
+  line: 'tool.line',
+}
+
 export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // Color is a fully editable per-tool field here, same as before this
   // schema existed — today only 'pencil' has a toolbar slot wired up (#188,
@@ -1157,15 +1167,15 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     kind: {
       nameKey: 'tool.field.type',
       valueType: { kind: 'enumOptions', options: SHAPE_KINDS },
-      optionLabelKeys: {
-        rectangle: 'tool.rectangle',
-        ellipse: 'tool.ellipse',
-        polystar: 'tool.polystar',
-        line: 'tool.line',
-      },
+      optionLabelKeys: SHAPE_KIND_LABEL_KEYS,
       optionIcons: SHAPE_KIND_ICONS,
       uiControls: ['select'],
-      quickAccess: true,
+      // (#544) Not `quickAccess` any more: the shape lives on the toolbar
+      // button now, and the quick column had it only because the button could
+      // not say it. Keeping both would be one value with two homes — decided
+      // with Ilya to take it out here and look at the general question
+      // separately (a tool with a choice behind it may want its chooser
+      // reachable in minimal UI, where the rail is gone).
       default: 'rectangle' satisfies ShapeKind,
     },
     ...shapePaintFields(),

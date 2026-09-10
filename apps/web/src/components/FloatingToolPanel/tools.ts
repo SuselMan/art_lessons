@@ -80,7 +80,13 @@ interface ToolFace { icon: IconName; labelKey: TranslationKey }
 /** Icon + label per tool — the same icon each tool's own left-toolbar button
  *  already uses (Room/index.tsx), so the floating panel and the toolbar never
  *  disagree about what a tool "looks like". A total Record over the list
- *  above, which is what makes an unfaced tool fail to compile. */
+ *  above, which is what makes an unfaced tool fail to compile.
+ *
+ *  (#544) One deliberate exception, the shape. The rail's shape button wears
+ *  whichever shape is currently set, because it can also offer the choice; a
+ *  slot here holds *the shape tool* and has no way to offer one, so it keeps
+ *  the composite glyph, which is the honest picture of "shapes" rather than a
+ *  promise of a chooser that is not behind it. */
 export const TOOL_DISPLAY: Record<FloatingPanelTool, ToolFace> = {
   pencil: { icon: 'edit', labelKey: 'tool.pencil' },
   charcoal: { icon: 'charcoal', labelKey: 'tool.charcoal' },
