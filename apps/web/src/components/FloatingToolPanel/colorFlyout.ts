@@ -116,3 +116,19 @@ export function layoutFlyoutItems(
   const slots = assignRingsRoundRobin(itemCount, rayCount, maxRingsPerRay)
   return slots.map(({ ray, ring }) => toXY(rayAngles[ray], config.baseRadius + (ring - 1) * config.ringSpacing))
 }
+
+/** (#542) The non-colour entries the palette fan leads with, in fan order.
+ *
+ *  `picker` is the way out to the full colour surface and has always been the
+ *  fan's first item. The other two exist only while a tool carrying two colours
+ *  is in hand, and they are here — as fan items, 40px across in open space —
+ *  rather than on the well itself, whose ring is 8px wide on a panel meant for
+ *  a finger. Swapping is dropped for a shape with no inside: there is nothing
+ *  to trade with.
+ */
+export type PaletteFlyoutAction = 'picker' | 'swap' | 'none'
+
+export function paletteFlyoutActions(pair: { fillColor: unknown } | null | undefined): PaletteFlyoutAction[] {
+  if (!pair) return ['picker']
+  return pair.fillColor ? ['picker', 'swap', 'none'] : ['picker', 'none']
+}

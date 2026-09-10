@@ -54,6 +54,22 @@ export function pointOnCircle(center: Point, radius: number, compassDegrees: num
   return { x: center.x + radius * Math.cos(rad), y: center.y + radius * Math.sin(rad) }
 }
 
+/** Turns `p` around `center` by `compassDegrees`, in the same clockwise-positive
+ *  sense as every other angle in this file — and therefore in the same sense as
+ *  a CSS `rotate(Ndeg)`, which is what lets a rotated element and the pointer
+ *  math over it be driven by one number (#542, the hue-tracking triangle).
+ *
+ *  The plain CCW rotation matrix comes out clockwise here because screen y
+ *  points down; there is no sign flip to remember, only that fact. */
+export function rotatePoint(p: Point, center: Point, compassDegrees: number): Point {
+  const rad = (compassDegrees * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  const dx = p.x - center.x
+  const dy = p.y - center.y
+  return { x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos }
+}
+
 /** Shortest signed distance from `from` to `to` on a 360°-wrapping circle,
  *  in (-180, 180] — e.g. shortestDelta(359, 1) === 2, not -358. Used to
  *  count whole-unit (default: whole-degree) crossings during a drag without
