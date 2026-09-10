@@ -17,8 +17,7 @@ import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
 import {
-  ColorDockPin, ColorFlyout, ColorFlyoutBody,
-  type ColorFlyoutContent, type ColorPairControls,
+  ColorFlyout, ColorFlyoutBody, type ColorFlyoutContent, type ColorPairControls,
 } from '../../components/ColorFlyout'
 import { ColorWell } from '../../components/ColorWell'
 import { Icon } from '../../components/Icon'
@@ -976,8 +975,7 @@ export function Room() {
     if (storedActiveId) useRoomStore.setState(prev => ({ layerState: { ...prev.layerState, activeId: storedActiveId } }))
   })
   // (#542) 'color' is back in this list, but it is no longer a tab with its own
-  // contents — it is the colour flyout pinned open, and it exists only while
-  // the person has pinned it. See colorDocked below.
+  // contents — it renders the very same body the colour popover does.
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
@@ -2848,8 +2846,6 @@ export function Room() {
   // mount (#337).
   const colorPickerMode = useSettingsStore(s => s.colorPickerMode)
   const setColorPickerMode = useSettingsStore(s => s.setColorPickerMode)
-  const colorPickerDocked = useSettingsStore(s => s.colorPickerDocked)
-  const setColorPickerDocked = useSettingsStore(s => s.setColorPickerDocked)
   // Falls back to colorTool's color for eraser/smudge, which have no color
   // field of their own — the engine keeps one current color regardless of
   // which tool is active, so it should already hold what the next drawing
@@ -3062,32 +3058,15 @@ export function Room() {
   const railWellRef = useRef<HTMLButtonElement>(null)
   const panelWellRef = useRef<HTMLButtonElement>(null)
   const closeColorFlyout = useCallback(() => setColorFlyoutAt(null), [])
-  // Pinned *and* somewhere to pin to. The compact shell has no side panel at
-  // all (see .layerPanelWrap's own `!compact` guard), so a preference set on a
-  // desktop must not send a phone's colour surface to a panel that is not
-  // rendered — it falls back to the popover, which is what that shell wants
-  // anyway.
-  const colorDocked = colorPickerDocked && !compact
-  // The two directions of the pin. Pinning closes the popover it was pressed
-  // in and opens the tab it became; unpinning hands the strip back to the
-  // layers rather than leaving it on a tab that no longer exists.
-  const pinColorPicker = useCallback(() => {
-    setColorPickerDocked(true)
-    setColorFlyoutAt(null)
-    setActivePanel('color')
-  }, [setColorPickerDocked])
-  const unpinColorPicker = useCallback(() => {
-    setColorPickerDocked(false)
-    setActivePanel('layers')
-  }, [setColorPickerDocked])
-  /** What pressing a colour well in the *chrome* does. Docked, the surface is
-   *  already on screen, so this only makes sure the strip is showing it; it
-   *  never toggles the panel shut, because a press on the well is a person
-   *  reaching for the colour, not for the panel. */
+  /** What pressing a colour well in the chrome does: the popover, always. The
+   *  side panel's Color tab shows the same surface and is always there too, but
+   *  it is a second route rather than a mode this has to branch on — a press on
+   *  the well means "the colour, here, now", and answering it by scrolling a
+   *  panel into view somewhere else would be a different answer to a different
+   *  question (Ilya, 10.09). */
   const openRailColorSurface = useCallback(() => {
-    if (colorDocked) { setActivePanel('color'); return }
     setColorFlyoutAt(at => (at === 'rail' ? null : 'rail'))
-  }, [colorDocked])
+  }, [])
   // A colour swatch in the full settings tab opens the *rail's* surface, not
   // one chasing the swatch that was pressed: that tab is only ever on screen
   // beside the rail, and one surface in one fixed place beats a popover that
@@ -7934,22 +7913,20 @@ export function Room() {
                 id: 'layers', icon: 'layers', title: t('room.panel.layers'),
                 content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} hasLayerContent={hasLayerContent} />,
               },
-              // (#542) The colour surface, pinned. Present only when the person
-              // asked for it, and it is the very same component the popover
-              // draws — a presentation of one surface, not a second place with
-              // contents of its own, which is what the old Color tab was and
-              // what this issue set out to remove.
-              //
-              // It earns the screen space back on the tools that mix: stroke,
-              // nudge the colour, stroke again is a loop, and a popover has to
-              // be reopened for every nudge while hiding both the canvas and
-              // the quick settings under it — on the watercolour, that is the
-              // Water and Pigment sliders, which are the other half of mixing.
-              ...(colorDocked ? [{
-                id: 'color' as const, icon: 'palette' as const, title: t('room.panel.color'),
-                headerActions: <ColorDockPin docked onToggle={unpinColorPicker} />,
+              {
+                // (#542) The colour surface, always here. Not the old Color tab
+                // back: that one had contents of its own, and this renders the
+                // very same `ColorFlyoutBody` the popover does — one surface in
+                // two presentations, which is what the issue asked for.
+                //
+                // It earns the strip's space on the tools that mix: stroke,
+                // nudge the colour, stroke again is a loop, and a popover has
+                // to be reopened for every nudge while hiding both the canvas
+                // and the quick settings under it — on the watercolour, that is
+                // the Water and Pigment sliders, the other half of mixing.
+                id: 'color', icon: 'palette', title: t('room.panel.color'),
                 content: <ColorFlyoutBody {...colorContent} />,
-              }] : []),
+              },
               {
                 // (#328) Who's in the room, their live status, and the owner's
                 // moderation actions on each of them — plus the room-wide
@@ -8088,10 +8065,6 @@ export function Room() {
           open={colorFlyoutAt !== null}
           onDismiss={closeColorFlyout}
           anchorRef={colorFlyoutAt === 'panel' ? panelWellRef : railWellRef}
-          // No pin when the flyout came from the floating panel: that is the
-          // minimal-UI route, and the panel it would pin to is faded out. A pin
-          // that files the surface somewhere invisible is worse than no pin.
-          onPin={colorFlyoutAt === 'rail' && !compact ? pinColorPicker : undefined}
           {...colorContent}
         />
 

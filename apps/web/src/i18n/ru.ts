@@ -299,8 +299,6 @@ export const ru: Dictionary = {
   // ── проект: боковая панель ─────────────────────────────────────────────
   'room.panel.layers': 'Слои',
   'room.panel.color': 'Цвет',
-  'color.pin': 'Закрепить в боковой панели',
-  'color.unpin': 'Открепить',
   'room.panel.toolSettings': 'Настройки инструмента',
   'room.panel.participants': 'Участники',
   'room.noToolSettings': 'У этого инструмента пока нет настроек.',

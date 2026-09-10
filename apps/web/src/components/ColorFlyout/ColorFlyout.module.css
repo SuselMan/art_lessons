@@ -18,36 +18,6 @@
   overscroll-behavior: contain;
 }
 
-/* The popover's own strip, carrying the pin and nothing else. Only the popover
-   has one: docked, the pin rides the side panel's existing header strip
-   instead of growing a second bar under it. */
-.header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 6px 6px 0;
-}
-
-.pin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-dim);
-  font-size: 18px;
-}
-
-.pin:hover { color: var(--color-text); background: var(--color-surface-hover); }
-
-/* Pinned: the same control, pressed. Rotated because that is what a pushpin
-   pressed into a board looks like from the side, and it separates the two
-   states at a glance without a second glyph. */
-.pin[aria-pressed='true'] {
-  color: var(--color-accent);
-  rotate: 45deg;
-}
-
 /* The stroke/fill row, above the picker because it decides what the picker
    edits. Horizontal here where the quick column's old pair was vertical: this
    surface is as wide as the picker, so the two wells sit side by side at a

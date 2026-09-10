@@ -15,23 +15,24 @@ import styles from './ColorFlyout.module.css'
 // the marker has" meant one route with the chrome up and a different one with
 // it down.
 //
-// Now it is one component with two *presentations*, which is a different thing
-// from two places:
+// Now it is one component in two *presentations*, which is a different thing
+// from two places. Both are always available, the way every desktop paint
+// editor offers both, because they answer different questions:
 //
 //   - `ColorFlyout` — a popover hanging off whichever well was pressed. Right
-//     for a decision: pick a colour, get back to the drawing. Costs a press to
-//     open and a press to close, and covers what is under it, which is fine for
-//     something opened rarely and briefly.
-//   - `ColorFlyoutBody` docked in the side panel. Right for a process: stroke,
-//     nudge the colour, stroke again. That loop is where a popover falls apart,
-//     because every nudge costs open-and-close and the canvas is hidden while
-//     it is up — and on the watercolour it hides the Water and Pigment sliders
-//     too, which are the other half of the same act of mixing.
+//     for a decision: pick a colour, get back to the drawing. Reachable from
+//     anywhere, including minimal UI, where there is no panel at all.
+//   - `ColorFlyoutBody` in the side panel's Color tab, always there. Right for
+//     a process: stroke, nudge the colour, stroke again. That loop is where a
+//     popover falls apart, because every nudge costs open-and-close and the
+//     canvas is hidden while it is up — and on the watercolour it hides the
+//     Water and Pigment sliders too, which are the other half of the same act
+//     of mixing.
 //
-// Which one is up is the person's own preference (`colorPickerDocked` in
-// settingsStore), and the pin below is how it is set. Minimal UI always gets
-// the popover: there is no panel to pin to, which is exactly the state the
-// touch-first editors are permanently in.
+// Neither is a mode and there is nothing to configure: the tab is simply there
+// for anyone who wants to work in it, and the well behaves the same either way
+// (Ilya, 10.09 — an earlier version made this a pinned preference, which was a
+// setting standing in for "both", and both is the answer).
 //
 // The stroke/fill row only exists for a tool that carries two colours (the
 // shapes, #529). It is at the top because it decides what everything below it
@@ -130,36 +131,15 @@ export function ColorFlyoutBody({
   )
 }
 
-/** The pin, as the side panel's Color tab wears it: same control, same meaning,
- *  pressed. Handed to `SidePanelTab.headerActions` so unpinning is where
- *  pinning left off rather than buried in settings. */
-export function ColorDockPin({ docked, onToggle }: { docked: boolean; onToggle: () => void }) {
-  const t = useT()
-  return (
-    <button
-      type="button"
-      className={styles.pin}
-      title={t(docked ? 'color.unpin' : 'color.pin')}
-      aria-label={t(docked ? 'color.unpin' : 'color.pin')}
-      aria-pressed={docked}
-      onClick={onToggle}
-    ><Icon name="push_pin" /></button>
-  )
-}
-
 interface ColorFlyoutProps extends ColorFlyoutContent {
   open: boolean
   onDismiss: () => void
   /** The well the popover hangs off. Held by the caller because there is more
    *  than one and which is in play changes at the moment of opening. */
   anchorRef: React.RefObject<HTMLElement | null>
-  /** Pins this surface open in the side panel instead. Omitted where there is
-   *  no panel to pin to — the floating panel in minimal UI — and the pin then
-   *  is not drawn at all rather than drawn dead. */
-  onPin?: () => void
 }
 
-export function ColorFlyout({ open, onDismiss, anchorRef, onPin, ...content }: ColorFlyoutProps) {
+export function ColorFlyout({ open, onDismiss, anchorRef, ...content }: ColorFlyoutProps) {
   const t = useT()
   const { popupRef, style } = usePopupAnchor<HTMLElement, HTMLDivElement>(open, onDismiss, {
     // Beside the well, never under it. Both wells this hangs off sit inside
@@ -178,11 +158,6 @@ export function ColorFlyout({ open, onDismiss, anchorRef, onPin, ...content }: C
 
   return createPortal(
     <div ref={popupRef} className={styles.flyout} style={style} role="dialog" aria-label={t('room.panel.color')}>
-      {onPin && (
-        <div className={styles.header}>
-          <ColorDockPin docked={false} onToggle={onPin} />
-        </div>
-      )}
       <ColorFlyoutBody {...content} />
     </div>,
     document.body,
