@@ -8,11 +8,18 @@ const VIEWPORT_MARGIN = 8
 /** Gap between the trigger and the popup hanging off it. */
 const ANCHOR_GAP = 4
 
-interface PopupAnchorOptions {
+interface PopupAnchorOptions<T extends HTMLElement> {
   /** Which of the trigger's edges the popup lines up with. Only the preferred
    *  alignment — the clamp below overrides it when the popup wouldn't fit
    *  either way. */
   align?: 'left' | 'right'
+  /** (#542) Hang the popup off an element the caller already holds, instead of
+   *  the ref this hook would hand back. The colour flyout is one surface with
+   *  two triggers — the well pinned in the tool rail and the one in the middle
+   *  of the floating panel — and which of them it opened from is decided at the
+   *  moment of opening, not at the moment the popup is written. Without this,
+   *  "one flyout, two anchors" needs two mounted copies of the flyout. */
+  triggerRef?: React.RefObject<T | null>
   /** Give the popup at least the trigger's own width. What a `<select>`-style
    *  dropdown wants (the list reads as an extension of the closed field) and
    *  what an icon-button's menu does not. */
@@ -48,9 +55,10 @@ interface PopupAnchor<T extends HTMLElement, P extends HTMLElement> {
 export function usePopupAnchor<T extends HTMLElement, P extends HTMLElement>(
   open: boolean,
   onDismiss: () => void,
-  { align = 'right', matchTriggerWidth = false, remeasureKey }: PopupAnchorOptions = {},
+  { align = 'right', matchTriggerWidth = false, remeasureKey, triggerRef: externalTriggerRef }: PopupAnchorOptions<T> = {},
 ): PopupAnchor<T, P> {
-  const triggerRef = useRef<T>(null)
+  const ownTriggerRef = useRef<T>(null)
+  const triggerRef = externalTriggerRef ?? ownTriggerRef
   const popupRef = useRef<P>(null)
   const [pos, setPos] = useState<{ top: number; left: number; minWidth: number; maxHeight: number } | null>(null)
   // Read through a ref so a call site can pass an inline arrow without
@@ -89,7 +97,7 @@ export function usePopupAnchor<T extends HTMLElement, P extends HTMLElement>(
       // taller than the screen has already been clamped to the top edge above.
       maxHeight: window.innerHeight - 2 * m,
     })
-  }, [open, align, matchTriggerWidth, remeasureKey])
+  }, [open, align, matchTriggerWidth, remeasureKey, triggerRef])
 
   useLayoutEffect(() => {
     if (!open) return

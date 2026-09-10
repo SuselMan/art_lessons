@@ -1,0 +1,64 @@
+/* (#542) The colour popover. Portaled to <body> and positioned in viewport
+   coordinates by usePopupAnchor, so it is not clipped by the rail it hangs off
+   nor by the floating panel's own round frame. */
+
+.flyout {
+  position: fixed;
+  /* Same 100 the dropdown menus portal at: this hangs over the editor's own
+     panels and over the floating tool panel, and under the modals and notices
+     that own the 500/600 band. */
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The stroke/fill row, above the picker because it decides what the picker
+   edits. Horizontal here where the quick column's old pair was vertical: this
+   surface is as wide as the picker, so the two wells sit side by side at a
+   size worth touching instead of stacking into a tall thin strip. */
+.pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 0;
+}
+
+.swap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  font-size: 20px;
+}
+
+.swap:hover { color: var(--color-text); background: var(--color-surface-hover); }
+
+/* Pushed to the far end: it acts on whichever well is selected, so it belongs
+   with neither of them. */
+.none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  font-size: 20px;
+}
+
+.none:hover { color: var(--color-text); background: var(--color-surface-hover); }
+
+.none[aria-pressed='true'] {
+  color: var(--color-accent);
+  background: var(--color-surface-hover);
+}

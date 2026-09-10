@@ -16,8 +16,8 @@ import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PEN
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
-import { ColorPicker } from '../../components/ColorPicker'
-import { PaletteBar } from '../../components/PaletteBar'
+import { ColorFlyout, type ColorPairControls } from '../../components/ColorFlyout'
+import { ColorWell } from '../../components/ColorWell'
 import { Icon } from '../../components/Icon'
 import { Logo } from '../../components/Logo'
 import { Menu } from '../../components/Menu'
@@ -56,7 +56,6 @@ import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCanvasTap } from './useCanvasTap'
 import { ClickTracker } from './clickTracker'
 import { useCommittableSession } from './useCommittableSession'
-import { ShapeColorPair } from './ShapeColorPair'
 import { useShapeTool } from './useShapeTool'
 import { ShapeFrameFields, ShapeRatioPresets } from './ShapeFrameFields'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -114,6 +113,7 @@ import {
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
   isShapeTool, toolColorField,
 } from './toolSchemas'
+import { colorWellState, effectiveSwatch } from './colorWell'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
 import { ChiselAngleDial } from './ChiselAngleDial'
@@ -972,7 +972,10 @@ export function Room() {
     const storedActiveId = loadActiveLayerId(localStorage, id ?? '')
     if (storedActiveId) useRoomStore.setState(prev => ({ layerState: { ...prev.layerState, activeId: storedActiveId } }))
   })
-  const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
+  // (#542) No 'color' here any more: the picker moved out of this strip and
+  // into the flyout that hangs off the colour well, which is reachable in both
+  // chrome states rather than only while the strip is on screen.
+  const [activePanel, setActivePanel] = useState<'layers' | 'participants' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
@@ -2815,13 +2818,19 @@ export function Room() {
   // for a fill; making them press the crossed-out circle again first would be
   // an extra step whose only outcome is the one they already chose (Ilya,
   // 05.09).
+  //
+  // (#542) Through `effectiveSwatch`, not the stored one: with a line in hand
+  // and the fill selected the stored value names a colour the tool cannot draw,
+  // and a pick landing there would vanish without a trace.
   const applyToolColor = useCallback((toolId: ColorCapableTool, value: [number, number, number]) => {
-    setToolSetting(toolId, toolColorField(toolId, shapeSwatch), value)
-    if (isShapeTool(toolId)) setToolSetting(toolId, shapeSwatch === 'fill' ? 'fillOn' : 'strokeOn', true)
+    const settings = useRoomStore.getState().toolSettings
+    const swatch = effectiveSwatch(settings, toolId, shapeSwatch)
+    setToolSetting(toolId, toolColorField(toolId, swatch), value)
+    if (isShapeTool(toolId)) setToolSetting(toolId, swatch === 'fill' ? 'fillOn' : 'strokeOn', true)
   }, [setToolSetting, shapeSwatch])
 
   const colorTool: ColorCapableTool = isColorCapableTool(tool) ? tool : lastDrawingTool
-  const colorToolColor = getToolColor(toolSettings, colorTool, shapeSwatch)
+  const colorToolColor = getToolColor(toolSettings, colorTool, effectiveSwatch(toolSettings, colorTool, shapeSwatch))
   // (#405) Where a picked colour lands: the tool the eyedropper hands the
   // canvas back to, if that tool owns a colour at all. The issue asks for the
   // colour to be written "into the tool you returned to" — for the eraser or
@@ -2840,8 +2849,54 @@ export function Room() {
   // field of their own — the engine keeps one current color regardless of
   // which tool is active, so it should already hold what the next drawing
   // stroke will use.
-  const activeColor = getToolColor(toolSettings, pickedColorTool, shapeSwatch)
+  const activeColor = getToolColor(toolSettings, pickedColorTool, effectiveSwatch(toolSettings, pickedColorTool, shapeSwatch))
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor, engineEpoch])
+
+  // ── the colour well (#542) ──────────────────────────────────────────────────
+  //
+  // One glyph and one flyout serve every tool, so what the well shows is
+  // resolved once — in colorWell.ts, which is also the only part of this
+  // reachable from a unit test — instead of being assembled again at each
+  // surface that shows a colour.
+  //
+  // `colorTool` already falls back to the last drawing tool for the eraser and
+  // the smudge, so the well is never empty and never disabled: with a rubber in
+  // hand it shows — and edits — the colour the next stroke will use. That is
+  // the same slot the picker has always been editing in that state; what
+  // changes is only that it is now visible instead of one tab away.
+  const well = colorWellState(toolSettings, colorTool, shapeSwatch)
+  const wellLabel = well.pair
+    ? t(well.pair.active === 'fill' ? 'room.shape.fill' : 'room.shape.stroke')
+    : t('room.panel.color')
+
+  const swapShapeColors = useCallback(() => {
+    // Trades the colours themselves, not which one is selected — the same
+    // thing X does in every other editor, and the reason it is a swap rather
+    // than two edits is that the pair is what the user is looking at.
+    const settings = useRoomStore.getState().toolSettings
+    const stroke = getToolColor(settings, 'shape', 'stroke')
+    const fill = getToolColor(settings, 'shape', 'fill')
+    const strokeOn = settings.shape.strokeOn !== false
+    const fillOn = settings.shape.fillOn === true
+    setToolSetting('shape', 'strokeColor', fill)
+    setToolSetting('shape', 'fillColor', stroke)
+    setToolSetting('shape', 'strokeOn', fillOn)
+    setToolSetting('shape', 'fillOn', strokeOn)
+  }, [setToolSetting])
+
+  const toggleActiveShapeSwatch = useCallback(() => {
+    const settings = useRoomStore.getState().toolSettings
+    const swatch = effectiveSwatch(settings, 'shape', useRoomStore.getState().shapeSwatch)
+    const key = swatch === 'fill' ? 'fillOn' : 'strokeOn'
+    setToolSetting('shape', key, settings.shape[key] === false)
+  }, [setToolSetting])
+
+  const colorPair: ColorPairControls | undefined = well.pair ? {
+    ...well.pair,
+    onSelect: setShapeSwatch,
+    onSwap: swapShapeColors,
+    onToggleActive: toggleActiveShapeSwatch,
+  } : undefined
   // FloatingToolPanel (#157) is an eight-slot compass the user lays out
   // themselves: any slot holds any tool the left toolbar holds, or undo/redo,
   // or nothing. Two of the entries are *roles* rather than tools — the drawing
@@ -2974,20 +3029,32 @@ export function Room() {
   const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
     socketRef.current?.emit('set_participant_frozen', { userId, frozen })
   }, [])
-  // "Go refine this further than a quick swatch tap allows": show the full
-  // chrome and land on the Color tab, the same destination the eyedropper's
-  // pick handler uses (see handleEyedropperPick).
-  // Bringing the chrome back is the load-bearing half, not a courtesy —
-  // SidePanel lives inside .layerPanelWrap, which minimal UI fades out, so
-  // switching its tab while the chrome is hidden opens a panel nobody can
-  // see. Both routes here start from something that is on screen *during*
-  // minimal UI: FloatingToolPanel's palette flyout, and — since #471 — the
-  // colour field in the quick-settings column, which no longer hides with
-  // the rest of the chrome.
-  const openColorPicker = useCallback(() => {
-    setUiHidden(false)
-    setActivePanel('color')
-  }, [])
+  // (#542) "Go refine this further than a tap on the well allows." Which well
+  // it opens from is the whole of the state: 'rail' is the one pinned at the
+  // top of the tool bar, 'panel' the one in the middle of the floating panel.
+  //
+  // This used to be `setUiHidden(false); setActivePanel('color')` — bringing
+  // the whole chrome back was load-bearing, because the picker lived in a tab
+  // of a strip that minimal UI fades out. A flyout that hangs off the well
+  // that opened it needs none of that: the surface goes where the colour
+  // already is, in either chrome state, which is the point of the well having
+  // a fixed home in each.
+  const [colorFlyoutAt, setColorFlyoutAt] = useState<'rail' | 'panel' | null>(null)
+  const railWellRef = useRef<HTMLButtonElement>(null)
+  const panelWellRef = useRef<HTMLButtonElement>(null)
+  const closeColorFlyout = useCallback(() => setColorFlyoutAt(null), [])
+  // A colour swatch in the full settings tab opens the flyout on the *rail's*
+  // well, not on the swatch that was pressed: that tab is only ever on screen
+  // beside the rail, and one surface in one fixed place beats a popover that
+  // chases whichever copy of a swatch was pressed. Which field was pressed
+  // still matters — it points the flyout at that colour first, so a shape's
+  // fill swatch edits the fill rather than whichever of the two was last
+  // selected.
+  const expandColorField = useCallback((key: string) => {
+    if (key === 'strokeColor') setShapeSwatch('stroke')
+    if (key === 'fillColor') setShapeSwatch('fill')
+    setColorFlyoutAt('rail')
+  }, [setShapeSwatch])
   // Persist last-used settings per room (#156/#196) — mirrors the pattern
   // above (derived state -> engine), just targeting storage instead.
   useEffect(() => {
@@ -3498,9 +3565,20 @@ export function Room() {
       // deliberately — if the eraser was what you were using, the eraser is
       // what you get back.
       setTool(drawingTool)
-      setActivePanel('color')
+      // (#542) No longer opens the full picker on top of the drawing. It used
+      // to switch the side panel to its Color tab, which was passive — the tab
+      // either was already in view or was not. The flyout that replaced that
+      // tab is a popover over the canvas, and throwing one up after every pick
+      // is a different thing entirely. It costs nothing to drop: the colour is
+      // already in the well, and the well is one press away from anywhere,
+      // which is exactly what giving it a fixed home bought.
     }
-  }, [vpRef, vp, config, handActive, setToolSetting, pickedColorTool, setTool, drawingTool, toolSettings.eyedropper, addPaletteColor])
+    // `applyToolColor`, not `setToolSetting`: the former is what this actually
+    // calls, and it closes over `shapeSwatch`. Listing the setter instead left
+    // a stale copy here — with a shape in hand and the fill selected, a pick
+    // taken after the swatch was switched wrote the field the swatch used to
+    // point at.
+  }, [vpRef, vp, config, handActive, applyToolColor, pickedColorTool, setTool, drawingTool, toolSettings.eyedropper, addPaletteColor])
 
   // Ruler tool (#89, #405): the engine only ever knows about the ruler as a
   // *snapping* guide, so this is where "is there a line to snap to right now"
@@ -6915,6 +6993,35 @@ export function Room() {
         )}>
         <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
 
+          {/* (#542) The colour, pinned. It sits above the tool buttons and
+              outside the schema-driven column to the right, which is the whole
+              change: as an ordinary quickAccess field its place in that column
+              was wherever the active tool's schema happened to list it — fourth
+              for the pencil, third for the liner, eighth for the watercolour,
+              absent for the eraser — so the one control a person reaches for
+              most moved every time they changed tools.
+
+              Above the buttons rather than below them because which buttons are
+              there depends on the room's toolset (#548) and the column grows
+              downwards: only the top edge is fixed.
+
+              Present for every tool, including the ones that own no colour —
+              `colorTool` falls back to the last drawing tool, so with a rubber
+              in hand this still shows and edits the colour the next stroke will
+              use, which is what the picker has always done in that state. */}
+          <ColorWell
+            ref={railWellRef}
+            fill={well.fill}
+            stroke={well.stroke}
+            highlight={well.highlight}
+            size={40}
+            className={styles.railColorWell}
+            label={wellLabel}
+            expanded={colorFlyoutAt === 'rail'}
+            onClick={() => setColorFlyoutAt(at => (at === 'rail' ? null : 'rail'))}
+          />
+          <div className={styles.railColorWellDivider} aria-hidden="true" />
+
           {/* (#512) Everything that draws *on* the picture is absent from the
               compact shell. Not disabled — absent: a phone is here to react to
               someone else's work, and a column of tools that cannot be used on
@@ -7232,46 +7339,16 @@ export function Room() {
           uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
           styles.strokeBlockable,
         )}>
-          {/* (#529) A shape's two colours are one control, not two swatches:
-              which of them the palette and the picker act on is a choice, and
-              trading them is a gesture. See ShapeColorPair. */}
-          {isShapeTool(settingsToolId) && (
-            <ShapeColorPair
-              strokeColor={getToolColor(toolSettings, settingsToolId, 'stroke')}
-              strokeOn={toolSettings[settingsToolId].strokeOn !== false}
-              fillColor={'fillColor' in TOOL_SCHEMAS[settingsToolId]
-                ? getToolColor(toolSettings, settingsToolId, 'fill')
-                : null}
-              fillOn={toolSettings[settingsToolId].fillOn === true}
-              active={shapeSwatch}
-              onSelect={setShapeSwatch}
-              onToggleActive={() => {
-                const key = shapeSwatch === 'fill' ? 'fillOn' : 'strokeOn'
-                setToolSetting(settingsToolId, key, toolSettings[settingsToolId][key] === false)
-              }}
-              onSwap={() => {
-                // Trades the colours themselves, not which one is selected —
-                // the same thing X does in every other editor, and the reason
-                // it is a swap rather than two edits is that the pair is what
-                // the user is looking at.
-                const stroke = getToolColor(toolSettings, settingsToolId, 'stroke')
-                const fill = getToolColor(toolSettings, settingsToolId, 'fill')
-                const strokeOn = toolSettings[settingsToolId].strokeOn !== false
-                const fillOn = toolSettings[settingsToolId].fillOn === true
-                setToolSetting(settingsToolId, 'strokeColor', fill)
-                setToolSetting(settingsToolId, 'fillColor', stroke)
-                setToolSetting(settingsToolId, 'strokeOn', fillOn)
-                setToolSetting(settingsToolId, 'fillOn', strokeOn)
-              }}
-              onExpand={openColorPicker}
-            />
-          )}
           {Object.entries(TOOL_SCHEMAS[settingsToolId])
             .filter(([, descriptor]) => descriptor.quickAccess)
-            // The two colour fields are drawn by ShapeColorPair above; left in
-            // the schema because the full settings panel still lists them, and
-            // because they are what persistence and defaults are built from.
-            .filter(([key]) => key !== 'strokeColor' && key !== 'fillColor')
+            // (#542) No colour in this column at all any more — every colour a
+            // tool carries is drawn by the pinned well in the rail to the left.
+            // Filtered here rather than by clearing `quickAccess` in ten
+            // schemas: the flag says "this is a field a hand reaches for
+            // mid-gesture", which is still true of colour, and a schema that
+            // denied it to make one layout come out right would be lying to
+            // every other reader of it.
+            .filter(([, descriptor]) => descriptor.valueType.kind !== 'color')
             .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
             .map(([key, descriptor]) => (
               <SettingField
@@ -7280,7 +7357,6 @@ export function Room() {
                 value={toolSettings[settingsToolId][key]}
                 onChange={v => setToolSetting(settingsToolId, key, v)}
                 layout="toolbar"
-                onExpand={key === 'color' ? openColorPicker : undefined}
               />
             ))}
           {/* (#530) The numbers behind the drag, and only while a shape is
@@ -7814,34 +7890,6 @@ export function Room() {
                 content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} hasLayerContent={hasLayerContent} />,
               },
               {
-                // Reflects whichever of pencil/liner/marker is actually
-                // active (the drawing tools with a real 'color' field)
-                // rather than always pencil — this tab is reached both from
-                // any of those tools' own quick-field expand button and from
-                // FloatingToolPanel's escape hatch (see floatingPrimaryTool
-                // below — pencil/liner/marker all share its one drawing-tool
-                // slot now), so falling back to pencil's color there only
-                // ever matters before any of the three has been picked yet.
-                id: 'color', icon: 'palette', title: t('room.panel.color'),
-                content: (
-                  <>
-                    <ColorPicker
-                      value={colorToolColor}
-                      onChange={v => applyToolColor(colorTool, v)}
-                      mode={colorPickerMode}
-                      onModeChange={setColorPickerMode}
-                    />
-                    <PaletteBar
-                      palette={palette}
-                      value={colorToolColor}
-                      onSelect={v => applyToolColor(colorTool, v)}
-                      onAdd={addPaletteColor}
-                      onRemove={removePaletteColor}
-                    />
-                  </>
-                ),
-              },
-              {
                 // (#328) Who's in the room, their live status, and the owner's
                 // moderation actions on each of them — plus the room-wide
                 // freeze in this tab's own header, which is where it moved to
@@ -7892,7 +7940,14 @@ export function Room() {
                         value={toolSettings[settingsToolId][key]}
                         onChange={v => setToolSetting(settingsToolId, key, v)}
                         layout="panel"
-                        onExpand={key === 'color' ? openColorPicker : undefined}
+                        // (#542) Every colour field, not just the one named
+                        // `color` — a shape's two are `strokeColor`/`fillColor`
+                        // and were left without a way to expand at all. They
+                        // all open the same flyout, on the well in the rail:
+                        // this tab is only ever on screen next to it, and one
+                        // surface in one place beats a popover that chases
+                        // whichever copy of a swatch was pressed.
+                        onExpand={descriptor.valueType.kind === 'color' ? () => expandColorField(key) : undefined}
                       />
                     ))}
                     {/* (#530) The ratio presets, here rather than in the quick
@@ -7927,10 +7982,24 @@ export function Room() {
           onSetTool={selectTool}
           onUndo={handleUndo}
           onRedo={handleRedo}
-          primaryColor={colorToolColor}
+          // (#542) The same well the rail carries, at the panel's centre. It
+          // reports the ring/core pair rather than one colour, so a shape's two
+          // colours are as readable here as they are with the chrome up.
+          wellRef={panelWellRef}
+          wellFill={well.fill}
+          wellStroke={well.stroke}
+          wellHighlight={well.highlight}
+          wellLabel={wellLabel}
           palette={palette}
           onSelectColor={v => applyToolColor(colorTool, v)}
-          onOpenColorPicker={openColorPicker}
+          // Opens the flyout on the panel's own well, not on the rail's — the
+          // rail may not be on screen at all, which is the case this panel
+          // exists for.
+          onOpenColorPicker={() => setColorFlyoutAt('panel')}
+          // The two service entries in the palette fan, present only for a tool
+          // that carries two colours. Touch-sized where the glyph's own ring is
+          // not, which is why the switch lives out here and not on the glyph.
+          pair={colorPair}
           roomId={id ?? ''}
           position={panelPosition}
           onPositionChange={setPanelPosition}
@@ -7950,6 +8019,22 @@ export function Room() {
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
           flyout={panelFlyout}
           onFlyoutChange={setPanelFlyout}
+        />
+
+        {/* (#542) The one colour surface: the picker and the palette together,
+            hanging off whichever well opened it. */}
+        <ColorFlyout
+          open={colorFlyoutAt !== null}
+          onDismiss={closeColorFlyout}
+          anchorRef={colorFlyoutAt === 'panel' ? panelWellRef : railWellRef}
+          value={colorToolColor}
+          onChange={v => applyToolColor(colorTool, v)}
+          mode={colorPickerMode}
+          onModeChange={setColorPickerMode}
+          palette={palette}
+          onAddPaletteColor={addPaletteColor}
+          onRemovePaletteColor={removePaletteColor}
+          pair={colorPair}
         />
 
         {/* #277/#278: marker chisel-nib angle dial — orbits FloatingToolPanel

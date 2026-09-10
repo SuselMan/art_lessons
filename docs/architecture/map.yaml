@@ -415,7 +415,6 @@ modules:
       - apps/web/src/pages/Room/useShapeTool.ts
       - apps/web/src/pages/Room/useCommittableSession.ts
       - apps/web/src/pages/Room/ShapeFrameFields.*
-      - apps/web/src/pages/Room/ShapeColorPair.*
     issues: [525, 529, 530]
     notes:
       - >-
@@ -475,10 +474,24 @@ modules:
     title: Цвет
     layer: ui-kit
     owns: >-
-      Выбор цвета во всех режимах и палитра комнаты, общая для участников.
+      Всё, чем цвет инструмента показывается и меняется: колодец (кружок, у которого кольцо —
+      обводка, а ядро — заливка), поповер вокруг него, сам пикер во всех режимах и палитра
+      комнаты, общая для участников.
     files:
+      - apps/web/src/components/ColorWell/**
+      - apps/web/src/components/ColorFlyout/**
       - apps/web/src/components/ColorPicker/**
       - apps/web/src/components/PaletteBar/**
+    issues: [542]
+    notes:
+      - >-
+        Колодец — один глиф на все места, где показывается цвет: закреплённый в шапке рейла,
+        центр плавающей панели, оба кружка внутри самого поповера. До #542 их было три разных,
+        и следующий цветной инструмент завёл бы четвёртый.
+      - >-
+        Кольцо колодца — индикатор, а не мишень: оно 7-8px, а плавающая панель рассчитана на
+        палец. Переключение обводки и заливки живёт в поповере и в радиальном веере панели,
+        где элементы 40px, и никогда не требует попасть в полосу.
     tags: [цвет]
 
   - id: ui-tool-panel
