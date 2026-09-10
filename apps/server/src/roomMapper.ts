@@ -1,4 +1,4 @@
-import type { Room, RoomAccessMode, RoomFolder } from '@grafetto/shared'
+import { sanitizeEnabledTools, type Room, type RoomAccessMode, type RoomFolder } from '@grafetto/shared'
 
 /** Shared by roomRoutes.ts (REST "Мои уроки" list) and rooms.ts (cold-load
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type
@@ -15,6 +15,12 @@ export function toWireRoom(r: {
   // shapes, and a future divergence between them surfaces here as a type
   // error instead of being laundered through an `as`.
   accessMode: RoomAccessMode
+  // (#548) The room's toolset column. Optional for the same reason
+  // `parentRoomId` below is: the callers that build this shape by hand don't
+  // have one. Read through the shared sanitizer rather than cast, so a row
+  // holding an id this build has never heard of (written by a newer one)
+  // opens the room without it instead of failing to parse.
+  enabledTools?: string[]
   // (#317) Present on rows read straight from Prisma; absent on the callers
   // that build this shape by hand (rooms.ts's in-memory record), which is why
   // it's optional rather than `string | null`.
@@ -39,6 +45,7 @@ export function toWireRoom(r: {
     infinite: r.infinite,
     canvasWidth: r.canvasWidth ?? undefined, canvasHeight: r.canvasHeight ?? undefined,
     hasPassword: r.passwordHash !== null, accessMode: r.accessMode, ownerId: r.ownerId,
+    enabledTools: sanitizeEnabledTools(r.enabledTools),
     ownerName: r.owner?.name ?? undefined,
     createdAt: r.createdAt.toISOString(),
     thumbnailUpdatedAt: r.thumbnail?.updatedAt.toISOString(),

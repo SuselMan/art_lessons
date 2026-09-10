@@ -213,3 +213,12 @@
   background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-2));
   color: var(--color-accent);
 }
+
+/* (#548) A slot holding a tool the room has stopped offering. Kept in place
+   rather than emptied — the arrangement is the user's, and the tool may come
+   back — but visibly out of service, because a slot that looks live and
+   answers nothing is the worse of the two. */
+.btnWithdrawn {
+  opacity: 0.35;
+  cursor: default;
+}

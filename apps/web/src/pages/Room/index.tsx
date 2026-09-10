@@ -11,8 +11,8 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
   JoinDenial, AnnotationShape,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, type AreaImage } from '../../engine'
+import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, toWireMatrix, unpackDabs, type ToggleableTool } from '@grafetto/shared'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -127,7 +127,7 @@ import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
 import { pastePlacement } from './pastePlacement'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
-import { notifyError } from '../../stores/noticeStore'
+import { notifyError, notifyWarning } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import { isDrawingTool, type EditorTool } from '../../stores/slices/toolSlice'
@@ -160,7 +160,8 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
  *  the creator, opening my own room" apart from "I opened someone else's
  *  room link" (no state at all, e.g. a second device). */
 interface CreatorNavState {
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+  room: Pick<RoomEntity,
+    'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'>
   password?: string
   // (#232) Picked on the create form. The mode rides along on `create_room`
   // itself so the room is never briefly open; the invites are sent afterwards
@@ -175,7 +176,7 @@ interface CreatorNavState {
 
 function toRoomConfig(
   room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
-    & Partial<Pick<RoomEntity, 'closedAt' | 'accessMode'>>,
+    & Partial<Pick<RoomEntity, 'closedAt' | 'accessMode' | 'enabledTools'>>,
 ): RoomInfo {
   return {
     id: room.id, name: room.name,
@@ -200,6 +201,9 @@ function toRoomConfig(
     // a second default. Every other entry point comes from `room_state`,
     // which carries the real one.
     accessMode: room.accessMode ?? 'anyone_with_link',
+    // (#548) No fallback and none wanted: absent *is* the unrestricted room,
+    // on the creator's branch and on every other one alike.
+    enabledTools: room.enabledTools,
   }
 }
 
@@ -655,6 +659,29 @@ export function Room() {
     }
   })
   const config = useRoomStore(s => s.room)
+  // (#548) Which tools this room offers — `undefined` for all of them, which
+  // is what every room says until someone restricts it. Read straight off the
+  // room rather than mirrored into a field of its own: it arrives inside
+  // `room_state` and is patched by `room_tools_changed`, and a second copy
+  // would only be a second thing to keep in step.
+  const enabledTools = useRoomStore(s => s.room?.enabledTools)
+  /** Whether the room offers this tool at all. The toolbar asks it per button
+   *  (a tool the room does not offer has no button), and `selectTool` asks it
+   *  again for the paths that have no button to hide — a hotkey, a floating
+   *  panel slot assigned before the tool was switched off. */
+  const toolOffered = useCallback(
+    (candidate: EditorTool) => isToolEnabledInRoom(enabledTools, candidate),
+    [enabledTools],
+  )
+  /** Where a hand goes when what it was holding stops being offered. The first
+   *  material the room still has — never the first *tool*, which could be the
+   *  ruler, i.e. a hand that cannot draw. A toolset always keeps one material
+   *  (sanitizeEnabledTools refuses the ones that don't), so this cannot come
+   *  up empty; the pencil is the fallback for the unrestricted room. */
+  const fallbackTool = useMemo<EditorTool>(() => (
+    enabledTools?.find(candidate => (TOOLSET_MATERIAL_TOOLS as readonly string[]).includes(candidate)) as EditorTool
+      ?? 'pencil'
+  ), [enabledTools])
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
   // there is no second "mode" axis over it any more.
@@ -2563,6 +2590,21 @@ export function Room() {
   // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
   // the existing per-stroke string rather than a new Operation field.
   const brushPenResponse = toolSettings.brushPen.pressureResponse as string
+  // #547, ADR 013 §7 — the brush's id *and* its version, assembled here rather
+  // than stored: the settings layer remembers which brush is selected and has no
+  // business knowing about versions, while the recorded stroke must carry the
+  // one it was actually drawn with so a later retune of that brush cannot
+  // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
+  // hand-off.
+  const digitalBrushId = toolSettings.digitalBrush.brush as string
+  // #547 — the toggle rides the same token, as a third field. It changes the
+  // mark, so it has to be recorded: a peer replaying the stroke has their own
+  // switch in whatever position they left it.
+  const digitalBrushFlowFromPressure = toolSettings.digitalBrush.flowFromPressure as boolean
+  const digitalBrushPresetName = (() => {
+    const brush = digitalBrushFromPreset(digitalBrushId)
+    return digitalBrushPreset(brush.id, brush.version, digitalBrushFlowFromPressure)
+  })()
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink
@@ -2603,6 +2645,7 @@ export function Room() {
     : drawingTool === 'charcoal' ? charcoalPreset
     : drawingTool === 'brushPen' ? brushPenResponse
     : drawingTool === 'watercolor' ? watercolorPreset
+    : drawingTool === 'digitalBrush' ? digitalBrushPresetName
     : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
@@ -2715,9 +2758,10 @@ export function Room() {
         : drawingTool === 'charcoal' ? charcoalPreset
         : drawingTool === 'brushPen' ? brushPenResponse
         : drawingTool === 'watercolor' ? watercolorPreset
+        : drawingTool === 'digitalBrush' ? digitalBrushPresetName
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, engineEpoch])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -2809,8 +2853,21 @@ export function Room() {
   // anything the layout already pins to a slot of its own, so resolving one
   // needs the order, and it needs the layout — both of which the panel has and
   // this file does not. See pickRoleTool in FloatingToolPanel/slots.ts.
-  const recentDrawingTools = useRoomStore(s => s.recentDrawingTools)
-  const recentSecondaryTools = useRoomStore(s => s.recentSecondaryTools)
+  const storedRecentDrawingTools = useRoomStore(s => s.recentDrawingTools)
+  const storedRecentSecondaryTools = useRoomStore(s => s.recentSecondaryTools)
+  // (#548) What the floating panel's two *roles* are allowed to resolve to.
+  // Filtered here rather than in the store: the store remembers what this
+  // person actually drew with, which is a fact about them and outlives any one
+  // room's toolset — a room that switches the marker back on should find it
+  // still remembered in the right place, not pushed to the end of the list.
+  const recentDrawingTools = useMemo(
+    () => storedRecentDrawingTools.filter(toolOffered),
+    [storedRecentDrawingTools, toolOffered],
+  )
+  const recentSecondaryTools = useMemo(
+    () => storedRecentSecondaryTools.filter(toolOffered),
+    [storedRecentSecondaryTools, toolOffered],
+  )
   // Which slots light up. Deliberately null for the tools no slot can name —
   // which, now that every toolbar tool can sit in a slot, means only the
   // annotation set, and the panel is not on screen alongside those anyway
@@ -2840,6 +2897,14 @@ export function Room() {
   // owner — see the render section below — this stays defensive either way).
   const toggleRoomFrozen = useCallback(() => {
     socketRef.current?.emit('set_room_frozen', !useRoomStore.getState().roomFrozen)
+  }, [])
+  // (#548) Same shape as the freeze toggle above and for the same reason: the
+  // server is the only writer, and it broadcasts the result back to everyone
+  // (`room_tools_changed`) including this tab. So nothing is patched locally
+  // here — an optimistic update would only be a second opinion about a value
+  // the server sanitizes anyway.
+  const setRoomTools = useCallback((next: ToggleableTool[] | undefined) => {
+    socketRef.current?.emit('set_room_tools', next)
   }, [])
   // (#222) Reopening from inside the room. Unlike the freeze toggles around
   // it this goes over REST, because closing is persisted and the same call
@@ -3465,9 +3530,16 @@ export function Room() {
   // used to be `lastDrawingTool` for the eraser and smudge but a hardcoded
   // pencil for charcoal, liner and marker, so the same gesture landed
   // somewhere different depending on which button you pressed.
+  //
+  // (#548) And the one gate on the room's toolset. Every way a tool gets into
+  // a hand routes through here or through `toggleTool` below, so refusing a
+  // tool the room does not offer is one check rather than fifteen. The toolbar
+  // does not render those buttons at all; this is the backstop for the paths
+  // with no button to hide.
   const selectTool = useCallback((next: EditorTool) => {
+    if (!isToolEnabledInRoom(enabledTools, next)) return
     setTool(next)
-  }, [setTool])
+  }, [setTool, enabledTools])
 
   // The toggle survives, but only on the *keys*. "Press E, do a correction,
   // press E again" is a real one-handed affordance that a key can offer and a
@@ -3475,8 +3547,31 @@ export function Room() {
   // claiming otherwise. Both halves route through here so a second press
   // always lands on the tool you were drawing with, whichever key it was.
   const toggleTool = useCallback((next: EditorTool) => {
-    setTool(prev => (prev === next ? drawingTool : next))
-  }, [setTool, drawingTool])
+    if (!isToolEnabledInRoom(enabledTools, next)) return
+    // (#548) The tool to come back to may itself have been switched off since
+    // it was last held — `drawingTool` remembers what was drawn with, not what
+    // is still on the desk.
+    const back = isToolEnabledInRoom(enabledTools, drawingTool) ? drawingTool : fallbackTool
+    setTool(prev => (prev === next ? back : next))
+  }, [setTool, drawingTool, enabledTools, fallbackTool])
+
+  // (#548) The hand that was holding a tool the room has just stopped
+  // offering. Every other path is closed by `selectTool` above, but this one
+  // is not a selection at all — the tool was already in hand when the toolset
+  // moved under it.
+  //
+  // Silent on the first run: a room whose toolset excludes the pencil hands a
+  // joiner something else before they have touched anything, and announcing
+  // that would be telling someone their tool was taken when they never had it.
+  // Only an actual change during the session is worth a word.
+  const toolsetSeenRef = useRef(false)
+  useEffect(() => {
+    const announce = toolsetSeenRef.current
+    toolsetSeenRef.current = true
+    if (isToolEnabledInRoom(enabledTools, tool)) return
+    setTool(fallbackTool)
+    if (announce) notifyWarning(t('toolset.withdrawn'), { key: 'toolset-withdrawn' })
+  }, [enabledTools, tool, fallbackTool, setTool, t])
 
   // Active layer, or the current multi-select from LayerPanel — background
   // is never a legal transform target, same as merge/delete (#120).
@@ -6014,6 +6109,14 @@ export function Room() {
       useRoomStore.getState().setRoomFrozen(frozen)
     }
 
+    // (#548) The owner changed which tools this room offers. Broadcast to
+    // everyone including them, because the effect is local and immediate on
+    // every screen: the buttons go, and a hand holding one of the withdrawn
+    // tools has to be given something else (see the effect near selectTool).
+    const handleRoomToolsChanged = ({ enabledTools: next }: { enabledTools?: ToggleableTool[] }) => {
+      useRoomStore.getState().setRoomEnabledTools(next)
+    }
+
     // (#222) Closed-for-editing toggled by the owner, from here or from the
     // lesson list. The point of the event is that someone mid-lesson finds
     // out when it happens rather than on the rejection of their next stroke.
@@ -6087,6 +6190,7 @@ export function Room() {
     socket.on('peer_stroke_live_end',       handlePeerStrokeLiveEnd)
     socket.on('palette_updated',            handlePaletteUpdated)
     socket.on('room_frozen_changed',        handleRoomFrozenChanged)
+    socket.on('room_tools_changed',         handleRoomToolsChanged)
     socket.on('room_closed_changed',        handleRoomClosedChanged)
     socket.on('participant_frozen_changed', handleParticipantFrozenChanged)
     socket.on('join_request_created',       handleJoinRequestCreated)
@@ -6345,6 +6449,7 @@ export function Room() {
       if (is('toggleMarker')) { toggleTool('marker'); return }
       if (is('toggleBrushPen')) { toggleTool('brushPen'); return }
       if (is('toggleWatercolor')) { toggleTool('watercolor'); return }
+      if (is('toggleDigitalBrush')) { toggleTool('digitalBrush'); return }
       // (#405) The four that used to be modes, selected through the same
       // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
       if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
@@ -6781,7 +6886,13 @@ export function Room() {
       {/* (#230) roomId/isOwner are what the Access tab needs; the panel shows
           it only when both are present. */}
       {settingsOpen && (
-        <SettingsPanel onClose={() => setSettingsOpen(false)} roomId={id} isOwner={isOwner} />
+        <SettingsPanel
+          onClose={() => setSettingsOpen(false)}
+          roomId={id}
+          isOwner={isOwner}
+          enabledTools={enabledTools}
+          onEnabledToolsChange={setRoomTools}
+        />
       )}
 
       <div className={styles.body}>
@@ -6813,73 +6924,107 @@ export function Room() {
           {/* The gradeHotkeyLabels keys step the pencil's hardness along the
               6H..6B ladder; [ / ] resize whichever tool is active (handled by
               the quick-settings panel to the right, not here). */}
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
-            title={t('tool.pencilTitle', { hotkeys: gradeHotkeyLabels })}
-            aria-label={t('tool.pencil')}
-            onClick={() => selectTool('pencil')}
-          ><Icon name="edit" /></button>
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
-            title={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
-            aria-label={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
-            onClick={() => selectTool('eraser')}
-          ><Icon name="ink_eraser" /></button>
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
-            title={t('tool.smudgeTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSmudge) })}
-            aria-label={t('tool.smudge')}
-            onClick={() => selectTool('smudge')}
-          ><Icon name="smudge" /></button>
+          {toolOffered('pencil') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
+              title={t('tool.pencilTitle', { hotkeys: gradeHotkeyLabels })}
+              aria-label={t('tool.pencil')}
+              onClick={() => selectTool('pencil')}
+            ><Icon name="edit" /></button>
+          )}
+          {toolOffered('eraser') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
+              title={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
+              aria-label={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
+              onClick={() => selectTool('eraser')}
+            ><Icon name="ink_eraser" /></button>
+          )}
+          {toolOffered('smudge') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
+              title={t('tool.smudgeTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSmudge) })}
+              aria-label={t('tool.smudge')}
+              onClick={() => selectTool('smudge')}
+            ><Icon name="smudge" /></button>
+          )}
           {/* Charcoal (#304, ADR 005) — its own material, not a soft black
               pencil: three types (vine/willow/compressed) selected through
               the quick-settings panel to the right, the same way the pencil's
               6H-6B grade is, rather than as three toolbar buttons. */}
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'charcoal' && styles.toolIconBtnActive)}
-            title={t('tool.charcoalTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleCharcoal) })}
-            aria-label={t('tool.charcoal')}
-            onClick={() => selectTool('charcoal')}
-          ><Icon name="charcoal" /></button>
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
-            title={t('tool.linerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleLiner) })}
-            aria-label={t('tool.liner')}
-            onClick={() => selectTool('liner')}
-          ><Icon name="stylus" /></button>
+          {toolOffered('charcoal') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'charcoal' && styles.toolIconBtnActive)}
+              title={t('tool.charcoalTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleCharcoal) })}
+              aria-label={t('tool.charcoal')}
+              onClick={() => selectTool('charcoal')}
+            ><Icon name="charcoal" /></button>
+          )}
+          {toolOffered('liner') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
+              title={t('tool.linerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleLiner) })}
+              aria-label={t('tool.liner')}
+              onClick={() => selectTool('liner')}
+            ><Icon name="stylus" /></button>
+          )}
           {/* Marker (#252, ADR 004) — UI/toolbar plumbing only; the actual
               bullet/chisel dab shaping and multiply compositing are separate
               in-flight engine sub-issues (#249-251), so this renders however
               the engine's current unrecognized-preset fallback handles it
               (a flat HB pencil dab) until those land — see markerSchema's
               own doc comment in toolSchemas.ts. */}
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'marker' && styles.toolIconBtnActive)}
-            title={t('tool.markerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleMarker) })}
-            aria-label={t('tool.marker')}
-            onClick={() => selectTool('marker')}
-          ><Icon name="ink_highlighter" /></button>
+          {toolOffered('marker') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'marker' && styles.toolIconBtnActive)}
+              title={t('tool.markerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleMarker) })}
+              aria-label={t('tool.marker')}
+              onClick={() => selectTool('marker')}
+            ><Icon name="ink_highlighter" /></button>
+          )}
           {/* Brush pen (#454, ADR 009) — a flexible ink nib whose width follows
               pressure. Sits next to the liner deliberately: the two are the
               opposite halves of the same material (liner for a controlled,
               constant line; this for an expressive one), which is the pairing
               a user picking between them is actually making. */}
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'brushPen' && styles.toolIconBtnActive)}
-            title={t('tool.brushPenTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleBrushPen) })}
-            aria-label={t('tool.brushPen')}
-            onClick={() => selectTool('brushPen')}
-          ><Icon name="brush" /></button>
+          {toolOffered('brushPen') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'brushPen' && styles.toolIconBtnActive)}
+              title={t('tool.brushPenTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleBrushPen) })}
+              aria-label={t('tool.brushPen')}
+              onClick={() => selectTool('brushPen')}
+            ><Icon name="brush" /></button>
+          )}
           {/* Watercolor (#468, ADR 011) — an experiment, and the only tool in
               this bar that is not in docs/TOOLSET.md. Last of the drawing
               tools deliberately: it is the one wet medium here, and grouping
               it after the dry ones is the order a real desk is laid out in. */}
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'watercolor' && styles.toolIconBtnActive)}
-            title={t('tool.watercolorTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleWatercolor) })}
-            aria-label={t('tool.watercolor')}
-            onClick={() => selectTool('watercolor')}
-          ><Icon name="water_drop" /></button>
+          {toolOffered('watercolor') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'watercolor' && styles.toolIconBtnActive)}
+              title={t('tool.watercolorTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleWatercolor) })}
+              aria-label={t('tool.watercolor')}
+              onClick={() => selectTool('watercolor')}
+            ><Icon name="water_drop" /></button>
+          )}
+          {/* Digital brush (#547, ADR 013) — last, and after the divider in
+              spirit if not in markup: everything above it imitates a material
+              you could pick up off a desk, and this one imitates nothing. It is
+              deliberately not next to the brush pen despite the shared word in
+              the name — they are the pair most easily confused, and adjacency
+              would invite reading them as two settings of one thing.
+              Behind the room's own toolset (#548) like every other material
+              tool: a teacher who has switched the brush off for a graphite
+              lesson means it, and this button has no more right to ignore that
+              than the watercolor one above. */}
+          {toolOffered('digitalBrush') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'digitalBrush' && styles.toolIconBtnActive)}
+              title={t('tool.digitalBrushTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleDigitalBrush) })}
+              aria-label={t('tool.digitalBrush')}
+              onClick={() => selectTool('digitalBrush')}
+            ><Icon name="format_paint" /></button>
+          )}
 
           <div className={styles.toolDivider} />
 
@@ -6892,13 +7037,15 @@ export function Room() {
               needed a paragraph to explain, and the reason it looked wrong is
               that two things were on at once, which is precisely what #405
               set out to remove everywhere else. */}
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'hand' && styles.toolIconBtnActive)}
-            title={t('tool.handTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleHand) })}
-            aria-label={t('tool.hand')}
-            aria-pressed={tool === 'hand'}
-            onClick={() => selectTool('hand')}
-          ><Icon name="pan_tool" /></button>
+          {toolOffered('hand') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'hand' && styles.toolIconBtnActive)}
+              title={t('tool.handTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleHand) })}
+              aria-label={t('tool.hand')}
+              aria-pressed={tool === 'hand'}
+              onClick={() => selectTool('hand')}
+            ><Icon name="pan_tool" /></button>
+          )}
 
           {/* (#405) The four tools below the divider select like every button
               above it — one tool is in hand at a time, and pressing the same
@@ -6910,53 +7057,63 @@ export function Room() {
               the tool it hands back to, and opens the ColorPicker tab of the
               unified right-side SidePanel (see .layerPanelWrap below) to
               refine it. */}
-          <button
-            className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
-            title={t('tool.eyedropperTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEyedropper) })}
-            aria-label={t('tool.eyedropper')}
-            aria-pressed={eyedropperActive}
-            onClick={() => selectTool('eyedropper')}
-          ><Icon name="colorize" /></button>
-          <button
-            className={clsx(styles.toolIconBtn, rulerActive && styles.toolIconBtnActive)}
-            title={t('tool.rulerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleRuler) })}
-            aria-label={t('tool.ruler')}
-            aria-pressed={rulerActive}
-            onClick={() => selectTool('ruler')}
-          ><Icon name="square_foot" /></button>
-          <button
-            className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
-            title={t('tool.transformTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleTransform) })}
-            aria-label={t('tool.transform')}
-            aria-pressed={transformActive}
-            // (#405) Stays clickable while it is the selected tool even with
-            // nothing to transform — see the hotkey's own note: disabling the
-            // only way out of a tool is how you get stuck in it.
-            disabled={!transformActive && transformTargetIds.length === 0}
-            onClick={() => selectTool('transform')}
-          ><Icon name="free-transform" /></button>
+          {toolOffered('eyedropper') && (
+            <button
+              className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
+              title={t('tool.eyedropperTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEyedropper) })}
+              aria-label={t('tool.eyedropper')}
+              aria-pressed={eyedropperActive}
+              onClick={() => selectTool('eyedropper')}
+            ><Icon name="colorize" /></button>
+          )}
+          {toolOffered('ruler') && (
+            <button
+              className={clsx(styles.toolIconBtn, rulerActive && styles.toolIconBtnActive)}
+              title={t('tool.rulerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleRuler) })}
+              aria-label={t('tool.ruler')}
+              aria-pressed={rulerActive}
+              onClick={() => selectTool('ruler')}
+            ><Icon name="square_foot" /></button>
+          )}
+          {toolOffered('transform') && (
+            <button
+              className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
+              title={t('tool.transformTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleTransform) })}
+              aria-label={t('tool.transform')}
+              aria-pressed={transformActive}
+              // (#405) Stays clickable while it is the selected tool even with
+              // nothing to transform — see the hotkey's own note: disabling the
+              // only way out of a tool is how you get stuck in it.
+              disabled={!transformActive && transformTargetIds.length === 0}
+              onClick={() => selectTool('transform')}
+            ><Icon name="free-transform" /></button>
+          )}
           {/* (#446) Next to transform because that is what it is for: mark a
               region, then move it with the gizmo. Never disabled — with
               nothing selectable the gestures simply do not start, and a
               disabled tool button is a dead end rather than an explanation. */}
-          <button
-            className={clsx(styles.toolIconBtn, selectionActive && styles.toolIconBtnActive)}
-            title={t('tool.selectionTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSelection) })}
-            aria-label={t('tool.selection')}
-            aria-pressed={selectionActive}
-            onClick={() => selectTool('selection')}
-          ><Icon name="highlight_alt" /></button>
+          {toolOffered('selection') && (
+            <button
+              className={clsx(styles.toolIconBtn, selectionActive && styles.toolIconBtnActive)}
+              title={t('tool.selectionTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSelection) })}
+              aria-label={t('tool.selection')}
+              aria-pressed={selectionActive}
+              onClick={() => selectTool('selection')}
+            ><Icon name="highlight_alt" /></button>
+          )}
           {/* (#453) Next to the selection rather than among the brushes: it
               addresses a region and stamps pixels into it, which is what the
               two tools beside it do. It is not a brush and does not emit a
               stroke (see NON_DRAWING_TOOLS). */}
-          <button
-            className={clsx(styles.toolIconBtn, fillActive && styles.toolIconBtnActive)}
-            title={t('tool.fill')}
-            aria-label={t('tool.fill')}
-            aria-pressed={fillActive}
-            onClick={() => selectTool('fill')}
-          ><Icon name="format_color_fill" /></button>
+          {toolOffered('fill') && (
+            <button
+              className={clsx(styles.toolIconBtn, fillActive && styles.toolIconBtnActive)}
+              title={t('tool.fill')}
+              aria-label={t('tool.fill')}
+              aria-pressed={fillActive}
+              onClick={() => selectTool('fill')}
+            ><Icon name="format_color_fill" /></button>
+          )}
 
           {/* (#525) The shape tool, next to the fill for the same reason the
               fill sits next to the selection: it is not a brush, and it puts a
@@ -6987,13 +7144,15 @@ export function Room() {
               it stay up under every other tool. Selecting it currently does
               nothing but put those settings on screen — the grid has no canvas
               gesture of its own until #406 gives it move and rotate. */}
-          <button
-            className={clsx(styles.toolIconBtn, tool === 'grid' && styles.toolIconBtnActive)}
-            title={t('tool.gridTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleGrid) })}
-            aria-label={t('tool.grid')}
-            aria-pressed={tool === 'grid'}
-            onClick={() => selectTool('grid')}
-          ><Icon name="grid_on" /></button>
+          {toolOffered('grid') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'grid' && styles.toolIconBtnActive)}
+              title={t('tool.gridTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleGrid) })}
+              aria-label={t('tool.grid')}
+              aria-pressed={tool === 'grid'}
+              onClick={() => selectTool('grid')}
+            ><Icon name="grid_on" /></button>
+          )}
           </>)}
           {/* (#512) The hand, in the compact shell only — its full-layout twin
               is inside the block above. Here it is not a convenience but the
@@ -7002,7 +7161,7 @@ export function Room() {
               and two fingers is a lot to ask for "move the page a bit". Picking
               up the hand gives the finger back to the canvas, because with no
               annotation tool selected nothing reserves it. */}
-          {compact && (
+          {compact && toolOffered('hand') && (
             <button
               className={clsx(styles.toolIconBtn, tool === 'hand' && styles.toolIconBtnActive)}
               title={t('tool.hand')}
@@ -7756,7 +7915,10 @@ export function Room() {
           tool={floatingSlotTool}
           recentDrawingTools={recentDrawingTools}
           recentSecondaryTools={recentSecondaryTools}
-          onSetTool={setTool}
+          // (#548) selectTool, not the raw store setter: it is the gate that
+          // refuses a tool the room does not offer, and a slot assigned before
+          // that happened is exactly the path with no button to hide.
+          onSetTool={selectTool}
           onUndo={handleUndo}
           onRedo={handleRedo}
           primaryColor={colorToolColor}
@@ -7767,6 +7929,7 @@ export function Room() {
           position={panelPosition}
           onPositionChange={setPanelPosition}
           containerRef={editorRef}
+          enabledTools={enabledTools}
           // (#512) Never in the compact shell, and this is the one place the
           // shell had to say so twice. The panel is a *replacement* toolkit —
           // its whole purpose is to hand you the drawing tools when the

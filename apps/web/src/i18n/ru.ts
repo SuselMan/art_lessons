@@ -112,6 +112,16 @@ export const ru: Dictionary = {
   'create.error.customSize': 'Свой размер — от 100 до 4096 пикселей',
   'create.error.invalidInvite': '«{email}» не похоже на адрес почты',
 
+  // (#548) Форма разделена на три вкладки.
+  'create.tab.general': 'Проект',
+  'create.tab.access': 'Доступ',
+  'create.tab.tools': 'Инструменты',
+  'create.summary.password.on': 'с паролем',
+  'create.summary.password.off': 'без пароля',
+  'create.summary.invites': 'в списке: {n}',
+  'create.summary.toolsAll': 'все инструменты',
+  'create.summary.tools': 'инструментов: {n} из {total}',
+
   // ── лексика выбора бумаги ──────────────────────────────────────────────
   'paper.coarseness.coarse': 'Крупная',
   'paper.coarseness.coarse.desc': 'Выраженное зерно',
@@ -397,6 +407,16 @@ export const ru: Dictionary = {
   'tool.linerTitle': 'Линер — чернильная ручка, почти постоянная толщина линии  {hotkey}',
   'tool.marker': 'Маркер',
   'tool.markerTitle': 'Маркер — два наконечника (круглый/скошенный)  {hotkey}',
+  'tool.digitalBrush': 'Цифровая кисть',
+  'tool.digitalBrushTitle': 'Цифровая кисть — от мягкой до жёсткой круглой; единственный инструмент здесь, который не изображает настоящий материал  {hotkey}',
+  'tool.field.brush': 'Кисть',
+  'tool.field.flowFromPressure': 'Нажим меняет плотность',
+  'tool.brush.softRound': 'Мягкая круглая',
+  'tool.brush.mediumRound': 'Средняя круглая',
+  'tool.brush.hardRound': 'Жёсткая круглая',
+  'tool.brush.inkRound': 'Тушевая круглая',
+  'tool.brush.opaquePaint': 'Кроющая',
+  'tool.brush.flat': 'Плоская',
   'tool.brushPen': 'Перо',
   'tool.brushPenTitle': 'Перо — гибкий наконечник, толщина линии идёт за нажимом  {hotkey}',
   'tool.field.pigmentCode': 'Краска',
@@ -599,6 +619,19 @@ export const ru: Dictionary = {
 
   // ── настройки редактора ────────────────────────────────────────────────
   'editorSettings.title': 'Настройки',
+  // ── (#548) набор инструментов комнаты ──────────────────────────────
+  'toolset.group.materials': 'Материалы',
+  'toolset.group.secondary': 'По нарисованному',
+  'toolset.group.utility': 'Вспомогательные',
+  'toolset.selected': 'Включено: {n} из {total}',
+  'toolset.enableAll': 'Включить всё',
+  'toolset.lastMaterial':
+    'Хотя бы один рисующий инструмент должен остаться — иначе в проекте нечем рисовать.',
+  'toolset.hint':
+    'Набор один для всех участников, включая вас. Изменить можно позже в настройках проекта.',
+  'toolset.withdrawn': 'Этот инструмент больше не предлагается в этом проекте',
+  'editorSettings.tab.tools': 'Инструменты',
+
   'editorSettings.tab.general': 'Основные',
   'editorSettings.tab.access': 'Доступ',
   'editorSettings.tab.hotkeys': 'Горячие клавиши',
@@ -673,6 +706,7 @@ export const ru: Dictionary = {
   'hotkey.toggleMarker': 'Переключить маркер / карандаш',
   'hotkey.toggleBrushPen': 'Переключить перо / карандаш',
   'hotkey.toggleWatercolor': 'Переключить акварель / карандаш',
+  'hotkey.toggleDigitalBrush': 'Переключить цифровую кисть / карандаш',
   'hotkey.toggleEyedropper': 'Переключить пипетку',
   'hotkey.toggleRuler': 'Переключить линейку',
   'hotkey.toggleSelection': 'Переключить выделение',

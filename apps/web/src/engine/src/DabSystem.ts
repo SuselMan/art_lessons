@@ -192,7 +192,7 @@ export class DabSystem {
    * Only ever *tightens* the step (footprintDabSpacing takes a min against the
    * nominal rule), so switching it on cannot make any existing mark sparser.
    */
-  footprint: { sizeScale: number; hardness: number } | null = null
+  footprint: { sizeScale: number; hardness: number; spacingStrength?: number } | null = null
 
   /**
    * #489 — the scallop bound on its own, for a tool that wants that and not the
@@ -840,6 +840,9 @@ export class DabSystem {
       {
         size: dab.size, aspectRatio: dab.aspectRatio,
         sizeScale, hardness: fp?.hardness ?? 1,
+        // #547 — undefined for every tool but the digital brush, which leaves
+        // the hardness gate deciding exactly as it did before.
+        spacingStrength: fp?.spacingStrength,
       },
       baseSize, this.spacingFactor, maxSpacing,
       { footprint: fp !== null, scallop: sc !== null },

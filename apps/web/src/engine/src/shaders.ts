@@ -942,6 +942,60 @@ export const DAB_FRAG = `
       return;
     }
 
+    // u_inkMode=10 (#547, ADR 013 §4) — the digital brush's coverage stamp.
+    //
+    // The one genuinely new piece of rendering this tool needed. Mode 6 above
+    // draws the ribbon's *rigid nib*: a flat disc with a fixed one-pixel ramp,
+    // which is right for a felt tip and useless as a brush, because the whole
+    // difference between a soft brush and a hard one lives in that ramp.
+    //
+    // Two things this deliberately does not do:
+    //
+    //  - it does not touch mode 6, so the marker, the brush pen and watercolor
+    //    cannot regress by side effect. A shared branch "with a hardness term"
+    //    would have been smaller and would have put three shipped tools at the
+    //    mercy of this one's tuning;
+    //  - it reads no paper. This mark is not ink soaking into a sheet and not
+    //    graphite catching on tooth (ADR 013 §8) — its texture is the brush's
+    //    own, and in v1 there is none.
+    //
+    // Bounded band rather than an open ">" like the composite branches below:
+    // 10.0 would satisfy both "> 8.5" (watercolor) and "> 7.5" (brush pen), and
+    // a stamp that fell through into a composite would write finished pixels
+    // into the coverage buffer.
+    if (u_inkMode > 9.5 && u_inkMode < 10.5) {
+      // Normalized radius: v_localUV is the dab's own frame, 1.0 at the
+      // boundary, so this is scale-free and an ellipse comes out as one.
+      float d = length(v_localUV);
+      if (d >= 1.0) discard;
+
+      // The ramp is a fraction of the *mark*, not an absolute width, which is
+      // the difference between an edge that belongs to a tip and one that
+      // belongs to a brush: a soft 200px brush has to have a 200px-scale
+      // falloff. u_aaPx enters only as the floor, so the hardest brush in the
+      // set still antialiases rather than drawing a jagged disc — see
+      // DIGITAL_BRUSH_MIN_AA_PX.
+      float aaNorm = clamp(u_aaPx / max(v_radius, 1e-4), 0.004, 0.9);
+      float inner = min(u_hardness, 1.0 - aaNorm);
+      float mask = 1.0 - smoothstep(inner, 1.0, d);
+
+      // v_opacity carries this dab's **flow**, not the stroke's opacity — the
+      // engine passes digitalBrushFlow() here (ADR 013 §3). The two must not be
+      // collapsed: flow accumulates through this buffer's own source-over blend
+      // and saturates, while opacity is applied once, later, by the composite
+      // over the frozen pre-stroke layer. Collapse them and every place a
+      // stroke crosses itself comes out darker than the rest of it, which is
+      // the single most recognisable flaw of a hand-rolled digital brush.
+      float amount = mask * v_opacity;
+      if (amount <= 0.0) discard;
+      // Premultiplied, against ONE/ONE_MINUS_SRC_ALPHA (AccumulationBuffer's
+      // beginDraw) — so repeated stamps accumulate as textbook "over" and
+      // approach 1.0 without ever passing it. No clamp needed anywhere, which
+      // is why this needs no additive pass of its own.
+      gl_FragColor = vec4(vec3(amount), amount);
+      return;
+    }
+
     float dist = length(v_localUV);
     // #452: v_wick is 0 for every tool but the liner, so this is the exact
     // "dist > 1.0" cutoff it has always been everywhere else. Only the liner

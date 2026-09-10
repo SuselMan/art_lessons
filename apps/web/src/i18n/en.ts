@@ -139,6 +139,21 @@ export const en = {
   'create.error.customSize': 'Custom size must be between 100 and 4096 pixels',
   'create.error.invalidInvite': "“{email}” doesn't look like an email address",
 
+  // (#548) The form is three tabs, not one column: paper and size are the
+  // decision people actually came to make, and access and the toolset are two
+  // separate ones that used to stretch the page past what it could hold.
+  'create.tab.general': 'Project',
+  'create.tab.access': 'Access',
+  'create.tab.tools': 'Tools',
+  // Summary rows on the first tab. A tab nobody opens is a setting nobody
+  // knows exists, so the first tab keeps saying what the other two currently
+  // hold — and each row is the way in.
+  'create.summary.password.on': 'with a password',
+  'create.summary.password.off': 'no password',
+  'create.summary.invites': 'invited: {n}',
+  'create.summary.toolsAll': 'all tools',
+  'create.summary.tools': '{n} of {total} tools',
+
   // ── paper picker vocabulary ────────────────────────────────────────────
   // Two axes (how much tooth × what the fibre looks like) plus `flat`, the
   // end stop of the tooth axis. The `.grain` forms are the lowercase noun
@@ -510,6 +525,16 @@ export const en = {
   'tool.watercolorMix.wet': 'Wet',
   'tool.watercolor': 'Watercolor',
   'tool.watercolorTitle': 'Watercolor \u2014 transparent wash; glaze a second pass over a dry one to deepen it  {hotkey}',
+  'tool.digitalBrush': 'Digital brush',
+  'tool.digitalBrushTitle': 'Digital brush — soft to hard round brushes; the only tool here that imitates no real material  {hotkey}',
+  'tool.field.brush': 'Brush',
+  'tool.field.flowFromPressure': 'Pressure changes density',
+  'tool.brush.softRound': 'Soft round',
+  'tool.brush.mediumRound': 'Medium round',
+  'tool.brush.hardRound': 'Hard round',
+  'tool.brush.inkRound': 'Ink round',
+  'tool.brush.opaquePaint': 'Opaque paint',
+  'tool.brush.flat': 'Flat',
   'tool.brushPen': 'Brush pen',
   'tool.brushPenTitle': 'Brush pen — flexible ink nib; line width follows your pressure  {hotkey}',
   'tool.hand': 'Hand',
@@ -732,6 +757,23 @@ export const en = {
 
   // ── editor settings panel (#174 hotkeys tab, #321 general/access tabs) ──
   'editorSettings.title': 'Settings',
+  // ── (#548) room toolset ────────────────────────────────────────────────
+  // Which tools a project offers. Shown on the creation form and in the
+  // project's own settings — the same picker, so one vocabulary.
+  'toolset.group.materials': 'Materials',
+  'toolset.group.secondary': 'Working the marks',
+  'toolset.group.utility': 'Utilities',
+  'toolset.selected': 'Enabled: {n} of {total}',
+  'toolset.enableAll': 'Enable all',
+  'toolset.lastMaterial': 'At least one material has to stay — a project nobody can draw in is a closed one.',
+  'toolset.hint':
+    'Everyone in the project sees the same tools, you included. You can change this later in the project settings.',
+  // Said when the tool in someone's hand stops being offered. Neutral about
+  // who did it: the owner sees this too, and "the teacher turned it off"
+  // would be a lie on their own screen.
+  'toolset.withdrawn': 'That tool is no longer offered here',
+  'editorSettings.tab.tools': 'Tools',
+
   'editorSettings.tab.general': 'General',
   'editorSettings.tab.access': 'Access',
   'editorSettings.tab.hotkeys': 'Hotkeys',
@@ -809,6 +851,7 @@ export const en = {
   'hotkey.toggleMarker': 'Toggle marker / pencil',
   'hotkey.toggleBrushPen': 'Toggle brush pen / pencil',
   'hotkey.toggleWatercolor': 'Toggle watercolor / pencil',
+  'hotkey.toggleDigitalBrush': 'Toggle digital brush / pencil',
   'hotkey.toggleEyedropper': 'Toggle eyedropper',
   'hotkey.toggleRuler': 'Toggle ruler',
   'hotkey.toggleTransform': 'Toggle transform',

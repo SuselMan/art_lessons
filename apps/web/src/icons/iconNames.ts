@@ -20,6 +20,11 @@ export const MATERIAL_ICON_NAMES = [
   'add_photo_alternate',
   'block',
   'brush',
+  // #547 — the digital brush. 'brush' is the brush pen's, and the two must not
+  // share a glyph: they sit next to each other in the bar and are the pair a
+  // user is most likely to confuse (one imitates a nib, the other imitates
+  // nothing).
+  'format_paint',
   'change_history',
   'check',
   'circle',

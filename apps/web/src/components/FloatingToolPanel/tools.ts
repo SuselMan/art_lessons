@@ -21,7 +21,9 @@ import type { IconName } from '../../icons/iconNames'
  *  Still named as a set of its own even though every slot can now hold any
  *  tool, because the `drawing` role resolves into exactly this set — it is
  *  what "whichever one I was last drawing with" ranges over. */
-export const FLOATING_PRIMARY_TOOLS = ['pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor'] as const
+export const FLOATING_PRIMARY_TOOLS = [
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'digitalBrush',
+] as const
 
 export type FloatingPrimaryTool = (typeof FLOATING_PRIMARY_TOOLS)[number]
 
@@ -86,6 +88,7 @@ export const TOOL_DISPLAY: Record<FloatingPanelTool, ToolFace> = {
   marker: { icon: 'ink_highlighter', labelKey: 'tool.marker' },
   brushPen: { icon: 'brush', labelKey: 'tool.brushPen' },
   watercolor: { icon: 'water_drop', labelKey: 'tool.watercolor' },
+  digitalBrush: { icon: 'format_paint', labelKey: 'tool.digitalBrush' },
   eraser: { icon: 'ink_eraser', labelKey: 'tool.eraser' },
   smudge: { icon: 'smudge', labelKey: 'tool.smudge' },
   eyedropper: { icon: 'colorize', labelKey: 'tool.eyedropper' },

@@ -31,6 +31,12 @@ function imagesFor(tool: string): Record<string, string> {
 export const PENCIL_GRADE_IMAGES = imagesFor('pencil')
 export const CHARCOAL_TYPE_IMAGES = imagesFor('charcoal')
 
+/** (#547) Unlike the two above, these are not photographs of a real stroke on
+ *  real paper — there is no such thing for this tool. They are the engine's own
+ *  output, baked by scripts/bakeBrushSamples.ts, which is the only picture of a
+ *  digital brush that cannot quietly stop being true. */
+export const DIGITAL_BRUSH_IMAGES = imagesFor('digitalBrush')
+
 /** Marker nibs deliberately get icons instead (see markerSchema) — the two
  *  differ in tip *shape*, which a photographed stroke shows far worse than a
  *  drawn glyph does. The sample strokes still exist under

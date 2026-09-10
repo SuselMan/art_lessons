@@ -1,0 +1,40 @@
+<meta charset="utf-8" />
+<title>Grafetto — карта архитектуры</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>/*__CSS__*/</style>
+
+<header>
+  <span class="brand">Grafetto · карта архитектуры</span>
+  <div class="tabs">
+    <button data-tab="structure" aria-selected="true">Структура</button>
+    <button data-tab="flows" aria-selected="false">Потоки</button>
+    <button data-tab="health" aria-selected="false">Здоровье</button>
+  </div>
+  <div class="chips">
+    <button class="chip" data-metric="size" aria-pressed="true">размер</button>
+    <button class="chip" data-metric="tests" aria-pressed="false">тесты</button>
+    <button class="chip" data-metric="churn" aria-pressed="false">правки</button>
+    <button class="chip" data-metric="debt" aria-pressed="false">долг</button>
+  </div>
+  <span class="spacer"></span>
+  <input id="search" type="search" placeholder="Найти модуль или файл  ( / )" />
+  <span class="stamp">__STAMP__</span>
+</header>
+
+<main>
+  <div class="view" id="view-structure" data-active="true">
+    <svg id="graph"></svg>
+    <div class="filters">
+      <span id="filter-count"></span>
+      <button class="chip" id="filter-keep" hidden></button>
+      <button class="chip" id="filter-reset" hidden>показать всё</button>
+    </div>
+    <div class="hint">колесо — масштаб · тянуть — панорама · двойной клик — вписать · клик по заголовку слоя — свернуть</div>
+  </div>
+  <div class="view" id="view-flows"></div>
+  <div class="view" id="view-health"></div>
+  <aside id="panel" class="empty"></aside>
+</main>
+
+<script>window.__ARCH__ = /*__DATA__*/null;</script>
+<script>/*__JS__*/</script>
