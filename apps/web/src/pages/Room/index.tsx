@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
   JoinDenial, AnnotationShape,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, toWireMatrix, unpackDabs, type ToggleableTool } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, toWireMatrix, unpackDabs, type ToggleableTool } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
@@ -29,7 +29,10 @@ import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialo
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
-import { isFloatingPanelTool } from '../../components/FloatingToolPanel/tools'
+import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
+import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
+import { ToolGroupButton } from '../../components/ToolGroupButton'
+import type { PickerOption } from '../../components/OptionPicker/types'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import {
   computeCompositeOrder, eraseThroughTargets, isEffectivelyVisible, isLayerLocked, isLockedAgainst,
@@ -113,10 +116,11 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
-  isShapeTool, toolColorField,
+  isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
 } from './toolSchemas'
 import { colorWellState, effectiveSwatch } from './colorWell'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
+import { TOOL_PHOTOS } from './toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
 import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
@@ -132,7 +136,10 @@ import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError, notifyWarning } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
-import { isDrawingTool, type EditorTool } from '../../stores/slices/toolSlice'
+import {
+  isDrawingTool, isPrimaryDrawingTool, PRIMARY_DRAWING_TOOLS,
+  type EditorTool, type PrimaryDrawingTool,
+} from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
 import { useClipboardStore, readClipboard, writeClipboard } from '../../stores/clipboardStore'
@@ -2899,31 +2906,93 @@ export function Room() {
     onToggleActive: toggleActiveShapeSwatch,
   } : undefined
   // FloatingToolPanel (#157) is an eight-slot compass the user lays out
-  // themselves: any slot holds any tool the left toolbar holds, or undo/redo,
-  // or nothing. Two of the entries are *roles* rather than tools — the drawing
-  // tool and the eraser/smudge/eyedropper you have no button for — which is
-  // what the panel's fixed top and bottom slots already were, and what the
-  // default layout still puts there.
+  // themselves: any slot holds a tool, one of the two groups, undo/redo, or
+  // nothing.
   //
-  // The whole recency lists go down rather than just their heads: a role skips
-  // anything the layout already pins to a slot of its own, so resolving one
-  // needs the order, and it needs the layout — both of which the panel has and
-  // this file does not. See pickRoleTool in FloatingToolPanel/slots.ts.
-  const storedRecentDrawingTools = useRoomStore(s => s.recentDrawingTools)
-  const storedRecentSecondaryTools = useRoomStore(s => s.recentSecondaryTools)
-  // (#548) What the floating panel's two *roles* are allowed to resolve to.
-  // Filtered here rather than in the store: the store remembers what this
-  // person actually drew with, which is a fact about them and outlives any one
-  // room's toolset — a room that switches the marker back on should find it
-  // still remembered in the right place, not pushed to the end of the list.
-  const recentDrawingTools = useMemo(
-    () => storedRecentDrawingTools.filter(toolOffered),
-    [storedRecentDrawingTools, toolOffered],
+  // (#544) It used to hold *roles* instead of groups — "the drawing tool you
+  // have no button for", "the eraser/smudge/eyedropper you have no button
+  // for" — and they are gone. A role could only ever hand back a tool you had
+  // already picked somewhere else, which on a tablet in minimal UI, with no
+  // rail and no hotkeys, means it could not reach a material you had not
+  // touched this session. A group reaches all of them, and does it without a
+  // slot whose meaning changes under you. `recentSecondaryTools` and
+  // `lastSecondaryTool` left the store with the secondary role: it was the
+  // only thing that ever read them.
+  //
+  // (#544) The three things the rail's one drawing button needs.
+  //
+  // `drawingGroupTool` is what the button wears and what a plain tap takes.
+  // It follows `lastDrawingTool` — the last *material* in hand, which the
+  // store already maintains and which every route to a material updates, the
+  // hotkeys and the floating panel included — so the rail cannot disagree with
+  // the hand. The fallback covers the one case that can: a room whose toolset
+  // no longer offers what this person last drew with (#548). The button then
+  // shows what the room does offer rather than a material it has withdrawn.
+  const drawingGroupOptions = useMemo<PickerOption[]>(
+    () => PRIMARY_DRAWING_TOOLS.filter(toolOffered).map(id => ({
+      value: id,
+      label: t(TOOL_DISPLAY[id].labelKey),
+      photo: TOOL_PHOTOS[id],
+    })),
+    [toolOffered, t],
   )
-  const recentSecondaryTools = useMemo(
-    () => storedRecentSecondaryTools.filter(toolOffered),
-    [storedRecentSecondaryTools, toolOffered],
+  const drawingGroupTool = useMemo<PrimaryDrawingTool>(
+    () => (toolOffered(lastDrawingTool)
+      ? lastDrawingTool
+      : (drawingGroupOptions[0]?.value as PrimaryDrawingTool) ?? 'pencil'),
+    [lastDrawingTool, toolOffered, drawingGroupOptions],
   )
+  // Lit when any material is in hand — not when `tool` happens to equal the
+  // one the button is wearing. The eraser and the smudge are their own buttons
+  // beside it and must not light this one.
+  const drawingGroupActive = isPrimaryDrawingTool(tool)
+  // (#544) The same three things for the shapes, with one difference that
+  // matters: these options are values of one tool's `kind` setting, not tools.
+  // The chooser therefore reads and writes the setting — and the labels and
+  // icons come from that setting's own schema, so the rail cannot come to
+  // disagree with the settings panel about what a polystar is called.
+  const shapeKind = shapeKindOf(toolSettings)
+  const shapeKindOptions = useMemo<PickerOption[]>(
+    () => SHAPE_KINDS.map(kind => ({
+      value: kind,
+      label: t(SHAPE_KIND_LABEL_KEYS[kind]),
+      icon: SHAPE_KIND_ICONS[kind],
+    })),
+    [t],
+  )
+  // (#544) The same two groups again, in the shape the floating panel wants
+  // them. Built from the values above rather than beside them, so the panel
+  // and the rail cannot come to disagree about what is in hand — which is the
+  // whole reason the panel stopped keeping its own answer (a role) in the
+  // first place.
+  //
+  // The shape group is empty when the room does not offer shapes; the panel
+  // reads that as "withdrawn" and draws the slot dim. The drawing group can
+  // never be empty — a toolset always keeps one material.
+  const panelGroups = useMemo<PanelGroups>(() => ({
+    drawing: {
+      tool: drawingGroupTool,
+      icon: TOOL_DISPLAY[drawingGroupTool].icon,
+      value: drawingGroupTool,
+      members: drawingGroupOptions.map(option => ({
+        value: option.value,
+        label: option.label,
+        icon: TOOL_DISPLAY[option.value as PrimaryDrawingTool].icon,
+      })),
+    },
+    shape: {
+      tool: 'shape',
+      icon: SHAPE_KIND_ICONS[shapeKind],
+      value: shapeKind,
+      members: toolOffered('shape')
+        ? shapeKindOptions.map(option => ({
+          value: option.value,
+          label: option.label,
+          icon: option.icon ?? 'shapes',
+        }))
+        : [],
+    },
+  }), [drawingGroupTool, drawingGroupOptions, shapeKind, shapeKindOptions, toolOffered])
   // Which slots light up. Deliberately null for the tools no slot can name —
   // which, now that every toolbar tool can sit in a slot, means only the
   // annotation set, and the panel is not on screen alongside those anyway
@@ -3642,6 +3711,17 @@ export function Room() {
     if (!isToolEnabledInRoom(enabledTools, next)) return
     setTool(next)
   }, [setTool, enabledTools])
+
+  // (#544) Picking one member out of a group's fan in the floating panel. The
+  // two groups differ exactly here and nowhere the panel can see: a material
+  // *is* a tool, while a shape is a setting on a tool that then has to be
+  // taken as well. Routed through `selectTool` like every other path into a
+  // hand, so the toolset gate applies here too.
+  const selectGroupMember = useCallback((group: SlotGroup, value: string) => {
+    if (group === 'drawing') { selectTool(value as EditorTool); return }
+    setToolSetting('shape', 'kind', value)
+    selectTool('shape')
+  }, [selectTool, setToolSetting])
 
   // The toggle survives, but only on the *keys*. "Press E, do a correction,
   // press E again" is a real one-handed affordance that a key can offer and a
@@ -7052,17 +7132,40 @@ export function Room() {
               a screen this size is worse than no column. Undo/redo, the view
               controls and the annotation tools below stay. */}
           {!annotationRail && (<>
-          {/* The gradeHotkeyLabels keys step the pencil's hardness along the
-              6H..6B ladder; [ / ] resize whichever tool is active (handled by
-              the quick-settings panel to the right, not here). */}
-          {toolOffered('pencil') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
-              title={t('tool.pencilTitle', { hotkeys: gradeHotkeyLabels })}
-              aria-label={t('tool.pencil')}
-              onClick={() => selectTool('pencil')}
-            ><Icon name="edit" /></button>
-          )}
+          {/* (#544) One button for every drawing material, with the chooser
+              behind it — see components/ToolGroupButton. There used to be
+              seven buttons here, one per material, and the rail grew by one
+              with every material this app learned; the research in #544 found
+              that none of the seven editors surveyed does that. A rail is
+              verbs. What you draw *with* is a choice inside the verb.
+
+              The button wears the current material's own icon rather than a
+              fixed brush, so the rail still answers "what is in my hand"; the
+              corner mark is what says there is a choice behind it.
+
+              gradeHotkeyLabels and the per-material hotkeys are untouched by
+              this: `,`/`.` still step the pencil's grade, and C/L/M/B/W/D
+              still take their material directly, which is what keeps the
+              chooser optional rather than a toll on every switch. */}
+          <ToolGroupButton
+            className={styles.toolIconBtn}
+            activeClassName={styles.toolIconBtnActive}
+            active={drawingGroupActive}
+            icon={TOOL_DISPLAY[drawingGroupTool].icon}
+            title={t(
+              // The pencil's grade keys have nowhere else to be announced, so
+              // its own variant of the sentence carries them; every other
+              // material reads the plain one.
+              drawingGroupTool === 'pencil' ? 'tool.drawingTitlePencil' : 'tool.drawingTitle',
+              { tool: t(TOOL_DISPLAY[drawingGroupTool].labelKey), hotkeys: gradeHotkeyLabels },
+            )}
+            label={t('tool.drawing')}
+            options={drawingGroupOptions}
+            value={drawingGroupTool}
+            onSelect={value => selectTool(value as EditorTool)}
+            onActivate={() => selectTool(drawingGroupTool)}
+          />
+
           {toolOffered('eraser') && (
             <button
               className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
@@ -7078,83 +7181,6 @@ export function Room() {
               aria-label={t('tool.smudge')}
               onClick={() => selectTool('smudge')}
             ><Icon name="smudge" /></button>
-          )}
-          {/* Charcoal (#304, ADR 005) — its own material, not a soft black
-              pencil: three types (vine/willow/compressed) selected through
-              the quick-settings panel to the right, the same way the pencil's
-              6H-6B grade is, rather than as three toolbar buttons. */}
-          {toolOffered('charcoal') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'charcoal' && styles.toolIconBtnActive)}
-              title={t('tool.charcoalTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleCharcoal) })}
-              aria-label={t('tool.charcoal')}
-              onClick={() => selectTool('charcoal')}
-            ><Icon name="charcoal" /></button>
-          )}
-          {toolOffered('liner') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
-              title={t('tool.linerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleLiner) })}
-              aria-label={t('tool.liner')}
-              onClick={() => selectTool('liner')}
-            ><Icon name="stylus" /></button>
-          )}
-          {/* Marker (#252, ADR 004) — UI/toolbar plumbing only; the actual
-              bullet/chisel dab shaping and multiply compositing are separate
-              in-flight engine sub-issues (#249-251), so this renders however
-              the engine's current unrecognized-preset fallback handles it
-              (a flat HB pencil dab) until those land — see markerSchema's
-              own doc comment in toolSchemas.ts. */}
-          {toolOffered('marker') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'marker' && styles.toolIconBtnActive)}
-              title={t('tool.markerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleMarker) })}
-              aria-label={t('tool.marker')}
-              onClick={() => selectTool('marker')}
-            ><Icon name="ink_highlighter" /></button>
-          )}
-          {/* Brush pen (#454, ADR 009) — a flexible ink nib whose width follows
-              pressure. Sits next to the liner deliberately: the two are the
-              opposite halves of the same material (liner for a controlled,
-              constant line; this for an expressive one), which is the pairing
-              a user picking between them is actually making. */}
-          {toolOffered('brushPen') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'brushPen' && styles.toolIconBtnActive)}
-              title={t('tool.brushPenTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleBrushPen) })}
-              aria-label={t('tool.brushPen')}
-              onClick={() => selectTool('brushPen')}
-            ><Icon name="brush" /></button>
-          )}
-          {/* Watercolor (#468, ADR 011) — an experiment, and the only tool in
-              this bar that is not in docs/TOOLSET.md. Last of the drawing
-              tools deliberately: it is the one wet medium here, and grouping
-              it after the dry ones is the order a real desk is laid out in. */}
-          {toolOffered('watercolor') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'watercolor' && styles.toolIconBtnActive)}
-              title={t('tool.watercolorTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleWatercolor) })}
-              aria-label={t('tool.watercolor')}
-              onClick={() => selectTool('watercolor')}
-            ><Icon name="water_drop" /></button>
-          )}
-          {/* Digital brush (#547, ADR 013) — last, and after the divider in
-              spirit if not in markup: everything above it imitates a material
-              you could pick up off a desk, and this one imitates nothing. It is
-              deliberately not next to the brush pen despite the shared word in
-              the name — they are the pair most easily confused, and adjacency
-              would invite reading them as two settings of one thing.
-              Behind the room's own toolset (#548) like every other material
-              tool: a teacher who has switched the brush off for a graphite
-              lesson means it, and this button has no more right to ignore that
-              than the watercolor one above. */}
-          {toolOffered('digitalBrush') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'digitalBrush' && styles.toolIconBtnActive)}
-              title={t('tool.digitalBrushTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleDigitalBrush) })}
-              aria-label={t('tool.digitalBrush')}
-              onClick={() => selectTool('digitalBrush')}
-            ><Icon name="format_paint" /></button>
           )}
 
           <div className={styles.toolDivider} />
@@ -7255,23 +7281,39 @@ export function Room() {
               in the quick column — the same call the selection tool makes about
               its three ways of marking a region.
 
-              (#541) It wears a composite glyph rather than the shape currently
-              selected. Wearing the selection read as "this is the rectangle
-              tool" and hid the fact that there are four; which one is in hand
-              is already said, in words and a picture, by the kind picker right
-              next to it.
+              (#541, revised in #544) It wore a composite glyph for a while,
+              and the reason was sound at the time: wearing the current shape
+              read as "this is the rectangle tool" and hid the fact that there
+              are four. What answers that now is the corner mark, which says
+              "there is a choice here" without spending the icon on it — so the
+              icon goes back to doing the job every other button in this rail
+              does, naming what is in hand.
+
+              The one way this button differs from the drawing group above:
+              choosing here changes a *setting* of one tool rather than which
+              tool is in hand. So the chooser also takes the tool — picking a
+              star from the rail while the ruler is in hand means "draw a
+              star", not "remember that I like stars".
 
               (#548) Behind the room's toolset like every other button here.
               It was the one that wasn't, because the toolset and this tool were
               built in parallel branches and neither knew about the other. */}
           {toolOffered('shape') && (
-            <button
-              className={clsx(styles.toolIconBtn, shapeActive && styles.toolIconBtnActive)}
-              title={t('tool.shapeTitle')}
-              aria-label={t('tool.shape')}
-              aria-pressed={shapeActive}
-              onClick={() => selectTool('shape')}
-            ><Icon name="shapes" /></button>
+            <ToolGroupButton
+              className={styles.toolIconBtn}
+              activeClassName={styles.toolIconBtnActive}
+              active={shapeActive}
+              icon={SHAPE_KIND_ICONS[shapeKind]}
+              title={t('tool.shapeTitle', { shape: t(SHAPE_KIND_LABEL_KEYS[shapeKind]) })}
+              label={t('tool.shape')}
+              options={shapeKindOptions}
+              value={shapeKind}
+              onSelect={value => {
+                setToolSetting('shape', 'kind', value)
+                selectTool('shape')
+              }}
+              onActivate={() => selectTool('shape')}
+            />
           )}
 
           <div className={styles.toolDivider} />
@@ -8012,8 +8054,8 @@ export function Room() {
           // See floatingSlotTool above for why this is narrowed rather than
           // folded: ruler/transform/grid/hand light neither slot.
           tool={floatingSlotTool}
-          recentDrawingTools={recentDrawingTools}
-          recentSecondaryTools={recentSecondaryTools}
+          groups={panelGroups}
+          onSelectGroupMember={selectGroupMember}
           // (#548) selectTool, not the raw store setter: it is the gate that
           // refuses a tool the room does not offer, and a slot assigned before
           // that happened is exactly the path with no button to hide.

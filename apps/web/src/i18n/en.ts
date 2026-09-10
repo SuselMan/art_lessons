@@ -504,6 +504,16 @@ export const en = {
   'room.loading.paper': 'Unrolling the paper...',
 
   // ── tools ──────────────────────────────────────────────────────────────
+  // (#544) The one rail button all seven materials now live behind. Its
+  // tooltip has to do two jobs the per-material tooltips did not: name what is
+  // in hand, and say that there is a choice behind it at all.
+  'tool.drawing': 'Drawing tool',
+  'tool.drawingTitle': '{tool} — tap again or hold to pick another drawing tool',
+  // The pencil is the one material with hotkeys of its own that have
+  // nowhere else to be announced — the grade picker beside it is a 40 px
+  // square with no room for a hint.
+  'tool.drawingTitlePencil':
+    '{tool} ({hotkeys} for harder / softer grade) — tap again or hold to pick another drawing tool',
   'tool.pencil': 'Pencil',
   'tool.pencilTitle': 'Pencil  ({hotkeys} for harder / softer grade)',
   'tool.eraser': 'Eraser',
@@ -549,7 +559,7 @@ export const en = {
   'tool.selectionTitle': 'Select — mark a region, then move it with Transform, or cut/copy/paste it. Esc clears it  {hotkey}',
   'tool.fill': 'Fill',
   'tool.shape': 'Shape',
-  'tool.shapeTitle': 'Shape — pick rectangle, ellipse, star or line in the settings, then drag one out. Shift constrains, Alt draws from the centre. Enter applies, Esc cancels',
+  'tool.shapeTitle': '{shape} — drag one out; tap again or hold to pick another shape. Shift constrains, Alt draws from the centre. Enter applies, Esc cancels',
   // (#525) The four shapes, which are the kind picker's options rather than
   // four tools. No {hotkey} yet — see the annotation tools above for why a
   // placeholder with nothing to fill it is worse than none.
@@ -693,8 +703,10 @@ export const en = {
   'palette.slotEmpty': 'Empty slot',
   'palette.slotEmptyHold': 'Empty slot — hold to put a tool here',
   'palette.slotClear': 'Leave empty',
-  'palette.roleDrawing': 'Last drawing tool',
-  'palette.roleSecondary': 'Last eraser / smudge tool',
+  // (#544) The group slots' own tooltip. It has to carry one gesture more than
+  // the plain one above — the second tap — because that is the only place on
+  // the panel where the gesture exists to be learned from.
+  'palette.slotGroupHold': '{item} — tap again to pick another, hold to change this slot',
   'palette.mode': 'Picker shape',
   'palette.mode.bar': 'Hue strip',
   'palette.mode.ring': 'Hue ring',

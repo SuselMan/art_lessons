@@ -13,8 +13,8 @@
 import type { TranslationKey } from '../../i18n'
 import type { IconName } from '../../icons/iconNames'
 import {
-  FLOATING_TOOLS, TOOL_DISPLAY,
-  type FloatingPanelTool, type FloatingPrimaryTool, type FloatingSecondaryTool,
+  FLOATING_PRIMARY_TOOLS, SLOT_FIXED_TOOLS, TOOL_DISPLAY,
+  type FloatingPanelTool,
 } from './tools'
 
 /** Eight, laid out as a compass: index 0 is straight up and they run
@@ -37,24 +37,23 @@ export const SLOT_COUNT = 8
  *  wrong answer (see CLAUDE.md on 40–48 px touch targets). */
 export const SLOT_RADIUS = 62
 
-/** Which of the two remembered tools a role slot follows. Not tools in their
- *  own right: a role resolves, at the moment it is drawn or tapped, to
- *  whichever tool currently occupies it.
+/** (#544) A group of tools behind one slot, exactly as the left rail has them:
+ *  `drawing` is every material, `shape` is the four shapes.
  *
- *  This is the concept that keeps the panel useful once slots are hand-laid.
- *  A panel made only of fixed tools cannot answer "I was painting in
- *  watercolor a second ago and switched to minimal UI" — the watercolor is
- *  simply not on it. A role slot is the way back, and it is exactly what the
- *  panel's top and bottom buttons already were before any of this: `drawing`
- *  is the old top slot, `secondary` the old bottom one.
+ *  This replaced the two *roles* the panel used to have (`drawing` and
+ *  `secondary` — "whichever one I last used"). A group does everything a role
+ *  did and one thing more: a role could only hand back what you had already
+ *  picked somewhere else, so the panel could remember the watercolor but never
+ *  reach it; a group's own chooser reaches all of them. And it does it without
+ *  the thing that made a role hard to explain — a slot whose meaning changed
+ *  under you, marked with a badge nobody read.
  *
- *  Read pickRoleTool below for the half of the definition that is not "the
- *  last one you used": a role means *the tool you have no button for*, so it
- *  walks past anything the layout already holds. Without that it duplicates
- *  its neighbour the moment you pin a tool and pick it. */
-export type SlotRole = 'drawing' | 'secondary'
+ *  The secondary role has no successor and needs none: the eraser, the smudge
+ *  and the eyedropper are three separate buttons in the rail too, so a slot
+ *  that wants the eraser holds the eraser. */
+export type SlotGroup = 'drawing' | 'shape'
 
-export const SLOT_ROLES = ['drawing', 'secondary'] as const satisfies readonly SlotRole[]
+export const SLOT_GROUPS = ['drawing', 'shape'] as const satisfies readonly SlotGroup[]
 
 /** The two things the panel does that are not tools. They sit in slots like
  *  everything else so that "move undo somewhere my thumb reaches" is a layout
@@ -67,7 +66,7 @@ export const SLOT_ACTIONS = ['undo', 'redo'] as const satisfies readonly SlotAct
  *  the fourth case: an empty slot, drawn as a dot. */
 export type SlotContent =
   | { kind: 'tool'; tool: FloatingPanelTool }
-  | { kind: 'role'; role: SlotRole }
+  | { kind: 'group'; group: SlotGroup }
   | { kind: 'action'; action: SlotAction }
 
 /** Always SLOT_COUNT long — enforced by the parser below rather than by the
@@ -75,20 +74,24 @@ export type SlotContent =
  *  eight times at every call site that maps over it. */
 export type PanelLayout = readonly (SlotContent | null)[]
 
-/** The panel exactly as it was before it had eight slots: the drawing role on
- *  top, the secondary role on the bottom, undo and redo on the sides, and the
- *  four diagonals empty.
+/** The panel exactly as it was before it had eight slots: the drawing group on
+ *  top, the eraser on the bottom, undo and redo on the sides, and the four
+ *  diagonals empty.
  *
  *  Deliberately not "a sensible new default that uses all eight". Someone who
  *  never opens the chooser should not discover that their panel has been
  *  rearranged under them, and four dots that do nothing until held are a much
  *  smaller thing to explain than four buttons that were chosen for you. */
 export const DEFAULT_PANEL_LAYOUT: PanelLayout = [
-  { kind: 'role', role: 'drawing' },
+  { kind: 'group', group: 'drawing' },
   null,
   { kind: 'action', action: 'redo' },
   null,
-  { kind: 'role', role: 'secondary' },
+  // The eraser by name, where the `secondary` role used to sit. The role meant
+  // "the eraser, or the smudge, or the eyedropper — whichever you touched
+  // last", and what it did in practice was be the eraser while occasionally
+  // being something else without warning.
+  { kind: 'tool', tool: 'eraser' },
   null,
   { kind: 'action', action: 'undo' },
   null,
@@ -113,16 +116,21 @@ export type SlotChoice = { kind: 'clear' } | SlotContent
 
 /** Every choice, in the order the fan lays them out: clear first (the fan's
  *  first ray, the same place the palette fan puts its own odd-one-out), then
- *  the two roles, then the tools in the left toolbar's own order, then
+ *  the groups, then the fixed tools in the left rail's own order, then
  *  undo/redo.
  *
- *  Roles ahead of tools because a role is the more common thing to want and
- *  the harder one to find; undo/redo last because they are the two entries
- *  that were never in question. */
+ *  Groups ahead of tools because the drawing group is what most panels get
+ *  built around; undo/redo last because they are the two entries that were
+ *  never in question.
+ *
+ *  (#544) Fourteen entries, down from twenty-two: seven materials became one
+ *  and the four shapes were already one. That shrinkage is most of the point —
+ *  a fan of twenty-two rays around a 184 px panel is a ring of targets too
+ *  fine to hit with the thumb that opened it. */
 export const SLOT_CHOICES: readonly SlotChoice[] = [
   { kind: 'clear' },
-  ...SLOT_ROLES.map((role): SlotChoice => ({ kind: 'role', role })),
-  ...FLOATING_TOOLS.map((tool): SlotChoice => ({ kind: 'tool', tool })),
+  ...SLOT_GROUPS.map((group): SlotChoice => ({ kind: 'group', group })),
+  ...SLOT_FIXED_TOOLS.map((tool): SlotChoice => ({ kind: 'tool', tool })),
   ...SLOT_ACTIONS.map((action): SlotChoice => ({ kind: 'action', action })),
 ]
 
@@ -131,7 +139,7 @@ export function slotChoiceKey(choice: SlotChoice): string {
   switch (choice.kind) {
     case 'clear': return 'clear'
     case 'tool': return `tool:${choice.tool}`
-    case 'role': return `role:${choice.role}`
+    case 'group': return `group:${choice.group}`
     case 'action': return `action:${choice.action}`
   }
 }
@@ -150,100 +158,96 @@ export function pinnedTools(layout: PanelLayout): ReadonlySet<string> {
   return pinned
 }
 
-/** What a role hands over: the most recently selected tool of its kind that
- *  does not already have a slot of its own.
+/** What one group stands for at this moment: the tool a plain tap on its slot
+ *  takes, and the icon that slot wears.
  *
- *  The skipping is the whole rule, and it was learned the hard way. "The last
- *  one you used" is the obvious definition and it is wrong in both directions
- *  at once: pin the smudge to a slot, tap it, and the secondary role becomes
- *  the smudge too — two buttons saying the same word, and the eraser, which
- *  the role existed to remember, gone. The same happens from the left toolbar,
- *  so "only learn from outside the panel" would have fixed half of it.
+ *  Resolved by the caller (Room) rather than here, for the same reason the
+ *  roles were before it — this file, like the rest of components/, does not
+ *  import from stores/, and the answer comes from tool state. Note that the
+ *  two groups answer it from different places and that the difference never
+ *  reaches this file: the drawing group's tool *is* its choice, while the
+ *  shape group's choice is a setting on a tool that is always the shape tool.
  *
- *  What a role is actually for is reaching a tool that is *not* on the panel.
- *  A tool with its own button is already reached; the role's job is the next
- *  one down. That also makes the role stable in the case that prompted this:
- *  working with a pinned smudge never disturbs it.
- *
- *  Falls back to the head when every candidate is pinned (possible only with a
- *  layout that spends most of its slots on one kind of tool): a duplicated
- *  button is a smaller failure than a slot with nothing to show. */
-export function pickRoleTool<T extends string>(recent: readonly T[], pinned: ReadonlySet<string>): T {
-  return recent.find(tool => !pinned.has(tool)) ?? recent[0]
+ *  `members` is the list its chooser fans out, already translated, because a
+ *  member is a tool for one group and a setting value for the other and there
+ *  is no type this file could give both. */
+export interface SlotGroupState {
+  tool: FloatingPanelTool
+  icon: IconName
+  members: readonly SlotGroupMember[]
+  /** Which member is current — matched against `SlotGroupMember.value`. */
+  value: string
 }
 
-/** What each role resolves to right now — computed once per render and passed
- *  down, so that every slot, every chooser entry and the active-slot test all
- *  answer from the same snapshot. */
-export type PanelRoles = Record<SlotRole, FloatingPanelTool>
-
-export function panelRoles(
-  recentDrawingTools: readonly FloatingPrimaryTool[],
-  recentSecondaryTools: readonly FloatingSecondaryTool[],
-  layout: PanelLayout,
-): PanelRoles {
-  const pinned = pinnedTools(layout)
-  return {
-    drawing: pickRoleTool(recentDrawingTools, pinned),
-    secondary: pickRoleTool(recentSecondaryTools, pinned),
-  }
+export interface SlotGroupMember {
+  value: string
+  icon: IconName
+  label: string
 }
+
+export type PanelGroups = Record<SlotGroup, SlotGroupState>
 
 /** Which tool a slot stands for right now — the tool itself for a fixed slot,
- *  the role's current answer for a role slot, and null for the two slots that
- *  are not about tools at all (an action, or nothing).
- *
- *  The roles are passed in rather than read from a store because this file,
- *  like the rest of components/, does not import from stores/ — and because a
- *  pure function of them is what makes the role behaviour testable at all. */
+ *  the group's current member for a group slot, and null for the two slots
+ *  that are not about tools at all (an action, or nothing). */
 export function resolveSlotTool(
-  content: SlotContent | null, roles: PanelRoles,
+  content: SlotContent | null, groups: PanelGroups,
 ): FloatingPanelTool | null {
   if (content === null) return null
   if (content.kind === 'tool') return content.tool
-  if (content.kind === 'role') return roles[content.role]
+  if (content.kind === 'group') return groups[content.group].tool
   return null
+}
+
+/** A group the room has switched off entirely (#548) — no members left to
+ *  choose from, so its slot is drawn dim and inert exactly like a slot pinned
+ *  to a withdrawn tool. Only the shapes can reach this: a toolset always keeps
+ *  one material. */
+export function isGroupWithdrawn(group: SlotGroup, groups: PanelGroups): boolean {
+  return groups[group].members.length === 0
 }
 
 export interface SlotFace {
   icon: IconName
   labelKey: TranslationKey
-  /** True for a role slot, which wears the history badge over its icon. The
-   *  icon itself is the resolved tool's — a role slot showing a generic
-   *  "last used" glyph would tell you it is a role and not tell you what it
-   *  would give you, which is the only thing anyone taps it for. */
-  isRole: boolean
+  /** True for a group slot, which wears the same corner mark the rail's group
+   *  buttons wear. The icon itself is the current member's — a group slot
+   *  showing a generic "this is a group" glyph would tell you it is a group
+   *  and not tell you what a tap would give you, which is the only thing
+   *  anyone taps it for. */
+  isGroup: boolean
 }
 
 const ACTION_FACE: Record<SlotAction, SlotFace> = {
-  undo: { icon: 'undo', labelKey: 'room.undo', isRole: false },
-  redo: { icon: 'redo', labelKey: 'room.redo', isRole: false },
+  undo: { icon: 'undo', labelKey: 'room.undo', isGroup: false },
+  redo: { icon: 'redo', labelKey: 'room.redo', isGroup: false },
 }
 
-const ROLE_LABEL: Record<SlotRole, TranslationKey> = {
-  drawing: 'palette.roleDrawing',
-  secondary: 'palette.roleSecondary',
+const GROUP_LABEL: Record<SlotGroup, TranslationKey> = {
+  drawing: 'tool.drawing',
+  shape: 'tool.shape',
 }
 
 /** How to draw a slot's content (or a chooser entry). Null for an empty slot
  *  and for `clear`, both of which the caller draws as a dot rather than as an
  *  icon. */
-export function slotFace(choice: SlotChoice | null, roles: PanelRoles): SlotFace | null {
+export function slotFace(choice: SlotChoice | null, groups: PanelGroups): SlotFace | null {
   if (choice === null || choice.kind === 'clear') return null
   if (choice.kind === 'action') return ACTION_FACE[choice.action]
-  const tool = resolveSlotTool(choice, roles)
-  if (tool === null) return null
-  return { ...TOOL_DISPLAY[tool], isRole: choice.kind === 'role' }
+  if (choice.kind === 'group') {
+    return { icon: groups[choice.group].icon, labelKey: GROUP_LABEL[choice.group], isGroup: true }
+  }
+  return { ...TOOL_DISPLAY[choice.tool], isGroup: false }
 }
 
-/** The label a role is *named* by in the chooser, as opposed to the tool it
- *  currently resolves to — "Last drawing tool", not "Pencil". Both are true
- *  and the chooser needs the first: two entries showing a pencil are told
- *  apart by their titles as much as by the badge. */
+/** The label a group is *named* by in the chooser, as opposed to the member it
+ *  happens to be showing — "Drawing tool", not "Pencil". Both are true and the
+ *  chooser needs the first: what the slot will hold is the group, not today's
+ *  answer from it. */
 export function slotChoiceLabelKey(choice: SlotChoice): TranslationKey | null {
   switch (choice.kind) {
     case 'clear': return 'palette.slotClear'
-    case 'role': return ROLE_LABEL[choice.role]
+    case 'group': return GROUP_LABEL[choice.group]
     case 'tool': return TOOL_DISPLAY[choice.tool].labelKey
     case 'action': return ACTION_FACE[choice.action].labelKey
   }
@@ -258,9 +262,9 @@ export function slotChoiceLabelKey(choice: SlotChoice): TranslationKey | null {
  *  common intent than "give me a second undo", and without this it silently
  *  produces the second one — the user then has to notice the old slot and
  *  clear it by hand, having already done the only gesture that felt like
- *  moving. Roles de-duplicate for the same reason and more strongly: two
- *  slots following the same remembered tool are guaranteed to always show the
- *  same icon, which is a panel that has quietly lost a slot. */
+ *  moving. Groups de-duplicate for the same reason and more strongly: two
+ *  slots following the same group are guaranteed to always show the same
+ *  icon, which is a panel that has quietly lost a slot. */
 export function assignSlot(layout: PanelLayout, index: number, choice: SlotChoice): PanelLayout {
   const content: SlotContent | null = choice.kind === 'clear' ? null : choice
   return layout.map((existing, i) => {
@@ -274,11 +278,61 @@ export function assignSlot(layout: PanelLayout, index: number, choice: SlotChoic
 
 function isSlotContent(value: unknown): value is SlotContent {
   if (typeof value !== 'object' || value === null) return false
-  const v = value as { kind?: unknown; tool?: unknown; role?: unknown; action?: unknown }
-  if (v.kind === 'tool') return (FLOATING_TOOLS as readonly unknown[]).includes(v.tool)
-  if (v.kind === 'role') return (SLOT_ROLES as readonly unknown[]).includes(v.role)
+  const v = value as { kind?: unknown; tool?: unknown; group?: unknown; action?: unknown }
+  if (v.kind === 'tool') return (SLOT_FIXED_TOOLS as readonly unknown[]).includes(v.tool)
+  if (v.kind === 'group') return (SLOT_GROUPS as readonly unknown[]).includes(v.group)
   if (v.kind === 'action') return (SLOT_ACTIONS as readonly unknown[]).includes(v.action)
   return false
+}
+
+/** (#544) What a slot stored by an older build becomes.
+ *
+ *  Not a nicety: the layout this replaces is the *default* one, so the drawing
+ *  role sits in slot 0 of every panel anyone has ever rearranged, and the
+ *  generic "an entry I don't recognise becomes an empty slot" rule below would
+ *  quietly delete the top and bottom buttons off all of them. Three legacy
+ *  shapes, and each maps to the thing that does the same job:
+ *
+ *   - the drawing role → the drawing group, which is its successor exactly;
+ *   - the secondary role → the eraser, which is what it was in practice;
+ *   - a pinned material or the shape tool → the group it now lives in, since
+ *     materials and shapes are no longer things a slot can hold on its own.
+ *
+ *  Returns null for anything else, which is the old rule, still the right
+ *  answer for a tool that has genuinely gone away. */
+function migrateSlotContent(value: unknown): SlotContent | null {
+  if (typeof value !== 'object' || value === null) return null
+  const v = value as { kind?: unknown; tool?: unknown; role?: unknown }
+  if (v.kind === 'role') {
+    if (v.role === 'drawing') return { kind: 'group', group: 'drawing' }
+    if (v.role === 'secondary') return { kind: 'tool', tool: 'eraser' }
+    return null
+  }
+  if (v.kind === 'tool') {
+    if ((FLOATING_PRIMARY_TOOLS as readonly unknown[]).includes(v.tool)) {
+      return { kind: 'group', group: 'drawing' }
+    }
+    if (v.tool === 'shape') return { kind: 'group', group: 'shape' }
+  }
+  return null
+}
+
+/** Drops every repeat of a content after its first appearance.
+ *
+ *  Needed only by the migration above, and needed by it because migration is
+ *  the one thing that can *create* a duplicate: a panel with both the drawing
+ *  role and a pinned marker was two useful buttons and becomes two identical
+ *  ones. `assignSlot` prevents duplicates going forward; this cleans up the
+ *  ones that arrive already made. */
+function dedupeLayout(layout: PanelLayout): PanelLayout {
+  const seen = new Set<string>()
+  return layout.map(content => {
+    if (content === null) return null
+    const key = slotChoiceKey(content)
+    if (seen.has(key)) return null
+    seen.add(key)
+    return content
+  })
 }
 
 /** Reads a stored layout, falling back to the default for anything that is not
@@ -290,13 +344,17 @@ function isSlotContent(value: unknown): value is SlotContent {
  *  Here it also outlives the *tool list* — a tool renamed or dropped in a
  *  later release leaves a stored slot naming something that no longer exists,
  *  and the honest answer to that is an empty slot, not a button whose icon
- *  lookup returns undefined. */
+ *  lookup returns undefined. What #544 dropped is the exception, and it goes
+ *  through migrateSlotContent instead: those entries have a successor, so
+ *  emptying the slot would be throwing away a layout we can still read. */
 export function parsePanelLayout(raw: string | null): PanelLayout {
   if (raw === null) return DEFAULT_PANEL_LAYOUT
   let parsed: unknown
   try { parsed = JSON.parse(raw) } catch { return DEFAULT_PANEL_LAYOUT }
   if (!Array.isArray(parsed) || parsed.length !== SLOT_COUNT) return DEFAULT_PANEL_LAYOUT
-  return parsed.map(entry => (isSlotContent(entry) ? entry : null))
+  return dedupeLayout(parsed.map(entry => (
+    isSlotContent(entry) ? entry : migrateSlotContent(entry)
+  )))
 }
 
 export function serializePanelLayout(layout: PanelLayout): string {

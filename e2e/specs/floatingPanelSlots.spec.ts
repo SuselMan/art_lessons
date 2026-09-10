@@ -59,9 +59,10 @@ test.describe('the floating panel’s slots', () => {
     await waitForRoomReady(page)
 
     await expect(page.locator(`${PANEL} [data-slot]`)).toHaveCount(8)
-    // North and south are the two roles, resolved: a new room starts on the
-    // pencil, and the eraser is the remembered secondary.
-    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Pencil')
+    // (#544) North is the drawing group and south is the eraser, where the two
+    // roles used to be. The group names itself rather than the material it is
+    // showing, the same way the rail's group button does.
+    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Drawing tool')
     await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
     await expect(slot(page, 2)).toHaveAttribute('aria-label', 'Redo')
     await expect(slot(page, 6)).toHaveAttribute('aria-label', 'Undo')
@@ -70,18 +71,23 @@ test.describe('the floating panel’s slots', () => {
     }
   })
 
-  test('holding an empty slot offers every tool, both roles, undo/redo and “leave empty”', async ({ page }) => {
+  test('holding an empty slot offers every tool, both groups, undo/redo and “leave empty”', async ({ page }) => {
     await showFloatingPanel(page)
     await createRoom(page)
     await waitForRoomReady(page)
 
     await holdSlot(page, 1)
-    // 16 tools + 2 roles + undo/redo + clear. The sixteenth is the digital
-    // brush (#547) — a count assertion is exactly the kind that has to be
-    // edited deliberately when the toolset grows, which is why it is a count.
-    await expect(page.locator(`${PANEL} [data-choice]`)).toHaveCount(21)
+    // (#544) 9 fixed tools + 2 groups + undo/redo + clear. It was 22 before the
+    // seven materials collapsed into one entry and the shape tool into
+    // another. A count assertion is exactly the kind that has to be edited
+    // deliberately when the toolset grows, which is why it is a count.
+    await expect(page.locator(`${PANEL} [data-choice]`)).toHaveCount(14)
     await expect(choice(page, 'tool:ruler')).toBeVisible()
-    await expect(choice(page, 'role:drawing')).toBeVisible()
+    await expect(choice(page, 'group:drawing')).toBeVisible()
+    await expect(choice(page, 'group:shape')).toBeVisible()
+    // No material has an entry of its own any more — the rail does not offer
+    // one either, and the panel and the rail offer one set between them.
+    await expect(choice(page, 'tool:marker')).toHaveCount(0)
     await expect(choice(page, 'action:undo')).toBeVisible()
     // The chooser marks what the held slot already holds — for an empty slot
     // that is "leave empty".
@@ -127,62 +133,64 @@ test.describe('the floating panel’s slots', () => {
     await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Empty slot')
   })
 
-  // The reason roles exist at all: paint with something, and the panel still
-  // has it, whether or not that tool was ever put in a slot by hand.
-  test('a role slot follows whatever was last picked elsewhere', async ({ page }) => {
+  // The reason the group slot exists: paint with something, and the panel
+  // still has it, whether or not that material was ever put in a slot by hand.
+  // This is the half a role could already do.
+  test('a group slot follows whatever was last picked elsewhere', async ({ page }) => {
     await showFloatingPanel(page)
     await createRoom(page)
     await waitForRoomReady(page)
 
-    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Pencil')
     await page.evaluate(() => window.__roomStore!.getState().setTool('watercolor'))
-    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Watercolor')
-
-    // And tapping it is still the way back to that tool after erasing.
+    // Tapping it is the way back to that material after erasing.
     await page.evaluate(() => window.__roomStore!.getState().setTool('eraser'))
     await slot(page, 0).click()
     expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('watercolor')
   })
 
-  // Reported from the tablet: with the smudge pinned to a slot of its own,
-  // tapping it also moved the *role* slot onto the smudge — two buttons for one
-  // tool, and the eraser the role existed to remember simply gone. A role means
-  // "the tool you have no button for", so it walks past anything the layout
-  // already holds; see pickRoleTool.
-  test('a role does not follow a tool that has a slot of its own', async ({ page }) => {
+  // (#544) And the half a role could not. On a tablet in minimal UI there is
+  // no rail and no keyboard, so before this the only materials reachable were
+  // the ones already picked somewhere else — a material never touched this
+  // session simply could not be got at.
+  test('a second tap on a group slot reaches a material never picked before', async ({ page }) => {
     await showFloatingPanel(page)
     await createRoom(page)
     await waitForRoomReady(page)
 
-    await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
+    // Away to a tool that is not a material first, so the next tap on the
+    // group is a *first* tap. That one only takes the material back — putting
+    // a fan on screen for someone who just reached for their pencil is the
+    // thing this ordering exists to avoid.
+    await page.evaluate(() => window.__roomStore!.getState().setTool('ruler'))
+    await slot(page, 0).click()
+    await expect(page.locator(`${PANEL} [data-member]`)).toHaveCount(0)
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('pencil')
 
-    await holdSlot(page, 3)
-    await choice(page, 'tool:smudge').click()
-    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('smudge')
+    // Now it is the second tap, and it fans out.
+    await slot(page, 0).click()
 
-    // The smudge is where it was put, and nowhere else.
-    await expect(slot(page, 3)).toHaveAttribute('aria-label', 'Smudge')
-    await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
-
-    // Selecting it again from its own button changes nothing either.
-    await page.evaluate(() => window.__roomStore!.getState().setTool('eraser'))
-    await slot(page, 3).click()
-    await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
+    await expect(page.locator(`${PANEL} [data-member]`)).toHaveCount(7)
+    await page.locator(`${PANEL} [data-member="charcoal"]`).click()
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('charcoal')
+    // Choosing a member changes what the group is on, not what the slot holds
+    // — the slot is still the group, and nothing was written to the stored
+    // layout at all, which is the sharpest way to say the layout was not
+    // touched. (The hold, by contrast, writes one; see the tests above.)
+    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Drawing tool')
+    expect(await storedLayout(page)).toBeNull()
   })
 
-  // Pinning alone is enough — the tool need never be selected for the role to
-  // step aside, so the panel never *shows* the duplicate even for a moment.
-  test('a role steps aside the instant its tool is pinned elsewhere', async ({ page }) => {
+  // The hold still belongs to the layout. Both gestures live on one button now,
+  // and the one that arranges the panel is the one that must not be stolen —
+  // it is the only way to arrange it at all.
+  test('holding a group slot still offers to change the slot, not the material', async ({ page }) => {
     await showFloatingPanel(page)
     await createRoom(page)
     await waitForRoomReady(page)
 
-    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Pencil')
-    await holdSlot(page, 1)
-    await choice(page, 'tool:pencil').click()
-
-    await expect(slot(page, 1)).toHaveAttribute('aria-label', 'Pencil')
-    await expect(slot(page, 0)).not.toHaveAttribute('aria-label', 'Pencil')
+    await holdSlot(page, 0)
+    await expect(page.locator(`${PANEL} [data-member]`)).toHaveCount(0)
+    await expect(choice(page, 'group:drawing')).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('a tap does the slot’s job without opening the chooser', async ({ page }) => {
@@ -202,7 +210,7 @@ test.describe('the floating panel’s slots', () => {
   test('the layout is the same in the next room', async ({ page }) => {
     await showFloatingPanel(page, [
       { kind: 'tool', tool: 'fill' }, null, { kind: 'action', action: 'redo' }, null,
-      { kind: 'role', role: 'secondary' }, null, { kind: 'action', action: 'undo' },
+      { kind: 'tool', tool: 'eraser' }, null, { kind: 'action', action: 'undo' },
       { kind: 'tool', tool: 'hand' },
     ])
     await createRoom(page)
@@ -223,8 +231,26 @@ test.describe('the floating panel’s slots', () => {
     await createRoom(page)
     await waitForRoomReady(page)
 
-    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Pencil')
+    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Drawing tool')
     await expect(slot(page, 6)).toHaveAttribute('aria-label', 'Undo')
     await expect(slot(page, 1)).toHaveAttribute('aria-label', 'Empty slot')
+  })
+
+  // (#544) The panels people already have. The layout this release replaced was
+  // the *default* one, so the two roles sit in slots 0 and 4 of every panel
+  // anyone ever rearranged; treating them as unrecognisable would have stripped
+  // the top and bottom buttons off all of them on upgrade.
+  test('a layout stored with the old roles keeps its top and bottom buttons', async ({ page }) => {
+    await showFloatingPanel(page, [
+      { kind: 'role', role: 'drawing' }, null, { kind: 'action', action: 'redo' }, null,
+      { kind: 'role', role: 'secondary' }, null, { kind: 'action', action: 'undo' }, null,
+    ])
+    await createRoom(page)
+    await waitForRoomReady(page)
+
+    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Drawing tool')
+    await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
+    await slot(page, 4).click()
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('eraser')
   })
 })

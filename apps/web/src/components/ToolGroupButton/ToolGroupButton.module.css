@@ -1,0 +1,28 @@
+/* The button itself is the toolbar's own .toolIconBtn, handed in as a class —
+   see the component's `className` prop. All this module adds is the corner
+   mark and the positioning context it hangs in. */
+.group {
+  position: relative;
+}
+
+/* "There is more than one thing behind this button": a small right-angled
+   wedge tucked into the bottom-right corner, the mark Photoshop, Illustrator
+   and Figma all use for the same claim.
+
+   Drawn with a clip-path rather than the classic zero-size/border triangle
+   because the shape wanted here is a corner, not an arrowhead — a right angle
+   that echoes the button's own — and because a clipped box inherits
+   `currentColor`, so the mark follows the button through dim/hover/selected
+   without three colour rules of its own. */
+.groupMark {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  /* Dimmer than the glyph above it. The mark is a footnote — a button whose
+     corner shouts is a button with two focal points. */
+  opacity: 0.55;
+}

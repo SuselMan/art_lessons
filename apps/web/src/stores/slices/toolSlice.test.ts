@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 
 import { useRoomStore, resetRoomStore } from '../roomStore'
-import { DRAWING_TOOLS, NON_DRAWING_TOOLS, PRIMARY_DRAWING_TOOLS, SECONDARY_TOOLS, isDrawingTool } from './toolSlice'
+import { DRAWING_TOOLS, NON_DRAWING_TOOLS, PRIMARY_DRAWING_TOOLS, isDrawingTool } from './toolSlice'
 
 // #245 follow-up: lastDrawingTool lets a "return to drawing" toggle
 // (eraser/smudge off, FloatingToolPanel's top button) go back to whichever
@@ -69,57 +69,6 @@ describe('lastDrawingTool (#245 follow-up)', () => {
   })
 })
 
-// The mirror image of the block above, for the floating panel's second slot:
-// it shows and returns to whichever of eraser/smudge/eyedropper was last in
-// hand, so "hold the slot, pick the smudge" makes the slot mean the smudge
-// from then on. Kept in the store rather than in the panel because the left
-// toolbar and the hotkeys select these tools too, and a slot that only
-// remembered its own choices would go stale the moment the same choice was
-// made a foot to the left.
-describe('lastSecondaryTool', () => {
-  beforeEach(() => { resetRoomStore() })
-
-  it('starts on the eraser — the slot means what it always meant until moved', () => {
-    expect(useRoomStore.getState().lastSecondaryTool).toBe('eraser')
-  })
-
-  it('follows setTool across all three of its members', () => {
-    for (const tool of ['smudge', 'eyedropper', 'eraser'] as const) {
-      useRoomStore.getState().setTool(tool)
-      expect(useRoomStore.getState().lastSecondaryTool).toBe(tool)
-    }
-  })
-
-  it('is left alone by the drawing tools, so the slot survives a stroke', () => {
-    useRoomStore.getState().setTool('smudge')
-    for (const tool of ['pencil', 'charcoal', 'liner', 'marker'] as const) {
-      useRoomStore.getState().setTool(tool)
-      expect(useRoomStore.getState().lastSecondaryTool).toBe('smudge')
-    }
-  })
-
-  // The eyedropper hands the canvas back to `drawingTool` the moment it has
-  // taken a colour (#405), so the selection moves on by itself — the slot has
-  // to go on showing the eyedropper anyway, or sampling twice in a row would
-  // mean going back to the full chrome for the second one.
-  it('still names the eyedropper after it has returned the canvas', () => {
-    useRoomStore.getState().setTool('liner')
-    useRoomStore.getState().setTool('eyedropper')
-
-    const { drawingTool, setTool } = useRoomStore.getState()
-    setTool(drawingTool)
-    expect(useRoomStore.getState().tool).toBe('liner')
-    expect(useRoomStore.getState().lastSecondaryTool).toBe('eyedropper')
-  })
-
-  it('is left alone while a tool from neither slot is selected', () => {
-    useRoomStore.getState().setTool('eyedropper')
-    for (const tool of ['ruler', 'transform', 'grid', 'hand'] as const) {
-      useRoomStore.getState().setTool(tool)
-      expect(useRoomStore.getState().lastSecondaryTool).toBe('eyedropper')
-    }
-  })
-})
 
 // (#405) One tool is selected at a time, and the four that paint nothing are
 // members of that one selection rather than modes laid over a drawing tool.
@@ -217,21 +166,21 @@ describe('the hand is an ordinary member of the selection (#443)', () => {
   })
 })
 
-// The recency lists behind FloatingToolPanel's role slots. `lastDrawingTool`
-// and `lastSecondaryTool` above are their heads and keep their old meaning;
-// what the panel needed on top of that is the *order*, so a role can skip a
-// tool that already has a slot of its own (see pickRoleTool in
-// FloatingToolPanel/slots.ts for why it must).
+// The recency list behind the rail's one drawing button. `lastDrawingTool`
+// above is its head and keeps its old meaning.
+//
+// (#544) There used to be a second list, for the floating panel's `secondary`
+// role. Both the role and the list are gone — see the comment where they were
+// declared. The order still matters for this one, though for a smaller reason
+// than before: it is what makes "the tool before last" a question the store
+// can answer at all.
 describe('recent tool lists', () => {
   beforeEach(() => { resetRoomStore() })
 
-  it('starts with every tool listed, heads matching the last-used fields', () => {
-    const { recentDrawingTools, recentSecondaryTools, lastDrawingTool, lastSecondaryTool }
-      = useRoomStore.getState()
+  it('starts with every tool listed, head matching the last-used field', () => {
+    const { recentDrawingTools, lastDrawingTool } = useRoomStore.getState()
     expect(new Set(recentDrawingTools)).toEqual(new Set(PRIMARY_DRAWING_TOOLS))
-    expect(new Set(recentSecondaryTools)).toEqual(new Set(SECONDARY_TOOLS))
     expect(recentDrawingTools[0]).toBe(lastDrawingTool)
-    expect(recentSecondaryTools[0]).toBe(lastSecondaryTool)
   })
 
   it('moves the selected tool to the front, keeping the rest in order', () => {
@@ -242,13 +191,10 @@ describe('recent tool lists', () => {
     expect(new Set(recentDrawingTools)).toEqual(new Set(PRIMARY_DRAWING_TOOLS))
   })
 
-  // The tail is the whole point: after using the smudge, the eraser must still
-  // be the *next* secondary down, because that is what a role slot falls back
-  // to once the smudge has a button of its own.
   it('keeps the previously used tool one step behind', () => {
-    useRoomStore.getState().setTool('eraser')
-    useRoomStore.getState().setTool('smudge')
-    expect(useRoomStore.getState().recentSecondaryTools.slice(0, 2)).toEqual(['smudge', 'eraser'])
+    useRoomStore.getState().setTool('liner')
+    useRoomStore.getState().setTool('marker')
+    expect(useRoomStore.getState().recentDrawingTools.slice(0, 2)).toEqual(['marker', 'liner'])
   })
 
   it('leaves the list untouched for a tool of another kind', () => {
