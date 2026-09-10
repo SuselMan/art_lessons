@@ -5,18 +5,21 @@ import { isToolEnabledInRoom, type ToggleableTool } from '@grafetto/shared'
 import { BUTTON_DRAG_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
 import { useLongPress } from '../../lib/useLongPress'
-import { useT } from '../../i18n'
+import { useT, type TranslationKey } from '../../i18n'
 import { Icon } from '../Icon'
-import { hexToRgb, rgbToHex } from '../../lib/color'
+import { ColorWell } from '../ColorWell'
+import type { ColorPairControls } from '../ColorFlyout'
+import { hexToRgb } from '../../lib/color'
 import {
   clampPanelPosition, savePanelPosition, PANEL_SIZE, PANEL_DOM_ID, type PanelPosition,
 } from '../../pages/Room/panelPosition'
-import { layoutFlyoutItems, type RayLayoutConfig } from './colorFlyout'
+import { layoutFlyoutItems, paletteFlyoutActions, type PaletteFlyoutAction, type RayLayoutConfig } from './colorFlyout'
 import {
   SLOT_CHOICES, assignSlot, isGroupWithdrawn, sameSlotContent, slotChoiceKey, slotChoiceLabelKey,
   slotFace, slotOffset, resolveSlotTool,
   type PanelGroups, type PanelLayout, type SlotChoice, type SlotGroup,
 } from './slots'
+import type { IconName } from '../../icons/iconNames'
 import type { FloatingPanelTool } from './tools'
 import styles from './FloatingToolPanel.module.css'
 
@@ -52,6 +55,18 @@ export type PanelFlyout =
   | { kind: 'palette' }
   | { kind: 'slot'; index: number }
   | { kind: 'group'; index: number }
+
+const PALETTE_ACTION_ICONS: Record<PaletteFlyoutAction, IconName> = {
+  picker: 'palette',
+  swap: 'swap_horiz',
+  none: 'block',
+}
+
+const PALETTE_ACTION_LABEL_KEYS: Record<PaletteFlyoutAction, TranslationKey> = {
+  picker: 'palette.openPicker',
+  swap: 'room.shape.swap',
+  none: 'room.shape.none',
+}
 
 const FLYOUT_LAYOUT: RayLayoutConfig = {
   // Ring 1 sits just outside the *whole panel's* own edge (radius
@@ -93,9 +108,25 @@ interface Props {
    *  been — it renders a layout and reports edits to it. */
   layout: PanelLayout
   onLayoutChange: (layout: PanelLayout) => void
-  /** Current color of the drawing tool, shown as the center dot — tap it to
-   *  fan out the room palette (see the flyout state below). */
-  primaryColor: [number, number, number]
+  /** (#542) The colour glyph at the panel's centre — the same ColorWell the
+   *  tool rail pins at its top, so the colour looks the same whichever chrome
+   *  state is up. Tap it to fan out the room palette (see the flyout state
+   *  below). The four props are what that glyph takes: core colour, ring
+   *  colour (absent for the tools that carry one), which of the two is in
+   *  hand, and the name of it. */
+  wellFill: [number, number, number] | null
+  wellStroke?: [number, number, number] | null
+  wellHighlight: 'outer' | 'core' | null
+  wellLabel: string
+  /** The caller anchors its colour flyout to this. Held there rather than here
+   *  because the same flyout hangs off the rail's well too, and which one it
+   *  opened from is decided at the moment of opening. */
+  wellRef?: React.Ref<HTMLButtonElement>
+  /** (#542/#529) Present only while a tool carrying two colours is in hand.
+   *  Swapping them and switching one off ride in the palette fan rather than
+   *  in the glyph: fan items are 40px and sit in open space, where the glyph's
+   *  own ring is 8px and this is a touch-first surface. */
+  pair?: ColorPairControls
   /** Room palette (#190) — the flyout shows up to COLOR_FLYOUT_MAX of these. */
   palette: string[]
   onSelectColor: (rgb: [number, number, number]) => void
@@ -182,13 +213,12 @@ interface Props {
  *  any of this, and keeping it as something you can put in a slot is what
  *  stops the hand-laid panel from losing the one thing the fixed panel was
  *  good at: paint in watercolor, switch to minimal UI, and the watercolor is
- *  there. A role slot wears the tool's own icon, badged — see slots.ts's
- *  SlotFace for why it is not drawn with a glyph of its own, and pickRoleTool
- *  for why a role skips whatever the layout already holds rather than simply
- *  showing the last tool used. */
+ *  there. A group slot wears its current member's own icon with a corner mark
+ *  — see slots.ts's SlotFace for why it is not drawn with a glyph of its own. */
 export function FloatingToolPanel({
   tool, groups, onSelectGroupMember, onSetTool, onUndo, onRedo, layout, onLayoutChange,
-  primaryColor, palette, onSelectColor, onOpenColorPicker,
+  wellFill, wellStroke, wellHighlight, wellLabel, wellRef, pair,
+  palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden, flyout, onFlyoutChange,
   undoHotkeyLabel, redoHotkeyLabel, enabledTools,
 }: Props) {
@@ -433,11 +463,18 @@ export function FloatingToolPanel({
   const paletteItems = useMemo(() => {
     if (flyout?.kind !== 'palette') return []
     const colors = palette.slice(0, COLOR_FLYOUT_MAX)
-    return layoutAroundPanel(colors.length + 1).map((pos, i) => ({
+    // (#542) The fan leads with what is not a colour: the way out to the full
+    // picker, and — for a tool carrying two — the swap and the "no colour"
+    // toggle. They are here rather than on the glyph because they need a
+    // finger-sized target, and a fan item already is one. `swap` is dropped
+    // for a shape with no inside (the line): there is nothing to trade with.
+    const actions = paletteFlyoutActions(pair)
+    return layoutAroundPanel(actions.length + colors.length).map((pos, i) => ({
       ...pos,
-      color: i === 0 ? null : colors[i - 1], // null marks the leading "open picker" slot
+      action: i < actions.length ? actions[i] : null,
+      color: i < actions.length ? null : colors[i - actions.length],
     }))
-  }, [flyout, palette, layoutAroundPanel])
+  }, [flyout, palette, layoutAroundPanel, pair])
 
   // The slot chooser: the same fan carrying every entry a slot can hold. One
   // list for all eight slots, since which one was held only decides where the
@@ -513,12 +550,23 @@ export function FloatingToolPanel({
         onPointerDown={onPointerDown}
         title={t('palette.dragPanel')}
       >
-        <button
+        {/* (#542) 44px, matching the eight slots around it. It was 32 — the
+            smallest target on a panel built for a finger, below this project's
+            own 40-48px floor, and the only control here that was. The room was
+            always there: the slots sit at radius 62 and are 44 wide, so their
+            inner edge is 40 from the centre and the free disc is 80 across;
+            44 leaves 18px of air. */}
+        <ColorWell
+          ref={wellRef}
           className={styles.colorDot}
-          style={{ background: rgbToHex(primaryColor) }}
+          fill={wellFill}
+          stroke={wellStroke}
+          highlight={wellHighlight}
+          size={44}
           onClick={togglePalette}
-          title={t('palette.open')}
-          aria-label={t(flyout?.kind === 'palette' ? 'palette.closeLabel' : 'palette.openLabel')}
+          title={wellLabel}
+          label={t(flyout?.kind === 'palette' ? 'palette.closeLabel' : 'palette.openLabel')}
+          expanded={flyout?.kind === 'palette'}
         />
 
         {/* The eight slots. Positioned from slotOffset rather than from eight
@@ -601,14 +649,23 @@ export function FloatingToolPanel({
                 />
               ) : (
                 <button
-                  key="open-picker"
+                  key={item.action!}
                   className={styles.flyoutPickerBtn}
                   style={{ transform: itemTransform(item) }}
-                  title={t('palette.openPicker')}
-                  aria-label={t('palette.openPicker')}
-                  onClick={() => { onOpenColorPicker(); onFlyoutChange(null) }}
+                  title={t(PALETTE_ACTION_LABEL_KEYS[item.action!])}
+                  aria-label={t(PALETTE_ACTION_LABEL_KEYS[item.action!])}
+                  // Swapping and switching a colour off leave the fan open:
+                  // both are things done *to* the pair while looking at it, and
+                  // a fan that shut after each one would have to be reopened to
+                  // see what it did. Opening the full picker closes it, because
+                  // that is a move to another surface.
+                  onClick={() => {
+                    if (item.action === 'picker') { onOpenColorPicker(); onFlyoutChange(null); return }
+                    if (item.action === 'swap') pair?.onSwap()
+                    if (item.action === 'none') pair?.onToggleActive()
+                  }}
                 >
-                  <Icon name="palette" />
+                  <Icon name={PALETTE_ACTION_ICONS[item.action!]} />
                 </button>
               )
             ))}

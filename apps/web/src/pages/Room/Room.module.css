@@ -404,6 +404,25 @@
   transition: opacity var(--duration-normal) ease;
 }
 
+/* (#542) The pinned colour well, at the top of the rail and separated from the
+   tool buttons by a rule: it is not one of them. It answers "what colour is in
+   my hand", where every button below answers "what is in my hand" — and the
+   line is what stops it being read as a ninth tool.
+
+   It does not shrink with the column: the rail is 62px wide with 44px buttons,
+   so a 40px circle sits inside the same optical column without touching it. */
+.railColorWell {
+  margin-bottom: 2px;
+}
+
+.railColorWellDivider {
+  width: 28px;
+  height: 1px;
+  margin-bottom: 4px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
 /* Quick-settings panel (#196 follow-up) — same width/shape as .toolbar,
    sitting immediately to its right so the tool-select buttons in .toolbar
    never reflow when the active tool's field count changes (pencil has 4

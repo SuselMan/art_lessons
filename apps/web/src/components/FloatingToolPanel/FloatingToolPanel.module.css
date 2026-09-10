@@ -59,12 +59,12 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border);
+  /* (#542) Placement only. The circle, its border, its size and its hover
+     belong to ColorWell now, which is why nothing here paints — the glyph has
+     to look the same at the panel's centre as it does in the tool rail.
+     ColorWell scales on hover through the standalone `scale` property rather
+     than through `transform` precisely so this centring survives it. */
   transform: translate(-50%, -50%);
-  cursor: pointer;
 }
 
 /* A compass slot. Placed by an inline transform computed from slotOffset()
@@ -121,12 +121,6 @@
   background: var(--color-text-dim);
 }
 
-/* Worn in the corner of a slot that holds a *role* — "whichever tool I last
-   drew with" — over that tool's own icon. Small on purpose: it is a footnote
-   on the icon, not a second icon, and the thing the eye needs from the slot
-   is still which tool it would hand over. Its one load-bearing job is inside
-   the chooser, where a fixed pencil and a role currently resolving to the
-   pencil would otherwise be the same picture twice. */
 /* (#544) "There is more than one tool behind this button" — the same corner
    wedge the rail's group buttons wear (see ToolGroupButton.module.css), and
    deliberately the same shape and size: it is one claim, and a user who learns

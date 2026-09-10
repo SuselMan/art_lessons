@@ -103,7 +103,7 @@ export const MATERIAL_ICON_NAMES = [
   'square_foot',
   'star',
   'stylus',
-  'swap_vert',
+  'swap_horiz',
   'text_fields',
   'transform',
   'trip_origin',
