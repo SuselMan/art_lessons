@@ -40,11 +40,16 @@ export async function createRoom(
   await page.goto('/create')
   await page.locator(NAME_INPUT).first().fill(name)
   if (opts.password) {
-    // The switch is a `display: none` checkbox inside its label — the label
-    // is what a person clicks, and clicking the input itself is not something
-    // even `force` can do to a box with no layout. The form has exactly one.
-    await page.locator('form label:has(input[type="checkbox"])').first().click()
+    // (#548) The create form's access settings are now the room's own access
+    // panel, behind a tab. Two things changed under this helper at once, and
+    // neither made a sound because this suite does not run in CI: the tab
+    // renders nothing until it is opened, and the on/off switch that used to
+    // reveal a password field is gone — the field is always there, and a
+    // password only exists once its own button has been pressed.
+    await page.getByRole('tab', { name: /access/i }).click()
     await page.locator(PASSWORD_INPUT).first().fill(opts.password)
+    await page.getByRole('button', { name: /^set$/i }).click()
+    await page.getByRole('tab', { name: /project/i }).click()
   }
   await page.locator(SUBMIT).click()
   await page.waitForURL(/\/room\/[^/]+$/)
