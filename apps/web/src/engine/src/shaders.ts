@@ -318,6 +318,21 @@ const WC_NOISE_GLSL = `
   float wcHairComb(float hair, float amp) {
     return mix(1.0, 2.0 * smoothstep(0.3, 0.7, hair), amp);
   }
+  // (#536, s17.20) WHICH hair is under this texel: a field over the across-
+  // brush coordinate (scaled to the bundle count, so a hair is a fixed place
+  // in the brush) and a slow drift with world position, so the hairs gather
+  // and separate as a real brush's do rather than staying a rigid comb.
+  // Slow: the drift used to move through three full periods every 125 world
+  // px, so the pattern re-dealt itself every forty pixels and thick hairs
+  // popped in and out along a long line - "как будто в процессе кисть
+  // меняется". One place for the ink pass and the composite's contact break,
+  // so both count the same hair.
+  const float WC_HAIR_DRIFT_SCALE = 0.0012;
+  const float WC_HAIR_DRIFT_GAIN = 0.9;
+  float wcHairField(float across, float combs, vec2 wp) {
+    float drift = wcFbm(wp * WC_HAIR_DRIFT_SCALE + vec2(71.0, 13.0));
+    return wcFbm(vec2(across * combs, drift * WC_HAIR_DRIFT_GAIN) + vec2(3.0, 29.0));
+  }
 `;
 
 export const RIBBON_VERT = `
@@ -481,8 +496,7 @@ ${WC_NOISE_GLSL}
     // a fixed place in the brush and its streak follows the brush round a
     // curve, exactly as the composite's contact break indexes it.
     if (u_mode > 0.5 && u_bristleInk > 0.0) {
-      float hairDrift = wcFbm(mottleWp * 0.008 + vec2(71.0, 13.0));
-      float hair = wcFbm(vec2(v_across * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
+      float hair = wcHairField(v_across, u_bristleCombs, mottleWp);
       amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, bandWater));
     }
     // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
@@ -1272,8 +1286,7 @@ ${WC_NOISE_GLSL}
         float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
         float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
         vec2 hairWp = gl_FragCoord.xy + u_paperOrigin;
-        float hairDrift = wcFbm(hairWp * 0.008 + vec2(71.0, 13.0));
-        float hair = wcFbm(vec2(acrossN * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
+        float hair = wcHairField(acrossN, u_bristleCombs, hairWp);
         amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, u_inkWater));
       }
       if (u_inkClip > 0.5) {
@@ -1612,8 +1625,7 @@ ${WC_NOISE_GLSL}
       float acrossN = rawCoverage > 0.004
         ? clamp(texture2D(u_strokeCoverage, tileUV).r / rawCoverage, 0.0, 1.0) * 2.0 - 1.0
         : 0.0;
-      float hairDrift = wcFbm(wp * 0.008 + vec2(71.0, 13.0));
-      float bristle = wcFbm(vec2(acrossN * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
+      float bristle = wcHairField(acrossN, u_bristleCombs, wp);
 
       // (#536) …and the paper's water counts here as much as the brush's.
       //
