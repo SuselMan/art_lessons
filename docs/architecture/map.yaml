@@ -490,6 +490,7 @@ modules:
     files:
       - apps/web/src/components/FloatingToolPanel/**
       - apps/web/src/components/OptionPicker/**
+      - apps/web/src/components/ToolGroupButton/**
       - apps/web/src/components/OptionGroup/**
       - apps/web/src/components/RadialDial/**
       - apps/web/src/components/PrecisionSlider/**
@@ -498,6 +499,11 @@ modules:
       - >-
         Панель по умолчанию скрыта: для проверки мышью нужен `al_floating_panel='always'`,
         для настоящего касания — планшет с минимальным UI.
+      - >-
+        ToolGroupButton (#544) — кнопка рейки, за которой лежит группа инструментов: тап
+        берёт текущий, повторный тап или удержание открывают тот же список, что и выбор
+        мягкости карандаша. Сам вид кнопки приходит классом из Room.module.css — рейка
+        задаёт, как выглядят её кнопки, и эта не должна отличаться от соседних.
     tags: [инструменты, планшет]
 
   - id: ui-chrome

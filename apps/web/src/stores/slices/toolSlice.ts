@@ -106,7 +106,10 @@ export const PRIMARY_DRAWING_TOOLS: readonly PrimaryDrawingTool[] = [
   'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'digitalBrush',
 ]
 
-function isPrimaryDrawingTool(tool: EditorTool): tool is PrimaryDrawingTool {
+/** (#544) Exported because the toolbar asks it too: its one drawing button is
+ *  lit whenever *any* material is in hand, not when `tool` happens to equal
+ *  the material the button is wearing. */
+export function isPrimaryDrawingTool(tool: EditorTool): tool is PrimaryDrawingTool {
   return (PRIMARY_DRAWING_TOOLS as readonly EditorTool[]).includes(tool)
 }
 

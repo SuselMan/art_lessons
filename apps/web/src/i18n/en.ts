@@ -504,6 +504,16 @@ export const en = {
   'room.loading.paper': 'Unrolling the paper...',
 
   // ── tools ──────────────────────────────────────────────────────────────
+  // (#544) The one rail button all seven materials now live behind. Its
+  // tooltip has to do two jobs the per-material tooltips did not: name what is
+  // in hand, and say that there is a choice behind it at all.
+  'tool.drawing': 'Drawing tool',
+  'tool.drawingTitle': '{tool} — tap again or hold to pick another drawing tool',
+  // The pencil is the one material with hotkeys of its own that have
+  // nowhere else to be announced — the grade picker beside it is a 40 px
+  // square with no room for a hint.
+  'tool.drawingTitlePencil':
+    '{tool} ({hotkeys} for harder / softer grade) — tap again or hold to pick another drawing tool',
   'tool.pencil': 'Pencil',
   'tool.pencilTitle': 'Pencil  ({hotkeys} for harder / softer grade)',
   'tool.eraser': 'Eraser',

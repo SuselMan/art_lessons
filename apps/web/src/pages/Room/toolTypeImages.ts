@@ -19,6 +19,29 @@ const files = import.meta.glob('../../assets/tool-types/*/*.png', {
   import: 'default',
 }) as Record<string, string>
 
+/** (#544) The other kind of picture, one directory up: a photograph of the
+ *  *tool*, not of the mark it leaves. Same filename-is-the-id convention —
+ *  `brushPen.png` illustrates the brush pen — and the same `?url` treatment,
+ *  which matters more here: these are photographs, ~50 KB each, and the
+ *  chooser they belong to is opened rarely.
+ *
+ *  Shot on white and keyed into alpha, so the tool sits on whatever surface
+ *  the UI puts behind it rather than in a lit white box. Unlike the sample
+ *  strokes below they get no paper tint — paper is what a stroke needs to be
+ *  read against, and a pencil is not a stroke. */
+const toolFiles = import.meta.glob('../../assets/tools/*.png', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+
+export const TOOL_PHOTOS: Record<string, string> = Object.fromEntries(
+  Object.entries(toolFiles).map(([path, url]) => [
+    path.slice('../../assets/tools/'.length, -'.png'.length),
+    url,
+  ]),
+)
+
 function imagesFor(tool: string): Record<string, string> {
   const prefix = `../../assets/tool-types/${tool}/`
   return Object.fromEntries(
