@@ -4107,6 +4107,7 @@ export class PencilEngine implements PencilEngineAPI {
     // for the whole repopulation, swept once after against the final,
     // settled tile count instead — see TiledLayerBuffer.suspendEviction.
     const tiled = buf instanceof TiledLayerBuffer ? buf : null
+    this._dropCarriedGestureState(buf)
     tiled?.suspendEviction()
     try {
       let start = 0
@@ -4142,6 +4143,38 @@ export class PencilEngine implements PencilEngineAPI {
       }
     } finally {
       tiled?.resumeEviction()
+    }
+  }
+
+  /** (#554) Forgets what the *previous* pass over the log left behind for the
+   *  gestures this replay is about to paint again.
+   *
+   *  Both caches this drops exist to carry a gesture across the several
+   *  operations it was chunked into — the ribbon's scratch and bridging
+   *  `prevDab` (_replayChunkScratch), smudge's carried imprint
+   *  (_smudgeResumeGesture). Neither was ever evicted when a layer was rebuilt,
+   *  so a replay of a gesture that had already been replayed once found *its
+   *  own last dab* waiting under its own id and bridged the mark's first dab
+   *  onto it: a straight hairline joining the two ends of a stroke, appearing
+   *  on the second undo in a row and on nothing else. A brush pen showed it
+   *  worst — its end taper makes that last dab thin, so the bridge read as a
+   *  stray thread rather than as part of the mark.
+   *
+   *  Ribbon entries are dropped for this buffer only: another layer's replay
+   *  (a merge's temp buffer, a full-replay bake) holds its own and is not this
+   *  replay's business. Smudge's are per user with no target to compare, so
+   *  they all go except the local gesture actually in progress — that one is
+   *  still being painted live by _paintSmudgeDabs and must not have its imprint
+   *  reset under it by, say, a peer's undo arriving mid-stroke. */
+  private _dropCarriedGestureState(buf: ILayerBuffer): void {
+    for (const [key, chunk] of this._replayRibbonChunks) {
+      if (chunk.target !== buf) continue
+      chunk.scratch.destroy()
+      this._replayRibbonChunks.delete(key)
+    }
+    for (const [userId, chunk] of this._smudgeReplayChunks) {
+      const live = userId === this._userId && !!this._strokeId && chunk.strokeId === this._strokeId
+      if (!live) this._smudgeReplayChunks.delete(userId)
     }
   }
 
