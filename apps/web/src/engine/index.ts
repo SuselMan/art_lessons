@@ -68,7 +68,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -1461,10 +1461,10 @@ function ribbonBristleCombs(profile: RibbonProfile, bristleRadiusPx: number): nu
 }
 
 /** (#536, ADR 011 §17.11/13) The water a stroke delivers to the sheet — its
- *  nominal mix water, for the same reason the live wetness field is fed the mix
- *  rather than the depleted load (see _paintDabs) — and how much of it dry
- *  paper keeps standing. See watercolorWaterRetention, and u_washWater in
- *  RIBBON_FRAG for how the two become the wash's standing-water record. */
+ *  nominal mix water — and how much of it dry paper keeps standing. See
+ *  watercolorWaterRetention, and u_washWater in RIBBON_FRAG for how the two
+ *  become the wash's standing-water record; watercolorStandingWater is the
+ *  same rule on the CPU, feeding the live wetness field (§17.21). */
 function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: number } {
   if (!profile.normalizeDeposit) return { water: 0, retain: 0 }
   // The nominal mix for every stroke — a long puddle laid from a depleting
@@ -1544,6 +1544,12 @@ class RibbonStrokeScratch {
    *  is one paint, the colour record is the deposit times one absorption and
    *  the diffusion need not carry it — see _diffuseWash. */
   readonly paints = new Set<string>()
+  /** (#536, §17.21) What each dab of the batch just painted left standing on
+   *  the sheet (watercolorStandingWater) — the ribbon build writes it, and
+   *  whoever feeds the live wetness field reads it, so the field and the
+   *  wash's coverage .b are fed one number. Cleared per batch; the keys are
+   *  the batch's own dab objects. */
+  readonly standing = new Map<Dab, number>()
   private readonly needsInk: boolean
   /** (#468 v3) How much of the brush's load this gesture has spent so far,
    *  measured in brush radii of travel (ADR 011 §3.8).
@@ -2934,12 +2940,12 @@ export class PencilEngine implements PencilEngineAPI {
           const allDabs = strokeDabs(op)
           const skip = this._claimLivePaintedDabs(op, allDabs.length)
           const dabs = skip ? allDabs.slice(skip) : allDabs
-          if (dabs.length) {
-            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
-          }
+          const standing = dabs.length
+            ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
+            : undefined
           // (#536) The same dabs, and the same slice: whatever the live stream
           // already delivered has already wet the paper here.
-          this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp)
+          this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing)
           this._markLayerDirty(op.layerId)
           // (#468) Never mid-wash, the same rule the local path follows one
           // stroke over. A checkpoint bakes the layer's pixels, and the strokes
@@ -3873,7 +3879,7 @@ export class PencilEngine implements PencilEngineAPI {
     // deliberately left undefined for the same reason it is on the replay
     // path: both tools recover it from their own gesture state, and passing a
     // second, independently-tracked copy is how the two get to disagree.
-    this._paintDabs(
+    const standing = this._paintDabs(
       buf, dabs, packet.tool, packet.preset, packet.color, peerId,
       undefined, undefined, packet.strokeId, packet.washId, wet,
       mottleSeedFromStrokeId(packet.strokeId),
@@ -3881,7 +3887,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) A peer's water reaches this client's paper as they lay it, not
     // when their operation lands — the point of the live stream is that the
     // other person's mark is there to work into while they are still drawing.
-    this._wetFromForeignStroke(packet.layerId, packet.tool, packet.preset, dabs, null)
+    this._wetFromForeignStroke(packet.layerId, packet.tool, packet.preset, dabs, null, standing)
     this._markLayerDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
     this._displayIfNotSuspended()
@@ -4328,14 +4334,14 @@ export class PencilEngine implements PencilEngineAPI {
         // Decoded once and shared: this is the hot path of every layer rebuild,
         // and strokeDabs unpacks the whole packed array each time it is called.
         const dabs = strokeDabs(op)
-        this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
+        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
         // (#536) Replaying the log restores the water too, for the handful of
         // strokes young enough to still be wet. That is what makes undo behave:
         // undo drops the layer's whole field (PaperWetness.forgetLayer, which
         // cannot be selective — the field is not in the log) and the rebuild
         // that follows puts back the water of every stroke that survived. Older
         // ones cost one subtraction each and deposit nothing.
-        this._wetFromForeignStroke(layerId, op.tool, op.preset, dabs, op.timestamp)
+        this._wetFromForeignStroke(layerId, op.tool, op.preset, dabs, op.timestamp, standing)
         break
       }
       case 'layer_clear':
@@ -6367,7 +6373,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._liveWetQueue += seen
       batchWet = seen
     }
-    this._paintDabs(
+    const standing = this._paintDabs(
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
       this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
       undefined, undefined, batchWet, mottleSeedFromStrokeId(this._strokeId ?? undefined),
@@ -6384,10 +6390,14 @@ export class PencilEngine implements PencilEngineAPI {
     // reads wet, actually laying water first stops meaning anything. Which is
     // exactly how it behaved.
     //
-    // The nominal mix rather than the depleted load: how wet a patch of paper
-    // is barely cares which end of the stroke wetted it, while the mark very
-    // much does — that distinction is why brush water and paper wetness are two
-    // quantities (ADR 011 §17).
+    // (#536, §17.21) What each dab left standing, as the ribbon build worked it
+    // out (watercolorStandingWater) — the same number it wrote into the wash's
+    // coverage .b, so the puddle this field draws is the puddle the diffusion
+    // runs in. It used to be the nominal mix for every dab, on the argument
+    // that a patch of paper barely cares which end of the stroke wetted it;
+    // but the brush's water runs out along a stroke now, and a dry brush wets
+    // nothing — so the sheen ran on where the record had stopped, and pigment
+    // dropped into the far end of a scribbled puddle had nothing to run in.
     if (this._strokeTool === 'watercolor') {
       const now = performance.now()
       const water = watercolorMixFromPreset(this._strokePreset).water
@@ -6404,7 +6414,7 @@ export class PencilEngine implements PencilEngineAPI {
         // the mark cannot come to different conclusions about how wet it was.
         const drained = watercolorPaperDrained(wetAt(batchWet, i), water)
         if (drained > 0) this._paperWet.drain(layerId, dab.x, dab.y, dab.size * 0.5, drained)
-        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, water, now, true)
+        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now, true)
       }
       this._scheduleDryingRepaint()
     }
@@ -6953,9 +6963,9 @@ export class PencilEngine implements PencilEngineAPI {
      *  replay must resolve it from the same id, or the two draw different
      *  texture; see mottleSeedFor. */
     strokeSeed?: [number, number],
-  ): void {
-    if (!dabs.length) return
-    if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
+  ): ReadonlyMap<Dab, number> | undefined {
+    if (!dabs.length) return undefined
+    if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return undefined }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
     // round trip (see _paintRibbonDabs' own doc comment) — self-contained
@@ -6967,7 +6977,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #454: two tools now, dispatched by isRibbonTool rather than by name —
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
-    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed); return }
+    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed)
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -7044,6 +7054,7 @@ export class PencilEngine implements PencilEngineAPI {
     // — nothing to track. A real ILayerBuffer target tracks it so
     // getContentBounds() never has to fall back to a readPixels scan.
     if (!(target instanceof AccumulationBuffer)) target.markContentPainted(worldBounds)
+    return undefined
   }
 
   /** Fallback path for a WebGL1 context without ANGLE_instanced_arrays: one
@@ -7637,7 +7648,7 @@ export class PencilEngine implements PencilEngineAPI {
     ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string, washId?: string,
     wetProfile?: string,
     strokeSeed?: [number, number],
-  ): void {
+  ): ReadonlyMap<Dab, number> | undefined {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
     // does — see _paintRibbonStroke below, which needs it to find the
@@ -7646,7 +7657,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the identical structural reason. The real dabs always paint straight
     // into the real layer regardless (see _paintDabs' own doc comment on
     // `target`).
-    if (target instanceof AccumulationBuffer) return
+    if (target instanceof AccumulationBuffer) return undefined
     const preset = this._resolvePreset(tool, presetName)
     // (#536) The paper's own wetness where this gesture came down, read from
     // what the stroke recorded rather than from the live field: a replay has no
@@ -7669,9 +7680,13 @@ export class PencilEngine implements PencilEngineAPI {
     // over larger bounds, when the next chunk arrives — the composite is a pure
     // recomputation, so repeating it is a no-op by construction.
     if (!ribbonScratch) this._finishRibbonStroke(scratch)
+    // What this batch left standing, for the caller to feed the wetness field
+    // — its own copy, since a throwaway scratch is destroyed on the next line.
+    const standing = scratch.standing.size ? new Map(scratch.standing) : undefined
     // The cached one belongs to the gesture, not to this call — it is released
     // when a different gesture arrives, or with the engine.
     if (!ribbonScratch && !chunk) scratch.destroy()
+    return standing
   }
 
   /** The scratch this replayed operation should paint through, given the
@@ -8020,6 +8035,8 @@ export class PencilEngine implements PencilEngineAPI {
     const deposits: number[] = []
     const waterByDab = new Map<Dab, number>()
     const pigmentByDab = new Map<Dab, number>()
+    const delivery = ribbonWaterDelivery(profile)
+    scratch.standing.clear()
     // (#536) Which way "across the brush" points for each dab, in the nib's own
     // local axes — the stamps' half of the hair comb. Filled in the same loop
     // that already resolves each dab's travel direction, so there is exactly
@@ -8097,6 +8114,7 @@ export class PencilEngine implements PencilEngineAPI {
         excessByDab.set(dab, excess)
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
+        if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, water))
         // The stamps' share of the dose, doubled back up because the legacy
         // formula's 0.5 assumed an even split with the bands.
         const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
@@ -9923,6 +9941,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  each author recorded seeing, and that is not derived here. */
   private _wetFromForeignStroke(
     layerId: string, tool: ToolType, preset: string, dabs: Dab[], atMs: number | null,
+    /** (#536, §17.21) What the ribbon build just worked out each dab left
+     *  standing (_paintDabs' return) — the mix is only the fallback for a dab
+     *  it did not paint. */
+    standing?: ReadonlyMap<Dab, number>,
   ): void {
     if (tool !== 'watercolor' || !dabs.length) return
     // A null timestamp is a live packet: it is happening now, by definition.
@@ -9931,7 +9953,7 @@ export class PencilEngine implements PencilEngineAPI {
     const now = performance.now() - age
     const water = watercolorMixFromPreset(preset).water
     for (const dab of dabs) {
-      this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, water, now)
+      this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now)
     }
     this._scheduleDryingRepaint()
   }

@@ -819,6 +819,38 @@ const WATERCOLOR_RETAIN_DAMP = 0.15
 const WATERCOLOR_RETAIN_FLOODED = 0.85
 const WATERCOLOR_RETAIN_FROM = 0.25
 
+/** (#536, §17.21) Where along the brush's own water the standing water it
+ *  leaves is cut: full above HI, none below LO, smoothstep between. The
+ *  shaders write the same two numbers into coverage .b (RIBBON_FRAG and
+ *  DAB_FRAG mode 6 — shaders.test.ts holds them to these). */
+export const WC_STANDING_GATE_LO = 0.05
+export const WC_STANDING_GATE_HI = 0.35
+
+/** (#536, §17.21) The standing water one dab leaves on the sheet — the
+ *  number the live wetness field is fed, and the same number the ribbon
+ *  writes into the wash's coverage .b, so the puddle the composite draws and
+ *  the puddle the diffusion runs in are one puddle.
+ *
+ *  They were two. The field took the nominal mix for every dab of a stroke
+ *  ("how wet a patch of paper is barely cares which end of the stroke wetted
+ *  it") while the record cut it where the brush had run dry — so a puddle
+ *  scribbled in one gesture drew its sheen and its bead over the whole
+ *  scribble, and carried pigment only along the first run of it: "пигмент
+ *  растекается … в рамках своей лужи, хотя лужа значительно больше". A brush
+ *  that has run dry wets nothing, and now the sheen says so too.
+ *
+ *  `mixWater` the preset's nominal water, `retain` what dry paper keeps of it
+ *  (1 for clean water, watercolorWaterRetention for pigment), `paperWet` the
+ *  wetness the dab was laid into (already-wet paper keeps everything), and
+ *  `brushWater` the brush's water as it stands at this dab, after the clocks.
+ *  What the field records is the max with what was there; the shader takes
+ *  the same max against the recorded wetness. */
+export function watercolorStandingWater(mixWater: number, retain: number, paperWet: number, brushWater: number): number {
+  const w = clamp01(paperWet)
+  const t = clamp01((brushWater - WC_STANDING_GATE_LO) / (WC_STANDING_GATE_HI - WC_STANDING_GATE_LO))
+  return mixWater * (retain + (1 - retain) * w) * t * t * (3 - 2 * t)
+}
+
 // ─── Wet-in-wet: the halo (#536, ADR 011 §17.10) ───────────────────────────
 //
 // Paint dropped into standing water does not stay where the brush put it: a

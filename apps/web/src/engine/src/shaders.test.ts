@@ -4,6 +4,7 @@ import {
   DAB_FRAG, DAB_VERT, RIBBON_FRAG, PAPER_COMPOSE_FRAG,
 } from './shaders'
 import { PIGMENT_DEPTH_SCALE } from './pigmentOptics'
+import { WC_STANDING_GATE_LO, WC_STANDING_GATE_HI } from './watercolorPresets'
 
 // (#536) One structural check on the GLSL, and it exists because this file is
 // several *independent programs* that happen to live in one TypeScript module.
@@ -70,5 +71,15 @@ describe('every shader declares what it uses (#536)', () => {
     const decl = `const float WC_DEPTH_SCALE = ${PIGMENT_DEPTH_SCALE.toFixed(1)};`
     expect(DAB_FRAG).toContain(decl)
     expect(RIBBON_FRAG).toContain(decl)
+  })
+
+  it('cuts the standing-water record where the live field cuts it (#536, §17.21)', () => {
+    // watercolorStandingWater feeds the wetness field the composite draws
+    // the puddle from; the two passes below write coverage .b, which the
+    // diffusion runs in. Same edges, or the puddle you see and the puddle
+    // the paint runs in are two different puddles.
+    const gate = `smoothstep(${WC_STANDING_GATE_LO.toFixed(2)}, ${WC_STANDING_GATE_HI.toFixed(2)}, `
+    expect(RIBBON_FRAG).toContain(gate + 'bandWater)')
+    expect(DAB_FRAG).toContain(gate + 'u_inkWater)')
   })
 })

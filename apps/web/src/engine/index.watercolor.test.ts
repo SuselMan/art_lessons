@@ -681,6 +681,29 @@ describe('water first, then paint (#536)', () => {
     return lastStroke(engine)
   }
 
+  it('wets the sheet where the brush still had water, not where it had run dry (§17.21)', async () => {
+    // One long clean-water stroke, many radii of it. The head leaves a puddle;
+    // the tail, with the brush's water long gone (watercolorWaterLoad), leaves
+    // the sheet as dry as it found it — the same cut the wash's coverage .b
+    // record makes, so the sheen and the diffusion agree on where the puddle
+    // is. Before this the field took the nominal mix for every dab.
+    const engine = setupLayer(640, 64)
+    await paperReady(engine)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(WATER)
+    engine.setSize(12)
+    const pts = []
+    for (let x = 8; x <= 620; x += 4) pts.push({ x, y: 32 })
+    simulateStroke(engine, pts)
+    const now = performance.now()
+    const field = engine['_paperWet']
+    const head = field.sample('L', 24, 32, now)
+    const tail = field.sample('L', 600, 32, now)
+    expect(head).toBeGreaterThan(0.6)
+    expect(tail).toBeLessThan(0.05)
+  })
+
   it('records nothing on dry paper — most strokes carry no field at all', async () => {
     const engine = setupLayer(96, 96)
     await paperReady(engine)
