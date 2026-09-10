@@ -66,6 +66,22 @@ export const FLOATING_TOOLS = [
  *  with no icon or label is a typecheck error, not a blank button). */
 export type FloatingPanelTool = (typeof FLOATING_TOOLS)[number]
 
+/** (#544) The tools a slot can be *pinned* to, which is now a smaller set than
+ *  the tools the panel can *show*.
+ *
+ *  The difference is the groups. A material is still displayed here — a slot
+ *  holding the drawing group wears whichever one is in hand — but it can no
+ *  longer be put in a slot on its own, because the rail does not offer that
+ *  either and the panel and the rail offer one set of tools between them, not
+ *  two. Same for the shape: four shapes behind one entry.
+ *
+ *  Written as a filter rather than a second hand-kept list so that a tool
+ *  added above lands here automatically unless it belongs to a group. */
+export const SLOT_FIXED_TOOLS = FLOATING_TOOLS.filter(
+  (tool): tool is FloatingPanelTool =>
+    !(FLOATING_PRIMARY_TOOLS as readonly string[]).includes(tool) && tool !== 'shape',
+)
+
 /** Narrows an arbitrary editor tool to the ones this panel can show as
  *  selected, so Room does not have to keep its own copy of the list to decide
  *  what to pass as `tool`. Now that every toolbar tool is in the list, the

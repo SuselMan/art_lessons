@@ -127,27 +127,23 @@
    is still which tool it would hand over. Its one load-bearing job is inside
    the chooser, where a fixed pencil and a role currently resolving to the
    pencil would otherwise be the same picture twice. */
-.roleBadge {
+/* (#544) "There is more than one tool behind this button" — the same corner
+   wedge the rail's group buttons wear (see ToolGroupButton.module.css), and
+   deliberately the same shape and size: it is one claim, and a user who learns
+   it on the rail should not have to learn it again here.
+
+   It replaced a round `history` badge that said something subtly different —
+   "this slot follows whatever you last used" — which was true of the roles
+   this panel no longer has. */
+.groupMark {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--color-surface-raised);
-  color: var(--color-text-dim);
-}
-/* Icon.tsx wraps every glyph in a global .material-symbols-outlined, whose
-   app-wide rule sizes it at 24px — the badge has to override that from here
-   rather than by inheriting, since font-size is set on the wrapper itself. */
-.roleBadge > :global(.material-symbols-outlined) {
-  font-size: 12px;
-}
-.btnActive .roleBadge {
-  color: var(--color-accent);
+  right: 3px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  opacity: 0.55;
 }
 
 /* Invisible tap-catcher (#190 follow-up) — see index.tsx's own comment on

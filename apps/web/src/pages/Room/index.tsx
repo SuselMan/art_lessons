@@ -28,6 +28,7 @@ import { isModalOpen } from '../../components/Modal/modalSlot'
 import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
+import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
 import { ToolGroupButton } from '../../components/ToolGroupButton'
 import type { PickerOption } from '../../components/OptionPicker/types'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
@@ -2849,31 +2850,19 @@ export function Room() {
   const activeColor = getToolColor(toolSettings, pickedColorTool, shapeSwatch)
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor, engineEpoch])
   // FloatingToolPanel (#157) is an eight-slot compass the user lays out
-  // themselves: any slot holds any tool the left toolbar holds, or undo/redo,
-  // or nothing. Two of the entries are *roles* rather than tools — the drawing
-  // tool and the eraser/smudge/eyedropper you have no button for — which is
-  // what the panel's fixed top and bottom slots already were, and what the
-  // default layout still puts there.
+  // themselves: any slot holds a tool, one of the two groups, undo/redo, or
+  // nothing.
   //
-  // The whole recency lists go down rather than just their heads: a role skips
-  // anything the layout already pins to a slot of its own, so resolving one
-  // needs the order, and it needs the layout — both of which the panel has and
-  // this file does not. See pickRoleTool in FloatingToolPanel/slots.ts.
-  const storedRecentDrawingTools = useRoomStore(s => s.recentDrawingTools)
-  const storedRecentSecondaryTools = useRoomStore(s => s.recentSecondaryTools)
-  // (#548) What the floating panel's two *roles* are allowed to resolve to.
-  // Filtered here rather than in the store: the store remembers what this
-  // person actually drew with, which is a fact about them and outlives any one
-  // room's toolset — a room that switches the marker back on should find it
-  // still remembered in the right place, not pushed to the end of the list.
-  const recentDrawingTools = useMemo(
-    () => storedRecentDrawingTools.filter(toolOffered),
-    [storedRecentDrawingTools, toolOffered],
-  )
-  const recentSecondaryTools = useMemo(
-    () => storedRecentSecondaryTools.filter(toolOffered),
-    [storedRecentSecondaryTools, toolOffered],
-  )
+  // (#544) It used to hold *roles* instead of groups — "the drawing tool you
+  // have no button for", "the eraser/smudge/eyedropper you have no button
+  // for" — and they are gone. A role could only ever hand back a tool you had
+  // already picked somewhere else, which on a tablet in minimal UI, with no
+  // rail and no hotkeys, means it could not reach a material you had not
+  // touched this session. A group reaches all of them, and does it without a
+  // slot whose meaning changes under you. `recentSecondaryTools` and
+  // `lastSecondaryTool` left the store with the secondary role: it was the
+  // only thing that ever read them.
+  //
   // (#544) The three things the rail's one drawing button needs.
   //
   // `drawingGroupTool` is what the button wears and what a plain tap takes.
@@ -2915,6 +2904,39 @@ export function Room() {
     })),
     [t],
   )
+  // (#544) The same two groups again, in the shape the floating panel wants
+  // them. Built from the values above rather than beside them, so the panel
+  // and the rail cannot come to disagree about what is in hand — which is the
+  // whole reason the panel stopped keeping its own answer (a role) in the
+  // first place.
+  //
+  // The shape group is empty when the room does not offer shapes; the panel
+  // reads that as "withdrawn" and draws the slot dim. The drawing group can
+  // never be empty — a toolset always keeps one material.
+  const panelGroups = useMemo<PanelGroups>(() => ({
+    drawing: {
+      tool: drawingGroupTool,
+      icon: TOOL_DISPLAY[drawingGroupTool].icon,
+      value: drawingGroupTool,
+      members: drawingGroupOptions.map(option => ({
+        value: option.value,
+        label: option.label,
+        icon: TOOL_DISPLAY[option.value as PrimaryDrawingTool].icon,
+      })),
+    },
+    shape: {
+      tool: 'shape',
+      icon: SHAPE_KIND_ICONS[shapeKind],
+      value: shapeKind,
+      members: toolOffered('shape')
+        ? shapeKindOptions.map(option => ({
+          value: option.value,
+          label: option.label,
+          icon: option.icon ?? 'shapes',
+        }))
+        : [],
+    },
+  }), [drawingGroupTool, drawingGroupOptions, shapeKind, shapeKindOptions, toolOffered])
   // Which slots light up. Deliberately null for the tools no slot can name —
   // which, now that every toolbar tool can sit in a slot, means only the
   // annotation set, and the panel is not on screen alongside those anyway
@@ -3587,6 +3609,17 @@ export function Room() {
     if (!isToolEnabledInRoom(enabledTools, next)) return
     setTool(next)
   }, [setTool, enabledTools])
+
+  // (#544) Picking one member out of a group's fan in the floating panel. The
+  // two groups differ exactly here and nowhere the panel can see: a material
+  // *is* a tool, while a shape is a setting on a tool that then has to be
+  // taken as well. Routed through `selectTool` like every other path into a
+  // hand, so the toolset gate applies here too.
+  const selectGroupMember = useCallback((group: SlotGroup, value: string) => {
+    if (group === 'drawing') { selectTool(value as EditorTool); return }
+    setToolSetting('shape', 'kind', value)
+    selectTool('shape')
+  }, [selectTool, setToolSetting])
 
   // The toggle survives, but only on the *keys*. "Press E, do a correction,
   // press E again" is a real one-handed affordance that a key can offer and a
@@ -7928,8 +7961,8 @@ export function Room() {
           // See floatingSlotTool above for why this is narrowed rather than
           // folded: ruler/transform/grid/hand light neither slot.
           tool={floatingSlotTool}
-          recentDrawingTools={recentDrawingTools}
-          recentSecondaryTools={recentSecondaryTools}
+          groups={panelGroups}
+          onSelectGroupMember={selectGroupMember}
           // (#548) selectTool, not the raw store setter: it is the gate that
           // refuses a tool the room does not offer, and a slot assigned before
           // that happened is exactly the path with no button to hide.

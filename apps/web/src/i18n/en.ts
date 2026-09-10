@@ -703,8 +703,10 @@ export const en = {
   'palette.slotEmpty': 'Empty slot',
   'palette.slotEmptyHold': 'Empty slot — hold to put a tool here',
   'palette.slotClear': 'Leave empty',
-  'palette.roleDrawing': 'Last drawing tool',
-  'palette.roleSecondary': 'Last eraser / smudge tool',
+  // (#544) The group slots' own tooltip. It has to carry one gesture more than
+  // the plain one above — the second tap — because that is the only place on
+  // the panel where the gesture exists to be learned from.
+  'palette.slotGroupHold': '{item} — tap again to pick another, hold to change this slot',
   'palette.mode': 'Picker shape',
   'palette.mode.bar': 'Hue strip',
   'palette.mode.ring': 'Hue ring',
