@@ -565,7 +565,37 @@ describe('a wash reaches every path that paints (#468)', () => {
     b.appendOperation(lastStroke(a))
     expect(reveals(a).size).toBeGreaterThan(0)
     expect(reveals(b).size).toBe(0)
+    // (§17.22) …once the author's settle, spread over the next frames, has
+    // landed. The replay's landed inside appendOperation.
+    await vi.waitFor(() => expect(settleOf(a)).toBeNull())
     expectPixelsEqual(readLayerPixels(a, 'L'), readLayerPixels(b, 'L'))
+  })
+
+  function settleOf(engine: PencilEngine): unknown {
+    return (engine as unknown as { _settle: unknown })._settle
+  }
+
+  it('spreads the author’s settle over frames, and lands it before the next pen-down (§17.22)', async () => {
+    // The diffusion is a dozen full-field passes; in one go it is a hitch at
+    // every pen-up on a tablet. For the author it runs a few steps per
+    // animation frame under the reveal. Anything that would paint into the
+    // wash meanwhile lands it first, so no paint laid in between is lost to
+    // the settle's copy-back.
+    const engine = wetEngine()
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    expect(settleOf(engine)).toBeTruthy()
+    simulateStrokeStart(engine, 40, 32)
+    expect(settleOf(engine)).toBeNull()
+    simulateStrokeMove(engine, 56, 32)
+    simulateStrokeEnd(engine, 56, 32)
+    expect(settleOf(engine)).toBeTruthy()
+    await vi.waitFor(() => expect(settleOf(engine)).toBeNull())
+    // A replay never spreads: it is building the dry target, unwatched.
+    const other = wetEngine()
+    await paperReady(other)
+    other.appendOperation(lastStroke(engine))
+    expect(settleOf(other)).toBeNull()
   })
 
   it('leaves the packet unstamped for a tool with no washes', async () => {

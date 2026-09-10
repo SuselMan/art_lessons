@@ -1809,6 +1809,13 @@ class RibbonStrokeScratch {
   forget(): void {
     this._tiles.clear()
   }
+
+  /** (#536, §17.22) Whether this scratch still holds its tiles — false once
+   *  destroyed or forgotten, which is how a settle in flight learns that the
+   *  wash it was settling is gone. */
+  get live(): boolean {
+    return this._tiles.size > 0
+  }
 }
 
 function clampNum(x: number, lo: number, hi: number): number {
@@ -2113,6 +2120,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  never read by any paint pass, never serialised, dropped with the tile. */
   private _washReveals = new Map<AccumulationBuffer, WashReveal>()
   private _revealTimer = 0
+  /** (#536, §17.22) The author's pen-up settle in flight: the diffusion's
+   *  GPU steps, run a few per animation frame under the reveal instead of
+   *  all at once — 89 ms in one go for a 400 px brush on a desktop GPU, a
+   *  visible hitch at every pen-up on a tablet. One at a time, by design:
+   *  the steps run over the shared _diffuseField, so anything that needs the
+   *  field (another settle, a replay's) drains this one first. */
+  private _settle: {
+    scratch: RibbonStrokeScratch
+    ops: Array<() => void>
+    next: number
+    complete: () => void
+    raf: number
+  } | null = null
   /** (#536, §17.11) The one field the wet diffusion runs over: the wash's
    *  tiles stitched into a rect, so paint crosses tile seams as freely as any
    *  other texel. Four buffers of one size, grown to the largest wash seen and
@@ -4721,6 +4741,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._startPaperLoad(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._washReveals.clear() // same — and the pool they came from is forgotten below
+    this._cancelSettle()
     this._diffuseField = null
     this._previewBuf = null
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
@@ -4741,6 +4762,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the pool for the next gesture to paint through.
     this._ribbonScratchPool.forget()
     this._washReveals.clear() // same reasoning — its pooled copies are dead with the pool
+    this._cancelSettle()
     this._diffuseField = null // handles dead too
     this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeReplayChunks.clear()
@@ -5633,6 +5655,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._liveWetQueue = ''
     this._paperWet.dropPending()
     if (profile.normalizeDeposit) {
+      // (#536, §17.22) A settle still in flight lands first: its copy-back
+      // would otherwise overwrite whatever this stroke lays meanwhile.
+      if (this._settle) this._completeSettle()
       const now = performance.now()
       const open = this._wash
       // (#536) Joining is a physical question, not a bookkeeping one: did the
@@ -8561,13 +8586,18 @@ export class PencilEngine implements PencilEngineAPI {
    *  gesture's bounds and a replay's differ by a batch's padding) cannot move
    *  a pit. Nothing here reads a clock; the schedule is a constant of the
    *  tool, and the eight-bit write between steps is the one measured leak. */
-  private _diffuseWash(
+  /** (#536, ADR 011 §17.11, §17.22) The wet diffusion over this wash's
+   *  tiles stitched into one field, as a list of GPU steps plus the copy-back
+   *  — a list so that the author's pen-up can spread it over frames under
+   *  the reveal (see _startSettle) while a replay runs it in one go. Null
+   *  when the wash holds no deposit here. */
+  private _diffuseWashOps(
     scratch: RibbonStrokeScratch, targets: PaintTarget[],
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
-  ): void {
+  ): { ops: Array<() => void>; finish: () => void } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
-    if (!tiles.length) return
+    if (!tiles.length) return null
     // The rect: the settle's bounds plus the reach, clipped to the tiles that
     // actually hold this wash. Capped — a wash wider than the cap diffuses
     // in a window around its centre and sees a wall at the window's edge.
@@ -8583,18 +8613,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
     const w = x1 - x0, h = y1 - y0
-    if (w <= 0 || h <= 0) return
+    if (w <= 0 || h <= 0) return null
     const field = this._diffuseFieldFor(w, h)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
 
-    // Stitch: every tile's overlap with the rect, top-down world → bottom-up
-    // GL on both sides, exactly as _gatherSmudgePatch does it. `a` takes the
-    // deposit, `b` what was settled, `coverage` the silhouette.
-    field.a.clear()
-    field.b.clear()
-    field.coverage.clear()
-    field.ca.clear()
-    field.cb.clear()
+    // Every tile's overlap with the rect, and the settled records the tiles
+    // still lack — acquired now so the steps below can assume them.
     const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
     for (const tile of tiles) {
       const entry = scratch.peek(tile.buffer)
@@ -8611,111 +8635,202 @@ export class PencilEngine implements PencilEngineAPI {
       const ox1 = Math.min(x1, tile.originX + tile.buffer.width), oy1 = Math.min(y1, tile.originY + tile.buffer.height)
       if (ox1 <= ox0 || oy1 <= oy0) continue
       overlaps.push({ tile, ox0, oy0, ox1, oy1 })
-      const sx = ox0 - tile.originX, sy = tile.buffer.height - (oy1 - tile.originY)
-      const dx = ox0 - x0, dy = field.h - (oy1 - y0)
-      entry.inkLoad.copyRegionInto(field.a, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-      entry.inkSettled.copyRegionInto(field.b, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-      entry.coverage.copyRegionInto(field.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-      if (entry.inkColor && entry.colorSettled) {
-        entry.inkColor.copyRegionInto(field.ca, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        entry.colorSettled.copyRegionInto(field.cb, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-      }
     }
+    if (!overlaps.length) return null
+
+    const ops: Array<() => void> = []
+    // Stitch: every tile's overlap with the rect, top-down world → bottom-up
+    // GL on both sides, exactly as _gatherSmudgePatch does it. `a` takes the
+    // deposit, `b` what was settled, `coverage` the silhouette.
+    ops.push(() => {
+      field.a.clear()
+      field.b.clear()
+      field.coverage.clear()
+      field.ca.clear()
+      field.cb.clear()
+      for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+        const entry = scratch.peek(tile.buffer)
+        if (!entry?.inkLoad || !entry.inkSettled) continue
+        const sx = ox0 - tile.originX, sy = tile.buffer.height - (oy1 - tile.originY)
+        const dx = ox0 - x0, dy = field.h - (oy1 - y0)
+        entry.inkLoad.copyRegionInto(field.a, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        entry.inkSettled.copyRegionInto(field.b, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        entry.coverage.copyRegionInto(field.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        if (entry.inkColor && entry.colorSettled) {
+          entry.inkColor.copyRegionInto(field.ca, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+          entry.colorSettled.copyRegionInto(field.cb, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        }
+      }
+    })
 
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this._fieldOp(out, a, b, mode, k)
+    const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean): void => {
+      dst.beginReplaceDraw()
+      gl.useProgram(this._diffuseProg)
+      const u = this._diffuseUni
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      gl.enableVertexAttribArray(this._diffusePosLoc)
+      gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, src.texture)
+      gl.uniform1i(u.u_ink, 0)
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
+      gl.uniform1i(u.u_coverage, 1)
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+      gl.uniform1i(u.u_paperHeightMap, 2)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.uniform2f(u.u_resolution, field.w, field.h)
+      // The paper at the world position of a texel. A tile passes
+      // (originX, -originY) and lets its height of 1024 fold into the paper's
+      // period; a rect of any height has to say where its bottom row is.
+      gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
+      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+      gl.uniform1f(u.u_d, WET_DIFFUSE_D)
+      gl.uniform1f(u.u_b, WET_DIFFUSE_B)
+      gl.uniform1f(u.u_radius, radius)
+      gl.uniform1f(u.u_stencil, knight ? 1 : 0)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      dst.endDraw()
+    }
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
     // schedule over c; the sum back into whichever of the pair is free.
     // The gate is the coverage alone (wcWaterAt), so the deposit and its
     // colour record — two records, one suspension — move by identical
-    // fractions, to the bit.
-    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer): AccumulationBuffer => {
-      fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
-      fieldOp(b, a, c, 1, -1)
-      let src = c
-      let dst = a
+    // fractions, to the bit. Each step is one entry of `ops`.
+    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer): { out: AccumulationBuffer } => {
+      const st = { src: c, dst: a, out: a }
+      ops.push(() => {
+        fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
+        fieldOp(b, a, c, 1, -1)
+      })
       for (const { radius, knight } of WET_DIFFUSE_SCHEDULE) {
-        dst.beginReplaceDraw()
-        gl.useProgram(this._diffuseProg)
-        const u = this._diffuseUni
-        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-        gl.enableVertexAttribArray(this._diffusePosLoc)
-        gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, src.texture)
-        gl.uniform1i(u.u_ink, 0)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
-        gl.uniform1i(u.u_coverage, 1)
-        gl.activeTexture(gl.TEXTURE2)
-        gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-        gl.uniform1i(u.u_paperHeightMap, 2)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.uniform2f(u.u_resolution, field.w, field.h)
-        // The paper at the world position of a texel. A tile passes
-        // (originX, -originY) and lets its height of 1024 fold into the paper's
-        // period; a rect of any height has to say where its bottom row is.
-        gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
-        gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-        gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-        gl.uniform1f(u.u_d, WET_DIFFUSE_D)
-        gl.uniform1f(u.u_b, WET_DIFFUSE_B)
-        gl.uniform1f(u.u_radius, radius)
-        gl.uniform1f(u.u_stencil, knight ? 1 : 0)
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-        dst.endDraw()
-        const t = src; src = dst; dst = t
+        ops.push(() => {
+          diffuseStep(st.src, st.dst, radius, knight)
+          const t = st.src; st.src = st.dst; st.dst = t
+        })
       }
-      const out = dst
-      fieldOp(out, b, src, 1, 1)
-      return out
+      ops.push(() => {
+        st.out = st.dst
+        fieldOp(st.out, b, st.src, 1, 1)
+      })
+      return st
     }
-    const out = settle(field.a, field.b, field.c)
+    const dep = settle(field.a, field.b, field.c)
     // (#536, §17.20) One paint so far: its colour record is its deposit's
     // mass times one absorption everywhere, so it is rebuilt from the moved
     // deposit in a single pass instead of carried through the schedule
     // again — half the settle's cost, which was "всё это дело притормаживает".
-    let outColor: AccumulationBuffer
+    let col: { out: AccumulationBuffer }
     if (scratch.paints.size <= 1) {
       const only = [...scratch.paints][0]
       const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
-      outColor = field.cc
-      outColor.beginReplaceDraw()
-      gl.useProgram(this._fieldOpProg)
-      const fu = this._fieldOpUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._fieldOpPosLoc)
-      gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, out.texture)
-      gl.uniform1i(fu.u_a, 0)
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, out.texture)
-      gl.uniform1i(fu.u_b, 1)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.uniform1f(fu.u_k, 1)
-      gl.uniform1f(fu.u_mode, 2)
-      gl.uniform3fv(fu.u_tau, [tau[0], tau[1], tau[2]])
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      outColor.endDraw()
+      col = { out: field.cc }
+      ops.push(() => {
+        const outColor = field.cc
+        outColor.beginReplaceDraw()
+        gl.useProgram(this._fieldOpProg)
+        const fu = this._fieldOpUni
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+        gl.enableVertexAttribArray(this._fieldOpPosLoc)
+        gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
+        gl.uniform1i(fu.u_a, 0)
+        gl.activeTexture(gl.TEXTURE1)
+        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
+        gl.uniform1i(fu.u_b, 1)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.uniform1f(fu.u_k, 1)
+        gl.uniform1f(fu.u_mode, 2)
+        gl.uniform3fv(fu.u_tau, [tau[0], tau[1], tau[2]])
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+        outColor.endDraw()
+      })
     } else {
-      outColor = settle(field.ca, field.cb, field.cc)
+      col = settle(field.ca, field.cb, field.cc)
     }
 
     // …and home, tile by tile — and this is the new settled deposit.
-    for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
-      const entry = scratch.peek(tile.buffer)
-      if (!entry?.inkLoad || !entry.inkSettled) continue
-      const sx = ox0 - x0, sy = field.h - (oy1 - y0)
-      const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
-      out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-      out.copyRegionInto(entry.inkSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-      if (entry.inkColor && entry.colorSettled) {
-        outColor.copyRegionInto(entry.inkColor, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        outColor.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+    const finish = (): void => {
+      for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+        const entry = scratch.peek(tile.buffer)
+        if (!entry?.inkLoad || !entry.inkSettled) continue
+        const sx = ox0 - x0, sy = field.h - (oy1 - y0)
+        const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
+        dep.out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        dep.out.copyRegionInto(entry.inkSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        if (entry.inkColor && entry.colorSettled) {
+          col.out.copyRegionInto(entry.inkColor, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+          col.out.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        }
       }
     }
+    return { ops, finish }
+  }
+
+  /** (#536, §17.22) How many of a settle's GPU steps run per animation frame
+   *  when it is spread out. Two: a step is one full-field pass, ~8 ms for a
+   *  400 px brush on a desktop GPU, and the whole list is 15–27 entries, so
+   *  the settle lands within the first quarter of the reveal. */
+  private static readonly WET_SETTLE_OPS_PER_TICK = 2
+
+  /** Begins running `ops` a few per frame, then `complete`. Drains a settle
+   *  already in flight first: both use the one _diffuseField. */
+  private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void): void {
+    if (this._settle) this._completeSettle()
+    this._settle = { scratch, ops, next: 0, complete, raf: 0 }
+    this._scheduleSettleTick()
+  }
+
+  private _scheduleSettleTick(): void {
+    const s = this._settle
+    if (!s || s.raf) return
+    s.raf = requestAnimationFrame(() => {
+      s.raf = 0
+      this._tickSettle()
+    })
+  }
+
+  private _tickSettle(): void {
+    const s = this._settle
+    if (!s) return
+    // The wash was torn down under it (undo, a new wash): nothing to land.
+    if (!s.scratch.live) { this._settle = null; return }
+    const end = Math.min(s.ops.length, s.next + PencilEngine.WET_SETTLE_OPS_PER_TICK)
+    for (; s.next < end; s.next++) s.ops[s.next]()
+    if (s.next >= s.ops.length) {
+      this._settle = null
+      s.complete()
+      return
+    }
+    this._scheduleSettleTick()
+  }
+
+  /** Runs whatever is left of the settle in flight, now. Called before
+   *  anything that would paint into the wash or reuse the field: the
+   *  copy-back at the end writes the deposit as it was when the settle began,
+   *  so paint laid meanwhile would be lost. */
+  private _completeSettle(): void {
+    const s = this._settle
+    if (!s) return
+    this._settle = null
+    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+    if (!s.scratch.live) return
+    for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
+    s.complete()
+  }
+
+  /** Drops the settle in flight without landing it — the field is gone. */
+  private _cancelSettle(): void {
+    const s = this._settle
+    if (!s) return
+    this._settle = null
+    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
   }
 
   /** The diffusion's stitched field, at least `w` × `h`, grown in steps of
@@ -8766,25 +8881,59 @@ export class PencilEngine implements PencilEngineAPI {
     )
     const spacing = scratch.noteDabSpacing(0)
     const dir = scratch.noteDirection(0, 0)
+    const composite = (): void => {
+      for (const tile of targets) {
+        const entry = scratch.peek(tile.buffer)
+        if (!entry) continue
+        this._drawRibbonCompositeRect(
+          tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, entry.inkColor, color, opacity,
+          fieldSeed, spreadPx, water, migratePx, spacing, dir, bristleRadiusPx,
+        )
+      }
+      target.markContentPainted(bounds)
+    }
     // (#536, ADR 011 §17.11) The mobile phase. Pigment laid into standing
     // water keeps moving after the brush has gone; this is where it moves —
     // once per operation, before the composite reads the result, and only
     // here: the live batches composite what the brush laid, and the settle at
     // each operation boundary is what carries the paint. See diffusePending on
     // why once, and wetDiffusion.ts for what one step is.
+    //
+    // (§17.22) For the author's own pen-up the steps are spread over the next
+    // frames under the reveal (_startSettle) and the composite follows them;
+    // the tile meanwhile shows what the live batches painted, which is what
+    // the reveal starts from anyway. A replay settles in one go: it is
+    // building the dry target and nobody is watching it happen.
     if (scratch.diffusePending) {
-      this._diffuseWash(scratch, targets, bounds)
       scratch.diffusePending = false
+      if (this._settle) this._completeSettle()
+      const job = this._diffuseWashOps(scratch, targets, bounds)
+      if (job) {
+        const complete = (): void => {
+          job.finish()
+          composite()
+          if (reveal) {
+            // The settle lands now, so the reveal eases in from now — not
+            // from the pen-up a few frames ago, which would show a slice of
+            // the change at once.
+            const now = performance.now()
+            for (const tile of targets) {
+              const r = this._washReveals.get(tile.buffer)
+              if (r) r.startedAt = now
+            }
+            this._displayIfNotSuspended()
+          }
+        }
+        if (reveal && typeof requestAnimationFrame === 'function') {
+          this._startSettle(scratch, job.ops, complete)
+          return
+        }
+        for (const op of job.ops) op()
+        complete()
+        return
+      }
     }
-    for (const tile of targets) {
-      const entry = scratch.peek(tile.buffer)
-      if (!entry) continue
-      this._drawRibbonCompositeRect(
-        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, entry.inkColor, color, opacity,
-        fieldSeed, spreadPx, water, migratePx, spacing, dir, bristleRadiusPx,
-      )
-    }
-    target.markContentPainted(bounds)
+    composite()
   }
 
   /** ADR 004 "Ревизия v1.5" §2: how far this dab travelled since the
