@@ -3375,7 +3375,6 @@ export const PAPER_COMPOSE_FRAG = `
   uniform sampler2D u_wetMap;
   uniform vec4 u_wetRect;
   /** Texels of u_wetMap, so its slope can be read a texel at a time. */
-  uniform vec2 u_wetMapSize;
   /** (#536) How wet the wettest paper on the sheet is right now, 0..1. The rim
    *  bands are placed as fractions of this rather than at absolute wetness —
    *  see WC_DARK_MID. 1.0 when nothing needs normalising. */
@@ -3586,31 +3585,16 @@ export const PAPER_COMPOSE_FRAG = `
    *  the new one's edge, where the rim and its dark ring are drawn - "рядом
    *  возвращается уже высохшая лужа и заново сохнет"; and touching a pen
    *  into a wash lifted the peak back to one, so every band in it moved. */
+  // (#536, s17.22) Both come precomputed in the map itself - the 5x5 max in
+  // .a, the 3x3 tent in .r - see _updateWetTexture. They were 25 and 9 taps
+  // here, per screen pixel, per frame, of a field that changes eight times a
+  // second.
   float wcWetBodyAt(vec2 uv) {
-    vec2 h = 1.0 / max(u_wetMapSize, vec2(1.0));
-    float m = 0.0;
-    for (int j = -2; j <= 2; j++) {
-      for (int i = -2; i <= 2; i++) {
-        m = max(m, texture2D(u_wetMap, uv + vec2(float(i), float(j)) * h).r);
-      }
-    }
-    return m;
+    return texture2D(u_wetMap, uv).a;
   }
 
   float wcWetAt(vec2 uv) {
-    vec2 h = 1.0 / max(u_wetMapSize, vec2(1.0));
-    float c = texture2D(u_wetMap, uv).r;
-    float n = texture2D(u_wetMap, uv + vec2(0.0,  h.y)).r;
-    float s = texture2D(u_wetMap, uv + vec2(0.0, -h.y)).r;
-    float e = texture2D(u_wetMap, uv + vec2( h.x, 0.0)).r;
-    float w = texture2D(u_wetMap, uv + vec2(-h.x, 0.0)).r;
-    float ne = texture2D(u_wetMap, uv + vec2( h.x,  h.y)).r;
-    float nw = texture2D(u_wetMap, uv + vec2(-h.x,  h.y)).r;
-    float se = texture2D(u_wetMap, uv + vec2( h.x, -h.y)).r;
-    float sw = texture2D(u_wetMap, uv + vec2(-h.x, -h.y)).r;
-    return clamp(
-      (c * 4.0 + (n + s + e + w) * 2.0 + (ne + nw + se + sw)) * 0.0625, 0.0, 1.0
-    );
+    return texture2D(u_wetMap, uv).r;
   }
 
   varying vec2 v_uv;

@@ -1975,7 +1975,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
   /** Texels of the wetness map, so the display pass can read its slope. */
-  private _wetMapSize: [number, number] = [1, 1]
   /** Quantized wetness the screen is currently showing, so the drying watcher
    *  can skip the frames that would look identical. -1 = nothing shown. */
   private _wetShown = -1
@@ -5388,7 +5387,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
-      'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetMapSize', 'u_wetPeak',
+      'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetPeak',
     ])
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
@@ -7998,9 +7997,14 @@ export class PencilEngine implements PencilEngineAPI {
     // gone (see the reach's own note in DAB_FRAG: an eighty-pixel radius on a
     // twelve-tap ring is not a blur), and padding for it was costing two and a
     // half times the composite fill it needed.
+    // (#536, §17.22) No maxRadius here any more: `bounds` is built from the
+    // dabs' world half-extents (and the previous dab's), so the nib's own
+    // radius is already inside it, and adding it again put a 400 px brush's
+    // rect at 1136 px a side where 740 would do — 2.4 times the fill. The
+    // pad is the composite's READ reach only, plus the stamps' edge AA.
     const compositePad = spreadPx > 0
       ? Math.ceil(
-        maxRadius + spreadPx * 2 + profile.wetEdgeRadiusPx + dabSpacing + migratePx,
+        spreadPx * 2 + profile.wetEdgeRadiusPx + dabSpacing + migratePx + profile.aaPx,
       ) + 1
       : 0
     const compositeBounds = compositePad > 0
@@ -9036,14 +9040,22 @@ export class PencilEngine implements PencilEngineAPI {
      *  derived from. */
     bristleRadiusPx = 0,
   ): void {
-    const cx = (bounds.minX + bounds.maxX) * 0.5
-    const cy = (bounds.minY + bounds.maxY) * 0.5
-    const radius = 0.5 * Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY)
+    // (#536, §17.22) The rect itself, as a dab whose aspect is the rect's:
+    // DAB_VERT scales the unit quad by (aspect, 1) * radius * 2, so a "dab"
+    // of size H and aspect W/H covers exactly W x H. It used to be a round
+    // dab of the rect's half-DIAGONAL, which the composite branch (pure
+    // gl_FragCoord, no dab geometry) filled corner to corner — twice the
+    // rect's area of the most expensive shader in the tool, for nothing.
+    // One pixel of margin so a fractional edge cannot leave a column out.
+    const minX = Math.floor(bounds.minX) - 1, minY = Math.floor(bounds.minY) - 1
+    const maxX = Math.ceil(bounds.maxX) + 1, maxY = Math.ceil(bounds.maxY) + 1
+    const w = maxX - minX, h = maxY - minY
+    if (w <= 0 || h <= 0) return
     const rectDab: Dab = {
-      x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
-      size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
+      x: (minX + maxX) * 0.5, y: (minY + maxY) * 0.5, pressure: 1, tiltX: 0, tiltY: 0,
+      size: h, aspectRatio: w / h, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
+    this._drawRibbonCompositeDab(tile, rectDab, h * 0.5, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -10028,7 +10040,7 @@ export class PencilEngine implements PencilEngineAPI {
     // and shifts every texel off the cell it stands for, which is how the
     // overlay ended up both wider than the brush and blocky.
     const w = inW + 2, h = inH + 2
-    const data = new Uint8Array(w * h)
+    const cells = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) {
       for (let tx = 0; tx < inW; tx++) {
         // The wettest cell in the texel's footprint, not the average: a puddle
@@ -10040,7 +10052,31 @@ export class PencilEngine implements PencilEngineAPI {
             if (v > best) best = v
           }
         }
-        data[(ty + 1) * w + (tx + 1)] = Math.round(best * 255)
+        cells[(ty + 1) * w + (tx + 1)] = best
+      }
+    }
+    // (#536, §17.22) Two channels, both derived here rather than in the
+    // compose shader: the 3x3 binomial tent the sheen reads (L) and the 5x5
+    // body level the edge is normalised by (A). The shader used to take 34
+    // samples of this map per SCREEN pixel per frame for a field of a few
+    // thousand texels that changes eight times a second — measured at 2.6 ms
+    // a frame on a desktop GPU with half the screen wet, the single largest
+    // cost of a watercolor session. The tent commutes with the bilinear
+    // filter, so its value at any screen pixel is bit-for-bit what the nine
+    // taps gave; the body is a plateau level and reads the same to the eye.
+    const data = new Uint8Array(w * h * 2)
+    const at = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : cells[y * w + x]
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const tent = (
+          at(x, y) * 4
+          + (at(x, y + 1) + at(x, y - 1) + at(x + 1, y) + at(x - 1, y)) * 2
+          + at(x + 1, y + 1) + at(x - 1, y + 1) + at(x + 1, y - 1) + at(x - 1, y - 1)
+        ) * 0.0625
+        let body = 0
+        for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) body = Math.max(body, at(x + i, y + j))
+        data[(y * w + x) * 2] = Math.round(Math.min(tent, 1) * 255)
+        data[(y * w + x) * 2 + 1] = Math.round(Math.min(body, 1) * 255)
       }
     }
     const { gl } = this
@@ -10055,7 +10091,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, w, h, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, w, h, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, data)
     // Bilinear and clamped: the map is deliberately coarse, and the one thing
     // it must not do is show its own texels as squares of wet paper.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
@@ -10066,7 +10102,6 @@ export class PencilEngine implements PencilEngineAPI {
     // Exactly the world the texture describes, border texels included, so a
     // texel centre lands on the centre of the cells it was built from. Any
     // other rect displaces the whole map — see the padding note above.
-    this._wetMapSize = [w, h]
     const cell = WET_CELL_PX * step
     this._wetRect = [
       b.minCx * WET_CELL_PX - cell, b.minCy * WET_CELL_PX - cell,
@@ -10100,7 +10135,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
     gl.uniform1i(u.u_wetMap, 2)
     gl.uniform4fv(u.u_wetRect, this._wetRect)
-    gl.uniform2f(u.u_wetMapSize, this._wetMapSize[0], this._wetMapSize[1])
     // (#536) What the rim bands are measured against — see WC_DARK_MID. Floored
     // so a nearly-dry sheet cannot divide the bands down to nothing.
     gl.uniform1f(u.u_wetPeak, Math.max(this._paperWet.peak(performance.now()), 0.05))
@@ -11483,7 +11517,6 @@ export class PencilEngine implements PencilEngineAPI {
     // artist's own paper happened to be damp at the moment they pressed the
     // button is not a property of the drawing.
     gl.uniform4f(u.u_wetRect, 0, 0, -1, -1)
-    gl.uniform2f(u.u_wetMapSize, 1, 1)
     gl.uniform1f(u.u_wetPeak, 1)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
