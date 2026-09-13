@@ -757,6 +757,14 @@
   gap: 5px;
 }
 
+/* Parked for 5 s (PeerCursors' IDLE_HIDE_MS). The transition lives only on
+   this class, so hiding fades while waking up is instant — a peer who starts
+   moving again should be visible on the very first packet. */
+.cursorMarkerIdle {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
 .cursorDot {
   width: 12px;
   height: 12px;
