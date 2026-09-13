@@ -42,6 +42,7 @@ export const MATERIAL_ICON_NAMES = [
   'create_new_folder',
   'delete',
   'delete_forever',
+  'delete_sweep',
   'deselect',
   'download',
   'draw',

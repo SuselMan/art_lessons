@@ -72,6 +72,9 @@ interface AnnotationOverlayProps {
    *   - `all`   — the eraser, the one tool whose job is to pick up ink. */
   hitTargets: 'none' | 'notes' | 'all'
   layerRef?: RefObject<HTMLDivElement | null>
+  /** The open editor's text field — Room cuts a hole in its catcher over it
+   *  (see useCatcherHole), the one press this overlay does receive directly. */
+  draftInputRef: RefObject<HTMLTextAreaElement | null>
 }
 
 /** (#508, эпик #87) Draws every annotation over the composite.
@@ -98,7 +101,7 @@ interface AnnotationOverlayProps {
 export function AnnotationOverlay({
   annotations, hidden, collapsedIds, erasingIds, dragPreview, draft,
   onDraftChange, onDraftCommit, onDraftCancel,
-  liveInk, zoom, angle, hitTargets, layerRef,
+  liveInk, zoom, angle, hitTargets, layerRef, draftInputRef,
 }: AnnotationOverlayProps) {
   if (hidden) return null
 
@@ -219,6 +222,7 @@ export function AnnotationOverlay({
           )}
           <DraftEditor
             draft={draft}
+            inputRef={draftInputRef}
             pinned={pinned}
             zoom={zoom}
             angle={angle}
@@ -368,6 +372,7 @@ function Bubble({
 
 interface DraftEditorProps {
   draft: AnnotationDraft
+  inputRef: RefObject<HTMLTextAreaElement | null>
   pinned: (x: number, y: number, dx: number, dy: number) => string
   zoom: number
   angle: number
@@ -393,9 +398,10 @@ interface DraftEditorProps {
  *  because keyboard focus does not care about stacking: the press that opens a
  *  note lands on the catcher, and this then takes focus programmatically. Its
  *  two controls are hit-tested from that same catcher, like everything else in
- *  this overlay. */
-function DraftEditor({ draft, pinned, zoom, angle, onChange, onCommit, onCancel }: DraftEditorProps) {
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+ *  this overlay. The text field itself is the exception — presses on it pass
+ *  through a hole Room cuts in the catcher (useCatcherHole), because placing a
+ *  caret is something only a press the field receives can do. */
+function DraftEditor({ draft, inputRef, pinned, zoom, angle, onChange, onCommit, onCancel }: DraftEditorProps) {
   const [boxRef, flipped] = useEdgeFlip(PIN_RADIUS_PX + BUBBLE_OFFSET_PX, [draft.x, draft.y, draft.text, draft.size, zoom, angle])
 
   useEffect(() => {
@@ -406,7 +412,7 @@ function DraftEditor({ draft, pinned, zoom, angle, onChange, onCommit, onCancel 
     // to or corrected far more often than replaced wholesale, and select-all
     // makes the next keystroke destroy it.
     el.setSelectionRange(el.value.length, el.value.length)
-  }, [draft.annotationId])
+  }, [draft.annotationId, inputRef])
 
   // Grow to fit rather than scroll: a note is short, and an inner scrollbar on
   // a box floating over a drawing hides the very text being written.
@@ -415,7 +421,7 @@ function DraftEditor({ draft, pinned, zoom, angle, onChange, onCommit, onCancel 
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
-  }, [draft.text, draft.size])
+  }, [draft.text, draft.size, inputRef])
 
   const id = draft.annotationId ?? 'draft'
   const dx = flipped ? -(PIN_RADIUS_PX + BUBBLE_OFFSET_PX) : PIN_RADIUS_PX + BUBBLE_OFFSET_PX

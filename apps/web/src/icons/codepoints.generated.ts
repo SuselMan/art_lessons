@@ -32,6 +32,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'create_new_folder': '\u{e2cc}',
   'delete': '\u{e872}',
   'delete_forever': '\u{e92b}',
+  'delete_sweep': '\u{e16c}',
   'deselect': '\u{ebb6}',
   'download': '\u{e171}',
   'draw': '\u{e746}',

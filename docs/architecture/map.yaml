@@ -398,6 +398,7 @@ modules:
     files:
       - apps/web/src/pages/Room/transformMath.ts
       - apps/web/src/pages/Room/annotationHitTest.ts
+      - apps/web/src/pages/Room/useCatcherHole.ts
       - apps/web/src/pages/Room/pastePlacement.ts
       - apps/web/src/pages/Room/activeLayer.ts
     adr: [008-selection]

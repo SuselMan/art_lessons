@@ -55,6 +55,7 @@ import {
 } from '../../lib/fullscreen'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
+import { useCatcherHole } from './useCatcherHole'
 import { useViewportToast } from './useViewportToast'
 import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
@@ -4579,6 +4580,11 @@ export function Room() {
   /** The rendered annotation layer, so the catcher can hit-test notes against
    *  their real laid-out boxes — see annotationTextAt. */
   const annotationLayerRef = useRef<HTMLDivElement | null>(null)
+  /** The note tool's catcher and the open editor's text field: presses on the
+   *  field pass through the catcher so the caret can be placed by hand. */
+  const annotationTextCatcherRef = useRef<HTMLDivElement | null>(null)
+  const annotationDraftInputRef = useRef<HTMLTextAreaElement | null>(null)
+  useCatcherHole(annotationTextCatcherRef, annotationDraftInputRef, annotateTextActive && annotationDraft !== null)
   /** The annotation gesture in progress, so a second finger can cancel it.
    *
    *  One gesture at a time, and this is what enforces it. Without it every
@@ -4661,6 +4667,15 @@ export function Room() {
     if (!annotationIds.length) return
     dispatchOp({ type: 'annotation_delete', annotationIds })
   }, [dispatchOp])
+
+  /** The rail's "remove all": whatever note is open is dropped rather than
+   *  committed — committing it first would put an edit on the undo stack above
+   *  the deletion, the same reason the editor's own bin skips it. */
+  const clearAllAnnotations = useCallback(() => {
+    const state = useRoomStore.getState()
+    state.closeAnnotationDraft()
+    deleteAnnotations([...state.annotations.order])
+  }, [deleteAnnotations])
 
   /** A press on a pin is two gestures that start identically: a tap folds the
    *  note away or opens it back up, a drag moves it. Which one it was is only
@@ -7376,6 +7391,19 @@ export function Room() {
             aria-pressed={annotateEraserActive}
             onClick={() => selectTool('annotateEraser')}
           ><Icon name="ink_eraser" /></button>
+          {/* Not a tool, so it sits below a divider and selects nothing. One
+              operation for the whole set, so a single undo brings every remark
+              back — which is also why it asks no confirmation. Absent while
+              there is nothing to remove, like the header's hide toggle. */}
+          {annotations.order.length > 0 && (<>
+            <div className={styles.toolDivider} />
+            <button
+              className={styles.toolIconBtn}
+              title={t('tool.annotationsClearTitle')}
+              aria-label={t('tool.annotationsClear')}
+              onClick={clearAllAnnotations}
+            ><Icon name="delete_sweep" /></button>
+          </>)}
           </>)}
 
 
@@ -7663,6 +7691,7 @@ export function Room() {
                 angle={vp.angle}
                 hitTargets={annotationHitTargets}
                 layerRef={annotationLayerRef}
+                draftInputRef={annotationDraftInputRef}
               />
             )}
             </div>
@@ -7780,6 +7809,7 @@ export function Room() {
                 angle={vp.angle}
                 hitTargets={annotationHitTargets}
                 layerRef={annotationLayerRef}
+                draftInputRef={annotationDraftInputRef}
               />
             </div>
           )}
@@ -7835,6 +7865,7 @@ export function Room() {
               here and starts a new one. */}
           {annotateTextActive && (
             <div
+              ref={annotationTextCatcherRef}
               className={styles.canvasCatcher}
               style={annotationHover ? { cursor: 'pointer' } : undefined}
               onPointerDown={handleAnnotationTextTap}
