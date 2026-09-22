@@ -292,11 +292,32 @@ sudo certbot certificates                                   # cert expiry/status
 dumps Postgres in custom format, verifies the archive end to end with
 `pg_restore`, uploads it off the VPS with rclone, then rotates. It treats a
 failed upload as a failed run — a copy that lives only on the disk it is
-backing up does not survive that disk.
+backing up does not survive that disk — but rotates the local dumps first
+either way, so a broken upload cannot fill the disk (#555, below).
 
-Retention: 14 locally in `/var/backups/art-lessons` (`KEEP_LOCAL` in
-`/opt/art-lessons/.env`), 60 days off-site — the off-site half enforced by a
-lifecycle rule on the bucket, not by this script.
+Retention: 2 locally in `/var/backups/art-lessons` (`KEEP_LOCAL`, default in
+`backup.sh`, overridable from `/opt/art-lessons/.env`), 30 days off-site — the
+off-site half enforced by a lifecycle rule on the bucket, not by this script.
+
+Two, not the 14 this started with (Ilya, 22.09, #555): a dump is a full copy
+of a database that only grows, so consecutive dumps differ by one day's
+drawing, and 14 of them were half the disk (25 GB of 50 against a 2.8 GB
+database) that nobody had ever restored from. Two covers a mistake noticed
+today or tomorrow; one noticed on day three is gone, and with one user that is
+the accepted trade. Raise it together with turning off-site back on.
+
+**Off-site is switched off right now** (Ilya, 22.09, #555): the repo variable
+`BACKUP_REMOTE` is `off`, `backup.sh` skips the upload and says so, and the
+daily check reports it as a state rather than a problem. The reasoning: the
+free 10 GB in B2 cannot hold even a week of dumps (1.9 GB each, growing ~45 MB
+a day), and a paid tier — cents a month, but a card on the account — buys
+protection against losing the VPS, which today would lose nothing but Ilya's
+own test rooms. The local 14 still cover the likely failures. This is a
+pre-production decision and is on the release track (#314): before real users,
+set `BACKUP_REMOTE` back to `b2:Grafetto`, put a card on the B2 account and
+raise the storage cap under Caps & Alerts to ~30 dumps' worth, then push (the
+deploy rewrites `backup.env`). The bucket, lifecycle rule and key stay as
+described below meanwhile; the objects in it expire on their own.
 
 That split is the security model, not an accident. The intent is that the key
 on the VPS can upload and list but neither read nor delete, so a compromised
@@ -325,6 +346,28 @@ against a rule that deletes at 31.
 whether a fresh dump exists in both places, and fails — i.e. e-mails — when it
 doesn't. The script it runs, `deploy/backup-status.sh`, is worth running by
 hand whenever you're already on the box.
+
+**It was green for three weeks while uploads failed** (found 22.09, #555). The
+check read rclone's stderr as part of the listing, and rclone's routine
+`NOTICE: Config file not found` — normal here, the remote lives in env vars —
+counted as "1 object newer than 26h". Meanwhile every night's `rclone copy` was
+refused with `403 storage_cap_exceeded`: the B2 account's storage cap sat below
+what 30 days of dumps take, and only the lifecycle rule expiring an old object
+freed enough room for the occasional upload (31.08, 08.09, 17.09, 21.09).
+
+What made it visible was not the check but the disk: `backup.sh` treats a failed
+upload as a failed run and skips rotation, so local dumps piled up past
+`KEEP_LOCAL` (15 × 1.8 GB on a 50 GB disk), `disk.pressure` crossed the 75 %
+`warn` line, and `uptime.yml` went red by the hundred per day — 14–16.09 and
+20.09 — until a successful night rotated the excess away. Reading "uptime is
+dropping" as a server problem cost the first hour of that investigation; the
+server was fine and the Sentry monitor showed 100 %.
+
+The script now keeps stdout and stderr apart, asks whether *last night's* dump
+by name is in the bucket rather than whether anything recent is, and reports
+more local dumps than `KEEP_LOCAL` as the upload failure it is. The cap itself
+is an account setting (B2 → Caps & Alerts): size it for 30 days of the current
+dump plus growth — the dump tripled, 0.6 → 1.9 GB, between 24.08 and 22.09.
 
 ### Setup — nothing to do on the VPS by hand
 
@@ -371,7 +414,7 @@ Bucket and key settings this assumes, most of them fixed at creation time:
   when the bucket is created. Compliance mode, 30-day default retention
   (verified against the API on 28.07).
 - **Lifecycle rule**: `daysFromUploadingToHiding: 30`, `daysFromHidingToDeleting: 1`
-  — so about 31 days of history off-site, against 14 on the box. This is what
+  — so about 31 days of history off-site, against 2 on the box. This is what
   expires old backups; the script deliberately has no way to delete anything.
   Set 28.07, when it turned out no rule existed at all and copies had been
   accumulating with nothing to expire them.
