@@ -326,6 +326,28 @@ whether a fresh dump exists in both places, and fails — i.e. e-mails — when 
 doesn't. The script it runs, `deploy/backup-status.sh`, is worth running by
 hand whenever you're already on the box.
 
+**It was green for three weeks while uploads failed** (found 22.09, #555). The
+check read rclone's stderr as part of the listing, and rclone's routine
+`NOTICE: Config file not found` — normal here, the remote lives in env vars —
+counted as "1 object newer than 26h". Meanwhile every night's `rclone copy` was
+refused with `403 storage_cap_exceeded`: the B2 account's storage cap sat below
+what 30 days of dumps take, and only the lifecycle rule expiring an old object
+freed enough room for the occasional upload (31.08, 08.09, 17.09, 21.09).
+
+What made it visible was not the check but the disk: `backup.sh` treats a failed
+upload as a failed run and skips rotation, so local dumps piled up past
+`KEEP_LOCAL` (15 × 1.8 GB on a 50 GB disk), `disk.pressure` crossed the 75 %
+`warn` line, and `uptime.yml` went red by the hundred per day — 14–16.09 and
+20.09 — until a successful night rotated the excess away. Reading "uptime is
+dropping" as a server problem cost the first hour of that investigation; the
+server was fine and the Sentry monitor showed 100 %.
+
+The script now keeps stdout and stderr apart, asks whether *last night's* dump
+by name is in the bucket rather than whether anything recent is, and reports
+more local dumps than `KEEP_LOCAL` as the upload failure it is. The cap itself
+is an account setting (B2 → Caps & Alerts): size it for 30 days of the current
+dump plus growth — the dump tripled, 0.6 → 1.9 GB, between 24.08 and 22.09.
+
 ### Setup — nothing to do on the VPS by hand
 
 `deploy.sh` installs rclone, creates `/var/backups/art-lessons`, and refreshes
