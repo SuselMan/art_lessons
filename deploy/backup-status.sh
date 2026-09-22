@@ -63,17 +63,25 @@ else
   if [ ! -s "$newest" ]; then
     problem "newest local dump is empty"
   fi
-  # backup.sh rotates only after a successful upload, so more dumps on disk
-  # than it keeps means uploads have been failing for as many nights as the
-  # excess — and that the disk is filling up at a dump a night. This is what
-  # turned the B2 storage cap into disk-pressure alerts on prod (#555), and it
-  # is visible from the local directory alone, before the bucket is even asked.
+  # More dumps on disk than rotation keeps means backup.sh has not reached its
+  # rotation step for as many nights as the excess — and that the disk is
+  # filling up at a dump a night. Before #555 that was every night an upload
+  # was refused (B2 storage cap), which is what turned into disk-pressure
+  # alerts on prod; rotation no longer waits for the upload, so now it means a
+  # run dying between the dump and the rotation. Visible from the local
+  # directory alone, before the bucket is even asked.
   if [ "$count" -gt "$KEEP_LOCAL" ]; then
-    problem "$count local dumps but rotation keeps $KEEP_LOCAL — backup.sh has not completed an upload for $((count - KEEP_LOCAL)) night(s)"
+    problem "$count local dumps but rotation keeps $KEEP_LOCAL — backup.sh has not reached rotation for $((count - KEEP_LOCAL)) night(s)"
   fi
 fi
 
-if [ -z "${BACKUP_REMOTE:-}" ]; then
+if [ "${BACKUP_REMOTE:-}" = off ]; then
+  # (#555) Switched off on purpose while the product has no users but Ilya —
+  # see backup.sh. Reported, not flagged: a check that is red every day by
+  # design teaches everyone to stop reading it, and the day it turns red for a
+  # real reason nobody looks. Turning it back on is on the release track.
+  echo "remote: off-site copy switched off (BACKUP_REMOTE=off) — local dumps only, see deploy/README.md → Backups"
+elif [ -z "${BACKUP_REMOTE:-}" ]; then
   problem "BACKUP_REMOTE is not configured — nothing is stored off this VPS, so a disk failure loses everything"
 else
   echo "remote: $BACKUP_REMOTE"
@@ -105,5 +113,11 @@ fi
 # on its own schedule — worth seeing on a good day, not just a bad one.
 echo "disk:   $(df -h --output=avail "$BACKUP_DIR" | tail -1 | tr -d ' ') free on $BACKUP_DIR"
 
-[ "$status" -eq 0 ] && echo "OK: a verified backup exists both here and off-site"
+if [ "$status" -eq 0 ]; then
+  if [ "${BACKUP_REMOTE:-}" = off ]; then
+    echo "OK: a verified backup exists on this box (off-site is switched off)"
+  else
+    echo "OK: a verified backup exists both here and off-site"
+  fi
+fi
 exit "$status"

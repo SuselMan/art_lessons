@@ -292,11 +292,25 @@ sudo certbot certificates                                   # cert expiry/status
 dumps Postgres in custom format, verifies the archive end to end with
 `pg_restore`, uploads it off the VPS with rclone, then rotates. It treats a
 failed upload as a failed run — a copy that lives only on the disk it is
-backing up does not survive that disk.
+backing up does not survive that disk — but rotates the local dumps first
+either way, so a broken upload cannot fill the disk (#555, below).
 
 Retention: 14 locally in `/var/backups/art-lessons` (`KEEP_LOCAL` in
-`/opt/art-lessons/.env`), 60 days off-site — the off-site half enforced by a
+`/opt/art-lessons/.env`), 30 days off-site — the off-site half enforced by a
 lifecycle rule on the bucket, not by this script.
+
+**Off-site is switched off right now** (Ilya, 22.09, #555): the repo variable
+`BACKUP_REMOTE` is `off`, `backup.sh` skips the upload and says so, and the
+daily check reports it as a state rather than a problem. The reasoning: the
+free 10 GB in B2 cannot hold even a week of dumps (1.9 GB each, growing ~45 MB
+a day), and a paid tier — cents a month, but a card on the account — buys
+protection against losing the VPS, which today would lose nothing but Ilya's
+own test rooms. The local 14 still cover the likely failures. This is a
+pre-production decision and is on the release track (#314): before real users,
+set `BACKUP_REMOTE` back to `b2:Grafetto`, put a card on the B2 account and
+raise the storage cap under Caps & Alerts to ~30 dumps' worth, then push (the
+deploy rewrites `backup.env`). The bucket, lifecycle rule and key stay as
+described below meanwhile; the objects in it expire on their own.
 
 That split is the security model, not an accident. The intent is that the key
 on the VPS can upload and list but neither read nor delete, so a compromised

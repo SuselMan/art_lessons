@@ -94,11 +94,32 @@ log "wrote $final ($(du -h "$final" | cut -f1))"
 
 # The whole point. Local copies survive a fat-fingered DELETE; only this one
 # survives the disk.
-if [ -n "${BACKUP_REMOTE:-}" ]; then
+upload_error=''
+if [ "${BACKUP_REMOTE:-}" = off ]; then
+  # (#555) An explicit off, distinct from "not configured": Ilya's call on
+  # 22.09, while nobody but him uses the product. What an off-site copy
+  # protects against is losing the VPS, and what that would lose today is his
+  # own test rooms — not worth a paid tier while the free 10 GB cannot hold
+  # even one week of dumps (1.9 GB each and growing ~45 MB a day). The local
+  # 14 still cover the likely failures: a wrong DELETE, a bad migration.
+  # Re-enabling is one repo variable (BACKUP_REMOTE back to the b2: remote)
+  # plus a storage cap on the B2 account; it is on the release track (#314),
+  # so this cannot quietly outlive its reason.
+  log "off-site copy is switched off (BACKUP_REMOTE=off) — local dumps only"
+elif [ -n "${BACKUP_REMOTE:-}" ]; then
   log "uploading to $BACKUP_REMOTE"
-  rclone copy "$final" "$BACKUP_REMOTE" --contimeout 30s --timeout 5m --retries 3 \
-    || fail "off-site upload failed — local dump kept, but it is not safe from disk loss"
-  log "off-site copy done"
+  # Not `fail` here: the dump is on disk and verified, so rotation below must
+  # still run. Three weeks of refused uploads (B2 storage cap, #555) once
+  # skipped rotation every night, piled up dumps past KEEP_LOCAL, and pushed
+  # the disk over the 75 % line that turns uptime.yml red — the storage
+  # failure became a disk failure on the box being backed up. The run still
+  # ends non-zero, below, after the disk is kept in order.
+  if rclone copy "$final" "$BACKUP_REMOTE" --contimeout 30s --timeout 5m --retries 3; then
+    log "off-site copy done"
+  else
+    upload_error="off-site upload failed — local dump kept, but it is not safe from disk loss"
+    log "ERROR: $upload_error"
+  fi
   # Nothing prunes the remote from here on purpose. Expiry belongs in a
   # lifecycle rule on the bucket instead: run by B2, out of reach of anything
   # on this machine. See deploy/README.md → Backups.
@@ -120,12 +141,16 @@ else
   fail "BACKUP_REMOTE is not set — dump exists only on this disk. See deploy/README.md → Backups."
 fi
 
-# Rotation last: a failed run leaves yesterday's dumps untouched rather than
-# clearing space for a backup that never arrived.
+# Rotation after the dump is verified and in place: a run whose dump failed
+# has already exited above and leaves yesterday's dumps untouched, rather than
+# clearing space for a backup that never arrived. A run whose *upload* failed
+# does rotate — the newest KEEP_LOCAL dumps are the local policy either way,
+# and skipping this is how the disk filled (see the upload step).
 log "rotating local dumps, keeping newest $KEEP_LOCAL"
 ls -1t "$BACKUP_DIR"/"$DB_NAME"-*.dump 2>/dev/null | tail -n "+$((KEEP_LOCAL + 1))" | while read -r old; do
   log "removing $old"
   rm -f "$old"
 done
 
+[ -z "$upload_error" ] || fail "$upload_error"
 log "backup complete"
