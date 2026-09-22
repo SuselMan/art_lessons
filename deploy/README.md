@@ -295,9 +295,16 @@ failed upload as a failed run — a copy that lives only on the disk it is
 backing up does not survive that disk — but rotates the local dumps first
 either way, so a broken upload cannot fill the disk (#555, below).
 
-Retention: 14 locally in `/var/backups/art-lessons` (`KEEP_LOCAL` in
-`/opt/art-lessons/.env`), 30 days off-site — the off-site half enforced by a
-lifecycle rule on the bucket, not by this script.
+Retention: 2 locally in `/var/backups/art-lessons` (`KEEP_LOCAL`, default in
+`backup.sh`, overridable from `/opt/art-lessons/.env`), 30 days off-site — the
+off-site half enforced by a lifecycle rule on the bucket, not by this script.
+
+Two, not the 14 this started with (Ilya, 22.09, #555): a dump is a full copy
+of a database that only grows, so consecutive dumps differ by one day's
+drawing, and 14 of them were half the disk (25 GB of 50 against a 2.8 GB
+database) that nobody had ever restored from. Two covers a mistake noticed
+today or tomorrow; one noticed on day three is gone, and with one user that is
+the accepted trade. Raise it together with turning off-site back on.
 
 **Off-site is switched off right now** (Ilya, 22.09, #555): the repo variable
 `BACKUP_REMOTE` is `off`, `backup.sh` skips the upload and says so, and the
@@ -407,7 +414,7 @@ Bucket and key settings this assumes, most of them fixed at creation time:
   when the bucket is created. Compliance mode, 30-day default retention
   (verified against the API on 28.07).
 - **Lifecycle rule**: `daysFromUploadingToHiding: 30`, `daysFromHidingToDeleting: 1`
-  — so about 31 days of history off-site, against 14 on the box. This is what
+  — so about 31 days of history off-site, against 2 on the box. This is what
   expires old backups; the script deliberately has no way to delete anything.
   Set 28.07, when it turned out no rule existed at all and copies had been
   accumulating with nothing to expire them.

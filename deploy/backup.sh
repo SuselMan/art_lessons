@@ -18,7 +18,15 @@ set -euo pipefail
 
 APP_DIR=${APP_DIR:-/opt/art-lessons}
 BACKUP_DIR=${BACKUP_DIR:-/var/backups/art-lessons}
-KEEP_LOCAL=${KEEP_LOCAL:-14}
+# (#555) 2, down from 14 (Ilya, 22.09). Every dump is a full copy of a database
+# that only ever grows — the operation log is appended, not rewritten — so
+# consecutive dumps share all but one day's drawing, and 14 of them were 14
+# copies of the same data taking half the disk (25 GB of 50, against a 2.8 GB
+# database) while never once being restored from. Two covers "noticed today or
+# tomorrow"; a mistake found on day three is not recoverable from here, and
+# with one user that is accepted. The dump also grows with the database, so
+# the count is what keeps the disk under the 75 % line uptime.yml watches.
+KEEP_LOCAL=${KEEP_LOCAL:-2}
 DB_NAME=${DB_NAME:-art_lessons}
 DB_USER=${DB_USER:-art_lessons}
 

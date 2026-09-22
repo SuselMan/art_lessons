@@ -28,7 +28,7 @@ BACKUP_DIR=${BACKUP_DIR:-/var/backups/art-lessons}
 DB_NAME=${DB_NAME:-art_lessons}
 # Same default as backup.sh — it reads the value from the same env files, and
 # the check below only makes sense against the number rotation actually uses.
-KEEP_LOCAL=${KEEP_LOCAL:-14}
+KEEP_LOCAL=${KEEP_LOCAL:-2}
 # A daily backup plus slack for a slow night and a delayed check — anything
 # older than this means a run was skipped or died.
 MAX_AGE_HOURS=${MAX_AGE_HOURS:-26}
