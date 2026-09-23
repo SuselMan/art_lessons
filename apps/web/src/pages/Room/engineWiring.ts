@@ -92,10 +92,20 @@ export function initLayersFromStore(engine: PencilEngineAPI): void {
  *  here: the question is whether the replay ended incomplete *by the time the
  *  room is left*, so only the latest value is correct. */
 export function retireEngine(
-  engine: PencilEngineAPI, roomId: string | undefined, replayIncompleteRef: RefObject<boolean>,
+  engine: PencilEngineAPI, boardId: string, replayIncompleteRef: RefObject<boolean>,
 ): void {
-  if (roomId && !replayIncompleteRef.current) {
-    void uploadThumbnail(roomId, engine).finally(() => engine.destroy())
+  if (!replayIncompleteRef.current) {
+    void uploadThumbnail(boardId, engine)
+      .then(uploaded => {
+        // (#567) The board strip shows each board's own thumbnail, and this
+        // is how it learns there is a newer one.
+        if (uploaded) {
+          useRoomStore.getState().applyBoardsAction({
+            type: 'thumbnail_baked', boardId, at: new Date().toISOString(),
+          })
+        }
+      })
+      .finally(() => engine.destroy())
   } else {
     engine.destroy()
   }

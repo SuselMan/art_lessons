@@ -12,6 +12,9 @@ export interface DrawingActivity {
   markActive: (userId: string) => void
   /** Someone left the room; drop them rather than waiting out the timeout. */
   forget: (userId: string) => void
+  /** (#176) A page turn: nobody is drawing on a board this client has only
+   *  just arrived on, whatever was true of the last one. */
+  reset: () => void
 }
 
 /** (#493, #38) Who is drawing right now.
@@ -44,6 +47,11 @@ export function useDrawingActivity(): DrawingActivity {
     delete lastActiveAtRef.current[userId]
   }, [])
 
+  const reset = useCallback(() => {
+    lastActiveAtRef.current = {}
+    setDrawingIds([])
+  }, [])
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       const next = currentlyDrawing(lastActiveAtRef.current, Date.now(), DRAWING_TIMEOUT_MS)
@@ -55,5 +63,5 @@ export function useDrawingActivity(): DrawingActivity {
     return () => window.clearInterval(timer)
   }, [])
 
-  return { drawingIds, markActive, forget }
+  return { drawingIds, markActive, forget, reset }
 }

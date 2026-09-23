@@ -27,6 +27,11 @@ export function toWireRoom(r: {
   parentRoomId?: string | null
   // (#222) Same optionality reasoning as `parentRoomId` above.
   closedAt?: Date | null
+  // (#176) The three board columns — same optionality reasoning as
+  // `parentRoomId`: present on a Prisma row, absent on a hand-built shape.
+  lessonId?: string | null
+  boardOrder?: number
+  activeBoardId?: string | null
   // (#209) A `select`-based relation, not the full RoomThumbnail row — every
   // call site includes only `{ updatedAt: true }` so the (potentially large)
   // `data` Bytes column is never fetched just to build a room list/card.
@@ -52,6 +57,9 @@ export function toWireRoom(r: {
     folderId: r.folderId ?? undefined,
     parentRoomId: r.parentRoomId ?? undefined,
     closedAt: r.closedAt?.toISOString(),
+    lessonId: r.lessonId ?? undefined,
+    boardOrder: r.boardOrder,
+    activeBoardId: r.activeBoardId ?? undefined,
   }
 }
 

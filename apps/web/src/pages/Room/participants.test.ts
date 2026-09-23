@@ -11,6 +11,7 @@ function participant(overrides: Partial<Participant> = {}): Participant {
     role: overrides.role ?? 'member',
     color: overrides.color ?? '#ef4444',
     frozen: overrides.frozen ?? false,
+    ...(overrides.boardId !== undefined ? { boardId: overrides.boardId } : {}),
   }
 }
 
@@ -70,6 +71,22 @@ describe('participantsReducer', () => {
       const state = [participant({ userId: 'a' })]
       const next = participantsReducer(state, { type: 'participant_frozen_changed', userId: 'ghost', frozen: true })
       expect(next).toEqual(state)
+    })
+  })
+
+  // (#176) A lesson's roster is shared by every board; the board each person
+  // is on is what the strip and the cursors read to tell who shares a page.
+  describe('peer_board_changed', () => {
+    it('moves the matching participant and nobody else', () => {
+      const state = [participant({ userId: 'a', boardId: 'L' }), participant({ userId: 'b', boardId: 'L' })]
+      const next = participantsReducer(state, { type: 'peer_board_changed', userId: 'a', boardId: 'B2' })
+      expect(next.find(p => p.userId === 'a')?.boardId).toBe('B2')
+      expect(next.find(p => p.userId === 'b')?.boardId).toBe('L')
+    })
+
+    it('is a no-op for an unknown user', () => {
+      const state = [participant({ userId: 'a', boardId: 'L' })]
+      expect(participantsReducer(state, { type: 'peer_board_changed', userId: 'ghost', boardId: 'B2' })).toEqual(state)
     })
   })
 })

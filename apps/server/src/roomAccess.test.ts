@@ -12,15 +12,41 @@ const mockPrisma = vi.hoisted(() => ({
   roomJoinRequest: { findUnique: vi.fn(), upsert: vi.fn() },
   roomParticipant: { findUnique: vi.fn(), upsert: vi.fn() },
   user: { findUnique: vi.fn() },
-  room: { create: vi.fn(), update: vi.fn() },
+  room: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
   roomPalette: { upsert: vi.fn() },
+  // (#176) What `ensureRoomLoaded` reads to bring a board into memory — see
+  // makeBoard below.
+  roomLayerState: { findUnique: vi.fn() },
+  roomLayerSnapshot: { groupBy: vi.fn() },
+  operation: { findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
-const { _flushPendingWrites, createRoom, setRoomAccessMode } = await import('./rooms.js')
+const { _flushPendingWrites, createRoom, ensureRoomLoaded, setRoomAccessMode } = await import('./rooms.js')
 
 let nextRoomId = 0
 const createdRoomIds: string[] = []
+
+/** (#176) A board of `lessonId`, cold-loaded the only way a board ever is:
+ *  from its row. The lesson is already live (makeRoom), so the load stops at
+ *  the board. */
+async function makeBoard(lessonId: string): Promise<string> {
+  const id = `board-${nextRoomId++}`
+  createdRoomIds.push(id)
+  mockPrisma.room.findUnique.mockResolvedValueOnce({
+    id, name: 'Board 2', paper: 'coarse', paperColor: null, infinite: false, canvasWidth: 1240, canvasHeight: 1754,
+    // A board row carries no password and the default mode: the point of
+    // the tests below is that none of that is ever consulted.
+    passwordHash: null, accessMode: 'anyone_with_link', enabledTools: [], closedAt: null, parentRoomId: null,
+    ownerId: 'teacher', createdAt: new Date(), thumbnail: null, lessonId, boardOrder: 1, activeBoardId: null,
+  })
+  mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce(null)
+  mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValueOnce([])
+  mockPrisma.operation.findMany.mockResolvedValueOnce([])
+  mockPrisma.operation.aggregate.mockResolvedValueOnce({ _max: { seq: null } })
+  expect(await ensureRoomLoaded(id)).toBe(true)
+  return id
+}
 
 /** A live room owned by `teacher`, in `anyone_with_link` unless told otherwise. */
 function makeRoom(opts: { password?: string; inviteOnly?: boolean } = {}): string {
@@ -205,5 +231,61 @@ describe('checkJoinAccess — invite_only (#225)', () => {
     // owner's queue for someone who never got past the door.
     expect(mockPrisma.roomJoinRequest.upsert).not.toHaveBeenCalled()
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
+  })
+})
+
+// (#176, ADR 014) A board has no door of its own. Every rule above is the
+// lesson's, and a join aimed at a board is judged by exactly the same rows —
+// the board's own row (no password, default mode) is never what decides.
+describe('checkJoinAccess — a board resolves to its lesson (#176)', () => {
+  it('the lesson\'s password gates the board', async () => {
+    const lessonId = makeRoom({ password: 'secret' })
+    const boardId = await makeBoard(lessonId)
+
+    expect(await checkJoinAccess(boardId, 'student', 'Alice', undefined))
+      .toEqual({ ok: false, error: 'wrong_password' })
+    expect(await checkJoinAccess(boardId, 'student', 'Alice', 'secret')).toEqual({ ok: true })
+  })
+
+  it('a block on the lesson keeps the user out of every board, looked up by the lesson\'s id', async () => {
+    const lessonId = makeRoom()
+    const boardId = await makeBoard(lessonId)
+    mockPrisma.roomBlock.findUnique.mockResolvedValue({ id: 'block-1' })
+
+    expect(await checkJoinAccess(boardId, 'student', 'Alice', undefined))
+      .toEqual({ ok: false, error: 'access_revoked' })
+    expect(mockPrisma.roomBlock.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { roomId_userId: { roomId: lessonId, userId: 'student' } },
+    }))
+  })
+
+  it('the owner of the lesson is the owner of its boards', async () => {
+    const lessonId = makeRoom({ password: 'secret', inviteOnly: true })
+    const boardId = await makeBoard(lessonId)
+
+    expect(await checkJoinAccess(boardId, 'teacher', 'Teacher', undefined)).toEqual({ ok: true })
+  })
+
+  it('an invite_only lesson admits to its boards by the lesson\'s list, participation and queue', async () => {
+    const lessonId = makeRoom({ inviteOnly: true })
+    const boardId = await makeBoard(lessonId)
+
+    // Not invited, not a participant: queued — under the lesson, where the
+    // owner's panel reads the queue from.
+    expect(await checkJoinAccess(boardId, 'student', 'Alice', undefined))
+      .toMatchObject({ ok: false, error: 'pending_approval' })
+    expect(mockPrisma.roomParticipant.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { roomId_userId: { roomId: lessonId, userId: 'student' } },
+    }))
+    expect(mockPrisma.roomInvite.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { roomId_email: { roomId: lessonId, email: 'student@example.com' } },
+    }))
+    expect(mockPrisma.roomJoinRequest.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { roomId_userId: { roomId: lessonId, userId: 'student' } },
+    }))
+
+    // Invited on the lesson: in on the board.
+    mockPrisma.roomInvite.findUnique.mockResolvedValue({ id: 'invite-1' })
+    expect(await checkJoinAccess(boardId, 'student', 'Alice', undefined)).toEqual({ ok: true })
   })
 })

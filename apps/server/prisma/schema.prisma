@@ -121,7 +121,7 @@ model Room {
   // list is read back through the shared sanitizer, which drops ids it does
   // not know, and that is what lets a row written by a newer build still open
   // in an older one instead of failing to parse.
-  enabledTools String[]
+  enabledTools String[]          @default([])
   closedAt     DateTime?
   // (#317) Fork lineage. `SetNull` rather than the `Cascade` every other
   // relation here uses, and deliberately so: deleting the lesson a student
@@ -132,6 +132,33 @@ model Room {
   parentRoomId String?
   parent       Room?             @relation("RoomForks", fields: [parentRoomId], references: [id], onDelete: SetNull)
   forks        Room[]            @relation("RoomForks")
+  // (#176, ADR 014) Boards. A lesson is an ordinary Room (`lessonId` null) and
+  // is also its own first board; every additional board is a Room row whose
+  // `lessonId` points at the lesson. Everything *social* — participants,
+  // invites, requests, blocks, password, accessMode, closedAt, enabledTools,
+  // palette — is read and written on the lesson (`lessonOf(room)`, see
+  // lessons.ts); everything *content* — operations, snapshots, layer state,
+  // thumbnail — stays on the board itself. Depth is exactly one: a board's
+  // lesson always has `lessonId` null, and the server refuses to create a
+  // board inside a board.
+  //
+  // `Cascade`, unlike `parentRoomId`'s `SetNull` just above, because the two
+  // links mean opposite things: a fork is somebody else's independent work
+  // that merely remembers its origin, a board is a page *of* this lesson and
+  // has no meaning without it. Every pre-existing row is a lesson with one
+  // board, so the migration is purely additive.
+  lessonId     String?
+  lesson       Room?             @relation("LessonBoards", fields: [lessonId], references: [id], onDelete: Cascade)
+  boards       Room[]            @relation("LessonBoards")
+  // Position in the lesson's board strip. The lesson itself is always 0; a new
+  // board takes max + 1. Meaningless (and left at 0) on a lesson row.
+  boardOrder   Int               @default(0)
+  // The board the teacher is currently on — what a joiner lands on and what
+  // followers switch to. Null means the lesson's own first board. Only ever
+  // set on a lesson row. Not a relation on purpose: it may name a board that
+  // was deleted a moment ago, and the delete route resets it rather than
+  // asking Postgres to.
+  activeBoardId String?
   ownerId      String
   owner        User              @relation(fields: [ownerId], references: [id])
   operations   Operation[]
@@ -144,6 +171,9 @@ model Room {
   palette      RoomPalette?
   thumbnail    RoomThumbnail?
   createdAt    DateTime          @default(now())
+
+  // Every read of a lesson's boards is "its boards, in strip order".
+  @@index([lessonId, boardOrder])
 }
 
 // Persisted join history — one row per (room, user) ever, so "Мои уроки"

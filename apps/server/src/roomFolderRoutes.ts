@@ -39,7 +39,10 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
         orderBy: { createdAt: 'desc' },
       }),
       prisma.roomParticipant.findMany({
-        where: { userId: request.userId, folderId },
+        // (#176) Lessons only. No RoomParticipant row is ever written for a
+        // board (see rooms.ts's joinRoom), so this cannot match one today;
+        // the filter is here so the list stays honest if that ever changes.
+        where: { userId: request.userId, folderId, room: { lessonId: null } },
         include: {
           room: {
             include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },

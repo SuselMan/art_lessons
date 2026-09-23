@@ -153,6 +153,42 @@ interface RoomCardProps {
   onCancelConfirmClick: () => void
 }
 
+/** The card's hero picture. (#176, ADR 014 §2) A lesson with several boards
+ *  shows the board the teacher is on, not its own first page: that is the one
+ *  a student opening the link will land on, so it is the honest preview.
+ *
+ *  The list carries only the lesson's own `thumbnailUpdatedAt`, so for another
+ *  board the request is made without knowing whether a picture exists — the
+ *  endpoint answers 404 for a board never baked, and `onError` turns that into
+ *  the same placeholder a lesson without a picture gets. The cache key is the
+ *  lesson's, which the boards route does not advance; the thumbnail response
+ *  itself is cached for five minutes at most, so a stale preview is bounded by
+ *  that rather than by the key. */
+function CardThumbnail({ room }: { room: Room }) {
+  const boardId = room.activeBoardId ?? room.id
+  const onOwnBoard = boardId === room.id
+  const [failed, setFailed] = useState(false)
+  const version = room.thumbnailUpdatedAt ?? room.createdAt
+  // `v=` is pure cache-busting for when a new thumbnail is uploaded (#210) —
+  // the same id would otherwise keep serving a stale browser-cached image
+  // forever since the URL never changes.
+  const wantsPicture = !failed && (!onOwnBoard || room.thumbnailUpdatedAt !== undefined)
+  return wantsPicture ? (
+    <img
+      className={styles.cardThumbnail}
+      src={`/api/rooms/${boardId}/thumbnail?v=${encodeURIComponent(version)}`}
+      alt=""
+      loading="lazy"
+      draggable={false}
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <div className={styles.cardThumbnailPlaceholder}>
+      <Icon name="image_not_supported" />
+    </div>
+  )
+}
+
 function RoomCard({
   t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
   onRenameCancel, busy, onShareClick, onRenameClick, onMoveClick, onForkClick, onAccessClick,
@@ -220,22 +256,9 @@ function RoomCard({
           ever sees it. That's what made room→folder drag-and-drop silently
           do nothing. */}
       <Link className={styles.cardLink} to={`/room/${room.id}`} draggable={false}>
-        {room.thumbnailUpdatedAt ? (
-          // `v=` is pure cache-busting for when a new thumbnail is uploaded
-          // (#210) — same room id would otherwise keep serving a stale
-          // browser-cached image forever since the URL never changes.
-          <img
-            className={styles.cardThumbnail}
-            src={`/api/rooms/${room.id}/thumbnail?v=${encodeURIComponent(room.thumbnailUpdatedAt)}`}
-            alt=""
-            loading="lazy"
-            draggable={false}
-          />
-        ) : (
-          <div className={styles.cardThumbnailPlaceholder}>
-            <Icon name="image_not_supported" />
-          </div>
-        )}
+        {/* (#176) Keyed so a change of active board gets a fresh attempt at
+            the image rather than a placeholder left over from a 404. */}
+        <CardThumbnail key={room.activeBoardId ?? room.id} room={room} />
         {/* Name+meta share a wrapper so the two layouts differ by one axis
             flip: in 'grid' this column sits *under* the hero thumbnail, in
             'list' it sits *beside* a small one. Without it, a row-direction
@@ -574,7 +597,7 @@ export function MyLessons() {
   // is usually done to *hand out* a copy, and being dropped inside it would
   // make forking three of them a matter of going back twice.
   const forkMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, { name, scope: 'lesson' }),
     // (#552) Into the list for the folder the copy was actually filed in, which
     // the server now reports: it files the copy beside its source, and when the
     // fork is made from search results the source's folder is not the folder

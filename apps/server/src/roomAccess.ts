@@ -59,11 +59,18 @@ export async function checkJoinAccess(
   const gate = getRoomGate(roomId)
   if (!gate) return { ok: false, error: 'not_found' }
 
+  // (#176, ADR 014) `roomId` may name a board; every rule below is the
+  // lesson's. The gate already answered owner/mode/password for the lesson,
+  // and the rows consulted from here on — block, participation, request,
+  // invite — are keyed by the lesson too, because that is the only id they
+  // are ever written under. A board with an allow-list of its own would be a
+  // second door with its own lock, and nobody is handed a key to it.
+  const { lessonId } = gate
   const isOwner = userId === gate.ownerId
 
   if (!isOwner) {
     const blocked = await prisma.roomBlock.findUnique({
-      where: { roomId_userId: { roomId, userId } },
+      where: { roomId_userId: { roomId: lessonId, userId } },
       select: { id: true },
     })
     if (blocked) return { ok: false, error: 'access_revoked' }
@@ -75,11 +82,12 @@ export async function checkJoinAccess(
 
   if (gate.accessMode === 'anyone_with_link') return { ok: true }
 
-  return admitToInviteOnlyRoom(roomId, userId, name)
+  return admitToInviteOnlyRoom(lessonId, userId, name)
 }
 
 /** The `invite_only` branch of `checkJoinAccess`. Four ways in, in this order:
  *  already a participant, already approved, on the allow-list, or ask.
+ *  `roomId` is always the lesson's id here (#176) — see the caller.
  */
 async function admitToInviteOnlyRoom(
   roomId: string, userId: string, name: string,

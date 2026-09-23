@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { Prisma } from '@prisma/client'
-import type { Operation, Participant, RejectReason, Room, RoomAccessMode, ToggleableTool } from '@grafetto/shared'
+import type {
+  BoardSummary, LessonState, Operation, Participant, RejectReason, Room, RoomAccessMode, ToggleableTool,
+} from '@grafetto/shared'
 import {
   ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
   isAnnotationOperation, operationLayerIds, paintedLayerIds, sanitizeEnabledTools,
@@ -42,6 +44,30 @@ const BCRYPT_ROUNDS = 10
 
 interface RoomRecord {
   room: Room
+  // (#176, ADR 014) `null` for a lesson, the lesson's id for a board. It
+  // decides which half of this record is *live*: a lesson's record holds the
+  // social state (participants, freeze, palette, password) for itself and
+  // every board under it, and a board's copies of those fields are never read
+  // — every social question goes through `lessonRecordOf` first. The content
+  // half (operations, seq, locks, coverage, structural log) is the record's
+  // own either way, because a lesson is also its own first board.
+  //
+  // Invariant: a board is never resident without its lesson. `ensureRoomLoaded`
+  // loads the lesson before the board, and `lessonRecordOf` throws rather than
+  // fall back to the board's own empty social state — a board judged by an
+  // allow-list nobody filled in would be an open door into a private lesson.
+  lessonId: string | null
+  // (#176) Which sockets currently have this record as their *content*
+  // channel — i.e. are on this board. A board is evicted the moment this
+  // empties, even while its lesson stays live; a lesson is evicted only when
+  // `participants` empties, since its record carries the social state every
+  // board needs. See `isIdle`.
+  sockets: Set<string>
+  // (#176) The lesson's board strip, itself first, in `order`. Read on every
+  // `room_state` — which is synchronous — so it is cached here rather than
+  // queried, and kept current by the `noteBoard*` mirrors boardRoutes.ts
+  // calls after each write. Empty on a board's own record: never read there.
+  boards: BoardSummary[]
   passwordHash: string | undefined
   operations: Operation[]
   participants: Map<string, Participant> // keyed by userId — live presence only, not join history
@@ -187,6 +213,31 @@ interface RoomRecord {
 
 const rooms = new Map<string, RoomRecord>()
 
+/** (#176) The record that holds `record`'s social state: itself for a lesson,
+ *  its lesson for a board. Every participant/freeze/palette/password/closed
+ *  read or write in this file goes through here, which is what makes "social
+ *  lives on the lesson" one rule rather than a convention each function has
+ *  to remember.
+ *
+ *  Throws for a board whose lesson is not resident. That cannot happen if the
+ *  load and eviction paths keep their invariant (see RoomRecord.lessonId), and
+ *  if it ever does, failing loudly is the right failure: the alternative is a
+ *  board silently judged by its own empty allow-list and no password. */
+function lessonRecordOf(record: RoomRecord): RoomRecord {
+  if (record.lessonId === null) return record
+  const lesson = rooms.get(record.lessonId)
+  if (!lesson) throw new Error(`board "${record.room.id}" is resident without its lesson "${record.lessonId}"`)
+  return lesson
+}
+
+/** (#176) Whether nothing live depends on this record any more. A board is
+ *  idle when no socket is on it; a lesson only when nobody is in the lesson at
+ *  all — it may have no socket on its own first board and still be carrying
+ *  the participants and freeze state of a class drawing on board three. */
+function isIdle(record: RoomRecord): boolean {
+  return record.lessonId === null ? record.participants.size === 0 : record.sockets.size === 0
+}
+
 // Tracks which socket.id is currently considered "the" live connection for
 // a given room+userId (#164). A user can briefly have two overlapping
 // sockets for the same room — a page refresh, a flaky reconnect — where the
@@ -201,14 +252,49 @@ const rooms = new Map<string, RoomRecord>()
 // `${roomId}:${userId}` rather than nesting inside RoomRecord.participants
 // so a stale leaveRoom can check it even after the room itself might
 // already be gone.
+//
+// (#176) Keyed by the *lesson* id: presence is a fact about the lesson, and a
+// socket that switches boards is the same live connection for the same
+// person, not a new participant.
 const currentSocketForParticipant = new Map<string, string>()
 
-function participantKey(roomId: string, userId: string): string {
-  return `${roomId}:${userId}`
+function participantKey(lessonId: string, userId: string): string {
+  return `${lessonId}:${userId}`
+}
+
+// (#176) Which board each connected socket is on, by socket id. The seat
+// (`currentSocketForParticipant`) says which socket *counts* for a person;
+// this says where every socket actually is, superseded ones included — a
+// second tab whose seat was taken over is still a socket on a board, and the
+// board must not be evicted from under it just because its seat moved. It is
+// also what lets a socket switching boards leave the right one without the
+// handler having to say which.
+const boardOfSocket = new Map<string, string>()
+
+/** Takes `socketId` off `boardId`'s roster, and lets the board go if it was
+ *  the last one there. A lesson's own record is never released by this: its
+ *  life is tied to its participants (see `isIdle`), not to its first board's
+ *  sockets. */
+function removeSocketFromBoard(boardId: string, socketId: string): void {
+  const board = rooms.get(boardId)
+  if (!board) return
+  board.sockets.delete(socketId)
+  if (board.lessonId !== null && board.sockets.size === 0) evictWhenIdle(boardId)
 }
 
 export type JoinRoomOutcome =
-  | { ok: true; participant: Participant }
+  | {
+      ok: true
+      participant: Participant
+      // (#176) The lesson this seat is in — the social channel the caller has
+      // to be subscribed to, whichever board it asked for.
+      lessonId: string
+      // (#176) Set when this person was already in the lesson: the board they
+      // were on before this call. Equal to the joined board on a plain
+      // reconnect, different on a switch, absent on a first join. The caller
+      // reads it to tell `peer_board_changed` from `peer_joined`.
+      previousBoardId?: string
+    }
   | { ok: false; error: 'not_found' }
 
 // Chains every Postgres write for a room onto whatever was already queued
@@ -617,7 +703,16 @@ function trimResidentOperations(record: RoomRecord): void {
  *  always starts empty: presence is inherently live-only, nobody is
  *  "currently connected" to a room that just got cold-loaded. */
 export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
-  if (rooms.has(roomId)) return true
+  const resident = rooms.get(roomId)
+  if (resident) {
+    // (#176) A board's residency is only worth anything with its lesson
+    // beside it — see RoomRecord.lessonId. The lesson can go first (its own
+    // eviction is deferred behind its own writes, the board's behind the
+    // board's), so "the board is here" has to also mean "so is the lesson"
+    // before anything synchronous is allowed to ask a social question of it.
+    if (resident.lessonId !== null && !rooms.has(resident.lessonId)) return ensureRoomLoaded(resident.lessonId)
+    return true
+  }
 
   const dbRoom = await prisma.room.findUnique({
     where: { id: roomId },
@@ -631,6 +726,13 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     include: { thumbnail: { select: { updatedAt: true } } },
   })
   if (!dbRoom) return false
+
+  // (#176) Lesson first, always: the board's join gate, freeze and
+  // participants are all read off the lesson's record, so a board resident
+  // without it is a board nobody can be admitted to. A lesson that has gone
+  // from Postgres takes its boards with it (the FK cascades), so `false` here
+  // is the same "not found" the board itself would have been.
+  if (dbRoom.lessonId !== null && !(await ensureRoomLoaded(dbRoom.lessonId))) return false
 
   const [storedLayerState, coveredSeqByLayer] = await Promise.all([
     prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
@@ -652,9 +754,19 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   // A room created before this feature existed has no RoomPalette row yet —
   // seed it with the defaults now rather than leaving `palette` permanently
   // empty for every room that predates #190.
-  const existingPalette = await prisma.roomPalette.findUnique({ where: { roomId }, select: { colors: true } })
-  const palette = existingPalette?.colors ?? [...DEFAULT_PALETTE_COLORS]
-  if (!existingPalette) persistPalette(roomId, palette)
+  //
+  // (#176) Lessons only. A board's palette is its lesson's (see
+  // addPaletteColor), so its own field is never read and no row is seeded for
+  // it — seeding one would be a RoomPalette row nothing ever consults.
+  const existingPalette = dbRoom.lessonId === null
+    ? await prisma.roomPalette.findUnique({ where: { roomId }, select: { colors: true } })
+    : null
+  const palette = existingPalette?.colors ?? (dbRoom.lessonId === null ? [...DEFAULT_PALETTE_COLORS] : [])
+  if (!existingPalette && dbRoom.lessonId === null) persistPalette(roomId, palette)
+
+  // (#176) The strip, for a lesson. A board's record keeps none: the list is
+  // read off the lesson on every room_state, whichever board asked.
+  const boards = dbRoom.lessonId === null ? await loadBoardSummaries(roomId) : []
 
   // (#254/#258) Rebuild the owner-lock mirror from the operation log itself
   // — `layer_owner_lock` is a normal, persisted Operation (unlike
@@ -681,8 +793,17 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   await resolveUndoneEntries(roomId, structuralLog)
   const { aliveIds, deletedIds } = deriveLayerIds(structuralLog)
 
+  // Two joins racing the same cold load both get here; the second must not
+  // replace a record the first has already seated someone in. (#176 made the
+  // window wider — a board load awaits its lesson's — but the race predates
+  // it.)
+  if (rooms.has(roomId)) return true
+
   rooms.set(roomId, {
     room: toWireRoom(dbRoom),
+    lessonId: dbRoom.lessonId,
+    sockets: new Set(),
+    boards,
     passwordHash: dbRoom.passwordHash ?? undefined,
     operations,
     participants: new Map(),
@@ -701,6 +822,21 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     structuralLog,
   })
   return true
+}
+
+/** (#176) A lesson's strip as Postgres has it: the lesson row itself and every
+ *  row pointing at it, in `boardOrder`. Thumbnail narrowed to `updatedAt` for
+ *  the same reason every other room query narrows it. */
+async function loadBoardSummaries(lessonId: string): Promise<BoardSummary[]> {
+  const rows = await prisma.room.findMany({
+    where: { OR: [{ id: lessonId }, { lessonId }] },
+    orderBy: { boardOrder: 'asc' },
+    select: { id: true, name: true, boardOrder: true, thumbnail: { select: { updatedAt: true } } },
+  })
+  return rows.map(row => ({
+    id: row.id, name: row.name, order: row.boardOrder,
+    thumbnailUpdatedAt: row.thumbnail?.updatedAt.toISOString(),
+  }))
 }
 
 /** Registers a new room and immediately seats its creator as `owner`.
@@ -744,8 +880,12 @@ export function createRoom(
     // of whatever frozenUserIds might contain from before (it never would,
     // see setParticipantFrozen, but this stays explicit rather than trusting
     // that invariant silently).
-    const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0], frozen: false }
+    const participant: Participant = {
+      userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0], frozen: false, boardId: roomData.id,
+    }
     existing.participants.set(ownerId, participant)
+    existing.sockets.add(socketId)
+    boardOfSocket.set(socketId, roomData.id)
     currentSocketForParticipant.set(participantKey(roomData.id, ownerId), socketId)
     return { room: existing.room, participant }
   }
@@ -761,17 +901,24 @@ export function createRoom(
     createdAt: new Date().toISOString(),
   }
   const passwordHash = password ? bcrypt.hashSync(password, BCRYPT_ROUNDS) : undefined
-  const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0], frozen: false }
+  const participant: Participant = {
+    userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0], frozen: false, boardId: room.id,
+  }
   const participants = new Map<string, Participant>([[ownerId, participant]])
   const palette = [...DEFAULT_PALETTE_COLORS]
   rooms.set(room.id, {
-    room, passwordHash, operations: [], participants, nextSeq: 1, palette,
+    // A created room is always a lesson: boards come only through
+    // boardRoutes.ts, which seeds a row and lets the next join cold-load it.
+    room, lessonId: null, sockets: new Set([socketId]),
+    boards: [{ id: room.id, name: room.name, order: 0 }],
+    passwordHash, operations: [], participants, nextSeq: 1, palette,
     layerStateSeq: null, layerStateIds: null, coveredSeqByLayer: new Map(),
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
     sharedLockedLayerIds: new Set(),
     aliveIds: new Set(IMPLICIT_LAYER_IDS), deletedIds: new Set(), operationsById: new Map(),
     structuralLog: [],
   })
+  boardOfSocket.set(socketId, room.id)
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
   persistParticipant(room.id, ownerId, ownerName)
@@ -784,19 +931,28 @@ export function createRoom(
  *  which mode it's in. Returns undefined for a room not currently resident,
  *  which the gate reads as `not_found` — callers run `ensureRoomLoaded` first,
  *  so a room absent here is a room absent from Postgres too. */
-export function getRoomGate(roomId: string): { ownerId: string; accessMode: RoomAccessMode } | undefined {
+export function getRoomGate(
+  roomId: string,
+): { ownerId: string; accessMode: RoomAccessMode; lessonId: string } | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
-  return { ownerId: record.room.ownerId, accessMode: record.room.accessMode }
+  // (#176) Both facts are the lesson's, and the gate also learns *which*
+  // lesson, because the rows it goes on to consult (blocks, invites,
+  // requests, prior participation) are keyed by it — never by a board.
+  const lesson = lessonRecordOf(record)
+  return { ownerId: lesson.room.ownerId, accessMode: lesson.room.accessMode, lessonId: lesson.room.id }
 }
 
 /** (#225) True when the room has no password, or when this one matches it.
  *  Lives here rather than in `roomAccess.ts` so the hash itself never leaves
- *  this module — the gate gets an answer, not a credential to compare. */
+ *  this module — the gate gets an answer, not a credential to compare.
+ *  (#176) The password is the lesson's, whichever board is being asked for. */
 export function checkRoomPassword(roomId: string, password: string | undefined): boolean {
   const record = rooms.get(roomId)
-  if (!record?.passwordHash) return true
-  return !!password && bcrypt.compareSync(password, record.passwordHash)
+  if (!record) return true
+  const { passwordHash } = lessonRecordOf(record)
+  if (!passwordHash) return true
+  return !!password && bcrypt.compareSync(password, passwordHash)
 }
 
 /** Seats a participant in an existing room. Fails with `not_found` if no room
@@ -820,9 +976,23 @@ export function joinRoom(
 ): JoinRoomOutcome {
   const record = rooms.get(roomId)
   if (!record) return { ok: false, error: 'not_found' }
+  // (#176) The seat is in the lesson, whichever board was asked for: one
+  // participant per person per lesson, carrying which board they are on.
+  const lesson = lessonRecordOf(record)
+  const lessonId = lesson.room.id
+  const key = participantKey(lessonId, userId)
 
-  const role = userId === record.room.ownerId ? 'owner' : 'member'
-  const color = CURSOR_COLORS[record.participants.size % CURSOR_COLORS.length]
+  const previous = lesson.participants.get(userId)
+  // A socket switching boards leaves the one it was on. If that empties the
+  // board, the board goes; the lesson stays, this person is still in it. A
+  // socket new to the server has nothing to leave.
+  const from = boardOfSocket.get(socketId)
+  if (from !== undefined && from !== roomId) removeSocketFromBoard(from, socketId)
+
+  const role = userId === lesson.room.ownerId ? 'owner' : 'member'
+  // Kept across a reconnect or a board switch: a colour that changed every
+  // time someone turned a page would make peer cursors unrecognisable.
+  const color = previous?.color ?? CURSOR_COLORS[lesson.participants.size % CURSOR_COLORS.length]
   // (#254/#257) Recomputed from frozenUserIds on every join/reconnect — same
   // "derived, like role" treatment the shared contract's own doc comment on
   // Participant.frozen calls for, and the reason a freeze survives a
@@ -830,12 +1000,17 @@ export function joinRoom(
   // Participant record itself gets replaced below. The owner is never frozen
   // (setParticipantFrozen refuses to add them to the set in the first
   // place), but this stays explicit rather than relying on that alone.
-  const frozen = role === 'member' && record.frozenUserIds.has(userId)
-  const participant: Participant = { userId, name, role, color, frozen }
-  record.participants.set(userId, participant)
-  currentSocketForParticipant.set(participantKey(roomId, userId), socketId)
-  persistParticipant(roomId, userId, name)
-  return { ok: true, participant }
+  const frozen = role === 'member' && lesson.frozenUserIds.has(userId)
+  const participant: Participant = { userId, name, role, color, frozen, boardId: roomId }
+  lesson.participants.set(userId, participant)
+  record.sockets.add(socketId)
+  boardOfSocket.set(socketId, roomId)
+  currentSocketForParticipant.set(key, socketId)
+  // The RoomParticipant row is the lesson's: it is what "Мои уроки" lists and
+  // what an invite_only lesson re-admits by, and a board is neither listed nor
+  // a thing one is admitted to.
+  persistParticipant(lessonId, userId, name)
+  return { ok: true, participant, lessonId, previousBoardId: previous?.boardId }
 }
 
 /** Removes a participant on disconnect. Evicts the room from memory once
@@ -869,37 +1044,66 @@ export function joinRoom(
  *  `peer_left`: a stale disconnect must not announce someone as gone when
  *  their (newer) socket is still very much connected. */
 export function leaveRoom(roomId: string, userId: string, socketId: string): boolean {
-  const key = participantKey(roomId, userId)
+  // (#176) `roomId` is the board the socket was on; the seat it releases is
+  // the lesson's. Resolved *before* the socket is taken off its board, because
+  // that can evict the board on the spot and there would be nothing left to
+  // resolve through. Looked up without `lessonRecordOf`'s throw on purpose:
+  // this runs from a socket's disconnect, and a superseded tab can disconnect
+  // after the lesson it was in has already gone — a throw here is a crashed
+  // process (#164), not a caught error.
+  const record = rooms.get(roomId)
+  const lesson = record ? (record.lessonId === null ? record : rooms.get(record.lessonId)) : undefined
+
+  // Two separate facts end here. The socket's presence on its board is one,
+  // and it holds whether or not the socket's seat is still current — a
+  // superseded tab was still *on* the board, and the board's roster has to
+  // lose it or the board never empties. The seat is the other, and only the
+  // socket that holds it may release it (#164, below).
+  removeSocketFromBoard(boardOfSocket.get(socketId) ?? roomId, socketId)
+  boardOfSocket.delete(socketId)
+
+  const key = participantKey(lesson?.room.id ?? roomId, userId)
   if (currentSocketForParticipant.get(key) !== socketId) return false
   currentSocketForParticipant.delete(key)
 
-  const record = rooms.get(roomId)
-  if (!record) return false
-  const removed = record.participants.delete(userId)
-  if (record.participants.size !== 0) return removed
-
-  evictWhenIdle(roomId)
+  if (!lesson) return false
+  const removed = lesson.participants.delete(userId)
+  // The lesson goes only when it is empty of people — and takes its boards
+  // with it (see evictNow).
+  if (lesson.participants.size === 0) evictWhenIdle(lesson.room.id)
   return removed
 }
 
 /** Evicts `roomId` from memory once it's genuinely unused, waiting out this
  *  room's in-flight Postgres writes first (see `enqueueWrite`) and
- *  re-checking participants afterward — a reconnect landing during the wait
+ *  re-checking `isIdle` afterward — a reconnect landing during the wait
  *  repopulates the Map, and that room must not then be deleted out from
  *  under it. */
 function evictWhenIdle(roomId: string): void {
   const pending = pendingWrite.get(roomId)
   if (!pending) {
-    pruneOperationsBeforeSnapshot(roomId)
-    rooms.delete(roomId)
+    evictNow(roomId)
     return
   }
   pending.finally(() => {
-    if (rooms.get(roomId)?.participants.size === 0) {
-      pruneOperationsBeforeSnapshot(roomId)
-      rooms.delete(roomId)
-    }
+    const record = rooms.get(roomId)
+    if (record && isIdle(record)) evictNow(roomId)
   })
+}
+
+/** (#176) The eviction itself. A lesson takes its boards along: their social
+ *  state was here, and a board left behind would be one `lessonRecordOf`
+ *  cannot answer for. Each board still waits out its own writes, and
+ *  `ensureRoomLoaded` reloads the lesson if a join lands on such a board in
+ *  the meantime. */
+function evictNow(roomId: string): void {
+  const record = rooms.get(roomId)
+  pruneOperationsBeforeSnapshot(roomId)
+  rooms.delete(roomId)
+  if (record?.lessonId !== null) return
+  for (const [id, other] of rooms) {
+    if (other.lessonId === roomId) evictWhenIdle(id)
+  }
 }
 
 /** (#292) Drops a room that was cold-loaded but never actually joined.
@@ -917,7 +1121,7 @@ function evictWhenIdle(roomId: string): void {
  *  all if anyone is actually in the room. */
 export function releaseRoomIfUnused(roomId: string): void {
   const record = rooms.get(roomId)
-  if (!record || record.participants.size !== 0) return
+  if (!record || !isIdle(record)) return
   evictWhenIdle(roomId)
 }
 
@@ -942,7 +1146,7 @@ export function getResidentRoomStats(): { total: number; idle: number; operation
   let operations = 0
   for (const record of rooms.values()) {
     operations += record.operations.length
-    if (record.participants.size === 0) idle += 1
+    if (isIdle(record)) idle += 1
   }
   return { total: rooms.size, idle, operations }
 }
@@ -971,7 +1175,9 @@ export function getRoomBacklog(roomId: string): {
   }
   return {
     roomId,
-    participants: record.participants.size,
+    // (#176) Who could bake this board: the sockets on it, not the lesson's
+    // whole roster — someone on another board holds none of these pixels.
+    participants: record.sockets.size,
     latestSeq: record.nextSeq - 1,
     uncoveredOps,
   }
@@ -991,7 +1197,7 @@ export function getRoomBacklog(roomId: string): {
 export function evictIdleRooms(): number {
   let released = 0
   for (const [roomId, record] of rooms) {
-    if (record.participants.size !== 0) continue
+    if (!isIdle(record)) continue
     evictWhenIdle(roomId)
     if (!rooms.has(roomId)) released += 1
   }
@@ -1015,14 +1221,24 @@ export function _flushPendingWrites(roomId: string): Promise<void> {
   return pendingWrite.get(roomId) ?? Promise.resolve()
 }
 
+/** (#176) Resident or not, by any of its ids — and for a board, the lesson's
+ *  record, which is where every social answer below comes from. */
+function socialRecord(roomId: string): RoomRecord | undefined {
+  const record = rooms.get(roomId)
+  return record && lessonRecordOf(record)
+}
+
+/** The live participant, looked up by any board of their lesson: being in a
+ *  lesson is being in every board of it, which is what lets the snapshot and
+ *  thumbnail routes accept a board id with the same check they always made. */
 export function getParticipant(roomId: string, userId: string): Participant | undefined {
-  return rooms.get(roomId)?.participants.get(userId)
+  return socialRecord(roomId)?.participants.get(userId)
 }
 
 // ── Owner runtime privileges (#254 epic) ──────────────────────────────────
 
 export function isRoomFrozen(roomId: string): boolean {
-  return rooms.get(roomId)?.roomFrozen ?? false
+  return socialRecord(roomId)?.roomFrozen ?? false
 }
 
 /** Sets the room-wide freeze (#256). Returns `false` for an unknown room
@@ -1040,21 +1256,25 @@ export function isRoomFrozen(roomId: string): boolean {
  *  normalized list, never one client's raw claim. Like `setRoomFrozen` it does
  *  not check the caller's role — see socketHandlers.ts. */
 export function setRoomTools(roomId: string, enabledTools: unknown): ToggleableTool[] | undefined | false {
-  const record = rooms.get(roomId)
-  if (!record) return false
+  // (#176) The toolset is the lesson's: "today we work in pencil" holds on
+  // every page, so it is stored on the lesson row and overlaid onto each
+  // board's `room` in getRoomSnapshot.
+  const lesson = socialRecord(roomId)
+  if (!lesson) return false
   const sanitized = sanitizeEnabledTools(enabledTools)
-  record.room.enabledTools = sanitized
-  enqueueWrite(roomId, () => prisma.room.update({
-    where: { id: roomId },
+  lesson.room.enabledTools = sanitized
+  const lessonId = lesson.room.id
+  enqueueWrite(lessonId, () => prisma.room.update({
+    where: { id: lessonId },
     data: { enabledTools: sanitized ?? [] },
   }))
   return sanitized
 }
 
 export function setRoomFrozen(roomId: string, frozen: boolean): boolean {
-  const record = rooms.get(roomId)
-  if (!record) return false
-  record.roomFrozen = frozen
+  const lesson = socialRecord(roomId)
+  if (!lesson) return false
+  lesson.roomFrozen = frozen
   return true
 }
 
@@ -1066,22 +1286,23 @@ export function setRoomFrozen(roomId: string, frozen: boolean): boolean {
  *  elsewhere. Like `setRoomFrozen`, does not itself check the *caller's*
  *  role — see socketHandlers.ts. */
 export function setParticipantFrozen(roomId: string, userId: string, frozen: boolean): Participant | undefined {
-  const record = rooms.get(roomId)
-  if (!record) return undefined
-  const participant = record.participants.get(userId)
+  const lesson = socialRecord(roomId)
+  if (!lesson) return undefined
+  const participant = lesson.participants.get(userId)
   if (!participant || participant.role === 'owner') return undefined
 
-  if (frozen) record.frozenUserIds.add(userId)
-  else record.frozenUserIds.delete(userId)
+  if (frozen) lesson.frozenUserIds.add(userId)
+  else lesson.frozenUserIds.delete(userId)
   const updated: Participant = { ...participant, frozen }
-  record.participants.set(userId, updated)
+  lesson.participants.set(userId, updated)
   return updated
 }
 
 // ── Closed for editing (#222) ─────────────────────────────────────────────
 
 export function isRoomClosed(roomId: string): boolean {
-  return rooms.get(roomId)?.room.closedAt !== undefined
+  const lesson = socialRecord(roomId)
+  return lesson !== undefined && lesson.room.closedAt !== undefined
 }
 
 /** Mirrors a `Room.closedAt` change into the live in-memory record, so the
@@ -1094,9 +1315,9 @@ export function isRoomClosed(roomId: string): boolean {
  *  difference that this one *is* persisted at all, because a closed lesson
  *  must still be closed after a restart. */
 export function setRoomClosed(roomId: string, closedAt: string | null): boolean {
-  const record = rooms.get(roomId)
-  if (!record) return false
-  record.room = { ...record.room, closedAt: closedAt ?? undefined }
+  const lesson = socialRecord(roomId)
+  if (!lesson) return false
+  lesson.room = { ...lesson.room, closedAt: closedAt ?? undefined }
   return true
 }
 
@@ -1107,9 +1328,9 @@ export function setRoomClosed(roomId: string, closedAt: string | null): boolean 
  *  #226's `PATCH` endpoint; returning `false` for a non-resident room is not a
  *  failure, since its next cold load reads the stored mode anyway. */
 export function setRoomAccessMode(roomId: string, accessMode: RoomAccessMode): boolean {
-  const record = rooms.get(roomId)
-  if (!record) return false
-  record.room = { ...record.room, accessMode }
+  const lesson = socialRecord(roomId)
+  if (!lesson) return false
+  lesson.room = { ...lesson.room, accessMode }
   return true
 }
 
@@ -1132,10 +1353,10 @@ export function hashRoomPassword(password: string): string {
  *  password was removed would have every joiner send one that is no longer
  *  checked, which reads as "the password stopped working". */
 export function setRoomPassword(roomId: string, passwordHash: string | null): boolean {
-  const record = rooms.get(roomId)
-  if (!record) return false
-  record.passwordHash = passwordHash ?? undefined
-  record.room = { ...record.room, hasPassword: passwordHash !== null }
+  const lesson = socialRecord(roomId)
+  if (!lesson) return false
+  lesson.passwordHash = passwordHash ?? undefined
+  lesson.room = { ...lesson.room, hasPassword: passwordHash !== null }
   return true
 }
 
@@ -1227,7 +1448,11 @@ export function releaseLockOnUndo(roomId: string, op: Operation): void {
 export function getOperationRejectReason(roomId: string, userId: string, op: Operation): RejectReason | null {
   const record = rooms.get(roomId)
   if (!record) return 'not_owner'
-  const participant = record.participants.get(userId)
+  // (#176) Who is asking, whether the lesson is closed or frozen — the
+  // lesson's; what the operation targets and whether that is locked or gone
+  // — the board's. Both are read below, from the right record each.
+  const lesson = lessonRecordOf(record)
+  const participant = lesson.participants.get(userId)
   const isOwner = participant?.role === 'owner'
 
   if (op.type === 'operation_revoke' && !isOwner) return 'not_owner'
@@ -1253,7 +1478,7 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
   // to everyone rather than being a silent exemption. Contrast `room_frozen`
   // below, which is a live control over *other people* and never applies to
   // the person holding it.
-  if (record.room.closedAt !== undefined) return 'room_closed'
+  if (lesson.room.closedAt !== undefined) return 'room_closed'
 
   // (#518) Before the owner short-circuit, like `room_closed` above and for a
   // related reason: the shared lock is not a privilege one person holds over
@@ -1271,8 +1496,8 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
 
   if (isOwner) return null
 
-  if (record.roomFrozen) return 'room_frozen'
-  if (record.frozenUserIds.has(userId)) return 'participant_frozen'
+  if (lesson.roomFrozen) return 'room_frozen'
+  if (lesson.frozenUserIds.has(userId)) return 'participant_frozen'
   if (ownerLockedTargets(record, op)) return 'layer_owner_locked'
   return null
 }
@@ -1615,7 +1840,7 @@ export function getRoomSnapshot(
 ): {
   room: Room; latestSnapshotSeq: number | null
   tailOperations: Operation[]; participants: Participant[]
-  palette: string[]; frozen: boolean
+  palette: string[]; frozen: boolean; lesson: LessonState
 } | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
@@ -1636,15 +1861,112 @@ export function getRoomSnapshot(
   const tailOperations = record.operations.filter(op =>
     (op.seq ?? 0) > floor
     && !isCoveredBySnapshot(record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds))
+  const lesson = lessonRecordOf(record)
   return {
-    room: record.room,
+    room: wireRoomOf(record, lesson),
     // The structure's own seq — what a history backfill anchors on. Null
     // means nobody has stored a snapshot for this room and the tail above is
     // its entire history.
     latestSnapshotSeq: record.layerStateSeq,
     tailOperations,
-    participants: [...record.participants.values()],
-    palette: record.palette, frozen: record.roomFrozen,
+    // (#176) The lesson's roster, each with the board they are on — being in
+    // a lesson is being in every board of it.
+    participants: [...lesson.participants.values()],
+    palette: lesson.palette, frozen: lesson.roomFrozen,
+    lesson: { id: lesson.room.id, boards: lesson.boards, activeBoardId: lesson.room.activeBoardId ?? null },
+  }
+}
+
+// ── Boards (#176, ADR 014) ─────────────────────────────────────────────────
+//
+// The mirrors boardRoutes.ts calls after each Postgres write, same
+// caller-persists division as setRoomClosed: the route owns the row, this
+// file owns what a live lesson is told. Each is a no-op for a lesson that is
+// not resident — its next cold load reads the rows.
+
+/** The lesson's strip, for a route that has to compute a new order from the
+ *  current one without a round trip. Undefined when not resident. */
+export function getLessonBoards(roomId: string): BoardSummary[] | undefined {
+  return socialRecord(roomId)?.boards
+}
+
+/** Records the owner's move (`set_active_board`) on the lesson and persists
+ *  it, so the next joiner lands there. Returns the value stored — the
+ *  lesson's own board is stored as `null`, so the wire never carries two
+ *  spellings of "the first board" — or `false` when `boardId` is not a board
+ *  of this lesson (a client naming a board it just deleted, or another
+ *  lesson's) and nothing was changed. */
+export function setActiveBoard(roomId: string, boardId: string | null): string | null | false {
+  const lesson = socialRecord(roomId)
+  if (!lesson) return false
+  const lessonId = lesson.room.id
+  const stored = boardId === lessonId ? null : boardId
+  if (stored !== null && !lesson.boards.some(b => b.id === stored)) return false
+  lesson.room = { ...lesson.room, activeBoardId: stored ?? undefined }
+  enqueueWrite(lessonId, () => prisma.room.update({ where: { id: lessonId }, data: { activeBoardId: stored } }))
+  return stored
+}
+
+export function noteBoardCreated(lessonId: string, board: BoardSummary): void {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return
+  lesson.boards = [...lesson.boards.filter(b => b.id !== board.id), board].sort((a, b) => a.order - b.order)
+}
+
+export function noteBoardRenamed(lessonId: string, boardId: string, name: string): void {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return
+  lesson.boards = lesson.boards.map(b => b.id === boardId ? { ...b, name } : b)
+  // The board's own `room` is what its room_state sends; the lesson's `room`
+  // doubles as its first board's, so a rename of the lesson lands there too.
+  const board = rooms.get(boardId)
+  if (board) board.room = { ...board.room, name }
+}
+
+/** `order` is the whole strip, lesson first, as boardRoutes.ts wrote it. */
+export function noteBoardsReordered(lessonId: string, order: readonly string[]): void {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return
+  const position = new Map(order.map((id, index) => [id, index]))
+  lesson.boards = lesson.boards
+    .map(b => ({ ...b, order: position.get(b.id) ?? b.order }))
+    .sort((a, b) => a.order - b.order)
+  for (const b of lesson.boards) {
+    const board = rooms.get(b.id)
+    if (board) board.room = { ...board.room, boardOrder: b.order }
+  }
+}
+
+/** Forgets a deleted board: off the strip, out of memory, and no longer the
+ *  active one. Returns whether it *was* the active board, so the caller can
+ *  say so to the lesson — the socket layer has already moved everyone who was
+ *  on it (see socketHandlers.ts's evacuateBoard), so the record is dropped
+ *  outright rather than waited out: its pending writes target a row that no
+ *  longer exists. */
+export function noteBoardDeleted(lessonId: string, boardId: string): { wasActive: boolean } {
+  const lesson = rooms.get(lessonId)
+  if (boardId !== lessonId) rooms.delete(boardId)
+  if (!lesson || lesson.lessonId !== null || boardId === lessonId) return { wasActive: false }
+  lesson.boards = lesson.boards.filter(b => b.id !== boardId)
+  const wasActive = lesson.room.activeBoardId === boardId
+  if (wasActive) lesson.room = { ...lesson.room, activeBoardId: undefined }
+  return { wasActive }
+}
+
+/** (#176) The `Room` a client is told about. For a lesson it is the record's
+ *  own; for a board, the board's row with the lesson's social fields laid over
+ *  it, so the client reads `room.closedAt` or `room.enabledTools` off one
+ *  object and never has to know which row a fact lives on. The board keeps its
+ *  own id, name, paper and size. */
+function wireRoomOf(record: RoomRecord, lesson: RoomRecord): Room {
+  if (record === lesson) return record.room
+  return {
+    ...record.room,
+    accessMode: lesson.room.accessMode,
+    hasPassword: lesson.room.hasPassword,
+    closedAt: lesson.room.closedAt,
+    enabledTools: lesson.room.enabledTools,
+    activeBoardId: lesson.room.activeBoardId,
   }
 }
 
@@ -1655,23 +1977,25 @@ export function getRoomSnapshot(
  *  the color is already present, so a caller can tell "nothing changed" by
  *  reference equality if it ever needs to — not currently relied upon. */
 export function addPaletteColor(roomId: string, color: string): string[] | undefined {
-  const record = rooms.get(roomId)
-  if (!record) return undefined
-  if (record.palette.some(c => c.toLowerCase() === color.toLowerCase())) return record.palette
-  record.palette = [...record.palette, color]
-  persistPalette(roomId, record.palette)
-  return record.palette
+  // (#176) One palette per lesson, shared by its boards — the colours a class
+  // mixed on page one are the colours it wants on page two.
+  const lesson = socialRecord(roomId)
+  if (!lesson) return undefined
+  if (lesson.palette.some(c => c.toLowerCase() === color.toLowerCase())) return lesson.palette
+  lesson.palette = [...lesson.palette, color]
+  persistPalette(lesson.room.id, lesson.palette)
+  return lesson.palette
 }
 
 /** Removes `color` from the room's palette if present. A no-op (returns the
  *  existing array unchanged) if it isn't there — nothing to persist. */
 export function removePaletteColor(roomId: string, color: string): string[] | undefined {
-  const record = rooms.get(roomId)
-  if (!record) return undefined
-  if (!record.palette.some(c => c.toLowerCase() === color.toLowerCase())) return record.palette
-  record.palette = record.palette.filter(c => c.toLowerCase() !== color.toLowerCase())
-  persistPalette(roomId, record.palette)
-  return record.palette
+  const lesson = socialRecord(roomId)
+  if (!lesson) return undefined
+  if (!lesson.palette.some(c => c.toLowerCase() === color.toLowerCase())) return lesson.palette
+  lesson.palette = lesson.palette.filter(c => c.toLowerCase() !== color.toLowerCase())
+  persistPalette(lesson.room.id, lesson.palette)
+  return lesson.palette
 }
 
 /** Whether the server should log a hash mismatch when a redundant snapshot

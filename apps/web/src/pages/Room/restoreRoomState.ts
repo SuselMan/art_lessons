@@ -32,9 +32,10 @@ export interface RoomStatePayload {
 export type RestoreMode = 'join' | 'catchup'
 
 export interface RestoreRoomStateDeps {
-  roomId: string
-  restoreFromSnapshot: (engine: PencilEngineAPI, roomId: string) => Promise<SnapshotRestoreOutcome['status']>
-  backfillHistory: (roomId: string, engine: PencilEngineAPI, fromSeq: number) => Promise<void>
+  /** (#176) Snapshots belong to a board, not to the lesson it is in. */
+  boardId: string
+  restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string) => Promise<SnapshotRestoreOutcome['status']>
+  backfillHistory: (boardId: string, engine: PencilEngineAPI, fromSeq: number) => Promise<void>
   applyRemoteOp: (op: Operation) => void
   syncFromLogNow: () => void
   markJoinRestoreDone: () => void
@@ -43,7 +44,10 @@ export interface RestoreRoomStateDeps {
   setRoomContentReady: (ready: boolean) => void
   finishOpenTimer: (engine: PencilEngineAPI | null) => void
   notifyReplayIncomplete: () => void
-  snapshotUploader: ReturnType<typeof createSnapshotUploader> | null
+  /** A getter, not a value: the uploader is per board (#176), and the
+   *  catch-up caller reads it through a ref at the moment the bootstrap needs
+   *  it — which is at the end of an `await`-laden restore, not at its start. */
+  getSnapshotUploader: () => ReturnType<typeof createSnapshotUploader> | null
   latestKnownSeqRef: RefObject<number>
   replayIncompleteRef: RefObject<boolean>
   pendingPreviewsRef: RefObject<ReturnType<typeof createPendingPreviews>>
@@ -110,7 +114,7 @@ export async function restoreRoomState(
     // the join path used to check directly.
     let restoredFromSnapshot = false
     if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-      const status = await deps.restoreFromSnapshot(engine, deps.roomId)
+      const status = await deps.restoreFromSnapshot(engine, deps.boardId)
       // (#533) The one branch that must not fall through to the replay below.
       // `tailOperations` is only what the snapshot did *not* cover — 69
       // operations of a 53 836-operation room, on the day this was found — so
@@ -210,15 +214,16 @@ export async function restoreRoomState(
     useRoomStore.getState().setRoomFrozen(state.frozen)
 
     if (engine && restoredFromSnapshot && latestSnapshotSeq !== null) {
-      void deps.backfillHistory(deps.roomId, engine, latestSnapshotSeq)
+      void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq)
     }
     // A room that has never had a snapshot at all would stay stuck doing a
     // full-history replay on every future join — nobody is ever "live" at the
     // moment a checkpoint boundary is crossed for a room like that.
     // Bootstrapping one here, only when latestSnapshotSeq is still null, fixes
     // that without changing anything for a room that already has one.
-    if (engine && latestSnapshotSeq === null && deps.snapshotUploader) {
-      deps.snapshotUploader.onSeqObserved(
+    const uploader = deps.getSnapshotUploader()
+    if (engine && latestSnapshotSeq === null && uploader) {
+      uploader.onSeqObserved(
         alreadyHadSeq, deps.latestKnownSeqRef.current, engine, useRoomStore.getState().layerState,
       )
     }
