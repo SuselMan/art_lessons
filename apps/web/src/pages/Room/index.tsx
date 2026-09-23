@@ -77,7 +77,10 @@ import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
 import { ConnectionBanner } from './ConnectionBanner'
 import { SyncIndicator } from './SyncIndicator'
-import { currentlyDrawing, sameIds } from './drawingIndicator'
+import {
+  currentlyDrawing, currentlyDrawingLayers, layerActivityKey, sameIds, sameLayerDrawers,
+  type LayerActivity,
+} from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
@@ -1128,6 +1131,19 @@ function RoomEditor() {
   // folds each socket event through the same pure participantsReducer
   // (participants.ts), reused unchanged.
   const participants = useRoomStore(s => s.participants)
+  const layerDrawers = useRoomStore(s => s.layerDrawers)
+  // Layer id → the colours of the peers drawing into it, for the layer
+  // panel's outline. A peer without a roster entry (left a moment ago, the
+  // entry already gone) simply has no colour to show and drops out.
+  const layerDrawerColors = useMemo(() => {
+    const colorOf = new Map(participants.map(p => [p.userId, p.color]))
+    const out: Record<string, string[]> = {}
+    for (const [layerId, userIds] of Object.entries(layerDrawers)) {
+      const colors = userIds.flatMap(u => colorOf.get(u) ?? [])
+      if (colors.length) out[layerId] = colors
+    }
+    return out
+  }, [layerDrawers, participants])
   const dispatchParticipants = useRoomStore(s => s.applyParticipantAction)
   // (#254 epic) `userId` is normally read only non-reactively via getState()
   // at "moment of action" call sites (see its own doc comment on
@@ -1403,6 +1419,9 @@ function RoomEditor() {
   // reaches it. Drained by drainDeferredQueue after every backfill page.
   const deferredOpsQueueRef = useRef<Operation[]>([])
   const lastActiveAtRef   = useRef<Record<string, number>>({})
+  // Same timestamps, keyed per (peer, layer) — feeds the layer panel's
+  // "someone is drawing here" outline. See drawingIndicator.ts.
+  const layerActivityRef  = useRef<Record<string, LayerActivity>>({})
   const strokeActiveRef   = useRef(false)
   const lastCursorSentRef = useRef(0)
   // Stroke ops whose live reveal (previewOperation) hasn't finished playing
@@ -1855,6 +1874,16 @@ function RoomEditor() {
   // (below) periodically prunes stale entries into `drawingIds`.
   const markActive = useCallback((activeUserId: string) => {
     lastActiveAtRef.current[activeUserId] = Date.now()
+  }, [])
+
+  // The layer panel's half of the same signal. Peers only: the viewer's own
+  // stroke is on the row they just picked, and outlining it under their pen
+  // would say nothing they don't already know.
+  const markLayerActive = useCallback((activeUserId: string, layerId: string) => {
+    if (activeUserId === useRoomStore.getState().userId) return
+    layerActivityRef.current[layerActivityKey(activeUserId, layerId)] = {
+      userId: activeUserId, layerId, at: Date.now(),
+    }
   }, [])
 
   // ── operation log bridge ──────────────────────────────────────────────────────
@@ -2425,6 +2454,7 @@ function RoomEditor() {
     catchingUpRef.current = false
     deferredOpsQueueRef.current = []
     lastActiveAtRef.current = {}
+    layerActivityRef.current = {}
     pendingPreviewsRef.current = createPendingPreviews()
     streamedStrokeIdsRef.current = new Set()
     restoredLayerStateRef.current = null
@@ -5952,6 +5982,9 @@ function RoomEditor() {
     const t = window.setInterval(() => {
       const next = currentlyDrawing(lastActiveAtRef.current, Date.now(), DRAWING_TIMEOUT_MS)
       setDrawingIds(prev => (sameIds(prev, next) ? prev : next))
+      const { layerDrawers, setLayerDrawers } = useRoomStore.getState()
+      const nextLayers = currentlyDrawingLayers(layerActivityRef.current, Date.now(), DRAWING_TIMEOUT_MS)
+      if (!sameLayerDrawers(layerDrawers, nextLayers)) setLayerDrawers(nextLayers)
     }, 300)
     return () => window.clearInterval(t)
   }, [])
@@ -6611,6 +6644,9 @@ function RoomEditor() {
       // reveal finishes playing every dab back.
       if (op.type === 'stroke') {
         noteLayerSeq(op.layerId, seq)
+        // A peer whose client predates live streaming (#429) only ever shows
+        // up here, whole and after the fact — still enough to light the row.
+        markLayerActive(op.userId, op.layerId)
         // (#289 §16) A live client that simply can't keep up (weak device,
         // several peers drawing at once) used to accumulate an unbounded
         // reveal backlog with nothing watching it. Past the threshold, drop
@@ -6715,6 +6751,7 @@ function RoomEditor() {
       seen.add(data.strokeId)
       while (seen.size > STREAMED_STROKE_MEMORY) seen.delete(seen.values().next().value as string)
       markActive(data.userId)
+      markLayerActive(data.userId, data.layerId)
     }
 
     const handlePeerStrokeLiveEnd = ({ userId: authorId, strokeId }: { userId: string; strokeId: string }) => {
@@ -6743,6 +6780,9 @@ function RoomEditor() {
       // (#152) Cursor-position cleanup for this peer now lives inside
       // PeerCursors' own 'peer_left' subscription — nothing to do here.
       delete lastActiveAtRef.current[leftUserId]
+      for (const [k, a] of Object.entries(layerActivityRef.current)) {
+        if (a.userId === leftUserId) delete layerActivityRef.current[k]
+      }
       // They left mid-reveal — commit whatever of their last stroke(s) had
       // already arrived rather than losing it, just without the animation.
       const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
@@ -6943,10 +6983,11 @@ function RoomEditor() {
     sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
     restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, noteLayerSeq,
     syncFromLogNow, enterBoard,
-    // (#429) Used by the live-stroke handler. useCallback with no dependencies
-    // (see its definition), so it is stable for this component's lifetime and
-    // can never tear the socket down and rebuild it.
-    markActive,
+    // (#429) Used by the live-stroke handler, markLayerActive too. Both are
+    // useCallback with no dependencies (see their definitions), so they are
+    // stable for this component's lifetime and can never tear the socket
+    // down and rebuild it.
+    markActive, markLayerActive,
     awaitPaper,
     // Stable for the app's lifetime (one QueryClient, created outside React —
     // see lib/queryClient.ts), so listing it here can never tear the socket
@@ -8646,6 +8687,7 @@ function RoomEditor() {
                     layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp}
                     isOwner={isOwner} hasLayerContent={hasLayerContent}
                     soloIds={soloIds} onSoloChange={setSoloIds}
+                    drawerColors={layerDrawerColors}
                     onOpenFilters={setFilterLayerId}
                   />
                 ),
