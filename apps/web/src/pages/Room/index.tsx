@@ -23,6 +23,7 @@ import { ColorWell } from '../../components/ColorWell'
 import { Icon } from '../../components/Icon'
 import { Logo } from '../../components/Logo'
 import { Menu } from '../../components/Menu'
+import { BoardStrip, TeacherChip } from './BoardStrip'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
@@ -48,7 +49,7 @@ import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { holdReload } from '../../lib/reloadSafety'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/hotkeys'
-import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
+import { addRoomInvite, createBoard, deleteBoard, forkRoom, moveRoomToFolder, renameBoard, renameRoom, reorderBoard, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useShareRoom } from '../../lib/useShareRoom'
 import {
@@ -128,7 +129,7 @@ import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
-import { entryBoard, followTarget } from '../../lib/boards'
+import { activeBoardPayload, entryBoard, followTarget, followingAfterPick, movedOrder, teacherBoardId } from '../../lib/boards'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
 import { reportRoomOpen } from './reportOpen'
@@ -1144,6 +1145,116 @@ export function Room() {
   // actually applied).
   const roomFrozen = useRoomStore(s => s.roomFrozen)
   const isBlockedByFreeze = !isOwner && (roomFrozen || !!myParticipant?.frozen)
+
+  // ── boards (#176, ADR 014 §7 step 4) ─────────────────────────────────────
+  const boards = useRoomStore(s => s.boards)
+  const activeBoardId = useRoomStore(s => s.activeBoardId)
+  const following = useRoomStore(s => s.following)
+  const [boardsOpen, setBoardsOpen] = useState(false)
+  // One request at a time from the "+": the board lands over REST *and* over
+  // the socket, and a second tap during the round trip would make two pages.
+  const [boardBusy, setBoardBusy] = useState(false)
+  /** The board the teacher is on — the lesson's own when `activeBoardId` is
+   *  null. Undefined until the lesson is known: computed from the store's
+   *  lesson id, not the URL-backed `lessonId` above, which before the first
+   *  room_state may still be a board's id. */
+  const knownLessonId = useRoomStore(s => s.lessonId)
+  const teacherBoard = knownLessonId ? teacherBoardId({ id: knownLessonId, activeBoardId }) : undefined
+  /** (#176) The strip is offered when there is something to turn to, or to
+   *  the owner who can make it so. The phone shell (#512) only turns pages —
+   *  for the owner too, so there it needs a second board to be worth opening. */
+  const stripAvailable = compact ? boards.length > 1 : (isOwner || boards.length > 1)
+  const showTeacherChip = !isOwner && !following && teacherBoard !== undefined && teacherBoard !== boardId
+  /** A page turn by hand. The owner's turn is also the class's: their board
+   *  becomes the active one (persisted server-side, broadcast as
+   *  `active_board_changed`). A student's turn decides whether they are still
+   *  following — see followingAfterPick. */
+  const selectBoard = useCallback((next: string) => {
+    const s = useRoomStore.getState()
+    if (!s.lessonId) return
+    if (isOwnerRef.current) {
+      const payload = activeBoardPayload(next, s.lessonId)
+      s.setActiveBoardId(payload)
+      socketRef.current?.emit('set_active_board', { boardId: payload })
+    } else {
+      s.setFollowing(followingAfterPick(next, teacherBoardId({ id: s.lessonId, activeBoardId: s.activeBoardId })))
+    }
+    switchBoardRef.current?.(next)
+  }, [])
+  /** The chip: back to the teacher, following on again. */
+  const returnToTeacher = useCallback(() => {
+    const s = useRoomStore.getState()
+    if (!s.lessonId) return
+    s.setFollowing(true)
+    switchBoardRef.current?.(teacherBoardId({ id: s.lessonId, activeBoardId: s.activeBoardId }))
+  }, [])
+  const addBoard = useCallback(async () => {
+    const lesson = useRoomStore.getState().lessonId
+    if (!lesson || boardBusy) return
+    setBoardBusy(true)
+    try {
+      const board = await createBoard(lesson)
+      // The broadcast delivers it too; the reducer merges by id.
+      useRoomStore.getState().applyBoardsAction({ type: 'board_created', board })
+      selectBoard(board.id)
+    } catch {
+      notifyError(t('boards.error.create'), { key: 'board-create' })
+    } finally {
+      setBoardBusy(false)
+    }
+  }, [boardBusy, selectBoard, t])
+  const renameBoardAction = useCallback(async (target: string, name: string) => {
+    const s = useRoomStore.getState()
+    const lesson = s.lessonId
+    const previous = s.boards.find(b => b.id === target)?.name
+    if (!lesson || previous === undefined) return
+    // Optimistic, like the header's own rename: the field is already gone.
+    s.applyBoardsAction({ type: 'board_renamed', boardId: target, name })
+    if (target === lesson) s.setRoomName(name)
+    try {
+      await renameBoard(lesson, target, name)
+    } catch {
+      useRoomStore.getState().applyBoardsAction({ type: 'board_renamed', boardId: target, name: previous })
+      if (target === lesson) useRoomStore.getState().setRoomName(previous)
+      notifyError(t('boards.error.rename'), { key: 'board-rename' })
+    }
+  }, [t])
+  const moveBoard = useCallback(async (target: string, direction: -1 | 1) => {
+    const s = useRoomStore.getState()
+    const lesson = s.lessonId
+    if (!lesson) return
+    const before = s.boards.map(b => b.id)
+    const order = movedOrder(s.boards, target, direction, lesson)
+    if (!order) return
+    s.applyBoardsAction({ type: 'boards_reordered', order })
+    try {
+      await reorderBoard(lesson, target, order.indexOf(target))
+    } catch {
+      useRoomStore.getState().applyBoardsAction({ type: 'boards_reordered', order: before })
+      notifyError(t('boards.error.reorder'), { key: 'board-reorder' })
+    }
+  }, [t])
+  /** Hard delete, so it asks first — the same dialog shape as clearing a
+   *  layer (#171). The strip updates from the `board_deleted` broadcast, and
+   *  anyone on the board is moved by the server before it arrives. */
+  const removeBoard = useCallback(async (target: string) => {
+    const s = useRoomStore.getState()
+    const lesson = s.lessonId
+    const board = s.boards.find(b => b.id === target)
+    if (!lesson || !board || target === lesson) return
+    const ok = await confirm({
+      title: t('boards.deleteTitle', { name: board.name }),
+      message: t('boards.deleteMessage'),
+      confirmLabel: t('common.delete'),
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      await deleteBoard(lesson, target)
+    } catch {
+      notifyError(t('boards.error.delete'), { key: 'board-delete' })
+    }
+  }, [confirm, t])
   // (#222) Closed for editing — the lesson has been handed out and stopped
   // changing. Deliberately *not* `!isOwner`: the server binds the owner too
   // (see getOperationRejectReason in rooms.ts), and a client gate that let
@@ -2149,13 +2260,23 @@ export function Room() {
    *  Число слоёв и `gpuInfo()` берутся здесь, а не на старте: на старте их
    *  ещё нет, а объясняют они ровно то, из-за чего вход бывает долгим — все
    *  слои поднимаются разом (#467), и упирается это в GPU устройства (#469). */
+  // (#176) Both timers read the URL id through a ref rather than closing over
+  // it. They are dependencies of the engine effect, and handleRoomState
+  // rewrites the URL (a board id becomes its lesson's) in the same breath as
+  // it seats the engine on the board — a callback keyed on `id` rebuilt the
+  // engine right after its first mount had consumed the board's content, and
+  // the second engine opened empty. The report is per open, not per URL, so
+  // whatever the id is at finish time is the right one to file it under.
+  const urlIdRef = useRef(id)
+  urlIdRef.current = id
   const finishOpenTimer = useCallback((engine: PencilEngineAPI | null) => {
     const timer = openTimerRef.current
     if (!timer || timer.done) return
     if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
     if (engine) timer.note({ layers: engine.liveLayerIds().length })
-    if (id) reportRoomOpen(id, timer.finish(), engine?.gpuInfo())
-  }, [id])
+    const reportId = urlIdRef.current
+    if (reportId) reportRoomOpen(reportId, timer.finish(), engine?.gpuInfo())
+  }, [])
 
   /** (#487) Пускает замер входа и заводит будильник. Вызывается там, где
    *  человек нажал «войти», а не там, где сокет что-то отправил: меряем то,
@@ -2169,9 +2290,10 @@ export function Room() {
       // Не гасит замер: вход продолжается, и если он всё-таки дойдёт до конца,
       // финиш об этом скажет. Дедуп по комнате в reportOpen следит, чтобы из
       // двух отчётов об одном входе уехал только первый.
-      if (!timer.done && id) reportRoomOpen(id, timer.stalled(), engineRef.current?.gpuInfo())
+      const reportId = urlIdRef.current
+      if (!timer.done && reportId) reportRoomOpen(reportId, timer.stalled(), engineRef.current?.gpuInfo())
     }, SLOW_OPEN_MS)
-  }, [id])
+  }, [])
 
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely
@@ -7401,6 +7523,24 @@ export function Room() {
               offering it to someone who hasn't asked for the mode would be a
               button that makes the interface vanish with no visible way to
               return. */}
+          {/* (#176) The board strip's toggle. Here by the same rule as the
+              rest of this panel: turning the page is something a teacher does
+              mid-explanation, between one stroke and the next. */}
+          {stripAvailable && (
+            <>
+              <div className={styles.headerDivider} />
+              <button
+                className={clsx(styles.headerIconBtn, boardsOpen && styles.headerIconBtnActive)}
+                onClick={() => setBoardsOpen(o => !o)}
+                title={t('boards.open')}
+                aria-label={t('boards.open')}
+                aria-pressed={boardsOpen}
+              >
+                <Icon name="auto_stories" />
+              </button>
+            </>
+          )}
+
           {tapToHideEnabled && (
             <>
               <div className={styles.headerDivider} />
@@ -7459,6 +7599,41 @@ export function Room() {
           />
         </div>
       </header>
+
+      {/* (#176) The board strip and the "teacher is on …" chip. Both live
+          under the header and go with it in minimal UI — the same wrapper
+          class, so a hidden header never leaves a strip floating over the
+          paper. The chip is offered to a student who stepped away from the
+          teacher's board; the strip to anyone who can turn pages. */}
+      {knownLessonId && teacherBoard !== undefined && (
+        <div className={clsx(uiHidden && styles.uiHidden)}>
+          {boardsOpen && stripAvailable && (
+            <BoardStrip
+              boards={boards}
+              lessonId={knownLessonId}
+              currentId={wantedBoardRef.current ?? boardId}
+              teacherId={teacherBoard}
+              participants={participants}
+              canEdit={isOwner && !compact}
+              compact={compact}
+              busy={boardBusy}
+              onSelect={selectBoard}
+              onClose={() => setBoardsOpen(false)}
+              onCreate={() => void addBoard()}
+              onRename={(target, name) => void renameBoardAction(target, name)}
+              onMove={(target, direction) => void moveBoard(target, direction)}
+              onDelete={target => void removeBoard(target)}
+            />
+          )}
+          {showTeacherChip && (
+            <TeacherChip
+              board={boards.find(b => b.id === teacherBoard)}
+              stripOpen={boardsOpen && stripAvailable}
+              onReturn={returnToTeacher}
+            />
+          )}
+        </div>
+      )}
 
       {/* (#230) roomId/isOwner are what the Access tab needs; the panel shows
           it only when both are present. */}

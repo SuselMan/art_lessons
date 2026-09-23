@@ -421,6 +421,33 @@ export const en = {
   'room.error.rename': 'Could not rename the project',
   'room.error.reopen': 'Could not reopen the project',
   'room.error.takeCopy': 'Could not make your copy',
+
+  // ── (#176, ADR 014) Boards — the pages of one lesson ─────────────────────
+  // "Board", not "page": a page turns for everyone, a board is somewhere the
+  // teacher stands, and a student can stay behind on another one. The chip
+  // is the way back.
+  'boards.open': 'Boards',
+  'boards.title': 'Boards',
+  'boards.close': 'Hide boards',
+  'boards.add': 'New board',
+  'boards.teacherHere': 'The teacher is on this board',
+  'boards.youAreHere': 'You are on this board',
+  'boards.teacherOn': 'Teacher is on “{name}”',
+  'boards.returnToTeacher': 'Go to the teacher\'s board',
+  'boards.rename': 'Rename',
+  'boards.moveLeft': 'Move left',
+  'boards.moveRight': 'Move right',
+  'boards.delete': 'Delete board',
+  'boards.deleteTitle': 'Delete “{name}”?',
+  'boards.deleteMessage': 'Everything drawn on this board goes with it, for everyone. This cannot be undone.',
+  'boards.people': {
+    one: '{n} person on this board',
+    other: '{n} people on this board',
+  },
+  'boards.error.create': 'Could not add a board',
+  'boards.error.rename': 'Could not rename the board',
+  'boards.error.reorder': 'Could not move the board',
+  'boards.error.delete': 'Could not delete the board',
   // (#201) The queue is durable, so these describe a delay, never a loss —
   // the wording has to carry that, since the whole point is to stop people
   // concluding their work is gone.

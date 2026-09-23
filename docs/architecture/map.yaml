@@ -302,9 +302,11 @@ modules:
     title: Панели комнаты
     layer: editor-ui
     owns: >-
-      Список участников с управлением доступом и dev-панель тюнинга звука карандаша.
+      Список участников с управлением доступом, лента досок урока (#176) и dev-панель
+      тюнинга звука карандаша.
     files:
       - apps/web/src/pages/Room/ParticipantsPanel.*
+      - apps/web/src/pages/Room/BoardStrip.*
       - apps/web/src/pages/Room/PencilSoundTuningPanel.*
     tags: [панели]
 
