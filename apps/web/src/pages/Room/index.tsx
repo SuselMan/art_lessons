@@ -132,12 +132,13 @@ import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
-import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
+import { createSnapshotUploader } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
 import { reportRoomOpen } from './reportOpen'
 import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
 import { restoreRoomState } from './restoreRoomState'
+import { initLayersFromStore, retireEngine, wireLocalStrokeEvents } from './engineWiring'
 import { pastePlacement } from './pastePlacement'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError, notifyWarning } from '../../stores/noticeStore'
@@ -2264,49 +2265,10 @@ function RoomEditor() {
     // context down and rebuild it every time the curve is dragged.
     engine.setPressureCalibration(useSettingsStore.getState().pressureCalibration)
 
-    // Pencil sound: lazy AudioContext built on the engine's own 'strokeStart'
-    // below (a real pointerdown gesture, satisfying the autoplay-unlock
-    // requirement) — see PencilSound's docstring.
-    // (#321) The sound instance is no longer built here: it is a setting that
-    // can be switched on and off mid-lesson, and tearing down a WebGL context
-    // to change that would be absurd. See the sound-lifecycle effect below —
-    // the handlers wired up next reach it through the ref at event time, so
-    // neither effect has to run before the other.
-
-    // Local "drawing" activity (#38): strokeStart/strokeEnd bound the local
-    // stroke exactly; 'pointer' (fired on every move while the stroke's
-    // pointer button is held — see PointerInput's `_active` gating) refreshes
-    // it so a long stroke doesn't let the indicator time out mid-draw. Cursor
-    // broadcast (#37) is handled separately below via a raw DOM listener,
-    // since it must also fire on plain hover (engine 'pointer' does not).
-    // Same handlers also drive the pencil-sound experiment above when enabled.
-    engine
-      .on('strokeStart', e => {
-        strokeActiveRef.current = true
-        useRoomStore.getState().setStrokeActive(true)
-        diagLog('stroke: start')
-        markActive(useRoomStore.getState().userId)
-        pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
-      })
-      .on('strokeEnd', () => {
-        strokeActiveRef.current = false
-        useRoomStore.getState().setStrokeActive(false)
-        diagLog('stroke: end')
-        pencilSoundRef.current?.stop()
-      })
-      .on('pointer', e => {
-        if (strokeActiveRef.current) {
-          markActive(useRoomStore.getState().userId)
-          pencilSoundRef.current?.update(e.pressure, e.speed, e.tiltX, e.tiltY)
-        }
-      })
-
-    const ls = useRoomStore.getState().layerState
-    for (const id of ls.rootOrder) {
-      if (ls.items[id]?.kind === 'layer') engine.initLayer(id)
-    }
-    engine.setActiveLayer(ls.activeId)
-    engine.setCompositeOrder(computeCompositeOrder(ls))
+    // (#493) What happens around this person's own strokes, and the layer
+    // structure the store already holds — see engineWiring.
+    wireLocalStrokeEvents(engine, { strokeActiveRef, markActive, pencilSoundRef })
+    initLayersFromStore(engine)
 
     // Joiner path: the room_state that told us `config` (see the socket-wiring
     // effect) arrived before the engine existed to apply its operations to —
@@ -2378,27 +2340,9 @@ function RoomEditor() {
 
     return () => {
       engineRef.current = null
-      // (#211 epic follow-up) Best-effort final thumbnail bake on room exit —
-      // see uploadThumbnail's doc comment in snapshotSync.ts for why this
-      // needs to exist alongside the seq-boundary trigger. `engine` (this
-      // closure's local, not engineRef.current — already nulled above) stays
-      // alive until the export settles; destroy() only runs after, so
-      // exportPNG never reads from a torn-down GL context.
-      // (#385) Not from a canvas we know is incomplete — republishing a blank
-      // preview over a real lesson's is the same mistake as baking a snapshot
-      // from it, just cheaper to undo. See replayIncompleteRef.
-      //
-      // (#493) The rule warns that `.current` may have changed by cleanup
-      // time, and here that is the point: the question is whether the replay
-      // ended incomplete *by now*, so the latest value is the only correct
-      // one. It stayed quiet until the writes to this ref moved into
-      // restoreRoomState, out of this effect's sight.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      if (id && !replayIncompleteRef.current) {
-        void uploadThumbnail(id, engine).finally(() => engine.destroy())
-      } else {
-        engine.destroy()
-      }
+      // (#493) Final thumbnail, then destroy — see retireEngine. `engine` is
+      // this closure's local, not engineRef.current, which is already null.
+      retireEngine(engine, id, replayIncompleteRef)
     }
   }, [
     id, enginePaper, enginePaperColor, engineInfinite,
@@ -2407,13 +2351,10 @@ function RoomEditor() {
     finishOpenTimer,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
-    // (#493) `pencilSoundRef.current` is *not* going in here, whatever the
-    // lint rule says. It stopped recognising the handle as a ref when the
-    // sound's effects moved into usePencilSound — the rule can only see that
-    // through a `useRef` call in this component — and listing it would rebuild
-    // the whole engine every time the sound instance changed: on every volume
-    // toggle, and on the paper arriving. The pointer callbacks above read it
-    // at call time precisely so that its identity never matters here.
+    // (#493) The ref *object* — stable for the component's life, so naming it
+    // costs nothing. Never `.current`: that would rebuild the engine every
+    // time the sound instance changed.
+    pencilSoundRef,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
