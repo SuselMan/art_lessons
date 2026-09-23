@@ -137,6 +137,7 @@ import { reportSnapshotRestore } from './reportRestore'
 import { reportRoomOpen } from './reportOpen'
 import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
+import { restoreRoomState } from './restoreRoomState'
 import { pastePlacement } from './pastePlacement'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError, notifyWarning } from '../../stores/noticeStore'
@@ -2314,7 +2315,9 @@ function RoomEditor() {
     // reaching an already-mounted engine, but this path is specifically the
     // one-time first mount).
     const pending = pendingSnapshotRef.current
-    if (pending) {
+    // `&& id`: never false in practice — only the socket effect parks a
+    // payload here, and it does not run without a room id.
+    if (pending && id) {
       pendingSnapshotRef.current = null
       // Awaits engine.paperReady() first (see its own doc comment): a
       // stroke replayed before the real paper texture has loaded would
@@ -2336,218 +2339,17 @@ function RoomEditor() {
         // against the placeholder: awaitPaper puts up the retry screen, and
         // roomContentReady stays false so the room is not claimed to be open.
         if (!(await awaitPaper(engine))) return
-        // (#533) Read by the `finally` below: a restore that brought back
-        // nothing must not end with the room announced as open. A plain
-        // `return` cannot express that — `finally` runs on the way out either
-        // way — so the exit has to be flagged rather than jumped to.
-        let restoreFailedHere = false
-        // (#538) Держится ровно до входа в `resumeDisplay`, а не до его
-        // возврата, и это не мелочь: глубина там уменьшается первым же
-        // оператором, до `_flushPendingRebuilds`, который и бросает в отчётах
-        // `JAVASCRIPT-D/E/G` (выделение тайла не удалось). То есть «suspend всё
-        // ещё держится» и «resume не довёл дело до конца» — разные состояния, и
-        // повторный `resumeDisplay()` из `catch` по второму поводу заново позвал
-        // бы `_display()` на той же нехватке памяти, уже внутри обработчика.
-        let displaySuspended = false
-        try {
-          // (#147) A fresh room's history can be hundreds/thousands of ops —
-          // without this, appendOperation's own per-op _display() (full
-          // composite + paper-blend) fires once per operation on the very
-          // first paint the user sees, a visible join-time freeze that grows
-          // with the room's history. suspendDisplay/resumeDisplay defer all
-          // of that to one _display() right after the loop — see their own
-          // doc comments.
-          engine.suspendDisplay()
-          displaySuspended = true
-
-          // (#169) A brand-new mount always has lastKnownSeq 0 (nothing local
-          // to already be caught up on) — restore whenever the room has a
-          // snapshot at all, no watermark comparison needed here the way
-          // handleRoomState's reconnect branch needs one.
-          openTimerRef.current?.stage('snapshot')
-          let restoredFromSnapshot = false
-          if (id && pending.latestSnapshotSeq !== null) {
-            const status = await restoreFromSnapshot(engine, id)
-            // (#533) The one branch that must not fall through to the replay
-            // below. `tailOperations` is only what the snapshot did *not*
-            // cover — 69 operations of a 53 836-operation room, on the day
-            // this was found — so replaying it over an engine that received no
-            // pixels paints an all-but-empty canvas, and the `finally` then
-            // announces the room as open. `restoreFailed` is what turns that
-            // into a screen the reader can act on. Left un-`finish`ed on
-            // purpose: the open genuinely did not finish, and #487's alarm
-            // reporting it as stalled is the truth.
-            //
-            // `!== 'restored'` rather than `=== 'failed'`, which is not
-            // pedantry: this branch only runs because room_state said a
-            // snapshot exists, so a `none` here — the index answering 204 —
-            // is the server contradicting itself, and it arrives with exactly
-            // the consequences of a failure. The tail was already cut to what
-            // that snapshot did not cover, so believing the 204 and carrying
-            // on would open the same blank room, just without anything to
-            // point at afterwards.
-            if (status !== 'restored') {
-              restoreFailedHere = true
-              setRestoreFailure('transfer')
-              // (#385) The canvas holds less than the room does, permanently
-              // for this mount — which is exactly what this ref means, and it
-              // is load-bearing on the way out: without it the unmount hook
-              // bakes a thumbnail from this blank canvas and republishes it
-              // over the lesson's real preview. It also closes snapshot baking
-              // for the rest of the mount, which a successful retry does not
-              // re-open — deliberately the cautious side of that trade: the
-              // cost is that this one client stops contributing snapshots for
-              // the session, and every other client in the room still does.
-              replayIncompleteRef.current = true
-              // Balances the suspendDisplay above: the depth is a counter, and
-              // leaving it raised would mute every later paint on this engine,
-              // including the one a successful retry produces.
-              displaySuspended = false
-              engine.resumeDisplay()
-              return
-            }
-            restoredFromSnapshot = status === 'restored'
-          }
-          openTimerRef.current?.note({ restoredFromSnapshot })
-          openTimerRef.current?.stage('replay')
-
-          // (#398) Reference images decoded before the loop, not inside it —
-          // see PencilEngineAPI.preloadImages. Without this, the operations
-          // recorded *after* an import replay against a layer whose image
-          // has not landed yet.
-          await engine.preloadImages(pending.tailOperations)
-
-          // (#385) Per-operation, not around the whole loop. One operation
-          // that throws used to abandon every operation after it — and in the
-          // real case that produced this guard (a GL allocation failing part
-          // way through a 2001-operation room) the ones after it were the
-          // overwhelming majority. Applying the rest is strictly better: the
-          // canvas ends up missing whatever those particular operations drew
-          // rather than missing the entire lesson.
-          //
-          // The room is still marked incomplete either way — see
-          // replayIncompleteRef for what that stops this client from doing.
-          let failed = 0
-          for (const op of pending.tailOperations) {
-            try {
-              applyRemoteOp(op)
-            } catch (err) {
-              // Only the first is reported. A failure here is normally a dead
-              // GL context, in which case every subsequent operation fails the
-              // same way, and a thousand identical events tell Sentry nothing
-              // the first one didn't while costing the quota of everything else
-              // that day.
-              if (failed === 0) Sentry.captureException(err)
-              failed++
-            }
-          }
-          if (failed > 0) {
-            // (#480) Исключение выше уже уехало в Sentry, но не его
-            // последствие: с этого момента и до конца маунта клиент не имеет
-            // права печь снапшоты и не будет — молча. Именно это и надо
-            // видеть, а не только то, что один apply бросил.
-            reportInvariant('join replay incomplete — snapshots disabled for this mount', { failed })
-            replayIncompleteRef.current = true
-            notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
-          }
-          displaySuspended = false
-          engine.resumeDisplay()
-          // (#386) Now, not on the next microtask: the bootstrap below reads
-          // the store back in this same task. See syncFromLogNow.
-          syncFromLogNow()
-          // (#462) After syncFromLogNow, never before: the flag's whole claim
-          // is that the store now describes this room, and until that call has
-          // run it still holds makeInitialLayerState().
-          markJoinRestoreDone()
-          dispatchParticipants({ type: 'room_state', participants: pending.participants })
-          useRoomStore.getState().setPalette(pending.palette)
-          useRoomStore.getState().setRoomFrozen(pending.frozen)
-
-          if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
-            void backfillHistory(id, engine, pending.latestSnapshotSeq)
-          }
-          // A room that has never had a snapshot at all stays stuck doing
-          // this same full-history replay on every future join, no matter
-          // how large its history grows — nobody is ever "live" at the
-          // moment a checkpoint boundary is crossed for a room like that
-          // (see handleRoomState's own comment on why bulk catch-up is
-          // normally *not* baked). Bootstrapping one here, right after
-          // finishing this catch-up, specifically only when
-          // latestSnapshotSeq is still null, fixes that without changing
-          // behavior for any room that already has a snapshot (every
-          // future join of *this* room now gets the fast path instead).
-          if (pending.latestSnapshotSeq === null && snapshotUploader) {
-            snapshotUploader.onSeqObserved(0, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
-          }
-        } catch (error) {
-          // (#538) Всё, что стоит между `resumeDisplay()` и этим блоком —
-          // `syncFromLogNow`, `markJoinRestoreDone`, участники, палитра,
-          // `frozen`, бэкфилл, бутстрап снапшота — исполняется по одному разу
-          // за вход и больше нигде не повторяется. Брошенное на первой из этих
-          // строк отменяет все следующие, а `finally` без флага всё равно
-          // объявлял бы комнату открытой: прелоадер уходит, карандаш живой, а
-          // `layerState` так и остался `makeInitialLayerState()` — редактор
-          // показывает не тот урок и молчит об этом. Та же форма, которую #533
-          // закрыл для отказа снапшота, поэтому тот же экран и тот же повтор.
-          //
-          // В Sentry сюда падали два разных исключения, оба необработанным
-          // reject'ом: `Framebuffer incomplete` из
-          // `resumeDisplay → _flushPendingRebuilds → getOrCreateTile`
-          // (`JAVASCRIPT-D/E/G`, планшет без графической памяти) и `TypeError`
-          // из `syncFromLogNow` (`JAVASCRIPT-K`). Разные причины, одно
-          // последствие — и до сих пор его не видел никто, включая нас.
-          restoreFailedHere = true
-          setRestoreFailure('apply')
-          // Тот же смысл, что и в ветке отказа снапшота выше: холст держит
-          // меньше, чем комната, до конца этого маунта — значит с него нельзя
-          // ни печь снапшот, ни запекать превью урока на выходе.
-          replayIncompleteRef.current = true
-          // Явный отчёт, а не тот же самый через глобальный обработчик:
-          // необработанный reject — это утверждение «мы это не обработали», и
-          // оно перестало быть правдой. Плюс фаза, на которой встали: она
-          // отличает этот отказ от #533 (`snapshot`) среди одинаковых с виду
-          // событий. Таймер входа намеренно не финишируется — вход и правда не
-          // дошёл до конца, и будильник #487 говорит про него правду.
-          Sentry.captureException(error, {
-            tags: { joinFailure: 'tail', openReached: openTimerRef.current?.stalled().reached },
-          })
-          if (displaySuspended) {
-            // Своим try: если холст уже не отвечает, второй бросок отсюда увёл
-            // бы нас обратно в необработанный reject — и человек остался бы без
-            // экрана отказа, который к этому моменту уже заслужен.
-            try { engine.resumeDisplay() } catch { /* экран отказа важнее */ }
-          }
-        } finally {
-          // Runs even if restoreLatestSnapshot/restore/replay throws — a failed
-          // restore must still unblock drawing rather than leave the canvas
-          // permanently inert (see roomContentReady's own doc comment for what
-          // this guards against). Deliberately no longer covers the paper
-          // load, which moved above it: those two failures look alike and are
-          // opposites. A missing snapshot leaves an engine that draws fine on
-          // an incomplete canvas, so unblocking is the lesser harm; a missing
-          // paper texture leaves an engine that cannot draw at all, so
-          // unblocking buys nothing and costs the only honest signal there is.
-          //
-          // (#533) A snapshot that brought back *nothing* belongs on the paper
-          // side of that line, not the incomplete-canvas side: the operations
-          // those pixels stood in for were never sent, so there is no partial
-          // room to unblock — only an empty one to be wrong about. That exit
-          // leaves the flag set and RestoreFailedOverlay takes the screen.
-          //
-          // A condition rather than an early `return`: a `return` in a
-          // `finally` would also swallow whatever the `try` threw, and this
-          // block's whole job is to run after a throw.
-          if (!restoreFailedHere) {
-            setRoomContentReady(true)
-            // (#487) В том же `finally` и по той же причине: «готово» здесь —
-            // это момент, когда преклоадер ушёл и карандаш заработал, и он
-            // наступает даже после неудачного восстановления. Замер должен
-            // говорить, сколько человек ждал, а не сколько ждала удачная
-            // ветка; что именно пошло не так при восстановлении, отдельно
-            // докладывает reportSnapshotRestore (#474).
-            finishOpenTimer(engine)
-          }
-        }
+        // (#493) The restore itself is shared with handleRoomState — see
+        // restoreRoomState for the whole of it and why there is one.
+        await restoreRoomState(engine, pending, { mode: 'join', alreadyHadSeq: 0 }, {
+          roomId: id,
+          restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone,
+          dispatchParticipants, setRestoreFailure, setRoomContentReady, finishOpenTimer,
+          notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
+            key: 'replay-incomplete', durationMs: null,
+          }),
+          snapshotUploader, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
+        })
       })()
     } else if (!isCreator) {
       // Nothing to restore on this particular mount (e.g. a remount after
@@ -2585,6 +2387,13 @@ function RoomEditor() {
       // (#385) Not from a canvas we know is incomplete — republishing a blank
       // preview over a real lesson's is the same mistake as baking a snapshot
       // from it, just cheaper to undo. See replayIncompleteRef.
+      //
+      // (#493) The rule warns that `.current` may have changed by cleanup
+      // time, and here that is the point: the question is whether the replay
+      // ended incomplete *by now*, so the latest value is the only correct
+      // one. It stayed quiet until the writes to this ref moved into
+      // restoreRoomState, out of this effect's sight.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       if (id && !replayIncompleteRef.current) {
         void uploadThumbnail(id, engine).finally(() => engine.destroy())
       } else {
@@ -5743,165 +5552,22 @@ function RoomEditor() {
       if (!(await awaitPaper(engine))) return
       // (#533) Read by this catch-up's own `finally` — see the first-join
       // path's flag of the same name.
-      let restoreFailedHere = false
-      // (#538) См. одноимённый флаг на пути первого входа — тот же счётчик и
-      // та же причина держать его именно до входа в `resumeDisplay`.
-      let displaySuspended = false
-      try {
-        // A reconnect's full-history replay supersedes any reveal still
-        // in-flight from before the drop — cancel it rather than let it keep
-        // painting the same stroke a second time on top of what this loop is
-        // about to commit directly.
-        // (#147) Same reasoning as the initial-join replay above — see
-        // suspendDisplay/resumeDisplay's own doc comments.
-        engine?.suspendDisplay()
-        displaySuspended = engine !== null
-
-        // (#169) A snapshot exists and this socket doesn't already have
-        // local state at least as fresh as it (the common reconnect case: it
-        // does, so this is skipped and tailOperations alone is enough — same
-        // as before this epic). Restoring here, before the tail loop below,
-        // is required: the tail paints relative to this restored buffer
-        // state.
-        let restoredFromSnapshot = false
-        if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-          const status = await restoreFromSnapshot(engine, id)
-          // (#533) Same refusal as the first-join path, for the same reason:
-          // this branch only runs when the client is *behind* the snapshot, so
-          // the tail below covers only what the snapshot did not, and painting
-          // it over pixels that never arrived produces a room missing whatever
-          // happened while this client was away. Nothing here may reach
-          // markJoinRestoreDone either — a client that does not know what the
-          // room contains must not go on to publish a snapshot of it (#462).
-          // `none` counts as a failure here for the same reason as on the
-          // first-join path: this branch only runs because the server said a
-          // snapshot exists and cut the tail accordingly.
-          if (status !== 'restored') {
-            restoreFailedHere = true
-            setRestoreFailure('transfer')
-            displaySuspended = false
-            engine.resumeDisplay()
-            return
-          }
-          restoredFromSnapshot = status === 'restored'
-        }
-
-        // (#398) Same as the mount effect's own catch-up — see
-        // PencilEngineAPI.preloadImages.
-        if (engine) await engine.preloadImages(tailOperations)
-
-        // (#385, #538) Поштучно, а не одним try вокруг цикла — тем же
-        // решением и по той же причине, что на пути первого входа: одна
-        // операция, которая бросила, раньше отменяла все следующие за ней, а
-        // после долгого разрыва их подавляющее большинство. Пропустить ту, что
-        // не легла, строго лучше, чем пропустить остаток урока.
-        //
-        // До #538 этой защиты здесь не было вовсе, и #385 её сюда не принёс:
-        // тогда бросок из цикла уходил необработанным reject'ом, а комната
-        // всё равно объявлялась открытой. Теперь его поймал бы `catch` ниже и
-        // показал экран отказа — что честно, но для одной непроигравшейся
-        // операции слишком много. Два пути входа должны отвечать на одно и то
-        // же одинаково.
-        let failed = 0
-        const applyOne = (op: Operation): void => {
-          try {
-            applyRemoteOp(op)
-          } catch (err) {
-            // Только первое: дальше это обычно мёртвый GL-контекст, и тысяча
-            // одинаковых событий не скажет ничего, чего не сказало первое.
-            if (failed === 0) Sentry.captureException(err)
-            failed++
-          }
-        }
-
-        // (#477) Retire *every* reveal still in flight, not just the ones the
-        // tail happens to name — this catch-up supersedes all of them, and
-        // the tail is the wrong list to walk anyway (see pendingPreviews.ts:
-        // a still-revealing stroke's seq is already in `lastKnownSeq`, so the
-        // server leaves it out). Whatever is left on this list after the loop
-        // would otherwise pin the snapshot watermark for the rest of the
-        // mount.
-        const tailOpIds = new Set(tailOperations.map(op => op.id))
-        for (const opId of pendingPreviewsRef.current.ids()) {
-          const seq = pendingPreviewsRef.current.remove(opId) ?? 0
-          const stranded = engine?.dropPendingPreview(opId) ?? null
-          // Nothing else will ever bring this one back: the server thinks it
-          // was delivered and the tail below doesn't carry it. Commit it for
-          // real, just without the animation — the same trade `peer_left`
-          // makes for a peer who leaves mid-reveal. Skipped when the tail
-          // does carry it (it gets applied below) or when the snapshot just
-          // restored above already contains those pixels, since applying it
-          // then would lay the same stroke down twice.
-          if (!stranded || tailOpIds.has(opId)) continue
-          if (restoredFromSnapshot && latestSnapshotSeq !== null && seq <= latestSnapshotSeq) continue
-          applyOne(stranded)
-        }
-        for (const op of tailOperations) applyOne(op)
-        if (failed > 0) {
-          // (#480) Ровно то же, что и на первом входе: исключение уже уехало,
-          // а его последствие — нет. С этого момента и до конца маунта клиент
-          // не имеет права печь снапшоты, и это надо видеть.
-          reportInvariant('catch-up replay incomplete — snapshots disabled for this mount', { failed })
-          replayIncompleteRef.current = true
-          notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
-        }
-        displaySuspended = false
-        engine?.resumeDisplay()
-        // (#386) Same reason as the mount-engine effect's own catch-up: the
-        // bootstrap below reads the store back in this same task.
-        syncFromLogNow()
-        // (#462) Same placement and same reason as the mount effect's — see
-        // markJoinRestoreDone. A reconnect re-opens this window every time:
-        // the tail can be thousands of operations after a long drop, and the
-        // socket handlers stay live for all of it.
-        markJoinRestoreDone()
-        dispatchParticipants({ type: 'room_state', participants: roomParticipants })
-        useRoomStore.getState().setPalette(palette)
-        useRoomStore.getState().setRoomFrozen(frozen)
-
-        // Runs fully in the background — never awaited, must not block this
-        // handler or the first paint it just produced.
-        if (restoredFromSnapshot && engine && latestSnapshotSeq !== null) {
-          void backfillHistory(id, engine, latestSnapshotSeq)
-        }
-        // Same bootstrap as the mount-engine effect's own first-join branch
-        // (see its comment) — a reconnect can just as easily be the first
-        // time anyone's stayed caught-up long enough to bake this room's
-        // very first snapshot.
-        if (latestSnapshotSeq === null && engine && snapshotUploader) {
-          snapshotUploader.onSeqObserved(alreadyHadSeq, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
-        }
-      } catch (error) {
-        // (#538) Тот же отказ и то же обоснование, что на пути первого входа —
-        // см. `catch` там. Здесь он нужен не меньше: хвост переподключения
-        // после долгого разрыва бывает в тысячи операций, и брошенное посреди
-        // него точно так же оставляло комнату объявленной открытой поверх
-        // состояния, которое к ней не относится.
-        restoreFailedHere = true
-        setRestoreFailure('apply')
-        replayIncompleteRef.current = true
-        Sentry.captureException(error, {
-          tags: { joinFailure: 'catchup', openReached: openTimerRef.current?.stalled().reached },
-        })
-        if (displaySuspended) {
-          try { engine?.resumeDisplay() } catch { /* экран отказа важнее */ }
-        }
-      } finally {
-        // (#169 bug fix) Must run even on a plain, no-snapshot reconnect
-        // (the common case) — otherwise the *next* stroke this same user
-        // draws would find the canvas still gated from a re-entered
-        // setRoomContentReady(false) above with nothing to ever clear it if
-        // an error was thrown. See roomContentReady's own doc comment for
-        // the bug this whole mechanism guards against.
-        //
-        // (#533) The one exception, and it is not the bug above: a restore
-        // that brought back nothing leaves the canvas gated *on purpose*, with
-        // RestoreFailedOverlay explaining it and a retry offered. What that
-        // old bug feared was a gate nobody could clear; this one has a button.
-        // A condition, not an early `return`: a `return` here would swallow
-        // whatever the `try` threw.
-        if (!restoreFailedHere) setRoomContentReady(true)
-      }
+      // (#493) Shared with the engine's mount effect — see restoreRoomState.
+      // The open is not being timed any more, hence the no-op finisher: a
+      // real one here would also be a new dependency of this effect, and
+      // this effect's dependencies are what tear the socket down.
+      await restoreRoomState(engine, {
+        latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen,
+      }, { mode: 'catchup', alreadyHadSeq }, {
+        roomId: id,
+        restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone,
+        dispatchParticipants, setRestoreFailure, setRoomContentReady,
+        finishOpenTimer: () => {},
+        notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
+          key: 'replay-incomplete', durationMs: null,
+        }),
+        snapshotUploader, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
+      })
     }
 
     // (#289 §7/§11 — reliable history spec v0.2) Renamed from
