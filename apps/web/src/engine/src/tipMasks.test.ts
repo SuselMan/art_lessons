@@ -65,10 +65,12 @@ describe('tip masks', () => {
       {
         "bristle": 2644868348,
         "chalk": 2151330714,
+        "clumps": 4064953722,
         "grass": 3358002417,
         "leaf": 1919205637,
         "rough": 2937755259,
         "speckle": 1727859149,
+        "texture:cloud": 107915523,
         "texture:dry": 3950882991,
         "texture:grit": 4235995399,
       }

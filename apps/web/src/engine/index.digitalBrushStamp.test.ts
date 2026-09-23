@@ -188,6 +188,54 @@ describe('digital brush, stamp model (#573)', () => {
   })
 })
 
+describe('digital watercolor (#579)', () => {
+  const composite = (id: string) => {
+    const engine = setupLayer()
+    engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: current(id) }))
+    return brushDraws(engine).find(d => d.kind === 'composite')!.uniforms
+  }
+
+  it('hands the composite its wet edge, blooms, grain and glaze', () => {
+    const u = composite('wet-wash')
+    expect(u.get('u_wetEdge') as number).toBeGreaterThan(0)
+    expect(u.get('u_wetEdgePx') as number).toBeGreaterThan(0)
+    expect(u.get('u_mottle') as number).toBeGreaterThan(0)
+    expect(u.get('u_glaze')).toBe(1)
+  })
+
+  it('switches all of it off for a brush that is not wet — the program is shared', () => {
+    // Uniforms outlive the draw that set them: a hard round drawn after a wash
+    // must not inherit its rim.
+    const engine = setupLayer()
+    engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: current('wet-wash') }))
+    engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: current('hard-round') }))
+    const last = brushDraws(engine).filter(d => d.kind === 'composite').at(-1)!.uniforms
+    expect(last.get('u_wetEdge')).toBe(0)
+    expect(last.get('u_mottle')).toBe(0)
+    expect(last.get('u_granulation')).toBe(0)
+    expect(last.get('u_glaze')).toBe(0)
+  })
+
+  it('covers rather than glazes with gouache', () => {
+    expect(composite('gouache').get('u_glaze')).toBe(0)
+  })
+
+  it('reaches the composite past the stamps by the wet edge, so a later batch cannot strand a pixel', () => {
+    // The composite quad is a circumscribing dab over the rect; with a wet
+    // edge its radius must exceed the same stroke's without one.
+    const radiusFor = (id: string) => composite(id).get('u_dabRadius') as number
+    expect(radiusFor('wet-edge')).toBeGreaterThan(radiusFor('hard-round'))
+  })
+
+  it('fixes the rim width for the whole gesture from its first dab', () => {
+    const engine = setupLayer(256, 64)
+    const dabs = [dab(20, 32, { size: 40, pressure: 0.8 }), dab(40, 32, { size: 10, pressure: 0.8 }), dab(60, 32, { size: 60, pressure: 0.8 })]
+    engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'digitalBrush', preset: current('wet-edge') }))
+    const widths = new Set(brushDraws(engine).filter(d => d.kind === 'composite').map(d => d.uniforms.get('u_wetEdgePx')))
+    expect(widths.size).toBe(1)
+  })
+})
+
 describe('a gesture long enough to be cut into several operations (#573)', () => {
   it('paints the same pixels live as a replay of its operations does', async () => {
     // STROKE_DAB_CHUNK_LIMIT cuts a long gesture into 800-dab operations. The
