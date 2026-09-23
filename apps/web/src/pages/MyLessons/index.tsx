@@ -574,7 +574,7 @@ export function MyLessons() {
   // is usually done to *hand out* a copy, and being dropped inside it would
   // make forking three of them a matter of going back twice.
   const forkMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, { name, scope: 'lesson' }),
     // (#552) Into the list for the folder the copy was actually filed in, which
     // the server now reports: it files the copy beside its source, and when the
     // fork is made from search results the source's folder is not the folder
