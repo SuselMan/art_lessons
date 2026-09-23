@@ -68,7 +68,8 @@ export {
   digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset,
   type BrushDescriptor, type BrushTip,
 } from './src/digitalBrushPresets'
-import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+import { markerThinNibInkGain } from './src/markerInkGain'
 
 /** #547 — the band vertex array a stamps-only tool hands the two band passes,
  *  which both no-op on a zero length. Shared and frozen in size rather than a
@@ -7871,7 +7872,10 @@ export class PencilEngine implements PencilEngineAPI {
     //    expressible *because* of the normalization above.
     //
     // The marker takes neither and must not: its strokes are permanent and its
-    // constants were calibrated against the old scale.
+    // constants were calibrated against the old scale. What it does take
+    // (#559) is a gain of >= 1 on that same legacy deposit wherever the nib is
+    // too thin along the travel to have reached the film's knee at all — see
+    // markerInkGain.ts. Exactly 1 for every nib that saturated already.
     // (#468 v4, ADR 011 §4) Water and pigment run down at *different* rates,
     // and that difference is the whole behaviour: water soaks away fast while
     // pigment stays on the hairs, so one long stroke walks itself from a wet
@@ -7881,6 +7885,16 @@ export class PencilEngine implements PencilEngineAPI {
     const deposits: number[] = []
     const waterByDab = new Map<Dab, number>()
     const pigmentByDab = new Map<Dab, number>()
+    // #559 — how much to raise this dab's deposit for being dragged thin-side
+    // first. Shared by the stamps and the bands, which must agree: the two
+    // overlap almost everywhere, and a band on a different scale from the
+    // stamps it connects would show as a seam at every sample.
+    const thinNibGain = (dab: Dab, fromX: number, fromY: number): number => profile.thinNibInkRefPx > 0
+      ? markerThinNibInkGain(
+        nibGeometry(dab, preset.sizeMultiplier, nibShape, cornerFraction),
+        dab.x - fromX, dab.y - fromY, profile.thinNibInkRefPx,
+      )
+      : 1
     {
       let prev = prevDab
       let used = scratch.waterUsed
@@ -7912,7 +7926,7 @@ export class PencilEngine implements PencilEngineAPI {
         const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
         deposits.push(profile.normalizeDeposit
           ? profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft
-          : dab.opacity * seg * 0.5)
+          : dab.opacity * seg * 0.5 * thinNibGain(dab, prev?.x ?? dab.x, prev?.y ?? dab.y))
         prev = dab
       }
       scratch.advanceWater(used)
@@ -7922,8 +7936,15 @@ export class PencilEngine implements PencilEngineAPI {
     // almost everywhere and each carries half a dose, so a band still on the
     // legacy scale would drown whatever the normalized stamps expressed.
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
-    // which is what the marker and the brush pen get.
-    const inkFor = profile.normalizeDeposit
+    // which is what the brush pen gets. The marker (#559) passes that same
+    // formula back in with the thin-nib gain on it, so its bands and stamps
+    // stay on one scale — a gain of 1 reproduces the omitted case exactly.
+    const inkFor = profile.thinNibInkRefPx > 0 && !profile.normalizeDeposit
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => ({
+        ink: d1.opacity * travel * 0.5 * thinNibGain(d1, d0.x, d0.y),
+        water: 0,
+      })
+      : profile.normalizeDeposit
       ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
         // #489: same measure the stamps use, and it has to be the same one —
         // the bands overlap the stamps almost everywhere, so two different

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import type { Dab } from '@grafetto/shared'
 
-import { buildRibbonBands, nibSupport, nibGeometry, poseSubdivisions, RIBBON_FLOATS_PER_VERTEX } from './markerRibbon'
+import {
+  buildRibbonBands, nibArea, nibMeanChord, nibSupport, nibGeometry, poseSubdivisions, RIBBON_FLOATS_PER_VERTEX,
+} from './markerRibbon'
 
 function dab(x: number, y: number, opts: Partial<Dab> = {}): Dab {
   return { x, y, pressure: 1, tiltX: 0, tiltY: 0, size: 20, aspectRatio: 1, angle: 0, opacity: 1, t: 0, ...opts }
@@ -94,6 +96,34 @@ describe('nibSupport, rounded box (#330 stage 3 — the chisel nib)', () => {
   it('never lets the corner radius exceed the nib itself', () => {
     const g = nibGeometry(dab(0, 0, { size: 20 }), 1, 'roundedBox', 5) // r would be 50 vs a 10px nib
     expect(nibSupport(g, 1, 0).value).toBeCloseTo(10, 6)
+  })
+})
+
+describe('nibArea / nibMeanChord (#559)', () => {
+  it('gives a disc its area and, along any direction, a chord of πr/2', () => {
+    const g = nibGeometry(dab(0, 0, { size: 20 }), 1)
+    expect(nibArea(g)).toBeCloseTo(Math.PI * 100, 9)
+    expect(nibMeanChord(g, 1, 0)).toBeCloseTo((Math.PI * 10) / 2, 9)
+    expect(nibMeanChord(g, 0.6, 0.8)).toBeCloseTo((Math.PI * 10) / 2, 9)
+  })
+
+  it('gives a plain box its full extent as the chord along either axis', () => {
+    const g = nibGeometry(dab(0, 0, { size: 4, aspectRatio: 5 }), 1, 'roundedBox', 0)
+    expect(nibArea(g)).toBeCloseTo(20 * 4, 9)
+    expect(nibMeanChord(g, 1, 0)).toBeCloseTo(20, 9) // along the long axis
+    expect(nibMeanChord(g, 0, 1)).toBeCloseTo(4, 9)  // across it
+  })
+
+  it('rotates with the nib', () => {
+    const g = nibGeometry(dab(0, 0, { size: 4, aspectRatio: 5, angle: Math.PI / 2 }), 1, 'roundedBox', 0)
+    expect(nibMeanChord(g, 1, 0)).toBeCloseTo(4, 9)
+    expect(nibMeanChord(g, 0, 1)).toBeCloseTo(20, 9)
+  })
+
+  it('shrinks a rounded box by exactly the corners it lost', () => {
+    const sharp = nibGeometry(dab(0, 0, { size: 4, aspectRatio: 5 }), 1, 'roundedBox', 0)
+    const round = nibGeometry(dab(0, 0, { size: 4, aspectRatio: 5 }), 1, 'roundedBox', 0.5) // r = 1
+    expect(nibArea(round)).toBeCloseTo(nibArea(sharp) - (4 - Math.PI), 9)
   })
 })
 

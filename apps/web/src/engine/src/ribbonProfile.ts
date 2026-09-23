@@ -3,6 +3,7 @@ import type { ToolType } from '@grafetto/shared'
 import {
   digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset,
 } from './digitalBrushPresets'
+import { MARKER_INK_REF_CHORD_PX } from './markerInkGain'
 import { markerNibFromPreset } from './markerPresets'
 import {
   watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
@@ -85,10 +86,12 @@ export interface RibbonProfile {
    *  own radius, making it a quantity *per unit area* instead of per unit
    *  length (ADR 011 §3.8).
    *
-   *  False keeps the original formula, and the marker must keep it forever: its
-   *  strokes are in production rooms and its saturation constants were
-   *  calibrated against that scale, so changing it would silently re-render
-   *  every marker mark ever drawn.
+   *  False keeps the original formula, and the marker keeps it: its strokes are
+   *  in production rooms and its saturation constants were calibrated against
+   *  that scale, so changing it would silently re-render every marker mark
+   *  ever drawn. (#559 added one bounded exception — `thinNibInkRefPx` below —
+   *  which only ever *raises* the deposit of a nib too thin to have saturated,
+   *  and leaves every other mark bit-identical.)
    *
    *  What it fixes for watercolor: unnormalized, a pixel accumulates roughly
    *  `opacity x radius` because it is covered by about `2 * radius / spacing`
@@ -99,6 +102,12 @@ export interface RibbonProfile {
    *  brush is or how densely the dabs were spaced, which is the only way the
    *  curve can express anything at all. */
   normalizeDeposit: boolean
+  /** #559 — the nib chord, in canvas px, below which the legacy deposit is
+   *  scaled up by `ref / chord` so a thin nib still saturates the film. 0
+   *  disables it, which is what every tool but the marker sets: the brush pen
+   *  has no ink pass, watercolor and the digital brush normalize their deposit
+   *  differently. See markerInkGain.ts for the measurement behind the number. */
+  thinNibInkRefPx: number
   /** #468 v3 — deposit laid per radius of travel, when normalizeDeposit is on.
    *  0 for a tool on the legacy scale, which reads dab.opacity instead.
    *
@@ -447,6 +456,10 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   // are in production rooms and its saturation constants were calibrated
   // against it. See RibbonProfile.normalizeDeposit.
   normalizeDeposit: false,
+  // #559 — except where that scale never reached the film's knee at all: a nib
+  // thinner than this along the travel gets its deposit raised to what this
+  // chord lays. Bit-identical above it.
+  thinNibInkRefPx: MARKER_INK_REF_CHORD_PX,
   depositPerRadius: 0,
   stampInkShare: 0,
   waterDepletion: false,
@@ -506,6 +519,8 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   // are in production rooms and its saturation constants were calibrated
   // against it. See RibbonProfile.normalizeDeposit.
   normalizeDeposit: false,
+  // No ink pass at all (see `ink` above), so nothing for #559 to scale.
+  thinNibInkRefPx: 0,
   depositPerRadius: 0,
   stampInkShare: 0,
   waterDepletion: false,
@@ -756,6 +771,9 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     spreadPx: WATERCOLOR_SPREAD_CAP_PX,
     saturateInk: WATERCOLOR_SATURATE_INK,
     normalizeDeposit: true,
+    // Per-area normalization above already makes the deposit independent of
+    // the nib's depth along the travel, which is all #559's gain exists for.
+    thinNibInkRefPx: 0,
     waterDepletion: true,
     // ── from water: geometry and behaviour ──
     waterLevel: mix.water,
@@ -869,6 +887,8 @@ function digitalBrushRibbon(presetName: string | undefined): RibbonProfile {
   spreadPx: 0,
   cloud: 0,
   normalizeDeposit: false,
+  // No ink pass (flow accumulates in coverage), so nothing for #559 to scale.
+  thinNibInkRefPx: 0,
   depositPerRadius: 0,
   stampInkShare: 0,
   waterDepletion: false,
