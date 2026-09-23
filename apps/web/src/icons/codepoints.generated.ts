@@ -15,6 +15,8 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'block': '\u{e033}',
   'brush': '\u{e3ae}',
   'format_paint': '\u{e243}',
+  'center_focus_strong': '\u{e3b4}',
+  'center_focus_weak': '\u{e3b5}',
   'change_history': '\u{e86b}',
   'check': '\u{e5ca}',
   'circle': '\u{ef4a}',

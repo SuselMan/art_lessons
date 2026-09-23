@@ -46,6 +46,24 @@ export interface LayerSlice {
   setLayerStateLocal: (updater: LayerState | ((prev: LayerState) => LayerState)) => void
   syncLayerStateFromLog: (base: LayerState, ops: Operation[]) => void
 
+  /** (#557) The layers this viewer has soloed — empty when no solo is on.
+   *
+   *  Local view state, deliberately not an operation and deliberately not a
+   *  run of `layer_visibility`: that one travels in the log and would blank
+   *  the layers for every participant while one of them checks a contour.
+   *  Same reasoning as `annotationsHidden` (#511). Kept beside `layerState`
+   *  rather than inside it because `LayerState` is the shared shape that
+   *  snapshots and peers exchange, and a private filter has no business in
+   *  something that is serialised for others.
+   *
+   *  Stored as ids rather than as a resolved set: the set depends on the
+   *  folder tree, which peers change under us — `soloKeepSet` re-derives it
+   *  from the current `layerState` on every read, so a folder soloed today
+   *  still shows the layer someone drops into it tomorrow. Reset with the
+   *  rest of the room store on mount. */
+  soloIds: string[]
+  setSoloIds: (ids: string[]) => void
+
   // Ruler geometry + layer-transform-preview geometry — moved into the
   // store for consistency (#170 follow-up design), but deliberately
   // NEVER persisted: a ruler is for quickly comparing distances mid-
@@ -90,6 +108,8 @@ export const createLayerSlice: StateCreator<LayerSlice> = set => ({
   syncLayerStateFromLog: (base, ops) => set(state => ({
     layerState: overlayLocalFields(replayLayerState(base, ops), state.layerState),
   })),
+  soloIds: [],
+  setSoloIds: ids => set({ soloIds: ids }),
 
   rulerLine: null,
   setRulerLine: line => set({ rulerLine: line }),

@@ -25,6 +25,10 @@ export const MATERIAL_ICON_NAMES = [
   // user is most likely to confuse (one imitates a nib, the other imitates
   // nothing).
   'format_paint',
+  // #557 — layer solo, on and off. A pair on purpose: the same frame with the
+  // dot filled in or not reads as one switch in two positions.
+  'center_focus_strong',
+  'center_focus_weak',
   'change_history',
   'check',
   'circle',

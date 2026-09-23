@@ -174,6 +174,47 @@ export function isEffectivelyVisible(state: LayerState, id: string): boolean {
   return ancestorsOf(state, id).every(pid => !!state.items[pid]?.visible)
 }
 
+/**
+ * (#557) Which ids a solo keeps on this viewer's screen, or `null` when no
+ * solo is in effect.
+ *
+ * Solo is a *local filter* over the shared visibility, never a change to it.
+ * `layer_visibility` travels in the log and hides a layer for everyone, and
+ * "let me look at this one layer for a second" is a private act — the same
+ * reasoning as `annotationsHidden` (#511). Because nothing shared is touched,
+ * ending the solo restores exactly what the room shows now, including whatever
+ * others changed in the meantime, with nothing to remember or undo.
+ *
+ * The set is the soloed items plus everything inside them, to any depth: solo
+ * a folder and you see its contents. It only ever *removes* from the picture —
+ * a soloed layer that is itself hidden, or sits in a hidden folder, stays
+ * hidden, because the shared eye still means what it means.
+ *
+ * Ids that no longer exist are dropped rather than kept as ghosts; a peer may
+ * delete the very layer you are soloing. When nothing survives the answer is
+ * `null`, i.e. "no solo", not "an empty screen": a solo of nothing would leave
+ * the viewer looking at blank paper with no row explaining why.
+ */
+export function soloKeepSet(state: LayerState, soloIds: readonly string[]): Set<string> | null {
+  const keep = new Set<string>()
+  for (const id of soloIds) {
+    if (!state.items[id]) continue
+    for (const did of collectDescendants(state, id)) keep.add(did)
+  }
+  return keep.size > 0 ? keep : null
+}
+
+/** (#557) `isEffectivelyVisible`, further narrowed by the local solo: what
+ *  this viewer actually sees of `id`. The paint gate reads this rather than
+ *  `isEffectivelyVisible` so a layer the solo has put out of view refuses
+ *  strokes the same way a hidden one does (#359) — otherwise ink would land
+ *  on a layer the author cannot see while every peer watches it appear. */
+export function isVisibleUnderSolo(state: LayerState, id: string, soloIds: readonly string[]): boolean {
+  if (!isEffectivelyVisible(state, id)) return false
+  const keep = soloKeepSet(state, soloIds)
+  return keep === null || keep.has(id)
+}
+
 /** Every id the panel currently shows, top→bottom: root items plus the
  *  contents of open folders, to any depth. The background is left out — it is
  *  never a selection target (see isLayerLocked's note). */

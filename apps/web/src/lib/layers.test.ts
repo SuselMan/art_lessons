@@ -13,7 +13,7 @@ import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
   collectDescendants, isLayerLocked, isLockedAgainst, isEffectivelyVisible, placementAbove, ancestorsOf,
-  eraseThroughTargets,
+  eraseThroughTargets, soloKeepSet, isVisibleUnderSolo,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -1229,5 +1229,58 @@ describe('eraseThroughTargets', () => {
     }, ['f'])
 
     expect(eraseThroughTargets(state)).toEqual(['inside'])
+  })
+})
+
+// (#557) Solo is a local filter over the shared visibility. These pin down
+// the two things that make it safe to have: it only ever narrows the picture,
+// and it switches itself off rather than blanking the screen when its targets
+// are gone.
+describe('soloKeepSet / isVisibleUnderSolo', () => {
+  const state = () => stateOf({
+    f: folder('f', ['inner', 'sub']),
+    inner: layer('inner'),
+    sub: folder('sub', ['deep']),
+    deep: layer('deep'),
+    loose: layer('loose'),
+    hidden: layer('hidden', { visible: false }),
+  }, ['f', 'loose', 'hidden'])
+
+  it('is off for an empty solo', () => {
+    expect(soloKeepSet(state(), [])).toBeNull()
+    expect(isVisibleUnderSolo(state(), 'loose', [])).toBe(true)
+  })
+
+  it('keeps exactly the soloed layer', () => {
+    expect(soloKeepSet(state(), ['loose'])).toEqual(new Set(['loose']))
+    expect(isVisibleUnderSolo(state(), 'loose', ['loose'])).toBe(true)
+    expect(isVisibleUnderSolo(state(), 'inner', ['loose'])).toBe(false)
+  })
+
+  it('soloing a folder keeps everything inside it, to any depth', () => {
+    expect(soloKeepSet(state(), ['f'])).toEqual(new Set(['f', 'inner', 'sub', 'deep']))
+    expect(isVisibleUnderSolo(state(), 'deep', ['f'])).toBe(true)
+    expect(isVisibleUnderSolo(state(), 'loose', ['f'])).toBe(false)
+  })
+
+  it('never shows what the shared eye hides', () => {
+    // The solo target is itself hidden: solo narrows, it does not reveal.
+    expect(isVisibleUnderSolo(state(), 'hidden', ['hidden'])).toBe(false)
+    // And a soloed layer inside a hidden folder stays hidden too.
+    const s = state()
+    s.items.f = folder('f', ['inner', 'sub'], { visible: false })
+    expect(isVisibleUnderSolo(s, 'inner', ['inner'])).toBe(false)
+  })
+
+  it('ignores ids that no longer exist and turns itself off when none remain', () => {
+    expect(soloKeepSet(state(), ['gone', 'loose'])).toEqual(new Set(['loose']))
+    // Every soloed layer was deleted (by a peer, say): no solo, not a blank
+    // screen — everything is visible again.
+    expect(soloKeepSet(state(), ['gone'])).toBeNull()
+    expect(isVisibleUnderSolo(state(), 'inner', ['gone'])).toBe(true)
+  })
+
+  it('can solo several layers at once', () => {
+    expect(soloKeepSet(state(), ['inner', 'loose'])).toEqual(new Set(['inner', 'loose']))
   })
 })
