@@ -586,6 +586,8 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     // (#525) A shape paints pixels into an existing layer and touches no
     // structure, exactly like the four above.
     case 'shape':
+    // (#574) So does a filter: it rewrites pixels of a layer that exists.
+    case 'layer_filter':
     case 'operation_revoke':
     case 'operation_undo':
     case 'operation_redo':

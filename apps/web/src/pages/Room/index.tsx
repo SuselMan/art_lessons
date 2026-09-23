@@ -15,6 +15,7 @@ import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs,
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
+import { FilterPanel } from '../../components/FilterPanel'
 import { SidePanel } from '../../components/SidePanel'
 import {
   ColorFlyout, ColorFlyoutBody, type ColorFlyoutContent, type ColorPairControls,
@@ -1081,6 +1082,10 @@ function RoomEditor() {
   // (#542) 'color' is back in this list, but it is no longer a tab with its own
   // contents — it renders the very same body the colour popover does.
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
+  // (#574) The layer the filter dialog is open on, or null. Local like
+  // activePanel above: which dialog is open is this viewer's business, not the
+  // room's.
+  const [filterLayerId, setFilterLayerId] = useState<string | null>(null)
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
@@ -8588,6 +8593,27 @@ function RoomEditor() {
           />
         </div>
 
+        {/* (#574) Mounted only while its layer is a paintable layer: if the
+            layer is deleted, or the room stops taking edits, the dialog goes
+            away and takes its preview with it. */}
+        {(() => {
+          const item = filterLayerId ? layerState.items[filterLayerId] : undefined
+          if (!filterLayerId || !item || item.kind !== 'layer' || editingBlocked || compact) return null
+          const layerId = filterLayerId
+          return (
+            <FilterPanel
+              key={layerId}
+              layerName={item.name}
+              onPreview={filter => engineRef.current?.previewLayerFilter(layerId, filter)}
+              onApply={filter => {
+                dispatchOp({ type: 'layer_filter', layerId, filter })
+                setFilterLayerId(null)
+              }}
+              onClose={() => setFilterLayerId(null)}
+            />
+          )
+        })()}
+
         {/* ── Side panel (layers, color, …) ── */}
         {/* #99: wrapped rather than passing a className into SidePanel — the
             wrapper is a positioned overlay (see .layerPanelWrap) that only
@@ -8620,6 +8646,7 @@ function RoomEditor() {
                     layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp}
                     isOwner={isOwner} hasLayerContent={hasLayerContent}
                     soloIds={soloIds} onSoloChange={setSoloIds}
+                    onOpenFilters={setFilterLayerId}
                   />
                 ),
               },

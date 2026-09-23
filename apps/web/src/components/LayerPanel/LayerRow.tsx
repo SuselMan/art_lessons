@@ -45,6 +45,8 @@ export interface LayerRowProps {
   // and everything inside it.
   onDuplicate?: (id: string) => void
   onClear?: (id: string) => void
+  /** (#574) Opens the filter dialog on this layer. */
+  onFilters?: (id: string) => void
   onDelete?: (id: string) => void
   // (#411) Long-press-to-enter-selection-mode. `onPointerMove` cancels it:
   // once the drag moved to the grip, `.rowMain` no longer sets
@@ -84,7 +86,7 @@ function LayerRowImpl({
   lockedByFolder = false, soloTarget = false, soloHidden = false, onSolo,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
-  onToggleCollapse, onMergeDown, onDuplicate, onClear, onDelete,
+  onToggleCollapse, onMergeDown, onDuplicate, onClear, onFilters, onDelete,
   onPointerDown, onPointerUp, onPointerMove,
   selectionMode = false, onToggleSelected,
 }: LayerRowProps) {
@@ -359,6 +361,15 @@ function LayerRowImpl({
             // (#329) A folder holds no pixels of its own — clearing one would
             // have to mean clearing its children, which is a different action
             // nobody asked for.
+            // (#574) Filters rewrite pixels, so they are off where painting
+            // is: a folder has none, and a locked layer refuses them — shown
+            // as disabled here rather than silently dropped at dispatch.
+            ...(onFilters ? [{
+              label: t('layers.filters'),
+              icon: 'tune' as const,
+              onClick: () => onFilters(item.id),
+              disabled: isFolderItem || showsLocked || (isOwnerLocked && !isOwner),
+            }] : []),
             { label: t('layers.clearLayer'), icon: 'delete_forever',  onClick: () => onClear?.(item.id), disabled: isFolderItem },
             { label: t('common.delete'),     icon: 'delete',          onClick: () => onDelete?.(item.id), danger: true },
           ]}
