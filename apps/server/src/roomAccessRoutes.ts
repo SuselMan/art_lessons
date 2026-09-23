@@ -4,6 +4,7 @@ import { isRoomAccessMode } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
 import { hashRoomPassword, setRoomAccessMode, setRoomPassword } from './rooms.js'
+import { isLesson } from './lessons.js'
 
 /** Access control's own endpoints (#226, release track #314 §6) — the surface
  *  the access panel (#228) drives, from the lesson list as well as from inside
@@ -65,15 +66,21 @@ function normalizeEmail(email: unknown): string | null {
 /** Resolves the room and proves the caller owns it, or sends the response
  *  itself and returns null — so each route below reads as its own logic
  *  rather than as four lines of the same preamble. 404 for a room that isn't
- *  there, 403 for one that isn't theirs. */
+ *  there, 403 for one that isn't theirs.
+ *
+ *  (#176) 404 for a board too. Access is a fact about the lesson — the join
+ *  gate resolves every board to its lesson before it reads a single row here
+ *  — so an invite, block or password written under a board's id would be a
+ *  row nothing ever consults. Refusing the id outright is what keeps that
+ *  from being a silent no-op an owner believes took effect. */
 async function requireOwnedRoom(
   request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply,
 ): Promise<{ id: string; accessMode: RoomAccessMode; passwordHash: string | null } | null> {
   const room = await prisma.room.findUnique({
     where: { id: request.params.id },
-    select: { id: true, ownerId: true, accessMode: true, passwordHash: true },
+    select: { id: true, ownerId: true, accessMode: true, passwordHash: true, lessonId: true },
   })
-  if (!room) {
+  if (!room || !isLesson(room)) {
     await reply.code(404).send({ error: 'not_found' })
     return null
   }

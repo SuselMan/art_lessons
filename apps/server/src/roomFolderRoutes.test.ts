@@ -77,7 +77,7 @@ describe('GET /api/rooms', () => {
       expect.objectContaining({ where: { userId: 'user-1', parentFolderId: 'folder-1' } }),
     )
     expect(mockPrisma.roomParticipant.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 'user-1', folderId: 'folder-1' } }),
+      expect.objectContaining({ where: { userId: 'user-1', folderId: 'folder-1', room: { lessonId: null } } }),
     )
   })
 
@@ -92,7 +92,7 @@ describe('GET /api/rooms', () => {
       expect.objectContaining({ where: { userId: 'user-1', parentFolderId: null } }),
     )
     expect(mockPrisma.roomParticipant.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 'user-1', folderId: null } }),
+      expect.objectContaining({ where: { userId: 'user-1', folderId: null, room: { lessonId: null } } }),
     )
   })
 })

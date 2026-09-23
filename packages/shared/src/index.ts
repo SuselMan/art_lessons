@@ -373,6 +373,27 @@ export type Room = {
   // tool this room no longer offers still paints. The toolset decides what can
   // be picked up, not what exists.
   enabledTools?: ToggleableTool[]
+  // (#176, ADR 014) Boards. A lesson is a Room with no `lessonId` and is also
+  // its own first board; every further board is a Room whose `lessonId` names
+  // the lesson. The two are told apart by this one field, and the split it
+  // draws is the whole model: everything social (participants, access, closed,
+  // tools, palette, freeze) belongs to the lesson, everything content
+  // (operations, snapshots, thumbnail, paper, size) to the board. Boards are
+  // never listed by the room-list endpoints — they are reached through their
+  // lesson's `room_state.lesson.boards`.
+  //
+  // On a board's own `room_state.room` the social fields (`accessMode`,
+  // `hasPassword`, `closedAt`, `enabledTools`, `activeBoardId`) are the
+  // *lesson's*, overlaid by the server, so a client reads one object either
+  // way and never has to know where a fact lives.
+  lessonId?: string
+  // Position in the lesson's board strip; the lesson itself is 0. Absent on
+  // rows the server builds by hand (the same optionality `parentRoomId` has).
+  boardOrder?: number
+  // The board the lesson's owner is on — what a joiner lands on and what a
+  // following student switches to. Absent means the lesson's own first board.
+  // Set only on a lesson (and overlaid onto its boards, see `lessonId`).
+  activeBoardId?: string
 }
 
 // (#226) Everything the access panel (#228) shows about one room, fetched in
@@ -478,6 +499,13 @@ export type Participant = {
   // itself is (server restart / room evicted then reloaded). The room's
   // owner can never be frozen (see rooms.ts's setParticipantFrozen).
   frozen: boolean
+  // (#176, ADR 014) Which board of the lesson this person is currently on.
+  // Participants belong to the *lesson*, so a `room_state` lists everyone in
+  // the lesson, and this is how a client tells who shares its page. The
+  // server always sets it; optional in the type only so a client built before
+  // boards existed keeps compiling. For a lesson with one board it equals the
+  // lesson id.
+  boardId?: string
 }
 
 // Room color palette (#190 epic). One palette per room (not per-user, and not

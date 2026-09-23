@@ -976,7 +976,9 @@ modules:
       - apps/server/src/rooms.test.ts
       - apps/server/src/roomSnapshots.test.ts
       - apps/server/src/socketHandlers.ts
-    adr: [002-collaborative-undo]
+      - apps/server/src/lessons.ts
+      - apps/server/src/boards.test.ts
+    adr: [002-collaborative-undo, 014-boards]
     notes:
       - >-
         Map остаётся источником правды для всего живого; запись в Postgres — fire-and-forget,

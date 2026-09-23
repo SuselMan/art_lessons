@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
 import { setRoomClosed } from './rooms.js'
+import { isLesson } from './lessons.js'
 
 /** (#222) Told when a room's closed-for-editing state changes, so whoever is
  *  currently *in* that room hears about it. Injected rather than reached for
@@ -11,9 +12,25 @@ import { setRoomClosed } from './rooms.js'
  *  index.ts supplies the real one. */
 export type RoomClosedNotifier = (roomId: string, closedAt: string | null) => void
 
+/** (#176) A board id reaching a route meant for a lesson. Every route in this
+ *  file addresses the *lesson* — its card, its closed state, its deletion —
+ *  and a board is not a card: it is listed nowhere, has no participants of
+ *  its own and is created, renamed and deleted through boardRoutes.ts, which
+ *  is also where its lesson gets told. Answering 404 rather than acting on the
+ *  row keeps "a board is not a room in this API" one rule. */
+function isBoard(room: { lessonId?: string | null }): boolean {
+  return !isLesson(room)
+}
+
 /** Backs "Мои уроки" (#116): rooms the caller owns, and rooms they were ever
  *  a participant in (join history persisted via `RoomParticipant`, not
- *  derived from who's currently connected). */
+ *  derived from who's currently connected).
+ *
+ *  (#176) Lessons only — `lessonId: null` on every list query here. A board
+ *  is a page of a lesson and is reached through it, never as a card of its
+ *  own. Belt and braces for `/mine`'s participated half: no RoomParticipant
+ *  row is ever written for a board (rooms.ts's joinRoom seats people in the
+ *  lesson), so it could not match anyway. */
 export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: RoomClosedNotifier): void {
   app.get('/api/rooms/mine', async (request) => {
     // (#209) `include` the thumbnail relation `select`-narrowed to just
@@ -22,7 +39,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
     // image bytes are fetched separately via GET /api/rooms/:roomId/thumbnail.
     const [owned, participated] = await Promise.all([
       prisma.room.findMany({
-        where: { ownerId: request.userId },
+        where: { ownerId: request.userId, lessonId: null },
         orderBy: { createdAt: 'desc' },
         include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
       }),
@@ -30,6 +47,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
         where: {
           ownerId: { not: request.userId },
           participants: { some: { userId: request.userId } },
+          lessonId: null,
         },
         orderBy: { createdAt: 'desc' },
         include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
@@ -51,6 +69,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
     const rooms = await prisma.room.findMany({
       where: {
         name: { contains: q, mode: 'insensitive' },
+        lessonId: null,
         OR: [
           { ownerId: request.userId },
           { participants: { some: { userId: request.userId } } },
@@ -69,7 +88,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
   // caller's own and needs no ownership check).
   app.patch<{ Params: { id: string }; Body: { name: string } }>('/api/rooms/:id', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
-    if (!room) return reply.code(404).send({ error: 'not_found' })
+    if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
     if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
 
     const name = request.body.name?.trim()
@@ -98,7 +117,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
     '/api/rooms/:id/closed',
     async (request, reply) => {
       const room = await prisma.room.findUnique({ where: { id: request.params.id } })
-      if (!room) return reply.code(404).send({ error: 'not_found' })
+      if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
       if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
       if (typeof request.body?.closed !== 'boolean') return reply.code(400).send({ error: 'invalid_closed' })
 
@@ -124,10 +143,11 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
 
   app.delete<{ Params: { id: string } }>('/api/rooms/:id', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
-    if (!room) return reply.code(404).send({ error: 'not_found' })
+    if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
     if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
 
-    // Operation/RoomParticipant rows cascade (onDelete: Cascade in schema).
+    // Operation/RoomParticipant rows cascade (onDelete: Cascade in schema),
+    // and so do the lesson's boards (#176) with everything under them.
     await prisma.room.delete({ where: { id: room.id } })
     return { ok: true }
   })
@@ -138,7 +158,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
   // that participant's own Operations) are untouched.
   app.delete<{ Params: { id: string } }>('/api/rooms/:id/participation', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
-    if (!room) return reply.code(404).send({ error: 'not_found' })
+    if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
     if (room.ownerId === request.userId) return reply.code(403).send({ error: 'owner_cannot_leave' })
 
     const participant = await prisma.roomParticipant.findUnique({

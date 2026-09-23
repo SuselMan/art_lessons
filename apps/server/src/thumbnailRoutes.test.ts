@@ -201,6 +201,57 @@ describe('POST /api/rooms/:roomId/thumbnail', () => {
   })
 })
 
+// (#176, ADR 014) A board's thumbnail is its own, but the right to see or
+// overwrite it is the lesson's: participation rows and blocks are written
+// under the lesson, so a board id has to be resolved through its `lesson`
+// relation before either can be found.
+describe('a board resolves access through its lesson (#176)', () => {
+  function mockBoardAccess(lessonParticipantIds: string[], { blocked = false }: { blocked?: boolean } = {}) {
+    mockPrisma.room.findUnique.mockResolvedValueOnce({
+      ownerId: 'user-1', lessonId: 'room-1',
+      // A board never has participant rows of its own — the query still asks,
+      // and the answer is always empty.
+      participants: [],
+      lesson: { participants: lessonParticipantIds.map(userId => ({ userId })) },
+    })
+    mockPrisma.roomBlock.findUnique.mockResolvedValueOnce(blocked ? { id: 'block-1' } : null)
+  }
+
+  it('GET serves a board\'s preview to a participant of its lesson', async () => {
+    mockBoardAccess(['user-2'])
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data: Buffer.from('png'), updatedAt: new Date(1) })
+    const app = buildApp('user-2')
+
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/board-1/thumbnail' })
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.roomThumbnail.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { roomId: 'board-1' } }))
+  })
+
+  it('GET refuses someone who is in no lesson of the board', async () => {
+    mockBoardAccess([])
+    const app = buildApp('user-2')
+
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/board-1/thumbnail' })
+
+    expect(res.statusCode).toBe(403)
+  })
+
+  it('POST checks the block under the lesson\'s id, not the board\'s', async () => {
+    mockGetParticipant.mockReturnValue(undefined)
+    mockBoardAccess(['user-2'], { blocked: true })
+    const app = buildApp('user-2')
+
+    const res = await postThumbnail(app, 'board-1', pngHeader(100, 100))
+
+    expect(res.statusCode).toBe(403)
+    expect(mockPrisma.roomBlock.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { roomId_userId: { roomId: 'room-1', userId: 'user-2' } },
+    }))
+    expect(mockPrisma.roomThumbnail.upsert).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/rooms/:roomId/thumbnail', () => {
   // #209 follow-up (caught in live QA): GET is fetched from MyLessons'
   // RoomCard, precisely when the caller is *not* live-connected to the room

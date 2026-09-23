@@ -247,9 +247,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // are, before releasing the room. Emitted to their own channel rather
         // than into the room: an owner deciding who gets into a lesson is
         // usually looking at the lesson, not drawing in it.
-        const ownerId = getRoomGate(roomId)?.ownerId
-        if (access.queued && ownerId) {
-          io.to(userChannel(ownerId)).emit('join_request_created', { roomId, request: access.queued })
+        // (#176) Addressed by the lesson: the request row was written under
+        // it, and the owner's queue is per lesson, not per board.
+        const gate = getRoomGate(roomId)
+        if (access.queued && gate) {
+          io.to(userChannel(gate.ownerId)).emit('join_request_created', { roomId: gate.lessonId, request: access.queued })
         }
         // (#292) The load above just pulled this room into memory, and a
         // rejected join means nobody is in it — without this it would sit
