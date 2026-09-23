@@ -2814,10 +2814,103 @@ export const WC_FIELD_OP_FRAG = `
    *  live batch just changed (s17.12): the tile after the batch less the
    *  tile before it. */
   uniform sampler2D u_c;
+  /** (s17.23) Mode 4: a mask, rising from u_k to 4 u_k of a.a. Mode 5: a 3x3
+   *  binomial blur of a at u_dir texels of stride - the dome over a
+   *  footprint is a few of these at falling strides over its mask.
+   *
+   *  The rim (s17.23): paint inside a footprint goes to the footprint's
+   *  edge. Mode 9 erodes a mask; mode 6 writes the BAND texture - r the
+   *  sliver between the mask and its erosion, g the mask itself, both read
+   *  at a position warped by u_k px of a low-frequency noise of the WORLD
+   *  position (u_origin is the field's, so live and replay agree): the
+   *  cauliflower edge. Mode 7 is the paint to move, u_k * a * inside; mode 8 puts it
+   *  back: a * (1 - u_k * inside) + band * b / c, with b the moved paint
+   *  gathered and c the band gathered by the same kernel, so what the
+   *  interior lost lands on the band around it, mass kept to the kernel's
+   *  approximation. */
+  uniform vec2 u_dir;
+  uniform sampler2D u_d;
+  uniform vec2 u_origin;
+  uniform vec2 u_size;
+  const float WC_RIM_NOISE_PX = 9.0;
+  // Macros, not functions: a helper called from more than one place makes
+  // ANGLE fail the link with an empty log (see project notes), and the dome
+  // is read by three modes.
+  #define WC_RIM_HASH(p) fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)
   varying vec2 v_uv;
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 5.5) {
+      if (u_mode > 8.5) {
+        // Erode: the least of a 3x3 at u_dir of stride - the mask pulled in.
+        float m = 1.0;
+        for (int j = -1; j <= 1; j++) {
+          for (int i = -1; i <= 1; i++) {
+            m = min(m, texture2D(u_a, v_uv + vec2(float(i), float(j)) * u_dir).r);
+          }
+        }
+        gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
+        return;
+      }
+      if (u_mode > 7.5) {
+        // Put the moved paint back: u_d is the band texture (r band, g
+        // inside), b the moved paint gathered, c the band gathered.
+        vec4 bd = texture2D(u_d, v_uv);
+        vec4 c = texture2D(u_c, v_uv);
+        gl_FragColor = clamp(a * (1.0 - u_k * bd.g) + bd.r * b / max(c.r, 1e-3), 0.0, 1.0);
+        return;
+      }
+      if (u_mode > 6.5) {
+        // The paint to move: u_k of a, inside the footprint (band texture .g).
+        gl_FragColor = u_k * a * texture2D(u_d, v_uv).g;
+        return;
+      }
+      // The band: a is the footprint mask, u_d its erosion, both read at a
+      // position warped by a low-frequency value noise of the WORLD texel
+      // (top-down: the field's rows run bottom-up from its own height, so a
+      // texel gets the same number whatever size the field was allocated
+      // at - live and replay agree). r = the band, g = inside.
+      // Integer texel coordinates, so the hash sees the same number from a
+      // live settle and a replay whatever the field's allocated size (a
+      // half-texel from the rasteriser would not survive the hash); folded
+      // to 256 px so the argument stays where sin() is still a hash.
+      vec2 world = mod(floor(v_uv * u_size) * vec2(1.0, -1.0) + vec2(u_origin.x, u_origin.y + u_size.y - 1.0), 256.0);
+      vec2 np = world / WC_RIM_NOISE_PX;
+      vec2 ni = floor(np), nf = fract(np);
+      nf = nf * nf * (3.0 - 2.0 * nf);
+      float n1 = mix(mix(WC_RIM_HASH(ni), WC_RIM_HASH(ni + vec2(1.0, 0.0)), nf.x),
+                     mix(WC_RIM_HASH(ni + vec2(0.0, 1.0)), WC_RIM_HASH(ni + vec2(1.0, 1.0)), nf.x), nf.y);
+      vec2 nq = ni + 37.0;
+      float n2 = mix(mix(WC_RIM_HASH(nq), WC_RIM_HASH(nq + vec2(1.0, 0.0)), nf.x),
+                     mix(WC_RIM_HASH(nq + vec2(0.0, 1.0)), WC_RIM_HASH(nq + vec2(1.0, 1.0)), nf.x), nf.y);
+      vec2 wuv = v_uv + vec2(n1 - 0.5, n2 - 0.5) * 2.0 * u_k / u_size;
+      float inside = texture2D(u_a, wuv).r;
+      float band = inside * (1.0 - texture2D(u_d, wuv).r);
+      gl_FragColor = vec4(band, inside, 0.0, 1.0);
+      return;
+    }
+    if (u_mode > 4.5) {
+      // All four channels: the moved paint is a whole deposit texel.
+      vec4 s = vec4(0.0);
+      for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+          float w = (i == 0 ? 2.0 : 1.0) * (j == 0 ? 2.0 : 1.0);
+          s += w * texture2D(u_a, v_uv + vec2(float(i), float(j)) * u_dir);
+        }
+      }
+      gl_FragColor = s / 16.0;
+      return;
+    }
+    if (u_mode > 3.5) {
+      // Soft, not a step: the deposit's fringe is a code or two, and a live
+      // stroke's batches round it differently from a replay's one pass; a
+      // step there flips whole texels of the band between the two, a ramp
+      // moves them by a fraction.
+      float m = smoothstep(u_k, u_k * 4.0, a.a);
+      gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
+      return;
+    }
     if (u_mode > 2.5) {
       gl_FragColor = clamp(a + b - texture2D(u_c, v_uv), 0.0, 1.0);
       return;

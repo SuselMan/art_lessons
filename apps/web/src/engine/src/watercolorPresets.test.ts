@@ -17,7 +17,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
-  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength,
   watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
@@ -84,6 +84,14 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     // Run dry: nothing stands, at any setting.
     expect(watercolorStandingWater(1, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)
     expect(watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)
+  })
+
+  it('blooms on damp paper only: nothing dry, nothing wet, the most in between (§17.23)', () => {
+    expect(watercolorBloomStrength(0)).toBe(0)
+    expect(watercolorBloomStrength(0.03)).toBe(0)
+    expect(watercolorBloomStrength(0.3)).toBeGreaterThan(0.9)
+    expect(watercolorBloomStrength(0.9)).toBe(0)
+    expect(watercolorBloomStrength(0.55)).toBeLessThan(watercolorBloomStrength(0.3))
   })
 
   it('runs a brush dry only when it carries pigment', () => {

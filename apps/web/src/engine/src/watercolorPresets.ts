@@ -725,6 +725,65 @@ export function watercolorBrushRunsDry(pigment: number): boolean {
   return pigment > 0
 }
 
+// ─── Blooms and tidelines (#536, ADR 011 §17.23) ───────────────────────────
+//
+// Two things a puddle does that a diffusion cannot: pigment goes to the EDGE.
+// While a stroke's own puddle dries, water flows to its rim and carries paint
+// there — the tideline, a dark line round every dried wash. And a drop of
+// water into a wash that is damp but not wet pushes the wash's paint outward
+// to where the drop's water stops — the bloom, a light patch with a hard
+// ragged dark edge ("cauliflower"). Both are advection down a water-pressure
+// gradient, gated where the water ends; wetDiffusion.ts holds the oracle,
+// WC_DIFFUSE_FRAG the GPU twin.
+
+/** How strongly a mark laid into paper of recorded wetness `paperWet` blooms
+ *  the wash under it: nothing on dry paper (a glaze), nothing on a wet one
+ *  (the paint just mingles — bloom_sf_2632), the most on a damp one. */
+export function watercolorBloomStrength(paperWet: number): number {
+  const w = clamp01(paperWet)
+  const rise = smoothstepJs(WC_BLOOM_DAMP_LO, WC_BLOOM_DAMP_PEAK, w)
+  const fall = 1 - smoothstepJs(WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, w)
+  return rise * fall
+}
+export const WC_BLOOM_DAMP_LO = 0.06
+export const WC_BLOOM_DAMP_PEAK = 0.25
+export const WC_BLOOM_WET_LO = 0.45
+export const WC_BLOOM_WET_HI = 0.7
+/** The share of the wash's SETTLED paint inside a drop's footprint that the
+ *  drop pushes to the footprint's edge, at full bloom strength: the light
+ *  interior and the dark ring of a bloom (bloom_akv_2, bloom_wa_drop).
+ *
+ *  Why a relocation and not the oracle's advection: the GPU fields are eight
+ *  bits, and a drift of a few per cent of a value of forty codes per step
+ *  rounds to nothing — measured, the advection at three times the oracle's
+ *  rate only flattened the profile. Moving the share in one pass keeps the
+ *  amount whatever the precision. */
+export const WC_BLOOM_RIM = 2.0
+/** How much darker than its body a mark's rim ends up — the tideline of
+ *  every wash (str_ldm_2809, gran_wa_main): the band gets this much of the
+ *  body's density on top of its own. The share of the interior moved is
+ *  worked out from it and the mark's radius, so a broad wash and a thin
+ *  line get the same rim rather than the broad one drowning in it. */
+export const WC_TIDE_RIM = 1.0
+/** The rim band's width, px at world scale: the sliver just inside the
+ *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
+ *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */
+export const WC_RIM_BAND_PX = 6
+export const WC_RIM_INSET_PX = 3
+/** How far the rim's edge wanders, px, with a slow noise of the world
+ *  position: a stroke's tideline barely (the edge is the stroke's), a
+ *  bloom's ring a lot — the cauliflower (bloom_akv_2). */
+export const WC_RIM_WARP_TIDE_PX = 1
+export const WC_RIM_WARP_BLOOM_PX = 3
+/** The share of the interior's paint to move so that a band WC_RIM_BAND_PX
+ *  wide at the edge of a mark of radius `radiusPx` ends up `rim` denser
+ *  than the body: an interior of area ~radius per unit edge feeds a band of
+ *  area ~band per unit edge. Capped: never more than most of the paint. */
+export function watercolorRimShare(rim: number, radiusPx: number, bandPx = WC_RIM_BAND_PX): number {
+  const r = Math.max(radiusPx, bandPx)
+  return Math.min(0.6, rim * bandPx / r)
+}
+
 /** (#536) The half-width of the brush *being held*, recovered from one dab it
  *  made — as opposed to the half-width of that particular footprint.
  *

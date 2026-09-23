@@ -68,7 +68,8 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
+  watercolorBloomStrength, watercolorRimShare, WC_BLOOM_RIM, WC_TIDE_RIM, WC_RIM_WARP_BLOOM_PX, WC_RIM_WARP_TIDE_PX, WC_RIM_BAND_PX, WC_RIM_INSET_PX, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -1735,6 +1736,15 @@ class RibbonStrokeScratch {
     color: [number, number, number]; opacity: number
     bounds: { minX: number; minY: number; maxX: number; maxY: number }
     fieldSeed: [number, number]
+    /** (#536, §17.23) The recorded wetness of the paper where this operation
+     *  LANDED — its first dab's digit — so the settle can tell a drop into a
+     *  damp wash (a bloom) from one into a wet or a dry one. The first dab,
+     *  as everything else the gesture decides once (see _paintRibbonDabs):
+     *  it is the one sample a live stroke and its replay are sure to share,
+     *  and the profile after it is strided and trimmed. */
+    landedWet: number
+    /** (#536, §17.23) The widest dab radius of the operation, px. */
+    radiusPx: number
   } | null = null
 
   noteFinish(ctx: NonNullable<RibbonStrokeScratch['_finish']>): void {
@@ -1746,6 +1756,7 @@ class RibbonStrokeScratch {
       maxX: Math.max(prev.bounds.maxX, ctx.bounds.maxX),
       maxY: Math.max(prev.bounds.maxY, ctx.bounds.maxY),
     }
+    prev.radiusPx = Math.max(prev.radiusPx, ctx.radiusPx)
   }
 
   get finishContext(): RibbonStrokeScratch['_finish'] {
@@ -1809,6 +1820,11 @@ class RibbonStrokeScratch {
     // The exchange is intra-stroke by decision — see watercolorWaterClock's own
     // note on why the brush is not allowed hidden state that outlives a mark.
     this._pigmentUsed = 0
+    // (#536, §17.23) The finish context is the GESTURE's: its bounds, its
+    // landing wetness, its radius. It used to outlive the stroke, so every
+    // pen-up of a wash recomposited the union of every stroke so far and
+    // read the first stroke's landing for the bloom of the last.
+    this._finish = null
   }
 
   /** `needsInk` false skips the third buffer entirely (#454): a covering,
@@ -2266,6 +2282,7 @@ export class PencilEngine implements PencilEngineAPI {
     a: AccumulationBuffer; b: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer
     /** (#536, §17.19) The colour record's own trio, moved by the same gate. */
     ca: AccumulationBuffer; cb: AccumulationBuffer; cc: AccumulationBuffer
+      mask: AccumulationBuffer; pressure: AccumulationBuffer
   } | null = null
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
@@ -3455,7 +3472,7 @@ export class PencilEngine implements PencilEngineAPI {
       batchesPerSec: p.batchAt.length * 1000 / span, batchP50: pct(p.batchMs, 0.5), batchMax: pct(p.batchMs, 1),
       settleMs: p.settleMs, settleOps: p.settleOps,
       scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,
-      fieldMB: field ? field.w * field.h * 4 * 7 * MB : 0,
+      fieldMB: field ? field.w * field.h * 4 * 9 * MB : 0,
       revealMB: revealBytes * MB,
       wetCells: this._paperWet.peak(now) > 0.01 ? this._paperWet.cellsOf(this._activeId ?? '', now).filter(c => c.w > 0.1).length : 0,
     }
@@ -5557,7 +5574,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
@@ -8162,9 +8179,13 @@ export class PencilEngine implements PencilEngineAPI {
     // Erring outward costs a slightly larger rect; erring inward composites
     // from buffers that are still filling, which is the determinism bug this
     // whole block exists to prevent.
+    // (§17.23) …and the nib's own radius, without the halo's bound: what the
+    // rim is scaled by.
+    let nibRadius = 0
     for (const [i, d] of drawable.entries()) {
       const minor = d.size * 0.5 * preset.sizeMultiplier
       maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(i) + haloPast(i))
+      nibRadius = Math.max(nibRadius, minor * Math.max(d.aspectRatio, 1))
     }
     // Everything that can still change this pixel, **summed** rather than
     // maxed — each term is a separate hop outward and they compose:
@@ -8543,7 +8564,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     scratch.noteFinish({
       target, preset, profile, color, opacity: drawable[0].opacity,
-      bounds: compositeBounds, fieldSeed,
+      bounds: compositeBounds, fieldSeed, landedWet, radiusPx: nibRadius,
     })
 
     target.markContentPainted(compositeBounds)
@@ -8667,8 +8688,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number] } = {},
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9, k: number,
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number] } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -8690,9 +8711,15 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, (opts.c ?? b).texture)
     gl.uniform1i(u.u_c, 2)
+    gl.activeTexture(gl.TEXTURE3)
+    gl.bindTexture(gl.TEXTURE_2D, (opts.d ?? b).texture)
+    gl.uniform1i(u.u_d, 3)
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform1f(u.u_k, k)
     gl.uniform1f(u.u_mode, mode)
+    gl.uniform2f(u.u_dir, opts.dir ? opts.dir[0] / out.width : 0, opts.dir ? opts.dir[1] / out.height : 0)
+    gl.uniform2f(u.u_origin, opts.origin ? opts.origin[0] : 0, opts.origin ? opts.origin[1] : 0)
+    gl.uniform2f(u.u_size, out.width, out.height)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
     out.endDraw()
@@ -8784,6 +8811,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _diffuseWashOps(
     scratch: RibbonStrokeScratch, targets: PaintTarget[],
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    /** (#536, §17.23) How strongly this operation blooms the wash under it,
+     *  0..1 — watercolorBloomStrength of the paper wetness it recorded. */
+    bloom = 0,
+    /** The mark's radius, px: sets the rim's share and the reach of the
+     *  gathering kernel — the whole interior feeds the rim, not just its
+     *  neighbourhood. */
+    radiusPx = 16,
   ): { ops: Array<() => void>; finish: () => void } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
@@ -8889,31 +8923,97 @@ export class PencilEngine implements PencilEngineAPI {
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       dst.endDraw()
     }
+    // (§17.23) The operation's footprint — where its own deposit lies, which
+    // is the mobile field before anything moves — and the dome over it: the
+    // mask blurred at falling strides, 1 deep inside, 0.5 on the edge, 0
+    // outside. Then the band just inside the edge, blurred by the rim's
+    // kernel, kept in `mask` for both rims below. Once per settle.
+    const origin: [number, number] = [x0, y0]
+    // (§17.23) The footprint's band, once per settle: the mask of the
+    // operation's own deposit (the mobile field, before anything moves),
+    // its erosion by WC_RIM_BAND_PX, and the band between the two — kept
+    // in `pressure` (r band, g inside) for both rims below. Then the band
+    // gathered by the rim's kernel, kept in `mask`: what the moved paint is
+    // divided by so the band gets what the interior lost. The kernel spans
+    // the mark's radius, so the whole interior feeds the rim.
+    const gather: Array<[number, number]> = [radiusPx / 2, radiusPx / 4, radiusPx / 8, 1].map(v => { const s = Math.max(1, Math.round(v)); return [s, s] })
+    // The band sits WC_RIM_INSET_PX inside the mask's edge, clear of the
+    // stamp's anti-aliased fringe, and is WC_RIM_BAND_PX wide: between the
+    // mask eroded by the inset and the mask eroded by inset + width. Each
+    // erosion pass pulls the mask in by 2 px.
+    // Both scale with the mark, within limits: a tideline is a thin line on
+    // any wash, and a small drop's ring must leave it an interior.
+    const inset = Math.max(1, Math.min(WC_RIM_INSET_PX, Math.round(radiusPx / 8)))
+    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 4)))
+    const w1 = Math.ceil(width / 2), w2 = width - w1
+    const band = (mobile: AccumulationBuffer, tmp: AccumulationBuffer, spare: AccumulationBuffer): void => {
+      this._fieldOp(field.mask, mobile, mobile, 4, 0.003)
+      // The outer edge of the band: the mask eroded by the inset — into tmp.
+      this._fieldOp(tmp, field.mask, field.mask, 9, 0, { dir: [inset, inset] })
+      // The inner edge: eroded further by the band's width — into spare.
+      this._fieldOp(spare, tmp, tmp, 9, 0, { dir: [w1, w1] })
+      this._fieldOp(field.pressure, spare, spare, 9, 0, { dir: [Math.max(w2, 1), Math.max(w2, 1)] })
+      this._fieldOp(spare, field.pressure, field.pressure, 9, 0, { dir: [w2 > 0 ? 1 : 0, w2 > 0 ? 1 : 0] })
+      this._fieldOp(field.pressure, tmp, tmp, 6, bloom > 0 ? WC_RIM_WARP_BLOOM_PX : WC_RIM_WARP_TIDE_PX, { d: spare, origin })
+      this._fieldOp(tmp, field.pressure, field.pressure, 5, 0, { dir: gather[0] })
+      this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[1] })
+      this._fieldOp(tmp, field.mask, field.mask, 5, 0, { dir: gather[2] })
+      this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[3] })
+    }
+    // (§17.23) The rim: `share` of `paint` inside the footprint goes to the
+    // band. Two free buffers; the result lands in `t2`.
+    const rim = (paint: AccumulationBuffer, share: number, t1: AccumulationBuffer, t2: AccumulationBuffer): void => {
+      this._fieldOp(t1, paint, paint, 7, share, { d: field.pressure })
+      this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[0] })
+      this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[1] })
+      this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[2] })
+      this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[3] })
+      this._fieldOp(t2, paint, t1, 8, share, { c: field.mask, d: field.pressure })
+    }
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
     // schedule over c; the sum back into whichever of the pair is free.
     // The gate is the coverage alone (wcWaterAt), so the deposit and its
     // colour record — two records, one suspension — move by identical
     // fractions, to the bit. Each step is one entry of `ops`.
-    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer): { out: AccumulationBuffer } => {
+    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer): { out: AccumulationBuffer } => {
       const st = { src: c, dst: a, out: a }
       ops.push(() => {
         fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
         fieldOp(b, a, c, 1, -1)
+        // The footprint and its band come from the deposit's mobile field,
+        // once; the colour record rides the same ones.
+        if (first) band(c, a, spare)
       })
+      // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
+      // footprint goes to the footprint's edge — the light patch with the
+      // dark ragged ring. Only as much as the recorded wetness says the wash
+      // was damp (watercolorBloomStrength); `a` and `spare` are free here.
+      if (bloom > 0) {
+        ops.push(() => {
+          rim(b, watercolorRimShare(WC_BLOOM_RIM, radiusPx, width) * bloom, a, spare)
+          fieldOp(b, spare, spare, 1, 0)
+        })
+      }
       for (const { radius, knight } of WET_DIFFUSE_SCHEDULE) {
         ops.push(() => {
           diffuseStep(st.src, st.dst, radius, knight)
           const t = st.src; st.src = st.dst; st.dst = t
         })
       }
+      // (§17.23) The tideline: after the paint has run, its puddle carries a
+      // share of it to the rim as it dries. The moved field lands in `dst`,
+      // the sum with the fixed paint in `src`.
       ops.push(() => {
-        st.out = st.dst
-        fieldOp(st.out, b, st.src, 1, 1)
+        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusPx, width), st.dst, spare)
+        st.out = st.src
+        fieldOp(st.out, b, spare, 1, 1)
       })
       return st
     }
-    const dep = settle(field.a, field.b, field.c)
+    // The deposit's settle borrows a colour buffer as its spare; the colour
+    // settle, when it runs, borrows a deposit one (both are done by then).
+    const dep = settle(field.a, field.b, field.c, true, field.cc)
     // (#536, §17.20) One paint so far: its colour record is its deposit's
     // mass times one absorption everywhere, so it is rebuilt from the moved
     // deposit in a single pass instead of carried through the schedule
@@ -8937,6 +9037,15 @@ export class PencilEngine implements PencilEngineAPI {
         gl.activeTexture(gl.TEXTURE1)
         gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
         gl.uniform1i(fu.u_b, 1)
+        // Units 2 and 3 too: the program samples u_c and u_d, and whatever
+        // the last field op left on those units — the rim's spare buffer,
+        // which is this very output — would be a feedback loop.
+        gl.activeTexture(gl.TEXTURE2)
+        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
+        gl.uniform1i(fu.u_c, 2)
+        gl.activeTexture(gl.TEXTURE3)
+        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
+        gl.uniform1i(fu.u_d, 3)
         gl.activeTexture(gl.TEXTURE0)
         gl.uniform1f(fu.u_k, 1)
         gl.uniform1f(fu.u_mode, 2)
@@ -8945,7 +9054,7 @@ export class PencilEngine implements PencilEngineAPI {
         outColor.endDraw()
       })
     } else {
-      col = settle(field.ca, field.cb, field.cc)
+      col = settle(field.ca, field.cb, field.cc, false, field.c)
     }
 
     // …and home, tile by tile — and this is the new settled deposit.
@@ -9059,6 +9168,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!cur) return
       cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
       cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
+      cur.mask.destroy(); cur.pressure.destroy()
       this._diffuseField = null
     }, WET_FIELD_RELEASE_MS) as unknown as number
   }
@@ -9081,6 +9191,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (cur) {
       cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
       cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
+      cur.mask.destroy(); cur.pressure.destroy()
     }
     const W = Math.max(need(w), cur?.w ?? 0), H = Math.max(need(h), cur?.h ?? 0)
     const { gl } = this
@@ -9093,6 +9204,11 @@ export class PencilEngine implements PencilEngineAPI {
       ca: new AccumulationBuffer(gl, W, H, 'nearest'),
       cb: new AccumulationBuffer(gl, W, H, 'nearest'),
       cc: new AccumulationBuffer(gl, W, H, 'nearest'),
+      // (#536, §17.23) The operation's footprint and the pressure dome over
+      // it, for the bloom and the tideline. Linear: the dome is read at
+      // warped positions.
+      mask: new AccumulationBuffer(gl, W, H, 'linear'),
+      pressure: new AccumulationBuffer(gl, W, H, 'linear'),
     }
     this._diffuseField = field
     return field
@@ -9122,15 +9238,19 @@ export class PencilEngine implements PencilEngineAPI {
         fieldSeed: [0, 0] as [number, number], bristleRadiusPx: 0,
       }),
     )
-    const spacing = scratch.noteDabSpacing(0)
+    scratch.noteDabSpacing(0)
     const dir = scratch.noteDirection(0, 0)
     const composite = (): void => {
       for (const tile of targets) {
         const entry = scratch.peek(tile.buffer)
         if (!entry) continue
+        // (§17.23) No deposit smoothing at the settle: the live batches
+        // average the deposit over a dab spacing to hide the dab pitch, but
+        // the settle's diffusion has smoothed the pitch far past that, and the
+        // rim it lays is a few pixels wide — the average would take it away.
         this._drawRibbonCompositeRect(
           tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, entry.inkColor, color, opacity,
-          fieldSeed, spreadPx, water, migratePx, spacing, dir, bristleRadiusPx,
+          fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
         )
       }
       target.markContentPainted(bounds)
@@ -9150,7 +9270,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (scratch.diffusePending) {
       scratch.diffusePending = false
       if (this._settle) this._completeSettle()
-      const job = this._diffuseWashOps(scratch, targets, bounds)
+      const bloom = watercolorBloomStrength(ctx.landedWet)
+      // Dev probe for the rig: what this settle was given.
+      Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, reveal } })
+      const job = this._diffuseWashOps(scratch, targets, bounds, bloom, ctx.radiusPx)
       if (job) {
         const complete = (): void => {
           job.finish()
