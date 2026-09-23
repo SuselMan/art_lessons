@@ -1544,6 +1544,8 @@ function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: n
 }
 
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
+/** (#536, §17.22) How long after a settle the diffusion field is kept. */
+const WET_FIELD_RELEASE_MS = 8000
 
 class RibbonScratchPool {
   private _free = new Map<string, AccumulationBuffer[]>()
@@ -1631,6 +1633,10 @@ class RibbonStrokeScratch {
    *  wash's coverage .b are fed one number. Cleared per batch; the keys are
    *  the batch's own dab objects. */
   readonly standing = new Map<Dab, number>()
+  /** (#536, §17.22) Live batches no longer composite one by one: each adds
+   *  its rect here, and the engine composites the union once per displayed
+   *  frame (_flushLiveComposite). Keyed by tile buffer. */
+  readonly pendingComposite = new Map<AccumulationBuffer, { tile: PaintTarget; bounds: { minX: number; minY: number; maxX: number; maxY: number } }>()
   private readonly needsInk: boolean
   /** (#468 v3) How much of the brush's load this gesture has spent so far,
    *  measured in brush radii of travel (ADR 011 §3.8).
@@ -1870,6 +1876,7 @@ class RibbonStrokeScratch {
     this._waterUsed = 0
     this._pigmentUsed = 0
     this.diffusePending = false
+    this.pendingComposite.clear()
     this._composite = null
     this._dabSpacing = 0
     this._dirSet = false
@@ -1889,6 +1896,7 @@ class RibbonStrokeScratch {
    *  destroy is meaningful — just let go of them. */
   forget(): void {
     this._tiles.clear()
+    this.pendingComposite.clear()
   }
 
   /** (#536, §17.22) Whether this scratch still holds its tiles — false once
@@ -2214,6 +2222,34 @@ export class PencilEngine implements PencilEngineAPI {
     complete: () => void
     raf: number
   } | null = null
+  /** (#536, §17.22) The live gesture's composite, deferred to the frame: the
+   *  per-gesture scalars every batch would have passed, kept from the first
+   *  deferred batch. Null while no live ribbon gesture has a rect pending.
+   *
+   *  Why per frame: a pen delivers 120–240 samples a second and every sample
+   *  with a dab used to composite its own rect — the most expensive shader in
+   *  the tool, plus the reveal's keep-fresh copies around it — while the
+   *  screen shows sixty of them at most. The composite is a pure recomputation
+   *  of a rect from the deposit, so the union of the batches since the last
+   *  frame gives the same pixels as the batches one by one. */
+  private _liveComposite: {
+    scratch: RibbonStrokeScratch
+    preset: PencilPreset
+    profile: RibbonProfile
+    color: [number, number, number]
+    opacity: number
+    fieldSeed: [number, number]
+    spreadPx: number
+    fringeWater: number
+    migratePx: number
+    inkSmoothPx: number
+    strokeDir: [number, number]
+    bristleRadiusPx: number
+  } | null = null
+  /** (#536, §17.22) Frees the diffusion field a while after the last settle:
+   *  seven buffers of up to 1536² are a hundred megabytes a tablet should not
+   *  hold between washes. */
+  private _fieldReleaseTimer = 0
   /** (#536, §17.22) Rings behind getWatercolorPerf. Timestamps and costs of
    *  the last frames and batches; pruned to the window on read. */
   private readonly _wcPerf = {
@@ -4866,6 +4902,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._washReveals.clear() // same — and the pool they came from is forgotten below
     this._cancelSettle()
+    if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     this._diffuseField = null
     this._previewBuf = null
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
@@ -4887,6 +4924,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonScratchPool.forget()
     this._washReveals.clear() // same reasoning — its pooled copies are dead with the pool
     this._cancelSettle()
+    if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     this._diffuseField = null // handles dead too
     this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeReplayChunks.clear()
@@ -7826,7 +7864,10 @@ export class PencilEngine implements PencilEngineAPI {
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
-    this._paintRibbonStroke(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed)
+    // (#536, §17.22) Only the author's own gesture (the caller-owned scratch)
+    // defers its composite to the frame; a replay or a peer's packet has no
+    // frame to wait for and composites as it always did.
+    this._paintRibbonStroke(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed, !!ribbonScratch)
     // Replay finishes the stroke inside this call as far as it can know: a
     // one-shot has painted every dab there is, a chunk every dab of its own
     // operation. Both recomposite now; a chunked gesture simply does it again,
@@ -7936,6 +7977,8 @@ export class PencilEngine implements PencilEngineAPI {
      *  dabs by the caller, so index 0 is dabs[0] on every path. */
     wetProfile?: string,
     strokeSeed?: [number, number],
+    /** (#536, §17.22) See _paintRibbonDabs: the live gesture's composite waits for the frame. */
+    deferComposite = false,
   ): void {
     // Two different treatments of a dab too thin to resolve, and which one a
     // tool gets is the whole of RibbonProfile.minHalfWidthPx (#454). The
@@ -8471,6 +8514,24 @@ export class PencilEngine implements PencilEngineAPI {
       // all, which for the brush pen is guaranteed by _bakeDabOpacity (ADR 009
       // §9 — pressure drives width, never alpha). The marker's branch ignores
       // this argument entirely and reads its own inkLoad texture instead.
+      if (deferComposite) {
+        // (#536, §17.22) The live gesture: the rect joins this frame's union
+        // and the composite runs once, in _display, before the frame is drawn.
+        const pending = scratch.pendingComposite.get(tile.buffer)
+        if (pending) {
+          pending.bounds.minX = Math.min(pending.bounds.minX, compositeBounds.minX)
+          pending.bounds.minY = Math.min(pending.bounds.minY, compositeBounds.minY)
+          pending.bounds.maxX = Math.max(pending.bounds.maxX, compositeBounds.maxX)
+          pending.bounds.maxY = Math.max(pending.bounds.maxY, compositeBounds.maxY)
+        } else {
+          scratch.pendingComposite.set(tile.buffer, { tile, bounds: { ...compositeBounds } })
+        }
+        this._liveComposite = {
+          scratch, preset, profile, color, opacity: drawable[0].opacity, fieldSeed, spreadPx, fringeWater, migratePx,
+          inkSmoothPx: profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
+        }
+        continue
+      }
       const revealPrev = this._revealBeforeBatch(tile, compositeBounds)
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, inkColor, color, drawable[0].opacity,
@@ -8730,7 +8791,10 @@ export class PencilEngine implements PencilEngineAPI {
     // The rect: the settle's bounds plus the reach, clipped to the tiles that
     // actually hold this wash. Capped — a wash wider than the cap diffuses
     // in a window around its centre and sees a wall at the window's edge.
-    const CAP = 2048
+    // (#536, §17.22) 1536, from 2048: seven buffers of 2048² are 117 MB, which
+    // a tablet does not have to spare; at 1536 the field is 66 MB and a 400 px
+    // brush's whole gesture still fits it with its reach.
+    const CAP = 1536
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const t of tiles) {
       minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY)
@@ -8902,6 +8966,29 @@ export class PencilEngine implements PencilEngineAPI {
     return { ops, finish }
   }
 
+  /** (#536, §17.22) Composites the live gesture's rects gathered since the
+   *  last frame — the union per tile, each with the reveal's keep-fresh
+   *  around it, exactly as a batch used to. Runs at the top of _display, and
+   *  before anything that needs the tile up to date (pen-up's settle). */
+  private _flushLiveComposite(): void {
+    const lc = this._liveComposite
+    if (!lc) return
+    const { scratch } = lc
+    if (scratch.pendingComposite.size === 0 || !scratch.live) { scratch.pendingComposite.clear(); this._liveComposite = null; return }
+    for (const { tile, bounds } of scratch.pendingComposite.values()) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry) continue
+      const revealPrev = this._revealBeforeBatch(tile, bounds)
+      this._drawRibbonCompositeRect(
+        tile, bounds, lc.preset, lc.profile, entry.original, entry.coverage, entry.inkLoad, entry.inkColor, lc.color, lc.opacity,
+        lc.fieldSeed, lc.spreadPx, lc.fringeWater, lc.migratePx, lc.inkSmoothPx, lc.strokeDir, lc.bristleRadiusPx,
+      )
+      this._revealAfterBatch(tile, bounds, revealPrev)
+    }
+    scratch.pendingComposite.clear()
+    this._liveComposite = null
+  }
+
   /** (#536, §17.22) How many of a settle's GPU steps run per animation frame
    *  when it is spread out. Two: a step is one full-field pass, ~8 ms for a
    *  400 px brush on a desktop GPU, and the whole list is 15–27 entries, so
@@ -8912,6 +8999,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  already in flight first: both use the one _diffuseField. */
   private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void): void {
     if (this._settle) this._completeSettle()
+    if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     this._settle = { scratch, ops, next: 0, complete, raf: 0 }
     this._wcPerf.settleStart = performance.now()
     this._wcPerf.settleOps = ops.length
@@ -8938,6 +9026,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._settle = null
       s.complete()
       this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
+      this._scheduleFieldRelease()
       return
     }
     this._scheduleSettleTick()
@@ -8956,6 +9045,22 @@ export class PencilEngine implements PencilEngineAPI {
     for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
     s.complete()
     this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
+    this._scheduleFieldRelease()
+  }
+
+  /** (#536, §17.22) The diffusion field is freed WET_FIELD_RELEASE_MS after
+   *  the last settle landed; the next settle simply allocates it again. */
+  private _scheduleFieldRelease(): void {
+    if (this._fieldReleaseTimer) clearTimeout(this._fieldReleaseTimer)
+    this._fieldReleaseTimer = setTimeout(() => {
+      this._fieldReleaseTimer = 0
+      if (this._settle) return
+      const cur = this._diffuseField
+      if (!cur) return
+      cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
+      cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
+      this._diffuseField = null
+    }, WET_FIELD_RELEASE_MS) as unknown as number
   }
 
   /** Drops the settle in flight without landing it — the field is gone. */
@@ -9000,6 +9105,11 @@ export class PencilEngine implements PencilEngineAPI {
      *  settles silently — the picture it builds is already the dry target. */
     reveal = false,
   ): void {
+    // (#536, §17.22) Whatever the last batches left for the frame lands now,
+    // for every ribbon tool: the marker's scratch is torn down right after
+    // this, and for watercolor the settle below is spread over frames while
+    // the tile must already show the whole mark.
+    if (this._liveComposite?.scratch === scratch) this._flushLiveComposite()
     const ctx = scratch.finishContext
     if (!ctx || !ctx.profile.normalizeDeposit) return
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
@@ -9063,6 +9173,7 @@ export class PencilEngine implements PencilEngineAPI {
         }
         for (const op of job.ops) op()
         complete()
+        this._scheduleFieldRelease()
         return
       }
     }
@@ -11554,6 +11665,8 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536, §17.12) Reveals that ran out go before the frame, not after: the
     // frame that ends one draws the tile plain.
     const perfT0 = performance.now()
+    // (#536, §17.22) The live watercolor gesture's composite, once per frame.
+    this._flushLiveComposite()
     if (this._washReveals.size) this._sweepReveals(perfT0)
     this._composeToFBO(false)
     // _composePaperToScreen manages its own framebuffer/viewport/blend state,
