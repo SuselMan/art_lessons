@@ -8,6 +8,7 @@ import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Menu } from '../Menu'
 import { isFolder } from '../../lib/layers'
+import { useLongPress } from '../../lib/useLongPress'
 import styles from './LayerPanel.module.css'
 
 export interface LayerRowProps {
@@ -64,11 +65,23 @@ export interface LayerRowProps {
    *  same, and a row showing an open padlock while silently declining every
    *  stroke is the failure this issue is about. */
   lockedByFolder?: boolean
+  /** (#557) This row is one of the layers the viewer has soloed. Its menu
+   *  offers the way back out, and its eye is lit to say where the solo is. */
+  soloTarget?: boolean
+  /** (#557) A solo is on and this row is not in it. Its eye is dimmed, not
+   *  changed: the shared visibility is exactly what it was, and the icon has
+   *  to keep saying so — a struck-through eye would claim someone hid it. */
+  soloHidden?: boolean
+  /** (#557) Solo this row, or end the solo when the row is already its
+   *  target. Reached three ways: the row menu, Alt+click on the eye (the
+   *  Photoshop/Krita gesture, for a mouse) and a long press on the eye (for a
+   *  finger, where there is no Alt). */
+  onSolo?: (id: string) => void
 }
 
 function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isTravelling = false, isOwner,
-  lockedByFolder = false,
+  lockedByFolder = false, soloTarget = false, soloHidden = false, onSolo,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
   onToggleCollapse, onMergeDown, onDuplicate, onClear, onDelete,
@@ -77,6 +90,7 @@ function LayerRowImpl({
 }: LayerRowProps) {
   const t = useT()
   const nameRef = useRef<HTMLInputElement>(null)
+  const soloPress = useLongPress({ onLongPress: () => onSolo?.(item.id) })
 
   const isFolderItem = isFolder(item)
   const isBackground = item.id === BACKGROUND_LAYER_ID
@@ -182,10 +196,25 @@ function LayerRowImpl({
         )
       }
 
+      {/* (#557) The eye carries the solo gestures too, because the eye is
+          where anyone used to another drawing app will try them. A long press
+          here used to fall through to the row and open selection mode; it
+          means solo now, so the pointerdown stops at the button — which also
+          keeps a hold on the eye from arming the row drag. A plain tap still
+          toggles visibility exactly as before. */}
       <button
-        className={styles.rowIconBtn}
-        onClick={e => { e.stopPropagation(); onToggleVisible(item.id) }}
-        title={t(item.visible ? 'layers.hide' : 'layers.show')}
+        className={clsx(
+          styles.rowIconBtn,
+          soloTarget && styles.rowIconBtnSolo,
+          soloHidden && styles.rowIconBtnSoloHidden,
+        )}
+        onPointerDown={e => { e.stopPropagation(); soloPress.onPointerDown(e) }}
+        onClick={e => {
+          e.stopPropagation()
+          if (e.altKey && onSolo) onSolo(item.id)
+          else onToggleVisible(item.id)
+        }}
+        title={soloHidden ? t('layers.hiddenBySolo') : t(item.visible ? 'layers.hide' : 'layers.show')}
         aria-label={t(item.visible ? 'layers.hide' : 'layers.show')}
       >
         <Icon name={item.visible ? 'visibility' : 'visibility_off'} />
@@ -297,6 +326,14 @@ function LayerRowImpl({
               label: t(item.visible ? 'layers.hide' : 'layers.show'),
               icon: item.visible ? 'visibility_off' : 'visibility',
               onClick: () => onToggleVisible(item.id),
+            },
+            // (#557) Right under Hide/Show because it is the other answer to
+            // the same question — what do I want to see — with the difference
+            // that this one is private and leaves the room's eyes alone.
+            {
+              label: t(soloTarget ? 'layers.unsolo' : 'layers.solo'),
+              icon: soloTarget ? 'center_focus_weak' : 'center_focus_strong',
+              onClick: () => onSolo?.(item.id),
             },
             {
               label: lockInherited ? t('layers.lockedByFolder') : t(isLocked ? 'layers.unlock' : 'layers.lock'),

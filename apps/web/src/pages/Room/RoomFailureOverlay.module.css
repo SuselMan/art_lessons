@@ -1,8 +1,10 @@
-/* (#346) Third of the three room-status overlays, so it takes the geometry the
-   other two already share — see RoomLoadingOverlay.module.css for why the
-   container must stay pointer-events:none, and OfflineRoomOverlay.module.css
-   for the title/body pair this mirrors. The button below is the one thing here
-   that is genuinely interactive and opts back in for itself. */
+/* (#346, shared since #533) The "this room did not open, and here is the one
+   thing to do about it" screen, worn by both the paper failure and the
+   snapshot one. It takes the geometry the other room-status overlays already
+   share — see RoomLoadingOverlay.module.css for why the container must stay
+   pointer-events:none, and OfflineRoomOverlay.module.css for the title/body
+   pair this mirrors. The button below is the one thing here that is genuinely
+   interactive and opts back in for itself. */
 .overlay {
   position: absolute;
   inset: 0;

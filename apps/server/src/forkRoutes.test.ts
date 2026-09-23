@@ -143,6 +143,36 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(room).toMatchObject({ paper: 'coarse', paperColor: '#f5f0e6', infinite: false, canvasWidth: 1240, canvasHeight: 1754 })
   })
 
+  it('files the copy in the folder the source is filed in (#552)', async () => {
+    mockPrisma.roomParticipant.findUnique.mockResolvedValue({ roomId: SOURCE.id, userId: 'student', folderId: 'folder-7' })
+
+    const res = await fork(buildApp('student'))
+
+    // Folders are per-user, so the placement lives on the participant row and
+    // not on the room: created without it, the copy of a lesson filed in a
+    // course folder turns up at the root of "Мои уроки" instead of beside it.
+    expect(mockPrisma.roomParticipant.create).toHaveBeenCalledWith({
+      data: { roomId: createdRoom().id, userId: 'student', folderId: 'folder-7' },
+    })
+    // And the answer says so, so the list doesn't have to assume the copy
+    // landed in whichever folder happens to be on screen.
+    expect(res.json().room.folderId).toBe('folder-7')
+  })
+
+  it('leaves an unfiled source\'s copy unfiled (#552)', async () => {
+    const res = await fork(buildApp('student'))
+
+    expect(mockPrisma.roomParticipant.create.mock.calls[0][0].data.folderId).toBeNull()
+    expect(res.json().room.folderId).toBeUndefined()
+  })
+
+  it('files an owner\'s copy at the root when they have no participant row (#552)', async () => {
+    mockPrisma.roomParticipant.findUnique.mockResolvedValue(null)
+
+    expect((await fork(buildApp('teacher'))).statusCode).toBe(201)
+    expect(mockPrisma.roomParticipant.create.mock.calls[0][0].data.folderId).toBeNull()
+  })
+
   it('leaves the password and the closed flag behind', async () => {
     await fork(buildApp('student'))
 

@@ -1,6 +1,4 @@
-import { useT } from '../../i18n'
-import { Icon } from '../../components/Icon'
-import styles from './PaperFailedOverlay.module.css'
+import { RoomFailureOverlay } from './RoomFailureOverlay'
 
 interface PaperFailedOverlayProps {
   /** A retry is in flight — the button stays put and goes un-clickable rather
@@ -14,35 +12,30 @@ interface PaperFailedOverlayProps {
  *
  *  Without that texture the engine cannot draw at all: `_paperTexLoaded` stays
  *  false and every pointer-down is dropped on the floor (see engine's
- *  `_onStart`). Until now the room opened anyway and simply did not respond to
- *  the pencil, with the actual error — which names the file, the status and
- *  the fix — going nowhere but an unhandled rejection in the console. An open
- *  room that ignores the stylus is the worst of the available lies: it looks
- *  like the app working and behaves like the app broken.
+ *  `_onStart`). Until this existed the room opened anyway and simply did not
+ *  respond to the pencil, with the actual error — which names the file, the
+ *  status and the fix — going nowhere but an unhandled rejection in the
+ *  console. An open room that ignores the stylus is the worst of the available
+ *  lies: it looks like the app working and behaves like the app broken.
  *
  *  So the room deliberately stays *unopened* here rather than opening with a
  *  toast over it. That is not only honesty about drawing — the replay that
  *  restores this room's content is downstream of the same await, so a room
  *  opened in this state would also be showing an empty canvas for a room that
- *  is not empty.
+ *  is not empty. (#533) That second half turned out to be a screen of its own:
+ *  see RestoreFailedOverlay.
  *
- *  The button is this overlay's own rather than a `Notice` action: those are
- *  documented as quiet escape hatches from something that already happened,
- *  and this is the single thing there is to do here.
- *
- *  Same geometry and the same `pointer-events: none` as RoomLoadingOverlay and
- *  OfflineRoomOverlay — see the former's own comment for why the container
- *  must not swallow input. The button opts back in for itself. */
+ *  The screen itself is RoomFailureOverlay, shared with that one. */
 export function PaperFailedOverlay({ retrying, onRetry }: PaperFailedOverlayProps): React.JSX.Element {
-  const t = useT()
   return (
-    <div className={styles.overlay} role="alert">
-      <Icon name="image_not_supported" />
-      <div className={styles.title}>{t('room.paperFailed.title')}</div>
-      <div className={styles.body}>{t('room.paperFailed.body')}</div>
-      <button type="button" className={styles.retry} onClick={onRetry} disabled={retrying}>
-        {t(retrying ? 'room.paperFailed.retrying' : 'room.paperFailed.retry')}
-      </button>
-    </div>
+    <RoomFailureOverlay
+      icon="image_not_supported"
+      titleKey="room.paperFailed.title"
+      bodyKey="room.paperFailed.body"
+      retryKey="room.paperFailed.retry"
+      retryingKey="room.paperFailed.retrying"
+      retrying={retrying}
+      onRetry={onRetry}
+    />
   )
 }

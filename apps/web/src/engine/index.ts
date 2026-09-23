@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG } from './src/shaders'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill } from '@grafetto/shared'
+import { shapeWorldBounds } from '@grafetto/shared'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -22,7 +23,10 @@ import {
   DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
 } from './src/dabShaping'
 import { tipFootprint } from './src/tipFootprint'
-import { dabDepositScale, isFootprintSpacedTool, type DabSpacingBounds } from './src/dabSpacing'
+import {
+  dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isDepositScaledTool, isFootprintSpacedTool,
+  type DabSpacingBounds,
+} from './src/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
   type PencilTiltConfig,
@@ -33,6 +37,7 @@ import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/tiltCurve'
 import type { NibAngleConfig } from './src/markerPresets'
+import { shapeDrawParams, type ShapeDrawParams } from './src/shapeGeometry'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 // (#517) Same on-device ring buffer PointerInput writes to — the stroke
@@ -55,7 +60,21 @@ import {
   type DwellConfig, type LinerSizeMm,
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
-import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+import {
+  digitalBrushFromPreset, digitalBrushPresetFor, digitalBrushScallops,
+} from './src/digitalBrushPresets'
+export {
+  DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH,
+  digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset,
+  type BrushDescriptor, type BrushTip,
+} from './src/digitalBrushPresets'
+import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+import { markerThinNibInkGain } from './src/markerInkGain'
+
+/** #547 — the band vertex array a stamps-only tool hands the two band passes,
+ *  which both no-op on a zero length. Shared and frozen in size rather than a
+ *  fresh `new Float32Array(0)` per batch: this is on the per-pointer-event path. */
+const EMPTY_BANDS = new Float32Array(0)
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
@@ -80,6 +99,7 @@ import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from '.
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
+import { packTilePixels, unpackTilePixels } from './src/pinnedTiles'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
@@ -167,7 +187,18 @@ export function previewDabShape(
     { x: 0, y: 0, pressure, tiltX, tiltY, baseSize, pathAngle, ds: 0, speed: 0, cameraAngle },
     null,
   )
-  return { size, aspectRatio, angle }
+  // #547: scaled by the same multiplier every paint path applies on the way to
+  // the screen (`d.size * 0.5 * preset.sizeMultiplier`), which this had never
+  // done — so the outline drew `Dab.size`, a number the renderer never puts on
+  // the canvas unscaled.
+  //
+  // It went unnoticed because it was small everywhere it applied: a 6H cursor
+  // was half again too wide, an ink-round one exact. The digital brush's flat
+  // tip made it impossible to miss — its multiplier is 0.25, so the outline was
+  // four times the mark. Fixed for every tool rather than special-cased, since
+  // "the cursor is how a tool's settings are seen before a mark exists" is the
+  // whole justification this function carries in its own doc comment.
+  return { size: size * renderSizeScale(tool, presetName ?? ''), aspectRatio, angle }
 }
 
 // Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
@@ -452,6 +483,22 @@ export interface PencilEngineAPI {
   setSmudgeGrain(patch: Partial<SmudgeGrainConfig>): void
   getSmudgeGrain(): SmudgeGrainConfig
   setCompositeOrder(items: CompositeItem[]): void
+  // (#557) Narrows what *this screen* composites to the given ids, without
+  // changing what the picture is. `setCompositeOrder` stays the one truth
+  // about the picture — the shared visibility every participant agrees on —
+  // and everything that produces the picture for someone else (exportPNG,
+  // and through it the room thumbnail) keeps reading it in full. Only the
+  // on-screen composite and what reads it (the "visible" fill source, whose
+  // whole meaning is "what I am looking at") go through the filter. Room
+  // derives the set from the layer panel's solo (lib/layers.ts's
+  // soloKeepSet); the engine knows nothing of folders or of why. `null`
+  // clears it.
+  //
+  // Kept as a separate call rather than folded into setCompositeOrder's
+  // argument on purpose: an export path added later cannot accidentally
+  // inherit the viewer's private filter, because there is no order it could
+  // read that has it applied.
+  setDisplayFilter(ids: ReadonlySet<string> | null): void
   appendOperation(op: Operation, source?: OperationSource): void
   // (#398) Decodes the reference image of every `image_import` among `ops`
   // into the engine's image cache, so that applying those operations
@@ -763,6 +810,19 @@ export interface PencilEngineAPI {
     layerId: string, image: string,
     rect: { x: number; y: number; width: number; height: number },
     matrix: LayerTransformMatrix,
+  ): void
+  // (#527) The shape tool's live preview: `geometry`/`frame` drawn over
+  // `layerId`'s own content without writing a pixel into it, for as long as the
+  // shape is still being placed. Same lifecycle and the same
+  // clearLayerTransformPreview as the three previews above — a shape session
+  // and a transform session cannot both be open, since each ends when the tool
+  // changes.
+  //
+  // Cheap enough to call per pointer move: it redraws only the tiles the shape
+  // covers, and reuses the scratch buffer of every tile it covered last frame.
+  previewShape(
+    layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
+    stroke: ShapeStroke | null, fill: ShapeFill | null,
   ): void
   // (#446) Decodes one raster into the same cache preloadImages fills, so the
   // float above can draw it on the very first frame. preloadImages takes whole
@@ -1112,7 +1172,11 @@ interface CheckpointTile {
   originY: number
   width: number
   height: number
-  pixels: Uint8Array
+  /** (#467) Run-length packed, not raw RGBA — see pinnedTiles.ts for the
+   *  format and for the 235 MB of production room this saves. Unpacked in
+   *  `_replayInto`, one tile at a time, and dropped again with the iteration
+   *  that read it. `width * height * 4` is the size to unpack back to. */
+  packed: Uint8Array
 }
 interface Checkpoint {
   layerId: string
@@ -1945,6 +2009,8 @@ export class PencilEngine implements PencilEngineAPI {
   // has ever been, and a mask sampler it never uses has no business in it.
   private _areaTransformProg!: WebGLProgram
   private _areaMaskProg!: WebGLProgram
+  // (#527) The shape rasterizer — see SHAPE_FRAG.
+  private _shapeProg!: WebGLProgram
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
   private _smudgeProg!: WebGLProgram
@@ -1971,6 +2037,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _transformUni!: Record<string, WebGLUniformLocation | null>
   private _areaTransformUni!: Record<string, WebGLUniformLocation | null>
   private _areaMaskUni!: Record<string, WebGLUniformLocation | null>
+  private _shapeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgePickupUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
@@ -1980,6 +2047,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _transformPosLoc!: number
   private _areaTransformPosLoc!: number
   private _areaMaskPosLoc!: number
+  private _shapePosLoc!: number
   // Attribute locations are per-*program*, not per-shader-source — even
   // though _smudgeProg shares DAB_VERT's exact source with _dabProg, it's a
   // separately linked program, so 'a_position' can land at a different
@@ -2242,6 +2310,9 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _layerRevision = new Map<string, number>()
   private readonly _bakedRevision = new Map<string, number>()
   private _compositeOrder: CompositeItem[]
+  /** (#557) See setDisplayFilter. `null` means the screen shows the whole of
+   *  `_compositeOrder`. Never consulted by the export path. */
+  private _displayFilter: ReadonlySet<string> | null = null
   private _activeId: string | null
   private _locked: boolean
 
@@ -2573,6 +2644,23 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
+  /** See PencilEngineAPI's doc comment. */
+  setDisplayFilter(ids: ReadonlySet<string> | null): void {
+    this._displayFilter = ids
+    // Same reasoning as setCompositeOrder: the below/above halves are baked
+    // from what is on screen, and that just changed.
+    this._invalidateSplitCache()
+    this._display()
+  }
+
+  /** (#557) What the screen composites: `_compositeOrder` narrowed by the
+   *  display filter. The picture's own order is `_compositeOrder`, and the
+   *  export path reads that one directly — see setDisplayFilter. */
+  private _displayOrder(): CompositeItem[] {
+    const filter = this._displayFilter
+    return filter ? this._compositeOrder.filter(it => filter.has(it.id)) : this._compositeOrder
+  }
+
   // ─── Operation log API ───────────────────────────────────────────────────────
 
   /** See PencilEngineAPI's doc comment. */
@@ -2802,12 +2890,17 @@ export class PencilEngine implements PencilEngineAPI {
       // and paints nothing else, so they follow stroke/image_import's shape
       // exactly: covered by a restore means already in the restored pixels
       // (skip), no live target means it can never take effect again (revoke).
+      // (#527) A shape is the same shape of operation as the two selection ops
+      // below: one layer, pixels only, nothing to decode and nothing async —
+      // it is drawn from its own numbers the moment it arrives.
+      case 'shape':
       case 'area_transform':
       case 'area_clear': {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
-        if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
+        if (op.type === 'shape') this._drawShape(buf, op)
+        else if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
         else this._clearArea(buf, op.selection)
         this._markLayerDirty(op.layerId)
         this._maybeCheckpoint(op.layerId)
@@ -3898,6 +3991,10 @@ export class PencilEngine implements PencilEngineAPI {
       case 'area_clear':
       case 'area_paste':
       case 'area_fill':
+      // (#527) Same reasoning for a shape: undoing one means replaying its
+      // layer without it. It paints over whatever was under it and cannot be
+      // subtracted in place.
+      case 'shape':
         this._rebuildLayerOrDefer(op.layerId)
         break
       case 'layer_add':
@@ -4047,6 +4144,7 @@ export class PencilEngine implements PencilEngineAPI {
     // for the whole repopulation, swept once after against the final,
     // settled tile count instead — see TiledLayerBuffer.suspendEviction.
     const tiled = buf instanceof TiledLayerBuffer ? buf : null
+    this._dropCarriedGestureState(buf)
     tiled?.suspendEviction()
     try {
       let start = 0
@@ -4055,15 +4153,19 @@ export class PencilEngine implements PencilEngineAPI {
         buf.clear()
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
+          // (#467) Unpacked here and nowhere else, one tile at a time: the
+          // whole point of holding checkpoints packed is that no two of these
+          // exist at once. `pixels` dies with this iteration — do not hoist it.
+          const pixels = unpackTilePixels(t.packed, t.width * t.height * 4)
           // (#425) The tile's own geometry, not the buffer's: a snapshot baked
           // after #425 clips whatever hangs off the sheet, so an edge tile's
           // payload can be smaller than the tile it restores into. A tile
           // stored before that is the same call with nothing clipped.
-          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
+          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, pixels)
           // (#155 Tier 2) Exact historical pixels, not a fresh paint — scan
           // once for the real content bbox rather than a markContentPainted
           // union (which would wrongly claim the whole tile as content).
-          buf.restoreTileContent(rect, t.pixels)
+          buf.restoreTileContent(rect, pixels)
         }
         start = cp.opIds.length
       } else {
@@ -4078,6 +4180,38 @@ export class PencilEngine implements PencilEngineAPI {
       }
     } finally {
       tiled?.resumeEviction()
+    }
+  }
+
+  /** (#554) Forgets what the *previous* pass over the log left behind for the
+   *  gestures this replay is about to paint again.
+   *
+   *  Both caches this drops exist to carry a gesture across the several
+   *  operations it was chunked into — the ribbon's scratch and bridging
+   *  `prevDab` (_replayChunkScratch), smudge's carried imprint
+   *  (_smudgeResumeGesture). Neither was ever evicted when a layer was rebuilt,
+   *  so a replay of a gesture that had already been replayed once found *its
+   *  own last dab* waiting under its own id and bridged the mark's first dab
+   *  onto it: a straight hairline joining the two ends of a stroke, appearing
+   *  on the second undo in a row and on nothing else. A brush pen showed it
+   *  worst — its end taper makes that last dab thin, so the bridge read as a
+   *  stray thread rather than as part of the mark.
+   *
+   *  Ribbon entries are dropped for this buffer only: another layer's replay
+   *  (a merge's temp buffer, a full-replay bake) holds its own and is not this
+   *  replay's business. Smudge's are per user with no target to compare, so
+   *  they all go except the local gesture actually in progress — that one is
+   *  still being painted live by _paintSmudgeDabs and must not have its imprint
+   *  reset under it by, say, a peer's undo arriving mid-stroke. */
+  private _dropCarriedGestureState(buf: ILayerBuffer): void {
+    for (const [key, chunk] of this._replayRibbonChunks) {
+      if (chunk.target !== buf) continue
+      chunk.scratch.destroy()
+      this._replayRibbonChunks.delete(key)
+    }
+    for (const [userId, chunk] of this._smudgeReplayChunks) {
+      const live = userId === this._userId && !!this._strokeId && chunk.strokeId === this._strokeId
+      if (!live) this._smudgeReplayChunks.delete(userId)
     }
   }
 
@@ -4126,6 +4260,9 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'area_clear':
         this._clearArea(buf, op.selection)
+        break
+      case 'shape':
+        this._drawShape(buf, op)
         break
       case 'area_paste':
       case 'area_fill': {
@@ -4617,12 +4754,18 @@ export class PencilEngine implements PencilEngineAPI {
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)
     if (!ops.length) return
+    // (#467) Packed on the way in, so the budget below counts what this
+    // actually holds. An ordinary checkpoint is evictable and so was never the
+    // memory problem a pinned one is, but there is only one Checkpoint shape
+    // and giving it two would be the more expensive mistake — and a budget
+    // that buys ten times the undo depth for the same bytes is worth having.
     const tiles = buf.allResident().map(({ buffer, originX, originY }) => ({
-      originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
+      originX, originY, width: buffer.width, height: buffer.height,
+      packed: packTilePixels(buffer.readPixels()),
     }))
     if (!tiles.length) return
     this._checkpoints.push({ layerId, opIds: ops.map(o => o.id), tiles })
-    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
     this._evictCheckpointsOverBudget()
   }
 
@@ -4642,7 +4785,7 @@ export class PencilEngine implements PencilEngineAPI {
       const index = this._checkpoints.findIndex(cp => !cp.pinned)
       if (index === -1) break
       const [evicted] = this._checkpoints.splice(index, 1)
-      this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+      this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
     }
   }
 
@@ -4665,13 +4808,23 @@ export class PencilEngine implements PencilEngineAPI {
    *  these bytes are compared against (#168, #289), so any difference in
    *  geometry between the two would read as a determinism violation on every
    *  bounded room in existence. */
+  /** (#467) Fully transparent tiles are left out. Residency is not evidence of
+   *  content: `resolveForPaint` makes every tile a stroke's bounding rect
+   *  touches resident whether or not a dab darkens it, and an erase empties a
+   *  tile without releasing it. Storing those costs 4 MiB of somebody else's
+   *  memory each to say what their absence already says — a third of what
+   *  production room cdf314dd-153 makes a joiner materialise.
+   *
+   *  Note this changes what "no tiles" means coming out of here, which
+   *  `bakeNetworkSnapshot` is careful about — see its own comment. */
   private _bakeTiles(buf: ILayerBuffer): SnapshotTile[] {
     const page = this._infinite ? null : this._pageSize()
-    return buf.allResident().map(({ buffer, originX, originY }) => {
+    return buf.allResident().flatMap(({ buffer, originX, originY }) => {
       const pixels = buffer.readPixels()
-      return page
+      const tile = page
         ? clipTileToPage(originX, originY, buffer.width, buffer.height, pixels, page)
         : { originX, originY, width: buffer.width, height: buffer.height, pixels }
+      return isFullyTransparent(tile.pixels) ? [] : [tile]
     })
   }
 
@@ -4691,6 +4844,15 @@ export class PencilEngine implements PencilEngineAPI {
     // of the snapshot entirely, and the next client to restore that snapshot
     // saw a blank layer. That is #369, and this line is where it started.
     const tiles = this._bakeTiles(buf)
+    // (#467) Since _bakeTiles drops fully transparent tiles, this now also
+    // catches a layer that is resident but holds nothing — painted and then
+    // erased away. Omitting it leaves it uncovered, so the server sends its
+    // operations and the next joiner replays them to the same empty result:
+    // more work than storing "it is empty", and never less content. Not
+    // storing an explicit empty snapshot instead is a deliberate limit on this
+    // change — "no tiles" has meant "nothing to publish" since #373, and
+    // giving it a second meaning is its own decision with its own blast
+    // radius. The layer keeps whatever older snapshot it already had.
     if (!tiles.length) return null
     // (#373) Whatever the caller does with these bytes, this layer's current
     // pixels have now left the engine — anything that changes them after this
@@ -4778,14 +4940,24 @@ export class PencilEngine implements PencilEngineAPI {
     // (#425) Лист передаётся, чтобы обрезанный по его краю тайл прошёл
     // быстрым путём: он уже на сетке, просто кончается там же, где бумага.
     const retiled = retileSnapshotTiles(tiles, tw, th, this._infinite ? undefined : this._pageSize())
-    // Re-slicing a mostly-empty page yields tiles carrying nothing, and each
-    // would cost 4 MiB of texture to say exactly what an absent tile already
-    // says. Only a re-sliced set can contain them — identity means every tile
-    // came off a real bake, which never stores a tile it did not paint — so
-    // the alpha scan stays off the path taken by every current snapshot.
-    const painted = retiled === tiles
-      ? retiled
-      : retiled.filter(t => !isFullyTransparent(t.pixels))
+    // A tile carrying nothing costs 4 MiB of texture to say exactly what an
+    // absent tile already says.
+    //
+    // (#467) This used to run only on a re-sliced set, on the reasoning that
+    // "identity means every tile came off a real bake, which never stores a
+    // tile it did not paint". Measured on production room cdf314dd-153, that
+    // is false: **38 of its 107 stored tiles are fully transparent, 114 MB of
+    // the 349 MB a join materialises**, and every one of them came off an
+    // ordinary bake already on the grid. `resolveForPaint` makes every tile a
+    // stroke's *bounding rect* touches resident, whether or not a dab ever
+    // darkens it, and erasing empties a tile without releasing it — so real
+    // bakes produce these constantly. Worse, they ratchet: a client that
+    // materialised them re-bakes them for the next joiner, forever.
+    //
+    // The scan is not free, but it is cheap against what it prevents: it exits
+    // on the first non-zero alpha, and a tile it does not exit early on is one
+    // whose 4 MiB upload it has just cancelled.
+    const painted = retiled.filter(t => !isFullyTransparent(t.pixels))
     // Blank tiles are dropped from the upload only while the layer is
     // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
     // an engine that already holds pixels — is the one case where an
@@ -4920,17 +5092,24 @@ export class PencilEngine implements PencilEngineAPI {
     for (let i = this._checkpoints.length - 1; i >= 0; i--) {
       const cp = this._checkpoints[i]
       if (cp.fromSnapshot && cp.layerId === layerId) {
-        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
         this._checkpoints.splice(i, 1)
       }
     }
     // These pixels are authoritative again, so whatever made this layer
     // unpublishable no longer holds (#522).
     this._unbakeableLayers.delete(layerId)
+    // (#467) Packed here rather than by the caller: this is the only place
+    // that knows these tiles are about to be held for the life of the room
+    // instead of read and dropped. See pinnedTiles.ts.
+    const held = tiles.map(t => ({
+      originX: t.originX, originY: t.originY, width: t.width, height: t.height,
+      packed: packTilePixels(t.pixels),
+    }))
     this._checkpoints.push({
-      layerId, opIds: [], tiles, fromSnapshot: true, pinned: true, coveredSeq, covered: new Set(),
+      layerId, opIds: [], tiles: held, fromSnapshot: true, pinned: true, coveredSeq, covered: new Set(),
     })
-    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+    this._checkpointBytes += held.reduce((sum, t) => sum + t.packed.byteLength, 0)
     this._evictCheckpointsOverBudget()
   }
 
@@ -5043,6 +5222,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
     this._areaMaskProg        = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
+    this._shapeProg           = createProgram(gl, DISPLAY_VERT, SHAPE_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
@@ -5113,6 +5293,13 @@ export class PencilEngine implements PencilEngineAPI {
       'u_source', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
     ])
     this._areaMaskUni = getUniforms(gl, this._areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
+    this._shapeUni = getUniforms(gl, this._shapeProg, [
+      'u_dstSize', 'u_dstOrigin', 'u_center', 'u_rotCS', 'u_half',
+      'u_kind', 'u_base', 'u_outer', 'u_inner', 'u_hasInner', 'u_strokeContours', 'u_band',
+      'u_ringRatio', 'u_closePath', 'u_sectorMode', 'u_sectorDir', 'u_sectorCS',
+      'u_starPoints', 'u_starRot', 'u_lineDir', 'u_lineHalfLen', 'u_lineCap',
+      'u_fillColor', 'u_hasFill', 'u_strokeColor', 'u_hasStroke',
+    ])
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
@@ -5135,6 +5322,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
     this._areaTransformPosLoc  = gl.getAttribLocation(this._areaTransformProg, 'a_position')
     this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
+    this._shapePosLoc          = gl.getAttribLocation(this._shapeProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
     this._smudgePickupPosLoc   = gl.getAttribLocation(this._smudgePickupProg, 'a_position')
@@ -5393,6 +5581,18 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabs.curvatureTolerancePx = isRibbonTool(this._strokeTool)
       ? ribbonProfileFor(this._strokeTool, this._opts.pencilType).curvatureTolerancePx
       : null
+    // #547 — the step between stamps is a property of the *brush*, not of the
+    // engine, so it is latched here with everything else that is fixed for the
+    // length of one stroke.
+    //
+    // Every brush in the set asks for a tighter step than the engine's 0.22
+    // default, and that default is why: it was calibrated (#478) against tools
+    // whose dabs blend through paper grain and soft graphite falloff. A digital
+    // stamp has neither, so its own ripple shows several times sooner — see the
+    // spacing values in digitalBrushPresets.ts.
+    this._dabs.spacingFactor = this._strokeTool === 'digitalBrush'
+      ? digitalBrushFromPreset(this._opts.pencilType).spacing
+      : DEFAULT_DAB_SPACING_FACTOR
     // #478 — same slot and the same lifecycle: a property of the tool, latched
     // once per stroke. Dab spacing has to track the mark this tool actually
     // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
@@ -5402,6 +5602,11 @@ export class PencilEngine implements PencilEngineAPI {
       ? {
         sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
         hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
+        // #547 — the digital brush follows its footprint at every hardness. See
+        // DabFootprint.spacingStrength for why the gate the other three tools
+        // use is a graphite calibration that does not carry over to a mark with
+        // no paper in it.
+        ...(this._strokeTool === 'digitalBrush' ? { spacingStrength: 1 } : {}),
       }
       : null
     // #489: watercolor's *elongated* nibs take the scallop bound without the
@@ -5771,19 +5976,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  everything that just needs {opacity, hardness, sizeMultiplier} (opacity
    *  baking, dab extents) works off it unchanged through this return type. */
   private _resolvePreset(tool: ToolType, presetName: string): PencilPreset {
-    if (tool === 'liner') return LINER_PRESET
-    if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
-    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
-    // — its presetName slot carries the pressure response, not a nib or a
-    // grade, so there is nothing here to branch on (brushPenPresets.ts).
-    if (tool === 'brushPen') return BRUSH_PEN_PRESET
-    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
-    // ladder and no hardness grade, so `presetName` carries the pressure
-    // response instead and there is nothing here to branch on
-    // (watercolorPresets.ts).
-    if (tool === 'watercolor') return WATERCOLOR_PRESET
-    if (tool === 'charcoal') return charcoalPresetFor(presetName)
-    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+    return presetForTool(tool, presetName)
   }
 
   /** (#478) The multiplier between `Dab.size` and the mark this tool actually
@@ -5797,7 +5990,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  preset that happens to be selected would space it off a mark it never
    *  draws. */
   private _dabSizeScale(tool: ToolType, presetName: string): number {
-    return tool === 'eraser' ? 1.0 : this._resolvePreset(tool, presetName).sizeMultiplier
+    return renderSizeScale(tool, presetName)
   }
 
   /** (#489/#501) Whether this stroke's nib takes #485's scallop bound — see
@@ -5813,6 +6006,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _nibScallops(tool: ToolType, presetName: string): boolean {
     if (tool === 'watercolor') return watercolorNibFromPreset(presetName) !== 'round'
     if (tool === 'charcoal') return charcoalNibFromPreset(presetName) === 'chisel'
+    // #547 — asked of the brush rather than hardcoded, because here the answer
+    // is a property of the preset: the round four scallop no more than
+    // watercolor's round nib does, and 'flat' is a 4:1 tip whose silhouette dips
+    // between stamps exactly as every other elongated one here.
+    if (tool === 'digitalBrush') return digitalBrushScallops(presetName)
     return false
   }
 
@@ -5857,7 +6055,9 @@ export class PencilEngine implements PencilEngineAPI {
     //
     // Null (and therefore free) for every tool still on the old spacing rule,
     // where the ratio would be exactly 1 by construction.
-    const sizeScale = isFootprintSpacedTool(tool) ? this._dabSizeScale(tool, presetName) : null
+    // #547: not isFootprintSpacedTool — the digital brush is spaced by that rule
+    // and deliberately excluded from this correction. See isDepositScaledTool.
+    const sizeScale = isDepositScaledTool(tool) ? this._dabSizeScale(tool, presetName) : null
     // #501: which bounds actually shaped this stroke's step. The deposit is
     // divided by the step the dabs were *really* spaced at, so this has to be
     // the same pair DabSystem was given at _onStart — a chisel spaced by the
@@ -5921,6 +6121,18 @@ export class PencilEngine implements PencilEngineAPI {
       // buffer and one scalar (DAB_FRAG's u_inkMode=8 branch). A per-dab
       // opacity could not be expressed there at all.
       else if (tool === 'brushPen') dab.opacity = preset.opacity * opacity
+      // #547, ADR 013 §3 — flat, and for the composite's own reason stated for
+      // the brush pen directly above: this number is the *stroke's* opacity, and
+      // the source-over composite reconstructs each finished pixel from one
+      // coverage buffer and one scalar. A per-dab value could not be expressed
+      // there.
+      //
+      // What varies per dab for this tool is **flow**, and it deliberately does
+      // not live here: it is applied when the stamp is drawn into the coverage
+      // buffer (_paintRibbonDabs), where accumulating it is the whole point.
+      // Recomputed on replay from Dab.pressure and the frozen descriptor rather
+      // than recorded, so the payload gains nothing (digitalBrushFlow).
+      else if (tool === 'digitalBrush') dab.opacity = preset.opacity * opacity
       // Watercolor (#468, ADR 011 §5): flat, for every reason the brush pen's
       // is flat directly above, plus one of its own.
       //
@@ -6411,6 +6623,146 @@ export class PencilEngine implements PencilEngineAPI {
     // path and _applyPixelOp's replay path) — an image_import can target
     // any layer, so only invalidate when it isn't the active one.
     if (op.layerId !== this._activeId) this._invalidateSplitCache()
+  }
+
+  // ─── Shapes (#527) ───────────────────────────────────────────────────────────
+
+  /** The world rect a shape's pixels can reach, clamped to the sheet in a
+   *  bounded room.
+   *
+   *  The clamp is the same one `_dabsWorldBounds` applies and for the same
+   *  reason: a bounded room's tiles are lazily created, and a shape whose
+   *  frame merely touches the page edge would otherwise resolve — and keep
+   *  forever — a tile of off-page ground nothing can ever make visible again. */
+  private _shapeWorldRect(
+    geometry: ShapeGeometry, frame: ShapeFrame, stroke: ShapeStroke | null,
+  ): WorldRect {
+    const b = shapeWorldBounds(geometry, frame, stroke)
+    if (this._infinite) return b
+    const { w: pageW, h: pageH } = this._pageSize()
+    return {
+      minX: Math.max(b.minX, 0), minY: Math.max(b.minY, 0),
+      maxX: Math.min(b.maxX, pageW), maxY: Math.min(b.maxY, pageH),
+    }
+  }
+
+  /** One SHAPE_FRAG pass over one target buffer, whose world origin is
+   *  (originX, originY). The shader turns each pixel into a world position
+   *  itself, so a real tile, a scratch tile and a preview tile are all drawn
+   *  by the same call with nothing translated by the caller — the pattern
+   *  `_runAreaMaskPass` established. */
+  private _runShapePass(
+    target: AccumulationBuffer, originX: number, originY: number, params: ShapeDrawParams,
+    stroke: ShapeStroke | null, fill: ShapeFill | null,
+  ): void {
+    const { gl } = this
+    target.beginDraw()
+    gl.useProgram(this._shapeProg)
+    const u = this._shapeUni
+    gl.uniform2f(u.u_dstSize, target.width, target.height)
+    gl.uniform2f(u.u_dstOrigin, originX, originY)
+    gl.uniform2f(u.u_center, params.centerX, params.centerY)
+    gl.uniform2f(u.u_rotCS, params.cos, params.sin)
+    gl.uniform2f(u.u_half, Math.max(params.halfX, 1e-6), Math.max(params.halfY, 1e-6))
+    gl.uniform1i(u.u_kind, params.kind)
+    gl.uniform3f(u.u_base, params.base[0], params.base[1], params.base[2])
+    gl.uniform3f(u.u_outer, params.outer[0], params.outer[1], params.outer[2])
+    gl.uniform3f(u.u_inner, params.inner[0], params.inner[1], params.inner[2])
+    gl.uniform1f(u.u_hasInner, params.hasInner ? 1 : 0)
+    gl.uniform1f(u.u_strokeContours, params.strokeMode === 'contours' ? 1 : 0)
+    gl.uniform2f(u.u_band, params.bandCenter, params.bandHalf)
+    gl.uniform1f(u.u_ringRatio, params.ringRatio)
+    gl.uniform1f(u.u_closePath, params.closePath ? 1 : 0)
+    gl.uniform1f(u.u_sectorMode, params.sectorMode)
+    gl.uniform2f(u.u_sectorDir, params.sectorDirX, params.sectorDirY)
+    gl.uniform2f(u.u_sectorCS, params.sectorCos, params.sectorSin)
+    gl.uniform1f(u.u_starPoints, params.starPoints)
+    gl.uniform2f(u.u_starRot, params.starRotCos, params.starRotSin)
+    gl.uniform2f(u.u_lineDir, params.lineDirX, params.lineDirY)
+    gl.uniform1f(u.u_lineHalfLen, params.lineHalfLen)
+    gl.uniform1f(u.u_lineCap, params.lineCap)
+    gl.uniform3f(u.u_fillColor, fill ? fill.color[0] : 0, fill ? fill.color[1] : 0, fill ? fill.color[2] : 0)
+    gl.uniform1f(u.u_hasFill, fill ? 1 : 0)
+    gl.uniform3f(
+      u.u_strokeColor, stroke ? stroke.color[0] : 0, stroke ? stroke.color[1] : 0, stroke ? stroke.color[2] : 0,
+    )
+    gl.uniform1f(u.u_hasStroke, stroke && stroke.width > 0 ? 1 : 0)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._shapePosLoc)
+    gl.vertexAttribPointer(this._shapePosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    target.endDraw()
+  }
+
+  /** Draws one shape into a layer, touching only the tiles it covers. */
+  private _drawShape(layerBuf: ILayerBuffer, op: ShapeOperation): void {
+    if (!op.stroke && !op.fill) return
+    const rect = this._shapeWorldRect(op.geometry, op.frame, op.stroke)
+    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)) return
+    const params = shapeDrawParams(op.geometry, op.frame, op.stroke)
+    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(rect)) {
+      this._runShapePass(buffer, originX, originY, params, op.stroke, op.fill)
+    }
+    // (#155 Tier 2) Same as _blitImage's call: the content bounds have to grow
+    // to include what was just painted, or a later transform or export can cut
+    // the shape off at the layer's previously-known extent.
+    layerBuf.markContentPainted(rect)
+    if (op.layerId !== this._activeId) this._invalidateSplitCache()
+  }
+
+  /** See PencilEngineAPI. The editing session's live preview: the shape drawn
+   *  over the layer's own content into scratch tiles, exactly the way
+   *  `previewAreaPaste` floats a pasted raster, and cleared by the same
+   *  `clearLayerTransformPreview`.
+   *
+   *  A float rather than an overlay on top of the composite, deliberately: the
+   *  shape belongs to a layer, so it has to be hidden by the layers above it
+   *  while it is being placed. Drawing it over everything would mean a shape
+   *  that jumps behind them at the moment it is confirmed — the preview would
+   *  be lying about the one thing it exists to show. */
+  previewShape(
+    layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
+    stroke: ShapeStroke | null, fill: ShapeFill | null,
+  ): void {
+    const layerBuf = this._layers.get(layerId)
+    const oldByOrigin = new Map(
+      (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
+    )
+    const drop = (): void => {
+      for (const t of oldByOrigin.values()) t.buffer.destroy()
+      this._transformPreview.delete(layerId)
+      this._areaPreviewLayers.delete(layerId)
+      this._display()
+    }
+    if (!layerBuf || (!stroke && !fill)) { drop(); return }
+
+    const rect = this._shapeWorldRect(geometry, frame, stroke)
+    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)
+      || !Number.isFinite(rect.minX + rect.minY + rect.maxX + rect.maxY)) { drop(); return }
+
+    const params = shapeDrawParams(geometry, frame, stroke)
+    const { w: tw, h: th } = this._tileSize()
+    const tiles: PreviewTile[] = []
+    const reused = new Set<string>()
+    for (const { tileX, tileY } of tilesOverlappingRect(rect, tw, th)) {
+      const tileRect = tileWorldRect(tileX, tileY, tw, th)
+      const key = `${tileRect.minX},${tileRect.minY}`
+      const old = oldByOrigin.get(key)
+      const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, tw, th)
+      if (old) reused.add(key)
+      const existing = this._tileBufferAt(layerBuf, tileRect)
+      if (existing) existing.copyTo(scratch)
+      else scratch.clear()
+      this._runShapePass(scratch, tileRect.minX, tileRect.minY, params, stroke, fill)
+      tiles.push(old ?? { originX: tileRect.minX, originY: tileRect.minY, buffer: scratch })
+    }
+    for (const [key, t] of oldByOrigin) {
+      if (!reused.has(key)) t.buffer.destroy()
+    }
+
+    this._transformPreview.set(layerId, tiles)
+    this._areaPreviewLayers.add(layerId)
+    this._display()
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────────
@@ -7520,7 +7872,10 @@ export class PencilEngine implements PencilEngineAPI {
     //    expressible *because* of the normalization above.
     //
     // The marker takes neither and must not: its strokes are permanent and its
-    // constants were calibrated against the old scale.
+    // constants were calibrated against the old scale. What it does take
+    // (#559) is a gain of >= 1 on that same legacy deposit wherever the nib is
+    // too thin along the travel to have reached the film's knee at all — see
+    // markerInkGain.ts. Exactly 1 for every nib that saturated already.
     // (#468 v4, ADR 011 §4) Water and pigment run down at *different* rates,
     // and that difference is the whole behaviour: water soaks away fast while
     // pigment stays on the hairs, so one long stroke walks itself from a wet
@@ -7530,6 +7885,16 @@ export class PencilEngine implements PencilEngineAPI {
     const deposits: number[] = []
     const waterByDab = new Map<Dab, number>()
     const pigmentByDab = new Map<Dab, number>()
+    // #559 — how much to raise this dab's deposit for being dragged thin-side
+    // first. Shared by the stamps and the bands, which must agree: the two
+    // overlap almost everywhere, and a band on a different scale from the
+    // stamps it connects would show as a seam at every sample.
+    const thinNibGain = (dab: Dab, fromX: number, fromY: number): number => profile.thinNibInkRefPx > 0
+      ? markerThinNibInkGain(
+        nibGeometry(dab, preset.sizeMultiplier, nibShape, cornerFraction),
+        dab.x - fromX, dab.y - fromY, profile.thinNibInkRefPx,
+      )
+      : 1
     {
       let prev = prevDab
       let used = scratch.waterUsed
@@ -7561,7 +7926,7 @@ export class PencilEngine implements PencilEngineAPI {
         const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
         deposits.push(profile.normalizeDeposit
           ? profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft
-          : dab.opacity * seg * 0.5)
+          : dab.opacity * seg * 0.5 * thinNibGain(dab, prev?.x ?? dab.x, prev?.y ?? dab.y))
         prev = dab
       }
       scratch.advanceWater(used)
@@ -7571,8 +7936,15 @@ export class PencilEngine implements PencilEngineAPI {
     // almost everywhere and each carries half a dose, so a band still on the
     // legacy scale would drown whatever the normalized stamps expressed.
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
-    // which is what the marker and the brush pen get.
-    const inkFor = profile.normalizeDeposit
+    // which is what the brush pen gets. The marker (#559) passes that same
+    // formula back in with the thin-nib gain on it, so its bands and stamps
+    // stay on one scale — a gain of 1 reproduces the omitted case exactly.
+    const inkFor = profile.thinNibInkRefPx > 0 && !profile.normalizeDeposit
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => ({
+        ink: d1.opacity * travel * 0.5 * thinNibGain(d1, d0.x, d0.y),
+        water: 0,
+      })
+      : profile.normalizeDeposit
       ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
         // #489: same measure the stamps use, and it has to be the same one —
         // the bands overlap the stamps almost everywhere, so two different
@@ -7594,15 +7966,70 @@ export class PencilEngine implements PencilEngineAPI {
         }
       }
       : undefined
-    const bands = buildRibbonBands(
+    // #547 — not merely unused for a stamps-only tool but not built at all:
+    // the band builder walks every consecutive pair and allocates a vertex
+    // buffer per segment, which on a densely-spaced brush stroke is the larger
+    // half of the CPU work in this method.
+    const bands = profile.stampsOnly ? EMPTY_BANDS : buildRibbonBands(
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
     )
+
+    // #547 — flow, normalized against how far the brush travelled between
+    // stamps, computed once for the batch rather than per tile.
+    //
+    // Why it has to be normalized at all, and this is the correction to the
+    // first version: the coverage buffer accumulates as plain "over", and the
+    // stamps of this tool are spaced a *twentieth* of the footprint apart. A
+    // pixel is therefore under ~20 of them in a single pass, so even a flow of
+    // 0.12 reaches 1 - 0.88^20 = 0.92 — and every brush, at every pressure, came
+    // out at full density. The setting existed and could not be seen ("нажим
+    // меняет плотность вообще не работает, всё время максимальная плотность").
+    //
+    // The fix makes `flow` mean what a painter means by it: **how much one full
+    // pass of the brush lays down**, rather than how much one stamp does. Per
+    // stamp that is
+    //
+    //     f' = 1 - (1 - f) ^ (travel / diameter)
+    //
+    // so that after travelling one diameter — i.e. after the ~diameter/travel
+    // stamps that cover a given pixel — the accumulated coverage is exactly f,
+    // whatever the spacing. Two consequences worth naming: the density stops
+    // depending on how fast the stroke was drawn (fast strokes used to be
+    // sparser and therefore paler), and it stops depending on the brush's
+    // authored spacing, which is now free to be chosen for smoothness alone.
+    const stampFlows = profile.stampFlow
+      ? drawable.map((dab, i) => {
+        const prevOne = i === 0 ? prevDab : drawable[i - 1]
+        const diameter = Math.max(dab.size * preset.sizeMultiplier, 0.5)
+        const travel = this._markerSegmentLength(dab, prevOne, diameter * 0.5)
+        const full = profile.stampFlow!(dab.pressure)
+        if (full >= 1) return 1
+        return Math.max(0, Math.min(1, 1 - Math.pow(1 - full, Math.min(travel / diameter, 1))))
+      })
+      : null
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
-      for (const dab of drawable) this._drawRibbonNibPass(coverage, tile, dab, preset, profile, 6, 0)
-      if (bands.length) this._drawRibbonBands(coverage, tile, bands, 'coverage', profile.aaPx)
+      // #547, ADR 013 §3 — the stamp's own `opacity` argument is this dab's
+      // **flow** for the digital brush, and a plain 0 for the three tools whose
+      // coverage pass only needs a silhouette (their mode-6 branch ignores it).
+      //
+      // Derived rather than read off the dab: Dab.opacity carries the stroke's
+      // opacity for this tool (see _bakeDabOpacity), and flow is recomputed from
+      // the dab's recorded pressure against the frozen brush descriptor — the
+      // same number live and on replay, with nothing added to the payload.
+      for (let i = 0; i < drawable.length; i++) {
+        this._drawRibbonNibPass(
+          coverage, tile, drawable[i], preset, profile, profile.coverageInkMode,
+          stampFlows ? stampFlows[i] : 0,
+        )
+      }
+      // #547 — a brush's mark is a repeated stamp, not a swept smear, so the
+      // bands that fill between samples are switched off for it (ADR 013 §4).
+      // The three older tools keep them: on a turn the bands reach places the
+      // stamps miss, and with nothing there the composite paints bare paper.
+      if (!profile.stampsOnly && bands.length) this._drawRibbonBands(coverage, tile, bands, 'coverage', profile.aaPx)
 
       // Ink follows the *same* figure as the silhouette. Depositing it only at
       // the sample stamps is what produced the rounded white notches on turns:
@@ -7722,7 +8149,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  ink pass needs (it accumulates additively, not "over"). */
   private _drawRibbonNibPass(
     dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
-    profile: RibbonProfile, inkMode: 6 | 7, opacity: number, ownTarget = true,
+    profile: RibbonProfile, inkMode: 6 | 7 | 10, opacity: number, ownTarget = true,
     /** (#468 v4) How wet the brush was for *this* dab, written into the deposit
      *  texture's colour channels so the composite can recover a per-pixel water
      *  level (ADR 011 §4.1). 0 for every tool with no water model, which leaves
@@ -7750,6 +8177,12 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)
     gl.uniform1f(u.u_aaPx, profile.aaPx)
+    // #547: set explicitly rather than left wherever the last draw put it —
+    // _dabProg is shared with the graphite path, which writes this uniform on
+    // every dab, so the digital brush's stamp (u_inkMode=10) would otherwise
+    // take its edge softness from whatever pencil grade was last drawn. Modes 6
+    // and 7 never read it, so this is inert for the three older ribbon tools.
+    gl.uniform1f(u.u_hardness, preset.hardness)
     gl.uniform1f(u.u_nibShape, profile.nibShape === 'roundedBox' ? 1 : 0)
     gl.uniform1f(u.u_nibCorner, radius * profile.cornerFraction)
     gl.uniform1f(u.u_inkEdge, profile.inkEdgeFalloff)
@@ -9625,9 +10058,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!this._layers.has(layerId)) return null
     // 'visible' reads the composite of every visible layer — lineart on top,
     // colour going into the layer underneath, which is the whole reason the
-    // mode exists (ADR 010). 'layer' reads only the target.
+    // mode exists (ADR 010). 'layer' reads only the target. (#557) "Visible"
+    // means what is on this screen, so it goes through the display filter: a
+    // fill that read layers the solo has put out of view would flood past
+    // edges the user cannot see.
     const items = source === 'visible'
-      ? this._compositeOrder.filter(it => this._layers.has(it.id))
+      ? this._displayOrder().filter(it => this._layers.has(it.id))
       : [{ id: layerId, opacity: 1 }]
     if (items.length === 0) return null
 
@@ -9726,7 +10162,9 @@ export class PencilEngine implements PencilEngineAPI {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     }
 
-    this._runComposite(this._compositeOrder)
+    // (#557) The on-screen composite is the one place the display filter
+    // applies; _buildContentComposite (export) walks _compositeOrder itself.
+    this._runComposite(this._displayOrder())
 
     const buildFbo = this._assemblyFBO.fbo
     const buildW   = this._assemblyFBO.width
@@ -10134,4 +10572,42 @@ export class PencilEngine implements PencilEngineAPI {
 
     return this._pixelsToPngBlob(pixels, w, h)
   }
+}
+
+
+/** Which `PencilPreset` a tool draws with, given the per-stroke preset string.
+ *
+ *  At module scope rather than on the engine (#547) because two callers need it
+ *  and only one of them is the engine: `previewDabShape` is a pure query the
+ *  brush cursor uses without a GL context, and it has to answer with the same
+ *  numbers the renderer will use, or the outline and the mark disagree. */
+function presetForTool(tool: ToolType, presetName: string): PencilPreset {
+    if (tool === 'liner') return LINER_PRESET
+    if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
+    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
+    // — its presetName slot carries the pressure response, not a nib or a
+    // grade, so there is nothing here to branch on (brushPenPresets.ts).
+    if (tool === 'brushPen') return BRUSH_PEN_PRESET
+    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
+    // ladder and no hardness grade, so `presetName` carries the pressure
+    // response instead and there is nothing here to branch on
+    // (watercolorPresets.ts).
+    if (tool === 'watercolor') return WATERCOLOR_PRESET
+    // #547, ADR 013 — unlike every branch above, this one genuinely varies with
+    // the preset string: it *is* the brush. hardness comes out of the frozen
+    // descriptor and is read twice downstream — by the stamp shader and by the
+    // spacing rule — which is why it is resolved here once rather than parsed
+    // again at either site.
+    if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
+    if (tool === 'charcoal') return charcoalPresetFor(presetName)
+    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+}
+
+/** The multiplier between `Dab.size` and the mark this tool actually leaves.
+ *
+ *  The eraser's 1.0 is not a default standing in for a missing preset: it is the
+ *  value the renderer uses, because an eraser is sized as it is asked to be
+ *  rather than carrying a grade's own width. */
+function renderSizeScale(tool: ToolType, presetName: string): number {
+  return tool === 'eraser' ? 1.0 : presetForTool(tool, presetName).sizeMultiplier
 }

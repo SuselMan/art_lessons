@@ -575,7 +575,14 @@ export function MyLessons() {
   // make forking three of them a matter of going back twice.
   const forkMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, name),
-    onSuccess: ({ room }) => updateRoomsInFolder(rooms => [room, ...rooms]),
+    // (#552) Into the list for the folder the copy was actually filed in, which
+    // the server now reports: it files the copy beside its source, and when the
+    // fork is made from search results the source's folder is not the folder
+    // being viewed. `setQueryData` on an uncached key is a no-op, so a copy
+    // made into a folder that isn't open simply appears when it is opened.
+    onSuccess: ({ room }) => queryClient.setQueryData<RoomsAtFolder | undefined>(
+      roomsQueryKey(room.folderId), prev => prev && { ...prev, rooms: [room, ...prev.rooms] },
+    ),
     onError: () => notifyFailure(t('lessons.error.fork'), 'fork-room'),
   })
   // (#222) The room comes back with its new `closedAt`, so the card updates

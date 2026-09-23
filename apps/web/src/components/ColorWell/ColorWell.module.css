@@ -1,0 +1,78 @@
+/* (#542) The colour glyph. Sized entirely from the inline `width`/`height` the
+   component sets, so the same rules dress a 40px well in the rail and a 44px
+   one in the middle of the floating panel. */
+
+.well {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  /* The standalone `scale` property, not a `transform: scale()`. The floating
+     panel centres its own copy of this glyph with `transform: translate(-50%,
+     -50%)`, and a transform here would replace that on hover and throw the dot
+     off the panel's centre. `scale` composes with it instead. */
+  transition: scale var(--duration-fast), box-shadow var(--duration-fast);
+}
+
+.well:hover { scale: 1.06; }
+
+/* The part in hand gets a ring *outside* its own border rather than a thicker
+   border: a border change would move the colour's edge, and the two parts of
+   this glyph are compared to each other by eye.
+
+   Two layers, and both matter (Ilya, 10.09). The accent is 1px, not 2: at 2 it
+   stopped reading as a marker and started reading as a third colour in a glyph
+   that only has room for two. And a 1px separator in the glyph's own border
+   colour goes *between* the accent and whatever it surrounds — without it, a
+   stroke set to something near the accent simply vanished into the halo drawn
+   right against it, which is the one case where the marker eats the thing it is
+   marking. The first shadow layer is the inner one, so the order here is
+   separator then accent. */
+.wellActive {
+  box-shadow: 0 0 0 1px var(--color-border-strong), 0 0 0 2px var(--color-accent);
+}
+
+/* The fill. Positioned by an inline `inset` equal to the ring's width, which is
+   what makes the band appear at all — at inset 0 the core covers the button
+   whole and the glyph is the plain single-colour swatch it used to be. */
+.core {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  overflow: hidden;
+}
+
+/* Eats 2px of the band rather than sitting outside the glyph — the accent has
+   to say *which of the two* is selected, so it has to be inside the outer edge.
+   Same separator-then-accent pair as .wellActive above, and this is the case
+   that needed it: here the halo is drawn straight onto the ring's own colour,
+   so a violet stroke with the fill selected lost its ring entirely. */
+.coreActive {
+  box-shadow: 0 0 0 1px var(--color-border-strong), 0 0 0 2px var(--color-accent);
+}
+
+/* "No colour": the red diagonal, on a white ground. Clipped to its own round
+   parent, and centred by translating the bar back by half its height *before*
+   the rotation — with `top: 50%` alone the rotation turns the bar about a point
+   1px below centre, which is visibly off on a 22px circle. */
+.none {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.none::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 50%;
+  height: 2px;
+  background: var(--color-error);
+  transform: translateY(-50%) rotate(-45deg);
+  transform-origin: center;
+}

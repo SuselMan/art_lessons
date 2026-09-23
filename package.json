@@ -10,18 +10,25 @@
     "dev": "npm run dev --workspace=apps/web",
     "dev:server": "npm run dev --workspace=apps/server",
     "build": "npm run build --workspace=packages/shared && npm run build --workspace=apps/web",
-    "typecheck": "npm run typecheck --workspaces && npm run typecheck:e2e",
+    "typecheck": "npm run typecheck --workspaces && npm run typecheck:e2e && npm run typecheck:scripts",
     "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
+    "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
     "lint": "npm run lint --workspace=apps/web",
     "lint:fix": "npm run lint:fix --workspace=apps/web",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "map": "tsx scripts/archmap/build.ts",
+    "map:check": "tsx scripts/archmap/check.ts",
+    "map:rules": "depcruise apps packages --ignore-known --output-type err-long",
     "postinstall": "npm run build --workspace=packages/shared"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
-    "vitest": "^4.1.9"
+    "dependency-cruiser": "^17.4.3",
+    "jscpd": "^5.1.2",
+    "vitest": "^4.1.9",
+    "yaml": "^2.9.0"
   }
 }

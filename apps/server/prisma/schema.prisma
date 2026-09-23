@@ -105,6 +105,23 @@ model Room {
   // `@default` backfills every existing room as `anyone_with_link` — today's
   // actual behaviour, so the migration changes no room's accessibility.
   accessMode   RoomAccessMode    @default(anyone_with_link)
+  // (#548) Which tools this room offers. An empty list means "no restriction",
+  // which is also what every pre-existing row backfills to — so this migration
+  // changes no room's behaviour.
+  //
+  // Empty cannot be confused with "the owner switched everything off": a legal
+  // toolset always keeps at least one drawing tool (see `sanitizeEnabledTools`
+  // in packages/shared), so the empty list is unreachable as a restriction and
+  // free to mean the absence of one. And the absence is stored as an absence
+  // rather than as all fifteen ids on purpose — a stored full list would keep
+  // the *next* tool this app ships out of every room that never restricted
+  // anything.
+  //
+  // A scalar String[] rather than the enum treatment `accessMode` gets: this
+  // list is read back through the shared sanitizer, which drops ids it does
+  // not know, and that is what lets a row written by a newer build still open
+  // in an older one instead of failing to parse.
+  enabledTools String[]
   closedAt     DateTime?
   // (#317) Fork lineage. `SetNull` rather than the `Cascade` every other
   // relation here uses, and deliberately so: deleting the lesson a student

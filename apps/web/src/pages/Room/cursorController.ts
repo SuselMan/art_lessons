@@ -49,6 +49,10 @@ const PAINTS_DABS = {
   charcoal: true,
   brushPen: true,
   watercolor: true,
+  // #547 — and the digital brush most of all: its size curve spans 0.08 to 1.0
+  // of the slider, so what the mark will actually be is less predictable from
+  // the number in the panel than for any other tool here.
+  digitalBrush: true,
 } as const satisfies Record<ToolType, boolean>
 
 /** CSS `cursor` for the viewport surface. Inherited (the `cursor` property is

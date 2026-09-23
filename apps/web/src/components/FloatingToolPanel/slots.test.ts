@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import { PANEL_SIZE } from '../../pages/Room/panelPosition'
 import {
-  DEFAULT_PANEL_LAYOUT, SLOT_CHOICES, SLOT_COUNT, SLOT_RADIUS, assignSlot, panelRoles,
-  parsePanelLayout, pickRoleTool, pinnedTools, resolveSlotTool, sameSlotContent,
-  serializePanelLayout, slotChoiceKey, slotFace, slotOffset,
-  type PanelLayout,
+  DEFAULT_PANEL_LAYOUT, SLOT_CHOICES, SLOT_COUNT, SLOT_RADIUS, assignSlot, isGroupWithdrawn,
+  parsePanelLayout, pinnedTools, resolveSlotTool, sameSlotContent,
+  serializePanelLayout, slotChoiceKey, slotChoiceLabelKey, slotFace, slotOffset,
+  type PanelGroups, type PanelLayout,
 } from './slots'
-import { FLOATING_TOOLS } from './tools'
+import { FLOATING_PRIMARY_TOOLS, SLOT_FIXED_TOOLS } from './tools'
 
 const BUTTON_SIZE = 44
 
@@ -42,13 +42,19 @@ describe('the default layout', () => {
   // The whole promise of the redesign: someone who never opens a chooser sees
   // the panel they already had. If this test has to be edited, that promise is
   // what is being broken.
+  //
+  // (#544) It was edited, once, and this is what changed: the two role slots
+  // became the drawing group and the eraser. The promise survives it — the
+  // top slot still hands you what you were drawing with and the bottom one
+  // still erases — because migratePanelLayout carries every stored panel
+  // across the same way.
   it('reproduces the four-button panel exactly', () => {
     expect(DEFAULT_PANEL_LAYOUT).toEqual([
-      { kind: 'role', role: 'drawing' },
+      { kind: 'group', group: 'drawing' },
       null,
       { kind: 'action', action: 'redo' },
       null,
-      { kind: 'role', role: 'secondary' },
+      { kind: 'tool', tool: 'eraser' },
       null,
       { kind: 'action', action: 'undo' },
       null,
@@ -60,103 +66,101 @@ describe('the default layout', () => {
   })
 })
 
-describe('pickRoleTool', () => {
-  const none = new Set<string>()
-
-  it('gives the most recent when nothing is pinned', () => {
-    expect(pickRoleTool(['marker', 'pencil', 'liner'], none)).toBe('marker')
-  })
-
-  // The gap this rule was written for: pin the smudge to a slot of its own,
-  // select it, and "the last one used" would put the smudge in the role slot
-  // beside it too — two buttons for one tool, and the eraser the role existed
-  // to remember is gone.
-  it('skips a tool that already has a slot of its own', () => {
-    expect(pickRoleTool(['smudge', 'eraser', 'eyedropper'], new Set(['smudge']))).toBe('eraser')
-  })
-
-  it('keeps skipping down the list', () => {
-    const pinned = new Set(['smudge', 'eraser'])
-    expect(pickRoleTool(['smudge', 'eraser', 'eyedropper'], pinned)).toBe('eyedropper')
-  })
-
-  // A duplicated button is a smaller failure than a slot with nothing to show.
-  it('falls back to the most recent when every candidate is pinned', () => {
-    expect(pickRoleTool(['smudge', 'eraser'], new Set(['smudge', 'eraser']))).toBe('smudge')
-  })
-
-  it('ignores roles and actions when deciding what is pinned', () => {
+describe('pinnedTools', () => {
+  it('ignores groups and actions when deciding what is pinned', () => {
     const layout = assignSlot(DEFAULT_PANEL_LAYOUT, 1, { kind: 'action', action: 'undo' })
-    expect(pinnedTools(layout).size).toBe(0)
+    expect(pinnedTools(layout)).toEqual(new Set(['eraser']))
   })
 })
 
-describe('panelRoles', () => {
-  const RECENT_DRAWING = ['marker', 'pencil', 'liner'] as const
-  const RECENT_SECONDARY = ['smudge', 'eraser', 'eyedropper'] as const
-
-  it('resolves both roles against the same layout', () => {
-    const layout = assignSlot(DEFAULT_PANEL_LAYOUT, 1, { kind: 'tool', tool: 'smudge' })
-    expect(panelRoles(RECENT_DRAWING, RECENT_SECONDARY, layout))
-      .toEqual({ drawing: 'marker', secondary: 'eraser' })
-  })
-
-  // Pinning is what changes a role, so it changes the instant the layout does —
-  // no tool has to be selected for the duplicate to be avoided.
-  it('moves a role off a tool the moment that tool is pinned', () => {
-    const before = panelRoles(RECENT_DRAWING, RECENT_SECONDARY, DEFAULT_PANEL_LAYOUT)
-    expect(before.drawing).toBe('marker')
-    const after = panelRoles(
-      RECENT_DRAWING, RECENT_SECONDARY,
-      assignSlot(DEFAULT_PANEL_LAYOUT, 3, { kind: 'tool', tool: 'marker' }),
-    )
-    expect(after.drawing).toBe('pencil')
-  })
-})
+// A stand-in for what Room resolves per render. The drawing group is on the
+// marker, the shape group on the ellipse, and both carry the members their
+// fans would offer.
+const GROUPS: PanelGroups = {
+  drawing: {
+    tool: 'marker',
+    icon: 'ink_highlighter',
+    value: 'marker',
+    members: [
+      { value: 'pencil', icon: 'edit', label: 'Pencil' },
+      { value: 'marker', icon: 'ink_highlighter', label: 'Marker' },
+    ],
+  },
+  shape: {
+    tool: 'shape',
+    icon: 'circle',
+    value: 'ellipse',
+    members: [
+      { value: 'rectangle', icon: 'rectangle', label: 'Rectangle' },
+      { value: 'ellipse', icon: 'circle', label: 'Ellipse' },
+    ],
+  },
+}
 
 describe('resolveSlotTool', () => {
-  const roles = { drawing: 'watercolor', secondary: 'eyedropper' } as const
-
-  it('gives a fixed slot its own tool, whatever the roles say', () => {
-    expect(resolveSlotTool({ kind: 'tool', tool: 'ruler' }, roles)).toBe('ruler')
+  it('gives a fixed slot its own tool, whatever the groups say', () => {
+    expect(resolveSlotTool({ kind: 'tool', tool: 'ruler' }, GROUPS)).toBe('ruler')
   })
 
-  it('gives a role slot whatever that role currently resolves to', () => {
-    expect(resolveSlotTool({ kind: 'role', role: 'drawing' }, roles)).toBe('watercolor')
-    expect(resolveSlotTool({ kind: 'role', role: 'secondary' }, roles)).toBe('eyedropper')
+  it('gives a group slot whatever that group currently stands for', () => {
+    expect(resolveSlotTool({ kind: 'group', group: 'drawing' }, GROUPS)).toBe('marker')
+    // The shape group always resolves to the shape tool: which shape it draws
+    // is a setting, not a different tool. That difference lives in Room and
+    // this file must not learn it.
+    expect(resolveSlotTool({ kind: 'group', group: 'shape' }, GROUPS)).toBe('shape')
   })
 
   it('gives an empty or action slot no tool at all', () => {
-    expect(resolveSlotTool(null, roles)).toBeNull()
-    expect(resolveSlotTool({ kind: 'action', action: 'undo' }, roles)).toBeNull()
+    expect(resolveSlotTool(null, GROUPS)).toBeNull()
+    expect(resolveSlotTool({ kind: 'action', action: 'undo' }, GROUPS)).toBeNull()
+  })
+})
+
+describe('isGroupWithdrawn', () => {
+  it('calls a group with no members left withdrawn', () => {
+    const emptied: PanelGroups = { ...GROUPS, shape: { ...GROUPS.shape, members: [] } }
+    expect(isGroupWithdrawn('shape', emptied)).toBe(true)
+    expect(isGroupWithdrawn('drawing', emptied)).toBe(false)
   })
 })
 
 describe('slotFace', () => {
-  const roles = { drawing: 'marker', secondary: 'eraser' } as const
+  it('draws a group with its current member’s own icon, marked', () => {
+    const group = slotFace({ kind: 'group', group: 'drawing' }, GROUPS)
+    const fixed = slotFace({ kind: 'tool', tool: 'marker' }, GROUPS)
+    // Same picture — which is exactly why the corner mark has to exist.
+    expect(group?.icon).toBe(fixed?.icon)
+    expect(group?.isGroup).toBe(true)
+    expect(fixed?.isGroup).toBe(false)
+  })
 
-  it('draws a role with the resolved tool’s own icon, badged', () => {
-    const role = slotFace({ kind: 'role', role: 'drawing' }, roles)
-    const fixed = slotFace({ kind: 'tool', tool: 'marker' }, roles)
-    // Same picture — which is exactly why the badge has to exist.
-    expect(role?.icon).toBe(fixed?.icon)
-    expect(role?.isRole).toBe(true)
-    expect(fixed?.isRole).toBe(false)
+  it('names a group by the group, not by the member it is showing', () => {
+    expect(slotChoiceLabelKey({ kind: 'group', group: 'drawing' })).toBe('tool.drawing')
+    expect(slotChoiceLabelKey({ kind: 'tool', tool: 'marker' })).toBe('tool.marker')
   })
 
   it('has nothing to draw for an empty slot or for `clear`', () => {
-    expect(slotFace(null, roles)).toBeNull()
-    expect(slotFace({ kind: 'clear' }, roles)).toBeNull()
+    expect(slotFace(null, GROUPS)).toBeNull()
+    expect(slotFace({ kind: 'clear' }, GROUPS)).toBeNull()
   })
 })
 
 describe('the chooser', () => {
-  it('offers clear, both roles, every tool and both actions', () => {
+  it('offers clear, both groups, every pinnable tool and both actions', () => {
     expect(SLOT_CHOICES.map(slotChoiceKey)).toEqual([
-      'clear', 'role:drawing', 'role:secondary',
-      ...FLOATING_TOOLS.map(tool => `tool:${tool}`),
+      'clear', 'group:drawing', 'group:shape',
+      ...SLOT_FIXED_TOOLS.map(tool => `tool:${tool}`),
       'action:undo', 'action:redo',
     ])
+  })
+
+  // (#544) The materials and the shape tool are reachable through their group
+  // and nowhere else — the same rule the left rail follows, and the reason the
+  // fan shrank from twenty-two rays to fourteen.
+  it('offers no material and no shape tool of its own', () => {
+    const keys = SLOT_CHOICES.map(slotChoiceKey)
+    for (const material of FLOATING_PRIMARY_TOOLS) expect(keys).not.toContain(`tool:${material}`)
+    expect(keys).not.toContain('tool:shape')
   })
 
   it('gives every entry a distinct key', () => {
@@ -185,10 +189,10 @@ describe('assignSlot', () => {
     expect(next.filter(c => sameSlotContent(c, { kind: 'action', action: 'undo' }))).toHaveLength(1)
   })
 
-  it('de-duplicates roles too', () => {
-    const next = assignSlot(DEFAULT_PANEL_LAYOUT, 3, { kind: 'role', role: 'drawing' })
+  it('de-duplicates groups too', () => {
+    const next = assignSlot(DEFAULT_PANEL_LAYOUT, 3, { kind: 'group', group: 'drawing' })
     expect(next[0]).toBeNull()
-    expect(next[3]).toEqual({ kind: 'role', role: 'drawing' })
+    expect(next[3]).toEqual({ kind: 'group', group: 'drawing' })
   })
 
   it('leaves a slot re-assigned to what it already held alone', () => {
@@ -231,11 +235,58 @@ describe('parsePanelLayout', () => {
       'pencil',
       42,
       null,
-      { kind: 'tool', tool: 'pencil' },
+      { kind: 'tool', tool: 'fill' },
       null,
     ])
     expect(parsePanelLayout(raw)).toEqual([
-      null, null, null, null, null, null, { kind: 'tool', tool: 'pencil' }, null,
+      null, null, null, null, null, null, { kind: 'tool', tool: 'fill' }, null,
+    ])
+  })
+
+  // (#544) The panels people already have. Every one of them was laid out on
+  // top of a default that put the two roles in slots 0 and 4, so "an entry I
+  // no longer recognise becomes an empty slot" would have quietly stripped the
+  // top and bottom buttons off all of them.
+  it('carries the two old roles across to their successors', () => {
+    const raw = JSON.stringify([
+      { kind: 'role', role: 'drawing' },
+      null,
+      { kind: 'action', action: 'redo' },
+      null,
+      { kind: 'role', role: 'secondary' },
+      null,
+      { kind: 'action', action: 'undo' },
+      null,
+    ])
+    expect(parsePanelLayout(raw)).toEqual(DEFAULT_PANEL_LAYOUT)
+  })
+
+  it('carries a pinned material or shape tool into its group', () => {
+    const raw = JSON.stringify([
+      { kind: 'tool', tool: 'watercolor' },
+      { kind: 'tool', tool: 'shape' },
+      null, null, null, null, null, null,
+    ])
+    expect(parsePanelLayout(raw)).toEqual([
+      { kind: 'group', group: 'drawing' },
+      { kind: 'group', group: 'shape' },
+      null, null, null, null, null, null,
+    ])
+  })
+
+  // Migration is the one thing that can *create* a duplicate: a panel with the
+  // drawing role and a pinned marker was two useful buttons, and both of them
+  // now name the same group. The second one loses.
+  it('keeps only the first of two slots that migrate to the same thing', () => {
+    const raw = JSON.stringify([
+      { kind: 'role', role: 'drawing' },
+      { kind: 'tool', tool: 'marker' },
+      { kind: 'tool', tool: 'liner' },
+      null, null, null, null, null,
+    ])
+    expect(parsePanelLayout(raw)).toEqual([
+      { kind: 'group', group: 'drawing' },
+      null, null, null, null, null, null, null,
     ])
   })
 })

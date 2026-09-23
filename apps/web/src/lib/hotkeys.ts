@@ -108,6 +108,12 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   // is still free (D/F/J/K/N/O/P/Q/V/W/X/Y) it is the only letter the tool is
   // actually named after in either language the app ships.
   { id: 'toggleWatercolor', labelKey: 'hotkey.toggleWatercolor', default: { code: 'KeyW', mod: false, shift: false } },
+  // #547 — D for the digital brush. B is the brush pen's and the obvious letter
+  // is therefore gone; D is the initial of the half of the name that
+  // distinguishes it ("digital"/"цифровая") in both languages the app ships,
+  // and it was free (of D/F/J/K/N/O/P/Q/V/X/Y, nothing else is named after a
+  // letter here at all).
+  { id: 'toggleDigitalBrush', labelKey: 'hotkey.toggleDigitalBrush', default: { code: 'KeyD', mod: false, shift: false } },
   // (#405) The four tools that used to be modes laid over a drawing tool are
   // ordinary members of the selection now, so they belong in this registry
   // like every other tool rather than in a branch of their own — that is what

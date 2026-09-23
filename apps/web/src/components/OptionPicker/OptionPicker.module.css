@@ -36,6 +36,36 @@
   background-size: auto 200%;
 }
 
+/* (#544) A photograph of the tool itself, for the drawing-tool chooser. The
+   opposite treatment to .previewStrip above in every respect, and each
+   difference is the same difference: this is a picture of an object, not of a
+   mark. `contain` so the whole tool is in the box (a cropped pencil is a grey
+   bar); anchored left because every one of these is shot pointing left, and a
+   column of tips down one edge is what makes the list scannable; no paper
+   behind it and no border, because the tool is not lying on paper and the box
+   is not a swatch. */
+.previewPhoto {
+  width: 88px;
+  height: 34px;
+  background-color: transparent;
+  border: none;
+  background-size: contain;
+  background-position: left center;
+}
+
+/* The same photograph in the round trigger. `cover` rather than `contain`:
+   at 30 px the whole tool is a smudge, and its tip — the part that differs
+   between a chisel nib and a brush — is what the crop keeps. */
+.previewPhotoDot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: transparent;
+  border: none;
+  background-size: auto 150%;
+  background-position: left center;
+}
+
 /* Options that carry an icon instead of a photographed stroke (marker nibs)
    draw in the UI's own foreground color, so they get no paper behind them. */
 .previewIcon,

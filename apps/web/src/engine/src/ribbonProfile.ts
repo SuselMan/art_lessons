@@ -1,5 +1,9 @@
 import type { ToolType } from '@grafetto/shared'
 
+import {
+  digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset,
+} from './digitalBrushPresets'
+import { MARKER_INK_REF_CHORD_PX } from './markerInkGain'
 import { markerNibFromPreset } from './markerPresets'
 import {
   watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
@@ -82,10 +86,12 @@ export interface RibbonProfile {
    *  own radius, making it a quantity *per unit area* instead of per unit
    *  length (ADR 011 §3.8).
    *
-   *  False keeps the original formula, and the marker must keep it forever: its
-   *  strokes are in production rooms and its saturation constants were
-   *  calibrated against that scale, so changing it would silently re-render
-   *  every marker mark ever drawn.
+   *  False keeps the original formula, and the marker keeps it: its strokes are
+   *  in production rooms and its saturation constants were calibrated against
+   *  that scale, so changing it would silently re-render every marker mark
+   *  ever drawn. (#559 added one bounded exception — `thinNibInkRefPx` below —
+   *  which only ever *raises* the deposit of a nib too thin to have saturated,
+   *  and leaves every other mark bit-identical.)
    *
    *  What it fixes for watercolor: unnormalized, a pixel accumulates roughly
    *  `opacity x radius` because it is covered by about `2 * radius / spacing`
@@ -96,6 +102,12 @@ export interface RibbonProfile {
    *  brush is or how densely the dabs were spaced, which is the only way the
    *  curve can express anything at all. */
   normalizeDeposit: boolean
+  /** #559 — the nib chord, in canvas px, below which the legacy deposit is
+   *  scaled up by `ref / chord` so a thin nib still saturates the film. 0
+   *  disables it, which is what every tool but the marker sets: the brush pen
+   *  has no ink pass, watercolor and the digital brush normalize their deposit
+   *  differently. See markerInkGain.ts for the measurement behind the number. */
+  thinNibInkRefPx: number
   /** #468 v3 — deposit laid per radius of travel, when normalizeDeposit is on.
    *  0 for a tool on the legacy scale, which reads dab.opacity instead.
    *
@@ -253,6 +265,45 @@ export interface RibbonProfile {
    *  first quality criterion: 0.15 (the width floor) times a 3px pen is 0.45px.
    *  A light touch with a fine pen should leave a hairline, not a gap. */
   minHalfWidthPx: number | null
+  /** #547, ADR 013 §4 — draw the stamps and **not** the bands between them.
+   *
+   *  The ribbon exists because sweeping a convex nib along a segment is exactly
+   *  the convex hull of its two endpoint copies, which is the only way to draw a
+   *  variable-width line with no beading. That is the right figure for a pen and
+   *  a marker, whose mark is a continuous smear of a rigid tip.
+   *
+   *  A brush's mark is not that. It is a *repeated stamp*, and the whole point
+   *  of a textured tip (v2) is that the print recurs rather than smears — a band
+   *  would fill the gaps the texture is made of. So this switches the band pass
+   *  off and leans on tight spacing instead, which is why every descriptor in
+   *  digitalBrushPresets.ts sets a step well under the engine's 0.22 default.
+   *
+   *  False for the marker, the brush pen and watercolor, whose bands are
+   *  load-bearing: on a turn they reach places the stamps miss. */
+  stampsOnly: boolean
+  /** #547, ADR 013 §3 — how much one stamp lays into the coverage buffer at a
+   *  given pressure, or null for a tool whose coverage pass wants a plain
+   *  silhouette (the marker, the brush pen, watercolor — their mode-6 branch
+   *  ignores the value entirely).
+   *
+   *  This is **flow**, and it is the reason the digital brush needed no
+   *  composite of its own: it accumulates through the coverage buffer's
+   *  source-over blend and saturates there, while the stroke's opacity is
+   *  applied once, later, over the frozen pre-stroke layer. Two numbers, two
+   *  places, which is exactly the split every digital painting app exposes and
+   *  the thing a naive per-dab source-over cannot express.
+   *
+   *  A closure on the profile rather than a lookup at the draw site because the
+   *  paint path is handed a resolved profile, not the preset string — and
+   *  re-parsing that string per dab to recover the brush would be a second
+   *  place for the token format to drift. */
+  stampFlow: ((pressure: number) => number) | null
+  /** #547 — which DAB_FRAG branch draws one stamp into the coverage buffer.
+   *  6 is the ribbon's hard nib (marker, brush pen, watercolor); 10 is the
+   *  digital brush's soft/hardness-driven profile. Named per profile rather than
+   *  branched on the tool at the call site so the two can never drift apart from
+   *  the composite mode sitting next to it. */
+  coverageInkMode: 6 | 10
   /** How strongly the paper's grain acts on the mark's *rim*, as a fraction of
    *  the edge ramp's own width. 0 disables it. The core is never touched at any
    *  value by either reader below: both scale the term by 1 - coverage, which
@@ -377,6 +428,12 @@ const BRUSH_PEN_MIN_HALF_WIDTH_PX = 0.5
 const BRUSH_PEN_PAPER_WICK = 0.5
 
 const MARKER_BULLET_RIBBON: RibbonProfile = {
+  // #547 — the three tools that predate the digital brush all draw the ribbon's
+  // bands and its hard nib stamp, which is what "ribbon" meant before there was
+  // anything else through this machinery.
+  stampsOnly: false,
+  coverageInkMode: 6,
+  stampFlow: null,
   nibShape: 'ellipse',
   cornerFraction: 0,
   aaPx: MARKER_EDGE_AA_PX,
@@ -399,6 +456,10 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   // are in production rooms and its saturation constants were calibrated
   // against it. See RibbonProfile.normalizeDeposit.
   normalizeDeposit: false,
+  // #559 — except where that scale never reached the film's knee at all: a nib
+  // thinner than this along the travel gets its deposit raised to what this
+  // chord lays. Bit-identical above it.
+  thinNibInkRefPx: MARKER_INK_REF_CHORD_PX,
   depositPerRadius: 0,
   stampInkShare: 0,
   waterDepletion: false,
@@ -429,6 +490,12 @@ const MARKER_CHISEL_RIBBON: RibbonProfile = {
 }
 
 const BRUSH_PEN_RIBBON: RibbonProfile = {
+  // #547 — the three tools that predate the digital brush all draw the ribbon's
+  // bands and its hard nib stamp, which is what "ribbon" meant before there was
+  // anything else through this machinery.
+  stampsOnly: false,
+  coverageInkMode: 6,
+  stampFlow: null,
   nibShape: 'ellipse',
   cornerFraction: 0,
   aaPx: BRUSH_PEN_EDGE_AA_PX,
@@ -452,6 +519,8 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   // are in production rooms and its saturation constants were calibrated
   // against it. See RibbonProfile.normalizeDeposit.
   normalizeDeposit: false,
+  // No ink pass at all (see `ink` above), so nothing for #559 to scale.
+  thinNibInkRefPx: 0,
   depositPerRadius: 0,
   stampInkShare: 0,
   waterDepletion: false,
@@ -666,6 +735,9 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   // the ribbon builds from the pose regardless of what the stamp's ends look
   // like. So the box bought nothing and cost the tool its material.
   return {
+    stampsOnly: false,
+    coverageInkMode: 6,
+    stampFlow: null,
     nibShape: 'ellipse',
     cornerFraction: 0,
     aaPx: WATERCOLOR_EDGE_AA_PX,
@@ -699,6 +771,9 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     spreadPx: WATERCOLOR_SPREAD_CAP_PX,
     saturateInk: WATERCOLOR_SATURATE_INK,
     normalizeDeposit: true,
+    // Per-area normalization above already makes the deposit independent of
+    // the nib's depth along the travel, which is all #559's gain exists for.
+    thinNibInkRefPx: 0,
     waterDepletion: true,
     // ── from water: geometry and behaviour ──
     waterLevel: mix.water,
@@ -747,13 +822,109 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   }
 }
 
-/** Which tools the ribbon rasterizer draws. Every other tool goes through the
- *  ordinary per-dab stamp path, unchanged. */
+// ─── Digital brush (#547, ADR 013) ──────────────────────────────────────────
+
+// The edge ramp is **not** an absolute canvas-px width here, unlike every other
+// profile in this file, and that difference is the tool.
+//
+// A marker's or a pen's edge is a property of the physical tip: 1px of ramp
+// whatever the size, because a felt tip's fibres do not get blurrier when the
+// tip is made wider. A digital brush's edge is a property of the *brush*,
+// authored as hardness, and it scales with the mark — a soft 200px brush has a
+// soft 200px falloff, which is what "soft" means to the hand holding it.
+//
+// So this number is only the floor: the smallest ramp any stamp gets, so that a
+// hardness of 0.94 still antialiases instead of drawing a jagged disc. The
+// shader clamps against it (DAB_FRAG's u_inkMode=10 branch, aaNorm).
+const DIGITAL_BRUSH_MIN_AA_PX = 1.0
+
+// Everything here is identical for every brush in the set except `stampFlow`,
+// and that asymmetry is worth stating: hardness and opacity reach the engine
+// through the PencilPreset (digitalBrushPresetFor), the size curve through the
+// DabShapingProfile, the step through DabSystem.spacingFactor — three channels
+// that already existed. Flow had nowhere to go, because it is the one quantity
+// that is neither geometry nor a property of the finished stroke, and it is read
+// exactly where a profile is the only thing in scope.
+function digitalBrushRibbon(presetName: string | undefined): RibbonProfile {
+  const brush = digitalBrushFromPreset(presetName)
+  // Read off the recorded token, not off the live setting: a peer replaying this
+  // stroke has their own toggle in whatever position they left it, and the mark
+  // has to be the one that was drawn.
+  const flowFromPressure = digitalBrushFlowFromPreset(presetName)
+  return {
+  stampFlow: (pressure: number) => digitalBrushFlow(brush, pressure, flowFromPressure),
+  // ADR 013 §4 — stamps, no bands. See RibbonProfile.stampsOnly.
+  stampsOnly: true,
+  coverageInkMode: 10,
+  nibShape: 'ellipse',
+  cornerFraction: 0,
+  aaPx: DIGITAL_BRUSH_MIN_AA_PX,
+  // No pigment quantity: flow accumulates in the coverage buffer itself and the
+  // composite reads nothing else. Same answer the brush pen gives, for the same
+  // reason — see RibbonProfile.ink.
+  ink: false,
+  inkEdgeFalloff: 1,
+  // The brush pen's source-over composite, reused whole (ADR 013 §3):
+  //   alpha = clamp(coverage * opacity) over the frozen pre-stroke content.
+  // That is precisely flow against opacity — flow accumulated into coverage,
+  // opacity applied once to the finished silhouette — which is why this tool
+  // needed no composite branch of its own.
+  compositeInkMode: 8,
+  curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
+  // The brush pen's reason applies unchanged: a light touch with a fine brush
+  // must leave a hairline, not a gap. Widened to this rather than dropped.
+  minHalfWidthPx: 0.5,
+  // The preset's own number, not the tool's. v1's ADR said this brush never
+  // touches paper at all; that is right for Hard Round and wrong for the whole
+  // Dry/Rough family, where the sheet's tooth *is* the mechanism of the texture
+  // — see BrushDescriptor.paperInteraction. Every shipped brush sets 0, so the
+  // term vanishes identically today; what changed is that turning it on is a
+  // property a brush can declare rather than an edit to the tool.
+  paperRim: brush.paperInteraction,
+  wetEdge: 0,
+  wetEdgeRadiusPx: 0,
+  granulation: 0,
+  spreadPx: 0,
+  cloud: 0,
+  normalizeDeposit: false,
+  // No ink pass (flow accumulates in coverage), so nothing for #559 to scale.
+  thinNibInkRefPx: 0,
+  depositPerRadius: 0,
+  stampInkShare: 0,
+  waterDepletion: false,
+  waterLevel: 0,
+  pigmentLevel: 0,
+  pigmentOpacity: 0,
+  spreadOfRadius: 0,
+  strokeDir: [1, 0] as [number, number],
+  dryContact: 0,
+  edgeSoft: 0,
+  edgeWander: 0,
+  tideLo: 0,
+  tideHi: 0,
+  saturateInk: 0,
+  migrate: 0,
+  migrateOfRadius: 0,
+  migrateLo: 0,
+  migrateHi: 0,
+  }
+}
+
+/** Which tools composite from a stroke-scoped coverage buffer instead of
+ *  painting each dab straight onto the layer.
+ *
+ *  The name is now half a lie, knowingly: the digital brush (#547) goes through
+ *  this machinery for the *scratch buffers* — freeze the layer, sum the stroke's
+ *  own coverage, recompute the finished pixel — while switching off the ribbon
+ *  geometry that gave the thing its name. ADR 013 §9 records the rename as owed
+ *  work rather than doing it inside a feature branch. */
 export function isRibbonTool(tool: ToolType): boolean {
   return tool === 'marker' || tool === 'brushPen' || tool === 'watercolor'
+    || tool === 'digitalBrush'
 }
 
 export function ribbonProfileFor(tool: ToolType, presetName: string | undefined): RibbonProfile {
+  if (tool === 'digitalBrush') return digitalBrushRibbon(presetName)
   if (tool === 'watercolor') return watercolorRibbon(presetName)
   if (tool === 'brushPen') return BRUSH_PEN_RIBBON
   return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_RIBBON : MARKER_BULLET_RIBBON

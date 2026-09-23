@@ -1,13 +1,13 @@
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { isRoomAccessMode, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getOperationRejectReason,
   getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
   releaseLockOnUndo, releaseRoomIfUnused, removePaletteColor, setLayerLocked, setLayerOwnerLocked,
-  setParticipantFrozen, setRoomFrozen, updateAliveIds,
+  setParticipantFrozen, setRoomFrozen, setRoomTools, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'
@@ -194,7 +194,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // nothing behind it. Anything unrecognised — including absent — is the
       // open room this has always created.
       createRoom(
-        room, password, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, socket.id,
+        // (#548) Sanitized on the way in for the same reason `accessMode` is
+        // checked: a socket payload is not compiled by us, and this list is
+        // written into the row fire-and-forget. `sanitizeEnabledTools` drops
+        // ids it doesn't know and refuses a set with no drawing tool left,
+        // so what lands is always a toolset a room can be used with.
+        { ...room, enabledTools: sanitizeEnabledTools(room.enabledTools) },
+        password, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, socket.id,
         isRoomAccessMode(accessMode) ? accessMode : 'anyone_with_link',
       )
       socket.data.roomId = room.id
@@ -470,6 +476,23 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         return
       }
       if (setRoomFrozen(roomId, frozen)) io.to(roomId).emit('room_frozen_changed', { frozen })
+    })
+
+    // (#548) The room's toolset. Owner-only, same shape as `set_room_frozen`
+    // above — and broadcast to the whole room including the owner, because a
+    // tool being taken away is something every client has to act on locally
+    // (a hand holding it switches to another), the sender included.
+    socket.on('set_room_tools', enabledTools => {
+      const { roomId, userId } = socket.data
+      if (!roomId || !userId) return
+      const participant = getParticipant(roomId, userId)
+      if (participant?.role !== 'owner') {
+        log.warn({ socketId: socket.id, roomId, userId }, 'rejected set_room_tools from non-owner participant')
+        return
+      }
+      const stored = setRoomTools(roomId, enabledTools)
+      if (stored === false) return
+      io.to(roomId).emit('room_tools_changed', { enabledTools: stored })
     })
 
     // (#254/#257 epic) Point freeze — same owner-only shape as

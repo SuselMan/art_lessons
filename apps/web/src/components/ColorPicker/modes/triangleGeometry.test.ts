@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
+import { pointOnCircle, rotatePoint } from '../../../lib/angles'
 import {
   barycentric,
   clampToTriangle,
   pointForSv,
   svFromWeights,
   triangleCorners,
+  triangleRotation,
 } from './triangleGeometry'
 
 const center = { x: 100, y: 100 }
@@ -107,5 +109,55 @@ describe('clampToTriangle', () => {
     // top edge.
     const below = clampToTriangle({ x: 100, y: 500 }, corners)
     expect(below.y).toBeGreaterThan(center.y)
+  })
+})
+
+describe('triangleRotation (#542)', () => {
+  it('brings the hue corner round to the hue own place on the ring', () => {
+    // Hue 0 is at 12 o'clock (see ringGeometry); the canonical hue corner is at
+    // 60. So a red picked at the top of the ring turns the triangle back by 60.
+    const turned = rotatePoint(corners.hue, center, triangleRotation(0))
+    const atTwelve = pointOnCircle(center, 80, 0)
+    expect(turned.x).toBeCloseTo(atTwelve.x)
+    expect(turned.y).toBeCloseTo(atTwelve.y)
+  })
+
+  it('leaves the canonical orientation alone at the hue it was drawn for', () => {
+    expect(triangleRotation(60)).toBe(0)
+  })
+
+  it('wraps rather than going negative', () => {
+    expect(triangleRotation(10)).toBe(310)
+  })
+
+  it('round-trips a pointer through the rotation it is drawn with', () => {
+    // What the component does on every press: rotate the reading back, solve,
+    // and rotate the answer out again. Both directions have to be the same
+    // number, or the thumb lands somewhere the finger was not.
+    for (const hue of [0, 37, 180, 359]) {
+      const r = triangleRotation(hue)
+      for (const p of [corners.hue, corners.white, corners.black, center]) {
+        const there = rotatePoint(p, center, r)
+        const back = rotatePoint(there, center, -r)
+        expect(back.x).toBeCloseTo(p.x)
+        expect(back.y).toBeCloseTo(p.y)
+      }
+    }
+  })
+
+  it('keeps a colour where it was in the triangle as the hue turns', () => {
+    // The reason for turning it at all: a saturation/value point does not
+    // wander around the shape while the hue changes under it. The barycentric
+    // solve runs in canonical space, so the same s/v gives the same canonical
+    // point at every hue, and only the drawing turns.
+    const a = pointForSv(0.6, 0.8, corners)
+    const b = pointForSv(0.6, 0.8, corners)
+    expect(a).toEqual(b)
+    const shown = rotatePoint(a, center, triangleRotation(200))
+    const solved = svFromWeights(barycentric(
+      rotatePoint(shown, center, -triangleRotation(200)), corners,
+    ))
+    expect(solved.s).toBeCloseTo(0.6)
+    expect(solved.v).toBeCloseTo(0.8)
   })
 })

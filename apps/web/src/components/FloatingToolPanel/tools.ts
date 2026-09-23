@@ -21,7 +21,9 @@ import type { IconName } from '../../icons/iconNames'
  *  Still named as a set of its own even though every slot can now hold any
  *  tool, because the `drawing` role resolves into exactly this set — it is
  *  what "whichever one I was last drawing with" ranges over. */
-export const FLOATING_PRIMARY_TOOLS = ['pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor'] as const
+export const FLOATING_PRIMARY_TOOLS = [
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'digitalBrush',
+] as const
 
 export type FloatingPrimaryTool = (typeof FLOATING_PRIMARY_TOOLS)[number]
 
@@ -41,7 +43,7 @@ export type FloatingSecondaryTool = (typeof FLOATING_SECONDARY_TOOLS)[number]
  *  buttons and became something that can replace the toolbar. Until the slots
  *  were user-assignable there was no reason to name these at all: no fixed
  *  slot could have shown them, so minimal UI simply had no ruler. */
-export const FLOATING_UTILITY_TOOLS = ['hand', 'ruler', 'transform', 'selection', 'fill', 'grid'] as const
+export const FLOATING_UTILITY_TOOLS = ['hand', 'ruler', 'transform', 'selection', 'fill', 'shape', 'grid'] as const
 
 export type FloatingUtilityTool = (typeof FLOATING_UTILITY_TOOLS)[number]
 
@@ -64,6 +66,22 @@ export const FLOATING_TOOLS = [
  *  with no icon or label is a typecheck error, not a blank button). */
 export type FloatingPanelTool = (typeof FLOATING_TOOLS)[number]
 
+/** (#544) The tools a slot can be *pinned* to, which is now a smaller set than
+ *  the tools the panel can *show*.
+ *
+ *  The difference is the groups. A material is still displayed here — a slot
+ *  holding the drawing group wears whichever one is in hand — but it can no
+ *  longer be put in a slot on its own, because the rail does not offer that
+ *  either and the panel and the rail offer one set of tools between them, not
+ *  two. Same for the shape: four shapes behind one entry.
+ *
+ *  Written as a filter rather than a second hand-kept list so that a tool
+ *  added above lands here automatically unless it belongs to a group. */
+export const SLOT_FIXED_TOOLS = FLOATING_TOOLS.filter(
+  (tool): tool is FloatingPanelTool =>
+    !(FLOATING_PRIMARY_TOOLS as readonly string[]).includes(tool) && tool !== 'shape',
+)
+
 /** Narrows an arbitrary editor tool to the ones this panel can show as
  *  selected, so Room does not have to keep its own copy of the list to decide
  *  what to pass as `tool`. Now that every toolbar tool is in the list, the
@@ -78,7 +96,13 @@ interface ToolFace { icon: IconName; labelKey: TranslationKey }
 /** Icon + label per tool — the same icon each tool's own left-toolbar button
  *  already uses (Room/index.tsx), so the floating panel and the toolbar never
  *  disagree about what a tool "looks like". A total Record over the list
- *  above, which is what makes an unfaced tool fail to compile. */
+ *  above, which is what makes an unfaced tool fail to compile.
+ *
+ *  (#544) One deliberate exception, the shape. The rail's shape button wears
+ *  whichever shape is currently set, because it can also offer the choice; a
+ *  slot here holds *the shape tool* and has no way to offer one, so it keeps
+ *  the composite glyph, which is the honest picture of "shapes" rather than a
+ *  promise of a chooser that is not behind it. */
 export const TOOL_DISPLAY: Record<FloatingPanelTool, ToolFace> = {
   pencil: { icon: 'edit', labelKey: 'tool.pencil' },
   charcoal: { icon: 'charcoal', labelKey: 'tool.charcoal' },
@@ -86,6 +110,7 @@ export const TOOL_DISPLAY: Record<FloatingPanelTool, ToolFace> = {
   marker: { icon: 'ink_highlighter', labelKey: 'tool.marker' },
   brushPen: { icon: 'brush', labelKey: 'tool.brushPen' },
   watercolor: { icon: 'water_drop', labelKey: 'tool.watercolor' },
+  digitalBrush: { icon: 'format_paint', labelKey: 'tool.digitalBrush' },
   eraser: { icon: 'ink_eraser', labelKey: 'tool.eraser' },
   smudge: { icon: 'smudge', labelKey: 'tool.smudge' },
   eyedropper: { icon: 'colorize', labelKey: 'tool.eyedropper' },
@@ -94,5 +119,6 @@ export const TOOL_DISPLAY: Record<FloatingPanelTool, ToolFace> = {
   transform: { icon: 'free-transform', labelKey: 'tool.transform' },
   selection: { icon: 'highlight_alt', labelKey: 'tool.selection' },
   fill: { icon: 'format_color_fill', labelKey: 'tool.fill' },
+  shape: { icon: 'shapes', labelKey: 'tool.shape' },
   grid: { icon: 'grid_on', labelKey: 'tool.grid' },
 }

@@ -59,12 +59,12 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border);
+  /* (#542) Placement only. The circle, its border, its size and its hover
+     belong to ColorWell now, which is why nothing here paints — the glyph has
+     to look the same at the panel's centre as it does in the tool rail.
+     ColorWell scales on hover through the standalone `scale` property rather
+     than through `transform` precisely so this centring survives it. */
   transform: translate(-50%, -50%);
-  cursor: pointer;
 }
 
 /* A compass slot. Placed by an inline transform computed from slotOffset()
@@ -121,33 +121,23 @@
   background: var(--color-text-dim);
 }
 
-/* Worn in the corner of a slot that holds a *role* — "whichever tool I last
-   drew with" — over that tool's own icon. Small on purpose: it is a footnote
-   on the icon, not a second icon, and the thing the eye needs from the slot
-   is still which tool it would hand over. Its one load-bearing job is inside
-   the chooser, where a fixed pencil and a role currently resolving to the
-   pencil would otherwise be the same picture twice. */
-.roleBadge {
+/* (#544) "There is more than one tool behind this button" — the same corner
+   wedge the rail's group buttons wear (see ToolGroupButton.module.css), and
+   deliberately the same shape and size: it is one claim, and a user who learns
+   it on the rail should not have to learn it again here.
+
+   It replaced a round `history` badge that said something subtly different —
+   "this slot follows whatever you last used" — which was true of the roles
+   this panel no longer has. */
+.groupMark {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--color-surface-raised);
-  color: var(--color-text-dim);
-}
-/* Icon.tsx wraps every glyph in a global .material-symbols-outlined, whose
-   app-wide rule sizes it at 24px — the badge has to override that from here
-   rather than by inheriting, since font-size is set on the wrapper itself. */
-.roleBadge > :global(.material-symbols-outlined) {
-  font-size: 12px;
-}
-.btnActive .roleBadge {
-  color: var(--color-accent);
+  right: 3px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  opacity: 0.55;
 }
 
 /* Invisible tap-catcher (#190 follow-up) — see index.tsx's own comment on
@@ -212,4 +202,13 @@
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-2));
   color: var(--color-accent);
+}
+
+/* (#548) A slot holding a tool the room has stopped offering. Kept in place
+   rather than emptied — the arrangement is the user's, and the tool may come
+   back — but visibly out of service, because a slot that looks live and
+   answers nothing is the worse of the two. */
+.btnWithdrawn {
+  opacity: 0.35;
+  cursor: default;
 }

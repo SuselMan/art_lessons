@@ -98,8 +98,8 @@ tablet.
   auto-deploys it to production on every push (see `deploy/README.md`), which is exactly why
   nothing lands here without Ilya saying so. The manager never commits or merges here without
   explicit per-merge approval.
-- `agents/<issue-number>-<slug>` — one per task, branched from `main`, worktree-isolated where
-  parallelism needs it (see below). Commits on these are pre-approved. Once a branch's QA pass
+- `agents/<issue-number>-<slug>` — one per task, branched from `main`, always in its own git
+  worktree (see "Worktree-first" below). Commits on these are pre-approved. Once a branch's QA pass
   is clean, the manager reports it and asks Ilya before merging into `main`.
 
 There is deliberately **no `dev` integration branch**. There used to be one in this document,
@@ -109,12 +109,50 @@ the actual workflow routes around is worse than no branch — it makes this file
 code lives, and it silently mis-bases any agent branched from it. If a staging branch is ever
 wanted again, it gets re-introduced on purpose, with a reason, not restored from habit.
 
+## Worktree-first: every task gets its own checkout
+
+**Work never happens in `C:\projects\pencil` itself.** That path is the shared main checkout —
+Ilya has editors, dev servers and other live Claude sessions pointed at it, so editing there is
+editing under someone else's feet, and a `git checkout`/`git stash` can pull the branch out from
+under a session that is mid-test. Before touching a file for a task, either find that task's
+worktree or make one.
+
+1. **Look first:** `git worktree list`. If a worktree already exists for this issue/task (its
+   `agents/<issue>-*` branch is checked out somewhere), reuse it — never create a second one for
+   the same task, and never start the same task twice in two places.
+2. **Otherwise create it,** from an up-to-date `main`:
+   ```
+   git -C C:/projects/pencil fetch origin
+   git -C C:/projects/pencil worktree add -b agents/<issue>-<slug> C:/projects/pencil-agents/<issue>-<slug> origin/main
+   ```
+   Always `git -C <dir>`, never `cd <dir> && git`. Don't delegate this to the Agent tool's
+   `isolation: "worktree"` — it has silently branched from a stale base, and has silently failed to
+   isolate at all; pre-create the worktree yourself and point the agent at the path.
+3. **Set it up before running anything in it:** `npm install` (never junction or symlink
+   `node_modules` from another checkout — `git worktree remove` follows the link and once deleted
+   521 source files from the main checkout), then `npm -w apps/web run bake:paper` if the task will
+   run the app or e2e. `npm install` in a worktree can dirty the root `package.json` with a
+   self-dependency — check `git status` and revert that before committing.
+4. **Name the worktree path and branch** in the first report on the task, so Ilya knows which
+   checkout the change lives in.
+
+Exceptions — the only work that legitimately happens in the main checkout:
+
+- read-only investigation (reading, grepping, `git log`, running tests without editing);
+- landing an approved branch into `main` (merge/cherry-pick), which needs Ilya's per-merge
+  go-ahead anyway;
+- edits to repo-wide meta docs (this file, `CLAUDE.md`) when they *are* the request.
+
+Everything else gets a worktree — including the "one-line fix", the quick experiment, and the doc
+change riding along with code. Creating one costs a single command; skipping one has cost a
+corrupted shared checkout more than once.
+
 ## Multi-agent parallel workflow
 
 We parallelize work across isolated Claude Code sessions ("agents"), coordinated by the main session ("manager"). Agents do not talk to each other directly — all coordination goes through the manager.
 
 - The manager assigns tasks from GitHub Issues, one task per agent session.
-- Each task runs on a dedicated branch `agents/<issue-number>-<slug>`, branched from `main`. Give it its own git worktree when two tasks would otherwise edit the same checkout concurrently; a single serial task can just use the main checkout.
+- Each task runs on a dedicated branch `agents/<issue-number>-<slug>` in its own git worktree, branched from `main` — see "Worktree-first" above. That holds for a single serial task too, not only when two tasks would collide.
 - One agent session = one `area:*` label (e.g. `area:ui` → frontend agent, `area:server` → backend agent). Don't mix areas in one agent session.
 - Changes to `packages/shared` (the contract between frontend and backend) are made by the manager only, on its own branch off `main` and merged *before* dependent frontend/backend tasks are handed out. Agents never edit `packages/shared` themselves.
 - An agent must stop and report to the manager if a task requires touching files outside its declared area, instead of proceeding.

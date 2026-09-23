@@ -19,6 +19,29 @@ const files = import.meta.glob('../../assets/tool-types/*/*.png', {
   import: 'default',
 }) as Record<string, string>
 
+/** (#544) The other kind of picture, one directory up: a photograph of the
+ *  *tool*, not of the mark it leaves. Same filename-is-the-id convention —
+ *  `brushPen.png` illustrates the brush pen — and the same `?url` treatment,
+ *  which matters more here: these are photographs, ~50 KB each, and the
+ *  chooser they belong to is opened rarely.
+ *
+ *  Shot on white and keyed into alpha, so the tool sits on whatever surface
+ *  the UI puts behind it rather than in a lit white box. Unlike the sample
+ *  strokes below they get no paper tint — paper is what a stroke needs to be
+ *  read against, and a pencil is not a stroke. */
+const toolFiles = import.meta.glob('../../assets/tools/*.png', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+
+export const TOOL_PHOTOS: Record<string, string> = Object.fromEntries(
+  Object.entries(toolFiles).map(([path, url]) => [
+    path.slice('../../assets/tools/'.length, -'.png'.length),
+    url,
+  ]),
+)
+
 function imagesFor(tool: string): Record<string, string> {
   const prefix = `../../assets/tool-types/${tool}/`
   return Object.fromEntries(
@@ -30,6 +53,12 @@ function imagesFor(tool: string): Record<string, string> {
 
 export const PENCIL_GRADE_IMAGES = imagesFor('pencil')
 export const CHARCOAL_TYPE_IMAGES = imagesFor('charcoal')
+
+/** (#547) Unlike the two above, these are not photographs of a real stroke on
+ *  real paper — there is no such thing for this tool. They are the engine's own
+ *  output, baked by scripts/bakeBrushSamples.ts, which is the only picture of a
+ *  digital brush that cannot quietly stop being true. */
+export const DIGITAL_BRUSH_IMAGES = imagesFor('digitalBrush')
 
 /** Marker nibs deliberately get icons instead (see markerSchema) — the two
  *  differ in tip *shape*, which a photographed stroke shows far worse than a

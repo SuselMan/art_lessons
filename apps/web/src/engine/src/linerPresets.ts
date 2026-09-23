@@ -50,28 +50,92 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * clamp01(t)
 }
 
-// speed unit matches the same `speed` PointerInput/_bakeDabOpacity already
-// use for pencil's own speedFactor (Math.max(0.7, 1 - speed*0.15), floor at
-// speed≈2) — reusing that scale so "very fast" means the same thing for both
-// tools. First-pass, not yet calibrated against a real device (same caveat
-// as PENCIL_PRESETS' own interpolation comment) — verify by eye against a
-// real stroke and retune LINER_SPEED_REFERENCE/_MIN/_MAX if the effect reads
-// too strong or too weak.
-const LINER_SPEED_REFERENCE = 1    // "comfortable" drawing speed -> flow 1.0 (baseline, no change)
-const LINER_SPEED_FLOW_MIN = 0.5   // very fast stroke -> visibly lighter
-const LINER_SPEED_FLOW_MAX = 1.4   // very slow stroke -> visibly darker/thicker, continuous with dwellFlow's own start
-const LINER_SPEED_EPS = 0.05       // guards divide-by-zero as speed -> 0; clamp (not this) does the real bounding
+// ─── Revised again, #532: a plateau, not a hyperbola ────────────────────────
+//
+// #245's `flow = clamp(1/speed, 0.5, 1.4)` was derived from the right physics
+// and shipped with the wrong shape. Two things were wrong with it, and only
+// one of them was this file's fault.
+//
+// Not this file's fault: the `speed` it was being handed was garbage —
+// measured against the handler's own clock rather than the sample's, so 96.6%
+// of real dabs landed on one of the two clamps (see PointerInput's Speed
+// section for the measurement). That is fixed there, and no curve of any shape
+// would have survived it.
+//
+// This file's fault: even fed a correct speed, the curve is far too steep to
+// describe a pen. Ilya's hatching measures 0.24-1.17 px/ms — all of it
+// ordinary, none of it remarkable — and `1/speed` spreads that across flow
+// 1.40 down to 0.85, a 60% swing *within a single stroke* that a hand did
+// nothing to ask for. His description of the real instrument is the opposite:
+// "линер почти всегда ложится плотно, за исключением длинных быстрых штрихов."
+//
+// That is a plateau. The nib meters ink through a fibre feed at a rate the
+// hand does not control; over the whole range of speeds a person actually
+// hatches at, the feed keeps up and the line is simply saturated. Only when
+// the tip outruns the feed does the line start to starve, and that is the one
+// case worth modelling.
+//
+// The same argument caps the slow end hard. #245's ceiling of 1.4 says a slow
+// stroke deposits 40% more ink than a normal one — but a feed that "keeps up"
+// is by definition already delivering all it has, so there is very little
+// extra to give. What is left is a slight pooling as the tip lingers, worth a
+// few percent, not forty. The genuinely stationary case is not on this curve
+// at all: it is dwellFlow below, which is time-driven and unbounded in a way
+// a moving stroke's speed can never be.
+//
+// Numbers agreed with Ilya (2026-09-05 chat) against the measured range above;
+// still to be verified by eye on a real device, like every other first-pass
+// constant here.
 
-/** ADR 003 §3 (revised #245): flow ~ REFERENCE / speed — a real inverse
- *  relationship (ink deposited per unit length rises as speed drops),
- *  clamped to a sane range instead of the original mild linear curve.
- *  Continuous with dwellFlow's own start value (both equal 1.0 at
- *  "comfortable" speed / zero elapsed dwell), so a stroke slowing toward a
- *  stop doesn't visibly jump when _paintDwellDab's timer takes over once
- *  DabSystem itself stops producing dabs (see engine/index.ts's own dwell
- *  comment for why that handoff exists at all). */
+/** Up to this speed the feed keeps up completely and flow is exactly 1.0.
+ *  Comfortably above the top of Ilya's measured hatching range (1.17 px/ms) —
+ *  the plateau has to cover ordinary drawing with room to spare, or the whole
+ *  point of it is lost. */
+const LINER_SPEED_PLATEAU = 1.75
+/** At and above this speed the tip has fully outrun the feed and flow sits at
+ *  LINER_SPEED_FLOW_MIN. */
+const LINER_SPEED_FAST = 4.0
+/** Flow of a stroke fast enough to starve the nib — "длинный быстрый штрих".
+ *  Lighter, not a third of the ink: a starved fineliner still leaves a
+ *  continuous line, it just stops reading as solid black. */
+const LINER_SPEED_FLOW_MIN = 0.75
+/** Flow as speed -> 0, i.e. the most a *moving* stroke can pool. See the
+ *  section comment on why this is a few percent rather than #245's 1.4. */
+const LINER_SPEED_FLOW_SLOW = 1.05
+/** Below this speed the slight pooling above fades in.
+ *
+ *  Set from the measured range rather than picked: the slowest band in Ilya's
+ *  own hatching was 0.24 px/ms, and that is unhurried drawing, not a crawl —
+ *  it belongs on the plateau. Anything the pooling ramp reaches has to be
+ *  slower than the slowest thing a person does on purpose, so the ramp starts
+ *  well under that and only really bites at a small fraction of it. */
+const LINER_SPEED_SLOW = 0.15
+
+/** Smoothstep, on a `t` clamped to [0,1]. Used at both ends of the curve so
+ *  the plateau is joined with a zero derivative: a kink there would put a
+ *  visible tone edge at exactly the speed people hatch at, which is the
+ *  failure mode this whole revision is about. */
+function smoothstep(t: number): number {
+  const c = clamp01(t)
+  return c * c * (3 - 2 * c)
+}
+
+/** ADR 003 §3 (revised #245, reshaped #532): flat at 1.0 across every speed a
+ *  person actually draws at, easing down toward LINER_SPEED_FLOW_MIN only once
+ *  the tip outruns the ink feed, and easing up by a few percent as the stroke
+ *  slows to a crawl.
+ *
+ *  The handoff to dwellFlow (which starts at 1.0 and ramps up once the pointer
+ *  is genuinely stationary) now has a step of at most 0.05 — this curve's own
+ *  slow-end ceiling. #245's comment claimed continuity there and did not have
+ *  it: at speed -> 0 it returned 1.4 and dwell then restarted from 1.0, a 0.4
+ *  drop at the exact moment the pen came to rest. */
 export function linerSpeedFlow(speed: number): number {
-  return clamp(LINER_SPEED_REFERENCE / Math.max(speed, LINER_SPEED_EPS), LINER_SPEED_FLOW_MIN, LINER_SPEED_FLOW_MAX)
+  if (speed < LINER_SPEED_SLOW) {
+    return lerp(LINER_SPEED_FLOW_SLOW, 1, smoothstep(speed / LINER_SPEED_SLOW))
+  }
+  if (speed <= LINER_SPEED_PLATEAU) return 1
+  return lerp(1, LINER_SPEED_FLOW_MIN, smoothstep((speed - LINER_SPEED_PLATEAU) / (LINER_SPEED_FAST - LINER_SPEED_PLATEAU)))
 }
 
 /** ADR 003 §7: tilt affects flow only in the extreme range — almost no
@@ -146,9 +210,21 @@ export interface DwellConfig {
    *  it takes longer to approach maxFlow. */
   tau: number
   /** Ceiling flow can ever reach while dwelling — bounds how dark a resting
-   *  point can get, matching linerSpeedFlow's own upper bound at speed 0. */
+   *  point can get. */
   maxFlow: number
 }
+
+/** How dark a genuinely resting tip is allowed to pool to.
+ *
+ *  Deliberately far above linerSpeedFlow's own slow-end ceiling (1.05) rather
+ *  than aliased to it, which is what it was until #532. The two answer
+ *  different questions: a *moving* stroke gives the ink a bounded time over
+ *  any one spot, so there is only ever a few percent of extra pooling to be
+ *  had — while a stationary tip keeps feeding into the same spot for as long
+ *  as it is held, which is a blot and is supposed to look like one. Sharing a
+ *  constant between them forced one number to describe both, and the moving
+ *  case is the one that lost. */
+const LINER_DWELL_MAX_FLOW = 1.4
 
 // First-pass, not yet calibrated against a real device (same caveat as
 // PENCIL_PRESETS' own interpolation comment) — verify by eye and retune.
@@ -157,7 +233,7 @@ export const LINER_DWELL: DwellConfig = {
   intervalMs: 70,
   minDwellMs: 150,
   tau: 250,
-  maxFlow: LINER_SPEED_FLOW_MAX,
+  maxFlow: LINER_DWELL_MAX_FLOW,
 }
 
 /** Saturating ramp from 1.0 (the instant movement stops — continuous with
@@ -259,7 +335,7 @@ export function linerWickPx(dabRadiusPx: number): number {
 //
 // The visible blot doesn't actually need it: `wick` in DAB_FRAG scales with
 // v_opacity, and dwellFlow already pushes a resting dab's opacity up toward
-// LINER_SPEED_FLOW_MAX. Since the band's profile is a steep exponential, more
+// LINER_DWELL_MAX_FLOW. Since the band's profile is a steep exponential, more
 // opacity saturates it further out — the *visible* edge of the pool moves
 // outward even though the geometric band did not. It's the same mechanism as
 // the moving stroke's, driven by a value that is genuinely baked into the

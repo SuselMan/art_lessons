@@ -260,6 +260,10 @@ export function useViewport(
       }
 
       const onDown = (e: PointerEvent) => {
+        // A press in a text field (the note editor) belongs to the field: the
+        // pointer capture below would take the finger away from it, and with it
+        // caret placement, the selection handles and the magnifier.
+        if (e.target instanceof Element && e.target.closest('input, textarea, [contenteditable]')) return
         if (e.pointerType === 'touch') {
           diagLog('vp: down', { id: e.pointerId, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current, toolActive: toolActive.current })
           if (toolActive.current && reservedTouchId.current === null && touchPtrs.current.size === 0) {

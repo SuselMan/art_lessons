@@ -208,6 +208,93 @@ export function isRoomAccessMode(value: unknown): value is RoomAccessMode {
   return typeof value === 'string' && (ROOM_ACCESS_MODES as readonly string[]).includes(value)
 }
 
+// (#548, first step of #544) The tools a room may offer, and the only list
+// the wire knows about. Ordered exactly as the left toolbar and the floating
+// panel lay them out — materials, then the tools that work on marks already
+// down, then the utilities — so "the tools" means one thing in this app
+// rather than three.
+//
+// The three annotation tools are deliberately absent: they are a rail of
+// their own (#509/#510), shown *instead* of these rather than alongside them,
+// and a room's toolset has no say over a mode it never competes with.
+export const TOGGLEABLE_TOOLS = [
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'digitalBrush',
+  'eraser', 'smudge', 'eyedropper',
+  // (#525) The shape tool is one entry, not four: which of the four shapes it
+  // draws is a setting on the tool, so a room cannot offer the ellipse and
+  // withhold the star, and there is nothing here to say if it could.
+  'hand', 'ruler', 'transform', 'selection', 'fill', 'shape', 'grid',
+] as const
+
+export type ToggleableTool = (typeof TOGGLEABLE_TOOLS)[number]
+
+/** The tools that actually lay material. At least one of them has to survive
+ *  every toolset — see `sanitizeEnabledTools`.
+ *
+ *  The eraser and the smudge are deliberately not here despite being drawing
+ *  tools in every other sense: neither can put a mark on an empty sheet, so a
+ *  room offering only those is exactly as unusable as one offering nothing. */
+export const TOOLSET_MATERIAL_TOOLS: readonly ToggleableTool[] = [
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor',
+  // #547 — the digital brush lays material like the rest, and a room offering
+  // only it is a perfectly good digital-painting lesson. That it imitates no
+  // physical material is a fact about the mark, not about whether the tool can
+  // start a drawing from an empty sheet, which is the only question this list
+  // asks.
+  'digitalBrush',
+]
+
+export function isToggleableTool(value: unknown): value is ToggleableTool {
+  return typeof value === 'string' && (TOGGLEABLE_TOOLS as readonly string[]).includes(value)
+}
+
+/** Reads an arbitrary value — a socket payload, a REST body, a column written
+ *  by an older build — into a toolset, or into `undefined` meaning "no
+ *  restriction".
+ *
+ *  Three things it enforces, in this order, and each of them is the answer to
+ *  a way the feature could quietly break a room:
+ *
+ *  - unknown ids are dropped rather than rejected, so a room created by a
+ *    build that had one more tool than this one still opens (with that tool
+ *    simply not offered) instead of failing to parse;
+ *  - the result is deduped and reordered into `TOGGLEABLE_TOOLS` order, so a
+ *    toolset compares as data rather than as the order someone clicked;
+ *  - a list with no material left in it is *not* a toolset. A room nobody can
+ *    draw in is read-only, which is its own setting (`closedAt`), and arriving
+ *    at it by unchecking boxes would be an accident, never a decision. Such a
+ *    list — and an empty one — reads as no restriction.
+ *
+ *  "No restriction" is deliberately `undefined` rather than a spelled-out list
+ *  of all fifteen: the next tool this app ships has to appear in every room
+ *  whose owner never restricted anything, and a stored full list would keep it
+ *  out of all of them forever.
+ */
+export function sanitizeEnabledTools(value: unknown): ToggleableTool[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const picked = new Set(value.filter(isToggleableTool))
+  if (picked.size === 0) return undefined
+  const ordered = TOGGLEABLE_TOOLS.filter(tool => picked.has(tool))
+  if (!ordered.some(tool => TOOLSET_MATERIAL_TOOLS.includes(tool))) return undefined
+  // Every tool enabled is not a restriction, it is the default spelled out —
+  // store it as the default so a later-added tool is not excluded by it.
+  if (ordered.length === TOGGLEABLE_TOOLS.length) return undefined
+  return ordered
+}
+
+/** Whether a room offers this tool. The one place the `undefined = all` rule
+ *  is read, so no call site has to remember it — and the one place that knows
+ *  a toolset has no opinion about tools outside `TOGGLEABLE_TOOLS`.
+ *
+ *  That second part is not a detail: the annotation tools are not toggleable,
+ *  and reading a restricted list as "everything not in it is off" would have
+ *  taken the annotation rail away from every room that restricted anything. */
+export function isToolEnabledInRoom(enabledTools: readonly ToggleableTool[] | undefined, tool: string): boolean {
+  if (!enabledTools) return true
+  if (!isToggleableTool(tool)) return true
+  return enabledTools.includes(tool)
+}
+
 export type Room = {
   id: string
   name: string
@@ -275,6 +362,17 @@ export type Room = {
   // rather than taking the fork with it: a student's own work must not
   // disappear because the teacher tidied up their side.
   parentRoomId?: string
+  // (#548) Which tools this room offers, if it restricts them at all. Absent
+  // means it does not — see `sanitizeEnabledTools` for why the unrestricted
+  // case is an absence rather than a list of every tool.
+  //
+  // A property of the room, so it reads the same for the owner and for every
+  // student: a teacher who put out two pencils has to see the two pencils the
+  // class sees. It never touches the Operation Log — strokes drawn with a tool
+  // before it was switched off keep replaying, and a peer's operation with a
+  // tool this room no longer offers still paints. The toolset decides what can
+  // be picked up, not what exists.
+  enabledTools?: ToggleableTool[]
 }
 
 // (#226) Everything the access panel (#228) shows about one room, fetched in
@@ -417,6 +515,16 @@ export type ToolType =
   // is recorded in a real room, every client must keep replaying it forever,
   // so the wire type has to know the tool from the first stroke onward.
   | 'watercolor'
+  // #547, ADR 013 — the digital brush. In the union from the first stroke for
+  // exactly the reason watercolor is, stated directly above: the Operation Log
+  // is permanent, so the wire type has to know the tool the moment one stroke
+  // is recorded in a real room.
+  //
+  // Unlike every other member here, this one does not name a material. What
+  // varies between its brushes rides the `preset` slot as `brush:<id>@<version>`
+  // — versioned, because a brush that is retuned must not repaint the strokes
+  // already drawn with it (ADR 013 §7).
+  | 'digitalBrush'
 
 export type Dab = {
   x: number
@@ -998,6 +1106,242 @@ export type AreaFillOperation = OperationBase & {
   source: FillSourceMode
 }
 
+// ── Shapes (#525, epic) ───────────────────────────────────────────────────
+//
+// A shape is a rectangle, ellipse, star or line laid down in one gesture: the
+// tool that draws a frame around a thumbnail sketch, and the one that puts
+// masses on the sheet for a composition exercise. It paints into a layer like
+// every other mark — it is part of the drawing, not an overlay over it (that
+// is what an annotation is, see above).
+//
+// **The recipe, not the result** — the opposite call from `area_fill` next
+// door, and for the opposite reason. A fill records its pixels because the
+// region it covers was derived from *this* device's GPU output and no other
+// participant can reproduce it (see AreaFillOperation's docstring). A shape
+// is derived from nothing: a rectangle is four numbers and a corner radius,
+// and every client can draw it from those. Recording a raster instead would
+// put a base64 PNG the size of the shape into a log that is permanent and
+// kept as a dataset (#375), and would pin the shape to the resolution it was
+// drawn at.
+//
+// What that buys, and what it costs, are both worth stating. It buys size,
+// fidelity at any zoom, and a record that says what the user actually did.
+// It costs the guarantee `area_fill` bought: every client rasterizes these
+// numbers itself, so the rasterizer *is* part of the contract and falls under
+// the cross-device determinism rule in `.claude/rules.md` — see #527 for the
+// side-by-side check that must pass and the CPU fallback if it does not.
+//
+// Colour is `[r, g, b]` floats, like a stroke's and unlike an annotation's hex
+// string: these pixels are handed to WebGL, so they are written the way their
+// renderer takes them. There is no alpha — deliberately, until the app has one
+// coherent notion of transparency (Ilya, 05.09; today "colour alpha" and
+// "pencil opacity" are two different stories).
+
+export const SHAPE_KINDS = ['rectangle', 'ellipse', 'polystar', 'line'] as const
+export type ShapeKind = (typeof SHAPE_KINDS)[number]
+
+/** Where a stroke of finite width sits relative to the contour it follows.
+ *  Not cosmetic: a 400×300 frame stroked 10 wide is 400×300 only with
+ *  `inside`, and drawing a frame of an exact size is half of why the tool
+ *  exists. */
+export const SHAPE_STROKE_ALIGNS = ['inside', 'center', 'outside'] as const
+export type ShapeStrokeAlign = (typeof SHAPE_STROKE_ALIGNS)[number]
+
+/** How a stroke turns a corner. Distinct from a shape's own `cornerRadius`,
+ *  which changes the *contour*: a mitre on a rounded rectangle is a
+ *  contradiction in terms, a round join on a sharp one is not.
+ *
+ *  Two, not the usual three: `bevel` is absent because the rasterizer draws a
+ *  stroke as the region between two contours (#527), and a bevel is the one
+ *  join that is neither of them — it needs the corner cut by a chord, which is
+ *  a third contour construction for a rarely-used join. Adding it later widens
+ *  this union without touching anything already recorded, since nothing can
+ *  have written a value that did not exist. */
+export const SHAPE_STROKE_JOINS = ['miter', 'round'] as const
+export type ShapeStrokeJoin = (typeof SHAPE_STROKE_JOINS)[number]
+
+/** How a stroke ends where the contour does — lines only; every other shape
+ *  here is a closed contour with no ends to cap. */
+export const SHAPE_STROKE_CAPS = ['butt', 'round', 'square'] as const
+export type ShapeStrokeCap = (typeof SHAPE_STROKE_CAPS)[number]
+
+/** Ceiling on a star's vertex count. Enforced where the operation is built,
+ *  never on replay — an operation already in the log must keep replaying
+ *  whatever it says, so a limit that rejected on replay would be a way to make
+ *  an old room stop loading (same rule as MAX_ANNOTATION_INK_POINTS). */
+export const MIN_POLYSTAR_POINTS = 3
+export const MAX_POLYSTAR_POINTS = 60
+
+/** What the shape *is*, in the frame's own normalized space — everything here
+ *  is independent of where the shape was put and how big it is, which is what
+ *  lets `ShapeFrame` carry placement alone and lets an annotation reuse this
+ *  type later without inheriting a layer-space rectangle.
+ *
+ *  Angles are radians, measured from +X and increasing clockwise on screen
+ *  (layer space has Y pointing down, so clockwise is what a positive angle
+ *  looks like). The UI shows degrees; the wire keeps radians, like every other
+ *  angle in the protocol. */
+export type ShapeGeometry =
+  /** `cornerRadius` in layer units, clamped by the rasterizer to half the
+   *  shorter side — a radius larger than the shape is not an error, it is a
+   *  stadium, and clamping is how it gets there. */
+  | { kind: 'rectangle'; cornerRadius: number }
+  /** The Oval of Adobe Animate, which is why there is no separate "oval" tool:
+   *  the difference that would have justified one is these parameters.
+   *
+   *  `startAngle`/`endAngle` cut a sector; equal values (or a full turn apart)
+   *  mean the whole ellipse. `innerRadius` is a fraction 0..1 of the way from
+   *  the centre to the edge, so 0 is solid and 0.5 is a ring half as thick as
+   *  the radius. `closePath` decides whether a *sector's* stroke closes across
+   *  its open side; the fill is always the closed region, because a fill of an
+   *  open contour has no meaning anyone would predict. */
+  | {
+      kind: 'ellipse'
+      startAngle: number
+      endAngle: number
+      innerRadius: number
+      closePath: boolean
+    }
+  /** Regular polygon and star in one, as in Animate and Lottie.
+   *
+   *  `innerRadius` is a fraction of the outer radius, and it is a *geometric*
+   *  parameter rather than the "starness" slider the UI shows: alternate
+   *  vertices sit at `innerRadius` of the way out, so `cos(PI / points)` —
+   *  where those vertices land exactly on the edges between the outer ones —
+   *  is a regular polygon, and everything below it is a star of increasing
+   *  sharpness. Saying "0 means polygon" instead would have made the parameter
+   *  discontinuous at its own zero: 0.001 is a needle-thin star and 0 would be
+   *  a hexagon. The UI maps its slider onto this (see #529), which is where a
+   *  convenience like that belongs.
+   *
+   *  `rotation` turns the vertices inside the frame, which is not what
+   *  `ShapeFrame.angle` does — that turns the frame itself, and on a
+   *  non-square frame the two produce different shapes.
+   *
+   *  No corner radius here, unlike the rectangle: rounding a star's vertices
+   *  and stroking it with a mitre are two different offsets of the same
+   *  contour, and doing both at once is a construction the first version does
+   *  not need (#527). The field can be added later without reinterpreting
+   *  anything already in the log. */
+  | {
+      kind: 'polystar'
+      points: number
+      innerRadius: number
+      rotation: number
+    }
+  /** A line runs corner to corner of its frame — see ShapeFrame on why the
+   *  frame's width and height are signed. */
+  | { kind: 'line'; cap: ShapeStrokeCap }
+
+/** Where the shape sits, in the same layer space as `Dab.x/y` and
+ *  `AreaFillOperation`'s rect (canvas coordinates in a bounded room, world
+ *  coordinates in an infinite one).
+ *
+ *  `width`/`height` are **signed**, and that is not sloppiness left over from
+ *  a drag: a line from the top-left corner to the bottom-right one and a line
+ *  from the top-right to the bottom-left occupy the same rectangle, and the
+ *  sign is the only thing that tells them apart. Shapes that are symmetric
+ *  about both axes simply ignore it.
+ *
+ *  `angle` rotates the frame about its own centre. Rotation only — no skew and
+ *  no projective term, unlike `LayerTransformMatrix`: a sheared frame has no
+ *  single stroke width, and shearing a shape after the fact is what the
+ *  transform tool is for. */
+// (`type`, not `interface`, for this and the two below — deliberately. An
+// operation is written to a Prisma JSON column, and Prisma's InputJsonValue is
+// an index-signature type: TypeScript gives type aliases an implicit index
+// signature and interfaces none, so an interface here fails to typecheck at
+// persistOperation with an error that names Prisma and says nothing about
+// shapes.)
+export type ShapeFrame = {
+  x: number
+  y: number
+  width: number
+  height: number
+  angle: number
+}
+
+/** `null` on the operation means "no stroke" — the explicit absence the UI
+ *  shows as a crossed-out swatch, not a zero width. Width is in layer units,
+ *  like everything else here. */
+export type ShapeStroke = {
+  color: [number, number, number]
+  width: number
+  align: ShapeStrokeAlign
+  join: ShapeStrokeJoin
+}
+
+/** `null` means "no fill". Its own type rather than a bare colour so that a
+ *  fill can gain properties (a texture, a gradient) without every shape
+ *  operation ever recorded having to be reinterpreted. */
+export type ShapeFill = {
+  color: [number, number, number]
+}
+
+/** One shape, laid down in one gesture, into one layer.
+ *
+ *  A pure single-layer pixel operation like the four `area_*` ops above, so a
+ *  layer snapshot can stand in for it (`COVERABLE_OP_TYPES` on the server).
+ *
+ *  One operation for the whole gesture, including everything that happened
+ *  after the pen came up: a shape stays editable until it is confirmed (Enter,
+ *  a click past it, or switching tools — the transform tool's contract, see
+ *  #528), and only the confirmed result is recorded. Nothing about that
+ *  editing session reaches the log, which is why one shape is one undo.
+ *
+ *  A shape with neither stroke nor fill is not emitted at all — it would be an
+ *  operation that provably paints nothing, and the log is permanent. */
+export type ShapeOperation = OperationBase & {
+  type: 'shape'
+  layerId: string
+  geometry: ShapeGeometry
+  frame: ShapeFrame
+  stroke: ShapeStroke | null
+  fill: ShapeFill | null
+}
+
+/** The world rect a shape's pixels can reach: its frame, rotated, grown by
+ *  whatever the stroke puts outside the contour, plus a pixel of margin for
+ *  the antialiased rim.
+ *
+ *  Lives here rather than in the engine because both sides need the same
+ *  answer and they must not drift: the engine resolves which tiles to paint
+ *  from it, and the UI hit-tests and frames the gizmo against it. An
+ *  underestimate is a shape clipped at a tile boundary — the kind of bug that
+ *  shows up only on the second tile, i.e. only on a big shape. */
+export function shapeWorldBounds(
+  geometry: ShapeGeometry, frame: ShapeFrame, stroke: ShapeStroke | null,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const halfW = Math.abs(frame.width) / 2
+  const halfH = Math.abs(frame.height) / 2
+  const cx = frame.x + frame.width / 2
+  const cy = frame.y + frame.height / 2
+
+  // How far past the contour the stroke reaches. `outside` puts all of it
+  // there, `center` half; a mitre can reach further still at a sharp corner,
+  // and a square cap pushes half a width past each end of a line.
+  let outset = 0
+  if (stroke) {
+    if (stroke.align === 'outside') outset = stroke.width
+    else if (stroke.align === 'center') outset = stroke.width / 2
+    if (stroke.join === 'miter') outset += stroke.width
+    if (geometry.kind === 'line' && geometry.cap !== 'butt') outset += stroke.width
+  }
+  // The stroke's reach is measured in the frame's own space (it follows the
+  // contour, so it turns with it) and the antialiasing margin in world space,
+  // added after the rotation — a margin rotated along with the frame would be
+  // sqrt(2) times itself at 45 degrees, which is harmless but says something
+  // untrue about what the rim costs.
+  const c = Math.abs(Math.cos(frame.angle))
+  const s = Math.abs(Math.sin(frame.angle))
+  const ext = halfW + outset
+  const eyt = halfH + outset
+  const rx = ext * c + eyt * s + 1
+  const ry = ext * s + eyt * c + 1
+
+  return { minX: cx - rx, minY: cy - ry, maxX: cx + rx, maxY: cy + ry }
+}
+
 /** Teacher-only: marks the target operation `gone` for everyone. Not an undo —
  *  it bypasses the author's history and cannot be redone (ADR 002 §6). */
 export type OperationRevokeOperation = OperationBase & {
@@ -1182,6 +1526,7 @@ export type Operation =
   | AreaClearOperation
   | AreaPasteOperation
   | AreaFillOperation
+  | ShapeOperation
   | OperationRevokeOperation
   | OperationUndoOperation
   | OperationRedoOperation
@@ -1221,6 +1566,10 @@ export function paintedLayerIds(op: OperationDraft): string[] {
     case 'area_clear':
     case 'area_paste':
     case 'area_fill':
+    // (#525) A shape paints one layer and nothing else, so it belongs here
+    // from the first line of its existence — a painting operation missing
+    // from this list is a layer lock that silently leaks (#518).
+    case 'shape':
       return [op.layerId]
     case 'layer_transform':
       return op.transforms.map(t => t.layerId)
@@ -1522,6 +1871,15 @@ export type ServerToClientEvents = {
   // triggered it, same `io.to` reasoning as palette_updated above) whenever
   // `set_room_frozen` is accepted.
   room_frozen_changed: (data: { frozen: boolean }) => void
+  // (#548) Broadcast to the whole room after `set_room_tools` is accepted —
+  // `io.to`, like the two events above, because the owner who made the change
+  // is also a person holding a tool that may have just been taken away.
+  //
+  // It has to be live rather than something a client learns on its next join:
+  // the toolset is a teaching control ("today we work in pencil"), and a
+  // control that lands only after everyone reloads is one nobody will reach
+  // for mid-lesson. `undefined` is the unrestricted room, same as on `Room`.
+  room_tools_changed: (data: { enabledTools?: ToggleableTool[] }) => void
   // (#254/#257 epic) Broadcast to the whole room whenever `set_participant_frozen`
   // is accepted — every participant needs this, not just the target, so
   // ParticipantsPanel can show the frozen indicator for everyone else too.
@@ -1578,7 +1936,7 @@ export type ClientToServerEvents = {
    *  regardless of when other participants subsequently call `join_room`. */
   create_room: (
     data: {
-      room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+      room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'>
       password?: string
       // (#232) Who may enter, decided at creation rather than only afterwards
       // through the access panel. Omitted means `anyone_with_link`, which is
@@ -1642,6 +2000,11 @@ export type ClientToServerEvents = {
   // `operation_revoke`'s existing role check in socketHandlers.ts). Freezes
   // (or unfreezes) every non-owner participant's operations at once.
   set_room_frozen: (frozen: boolean) => void
+  // (#548) Owner-only, same role check as `set_room_frozen`. The payload is
+  // whatever the picker had checked; the server runs it through
+  // `sanitizeEnabledTools` and broadcasts the result, so what every client
+  // ends up holding is the normalized list, never one client's raw claim.
+  set_room_tools: (enabledTools: ToggleableTool[] | undefined) => void
   // (#254/#257 epic) Owner-only, same role-check pattern as `set_room_frozen`.
   // Targets one participant without touching the room-wide freeze — the two
   // are independent and can both be active at once. A no-op if `userId` is

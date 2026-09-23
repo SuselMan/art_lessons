@@ -404,6 +404,25 @@
   transition: opacity var(--duration-normal) ease;
 }
 
+/* (#542) The pinned colour well, at the top of the rail and separated from the
+   tool buttons by a rule: it is not one of them. It answers "what colour is in
+   my hand", where every button below answers "what is in my hand" — and the
+   line is what stops it being read as a ninth tool.
+
+   It does not shrink with the column: the rail is 62px wide with 44px buttons,
+   so a 40px circle sits inside the same optical column without touching it. */
+.railColorWell {
+  margin-bottom: 2px;
+}
+
+.railColorWellDivider {
+  width: 28px;
+  height: 1px;
+  margin-bottom: 4px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
 /* Quick-settings panel (#196 follow-up) — same width/shape as .toolbar,
    sitting immediately to its right so the tool-select buttons in .toolbar
    never reflow when the active tool's field count changes (pencil has 4
@@ -550,6 +569,20 @@
    decision made in cursorController.ts. The ruler is the one case that writes
    a cursor here directly, per pointer position, and it too reads it from that
    module (RULER_GESTURE_CURSOR). */
+/* (#530) The open shape's handles have to sit above the shape tool's own
+   catcher, which is what makes the difference between "drag this corner" and
+   "start another shape". The transform tool never needed this: it has no
+   catcher at all and listens on the viewport directly.
+
+   pointer-events:none on the layer, so only the gizmo's own shapes take
+   presses — everything else falls through to the catcher below. */
+.shapeGizmoLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
 .canvasCatcher {
   position: absolute;
   inset: 0;
@@ -722,6 +755,14 @@
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+/* Parked for 5 s (PeerCursors' IDLE_HIDE_MS). The transition lives only on
+   this class, so hiding fades while waking up is instant — a peer who starts
+   moving again should be visible on the very first packet. */
+.cursorMarkerIdle {
+  opacity: 0;
+  transition: opacity 400ms ease;
 }
 
 .cursorDot {
@@ -1168,6 +1209,30 @@ a.gateSubmit {
 .gateWaiting {
   font-size: 13px;
   color: var(--color-text-dim);
+}
+
+/* (#570) The "what to try" list on the no-WebGL screen. Same voice as the
+   note above it; the bullets only mark that these are three separate things
+   to try, not one instruction. */
+.gateList {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* The browser's own diagnostics under the advice — for whoever gets asked
+   "what does it say", not for the reader, hence small, dim, and last. */
+.gateDetails {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-dim);
+  overflow-wrap: anywhere;
 }
 
 .gateSecondary {

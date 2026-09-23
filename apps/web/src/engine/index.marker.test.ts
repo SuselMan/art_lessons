@@ -205,6 +205,27 @@ describe('marker tool (#250, ADR 004)', () => {
     expect(columnMax(across!, 2)).toBeGreaterThan(0)             // just past it
   })
 
+  // #559: a small chisel dragged broad-side deposited too little ink to
+  // saturate the film, so the stamps' overlap lattice showed through as a
+  // "holey" ribbon. The ink pass's u_opacity *is* the per-dab deposit, which
+  // MockGL captures per inkMode — so the scale is pinned here even though the
+  // film itself is out of reach. Legacy deposit: dab.opacity * travel * 0.5.
+  it('raises a thin chisel’s ink deposit and leaves a wide one on the legacy scale (#559)', () => {
+    const travel = 4
+    const deposit = (size: number) => {
+      const engine = setupLayer()
+      // Toolbar size `size`: short axis size/5, 5:1, long axis along y so the
+      // travel along x crosses the nib's thin side.
+      const nib = { size: size / 5, aspectRatio: 5, angle: Math.PI / 2 }
+      const dabs = [dab(20, 32, nib), dab(20 + travel, 32, nib)]
+      engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'marker', preset: 'chisel:0.3' }))
+      return markerPassDraw(engine, 7)!.opacity
+    }
+    const legacy = 1 * travel * 0.5
+    expect(deposit(50)).toBeCloseTo(legacy, 9)
+    expect(deposit(8)).toBeGreaterThan(legacy * 2.5)
+  })
+
   it('skips a degenerate zero-radius dab without throwing', () => {
     const engine = setupLayer()
     expect(() => engine.appendOperation(makeStroke('user-a', 'L', [dab(32, 32, { size: 0 })], { tool: 'marker' }))).not.toThrow()

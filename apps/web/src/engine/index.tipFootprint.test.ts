@@ -42,7 +42,28 @@ const TOOLS: Array<{ tool: ToolType; preset: string }> = [
   { tool: 'marker',     preset: 'chisel:0.6' },
   { tool: 'brushPen',   preset: 'normal' },
   { tool: 'watercolor', preset: 'normal' },
+  { tool: 'digitalBrush', preset: 'brush:hard-round@1' },
+  // The flat tip specifically: its render-time multiplier is 0.25, so it is the
+  // preset that made the cursor's missing scale impossible to miss (#547).
+  { tool: 'digitalBrush', preset: 'brush:flat@1' },
 ]
+
+/** What the renderer actually draws a dab at — `Dab.size` times the multiplier
+ *  every paint path applies (`d.size * 0.5 * preset.sizeMultiplier`).
+ *
+ *  Spelled out here rather than imported because the point of the test is that
+ *  two implementations agree: importing the engine's own helper would let both
+ *  sides drift together and still pass. */
+function paintedSize(tool: ToolType, preset: string, dabSize: number): number {
+  if (tool === 'eraser') return dabSize
+  if (tool === 'digitalBrush') {
+    const aspect = preset.includes('flat') ? 4 : 1
+    return dabSize / aspect
+  }
+  if (tool === 'pencil' && preset === '2B') return dabSize * 1.1
+  if (tool === 'charcoal' && preset === 'willow') return dabSize * 1.15
+  return dabSize
+}
 
 /** The first dab of a real, recorded stroke — the output of the one
  *  implementation, reached through the whole public pipeline. */
@@ -93,8 +114,14 @@ describe('#482 — one footprint implementation', () => {
     //
     // Relative rather than absolute: `size` is tens of px, and float32 (the
     // packed dab's precision) resolves that to about a part in 10^7.
-    if (TAPERED.has(tool)) expect(preview.size).toBeGreaterThan(dab.size)
-    else expect(preview.size / dab.size).toBeCloseTo(1, 6)
+    // Against the *painted* size, not the recorded one. `Dab.size` is the value
+    // before the renderer's own multiplier, and the cursor's job is to predict
+    // the mark rather than the payload — which is exactly what this comparison
+    // got wrong until #547: it asserted agreement with a number the canvas never
+    // shows, so a cursor half again too wide for a 6H passed for years.
+    const painted = paintedSize(tool, preset, dab.size)
+    if (TAPERED.has(tool)) expect(preview.size).toBeGreaterThan(painted)
+    else expect(preview.size / painted).toBeCloseTo(1, 6)
   })
 
   it('a flexible nib asked with no stroke state returns its rest pose, not a degraded one', () => {

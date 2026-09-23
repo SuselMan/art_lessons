@@ -110,6 +110,34 @@ export function nibSupport(nib: NibGeometry, nx: number, ny: number): { x: numbe
   return { x: px * c - py * s, y: px * s + py * c, value }
 }
 
+/** Area of the nib, px². Exact for both shapes: a rounded box is the box
+ *  minus the four corner squares it lost, plus the disc that replaced them. */
+export function nibArea(nib: NibGeometry): number {
+  const { semiMajor: a, semiMinor: b } = nib
+  if (nib.shape === 'roundedBox') {
+    const r = Math.min(nib.cornerRadius, a, b)
+    return 4 * a * b - (4 - Math.PI) * r * r
+  }
+  return Math.PI * a * b
+}
+
+/**
+ * (#559) Mean chord of the nib along world direction (tx, ty), px: how far,
+ * on average, a point travelling that way spends inside the nib. Area divided
+ * by the nib's width *across* the direction (twice its support value along
+ * the normal) — Cavalieri, no integration needed.
+ *
+ * This is the quantity the ink deposit is really proportional to. A pixel on
+ * the path is inside `chord / spacing` consecutive stamps, each laying
+ * `opacity * spacing`, so the ink it accumulates is `opacity * chord` whatever
+ * the spacing — and for a chisel drawn broad-side-on the chord is the nib's
+ * *short* axis, a fifth of the number in the toolbar. See markerInkGain.ts.
+ */
+export function nibMeanChord(nib: NibGeometry, tx: number, ty: number): number {
+  const width = 2 * nibSupport(nib, -ty, tx).value
+  return width > 1e-6 ? nibArea(nib) / width : 0
+}
+
 /**
  * Triangles for the bands connecting each consecutive pair of dabs, as a flat
  * interleaved array of (x, y, edgePx) — world coordinates, caller offsets them

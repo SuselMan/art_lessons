@@ -4,10 +4,10 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { Prisma } from '@prisma/client'
-import type { Operation, Participant, RejectReason, Room, RoomAccessMode } from '@grafetto/shared'
+import type { Operation, Participant, RejectReason, Room, RoomAccessMode, ToggleableTool } from '@grafetto/shared'
 import {
   ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
-  isAnnotationOperation, operationLayerIds, paintedLayerIds,
+  isAnnotationOperation, operationLayerIds, paintedLayerIds, sanitizeEnabledTools,
 } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
@@ -288,6 +288,8 @@ function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
       infinite: room.infinite,
       canvasWidth: room.canvasWidth ?? null, canvasHeight: room.canvasHeight ?? null,
       passwordHash, accessMode: room.accessMode, ownerId: room.ownerId,
+      // (#548) `[]` is the column's own "no restriction" — see schema.prisma.
+      enabledTools: room.enabledTools ?? [],
     },
   }))
 }
@@ -455,9 +457,16 @@ function layerStateIdsOf(state: unknown): Set<string> | null {
  *  way this list exists for.
  *
  *  (#453) `area_fill` for both reasons at once: one layer, nothing but paint,
- *  and an inline raster the size of whatever was filled. */
+ *  and an inline raster the size of whatever was filled.
+ *
+ *  (#525) `shape` joins for the first reason only — one layer, nothing but
+ *  paint. It is small on the wire (a recipe, not a raster), so nothing is
+ *  saved by withholding it; it is here because a snapshot taken after it
+ *  genuinely stands in for it, and leaving it out would make a room replay
+ *  paint it a second time over pixels that already have it. */
 const COVERABLE_OP_TYPES = [
   'stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste', 'area_fill',
+  'shape',
 ]
 
 /** (#412) `'layerId' in op` used to be enough to narrow to a single-target
@@ -467,6 +476,7 @@ const COVERABLE_OP_TYPES = [
  *  the three operations that carry pixels — and keeps the one list of them. */
 type CoverableOperation = Extract<Operation, {
   type: 'stroke' | 'image_import' | 'layer_clear' | 'area_transform' | 'area_clear' | 'area_paste' | 'area_fill'
+    | 'shape'
 }>
 
 function isCoverableOp(op: Operation): op is CoverableOperation {
@@ -718,7 +728,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
  *  even when the room isn't currently live in memory (e.g. a server
  *  restart between the original creation and this reload). */
 export function createRoom(
-  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
+  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'>,
   password: string | undefined,
   ownerId: string,
   ownerName: string,
@@ -1020,6 +1030,27 @@ export function isRoomFrozen(roomId: string): boolean {
  *  broadcast `room_frozen_changed` on `true`. No role check here: that's the
  *  caller's job (see socket.on('set_room_frozen', ...) — same division of
  *  responsibility as recordOperation/isOperationAllowed below). */
+/** (#548) Replaces the room's toolset, in memory and in Postgres. Returns the
+ *  sanitized list actually stored — `undefined` for "no restriction" — or
+ *  `false` when there is no such room, so the caller can tell "nothing to
+ *  broadcast" from "broadcast the unrestricted room".
+ *
+ *  Sanitizing here rather than trusting the caller is the point: this is the
+ *  only door the value comes through, and what the room ends up holding is the
+ *  normalized list, never one client's raw claim. Like `setRoomFrozen` it does
+ *  not check the caller's role — see socketHandlers.ts. */
+export function setRoomTools(roomId: string, enabledTools: unknown): ToggleableTool[] | undefined | false {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  const sanitized = sanitizeEnabledTools(enabledTools)
+  record.room.enabledTools = sanitized
+  enqueueWrite(roomId, () => prisma.room.update({
+    where: { id: roomId },
+    data: { enabledTools: sanitized ?? [] },
+  }))
+  return sanitized
+}
+
 export function setRoomFrozen(roomId: string, frozen: boolean): boolean {
   const record = rooms.get(roomId)
   if (!record) return false
@@ -1344,7 +1375,11 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
     // (#453) The fill is Class 2 for the same reason: it carries its pixels,
     // so a client that has not caught up simply paints them late rather than
     // resolving a reference that has gone.
-    case 'area_fill': return record.deletedIds.has(op.layerId)
+    case 'area_fill':
+    // (#525) Class 2 as well: a shape carries everything needed to draw it,
+    // so a client behind on layer structure paints it late rather than
+    // resolving a reference that has gone.
+    case 'shape': return record.deletedIds.has(op.layerId)
     default: return false
   }
 }
