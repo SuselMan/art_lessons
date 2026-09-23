@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill } from '@grafetto/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { shapeWorldBounds } from '@grafetto/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
@@ -38,6 +38,7 @@ import {
 } from './src/tiltCurve'
 import type { NibAngleConfig } from './src/markerPresets'
 import { shapeDrawParams, type ShapeDrawParams } from './src/shapeGeometry'
+import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerFilter } from './src/layerFilters'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 // (#517) Same on-device ring buffer PointerInput writes to — the stroke
@@ -827,6 +828,15 @@ export interface PencilEngineAPI {
     layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
     stroke: ShapeStroke | null, fill: ShapeFill | null,
   ): void
+  // (#574) A filter's live preview: `layerId`'s content run through `filter`
+  // into floating scratch tiles, without writing a pixel into the layer. Same
+  // lifecycle and the same clearLayerTransformPreview as the previews above.
+  // `null` drops the preview.
+  //
+  // Not cheap: it runs the filter itself, on the CPU, over every tile the
+  // layer has content on (ADR 014). Call it when a setting settles, not per
+  // pointer move.
+  previewLayerFilter(layerId: string, filter: LayerFilter | null): void
   // (#446) Decodes one raster into the same cache preloadImages fills, so the
   // float above can draw it on the very first frame. preloadImages takes whole
   // operations, and a floating paste has no operation yet — that is the point
@@ -2924,13 +2934,17 @@ export class PencilEngine implements PencilEngineAPI {
       // (#527) A shape is the same shape of operation as the two selection ops
       // below: one layer, pixels only, nothing to decode and nothing async —
       // it is drawn from its own numbers the moment it arrives.
+      // (#574) A filter too: one layer, pixels only, computed from its own
+      // numbers the moment it arrives.
+      case 'layer_filter':
       case 'shape':
       case 'area_transform':
       case 'area_clear': {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
-        if (op.type === 'shape') this._drawShape(buf, op)
+        if (op.type === 'layer_filter') this._applyFilter(buf, op.filter)
+        else if (op.type === 'shape') this._drawShape(buf, op)
         else if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
         else this._clearArea(buf, op.selection)
         this._markLayerDirty(op.layerId)
@@ -4026,6 +4040,9 @@ export class PencilEngine implements PencilEngineAPI {
       // layer without it. It paints over whatever was under it and cannot be
       // subtracted in place.
       case 'shape':
+      // (#574) And a filter, which reads the pixels it rewrites: the only way
+      // back is the layer's history without it.
+      case 'layer_filter':
         this._rebuildLayerOrDefer(op.layerId)
         break
       case 'layer_add':
@@ -4294,6 +4311,9 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'shape':
         this._drawShape(buf, op)
+        break
+      case 'layer_filter':
+        this._applyFilter(buf, op.filter)
         break
       case 'area_paste':
       case 'area_fill': {
@@ -6819,6 +6839,161 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._transformPreview.set(layerId, tiles)
     this._areaPreviewLayers.add(layerId)
+    this._display()
+  }
+
+  // ─── Layer filters (#574, ADR 014) ─────────────────────────────────────────
+
+  /** Runs `filter` over every tile of `layerBuf` that has content — plus, for
+   *  a blur, the neighbouring tiles it spreads into — and returns the results
+   *  as fresh tile-sized buffers. Writes nothing into the layer: the caller
+   *  either copies these in (`_applyFilter`) or floats them as a preview.
+   *
+   *  Each tile is read with a margin of the filter's reach around it, from
+   *  whichever of the layer's tiles overlap that margin. That is what makes a
+   *  tile's result equal to filtering the whole layer in one piece, and
+   *  therefore independent of where this client's tile grid happens to cut —
+   *  the property the recipe-in-the-log design rests on (layerFilters.test.ts
+   *  checks it byte for byte).
+   *
+   *  The pixel math runs on the CPU, not in a shader, because every
+   *  participant runs it and all of them have to get the same answer; see the
+   *  cross-device determinism rule in `.claude/rules.md`. The price is time on
+   *  the main thread, measured in ADR 014.
+   *
+   *  Eviction must be suspended by the caller: the reads below touch every
+   *  content tile and their neighbours, and a trim in the middle would
+   *  destroy a tile about to be read. */
+  private _filterTiles(layerBuf: ILayerBuffer, rawFilter: LayerFilter): Array<PreviewTile & { contentRect: WorldRect }> {
+    if (!isKnownLayerFilter(rawFilter)) return []
+    const filter = normalizeLayerFilter(rawFilter)
+    const reach = layerFilterReach(filter)
+    const { w: tw, h: th } = this._tileSize()
+    const page = this._infinite ? null : this._pageSize()
+
+    // Which tiles the result can land on, and how far content reaches in each.
+    const targets = new Map<string, { rect: WorldRect; content: WorldRect }>()
+    const addTarget = (rect: WorldRect, content: WorldRect): void => {
+      const key = `${rect.minX},${rect.minY}`
+      const prev = targets.get(key)
+      targets.set(key, {
+        rect,
+        content: prev ? {
+          minX: Math.min(prev.content.minX, content.minX), minY: Math.min(prev.content.minY, content.minY),
+          maxX: Math.max(prev.content.maxX, content.maxX), maxY: Math.max(prev.content.maxY, content.maxY),
+        } : content,
+      })
+    }
+    for (const src of layerBuf.allResident()) {
+      if (!src.contentRect) continue
+      const srcRect = tileWorldRect(Math.floor(src.originX / tw), Math.floor(src.originY / th), tw, th)
+      if (reach === 0) { addTarget(srcRect, src.contentRect); continue }
+      const grown: WorldRect = {
+        minX: src.contentRect.minX - reach, minY: src.contentRect.minY - reach,
+        maxX: src.contentRect.maxX + reach, maxY: src.contentRect.maxY + reach,
+      }
+      for (const { tileX, tileY } of tilesOverlappingRect(grown, tw, th)) {
+        const rect = tileWorldRect(tileX, tileY, tw, th)
+        // A bounded room grows no new tiles past its sheet for a blur's
+        // spill: nothing could ever show them. Tiles that already exist
+        // there (a transform moved content off the page) are still filtered.
+        const isSource = rect.minX === srcRect.minX && rect.minY === srcRect.minY
+        if (page && !isSource && (rect.minX >= page.w || rect.minY >= page.h || rect.maxX <= 0 || rect.maxY <= 0)) continue
+        addTarget(rect, {
+          minX: Math.max(rect.minX, grown.minX), minY: Math.max(rect.minY, grown.minY),
+          maxX: Math.min(rect.maxX, grown.maxX), maxY: Math.min(rect.maxY, grown.maxY),
+        })
+      }
+    }
+    if (targets.size === 0) return []
+
+    const pw = tw + 2 * reach
+    const ph = th + 2 * reach
+    const patch = new AccumulationBuffer(this.gl, pw, ph)
+    const results: Array<PreviewTile & { contentRect: WorldRect }> = []
+    try {
+      for (const { rect, content } of targets.values()) {
+        const region: WorldRect = {
+          minX: rect.minX - reach, minY: rect.minY - reach, maxX: rect.maxX + reach, maxY: rect.maxY + reach,
+        }
+        patch.clear()
+        let any = false
+        for (const { buffer, originX, originY } of layerBuf.resolveVisible(region)) {
+          this._runTransformBlit(buffer, translationMatrix(region.minX - originX, region.minY - originY), pw, ph, patch.fbo)
+          any = true
+        }
+        if (!any) continue
+        const filtered = applyLayerFilter(
+          patch.readPixels(), pw, ph, filter, { originX: region.minX, originY: region.minY, rowsUp: true },
+        )
+        // The tile is the patch minus its margin — the same `reach` on every
+        // side, so the crop needs no flip even though the rows are bottom-up.
+        const tile = new Uint8Array(tw * th * 4)
+        let empty = true
+        for (let y = 0; y < th; y++) {
+          const from = ((y + reach) * pw + reach) * 4
+          const row = filtered.subarray(from, from + tw * 4)
+          if (empty) for (let i = 3; i < row.length; i += 4) if (row[i] !== 0) { empty = false; break }
+          tile.set(row, y * tw * 4)
+        }
+        // A blur's spill that rounded away to nothing does not earn a tile.
+        const existing = this._tileBufferAt(layerBuf, rect)
+        if (empty && !existing) continue
+        const buffer = new AccumulationBuffer(this.gl, tw, th)
+        buffer.restorePixels(tile)
+        results.push({ originX: rect.minX, originY: rect.minY, buffer, contentRect: content })
+      }
+    } finally {
+      patch.destroy()
+    }
+    return results
+  }
+
+  /** Bakes a `layer_filter` into a layer. */
+  private _applyFilter(layerBuf: ILayerBuffer, filter: LayerFilter): void {
+    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
+    tiled?.suspendEviction()
+    try {
+      // Everything is computed before anything is written: a tile's margin
+      // reads its neighbours, and a neighbour already filtered would be
+      // filtered twice at the seam.
+      const results = this._filterTiles(layerBuf, filter)
+      for (const { originX, originY, buffer, contentRect } of results) {
+        const rect = tileWorldRect(
+          Math.floor(originX / buffer.width), Math.floor(originY / buffer.height), buffer.width, buffer.height,
+        )
+        const target = layerBuf.resolveForPaint(rect).find(t => t.originX === originX && t.originY === originY)
+        if (target) {
+          buffer.copyTo(target.buffer)
+          layerBuf.markContentPainted(contentRect)
+        }
+        buffer.destroy()
+      }
+    } finally {
+      tiled?.resumeEviction()
+    }
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  previewLayerFilter(layerId: string, filter: LayerFilter | null): void {
+    for (const t of this._transformPreview.get(layerId) ?? []) t.buffer.destroy()
+    this._transformPreview.delete(layerId)
+    this._areaPreviewLayers.delete(layerId)
+    const layerBuf = this._layers.get(layerId)
+    if (layerBuf && filter) {
+      const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
+      tiled?.suspendEviction()
+      try {
+        const tiles = this._filterTiles(layerBuf, filter)
+        this._transformPreview.set(layerId, tiles.map(({ originX, originY, buffer }) => ({ originX, originY, buffer })))
+        // Drawn in place of the real tiles where a preview tile exists, from
+        // the real ones everywhere else — see _drawCompositeItem.
+        this._areaPreviewLayers.add(layerId)
+      } finally {
+        tiled?.resumeEviction()
+      }
+    }
+    if (layerId !== this._activeId) this._invalidateSplitCache()
     this._display()
   }
 
