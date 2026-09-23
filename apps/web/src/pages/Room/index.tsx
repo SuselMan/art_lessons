@@ -6263,6 +6263,14 @@ export function Room() {
       // for the board actually wanted is on its way.
       if (arrivedBoard !== store.boardId) {
         if (wantedBoardRef.current !== null && wantedBoardRef.current !== arrivedBoard) return
+        // A board we held but never asked to leave: the server evacuated us
+        // off a deleted board. The page the student picked by hand is gone
+        // with it, so the pick is void and they follow the teacher again —
+        // otherwise they would sit on board one chip-less (the teacher
+        // happens to be there too) and silently stay behind on the teacher's
+        // next turn.
+        const evacuated = wantedBoardRef.current === null && store.boardId !== null
+        if (evacuated && !isOwnerRef.current) store.setFollowing(true)
         enterBoard(arrivedBoard, { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen })
         maybeFollow()
         return

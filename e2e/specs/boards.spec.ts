@@ -314,9 +314,11 @@ test.describe('boards', () => {
         await waitForBoard(studentPage, lessonId)
         const s = await boardState(studentPage)
         expect(s.boards.map(b => b.id)).toEqual([lessonId])
-        // Not `following`: the student opted out by hand and being moved by
-        // the server does not opt them back in (handleBoardDeleted leaves the
-        // flag alone). The chip is gone all the same — the teacher is here.
+        // The student had opted out by hand, but the page they picked is gone
+        // with the board, so the pick is void: being evacuated by the server
+        // puts them back to following (handleRoomState, the "evacuated"
+        // branch). No chip either — the teacher is here.
+        expect(s.following).toBe(true)
         await expect(teacherChip(studentPage)).toHaveCount(0)
         // A lesson with one board has nothing to turn, so a student's strip
         // (and its toggle) go away with the board; the owner keeps theirs for
