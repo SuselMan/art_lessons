@@ -179,12 +179,43 @@ export function wetDiffuseStep(
  *  the gate and the height only — never on any field's value — so they are
  *  the same for every field, to the bit. On one field the two terms sum to
  *  the flux of the header: D (cᵢ − cⱼ) + B max(dh,0) cᵢ − B max(−dh,0) cⱼ. */
+/** (#536, §17.23) The advective terms of a step — what turns a diffusion
+ *  into a bloom or a tideline. Both are OPTIONAL; without them the step is
+ *  the plain one above.
+ *
+ *  `pressure` is a water-pressure field (a dome over a drop, the puddle's
+ *  own profile): paint drifts DOWN its gradient at `pressureRate`, written
+ *  exactly like the paper's downhill term — antisymmetric per pair, scaled
+ *  by the donor's concentration — so it conserves and stays positive by the
+ *  same argument. Where the gate closes the drift stops, and the paint it
+ *  carried piles up at the last open cell: the dry line.
+ *
+ *  `gateThreshold` closes the gate where the water is at or below it. A drop
+ *  into a DAMP wash is the case: the wash's own water must not move its
+ *  settled paint, only the drop's water may — so the threshold sits between
+ *  the two levels. Given per cell and modulated by the paper's height, the
+ *  stop line wanders cell by cell with the sheet: the cauliflower edge. */
+export interface WetDiffuseOpts {
+  pressure?: Float64Array
+  pressureRate?: number
+  gateThreshold?: Float64Array | number
+}
+
 export function wetDiffuseStepMany(
   grid: WetGrid, fields: readonly Float64Array[],
   d = WET_DIFFUSE_D, b = WET_DIFFUSE_B, radius = 1, knight = false,
+  opts: WetDiffuseOpts = {},
 ): Float64Array[] {
   const { width, height, water, paperHeight } = grid
   const outs = fields.map(f => Float64Array.from(f))
+  const pressure = opts.pressure ?? null
+  const pr = opts.pressureRate ?? 0
+  const thr = opts.gateThreshold
+  const thrAt = typeof thr === 'number' ? (_i: number) => thr : thr ? (i: number) => thr[i] : null
+  const gateAt = (i: number): number => {
+    const w = water[i]
+    return thrAt && w <= thrAt(i) ? 0 : w
+  }
   // Each unordered pair once: only the four "forward" directions of the
   // stencil, taken from every cell, cover every pair exactly once.
   const stencil = knight ? WET_DIFFUSE_KNIGHT : WET_DIFFUSE_STENCIL
@@ -192,15 +223,18 @@ export function wetDiffuseStepMany(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x
+      const gi = gateAt(i)
+      if (gi <= 0) continue
       for (const [ox, oy] of forward) {
         const nx = x + ox * radius, ny = y + oy * radius
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue
         const j = ny * width + nx
-        const gate = Math.min(water[i], water[j])
+        const gate = Math.min(gi, gateAt(j))
         if (gate <= 0) continue
         const dh = paperHeight[i] - paperHeight[j]
-        const give = gate * (d + b * Math.max(dh, 0))
-        const take = gate * (d + b * Math.max(-dh, 0))
+        const dp = pressure ? pressure[i] - pressure[j] : 0
+        const give = gate * (d + b * Math.max(dh, 0) + pr * Math.max(dp, 0))
+        const take = gate * (d + b * Math.max(-dh, 0) + pr * Math.max(-dp, 0))
         for (let k = 0; k < fields.length; k++) {
           const f = fields[k], out = outs[k]
           const flux = give * f[i] - take * f[j]
