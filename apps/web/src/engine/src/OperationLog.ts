@@ -10,7 +10,7 @@
 import type {
   Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, LayerDuplicateOperation,
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
-  AreaPasteOperation, AreaFillOperation, ShapeOperation,
+  AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
 import { operationLayerIds } from '@grafetto/shared'
 
@@ -25,7 +25,7 @@ export interface LogEntry {
 export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation
   | LayerDuplicateOperation | ImageImportOperation | LayerTransformOperation
   | AreaTransformOperation | AreaClearOperation | AreaPasteOperation | AreaFillOperation
-  | ShapeOperation
+  | ShapeOperation | LayerFilterOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
   return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
@@ -39,6 +39,8 @@ export function isPixelOperation(op: Operation): op is PixelOperation {
     // (#527) And a shape, which is the same thing drawn from parameters
     // instead of from a raster.
     || op.type === 'shape'
+    // (#574) And a filter: one layer, pixels only, replayed from its numbers.
+    || op.type === 'layer_filter'
 }
 
 /** Every PixelOperation but layer_transform targets exactly one layer via its

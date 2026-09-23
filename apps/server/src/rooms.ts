@@ -549,10 +549,14 @@ function layerStateIdsOf(state: unknown): Set<string> | null {
  *  paint. It is small on the wire (a recipe, not a raster), so nothing is
  *  saved by withholding it; it is here because a snapshot taken after it
  *  genuinely stands in for it, and leaving it out would make a room replay
- *  paint it a second time over pixels that already have it. */
+ *  paint it a second time over pixels that already have it.
+ *
+ *  (#574) `layer_filter` for the same first reason, and it matters more here
+ *  than anywhere: a filter reads the pixels it rewrites, so applying one a
+ *  second time over a snapshot that already has it blurs the layer twice. */
 const COVERABLE_OP_TYPES = [
   'stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste', 'area_fill',
-  'shape',
+  'shape', 'layer_filter',
 ]
 
 /** (#412) `'layerId' in op` used to be enough to narrow to a single-target
@@ -562,7 +566,7 @@ const COVERABLE_OP_TYPES = [
  *  the three operations that carry pixels — and keeps the one list of them. */
 type CoverableOperation = Extract<Operation, {
   type: 'stroke' | 'image_import' | 'layer_clear' | 'area_transform' | 'area_clear' | 'area_paste' | 'area_fill'
-    | 'shape'
+    | 'shape' | 'layer_filter'
 }>
 
 function isCoverableOp(op: Operation): op is CoverableOperation {
@@ -1604,7 +1608,10 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
     // (#525) Class 2 as well: a shape carries everything needed to draw it,
     // so a client behind on layer structure paints it late rather than
     // resolving a reference that has gone.
-    case 'shape': return record.deletedIds.has(op.layerId)
+    case 'shape':
+    // (#574) Class 2: the filter is its own parameters, and a layer that is
+    // gone has nothing left to filter.
+    case 'layer_filter': return record.deletedIds.has(op.layerId)
     default: return false
   }
 }
