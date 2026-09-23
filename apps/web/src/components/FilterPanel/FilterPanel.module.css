@@ -1,16 +1,22 @@
 /* (#574) The filter dialog. A floating card, not the app's Modal: the canvas
-   behind it is the preview, and Modal's scrim would dim exactly that. */
+   behind it is the preview, and Modal's scrim would dim exactly that.
+
+   Stacked above the room's own chrome (header, panels, toolbar: z 1-6) and
+   *below* the shared option popup (z 100) — the filter picker inside this
+   card is one of those popups, portaled to <body>, and at --z-modal the card
+   covered its own dropdown. A real Modal still opens over it and closes it
+   (the card holds the modal slot). */
 
 .blocker {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-modal) - 1);
+  z-index: 49;
   background: transparent;
 }
 
 .card {
   position: fixed;
-  z-index: var(--z-modal);
+  z-index: 50;
   top: 72px;
   right: 16px;
   width: min(340px, calc(100vw - 32px));
