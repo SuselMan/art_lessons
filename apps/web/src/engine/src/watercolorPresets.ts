@@ -850,7 +850,11 @@ export function watercolorPigmentRate(water: number): number {
  *  на всех значениях пигмента" — after the budget was made finite the brush
  *  carried too little at every setting. A gain on the rate, so the budget
  *  rises with it and the shape along the path stays. */
-const WATERCOLOR_PIGMENT_GAIN = 1.6
+//  (#536, §17.24) 2.1, from 1.6: the calibration stroke (100/100, one
+//  straight stroke, real GPU) read an optical density of 0.51 in the body
+//  against the paper; the target agreed in the thread is 0.6–0.7 with the
+//  rim at 1.5 times that. "Бледно" is now one number, this one.
+const WATERCOLOR_PIGMENT_GAIN = 2.4
 /** How much lower a fully wet brush's delivery rate is than a dry one's.
  *  The first cut kept the budget one number at every water (rate = run_dry /
  *  run), and a line at full water started "слишком блекло" while its fade

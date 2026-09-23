@@ -510,10 +510,6 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
  *  the one thing that is not allowed here. */
 const WATERCOLOR_EDGE_AA_PX = 3.0
 
-/** How wide the tideline is. 7px is a visible rim at a realistic wash size
- *  without turning into a vignette; it is also comfortably inside what a
- *  16-tap ring can resolve without aliasing into a dotted outline. */
-const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
 
 /** ADR 011 §3.2/§3.8 — inkLoad at which one pass reaches full density.
  *
@@ -788,7 +784,7 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
     minHalfWidthPx: WATERCOLOR_MIN_HALF_WIDTH_PX,
     paperRim: WATERCOLOR_PAPER_EDGE,
-    wetEdgeRadiusPx: WATERCOLOR_WET_EDGE_RADIUS_PX,
+    wetEdgeRadiusPx: 0,
     spreadPx: WATERCOLOR_SPREAD_CAP_PX,
     saturateInk: WATERCOLOR_SATURATE_INK,
     normalizeDeposit: true,
@@ -843,7 +839,11 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     // A staining paint binds to the fibre and cannot migrate to the drying
     // perimeter, so it leaves *less* of a rim — the reduction is the point, not
     // a fudge factor.
-    wetEdge: p.wetEdge * (1 - 0.6 * paint.staining),
+    // (#536, §17.23) Zero: the tideline now lives in the deposit — the
+    // settle carries paint to the water's edge — and a composite-time rim on
+    // top of it drew the same line twice. Left as a field so the shader path
+    // can be A/B'd until the water front lands; then it goes.
+    wetEdge: 0,
     // ── from the paint: whether it can travel at all (#468 v11) ──
     //
     // The same staining figure, and rather harder, because this is the real

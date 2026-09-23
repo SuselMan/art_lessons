@@ -342,7 +342,9 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
       const budget = watercolorPigmentRun(water) * watercolorPigmentRate(water)
       // Path geometry is not an input, only travel: a fine-stepped scribble and
       // a coarse-stepped sweep integrate to the same thing.
-      expect(delivered(water, 500, 0.05)).toBeCloseTo(delivered(water, 500, 0.5), 0)
+      // Relative, not absolute: the budget scales with the pigment gain and
+      // the step error scales with it.
+      expect(delivered(water, 500, 0.05) / delivered(water, 500, 0.5)).toBeCloseTo(1, 1)
       expect(delivered(water, 500, 0.05)).toBeLessThanOrEqual(budget * 1.01)
       expect(delivered(water, 5000, 0.5)).toBeLessThanOrEqual(budget * 1.05)
       // …and remaining + delivered is the budget at every point.
