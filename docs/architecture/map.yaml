@@ -251,7 +251,13 @@ modules:
     files:
       - apps/web/src/pages/Room/index.tsx
       - apps/web/src/pages/Room/Room.module.css
-    issues: [25]
+      - apps/web/src/pages/Room/usePencilSound.ts
+      - apps/web/src/pages/Room/useCanvasViewport.ts
+      - apps/web/src/pages/Room/useCursorBroadcast.ts
+      - apps/web/src/pages/Room/useLayerStateSync.ts
+      - apps/web/src/pages/Room/useSpaceToPan.ts
+      - apps/web/src/pages/Room/useDrawingActivity.ts
+    issues: [25, 493]
     notes:
       - >-
         Самый крупный файл проекта. Миграция состояния редактора в store (#19→#24) закончена,
@@ -259,6 +265,13 @@ modules:
       - >-
         Граница, которую он держит: store — отражение того, что уже применено к движку
         императивным вызовом, а не источник правды для движка.
+      - >-
+        (#493) Декомпозиция идёт хуками рядом с index.tsx, по одному шву: звук, камера и
+        backing store, трансляция курсора, синхронизация слоёв, Space-панорама, индикатор
+        рисующих. Правило деления входов: у store спрашиваем то, чем владеет store, а то,
+        что Room выводит сам, передаём аргументом. Следующий шов — конвейер восстановления
+        комнаты, который сейчас существует двумя копиями (эффект монтирования движка и
+        handleRoomState) и держит на себе большую часть ref'ов эффекта монтирования.
     tags: [точка-сборки, крупный]
 
   - id: room-overlays
