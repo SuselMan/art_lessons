@@ -6,7 +6,7 @@ import { isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getOperationRejectReason,
   getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
-  releaseLockOnUndo, releaseRoomIfUnused, removePaletteColor, setLayerLocked, setLayerOwnerLocked,
+  releaseLockOnUndo, releaseRoomIfUnused, removePaletteColor, setActiveBoard, setLayerLocked, setLayerOwnerLocked,
   setParticipantFrozen, setRoomFrozen, setRoomTools, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
@@ -22,7 +22,12 @@ import { reportException, reportIssue } from './instrument.js'
  *  supplied Operation's own `userId` field for authorization (role checks
  *  below always go through `getParticipant`, keyed by this). */
 export interface SocketData {
+  // (#176) The *board* this socket draws on — its content channel. For a
+  // lesson with one board it is the lesson id.
   roomId?: string
+  // (#176) The lesson the socket is in — its social channel (see
+  // lessonChannel). Set with `roomId` and outlives board switches.
+  lessonId?: string
   userId?: string
 }
 
@@ -82,6 +87,22 @@ export function userChannel(userId: string): string {
   return `user:${userId}`
 }
 
+/** (#176, ADR 014 §3) The socket.io room everyone in a lesson is in, whatever
+ *  board they are on — where the *social* events go: presence, freeze, tools,
+ *  closed, palette, the board strip. Content events (`operation_confirmed`,
+ *  live strokes, cursors) stay on the board's own channel, which is the raw
+ *  board id exactly as before boards existed.
+ *
+ *  Prefixed, like `userChannel`, and for a sharper reason than collision
+ *  avoidance: a lesson's own first board *is* the lesson, so its content
+ *  channel is the lesson id itself. Sending social events to that raw id
+ *  would reach only the people on board one; sending content there under the
+ *  lesson's name would paint board one's strokes onto every other board. The
+ *  two channels have to be different strings. */
+export function lessonChannel(lessonId: string): string {
+  return `lesson:${lessonId}`
+}
+
 /** (#227) Removes someone from a room they are currently sitting in, as the
  *  live half of `POST /api/rooms/:id/kick` (#226). The durable half — the
  *  `RoomBlock` row — is what actually keeps them out; this is what makes it
@@ -95,20 +116,55 @@ export function userChannel(userId: string): string {
  *
  *  A no-op for someone who isn't connected, or is connected but somewhere
  *  else. */
-export async function removeUserFromRoom(io: AppServer, roomId: string, userId: string): Promise<void> {
+export async function removeUserFromRoom(io: AppServer, lessonId: string, userId: string): Promise<void> {
   for (const socket of await io.in(userChannel(userId)).fetchSockets()) {
-    if (socket.data.roomId !== roomId) continue
+    // (#176) A kick is from the lesson, whichever board they are on: the
+    // block is written under the lesson and the gate reads it for every board.
+    if (socket.data.lessonId !== lessonId) continue
+    const boardId = socket.data.roomId ?? lessonId
 
     // Told before being moved, so the client can react to a room it is still
     // nominally in rather than to having silently stopped receiving anything.
-    socket.emit('kicked', { roomId })
-    void socket.leave(roomId)
+    socket.emit('kicked', { roomId: lessonId })
+    void socket.leave(boardId)
+    void socket.leave(lessonChannel(lessonId))
     socket.data.roomId = undefined
+    socket.data.lessonId = undefined
 
     // Same bookkeeping a disconnect does — without it the room keeps a
     // participant nobody can remove, and never reaches the empty state that
     // lets it be evicted.
-    if (leaveRoom(roomId, userId, socket.id)) io.to(roomId).emit('peer_left', userId)
+    if (leaveRoom(boardId, userId, socket.id)) io.to(lessonChannel(lessonId)).emit('peer_left', userId)
+  }
+}
+
+/** (#176) Moves every socket on `boardId` back onto the lesson's own first
+ *  board — the live half of `DELETE /api/rooms/:id/boards/:boardId`, run
+ *  before the record is forgotten (see rooms.ts's noteBoardDeleted).
+ *
+ *  Each socket gets the full treatment a `join_room` would give it: seated on
+ *  the lesson's board, channels swapped, a fresh `room_state` so the client is
+ *  looking at real content rather than a board that no longer exists, and the
+ *  lesson told where they went. The `board_deleted` broadcast follows from the
+ *  route; a client that would rather be on the teacher's board than the first
+ *  one is free to `join_room` there when it arrives. Not disconnecting, for
+ *  the same reason `removeUserFromRoom` doesn't: the connection is also their
+ *  seat in the lesson. */
+export async function evacuateBoard(io: AppServer, lessonId: string, boardId: string): Promise<void> {
+  if (boardId === lessonId) return
+  for (const socket of await io.in(boardId).fetchSockets()) {
+    const userId = socket.data.userId
+    if (!userId || socket.data.roomId !== boardId) continue
+
+    const name = getParticipant(lessonId, userId)?.name ?? FALLBACK_PARTICIPANT_NAME
+    const result = joinRoom(lessonId, userId, name, socket.id)
+    void socket.leave(boardId)
+    socket.data.roomId = lessonId
+    if (!result.ok) continue
+    socket.join(lessonId)
+    const snapshot = getRoomSnapshot(lessonId)
+    if (snapshot) socket.emit('room_state', snapshot)
+    io.to(lessonChannel(lessonId)).except(socket.id).emit('peer_board_changed', { userId, boardId: lessonId })
   }
 }
 
@@ -204,11 +260,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         isRoomAccessMode(accessMode) ? accessMode : 'anyone_with_link',
       )
       socket.data.roomId = room.id
+      socket.data.lessonId = room.id
 
       // Same ordering guarantee as join_room below (#36): join the Socket.IO
       // room and emit the snapshot synchronously, before yielding back to the
       // event loop, so nothing else can interleave between them.
       socket.join(room.id)
+      socket.join(lessonChannel(room.id))
       const snapshot = getRoomSnapshot(room.id, lastKnownSeq)
       if (snapshot) socket.emit('room_state', snapshot)
 
@@ -247,9 +305,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // are, before releasing the room. Emitted to their own channel rather
         // than into the room: an owner deciding who gets into a lesson is
         // usually looking at the lesson, not drawing in it.
-        const ownerId = getRoomGate(roomId)?.ownerId
-        if (access.queued && ownerId) {
-          io.to(userChannel(ownerId)).emit('join_request_created', { roomId, request: access.queued })
+        // (#176) Addressed by the lesson: the request row was written under
+        // it, and the owner's queue is per lesson, not per board.
+        const gate = getRoomGate(roomId)
+        if (access.queued && gate) {
+          io.to(userChannel(gate.ownerId)).emit('join_request_created', { roomId: gate.lessonId, request: access.queued })
         }
         // (#292) The load above just pulled this room into memory, and a
         // rejected join means nobody is in it — without this it would sit
@@ -272,19 +332,29 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         return
       }
 
+      const { lessonId } = result
+      const previousRoomId = socket.data.roomId
+      const previousLessonId = socket.data.lessonId
+
       // (#292) A socket that joins a second room must leave the first, or
       // the first keeps a participant nobody can ever remove: `disconnect`
       // below reads this single field, so it would only ever leave the last
       // room joined, and the earlier one could never reach zero
       // participants — the sole condition under which a room is evicted.
-      const previousRoomId = socket.data.roomId
-      if (previousRoomId && previousRoomId !== roomId) {
-        if (leaveRoom(previousRoomId, userId, socket.id)) {
-          socket.to(previousRoomId).emit('peer_left', userId)
+      //
+      // (#176) "Second room" means second *lesson*. A `join_room` for another
+      // board of the same lesson is a page turn, not a departure: `joinRoom`
+      // above already moved the seat, and the only thing to leave is the old
+      // board's content channel, below.
+      if (previousLessonId && previousLessonId !== lessonId) {
+        if (previousRoomId && leaveRoom(previousRoomId, userId, socket.id)) {
+          socket.to(lessonChannel(previousLessonId)).emit('peer_left', userId)
         }
-        void socket.leave(previousRoomId)
+        void socket.leave(lessonChannel(previousLessonId))
       }
+      if (previousRoomId && previousRoomId !== roomId) void socket.leave(previousRoomId)
       socket.data.roomId = roomId
+      socket.data.lessonId = lessonId
 
       // Join the Socket.IO room and emit the snapshot synchronously, in that
       // order, before yielding back to the event loop (#36). Socket.io/Node
@@ -294,12 +364,22 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // already a member by the time any such relay could happen, and the
       // snapshot read happens before that relay's write, so nothing is
       // double-delivered or lost.
+      //
+      // (#176) Two channels: the board's for content, the lesson's for
+      // everything social. Joining a socket.io room it is already in is a
+      // no-op, so a page turn simply keeps the lesson channel.
       socket.join(roomId)
+      socket.join(lessonChannel(lessonId))
       const snapshot = getRoomSnapshot(roomId, lastKnownSeq)
       if (snapshot) socket.emit('room_state', snapshot)
-      socket.to(roomId).emit('peer_joined', result.participant)
+      // (#176) Someone the lesson already had, now on a different board, is
+      // announced as having moved; everyone else — first join or a reconnect
+      // to the same board — as having joined, exactly as before.
+      const switched = result.previousBoardId !== undefined && result.previousBoardId !== roomId
+      if (switched) socket.to(lessonChannel(lessonId)).emit('peer_board_changed', { userId, boardId: roomId })
+      else socket.to(lessonChannel(lessonId)).emit('peer_joined', result.participant)
 
-      log.info({ socketId: socket.id, roomId, userId, role: result.participant.role }, 'socket joined room')
+      log.info({ socketId: socket.id, roomId, lessonId, userId, role: result.participant.role }, 'socket joined room')
       ack({ ok: true, userId })
     })
 
@@ -467,15 +547,39 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // `socket.to` — same reasoning as palette_add_color/palette_remove_color
     // below: the owner who triggered it needs the same confirmation every
     // other participant gets, not to be excluded from it.
+    //
+    // (#176) Every owner control below is a fact about the *lesson* and goes
+    // to the lesson channel: a freeze holds on every board, so everyone in the
+    // lesson has to hear it, not just the people on the owner's page.
     socket.on('set_room_frozen', frozen => {
-      const { roomId, userId } = socket.data
-      if (!roomId || !userId) return
+      const { roomId, userId, lessonId } = socket.data
+      if (!roomId || !userId || !lessonId) return
       const participant = getParticipant(roomId, userId)
       if (participant?.role !== 'owner') {
         log.warn({ socketId: socket.id, roomId, userId }, 'rejected set_room_frozen from non-owner participant')
         return
       }
-      if (setRoomFrozen(roomId, frozen)) io.to(roomId).emit('room_frozen_changed', { frozen })
+      if (setRoomFrozen(roomId, frozen)) io.to(lessonChannel(lessonId)).emit('room_frozen_changed', { frozen })
+    })
+
+    // (#176, ADR 014 §3) The owner turned the page. Persisted on the lesson
+    // row so a join or a reload lands where the teacher is, and broadcast so
+    // students who are following turn with them. Owner-only for the same
+    // reason freeze is: this decides where the class looks.
+    socket.on('set_active_board', ({ boardId }) => {
+      const { roomId, userId, lessonId } = socket.data
+      if (!roomId || !userId || !lessonId) return
+      const participant = getParticipant(roomId, userId)
+      if (participant?.role !== 'owner') {
+        log.warn({ socketId: socket.id, roomId, userId }, 'rejected set_active_board from non-owner participant')
+        return
+      }
+      const stored = setActiveBoard(lessonId, boardId)
+      if (stored === false) {
+        log.warn({ socketId: socket.id, lessonId, userId, boardId }, 'rejected set_active_board for a board not in this lesson')
+        return
+      }
+      io.to(lessonChannel(lessonId)).emit('active_board_changed', { boardId: stored })
     })
 
     // (#548) The room's toolset. Owner-only, same shape as `set_room_frozen`
@@ -483,8 +587,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // tool being taken away is something every client has to act on locally
     // (a hand holding it switches to another), the sender included.
     socket.on('set_room_tools', enabledTools => {
-      const { roomId, userId } = socket.data
-      if (!roomId || !userId) return
+      const { roomId, userId, lessonId } = socket.data
+      if (!roomId || !userId || !lessonId) return
       const participant = getParticipant(roomId, userId)
       if (participant?.role !== 'owner') {
         log.warn({ socketId: socket.id, roomId, userId }, 'rejected set_room_tools from non-owner participant')
@@ -492,7 +596,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       }
       const stored = setRoomTools(roomId, enabledTools)
       if (stored === false) return
-      io.to(roomId).emit('room_tools_changed', { enabledTools: stored })
+      io.to(lessonChannel(lessonId)).emit('room_tools_changed', { enabledTools: stored })
     })
 
     // (#254/#257 epic) Point freeze — same owner-only shape as
@@ -500,8 +604,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // the room's owner (see rooms.ts), so no separate check is needed here
     // for that case.
     socket.on('set_participant_frozen', ({ userId: targetUserId, frozen }) => {
-      const { roomId, userId } = socket.data
-      if (!roomId || !userId) return
+      const { roomId, userId, lessonId } = socket.data
+      if (!roomId || !userId || !lessonId) return
       const participant = getParticipant(roomId, userId)
       if (participant?.role !== 'owner') {
         log.warn(
@@ -511,7 +615,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         return
       }
       const updated = setParticipantFrozen(roomId, targetUserId, frozen)
-      if (updated) io.to(roomId).emit('participant_frozen_changed', { userId: targetUserId, frozen })
+      if (updated) io.to(lessonChannel(lessonId)).emit('participant_frozen_changed', { userId: targetUserId, frozen })
     })
 
     // Bonus: cursor relay follows the exact same broadcast pattern and adds
@@ -529,29 +633,32 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // resulting palette (it's not something their own client already
     // applied optimistically), so the sender needs the same `palette_updated`
     // every other peer gets, not to be excluded from it.
+    //
+    // (#176) One palette per lesson, so the lesson channel — the colours a
+    // class mixed on page one are the colours it wants on page two.
     socket.on('palette_add_color', ({ color }) => {
-      const { roomId } = socket.data
-      if (!roomId) return
+      const { roomId, lessonId } = socket.data
+      if (!roomId || !lessonId) return
       const palette = addPaletteColor(roomId, color)
-      if (palette) io.to(roomId).emit('palette_updated', { palette })
+      if (palette) io.to(lessonChannel(lessonId)).emit('palette_updated', { palette })
     })
 
     socket.on('palette_remove_color', ({ color }) => {
-      const { roomId } = socket.data
-      if (!roomId) return
+      const { roomId, lessonId } = socket.data
+      if (!roomId || !lessonId) return
       const palette = removePaletteColor(roomId, color)
-      if (palette) io.to(roomId).emit('palette_updated', { palette })
+      if (palette) io.to(lessonChannel(lessonId)).emit('palette_updated', { palette })
     })
 
     socket.on('disconnect', (reason) => {
-      const { roomId, userId } = socket.data
+      const { roomId, userId, lessonId } = socket.data
       if (roomId && userId) {
         // #164: leaveRoom returns false for a stale/superseded socket (a
         // newer socket for this same room+userId already took over — see
         // its own doc comment) — must not broadcast peer_left in that case,
         // the user is still very much present via that newer socket.
         const actuallyLeft = leaveRoom(roomId, userId, socket.id)
-        if (actuallyLeft) socket.to(roomId).emit('peer_left', userId)
+        if (actuallyLeft) socket.to(lessonChannel(lessonId ?? roomId)).emit('peer_left', userId)
         // (#480) Только если комната действительно ушла из памяти. Забывать
         // на каждом разрыве нельзя: урок 21.08 состоял из десяти
         // переподключений, и дедуп сторожа сбрасывался бы каждым из них,

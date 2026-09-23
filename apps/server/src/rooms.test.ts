@@ -282,7 +282,8 @@ describe('joinRoom', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
 
-    expect(getRoomGate(roomId)).toEqual({ ownerId: 'owner-1', accessMode: 'anyone_with_link' })
+    // (#176) `lessonId` is the room's own id: a created room is a lesson.
+    expect(getRoomGate(roomId)).toEqual({ ownerId: 'owner-1', accessMode: 'anyone_with_link', lessonId: roomId })
     // The gate reads this as not_found — callers run ensureRoomLoaded first,
     // so a room missing here is missing from Postgres too.
     expect(getRoomGate('never-loaded')).toBeUndefined()
@@ -293,7 +294,10 @@ describe('joinRoom', () => {
     createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
 
     const result = joinRoom(roomId, 'u1', 'Alice', sock('u1'))
-    expect(result).toEqual({ ok: true, participant: expect.objectContaining({ userId: 'u1', role: 'member' }) })
+    expect(result).toEqual({
+      ok: true, lessonId: roomId, previousBoardId: undefined,
+      participant: expect.objectContaining({ userId: 'u1', role: 'member', boardId: roomId }),
+    })
   })
 
   it('never assigns owner to a non-owner, regardless of join order', () => {
@@ -413,7 +417,12 @@ describe('leaveRoom', () => {
     leaveRoom(roomId, 'owner-1', sock('owner-1')) // eviction deferred, not immediate — no await yet
     const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-2'))
 
-    expect(rejoin).toEqual({ ok: true, participant: expect.objectContaining({ role: 'owner' }) })
+    // `previousBoardId` is absent: the leave released the seat, so this is a
+    // fresh join in the lesson's eyes, not a switch.
+    expect(rejoin).toEqual({
+      ok: true, lessonId: roomId, previousBoardId: undefined,
+      participant: expect.objectContaining({ role: 'owner' }),
+    })
     expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
   })
 

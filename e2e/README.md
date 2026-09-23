@@ -49,6 +49,7 @@ scenario's state can be opened in psql.
 | An eraser set to go through layers clears every visible one in a pass, and one undo restores them | `specs/eraseThroughLayers.spec.ts` |
 | A copied piece survives leaving its room: pasted into another room it lands in front of the person, into its own it lands in place, and a tab already open picks it up | `specs/clipboardAcrossRooms.spec.ts` |
 | Soloing a layer hides the others on this screen only: a peer and the PNG export still see everything, the log does not grow, and the solo ends itself when its layer is deleted | `specs/layerSolo.spec.ts` |
+| A lesson with two boards: the teacher turns pages and a student follows, both boards keep their ink and leak none of it into the other, a student who steps off by hand gets the chip back, a reload lands on the teacher's board, and deleting the board under a student moves them to the first one | `specs/boards.spec.ts` |
 
 ## What is not covered, on purpose
 

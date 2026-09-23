@@ -9,7 +9,7 @@ import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
-  JoinDenial, AnnotationShape,
+  JoinDenial, AnnotationShape, BoardSummary, LessonState,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, toWireMatrix, unpackDabs, type ToggleableTool } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
@@ -23,6 +23,7 @@ import { ColorWell } from '../../components/ColorWell'
 import { Icon } from '../../components/Icon'
 import { Logo } from '../../components/Logo'
 import { Menu } from '../../components/Menu'
+import { BoardStrip, TeacherChip } from './BoardStrip'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
@@ -48,7 +49,7 @@ import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { holdReload } from '../../lib/reloadSafety'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/hotkeys'
-import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
+import { addRoomInvite, createBoard, deleteBoard, forkRoom, moveRoomToFolder, renameBoard, renameRoom, reorderBoard, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useShareRoom } from '../../lib/useShareRoom'
 import {
@@ -130,13 +131,14 @@ import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
+import { activeBoardPayload, entryBoard, followTarget, followingAfterPick, movedOrder, teacherBoardId } from '../../lib/boards'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
 import { reportRoomOpen } from './reportOpen'
 import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
 import { pastePlacement } from './pastePlacement'
-import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
+import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
 import { notifyError, notifyWarning } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
@@ -219,6 +221,24 @@ function toRoomConfig(
     enabledTools: room.enabledTools,
   }
 }
+
+/** (#176, ADR 014) The lesson's `RoomInfo`, built from whichever board's
+ *  `room_state` arrived first. `config` describes the *lesson* for the whole
+ *  session — its id is what the share link and every lesson-level call use,
+ *  its name is the header label — and a board's row differs from the lesson's
+ *  only in those two fields: paper, colour, size and the social overlay are
+ *  the lesson's already (see the shared `Room.lessonId`). The lesson's own
+ *  name is in the strip, under the lesson's id, at order 0. */
+function toLessonConfig(room: RoomEntity, lesson: LessonState): RoomInfo {
+  const own = lesson.boards.find(b => b.id === lesson.id)
+  return toRoomConfig({ ...room, id: lesson.id, name: own?.name ?? room.name })
+}
+
+/** (#176) How long a page turn waits for unconfirmed operations before moving
+ *  the socket anyway — see Outbox.whenIdle for why it is bounded at all. Long
+ *  enough for a burst of strokes to be acknowledged on an ordinary
+ *  connection; short enough that a dead one does not hold the page. */
+const BOARD_SWITCH_DRAIN_MS = 4000
 
 // LAN dev server port (apps/server); derived from window.location.hostname
 // How long a stroke's "drawing" activity (local or peer) stays visible before
@@ -388,12 +408,57 @@ function RoomEditor() {
   // own doc comment.
   useState(resetRoomStore)
 
+  // (#176, ADR 014 §4) Two keys where there used to be one. The socket lives
+  // per *lesson* — one `io()` for the whole visit, kept across page turns —
+  // and the engine, the outbox and the snapshot load live per *board*.
+  //
+  // `sessionId` is the socket's key: the URL id at mount, moving only when the
+  // URL names a genuinely different lesson (taking a copy of a closed room
+  // navigates in place — see takeRoomCopy). It deliberately does *not* move
+  // when handleRoomState replaces a board id in the URL with its lesson's: the
+  // socket is already in that lesson, and rebuilding it would re-join from
+  // scratch for a change that is cosmetic.
+  const [sessionId, setSessionId] = useState(id)
+  useEffect(() => {
+    if (!id || id === sessionId) return
+    if (id === useRoomStore.getState().lessonId) return
+    setSessionId(id)
+  }, [id, sessionId])
+  /** The lesson every lesson-level call is addressed to — access, rename,
+   *  close, boards. Falls back to the URL id before the first `room_state`,
+   *  which is the lesson unless the link was a board's (then it is corrected
+   *  the moment the server says so). */
+  const lessonId = useRoomStore(s => s.lessonId) ?? id
+  /** The board the engine holds — see roomSlice's own doc comment on when
+   *  this moves. Null before the first `room_state`, so the engine effect
+   *  below has nothing to build for until the server has seated us. */
+  const boardId = useRoomStore(s => s.boardId)
+  const boardIdRef = useRef(boardId)
+  boardIdRef.current = boardId
+  /** A page turn in flight: the board we asked the server for and whose
+   *  `room_state` has not arrived yet. Cleared by that arrival (or by a
+   *  refusal). A second turn while one is pending simply replaces this, and
+   *  the state for the board no longer wanted is ignored on arrival. */
+  const wantedBoardRef = useRef<string | null>(null)
+  /** The board the *server* currently has this socket on — as far as this
+   *  client has been told. Set by every `room_state`, cleared the moment a
+   *  `join_room` for another board is emitted. The outbox's send gate reads
+   *  it: an operation may only leave for the board it was drawn on. */
+  const socketBoardRef = useRef<string | null>(null)
+  /** Published by the socket effect (it needs that effect's own socket and
+   *  credentials) for the strip, the chip and the follow logic to call. */
+  const switchBoardRef = useRef<((next: string) => void) | null>(null)
+
   // Captured once, at mount: CreateRoom hands the freshly-created room's
   // config off via navigation state. A second device opening the same room
   // link has no such state — that's the "joiner" branch, gated behind the
   // join-gate form below until a successful join_room tells us who we are.
   const [creatorDraft] = useState<CreatorNavState | undefined>(() => location.state as CreatorNavState | undefined)
   const isCreator = !!creatorDraft?.room
+  // (#176) True until the creator's seeded board has had its first
+  // `room_state` — the one case where the state for a board arrives with that
+  // board's engine already built. See handleRoomState.
+  const awaitingSeededBoardStateRef = useRef(isCreator)
   // Blocks pointer input on the canvas (see its style prop below) while a
   // join/reconnect's initial content restore is still in flight — a real
   // bug, not defensive: with #169's snapshot fast-join, that restore
@@ -681,6 +746,12 @@ function RoomEditor() {
       // is folded in here rather than being read off the draft room.
       useRoomStore.setState({
         room: toRoomConfig({ ...creatorDraft.room, accessMode: creatorDraft.accessMode }),
+        // (#176) A room just created is a lesson with one board, and the
+        // creator is on it: known synchronously for the same reason `room`
+        // is. Its first `room_state` then arrives for this very board.
+        lessonId: creatorDraft.room.id,
+        boardId: creatorDraft.room.id,
+        boards: [{ id: creatorDraft.room.id, name: creatorDraft.room.name, order: 0 }],
       })
     }
   })
@@ -1067,7 +1138,7 @@ function RoomEditor() {
   // (#380) Who is knocking. Owner-only (the hook fetches nothing otherwise),
   // read here rather than inside ParticipantsPanel because the SidePanel tab's
   // badge needs the same count while that panel is collapsed.
-  const joinQueue = useJoinQueue(id, isOwner)
+  const joinQueue = useJoinQueue(lessonId, isOwner)
   // (#328) What this user is called in the room — their account name if they
   // have one, otherwise the per-device guest name (see resolveDisplayName).
   // `me` is prefetched before the app tree mounts (main.tsx), so this is
@@ -1089,6 +1160,116 @@ function RoomEditor() {
   // actually applied).
   const roomFrozen = useRoomStore(s => s.roomFrozen)
   const isBlockedByFreeze = !isOwner && (roomFrozen || !!myParticipant?.frozen)
+
+  // ── boards (#176, ADR 014 §7 step 4) ─────────────────────────────────────
+  const boards = useRoomStore(s => s.boards)
+  const activeBoardId = useRoomStore(s => s.activeBoardId)
+  const following = useRoomStore(s => s.following)
+  const [boardsOpen, setBoardsOpen] = useState(false)
+  // One request at a time from the "+": the board lands over REST *and* over
+  // the socket, and a second tap during the round trip would make two pages.
+  const [boardBusy, setBoardBusy] = useState(false)
+  /** The board the teacher is on — the lesson's own when `activeBoardId` is
+   *  null. Undefined until the lesson is known: computed from the store's
+   *  lesson id, not the URL-backed `lessonId` above, which before the first
+   *  room_state may still be a board's id. */
+  const knownLessonId = useRoomStore(s => s.lessonId)
+  const teacherBoard = knownLessonId ? teacherBoardId({ id: knownLessonId, activeBoardId }) : undefined
+  /** (#176) The strip is offered when there is something to turn to, or to
+   *  the owner who can make it so. The phone shell (#512) only turns pages —
+   *  for the owner too, so there it needs a second board to be worth opening. */
+  const stripAvailable = compact ? boards.length > 1 : (isOwner || boards.length > 1)
+  const showTeacherChip = !isOwner && !following && teacherBoard !== undefined && teacherBoard !== boardId
+  /** A page turn by hand. The owner's turn is also the class's: their board
+   *  becomes the active one (persisted server-side, broadcast as
+   *  `active_board_changed`). A student's turn decides whether they are still
+   *  following — see followingAfterPick. */
+  const selectBoard = useCallback((next: string) => {
+    const s = useRoomStore.getState()
+    if (!s.lessonId) return
+    if (isOwnerRef.current) {
+      const payload = activeBoardPayload(next, s.lessonId)
+      s.setActiveBoardId(payload)
+      socketRef.current?.emit('set_active_board', { boardId: payload })
+    } else {
+      s.setFollowing(followingAfterPick(next, teacherBoardId({ id: s.lessonId, activeBoardId: s.activeBoardId })))
+    }
+    switchBoardRef.current?.(next)
+  }, [])
+  /** The chip: back to the teacher, following on again. */
+  const returnToTeacher = useCallback(() => {
+    const s = useRoomStore.getState()
+    if (!s.lessonId) return
+    s.setFollowing(true)
+    switchBoardRef.current?.(teacherBoardId({ id: s.lessonId, activeBoardId: s.activeBoardId }))
+  }, [])
+  const addBoard = useCallback(async () => {
+    const lesson = useRoomStore.getState().lessonId
+    if (!lesson || boardBusy) return
+    setBoardBusy(true)
+    try {
+      const board = await createBoard(lesson)
+      // The broadcast delivers it too; the reducer merges by id.
+      useRoomStore.getState().applyBoardsAction({ type: 'board_created', board })
+      selectBoard(board.id)
+    } catch {
+      notifyError(t('boards.error.create'), { key: 'board-create' })
+    } finally {
+      setBoardBusy(false)
+    }
+  }, [boardBusy, selectBoard, t])
+  const renameBoardAction = useCallback(async (target: string, name: string) => {
+    const s = useRoomStore.getState()
+    const lesson = s.lessonId
+    const previous = s.boards.find(b => b.id === target)?.name
+    if (!lesson || previous === undefined) return
+    // Optimistic, like the header's own rename: the field is already gone.
+    s.applyBoardsAction({ type: 'board_renamed', boardId: target, name })
+    if (target === lesson) s.setRoomName(name)
+    try {
+      await renameBoard(lesson, target, name)
+    } catch {
+      useRoomStore.getState().applyBoardsAction({ type: 'board_renamed', boardId: target, name: previous })
+      if (target === lesson) useRoomStore.getState().setRoomName(previous)
+      notifyError(t('boards.error.rename'), { key: 'board-rename' })
+    }
+  }, [t])
+  const moveBoard = useCallback(async (target: string, direction: -1 | 1) => {
+    const s = useRoomStore.getState()
+    const lesson = s.lessonId
+    if (!lesson) return
+    const before = s.boards.map(b => b.id)
+    const order = movedOrder(s.boards, target, direction, lesson)
+    if (!order) return
+    s.applyBoardsAction({ type: 'boards_reordered', order })
+    try {
+      await reorderBoard(lesson, target, order.indexOf(target))
+    } catch {
+      useRoomStore.getState().applyBoardsAction({ type: 'boards_reordered', order: before })
+      notifyError(t('boards.error.reorder'), { key: 'board-reorder' })
+    }
+  }, [t])
+  /** Hard delete, so it asks first — the same dialog shape as clearing a
+   *  layer (#171). The strip updates from the `board_deleted` broadcast, and
+   *  anyone on the board is moved by the server before it arrives. */
+  const removeBoard = useCallback(async (target: string) => {
+    const s = useRoomStore.getState()
+    const lesson = s.lessonId
+    const board = s.boards.find(b => b.id === target)
+    if (!lesson || !board || target === lesson) return
+    const ok = await confirm({
+      title: t('boards.deleteTitle', { name: board.name }),
+      message: t('boards.deleteMessage'),
+      confirmLabel: t('common.delete'),
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      await deleteBoard(lesson, target)
+    } catch {
+      notifyError(t('boards.error.delete'), { key: 'board-delete' })
+    }
+  }, [confirm, t])
   // (#222) Closed for editing — the lesson has been handed out and stopped
   // changing. Deliberately *not* `!isOwner`: the server binds the owner too
   // (see getOperationRejectReason in rooms.ts), and a client gate that let
@@ -1264,9 +1445,15 @@ function RoomEditor() {
   const latestKnownSeqRef = useRef(0)
   // Bakes+uploads a full-room snapshot every time latestKnownSeqRef crosses
   // a SNAPSHOT_SEQ_INTERVAL boundary (#149/#167) — see snapshotSync.ts. One
-  // instance per room id; recreated (fresh `attempted` set) if `id` ever
-  // changes, same lifetime as the socket-wiring effect below.
-  const snapshotUploader = useMemo(() => (id ? createSnapshotUploader(id) : null), [id])
+  // instance per board (#176): a snapshot is content, and a fresh `attempted`
+  // set per page is what lets the same boundary be baked on each.
+  //
+  // Read through a ref by everything the socket effect registers: that effect
+  // is keyed on the lesson and must not be torn down by a page turn, so
+  // nothing per-board may sit in its dependency list.
+  const snapshotUploader = useMemo(() => (boardId ? createSnapshotUploader(boardId) : null), [boardId])
+  const snapshotUploaderRef = useRef(snapshotUploader)
+  snapshotUploaderRef.current = snapshotUploader
   // Highest seq the engine buffer has actually *committed* (painted) up to —
   // deliberately decoupled from latestKnownSeqRef's "arrived" tracking.
   // A peer stroke doesn't commit on arrival: it reveals progressively
@@ -1322,15 +1509,16 @@ function RoomEditor() {
   const replayIncompleteRef = useRef(false)
   const checkSnapshotBoundary = useCallback(() => {
     const engine = engineRef.current
-    if (!engine || !snapshotUploader) return
+    const uploader = snapshotUploaderRef.current
+    if (!engine || !uploader) return
     const plan = snapshotGateRef.current.observe({
       latestKnownSeq: latestKnownSeqRef.current,
       pendingCommitSeqs: pendingPreviewsRef.current.commitSeqs(),
       replayIncomplete: replayIncompleteRef.current,
     })
     if (!plan) return
-    snapshotUploader.onSeqObserved(plan.previous, plan.watermark, engine, useRoomStore.getState().layerState)
-  }, [snapshotUploader])
+    uploader.onSeqObserved(plan.previous, plan.watermark, engine, useRoomStore.getState().layerState)
+  }, [])
   /** (#462) Opens the snapshot path for this client, once its canvas actually
    *  holds the room — called from every catch-up that ran to completion: the
    *  mount effect's replay, `handleRoomState`'s restore, and the brand-new-room
@@ -1380,13 +1568,20 @@ function RoomEditor() {
   // dispatch paths (optimistic and confirmation-gated) — the same
   // watermark/pendingIds/noteLayerSeq bookkeeping onLocalOperation's own ack
   // callback used to do inline.
+  // (#176) The queue's key is the board, not the URL: operations are content,
+  // and a page turn hands the next board a queue of its own (see the effect
+  // below that retires the previous one). Before the first `room_state` a
+  // joiner has no board yet; the URL id stands in so the offline screen (#313)
+  // can still count a previous visit's unsent work for the common case of a
+  // lesson with one board.
+  const outboxBoardId = boardId ?? id ?? ''
   const outbox = useMemo(() => new Outbox({
     storage: createIndexedDbOutboxStorage(),
-    // (#358) Binds this queue to this room, in storage as well as in memory.
-    // `id` is in the dep list below for the same reason: a queue holding one
-    // room's unconfirmed strokes must not survive into another room — that is
-    // exactly how they used to get sent there.
-    roomId: id ?? '',
+    // (#358) Binds this queue to this board, in storage as well as in memory.
+    // `outboxBoardId` is in the dep list below for the same reason: a queue
+    // holding one board's unconfirmed strokes must not survive into another —
+    // that is exactly how they used to get sent there.
+    roomId: outboxBoardId,
     send: op => sendOperationWithTimeout(socketRef.current, op),
     // (#298) Nothing may go out before create_room/join_room has completed:
     // the server has no room to record against and answers `not_joined`, so
@@ -1394,7 +1589,14 @@ function RoomEditor() {
     // instead, which on a tablet with a 384-operation backlog meant blasting
     // ~55 MB of stroke JSON at a socket that had joined nothing — every
     // reconnect, forever.
-    canSend: () => hasJoinedRef.current,
+    //
+    // (#176) And nothing may go out while the socket is on — or on its way to
+    // — a board other than this queue's. An operation carries no board of its
+    // own; the server records it against wherever the socket is. The join ack
+    // for the *lesson* can land after this client has already asked to turn to
+    // the teacher's board, and a `resendAll` at that moment would put the
+    // first board's leftovers on the second.
+    canSend: () => hasJoinedRef.current && socketBoardRef.current === outboxBoardId,
     onStalled: op => {
       console.error('operation stopped retrying after repeated failures', op.type, op.id)
       // (#395) Stop holding a transform preview for an operation that has
@@ -1445,7 +1647,11 @@ function RoomEditor() {
       if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
       checkSnapshotBoundary()
     },
-  }), [id, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery, resolveTransformCommit])
+  }), [outboxBoardId, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery, resolveTransformCommit])
+  // (#176) For the socket effect, which must not list `outbox` as a
+  // dependency — see snapshotUploaderRef.
+  const outboxRef = useRef(outbox)
+  outboxRef.current = outbox
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
@@ -2069,13 +2275,23 @@ function RoomEditor() {
    *  Число слоёв и `gpuInfo()` берутся здесь, а не на старте: на старте их
    *  ещё нет, а объясняют они ровно то, из-за чего вход бывает долгим — все
    *  слои поднимаются разом (#467), и упирается это в GPU устройства (#469). */
+  // (#176) Both timers read the URL id through a ref rather than closing over
+  // it. They are dependencies of the engine effect, and handleRoomState
+  // rewrites the URL (a board id becomes its lesson's) in the same breath as
+  // it seats the engine on the board — a callback keyed on `id` rebuilt the
+  // engine right after its first mount had consumed the board's content, and
+  // the second engine opened empty. The report is per open, not per URL, so
+  // whatever the id is at finish time is the right one to file it under.
+  const urlIdRef = useRef(id)
+  urlIdRef.current = id
   const finishOpenTimer = useCallback((engine: PencilEngineAPI | null) => {
     const timer = openTimerRef.current
     if (!timer || timer.done) return
     if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
     if (engine) timer.note({ layers: engine.liveLayerIds().length })
-    if (id) reportRoomOpen(id, timer.finish(), engine?.gpuInfo())
-  }, [id])
+    const reportId = urlIdRef.current
+    if (reportId) reportRoomOpen(reportId, timer.finish(), engine?.gpuInfo())
+  }, [])
 
   /** (#487) Пускает замер входа и заводит будильник. Вызывается там, где
    *  человек нажал «войти», а не там, где сокет что-то отправил: меряем то,
@@ -2089,9 +2305,10 @@ function RoomEditor() {
       // Не гасит замер: вход продолжается, и если он всё-таки дойдёт до конца,
       // финиш об этом скажет. Дедуп по комнате в reportOpen следит, чтобы из
       // двух отчётов об одном входе уехал только первый.
-      if (!timer.done && id) reportRoomOpen(id, timer.stalled(), engineRef.current?.gpuInfo())
+      const reportId = urlIdRef.current
+      if (!timer.done && reportId) reportRoomOpen(reportId, timer.stalled(), engineRef.current?.gpuInfo())
     }, SLOW_OPEN_MS)
-  }, [id])
+  }, [])
 
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely
@@ -2164,9 +2381,73 @@ function RoomEditor() {
     if (enginePaper) useSettingsStore.getState().setLastPaperType(enginePaper)
   }, [enginePaper])
 
+  // (#176) `navigate` changes identity with the location, and the socket
+  // effect — which replaces a board id in the URL with its lesson's — must not
+  // be rebuilt by the very navigation it performs.
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+  const fitCanvasRef = useRef(fitCanvas)
+  fitCanvasRef.current = fitCanvas
+
+  /** (#176, ADR 014 §4) Takes this client onto `board`: everything that
+   *  described the previous board's content is put back to zero, the board's
+   *  own `room_state` is stashed for the engine that is about to be built,
+   *  and `boardId` is moved — which is what tears the old engine down (its
+   *  cleanup bakes that board's thumbnail) and mounts a fresh one that
+   *  replays the stash, exactly the path a joiner's first `room_state` has
+   *  always taken.
+   *
+   *  Runs for every way of arriving on a board: the first entry, a page turn
+   *  this client asked for, the teacher's move when following, the server
+   *  moving us off a deleted board, and a navigation into another lesson.
+   *
+   *  What is *not* reset here, on purpose: `replayIncompleteRef` and
+   *  `snapshotGateRef` are per engine mount and are reset at the top of the
+   *  mount effect instead — the outgoing engine's cleanup reads the first to
+   *  decide whether its canvas may be published as the board's preview, and
+   *  React runs that cleanup before the next mount's body. */
+  const enterBoard = useCallback((board: string, stash: NonNullable<typeof pendingSnapshotRef.current>) => {
+    appliedOpIdsRef.current = new Set()
+    layerAppliedSeqRef.current = new Map()
+    pendingIdsRef.current = new Set()
+    lastConfirmedSeqRef.current = 0
+    latestKnownSeqRef.current = 0
+    catchingUpRef.current = false
+    deferredOpsQueueRef.current = []
+    lastActiveAtRef.current = {}
+    pendingPreviewsRef.current = createPendingPreviews()
+    streamedStrokeIdsRef.current = new Set()
+    restoredLayerStateRef.current = null
+    lostContentOpsRef.current = []
+    if (lostWorkTimerRef.current !== null) { window.clearTimeout(lostWorkTimerRef.current); lostWorkTimerRef.current = null }
+    lostWorkFirstAtRef.current = null
+    setLostWork(null)
+    setRestoreFailure(null)
+    setDrawingIds([])
+    // Blocked until the new engine's replay says otherwise — the same gate a
+    // first join sits behind (see roomContentReady's own doc comment).
+    setRoomContentReady(false)
+    resetBoardState()
+    // A new page is looked at whole, the way a sketchbook page is. The
+    // camera itself survives resetBoardState (see SURVIVES_PAGE_TURN) so a
+    // *reconnect* to the same board keeps the person's zoom; this is the one
+    // moment the page genuinely changes under them.
+    fitCanvasRef.current()
+    pendingSnapshotRef.current = stash
+    wantedBoardRef.current = null
+    socketBoardRef.current = board
+    useRoomStore.getState().setBoardId(board)
+  }, [])
+
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (enginePaper === undefined || !canvasRef.current) return
+    // (#176) No board, no engine: a joiner has nothing to build for until the
+    // first `room_state` says which board they are on.
+    if (enginePaper === undefined || boardId === null || !canvasRef.current) return
+    // Per mount, not per board — see enterBoard's doc comment on why these two
+    // are reset here rather than there.
+    replayIncompleteRef.current = false
+    snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       infinite: engineInfinite,
       // (#470) The sheet, in world units. The canvas is the viewport now, so
@@ -2368,8 +2649,8 @@ function RoomEditor() {
           // handleRoomState's reconnect branch needs one.
           openTimerRef.current?.stage('snapshot')
           let restoredFromSnapshot = false
-          if (id && pending.latestSnapshotSeq !== null) {
-            const status = await restoreFromSnapshot(engine, id)
+          if (pending.latestSnapshotSeq !== null) {
+            const status = await restoreFromSnapshot(engine, boardId)
             // (#533) The one branch that must not fall through to the replay
             // below. `tailOperations` is only what the snapshot did *not*
             // cover — 69 operations of a 53 836-operation room, on the day
@@ -2465,8 +2746,8 @@ function RoomEditor() {
           useRoomStore.getState().setPalette(pending.palette)
           useRoomStore.getState().setRoomFrozen(pending.frozen)
 
-          if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
-            void backfillHistory(id, engine, pending.latestSnapshotSeq)
+          if (restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
+            void backfillHistory(boardId, engine, pending.latestSnapshotSeq)
           }
           // A room that has never had a snapshot at all stays stuck doing
           // this same full-history replay on every future join, no matter
@@ -2587,14 +2868,25 @@ function RoomEditor() {
       // (#385) Not from a canvas we know is incomplete — republishing a blank
       // preview over a real lesson's is the same mistake as baking a snapshot
       // from it, just cheaper to undo. See replayIncompleteRef.
-      if (id && !replayIncompleteRef.current) {
-        void uploadThumbnail(id, engine).finally(() => engine.destroy())
+      // (#176) Per board: this is also what a page turn leaves behind as the
+      // strip's picture of the page just left, and since the server does not
+      // announce thumbnails, the strip is told here.
+      if (!replayIncompleteRef.current) {
+        void uploadThumbnail(boardId, engine)
+          .then(uploaded => {
+            if (uploaded) {
+              useRoomStore.getState().applyBoardsAction({
+                type: 'thumbnail_baked', boardId, at: new Date().toISOString(),
+              })
+            }
+          })
+          .finally(() => engine.destroy())
       } else {
         engine.destroy()
       }
     }
   }, [
-    id, enginePaper, enginePaperColor, engineInfinite,
+    boardId, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
     hapticGrainEnabled, checkSnapshotBoundary, markJoinRestoreDone, restoreFromSnapshot, backfillHistory,
     finishOpenTimer,
@@ -3076,17 +3368,17 @@ function RoomEditor() {
   // that is still closed if their socket happens to be down.
   const [closedBusy, setClosedBusy] = useState(false)
   const reopenRoom = useCallback(async () => {
-    if (!id) return
+    if (!lessonId) return
     setClosedBusy(true)
     try {
-      const updated = await setRoomClosed(id, false)
+      const updated = await setRoomClosed(lessonId, false)
       useRoomStore.getState().setRoomClosedAt(updated.closedAt ?? null)
     } catch {
       void showAlert({ message: t('room.error.reopen') })
     } finally {
       setClosedBusy(false)
     }
-  }, [id, showAlert, t])
+  }, [lessonId, showAlert, t])
   // (#222/#317) The student half: a closed lesson is homework, and this is
   // how it gets taken. Navigates *into* the copy — the opposite of the same
   // action in the lesson list (#317), and for the opposite reason: there the
@@ -3095,7 +3387,7 @@ function RoomEditor() {
     if (!id) return
     setClosedBusy(true)
     try {
-      const { room: copy } = await forkRoom(id, t('lessons.forkedName', { name: config?.name ?? '' }))
+      const { room: copy } = await forkRoom(id, { name: t('lessons.forkedName', { name: config?.name ?? '' }), scope: 'board' })
       navigate(`/room/${copy.id}`)
     } catch {
       void showAlert({ message: t('room.error.takeCopy') })
@@ -3118,17 +3410,17 @@ function RoomEditor() {
     setRenameDraft(null)
     const name = draft?.trim()
     const previous = useRoomStore.getState().room?.name
-    if (!id || !name || name === previous) return
+    if (!lessonId || !name || name === previous) return
     // Optimistic: the field is already gone by now, so the label has to be
     // carrying the new name or the edit reads as having been dropped.
     useRoomStore.getState().setRoomName(name)
     try {
-      await renameRoom(id, name)
+      await renameRoom(lessonId, name)
     } catch {
       if (previous !== undefined) useRoomStore.getState().setRoomName(previous)
       void showAlert({ message: t('room.error.rename') })
     }
-  }, [id, renameDraft, showAlert, t])
+  }, [lessonId, renameDraft, showAlert, t])
   // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
   // one participant — passed to ParticipantsPanel's onToggleFreeze.
   const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
@@ -5656,8 +5948,22 @@ function RoomEditor() {
   // config yet at connect time (that's the entire point of the join gate), so
   // the socket has to exist before it does. What gets emitted on 'connect'
   // branches on creator vs. joiner instead.
+  //
+  // (#176, ADR 014 §4) Keyed on the *lesson* (`sessionId`), not on the board:
+  // a page turn is a `join_room` on this same socket, never a new one. Nothing
+  // per-board may appear in the dependency list below — the outbox and the
+  // snapshot uploader are reached through refs for exactly that reason.
   useEffect(() => {
-    if (!id) return
+    if (!sessionId) return
+    // The URL id at the moment this lesson's socket was built. `id` itself
+    // may change underneath (a board id replaced by its lesson's) without this
+    // effect re-running, so the first join uses the id it was made for.
+    const id = sessionId
+    // A new socket is a new first `room_state` — the one that tells a joiner
+    // the lesson's config. Reset here rather than only at mount so a
+    // navigation into another lesson (takeRoomCopy) learns that lesson's name
+    // and paper instead of keeping the previous one's.
+    firstRoomStateReceivedRef.current = false
 
     // Same-origin: the Vite dev server proxies /socket.io to apps/server
     // (see vite.config.ts) — works under both `npm run dev` (https, needed
@@ -5665,6 +5971,12 @@ function RoomEditor() {
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> =
       io({ withCredentials: true })
     socketRef.current = socket
+
+    /** The board a reconnect or a resync re-joins: the one this client is on
+     *  (or heading to), falling back to the URL for the very first join. */
+    const currentBoard = () => wantedBoardRef.current ?? boardIdRef.current ?? id
+    const joinCredentials = () => lastJoinAttemptRef.current
+      ?? { name: myDisplayNameRef.current, password: creatorDraft?.password }
 
     // (#504) socket.io переподключается само — кроме двух случаев, в которых
     // оно объявляет, что больше не пытается, и тогда открытая комната висит на
@@ -5743,7 +6055,7 @@ function RoomEditor() {
               if (result.ok) {
                 hasJoinedRef.current = true
                 applyIdentity(result.userId)
-                void outbox.resendAll()
+                void outboxRef.current.resendAll()
                 // Best-effort: room creation already succeeded either way, so
                 // a failure here just leaves the room at root level (still
                 // visible on MyLessons) rather than blocking anything.
@@ -5782,14 +6094,16 @@ function RoomEditor() {
             },
           )
         } else {
+          // (#176) Back onto the board this client was on, not the lesson's
+          // first: a reconnect must not turn the page.
           socket.emit(
             'join_room',
             {
-              roomId: id, name: myDisplayNameRef.current, password: creatorDraft.password,
+              roomId: currentBoard(), name: myDisplayNameRef.current, password: creatorDraft.password,
               lastKnownSeq: latestKnownSeqRef.current || undefined,
             },
             result => {
-              if (result.ok) { applyIdentity(result.userId); void outbox.resendAll() }
+              if (result.ok) { applyIdentity(result.userId); void outboxRef.current.resendAll() }
               else reportJoinFailure(result.error, 'join_room on reconnect')
             },
           )
@@ -5804,13 +6118,65 @@ function RoomEditor() {
       if (hasJoinedRef.current && lastJoinAttemptRef.current) {
         socket.emit(
           'join_room',
-          { roomId: id, ...lastJoinAttemptRef.current, lastKnownSeq: latestKnownSeqRef.current || undefined },
+          { roomId: currentBoard(), ...lastJoinAttemptRef.current, lastKnownSeq: latestKnownSeqRef.current || undefined },
           result => {
-            if (result.ok) { applyIdentity(result.userId); void outbox.resendAll() }
+            if (result.ok) { applyIdentity(result.userId); void outboxRef.current.resendAll() }
             else reportJoinFailure(result.error, 'join_room on reconnect')
           },
         )
       }
+    }
+
+    /** (#176, ADR 014 §4) Turns the page: asks the server to move this socket
+     *  onto `next`. The board's `room_state` comes back through
+     *  handleRoomState, which is where the engine is actually swapped (see
+     *  enterBoard) — nothing here touches content.
+     *
+     *  Waits for the outbox first, bounded (see Outbox.whenIdle): an operation
+     *  on the wire while the socket moves would be recorded against the next
+     *  board. The canvas is blocked for the wait — a stroke drawn *during* it
+     *  would go out after the move for the same reason.
+     *
+     *  Idempotent against the board already shown or already asked for, so the
+     *  follow logic can call it on every event that could mean "the teacher
+     *  moved" without checking first. */
+    const switchBoard = async (next: string) => {
+      if (!hasJoinedRef.current) return
+      if (next === (wantedBoardRef.current ?? boardIdRef.current)) return
+      wantedBoardRef.current = next
+      setRoomContentReady(false)
+      await outboxRef.current.whenIdle(BOARD_SWITCH_DRAIN_MS)
+      // Superseded while waiting — by a later turn, or by the server moving
+      // us (a deleted board). The later call owns the emit.
+      if (wantedBoardRef.current !== next || socket !== socketRef.current) return
+      socketBoardRef.current = null
+      socket.emit(
+        'join_room',
+        { roomId: next, ...joinCredentials() },
+        result => {
+          if (result.ok) { applyIdentity(result.userId); return }
+          // Still on the previous board server-side; say so and unblock it.
+          if (wantedBoardRef.current === next) {
+            wantedBoardRef.current = null
+            socketBoardRef.current = boardIdRef.current
+            setRoomContentReady(true)
+          }
+          reportJoinFailure(result.error, 'join_room for a board')
+        },
+      )
+    }
+    switchBoardRef.current = next => { void switchBoard(next) }
+
+    /** Turns the page to the teacher's board when this client is following
+     *  and not already there — see followTarget. Called after every event
+     *  that can move the teacher or change what "following" means. */
+    const maybeFollow = () => {
+      const s = useRoomStore.getState()
+      const target = followTarget({
+        following: s.following, isOwner: isOwnerRef.current, lessonId: s.lessonId,
+        activeBoardId: s.activeBoardId, boardId: s.boardId, wantedBoardId: wantedBoardRef.current,
+      })
+      if (target) void switchBoard(target)
     }
 
     // (#289 §12) Re-requests the room's state from scratch-as-of-what-we-
@@ -5828,11 +6194,9 @@ function RoomEditor() {
       // longer there. Both sides of the bookkeeping reset together.
       engineRef.current?.resetPeerLiveStrokes()
       streamedStrokeIdsRef.current.clear()
-      const credentials = lastJoinAttemptRef.current
-        ?? { name: myDisplayNameRef.current, password: creatorDraft?.password }
       socket.emit(
         'join_room',
-        { roomId: id, ...credentials, lastKnownSeq: latestKnownSeqRef.current || undefined },
+        { roomId: currentBoard(), ...joinCredentials(), lastKnownSeq: latestKnownSeqRef.current || undefined },
         result => {
           if (result.ok) applyIdentity(result.userId)
           else reportJoinFailure(result.error, 'join_room during gap resync')
@@ -5843,30 +6207,34 @@ function RoomEditor() {
     // see requestFullResyncRef's own comment.
     requestFullResyncRef.current = requestFullResync
 
-    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }: {
+    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen, lesson }: {
       room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
-      palette: string[]; frozen: boolean
+      palette: string[]; frozen: boolean; lesson: LessonState
     }) => {
-      // What this socket already had *before* this room_state's own tail —
-      // the reconnect fast-path check below needs this, not the value after
-      // folding tailOperations' seqs in just below.
-      const alreadyHadSeq = latestKnownSeqRef.current
-      // Bulk catch-up (join/reconnect), not a live single operation — doesn't
-      // trigger snapshotUploader here even if it spans a checkpoint
-      // boundary. Any client live at the moment a boundary was actually
-      // crossed already baked it (see onLocalOperation/handleOperationConfirmed
-      // below); this client wasn't present for it, and doesn't need to
-      // retroactively contribute a bake for history it's only now replaying.
-      for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
+      const store = useRoomStore.getState()
+      // (#176) The social half first, whichever board this is for: the
+      // strip, the teacher's board and the lesson's roster (everyone in the
+      // lesson, each with their board) are the lesson's and always current.
+      store.setLesson(lesson)
+      dispatchParticipants({ type: 'room_state', participants: roomParticipants })
+      store.setPalette(palette)
+      store.setRoomFrozen(frozen)
+      const arrivedBoard = room.id
+      socketBoardRef.current = arrivedBoard
 
       if (!firstRoomStateReceivedRef.current) {
         firstRoomStateReceivedRef.current = true
+        // (#176) A board id in the URL — a link copied out of a preview
+        // request. The lesson is what the address bar should carry (ADR 014
+        // §4); `sessionId` deliberately does not follow this replace, so the
+        // socket stays. The board itself is kept: it is the one the link
+        // meant.
+        const enteredByBoardUrl = room.lessonId !== undefined
+        if (enteredByBoardUrl && id !== lesson.id) navigateRef.current(`/room/${lesson.id}`, { replace: true })
         // Only a joiner needs this: a creator's config is already known
         // synchronously from navigation state (see creatorDraft/toRoomConfig
-        // above) with the exact same fields toRoomConfig(room) would produce
-        // here (both are Pick<Room, 'id'|'name'|'paper'|'infinite'|
-        // 'canvasWidth'|'canvasHeight'> from the same data), so writing it a
-        // second time says nothing new.
+        // above) with the exact same fields toLessonConfig would produce
+        // here, so writing it a second time says nothing new.
         //
         // It used to be worse than redundant. `config` itself was a dependency
         // of the mount-engine effect, and setRoomInfo always writes a *new*
@@ -5878,7 +6246,72 @@ function RoomEditor() {
         // canvas: the effect now depends on the three fields it actually builds
         // from, not on the object (#461, which fixed the same wipe reaching the
         // canvas through setRoomName instead).
-        if (!isCreator) useRoomStore.getState().setRoomInfo(toRoomConfig(room))
+        if (!isCreator) store.setRoomInfo(toLessonConfig(room, lesson))
+        // (#176) Where to land. The server seats a join on the board it was
+        // asked for; the lesson URL asks for the lesson's own first board, and
+        // the teacher may well be on another. Ask for that one now and let
+        // *its* room_state be the one that builds the engine — this one's
+        // content is for a page we are not going to look at.
+        const entry = entryBoard({ arrivedBoardId: arrivedBoard, enteredByBoardUrl, lesson })
+        store.setFollowing(entry.following)
+        if (entry.target !== arrivedBoard && store.boardId === null) {
+          wantedBoardRef.current = entry.target
+          socketBoardRef.current = null
+          socket.emit('join_room', { roomId: entry.target, ...joinCredentials() }, result => {
+            if (result.ok) { applyIdentity(result.userId); return }
+            // Fall back to the board we were seated on: ask for it again so
+            // its content arrives through the ordinary path below.
+            reportJoinFailure(result.error, 'join_room for the teacher\'s board')
+            wantedBoardRef.current = null
+            requestFullResync()
+          })
+          return
+        }
+      }
+
+      // (#176) A room_state for a board other than the one the engine holds:
+      // the first entry (no board yet), a page turn this client asked for,
+      // the server moving us off a deleted board, or a new lesson after an
+      // in-place navigation. All of them mean a fresh engine — see enterBoard.
+      // One that is neither the board we hold nor the one we asked for is a
+      // turn already superseded (two quick turns), and is dropped: the state
+      // for the board actually wanted is on its way.
+      if (arrivedBoard !== store.boardId) {
+        if (wantedBoardRef.current !== null && wantedBoardRef.current !== arrivedBoard) return
+        // A board we held but never asked to leave: the server evacuated us
+        // off a deleted board. The page the student picked by hand is gone
+        // with it, so the pick is void and they follow the teacher again —
+        // otherwise they would sit on board one chip-less (the teacher
+        // happens to be there too) and silently stay behind on the teacher's
+        // next turn.
+        const evacuated = wantedBoardRef.current === null && store.boardId !== null
+        if (evacuated && !isOwnerRef.current) store.setFollowing(true)
+        enterBoard(arrivedBoard, { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen })
+        maybeFollow()
+        return
+      }
+      wantedBoardRef.current = null
+
+      // What this socket already had *before* this room_state's own tail —
+      // the reconnect fast-path check below needs this, not the value after
+      // folding tailOperations' seqs in just below.
+      const alreadyHadSeq = latestKnownSeqRef.current
+      // Bulk catch-up (join/reconnect), not a live single operation — doesn't
+      // trigger snapshotUploader here even if it spans a checkpoint
+      // boundary. Any client live at the moment a boundary was actually
+      // crossed already baked it (see onLocalOperation/handleOperationConfirmed
+      // below); this client wasn't present for it, and doesn't need to
+      // retroactively contribute a bake for history it's only now replaying.
+      for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
+      // A reconnect while following: the teacher may have moved meanwhile.
+      maybeFollow()
+
+      // (#176) The one board whose room_state can arrive with its engine
+      // already standing: the creator's own, seated synchronously from
+      // navigation state. Every other board is entered through enterBoard
+      // above, so past this point a same-board room_state is a reconnect.
+      if (awaitingSeededBoardStateRef.current) {
+        awaitingSeededBoardStateRef.current = false
         if (!engineRef.current) {
           // Real first join: this is how we learn paper/canvas size — the
           // engine doesn't exist yet to apply `tailOperations` to, so stash
@@ -5985,7 +6418,7 @@ function RoomEditor() {
         // state.
         let restoredFromSnapshot = false
         if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-          const status = await restoreFromSnapshot(engine, id)
+          const status = await restoreFromSnapshot(engine, arrivedBoard)
           // (#533) Same refusal as the first-join path, for the same reason:
           // this branch only runs when the client is *behind* the snapshot, so
           // the tail below covers only what the snapshot did not, and painting
@@ -6082,14 +6515,15 @@ function RoomEditor() {
         // Runs fully in the background — never awaited, must not block this
         // handler or the first paint it just produced.
         if (restoredFromSnapshot && engine && latestSnapshotSeq !== null) {
-          void backfillHistory(id, engine, latestSnapshotSeq)
+          void backfillHistory(arrivedBoard, engine, latestSnapshotSeq)
         }
         // Same bootstrap as the mount-engine effect's own first-join branch
         // (see its comment) — a reconnect can just as easily be the first
         // time anyone's stayed caught-up long enough to bake this room's
         // very first snapshot.
-        if (latestSnapshotSeq === null && engine && snapshotUploader) {
-          snapshotUploader.onSeqObserved(alreadyHadSeq, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
+        const uploader = snapshotUploaderRef.current
+        if (latestSnapshotSeq === null && engine && uploader) {
+          uploader.onSeqObserved(alreadyHadSeq, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
         }
       } catch (error) {
         // (#538) Тот же отказ и то же обоснование, что на пути первого входа —
@@ -6378,7 +6812,9 @@ function RoomEditor() {
       // stale resolution arriving after a reconnect. Neither may restart the
       // join; the owner's queue just loses that one row.
       if (hasJoinedRef.current) {
-        if (roomId === id) applyJoinRequestResolved(queryClient, roomId, requestId)
+        // (#176) Addressed by the lesson (the queue is the lesson's), which the
+        // URL id may not be until the first room_state corrected it.
+        if (roomId === (useRoomStore.getState().lessonId ?? id)) applyJoinRequestResolved(queryClient, roomId, requestId)
         return
       }
       if (approved) retryJoinRef.current()
@@ -6410,6 +6846,57 @@ function RoomEditor() {
       notifyError(tRef.current('room.kicked'), { key: 'kicked', durationMs: null })
     }
 
+    // (#176, ADR 014 §3) Boards. All of these travel on the lesson channel,
+    // so they arrive whichever board this client is on.
+
+    // Someone else turned a page. Their cursor and live ink stop arriving on
+    // their own (content is per board channel); the roster is what has to be
+    // told, so the strip and the participants list can say who is where.
+    const handlePeerBoardChanged = ({ userId, boardId: peerBoard }: { userId: string; boardId: string }) => {
+      dispatchParticipants({ type: 'peer_board_changed', userId, boardId: peerBoard })
+    }
+
+    // The teacher moved (or their board was deleted — null means the
+    // lesson's first board). A following student goes with them; everyone
+    // else just sees the marker move in the strip.
+    const handleActiveBoardChanged = ({ boardId: active }: { boardId: string | null }) => {
+      useRoomStore.getState().setActiveBoardId(active)
+      maybeFollow()
+    }
+
+    const handleBoardCreated = ({ board }: { board: BoardSummary }) => {
+      useRoomStore.getState().applyBoardsAction({ type: 'board_created', board })
+    }
+    const handleBoardRenamed = ({ boardId: renamed, name }: { boardId: string; name: string }) => {
+      useRoomStore.getState().applyBoardsAction({ type: 'board_renamed', boardId: renamed, name })
+      // The lesson's own name is also its first board's — keep the header in
+      // step with the strip.
+      if (renamed === useRoomStore.getState().lessonId) useRoomStore.getState().setRoomName(name)
+    }
+    const handleBoardsReordered = ({ order }: { order: string[] }) => {
+      useRoomStore.getState().applyBoardsAction({ type: 'boards_reordered', order })
+    }
+    // Hard delete. If this client was on it, the server has already moved the
+    // socket to the lesson's first board and sent that board's room_state
+    // ahead of this event — enterBoard ran from there, and the only thing
+    // left is to stop showing a page that no longer exists. A turn still in
+    // flight towards it is dropped for the same reason.
+    const handleBoardDeleted = ({ boardId: deleted }: { boardId: string }) => {
+      useRoomStore.getState().applyBoardsAction({ type: 'board_deleted', boardId: deleted })
+      if (wantedBoardRef.current === deleted) {
+        wantedBoardRef.current = null
+        socketBoardRef.current = boardIdRef.current
+        setRoomContentReady(true)
+      }
+      maybeFollow()
+    }
+
+    socket.on('peer_board_changed',         handlePeerBoardChanged)
+    socket.on('active_board_changed',       handleActiveBoardChanged)
+    socket.on('board_created',              handleBoardCreated)
+    socket.on('board_renamed',              handleBoardRenamed)
+    socket.on('boards_reordered',           handleBoardsReordered)
+    socket.on('board_deleted',              handleBoardDeleted)
     socket.on('connect',                    handleConnect)
     socket.on('room_state',                 handleRoomState)
     socket.on('operation_confirmed',        handleOperationConfirmed)
@@ -6435,20 +6922,26 @@ function RoomEditor() {
       socket.disconnect()
       socketRef.current = null
       requestFullResyncRef.current = null
+      switchBoardRef.current = null
+      socketBoardRef.current = null
+      wantedBoardRef.current = null
     }
   }, [
-    id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
-    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader, noteLayerSeq,
-    syncFromLogNow,
+    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
+    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, noteLayerSeq,
+    syncFromLogNow, enterBoard,
     // (#429) Used by the live-stroke handler. useCallback with no dependencies
     // (see its definition), so it is stable for this component's lifetime and
     // can never tear the socket down and rebuild it.
     markActive,
-    outbox, awaitPaper,
+    awaitPaper,
     // Stable for the app's lifetime (one QueryClient, created outside React —
     // see lib/queryClient.ts), so listing it here can never tear the socket
     // down and rebuild it.
     queryClient,
+    // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
+    // read through refs), `navigate` (changes with the URL this effect itself
+    // rewrites) and `boardId` (a page turn is not a new socket).
   ])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
@@ -7053,6 +7546,24 @@ function RoomEditor() {
               offering it to someone who hasn't asked for the mode would be a
               button that makes the interface vanish with no visible way to
               return. */}
+          {/* (#176) The board strip's toggle. Here by the same rule as the
+              rest of this panel: turning the page is something a teacher does
+              mid-explanation, between one stroke and the next. */}
+          {stripAvailable && (
+            <>
+              <div className={styles.headerDivider} />
+              <button
+                className={clsx(styles.headerIconBtn, boardsOpen && styles.headerIconBtnActive)}
+                onClick={() => setBoardsOpen(o => !o)}
+                title={t('boards.open')}
+                aria-label={t('boards.open')}
+                aria-pressed={boardsOpen}
+              >
+                <Icon name="auto_stories" />
+              </button>
+            </>
+          )}
+
           {tapToHideEnabled && (
             <>
               <div className={styles.headerDivider} />
@@ -7112,12 +7623,47 @@ function RoomEditor() {
         </div>
       </header>
 
+      {/* (#176) The board strip and the "teacher is on …" chip. Both live
+          under the header and go with it in minimal UI — the same wrapper
+          class, so a hidden header never leaves a strip floating over the
+          paper. The chip is offered to a student who stepped away from the
+          teacher's board; the strip to anyone who can turn pages. */}
+      {knownLessonId && teacherBoard !== undefined && (
+        <div className={clsx(uiHidden && styles.uiHidden)}>
+          {boardsOpen && stripAvailable && (
+            <BoardStrip
+              boards={boards}
+              lessonId={knownLessonId}
+              currentId={wantedBoardRef.current ?? boardId}
+              teacherId={teacherBoard}
+              participants={participants}
+              canEdit={isOwner && !compact}
+              compact={compact}
+              busy={boardBusy}
+              onSelect={selectBoard}
+              onClose={() => setBoardsOpen(false)}
+              onCreate={() => void addBoard()}
+              onRename={(target, name) => void renameBoardAction(target, name)}
+              onMove={(target, direction) => void moveBoard(target, direction)}
+              onDelete={target => void removeBoard(target)}
+            />
+          )}
+          {showTeacherChip && (
+            <TeacherChip
+              board={boards.find(b => b.id === teacherBoard)}
+              stripOpen={boardsOpen && stripAvailable}
+              onReturn={returnToTeacher}
+            />
+          )}
+        </div>
+      )}
+
       {/* (#230) roomId/isOwner are what the Access tab needs; the panel shows
           it only when both are present. */}
       {settingsOpen && (
         <SettingsPanel
           onClose={() => setSettingsOpen(false)}
-          roomId={id}
+          roomId={lessonId}
           isOwner={isOwner}
           enabledTools={enabledTools}
           onEnabledToolsChange={setRoomTools}
@@ -7608,6 +8154,7 @@ function RoomEditor() {
             >
             {!config.infinite && (
               <PeerCursors
+                key={boardId ?? ''}
                 socket={socketRef.current}
                 participants={participants}
                 zoom={vp.zoom}
@@ -7747,6 +8294,7 @@ function RoomEditor() {
           {config.infinite && (
             <div className={styles.worldOverlayWrap} style={{ transform: cameraTransformCss(vp) }}>
               <PeerCursors
+                key={boardId ?? ''}
                 socket={socketRef.current}
                 participants={participants}
                 zoom={vp.zoom}

@@ -373,6 +373,51 @@ export type Room = {
   // tool this room no longer offers still paints. The toolset decides what can
   // be picked up, not what exists.
   enabledTools?: ToggleableTool[]
+  // (#176, ADR 014) Boards. A lesson is a Room with no `lessonId` and is also
+  // its own first board; every further board is a Room whose `lessonId` names
+  // the lesson. The two are told apart by this one field, and the split it
+  // draws is the whole model: everything social (participants, access, closed,
+  // tools, palette, freeze) belongs to the lesson, everything content
+  // (operations, snapshots, thumbnail, paper, size) to the board. Boards are
+  // never listed by the room-list endpoints — they are reached through their
+  // lesson's `room_state.lesson.boards`.
+  //
+  // On a board's own `room_state.room` the social fields (`accessMode`,
+  // `hasPassword`, `closedAt`, `enabledTools`, `activeBoardId`) are the
+  // *lesson's*, overlaid by the server, so a client reads one object either
+  // way and never has to know where a fact lives.
+  lessonId?: string
+  // Position in the lesson's board strip; the lesson itself is 0. Absent on
+  // rows the server builds by hand (the same optionality `parentRoomId` has).
+  boardOrder?: number
+  // The board the lesson's owner is on — what a joiner lands on and what a
+  // following student switches to. Absent means the lesson's own first board.
+  // Set only on a lesson (and overlaid onto its boards, see `lessonId`).
+  activeBoardId?: string
+}
+
+// (#176, ADR 014) One entry of a lesson's board strip — what the client needs
+// to draw the strip and to switch, nothing more. The full `Room` of a board
+// arrives with its own `room_state` once the client joins it. The lesson
+// itself is the first entry, at `order` 0, under its own id.
+export type BoardSummary = {
+  id: string
+  name: string
+  order: number
+  // Same cache-busting key `Room.thumbnailUpdatedAt` is; absent until the
+  // board has been baked once. As of the moment the list was built: a
+  // thumbnail uploaded since is not announced live.
+  thumbnailUpdatedAt?: string
+}
+
+/** The lesson half of a board's `room_state` (#176): which lesson this board
+ *  belongs to, every board in it, and the one the teacher is on. `id` is the
+ *  lesson's id — for a room with a single board it equals `room.id`. */
+export type LessonState = {
+  id: string
+  boards: BoardSummary[]
+  // Null means the lesson's own first board — see `Room.activeBoardId`.
+  activeBoardId: string | null
 }
 
 // (#226) Everything the access panel (#228) shows about one room, fetched in
@@ -478,6 +523,13 @@ export type Participant = {
   // itself is (server restart / room evicted then reloaded). The room's
   // owner can never be frozen (see rooms.ts's setParticipantFrozen).
   frozen: boolean
+  // (#176, ADR 014) Which board of the lesson this person is currently on.
+  // Participants belong to the *lesson*, so a `room_state` lists everyone in
+  // the lesson, and this is how a client tells who shares its page. The
+  // server always sets it; optional in the type only so a client built before
+  // boards existed keeps compiling. For a lesson with one board it equals the
+  // lesson id.
+  boardId?: string
 }
 
 // Room color palette (#190 epic). One palette per room (not per-user, and not
@@ -1840,6 +1892,11 @@ export type ServerToClientEvents = {
     // join/reconnect snapshot so a reconnecting client sees the current
     // status immediately, same reasoning as `participants`/`palette` above.
     frozen: boolean
+    // (#176, ADR 014) The lesson this board is a page of, its board strip and
+    // the teacher's current board. `participants` above are the *lesson's*,
+    // each carrying the board they are on. A client that receives this for a
+    // board id it reached by URL learns the lesson id here and redirects.
+    lesson: LessonState
   }) => void
   // The single channel that drives painting into every client's confirmed
   // buffer — including the author's own (unlike the old `peer_operation`,
@@ -1928,6 +1985,33 @@ export type ServerToClientEvents = {
   // stays up so the client can navigate away (and keep working elsewhere)
   // rather than reconnect into a room it is no longer in.
   kicked: (data: { roomId: string }) => void
+
+  // (#176, ADR 014) Boards. Every event below is *social* and travels on the
+  // lesson channel, so everyone in the lesson hears it whichever board they
+  // are on — same as `peer_joined`/`peer_left`, freeze, tools, closed and
+  // palette, which moved to that channel with this epic. Content events
+  // (`operation_confirmed`, `peer_stroke_*`, `peer_cursor`) stay on the
+  // board's own channel and reach only the sockets on that board.
+
+  // Someone in the lesson moved to another board (a `join_room` on their live
+  // socket). Sent to everyone else in the lesson; the mover already knows.
+  peer_board_changed: (data: { userId: string; boardId: string }) => void
+  // The owner moved (`set_active_board`) — or the active board was deleted,
+  // in which case `boardId` is null and means the lesson's own first board.
+  // A following student switches on this; the owner never follows.
+  active_board_changed: (data: { boardId: string | null }) => void
+  // Board CRUD, each the live half of one boardRoutes.ts call. Sent to the
+  // whole lesson, the owner who made the change included — they need the same
+  // list everyone else ends up with.
+  board_created: (data: { board: BoardSummary }) => void
+  board_renamed: (data: { boardId: string; name: string }) => void
+  // The full strip order, lesson first, not a delta: a handful of ids.
+  boards_reordered: (data: { order: string[] }) => void
+  // Hard delete, content and all. A socket that was on it has already been
+  // moved to the lesson's own board by the server and handed a fresh
+  // `room_state` for it before this arrives; the client is free to `join_room`
+  // whichever board it would rather be on.
+  board_deleted: (data: { boardId: string }) => void
 }
 
 export type ClientToServerEvents = {
@@ -2010,6 +2094,12 @@ export type ClientToServerEvents = {
   // are independent and can both be active at once. A no-op if `userId` is
   // the room's own owner (see rooms.ts's setParticipantFrozen).
   set_participant_frozen: (data: { userId: string; frozen: boolean }) => void
+  // (#176, ADR 014) Owner-only, same role check as `set_room_frozen`. Names
+  // the board the teacher is on; the lesson's own id (or null) means its
+  // first board. Persisted on the lesson row, so a join or a reload lands on
+  // the teacher's board, and broadcast as `active_board_changed`. Ignored for
+  // an id that is not a board of this lesson.
+  set_active_board: (data: { boardId: string | null }) => void
 }
 
 // Hotkeys

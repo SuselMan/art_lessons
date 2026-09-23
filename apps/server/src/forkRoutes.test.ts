@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { Prisma } from '@prisma/client'
 
-import { isForkSeedUser } from '@grafetto/shared'
+import { forkSeedUserId, isForkSeedUser } from '@grafetto/shared'
 import type { Operation } from '@grafetto/shared'
 
-import { registerForkRoutes } from './forkRoutes.js'
+import { copiedOperationId, registerForkRoutes } from './forkRoutes.js'
 import { residentOperationWhere } from './rooms.js'
 
 // Route-level test, Prisma mocked — same shape as roomFolderRoutes.test.ts.
@@ -13,7 +13,7 @@ import { residentOperationWhere } from './rooms.js'
 // below is observable on these spies.
 const mockPrisma = vi.hoisted(() => {
   const client = {
-    room: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn() },
+    room: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     roomParticipant: { findUnique: vi.fn(), create: vi.fn() },
     roomPalette: { findUnique: vi.fn(), create: vi.fn() },
     roomLayerSnapshot: { findMany: vi.fn(), createMany: vi.fn() },
@@ -34,20 +34,43 @@ vi.mock('./rooms.js', async importActual => ({
   ...(await importActual<typeof import('./rooms.js')>()),
   flushRoomWrites: vi.fn(() => Promise.resolve()),
 }))
+const { flushRoomWrites } = await import('./rooms.js')
 
 const SOURCE = {
   id: 'lesson-1', name: 'Still life', paper: 'coarse', paperColor: '#f5f0e6',
   infinite: false, canvasWidth: 1240, canvasHeight: 1754,
   passwordHash: 'hashed', closedAt: new Date(), parentRoomId: null,
-  accessMode: 'invite_only' as const,
+  accessMode: 'invite_only' as const, enabledTools: ['pencil'],
+  lessonId: null, boardOrder: 0, activeBoardId: null,
   ownerId: 'teacher', createdAt: new Date(),
 }
 
-function opRow(over: Partial<{ id: string; seq: number; type: string; data: Operation }>) {
+// (#568) A second board of SOURCE. Nothing social of its own — no password,
+// no closedAt — because those are the lesson's (ADR 014 §2).
+const BOARD_2 = {
+  ...SOURCE, id: 'board-2', name: 'Still life 2', lessonId: SOURCE.id, boardOrder: 1,
+  passwordHash: null, closedAt: null, enabledTools: [],
+}
+
+type OpRow = { id: string; seq: number; type: string; roomId: string; userId: string; layerId: string | null; tool: string | null; data: Operation }
+
+function opRow(over: Partial<{ id: string; seq: number; type: string; roomId: string; layerId: string; data: Operation }>): OpRow {
   const id = over.id ?? 'op-1'
   const type = over.type ?? 'stroke'
-  const data = over.data ?? ({ id, type, userId: 'teacher', seq: over.seq ?? 1, layerId: 'layer-1' } as unknown as Operation)
-  return { id, seq: over.seq ?? 1, type, roomId: SOURCE.id, userId: 'teacher', layerId: 'layer-1', tool: null, data }
+  const layerId = over.layerId ?? 'layer-1'
+  const data = over.data ?? ({ id, type, userId: 'teacher', seq: over.seq ?? 1, layerId } as unknown as Operation)
+  return { id, seq: over.seq ?? 1, type, roomId: over.roomId ?? SOURCE.id, userId: 'teacher', layerId, tool: null, data }
+}
+
+/** (#568) The route asks the operation table twice per board: once for the
+ *  ids the resident window admits, then for the full rows of the few that
+ *  name another operation. Answer both from one list, the way Postgres
+ *  would. */
+function givenOperations(rows: OpRow[]): void {
+  mockPrisma.operation.findMany.mockImplementation(({ where }: { where: { roomId?: string; id?: { in: string[] } } }) => {
+    if (where.id?.in) return Promise.resolve(rows.filter(r => where.id!.in.includes(r.id)))
+    return Promise.resolve(rows.filter(r => r.roomId === where.roomId))
+  })
 }
 
 function buildApp(userId = 'student'): FastifyInstance {
@@ -61,25 +84,52 @@ function fork(app: FastifyInstance, id = SOURCE.id, payload?: Record<string, unk
   return app.inject({ method: 'POST', url: `/api/rooms/${id}/fork`, payload: payload ?? {} })
 }
 
-/** The Room row handed to `room.create` inside the transaction. */
+/** The Room rows handed to `room.create` inside the transaction, in order —
+ *  the lesson (or standalone copy) first, then each copied board. */
+function createdRooms() {
+  return mockPrisma.room.create.mock.calls.map(call => call[0].data)
+}
 function createdRoom() {
-  return mockPrisma.room.create.mock.calls[0][0].data
+  return createdRooms()[0]
 }
 
-/** (#418) The snapshot copy is a raw `INSERT ... SELECT` so the pixel blobs
- *  are rewritten inside Postgres instead of travelling through this process.
- *  Returns the statement text and the values bound into it. */
+/** Every raw statement, as text plus the values bound into it. Both copies
+ *  — pixels (#418) and log (#568) — are `INSERT ... SELECT`s that rewrite
+ *  rows inside Postgres, told apart by the table they write. */
+function rawCopies(table: 'RoomLayerSnapshot' | 'Operation'): Array<{ sql: string; values: unknown[] }> {
+  return mockPrisma.$executeRaw.mock.calls
+    .map(call => {
+      const [strings, ...values] = call as [readonly string[], ...unknown[]]
+      // `?` where a value is bound, whitespace collapsed, so an assertion
+      // can quote the statement the way it reads.
+      return { sql: strings.join('?').replace(/\s+/g, ' ').trim(), values }
+    })
+    .filter(copy => copy.sql.includes(`INSERT INTO "${table}"`))
+}
+
+/** (#418) The snapshot copy: the statement text, the fork it writes into and
+ *  the source rows it names. First board only, which is all the single-room
+ *  tests have. */
 function snapshotCopy(): { sql: string; forkId: string; sourceIds: string[] } | null {
-  const call = mockPrisma.$executeRaw.mock.calls[0]
-  if (!call) return null
-  const [strings, forkId, ids] = call as [readonly string[], string, Prisma.Sql]
-  return { sql: strings.join(' ? '), forkId, sourceIds: ids.values as string[] }
+  const [copy] = rawCopies('RoomLayerSnapshot')
+  if (!copy) return null
+  return { sql: copy.sql, forkId: copy.values[0] as string, sourceIds: (copy.values[1] as Prisma.Sql).values as string[] }
 }
 
-/** Every operation row written for the fork. */
+/** (#568) The log copies: one per board (per chunk), each naming the fork it
+ *  writes into, the seed user it stamps and the source rows it copies. */
+function operationCopies(): Array<{ sql: string; forkId: string; seedUserId: string; sourceIds: string[] }> {
+  return rawCopies('Operation').map(copy => ({
+    sql: copy.sql,
+    forkId: copy.values[0] as string,
+    seedUserId: copy.values[2] as string,
+    sourceIds: (copy.values[copy.values.length - 1] as Prisma.Sql).values as string[],
+  }))
+}
+
+/** Every operation row this process wrote itself — the referencing ones. */
 function createdOps(): Array<{ id: string; seq: number; type: string; userId: string; layerId: string | null; data: Operation }> {
-  const call = mockPrisma.operation.createMany.mock.calls[0]
-  return call ? call[0].data : []
+  return mockPrisma.operation.createMany.mock.calls.flatMap(call => call[0].data)
 }
 
 beforeEach(() => {
@@ -95,12 +145,15 @@ beforeEach(() => {
   mockPrisma.$transaction.mockClear()
   mockPrisma.$executeRaw.mockReset()
   mockPrisma.$executeRaw.mockResolvedValue(1)
-  mockPrisma.room.findUnique.mockResolvedValue(SOURCE)
+  vi.mocked(flushRoomWrites).mockClear()
+  mockPrisma.room.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+    Promise.resolve([SOURCE, BOARD_2].find(r => r.id === where.id) ?? null))
+  mockPrisma.room.findMany.mockResolvedValue([])
   mockPrisma.roomParticipant.findUnique.mockResolvedValue({ roomId: SOURCE.id, userId: 'student' })
   mockPrisma.roomPalette.findUnique.mockResolvedValue(null)
   mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([])
   mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
-  mockPrisma.operation.findMany.mockResolvedValue([])
+  givenOperations([])
   mockPrisma.room.findUniqueOrThrow.mockImplementation(({ where }: { where: { id: string } }) =>
     Promise.resolve({
       ...SOURCE, id: where.id, ownerId: 'student', parentRoomId: SOURCE.id,
@@ -141,6 +194,8 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(room.id).not.toBe(SOURCE.id)
     // The canvas has to match or the seeded snapshot wouldn't line up with it.
     expect(room).toMatchObject({ paper: 'coarse', paperColor: '#f5f0e6', infinite: false, canvasWidth: 1240, canvasHeight: 1754 })
+    // (#548) And the assignment's toolset.
+    expect(room.enabledTools).toEqual(['pencil'])
   })
 
   it('files the copy in the folder the source is filed in (#552)', async () => {
@@ -196,43 +251,45 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
   })
 
   it('re-stamps inherited operations so nobody can undo them', async () => {
-    mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-a', seq: 1 }), opRow({ id: 'op-b', seq: 2 })])
+    givenOperations([opRow({ id: 'op-a', seq: 1 }), opRow({ id: 'op-b', seq: 2 })])
 
     await fork(buildApp('student'))
 
-    const ops = createdOps()
-    expect(ops).toHaveLength(2)
-    for (const op of ops) {
-      expect(isForkSeedUser(op.userId)).toBe(true)
-      // The client replays `data`, not the columns — an identity rewritten in
-      // only one of the two would leave the fork replaying as the teacher's
-      // own log while looking reseated in the database.
-      expect(isForkSeedUser(op.data.userId)).toBe(true)
-      expect(op.data.id).toBe(op.id)
-    }
+    const [copy] = operationCopies()
+    expect(copy.sourceIds).toEqual(['op-a', 'op-b'])
+    expect(isForkSeedUser(copy.seedUserId)).toBe(true)
+    expect(copy.seedUserId).toBe(forkSeedUserId(createdRoom().id))
+    // The client replays `data`, not the columns — an identity rewritten in
+    // only one of the two would leave the fork replaying as the teacher's
+    // own log while looking reseated in the database. So the statement
+    // writes the seed user into the payload as well as the column.
+    expect(copy.sql).toContain(`jsonb_build_object('id', md5(o."id" || ?), 'userId', ?)`)
   })
 
   it('gives inherited operations new ids, inside the payload too', async () => {
-    mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-a', seq: 1 })])
+    givenOperations([opRow({ id: 'op-a', seq: 1 })])
 
     await fork(buildApp('student'))
 
-    const [op] = createdOps()
-    // Operation.id is a primary key across the whole table, not per room.
-    expect(op.id).not.toBe('op-a')
-    expect(op.data.id).not.toBe('op-a')
+    const [copy] = operationCopies()
+    // Operation.id is a primary key across the whole table, not per room:
+    // the key column and the payload's `id` are both the derived id.
+    expect(copy.sql).toContain(`SELECT md5(o."id" || ?), o."seq"`)
+    expect(copy.sql).toContain(`'id', md5(o."id" || ?)`)
+    expect(copy.forkId).toBe(createdRoom().id)
   })
 
   it('keeps seq numbers, so the seeded snapshots still line up with the tail', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: { layers: {} } })
     mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
-    mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-a', seq: 41 }), opRow({ id: 'op-b', seq: 42 })])
+    givenOperations([opRow({ id: 'op-a', seq: 41 }), opRow({ id: 'op-b', seq: 42 })])
 
     await fork(buildApp('student'))
 
-    expect(createdOps().map(o => o.seq)).toEqual([41, 42])
-    // seq and the pixels behind it travel together: the copy names the source
-    // row, and the row carries its own seq across untouched.
+    // seq and the pixels behind it travel together: each copy names its
+    // source rows, and the rows carry their own seq across untouched.
+    expect(operationCopies()[0].sql).toContain('o."seq"')
+    expect(operationCopies()[0].sourceIds).toEqual(['op-a', 'op-b'])
     expect(snapshotCopy()!.sourceIds).toEqual(['s1'])
     expect(snapshotCopy()!.sql).toContain('s."seq"')
     expect(mockPrisma.roomLayerState.create.mock.calls[0][0].data).toMatchObject({ seq: 40 })
@@ -274,6 +331,25 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(mockPrisma.roomLayerSnapshot.createMany).not.toHaveBeenCalled()
   })
 
+  // (#568) The same for the log. Prisma's `createMany` over 2 000 stroke rows
+  // took 5.6 s where one `INSERT ... SELECT` took 0.33 s, and a lesson fork
+  // pays that per board — so the strokes never come out of Postgres either.
+  it('never reads a stroke payload into the process', async () => {
+    givenOperations([opRow({ id: 'op-a', seq: 1 }), opRow({ id: 'op-b', seq: 2 })])
+
+    await fork(buildApp('student'))
+
+    // The window is asked for ids and types, nothing more.
+    const [first] = mockPrisma.operation.findMany.mock.calls
+    expect(first[0].select).toEqual({ id: true, type: true })
+    // No second read: nothing here names another operation.
+    expect(mockPrisma.operation.findMany).toHaveBeenCalledOnce()
+    // The rows are copied by one statement Postgres runs on its own rows,
+    // and this process writes none of them itself.
+    expect(operationCopies()).toHaveLength(1)
+    expect(mockPrisma.operation.createMany).not.toHaveBeenCalled()
+  })
+
   it('does not inherit the verification of the snapshots it copies', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: {} })
     mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
@@ -291,30 +367,48 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
 
   it('repoints an inherited undo at the copy of its target', async () => {
     const undo = { id: 'op-u', type: 'operation_undo', userId: 'teacher', seq: 3, targetOpId: 'op-a' } as unknown as Operation
-    mockPrisma.operation.findMany.mockResolvedValue([
+    givenOperations([
       opRow({ id: 'op-a', seq: 1 }),
       opRow({ id: 'op-u', seq: 3, type: 'operation_undo', data: undo }),
     ])
 
     await fork(buildApp('student'))
 
-    const ops = createdOps()
-    const copiedStroke = ops.find(o => o.type === 'stroke')!
-    const copiedUndo = ops.find(o => o.type === 'operation_undo')!
+    const forkId = createdRoom().id
+    // The stroke went through Postgres; the undo, which names it, was
+    // rewritten here — and only it was read in full.
+    expect(operationCopies()[0].sourceIds).toEqual(['op-a'])
+    expect(mockPrisma.operation.findMany.mock.calls[1][0].where).toEqual({ id: { in: ['op-u'] } })
+    const [copiedUndo] = createdOps()
+    expect(copiedUndo.type).toBe('operation_undo')
+    expect(copiedUndo.id).toBe(copiedOperationId('op-u', forkId))
+    expect(copiedUndo.data.id).toBe(copiedUndo.id)
+    expect(isForkSeedUser(copiedUndo.userId)).toBe(true)
+    expect(isForkSeedUser(copiedUndo.data.userId)).toBe(true)
     // Left unmapped this would point at a live operation in the *source*
-    // room — an id that exists, in someone else's log.
-    expect((copiedUndo.data as unknown as { targetOpId: string }).targetOpId).toBe(copiedStroke.id)
+    // room — an id that exists, in someone else's log. It points at what
+    // the stroke's copy is keyed as — the same function SQL spells as
+    // `md5(o."id" || fork)`, so the two sides agree without a map.
+    expect((copiedUndo.data as unknown as { targetOpId: string }).targetOpId).toBe(copiedOperationId('op-a', forkId))
+  })
+
+  it('derives the copied id the way the SQL does', () => {
+    // Postgres's md5(text) is the lowercase hex of the UTF-8 bytes; so is
+    // this. If one side ever changes, an undo lands on an id that no row has.
+    expect(copiedOperationId('op-a', 'fork-1')).toBe('5c9e1e2c8ebfae516f71a7ba7caea473')
+    expect(copiedOperationId('op-a', 'fork-1')).not.toBe(copiedOperationId('op-a', 'fork-2'))
   })
 
   it('drops an inherited undo whose target stayed behind', async () => {
     const undo = { id: 'op-u', type: 'operation_undo', userId: 'teacher', seq: 41, targetOpId: 'never-copied' } as unknown as Operation
-    mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-u', seq: 41, type: 'operation_undo', data: undo })])
+    givenOperations([opRow({ id: 'op-u', seq: 41, type: 'operation_undo', data: undo })])
 
     await fork(buildApp('student'))
 
     // Left unmapped it would point into the source room's log — an id that
     // exists, in someone else's room, which is worse than dangling.
     expect(createdOps()).toHaveLength(0)
+    expect(operationCopies()).toHaveLength(0)
   })
 
   // (#418) The window is asked of Postgres, not of the result. It is the same
@@ -342,9 +436,8 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
   it('keeps a layer nobody snapshotted, however old its strokes are', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: {} })
     mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
-    const onLayerTwo = { id: 'op-old', type: 'stroke', userId: 'teacher', seq: 5, layerId: 'layer-2' } as unknown as Operation
-    mockPrisma.operation.findMany.mockResolvedValue([
-      { ...opRow({ id: 'op-old', seq: 5, data: onLayerTwo }), layerId: 'layer-2' },
+    givenOperations([
+      opRow({ id: 'op-old', seq: 5, layerId: 'layer-2' }),
       opRow({ id: 'op-late', seq: 41 }),
     ])
 
@@ -353,7 +446,7 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     // A narrower query must not become a narrower fork. layer-2 has no
     // stored pixels standing in for anything, so its seq-5 stroke is the
     // only record that it was ever drawn.
-    expect(createdOps().map(o => o.layerId).sort()).toEqual(['layer-1', 'layer-2'])
+    expect(operationCopies()[0].sourceIds).toEqual(['op-old', 'op-late'])
     // And the exclusion it was spared by is named per layer, not room-wide.
     const where = mockPrisma.operation.findMany.mock.calls[0][0].where
     expect(where.NOT.OR.map((c: { layerId: string }) => c.layerId)).toEqual(['layer-1'])
@@ -385,13 +478,13 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
       id: 'op-m', type: 'layer_merge', userId: 'teacher', seq: 11557, layerId: 'merged-1',
       name: 'grdients', index: 0, sources: [{ id: 'layer-9' }],
     } as unknown as Operation
-    mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-m', seq: 11557, type: 'layer_merge', data: merge })])
+    givenOperations([opRow({ id: 'op-m', seq: 11557, type: 'layer_merge', layerId: 'merged-1', data: merge })])
 
     await fork(buildApp('student'))
 
     // Whatever the window returns is what the fork stores. A row read out of
     // Postgres and then dropped on the way back in is the whole bug.
-    expect(createdOps().map(o => o.type)).toEqual(['layer_merge'])
+    expect(operationCopies()[0].sourceIds).toEqual(['op-m'])
   })
 
   it('copies the whole log when the source has no snapshot yet', async () => {
@@ -401,6 +494,18 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     // ran forks in full rather than forking empty.
     const where = mockPrisma.operation.findMany.mock.calls[0][0].where
     expect(where).toEqual({ roomId: SOURCE.id })
+  })
+
+  // (#568) One statement binds one parameter per id, and Postgres takes
+  // 32 767 per statement; a never-snapshotted room copies its whole log.
+  it('copies a long log in chunks Postgres can bind', async () => {
+    givenOperations(Array.from({ length: 10_001 }, (_, i) => opRow({ id: `op-${i}`, seq: i + 1 })))
+
+    await fork(buildApp('student'))
+
+    const copies = operationCopies()
+    expect(copies.map(c => c.sourceIds.length)).toEqual([10_000, 1])
+    expect(copies[1].sourceIds).toEqual(['op-10000'])
   })
 
   it('takes the source name unless given one', async () => {
@@ -423,12 +528,202 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
   })
 
   it('writes everything in one transaction', async () => {
-    mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-a', seq: 1 })])
+    givenOperations([opRow({ id: 'op-a', seq: 1 })])
 
     await fork(buildApp('student'))
 
     // A fork that existed with half its content would read as a lesson
     // somebody had already erased most of.
     expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a scope it does not know', async () => {
+    const res = await fork(buildApp('student'), SOURCE.id, { scope: 'everything' })
+
+    expect(res.statusCode).toBe(400)
+    expect(mockPrisma.room.create).not.toHaveBeenCalled()
+  })
+})
+
+// (#568, ADR 014 §5) «Взять в работу»: the board the student is looking at,
+// whichever page of the lesson it is, becomes a standalone room of their own.
+describe('scope: board (#568)', () => {
+  it('is the default, so a client that never heard of boards forks as before', async () => {
+    await fork(buildApp('student'))
+
+    const [room, ...more] = createdRooms()
+    expect(more).toHaveLength(0)
+    expect(room).toMatchObject({ lessonId: null, boardOrder: 0, activeBoardId: null })
+    expect(mockPrisma.room.findMany).not.toHaveBeenCalled()
+  })
+
+  it('forks a secondary board into a standalone room', async () => {
+    givenOperations([opRow({ id: 'op-b', seq: 1, roomId: BOARD_2.id })])
+
+    const res = await fork(buildApp('student'), BOARD_2.id, { scope: 'board' })
+
+    expect(res.statusCode).toBe(201)
+    const [room, ...more] = createdRooms()
+    expect(more).toHaveLength(0)
+    // A page torn out becomes its own lesson: no lesson above it, first and
+    // only board, nothing to point at.
+    expect(room).toMatchObject({ lessonId: null, boardOrder: 0, activeBoardId: null, parentRoomId: BOARD_2.id, name: 'Still life 2' })
+    // The board's own content came along, and it was that board's queue
+    // that was flushed first.
+    expect(operationCopies()[0].sourceIds).toEqual(['op-b'])
+    expect(flushRoomWrites).toHaveBeenCalledWith(BOARD_2.id)
+    // (#548) The toolset is the lesson's — the live value every gate reads —
+    // not the record on the board row, which is empty here.
+    expect(room.enabledTools).toEqual(['pencil'])
+  })
+
+  it('reads the palette and the folder off the lesson, which is where a board has them', async () => {
+    mockPrisma.roomPalette.findUnique.mockResolvedValue({ colors: ['#333333'] })
+    mockPrisma.roomParticipant.findUnique.mockResolvedValue({ roomId: SOURCE.id, userId: 'student', folderId: 'folder-7' })
+
+    await fork(buildApp('student'), BOARD_2.id, { scope: 'board' })
+
+    expect(mockPrisma.roomPalette.findUnique).toHaveBeenCalledWith({ where: { roomId: SOURCE.id }, select: { colors: true } })
+    expect(mockPrisma.roomPalette.create).toHaveBeenCalledWith({ data: { roomId: createdRoom().id, colors: ['#333333'] } })
+    expect(mockPrisma.roomParticipant.create.mock.calls[0][0].data.folderId).toBe('folder-7')
+  })
+
+  it('answers a board id with its lesson\'s membership', async () => {
+    await fork(buildApp('student'), BOARD_2.id, { scope: 'board' })
+
+    // A board has no participant rows of its own (ADR 014 §2); asked of the
+    // board, the check would find nobody and lock every student out of the
+    // sheet they were just drawing on.
+    expect(mockPrisma.roomParticipant.findUnique).toHaveBeenCalledWith({
+      where: { roomId_userId: { roomId: SOURCE.id, userId: 'student' } },
+    })
+  })
+
+  it('refuses a board of a lesson the caller has never been in', async () => {
+    mockPrisma.roomParticipant.findUnique.mockResolvedValue(null)
+
+    expect((await fork(buildApp('stranger'), BOARD_2.id, { scope: 'board' })).statusCode).toBe(403)
+    expect(mockPrisma.room.create).not.toHaveBeenCalled()
+  })
+
+  it('lets the lesson\'s owner fork any board of it without a participant row', async () => {
+    mockPrisma.roomParticipant.findUnique.mockResolvedValue(null)
+
+    expect((await fork(buildApp('teacher'), BOARD_2.id, { scope: 'board' })).statusCode).toBe(201)
+  })
+})
+
+// (#568, ADR 014 §5) «Форк» from «Мои уроки»: the lesson and every board of
+// it — the shape a lesson template (#107) takes.
+describe('scope: lesson (#568)', () => {
+  const LESSON = { ...SOURCE, activeBoardId: BOARD_2.id }
+
+  beforeEach(() => {
+    mockPrisma.room.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve([LESSON, BOARD_2].find(r => r.id === where.id) ?? null))
+    mockPrisma.room.findMany.mockResolvedValue([BOARD_2])
+    mockPrisma.roomLayerState.findUnique.mockImplementation(({ where }: { where: { roomId: string } }) =>
+      Promise.resolve({ roomId: where.roomId, seq: where.roomId === LESSON.id ? 10 : 20, state: {} }))
+    mockPrisma.roomLayerSnapshot.findMany.mockImplementation(({ where }: { where: { roomId: string } }) =>
+      Promise.resolve([{ id: `snap-${where.roomId}`, layerId: 'layer-1', seq: where.roomId === LESSON.id ? 10 : 20 }]))
+    givenOperations([
+      opRow({ id: 'op-l', seq: 11, roomId: LESSON.id }),
+      opRow({ id: 'op-b', seq: 21, roomId: BOARD_2.id }),
+    ])
+  })
+
+  it('copies the lesson and every board of it, in order, with the active board remapped', async () => {
+    const res = await fork(buildApp('student'), LESSON.id, { scope: 'lesson' })
+
+    expect(res.statusCode).toBe(201)
+    const [lesson, board] = createdRooms()
+    expect(createdRooms()).toHaveLength(2)
+    // The copy of the lesson is a lesson; the copy of the board is a board of
+    // it, at the position it had. Provenance is per board: each remembers
+    // the row it was copied from.
+    expect(lesson).toMatchObject({ lessonId: null, boardOrder: 0, parentRoomId: LESSON.id, ownerId: 'student' })
+    expect(board).toMatchObject({ lessonId: lesson.id, boardOrder: 1, parentRoomId: BOARD_2.id, ownerId: 'student', name: 'Still life 2' })
+    expect(board.id).not.toBe(BOARD_2.id)
+    // The teacher was on board 2; the copy's teacher starts on board 2's copy.
+    expect(lesson.activeBoardId).toBe(board.id)
+    // And the answer is the lesson, which is what the list shows.
+    expect(res.json().room.id).toBe(lesson.id)
+  })
+
+  it('seeds each board with its own content, by the single-board procedure', async () => {
+    await fork(buildApp('student'), LESSON.id, { scope: 'lesson' })
+
+    const [lesson, board] = createdRooms()
+    // Both queues flushed, both windows asked, both copied — each into its
+    // own copy, each stamped with that copy's seed user.
+    expect(flushRoomWrites).toHaveBeenCalledWith(LESSON.id)
+    expect(flushRoomWrites).toHaveBeenCalledWith(BOARD_2.id)
+    const ops = operationCopies()
+    expect(ops.map(c => [c.forkId, c.sourceIds])).toEqual([[lesson.id, ['op-l']], [board.id, ['op-b']]])
+    expect(ops.map(c => c.seedUserId)).toEqual([forkSeedUserId(lesson.id), forkSeedUserId(board.id)])
+    const snaps = rawCopies('RoomLayerSnapshot')
+    expect(snaps.map(c => [c.values[0], (c.values[1] as Prisma.Sql).values])).toEqual([
+      [lesson.id, [`snap-${LESSON.id}`]], [board.id, [`snap-${BOARD_2.id}`]],
+    ])
+    expect(mockPrisma.roomLayerState.create.mock.calls.map(call => call[0].data)).toEqual([
+      { roomId: lesson.id, seq: 10, state: {} }, { roomId: board.id, seq: 20, state: {} },
+    ])
+  })
+
+  it('writes the social side once, on the lesson', async () => {
+    mockPrisma.roomPalette.findUnique.mockResolvedValue({ colors: ['#111111'] })
+
+    await fork(buildApp('student'), LESSON.id, { scope: 'lesson' })
+
+    const [lesson] = createdRooms()
+    // Participants, palette, folder: facts about the lesson (ADR 014 §2). A
+    // board with a participant row of its own would be a second door.
+    expect(mockPrisma.roomParticipant.create).toHaveBeenCalledOnce()
+    expect(mockPrisma.roomParticipant.create.mock.calls[0][0].data.roomId).toBe(lesson.id)
+    expect(mockPrisma.roomPalette.create).toHaveBeenCalledOnce()
+    expect(mockPrisma.roomPalette.create.mock.calls[0][0].data.roomId).toBe(lesson.id)
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce()
+  })
+
+  it('applies the given name to the lesson and leaves the boards their own', async () => {
+    await fork(buildApp('student'), LESSON.id, { scope: 'lesson', name: 'Still life — copy' })
+
+    const [lesson, board] = createdRooms()
+    expect(lesson.name).toBe('Still life — copy')
+    expect(board.name).toBe('Still life 2')
+  })
+
+  it('forks the whole lesson when given one of its boards', async () => {
+    await fork(buildApp('student'), BOARD_2.id, { scope: 'lesson' })
+
+    const [lesson, board] = createdRooms()
+    expect(createdRooms()).toHaveLength(2)
+    expect(lesson).toMatchObject({ lessonId: null, parentRoomId: LESSON.id })
+    expect(board).toMatchObject({ lessonId: lesson.id, parentRoomId: BOARD_2.id })
+  })
+
+  it('points the copy at nothing when the source pointed at nothing, or at a board since deleted', async () => {
+    mockPrisma.room.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve([{ ...LESSON, activeBoardId: null }, BOARD_2].find(r => r.id === where.id) ?? null))
+    await fork(buildApp('student'), LESSON.id, { scope: 'lesson' })
+    expect(createdRoom().activeBoardId).toBeNull()
+
+    mockPrisma.room.create.mockClear()
+    // `activeBoardId` is not a relation (schema.prisma): it can name a board
+    // that was deleted a moment ago, and the copy must not inherit a pointer
+    // into nowhere.
+    mockPrisma.room.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve([{ ...LESSON, activeBoardId: 'gone-board' }, BOARD_2].find(r => r.id === where.id) ?? null))
+    await fork(buildApp('student'), LESSON.id, { scope: 'lesson' })
+    expect(createdRoom().activeBoardId).toBeNull()
+  })
+
+  it('forks a lesson with a single board as one room', async () => {
+    mockPrisma.room.findMany.mockResolvedValue([])
+
+    await fork(buildApp('student'), LESSON.id, { scope: 'lesson' })
+
+    expect(createdRooms()).toHaveLength(1)
+    expect(createdRoom()).toMatchObject({ lessonId: null, boardOrder: 0, activeBoardId: null })
   })
 })

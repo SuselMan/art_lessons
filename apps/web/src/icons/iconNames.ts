@@ -18,6 +18,10 @@ export const MATERIAL_ICON_NAMES = [
   'account_circle',
   'add',
   'add_photo_alternate',
+  // #176 — the board strip: an open book for "pages of this lesson", the
+  // teacher's mortarboard on the page they are on, and the left chevron the
+  // per-board menu needs beside the right one that already existed.
+  'auto_stories',
   'block',
   'brush',
   // #547 — the digital brush. 'brush' is the brush pen's, and the two must not
@@ -35,6 +39,7 @@ export const MATERIAL_ICON_NAMES = [
   'check_box',
   'check_box_outline_blank',
   'check_circle',
+  'chevron_left',
   'chevron_right',
   'close',
   'cloud_off',
@@ -99,6 +104,7 @@ export const MATERIAL_ICON_NAMES = [
   'redo',
   'rotate_90_degrees_cw',
   'save',
+  'school',
   'screen_rotation_alt',
   'search',
   'search_off',

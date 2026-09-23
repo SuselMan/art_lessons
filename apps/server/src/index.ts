@@ -12,7 +12,9 @@ import cors from '@fastify/cors'
 import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
-import { registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData } from './socketHandlers.js'
+import {
+  evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData,
+} from './socketHandlers.js'
 import { flushAllRoomWrites, pendingWriteCount } from './rooms.js'
 import { disconnectAllClients } from './shutdown.js'
 import { prisma } from './prisma.js'
@@ -26,6 +28,7 @@ import { registerRoomRoutes } from './roomRoutes.js'
 import { registerRoomAccessRoutes } from './roomAccessRoutes.js'
 import { registerRoomFolderRoutes } from './roomFolderRoutes.js'
 import { registerForkRoutes } from './forkRoutes.js'
+import { registerBoardRoutes } from './boardRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
 import { registerThumbnailRoutes } from './thumbnailRoutes.js'
 
@@ -124,7 +127,9 @@ registerRoomHandlers(io, app.log)
 startEventLoopMonitor()
 registerHealthRoutes(app)
 registerAuthRoutes(app)
-registerRoomRoutes(app, (roomId, closedAt) => io.to(roomId).emit('room_closed_changed', { closedAt }))
+// (#176) Closing is a fact about the lesson, so the lesson channel: it has to
+// reach people on every board, and the route only ever accepts a lesson id.
+registerRoomRoutes(app, (roomId, closedAt) => io.to(lessonChannel(roomId)).emit('room_closed_changed', { closedAt }))
 // (#227) The access endpoints move durable state; these two callbacks are how
 // the people affected find out without reloading. Fire-and-forget on purpose
 // — see RoomAccessNotifier's doc comment for why a missed notification is
@@ -143,6 +148,18 @@ registerRoomAccessRoutes(app, {
 })
 registerRoomFolderRoutes(app)
 registerForkRoutes(app)
+// (#176) Board CRUD moves rows; these are how the lesson hears about it,
+// live. Same fire-and-forget standing as the access notifier above, except
+// `evacuateBoard`, which the delete route awaits before forgetting the record.
+registerBoardRoutes(app, {
+  boardCreated: (lessonId, board) => io.to(lessonChannel(lessonId)).emit('board_created', { board }),
+  boardRenamed: (lessonId, boardId, name) => io.to(lessonChannel(lessonId)).emit('board_renamed', { boardId, name }),
+  boardsReordered: (lessonId, order) => io.to(lessonChannel(lessonId)).emit('boards_reordered', { order }),
+  boardDeleted: (lessonId, boardId) => io.to(lessonChannel(lessonId)).emit('board_deleted', { boardId }),
+  activeBoardChanged: (lessonId, boardId) => io.to(lessonChannel(lessonId)).emit('active_board_changed', { boardId }),
+  evacuateBoard: (lessonId, boardId) => evacuateBoard(io, lessonId, boardId).catch(err =>
+    app.log.error({ err, lessonId, boardId }, 'failed to move sockets off a deleted board')),
+})
 registerSnapshotRoutes(app)
 registerThumbnailRoutes(app)
 

@@ -2,6 +2,34 @@ import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
 import { getParticipant } from './rooms.js'
+import { lessonOf } from './lessons.js'
+
+/** (#176) The two persisted checks below are about *membership*, and
+ *  membership is the lesson's: a `RoomParticipant` row is only ever written
+ *  under a lesson id (rooms.ts's joinRoom), so a board id has to be resolved
+ *  to its lesson before the row can be found at all. One query, two answers:
+ *  the board's own row for its owner and lesson, the lesson's participation
+ *  for this user. For a lesson `lesson` is null and its own `participants`
+ *  are read instead. */
+async function persistedMembership(
+  roomId: string, userId: string,
+): Promise<{ lessonId: string; ownerId: string; participates: boolean } | null> {
+  const room = await prisma.room.findUnique({
+    where: { id: roomId },
+    select: {
+      ownerId: true, lessonId: true,
+      participants: { where: { userId }, select: { userId: true } },
+      lesson: { select: { participants: { where: { userId }, select: { userId: true } } } },
+    },
+  })
+  if (!room) return null
+  const participants = room.lesson?.participants ?? room.participants
+  return {
+    lessonId: lessonOf({ id: roomId, lessonId: room.lessonId }),
+    ownerId: room.ownerId,
+    participates: participants.length > 0,
+  }
+}
 
 /** GET is fetched from "Мои уроки" (`RoomCard`'s `<img>`), precisely when the
  *  caller is *not* live-connected to the room — `getParticipant` (the
@@ -22,12 +50,9 @@ import { getParticipant } from './rooms.js'
  *  of a room one used to be in is the same exposure as the card itself; being
  *  able to *overwrite* it is not. */
 async function hasPersistedRoomAccess(roomId: string, userId: string): Promise<boolean> {
-  const room = await prisma.room.findUnique({
-    where: { id: roomId },
-    select: { ownerId: true, participants: { where: { userId }, select: { userId: true } } },
-  })
-  if (!room) return false
-  return room.ownerId === userId || room.participants.length > 0
+  const membership = await persistedMembership(roomId, userId)
+  if (!membership) return false
+  return membership.ownerId === userId || membership.participates
 }
 
 /** (#382) POST's persisted fallback, for the one upload that provably cannot
@@ -51,19 +76,17 @@ async function hasPersistedRoomAccess(roomId: string, userId: string): Promise<b
  *  owner just removed would keep write access to what the room looks like on
  *  everyone's lesson list. */
 async function hasPersistedUploadAccess(roomId: string, userId: string): Promise<boolean> {
-  const [room, blocked] = await Promise.all([
-    prisma.room.findUnique({
-      where: { id: roomId },
-      select: { ownerId: true, participants: { where: { userId }, select: { userId: true } } },
-    }),
-    prisma.roomBlock.findUnique({ where: { roomId_userId: { roomId, userId } }, select: { id: true } }),
-  ])
-  if (!room) return false
+  const membership = await persistedMembership(roomId, userId)
+  if (!membership) return false
   // The owner is exempt from their own block list for the same reason
   // roomAccess.ts's join gate exempts them: a room whose owner can be locked
   // out of it is a room that can be stolen.
-  if (room.ownerId === userId) return true
-  return !blocked && room.participants.length > 0
+  if (membership.ownerId === userId) return true
+  // (#176) Blocks are written under the lesson, like every access row.
+  const blocked = await prisma.roomBlock.findUnique({
+    where: { roomId_userId: { roomId: membership.lessonId, userId } }, select: { id: true },
+  })
+  return !blocked && membership.participates
 }
 
 // Base64 JSON, matching snapshotRoutes.ts's POST /snapshots — kept
