@@ -999,7 +999,9 @@ export class MockGL {
         const v = clipY * 0.5 + 0.5
         const p = sampleUnit(patch, u, v)
         const c = sampleUnit(carried, u, v)
-        const picked = c + (p - c) * rate
+        // (#573) The mixer weights its pickup by the paint under it.
+        const alphaPickup = (uniforms.get('u_alphaPickup') as number) ?? 0
+        const picked = c + (p - c) * rate * (1 + (p - 1) * alphaPickup)
         // (#573) The mixer's paint, folded in after the pickup. One channel
         // here, so the paint is its alpha — opaque, 1.
         const load = (uniforms.get('u_paintLoad') as number) ?? 0

@@ -130,12 +130,13 @@ const rough: MaskFn = (u, v, px, py) => {
   const edge = d + wobble * 0.3
   const body = clamp01((0.78 - edge) / 0.1)
   if (body <= 0) return 0
-  // Streaks run along x — the direction of travel for a 'travel' tip — so the
-  // brush drags dry lines *along* the stroke, the way a loaded flat does.
-  const streak = valueNoise(px * 0.25, py * 3, 8, 29)
-  const dry = clamp01((streak - 0.18) * 2.5)
-  const speck = clamp01((valueNoise(px, py, 3, 31) - 0.12) * 4)
-  return clamp01(body * (0.55 + 0.45 * dry) * (0.8 + 0.2 * speck))
+  // Nearly flat inside. An interior texture here was tried and is wrong: the
+  // stamps repeat every few pixels, so any pattern inside the mask prints as a
+  // regular lattice across the stroke. The breakup inside the mark belongs to
+  // the canvas-anchored texture (see the brush textures below); the mask
+  // contributes only what it alone can — the ragged rim at the ends.
+  const speck = valueNoise(px, py, 3, 31)
+  return clamp01(body * (0.92 + 0.08 * speck))
 }
 
 /** Separate hair tips in a row across the stroke. Dragged along the path each
@@ -154,8 +155,8 @@ function buildBristle(): MaskFn {
     hairs.push({
       x: (next() - 0.5) * 0.35,
       y,
-      r: 0.022 + next() * 0.032 * (0.5 + middle),
-      load: 0.45 + 0.55 * next() * (0.4 + 0.6 * middle),
+      r: 0.03 + next() * 0.04 * (0.5 + middle),
+      load: 0.6 + 0.4 * next() * (0.4 + 0.6 * middle),
     })
   }
   return (u, v) => {
@@ -290,7 +291,11 @@ export function tipMaskPixels(id: TipMaskId): Uint8Array {
  *  the small levels — so leaving them to the driver would put exactly the
  *  device-dependence this file exists to avoid back into every small brush. */
 export function tipMaskMips(id: TipMaskId): Uint8Array[] {
-  const levels = [tipMaskPixels(id)]
+  return mipChain(tipMaskPixels(id))
+}
+
+function mipChain(base: Uint8Array): Uint8Array[] {
+  const levels = [base]
   let size = TIP_MASK_SIZE
   while (size > 1) {
     const src = levels[levels.length - 1]
@@ -306,4 +311,73 @@ export function tipMaskMips(id: TipMaskId): Uint8Array[] {
     size = half
   }
   return levels
+}
+
+// ─── Brush textures (#573) ──────────────────────────────────────────────────
+//
+// The other half of a textured brush. A tip mask lives in the *stamp's* frame,
+// so at the tight spacing a continuous stroke needs, twenty overlapping stamps
+// average every hole in it away — a rough rim smooths into a clean one, dry
+// streaks fill in. What survives overlap is texture anchored to the *canvas*:
+// every stamp reads the same value at the same world point, so a gap stays a
+// gap however many stamps pass over it. That is how the paper's tooth already
+// gives chalk its grain, and why Procreate's "grain" is a separate, canvas-
+// anchored texture from its "shape".
+//
+// The paper cannot be that texture: it depends on which paper the room has,
+// and the smooth one has no tooth at all. So these are the brush's own, tiled
+// across the canvas with REPEAT — which is why they are generated seamless.
+
+export type BrushTextureId = 'dry' | 'grit'
+
+export const BRUSH_TEXTURE_IDS: readonly BrushTextureId[] = ['dry', 'grit']
+
+/** Value noise whose lattice wraps at `period` cells, so the result tiles. */
+function tileNoise(x: number, y: number, cell: number, period: number, seed: number): number {
+  const fx = x / cell
+  const fy = y / cell
+  const ix = Math.floor(fx)
+  const iy = Math.floor(fy)
+  const tx = fx - ix
+  const ty = fy - iy
+  const sx = tx * tx * (3 - 2 * tx)
+  const sy = ty * ty * (3 - 2 * ty)
+  const w = (v: number) => ((v % period) + period) % period
+  const a = hash2(w(ix), w(iy), seed)
+  const b = hash2(w(ix + 1), w(iy), seed)
+  const c = hash2(w(ix), w(iy + 1), seed)
+  const d = hash2(w(ix + 1), w(iy + 1), seed)
+  const top = a + (b - a) * sx
+  const bottom = c + (d - c) * sx
+  return top + (bottom - top) * sy
+}
+
+/** Tileable fbm over a TIP_MASK_SIZE square. Every octave's cell divides the
+ *  side exactly, so every octave wraps. */
+function tileFbm(x: number, y: number, cell: number, seed: number): number {
+  const n = TIP_MASK_SIZE
+  return (tileNoise(x, y, cell, n / cell, seed) * 4
+    + tileNoise(x, y, cell / 2, n / (cell / 2), seed + 1) * 2
+    + tileNoise(x, y, cell / 4, n / (cell / 4), seed + 2)) / 7
+}
+
+const TEXTURES: Record<BrushTextureId, (px: number, py: number) => number> = {
+  // Dry paint dragged over a rough surface: broad patches where the paint
+  // caught and where it skipped, with finer breakup inside them.
+  dry: (px, py) => clamp01(tileFbm(px, py, 32, 71) * 0.75 + tileNoise(px, py, 4, TIP_MASK_SIZE / 4, 73) * 0.25),
+  // Fine, even grit — pastel and chalk on any paper, the smooth one included.
+  grit: (px, py) => clamp01(tileFbm(px, py, 16, 79) * 0.55 + tileNoise(px, py, 2, TIP_MASK_SIZE / 2, 83) * 0.45),
+}
+
+/** A texture's full mip chain, level 0 first — 0..255, tileable. The box
+ *  filter in tipMaskMips preserves tiling, since each level's texels are
+ *  averages of whole 2x2 blocks of a seamless image. */
+export function brushTextureMips(id: BrushTextureId): Uint8Array[] {
+  const n = TIP_MASK_SIZE
+  const base = new Uint8Array(n * n)
+  const fn = TEXTURES[id]
+  for (let py = 0; py < n; py++) {
+    for (let px = 0; px < n; px++) base[py * n + px] = Math.round(fn(px, py) * 255)
+  }
+  return mipChain(base)
 }

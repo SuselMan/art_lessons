@@ -188,6 +188,31 @@ describe('digital brush, stamp model (#573)', () => {
   })
 })
 
+describe('a gesture long enough to be cut into several operations (#573)', () => {
+  it('paints the same pixels live as a replay of its operations does', async () => {
+    // STROKE_DAB_CHUNK_LIMIT cuts a long gesture into 800-dab operations. The
+    // live client lost the dab before each cut and painted the next dab as a
+    // stroke's first — a whole half-radius of travel, one dark stamp — while a
+    // replay rejoins the chunks. Two people, two different marks.
+    const live = setupLayer(256, 64)
+    await paperReady(live)
+    live.setActiveLayer('L')
+    live.setTool('digitalBrush')
+    live.setPencil(current('soft-round', { opacity: false }))
+    live.setSize(8)
+    // A zigzag: long enough in path length to pass 800 dabs, small on the sheet.
+    const points = Array.from({ length: 60 }, (_, i) => ({ x: 8 + i * 4, y: i % 2 === 0 ? 20 : 44 }))
+    simulateStroke(live, points, { pressure: 1 })
+    const ops = live.getOperations().filter((o): o is StrokeOperation => o.type === 'stroke')
+    expect(ops.length, 'the gesture must actually span a chunk boundary').toBeGreaterThan(1)
+
+    const replay = setupLayer(256, 64)
+    await paperReady(replay)
+    for (const op of ops) replay.appendOperation(op)
+    expectPixelsEqual(readLayerPixels(replay, 'L'), readLayerPixels(live, 'L')!)
+  })
+})
+
 describe('digital brush, mixer (#573)', () => {
   it('paints through the smudge imprint with its own colour loaded into it', () => {
     const engine = setupLayer()

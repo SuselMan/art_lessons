@@ -70,7 +70,7 @@ export {
   digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset, digitalBrushPressureFromPreset,
   type BrushDescriptor, type BrushTip, type BrushCategory, type BrushPressureSettings,
 } from './src/digitalBrushPresets'
-import { tipMaskMips, type TipMaskId } from './src/tipMasks'
+import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from './src/tipMasks'
 import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { markerThinNibInkGain } from './src/markerInkGain'
 
@@ -2231,6 +2231,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** #573 — the digital brush's bitmap tips, uploaded on first use (tipMasks.ts
    *  generates them on the CPU, deterministically, with their full mip chain). */
   private _tipTextures = new Map<TipMaskId, WebGLTexture>()
+  /** #573 — the brushes' canvas-anchored textures, tiled with REPEAT. */
+  private _brushTextures = new Map<BrushTextureId, WebGLTexture>()
   // Reused/grown scratch buffer for the per-dab instance data upload — no
   // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
   private _dabInstScratch: Float32Array = new Float32Array(0)
@@ -2378,6 +2380,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokePreset: string
   private _strokeColor: [number, number, number]
   private _strokeDabs: Dab[]
+  /** (#573) The last dab of the gesture's previous chunk, once
+   *  _flushStrokeChunk has emptied _strokeDabs — so the next batch still
+   *  knows its predecessor. Without it the first dab after every 800-dab
+   *  boundary was painted as a stroke's *first* dab: the digital brush and the
+   *  marker gave it a whole half-radius of travel (one dark stamp in the middle
+   *  of the stroke), smudge restarted its smear — and only live, since replay
+   *  rejoins the chunks through _replayChunkScratch, so the author and
+   *  everyone else were looking at different marks. */
+  private _strokeChunkTail: Dab | undefined
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278/#489: the active tool's live nib angle — canvas-space radians (the
@@ -5334,12 +5345,13 @@ export class PencilEngine implements PencilEngineAPI {
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
     ])
     this._smudgePickupUni = getUniforms(gl, this._smudgePickupProg, [
-      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad',
+      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup',
     ])
     this._brushStampUni = getUniforms(gl, this._brushStampProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity',
       'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure',
+      'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin',
     ])
     this._brushCompositeUni = getUniforms(gl, this._brushCompositeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
@@ -5384,6 +5396,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Built fresh on context restore like every other GL object here: the
     // previous handles died with the old context.
     this._tipTextures = new Map()
+    this._brushTextures = new Map()
 
     this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
@@ -5679,6 +5692,7 @@ export class PencilEngine implements PencilEngineAPI {
     // _paintSmudgeDabs does it off this stroke's own id, so the local and the
     // replayed path go through exactly one rule (see _smudgeResumeGesture).
     this._strokeDabs    = []
+    this._strokeChunkTail = undefined
     // #482: the running arc length and the speed-contact factor both used to
     // live here as per-stroke engine fields. They are tip state now (TipState),
     // reset by DabSystem alongside the bend and the input filters — one record
@@ -5995,6 +6009,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
+    this._strokeChunkTail = undefined
     this._handlers.strokeEnd?.(e)
   }
 
@@ -6279,7 +6294,7 @@ export class PencilEngine implements PencilEngineAPI {
     // internal batching instead of restarting at each call.
     this._paintDabs(
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
+      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
     )
     this._paintExtraLayers(dabs)
     this._strokeDabs.push(...dabs)
@@ -6398,7 +6413,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._paintDabs(
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
+      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
     )
     // (#520) A no-op today — only the liner dwells, and only the eraser goes
     // through layers — but a dwell dab is a real dab of this gesture (see the
@@ -6480,6 +6495,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._maybeCheckpoint(targetId)
       this._onLocalOperation?.(op)
     }
+    this._strokeChunkTail = this._strokeDabs[this._strokeDabs.length - 1]
     this._strokeDabs = []
   }
 
@@ -7412,7 +7428,10 @@ export class PencilEngine implements PencilEngineAPI {
     // radius travelled — and nearly in full on the first dab, because a brush
     // arrives on the canvas loaded with paint, not with whatever is under it.
     const paintLoad = !paint ? 0 : priming ? MIXER_PRIME_LOAD : clampNum(paint.load * travel, 0, 1)
-    this._smudgeRunPickup(patch, imprint.buf ?? patch, next, rate, paint?.color ?? null, paintLoad)
+    // The mixer picks up at its own rate — slower than the stump's, which is
+    // what lets it drag a colour a couple of brush widths rather than one.
+    const pickRate = paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
+    this._smudgeRunPickup(patch, imprint.buf ?? patch, next, pickRate, paint?.color ?? null, paintLoad)
     this._releaseSmudgeScratchBuf(patch)
     if (imprint.buf) this._releaseSmudgeScratchBuf(imprint.buf)
     imprint.buf = next
@@ -7531,6 +7550,7 @@ export class PencilEngine implements PencilEngineAPI {
     const [pr, pg, pb] = paintColor ?? [0, 0, 0]
     gl.uniform4f(u.u_paint, pr, pg, pb, 1)
     gl.uniform1f(u.u_paintLoad, paintLoad)
+    gl.uniform1f(u.u_alphaPickup, paintColor ? 1 : 0)
 
     // _screenBuf, not _quadBuf: this pass runs DISPLAY_VERT, whose "quad"
     // convention is the -1..1 fullscreen one, while _quadBuf is DAB_VERT's
@@ -8210,6 +8230,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!targets.length) return
 
     const tipTex = brush.tip.kind === 'bitmap' && brush.tip.mask ? this._tipTexture(brush.tip.mask) : null
+    const grain = brush.texture ? { ...brush.texture, tex: this._brushTexture(brush.texture.id) } : null
     const minmax = this._blendMinMaxExt
     const useCeiling = pressure.opacity && !!minmax
 
@@ -8242,6 +8263,15 @@ export class PencilEngine implements PencilEngineAPI {
       gl.uniform1f(u.u_hardness, brush.tip.hardness)
       gl.uniform1f(u.u_aaPx, 1)
       gl.uniform1f(u.u_paper, brush.paperInteraction)
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, grain?.tex ?? this._paperTex)
+      gl.uniform1i(u.u_texture, 2)
+      gl.uniform1f(u.u_texStrength, grain?.strength ?? 0)
+      const period = grain?.periodPx ?? 1
+      gl.uniform1f(u.u_texPeriod, period)
+      // Reduced here, exactly, so the shader only ever adds small numbers.
+      const wrap = (v: number): number => ((v % period) + period) % period
+      gl.uniform2f(u.u_texOrigin, wrap(tile.originX), wrap(tile.originY))
 
       gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
       gl.enableVertexAttribArray(this._brushStampPosLoc)
@@ -8320,6 +8350,16 @@ export class PencilEngine implements PencilEngineAPI {
     buffer.endDraw()
   }
 
+  /** A brush texture (#573), tiled across the canvas — REPEAT rather than
+   *  CLAMP, and mipmapped from the CPU chain for the same reason the tips are. */
+  private _brushTexture(id: BrushTextureId): WebGLTexture {
+    const cached = this._brushTextures.get(id)
+    if (cached) return cached
+    const tex = this._uploadMips(brushTextureMips(id), this.gl.REPEAT)
+    this._brushTextures.set(id, tex)
+    return tex
+  }
+
   /** One bitmap tip as a mipmapped LUMINANCE texture, uploaded on first use.
    *
    *  Every mip level comes from tipMaskMips on the CPU rather than from
@@ -8328,11 +8368,16 @@ export class PencilEngine implements PencilEngineAPI {
   private _tipTexture(id: TipMaskId): WebGLTexture {
     const cached = this._tipTextures.get(id)
     if (cached) return cached
+    const tex = this._uploadMips(tipMaskMips(id), this.gl.CLAMP_TO_EDGE)
+    this._tipTextures.set(id, tex)
+    return tex
+  }
+
+  private _uploadMips(levels: Uint8Array[], wrapMode: number): WebGLTexture {
     const { gl } = this
     const tex = gl.createTexture()!
     gl.bindTexture(gl.TEXTURE_2D, tex)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    const levels = tipMaskMips(id)
     let size = Math.round(Math.sqrt(levels[0].length))
     for (let level = 0; level < levels.length; level++) {
       gl.texImage2D(gl.TEXTURE_2D, level, gl.LUMINANCE, size, size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, levels[level])
@@ -8341,9 +8386,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    this._tipTextures.set(id, tex)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
     return tex
   }
 

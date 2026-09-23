@@ -2,7 +2,7 @@ import { clamp } from 'lodash-es'
 
 import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
 import type { PencilPreset } from './pencilPresets'
-import type { TipMaskId } from './tipMasks'
+import type { BrushTextureId, TipMaskId } from './tipMasks'
 
 // #547, ADR 013: the digital brush — the first tool here that does not model a
 // material.
@@ -249,6 +249,10 @@ export interface BrushDescriptor {
   /** (#573) Several stamps per dab, each jittered. Absent = one stamp exactly
    *  on the dab. */
   scatter?: BrushScatter
+  /** (#573) The brush's own grain, anchored to the canvas rather than to the
+   *  stamp — see tipMasks.ts on why only that survives the overlap of a
+   *  continuous stroke. `periodPx` is the world size of one tile of it. */
+  texture?: { id: BrushTextureId; periodPx: number; strength: number }
   /** (#573) Halftone pitch, world px — the composite turns the stroke's tone
    *  into dots of a fixed screen instead of a continuous fill. World-anchored,
    *  so two strokes of tone line up into one screen the way two pieces of
@@ -260,6 +264,10 @@ export interface BrushDescriptor {
      *  per radius travelled. 1 = never picks anything up (a plain brush); low =
      *  mostly drags what is already on the canvas. */
     load: number
+    /** How much of what is under the brush it picks up per radius
+     *  travelled. Together with `load` this sets how far a colour is dragged:
+     *  the carried paint forgets at `pickup + load` per radius. */
+    pickup: number
     /** How strongly the carried paint is laid down per radius travelled. */
     strength: number
   }
@@ -481,10 +489,12 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     // vector fills.
     id: 'textured-paint',
     version: 1, model: 'stamp', category: 'paint',
+    // The ragged rim is the mask's; the dry breakup inside the stroke is the
+    // canvas-anchored texture's, because only that survives twenty stamps
+    // overlapping (tipMasks.ts, brush textures).
     tip: bitmapTip('rough', 'travel'),
-    // A little: enough that the dry streaks catch on the sheet's tooth, not so
-    // much that the body stops covering.
-    paperInteraction: 0.25,
+    paperInteraction: 0.1,
+    texture: { id: 'dry', periodPx: 384, strength: 0.95 },
     spacing: 0.08,
     flow: 0.9, flowPer: 'pass',
     sizeByPressure: SIZE_HALF,
@@ -508,7 +518,7 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     // Very tight: a hair has to leave a *line*, and a hair tip is a few pixels
     // across, so the step is bounded by the hair, not by the brush.
     spacing: 0.02,
-    flow: 0.85, flowPer: 'pass', flowSpan: 0.08,
+    flow: 0.9, flowPer: 'pass', flowSpan: 0.12,
     sizeByPressure: SIZE_HALF,
     flowByPressure: FLOW_EARLY,
     opacityByPressure: OPACITY_EARLY,
@@ -531,7 +541,11 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     opacityByPressure: OPACITY_EARLY,
     pressureSmoothingPx: 8,
     opacity: 1,
-    mixer: { load: 0.35, strength: 0.9 },
+    // Forgets at 0.45 per radius, so a colour is carried about two brush
+    // widths before the brush's own takes over again — long enough to pull one
+    // colour visibly into the next, short enough that a stroke still ends in
+    // the colour it was loaded with.
+    mixer: { load: 0.15, pickup: 0.3, strength: 1.4 },
   },
   // ── Soft ──
   {
@@ -560,7 +574,7 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     tip: roundTip(0),
     paperInteraction: 0,
     spacing: 0.05,
-    flow: 0.22, flowPer: 'pass',
+    flow: 0.35, flowPer: 'pass',
     sizeByPressure: SIZE_NOZZLE,
     flowByPressure: FLOW_LINEAR,
     opacityByPressure: OPACITY_LINEAR,
@@ -576,7 +590,10 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     id: 'chalk',
     version: 1, model: 'stamp', category: 'texture',
     tip: bitmapTip('chalk', 'fixed', 0.6),
-    paperInteraction: 0.85,
+    paperInteraction: 0.7,
+    // Its own grit as well as the paper's tooth, so chalk is still chalk on
+    // the smooth paper, which has no tooth to give.
+    texture: { id: 'grit', periodPx: 160, strength: 0.6 },
     spacing: 0.12,
     flow: 0.75, flowPer: 'pass',
     sizeByPressure: SIZE_HALF,
@@ -945,6 +962,8 @@ export interface MixerPaint {
    *  travelled (and in full on the gesture's first dab — a brush arrives on
    *  the canvas loaded). */
   load: number
+  /** Fraction of what is under the brush picked up per radius travelled. */
+  pickup: number
   /** Deposit strength per radius travelled, before pressure. */
   strength: number
   /** Whether pressure scales the deposit (the opacity switch). */
@@ -963,6 +982,7 @@ export function digitalBrushMixer(
   return {
     color,
     load: brush.mixer.load,
+    pickup: brush.mixer.pickup,
     strength: brush.mixer.strength,
     pressure: digitalBrushPressureFromPreset(presetName).opacity,
     sizeMultiplier: 1 / Math.max(brush.tip.aspect, 1),

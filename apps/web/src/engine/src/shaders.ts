@@ -2015,6 +2015,12 @@ export const SMUDGE_PICKUP_FRAG = `
   // paint of its own.
   uniform vec4 u_paint;
   uniform float u_paintLoad;
+  // (#573) 1 for the mixer: the pickup is weighted by how much paint is
+  // actually under the brush. A loaded brush dragged over bare paper does not
+  // pick the paper's transparency up into itself — that is what made the
+  // mixer lay a pale 40% film on an empty sheet. 0 for smudge, whose stump
+  // carries nothing of its own and must be free to go clean.
+  uniform float u_alphaPickup;
 
   varying vec2 v_uv;
 
@@ -2022,7 +2028,11 @@ export const SMUDGE_PICKUP_FRAG = `
     // Straight per-texel refresh, blending disabled by the caller: this
     // writes the imprint's new value outright, it does not accumulate onto
     // the previous one (the previous one is an input here, u_carried).
-    vec4 picked = mix(texture2D(u_carried, v_uv), texture2D(u_patch, v_uv), u_rate);
+    // Not named "patch": that is a keyword in desktop GLSL 4, which is what
+    // ANGLE translates this shader into on some platforms.
+    vec4 under = texture2D(u_patch, v_uv);
+    float rate = u_rate * mix(1.0, under.a, u_alphaPickup);
+    vec4 picked = mix(texture2D(u_carried, v_uv), under, rate);
     gl_FragColor = mix(picked, u_paint, u_paintLoad);
   }
 `;
@@ -2961,6 +2971,15 @@ export const BRUSH_STAMP_FRAG = `
   // pressure pushing it into the tooth.
   uniform float u_paper;
   uniform float u_paperPressure;
+  // The brush's own canvas-anchored texture (tipMasks.ts, BrushTextureId):
+  // how strongly it breaks the mark, the world size of one tile, and this
+  // tile's world origin already reduced modulo that size on the CPU — so the
+  // numbers stay small enough for a mediump fallback not to shift the grain.
+  uniform sampler2D u_texture;
+  uniform float u_texStrength;
+  uniform float u_texPeriod;
+  uniform vec2 u_texOrigin;
+  uniform vec2 u_resolution;
 
   varying vec2 v_localUV;
   varying float v_opacity;
@@ -3001,6 +3020,19 @@ export const BRUSH_STAMP_FRAG = `
       float reach = mix(0.62, 0.12, u_paperPressure);
       float tooth = smoothstep(reach, reach + 0.3, paperCatch);
       amount *= mix(1.0, tooth, u_paper);
+    }
+    if (u_texStrength > 0.0) {
+      // World position, top-down like every Dab.x/y; tiles draw with GL's
+      // bottom-up rows, so y is measured back from the tile's top.
+      vec2 w = vec2(u_texOrigin.x + gl_FragCoord.x,
+                    u_texOrigin.y + (u_resolution.y - gl_FragCoord.y));
+      float g = texture2D(u_texture, w / u_texPeriod).r;
+      // Same pressure-into-tooth rule as the paper above, on the brush's own
+      // grain: a light touch catches only the high points.
+      // Stays well above the bottom of the range even at full weight: a real
+      // dry brush breaks up however hard it is pressed, which is the point.
+      float reach = mix(0.7, 0.34, u_paperPressure);
+      amount *= mix(1.0, smoothstep(reach - 0.1, reach + 0.14, g), u_texStrength);
     }
     if (amount <= 0.0) discard;
 
