@@ -166,6 +166,14 @@
   transition: opacity var(--duration-fast), background var(--duration-fast);
 }
 
+/* (#575) The narrow header's "g" alone. Gives up the rail alignment above on
+   purpose: holding the box at the rail's width would keep the ~50px this
+   variant exists to hand back. Same height, so the glyph doesn't change
+   size between the two. */
+.headerLogoBtnMark {
+  width: auto;
+}
+
 .headerLogoBtn:hover {
   opacity: 1;
   background: var(--color-surface-2);
@@ -242,6 +250,23 @@
 
 .syncStatusOffline { color: var(--color-error); }
 .syncStatusOffline .syncDot { background: var(--color-error); }
+
+/* (#575) Narrow header: the dot alone, a little closer to the name since
+   there's no word to balance the gap against. Padding gives the tooltip a
+   target bigger than 7px. */
+.syncStatusDotOnly {
+  margin-left: 2px;
+  padding: 6px;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 /* Owner-only: the label is a button that swaps itself for .roomNameInput.
    Padding/border-radius match the input's so nothing shifts on the swap, and

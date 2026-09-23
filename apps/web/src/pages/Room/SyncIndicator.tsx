@@ -24,16 +24,26 @@ const PRESENTATION: Record<SyncStatus, { label: TranslationKey; className?: stri
  *  exactly the indicator that matters when the connection really does go bad.
  *
  *  The dot carries the state and the word says it; neither is alone, because
- *  green/amber/red alone fails anyone who can't tell those three apart. */
-export function SyncIndicator(props: SyncStatusInput): React.JSX.Element {
+ *  green/amber/red alone fails anyone who can't tell those three apart.
+ *
+ *  (#575) `dotOnly` is the narrow header's version, and the one exception to
+ *  that: the word moves into the tooltip and stays readable to a screen
+ *  reader, but the eye gets the dot alone. Kept rather than hidden outright,
+ *  because a dot turning red is still the fastest way to learn the strokes
+ *  aren't reaching anyone — the one state this indicator exists for. */
+export function SyncIndicator({ dotOnly = false, ...input }: SyncStatusInput & { dotOnly?: boolean }): React.JSX.Element {
   const t = useT()
-  const status = useSyncStatus(props)
+  const status = useSyncStatus(input)
   const { label, className } = PRESENTATION[status]
 
   return (
-    <span className={clsx(styles.syncStatus, className)} role="status">
+    <span
+      className={clsx(styles.syncStatus, dotOnly && styles.syncStatusDotOnly, className)}
+      role="status"
+      title={dotOnly ? t(label) : undefined}
+    >
       <span className={styles.syncDot} aria-hidden="true" />
-      {t(label)}
+      <span className={clsx(dotOnly && styles.visuallyHidden)}>{t(label)}</span>
     </span>
   )
 }
