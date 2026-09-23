@@ -259,6 +259,7 @@ modules:
       - apps/web/src/pages/Room/useDrawingActivity.ts
       - apps/web/src/pages/Room/restoreRoomState.ts
       - apps/web/src/pages/Room/engineWiring.ts
+      - apps/web/src/pages/Room/useTransformSession.ts
     issues: [25, 493]
     notes:
       - >-
