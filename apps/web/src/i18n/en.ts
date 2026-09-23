@@ -615,6 +615,7 @@ export const en = {
   'tool.brushGroup.line': 'Line',
   'tool.brushGroup.paint': 'Paint',
   'tool.brushGroup.wet': 'Digital watercolor',
+  'tool.brush.wetOnWet': 'Wet-in-wet',
   'tool.brush.wetWash': 'Wash',
   'tool.brush.wetEdge': 'Wet edge',
   'tool.brush.granulating': 'Granulating',

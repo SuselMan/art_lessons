@@ -482,6 +482,7 @@ export const ru: Dictionary = {
   'tool.brushGroup.line': 'Линия',
   'tool.brushGroup.paint': 'Живопись',
   'tool.brushGroup.wet': 'Цифровая акварель',
+  'tool.brush.wetOnWet': 'По-мокрому',
   'tool.brush.wetWash': 'Заливка',
   'tool.brush.wetEdge': 'С ободком',
   'tool.brush.granulating': 'Гранулирующая',

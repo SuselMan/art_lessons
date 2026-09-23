@@ -417,6 +417,7 @@ const digitalBrushSchema = (): ToolSchema => ({
       'grass': 'tool.brush.grass',
       'foliage': 'tool.brush.foliage',
       'wet-wash': 'tool.brush.wetWash',
+      'wet-on-wet': 'tool.brush.wetOnWet',
       'wet-edge': 'tool.brush.wetEdge',
       'granulating': 'tool.brush.granulating',
       'dry-wash': 'tool.brush.dryWash',

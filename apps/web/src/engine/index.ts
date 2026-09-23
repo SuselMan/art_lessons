@@ -1378,7 +1378,7 @@ const WET_EDGE_MAX_PX = 14
  *  for the blooms, which are meant to be bigger than the brush; small for the
  *  grain, which is meant to be finer than anything the brush draws. */
 const WET_CLOUD_PERIOD_PX = 640
-const WET_GRAIN_PERIOD_PX = 128
+const WET_GRAIN_PERIOD_PX = 224
 
 // Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
 // marker has no hardness *scale* the way graphite's grades do (same
@@ -5408,6 +5408,8 @@ export class PencilEngine implements PencilEngineAPI {
       'u_screentone', 'u_screenOrigin',
       'u_wetEdge', 'u_wetEdgePx', 'u_mottle', 'u_granulation', 'u_glaze',
       'u_cloudTex', 'u_grainTex', 'u_cloudPeriod', 'u_cloudOrigin', 'u_grainPeriod', 'u_grainOrigin',
+      'u_wetModel', 'u_bloom', 'u_feather',
+      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
     ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
@@ -8422,7 +8424,14 @@ export class PencilEngine implements PencilEngineAPI {
       let flow = brush.flow
       if (brush.flowPer === 'pass' && flow < 1) {
         const span = diameter * (brush.flowSpan ?? 1)
-        const travel = this._markerSegmentLength(dab, prev, diameter * 0.5)
+        // (#581) Wet model 2 gives the stroke's first dab one ordinary step of
+        // travel, not the half radius every other tool's first dab gets: that
+        // extra flow made a dense disc at the start, and the wet edge drew its
+        // outline as a ring inside the stroke. Model 2 only — every brush
+        // already shipped keeps drawing its first dab as it always has.
+        const travel = !prev && brush.wet?.model === 2
+          ? diameter * brush.spacing
+          : this._markerSegmentLength(dab, prev, diameter * 0.5)
         flow = 1 - Math.pow(1 - flow, Math.min(travel / span, 1))
       }
       const ceiling = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)
@@ -8550,6 +8559,20 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_mottle, wet?.mottle ?? 0)
     gl.uniform1f(u.u_granulation, wet?.granulation ?? 0)
     gl.uniform1f(u.u_glaze, wet?.glaze ? 1 : 0)
+    // (#581) Model 2 and its two extra terms; a wet brush without a model is
+    // #579's, which is what every stroke recorded with those brushes says.
+    gl.uniform1f(u.u_wetModel, wet ? (wet.model ?? 1) : 0)
+    gl.uniform1f(u.u_bloom, wet?.bloom ?? 0)
+    gl.uniform1f(u.u_feather, wet?.feather ?? 0)
+    // The paper, for granulation — the same world-space sampling every dab
+    // shader here uses (#141).
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
+    gl.activeTexture(gl.TEXTURE4)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    gl.uniform1i(u.u_paperHeightMap, 4)
     // Bound whether read or not: WebGL validates every declared sampler.
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('cloud'))

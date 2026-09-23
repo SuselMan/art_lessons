@@ -3082,6 +3082,17 @@ export const BRUSH_COMPOSITE_FRAG = `
   uniform vec2 u_cloudOrigin;
   uniform float u_grainPeriod;
   uniform vec2 u_grainOrigin;
+  // (#581) Which wet model: 1 = #579's (tone by coverage, kept so strokes
+  // recorded with those brushes replay unchanged), 2 = density through a
+  // power on the colour's transmittance. 0 for brushes that are not wet.
+  uniform float u_wetModel;
+  uniform float u_bloom;
+  uniform float u_feather;
+  // The room's paper, for granulation: pigment settles in its valleys.
+  uniform sampler2D u_paperHeightMap;
+  uniform vec2 u_paperScale;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
 
   void main() {
     vec2 tileUV = gl_FragCoord.xy / u_resolution;
@@ -3089,6 +3100,138 @@ export const BRUSH_COMPOSITE_FRAG = `
     if (c.r <= 0.0) discard;
     float cov = c.r;
     if (u_useCeiling > 0.5) cov *= c.a;
+
+    // ── (#581) Wet model 2 ──────────────────────────────────────────────────
+    //
+    // Everything below is taken from the watercolor NPR literature rather
+    // than tuned from scratch — Bousseau et al. 2006, Curtis et al. 1997,
+    // Montesdeoca et al. 2017 (MNPR) — and it hangs on one idea from all three:
+    // pigment concentration is a *density* applied to the colour's
+    // transmittance, T' = T^d, not a blend toward paper. That is what makes a
+    // concentrated patch darker and more saturated at once, as real pigment
+    // is; blending toward paper makes it darker and greyer, which was the main
+    // thing that read as fake in model 1.
+    if (u_wetModel > 1.5) {
+      vec2 w = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+      vec2 cw = u_cloudOrigin + w;
+
+      // Wet-in-wet edge: the rim dissolves into a feathered, uneven fringe
+      // instead of a line. Fine noise pushes the soft outer ramp in and out.
+      // Only the outer fringe moves (fringe falls to 0 by half coverage): the
+      // body of the stroke is not the edge, and modulating it too printed the
+      // noise's tile as a row of blocks. Two scales, so the fringe has both
+      // lobes and fine fibres and neither repeats visibly.
+      if (u_feather > 0.0) {
+        float lobes = texture2D(u_cloudTex, cw / (u_cloudPeriod * 0.5)).r;
+        float fibres = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r;
+        float fringe = 1.0 - smoothstep(0.0, 0.55, cov);
+        float n = mix(lobes, fibres, 0.35) - 0.5;
+        cov = clamp(cov * (1.0 + u_feather * n * 2.4 * fringe), 0.0, 1.0);
+        if (cov <= 0.002) discard;
+      }
+
+      // Edge darkening at two scales (a difference of box rings, the DoG of
+      // MNPR): a narrow ring for the sharp outer front of the tideline, a
+      // wide one for its falloff inward. Sixteen fixed directions and no
+      // helper function, for the reasons the model-1 block below gives.
+      float edge = 0.0;
+      if (u_wetEdge > 0.0) {
+        vec2 rN = vec2(max(u_wetEdgePx * 0.3, 1.0)) / u_resolution;
+        vec2 rW = vec2(u_wetEdgePx) / u_resolution;
+        vec4 q;
+        float nearSum = 0.0;
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(1.0, 0.0));        nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(-1.0, 0.0));       nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.0, 1.0));        nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.0, -1.0));       nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.7071, 0.7071));   nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(-0.7071, 0.7071));  nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.7071, -0.7071));  nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(-0.7071, -0.7071)); nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        float wideSum = 0.0;
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.9239, 0.3827));   wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.9239, 0.3827));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.9239, -0.3827));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.9239, -0.3827)); wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.3827, 0.9239));   wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.3827, 0.9239));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.3827, -0.9239));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.3827, -0.9239)); wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        // Read on coverage saturated at half: what makes a tideline is the
+        // boundary of the wet area, not the terraces where one more stamp
+        // overlapped — at a stroke's round start those terraces are a set of
+        // concentric arcs, and the sharp ring drew every one of them.
+        float covS = smoothstep(0.0, 0.55, cov);
+        float sharp = clamp((covS - nearSum / 8.0) * 5.0, 0.0, 1.0);
+        float wide = clamp((covS - wideSum / 8.0) * 2.2, 0.0, 1.0);
+        edge = max(sharp, wide * 0.5);
+      }
+
+      // Low-frequency turbulence — Bousseau's d = 1 + beta(T - 0.5).
+      float cloud = texture2D(u_cloudTex, cw / u_cloudPeriod).r;
+
+      // Blooms / backruns: where water crept back into a drying wash it pushed
+      // the pigment outward — a lighter patch with a dark, branching border.
+      // The border is a threshold of domain-warped noise, which is what gives
+      // it the cauliflower fingers; the band around the threshold is the dark
+      // line. Only in the stroke's body: a bloom does not start at the rim.
+      float bloomIn = 0.0;
+      float bloomRim = 0.0;
+      if (u_bloom > 0.0) {
+        vec2 warp = vec2(texture2D(u_cloudTex, cw / (u_cloudPeriod * 0.5)).r,
+                         texture2D(u_cloudTex, (cw + vec2(173.0, 91.0)) / (u_cloudPeriod * 0.5)).r) - 0.5;
+        // A second, fine warp crinkles the border into the cauliflower fringe
+        // a real backrun has; without it the border is a smooth blob.
+        float crinkle = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r - 0.5;
+        float b = texture2D(u_cloudTex, (cw + warp * 150.0) / (u_cloudPeriod * 0.8)).r + crinkle * 0.05;
+        float th = 1.0 - u_bloom * 0.3;
+        float body = smoothstep(0.35, 0.85, cov);
+        // Lighter toward the middle of the bloom, not a flat cut-out: the water
+        // pushed pigment outward gradually, and only the front where it
+        // stopped is crisp. The rim is a thin band just *outside* the
+        // threshold, where that pigment piled up.
+        bloomIn = smoothstep(th, th + 0.14, b) * body;
+        bloomRim = smoothstep(th - 0.035, th - 0.005, b) * (1.0 - smoothstep(th - 0.005, th + 0.004, b)) * body;
+      }
+
+      // Granulation: pigment settles in the paper's valleys, the *opposite*
+      // sign to dry brush, and shows most in a pale wash (MNPR). The canvas
+      // grit stands in where the paper is smooth.
+      float grain = 0.5;
+      if (u_granulation > 0.0) {
+        vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
+        float h = texture2D(u_paperHeightMap, paperUV).r;
+        float g = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r;
+        grain = mix(g, h, 0.7);
+      }
+
+      float d = 1.0;
+      d += u_wetEdge * (1.5 * edge - 0.35 * (1.0 - edge));
+      d *= 1.0 + u_mottle * (cloud - 0.5) * 1.1;
+      d += u_granulation * (0.5 - grain) * 1.3 * (1.0 + 1.5 * (1.0 - cov));
+      d *= 1.0 - 0.45 * bloomIn;
+      d += u_bloom * 1.6 * bloomRim;
+      d = max(d, 0.05);
+
+      // The stroke as a transmittance filter at its base concentration, then
+      // concentrated by d.
+      float a0 = clamp(cov * u_opacity, 0.0, 1.0);
+      vec3 T = pow(max(mix(vec3(1.0), u_color, a0), vec3(0.002)), vec3(d));
+      // Back to a premultiplied layer colour: the darkest channel sets the
+      // alpha, and the colour follows so that over white it reproduces T
+      // exactly (cs + 1 - aE == T).
+      float aE = clamp(1.0 - min(T.r, min(T.g, T.b)), 0.0, 1.0);
+      vec3 cs = T - vec3(1.0 - aE);
+      vec4 dst0 = texture2D(u_original, tileUV);
+      if (u_glaze > 0.5) {
+        // Over paint: Cd * T exactly — the subtractive layering of a glaze.
+        gl_FragColor = vec4(cs * dst0.rgb + cs * (1.0 - dst0.a) + dst0.rgb * (1.0 - aE),
+                            aE + (1.0 - aE) * dst0.a);
+      } else {
+        gl_FragColor = vec4(cs + (1.0 - aE) * dst0.rgb, aE + (1.0 - aE) * dst0.a);
+      }
+      return;
+    }
 
     if (u_wetEdge > 0.0) {
       // Mean coverage on two rings around this pixel. Where the stroke's own

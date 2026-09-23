@@ -432,3 +432,17 @@ describe('#573 — scatter', () => {
     expect(brushDabSeed(x, y, p)).not.toBe(brushDabSeed(x + 0.01, y, p))
   })
 })
+
+describe('#581 — the digital watercolor set, v1 frozen', () => {
+  it('resolves every @1 wet token to the frozen model-1 descriptor', () => {
+    for (const id of ['wet-wash', 'wet-edge', 'granulating', 'dry-wash', 'wet-bands', 'sponge', 'gouache']) {
+      const b = digitalBrushFromPreset(`brush:${id}@1`)
+      expect(b.version, id).toBe(1)
+      expect(b.wet?.model ?? 1, id).toBe(1)
+    }
+  })
+
+  it('draws every new wet stroke with model 2', () => {
+    for (const b of DIGITAL_BRUSHES.filter(x => x.wet)) expect(b.wet!.model, b.id).toBe(2)
+  })
+})
