@@ -862,6 +862,7 @@ modules:
       - apps/web/src/engine/src/tipFootprint.ts
       - apps/web/src/engine/src/ribbonProfile.ts
       - apps/web/src/engine/src/markerRibbon*.ts
+      - apps/web/src/engine/src/markerInkGain*.ts
       - apps/web/src/engine/src/brushPenTip.test.ts
     adr: [012-tip-footprint-geometry, 004-marker-tool, 003-liner-tool]
     notes:
