@@ -34,6 +34,7 @@ import {
 } from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
+import { WatercolorPerfHud } from './WatercolorPerfHud'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
 import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
@@ -612,6 +613,8 @@ export function Room() {
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
   const hapticGrainEnabled = getFeatureFlag('hapticGrain')
+  // (#536, §17.22) Watercolor performance readout — numbers off a tablet.
+  const wcPerfHudEnabled = getFeatureFlag('wcPerfHud')
   // (#536) See the effect below — the caricature that answers whether the hair
   // structure is right at all, before anyone tunes its amplitude again.
   // (#536) Which term of the composite to paint instead of the finished wash.
@@ -7506,8 +7509,13 @@ export function Room() {
           same fixed corner — see chat, this is exactly what happened while
           chasing #154's latency regression with hapticGrain still on from
           earlier testing. */}
-      {(debugEnabled || hapticGrainEnabled || tapDebugEnabled || pencilSoundTuningEnabled) && (
+      {(debugEnabled || hapticGrainEnabled || tapDebugEnabled || pencilSoundTuningEnabled || wcPerfHudEnabled) && (
         <div className={styles.debugStack}>
+          {wcPerfHudEnabled && (
+            <div className={styles.debugOverlay}>
+              <WatercolorPerfHud engineRef={engineRef} />
+            </div>
+          )}
           {/* On-device log capture (see lib/diagLog.ts) — for field reports
               from a device with no attached inspector (Android tablets,
               mainly): diagLog() calls throughout the tap-toggle/viewport

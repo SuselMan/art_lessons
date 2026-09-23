@@ -64,6 +64,12 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Paints the wash with the standing water the wet diffusion pass gates on - the free water of clean passes and the wetness pigment passes recorded under themselves (#536, ADR 011 s17.11). Wins over the other three views.',
     envVar: 'VITE_WC_VIEW_WATER',
   },
+  {
+    key: 'wcPerfHud',
+    label: 'Watercolor: performance readout (dev only)',
+    description: 'Live frame interval, batch cost, settle time and GPU memory of the watercolor tool (#536, ADR 011 s17.22) - for reading numbers off a tablet with no inspector attached.',
+    envVar: 'VITE_WC_PERF_HUD',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'

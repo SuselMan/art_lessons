@@ -337,6 +337,64 @@ export interface PencilEngineOptions {
   paperFillCap?: number
 }
 
+/** (#536, §17.22) What the watercolor performance readout shows. Windows
+ *  are the last two seconds. */
+export interface WatercolorPerf {
+  /** Interval between displayed frames, ms: median and 95th percentile, and
+   *  how many frames the window holds. */
+  frameP50: number
+  frameP95: number
+  frames: number
+  /** CPU time inside _display (compose + paper pass submission), ms, median. */
+  displayMs: number
+  /** Live watercolor batches painted per second, and the CPU time each took
+   *  to submit, ms, median and worst. */
+  batchesPerSec: number
+  batchP50: number
+  batchMax: number
+  /** The last pen-up settle: wall time from start to landing, ms, and the
+   *  number of GPU steps it ran. 0 when none yet. */
+  settleMs: number
+  settleOps: number
+  /** GPU memory held by the tool, MB: pooled scratch tiles (live and free),
+   *  the diffusion field, the reveals' kept pictures. */
+  scratchLiveMB: number
+  scratchFreeMB: number
+  fieldMB: number
+  revealMB: number
+  /** Cells of the live wetness field still wet. */
+  wetCells: number
+}
+
+/** (#536, §17.22) What the watercolor performance readout shows. Windows
+ *  are the last two seconds. */
+export interface WatercolorPerf {
+  /** Interval between displayed frames, ms: median and 95th percentile, and
+   *  how many frames the window holds. */
+  frameP50: number
+  frameP95: number
+  frames: number
+  /** CPU time inside _display (compose + paper pass submission), ms, median. */
+  displayMs: number
+  /** Live watercolor batches painted per second, and the CPU time each took
+   *  to submit, ms, median and worst. */
+  batchesPerSec: number
+  batchP50: number
+  batchMax: number
+  /** The last pen-up settle: wall time from start to landing, ms, and the
+   *  number of GPU steps it ran. 0 when none yet. */
+  settleMs: number
+  settleOps: number
+  /** GPU memory held by the tool, MB: pooled scratch tiles (live and free),
+   *  the diffusion field, the reveals' kept pictures. */
+  scratchLiveMB: number
+  scratchFreeMB: number
+  fieldMB: number
+  revealMB: number
+  /** Cells of the live wetness field still wet. */
+  wetCells: number
+}
+
 export interface StrokeDebugStats {
   moveEvents: number      // real pointer samples (post-getCoalescedEvents) in this stroke
   durationMs: number      // wall-clock stroke length, pointerdown to pointerup
@@ -861,6 +919,14 @@ export interface PencilEngineAPI {
   exportPNG(transparent?: boolean): Promise<Blob | null>
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
+  /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
+   *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
+   *  second by the HUD. */
+  getWatercolorPerf(): WatercolorPerf
+  /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
+   *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
+   *  second by the HUD. */
+  getWatercolorPerf(): WatercolorPerf
 
   destroy(): void
 }
@@ -1482,32 +1548,47 @@ const MARKER_SCRATCH_POOL_PER_SIZE = 6
 class RibbonScratchPool {
   private _free = new Map<string, AccumulationBuffer[]>()
   private readonly gl: WebGLRenderingContext
+  /** (#536, §17.22) Bytes of every buffer this pool has created and not yet
+   *  destroyed, and of those, the ones sitting free — for the perf readout. */
+  private _allocatedBytes = 0
+  private _freeBytes = 0
 
   constructor(gl: WebGLRenderingContext) {
     this.gl = gl
   }
 
+  /** Live (handed out) and free bytes. */
+  get bytes(): { live: number; free: number } {
+    return { live: this._allocatedBytes - this._freeBytes, free: this._freeBytes }
+  }
+
   acquire(width: number, height: number): AccumulationBuffer {
     const list = this._free.get(`${width}x${height}`)
     const reused = list?.pop()
+    if (reused) { this._freeBytes -= width * height * 4; return reused }
     // 'nearest' matches what RibbonStrokeScratch has always asked for — see
     // its getOrCreate comment. The pool must never hand back a buffer built
     // with a different filter, which is why it is keyed by size alone and
     // used by this one caller.
-    return reused ?? new AccumulationBuffer(this.gl, width, height, 'nearest')
+    this._allocatedBytes += width * height * 4
+    return new AccumulationBuffer(this.gl, width, height, 'nearest')
   }
 
   release(buf: AccumulationBuffer): void {
     const key = `${buf.width}x${buf.height}`
+    const bytes = buf.width * buf.height * 4
     const list = this._free.get(key)
-    if (!list) { this._free.set(key, [buf]); return }
-    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE) { buf.destroy(); return }
+    if (!list) { this._free.set(key, [buf]); this._freeBytes += bytes; return }
+    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE) { buf.destroy(); this._allocatedBytes -= bytes; return }
     list.push(buf)
+    this._freeBytes += bytes
   }
 
   destroy(): void {
     for (const list of this._free.values()) for (const b of list) b.destroy()
     this._free.clear()
+    this._allocatedBytes = 0
+    this._freeBytes = 0
   }
 
   /** Context loss took every GL object with it — drop the handles without
@@ -2133,6 +2214,13 @@ export class PencilEngine implements PencilEngineAPI {
     complete: () => void
     raf: number
   } | null = null
+  /** (#536, §17.22) Rings behind getWatercolorPerf. Timestamps and costs of
+   *  the last frames and batches; pruned to the window on read. */
+  private readonly _wcPerf = {
+    frameAt: [] as number[], frameMs: [] as number[],
+    batchAt: [] as number[], batchMs: [] as number[],
+    settleStart: 0, settleOps: 0, settleMs: 0,
+  }
   /** (#536, §17.11) The one field the wet diffusion runs over: the wash's
    *  tiles stitched into a rect, so paint crosses tile seams as freely as any
    *  other texel. Four buffers of one size, grown to the largest wash seen and
@@ -3301,6 +3389,42 @@ export class PencilEngine implements PencilEngineAPI {
    *  different spatial scales and different origins — one is the deposit, one
    *  is a blur-and-rethreshold of the silhouette — so a single look at each
    *  settles it. Dev-only, on the Debug tab. */
+  getWatercolorPerf(): WatercolorPerf {
+    const now = performance.now()
+    const WINDOW = 2000
+    const p = this._wcPerf
+    const prune = (at: number[], ms: number[]): void => {
+      let k = 0
+      while (k < at.length && at[k] < now - WINDOW) k++
+      if (k) { at.splice(0, k); ms.splice(0, k) }
+    }
+    prune(p.frameAt, p.frameMs)
+    prune(p.batchAt, p.batchMs)
+    const pct = (xs: number[], q: number): number => {
+      if (!xs.length) return 0
+      const s = [...xs].sort((a, b) => a - b)
+      return s[Math.min(s.length - 1, Math.floor(q * (s.length - 1)))]
+    }
+    const intervals: number[] = []
+    for (let i = 1; i < p.frameAt.length; i++) intervals.push(p.frameAt[i] - p.frameAt[i - 1])
+    const span = p.batchAt.length > 1 ? Math.max(WINDOW, now - p.batchAt[0]) : WINDOW
+    const MB = 1 / (1024 * 1024)
+    const pool = this._ribbonScratchPool.bytes
+    const field = this._diffuseField
+    let revealBytes = 0
+    for (const r of this._washReveals.values()) revealBytes += r.before.width * r.before.height * 4 * 4 / 3
+    return {
+      frameP50: pct(intervals, 0.5), frameP95: pct(intervals, 0.95), frames: p.frameAt.length,
+      displayMs: pct(p.frameMs, 0.5),
+      batchesPerSec: p.batchAt.length * 1000 / span, batchP50: pct(p.batchMs, 0.5), batchMax: pct(p.batchMs, 1),
+      settleMs: p.settleMs, settleOps: p.settleOps,
+      scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,
+      fieldMB: field ? field.w * field.h * 4 * 7 * MB : 0,
+      revealMB: revealBytes * MB,
+      wetCells: this._paperWet.peak(now) > 0.01 ? this._paperWet.cellsOf(this._activeId ?? '', now).filter(c => c.w > 0.1).length : 0,
+    }
+  }
+
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void {
     this._wcDebugView = view
     this._display()
@@ -5876,9 +6000,14 @@ export class PencilEngine implements PencilEngineAPI {
     const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed)
     let painted = false
     if (dabs.length) {
-      const t0 = this._debug ? performance.now() : 0
+      const t0 = performance.now()
       this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
       painted = true
+      if (this._strokeTool === 'watercolor') {
+        this._wcPerf.batchAt.push(t0)
+        this._wcPerf.batchMs.push(performance.now() - t0)
+        if (this._wcPerf.batchAt.length > 600) { this._wcPerf.batchAt.splice(0, 300); this._wcPerf.batchMs.splice(0, 300) }
+      }
       if (this._debug) {
         const paintedAt = performance.now()
         this._dbgRenderMs += paintedAt - t0
@@ -8784,6 +8913,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void): void {
     if (this._settle) this._completeSettle()
     this._settle = { scratch, ops, next: 0, complete, raf: 0 }
+    this._wcPerf.settleStart = performance.now()
+    this._wcPerf.settleOps = ops.length
     this._scheduleSettleTick()
   }
 
@@ -8806,6 +8937,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (s.next >= s.ops.length) {
       this._settle = null
       s.complete()
+      this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
       return
     }
     this._scheduleSettleTick()
@@ -8823,6 +8955,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!s.scratch.live) return
     for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
     s.complete()
+    this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
   }
 
   /** Drops the settle in flight without landing it — the field is gone. */
@@ -11420,12 +11553,16 @@ export class PencilEngine implements PencilEngineAPI {
     // it as a rectangle (see _pageRect).
     // (#536, §17.12) Reveals that ran out go before the frame, not after: the
     // frame that ends one draws the tile plain.
-    if (this._washReveals.size) this._sweepReveals(performance.now())
+    const perfT0 = performance.now()
+    if (this._washReveals.size) this._sweepReveals(perfT0)
     this._composeToFBO(false)
     // _composePaperToScreen manages its own framebuffer/viewport/blend state,
     // mirroring _runComposite/_finishInfiniteComposite's division of labor, so
     // nothing needs setting up here first.
     this._composePaperToScreen()
+    this._wcPerf.frameAt.push(perfT0)
+    this._wcPerf.frameMs.push(performance.now() - perfT0)
+    if (this._wcPerf.frameAt.length > 600) { this._wcPerf.frameAt.splice(0, 300); this._wcPerf.frameMs.splice(0, 300) }
     // …and while any reveal is still running, the next frame is owed — at
     // thirty a second, not every vsync: a full recomposite per frame for a
     // second and a half after every stroke was most of "всё это дело
