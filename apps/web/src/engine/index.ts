@@ -1367,6 +1367,19 @@ const SMUDGE_DEPOSIT_RATE = 2.0
  *  another colour start *mixed* rather than as a clean patch of its own. */
 const MIXER_PRIME_LOAD = 0.85
 
+/** #579 — the digital watercolor's wet rim, as a fraction of the brush's size,
+ *  clamped so a thin line still has one and a huge wash does not read its rim
+ *  from half a tile away (each ring sample is one texture read either way). */
+const WET_EDGE_OF_SIZE = 0.06
+const WET_EDGE_MIN_PX = 1.5
+const WET_EDGE_MAX_PX = 14
+
+/** #579 — world size of one tile of the bloom and granulation textures. Large
+ *  for the blooms, which are meant to be bigger than the brush; small for the
+ *  grain, which is meant to be finer than anything the brush draws. */
+const WET_CLOUD_PERIOD_PX = 640
+const WET_GRAIN_PERIOD_PX = 128
+
 // Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
 // marker has no hardness *scale* the way graphite's grades do (same
 // reasoning LINER_PRESET's own comment gives: one physical material, not a
@@ -1644,6 +1657,17 @@ class RibbonStrokeScratch {
     return this._tiles.get(tile) ?? null
   }
 
+  /** (#579) The digital watercolor's wet-edge reach, fixed by the gesture's
+   *  first dab — the same "first dab is what live and replay agree on" rule
+   *  as the spacing below. A per-batch value would draw a rim of a different
+   *  width across every batch boundary. */
+  private _brushEdgePx = 0
+
+  noteBrushEdgePx(px: number): number {
+    if (this._brushEdgePx === 0 && px > 0) this._brushEdgePx = px
+    return this._brushEdgePx
+  }
+
   noteDabSpacing(gap: number): number {
     if (this._dabSpacing === 0 && gap > 0.01) this._dabSpacing = gap
     return this._dabSpacing
@@ -1742,6 +1766,7 @@ class RibbonStrokeScratch {
     this._waterUsed = 0
     this._composite = null
     this._dabSpacing = 0
+    this._brushEdgePx = 0
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
@@ -5381,6 +5406,8 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
       'u_original', 'u_strokeCoverage', 'u_color', 'u_opacity', 'u_useCeiling',
       'u_screentone', 'u_screenOrigin',
+      'u_wetEdge', 'u_wetEdgePx', 'u_mottle', 'u_granulation', 'u_glaze',
+      'u_cloudTex', 'u_grainTex', 'u_cloudPeriod', 'u_cloudOrigin', 'u_grainPeriod', 'u_grainOrigin',
     ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
@@ -5676,7 +5703,16 @@ export class PencilEngine implements PencilEngineAPI {
     // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
     // mark. See dabSpacing.ts for the whole argument, including which tools
     // are deliberately left on the old rule.
-    this._dabs.footprint = isFootprintSpacedTool(this._strokeTool)
+    // (#579) Not for a brush whose stamps are separate marks (flowPer
+    // 'stamp': sponge, splatter, grass, foliage, grain). The footprint rule
+    // exists to hide the stamp — to keep a hard edge from reading as a row of
+    // discs — and for these the separate prints *are* the brush: a sponge
+    // spaced to the footprint came out as a smooth band with no dabs in it.
+    // Recorded strokes are unaffected: spacing is decided when the dabs are
+    // made, and a replay paints the dabs the log holds.
+    const stampBrush = this._strokeTool === 'digitalBrush'
+      && digitalBrushFromPreset(this._opts.pencilType).flowPer === 'stamp'
+    this._dabs.footprint = isFootprintSpacedTool(this._strokeTool) && !stampBrush
       ? {
         sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
         hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
@@ -8407,6 +8443,18 @@ export class PencilEngine implements PencilEngineAPI {
     const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
+    // (#579) The wet edge reads coverage up to edgePx away, so a pixel's
+    // finished value depends on stamps that far off: the composite has to
+    // reach that much further than the stamps, or a later batch changes a
+    // pixel no composite ever revisits, and the stroke comes out different
+    // live and on replay.
+    const edgePx = brush.wet && brush.wet.edge > 0
+      ? scratch.noteBrushEdgePx(clampNum(dabs[0].size * preset.sizeMultiplier * WET_EDGE_OF_SIZE, WET_EDGE_MIN_PX, WET_EDGE_MAX_PX))
+      : 0
+    const pad = edgePx > 0 ? Math.ceil(edgePx) + 1 : 0
+    const compositeBounds = pad > 0
+      ? { minX: bounds.minX - pad, minY: bounds.minY - pad, maxX: bounds.maxX + pad, maxY: bounds.maxY + pad }
+      : bounds
 
     const tipTex = brush.tip.kind === 'bitmap' && brush.tip.mask ? this._tipTexture(brush.tip.mask) : null
     const grain = brush.texture ? { ...brush.texture, tex: this._brushTexture(brush.texture.id) } : null
@@ -8475,9 +8523,9 @@ export class PencilEngine implements PencilEngineAPI {
       if (minmax) gl.blendEquation(gl.FUNC_ADD)
       coverage.endDraw()
 
-      this._drawBrushComposite(tile, bounds, brush, original, coverage, color, dabs[0].opacity, useCeiling)
+      this._drawBrushComposite(tile, compositeBounds, brush, original, coverage, color, dabs[0].opacity, useCeiling, edgePx)
     }
-    target.markContentPainted(bounds)
+    target.markContentPainted(compositeBounds)
   }
 
   /** #573 — BRUSH_COMPOSITE_FRAG over `bounds` in one tile: the finished pixel
@@ -8487,13 +8535,35 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawBrushComposite(
     tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
     brush: BrushDescriptor, original: AccumulationBuffer, coverage: AccumulationBuffer,
-    color: [number, number, number], opacity: number, useCeiling: boolean,
+    color: [number, number, number], opacity: number, useCeiling: boolean, edgePx: number,
   ): void {
     const { gl } = this
     const { buffer } = tile
     buffer.beginReplaceDraw()
     gl.useProgram(this._brushCompositeProg)
     const u = this._brushCompositeUni
+    // (#579) Digital watercolor. Zeros for every other brush — uniforms outlive
+    // the draw that set them, and this program is shared by the whole set.
+    const wet = brush.wet
+    gl.uniform1f(u.u_wetEdge, wet && edgePx > 0 ? wet.edge : 0)
+    gl.uniform1f(u.u_wetEdgePx, edgePx)
+    gl.uniform1f(u.u_mottle, wet?.mottle ?? 0)
+    gl.uniform1f(u.u_granulation, wet?.granulation ?? 0)
+    gl.uniform1f(u.u_glaze, wet?.glaze ? 1 : 0)
+    // Bound whether read or not: WebGL validates every declared sampler.
+    gl.activeTexture(gl.TEXTURE2)
+    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('cloud'))
+    gl.uniform1i(u.u_cloudTex, 2)
+    gl.activeTexture(gl.TEXTURE3)
+    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('grit'))
+    gl.uniform1i(u.u_grainTex, 3)
+    const wrapBy = (period: number) => (v: number): number => ((v % period) + period) % period
+    const cloudWrap = wrapBy(WET_CLOUD_PERIOD_PX)
+    const grainWrap = wrapBy(WET_GRAIN_PERIOD_PX)
+    gl.uniform1f(u.u_cloudPeriod, WET_CLOUD_PERIOD_PX)
+    gl.uniform2f(u.u_cloudOrigin, cloudWrap(tile.originX), cloudWrap(tile.originY))
+    gl.uniform1f(u.u_grainPeriod, WET_GRAIN_PERIOD_PX)
+    gl.uniform2f(u.u_grainOrigin, grainWrap(tile.originX), grainWrap(tile.originY))
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, original.texture)

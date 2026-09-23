@@ -3066,6 +3066,22 @@ export const BRUSH_COMPOSITE_FRAG = `
   // on the CPU — see _drawBrushComposite. Keeps every number this shader
   // handles small, so a mediump fallback cannot shift the dots.
   uniform vec2 u_screenOrigin;
+  // (#579) Digital watercolor — see BrushDescriptor.wet. u_wetEdgePx is a
+  // constant of the gesture (the first dab's size), so a live stroke and a
+  // replay of it read the same neighbourhood.
+  uniform float u_wetEdge;
+  uniform float u_wetEdgePx;
+  uniform float u_mottle;
+  uniform float u_granulation;
+  uniform float u_glaze;
+  // Canvas-anchored tone textures, each with its origin reduced modulo its own
+  // period on the CPU (same reason as u_screenOrigin).
+  uniform sampler2D u_cloudTex;
+  uniform sampler2D u_grainTex;
+  uniform float u_cloudPeriod;
+  uniform vec2 u_cloudOrigin;
+  uniform float u_grainPeriod;
+  uniform vec2 u_grainOrigin;
 
   void main() {
     vec2 tileUV = gl_FragCoord.xy / u_resolution;
@@ -3073,6 +3089,55 @@ export const BRUSH_COMPOSITE_FRAG = `
     if (c.r <= 0.0) discard;
     float cov = c.r;
     if (u_useCeiling > 0.5) cov *= c.a;
+
+    if (u_wetEdge > 0.0) {
+      // Mean coverage on two rings around this pixel. Where the stroke's own
+      // coverage stands above its surroundings the pixel is at the rim, where
+      // it matches them it is inside. Sixteen fixed directions written out
+      // rather than a loop over sin/cos: no transcendental per pixel, and no
+      // helper function called from several places — the ANGLE link failure
+      // with an empty log that pattern produced once already.
+      //
+      // Clamped at the tile's border like every coverage read here, so within
+      // one ring's width of a tile seam the rim is read a little softer. A
+      // bounded room's seams sit at x=1024/y=1024.
+      vec2 r1 = vec2(u_wetEdgePx) / u_resolution;
+      vec2 r2 = r1 * 0.5;
+      float ring = 0.0;
+      vec4 s;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(1.0, 0.0));        ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(-1.0, 0.0));       ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.0, 1.0));        ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.0, -1.0));       ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.7071, 0.7071));   ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(-0.7071, 0.7071));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.7071, -0.7071));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(-0.7071, -0.7071)); ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.9239, 0.3827));   ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.9239, 0.3827));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.9239, -0.3827));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.9239, -0.3827)); ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.3827, 0.9239));   ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.3827, 0.9239));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.3827, -0.9239));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.3827, -0.9239)); ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      float around = ring / 16.0;
+      float rim = clamp((cov - around) * 3.0, 0.0, 1.0);
+      // The interior gives up pigment to the rim: lighter inside, full tone at
+      // the edge, a touch darker than full right on it.
+      cov *= (1.0 - u_wetEdge * 0.45 * (1.0 - rim)) + u_wetEdge * 0.3 * rim;
+    }
+
+    if (u_mottle > 0.0 || u_granulation > 0.0) {
+      vec2 w = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+      // Both have a mean of ~0.5, so each factor averages to 1: the stroke
+      // keeps its overall tone and only its distribution changes.
+      float cloud = texture2D(u_cloudTex, (u_cloudOrigin + w) / u_cloudPeriod).r;
+      float grain = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r;
+      cov *= mix(1.0, 0.5 + cloud, u_mottle);
+      cov *= mix(1.0, 0.35 + 1.3 * grain, u_granulation);
+      cov = clamp(cov, 0.0, 1.0);
+    }
 
     if (u_screentone > 0.0) {
       // World position, top-down like every Dab.x/y: tiles are drawn with GL's
@@ -3096,6 +3161,16 @@ export const BRUSH_COMPOSITE_FRAG = `
 
     float alpha = clamp(cov * u_opacity, 0.0, 1.0);
     vec4 dst = texture2D(u_original, tileUV);
+    if (u_glaze > 0.5) {
+      // (#579) Premultiplied "multiply": Cs*Cd + Cs*(1 - ad) + Cd*(1 - as).
+      // Over paint it darkens what is there by the stroke's colour, over an
+      // empty part of the layer it is plain "over" — so a glaze on a blank
+      // sheet looks exactly like any other stroke until it crosses another.
+      vec3 cs = alpha * u_color;
+      gl_FragColor = vec4(cs * dst.rgb + cs * (1.0 - dst.a) + dst.rgb * (1.0 - alpha),
+                          alpha + (1.0 - alpha) * dst.a);
+      return;
+    }
     // Textbook premultiplied "over" onto the frozen pre-stroke pixel.
     gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
                         alpha + (1.0 - alpha) * dst.a);

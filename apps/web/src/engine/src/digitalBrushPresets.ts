@@ -149,9 +149,9 @@ export interface BrushScatter {
 /** Rows of the brush picker, in display order (#573). A property of the brush
  *  rather than a table in the UI, so a brush cannot be added without deciding
  *  where it goes. */
-export type BrushCategory = 'line' | 'paint' | 'soft' | 'texture' | 'scatter'
+export type BrushCategory = 'line' | 'paint' | 'wet' | 'soft' | 'texture' | 'scatter'
 
-export const BRUSH_CATEGORIES: readonly BrushCategory[] = ['line', 'paint', 'soft', 'texture', 'scatter']
+export const BRUSH_CATEGORIES: readonly BrushCategory[] = ['line', 'paint', 'wet', 'soft', 'texture', 'scatter']
 
 /** Which renderer a brush goes through.
  *
@@ -253,6 +253,26 @@ export interface BrushDescriptor {
    *  stamp — see tipMasks.ts on why only that survives the overlap of a
    *  continuous stroke. `periodPx` is the world size of one tile of it. */
   texture?: { id: BrushTextureId; periodPx: number; strength: number }
+  /** (#579) How the finished stroke is rendered like wet media — the digital
+   *  watercolor family, built the way Procreate builds its own: from the
+   *  stroke's coverage and a few render settings, with no fluid anywhere. The
+   *  physical watercolor tool (ADR 011) is a separate thing and stays one.
+   *
+   *  All four act in the composite, on the finished coverage, so none of them
+   *  is erased by stamps overlapping — the reason tone effects cannot live in
+   *  the tip (see tipMasks.ts on brush textures). */
+  wet?: {
+    /** 0..1 — pigment pulled to the rim: the interior lightens, the edge
+     *  keeps its full tone. Procreate's "Wet edges". */
+    edge: number
+    /** 0..1 — blooms: tone varied by a large canvas-anchored cloud texture. */
+    mottle: number
+    /** 0..1 — pigment settling into a fine grain. */
+    granulation: number
+    /** Multiply with what is already on the layer instead of covering it,
+     *  so strokes darken where they overlap — a transparent glaze. */
+    glaze: boolean
+  }
   /** (#573) Halftone pitch, world px — the composite turns the stroke's tone
    *  into dots of a fixed screen instead of a continuous fill. World-anchored,
    *  so two strokes of tone line up into one screen the way two pieces of
@@ -326,6 +346,10 @@ const OPACITY_LINEAR: BrushCurve = [[0, 0.06], [1, 1]]
 /** Tone that reaches a usable density early — painting brushes, where laying
  *  a flat mass should not be an exercise in pressing evenly. */
 const OPACITY_EARLY: BrushCurve = [[0, 0.12], [0.5, 0.65], [1, 1]]
+
+/** (#579) Wet media: a usable density from a moderate press — a glaze that
+ *  needs a firm hand to show at all is not a wash anyone can lay. */
+const OPACITY_WET: BrushCurve = [[0, 0.3], [0.5, 0.85], [1, 1]]
 
 /** Ink keeps most of its black at a light touch, but still answers it. */
 const OPACITY_INK: BrushCurve = [[0, 0.3], [0.5, 0.8], [1, 1]]
@@ -546,6 +570,132 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     // colour visibly into the next, short enough that a stroke still ends in
     // the colour it was loaded with.
     mixer: { load: 0.15, pickup: 0.3, strength: 1.4 },
+  },
+  // ── Digital watercolor (#579) ──
+  //
+  // The family every digital painting app ships as "Watercolor" and none of
+  // them simulates: a stroke's coverage, rendered with a wet edge, blooms,
+  // granulation and a multiplying glaze. Predictable in a way the physical
+  // watercolor tool (ADR 011) deliberately is not, which is what a lesson in
+  // digital painting needs — and what the named group keeps apart from that
+  // tool in the picker.
+  {
+    // The workhorse wash: soft enough to merge, transparent, blooming.
+    id: 'wet-wash',
+    version: 1, model: 'stamp', category: 'wet',
+    tip: roundTip(0.5),
+    paperInteraction: 0.15,
+    spacing: 0.07,
+    flow: 0.95, flowPer: 'pass',
+    sizeByPressure: SIZE_HALF,
+    flowByPressure: FLOW_LINEAR,
+    opacityByPressure: OPACITY_WET,
+    pressureSmoothingPx: 8,
+    opacity: 1,
+    wet: { edge: 0.55, mottle: 0.6, granulation: 0.1, glaze: true },
+  },
+  {
+    // Wet edge on its own terms: a firm stroke whose pigment has run to the
+    // rim and dried there as a dark outline.
+    id: 'wet-edge',
+    version: 1, model: 'stamp', category: 'wet',
+    tip: roundTip(0.9),
+    paperInteraction: 0.1,
+    spacing: 0.07,
+    flow: 0.95, flowPer: 'pass',
+    sizeByPressure: SIZE_HALF,
+    flowByPressure: FLOW_LINEAR,
+    opacityByPressure: OPACITY_WET,
+    pressureSmoothingPx: 8,
+    opacity: 1,
+    wet: { edge: 1, mottle: 0.25, granulation: 0, glaze: true },
+  },
+  {
+    // Granulating pigment — ultramarine, earth colours: the tone gathers in a
+    // fine grain rather than lying flat.
+    id: 'granulating',
+    version: 1, model: 'stamp', category: 'wet',
+    tip: roundTip(0.45),
+    paperInteraction: 0.2,
+    spacing: 0.07,
+    flow: 0.95, flowPer: 'pass',
+    sizeByPressure: SIZE_HALF,
+    flowByPressure: FLOW_LINEAR,
+    opacityByPressure: OPACITY_WET,
+    pressureSmoothingPx: 8,
+    opacity: 1,
+    wet: { edge: 0.35, mottle: 0.35, granulation: 0.85, glaze: true },
+  },
+  {
+    // A dry, loaded brush dragged fast: ragged rim, broken body, still a glaze.
+    id: 'dry-wash',
+    version: 1, model: 'stamp', category: 'wet',
+    tip: bitmapTip('rough', 'travel'),
+    paperInteraction: 0.35,
+    texture: { id: 'dry', periodPx: 320, strength: 0.7 },
+    spacing: 0.08,
+    flow: 0.95, flowPer: 'pass',
+    sizeByPressure: SIZE_HALF,
+    flowByPressure: FLOW_LINEAR,
+    opacityByPressure: OPACITY_WET,
+    pressureSmoothingPx: 8,
+    opacity: 0.95,
+    scatter: { count: 1, radius: 0, scale: 1, sizeJitter: 0.08, angleJitter: 0.03, flowJitter: 0 },
+    wet: { edge: 0.3, mottle: 0.3, granulation: 0.2, glaze: true },
+  },
+  {
+    // A flat whose hairs have clumped: one pass lays a stack of parallel
+    // glazed stripes, darker where their soft sides overlap.
+    id: 'wet-bands',
+    version: 1, model: 'stamp', category: 'wet',
+    tip: bitmapTip('clumps', 'travel'),
+    paperInteraction: 0.1,
+    // Without these the stripes come out ruled: a clump's position is fixed in
+    // the tip, so only per-stamp jitter and the canvas grain make a stripe
+    // wander and break the way a real one does.
+    texture: { id: 'dry', periodPx: 320, strength: 0.35 },
+    scatter: { count: 1, radius: 0.04, scale: 1, sizeJitter: 0.12, angleJitter: 0.02, flowJitter: 0.2 },
+    spacing: 0.03,
+    flow: 0.95, flowPer: 'pass', flowSpan: 0.4,
+    sizeByPressure: SIZE_HALF,
+    flowByPressure: FLOW_LINEAR,
+    opacityByPressure: OPACITY_WET,
+    pressureSmoothingPx: 8,
+    opacity: 1,
+    wet: { edge: 0.5, mottle: 0.3, granulation: 0, glaze: true },
+  },
+  {
+    // Dabbed rather than dragged: round prints far enough apart that each
+    // keeps its own wet rim, so the stroke's edge comes out scalloped.
+    id: 'sponge',
+    version: 1, model: 'stamp', category: 'wet',
+    tip: roundTip(0.7),
+    paperInteraction: 0.15,
+    spacing: 0.32,
+    flow: 0.9, flowPer: 'stamp',
+    sizeByPressure: SIZE_HALF,
+    flowByPressure: FLOW_LINEAR,
+    opacityByPressure: OPACITY_WET,
+    pressureSmoothingPx: 8,
+    opacity: 1,
+    wet: { edge: 0.8, mottle: 0.25, granulation: 0.1, glaze: true },
+  },
+  {
+    // Gouache: opaque, flat and matte — it covers what is under it rather
+    // than glazing it, with only a trace of the brush in the tone.
+    id: 'gouache',
+    version: 1, model: 'stamp', category: 'wet',
+    tip: roundTip(0.7),
+    paperInteraction: 0.1,
+    texture: { id: 'dry', periodPx: 384, strength: 0.18 },
+    spacing: 0.07,
+    flow: 0.95, flowPer: 'pass',
+    sizeByPressure: SIZE_HALF,
+    flowByPressure: FLOW_COVERING,
+    opacityByPressure: OPACITY_WET,
+    pressureSmoothingPx: 8,
+    opacity: 1,
+    wet: { edge: 0.15, mottle: 0.15, granulation: 0, glaze: false },
   },
   // ── Soft ──
   {
