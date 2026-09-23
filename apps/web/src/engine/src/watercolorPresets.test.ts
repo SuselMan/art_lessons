@@ -351,7 +351,7 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
       for (const u of [1, 8, 32, 100]) {
         expect(delivered(water, u, 0.01) / budget + watercolorPigmentLoad(u, water)).toBeCloseTo(1, 1)
       }
-      expect(delivered(water, 5000, 0.5)).toBeCloseTo(budget, 0)
+      expect(delivered(water, 5000, 0.5) / budget).toBeCloseTo(1, 1)
     }
     // Wet spends further, dry sooner: the observation the two runs came from.
     expect(watercolorPigmentRun(1)).toBeGreaterThan(watercolorPigmentRun(0) * 3)

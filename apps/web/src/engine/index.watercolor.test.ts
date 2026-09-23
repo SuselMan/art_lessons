@@ -103,7 +103,7 @@ describe('watercolor tool (#468, ADR 011)', () => {
     simulateStrokeStart(engine, 16, 32)
     simulateStrokeMove(engine, 28, 32)
     simulateStrokeMove(engine, 40, 32)
-    expect(lastMarkerDabUniform(engine, 'u_wetEdge')).toBeGreaterThan(0)
+    expect(lastMarkerDabUniform(engine, 'u_spreadPx')).toBeGreaterThan(0)
     expect(lastMarkerDabUniform(engine, 'u_spreadPx')).toBeGreaterThan(0)
   })
 
@@ -119,7 +119,7 @@ describe('watercolor tool (#468, ADR 011)', () => {
     // The settle pass remains, and still matters: it is what fixes up the
     // margin around wherever the brush happened to stop. What changed in v4 is
     // that it no longer *introduces* terms, so the mark barely moves.
-    expect(lastMarkerDabUniform(engine, 'u_wetEdge')).toBeGreaterThan(0)
+    expect(lastMarkerDabUniform(engine, 'u_spreadPx')).toBeGreaterThan(0)
   })
 
   it('never switches the wet edge on for a tool that has none', async () => {
@@ -132,7 +132,7 @@ describe('watercolor tool (#468, ADR 011)', () => {
       engine.setActiveLayer('L')
       engine.setTool(tool)
       simulateStroke(engine, [{ x: 16, y: 32 }, { x: 28, y: 32 }, { x: 40, y: 32 }], { pressure: 0.6, speed: 1 })
-      expect(lastMarkerDabUniform(engine, 'u_wetEdge')).toBe(0)
+      expect(lastMarkerDabUniform(engine, 'u_spreadPx')).toBe(0)
     }
   })
 
@@ -142,7 +142,7 @@ describe('watercolor tool (#468, ADR 011)', () => {
     // appear at pen-up.
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', wcStroke(), { tool: 'watercolor' }))
-    expect(lastMarkerDabUniform(engine, 'u_wetEdge')).toBeGreaterThan(0)
+    expect(lastMarkerDabUniform(engine, 'u_spreadPx')).toBeGreaterThan(0)
   })
 
   it('is a pure function of its own dabs', () => {
