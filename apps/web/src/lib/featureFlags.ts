@@ -65,6 +65,18 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     envVar: 'VITE_WC_VIEW_WATER',
   },
   {
+    key: 'wcNoSpread',
+    label: 'Watercolor A/B: composite spread off (dev only)',
+    description: 'Zeroes the composite\'s blur-and-rethreshold of the silhouette (u_spreadPx). The water front (#536, ADR 011 s17.24) now writes the wetted domain into the coverage itself; this shows what the re-threshold still adds - or eats.',
+    envVar: 'VITE_WC_NO_SPREAD',
+  },
+  {
+    key: 'wcNoMigrate',
+    label: 'Watercolor A/B: composite migration off (dev only)',
+    description: 'Zeroes the composite\'s pigment migration (u_migratePx, ADR 011 s17.6) - half its cost. The tideline now lives in the deposit (s17.23); this shows what the composite\'s own ring still contributes.',
+    envVar: 'VITE_WC_NO_MIGRATE',
+  },
+  {
     key: 'wcPerfHud',
     label: 'Watercolor: performance readout (dev only)',
     description: 'Live frame interval, batch cost, settle time and GPU memory of the watercolor tool (#536, ADR 011 s17.22) - for reading numbers off a tablet with no inspector attached.',

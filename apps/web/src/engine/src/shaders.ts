@@ -2815,78 +2815,76 @@ export const WC_FIELD_OP_FRAG = `
    *  tile before it. */
   uniform sampler2D u_c;
   /** (s17.23) Mode 4: a mask, rising from u_k to 4 u_k of a.a. Mode 5: a 3x3
-   *  binomial blur of a at u_dir texels of stride - the dome over a
-   *  footprint is a few of these at falling strides over its mask.
+   *  binomial blur of a at u_dir texels of stride.
    *
-   *  The rim (s17.23): paint inside a footprint goes to the footprint's
-   *  edge. Mode 9 erodes a mask; mode 6 writes the BAND texture - r the
-   *  sliver between the mask and its erosion, g the mask itself, both read
-   *  at a position warped by u_k px of a low-frequency noise of the WORLD
-   *  position (u_origin is the field's, so live and replay agree): the
-   *  cauliflower edge. Mode 7 is the paint to move, u_k * a * inside; mode 8 puts it
+   *  The rim (s17.23, s17.24): paint inside a footprint goes to the edge of
+   *  the WATER it sits in. u_d is the water front's cost texture
+   *  (WC_WATER_FRONT_FRAG), u_band = (budget, band width) over its costMax.
+   *  Mode 6 writes the BAND texture - r the band, the last width cells
+   *  inside the budget, g inside, the domain the water wets, each soft over
+   *  one cell. Mode 7 is the paint to move, u_k * a * inside; mode 8 puts it
    *  back: a * (1 - u_k * inside) + band * b / c, with b the moved paint
    *  gathered and c the band gathered by the same kernel, so what the
    *  interior lost lands on the band around it, mass kept to the kernel's
-   *  approximation. */
+   *  approximation. Mode 10 seeds the cost from a deposit: 0 where a.a is
+   *  above u_k, 1 (unreached) elsewhere. Mode 11 extends a coverage record
+   *  (a) over the domain (u_d.g): the silhouette and the standing-water
+   *  record (u_k) reach as far as the water did. */
   uniform vec2 u_dir;
   uniform sampler2D u_d;
   uniform vec2 u_origin;
   uniform vec2 u_size;
-  const float WC_RIM_NOISE_PX = 9.0;
-  // Macros, not functions: a helper called from more than one place makes
-  // ANGLE fail the link with an empty log (see project notes), and the dome
-  // is read by three modes.
-  #define WC_RIM_HASH(p) fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)
+  uniform vec2 u_band;
   varying vec2 v_uv;
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 11.5) {
+      // Seed of the inward pass: the outward cost in a.r; everything past
+      // the budget (u_k, over costMax) is the source at 0, the domain is
+      // unreached at 1.
+      float m = step(a.r, u_k);
+      gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
+      return;
+    }
+    if (u_mode > 10.5) {
+      float inside = texture2D(u_d, v_uv).g;
+      float r = a.a > 0.002 ? a.r : 0.5 * inside;
+      gl_FragColor = vec4(r, max(a.g, inside), max(a.b, inside * u_k), max(a.a, inside));
+      return;
+    }
+    if (u_mode > 9.5) {
+      // Seed of the outward pass: the footprint (a.a past u_k) at cost 0,
+      // everything else unreached at 1 - except the footprint's fringe, which
+      // is a RAMP of cost over u_k..4 u_k (u_band.x is one cell of cost),
+      // not a step: a live stroke's batches and a replay's one pass round
+      // the fringe a code or two apart, and a step there flips whole texels
+      // of the domain and its band between the two, where a ramp moves the
+      // front by a fraction of a cell.
+      float m = 1.0 - smoothstep(u_k, u_k * 4.0, a.a);
+      float cost = a.a > u_k ? m * u_band.x : 1.0;
+      gl_FragColor = vec4(cost, 0.0, 0.0, 1.0);
+      return;
+    }
     if (u_mode > 5.5) {
-      if (u_mode > 8.5) {
-        // Erode: the least of a 3x3 at u_dir of stride - the mask pulled in.
-        float m = 1.0;
-        for (int j = -1; j <= 1; j++) {
-          for (int i = -1; i <= 1; i++) {
-            m = min(m, texture2D(u_a, v_uv + vec2(float(i), float(j)) * u_dir).r);
-          }
-        }
-        gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
-        return;
-      }
       if (u_mode > 7.5) {
-        // Put the moved paint back: u_d is the band texture (r band, g
-        // inside), b the moved paint gathered, c the band gathered.
         vec4 bd = texture2D(u_d, v_uv);
         vec4 c = texture2D(u_c, v_uv);
         gl_FragColor = clamp(a * (1.0 - u_k * bd.g) + bd.r * b / max(c.r, 1e-3), 0.0, 1.0);
         return;
       }
       if (u_mode > 6.5) {
-        // The paint to move: u_k of a, inside the footprint (band texture .g).
         gl_FragColor = u_k * a * texture2D(u_d, v_uv).g;
         return;
       }
-      // The band: a is the footprint mask, u_d its erosion, both read at a
-      // position warped by a low-frequency value noise of the WORLD texel
-      // (top-down: the field's rows run bottom-up from its own height, so a
-      // texel gets the same number whatever size the field was allocated
-      // at - live and replay agree). r = the band, g = inside.
-      // Integer texel coordinates, so the hash sees the same number from a
-      // live settle and a replay whatever the field's allocated size (a
-      // half-texel from the rasteriser would not survive the hash); folded
-      // to 256 px so the argument stays where sin() is still a hash.
-      vec2 world = mod(floor(v_uv * u_size) * vec2(1.0, -1.0) + vec2(u_origin.x, u_origin.y + u_size.y - 1.0), 256.0);
-      vec2 np = world / WC_RIM_NOISE_PX;
-      vec2 ni = floor(np), nf = fract(np);
-      nf = nf * nf * (3.0 - 2.0 * nf);
-      float n1 = mix(mix(WC_RIM_HASH(ni), WC_RIM_HASH(ni + vec2(1.0, 0.0)), nf.x),
-                     mix(WC_RIM_HASH(ni + vec2(0.0, 1.0)), WC_RIM_HASH(ni + vec2(1.0, 1.0)), nf.x), nf.y);
-      vec2 nq = ni + 37.0;
-      float n2 = mix(mix(WC_RIM_HASH(nq), WC_RIM_HASH(nq + vec2(1.0, 0.0)), nf.x),
-                     mix(WC_RIM_HASH(nq + vec2(0.0, 1.0)), WC_RIM_HASH(nq + vec2(1.0, 1.0)), nf.x), nf.y);
-      vec2 wuv = v_uv + vec2(n1 - 0.5, n2 - 0.5) * 2.0 * u_k / u_size;
-      float inside = texture2D(u_a, wuv).r;
-      float band = inside * (1.0 - texture2D(u_d, wuv).r);
+      // The domain from the outward cost (u_d, budget u_band.x, one cell of
+      // cost u_size.x the softness of its edge); the band from the INWARD
+      // cost (u_c: how far a texel is from the front, over the paper): the
+      // last u_band.y cells inside it, cell u_size.y.
+      float costOut = texture2D(u_d, v_uv).r;
+      float costIn = texture2D(u_c, v_uv).r;
+      float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, costOut);
+      float band = inside * (1.0 - smoothstep(u_band.y, u_band.y + u_size.y, costIn));
       gl_FragColor = vec4(band, inside, 0.0, 1.0);
       return;
     }
@@ -3090,6 +3088,61 @@ export const WC_DIFFUSE_FRAG = `
       }
     }
     gl_FragColor = max(out4, vec4(0.0));
+  }
+`;
+
+/** (#536, ADR 011 §17.24) One relaxation step of the WATER FRONT — the
+ *  GPU twin of wettingCost in waterFront.ts. u_cost.r is the cost of
+ *  reaching a texel from the operation's footprint, in cells over
+ *  u_costMax (1.0 = not reached); a step takes the least over the eight
+ *  neighbours of their cost plus the edge's, and the edge is dearer uphill
+ *  on the paper and never cheaper than u_floor. Repeated ~1.4 x budget
+ *  times, the texels within the budget are the domain the water wets: its
+ *  edge runs ahead in the paper's valleys and stalls on its ridges — the
+ *  drying front the rims are built on. min and add only, so live and
+ *  replay agree to the bit. */
+export const WC_WATER_FRONT_FRAG = `
+  precision highp float;
+  uniform sampler2D u_cost;
+  uniform sampler2D u_paperHeightMap;
+  uniform vec2 u_resolution;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
+  uniform vec2 u_paperScale;
+  uniform float u_climb;
+  uniform float u_floor;
+  uniform float u_costMax;
+  varying vec2 v_uv;
+
+  float wcFrontHeightAt(vec2 px) {
+    vec2 paperUV = (px + u_paperOrigin) / u_paperTexSize * u_paperScale;
+    return texture2D(u_paperHeightMap, paperUV).r;
+  }
+
+  void main() {
+    vec2 texel = 1.0 / u_resolution;
+    vec2 px = v_uv * u_resolution;
+    float best = texture2D(u_cost, v_uv).r * u_costMax;
+    float hj = wcFrontHeightAt(px);
+    for (int k = 0; k < 8; k++) {
+      vec2 o;
+      if (k == 0) o = vec2( 1.0,  0.0);
+      else if (k == 1) o = vec2(-1.0,  0.0);
+      else if (k == 2) o = vec2( 0.0,  1.0);
+      else if (k == 3) o = vec2( 0.0, -1.0);
+      else if (k == 4) o = vec2( 1.0,  1.0);
+      else if (k == 5) o = vec2(-1.0,  1.0);
+      else if (k == 6) o = vec2( 1.0, -1.0);
+      else o = vec2(-1.0, -1.0);
+      vec2 uvj = v_uv + o * texel;
+      if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
+      float ci = texture2D(u_cost, uvj).r;
+      if (ci >= 0.999) continue;
+      float len = k < 4 ? 1.0 : 1.41421356;
+      float edge = len * max(u_floor, 1.0 + u_climb * (hj - wcFrontHeightAt(px + o)));
+      best = min(best, ci * u_costMax + edge);
+    }
+    gl_FragColor = vec4(min(best, u_costMax) / u_costMax, 0.0, 0.0, 1.0);
   }
 `;
 

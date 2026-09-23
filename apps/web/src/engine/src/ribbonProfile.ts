@@ -626,7 +626,11 @@ const WATERCOLOR_STAMP_INK_SHARE = 0.82
  *  tone. */
 const WATERCOLOR_CONE_DEPOSIT_GAIN = 0.27
 
-const WATERCOLOR_SPREAD_CAP_PX = 26.0
+//  (#536, §17.24) 3, from 26: the spread is the water front's now (the
+//  settle extends the silhouette to where the water ran); the composite's
+//  re-threshold is left as the edge's reconstruction only, and a wide blur
+//  here would smooth the ragged front the settle just made.
+const WATERCOLOR_SPREAD_CAP_PX = 3.0
 
 /** (#536) How much further a wash travels through water already on the paper,
  *  as a multiplier on its reach at full soak. The cap moves with it (see

@@ -17,7 +17,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
-  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorSpreadBudget,
   watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
@@ -92,6 +92,15 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     expect(watercolorBloomStrength(0.3)).toBeGreaterThan(0.9)
     expect(watercolorBloomStrength(0.9)).toBe(0)
     expect(watercolorBloomStrength(0.55)).toBeLessThan(watercolorBloomStrength(0.3))
+  })
+
+  it('spreads a wet brush further on wet paper than a dry one on dry (§17.24)', () => {
+    expect(watercolorSpreadBudget(30, 1, 1)).toBeGreaterThan(watercolorSpreadBudget(30, 1, 0))
+    expect(watercolorSpreadBudget(30, 1, 0)).toBeGreaterThan(watercolorSpreadBudget(30, 0, 0))
+    // The photo's drop: a third of its radius on damp paper.
+    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeGreaterThan(0.25)
+    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeLessThan(0.45)
+    expect(watercolorSpreadBudget(300, 1, 1)).toBe(40)
   })
 
   it('runs a brush dry only when it carries pigment', () => {

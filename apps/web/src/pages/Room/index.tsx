@@ -2541,6 +2541,13 @@ export function Room() {
   useEffect(() => {
     engineRef.current?.setWatercolorDebugView(wcDebugView)
   }, [wcDebugView, engineEpoch])
+  // (#536, §17.24) A/B switches for the composite's two presentation-time
+  // effects the deposit now carries itself.
+  const wcNoSpread = getFeatureFlag('wcNoSpread')
+  const wcNoMigrate = getFeatureFlag('wcNoMigrate')
+  useEffect(() => {
+    engineRef.current?.setWatercolorAb({ noSpread: wcNoSpread, noMigrate: wcNoMigrate })
+  }, [wcNoSpread, wcNoMigrate, engineEpoch])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:

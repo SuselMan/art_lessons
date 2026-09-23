@@ -749,16 +749,53 @@ export const WC_BLOOM_DAMP_LO = 0.06
 export const WC_BLOOM_DAMP_PEAK = 0.25
 export const WC_BLOOM_WET_LO = 0.45
 export const WC_BLOOM_WET_HI = 0.7
-/** The share of the wash's SETTLED paint inside a drop's footprint that the
- *  drop pushes to the footprint's edge, at full bloom strength: the light
- *  interior and the dark ring of a bloom (bloom_akv_2, bloom_wa_drop).
+// ─── The water front (#536, ADR 011 §17.24) ────────────────────────────────
+//
+// Where a mark's water stops is decided by the sheet, not by the brush: the
+// domain it wets is wider than the footprint, its edge runs ahead in the
+// paper's valleys and stalls on its ridges, and that edge is where the
+// tideline and a bloom's ring end up. waterFront.ts is the oracle, measured
+// against a photograph of a bloom; WC_WATER_FRONT_FRAG the GPU twin.
+
+/** Edge cost uphill: |ij| · max(floor, 1 + climb · Δh) per cell, paper
+ *  height 0..1. Calibrated on the BAKED medium paper, not the oracle's
+ *  synthetic one, whose relief per pixel is half as steep (|Δh| 0.04 against
+ *  0.09): a radius-30 disc with a budget of 10 cells runs to 1.26 R with
+ *  10–16 lobes and an angular spread of 0.08 at 30, against the photo's
+ *  1.3 and 10–12; 60 stalls it at 1.19 R. */
+export const WC_FRONT_CLIMB = 30
+export const WC_FRONT_FLOOR = 0.22
+/** The inward pass that places the band (s17.24): same law, a gentler
+ *  relief, so the band is `width` cells deep with fingers a few cells
+ *  longer in the valleys - at the outward pass's floor a valley ran the
+ *  band a third of the way to the centre and the ring read as a smear. */
+export const WC_FRONT_CLIMB_IN = 15
+export const WC_FRONT_FLOOR_IN = 0.5
+/** Relaxation steps per settle, capped: each is one cheap 8-tap pass. */
+export const WC_FRONT_MAX_STEPS = 28
+/** How far the water runs past the footprint, px, from the mark's radius,
+ *  the brush's water and the wetness it landed in: a wet brush on wet paper
+ *  spreads a third of its radius (the photo's drop: 1.3 x), the same brush
+ *  on dry paper a tenth — a wet-on-dry mark bleeds only a little. */
+export function watercolorSpreadBudget(radiusPx: number, water: number, landedWet: number): number {
+  const w = clamp01(water), l = clamp01(landedWet)
+  return Math.max(2, Math.min(40, radiusPx * (0.1 + 0.4 * w * (0.15 + 0.85 * l))))
+}
+
+/** The share of the wash's settled paint that a drop of water lifts and
+ *  carries to its front, at full bloom strength (watercolorBloomStrength):
+ *  the light interior of a bloom and its dark ring. Not derived from the
+ *  band's width like the tideline's share: the photo (bloom_wa_drop) has
+ *  the centre at half the wash's density whatever the ring's width, and the
+ *  ring is then as dark as that mass on that band makes it (1.5-3x in the
+ *  deposit for a 40 px drop, compressed by the composite's saturation).
  *
  *  Why a relocation and not the oracle's advection: the GPU fields are eight
  *  bits, and a drift of a few per cent of a value of forty codes per step
- *  rounds to nothing — measured, the advection at three times the oracle's
+ *  rounds to nothing - measured, the advection at three times the oracle's
  *  rate only flattened the profile. Moving the share in one pass keeps the
  *  amount whatever the precision. */
-export const WC_BLOOM_RIM = 2.0
+export const WC_BLOOM_SHARE = 0.5
 /** How much darker than its body a mark's rim ends up — the tideline of
  *  every wash (str_ldm_2809, gran_wa_main): the band gets this much of the
  *  body's density on top of its own. The share of the interior moved is

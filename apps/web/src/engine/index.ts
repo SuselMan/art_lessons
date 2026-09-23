@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -69,7 +69,8 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
-  watercolorBloomStrength, watercolorRimShare, WC_BLOOM_RIM, WC_TIDE_RIM, WC_RIM_WARP_BLOOM_PX, WC_RIM_WARP_TIDE_PX, WC_RIM_BAND_PX, WC_RIM_INSET_PX, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  watercolorBloomStrength, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_RIM, WC_RIM_BAND_PX,
+  watercolorSpreadBudget, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_MAX_STEPS, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -920,6 +921,8 @@ export interface PencilEngineAPI {
   exportPNG(transparent?: boolean): Promise<Blob | null>
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
+  /** (#536, §17.24) Dev-only A/B: composite spread and migration off. */
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean }): void
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
@@ -2283,6 +2286,7 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536, §17.19) The colour record's own trio, moved by the same gate. */
     ca: AccumulationBuffer; cb: AccumulationBuffer; cc: AccumulationBuffer
       mask: AccumulationBuffer; pressure: AccumulationBuffer
+      band: AccumulationBuffer
   } | null = null
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
@@ -2310,6 +2314,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536) One step of pigment diffusion in standing water — see
    *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
   private _diffuseProg!: WebGLProgram
+  /** (#536, §17.24) The water front's relaxation — see WC_WATER_FRONT_FRAG. */
+  private _waterFrontProg!: WebGLProgram
+  private _waterFrontUni!: Record<string, WebGLUniformLocation | null>
+  private _waterFrontPosLoc = -1
   private _diffuseUni!: Record<string, WebGLUniformLocation | null>
   private _diffusePosLoc = -1
   private _ribbonPosLoc!: number
@@ -3472,7 +3480,7 @@ export class PencilEngine implements PencilEngineAPI {
       batchesPerSec: p.batchAt.length * 1000 / span, batchP50: pct(p.batchMs, 0.5), batchMax: pct(p.batchMs, 1),
       settleMs: p.settleMs, settleOps: p.settleOps,
       scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,
-      fieldMB: field ? field.w * field.h * 4 * 9 * MB : 0,
+      fieldMB: field ? field.w * field.h * 4 * 10 * MB : 0,
       revealMB: revealBytes * MB,
       wetCells: this._paperWet.peak(now) > 0.01 ? this._paperWet.cellsOf(this._activeId ?? '', now).filter(c => c.w > 0.1).length : 0,
     }
@@ -3480,6 +3488,14 @@ export class PencilEngine implements PencilEngineAPI {
 
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void {
     this._wcDebugView = view
+    this._display()
+  }
+
+  /** (#536, §17.24) Applied in _drawRibbonCompositeDab, so a replay under the
+   *  switch recomposites the same deposit without the effect. */
+  private _wcAb = { noSpread: false, noMigrate: false }
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean }): void {
+    this._wcAb = { ...ab }
     this._display()
   }
 
@@ -5510,6 +5526,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
+    this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -5574,8 +5591,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
+    this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
+      'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
+      'u_climb', 'u_floor', 'u_costMax',
+    ])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
       'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
@@ -5607,6 +5628,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
+    this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
     this._areaTransformPosLoc  = gl.getAttribLocation(this._areaTransformProg, 'a_position')
     this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
@@ -8688,8 +8710,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number] } = {},
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12, k: number,
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number] } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -8719,7 +8741,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_mode, mode)
     gl.uniform2f(u.u_dir, opts.dir ? opts.dir[0] / out.width : 0, opts.dir ? opts.dir[1] / out.height : 0)
     gl.uniform2f(u.u_origin, opts.origin ? opts.origin[0] : 0, opts.origin ? opts.origin[1] : 0)
-    gl.uniform2f(u.u_size, out.width, out.height)
+    gl.uniform2f(u.u_size, opts.size ? opts.size[0] : out.width, opts.size ? opts.size[1] : out.height)
+    gl.uniform2f(u.u_band, opts.band ? opts.band[0] : 0, opts.band ? opts.band[1] : 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
     out.endDraw()
@@ -8818,6 +8841,10 @@ export class PencilEngine implements PencilEngineAPI {
      *  gathering kernel — the whole interior feeds the rim, not just its
      *  neighbourhood. */
     radiusPx = 16,
+    /** (§17.24) The brush's water and the wetness the mark landed in — how
+     *  far its water runs past the footprint (watercolorSpreadBudget) — and
+     *  the standing water the extended domain records. */
+    water = 1, landedWet = 0, standing = 1,
   ): { ops: Array<() => void>; finish: () => void } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
@@ -8928,47 +8955,92 @@ export class PencilEngine implements PencilEngineAPI {
     // mask blurred at falling strides, 1 deep inside, 0.5 on the edge, 0
     // outside. Then the band just inside the edge, blurred by the rim's
     // kernel, kept in `mask` for both rims below. Once per settle.
-    const origin: [number, number] = [x0, y0]
-    // (§17.23) The footprint's band, once per settle: the mask of the
-    // operation's own deposit (the mobile field, before anything moves),
-    // its erosion by WC_RIM_BAND_PX, and the band between the two — kept
-    // in `pressure` (r band, g inside) for both rims below. Then the band
-    // gathered by the rim's kernel, kept in `mask`: what the moved paint is
-    // divided by so the band gets what the interior lost. The kernel spans
-    // the mark's radius, so the whole interior feeds the rim.
+    // (§17.24) The water front, once per settle: the operation's footprint
+    // (its mobile deposit before anything moves) seeds a cost field, the
+    // relaxation runs it out over the paper, and the texels within the
+    // budget are the domain the water wets. From the cost: the band texture
+    // (r the last `width` cells inside the front, g the domain), and the
+    // stitched coverage extended over the domain, so the silhouette and the
+    // diffusion's gate reach as far as the water did. Then the band
+    // gathered by the rim's kernel, kept in `mask`.
+    const budgetPx = watercolorSpreadBudget(radiusPx, water, landedWet)
+    const costMax = budgetPx + 4
+    const frontSteps = Math.min(WC_FRONT_MAX_STEPS, Math.ceil(1.4 * budgetPx))
+    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 8)))
+    // The band is the last `width` cells inside the front, measured by a
+    // second relaxation run INWARD from everything past the budget, over the
+    // same paper: a band from the outward cost alone cannot reach into the
+    // footprint, whose cost is zero throughout. Its own scale, so the 8 bits
+    // resolve a cell.
+    const costMaxIn = width + 3
+    const inSteps = width + 2
     const gather: Array<[number, number]> = [radiusPx / 2, radiusPx / 4, radiusPx / 8, 1].map(v => { const s = Math.max(1, Math.round(v)); return [s, s] })
-    // The band sits WC_RIM_INSET_PX inside the mask's edge, clear of the
-    // stamp's anti-aliased fringe, and is WC_RIM_BAND_PX wide: between the
-    // mask eroded by the inset and the mask eroded by inset + width. Each
-    // erosion pass pulls the mask in by 2 px.
-    // Both scale with the mark, within limits: a tideline is a thin line on
-    // any wash, and a small drop's ring must leave it an interior.
-    const inset = Math.max(1, Math.min(WC_RIM_INSET_PX, Math.round(radiusPx / 8)))
-    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 4)))
-    const w1 = Math.ceil(width / 2), w2 = width - w1
-    const band = (mobile: AccumulationBuffer, tmp: AccumulationBuffer, spare: AccumulationBuffer): void => {
-      this._fieldOp(field.mask, mobile, mobile, 4, 0.003)
-      // The outer edge of the band: the mask eroded by the inset — into tmp.
-      this._fieldOp(tmp, field.mask, field.mask, 9, 0, { dir: [inset, inset] })
-      // The inner edge: eroded further by the band's width — into spare.
-      this._fieldOp(spare, tmp, tmp, 9, 0, { dir: [w1, w1] })
-      this._fieldOp(field.pressure, spare, spare, 9, 0, { dir: [Math.max(w2, 1), Math.max(w2, 1)] })
-      this._fieldOp(spare, field.pressure, field.pressure, 9, 0, { dir: [w2 > 0 ? 1 : 0, w2 > 0 ? 1 : 0] })
-      this._fieldOp(field.pressure, tmp, tmp, 6, bloom > 0 ? WC_RIM_WARP_BLOOM_PX : WC_RIM_WARP_TIDE_PX, { d: spare, origin })
-      this._fieldOp(tmp, field.pressure, field.pressure, 5, 0, { dir: gather[0] })
-      this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[1] })
-      this._fieldOp(tmp, field.mask, field.mask, 5, 0, { dir: gather[2] })
-      this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[3] })
+    const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR): void => {
+      dst.beginReplaceDraw()
+      gl.useProgram(this._waterFrontProg)
+      const u = this._waterFrontUni
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      gl.enableVertexAttribArray(this._waterFrontPosLoc)
+      gl.vertexAttribPointer(this._waterFrontPosLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, src.texture)
+      gl.uniform1i(u.u_cost, 0)
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+      gl.uniform1i(u.u_paperHeightMap, 1)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.uniform2f(u.u_resolution, field.w, field.h)
+      gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
+      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+      gl.uniform1f(u.u_climb, climb)
+      gl.uniform1f(u.u_floor, floor)
+      gl.uniform1f(u.u_costMax, max)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      dst.endDraw()
+    }
+    // The front as entries of `ops`, a few relaxation steps per entry so no
+    // frame runs the whole field thirty times: the outward cost from the
+    // footprint into `pressure`, the inward cost from past-the-budget into
+    // `mask`, then the band texture, the coverage extended over the domain,
+    // and the band gathered into `mask` for the rims.
+    const frontOps = (mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
+      const pp = { src: field.pressure, dst: tmp }
+      const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number): void => {
+        for (let i = 0; i < steps; i += 4) {
+          const n = Math.min(4, steps - i)
+          ops.push(() => {
+            for (let j = 0; j < n; j++) { frontStep(pp.src, pp.dst, max, climb, floor); const t = pp.src; pp.src = pp.dst; pp.dst = t }
+            if (i + n >= steps && pp.src !== home) this._fieldOp(home, pp.src, pp.src, 1, 0)
+          })
+        }
+      }
+      ops.push(() => { this._fieldOp(field.pressure, mobile, mobile, 10, 0.003, { band: [1 / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
+      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
+      ops.push(() => { this._fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax); pp.src = field.mask; pp.dst = tmp })
+      // Inward over a gentler relief: the band's inner edge follows the
+      // valleys a few cells in (the photo's streaks pointing into the light
+      // centre), not a third of the way to the middle.
+      run(inSteps, costMaxIn, field.mask, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN)
+      ops.push(() => {
+        this._fieldOp(field.band, field.pressure, field.pressure, 6, 0, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn] })
+        this._fieldOp(tmp, field.coverage, field.band, 11, standing, { d: field.band })
+        this._fieldOp(field.coverage, tmp, tmp, 1, 0)
+        this._fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
+        this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[1] })
+        this._fieldOp(tmp, field.mask, field.mask, 5, 0, { dir: gather[2] })
+        this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[3] })
+      })
     }
     // (§17.23) The rim: `share` of `paint` inside the footprint goes to the
     // band. Two free buffers; the result lands in `t2`.
     const rim = (paint: AccumulationBuffer, share: number, t1: AccumulationBuffer, t2: AccumulationBuffer): void => {
-      this._fieldOp(t1, paint, paint, 7, share, { d: field.pressure })
+      this._fieldOp(t1, paint, paint, 7, share, { d: field.band })
       this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[0] })
       this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[1] })
       this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[2] })
       this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[3] })
-      this._fieldOp(t2, paint, t1, 8, share, { c: field.mask, d: field.pressure })
+      this._fieldOp(t2, paint, t1, 8, share, { c: field.mask, d: field.band })
     }
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
@@ -8981,17 +9053,17 @@ export class PencilEngine implements PencilEngineAPI {
       ops.push(() => {
         fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
         fieldOp(b, a, c, 1, -1)
-        // The footprint and its band come from the deposit's mobile field,
-        // once; the colour record rides the same ones.
-        if (first) band(c, a, spare)
       })
+      // The water front, its band and the extended coverage come from the
+      // deposit's mobile field, once; the colour record rides the same.
+      if (first) frontOps(c, a)
       // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
       // footprint goes to the footprint's edge — the light patch with the
       // dark ragged ring. Only as much as the recorded wetness says the wash
       // was damp (watercolorBloomStrength); `a` and `spare` are free here.
       if (bloom > 0) {
         ops.push(() => {
-          rim(b, watercolorRimShare(WC_BLOOM_RIM, radiusPx, width) * bloom, a, spare)
+          rim(b, WC_BLOOM_SHARE * bloom, a, spare)
           fieldOp(b, spare, spare, 1, 0)
         })
       }
@@ -9066,6 +9138,8 @@ export class PencilEngine implements PencilEngineAPI {
         const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
         dep.out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
         dep.out.copyRegionInto(entry.inkSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        // (§17.24) …and the coverage the water front extended.
+        field.coverage.copyRegionInto(entry.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
         if (entry.inkColor && entry.colorSettled) {
           col.out.copyRegionInto(entry.inkColor, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
           col.out.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
@@ -9168,7 +9242,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!cur) return
       cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
       cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
-      cur.mask.destroy(); cur.pressure.destroy()
+      cur.mask.destroy(); cur.pressure.destroy(); cur.band.destroy()
       this._diffuseField = null
     }, WET_FIELD_RELEASE_MS) as unknown as number
   }
@@ -9191,7 +9265,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (cur) {
       cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
       cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
-      cur.mask.destroy(); cur.pressure.destroy()
+      cur.mask.destroy(); cur.pressure.destroy(); cur.band.destroy()
     }
     const W = Math.max(need(w), cur?.w ?? 0), H = Math.max(need(h), cur?.h ?? 0)
     const { gl } = this
@@ -9209,6 +9283,7 @@ export class PencilEngine implements PencilEngineAPI {
       // warped positions.
       mask: new AccumulationBuffer(gl, W, H, 'linear'),
       pressure: new AccumulationBuffer(gl, W, H, 'linear'),
+      band: new AccumulationBuffer(gl, W, H, 'nearest'),
     }
     this._diffuseField = field
     return field
@@ -9273,7 +9348,11 @@ export class PencilEngine implements PencilEngineAPI {
       const bloom = watercolorBloomStrength(ctx.landedWet)
       // Dev probe for the rig: what this settle was given.
       Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, reveal } })
-      const job = this._diffuseWashOps(scratch, targets, bounds, bloom, ctx.radiusPx)
+      const delivery = ribbonWaterDelivery(profile)
+      const job = this._diffuseWashOps(
+        scratch, targets, bounds, bloom, ctx.radiusPx,
+        profile.waterLevel, ctx.landedWet, delivery.water * (delivery.retain + (1 - delivery.retain) * Math.min(1, ctx.landedWet)),
+      )
       if (job) {
         const complete = (): void => {
           job.finish()
@@ -9592,6 +9671,8 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     const { gl } = this
     const { buffer } = tile
+    if (this._wcAb.noSpread) spreadPx = 0
+    if (this._wcAb.noMigrate) migratePx = 0
     // Overwrite, not "over" (#330) — this branch recomputes the finished pixel
     // from scratch every time, so blending it into its own previous output
     // compounded alpha once per dab. See beginReplaceDraw's own comment.
@@ -10482,8 +10563,14 @@ export class PencilEngine implements PencilEngineAPI {
     if (age >= WET_DRY_MS) return
     const now = performance.now() - age
     const water = watercolorMixFromPreset(preset).water
+    // The nib's own radius, as the ribbon lays it (size x sizeMultiplier),
+    // not the brush's nominal one: the wet map draws the standing water's
+    // meniscus at the wet patch's edge, and at the nominal radius that bead
+    // sat ten pixels outside the paint at every stroke end - a thin grey
+    // arc off each cap that read as an outline of nothing.
+    const sizeMul = this._resolvePreset(tool, preset).sizeMultiplier
     for (const dab of dabs) {
-      this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now)
+      this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5 * sizeMul * Math.max(dab.aspectRatio, 1), standing?.get(dab) ?? water, now)
     }
     this._scheduleDryingRepaint()
   }
