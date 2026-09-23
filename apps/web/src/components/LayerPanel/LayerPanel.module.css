@@ -104,6 +104,16 @@
   background: color-mix(in srgb, var(--color-warning) 12%, transparent);
 }
 
+/* (#557) Solo switch — lit in the accent while a solo is on, like the lock,
+   because both mean "this panel is in a state you asked for". */
+.toolbarBtnSolo {
+  color: var(--color-accent);
+}
+.toolbarBtnSolo:hover {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
 .hiddenFileInput {
   display: none;
 }
@@ -253,6 +263,20 @@
 }
 .rowIconBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
 .rowIconBtn :global(.material-symbols-outlined) { font-size: 15px; }
+
+/* (#557) The eye during a solo. The soloed row's eye is lit; every other
+   row's is faded rather than switched to the crossed-out glyph, since the
+   shared visibility it reports has not changed — only this viewer's look at
+   it has. Faded further than .rowIconBtnDim so the two states are telling
+   apart on a tablet. */
+.rowIconBtnSolo {
+  color: var(--color-accent);
+}
+.rowIconBtnSolo:hover { color: var(--color-accent); }
+.rowIconBtnSoloHidden {
+  color: var(--color-text-faint);
+  opacity: 0.45;
+}
 
 /* Lock icon: dim (unlocked state) */
 .rowIconBtnDim {

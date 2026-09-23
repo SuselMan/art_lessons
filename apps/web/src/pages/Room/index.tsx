@@ -35,7 +35,8 @@ import { ToolGroupButton } from '../../components/ToolGroupButton'
 import type { PickerOption } from '../../components/OptionPicker/types'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import {
-  computeCompositeOrder, eraseThroughTargets, isEffectivelyVisible, isLayerLocked, isLockedAgainst,
+  computeCompositeOrder, eraseThroughTargets, isLayerLocked, isLockedAgainst,
+  isVisibleUnderSolo, soloKeepSet,
 } from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
@@ -812,6 +813,10 @@ export function Room() {
   // see the slice's own comment for why hiding is private.
   const annotations = useRoomStore(s => s.annotations)
   const annotationsHidden = useRoomStore(s => s.annotationsHidden)
+  // (#557) The layer solo: the same kind of private view state as
+  // `annotationsHidden`, applied to the engine as a display filter below.
+  const soloIds = useRoomStore(s => s.soloIds)
+  const setSoloIds = useRoomStore(s => s.setSoloIds)
   const setAnnotationsHidden = useRoomStore(s => s.setAnnotationsHidden)
   const annotationDraft = useRoomStore(s => s.annotationDraft)
   const collapsedAnnotationIds = useRoomStore(s => s.collapsedAnnotationIds)
@@ -3200,13 +3205,25 @@ export function Room() {
     // stroke of it. The gate is where that belongs — refusing the stroke is
     // silent and complete, where letting it through and rejecting it later
     // costs the drawing.
+    // (#557) `isVisibleUnderSolo` rather than `isEffectivelyVisible`: a layer
+    // the solo has put out of view is invisible to its author in exactly the
+    // sense #359 is about, and refuses paint for the same reason.
     engine.setLocked(
       isLayerLocked(layerState, layerState.activeId, isOwner)
-      || !isEffectivelyVisible(layerState, layerState.activeId)
+      || !isVisibleUnderSolo(layerState, layerState.activeId, soloIds)
       || !isDrawingTool(tool),
     )
+    // The picture, then this viewer's look at it. The order is the shared
+    // visibility and nothing else, so exportPNG (and the room thumbnail
+    // through it) never sees the solo; only the on-screen composite does.
     engine.setCompositeOrder(computeCompositeOrder(layerState))
-  }, [layerState, tool, isOwner])
+    const soloKeep = soloKeepSet(layerState, soloIds)
+    engine.setDisplayFilter(soloKeep)
+    // A solo whose every target has been deleted (by a peer, say) is over —
+    // `soloKeepSet` already shows everything again; this just stops the
+    // panel's switch from staying lit for a solo of nothing.
+    if (soloKeep === null && soloIds.length > 0) setSoloIds([])
+  }, [layerState, tool, isOwner, soloIds, setSoloIds])
 
   // (#520) Which layers the eraser goes through, when it is set to go through
   // them at all. Pushed from here rather than decided in the engine because the
@@ -7984,7 +8001,13 @@ export function Room() {
             tabs={[
               {
                 id: 'layers', icon: 'layers', title: t('room.panel.layers'),
-                content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} hasLayerContent={hasLayerContent} />,
+                content: (
+                  <LayerPanel
+                    layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp}
+                    isOwner={isOwner} hasLayerContent={hasLayerContent}
+                    soloIds={soloIds} onSoloChange={setSoloIds}
+                  />
+                ),
               },
               {
                 // (#542) The colour surface, always here. Not the old Color tab

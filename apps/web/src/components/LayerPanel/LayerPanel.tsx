@@ -34,7 +34,7 @@ import { patchItem } from './utils'
 import { buildDuplicateOps } from './duplicate'
 import {
   isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
-  placementAbove, normalizeMoveSet, isLockedByAncestor,
+  placementAbove, normalizeMoveSet, isLockedByAncestor, soloKeepSet,
 } from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
@@ -55,6 +55,11 @@ export interface LayerPanelProps {
   // Clear-layer's own confirm (#171) is gated, except per-layer rather than
   // always-on: an empty layer/selection still deletes with no prompt.
   hasLayerContent: (layerId: string) => boolean
+  /** (#557) The viewer's solo — local view state that lives beside
+   *  `layerState` rather than in it (see the store slice for why), so it
+   *  arrives as its own prop instead of through `onChange`. Empty = off. */
+  soloIds: readonly string[]
+  onSoloChange: (ids: string[]) => void
 }
 
 // (#411) How long a still finger has to rest on a row to open selection mode,
@@ -83,7 +88,7 @@ const TOUCH_DRAG_DELAY_MS = 400
 // engineRef.current with an empty dependency array, stable for the same
 // reason.
 export const LayerPanel = memo(function LayerPanel({
-  layerState, onChange, onOp, isOwner, hasLayerContent,
+  layerState, onChange, onOp, isOwner, hasLayerContent, soloIds, onSoloChange,
 }: LayerPanelProps) {
   const t = useT()
   const { items, rootOrder, activeId, selectedIds } = layerState
@@ -280,6 +285,40 @@ export const LayerPanel = memo(function LayerPanel({
   const handleToggleCollapse = useCallback((id: string) =>
     onChange(patchItem(id, prev => isFolder(prev) ? { collapsed: !prev.collapsed } : {}))
   , [onChange])
+
+  // ── solo (#557) ──────────────────────────────────────────────────────────────
+
+  /** What the solo keeps on screen, re-derived from the live tree; `null`
+   *  when no solo is on — including when every soloed layer has since been
+   *  deleted, which is why `soloActive` reads this and not `soloIds.length`. */
+  const soloKeep = useMemo(() => soloKeepSet(layerState, soloIds), [layerState, soloIds])
+  const soloActive = soloKeep !== null
+
+  /** The row's own solo: this layer alone, or out of the solo if this row is
+   *  the one soloed. A single raster layer also becomes the active one — the
+   *  reason to look at one layer alone is nearly always to work on it, and a
+   *  solo that left the hand on a layer it just put out of view would be a
+   *  silent refusal to draw (the hidden-layer gate, #359). A folder is not
+   *  activated: it holds no pixels to draw on. */
+  const handleSolo = useCallback((id: string) => {
+    if (soloIds.includes(id)) {
+      onSoloChange([])
+      return
+    }
+    onSoloChange([id])
+    const item = items[id]
+    if (item && item.kind === 'layer' && id !== BACKGROUND_LAYER_ID) {
+      onChange(p => ({ ...p, activeId: id }))
+    }
+  }, [soloIds, items, onSoloChange, onChange])
+
+  /** The toolbar's version: one button that reads as a switch. Off → solo the
+   *  panel's current targets (the selection when one is open, else the active
+   *  row, the #412 rule); on → end the solo, whatever it was. */
+  const handleSoloToolbar = useCallback(() => {
+    if (soloActive) onSoloChange([])
+    else onSoloChange(actionTargets(layerState))
+  }, [soloActive, onSoloChange, actionTargets, layerState])
 
   const handleRename = useCallback((id: string, name: string) =>
     onOp({ type: 'layer_rename', layerId: id, name })
@@ -934,6 +973,17 @@ export const LayerPanel = memo(function LayerPanel({
               aria-label={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}>
               <Icon name={allTargetsVisible ? 'visibility' : 'visibility_off'} />
             </button>
+            {/* (#557) Next to the mass eye, for the same reason the row's solo
+                sits under Hide/Show: the selection is what gets soloed. */}
+            <button
+              className={clsx(styles.toolbarBtn, soloActive && styles.toolbarBtnSolo)}
+              onClick={handleSoloToolbar}
+              disabled={!soloActive && targets.length === 0}
+              aria-pressed={soloActive}
+              title={t(soloActive ? 'layers.unsolo' : 'layers.soloSelected')}
+              aria-label={t(soloActive ? 'layers.unsolo' : 'layers.soloSelected')}>
+              <Icon name={soloActive ? 'center_focus_strong' : 'center_focus_weak'} />
+            </button>
             {/* Lock, merge and delete keep the places they occupy outside the
                 mode — the same buttons, aimed at the selection instead of the
                 active row. */}
@@ -1007,6 +1057,21 @@ export const LayerPanel = memo(function LayerPanel({
                 <Icon name="lock_person" />
               </button>
             )}
+            {/* (#557) Solo, as a switch: lit while on, and then one press ends
+                it wherever it was started from. Here rather than in a banner
+                above the list because a banner would appear under a finger
+                still resting on the eye that summoned it (the #411 lesson),
+                and because this row is the one place the panel already shows
+                state at a glance. */}
+            <button
+              className={clsx(styles.toolbarBtn, soloActive && styles.toolbarBtnSolo)}
+              onClick={handleSoloToolbar}
+              disabled={!soloActive && targets.length === 0}
+              aria-pressed={soloActive}
+              title={t(soloActive ? 'layers.unsolo' : selectedIds.length > 0 ? 'layers.soloSelected' : 'layers.solo')}
+              aria-label={t(soloActive ? 'layers.unsolo' : selectedIds.length > 0 ? 'layers.soloSelected' : 'layers.solo')}>
+              <Icon name={soloActive ? 'center_focus_strong' : 'center_focus_weak'} />
+            </button>
             <button
               className={styles.toolbarBtn}
               disabled={!canMerge}
@@ -1058,6 +1123,9 @@ export const LayerPanel = memo(function LayerPanel({
                   isTravelling={draggingIds.has(entry.id)}
                   isOwner={isOwner}
                   lockedByFolder={isLockedByAncestor(layerState, entry.id, isOwner)}
+                  soloTarget={soloIds.includes(entry.id)}
+                  soloHidden={soloKeep !== null && !soloKeep.has(entry.id)}
+                  onSolo={handleSolo}
                   onActivate={handleActivate}
                   onToggleVisible={handleToggleVisible}
                   onToggleLock={handleToggleLock}

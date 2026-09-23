@@ -482,6 +482,22 @@ export interface PencilEngineAPI {
   setSmudgeGrain(patch: Partial<SmudgeGrainConfig>): void
   getSmudgeGrain(): SmudgeGrainConfig
   setCompositeOrder(items: CompositeItem[]): void
+  // (#557) Narrows what *this screen* composites to the given ids, without
+  // changing what the picture is. `setCompositeOrder` stays the one truth
+  // about the picture — the shared visibility every participant agrees on —
+  // and everything that produces the picture for someone else (exportPNG,
+  // and through it the room thumbnail) keeps reading it in full. Only the
+  // on-screen composite and what reads it (the "visible" fill source, whose
+  // whole meaning is "what I am looking at") go through the filter. Room
+  // derives the set from the layer panel's solo (lib/layers.ts's
+  // soloKeepSet); the engine knows nothing of folders or of why. `null`
+  // clears it.
+  //
+  // Kept as a separate call rather than folded into setCompositeOrder's
+  // argument on purpose: an export path added later cannot accidentally
+  // inherit the viewer's private filter, because there is no order it could
+  // read that has it applied.
+  setDisplayFilter(ids: ReadonlySet<string> | null): void
   appendOperation(op: Operation, source?: OperationSource): void
   // (#398) Decodes the reference image of every `image_import` among `ops`
   // into the engine's image cache, so that applying those operations
@@ -2293,6 +2309,9 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _layerRevision = new Map<string, number>()
   private readonly _bakedRevision = new Map<string, number>()
   private _compositeOrder: CompositeItem[]
+  /** (#557) See setDisplayFilter. `null` means the screen shows the whole of
+   *  `_compositeOrder`. Never consulted by the export path. */
+  private _displayFilter: ReadonlySet<string> | null = null
   private _activeId: string | null
   private _locked: boolean
 
@@ -2622,6 +2641,23 @@ export class PencilEngine implements PencilEngineAPI {
     // actually changed anything relative to the last one.
     this._invalidateSplitCache()
     this._display()
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  setDisplayFilter(ids: ReadonlySet<string> | null): void {
+    this._displayFilter = ids
+    // Same reasoning as setCompositeOrder: the below/above halves are baked
+    // from what is on screen, and that just changed.
+    this._invalidateSplitCache()
+    this._display()
+  }
+
+  /** (#557) What the screen composites: `_compositeOrder` narrowed by the
+   *  display filter. The picture's own order is `_compositeOrder`, and the
+   *  export path reads that one directly — see setDisplayFilter. */
+  private _displayOrder(): CompositeItem[] {
+    const filter = this._displayFilter
+    return filter ? this._compositeOrder.filter(it => filter.has(it.id)) : this._compositeOrder
   }
 
   // ─── Operation log API ───────────────────────────────────────────────────────
@@ -10001,9 +10037,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!this._layers.has(layerId)) return null
     // 'visible' reads the composite of every visible layer — lineart on top,
     // colour going into the layer underneath, which is the whole reason the
-    // mode exists (ADR 010). 'layer' reads only the target.
+    // mode exists (ADR 010). 'layer' reads only the target. (#557) "Visible"
+    // means what is on this screen, so it goes through the display filter: a
+    // fill that read layers the solo has put out of view would flood past
+    // edges the user cannot see.
     const items = source === 'visible'
-      ? this._compositeOrder.filter(it => this._layers.has(it.id))
+      ? this._displayOrder().filter(it => this._layers.has(it.id))
       : [{ id: layerId, opacity: 1 }]
     if (items.length === 0) return null
 
@@ -10102,7 +10141,9 @@ export class PencilEngine implements PencilEngineAPI {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     }
 
-    this._runComposite(this._compositeOrder)
+    // (#557) The on-screen composite is the one place the display filter
+    // applies; _buildContentComposite (export) walks _compositeOrder itself.
+    this._runComposite(this._displayOrder())
 
     const buildFbo = this._assemblyFBO.fbo
     const buildW   = this._assemblyFBO.width

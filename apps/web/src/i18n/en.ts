@@ -750,6 +750,12 @@ export const en = {
   'layers.importFailed': 'Could not import image',
   'layers.hide': 'Hide',
   'layers.show': 'Show',
+  // (#557) Solo: a private filter, so the words say what you will see, not
+  // what happens to the layers — nothing happens to them.
+  'layers.solo': 'Show only this layer',
+  'layers.soloSelected': 'Show only the selected layers',
+  'layers.unsolo': 'Show all layers again',
+  'layers.hiddenBySolo': 'Out of view while only another layer is shown',
   'layers.lock': 'Lock',
   'layers.unlock': 'Unlock',
   'layers.backgroundLocked': 'The background is always locked',
