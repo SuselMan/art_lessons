@@ -216,3 +216,60 @@
 .itemSelected > :global(.material-symbols-outlined):last-child {
   color: var(--color-accent-hover);
 }
+
+/* ── Grouped list (#573) ─────────────────────────────────────────────────────
+   A set too long for one column — the digital brush's sixteen — laid out the
+   way painting apps show a brush library: labelled sections, two samples to a
+   row, each sample above its name. Wider than its trigger on purpose: a
+   stroke sample squeezed into half of a narrow panel is a grey smear. */
+.popupGrouped {
+  min-width: 320px;
+  gap: 6px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sectionTitle {
+  padding: 4px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.sectionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.itemTile {
+  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  padding: 5px 6px;
+}
+
+.itemTile > :first-child {
+  width: 100%;
+}
+
+.itemTile .itemLabel {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The check mark rides the sample's corner, since the label row has no room
+   to spare in a half-width cell. */
+.itemTile > :global(.material-symbols-outlined):last-child {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+}

@@ -30,4 +30,9 @@ export interface PickerOption {
    *  component family draws the line and knows nothing about what the axes
    *  mean (see tiltResponseCurves.ts, which owns that). */
   curve?: readonly number[]
+  /** (#573) Already-translated heading this option is listed under. Options
+   *  arrive in display order; a change of group between neighbours starts a
+   *  new section. A list where any option has one is drawn as a grid of
+   *  sections rather than one long column. */
+  group?: string
 }

@@ -2926,13 +2926,16 @@ function RoomEditor() {
   // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
   // hand-off.
   const digitalBrushId = toolSettings.digitalBrush.brush as string
-  // #547 — the toggle rides the same token, as a third field. It changes the
-  // mark, so it has to be recorded: a peer replaying the stroke has their own
-  // switch in whatever position they left it.
-  const digitalBrushFlowFromPressure = toolSettings.digitalBrush.flowFromPressure as boolean
+  // #547, #573 — the two pressure switches ride the same token as modifiers.
+  // They change the mark, so they have to be recorded: a peer replaying the
+  // stroke has their own switches in whatever position they left them.
+  const digitalBrushSizeFromPressure = toolSettings.digitalBrush.sizeFromPressure as boolean
+  const digitalBrushOpacityFromPressure = toolSettings.digitalBrush.opacityFromPressure as boolean
   const digitalBrushPresetName = (() => {
     const brush = digitalBrushFromPreset(digitalBrushId)
-    return digitalBrushPreset(brush.id, brush.version, digitalBrushFlowFromPressure)
+    return digitalBrushPreset(brush.id, brush.version, {
+      size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
+    })
   })()
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker

@@ -1,7 +1,8 @@
 import type { ToolType } from '@grafetto/shared'
 
 import {
-  digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset,
+  digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset, digitalBrushPressureFromPreset,
+  type BrushDescriptor, type BrushPressureSettings,
 } from './digitalBrushPresets'
 import { MARKER_INK_REF_CHORD_PX } from './markerInkGain'
 import { markerNibFromPreset } from './markerPresets'
@@ -304,6 +305,15 @@ export interface RibbonProfile {
    *  branched on the tool at the call site so the two can never drift apart from
    *  the composite mode sitting next to it. */
   coverageInkMode: 6 | 10
+  /** (#573, ADR 013 §11) Set for a digital brush on the `stamp` model: the
+   *  frozen descriptor and the pressure switches its token recorded. The stroke
+   *  then leaves the ribbon rasterizer at the door and is painted by the brush's
+   *  own stamp and composite programs (engine's _paintBrushStroke) — it keeps
+   *  only this machinery's scratch buffers, the frozen pre-stroke layer and the
+   *  coverage accumulated over the stroke. Absent for every other profile,
+   *  including the digital brush's own v1 strokes, which must keep replaying
+   *  through the path they were drawn with. */
+  brushStamp?: { brush: BrushDescriptor; pressure: BrushPressureSettings }
   /** How strongly the paper's grain acts on the mark's *rim*, as a fraction of
    *  the edge ramp's own width. 0 disables it. The core is never touched at any
    *  value by either reader below: both scale the term by 1 - coverage, which
@@ -852,6 +862,9 @@ function digitalBrushRibbon(presetName: string | undefined): RibbonProfile {
   // has to be the one that was drawn.
   const flowFromPressure = digitalBrushFlowFromPreset(presetName)
   return {
+  ...(brush.model === 'stamp'
+    ? { brushStamp: { brush, pressure: digitalBrushPressureFromPreset(presetName) } }
+    : {}),
   stampFlow: (pressure: number) => digitalBrushFlow(brush, pressure, flowFromPressure),
   // ADR 013 §4 — stamps, no bands. See RibbonProfile.stampsOnly.
   stampsOnly: true,
