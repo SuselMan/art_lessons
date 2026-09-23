@@ -339,6 +339,12 @@ export const en = {
   'error.reload': 'Reload the page',
   'error.toLessons': 'Go to my projects',
 
+  // ── no such page (#572) ────────────────────────────────────────────────
+  'notFound.heading': "There's no such page",
+  'notFound.body': "The address doesn't lead anywhere in Grafetto. If it came from someone else, ask them for the link again — a room link looks like grafetto.com/room/… and nothing more.",
+  'notFound.toLessons': 'Go to my projects',
+  'notFound.create': 'Start a new project',
+
   // ── project: header & canvas actions ───────────────────────────────────
   'room.home': 'Grafetto — leave this project',
   'room.confirmLeaveTitle': 'Leave this project?',

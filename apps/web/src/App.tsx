@@ -19,6 +19,7 @@ const Room       = lazy(() => importRoomPage().then(m => ({ default: m.Room })))
 const Auth       = lazy(() => import('./pages/Auth').then(m => ({ default: m.Auth })))
 const MyLessons  = lazy(() => import('./pages/MyLessons').then(m => ({ default: m.MyLessons })))
 const Settings   = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
+const NotFound   = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })))
 
 // No spinner/skeleton convention exists elsewhere in the app yet — a blank
 // page in the app's own background color (avoids a white flash) is enough
@@ -78,6 +79,9 @@ export function App() {
                 <Route path="/login" element={<Auth />} />
                 <Route path="/my-lessons" element={<MyLessons />} />
                 <Route path="/settings" element={<Settings />} />
+                {/* (#572) Anything else. Without it a non-matching address
+                    rendered nothing at all — see pages/NotFound. */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </AppErrorBoundary>

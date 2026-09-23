@@ -229,6 +229,16 @@ modules:
     adr: [006-i18n]
     tags: [настройки]
 
+  - id: screen-not-found
+    title: Нет такой страницы
+    layer: screens
+    owns: >-
+      Экран для адреса мимо всех маршрутов (#572): опечатка, двойной слэш, старая ссылка.
+      До него `Routes` без совпадения рендерил пустоту — фон приложения и ничего больше.
+    files:
+      - apps/web/src/pages/NotFound/**
+    tags: [ui]
+
   # ------------------------------------------------------------------ редактор: вид
 
   - id: room-shell
@@ -548,6 +558,7 @@ modules:
       - apps/web/src/components/ConfirmDialog/**
       - apps/web/src/components/Notice/**
       - apps/web/src/components/AppErrorBoundary.*
+      - apps/web/src/components/StatusCard.*
       - apps/web/src/components/ListState/**
       - apps/web/src/components/SettingsPanel/**
       - apps/web/src/components/SettingField/**

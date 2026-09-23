@@ -1,9 +1,9 @@
-/* (#570) Mirrors Room's gate card (Room.module.css .gate*): the one screen a
-   reader sees when nothing else rendered should look like the app they were
-   in, not like a browser error page. Kept as its own module rather than
-   importing Room's so this stays out of the Room chunk's dependency graph —
-   the boundary sits above the router and must not pull the editor's CSS into
-   the initial bundle (#130). */
+/* (#570, #572) Mirrors Room's gate card (Room.module.css .gate*): the one
+   screen a reader sees when nothing else rendered should look like the app
+   they were in. Its own module rather than an import of Room's so this stays
+   out of the Room chunk's dependency graph — the error boundary sits above
+   the router and must not pull the editor's CSS into the initial bundle
+   (#130). */
 
 .page {
   position: fixed;
@@ -16,6 +16,14 @@
   background: var(--color-bg);
 }
 
+.logo {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  margin-bottom: 40px;
+  border-radius: var(--radius-sm);
+}
+
 .card {
   width: 100%;
   max-width: 420px;
@@ -26,7 +34,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  margin: 40px auto 0;
+  margin: 0 auto;
 }
 
 .heading {
@@ -43,6 +51,7 @@
 }
 
 .primary {
+  display: block;
   width: 100%;
   padding: 14px;
   background: var(--color-accent);
@@ -53,9 +62,12 @@
   border: none;
   cursor: pointer;
   letter-spacing: 0.01em;
+  text-align: center;
+  text-decoration: none;
 }
 
 .secondary {
+  display: block;
   width: 100%;
   padding: 12px;
   background: transparent;
@@ -64,6 +76,15 @@
   font-weight: 600;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  cursor: pointer;
   text-align: center;
   text-decoration: none;
+}
+
+.details {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-dim);
+  overflow-wrap: anywhere;
 }

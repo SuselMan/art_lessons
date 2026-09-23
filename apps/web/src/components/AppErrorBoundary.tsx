@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 import * as Sentry from '@sentry/react'
-import { Link } from 'react-router-dom'
 
 import { useT } from '../i18n'
-import styles from './AppErrorBoundary.module.css'
+import { StatusCard } from './StatusCard'
 
 // (#570) The last line before a blank page. Until this existed, an exception
 // thrown from a render or an effect anywhere under the router made React 19
@@ -19,23 +18,17 @@ import styles from './AppErrorBoundary.module.css'
 function Fallback({ resetError }: { resetError: () => void }) {
   const t = useT()
   return (
-    <div className={styles.page} role="alert">
-      <div className={styles.card}>
-        <h1 className={styles.heading}>{t('error.heading')}</h1>
-        <p className={styles.body}>{t('error.body')}</p>
-        {/* A full reload, not just resetting the boundary: whatever threw is
-            most likely to throw again from the same state, and a reload is
-            also what picks up a fresh build after a deploy (#186). */}
-        <button type="button" className={styles.primary} onClick={() => window.location.reload()}>
-          {t('error.reload')}
-        </button>
-        {/* Resets the boundary on the way out so the list can render; the
-            room that broke stays behind. */}
-        <Link className={styles.secondary} to="/my-lessons" onClick={resetError}>
-          {t('error.toLessons')}
-        </Link>
-      </div>
-    </div>
+    <StatusCard
+      heading={t('error.heading')}
+      body={t('error.body')}
+      // A full reload, not just resetting the boundary: whatever threw is
+      // most likely to throw again from the same state, and a reload is also
+      // what picks up a fresh build after a deploy (#186).
+      action={{ label: t('error.reload'), onClick: () => window.location.reload() }}
+      // Resets the boundary on the way out so the list can render; the room
+      // that broke stays behind.
+      secondary={{ label: t('error.toLessons'), to: '/my-lessons', onClick: resetError }}
+    />
   )
 }
 
