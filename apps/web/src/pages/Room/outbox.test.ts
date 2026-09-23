@@ -750,4 +750,56 @@ describe('Outbox send gating and concurrency', () => {
       expect(await storage.getAll(ROOM)).toHaveLength(1)
     })
   })
+
+  // (#176) A page turn waits for the queue before moving the socket to the
+  // next board — see whenIdle's own doc comment.
+  describe('whenIdle', () => {
+    it('resolves at once when nothing is queued', async () => {
+      const outbox = new Outbox({ roomId: ROOM, storage: createInMemoryOutboxStorage(), send: async () => ({ ok: true, seq: 1 }) })
+      let resolved = false
+      void outbox.whenIdle(10_000).then(() => { resolved = true })
+      await flushMicrotasks()
+      expect(resolved).toBe(true)
+    })
+
+    it('waits for the in-flight operation to settle', async () => {
+      let settleSend: ((r: SendResult) => void) | undefined
+      const outbox = new Outbox({
+        roomId: ROOM, storage: createInMemoryOutboxStorage(),
+        send: () => new Promise<SendResult>(resolve => { settleSend = resolve }),
+      })
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+      let resolved = false
+      void outbox.whenIdle(10_000).then(() => { resolved = true })
+      await flushMicrotasks()
+      expect(resolved).toBe(false)
+      settleSend?.({ ok: true, seq: 1 })
+      await flushMicrotasks()
+      expect(resolved).toBe(true)
+    })
+
+    it('gives up after the timeout and on dispose', async () => {
+      vi.useFakeTimers()
+      try {
+        const outbox = new Outbox({
+          roomId: ROOM, storage: createInMemoryOutboxStorage(),
+          send: () => new Promise<SendResult>(() => {}),
+        })
+        await outbox.enqueue(op('a'))
+        let timedOut = false
+        void outbox.whenIdle(500).then(() => { timedOut = true })
+        await vi.advanceTimersByTimeAsync(600)
+        expect(timedOut).toBe(true)
+
+        let disposed = false
+        void outbox.whenIdle(10_000).then(() => { disposed = true })
+        outbox.dispose()
+        await vi.advanceTimersByTimeAsync(0)
+        expect(disposed).toBe(true)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
 })

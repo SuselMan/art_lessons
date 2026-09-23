@@ -606,6 +606,7 @@ modules:
     files:
       - apps/web/src/stores/roomStore.ts
       - apps/web/src/stores/roomStore.test.ts
+      - apps/web/src/stores/resetBoardState.test.ts
       - apps/web/src/stores/slices/**
     issues: [25]
     notes:
@@ -714,6 +715,19 @@ modules:
       - apps/web/src/lib/layers.test.ts
     adr: [001-layer-panel-dnd]
     tags: [слои, чистое]
+
+  - id: lib-boards
+    title: Помощники досок
+    layer: platform
+    owns: >-
+      Чистые функции ленты досок (#176): свёртка событий board_* в список, доска учителя,
+      куда попасть на входе, правило следования и перестановка в ленте. Общие для стора
+      (roomSlice складывает события) и экрана комнаты (решает, когда перелистывать).
+    files:
+      - apps/web/src/lib/boards.ts
+      - apps/web/src/lib/boards.test.ts
+    adr: [014-boards]
+    tags: [доски, чистое]
 
   - id: lib-input
     title: Ввод и жесты (общее)

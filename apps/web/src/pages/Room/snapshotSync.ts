@@ -57,21 +57,25 @@ async function uploadSnapshot(
  *  time anyone leaves it — the boundary path still matters on its own for
  *  long-running rooms so the list preview updates without anyone having to
  *  leave first. */
-export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): Promise<void> {
+export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): Promise<boolean> {
   try {
     const full = await engine.exportPNG()
-    if (!full) return
+    if (!full) return false
     const thumbnail = await downscaleForThumbnail(full)
-    if (!thumbnail) return
+    if (!thumbnail) return false
     const bytes = new Uint8Array(await thumbnail.arrayBuffer())
-    await fetch(`/api/rooms/${roomId}/thumbnail`, {
+    const res = await fetch(`/api/rooms/${roomId}/thumbnail`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ data: bytesToBase64(bytes) }),
     })
+    // (#176) Reported back so the board strip can refresh the picture of the
+    // page just left — thumbnails are not announced over the socket.
+    return res.ok
   } catch {
     // Best-effort — see doc comment above.
+    return false
   }
 }
 
