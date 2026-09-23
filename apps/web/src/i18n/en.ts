@@ -138,6 +138,8 @@ export const en = {
   'create.submitting': 'Opening…',
   'create.error.customSize': 'Custom size must be between 100 and 4096 pixels',
   'create.error.invalidInvite': "“{email}” doesn't look like an email address",
+  // (#570) Refused before an id is minted — see CreateRoom's handleSubmit.
+  'create.error.noWebgl': "Drawing won't work in this browser: it can't use WebGL. Restart the browser and try again, or open Grafetto in another one.",
 
   // (#548) The form is three tabs, not one column: paper and size are the
   // decision people actually came to make, and access and the toolset are two
@@ -315,6 +317,33 @@ export const en = {
   'join.error.loginRequired': 'This project is invite-only. Sign in with the address you were invited by.',
   'join.error.pendingApproval': 'Your request to join has been sent to the host. This page will let you in once they approve it.',
   'join.error.serverBusy': 'The server is at capacity right now. Wait a moment and try again — nothing of yours is lost.',
+
+  // ── no WebGL (#570) ────────────────────────────────────────────────────
+  // Replaces the editor when the browser refuses a WebGL context. Written for
+  // the person in front of it, who did nothing wrong and mostly needs to know
+  // that a restart is the usual fix; the browser's own diagnostics go
+  // underneath, unlabelled, for whoever they end up showing it to.
+  'webgl.heading': "Drawing won't work in this browser",
+  'webgl.body': "It can't use WebGL right now — the graphics feature the canvas is built on. This is usually the browser, not the device, and usually temporary.",
+  'webgl.hint.restart': 'Close the browser completely and open it again — this fixes it most of the time.',
+  'webgl.hint.acceleration': 'Check that hardware acceleration is turned on in the browser settings.',
+  'webgl.hint.otherBrowser': 'Or open this link in a different browser.',
+  'webgl.retry': 'Try again',
+
+  // ── something broke (#570) ─────────────────────────────────────────────
+  // The error boundary's screen: the page threw and nothing under it can
+  // render. Whatever was drawn is on the server already — only the page is
+  // gone, which is what the second sentence is there to say.
+  'error.heading': 'Something went wrong',
+  'error.body': "The page ran into a problem it couldn't recover from. Reloading usually helps, and what was already drawn is safe on the server.",
+  'error.reload': 'Reload the page',
+  'error.toLessons': 'Go to my projects',
+
+  // ── no such page (#572) ────────────────────────────────────────────────
+  'notFound.heading': "There's no such page",
+  'notFound.body': "The address doesn't lead anywhere in Grafetto. If it came from someone else, ask them for the link again — a room link looks like grafetto.com/room/… and nothing more.",
+  'notFound.toLessons': 'Go to my projects',
+  'notFound.create': 'Start a new project',
 
   // ── project: header & canvas actions ───────────────────────────────────
   'room.home': 'Grafetto — leave this project',

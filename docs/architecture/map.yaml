@@ -229,6 +229,16 @@ modules:
     adr: [006-i18n]
     tags: [настройки]
 
+  - id: screen-not-found
+    title: Нет такой страницы
+    layer: screens
+    owns: >-
+      Экран для адреса мимо всех маршрутов (#572): опечатка, двойной слэш, старая ссылка.
+      До него `Routes` без совпадения рендерил пустоту — фон приложения и ничего больше.
+    files:
+      - apps/web/src/pages/NotFound/**
+    tags: [ui]
+
   # ------------------------------------------------------------------ редактор: вид
 
   - id: room-shell
@@ -290,7 +300,13 @@ modules:
       - apps/web/src/pages/Room/JoinGate.*
       - apps/web/src/pages/Room/RoomFailureOverlay.*
       - apps/web/src/pages/Room/RestoreFailedOverlay.*
+      - apps/web/src/pages/Room/NoWebGL.*
     notes:
+      - >-
+        NoWebGL (#570) — экран вместо редактора, когда браузер не даёт WebGL-контекст
+        (проверка — lib/webgl.ts, до того как отработает хоть один хук редактора). До него
+        движок бросал исключение из эффекта, React размонтировал корень, и человек видел
+        чёрную страницу без единого слова.
       - >-
         RoomFailureOverlay — общая форма «комната не открылась», RestoreFailedOverlay
         подставляет в неё причину. Причин ровно две, и они не взаимозаменяемы: пиксели не
@@ -541,6 +557,8 @@ modules:
       - apps/web/src/components/Modal/**
       - apps/web/src/components/ConfirmDialog/**
       - apps/web/src/components/Notice/**
+      - apps/web/src/components/AppErrorBoundary.*
+      - apps/web/src/components/StatusCard.*
       - apps/web/src/components/ListState/**
       - apps/web/src/components/SettingsPanel/**
       - apps/web/src/components/SettingField/**
@@ -770,6 +788,14 @@ modules:
       - apps/web/src/lib/uiPreferences.ts
       - apps/web/src/lib/uiPreferences.test.ts
       - apps/web/src/lib/color.ts
+      - apps/web/src/lib/webgl.ts
+      - apps/web/src/lib/webgl.test.ts
+    notes:
+      - >-
+        webgl.ts (#570) — «даст ли этот браузер WebGL-контекст», спрошено до того, как от
+        ответа что-то зависит: CreateRoom до навигации на /room/<id>, Room до первого хука
+        редактора. Пробный canvas сразу отпускается через WEBGL_lose_context, чтобы не
+        занимать слот рядом с настоящим.
     tags: [браузер]
 
   - id: lib-observability

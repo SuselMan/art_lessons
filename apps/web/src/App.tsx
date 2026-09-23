@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ConfirmDialogProvider } from './components/ConfirmDialog'
 import { NoticeStack } from './components/Notice'
 import { prefetchPaper } from './engine/src/paperLoader'
@@ -18,6 +19,7 @@ const Room       = lazy(() => importRoomPage().then(m => ({ default: m.Room })))
 const Auth       = lazy(() => import('./pages/Auth').then(m => ({ default: m.Auth })))
 const MyLessons  = lazy(() => import('./pages/MyLessons').then(m => ({ default: m.MyLessons })))
 const Settings   = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
+const NotFound   = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })))
 
 // No spinner/skeleton convention exists elsewhere in the app yet — a blank
 // page in the app's own background color (avoids a white flash) is enough
@@ -66,16 +68,23 @@ export function App() {
             survive navigating away from that page. */}
         <NoticeStack />
         <BrowserRouter>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/create" replace />} />
-              <Route path="/create" element={<CreateRoom />} />
-              <Route path="/room/:id" element={<Room />} />
-              <Route path="/login" element={<Auth />} />
-              <Route path="/my-lessons" element={<MyLessons />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Suspense>
+          {/* (#570) Inside the router so its fallback can link out, outside
+              Suspense so a chunk that throws while loading is caught too. */}
+          <AppErrorBoundary>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/create" replace />} />
+                <Route path="/create" element={<CreateRoom />} />
+                <Route path="/room/:id" element={<Room />} />
+                <Route path="/login" element={<Auth />} />
+                <Route path="/my-lessons" element={<MyLessons />} />
+                <Route path="/settings" element={<Settings />} />
+                {/* (#572) Anything else. Without it a non-matching address
+                    rendered nothing at all — see pages/NotFound. */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </AppErrorBoundary>
         </BrowserRouter>
       </ConfirmDialogProvider>
     </QueryClientProvider>

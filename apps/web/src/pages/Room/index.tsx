@@ -115,6 +115,8 @@ import {
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { applyJoinRequestCreated, applyJoinRequestResolved, useJoinQueue } from './joinQueue'
 import { JoinGate, type JoinGateState } from './JoinGate'
+import { NoWebGL } from './NoWebGL'
+import { probeWebGL } from '../../lib/webgl'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
@@ -352,7 +354,20 @@ function sendOperationWithTimeout(
   })
 }
 
+/** (#570) The route component. The editor below assumes a WebGL context is
+ *  there for the taking — `new PencilEngine` throws otherwise, from a mount
+ *  effect, and nothing between that throw and the root's unmount used to say
+ *  a word. Asked once, here, before a single one of the editor's hooks runs:
+ *  no socket is opened and no join is attempted for a browser that could not
+ *  draw the answer anyway. The probe result is state, not a re-run per
+ *  render — the reader gets a reload button, and a reload is the re-probe. */
 export function Room() {
+  const [webgl] = useState(() => probeWebGL())
+  if (!webgl.ok) return <NoWebGL reason={webgl.reason} />
+  return <RoomEditor />
+}
+
+function RoomEditor() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
