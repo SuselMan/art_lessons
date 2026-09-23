@@ -3178,20 +3178,28 @@ export const BRUSH_COMPOSITE_FRAG = `
       float bloomIn = 0.0;
       float bloomRim = 0.0;
       if (u_bloom > 0.0) {
-        vec2 warp = vec2(texture2D(u_cloudTex, cw / (u_cloudPeriod * 0.5)).r,
-                         texture2D(u_cloudTex, (cw + vec2(173.0, 91.0)) / (u_cloudPeriod * 0.5)).r) - 0.5;
+        vec2 warp = vec2(texture2D(u_cloudTex, cw / (u_cloudPeriod * 0.9)).r,
+                         texture2D(u_cloudTex, (cw + vec2(173.0, 91.0)) / (u_cloudPeriod * 0.9)).r) - 0.5;
         // A second, fine warp crinkles the border into the cauliflower fringe
         // a real backrun has; without it the border is a smooth blob.
         float crinkle = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r - 0.5;
-        float b = texture2D(u_cloudTex, (cw + warp * 150.0) / (u_cloudPeriod * 0.8)).r + crinkle * 0.05;
-        float th = 1.0 - u_bloom * 0.3;
-        float body = smoothstep(0.35, 0.85, cov);
-        // Lighter toward the middle of the bloom, not a flat cut-out: the water
-        // pushed pigment outward gradually, and only the front where it
-        // stopped is crisp. The rim is a thin band just *outside* the
-        // threshold, where that pigment piled up.
-        bloomIn = smoothstep(th, th + 0.14, b) * body;
-        bloomRim = smoothstep(th - 0.035, th - 0.005, b) * (1.0 - smoothstep(th - 0.005, th + 0.004, b)) * body;
+        float b = texture2D(u_cloudTex, (cw + warp * 110.0) / (u_cloudPeriod * 1.5)).r + crinkle * 0.05;
+        // Rare and large rather than a scatter of pale islands: only the top
+        // of the noise blooms, and each bloom spans a good part of the stroke.
+        // Uniform pale patches with a neat outline everywhere read as a skin
+        // condition, not as paint ("витилиго" — Ilya).
+        //
+        // Biased toward the stroke's edge: a backrun is water creeping back
+        // in from the wetter rim into a drying wash, so it starts there.
+        float nearEdge = 1.0 - smoothstep(0.55, 0.98, cov);
+        float th = 1.0 - u_bloom * 0.2 - 0.12 * nearEdge;
+        float body = smoothstep(0.3, 0.7, cov);
+        // Barely lighter inside, fading in over a wide band: the eye should
+        // find the rim, not a hole.
+        bloomIn = smoothstep(th, th + 0.16, b) * body;
+        // The pigment piles up on the outside of the front, and fades outward
+        // — a soft dark band, not an ink outline.
+        bloomRim = smoothstep(th - 0.1, th - 0.006, b) * (1.0 - smoothstep(th - 0.006, th + 0.01, b)) * body;
       }
 
       // Granulation: pigment settles in the paper's valleys, the *opposite*
@@ -3209,8 +3217,8 @@ export const BRUSH_COMPOSITE_FRAG = `
       d += u_wetEdge * (1.5 * edge - 0.35 * (1.0 - edge));
       d *= 1.0 + u_mottle * (cloud - 0.5) * 1.1;
       d += u_granulation * (0.5 - grain) * 1.3 * (1.0 + 1.5 * (1.0 - cov));
-      d *= 1.0 - 0.45 * bloomIn;
-      d += u_bloom * 1.6 * bloomRim;
+      d *= 1.0 - 0.3 * bloomIn;
+      d += u_bloom * 0.9 * bloomRim;
       d = max(d, 0.05);
 
       // The stroke as a transmittance filter at its base concentration, then
