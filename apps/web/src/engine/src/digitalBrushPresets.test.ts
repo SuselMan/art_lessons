@@ -8,8 +8,9 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_DAB_SPACING_FACTOR } from './dabSpacing'
 import {
-  brushDabRandom, brushStrokeSeed, curveAt, digitalBrushFlow, digitalBrushFlowFromPreset,
-  digitalBrushFromPreset,
+  brushDabRandom, brushDabSeed, brushStampsForDab, brushStrokeSeed, curveAt, digitalBrushCeiling,
+  digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset, digitalBrushPressureFromPreset,
+  isMixerBrushPreset, BRUSH_CATEGORIES,
   digitalBrushPreset, digitalBrushPresetFor, shapingForDigitalBrushPreset,
   DEFAULT_DIGITAL_BRUSH, DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS,
   type BrushCurve,
@@ -66,12 +67,13 @@ describe('the shipped set', () => {
     }
   })
 
-  it('spaces every brush tighter than the engine default', () => {
+  it('spaces every continuous brush tighter than the engine default', () => {
     // Not taste: 0.22 was calibrated (#478) against tools whose dabs blend
     // through paper grain and a soft graphite falloff. A digital stamp has
     // neither, so a brush authored at or above that step would show its own
-    // ripple as a row of discs.
-    for (const b of DIGITAL_BRUSHES) {
+    // ripple as a row of discs. Scatter brushes (#573) are exempt: their dabs
+    // are places to throw stamps from, not a line being traced.
+    for (const b of DIGITAL_BRUSHES.filter(x => x.flowPer === 'pass')) {
       expect(b.spacing).toBeGreaterThan(0)
       expect(b.spacing).toBeLessThan(DEFAULT_DAB_SPACING_FACTOR)
     }
@@ -315,5 +317,118 @@ describe('seeded randomness (ADR 013 §6)', () => {
     for (let i = 0; i < n; i++) sum += brushDabRandom(seed, i)
     expect(sum / n).toBeGreaterThan(0.45)
     expect(sum / n).toBeLessThan(0.55)
+  })
+})
+
+describe('#573 — pressure switches in the token', () => {
+  it('records each switch only when it is off, so older strokes keep their meaning', () => {
+    expect(digitalBrushPreset('chalk', 1)).toBe('brush:chalk@1')
+    expect(digitalBrushPreset('chalk', 1, { opacity: false })).toBe('brush:chalk@1:flat')
+    expect(digitalBrushPreset('chalk', 1, { size: false })).toBe('brush:chalk@1:fixed')
+    expect(digitalBrushPreset('chalk', 1, { size: false, opacity: false })).toBe('brush:chalk@1:flat:fixed')
+  })
+
+  it('reads both switches back, and resolves the brush through any number of modifiers', () => {
+    const token = 'brush:chalk@1:flat:fixed'
+    expect(digitalBrushPressureFromPreset(token)).toEqual({ size: false, opacity: false })
+    expect(digitalBrushPressureFromPreset('brush:chalk@1')).toEqual({ size: true, opacity: true })
+    expect(digitalBrushFromPreset(token).id).toBe('chalk')
+    // v1's single modifier still means what it meant.
+    expect(digitalBrushFlowFromPreset('brush:soft-round@1:flat')).toBe(false)
+  })
+
+  it('pins the size at the top of the curve when the size switch is off', () => {
+    const on = shapingForDigitalBrushPreset('brush:hard-round@2')
+    const off = shapingForDigitalBrushPreset('brush:hard-round@2:fixed')
+    expect(on.size(0.1, 0)).toBeLessThan(0.3)
+    expect(off.size(0.1, 0)).toBe(1)
+    expect(off.size(0.9, 0)).toBe(1)
+  })
+
+  it('makes the ceiling follow pressure visibly for every brush, and 1 when off', () => {
+    // A switch whose effect nobody can see looks broken (FLOW_EARLY's history).
+    for (const b of DIGITAL_BRUSHES) {
+      expect(digitalBrushCeiling(b, 0.1) + 0.2, b.id).toBeLessThan(digitalBrushCeiling(b, 1))
+      expect(digitalBrushCeiling(b, 0.1, false)).toBe(1)
+    }
+  })
+})
+
+describe('#573 — v1 strokes stay v1', () => {
+  it('resolves every @1 token of the original six to the frozen ribbon descriptor', () => {
+    for (const id of ['soft-round', 'medium-round', 'hard-round', 'ink-round', 'opaque-paint', 'flat']) {
+      const b = digitalBrushFromPreset(`brush:${id}@1`)
+      expect(b.version).toBe(1)
+      expect(b.model).toBe('ribbon')
+    }
+  })
+
+  it('draws every new stroke of the original six with a newer version', () => {
+    for (const id of ['soft-round', 'medium-round', 'hard-round', 'ink-round', 'opaque-paint', 'flat']) {
+      const b = digitalBrushFromPreset(id)
+      expect(b.version).toBeGreaterThan(1)
+      expect(b.model).not.toBe('ribbon')
+    }
+  })
+
+  it('ships no brush on the ribbon model', () => {
+    expect(DIGITAL_BRUSHES.filter(b => b.model === 'ribbon')).toEqual([])
+  })
+})
+
+describe('#573 — the set', () => {
+  it('lists brushes grouped: every category once, in BRUSH_CATEGORIES order', () => {
+    const order = DIGITAL_BRUSHES.map(b => BRUSH_CATEGORIES.indexOf(b.category))
+    expect(order.every(i => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+    expect(new Set(order).size).toBe(BRUSH_CATEGORIES.length)
+  })
+
+  it('gives every bitmap tip a mask and every mixer its mixing numbers', () => {
+    for (const b of DIGITAL_BRUSHES) {
+      if (b.tip.kind === 'bitmap') expect(b.tip.mask, b.id).toBeDefined()
+      if (b.model === 'mixer') expect(b.mixer, b.id).toBeDefined()
+    }
+    expect(isMixerBrushPreset('mixer')).toBe(true)
+    expect(isMixerBrushPreset('hard-round')).toBe(false)
+  })
+})
+
+describe('#573 — scatter', () => {
+  const splatter = digitalBrushFromPreset('splatter')
+  const base = { x: 100.25, y: 50.5, size: 40, angle: 0.3, aspectRatio: 1, pressure: 0.6 }
+
+  it('is a pure function of the dab', () => {
+    expect(brushStampsForDab(splatter, base)).toEqual(brushStampsForDab(splatter, { ...base }))
+  })
+
+  it('throws count stamps, all inside the scatter radius and no larger than the scale allows', () => {
+    const out = brushStampsForDab(splatter, base)
+    const s = splatter.scatter!
+    expect(out).toHaveLength(s.count)
+    for (const st of out) {
+      expect(Math.hypot(st.x - base.x, st.y - base.y)).toBeLessThanOrEqual(s.radius * base.size + 1e-9)
+      expect(st.size).toBeLessThanOrEqual(base.size * s.scale + 1e-9)
+      expect(st.size).toBeGreaterThan(0)
+    }
+  })
+
+  it('throws different drops from different dabs', () => {
+    const a = brushStampsForDab(splatter, base)
+    const b = brushStampsForDab(splatter, { ...base, x: base.x + 3 })
+    expect(a.map(s => s.size)).not.toEqual(b.map(s => s.size))
+  })
+
+  it('leaves a brush without scatter on its dab', () => {
+    const hard = digitalBrushFromPreset('hard-round')
+    expect(brushStampsForDab(hard, base)).toEqual([
+      { x: base.x, y: base.y, size: base.size, angle: base.angle, aspect: 1, flowScale: 1 },
+    ])
+  })
+
+  it('seeds a dab identically from its double and its float32 form', () => {
+    const x = 123.456789012345, y = 98.7654321, p = 0.4242424242
+    expect(brushDabSeed(x, y, p)).toBe(brushDabSeed(Math.fround(x), Math.fround(y), Math.fround(p)))
+    expect(brushDabSeed(x, y, p)).not.toBe(brushDabSeed(x + 0.01, y, p))
   })
 })

@@ -2009,6 +2009,12 @@ export const SMUDGE_PICKUP_FRAG = `
   uniform sampler2D u_patch;    // canvas patch under this dab (premultiplied)
   uniform sampler2D u_carried;  // the imprint as of the previous dab, same normalized square
   uniform float u_rate;         // 0..1 — how much of the imprint this dab refreshes (1 = prime it outright)
+  // (#573) The digital brush's mixer: its own colour (premultiplied, opaque)
+  // folded into the imprint after the pickup, by u_paintLoad. 0 for the smudge
+  // tool itself, where mix(x, paint, 0.0) is x exactly — the stump carries no
+  // paint of its own.
+  uniform vec4 u_paint;
+  uniform float u_paintLoad;
 
   varying vec2 v_uv;
 
@@ -2016,7 +2022,8 @@ export const SMUDGE_PICKUP_FRAG = `
     // Straight per-texel refresh, blending disabled by the caller: this
     // writes the imprint's new value outright, it does not accumulate onto
     // the previous one (the previous one is an input here, u_carried).
-    gl_FragColor = mix(texture2D(u_carried, v_uv), texture2D(u_patch, v_uv), u_rate);
+    vec4 picked = mix(texture2D(u_carried, v_uv), texture2D(u_patch, v_uv), u_rate);
+    gl_FragColor = mix(picked, u_paint, u_paintLoad);
   }
 `;
 
@@ -2908,5 +2915,157 @@ export const SHAPE_FRAG = `
     float a = strokeA + fillA * (1.0 - strokeA);
     vec3 rgb = u_strokeColor * strokeA + u_fillColor * fillA * (1.0 - strokeA);
     gl_FragColor = vec4(rgb, a);
+  }
+`;
+
+// ─── Digital brush, stamp model (#573, ADR 013 §11) ─────────────────────────
+//
+// The digital brush's own two programs. Until #573 the brush borrowed DAB_FRAG:
+// its stamp was u_inkMode=10 and its composite the brush pen's u_inkMode=8.
+// That was right for one round tip and stops being right the moment the tip is
+// a picture — a new sampler in DAB_FRAG would have to be bound, validly, by
+// every one of the dozen draw paths that share that program (the 1282 lesson
+// in engine's _drawRibbonNibPass), and three shipped tools would sit one typo
+// away from regressing. A program of its own costs one compile.
+//
+// The coverage buffer this writes has two meanings in two channels, which is
+// the whole of the new model:
+//
+//   .rgb  flow, accumulated as textbook "over" — `c' = f + c * (1 - f)`,
+//         through blendFunc(ONE, ONE_MINUS_SRC_COLOR). Approaches 1, never
+//         passes it, exactly as before.
+//   .a    the stroke's opacity *ceiling*, the highest any stamp so far has
+//         allowed here — through blendEquation MAX (EXT_blend_minmax).
+//
+// The composite multiplies the two. That is Photoshop's and Krita's meaning
+// of pressure→opacity, and the thing a flow curve cannot do: scrubbing back
+// and forth at a light pressure inside one stroke saturates the flow, and the
+// ceiling holds the tone where the light pressure put it. With the switch off
+// every stamp's ceiling is 1 and the composite reads flow alone.
+export const BRUSH_STAMP_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_paperHeightMap;
+  uniform sampler2D u_tip;
+  uniform vec2 u_paperScale;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
+  // 0 = the round procedural ramp, 1 = the bitmap mask in u_tip.
+  uniform float u_tipKind;
+  uniform float u_hardness;
+  // Antialiasing floor for the round ramp, canvas px.
+  uniform float u_aaPx;
+  // This stamp's opacity ceiling (digitalBrushCeiling), 1 with the switch off.
+  uniform float u_ceiling;
+  // How strongly the paper's tooth breaks this brush's contact (0..1), and the
+  // pressure pushing it into the tooth.
+  uniform float u_paper;
+  uniform float u_paperPressure;
+
+  varying vec2 v_localUV;
+  varying float v_opacity;
+  varying float v_radius;
+
+  void main() {
+    float shape;
+    if (u_tipKind < 0.5) {
+      // Normalized radius: v_localUV is the dab's own frame, 1.0 at the
+      // boundary, so this is scale-free and an ellipse comes out as one.
+      float d = length(v_localUV);
+      if (d >= 1.0) discard;
+      // The ramp is a fraction of the *mark*, not an absolute width: a soft
+      // 200px brush has to have a 200px-scale falloff. u_aaPx enters only as
+      // the floor, so the hardest brush still antialiases.
+      float aaNorm = clamp(u_aaPx / max(v_radius, 1e-4), 0.004, 0.9);
+      float inner = min(u_hardness, 1.0 - aaNorm);
+      shape = 1.0 - smoothstep(inner, 1.0, d);
+    } else {
+      // The quad spans -1..1 in the stamp's own (rotated) frame, and the mask
+      // is stored with row 0 on top — see tipMasks.ts on orientation.
+      shape = texture2D(u_tip, v_localUV * 0.5 + 0.5).r;
+    }
+    if (shape <= 0.0) discard;
+
+    // v_opacity carries this stamp's *flow* (per-pass normalized, jittered).
+    float amount = shape * v_opacity;
+
+    if (u_paper > 0.0) {
+      // World-space paper, the same sampling DAB_FRAG uses (#141): the same
+      // world point reads the same texel whichever tile it lands in.
+      vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
+      float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
+      // Pressure pushes the stick down into the valleys: at a light touch only
+      // the ridges take pigment, at full weight most of the sheet does. One
+      // sample of a value baked offline in double precision, a smoothstep and
+      // a mix — nothing amplified, so every GPU agrees (.claude/rules.md).
+      float reach = mix(0.62, 0.12, u_paperPressure);
+      float tooth = smoothstep(reach, reach + 0.3, paperCatch);
+      amount *= mix(1.0, tooth, u_paper);
+    }
+    if (amount <= 0.0) discard;
+
+    // The ceiling follows the stamp's silhouette only as far as needed to stay
+    // continuous: a hard step at the stamp's rim would draw a visible circle
+    // wherever a firm stamp's edge crosses a lighter part of the same stroke.
+    float ceiling = u_ceiling * smoothstep(0.0, 0.3, shape);
+    gl_FragColor = vec4(vec3(amount), ceiling);
+  }
+`;
+
+// The finished pixel, recomputed from the layer as it was before the stroke
+// and the stroke's own coverage — the same "freeze, accumulate, recompute"
+// the marker established (RibbonStrokeScratch), so a pixel the stroke revisits
+// is recomputed rather than painted over again.
+export const BRUSH_COMPOSITE_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_original;
+  uniform sampler2D u_strokeCoverage;
+  uniform vec2 u_resolution;
+  uniform vec3 u_color;
+  // The stroke's opacity — the user's slider, applied once to the finished
+  // silhouette (ADR 013 §3).
+  uniform float u_opacity;
+  // 1 = multiply flow by the stored ceiling (the pressure→opacity switch on).
+  uniform float u_useCeiling;
+  // Screentone pitch in world px, 0 = continuous tone.
+  uniform float u_screentone;
+  // This tile's world origin, already reduced modulo the screen's own period
+  // on the CPU — see _drawBrushComposite. Keeps every number this shader
+  // handles small, so a mediump fallback cannot shift the dots.
+  uniform vec2 u_screenOrigin;
+
+  void main() {
+    vec2 tileUV = gl_FragCoord.xy / u_resolution;
+    vec4 c = texture2D(u_strokeCoverage, tileUV);
+    if (c.r <= 0.0) discard;
+    float cov = c.r;
+    if (u_useCeiling > 0.5) cov *= c.a;
+
+    if (u_screentone > 0.0) {
+      // World position, top-down like every Dab.x/y: tiles are drawn with GL's
+      // bottom-up rows, so y is measured back from the tile's top.
+      vec2 w = vec2(u_screenOrigin.x + gl_FragCoord.x,
+                    u_screenOrigin.y + (u_resolution.y - gl_FragCoord.y));
+      // A 45-degree lattice whose period along both world axes is exactly
+      // 2 * pitch, which is what lets the CPU reduce the origin exactly.
+      vec2 lat = vec2(w.x + w.y, w.y - w.x) / (2.0 * u_screentone);
+      vec2 f = fract(lat) - 0.5;
+      // Cell side in world px is pitch * sqrt(2); the distance to the dot's
+      // centre follows.
+      float d = length(f) * u_screentone * 1.41421356;
+      // Dot radius whose area is the tone (cov * cell area = pi r^2), eased
+      // up to a full cover as the tone approaches solid — at 1.0 the area rule
+      // alone leaves a lattice of gaps.
+      float areaR = sqrt(cov * 2.0 / 3.14159265) * u_screentone;
+      float r = mix(areaR, u_screentone * 1.05, smoothstep(0.7, 1.0, cov));
+      cov = clamp(r - d + 0.5, 0.0, 1.0);
+    }
+
+    float alpha = clamp(cov * u_opacity, 0.0, 1.0);
+    vec4 dst = texture2D(u_original, tileUV);
+    // Textbook premultiplied "over" onto the frozen pre-stroke pixel.
+    gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
+                        alpha + (1.0 - alpha) * dst.a);
   }
 `;

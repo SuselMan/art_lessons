@@ -553,6 +553,11 @@ export function markerReplayChunkFor(
  *  composite: 8 is the brush pen's, 9 is watercolor's. The helper keeps its
  *  original name because what it does is unchanged and every marker test
  *  already calls it by that name. */
+/** (#573) Every digital-brush stamp/composite draw so far, in order. */
+export function brushDraws(engine: PencilEngine): { kind: 'stamp' | 'composite'; uniforms: Map<string, unknown> }[] {
+  return internals(engine).gl.brushDraws
+}
+
 export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9 | 10): { blendEnabled: boolean; opacity: number; count: number } | undefined {
   return internals(engine).gl.lastDabDraw(inkMode)
 }
