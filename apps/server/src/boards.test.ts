@@ -20,9 +20,10 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
 const {
-  _flushPendingWrites, addPaletteColor, createRoom, ensureRoomLoaded, getOperationRejectReason, getParticipant,
-  getResidentRoomStats, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomFrozen, isRoomResident, joinRoom,
-  leaveRoom, releaseRoomIfUnused, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
+  _flushPendingWrites, addPaletteColor, createRoom, ensureRoomLoaded, getLessonBoards, getOperationRejectReason,
+  getParticipant, getResidentRoomStats, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomFrozen, isRoomResident,
+  joinRoom, leaveRoom, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, releaseRoomIfUnused,
+  setActiveBoard, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
 } = await import('./rooms.js')
 
 /** What `prisma.room.findUnique` hands back for a row this test seeded. Shaped
@@ -92,6 +93,14 @@ beforeEach(() => {
   }
   rows.clear()
   mockPrisma.room.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => rows.get(where.id) ?? null)
+  // The strip query a lesson's cold load runs (rooms.ts's loadBoardSummaries):
+  // the lesson row and every row pointing at it, in boardOrder.
+  mockPrisma.room.findMany.mockImplementation(async ({ where }: { where: { OR: [{ id: string }, { lessonId: string }] } }) => {
+    const lessonId = where.OR[0].id
+    return [...rows.values()]
+      .filter(r => r.id === lessonId || r.lessonId === lessonId)
+      .sort((a, b) => a.boardOrder - b.boardOrder)
+  })
   mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
   mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValue([])
   mockPrisma.operation.findMany.mockResolvedValue([])
@@ -331,5 +340,113 @@ describe('eviction', () => {
 
     expect(isRoomResident(boardId)).toBe(true)
     expect(getParticipant(lessonId, 'student')).toBeDefined()
+  })
+
+  it('a superseded tab still counts as being on its board until it disconnects', async () => {
+    // Tab 1 on the board; tab 2 (same person) takes the seat over on the
+    // lesson's own board. Tab 1 is still a live socket on the board, and the
+    // board must stay for it — it goes only when tab 1 actually disconnects.
+    const lessonId = makeLesson()
+    const boardId = await makeBoard(lessonId)
+    joinRoom(boardId, 'student', 'Alice', sock('student', '-tab1'))
+    joinRoom(lessonId, 'student', 'Alice', sock('student', '-tab2'))
+
+    expect(isRoomResident(boardId)).toBe(true)
+    expect(getRoomBacklog(boardId)?.participants).toBe(1)
+
+    expect(leaveRoom(boardId, 'student', sock('student', '-tab1'))).toBe(false)
+
+    expect(isRoomResident(boardId)).toBe(false)
+    expect(getParticipant(lessonId, 'student')?.boardId).toBe(lessonId)
+  })
+})
+
+describe('the strip and the active board', () => {
+  it('cold-loads the strip with the lesson first, and room_state carries it from any board', async () => {
+    const lessonId = freshId('lesson')
+    rows.set(lessonId, dbRoom(lessonId, { name: 'Still life', activeBoardId: null }))
+    const boardId = freshId('board')
+    rows.set(boardId, dbRoom(boardId, { lessonId, boardOrder: 1, name: 'Page 2' }))
+    await ensureRoomLoaded(boardId)
+    joinRoom(boardId, 'teacher', 'Teacher', sock('teacher'))
+
+    const expected = {
+      id: lessonId, activeBoardId: null,
+      boards: [{ id: lessonId, name: 'Still life', order: 0 }, { id: boardId, name: 'Page 2', order: 1 }],
+    }
+    expect(getRoomSnapshot(boardId)?.lesson).toEqual(expected)
+    expect(getRoomSnapshot(lessonId)?.lesson).toEqual(expected)
+    expect(getLessonBoards(boardId)).toEqual(expected.boards)
+  })
+
+  it('a created lesson is a one-board strip', () => {
+    const lessonId = makeLesson()
+    expect(getRoomSnapshot(lessonId)?.lesson).toEqual({
+      id: lessonId, activeBoardId: null, boards: [{ id: lessonId, name: 'Still life', order: 0 }],
+    })
+  })
+
+  it('setActiveBoard persists on the lesson row and spells the first board as null', async () => {
+    const lessonId = makeLesson()
+    const boardId = await makeBoard(lessonId)
+    noteBoardCreated(lessonId, { id: boardId, name: 'Board 2', order: 1 })
+
+    expect(setActiveBoard(boardId, boardId)).toBe(boardId)
+    expect(getRoomSnapshot(lessonId)?.lesson.activeBoardId).toBe(boardId)
+    // Overlaid onto the board's own room too, so a client reads it either way.
+    expect(getRoomSnapshot(boardId)?.room.activeBoardId).toBe(boardId)
+    await _flushPendingWrites(lessonId)
+    expect(mockPrisma.room.update).toHaveBeenCalledWith({ where: { id: lessonId }, data: { activeBoardId: boardId } })
+
+    // Naming the lesson itself means "the first board" and is stored as null.
+    expect(setActiveBoard(lessonId, lessonId)).toBeNull()
+    expect(getRoomSnapshot(lessonId)?.lesson.activeBoardId).toBeNull()
+    await _flushPendingWrites(lessonId)
+    expect(mockPrisma.room.update).toHaveBeenLastCalledWith({ where: { id: lessonId }, data: { activeBoardId: null } })
+  })
+
+  it('setActiveBoard refuses a board that is not in this lesson, and changes nothing', async () => {
+    const lessonId = makeLesson()
+    const other = makeLesson()
+    mockPrisma.room.update.mockClear()
+
+    expect(setActiveBoard(lessonId, other)).toBe(false)
+    expect(setActiveBoard(lessonId, 'never-existed')).toBe(false)
+    expect(setActiveBoard('no-such-lesson', null)).toBe(false)
+
+    expect(getRoomSnapshot(lessonId)?.lesson.activeBoardId).toBeNull()
+    await _flushPendingWrites(lessonId)
+    expect(mockPrisma.room.update).not.toHaveBeenCalled()
+  })
+
+  it('the CRUD mirrors keep the strip and the resident boards in step', async () => {
+    const lessonId = makeLesson()
+    const boardId = await makeBoard(lessonId)
+    const second = freshId('board')
+
+    noteBoardCreated(lessonId, { id: boardId, name: 'Board 2', order: 1 })
+    noteBoardCreated(lessonId, { id: second, name: 'Board 3', order: 2 })
+    expect(getLessonBoards(lessonId)?.map(b => b.id)).toEqual([lessonId, boardId, second])
+
+    noteBoardRenamed(lessonId, boardId, 'Sketches')
+    expect(getLessonBoards(lessonId)?.[1]).toEqual({ id: boardId, name: 'Sketches', order: 1 })
+    expect(getRoomSnapshot(boardId)?.room.name).toBe('Sketches')
+
+    noteBoardsReordered(lessonId, [lessonId, second, boardId])
+    expect(getLessonBoards(lessonId)?.map(b => [b.id, b.order])).toEqual([[lessonId, 0], [second, 1], [boardId, 2]])
+    expect(getRoomSnapshot(boardId)?.room.boardOrder).toBe(2)
+
+    setActiveBoard(lessonId, boardId)
+    expect(noteBoardDeleted(lessonId, boardId)).toEqual({ wasActive: true })
+    expect(getLessonBoards(lessonId)?.map(b => b.id)).toEqual([lessonId, second])
+    expect(getRoomSnapshot(lessonId)?.lesson.activeBoardId).toBeNull()
+    expect(isRoomResident(boardId)).toBe(false)
+    expect(isRoomResident(lessonId)).toBe(true)
+
+    // The lesson itself is never "deleted" through this: it stays on the
+    // strip and in memory.
+    expect(noteBoardDeleted(lessonId, lessonId)).toEqual({ wasActive: false })
+    expect(isRoomResident(lessonId)).toBe(true)
+    expect(getLessonBoards(lessonId)?.map(b => b.id)).toEqual([lessonId, second])
   })
 })

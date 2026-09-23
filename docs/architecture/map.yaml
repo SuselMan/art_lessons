@@ -976,6 +976,7 @@ modules:
       - apps/server/src/rooms.test.ts
       - apps/server/src/roomSnapshots.test.ts
       - apps/server/src/socketHandlers.ts
+      - apps/server/src/socketHandlers.test.ts
       - apps/server/src/lessons.ts
       - apps/server/src/boards.test.ts
     adr: [002-collaborative-undo, 014-boards]
@@ -1000,6 +1001,7 @@ modules:
       - apps/server/src/roomFolderRoutes*.ts
       - apps/server/src/roomAccessRoutes*.ts
       - apps/server/src/forkRoutes*.ts
+      - apps/server/src/boardRoutes*.ts
       - apps/server/src/thumbnailRoutes*.ts
       - apps/server/src/snapshotRoutes*.ts
       - apps/server/src/roomMapper.ts
