@@ -139,10 +139,18 @@ export function setRoomClosed(id: string, closed: boolean): Promise<Room> {
 // mechanism homework runs on (#314 §4). The name is passed from here rather
 // than composed server-side because server responses stay untranslated
 // (#208), and "Still life — copy" has to be in the reader's own language.
-export function forkRoom(id: string, name?: string): Promise<{ room: Room }> {
+//
+// (#568, ADR 014 §5) `scope` says how much travels. `'board'` copies the one
+// room whose id is given — whichever board of a lesson it is — into a
+// standalone room: «взять в работу» from inside a closed lesson, the sheet the
+// student was looking at. `'lesson'` copies the lesson and every board of it:
+// «Форк» from the lesson list, which is how a prepared lesson is reused.
+export type ForkScope = 'lesson' | 'board'
+
+export function forkRoom(id: string, { name, scope }: { name?: string; scope: ForkScope }): Promise<{ room: Room }> {
   return apiFetch<{ room: Room }>(`/api/rooms/${id}/fork`, {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, scope }),
   })
 }
 

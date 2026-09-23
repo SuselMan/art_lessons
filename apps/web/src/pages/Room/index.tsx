@@ -3372,7 +3372,7 @@ export function Room() {
     if (!id) return
     setClosedBusy(true)
     try {
-      const { room: copy } = await forkRoom(id, t('lessons.forkedName', { name: config?.name ?? '' }))
+      const { room: copy } = await forkRoom(id, { name: t('lessons.forkedName', { name: config?.name ?? '' }), scope: 'board' })
       navigate(`/room/${copy.id}`)
     } catch {
       void showAlert({ message: t('room.error.takeCopy') })
