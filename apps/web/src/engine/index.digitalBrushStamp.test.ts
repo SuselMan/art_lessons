@@ -214,6 +214,22 @@ describe('digital watercolor (#579)', () => {
     expect(last.get('u_mottle')).toBe(0)
     expect(last.get('u_granulation')).toBe(0)
     expect(last.get('u_glaze')).toBe(0)
+    expect(last.get('u_wetModel')).toBe(0)
+    expect(last.get('u_bloom')).toBe(0)
+    expect(last.get('u_feather')).toBe(0)
+  })
+
+  it('replays a stroke recorded with the #579 wet brushes through the model it was drawn with (#581)', () => {
+    const engine = setupLayer()
+    engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: 'brush:wet-wash@1' }))
+    expect(brushDraws(engine).find(d => d.kind === 'composite')!.uniforms.get('u_wetModel')).toBe(1)
+  })
+
+  it('draws every new wet stroke with model 2, blooms and feathering included (#581)', () => {
+    expect(composite('wet-wash').get('u_wetModel')).toBe(2)
+    expect(composite('wet-wash').get('u_bloom') as number).toBeGreaterThan(0)
+    expect(composite('wet-on-wet').get('u_feather') as number).toBeGreaterThan(0)
+    expect(composite('wet-on-wet').get('u_wetEdge')).toBe(0)
   })
 
   it('covers rather than glazes with gouache', () => {
