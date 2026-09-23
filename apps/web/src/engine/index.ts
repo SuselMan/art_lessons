@@ -109,6 +109,10 @@ import type { SnapshotRestoreAudit } from './src/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
 
 export type { HapticGrainStats }
+// (#574) What the filter dialog needs to draw a curve and to tell a no-op
+// from a real change — the same functions the engine applies, so the dialog's
+// graph is the curve that will actually be used.
+export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/layerFilters'
 export type { Matrix3 }
 export type { RulerLine }
 

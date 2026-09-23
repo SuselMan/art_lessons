@@ -60,6 +60,9 @@ export interface LayerPanelProps {
    *  arrives as its own prop instead of through `onChange`. Empty = off. */
   soloIds: readonly string[]
   onSoloChange: (ids: string[]) => void
+  /** (#574) Opens the filter dialog on a layer. The dialog lives in the Room,
+   *  not here: its preview draws on the canvas, which this panel never owns. */
+  onOpenFilters?: (layerId: string) => void
 }
 
 // (#411) How long a still finger has to rest on a row to open selection mode,
@@ -88,7 +91,7 @@ const TOUCH_DRAG_DELAY_MS = 400
 // engineRef.current with an empty dependency array, stable for the same
 // reason.
 export const LayerPanel = memo(function LayerPanel({
-  layerState, onChange, onOp, isOwner, hasLayerContent, soloIds, onSoloChange,
+  layerState, onChange, onOp, isOwner, hasLayerContent, soloIds, onSoloChange, onOpenFilters,
 }: LayerPanelProps) {
   const t = useT()
   const { items, rootOrder, activeId, selectedIds } = layerState
@@ -1138,6 +1141,7 @@ export const LayerPanel = memo(function LayerPanel({
                   onMergeDown={handleMergeDown}
                   onDuplicate={handleDuplicate}
                   onClear={handleClear}
+                  onFilters={onOpenFilters}
                   onDelete={handleMenuDelete}
                   onPointerDown={handlePointerDown}
                   onPointerUp={handlePointerUp}
