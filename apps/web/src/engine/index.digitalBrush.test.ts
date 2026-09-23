@@ -27,7 +27,7 @@ import { digitalBrushFlow, digitalBrushFromPreset, digitalBrushPreset } from './
 import {
   createTestEngine, dab, makeLayerAdd, makeStroke,
   readLayerPixels, expectPixelsEqual,
-  markerPassDraw, paperReady, simulateStroke,
+  markerPassDraw, paperReady, simulateStroke, brushDraws,
 } from './testing/engineTestUtils'
 
 function setupLayer(width = 64, height = 64) {
@@ -37,6 +37,10 @@ function setupLayer(width = 64, height = 64) {
   return engine
 }
 
+// The v1 token. Every test in this file is about the `ribbon` model, which
+// since #573 exists only so strokes recorded with `@1` keep replaying through
+// the renderer they were drawn with — the live set is covered by
+// index.digitalBrushStamp.test.ts.
 const TOKEN = digitalBrushPreset('medium-round', 1)
 
 function brushStroke(size = 20) {
@@ -54,7 +58,7 @@ function lastStroke(engine: PencilEngine): StrokeOperation {
   return op
 }
 
-describe('digital brush (#547, ADR 013)', () => {
+describe('digital brush, v1 strokes (#547, ADR 013 §7)', () => {
   it('records the tool tag and a versioned brush token', () => {
     // ADR 013 §7: the version is half the token precisely so that retuning a
     // brush later cannot repaint the strokes already drawn with it.
@@ -107,7 +111,7 @@ describe('digital brush (#547, ADR 013)', () => {
     // self-crossing would come out darker than the rest of the stroke — the
     // signature flaw of a hand-rolled digital brush.
     const engine = setupLayer()
-    const brush = digitalBrushFromPreset('soft-round')
+    const brush = digitalBrushFromPreset('brush:soft-round@1')
     const pressure = 0.5
     engine.appendOperation(makeStroke('user-a', 'L', [
       dab(16, 32, { size: 20, pressure, opacity: 1 }),
@@ -276,12 +280,13 @@ describe('digital brush (#547, ADR 013)', () => {
 
   it('replays a stroke recorded with an unknown brush rather than dropping it', () => {
     // The log is permanent and older clients meet newer ones. Refusing to draw
-    // is not among the options; falling back to the default brush is.
+    // is not among the options; falling back to the default brush is — whose
+    // current version is on the stamp model.
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', brushStroke(), {
       tool: 'digitalBrush', preset: 'brush:invented-later@3',
     }))
-    expect(markerPassDraw(engine, 10)).toBeDefined()
-    expect(markerPassDraw(engine, 8)).toBeDefined()
+    expect(brushDraws(engine).some(d => d.kind === 'stamp')).toBe(true)
+    expect(brushDraws(engine).some(d => d.kind === 'composite')).toBe(true)
   })
 })

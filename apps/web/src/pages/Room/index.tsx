@@ -15,6 +15,7 @@ import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs,
 import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
+import { FilterPanel } from '../../components/FilterPanel'
 import { SidePanel } from '../../components/SidePanel'
 import {
   ColorFlyout, ColorFlyoutBody, type ColorFlyoutContent, type ColorPairControls,
@@ -22,7 +23,7 @@ import {
 import { ColorWell } from '../../components/ColorWell'
 import { Icon } from '../../components/Icon'
 import { Logo } from '../../components/Logo'
-import { Menu } from '../../components/Menu'
+import { Menu, type MenuAction } from '../../components/Menu'
 import { BoardStrip, TeacherChip } from './BoardStrip'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
@@ -104,6 +105,7 @@ import { SelectionOverlay } from './SelectionOverlay'
 import { AnnotationOverlay } from './AnnotationOverlay'
 import { annotationAt } from './annotationHitTest'
 import { useCompactLayout } from '../../lib/useCompactLayout'
+import { useNarrowHeader } from '../../lib/useNarrowHeader'
 import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations'
 import {
   appendFreehandPoint, closeAfterDoubleClick, closesPolygon, rectangleFromDrag,
@@ -868,6 +870,10 @@ function RoomEditor() {
   // (#512) The compact shell: a phone gets annotations and nothing else. Live,
   // not measured once — see useCompactLayout.
   const compact = useCompactLayout()
+  // (#575) Below 1200px the header packs tighter: the "g" instead of the
+  // wordmark, the save status as a dot, and the mode toggles (annotations,
+  // boards, fullscreen) folded into the ≡ menu as checkable items.
+  const narrowHeader = useNarrowHeader()
   /** (#509 v4) Whether the left rail is showing annotation tools instead of
    *  drawing ones. Two routes in and they are deliberately different things:
    *  the compact shell *is* this and cannot leave it, while the full layout
@@ -1050,6 +1056,10 @@ function RoomEditor() {
   // (#542) 'color' is back in this list, but it is no longer a tab with its own
   // contents — it renders the very same body the colour popover does.
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
+  // (#574) The layer the filter dialog is open on, or null. Local like
+  // activePanel above: which dialog is open is this viewer's business, not the
+  // room's.
+  const [filterLayerId, setFilterLayerId] = useState<string | null>(null)
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
@@ -2638,13 +2648,16 @@ function RoomEditor() {
   // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
   // hand-off.
   const digitalBrushId = toolSettings.digitalBrush.brush as string
-  // #547 — the toggle rides the same token, as a third field. It changes the
-  // mark, so it has to be recorded: a peer replaying the stroke has their own
-  // switch in whatever position they left it.
-  const digitalBrushFlowFromPressure = toolSettings.digitalBrush.flowFromPressure as boolean
+  // #547, #573 — the two pressure switches ride the same token as modifiers.
+  // They change the mark, so they have to be recorded: a peer replaying the
+  // stroke has their own switches in whatever position they left them.
+  const digitalBrushSizeFromPressure = toolSettings.digitalBrush.sizeFromPressure as boolean
+  const digitalBrushOpacityFromPressure = toolSettings.digitalBrush.opacityFromPressure as boolean
   const digitalBrushPresetName = (() => {
     const brush = digitalBrushFromPreset(digitalBrushId)
-    return digitalBrushPreset(brush.id, brush.version, digitalBrushFlowFromPressure)
+    return digitalBrushPreset(brush.id, brush.version, {
+      size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
+    })
   })()
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
@@ -6356,6 +6369,38 @@ function RoomEditor() {
     )
   }
 
+  // (#575) The header's mode toggles, when it is too narrow to hold them —
+  // the same conditions as their buttons, the same order, and a tick for the
+  // pressed state the buttons showed. The notes button's peek-on-hold stays
+  // with the button: a menu item is gone the moment it is pressed, so there is
+  // nothing to hold, and a plain toggle is what's left.
+  const foldedHeaderToggles: MenuAction[] = !narrowHeader ? [] : [
+    ...(!compact ? [{
+      label: t('room.annotationMode'),
+      icon: 'edit_note' as const,
+      checked: annotationMode,
+      onClick: () => toggleAnnotationMode(!annotationMode),
+    }] : []),
+    ...(annotations.order.length > 0 ? [{
+      label: t('room.annotationsHide'),
+      icon: 'visibility_off' as const,
+      checked: annotationsHidden,
+      onClick: () => setAnnotationsHidden(!annotationsHidden),
+    }] : []),
+    ...(stripAvailable ? [{
+      label: t('boards.open'),
+      icon: 'auto_stories' as const,
+      checked: boardsOpen,
+      onClick: () => setBoardsOpen(o => !o),
+    }] : []),
+    ...(fullscreenSupported ? [{
+      label: t('room.fullscreen'),
+      icon: 'fullscreen' as const,
+      checked: isFullscreen,
+      onClick: toggleFullscreen,
+    }] : []),
+  ]
+
   return (
     <div
       ref={editorRef}
@@ -6376,8 +6421,13 @@ function RoomEditor() {
         {/* The wordmark is the way out of the editor, same as on every other
             page — it replaced an arrow_back that went to /create rather than
             anywhere back, and left without asking. */}
-        <button className={styles.headerLogoBtn} onClick={() => void leaveRoom()} title={t('room.home')} aria-label={t('room.home')}>
-          <Logo />
+        <button
+          className={clsx(styles.headerLogoBtn, narrowHeader && styles.headerLogoBtnMark)}
+          onClick={() => void leaveRoom()}
+          title={t('room.home')}
+          aria-label={t('room.home')}
+        >
+          <Logo variant={narrowHeader ? 'mark' : 'full'} />
         </button>
         {/* Same divider the control clusters use on the right (#329) — the
             wordmark is a button that leaves the room, and without a break
@@ -6412,7 +6462,7 @@ function RoomEditor() {
             the thing the name refers to. Took over from the connection
             banner's "Saving N strokes…", which flashed on and off with every
             stroke. */}
-        <SyncIndicator connected={connected} pending={outboxState.pending} />
+        <SyncIndicator connected={connected} pending={outboxState.pending} dotOnly={narrowHeader} />
 
         {/* (#329) Four sections, divider-separated, in the order they're
             reached for: rotation | zoom + fit | undo/redo | fullscreen | ≡.
@@ -6527,9 +6577,12 @@ function RoomEditor() {
               panel is where the editor's modes already live.
 
               The toggle is absent in the compact shell: there the whole
-              interface is annotation mode and there is nothing to switch to. */}
-          {(!compact || annotations.order.length > 0) && <div className={styles.headerDivider} />}
-          {!compact && (
+              interface is annotation mode and there is nothing to switch to.
+
+              (#575) In a narrow header both live in the ≡ menu instead — as do
+              the boards and fullscreen toggles below. */}
+          {!narrowHeader && (!compact || annotations.order.length > 0) && <div className={styles.headerDivider} />}
+          {!narrowHeader && !compact && (
             <button
               className={clsx(styles.headerIconBtn, annotationMode && styles.headerIconBtnActive)}
               onClick={() => toggleAnnotationMode(!annotationMode)}
@@ -6542,7 +6595,7 @@ function RoomEditor() {
           )}
           {/* Shown only once there is something to hide — a control that
               provably does nothing is worse than no control. */}
-          {annotations.order.length > 0 && (
+          {!narrowHeader && annotations.order.length > 0 && (
             <button
               className={clsx(styles.headerIconBtn, annotationsHidden && styles.headerIconBtnActive)}
               title={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
@@ -6566,7 +6619,7 @@ function RoomEditor() {
           {/* (#176) The board strip's toggle. Here by the same rule as the
               rest of this panel: turning the page is something a teacher does
               mid-explanation, between one stroke and the next. */}
-          {stripAvailable && (
+          {!narrowHeader && stripAvailable && (
             <>
               <div className={styles.headerDivider} />
               <button
@@ -6595,7 +6648,7 @@ function RoomEditor() {
             </>
           )}
 
-          {fullscreenSupported && (
+          {!narrowHeader && fullscreenSupported && (
             <>
               <div className={styles.headerDivider} />
               <button
@@ -6619,15 +6672,18 @@ function RoomEditor() {
             triggerLabel={t('room.menu')}
             trigger={<Icon name="menu" />}
             actions={[
-              // (#460) First: inviting someone into the project you already
-              // have open is the one thing here that is about other people.
-              // Disabled until the room itself has arrived — there is no link
-              // to hand out before we know which room this is.
+              ...foldedHeaderToggles,
+              // (#460) First of the menu's own items: inviting someone into
+              // the project you already have open is the one thing here that
+              // is about other people. Disabled until the room itself has
+              // arrived — there is no link to hand out before we know which
+              // room this is.
               {
                 label: t('share.action'),
                 icon: 'share',
                 onClick: () => { if (config) shareRoom(config) },
                 disabled: config === null,
+                separatorBefore: foldedHeaderToggles.length > 0,
               },
               { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
               { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },
@@ -7554,6 +7610,27 @@ function RoomEditor() {
           />
         </div>
 
+        {/* (#574) Mounted only while its layer is a paintable layer: if the
+            layer is deleted, or the room stops taking edits, the dialog goes
+            away and takes its preview with it. */}
+        {(() => {
+          const item = filterLayerId ? layerState.items[filterLayerId] : undefined
+          if (!filterLayerId || !item || item.kind !== 'layer' || editingBlocked || compact) return null
+          const layerId = filterLayerId
+          return (
+            <FilterPanel
+              key={layerId}
+              layerName={item.name}
+              onPreview={filter => engineRef.current?.previewLayerFilter(layerId, filter)}
+              onApply={filter => {
+                dispatchOp({ type: 'layer_filter', layerId, filter })
+                setFilterLayerId(null)
+              }}
+              onClose={() => setFilterLayerId(null)}
+            />
+          )
+        })()}
+
         {/* ── Side panel (layers, color, …) ── */}
         {/* #99: wrapped rather than passing a className into SidePanel — the
             wrapper is a positioned overlay (see .layerPanelWrap) that only
@@ -7586,6 +7663,7 @@ function RoomEditor() {
                     layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp}
                     isOwner={isOwner} hasLayerContent={hasLayerContent}
                     soloIds={soloIds} onSoloChange={setSoloIds}
+                    onOpenFilters={setFilterLayerId}
                   />
                 ),
               },

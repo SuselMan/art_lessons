@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill } from '@grafetto/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -38,6 +38,7 @@ import {
 } from './src/tiltCurve'
 import type { NibAngleConfig } from './src/markerPresets'
 import { shapeDrawParams, type ShapeDrawParams } from './src/shapeGeometry'
+import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerFilter } from './src/layerFilters'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 // (#517) Same on-device ring buffer PointerInput writes to — the stroke
@@ -61,13 +62,16 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import {
-  digitalBrushFromPreset, digitalBrushPresetFor, digitalBrushScallops,
+  brushStampsForDab, digitalBrushCeiling, digitalBrushFromPreset, digitalBrushMixer,
+  digitalBrushPresetFor, digitalBrushScallops, curveAt,
+  type BrushDescriptor, type BrushPressureSettings, type MixerPaint,
 } from './src/digitalBrushPresets'
 export {
-  DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH,
-  digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset,
-  type BrushDescriptor, type BrushTip,
+  DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, BRUSH_CATEGORIES,
+  digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset, digitalBrushPressureFromPreset,
+  type BrushDescriptor, type BrushTip, type BrushCategory, type BrushPressureSettings,
 } from './src/digitalBrushPresets'
+import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from './src/tipMasks'
 import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { markerThinNibInkGain } from './src/markerInkGain'
 
@@ -105,6 +109,10 @@ import type { SnapshotRestoreAudit } from './src/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
 
 export type { HapticGrainStats }
+// (#574) What the filter dialog needs to draw a curve and to tell a no-op
+// from a real change — the same functions the engine applies, so the dialog's
+// graph is the curve that will actually be used.
+export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/layerFilters'
 export type { Matrix3 }
 export type { RulerLine }
 
@@ -824,6 +832,15 @@ export interface PencilEngineAPI {
     layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
     stroke: ShapeStroke | null, fill: ShapeFill | null,
   ): void
+  // (#574) A filter's live preview: `layerId`'s content run through `filter`
+  // into floating scratch tiles, without writing a pixel into the layer. Same
+  // lifecycle and the same clearLayerTransformPreview as the previews above.
+  // `null` drops the preview.
+  //
+  // Not cheap: it runs the filter itself, on the CPU, over every tile the
+  // layer has content on (ADR 014). Call it when a setting settles, not per
+  // pointer move.
+  previewLayerFilter(layerId: string, filter: LayerFilter | null): void
   // (#446) Decodes one raster into the same cache preloadImages fills, so the
   // float above can draw it on the very first frame. preloadImages takes whole
   // operations, and a floating paste has no operation yet — that is the point
@@ -1343,6 +1360,12 @@ const SMUDGE_PICKUP_RATE = 0.5
 // 0.6, pen pressure rarely sits at full) — at the shipped defaults this
 // lands near 0.35 at a dab's own center.
 const SMUDGE_DEPOSIT_RATE = 2.0
+
+/** #573 — how much of the mixer brush's own colour its imprint holds on the
+ *  gesture's first dab. Not 1: a brush touching down on wet paint picks a
+ *  little of it up at once, which is what makes a stroke that starts inside
+ *  another colour start *mixed* rather than as a clean patch of its own. */
+const MIXER_PRIME_LOAD = 0.85
 
 // Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
 // marker has no hardness *scale* the way graphite's grades do (same
@@ -2018,6 +2041,9 @@ export class PencilEngine implements PencilEngineAPI {
   // full-screen quad over the imprint texture; it needs no dab-quad
   // geometry, only the patch's own normalized square) rather than DAB_VERT.
   private _smudgePickupProg!: WebGLProgram
+  // #573 — the digital brush's stamp model (BRUSH_STAMP_FRAG / BRUSH_COMPOSITE_FRAG).
+  private _brushStampProg!: WebGLProgram
+  private _brushCompositeProg!: WebGLProgram
   // Marker ribbon (#330 stage 2) — the bands between consecutive nib stamps
   // (markerRibbon.ts). Its own tiny program: unlike every other dab draw, the
   // vertices arrive already positioned by the CPU and carry a per-vertex
@@ -2040,6 +2066,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _shapeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgePickupUni!: Record<string, WebGLUniformLocation | null>
+  private _brushStampUni!: Record<string, WebGLUniformLocation | null>
+  private _brushCompositeUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
   private _dispTransparentPosLoc!: number
   private _compositePosLoc!: number
@@ -2054,6 +2082,8 @@ export class PencilEngine implements PencilEngineAPI {
   // location number in it and _dabPosLoc must not be reused here.
   private _smudgePosLoc!: number
   private _smudgePickupPosLoc!: number
+  private _brushStampPosLoc!: number
+  private _brushCompositePosLoc!: number
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
@@ -2211,6 +2241,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _instOpacityLoc!: number
   private _dabInstBuf!: WebGLBuffer
   private _instancedArraysExt: InstancedArraysExt | null = null
+  private _blendMinMaxExt: { MAX_EXT: number } | null = null
+  /** #573 — the digital brush's bitmap tips, uploaded on first use (tipMasks.ts
+   *  generates them on the CPU, deterministically, with their full mip chain). */
+  private _tipTextures = new Map<TipMaskId, WebGLTexture>()
+  /** #573 — the brushes' canvas-anchored textures, tiled with REPEAT. */
+  private _brushTextures = new Map<BrushTextureId, WebGLTexture>()
   // Reused/grown scratch buffer for the per-dab instance data upload — no
   // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
   private _dabInstScratch: Float32Array = new Float32Array(0)
@@ -2358,6 +2394,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokePreset: string
   private _strokeColor: [number, number, number]
   private _strokeDabs: Dab[]
+  /** (#573) The last dab of the gesture's previous chunk, once
+   *  _flushStrokeChunk has emptied _strokeDabs — so the next batch still
+   *  knows its predecessor. Without it the first dab after every 800-dab
+   *  boundary was painted as a stroke's *first* dab: the digital brush and the
+   *  marker gave it a whole half-radius of travel (one dark stamp in the middle
+   *  of the stroke), smudge restarted its smear — and only live, since replay
+   *  rejoins the chunks through _replayChunkScratch, so the author and
+   *  everyone else were looking at different marks. */
+  private _strokeChunkTail: Dab | undefined
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278/#489: the active tool's live nib angle — canvas-space radians (the
@@ -2893,13 +2938,17 @@ export class PencilEngine implements PencilEngineAPI {
       // (#527) A shape is the same shape of operation as the two selection ops
       // below: one layer, pixels only, nothing to decode and nothing async —
       // it is drawn from its own numbers the moment it arrives.
+      // (#574) A filter too: one layer, pixels only, computed from its own
+      // numbers the moment it arrives.
+      case 'layer_filter':
       case 'shape':
       case 'area_transform':
       case 'area_clear': {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
-        if (op.type === 'shape') this._drawShape(buf, op)
+        if (op.type === 'layer_filter') this._applyFilter(buf, op.filter)
+        else if (op.type === 'shape') this._drawShape(buf, op)
         else if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
         else this._clearArea(buf, op.selection)
         this._markLayerDirty(op.layerId)
@@ -3995,6 +4044,9 @@ export class PencilEngine implements PencilEngineAPI {
       // layer without it. It paints over whatever was under it and cannot be
       // subtracted in place.
       case 'shape':
+      // (#574) And a filter, which reads the pixels it rewrites: the only way
+      // back is the layer's history without it.
+      case 'layer_filter':
         this._rebuildLayerOrDefer(op.layerId)
         break
       case 'layer_add':
@@ -4263,6 +4315,9 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'shape':
         this._drawShape(buf, op)
+        break
+      case 'layer_filter':
+        this._applyFilter(buf, op.filter)
         break
       case 'area_paste':
       case 'area_fill': {
@@ -5227,6 +5282,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
+    this._brushStampProg      = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
+    this._brushCompositeProg  = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -5312,7 +5369,18 @@ export class PencilEngine implements PencilEngineAPI {
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
     ])
     this._smudgePickupUni = getUniforms(gl, this._smudgePickupProg, [
-      'u_patch', 'u_carried', 'u_rate',
+      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup',
+    ])
+    this._brushStampUni = getUniforms(gl, this._brushStampProg, [
+      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity',
+      'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
+      'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure',
+      'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin',
+    ])
+    this._brushCompositeUni = getUniforms(gl, this._brushCompositeProg, [
+      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
+      'u_original', 'u_strokeCoverage', 'u_color', 'u_opacity', 'u_useCeiling',
+      'u_screentone', 'u_screenOrigin',
     ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
@@ -5326,6 +5394,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
     this._smudgePickupPosLoc   = gl.getAttribLocation(this._smudgePickupProg, 'a_position')
+    this._brushStampPosLoc     = gl.getAttribLocation(this._brushStampProg, 'a_position')
+    this._brushCompositePosLoc = gl.getAttribLocation(this._brushCompositeProg, 'a_position')
 
     this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
     this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
@@ -5343,6 +5413,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonBuf  = gl.createBuffer()!
 
     this._instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
+    // #573 — the digital brush's opacity ceiling lives in the coverage buffer's
+    // alpha under a MAX blend. Universally supported in practice; without it
+    // the ceiling degrades to "off" (flow alone), never to a wrong picture.
+    this._blendMinMaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
+    // Built fresh on context restore like every other GL object here: the
+    // previous handles died with the old context.
+    this._tipTextures = new Map()
+    this._brushTextures = new Map()
 
     this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
@@ -5638,6 +5716,7 @@ export class PencilEngine implements PencilEngineAPI {
     // _paintSmudgeDabs does it off this stroke's own id, so the local and the
     // replayed path go through exactly one rule (see _smudgeResumeGesture).
     this._strokeDabs    = []
+    this._strokeChunkTail = undefined
     // #482: the running arc length and the speed-contact factor both used to
     // live here as per-stroke engine fields. They are tip state now (TipState),
     // reset by DabSystem alongside the bend and the input filters — one record
@@ -5954,6 +6033,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
+    this._strokeChunkTail = undefined
     this._handlers.strokeEnd?.(e)
   }
 
@@ -6238,7 +6318,7 @@ export class PencilEngine implements PencilEngineAPI {
     // internal batching instead of restarting at each call.
     this._paintDabs(
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
+      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
     )
     this._paintExtraLayers(dabs)
     this._strokeDabs.push(...dabs)
@@ -6357,7 +6437,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._paintDabs(
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
+      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
     )
     // (#520) A no-op today — only the liner dwells, and only the eraser goes
     // through layers — but a dwell dab is a real dab of this gesture (see the
@@ -6439,6 +6519,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._maybeCheckpoint(targetId)
       this._onLocalOperation?.(op)
     }
+    this._strokeChunkTail = this._strokeDabs[this._strokeDabs.length - 1]
     this._strokeDabs = []
   }
 
@@ -6765,6 +6846,161 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
+  // ─── Layer filters (#574, ADR 014) ─────────────────────────────────────────
+
+  /** Runs `filter` over every tile of `layerBuf` that has content — plus, for
+   *  a blur, the neighbouring tiles it spreads into — and returns the results
+   *  as fresh tile-sized buffers. Writes nothing into the layer: the caller
+   *  either copies these in (`_applyFilter`) or floats them as a preview.
+   *
+   *  Each tile is read with a margin of the filter's reach around it, from
+   *  whichever of the layer's tiles overlap that margin. That is what makes a
+   *  tile's result equal to filtering the whole layer in one piece, and
+   *  therefore independent of where this client's tile grid happens to cut —
+   *  the property the recipe-in-the-log design rests on (layerFilters.test.ts
+   *  checks it byte for byte).
+   *
+   *  The pixel math runs on the CPU, not in a shader, because every
+   *  participant runs it and all of them have to get the same answer; see the
+   *  cross-device determinism rule in `.claude/rules.md`. The price is time on
+   *  the main thread, measured in ADR 014.
+   *
+   *  Eviction must be suspended by the caller: the reads below touch every
+   *  content tile and their neighbours, and a trim in the middle would
+   *  destroy a tile about to be read. */
+  private _filterTiles(layerBuf: ILayerBuffer, rawFilter: LayerFilter): Array<PreviewTile & { contentRect: WorldRect }> {
+    if (!isKnownLayerFilter(rawFilter)) return []
+    const filter = normalizeLayerFilter(rawFilter)
+    const reach = layerFilterReach(filter)
+    const { w: tw, h: th } = this._tileSize()
+    const page = this._infinite ? null : this._pageSize()
+
+    // Which tiles the result can land on, and how far content reaches in each.
+    const targets = new Map<string, { rect: WorldRect; content: WorldRect }>()
+    const addTarget = (rect: WorldRect, content: WorldRect): void => {
+      const key = `${rect.minX},${rect.minY}`
+      const prev = targets.get(key)
+      targets.set(key, {
+        rect,
+        content: prev ? {
+          minX: Math.min(prev.content.minX, content.minX), minY: Math.min(prev.content.minY, content.minY),
+          maxX: Math.max(prev.content.maxX, content.maxX), maxY: Math.max(prev.content.maxY, content.maxY),
+        } : content,
+      })
+    }
+    for (const src of layerBuf.allResident()) {
+      if (!src.contentRect) continue
+      const srcRect = tileWorldRect(Math.floor(src.originX / tw), Math.floor(src.originY / th), tw, th)
+      if (reach === 0) { addTarget(srcRect, src.contentRect); continue }
+      const grown: WorldRect = {
+        minX: src.contentRect.minX - reach, minY: src.contentRect.minY - reach,
+        maxX: src.contentRect.maxX + reach, maxY: src.contentRect.maxY + reach,
+      }
+      for (const { tileX, tileY } of tilesOverlappingRect(grown, tw, th)) {
+        const rect = tileWorldRect(tileX, tileY, tw, th)
+        // A bounded room grows no new tiles past its sheet for a blur's
+        // spill: nothing could ever show them. Tiles that already exist
+        // there (a transform moved content off the page) are still filtered.
+        const isSource = rect.minX === srcRect.minX && rect.minY === srcRect.minY
+        if (page && !isSource && (rect.minX >= page.w || rect.minY >= page.h || rect.maxX <= 0 || rect.maxY <= 0)) continue
+        addTarget(rect, {
+          minX: Math.max(rect.minX, grown.minX), minY: Math.max(rect.minY, grown.minY),
+          maxX: Math.min(rect.maxX, grown.maxX), maxY: Math.min(rect.maxY, grown.maxY),
+        })
+      }
+    }
+    if (targets.size === 0) return []
+
+    const pw = tw + 2 * reach
+    const ph = th + 2 * reach
+    const patch = new AccumulationBuffer(this.gl, pw, ph)
+    const results: Array<PreviewTile & { contentRect: WorldRect }> = []
+    try {
+      for (const { rect, content } of targets.values()) {
+        const region: WorldRect = {
+          minX: rect.minX - reach, minY: rect.minY - reach, maxX: rect.maxX + reach, maxY: rect.maxY + reach,
+        }
+        patch.clear()
+        let any = false
+        for (const { buffer, originX, originY } of layerBuf.resolveVisible(region)) {
+          this._runTransformBlit(buffer, translationMatrix(region.minX - originX, region.minY - originY), pw, ph, patch.fbo)
+          any = true
+        }
+        if (!any) continue
+        const filtered = applyLayerFilter(
+          patch.readPixels(), pw, ph, filter, { originX: region.minX, originY: region.minY, rowsUp: true },
+        )
+        // The tile is the patch minus its margin — the same `reach` on every
+        // side, so the crop needs no flip even though the rows are bottom-up.
+        const tile = new Uint8Array(tw * th * 4)
+        let empty = true
+        for (let y = 0; y < th; y++) {
+          const from = ((y + reach) * pw + reach) * 4
+          const row = filtered.subarray(from, from + tw * 4)
+          if (empty) for (let i = 3; i < row.length; i += 4) if (row[i] !== 0) { empty = false; break }
+          tile.set(row, y * tw * 4)
+        }
+        // A blur's spill that rounded away to nothing does not earn a tile.
+        const existing = this._tileBufferAt(layerBuf, rect)
+        if (empty && !existing) continue
+        const buffer = new AccumulationBuffer(this.gl, tw, th)
+        buffer.restorePixels(tile)
+        results.push({ originX: rect.minX, originY: rect.minY, buffer, contentRect: content })
+      }
+    } finally {
+      patch.destroy()
+    }
+    return results
+  }
+
+  /** Bakes a `layer_filter` into a layer. */
+  private _applyFilter(layerBuf: ILayerBuffer, filter: LayerFilter): void {
+    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
+    tiled?.suspendEviction()
+    try {
+      // Everything is computed before anything is written: a tile's margin
+      // reads its neighbours, and a neighbour already filtered would be
+      // filtered twice at the seam.
+      const results = this._filterTiles(layerBuf, filter)
+      for (const { originX, originY, buffer, contentRect } of results) {
+        const rect = tileWorldRect(
+          Math.floor(originX / buffer.width), Math.floor(originY / buffer.height), buffer.width, buffer.height,
+        )
+        const target = layerBuf.resolveForPaint(rect).find(t => t.originX === originX && t.originY === originY)
+        if (target) {
+          buffer.copyTo(target.buffer)
+          layerBuf.markContentPainted(contentRect)
+        }
+        buffer.destroy()
+      }
+    } finally {
+      tiled?.resumeEviction()
+    }
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  previewLayerFilter(layerId: string, filter: LayerFilter | null): void {
+    for (const t of this._transformPreview.get(layerId) ?? []) t.buffer.destroy()
+    this._transformPreview.delete(layerId)
+    this._areaPreviewLayers.delete(layerId)
+    const layerBuf = this._layers.get(layerId)
+    if (layerBuf && filter) {
+      const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
+      tiled?.suspendEviction()
+      try {
+        const tiles = this._filterTiles(layerBuf, filter)
+        this._transformPreview.set(layerId, tiles.map(({ originX, originY, buffer }) => ({ originX, originY, buffer })))
+        // Drawn in place of the real tiles where a preview tile exists, from
+        // the real ones everywhere else — see _drawCompositeItem.
+        this._areaPreviewLayers.add(layerId)
+      } finally {
+        tiled?.resumeEviction()
+      }
+    }
+    if (layerId !== this._activeId) this._invalidateSplitCache()
+    this._display()
+  }
+
   // ─── Rendering ───────────────────────────────────────────────────────────────
 
   /** Conservative world-space AABB covering every dab's full painted extent
@@ -6898,6 +7134,13 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
+    // #573 — the mixer brush paints through smudge's carried imprint with its
+    // own colour loaded into it; every other digital brush is a ribbon-scratch
+    // tool below.
+    if (tool === 'digitalBrush') {
+      const paint = digitalBrushMixer(presetName, color)
+      if (paint) { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId, paint); return }
+    }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
     // round trip (see _paintRibbonDabs' own doc comment) — self-contained
@@ -7211,6 +7454,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintSmudgeDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], userId: string, prevDab: Dab | undefined,
     strokeId: string | undefined,
+    /** (#573) Set for the digital brush's mixer: the colour the brush is
+     *  loaded with and how it lays it down. Absent for the smudge tool. */
+    paint?: MixerPaint,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) are a single un-tiled buffer, freshly cleared before
@@ -7228,8 +7474,8 @@ export class PencilEngine implements PencilEngineAPI {
       // travel to smear along yet — it only primes the imprint with what
       // sits under it (see _smudgeApplyDab's `priming` branch), which is
       // also why a one-dab smudge stroke leaves the canvas untouched.
-      if (prev) this._paintOneSmudgeDab(target, prev, dab, userId)
-      else this._smudgeApplyDab(target, dab, 0, userId)
+      if (prev) this._paintOneSmudgeDab(target, prev, dab, userId, paint)
+      else this._smudgeApplyDab(target, dab, 0, userId, paint)
       prev = dab
     }
   }
@@ -7282,13 +7528,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  many samples arrived along the way — see SMUDGE_PICKUP_RATE. It also
    *  makes standing still a true no-op rather than something that slowly
    *  eats the drawing. */
-  private _paintOneSmudgeDab(target: ILayerBuffer, prev: Dab, dab: Dab, userId: string): void {
-    const radius = dab.size * 0.5 * SMUDGE_SIZE_MULTIPLIER
+  private _paintOneSmudgeDab(target: ILayerBuffer, prev: Dab, dab: Dab, userId: string, paint?: MixerPaint): void {
+    const radius = this._smudgeRadius(dab, paint)
     if (radius < 0.5) return
 
     const len = Math.hypot(dab.x - prev.x, dab.y - prev.y)
     if (len < 1e-3) return // stationary/duplicate sample — nothing moved, so nothing smears
-    this._smudgeApplyDab(target, dab, clampNum(len / radius, 0, 1), userId)
+    this._smudgeApplyDab(target, dab, clampNum(len / radius, 0, 1), userId, paint)
+  }
+
+  /** The stump's radius — or, for the mixer brush (#573), the brush's, which
+   *  follows the digital brush's own size normalization rather than smudge's. */
+  private _smudgeRadius(dab: Dab, paint?: MixerPaint): number {
+    return dab.size * 0.5 * (paint ? paint.sizeMultiplier : SMUDGE_SIZE_MULTIPLIER)
   }
 
   /** The two GPU phases of one smudge dab, against `userId`'s own imprint:
@@ -7317,8 +7569,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  either way; only which tile's pixel space each piece of it is expressed
    *  in changes, which is exactly how pencil and eraser have always crossed
    *  a seam. */
-  private _smudgeApplyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string): void {
-    const radius = dab.size * 0.5 * SMUDGE_SIZE_MULTIPLIER
+  private _smudgeApplyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string, paint?: MixerPaint): void {
+    const radius = this._smudgeRadius(dab, paint)
     if (radius < 0.5) return
     const patchWorld = Math.ceil(radius * 2)
     const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
@@ -7351,7 +7603,14 @@ export class PencilEngine implements PencilEngineAPI {
     // previous imprint to read, so it reads the patch on both inputs —
     // mix(patch, patch, 1) is the patch either way.
     const next = this._acquireSmudgeScratchBuf(patchSize)
-    this._smudgeRunPickup(patch, imprint.buf ?? patch, next, rate)
+    // (#573) The mixer folds its own colour back into what it carries, per
+    // radius travelled — and nearly in full on the first dab, because a brush
+    // arrives on the canvas loaded with paint, not with whatever is under it.
+    const paintLoad = !paint ? 0 : priming ? MIXER_PRIME_LOAD : clampNum(paint.load * travel, 0, 1)
+    // The mixer picks up at its own rate — slower than the stump's, which is
+    // what lets it drag a colour a couple of brush widths rather than one.
+    const pickRate = paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
+    this._smudgeRunPickup(patch, imprint.buf ?? patch, next, pickRate, paint?.color ?? null, paintLoad)
     this._releaseSmudgeScratchBuf(patch)
     if (imprint.buf) this._releaseSmudgeScratchBuf(imprint.buf)
     imprint.buf = next
@@ -7360,7 +7619,12 @@ export class PencilEngine implements PencilEngineAPI {
     // dab.opacity is the UI's "Strength" slider for this tool (see
     // _bakeDabOpacity's own smudge branch); pressure and travel are the two
     // physical terms on top of it.
-    const strength = SMUDGE_DEPOSIT_RATE * travel * dab.pressure * dab.opacity
+    // The mixer lays paint down at its own rate, and pressure acts through the
+    // brush's opacity curve when that switch is on — the same meaning pressure
+    // has for every other digital brush.
+    const strength = paint
+      ? paint.strength * travel * (paint.pressure ? curveAt(paint.curve, dab.pressure) : 1) * dab.opacity
+      : SMUDGE_DEPOSIT_RATE * travel * dab.pressure * dab.opacity
     if (strength <= 0) return
     for (const tile of targets) {
       // The brush's own circle, not the patch square: patchSize is rounded up
@@ -7444,6 +7708,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  buffer happened to hold before. */
   private _smudgeRunPickup(
     patch: AccumulationBuffer, carried: AccumulationBuffer, target: AccumulationBuffer, rate: number,
+    paintColor: [number, number, number] | null = null, paintLoad = 0,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo)
@@ -7458,6 +7723,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, carried.texture)
     gl.uniform1i(u.u_carried, 1)
     gl.uniform1f(u.u_rate, rate)
+    // Opaque and premultiplied: the colour is its own premultiplied value at
+    // alpha 1. Set on every pickup, smudge's included (load 0), because a
+    // program's uniforms outlive the draw that set them.
+    const [pr, pg, pb] = paintColor ?? [0, 0, 0]
+    gl.uniform4f(u.u_paint, pr, pg, pb, 1)
+    gl.uniform1f(u.u_paintLoad, paintLoad)
+    gl.uniform1f(u.u_alphaPickup, paintColor ? 1 : 0)
 
     // _screenBuf, not _quadBuf: this pass runs DISPLAY_VERT, whose "quad"
     // convention is the -1..1 fullscreen one, while _quadBuf is DAB_VERT's
@@ -7718,6 +7990,12 @@ export class PencilEngine implements PencilEngineAPI {
         return half >= floorPx ? d : { ...d, size: (floorPx * 2) / preset.sizeMultiplier }
       })
     if (!drawable.length) return
+    // #573 — a digital brush on the stamp model keeps this machinery's scratch
+    // (the frozen layer, the stroke's coverage) and nothing else of it.
+    if (profile.brushStamp) {
+      this._paintBrushStroke(target, drawable, preset, profile.brushStamp, color, scratch, prevDab)
+      return
+    }
 
     const { nibShape, cornerFraction } = profile
 
@@ -8070,6 +8348,226 @@ export class PencilEngine implements PencilEngineAPI {
     })
 
     target.markContentPainted(compositeBounds)
+  }
+
+  /** #573, ADR 013 §11 — a digital brush stroke on the `stamp` model.
+   *
+   *  Same three-step shape as every stroke-scoped tool here — freeze the layer,
+   *  accumulate the stroke's own coverage, recompute the finished pixel — with
+   *  the brush's own programs in both halves:
+   *
+   *  1. every dab expands into its stamps (brushStampsForDab: scatter, size,
+   *     angle and flow jitter, all seeded by the dab itself);
+   *  2. BRUSH_STAMP_FRAG draws them into the coverage buffer — flow into rgb
+   *     as "over", the pressure ceiling into alpha as MAX;
+   *  3. BRUSH_COMPOSITE_FRAG recomputes every pixel this batch could have
+   *     changed from the frozen original and the coverage.
+   *
+   *  Pure in the dabs, the descriptor and the recorded switches — nothing is
+   *  carried between batches but the buffers — so a live stroke, a one-shot
+   *  replay and a chunked one come out the same. */
+  private _paintBrushStroke(
+    target: ILayerBuffer, dabs: Dab[], preset: PencilPreset,
+    stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
+    color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
+  ): void {
+    const { gl } = this
+    const { brush, pressure } = stamp
+    interface Placed { x: number; y: number; radius: number; angle: number; aspect: number; flow: number; ceiling: number; pressure: number }
+    const placed: Placed[] = []
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    let prev = prevDab
+    for (const dab of dabs) {
+      const diameter = Math.max(dab.size * preset.sizeMultiplier, 0.5)
+      // Per-pass flow → per-stamp flow against the distance actually travelled
+      // (see BrushDescriptor.flow): after crossing one span, a pixel has been
+      // under enough stamps to hold exactly `flow`, whatever the spacing and
+      // however fast the hand moved.
+      let flow = brush.flow
+      if (brush.flowPer === 'pass' && flow < 1) {
+        const span = diameter * (brush.flowSpan ?? 1)
+        const travel = this._markerSegmentLength(dab, prev, diameter * 0.5)
+        flow = 1 - Math.pow(1 - flow, Math.min(travel / span, 1))
+      }
+      const ceiling = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)
+      for (const st of brushStampsForDab(brush, dab)) {
+        const radius = st.size * 0.5 * preset.sizeMultiplier
+        if (radius < 0.25) continue
+        const reach = radius * Math.max(st.aspect, 1) + 1
+        minX = Math.min(minX, st.x - reach); maxX = Math.max(maxX, st.x + reach)
+        minY = Math.min(minY, st.y - reach); maxY = Math.max(maxY, st.y + reach)
+        placed.push({
+          x: st.x, y: st.y, radius, angle: st.angle, aspect: st.aspect,
+          flow: flow * st.flowScale, ceiling, pressure: dab.pressure,
+        })
+      }
+      prev = dab
+    }
+    if (!placed.length) return
+    const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
+    const targets = target.resolveForPaint(bounds)
+    if (!targets.length) return
+
+    const tipTex = brush.tip.kind === 'bitmap' && brush.tip.mask ? this._tipTexture(brush.tip.mask) : null
+    const grain = brush.texture ? { ...brush.texture, tex: this._brushTexture(brush.texture.id) } : null
+    const minmax = this._blendMinMaxExt
+    const useCeiling = pressure.opacity && !!minmax
+
+    for (const tile of targets) {
+      const { original, coverage } = scratch.getOrCreate(tile.buffer)
+
+      coverage.beginDraw()
+      if (minmax) {
+        gl.blendEquationSeparate(gl.FUNC_ADD, minmax.MAX_EXT)
+        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ONE, gl.ONE)
+      } else {
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR)
+      }
+      gl.useProgram(this._brushStampProg)
+      const u = this._brushStampUni
+      gl.uniform2f(u.u_resolution, coverage.width, coverage.height)
+      const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+      gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+      gl.uniform1i(u.u_paperHeightMap, 0)
+      // Bound even for a round tip: WebGL validates every sampler a linked
+      // program declares, and the paper is guaranteed not to be the target.
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, tipTex ?? this._paperTex)
+      gl.uniform1i(u.u_tip, 1)
+      gl.uniform1f(u.u_tipKind, tipTex ? 1 : 0)
+      gl.uniform1f(u.u_hardness, brush.tip.hardness)
+      gl.uniform1f(u.u_aaPx, 1)
+      gl.uniform1f(u.u_paper, brush.paperInteraction)
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, grain?.tex ?? this._paperTex)
+      gl.uniform1i(u.u_texture, 2)
+      gl.uniform1f(u.u_texStrength, grain?.strength ?? 0)
+      const period = grain?.periodPx ?? 1
+      gl.uniform1f(u.u_texPeriod, period)
+      // Reduced here, exactly, so the shader only ever adds small numbers.
+      const wrap = (v: number): number => ((v % period) + period) % period
+      gl.uniform2f(u.u_texOrigin, wrap(tile.originX), wrap(tile.originY))
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
+      gl.enableVertexAttribArray(this._brushStampPosLoc)
+      gl.vertexAttribPointer(this._brushStampPosLoc, 2, gl.FLOAT, false, 0, 0)
+
+      const tx0 = tile.originX, ty0 = tile.originY
+      const tx1 = tx0 + tile.buffer.width, ty1 = ty0 + tile.buffer.height
+      for (const p of placed) {
+        const reach = p.radius * Math.max(p.aspect, 1) + 1
+        if (p.x + reach <= tx0 || p.x - reach >= tx1 || p.y + reach <= ty0 || p.y - reach >= ty1) continue
+        gl.uniform2f(u.u_dabCenter, p.x - tx0, p.y - ty0)
+        gl.uniform1f(u.u_dabRadius, p.radius)
+        gl.uniform1f(u.u_angle, p.angle)
+        gl.uniform1f(u.u_aspectRatio, p.aspect)
+        gl.uniform1f(u.u_opacity, p.flow)
+        gl.uniform1f(u.u_ceiling, p.ceiling)
+        gl.uniform1f(u.u_paperPressure, p.pressure)
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+      }
+      // Every other blend in the engine assumes FUNC_ADD and sets only the
+      // factors — leave the equation as it found it.
+      if (minmax) gl.blendEquation(gl.FUNC_ADD)
+      coverage.endDraw()
+
+      this._drawBrushComposite(tile, bounds, brush, original, coverage, color, dabs[0].opacity, useCeiling)
+    }
+    target.markContentPainted(bounds)
+  }
+
+  /** #573 — BRUSH_COMPOSITE_FRAG over `bounds` in one tile: the finished pixel
+   *  from the frozen original and the stroke's coverage. A replace draw, since
+   *  the result is the answer rather than a contribution to it (see
+   *  AccumulationBuffer.beginReplaceDraw). */
+  private _drawBrushComposite(
+    tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    brush: BrushDescriptor, original: AccumulationBuffer, coverage: AccumulationBuffer,
+    color: [number, number, number], opacity: number, useCeiling: boolean,
+  ): void {
+    const { gl } = this
+    const { buffer } = tile
+    buffer.beginReplaceDraw()
+    gl.useProgram(this._brushCompositeProg)
+    const u = this._brushCompositeUni
+    gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, original.texture)
+    gl.uniform1i(u.u_original, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
+    gl.uniform1i(u.u_strokeCoverage, 1)
+    gl.uniform3fv(u.u_color, color)
+    gl.uniform1f(u.u_opacity, opacity)
+    gl.uniform1f(u.u_useCeiling, useCeiling ? 1 : 0)
+    const pitch = brush.screentonePx ?? 0
+    gl.uniform1f(u.u_screentone, pitch)
+    // The screen repeats every 2 * pitch along both world axes (see the
+    // shader), so the tile's origin is reduced by exactly that here, in
+    // integers, and the GPU only ever sees numbers smaller than the period.
+    const period = pitch * 2
+    const wrap = (v: number): number => period > 0 ? ((v % period) + period) % period : 0
+    gl.uniform2f(u.u_screenOrigin, wrap(tile.originX), wrap(tile.originY))
+
+    // The rect is covered by a circumscribing dab quad, the same trick the
+    // ribbon composite uses (_drawRibbonCompositeRect).
+    const cx = (bounds.minX + bounds.maxX) * 0.5
+    const cy = (bounds.minY + bounds.maxY) * 0.5
+    const radius = 0.5 * Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) + 1
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
+    gl.enableVertexAttribArray(this._brushCompositePosLoc)
+    gl.vertexAttribPointer(this._brushCompositePosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.uniform2f(u.u_dabCenter, cx - tile.originX, cy - tile.originY)
+    gl.uniform1f(u.u_dabRadius, radius)
+    gl.uniform1f(u.u_angle, 0)
+    gl.uniform1f(u.u_aspectRatio, 1)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    buffer.endDraw()
+  }
+
+  /** A brush texture (#573), tiled across the canvas — REPEAT rather than
+   *  CLAMP, and mipmapped from the CPU chain for the same reason the tips are. */
+  private _brushTexture(id: BrushTextureId): WebGLTexture {
+    const cached = this._brushTextures.get(id)
+    if (cached) return cached
+    const tex = this._uploadMips(brushTextureMips(id), this.gl.REPEAT)
+    this._brushTextures.set(id, tex)
+    return tex
+  }
+
+  /** One bitmap tip as a mipmapped LUMINANCE texture, uploaded on first use.
+   *
+   *  Every mip level comes from tipMaskMips on the CPU rather than from
+   *  gl.generateMipmap — see that function on why the driver's filter is not
+   *  trusted with a value every participant has to agree on. */
+  private _tipTexture(id: TipMaskId): WebGLTexture {
+    const cached = this._tipTextures.get(id)
+    if (cached) return cached
+    const tex = this._uploadMips(tipMaskMips(id), this.gl.CLAMP_TO_EDGE)
+    this._tipTextures.set(id, tex)
+    return tex
+  }
+
+  private _uploadMips(levels: Uint8Array[], wrapMode: number): WebGLTexture {
+    const { gl } = this
+    const tex = gl.createTexture()!
+    gl.bindTexture(gl.TEXTURE_2D, tex)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    let size = Math.round(Math.sqrt(levels[0].length))
+    for (let level = 0; level < levels.length; level++) {
+      gl.texImage2D(gl.TEXTURE_2D, level, gl.LUMINANCE, size, size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, levels[level])
+      size = Math.max(1, size >> 1)
+    }
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
+    return tex
   }
 
   /** (#468 v6) One composite over everything the finished gesture touched, with

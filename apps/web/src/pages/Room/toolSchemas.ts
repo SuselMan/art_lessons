@@ -7,7 +7,7 @@ import {
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
   WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, type WatercolorNib,
-  DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH,
+  DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, type BrushCategory,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, type CharcoalNib,
   NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
@@ -127,6 +127,11 @@ export interface SettingDescriptor {
    *  differ in a way no adjective pins down, which is exactly the complaint
    *  that produced this setting. */
   optionCurves?: Readonly<Record<string, readonly number[]>>
+  /** (#573) A heading per `enumOptions` value, for the 'select' control: the
+   *  list is drawn in groups under these, in the order the options come in.
+   *  The digital brush's sixteen brushes are unreadable as one column; five
+   *  labelled rows of two or three are how every painting app shows a set. */
+  optionGroups?: Readonly<Record<string, TranslationKey>>
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
   /** Also rendered inline in the left toolbar, not just the settings tab. */
@@ -378,6 +383,15 @@ const linerSchema = (): ToolSchema => ({
 // draws differently on the student's screen and after the next retune.
 //
 // So the tool's real control is which brush is in hand, and that is one field.
+/** (#573) The picker's group headings, one per BrushCategory. */
+const BRUSH_GROUP_LABEL_KEYS: Readonly<Record<BrushCategory, TranslationKey>> = {
+  line: 'tool.brushGroup.line',
+  paint: 'tool.brushGroup.paint',
+  soft: 'tool.brushGroup.soft',
+  texture: 'tool.brushGroup.texture',
+  scatter: 'tool.brushGroup.scatter',
+}
+
 const digitalBrushSchema = (): ToolSchema => ({
   // First, and in quick access, because for this tool it is *the* choice — the
   // equivalent of picking a pencil out of the stack, not of adjusting one.
@@ -391,7 +405,20 @@ const digitalBrushSchema = (): ToolSchema => ({
       'ink-round': 'tool.brush.inkRound',
       'opaque-paint': 'tool.brush.opaquePaint',
       'flat': 'tool.brush.flat',
+      'textured-paint': 'tool.brush.texturedPaint',
+      'bristle': 'tool.brush.bristle',
+      'mixer': 'tool.brush.mixer',
+      'airbrush': 'tool.brush.airbrush',
+      'chalk': 'tool.brush.chalk',
+      'grain': 'tool.brush.grain',
+      'screentone': 'tool.brush.screentone',
+      'splatter': 'tool.brush.splatter',
+      'grass': 'tool.brush.grass',
+      'foliage': 'tool.brush.foliage',
     },
+    optionGroups: Object.fromEntries(
+      DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]),
+    ),
     // A sample stroke, like a pencil grade's — not the plotted falloff this
     // shipped with first. The curve was honest and still wrong for the job: it
     // showed the tool's insides where the question is "what does this leave on
@@ -424,23 +451,31 @@ const digitalBrushSchema = (): ToolSchema => ({
     quickAccess: true,
     default: 1,
   },
-  // #547 — the one behavioural setting this tool offers, and it exists because
-  // the set was illegible without it: every brush carries its own pressure→flow
-  // curve, so whether pressing harder made the mark denser looked arbitrary from
-  // the outside ("when does it apply and when not?" — Ilya).
+  // #547, #573 — the two behavioural settings this tool offers, one per thing
+  // pressure can drive. They are switches on *every* brush rather than brushes
+  // of their own ("давление размер и давление непрозрачность должны быть не
+  // отдельными кистями, а настройкой любой кисти" — Ilya): Photoshop and Krita
+  // ship "Hard Round Pressure Size" and "Hard Round Pressure Opacity" as two
+  // presets, and the result is a set that doubles for every tip it adds.
   //
-  // Named for what changes rather than for the mechanism. What pressure stops
-  // driving is *flow* — how much one stamp lays down — and "flow" is a word for
-  // people who already know brush engines. Width keeps following pressure either
-  // way, which is what makes this a real choice rather than a way of switching
-  // the pen off.
-  //
-  // Deliberately not per-brush-default: on reproduces exactly what every brush
-  // did before this existed (the character stays in the curves — an ink brush's
-  // is nearly flat already), so the toggle only ever *removes* the dependence.
-  // One default that means "unchanged" beats six that have to be remembered.
-  flowFromPressure: {
-    nameKey: 'tool.field.flowFromPressure',
+  // The character stays in the brush — each has its own size and opacity
+  // curve — so "on" reproduces what the brush was designed to do and "off"
+  // pins that half at what a firm press would give. Both are recorded in the
+  // stroke's token: a peer replaying it has their own switches in whatever
+  // position they left them.
+  sizeFromPressure: {
+    nameKey: 'tool.field.sizeFromPressure',
+    valueType: { kind: 'boolean' },
+    uiControls: ['toggle'],
+    quickAccess: false,
+    default: true,
+  },
+  // Opacity in the Photoshop sense: a ceiling on the stroke's tone, not flow.
+  // Scrubbing over the same spot at a light pressure stays light; pressing
+  // harder darkens it. Named for what changes, since "flow" is a word for
+  // people who already know brush engines.
+  opacityFromPressure: {
+    nameKey: 'tool.field.opacityFromPressure',
     valueType: { kind: 'boolean' },
     uiControls: ['toggle'],
     quickAccess: false,

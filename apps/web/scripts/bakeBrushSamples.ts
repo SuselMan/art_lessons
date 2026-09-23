@@ -65,7 +65,22 @@ const OUT_H = 80
 const BAND_W = OUT_W * 2
 const BAND_H = OUT_H * 2
 
-const BRUSHES = ['soft-round', 'medium-round', 'hard-round', 'ink-round', 'opaque-paint', 'flat']
+// Mirrors DIGITAL_BRUSH_IDS (the scripts project does not compile the app's
+// sources). toolSchemas.test.ts fails on any brush without a sample, so a
+// brush added there and forgotten here is caught.
+const BRUSHES = [
+  'ink-round', 'hard-round',
+  'medium-round', 'opaque-paint', 'flat', 'textured-paint', 'bristle', 'mixer',
+  'soft-round', 'airbrush',
+  'chalk', 'grain', 'screentone',
+  'splatter', 'grass', 'foliage',
+]
+
+/** (#573) The mixer's whole point is what it does to paint already on the
+ *  sheet, and on bare paper it is indistinguishable from a round brush. So its
+ *  sample is drawn over a dark band first, in a lighter colour, so the row
+ *  shows the dark being dragged into it. */
+const MIXER_UNDERLAY = 'hard-round'
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf('--' + name)
@@ -117,7 +132,37 @@ async function main(): Promise<void> {
 
     const bandX = (sheet.w - BAND_W) / 2
     const bandY = (sheet.h - BAND_H) / 2
-    await page.evaluate(brush => {
+    type MouseEventType = 'mousePressed' | 'mouseMoved' | 'mouseReleased'
+    const drag = async (points: { wx: number; wy: number; force: number }[]) => {
+      const send = async (type: MouseEventType, p: typeof points[number], down = true) => {
+        const s = toScreen(p.wx, p.wy)
+        await cdp.send('Input.dispatchMouseEvent', {
+          type, x: s.x, y: s.y, button: 'left', buttons: down ? 1 : 0,
+          pointerType: 'pen', force: down ? p.force : 0,
+        })
+      }
+      await send('mousePressed', points[0])
+      for (const p of points.slice(1)) await send('mouseMoved', p)
+      await send('mouseReleased', points[points.length - 1], false)
+    }
+
+    if (id === 'mixer') {
+      await page.evaluate(brush => {
+        const store = window.__roomStore!.getState()
+        store.setToolSetting('digitalBrush', 'brush', brush)
+        store.setToolSetting('digitalBrush', 'opacity', 1)
+        store.setToolSetting('digitalBrush', 'size', 60)
+        store.setToolSetting('digitalBrush', 'color', [0.1, 0.1, 0.12])
+        store.setTool('digitalBrush')
+      }, MIXER_UNDERLAY)
+      await page.waitForTimeout(250)
+      await drag(Array.from({ length: 31 }, (_, i) => ({
+        wx: bandX + BAND_W * (0.35 + (i / 30) * 0.3), wy: bandY + BAND_H * 0.5, force: 1,
+      })))
+      await page.waitForTimeout(150)
+    }
+
+    await page.evaluate(({ brush, mixer }) => {
       const store = window.__roomStore!.getState()
       store.setToolSetting('digitalBrush', 'brush', brush)
       store.setToolSetting('digitalBrush', 'opacity', 1)
@@ -126,9 +171,9 @@ async function main(): Promise<void> {
       // slider names the widest the mark gets (digitalBrushPresetFor), one
       // number is right for the round tips and the flat one alike.
       store.setToolSetting('digitalBrush', 'size', 96)
-      store.setToolSetting('digitalBrush', 'color', [0.1, 0.1, 0.12])
+      store.setToolSetting('digitalBrush', 'color', mixer ? [0.55, 0.55, 0.58] : [0.1, 0.1, 0.12])
       store.setTool('digitalBrush')
-    }, id)
+    }, { brush: id, mixer: id === 'mixer' })
     // The tool reaches the engine through an effect, not the store write.
     await page.waitForTimeout(250)
 
@@ -147,22 +192,12 @@ async function main(): Promise<void> {
       }
     })
 
-    //  is the mask of what is held *after* this event, so a release
-    // has to report 0. Sending 1 there leaves the engine believing the pen is
-    // still down, and the next gesture's press is then a second press with no
-    // release between — which it correctly ignores, so only the first brush
+    // `buttons` is the mask of what is held *after* each event, so a release
+    // reports 0 (see drag). Sending 1 there leaves the engine believing the pen
+    // is still down, and the next gesture's press is then a second press with
+    // no release between — which it correctly ignores, so only the first brush
     // ever drew.
-    type MouseEventType = 'mousePressed' | 'mouseMoved' | 'mouseReleased'
-    const send = async (type: MouseEventType, p: typeof path[number], down = true) => {
-      const s = toScreen(p.wx, p.wy)
-      await cdp.send('Input.dispatchMouseEvent', {
-        type, x: s.x, y: s.y, button: 'left', buttons: down ? 1 : 0,
-        pointerType: 'pen', force: down ? p.force : 0,
-      })
-    }
-    await send('mousePressed', path[0])
-    for (const p of path.slice(1)) await send('mouseMoved', p)
-    await send('mouseReleased', path[path.length - 1], false)
+    await drag(path)
 
     // The stroke is committed on pen-up and the operation appended after it.
     await page.waitForFunction(

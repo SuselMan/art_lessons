@@ -632,6 +632,18 @@ modules:
       - apps/web/src/components/PressureCalibration/**
     tags: [перо]
 
+  - id: ui-filters
+    title: Диалог фильтров слоя
+    layer: ui-kit
+    owns: >-
+      Плавающая карточка фильтра: выбор фильтра, его настройки, редактор кривых, предпросмотр на
+      холсте и «Применить». Не Modal — затемнение спрятало бы сам предпросмотр.
+    files:
+      - apps/web/src/components/FilterPanel/**
+    adr: [014-layer-filters]
+    issues: [574]
+    tags: [фильтры]
+
   # ------------------------------------------------------------------ состояние
 
   - id: store-room
@@ -790,6 +802,7 @@ modules:
       - apps/web/src/lib/popupPlacement.test.ts
       - apps/web/src/lib/useDismissOnOutside.ts
       - apps/web/src/lib/useCompactLayout.ts
+      - apps/web/src/lib/useNarrowHeader.ts
       - apps/web/src/lib/deviceType.ts
       - apps/web/src/lib/deviceType.test.ts
       - apps/web/src/lib/angles.ts
@@ -935,8 +948,9 @@ modules:
     layer: engine-internals
     owns: >-
       Числовые характеры инструментов: карандаш и его грифели, уголь, маркер, линер, кисть-перо,
-      акварель с пигментами, цифровая кисть и её набор, наклон и его кривые, тактильное зерно,
-      зерно растушёвки.
+      акварель с пигментами, цифровая кисть и её набор — вместе с растровыми кончиками и
+      текстурами кисти, которые генерируются на CPU одинаково на любом устройстве (tipMasks),
+      наклон и его кривые, тактильное зерно, зерно растушёвки.
     files:
       - apps/web/src/engine/src/pencilPresets*.ts
       - apps/web/src/engine/src/charcoalPresets*.ts
@@ -945,6 +959,7 @@ modules:
       - apps/web/src/engine/src/linerPresets*.ts
       - apps/web/src/engine/src/brushPenPresets.ts
       - apps/web/src/engine/src/digitalBrushPresets*.ts
+      - apps/web/src/engine/src/tipMasks*.ts
       - apps/web/src/engine/src/watercolorPresets*.ts
       - apps/web/src/engine/src/watercolorPigments.ts
       - apps/web/src/engine/src/pencilTilt*.ts
@@ -952,7 +967,7 @@ modules:
       - apps/web/src/engine/src/tiltMath*.ts
       - apps/web/src/engine/src/smudgeGrain.ts
       - apps/web/src/engine/src/HapticGrain.ts
-    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 011-watercolor]
+    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 011-watercolor, 013-digital-brush]
     tags: [инструменты, характер]
 
   - id: engine-paper
@@ -1021,6 +1036,24 @@ modules:
         Симптом «шейдеры компилируются, программа не линкуется, лог пуст» уже случался —
         причиной была функция, вызванная из двух мест.
     tags: [glsl, webgl1]
+
+  - id: engine-filters
+    title: Фильтры слоя
+    layer: engine-internals
+    owns: >-
+      Арифметика пяти фильтров слоя — размытия, тон/насыщенность, кривые, цветовой баланс — на
+      CPU, целочисленно и без тригонометрии: фильтр пересчитывает каждый участник, и число должно
+      совпасть на любом устройстве.
+    files:
+      - apps/web/src/engine/src/layerFilters*.ts
+    adr: [014-layer-filters]
+    issues: [574]
+    notes:
+      - >-
+        Слой фильтруется по тайлам, каждый — с полем шириной в радиус действия фильтра; поэтому
+        результат не зависит от того, где у клиента прошла сетка тайлов. layerFilters.test.ts
+        проверяет это побайтно — сломать это свойство значит разойтись с остальными участниками.
+    tags: [фильтры, детерминизм]
 
   # ------------------------------------------------------------------ сервер
 
