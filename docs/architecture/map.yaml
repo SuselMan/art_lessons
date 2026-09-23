@@ -772,6 +772,7 @@ modules:
       - apps/web/src/lib/popupPlacement.test.ts
       - apps/web/src/lib/useDismissOnOutside.ts
       - apps/web/src/lib/useCompactLayout.ts
+      - apps/web/src/lib/useNarrowHeader.ts
       - apps/web/src/lib/deviceType.ts
       - apps/web/src/lib/deviceType.test.ts
       - apps/web/src/lib/angles.ts

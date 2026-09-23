@@ -22,7 +22,7 @@ import {
 import { ColorWell } from '../../components/ColorWell'
 import { Icon } from '../../components/Icon'
 import { Logo } from '../../components/Logo'
-import { Menu } from '../../components/Menu'
+import { Menu, type MenuAction } from '../../components/Menu'
 import { BoardStrip, TeacherChip } from './BoardStrip'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
@@ -102,6 +102,7 @@ import { SelectionOverlay } from './SelectionOverlay'
 import { AnnotationOverlay } from './AnnotationOverlay'
 import { annotationAt } from './annotationHitTest'
 import { useCompactLayout } from '../../lib/useCompactLayout'
+import { useNarrowHeader } from '../../lib/useNarrowHeader'
 import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations'
 import {
   appendFreehandPoint, closeAfterDoubleClick, closesPolygon, rectangleFromDrag, selectionBoundsRect,
@@ -871,6 +872,10 @@ function RoomEditor() {
   // (#512) The compact shell: a phone gets annotations and nothing else. Live,
   // not measured once — see useCompactLayout.
   const compact = useCompactLayout()
+  // (#575) Below 1200px the header packs tighter: the "g" instead of the
+  // wordmark, the save status as a dot, and the mode toggles (annotations,
+  // boards, fullscreen) folded into the ≡ menu as checkable items.
+  const narrowHeader = useNarrowHeader()
   /** (#509 v4) Whether the left rail is showing annotation tools instead of
    *  drawing ones. Two routes in and they are deliberately different things:
    *  the compact shell *is* this and cannot leave it, while the full layout
@@ -7339,6 +7344,38 @@ function RoomEditor() {
     )
   }
 
+  // (#575) The header's mode toggles, when it is too narrow to hold them —
+  // the same conditions as their buttons, the same order, and a tick for the
+  // pressed state the buttons showed. The notes button's peek-on-hold stays
+  // with the button: a menu item is gone the moment it is pressed, so there is
+  // nothing to hold, and a plain toggle is what's left.
+  const foldedHeaderToggles: MenuAction[] = !narrowHeader ? [] : [
+    ...(!compact ? [{
+      label: t('room.annotationMode'),
+      icon: 'edit_note' as const,
+      checked: annotationMode,
+      onClick: () => toggleAnnotationMode(!annotationMode),
+    }] : []),
+    ...(annotations.order.length > 0 ? [{
+      label: t('room.annotationsHide'),
+      icon: 'visibility_off' as const,
+      checked: annotationsHidden,
+      onClick: () => setAnnotationsHidden(!annotationsHidden),
+    }] : []),
+    ...(stripAvailable ? [{
+      label: t('boards.open'),
+      icon: 'auto_stories' as const,
+      checked: boardsOpen,
+      onClick: () => setBoardsOpen(o => !o),
+    }] : []),
+    ...(fullscreenSupported ? [{
+      label: t('room.fullscreen'),
+      icon: 'fullscreen' as const,
+      checked: isFullscreen,
+      onClick: toggleFullscreen,
+    }] : []),
+  ]
+
   return (
     <div
       ref={editorRef}
@@ -7359,8 +7396,13 @@ function RoomEditor() {
         {/* The wordmark is the way out of the editor, same as on every other
             page — it replaced an arrow_back that went to /create rather than
             anywhere back, and left without asking. */}
-        <button className={styles.headerLogoBtn} onClick={() => void leaveRoom()} title={t('room.home')} aria-label={t('room.home')}>
-          <Logo />
+        <button
+          className={clsx(styles.headerLogoBtn, narrowHeader && styles.headerLogoBtnMark)}
+          onClick={() => void leaveRoom()}
+          title={t('room.home')}
+          aria-label={t('room.home')}
+        >
+          <Logo variant={narrowHeader ? 'mark' : 'full'} />
         </button>
         {/* Same divider the control clusters use on the right (#329) — the
             wordmark is a button that leaves the room, and without a break
@@ -7395,7 +7437,7 @@ function RoomEditor() {
             the thing the name refers to. Took over from the connection
             banner's "Saving N strokes…", which flashed on and off with every
             stroke. */}
-        <SyncIndicator connected={connected} pending={outboxState.pending} />
+        <SyncIndicator connected={connected} pending={outboxState.pending} dotOnly={narrowHeader} />
 
         {/* (#329) Four sections, divider-separated, in the order they're
             reached for: rotation | zoom + fit | undo/redo | fullscreen | ≡.
@@ -7510,9 +7552,12 @@ function RoomEditor() {
               panel is where the editor's modes already live.
 
               The toggle is absent in the compact shell: there the whole
-              interface is annotation mode and there is nothing to switch to. */}
-          {(!compact || annotations.order.length > 0) && <div className={styles.headerDivider} />}
-          {!compact && (
+              interface is annotation mode and there is nothing to switch to.
+
+              (#575) In a narrow header both live in the ≡ menu instead — as do
+              the boards and fullscreen toggles below. */}
+          {!narrowHeader && (!compact || annotations.order.length > 0) && <div className={styles.headerDivider} />}
+          {!narrowHeader && !compact && (
             <button
               className={clsx(styles.headerIconBtn, annotationMode && styles.headerIconBtnActive)}
               onClick={() => toggleAnnotationMode(!annotationMode)}
@@ -7525,7 +7570,7 @@ function RoomEditor() {
           )}
           {/* Shown only once there is something to hide — a control that
               provably does nothing is worse than no control. */}
-          {annotations.order.length > 0 && (
+          {!narrowHeader && annotations.order.length > 0 && (
             <button
               className={clsx(styles.headerIconBtn, annotationsHidden && styles.headerIconBtnActive)}
               title={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
@@ -7549,7 +7594,7 @@ function RoomEditor() {
           {/* (#176) The board strip's toggle. Here by the same rule as the
               rest of this panel: turning the page is something a teacher does
               mid-explanation, between one stroke and the next. */}
-          {stripAvailable && (
+          {!narrowHeader && stripAvailable && (
             <>
               <div className={styles.headerDivider} />
               <button
@@ -7578,7 +7623,7 @@ function RoomEditor() {
             </>
           )}
 
-          {fullscreenSupported && (
+          {!narrowHeader && fullscreenSupported && (
             <>
               <div className={styles.headerDivider} />
               <button
@@ -7602,15 +7647,18 @@ function RoomEditor() {
             triggerLabel={t('room.menu')}
             trigger={<Icon name="menu" />}
             actions={[
-              // (#460) First: inviting someone into the project you already
-              // have open is the one thing here that is about other people.
-              // Disabled until the room itself has arrived — there is no link
-              // to hand out before we know which room this is.
+              ...foldedHeaderToggles,
+              // (#460) First of the menu's own items: inviting someone into
+              // the project you already have open is the one thing here that
+              // is about other people. Disabled until the room itself has
+              // arrived — there is no link to hand out before we know which
+              // room this is.
               {
                 label: t('share.action'),
                 icon: 'share',
                 onClick: () => { if (config) shareRoom(config) },
                 disabled: config === null,
+                separatorBefore: foldedHeaderToggles.length > 0,
               },
               { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
               { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },
