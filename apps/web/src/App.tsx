@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ConfirmDialogProvider } from './components/ConfirmDialog'
 import { NoticeStack } from './components/Notice'
 import { prefetchPaper } from './engine/src/paperLoader'
@@ -66,16 +67,20 @@ export function App() {
             survive navigating away from that page. */}
         <NoticeStack />
         <BrowserRouter>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/create" replace />} />
-              <Route path="/create" element={<CreateRoom />} />
-              <Route path="/room/:id" element={<Room />} />
-              <Route path="/login" element={<Auth />} />
-              <Route path="/my-lessons" element={<MyLessons />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Suspense>
+          {/* (#570) Inside the router so its fallback can link out, outside
+              Suspense so a chunk that throws while loading is caught too. */}
+          <AppErrorBoundary>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/create" replace />} />
+                <Route path="/create" element={<CreateRoom />} />
+                <Route path="/room/:id" element={<Room />} />
+                <Route path="/login" element={<Auth />} />
+                <Route path="/my-lessons" element={<MyLessons />} />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </Suspense>
+          </AppErrorBoundary>
         </BrowserRouter>
       </ConfirmDialogProvider>
     </QueryClientProvider>

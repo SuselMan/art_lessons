@@ -1211,6 +1211,30 @@ a.gateSubmit {
   color: var(--color-text-dim);
 }
 
+/* (#570) The "what to try" list on the no-WebGL screen. Same voice as the
+   note above it; the bullets only mark that these are three separate things
+   to try, not one instruction. */
+.gateList {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* The browser's own diagnostics under the advice — for whoever gets asked
+   "what does it say", not for the reader, hence small, dim, and last. */
+.gateDetails {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-dim);
+  overflow-wrap: anywhere;
+}
+
 .gateSecondary {
   width: 100%;
   padding: 12px;

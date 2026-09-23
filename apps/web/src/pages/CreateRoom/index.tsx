@@ -9,6 +9,7 @@ import {
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { preloadRoomPage } from '../../lib/roomChunk'
 import { useDismissOnOutside } from '../../lib/useDismissOnOutside'
+import { probeWebGL } from '../../lib/webgl'
 import { useT, type TFunction, type TranslationKey } from '../../i18n'
 import { PaperPreview } from '../../components/PaperPreview'
 import { AppHeader } from '../../components/AppHeader'
@@ -219,6 +220,18 @@ export function CreateRoom() {
     // screen — precisely the double-click the missing feedback invited.
     if (entering) return
     setError(null)
+
+    // (#570) Before an id is minted, let alone navigated to: the room is only
+    // sent to the server once Room has its engine up, and a browser that
+    // cannot give one would leave the reader on `/room/<id>` holding a link
+    // to a room that never existed — and then sending that link around.
+    // Asked on submit rather than on mount so the form stays usable to read
+    // and the answer is as fresh as it can be.
+    const webgl = probeWebGL()
+    if (!webgl.ok) {
+      setError(t('create.error.noWebgl'))
+      return
+    }
 
     const name = roomName.trim() || t('create.untitled')
 
