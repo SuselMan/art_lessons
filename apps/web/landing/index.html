@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grafetto — teach drawing on a shared canvas</title>
+  <meta name="description" content="Grafetto is a browser-based drawing studio for online art lessons. Teacher and student draw on the same sheet with pressure- and tilt-sensitive pencils, charcoal, ink, markers and watercolor." />
+  <link rel="canonical" href="https://grafetto.com/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="alternate" hreflang="en" href="https://grafetto.com/" />
+  <!-- (#246) RU goes to /ru/ in a second pass; the hreflang pair is added then. -->
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Grafetto — teach on the drawing, not through screen sharing" />
+  <meta property="og:description" content="A shared sheet of paper for online drawing lessons. Real pencil feel, no sign-up for students." />
+  <meta property="og:url" content="https://grafetto.com/" />
+  <!-- TODO(#246): og:image — a frame from a real lesson, not a mockup. -->
+
+  <!-- (#246 §2.2) This page must never call /api/*: the identity cookie is set
+       only once someone enters the app. That is why there is no script here at
+       all — not even the app's bundle. -->
+  <link rel="stylesheet" href="./landing.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Grafetto",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web browser",
+    "url": "https://grafetto.com/",
+    "description": "Grafetto is a browser-based collaborative drawing studio for online art lessons. Teachers and students draw together on the same canvas using pressure- and tilt-sensitive graphite pencils, charcoal, liners and markers on simulated paper.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+</head>
+<body>
+  <header class="top">
+    <a class="wordmark" href="/" aria-label="Grafetto home">
+      <img src="../src/assets/logo.svg" alt="Grafetto" width="112" height="38" />
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="#lesson">How a lesson goes</a>
+      <a href="#materials">Materials</a>
+      <a href="#homework">Homework</a>
+      <a class="topnav-login" href="/login">Log in</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-text">
+        <h1>Teach on the drawing, not through screen&nbsp;sharing.</h1>
+        <p class="lede">
+          Grafetto is one sheet of paper for you and your student. You both draw on it
+          at the same time, from anywhere, with pencils that respond to pressure and
+          tilt the way graphite does.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/create">Start a lesson</a>
+          <a class="btn btn-quiet" href="#lesson">See how a lesson goes</a>
+        </div>
+        <p class="hero-note">Free while in early access. Students join by link — no account.</p>
+      </div>
+
+      <!-- The one moving thing on the page: the teacher's correction draws itself
+           over the student's box. PLACEHOLDER(#246) — replaced by a looping
+           recording of a real lesson before publishing. -->
+      <figure class="sheet" aria-label="A student's box drawing with the teacher's perspective correction on top">
+        <svg viewBox="24 96 496 300" role="img">
+          <defs>
+            <filter id="graphite" x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="3" result="n" />
+              <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" result="d" />
+              <feComposite in="d" in2="n" operator="arithmetic" k1="0" k2="1" k3="-0.35" k4="0.12" />
+            </filter>
+          </defs>
+
+          <g class="student" filter="url(#graphite)">
+            <!-- light construction lines -->
+            <path class="faint" d="M40 300 L480 262" />
+            <path class="faint" d="M150 110 L152 360" />
+            <!-- the box: front corner a little too tall, right side slightly off -->
+            <path d="M152 196 L262 232 L382 186" />
+            <path d="M152 196 L150 332 L262 372 L380 318 L382 186" />
+            <path d="M262 232 L262 372" />
+            <path d="M152 196 L270 150 L382 186" />
+            <!-- hatching on the right plane -->
+            <path class="hatch" d="M280 250 L282 350 M298 244 L300 344 M316 238 L318 338 M334 232 L336 332 M352 226 L354 326 M368 220 L370 320" />
+          </g>
+
+          <g class="teacher" filter="url(#graphite)">
+            <path class="t-line t1" pathLength="1" d="M152 196 L505 140" />
+            <path class="t-line t2" pathLength="1" d="M150 332 L505 140" />
+            <path class="t-mark t3" pathLength="1" d="M384 176 C 406 186, 408 232, 392 250" />
+            <path class="t-mark t4" pathLength="1" d="M382 186 L398 208 M398 208 L380 318" />
+          </g>
+        </svg>
+        <!-- No named cursors on purpose: the app doesn't show other people's
+             pointers, and the page promises only what the app does (#246 §2.3). -->
+        <figcaption>
+          <span class="key key-student">Student’s drawing</span>
+          <span class="key key-teacher">Teacher’s correction</span>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="lesson" class="block">
+      <h2>How a lesson goes</h2>
+      <ol class="steps">
+        <li>
+          <h3>Open a room</h3>
+          <p>One click gives you a blank sheet and a link. Put a reference photo on its own layer if the task needs one.</p>
+        </li>
+        <li>
+          <h3>Send the link</h3>
+          <p>Your student opens it in a browser on a tablet or a computer with a pen tablet. No account, no install.</p>
+        </li>
+        <li>
+          <h3>Draw together</h3>
+          <p>You see every stroke as it is made. Correct the drawing on its own layer, then hide it so the student can try again.</p>
+        </li>
+        <li>
+          <h3>Leave homework</h3>
+          <p>The room stays after the lesson. The student keeps working in it, and you look at the result before the next one.</p>
+        </li>
+      </ol>
+      <p class="aside">Everyone has their own view: zoom in and rotate the sheet like paper on a desk, without moving it for the other person.</p>
+    </section>
+
+    <section id="materials" class="block materials">
+      <h2>Materials that behave like materials</h2>
+      <p class="block-lede">
+        Paper has tooth, and every tool reacts to it. Pressure makes a line darker, tilt
+        makes it broader, and graphite builds up in layers instead of flattening into one colour.
+      </p>
+      <ul class="tools">
+        <li>
+          <img src="../src/assets/tools/pencil.png" alt="" width="384" height="103" loading="lazy" />
+          <div><h3>Graphite pencil</h3><p>Fourteen grades from 6H to 6B, plus colour.</p></div>
+        </li>
+        <li>
+          <img src="../src/assets/tools/charcoal.png" alt="" width="384" height="85" loading="lazy" />
+          <div><h3>Charcoal</h3><p>Vine, willow and compressed — each crumbles and catches the paper differently.</p></div>
+        </li>
+        <li>
+          <img src="../src/assets/tools/liner.png" alt="" width="384" height="81" loading="lazy" />
+          <div><h3>Liner and brush pen</h3><p>An even ink line for sketching and architecture, a swelling one for manga and lettering.</p></div>
+        </li>
+        <li>
+          <img src="../src/assets/tools/marker.png" alt="" width="384" height="106" loading="lazy" />
+          <div><h3>Marker</h3><p>Bullet and chisel tips; overlapping passes get darker, like alcohol markers do.</p></div>
+        </li>
+        <li>
+          <img src="../src/assets/tools/watercolor.png" alt="" width="384" height="69" loading="lazy" />
+          <div><h3>Watercolour</h3><p>Washes pool on the paper and dry with a darker edge.</p></div>
+        </li>
+        <li>
+          <img src="../src/assets/tools/digitalBrush.png" alt="" width="384" height="64" loading="lazy" />
+          <div><h3>Digital brush</h3><p>For lessons in digital drawing — soft and hard brushes that stay out of the way.</p></div>
+        </li>
+      </ul>
+      <p class="aside">Also on the table: an eraser, a blending stump, a ruler, a proportion grid and layers.</p>
+    </section>
+
+    <section id="homework" class="block split">
+      <div>
+        <h2>The lesson doesn't end when the call does</h2>
+        <p>
+          Every room is kept. A student comes back to the same sheet between lessons,
+          and you see what they did — the drawing itself, not a phone photo of it.
+          Close a room when the work is done, and it stays readable for both of you.
+        </p>
+      </div>
+      <div>
+        <h2>Works where you already teach</h2>
+        <p>
+          iPad with Apple Pencil, Android tablets with a stylus, and computers with a
+          Wacom or similar pen tablet. Keep your usual video call running alongside —
+          Grafetto is the paper, not the camera.
+        </p>
+      </div>
+    </section>
+
+    <!-- PLACEHOLDER(#246): "who makes this". In a cold-message funnel the page has
+         to show a real person, so this is one paragraph from Ilya with a photo,
+         not a block of testimonials. Written by him, not generated. -->
+    <section class="block maker" aria-label="Who makes Grafetto">
+      <p class="placeholder">[A paragraph from the person who builds Grafetto, and why.]</p>
+    </section>
+
+    <section class="closing">
+      <h2>Try it on your next lesson.</h2>
+      <a class="btn btn-primary" href="/create">Start a lesson</a>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <img src="../src/assets/logo.svg" alt="Grafetto" width="84" height="29" />
+    <nav aria-label="Legal">
+      <!-- TODO(#323): legal pages ship before this page does. -->
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <!-- TODO(#246): a contact address that actually receives mail. -->
+      <a href="mailto:hello@grafetto.com">hello@grafetto.com</a>
+    </nav>
+  </footer>
+</body>
+</html>
