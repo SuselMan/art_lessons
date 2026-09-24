@@ -511,7 +511,12 @@ export function watercolorPigmentEffects(pigment: number): {
     // what it no longer does is decide how strong the paint is.
     depositPerRadius: 1.05,
     // Heavy pigment granulates; a dilute wash barely does.
-    granulation: mix(0.05, 0.26, pigment),
+    // (s17.30) 0.10 at full pigment, from 0.26: A/B on Ilya's series 1 and 3
+    // (clean replay against the photographs) - the body's mottle was this,
+    // not the cloud (cloud off changed nothing, granulation off gave a flat
+    // plastic film). The photographs' body is calm with a faint grain; 0.26
+    // read as "процедурная пятнистость по всей плёнке" (the design thread).
+    granulation: mix(0.03, 0.10, pigment),
     // How much settles at the drying perimeter. There is nothing to leave
     // behind in nearly clear water.
     wetEdge: mix(0.22, 0.72, pigment),
