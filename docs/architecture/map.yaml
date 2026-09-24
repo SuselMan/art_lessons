@@ -377,6 +377,7 @@ modules:
       - apps/web/src/pages/Room/snapshotGate.ts
       - apps/web/src/pages/Room/snapshotRestore.ts
       - apps/web/src/pages/Room/snapshotSync.ts
+      - apps/web/src/pages/Room/previewSchedule.ts
       - apps/web/src/pages/Room/socketRevival.ts
       - apps/web/src/pages/Room/syncStatus.ts
       - apps/web/src/pages/Room/connectionNotice.ts
