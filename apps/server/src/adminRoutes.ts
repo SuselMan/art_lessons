@@ -2,11 +2,14 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { Prisma } from '@prisma/client'
 
 import type {
-  AdminActionList, AdminActionRow, AdminLessonList, AdminLessonRow, AdminOverview, AdminUserDetail,
-  AdminUserFilter, AdminUserLesson, AdminUserList, AdminUserRow,
+  AdminActionList, AdminActionRow, AdminDevice, AdminIpBan, AdminIpBanList, AdminIpDetail, AdminLessonList,
+  AdminLessonRow, AdminOverview, AdminUserDetail, AdminUserFilter, AdminUserIp, AdminUserLesson, AdminUserList,
+  AdminUserRow, ClientEnvironment,
 } from '@grafetto/shared'
+import { IP_BAN_DURATIONS_HOURS, sanitizeClientEnvironment } from '@grafetto/shared'
 
-import { bannedCount, noteBanned } from './bans.js'
+import { bannedCount, isBanned, isIpBanned, noteBanned, noteIpBan, noteRevoked } from './bans.js'
+import { normalizeIp } from './sessions.js'
 import { readDisk } from './disk.js'
 import { readMemory } from './memory.js'
 import { prisma } from './prisma.js'
@@ -20,6 +23,8 @@ export type AdminLive = {
   connectedUserIds: () => string[]
   /** Closes every socket this user has open, in every room. */
   disconnectUser: (userId: string) => void
+  /** (#590) Closes every socket whose handshake came from this address. */
+  disconnectIp: (ip: string) => void
 }
 
 const PAGE_SIZE = 50
@@ -120,9 +125,43 @@ async function actionRows(where: Prisma.AdminActionWhereInput, take: number): Pr
     targetUserId: a.targetUserId,
     targetEmail: a.targetUserId ? emailOf.get(a.targetUserId) ?? null : null,
     targetRoomId: a.targetRoomId,
+    targetIp: a.targetIp,
     reason: a.reason,
     createdAt: a.createdAt.toISOString(),
   }))
+}
+
+async function ipBanRows(rows: Array<{
+  id: string; ip: string; reason: string; createdById: string; createdAt: Date; expiresAt: Date; liftedAt: Date | null
+}>): Promise<AdminIpBan[]> {
+  const ids = [...new Set(rows.map(r => r.createdById))]
+  const admins = ids.length
+    ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true } })
+    : []
+  const emailOf = new Map(admins.map(a => [a.id, a.email]))
+  return rows.map(r => ({
+    id: r.id,
+    ip: r.ip,
+    reason: r.reason,
+    createdById: r.createdById,
+    createdByEmail: emailOf.get(r.createdById) ?? null,
+    createdAt: r.createdAt.toISOString(),
+    expiresAt: r.expiresAt.toISOString(),
+    liftedAt: iso(r.liftedAt),
+  }))
+}
+
+/** Whether any admin has been seen from this address — see the IP ban route. */
+async function adminSeenOn(ip: string): Promise<boolean> {
+  const emails = [...adminEmails()]
+  if (emails.length === 0) return false
+  const admins = await prisma.user.findMany({
+    where: { email: { in: emails, mode: 'insensitive' } },
+    select: { id: true },
+  })
+  if (admins.length === 0) return false
+  const seen = await prisma.ipSighting.count({ where: { ip, userId: { in: admins.map(a => a.id) } } })
+  return seen > 0
 }
 
 /** (#586, #587) The admin panel's API. Every route sits behind `requireAdmin`;
@@ -163,11 +202,21 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       : []
     const ownerEmail = new Map(owners.map(o => [o.id, o.email]))
 
+    const [byPlatform, byBrowser] = await Promise.all([
+      prisma.userDevice.groupBy({ by: ['platform'], where: { lastSeenAt: { gte: week } }, _count: { _all: true } }),
+      prisma.userDevice.groupBy({ by: ['browser'], where: { lastSeenAt: { gte: week } }, _count: { _all: true } }),
+    ])
+    const tally = (rows: Array<{ key: string; count: number }>) => rows.sort((a, b) => b.count - a.count)
+
     const memory = readMemory()
     const disk = await readDisk()
     const resident = getResidentRoomStats()
 
     return {
+      devices: {
+        byPlatform: tally(byPlatform.map(r => ({ key: r.platform, count: r._count._all }))),
+        byBrowser: tally(byBrowser.map(r => ({ key: r.browser, count: r._count._all }))),
+      },
       users: { registered, registeredLast24h, registeredLast7d, activeGuests, seenLast24h, banned: bannedCount() },
       lessons: {
         total: lessonsTotal, createdLast24h: lessonsLast24h, createdLast7d: lessonsLast7d, activeLast24h: lessonsActive,
@@ -222,11 +271,11 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
     const { id } = request.params
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { ...USER_ROW_SELECT, banReason: true, bannedById: true },
+      select: { ...USER_ROW_SELECT, banReason: true, bannedById: true, sessionsRevokedAt: true },
     })
     if (!user) return reply.code(404).send({ error: 'not_found' })
 
-    const [owned, joined, actions] = await Promise.all([
+    const [owned, joined, actions, deviceRows, ipRows] = await Promise.all([
       prisma.room.findMany({
         where: { ownerId: id, lessonId: null },
         select: { id: true, name: true, createdAt: true },
@@ -240,6 +289,10 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
         take: 200,
       }),
       actionRows({ targetUserId: id }, 50),
+      prisma.userDevice.findMany({ where: { userId: id }, orderBy: { lastSeenAt: 'desc' }, take: 50 }),
+      prisma.ipSighting.groupBy({
+        by: ['ip'], where: { userId: id }, _min: { firstSeenAt: true }, _max: { lastSeenAt: true },
+      }),
     ])
 
     // The owner usually has a participant row for their own lesson too; one
@@ -263,11 +316,37 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       })
     }
 
+    const devices: AdminDevice[] = deviceRows.map(d => ({
+      deviceId: d.deviceId,
+      platform: d.platform,
+      browser: d.browser,
+      userAgent: d.userAgent,
+      lastIp: d.lastIp,
+      // Re-sanitized on the way out as well as in: the column is Json, and a
+      // row written by some later build must not reach the page as anything
+      // but the fields this one knows how to show.
+      env: d.env === null ? null : sanitizeClientEnvironment(d.env) satisfies ClientEnvironment,
+      envAt: iso(d.envAt),
+      firstSeenAt: d.firstSeenAt.toISOString(),
+      lastSeenAt: d.lastSeenAt.toISOString(),
+    }))
+    const ips: AdminUserIp[] = ipRows
+      .map(r => ({
+        ip: r.ip,
+        firstSeenAt: (r._min.firstSeenAt ?? new Date(0)).toISOString(),
+        lastSeenAt: (r._max.lastSeenAt ?? new Date(0)).toISOString(),
+        banned: isIpBanned(r.ip),
+      }))
+      .sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt))
+
     const detail: AdminUserDetail = {
       ...toUserRow(user, onlineUserIds()),
       banReason: user.banReason,
       bannedById: user.bannedById,
+      sessionsRevokedAt: iso(user.sessionsRevokedAt),
       lessons: [...lessons.values()],
+      devices,
+      ips,
       actions,
     }
     return detail
@@ -328,6 +407,121 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       ])
       noteBanned(id, false)
       request.log.info({ adminId: request.userId, targetUserId: id }, 'admin unbanned user')
+      return { ok: true }
+    },
+  )
+
+  // (#589) Every browser this person is signed in on becomes a guest on its
+  // next request. The account itself is untouched — this is for "I signed in
+  // on a school computer and left", or for a ban that should also end the
+  // session on a device the ban alone would not reach (it does, but this says
+  // so explicitly in the journal).
+  app.post<{ Params: { id: string } }>(
+    '/api/admin/users/:id/revoke-sessions', { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params
+      if (id === request.userId) return reply.code(400).send({ error: 'cannot_revoke_self' })
+      const target = await prisma.user.findUnique({ where: { id }, select: { email: true } })
+      if (!target) return reply.code(404).send({ error: 'not_found' })
+      const at = new Date()
+      await prisma.$transaction([
+        prisma.user.update({ where: { id }, data: { sessionsRevokedAt: at } }),
+        prisma.adminAction.create({ data: { adminId: request.userId, action: 'revoke_sessions', targetUserId: id } }),
+      ])
+      noteRevoked(id, at)
+      live.disconnectUser(id)
+      request.log.info({ adminId: request.userId, targetUserId: id }, 'admin revoked sessions')
+      return { ok: true }
+    },
+  )
+
+  app.get('/api/admin/ip-bans', { preHandler: requireAdmin }, async (): Promise<AdminIpBanList> => {
+    const rows = await prisma.ipBan.findMany({
+      where: { liftedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+    return { bans: await ipBanRows(rows) }
+  })
+
+  app.get<{ Params: { ip: string } }>('/api/admin/ips/:ip', { preHandler: requireAdmin }, async (request): Promise<AdminIpDetail> => {
+    const ip = normalizeIp(request.params.ip)
+    const [sightings, bans] = await Promise.all([
+      prisma.ipSighting.findMany({ where: { ip }, orderBy: { lastSeenAt: 'desc' }, take: 200 }),
+      prisma.ipBan.findMany({ where: { ip }, orderBy: { createdAt: 'desc' }, take: 50 }),
+    ])
+    const users = sightings.length
+      ? await prisma.user.findMany({
+        where: { id: { in: [...new Set(sightings.map(s => s.userId))] } },
+        select: { id: true, email: true, name: true },
+      })
+      : []
+    const userOf = new Map(users.map(u => [u.id, u]))
+    const banRows = await ipBanRows(bans)
+    const now = Date.now()
+    return {
+      ip,
+      activeBan: banRows.find(b => !b.liftedAt && new Date(b.expiresAt).getTime() > now) ?? null,
+      sightings: sightings.map(s => ({
+        userId: s.userId,
+        email: userOf.get(s.userId)?.email ?? null,
+        name: userOf.get(s.userId)?.name ?? null,
+        deviceId: s.deviceId,
+        firstSeenAt: s.firstSeenAt.toISOString(),
+        lastSeenAt: s.lastSeenAt.toISOString(),
+        userBanned: isBanned(s.userId),
+      })),
+      bans: banRows,
+    }
+  })
+
+  app.post<{ Params: { ip: string }; Body: { reason?: unknown; hours?: unknown } }>(
+    '/api/admin/ips/:ip/ban', { preHandler: requireAdmin },
+    async (request, reply) => {
+      const ip = normalizeIp(request.params.ip)
+      const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : ''
+      if (!reason) return reply.code(400).send({ error: 'reason_required' })
+      if (reason.length > MAX_REASON_LENGTH) return reply.code(400).send({ error: 'reason_too_long' })
+      const hours = IP_BAN_DURATIONS_HOURS.find(h => h === request.body?.hours)
+      if (hours === undefined) return reply.code(400).send({ error: 'invalid_duration' })
+      if (ip === 'unknown') return reply.code(400).send({ error: 'invalid_ip' })
+      // The ban is enforced before identity is resolved, so it would lock out
+      // an admin as surely as anyone else — and an admin locked out of the
+      // panel cannot lift it. Refused rather than exempted: an exemption
+      // needs a database lookup on the one path that is built to avoid one.
+      if (ip === normalizeIp(request.ip)) return reply.code(400).send({ error: 'cannot_ban_own_ip' })
+      if (await adminSeenOn(ip)) return reply.code(400).send({ error: 'admin_seen_on_ip' })
+
+      const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000)
+      await prisma.$transaction([
+        prisma.ipBan.create({ data: { ip, reason, createdById: request.userId, expiresAt } }),
+        prisma.adminAction.create({
+          data: { adminId: request.userId, action: 'ip_ban', targetIp: ip, reason: `${reason} (${hours} h)` },
+        }),
+      ])
+      noteIpBan(ip, expiresAt.getTime())
+      live.disconnectIp(ip)
+      request.log.info({ adminId: request.userId, ip, hours }, 'admin banned ip')
+      return { ok: true }
+    },
+  )
+
+  app.post<{ Params: { ip: string }; Body: { reason?: unknown } }>(
+    '/api/admin/ips/:ip/unban', { preHandler: requireAdmin },
+    async (request, reply) => {
+      const ip = normalizeIp(request.params.ip)
+      const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim().slice(0, MAX_REASON_LENGTH) : ''
+      const now = new Date()
+      const active = { ip, liftedAt: null, expiresAt: { gt: now } }
+      if ((await prisma.ipBan.count({ where: active })) === 0) return reply.code(409).send({ error: 'not_banned' })
+      await prisma.$transaction([
+        prisma.ipBan.updateMany({ where: active, data: { liftedAt: now } }),
+        prisma.adminAction.create({
+          data: { adminId: request.userId, action: 'ip_unban', targetIp: ip, reason: reason || null },
+        }),
+      ])
+      noteIpBan(ip, null)
+      request.log.info({ adminId: request.userId, ip }, 'admin lifted ip ban')
       return { ok: true }
     },
   )

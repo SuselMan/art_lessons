@@ -10,8 +10,9 @@ import {
   setParticipantFrozen, setRoomFrozen, setRoomTools, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
-import { resolveSocketIdentity, touchLastSeen } from './identity.js'
-import { isBanned } from './bans.js'
+import { resolveSocketIdentity } from './identity.js'
+import { isBanned, isIpBanned } from './bans.js'
+import { handshakeIp, recordSighting } from './sessions.js'
 import { pressureOf, readMemory } from './memory.js'
 import { describeClient } from './clientDescription.js'
 import { createSnapshotLagWatch } from './snapshotLagWatch.js'
@@ -30,6 +31,9 @@ export interface SocketData {
   // lessonChannel). Set with `roomId` and outlives board switches.
   lessonId?: string
   userId?: string
+  // (#590) The handshake's client address, so an IP ban can close the sockets
+  // already open from it (adminRoutes.ts).
+  ip?: string
 }
 
 /** (#328) Last resort when a client sends a blank display name. The client
@@ -194,14 +198,19 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   // comment for the one edge case: a socket connecting before the client's
   // warm-up `GET /api/me` ever ran).
   io.use((socket, next) => {
+    // (#590) Before resolving anyone, for the reason identityHook gives: an
+    // address ban is aimed at whoever arrives without a cookie.
+    const ip = handshakeIp(socket.handshake.headers, socket.handshake.address)
+    if (isIpBanned(ip)) return next(new Error('banned'))
     resolveSocketIdentity(socket.handshake.headers.cookie)
-      .then(userId => {
+      .then(({ userId, deviceId }) => {
         // (#587) Same refusal identityHook gives over HTTP. A socket that is
         // already connected when the ban lands is closed by the admin route
         // (adminRoutes.ts); this is the door for the reconnect after it.
         if (isBanned(userId)) return next(new Error('banned'))
         socket.data.userId = userId
-        touchLastSeen(userId)
+        socket.data.ip = ip
+        recordSighting({ userId, deviceId, ip, userAgent: socket.handshake.headers['user-agent'] })
         next()
       })
       .catch(next)

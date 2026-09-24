@@ -28,8 +28,11 @@ const mockPrisma = vi.hoisted(() => ({
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 vi.mock('./identity.js', () => ({
-  resolveSocketIdentity: async (cookie: string | undefined) => cookie ?? 'anonymous',
-  touchLastSeen: () => {},
+  resolveSocketIdentity: async (cookie: string | undefined) => ({ userId: cookie ?? 'anonymous', deviceId: 'device' }),
+}))
+vi.mock('./sessions.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./sessions.js')>()),
+  recordSighting: () => {},
 }))
 vi.mock('./memory.js', () => ({
   readMemory: () => ({ heapUsedPct: 0, heapUsedMb: 0 }),

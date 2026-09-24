@@ -319,3 +319,33 @@
   align-items: center;
   gap: 12px;
 }
+
+/* (#589) Device cards in a person's detail view. */
+.devices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 10px;
+}
+
+.device {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.deviceHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--color-text-bright);
+}
+
+.factRow { display: contents; }
+
+.monoTitle { font-family: var(--font-mono); font-size: 18px; }

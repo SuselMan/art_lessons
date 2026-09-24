@@ -14,7 +14,7 @@ function Stat({ label, value, sub }: { label: string; value: number | string; su
 }
 
 export function Overview({ data, onOpenUser }: { data: AdminOverview; onOpenUser: (id: string) => void }) {
-  const { users, lessons, live, server } = data
+  const { users, lessons, live, server, devices } = data
   return (
     <>
       <section className={styles.section}>
@@ -41,6 +41,18 @@ export function Overview({ data, onOpenUser }: { data: AdminOverview; onOpenUser
           <Stat label="Total" value={lessons.total} sub={`+${lessons.createdLast24h} today · +${lessons.createdLast7d} this week`} />
           <Stat label="Entered last 24 h" value={lessons.activeLast24h} />
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Devices seen this week</h2>
+        {devices.byPlatform.length === 0
+          ? <p className={styles.empty}>None yet.</p>
+          : (
+            <div className={styles.stats}>
+              <Stat label="By platform" value={devices.byPlatform.reduce((n, r) => n + r.count, 0)} sub={devices.byPlatform.map(r => `${r.key} ${r.count}`).join(' · ')} />
+              <Stat label="By browser" value={devices.byBrowser.length} sub={devices.byBrowser.map(r => `${r.key} ${r.count}`).join(' · ')} />
+            </div>
+          )}
       </section>
 
       <section className={styles.section}>

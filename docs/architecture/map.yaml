@@ -726,6 +726,7 @@ modules:
       - apps/web/src/lib/queryClient.ts
       - apps/web/src/lib/authState.ts
       - apps/web/src/lib/banned.ts
+      - apps/web/src/lib/environment.ts
       - apps/web/src/lib/shareRoom.ts
       - apps/web/src/lib/shareRoom.test.ts
       - apps/web/src/lib/useShareRoom.ts
@@ -1101,7 +1102,8 @@ modules:
     layer: server-http
     owns: >-
       Беспарольный вход по коду на email, выдача и проверка кодов, личность запроса,
-      ограничение частоты, правила доступа к комнате.
+      ограничение частоты, правила доступа к комнате. Устройства и адреса, с которых человек
+      заходит (#589): кука `al_dev`, запись визитов, окружение от клиента, срок хранения.
     files:
       - apps/server/src/authRoutes*.ts
       - apps/server/src/loginCodes*.ts
@@ -1111,6 +1113,7 @@ modules:
       - apps/server/src/rateLimit.ts
       - apps/server/src/roomAccess.ts
       - apps/server/src/roomAccess.test.ts
+      - apps/server/src/sessions*.ts
     tags: [аккаунты, доступ]
 
   - id: server-admin
@@ -1173,6 +1176,7 @@ modules:
     files:
       - packages/shared/src/index.ts
       - packages/shared/src/admin.ts
+      - packages/shared/src/admin.test.ts
       - packages/shared/src/rejectReason.test.ts
       - packages/shared/src/transformMatrix.test.ts
       - packages/shared/src/toolset.test.ts

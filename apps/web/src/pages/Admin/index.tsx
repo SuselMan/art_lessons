@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '../../lib/api'
 import { fetchAdminOverview } from '../../lib/adminApi'
 import { NotFound } from '../NotFound'
+import { IpDetail, Ips } from './Ips'
 import { Journal } from './Journal'
 import { Lessons } from './Lessons'
 import { TABS, type Tab, useAdminNav } from './nav'
@@ -16,6 +17,7 @@ const TAB_LABELS: Record<Tab, string> = {
   overview: 'Overview',
   users: 'Users',
   lessons: 'Lessons',
+  ips: 'IPs',
   journal: 'Journal',
 }
 
@@ -64,11 +66,16 @@ export function Admin() {
         {nav.tab === 'overview' && overview.data && <Overview data={overview.data} onOpenUser={nav.openUser} />}
         {nav.tab === 'users' && (
           nav.userId
-            ? <UserDetail userId={nav.userId} onBack={nav.closeUser} />
+            ? <UserDetail userId={nav.userId} onBack={nav.closeDetail} onOpenIp={nav.openIp} />
             : <Users onOpenUser={nav.openUser} />
         )}
         {nav.tab === 'lessons' && <Lessons onOpenUser={nav.openUser} />}
-        {nav.tab === 'journal' && <Journal onOpenUser={nav.openUser} />}
+        {nav.tab === 'ips' && (
+          nav.ip
+            ? <IpDetail ip={nav.ip} onBack={nav.closeDetail} onOpenUser={nav.openUser} />
+            : <Ips onOpenIp={nav.openIp} />
+        )}
+        {nav.tab === 'journal' && <Journal onOpenUser={nav.openUser} onOpenIp={nav.openIp} />}
       </main>
     </div>
   )

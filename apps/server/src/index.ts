@@ -32,7 +32,8 @@ import { registerBoardRoutes } from './boardRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
 import { registerThumbnailRoutes } from './thumbnailRoutes.js'
 import { adminEmails, registerAdminRoutes } from './adminRoutes.js'
-import { loadBans } from './bans.js'
+import { loadBans, loadIpBans, loadRevocations } from './bans.js'
+import { pruneSightings, registerSessionRoutes } from './sessions.js'
 
 // `trustProxy: 1` — trust exactly one hop, the host's nginx, which is the
 // sole public entry point (docker-compose.prod.yml binds this process to
@@ -169,7 +170,11 @@ registerThumbnailRoutes(app)
 registerAdminRoutes(app, {
   connectedUserIds: () => [...io.of('/').sockets.values()].flatMap(s => s.data.userId ? [s.data.userId] : []),
   disconnectUser: userId => { io.in(userChannel(userId)).disconnectSockets(true) },
+  disconnectIp: ip => {
+    for (const socket of io.of('/').sockets.values()) if (socket.data.ip === ip) socket.disconnect(true)
+  },
 })
+registerSessionRoutes(app)
 
 // (#497) Сколько у выключения есть времени. Меньше десяти секунд не по вкусу:
 // `docker stop` шлёт SIGTERM и добивает SIGKILL'ом через свой grace period, а
@@ -177,6 +182,19 @@ registerAdminRoutes(app, {
 // умолчанию. Уложиться надо внутри них — иначе выключение, написанное ради
 // сохранности, само окажется тем, кого убили на середине записи.
 const SHUTDOWN_DEADLINE_MS = 8000
+
+/** (#589) Devices and IP sightings are kept for SIGHTING_RETENTION_DAYS after
+ *  the last visit — the promise the privacy policy makes (#323). Once at boot,
+ *  then every six hours; `unref` so it never holds a shutdown open. */
+function startSightingPrune(): void {
+  const prune = () => {
+    pruneSightings()
+      .then(removed => { if (removed.devices + removed.ips > 0) app.log.info(removed, 'pruned old sightings') })
+      .catch(err => app.log.error({ err }, 'failed to prune sightings'))
+  }
+  prune()
+  setInterval(prune, 6 * 60 * 60 * 1000).unref()
+}
 
 let shuttingDown = false
 
@@ -265,8 +283,9 @@ const start = async () => {
     // (#587) Before listening, not lazily: the first request after a restart
     // must already meet every ban, and a banned person reconnecting the moment
     // a deploy brings the server back is exactly who arrives first.
-    const bans = await loadBans()
-    if (bans > 0) app.log.info({ bans }, 'loaded account bans')
+    const [bans, ipBans, revocations] = await Promise.all([loadBans(), loadIpBans(), loadRevocations()])
+    if (bans + ipBans + revocations > 0) app.log.info({ bans, ipBans, revocations }, 'loaded bans and revocations')
+    startSightingPrune()
     if (adminEmails().size === 0) app.log.warn('ADMIN_EMAILS is not set — the admin panel has no admins')
     // 4000 unless told otherwise (compose publishes that, and the Vite proxy
     // expects it). The override exists so a second checkout can be run and

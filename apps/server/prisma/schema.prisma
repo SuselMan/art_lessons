@@ -52,6 +52,11 @@ model User {
   bannedAt          DateTime?
   banReason         String?
   bannedById        String?
+  // (#589) "Sign out everywhere": identity tokens issued before this moment
+  // are refused (identity.ts), which turns every browser holding one back
+  // into a fresh guest. Null means nothing was ever revoked.
+  sessionsRevokedAt DateTime?
+  devices           UserDevice[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 }
@@ -63,12 +68,14 @@ model User {
 model AdminAction {
   id           String   @id @default(uuid())
   adminId      String
-  // `ban` | `unban`. A String rather than an enum: new kinds of action will
+  // `ban` | `unban` | `revoke_sessions` | `ip_ban` | `ip_unban`. A String rather than an enum: new kinds of action will
   // arrive with v2 (#589, #590), and an old row must stay readable without a
   // migration for every one.
   action       String
   targetUserId String?
   targetRoomId String?
+  // (#590) For `ip_ban` / `ip_unban`.
+  targetIp     String?
   reason       String?
   createdAt    DateTime @default(now())
 
@@ -488,4 +495,65 @@ enum RoomJoinRequestStatus {
   pending
   approved
   denied
+}
+
+// (#589) One browser a person has used. "Browser" is the `al_dev` cookie
+// (identity.ts), not the identity cookie: signing in on a second browser gives
+// both the same user id, and the question this table answers is "which of
+// their devices", so the device needs an id of its own.
+//
+// `env` is what the client reports about itself (lib/environment.ts) — build,
+// screen, pen, GPU — and is replaced wholesale on every report. Json rather
+// than columns: it is read by one person in the admin panel and never
+// queried, and the set of fields will keep growing with the bugs it answers.
+model UserDevice {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId    String
+  userAgent   String
+  platform    String
+  browser     String
+  lastIp      String?
+  env         Json?
+  envAt       DateTime?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+
+  @@unique([userId, deviceId])
+  @@index([lastSeenAt])
+}
+
+// (#589, #590) Which address each person's device was seen from. Separate
+// from UserDevice because the question it answers runs the other way — "who
+// else came from this IP" — which is what makes an IP ban something one can
+// decide rather than guess. Not a relation to User on purpose: nothing about
+// it needs a join, and it is pruned on its own clock (sessions.ts).
+model IpSighting {
+  id          String   @id @default(uuid())
+  ip          String
+  userId      String
+  deviceId    String
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([ip, userId, deviceId])
+  @@index([userId])
+  @@index([lastSeenAt])
+}
+
+// (#590) A ban on an address, always with an end: one address is often a
+// mobile carrier's NAT or a school's whole network, and a permanent ban on it
+// would outlive the person it was meant for. `liftedAt` ends one early.
+model IpBan {
+  id          String    @id @default(uuid())
+  ip          String
+  reason      String
+  createdById String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  liftedAt    DateTime?
+
+  @@index([ip])
+  @@index([expiresAt])
 }
