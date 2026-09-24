@@ -9,6 +9,8 @@
   <link rel="alternate" hreflang="en" href="https://grafetto.com/" />
   <!-- (#246) RU goes to /ru/ in a second pass; the hreflang pair is added then. -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon-96.png" sizes="96x96" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta name="theme-color" content="#1a1a1e" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#ececec" media="(prefers-color-scheme: light)" />
 
@@ -25,6 +27,7 @@
     try { var t = localStorage.getItem('grafetto_landing_theme'); if (t) document.documentElement.dataset.theme = t } catch (e) {}
   </script>
   <link rel="stylesheet" href="./landing.css" />
+  <script type="module" src="./try.ts"></script>
 
   <script type="application/ld+json">
   {
@@ -126,31 +129,34 @@
 
     <section id="materials" class="section">
       <div class="section-head">
-        <h2>Materials that behave like materials</h2>
+        <h2>Try the paper yourself</h2>
         <p>
-          Every mark reacts to the tooth of the paper, to how hard you press and how you
-          tilt the pen. This sheet was drawn in Grafetto.
+          The real pencils on the real paper. Press harder, tilt the pen, layer the graphite —
+          with a stylus if you have one, or a mouse.
         </p>
       </div>
-      <!-- A test sheet, the way an artist tries out new materials: one sheet,
-           every mark drawn by the engine on its own paper. Labels sit on the
-           sheet in % so they stay with their marks at any width. -->
-      <div class="sheet-scroll">
-        <figure class="sheet">
-          <img src="./assets/sheet.webp" width="1600" height="1159" loading="lazy"
-               alt="A test sheet: graphite hatching, a mass of charcoal, a watercolour wash, two crossing marker passes, a box drawn with a liner, brush pen curves and digital brush strokes" />
-          <figcaption>
-            <span class="tag" style="left:4.5%; top:38%">Graphite, 6H–6B</span>
-            <span class="tag" style="left:37%; top:34%">Charcoal: vine, willow, compressed</span>
-            <span class="tag" style="left:69%; top:34%">Watercolour</span>
-            <span class="tag" style="left:4%; top:64%">Marker, darker where passes overlap</span>
-            <span class="tag" style="left:62%; top:58%">Liner</span>
-            <span class="tag" style="left:71%; top:72.5%">Brush pen</span>
-            <span class="tag" style="left:66%; top:84%">Digital brush</span>
-          </figcaption>
-        </figure>
+      <!-- (#246) The engine and one paper texture load on "Try it", not with the
+           page. Nothing here talks to the server: no room, no /api, no cookie. -->
+      <div class="try" data-try data-state="idle">
+        <div class="try-stage">
+          <canvas class="try-canvas" hidden></canvas>
+          <button class="try-start btn btn-primary" type="button">Try it on this sheet</button>
+          <p class="try-status" role="status" hidden></p>
+        </div>
+        <div class="try-tools" role="toolbar" aria-label="Tools" hidden>
+          <button type="button" data-tool="pencil" aria-pressed="true"><img src="../src/assets/tools/pencil.png" alt="" />Pencil</button>
+          <button type="button" data-tool="charcoal" aria-pressed="false"><img src="../src/assets/tools/charcoal.png" alt="" />Charcoal</button>
+          <button type="button" data-tool="liner" aria-pressed="false"><img src="../src/assets/tools/liner.png" alt="" />Liner</button>
+          <button type="button" data-tool="brushPen" aria-pressed="false"><img src="../src/assets/tools/brushPen.png" alt="" />Brush pen</button>
+          <button type="button" data-tool="marker" aria-pressed="false"><img src="../src/assets/tools/marker.png" alt="" />Marker</button>
+          <button type="button" data-tool="watercolor" aria-pressed="false"><img src="../src/assets/tools/watercolor.png" alt="" />Watercolour</button>
+          <button type="button" data-tool="eraser" aria-pressed="false" class="try-eraser">Eraser</button>
+          <span class="try-sep" aria-hidden="true"></span>
+          <button type="button" data-action="undo">Undo</button>
+          <button type="button" data-action="clear">Clear</button>
+        </div>
       </div>
-      <p class="aside">Also on the desk: eraser, blending stump, ruler, proportion grid, reference photos and layers.</p>
+      <p class="aside">In a lesson you also get a blending stump, a ruler, a proportion grid, reference photos, layers — and each tool's own settings.</p>
     </section>
 
     <section id="lesson" class="section">

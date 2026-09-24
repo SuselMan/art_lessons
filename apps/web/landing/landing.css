@@ -246,26 +246,72 @@ main { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
 .section-head { display: grid; gap: 16px; max-width: 40rem; margin-bottom: clamp(32px, 4vw, 48px); }
 .section-head p { color: var(--dim); font-size: 1.08rem; }
 
-/* Materials: one test sheet, the paper glowing on the page. */
-.sheet-scroll { overflow-x: auto; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) 8px; }
-.sheet {
+/* Try-it sheet. Before the first press it's paper and a button; the engine
+   (tryCanvas.ts) arrives on the press and draws on the same spot. */
+.try-stage {
   position: relative;
-  margin: 0;
-  min-width: 760px;           /* below this the labels crowd the marks; scroll instead */
-  border-radius: 6px;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
   overflow: hidden;
+  background: #f4f4f2 url(./assets/paper-tile.png) repeat;
+  background-size: 488px;
   box-shadow: var(--shadow), 0 0 0 1px var(--border);
 }
-.sheet img { width: 100%; }
-.tag {
-  position: absolute;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: rgba(17, 17, 19, 0.82);
-  color: #eeeeee;
-  font-size: 0.8rem;
-  white-space: nowrap;
+.try-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  touch-action: none;           /* the pen draws; the page doesn't scroll under it */
+  cursor: crosshair;
 }
+.try-start {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 10px 30px -10px rgba(40, 40, 90, 0.5);
+}
+.try[data-state="live"] .try-start,
+.try[data-state="failed"] .try-start { display: none; }
+.try[data-state="loading"] .try-start { opacity: 0.6; }
+.try-status {
+  position: absolute;
+  left: 50%; top: calc(50% + 44px);
+  transform: translateX(-50%);
+  width: max-content; max-width: calc(100% - 32px);
+  color: #55555f;
+  font-size: 0.92rem;
+  text-align: center;
+}
+.try[data-state="failed"] .try-status { top: 50%; transform: translate(-50%, -50%); }
+
+.try-tools {
+  display: flex; flex-wrap: wrap; align-items: stretch;
+  gap: 8px;
+  margin-top: 14px;
+}
+.try-tools button {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px;
+  min-width: 84px; min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  font: 500 0.85rem/1.1 var(--sans);
+  cursor: pointer;
+}
+.try-tools button:hover { border-color: var(--dim); }
+.try-tools button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--bright); }
+.try-tools img { width: 64px; height: auto; }
+.try-tools [data-action] { min-width: 72px; }
+.try-sep { flex: 1 1 0; min-width: 8px; }
+@media (max-width: 560px) {
+  .try-stage { aspect-ratio: 4 / 5; }
+  .try-tools button { min-width: 64px; }
+  .try-tools img { width: 48px; }
+}
+
 .aside { margin-top: 20px; color: var(--dim); font-size: 0.97rem; }
 
 /* Steps */
