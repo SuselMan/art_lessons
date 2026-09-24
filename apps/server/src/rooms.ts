@@ -2032,7 +2032,11 @@ export function setActiveBoard(roomId: string, boardId: string | null): string |
   if (!lesson) return false
   const lessonId = lesson.room.id
   const stored = boardId === lessonId ? null : boardId
-  if (stored !== null && !lesson.boards.some(b => b.id === stored)) return false
+  // (#595, ADR 015 §4) Shared boards only. The teacher visiting a student's
+  // personal board is an ordinary `join_room`, not a page turn for the class:
+  // stored here, it would send every following student — and every later
+  // joiner and reload — onto somebody else's work.
+  if (stored !== null && !lesson.boards.some(b => b.id === stored && !b.ownerId)) return false
   lesson.room = { ...lesson.room, activeBoardId: stored ?? undefined }
   enqueueWrite(lessonId, () => prisma.room.update({ where: { id: lessonId }, data: { activeBoardId: stored } }))
   return stored

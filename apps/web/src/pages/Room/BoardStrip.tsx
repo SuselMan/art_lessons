@@ -33,6 +33,14 @@ interface BoardStripProps {
   onRename: (boardId: string, name: string) => void
   onMove: (boardId: string, direction: -1 | 1) => void
   onDelete: (boardId: string) => void
+  /** (#595) A student's own board in the latest round, if any — shown in the
+   *  strip as "Моя работа" rather than under its name (which is theirs). */
+  ownWorkId?: string
+  /** (#595) The teacher's "Раздать задание" beside the "+"; absent for
+   *  everyone else. `classActive` turns it into "Класс" while a round runs:
+   *  one round at a time, and the way to the running one is the grid. */
+  onClassAction?: () => void
+  classActive?: boolean
 }
 
 /** (#176, ADR 014 §7 step 4) The strip of a lesson's boards, dropped down
@@ -51,7 +59,7 @@ interface BoardStripProps {
  *  by moving the inner one out. */
 export function BoardStrip({
   boards, lessonId, currentId, teacherId, participants, canEdit, compact, busy,
-  onSelect, onClose, onCreate, onRename, onMove, onDelete,
+  onSelect, onClose, onCreate, onRename, onMove, onDelete, ownWorkId, onClassAction, classActive,
 }: BoardStripProps) {
   const t = useT()
   // Non-null *is* the editing state, same as the header's own rename: the
@@ -136,9 +144,11 @@ export function BoardStrip({
                     onBlur={submitRename}
                   />
                 ) : (
-                  <span className={styles.name} title={isCurrent ? t('boards.youAreHere') : board.name}>{board.name}</span>
+                  <span className={styles.name} title={isCurrent ? t('boards.youAreHere') : board.name}>
+                    {board.id === ownWorkId ? t('class.myWork') : board.name}
+                  </span>
                 )}
-                {canEdit && !isRenaming && (
+                {canEdit && !isRenaming && board.id !== ownWorkId && (
                   // Stops the tile's own click: opening the menu is not a page
                   // turn. Menu's trigger already stops propagation of the
                   // click; this wrapper covers the keyboard path too.
@@ -179,14 +189,21 @@ export function BoardStrip({
             <span>{t('boards.add')}</span>
           </button>
         )}
+        {onClassAction && (
+          <button type="button" className={styles.add} onClick={onClassAction}>
+            <Icon name="grid_view" />
+            <span>{t(classActive ? 'class.open' : 'class.startStrip')}</span>
+          </button>
+        )}
       </div>
     </section>
   )
 }
 
 interface TeacherChipProps {
-  /** The teacher's board, for its name. */
-  board: BoardSummary | undefined
+  /** What the chip says — where following would take this student (#595:
+   *  the teacher's board, their own work, or a work being shown to all). */
+  text: string
   /** Whether the strip is open below the header, so the chip moves out of
    *  its way. */
   stripOpen: boolean
@@ -197,9 +214,8 @@ interface TeacherChipProps {
  *  another board by hand. One tap goes to the teacher's board and switches
  *  following back on; the chip is the only way back into following, which is
  *  why it is a chip and not a line in a panel. */
-export function TeacherChip({ board, stripOpen, onReturn }: TeacherChipProps) {
+export function TeacherChip({ text, stripOpen, onReturn }: TeacherChipProps) {
   const t = useT()
-  if (!board) return null
   return (
     <button
       type="button"
@@ -208,7 +224,7 @@ export function TeacherChip({ board, stripOpen, onReturn }: TeacherChipProps) {
       title={t('boards.returnToTeacher')}
     >
       <Icon name="school" />
-      <span className={styles.chipText}>{t('boards.teacherOn', { name: board.name })}</span>
+      <span className={styles.chipText}>{text}</span>
     </button>
   )
 }

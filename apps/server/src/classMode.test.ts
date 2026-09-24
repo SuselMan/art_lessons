@@ -314,6 +314,12 @@ describe('who may see and draw on a personal board (#595)', () => {
     expect(personal((await dark).lesson).map(b => b.id)).not.toContain(aliceBoard)
   })
 
+  it('a personal board is never the teacher\'s active board — visiting one is not turning the class\'s page', async () => {
+    const { teacher, alice, aliceBoard } = await classInSession()
+    teacher.emit('set_active_board', { boardId: aliceBoard })
+    await silent(alice, 'active_board_changed')
+  })
+
   it('refuses a spotlight on anything that is not a board of the running round', async () => {
     const { lessonId, teacher, bob } = await classInSession()
     teacher.emit('set_spotlight', { boardId: lessonId })

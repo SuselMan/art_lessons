@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import type { ToggleableTool } from '@grafetto/shared'
+import type { ClassVisibility, ToggleableTool } from '@grafetto/shared'
 
 import { useT } from '../../i18n'
 import { isDebugToolsEnabled } from '../../lib/debugTools'
@@ -7,6 +7,7 @@ import { Modal } from '../Modal'
 import { OptionGroup } from '../OptionGroup'
 import { RoomAccessControl } from '../RoomAccessControl'
 import { ToolSetPicker } from '../ToolSetPicker'
+import { ClassVisibilityField } from '../ClassVisibilityField'
 import { DebugTab } from './DebugTab'
 import { GeneralTab } from './GeneralTab'
 import { HotkeysTab } from './HotkeysTab'
@@ -25,6 +26,10 @@ interface SettingsPanelProps {
    *  as `roomId`. */
   enabledTools?: ToggleableTool[]
   onEnabledToolsChange?: (next: ToggleableTool[] | undefined) => void
+  // (#595, ADR 015 §6) Whether students see each other's work — beside the
+  // tools, since both are what the lesson puts in front of the class.
+  classVisibility?: ClassVisibility
+  onClassVisibilityChange?: (next: ClassVisibility) => void
 }
 
 type SettingsTabId = 'general' | 'stylus' | 'access' | 'tools' | 'hotkeys' | 'debug'
@@ -46,7 +51,7 @@ type SettingsTabId = 'general' | 'stylus' | 'access' | 'tools' | 'hotkeys' | 'de
  *  read-only mode). Those are still fixed at creation — #321 keeps that part
  *  open. */
 export function SettingsPanel({
-  onClose, roomId, isOwner, enabledTools, onEnabledToolsChange,
+  onClose, roomId, isOwner, enabledTools, onEnabledToolsChange, classVisibility, onClassVisibilityChange,
 }: SettingsPanelProps) {
   const t = useT()
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
@@ -78,7 +83,14 @@ export function SettingsPanel({
       ? [{
           id: 'tools' as const,
           label: t('editorSettings.tab.tools'),
-          content: <ToolSetPicker value={enabledTools} onChange={onEnabledToolsChange} />,
+          content: (
+            <>
+              <ToolSetPicker value={enabledTools} onChange={onEnabledToolsChange} />
+              {classVisibility && onClassVisibilityChange && (
+                <ClassVisibilityField value={classVisibility} onChange={onClassVisibilityChange} />
+              )}
+            </>
+          ),
         }]
       : []),
     { id: 'hotkeys' as const, label: t('editorSettings.tab.hotkeys'), content: <HotkeysTab /> },

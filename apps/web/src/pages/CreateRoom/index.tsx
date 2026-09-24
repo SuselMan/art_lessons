@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import {
   DEFAULT_PAPER_COLORS, PAPER_COARSENESS, TOGGLEABLE_TOOLS,
-  type PaperCoarseness, type PaperType, type ToggleableTool,
+  type ClassVisibility, type PaperCoarseness, type PaperType, type ToggleableTool,
 } from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { preloadRoomPage } from '../../lib/roomChunk'
@@ -19,6 +19,7 @@ import {
   EMPTY_ROOM_ACCESS_DRAFT, RoomAccessControl, type RoomAccessDraft,
 } from '../../components/RoomAccessControl'
 import { ToolSetPicker } from '../../components/ToolSetPicker'
+import { ClassVisibilityField } from '../../components/ClassVisibilityField'
 import { Icon } from '../../components/Icon'
 import styles from './CreateRoom.module.css'
 
@@ -181,6 +182,9 @@ export function CreateRoom() {
   // what gets stored — never a list of all fifteen, or the next tool this app
   // ships would be excluded from every room created today.
   const [enabledTools, setEnabledTools] = useState<ToggleableTool[] | undefined>(undefined)
+  // (#595) Whether students will see each other's work in class — carried on
+  // the room like the toolset, and changeable later from the room's settings.
+  const [classVisibility, setClassVisibility] = useState<ClassVisibility>('teacher_only')
   const [error,       setError]       = useState<string | null>(null)
   // (#351) Set once the form has handed off to `navigate` and the page is
   // waiting to be replaced. Not a network request — creating a room is purely
@@ -257,7 +261,7 @@ export function CreateRoom() {
       setEntering(true)
       navigate(`/room/${id}`, {
         state: {
-          room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true, enabledTools },
+          room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true, enabledTools, classVisibility },
           password: pw, folderId, ...accessPayload,
         },
       })
@@ -286,7 +290,7 @@ export function CreateRoom() {
       state: {
         room: {
           id, name, paper, paperColor: resolvedPaperColorHex, infinite: false,
-          canvasWidth: width, canvasHeight: height, enabledTools,
+          canvasWidth: width, canvasHeight: height, enabledTools, classVisibility,
         },
         password: pw,
         folderId,
@@ -520,6 +524,7 @@ export function CreateRoom() {
               content: (
                 <div className={clsx(styles.tabBody, styles.panelTab)}>
                   <ToolSetPicker value={enabledTools} onChange={setEnabledTools} />
+                  <ClassVisibilityField value={classVisibility} onChange={setClassVisibility} />
                 </div>
               ),
             },
