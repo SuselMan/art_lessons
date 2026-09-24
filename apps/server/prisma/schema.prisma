@@ -34,8 +34,46 @@ model User {
   roomInvitesSent   RoomInvite[]
   roomJoinRequests  RoomJoinRequest[]
   roomBlocks        RoomBlock[]
+  // (#586) When this browser/account was last seen by the server. Not
+  // `updatedAt`, which only moves when the row is edited: a person who draws
+  // every day and never touches their profile would read as gone since
+  // signup. Written by identity.ts at most once per LAST_SEEN_WRITE_INTERVAL_MS,
+  // so it means "within the last few minutes", not to the second. Null for
+  // rows older than the column.
+  lastSeenAt        DateTime?
+  // (#586) When `email` was first filled in. Not `createdAt`: signing up
+  // claims the browser's existing guest row (see the comment above), so
+  // `createdAt` is the first visit, which can be months before the account.
+  registeredAt      DateTime?
+  // (#587) Account ban. Set means every HTTP request, socket handshake and
+  // sign-in code for this user is refused (see bans.ts). `bannedById` is a
+  // plain id rather than a relation: the journal (AdminAction) is the record
+  // of who did what, this is only the current state.
+  bannedAt          DateTime?
+  banReason         String?
+  bannedById        String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+}
+
+// (#586) Journal of what an admin did — bans, unbans, and whatever comes next.
+// Deliberately free of relations: an entry must outlive the user or room it is
+// about (a deleted room's ban reason is exactly the thing worth still having),
+// so the ids are plain strings and nothing cascades into this table.
+model AdminAction {
+  id           String   @id @default(uuid())
+  adminId      String
+  // `ban` | `unban`. A String rather than an enum: new kinds of action will
+  // arrive with v2 (#589, #590), and an old row must stay readable without a
+  // migration for every one.
+  action       String
+  targetUserId String?
+  targetRoomId String?
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetUserId])
 }
 
 // One outstanding sign-in code (#316). Not a relation to User on purpose: a

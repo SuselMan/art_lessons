@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
 
 import { registerAuthRoutes } from './authRoutes.js'
-import { identityHook } from './identity.js'
+import { identityHook, IDENTITY_COOKIE, signIdentityToken } from './identity.js'
 import { registerRateLimit } from './rateLimit.js'
 
 // Route-level tests, Prisma mocked — same shape as healthRoutes.test.ts.
@@ -35,6 +35,11 @@ vi.mock('./loginCodes.js', async (importOriginal) => ({
   issueCode: mockCodes.issueCode,
   redeemCode: mockCodes.redeemCode,
 }))
+
+// (#587) Bans are their own module with their own in-memory set; here they
+// are a seam, so each test says who is banned.
+const mockBans = vi.hoisted(() => ({ isBanned: vi.fn(), isEmailBanned: vi.fn() }))
+vi.mock('./bans.js', () => mockBans)
 
 const mockSendEmail = vi.hoisted(() => vi.fn())
 const mockIsEmailConfigured = vi.hoisted(() => vi.fn())
@@ -88,6 +93,8 @@ beforeEach(() => {
   mockCodes.issueCode.mockReset()
   mockCodes.redeemCode.mockReset()
   mockSendEmail.mockReset()
+  mockBans.isBanned.mockReset().mockReturnValue(false)
+  mockBans.isEmailBanned.mockReset().mockResolvedValue(false)
 
   mockPrisma.user.create.mockResolvedValue({ id: 'guest-1' })
   mockCodes.issueCode.mockResolvedValue(ISSUED)
@@ -251,7 +258,11 @@ describe('signing in with a code (#316)', () => {
     // up stay with the person who drew them.
     expect(res.json()).toMatchObject({ userId: 'guest-1', email: 'new@example.com' })
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'guest-1' }, data: { email: 'new@example.com' } }),
+      expect.objectContaining({
+        where: { id: 'guest-1' },
+        // (#586) Signing up is also when the account starts counting as one.
+        data: { email: 'new@example.com', registeredAt: expect.any(Date) },
+      }),
     )
   })
 
@@ -280,6 +291,47 @@ describe('signing in with a code (#316)', () => {
     const nonce = res.cookies.find(c => c.name === 'al_login_nonce')
     expect(nonce?.value).toBe('')
     expect(res.cookies.some(c => c.name === 'al_id')).toBe(true)
+  })
+})
+
+describe('bans (#587)', () => {
+  it('mails no code to a banned address, and says why', async () => {
+    const app = await buildApp()
+    mockBans.isEmailBanned.mockResolvedValue(true)
+
+    const res = await requestCode(app, 'Spammer@Example.com', '10.0.0.1')
+
+    expect(res.statusCode).toBe(403)
+    expect(res.json()).toEqual({ error: 'banned' })
+    expect(mockBans.isEmailBanned).toHaveBeenCalledWith('spammer@example.com')
+    expect(mockCodes.issueCode).not.toHaveBeenCalled()
+    expect(mockSendEmail).not.toHaveBeenCalled()
+  })
+
+  it('does not let a code mailed before the ban sign anybody in', async () => {
+    const app = await buildApp()
+    mockBans.isEmailBanned.mockResolvedValue(true)
+
+    const res = await verifyCode(app, 'spammer@example.com', '10.0.0.1', { al_login_nonce: 'nonce-abc' })
+
+    expect(res.statusCode).toBe(403)
+    // No account was looked up or claimed — the only User write is the guest
+    // row identityHook mints for this cookie-less test request.
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('refuses every request carrying a banned identity, /api/me included', async () => {
+    const app = await buildApp()
+    mockBans.isBanned.mockImplementation((id: string) => id === 'banned-1')
+
+    const res = await app.inject({
+      method: 'GET', url: '/api/me', cookies: { [IDENTITY_COOKIE]: signIdentityToken('banned-1') },
+    })
+
+    expect(res.statusCode).toBe(403)
+    expect(res.json()).toEqual({ error: 'banned' })
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
   })
 })
 

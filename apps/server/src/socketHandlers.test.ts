@@ -29,6 +29,7 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 vi.mock('./identity.js', () => ({
   resolveSocketIdentity: async (cookie: string | undefined) => cookie ?? 'anonymous',
+  touchLastSeen: () => {},
 }))
 vi.mock('./memory.js', () => ({
   readMemory: () => ({ heapUsedPct: 0, heapUsedMb: 0 }),

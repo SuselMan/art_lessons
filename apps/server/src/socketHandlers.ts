@@ -10,7 +10,8 @@ import {
   setParticipantFrozen, setRoomFrozen, setRoomTools, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
-import { resolveSocketIdentity } from './identity.js'
+import { resolveSocketIdentity, touchLastSeen } from './identity.js'
+import { isBanned } from './bans.js'
 import { pressureOf, readMemory } from './memory.js'
 import { describeClient } from './clientDescription.js'
 import { createSnapshotLagWatch } from './snapshotLagWatch.js'
@@ -194,7 +195,15 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   // warm-up `GET /api/me` ever ran).
   io.use((socket, next) => {
     resolveSocketIdentity(socket.handshake.headers.cookie)
-      .then(userId => { socket.data.userId = userId; next() })
+      .then(userId => {
+        // (#587) Same refusal identityHook gives over HTTP. A socket that is
+        // already connected when the ban lands is closed by the admin route
+        // (adminRoutes.ts); this is the door for the reconnect after it.
+        if (isBanned(userId)) return next(new Error('banned'))
+        socket.data.userId = userId
+        touchLastSeen(userId)
+        next()
+      })
       .catch(next)
   })
 

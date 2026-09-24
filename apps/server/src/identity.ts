@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
+import { isBanned } from './bans.js'
 import { prisma } from './prisma.js'
 
 // Every browser gets a stable identity the moment it first talks to the
@@ -34,8 +35,36 @@ export function verifyIdentityToken(token: string): string | null {
 }
 
 async function createGuestUser(): Promise<string> {
-  const user = await prisma.user.create({ data: {} })
+  const user = await prisma.user.create({ data: { lastSeenAt: new Date() } })
+  lastSeenWrittenAt.set(user.id, Date.now())
   return user.id
+}
+
+/** (#586) How stale `User.lastSeenAt` may get. The admin panel asks "when was
+ *  this person last here", which is a question about days, and one write per
+ *  person per five minutes keeps the answer honest at that scale without a
+ *  write on every request of a lesson in progress. */
+const LAST_SEEN_WRITE_INTERVAL_MS = 5 * 60 * 1000
+/** Past this many remembered ids the map is simply dropped: the cost of
+ *  forgetting is one extra write per person, the cost of never forgetting is
+ *  an entry for every browser that ever visited, for the life of the process. */
+const LAST_SEEN_MEMORY_CAP = 50_000
+const lastSeenWrittenAt = new Map<string, number>()
+
+/** Fire-and-forget: a failed last-seen write must never fail the request it
+ *  rode in on. `updateMany` rather than `update` so a token for a row that no
+ *  longer exists is a no-op, not an exception. */
+export function touchLastSeen(userId: string): void {
+  const now = Date.now()
+  const last = lastSeenWrittenAt.get(userId)
+  if (last !== undefined && now - last < LAST_SEEN_WRITE_INTERVAL_MS) return
+  if (lastSeenWrittenAt.size >= LAST_SEEN_MEMORY_CAP) lastSeenWrittenAt.clear()
+  lastSeenWrittenAt.set(userId, now)
+  try {
+    void prisma.user.updateMany({ where: { id: userId }, data: { lastSeenAt: new Date(now) } }).catch(() => {})
+  } catch {
+    // A mocked or half-initialised client in tests; see the doc comment.
+  }
 }
 
 /** Cookie options shared by every place that sets `IDENTITY_COOKIE`. `sameSite:
@@ -69,12 +98,17 @@ export function identityCookieOptions() {
  *  hook *after* a route still applies it to that route, so registering
  *  something "above the hook" exempts nothing (asserted in
  *  healthRoutes.test.ts, because the failure mode is silent). */
-export async function identityHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function identityHook(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | undefined> {
   if (request.routeOptions.config?.skipIdentity) return
   const existing = request.cookies[IDENTITY_COOKIE]
   const userId = existing && verifyIdentityToken(existing)
   if (userId) {
+    // (#587) Before the route runs, and for every route: a ban that only some
+    // endpoints respect is a list of the ones that don't. `/api/me` included
+    // — that refusal is how the client learns to show the banned screen.
+    if (isBanned(userId)) return reply.code(403).send({ error: 'banned' })
     request.userId = userId
+    touchLastSeen(userId)
     return
   }
   const freshUserId = await createGuestUser()

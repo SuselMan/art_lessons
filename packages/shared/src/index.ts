@@ -2220,3 +2220,8 @@ export function strokeDabs(op: StrokeOperation): Dab[] {
   if (op.dabs) return op.dabs
   return op.dabsPacked ? unpackDabsImpl(op.dabsPacked) : []
 }
+
+export type {
+  AdminActionList, AdminActionRow, AdminLessonList, AdminLessonRow, AdminLiveLesson, AdminOverview,
+  AdminUserDetail, AdminUserFilter, AdminUserLesson, AdminUserList, AdminUserRow,
+} from './admin.js'

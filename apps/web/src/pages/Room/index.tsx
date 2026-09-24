@@ -52,6 +52,7 @@ import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/hotkeys'
 import { addRoomInvite, createBoard, deleteBoard, forkRoom, moveRoomToFolder, renameBoard, renameRoom, reorderBoard, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
+import { BANNED_ERROR_CODE, noteBanned } from '../../lib/banned'
 import { useShareRoom } from '../../lib/useShareRoom'
 import {
   isFullscreenSupported, subscribeFullscreenChange, toggleFullscreen as toggleFullscreenOn,
@@ -6771,7 +6772,16 @@ function RoomEditor() {
     // хендшейке (серверный `io.use()` не смог резолвить личность — например,
     // новый контейнер уже принимает сокеты, а Prisma ещё не отвечает) socket.io
     // считает окончательным и больше не пытается.
-    const handleConnectError = () => revival.noteConnectError()
+    // (#587) Кроме одного отказа, который окончателен по-настоящему: бан.
+    // Оживлять такой сокет — значит стучаться в сервер раз в пять секунд до
+    // закрытия вкладки; вместо этого всё приложение уходит на экран бана.
+    const handleConnectError = (err: Error) => {
+      if (err.message === BANNED_ERROR_CODE) {
+        noteBanned()
+        return
+      }
+      revival.noteConnectError()
+    }
 
     const handlePaletteUpdated = ({ palette }: { palette: string[] }) => {
       useRoomStore.getState().setPalette(palette)

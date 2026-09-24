@@ -31,6 +31,8 @@ import { registerForkRoutes } from './forkRoutes.js'
 import { registerBoardRoutes } from './boardRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
 import { registerThumbnailRoutes } from './thumbnailRoutes.js'
+import { adminEmails, registerAdminRoutes } from './adminRoutes.js'
+import { loadBans } from './bans.js'
 
 // `trustProxy: 1` — trust exactly one hop, the host's nginx, which is the
 // sole public entry point (docker-compose.prod.yml binds this process to
@@ -162,6 +164,12 @@ registerBoardRoutes(app, {
 })
 registerSnapshotRoutes(app)
 registerThumbnailRoutes(app)
+// (#586, #587) The admin panel. It reads the live socket list and closes a
+// banned person's sockets, hence the two callbacks over `io`.
+registerAdminRoutes(app, {
+  connectedUserIds: () => [...io.of('/').sockets.values()].flatMap(s => s.data.userId ? [s.data.userId] : []),
+  disconnectUser: userId => { io.in(userChannel(userId)).disconnectSockets(true) },
+})
 
 // (#497) Сколько у выключения есть времени. Меньше десяти секунд не по вкусу:
 // `docker stop` шлёт SIGTERM и добивает SIGKILL'ом через свой grace period, а
@@ -254,6 +262,12 @@ const start = async () => {
     if (process.env.NODE_ENV === 'production' && !isEmailConfigured()) {
       app.log.error('RESEND_API_KEY is not set — nobody can sign in (see deploy/README.md)')
     }
+    // (#587) Before listening, not lazily: the first request after a restart
+    // must already meet every ban, and a banned person reconnecting the moment
+    // a deploy brings the server back is exactly who arrives first.
+    const bans = await loadBans()
+    if (bans > 0) app.log.info({ bans }, 'loaded account bans')
+    if (adminEmails().size === 0) app.log.warn('ADMIN_EMAILS is not set — the admin panel has no admins')
     // 4000 unless told otherwise (compose publishes that, and the Vite proxy
     // expects it). The override exists so a second checkout can be run and
     // tested next to a live dev server instead of fighting it for the port —
