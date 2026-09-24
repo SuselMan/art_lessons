@@ -270,6 +270,33 @@ export class PaperWetness {
     return cell ? PaperWetness._decayed(cell, now) : 0
   }
 
+  /** (#536, s17.25) The wettest cell under a nib of `radiusPx` about the
+   *  point - what a dab's profile digit records. At the centre alone a pass
+   *  laid half a nib over the previous one read as landing on dry paper,
+   *  because the centre line ran along the earlier nib's edge; the two
+   *  waters had joined all the same, and the rig showed a ladder of inner
+   *  tidelines where a flat wash has none. */
+  sampleUnderNib(layerId: string, x: number, y: number, radiusPx: number, now: number): number {
+    const cells = this._layers.get(layerId)
+    if (!cells) return 0
+    const r = Math.max(radiusPx, WET_CELL_PX * 0.5)
+    const x0 = Math.floor((x - r) / WET_CELL_PX), x1 = Math.floor((x + r) / WET_CELL_PX)
+    const y0 = Math.floor((y - r) / WET_CELL_PX), y1 = Math.floor((y + r) / WET_CELL_PX)
+    const r2 = r * r
+    const homeX = Math.floor(x / WET_CELL_PX), homeY = Math.floor(y / WET_CELL_PX)
+    let peak = 0
+    for (let cy = y0; cy <= y1; cy++) {
+      for (let cx = x0; cx <= x1; cx++) {
+        const dx = (cx + 0.5) * WET_CELL_PX - x
+        const dy = (cy + 0.5) * WET_CELL_PX - y
+        if (dx * dx + dy * dy > r2 && !(cx === homeX && cy === homeY)) continue
+        const cell = cells.get(key(cx, cy))
+        if (cell) peak = Math.max(peak, PaperWetness._decayed(cell, now))
+      }
+    }
+    return peak
+  }
+
   /** Whether anything within `radiusPx` of the point is still wet enough to
    *  work into. This is what decides whether a stroke joins the wash already on
    *  the paper or starts a new one — a physical question ("did the brush land
@@ -412,6 +439,15 @@ export function dequantizeWet(ch: string): number {
 export function wetAt(profile: string | undefined, dabIndex: number): number {
   if (!profile) return 0
   return dabIndex < profile.length ? dequantizeWet(profile[dabIndex]) : 0
+}
+
+/** (#536, s17.25) The wettest paper the operation ran over, anywhere along
+ *  it: whether its water joined a puddle already on the sheet. */
+export function wetPeak(profile: string | undefined): number {
+  if (!profile) return 0
+  let peak = 0
+  for (let i = 0; i < profile.length; i++) peak = Math.max(peak, dequantizeWet(profile[i]))
+  return peak
 }
 
 /** True when nothing in the profile is wet, i.e. there is nothing worth

@@ -745,6 +745,15 @@ export function watercolorBloomStrength(paperWet: number): number {
   const fall = 1 - smoothstepJs(WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, w)
   return rise * fall
 }
+/** (s17.25) How completely a mark's water joins the puddle it lands in:
+ *  one puddle has one drying front, so where this mark's front runs into
+ *  an earlier mark's water there is no tideline at all - the passes of a
+ *  flat wash merge, only the wash's outer contour keeps a rim. Nothing on
+ *  dry or damp paper (a glaze and a bloom both keep their own edge), all
+ *  of it on wet: the same wet threshold the bloom stands down at. */
+export function watercolorPuddleMerge(paperWet: number): number {
+  return smoothstepJs(WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, clamp01(paperWet))
+}
 export const WC_BLOOM_DAMP_LO = 0.06
 export const WC_BLOOM_DAMP_PEAK = 0.25
 export const WC_BLOOM_WET_LO = 0.45

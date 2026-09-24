@@ -17,7 +17,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
-  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorSpreadBudget,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorPuddleMerge, watercolorSpreadBudget,
   watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
@@ -92,6 +92,17 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     expect(watercolorBloomStrength(0.3)).toBeGreaterThan(0.9)
     expect(watercolorBloomStrength(0.9)).toBe(0)
     expect(watercolorBloomStrength(0.55)).toBeLessThan(watercolorBloomStrength(0.3))
+  })
+
+  it('merges a mark into the puddle it lands in only when that puddle is wet (§17.25)', () => {
+    // Dry and damp keep their own front: a glaze and a bloom both have a rim.
+    expect(watercolorPuddleMerge(0)).toBe(0)
+    expect(watercolorPuddleMerge(0.3)).toBe(0)
+    // Wet: one puddle, one front - and the bloom has stood down by then.
+    expect(watercolorPuddleMerge(0.9)).toBe(1)
+    expect(watercolorBloomStrength(0.9)).toBe(0)
+    expect(watercolorPuddleMerge(0.55)).toBeGreaterThan(0)
+    expect(watercolorPuddleMerge(0.55)).toBeLessThan(1)
   })
 
   it('spreads a wet brush further on wet paper than a dry one on dry (§17.24)', () => {

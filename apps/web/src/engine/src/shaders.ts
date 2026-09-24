@@ -1828,7 +1828,17 @@ ${WC_NOISE_GLSL}
       // flattens across the inside of a stroke — the flat cross-section the
       // gain was raised for survives, because exp saturates gradually where
       // smoothstep saturates absolutely.
-      float density = 1.0 - exp(-deposit / WC_DENSITY_K);
+      // (#536, s17.25) ...of how much PIGMENT is in it, not how much paint.
+      // The film's tone used to be strength x (1 - exp(-amount / K)), with
+      // strength the pigment's share of the amount: clean water laid over a
+      // settled wash raised the amount, lowered the share, and the wash read
+      // paler - an optical act with no pigment moved, which is not what water
+      // on dry pigment does. Now the deposit's pigment mass alone sets the
+      // tone (Beer-Lambert in the mass), and the front's relocation (s17.24)
+      // is the only thing that lightens a centre or darkens a rim. The mass
+      // is strength x deposit: ink.b, or its migration-consistent recount.
+      float pigmentMass = strengthHere * deposit;
+      float density = 1.0 - exp(-pigmentMass / WC_DENSITY_K);
 
       // §3.3 granulation - heavier pigment settles into the paper's pits while
       // the wash is still liquid and dries there. paperCatch is high on a fibre
@@ -1965,7 +1975,7 @@ ${WC_NOISE_GLSL}
       // and the user's slider, and every dab of a watercolor stroke shares it
       // (pressure drives width, never alpha), which is what makes a single
       // scalar describe the whole batch correctly.
-      float pigment = clamp(coverage * v_opacity * strengthHere * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
+      float pigment = clamp(coverage * v_opacity * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
 
       // (#536) Diagnostic view, dev-only. The mark's tone becomes one term of
       // the product above instead of the product, so "which of these carries
@@ -2835,16 +2845,31 @@ export const WC_FIELD_OP_FRAG = `
   uniform vec2 u_origin;
   uniform vec2 u_size;
   uniform vec2 u_band;
+  // (s17.25) The rim's deposition profile: the tail's weight against the
+  // sharp peak, its floor on a paper crest, and the height window that
+  // counts as a valley (paper height ~0.5 +/- 0.19).
+  const float WC_RIM_TAIL = 0.35;
+  const float WC_RIM_TAIL_FLOOR = 0.25;
+  const float WC_RIM_VALLEY_LO = 0.35;
+  const float WC_RIM_VALLEY_HI = 0.6;
   varying vec2 v_uv;
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 12.5) {
+      // a + u_k * b where u_d says (its .r): the earlier paint under a
+      // footprint re-mobilised by a wet landing (s17.25).
+      gl_FragColor = clamp(a + u_k * b * texture2D(u_d, v_uv).r, 0.0, 1.0);
+      return;
+    }
     if (u_mode > 11.5) {
       // Seed of the inward pass: the outward cost in a.r; everything past
       // the budget (u_k, over costMax) is the source at 0, the domain is
       // unreached at 1.
       float m = step(a.r, u_k);
-      gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
+      // .b: where an EARLIER mark's deposit already lies (u_d), carried
+      // through the inward relaxation for the merge below.
+      gl_FragColor = vec4(m, 0.0, texture2D(u_d, v_uv).r, 1.0);
       return;
     }
     if (u_mode > 10.5) {
@@ -2881,10 +2906,24 @@ export const WC_FIELD_OP_FRAG = `
       // cost u_size.x the softness of its edge); the band from the INWARD
       // cost (u_c: how far a texel is from the front, over the paper): the
       // last u_band.y cells inside it, cell u_size.y.
+      // (s17.25) The band is a deposition PROFILE, not a mask: a sharp peak
+      // in the last cell or two before the front plus a weaker tail over the
+      // band's width that only the paper's valleys carry. One relocation
+      // lands its mass on this profile (normalised by the gathered profile,
+      // mode 8), so the peak can be several times the tail without the
+      // total changing: a line of stoppage with structure behind it, which
+      // is what the photographs have, rather than a uniform dark strip.
+      vec4 inward = texture2D(u_c, v_uv);
       float costOut = texture2D(u_d, v_uv).r;
-      float costIn = texture2D(u_c, v_uv).r;
+      float costIn = inward.r;
       float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, costOut);
-      float band = inside * (1.0 - smoothstep(u_band.y, u_band.y + u_size.y, costIn));
+      float sharp = 1.0 - smoothstep(0.5 * u_size.y, 2.0 * u_size.y, costIn);
+      float valley = 1.0 - smoothstep(WC_RIM_VALLEY_LO, WC_RIM_VALLEY_HI, inward.g);
+      float tail = (1.0 - smoothstep(u_band.y, u_band.y + u_size.y, costIn)) * (WC_RIM_TAIL_FLOOR + (1.0 - WC_RIM_TAIL_FLOOR) * valley);
+      // (s17.25) One puddle, one front: where this mark landed wet and its
+      // front runs over an earlier mark (inward.b), the two waters merged
+      // and there is no line of stoppage - u_k is how wet it landed.
+      float band = inside * min(sharp + WC_RIM_TAIL * tail, 1.0) * (1.0 - u_k * inward.b);
       gl_FragColor = vec4(band, inside, 0.0, 1.0);
       return;
     }
@@ -3142,7 +3181,10 @@ export const WC_WATER_FRONT_FRAG = `
       float edge = len * max(u_floor, 1.0 + u_climb * (hj - wcFrontHeightAt(px + o)));
       best = min(best, ci * u_costMax + edge);
     }
-    gl_FragColor = vec4(min(best, u_costMax) / u_costMax, 0.0, 0.0, 1.0);
+    // .g: the paper's height here, for the band's valley term (mode 6 of
+    // the field op reads it off the inward pass, which is the one that
+    // carries the paper's uniforms).
+    gl_FragColor = vec4(min(best, u_costMax) / u_costMax, hj, texture2D(u_cost, v_uv).b, 1.0);
   }
 `;
 

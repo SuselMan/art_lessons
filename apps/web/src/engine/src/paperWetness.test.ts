@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import {
   PaperWetness, WET_CELL_PX, WET_DRY_MS,
-  quantizeWet, dequantizeWet, wetAt, isDryProfile,
+  quantizeWet, dequantizeWet, wetAt, wetPeak, isDryProfile,
 } from './paperWetness'
 
 // #536. These cover the half of the wetness model that decides *replayability*,
@@ -216,6 +216,15 @@ describe('the recorded profile (#536)', () => {
     expect(wetAt(undefined, 0)).toBe(0)
     expect(wetAt('ff', 5)).toBe(0)
     expect(wetAt('', 0)).toBe(0)
+  })
+
+  it('the wet peak is the wettest digit anywhere along the gesture (§17.25)', () => {
+    expect(wetPeak(undefined)).toBe(0)
+    expect(wetPeak('')).toBe(0)
+    expect(wetPeak('0000')).toBe(0)
+    // A pass that starts on dry paper and runs into a puddle joined it.
+    expect(wetPeak('0009')).toBeCloseTo(dequantizeWet('9'), 10)
+    expect(wetPeak('f000')).toBe(1)
   })
 
   it('indexes one digit per dab, so any slice of a gesture is a substring', () => {

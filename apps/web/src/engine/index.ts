@@ -57,7 +57,7 @@ import {
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
-import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
+import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE } from './src/wetDiffusion'
 import { pigmentAbsorption } from './src/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
@@ -69,7 +69,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
-  watercolorBloomStrength, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_RIM, WC_RIM_BAND_PX,
+  watercolorBloomStrength, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_RIM, WC_RIM_BAND_PX,
   watercolorSpreadBudget, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_MAX_STEPS, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
@@ -1746,6 +1746,9 @@ class RibbonStrokeScratch {
      *  it is the one sample a live stroke and its replay are sure to share,
      *  and the profile after it is strided and trimmed. */
     landedWet: number
+    /** (#536, §17.25) The wettest paper the operation ran over (wetPeak):
+     *  whether its water joined a puddle already there. */
+    wetPeak: number
     /** (#536, §17.23) The widest dab radius of the operation, px. */
     radiusPx: number
   } | null = null
@@ -6598,7 +6601,8 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._strokeTool === 'watercolor') {
       const now = performance.now()
       let seen = ''
-      for (const dab of dabs) seen += quantizeWet(this._paperWet.sample(layerId, dab.x, dab.y, now))
+      const nibMul = this._resolvePreset(this._strokeTool, this._strokePreset).sizeMultiplier
+      for (const dab of dabs) seen += quantizeWet(this._paperWet.sampleUnderNib(layerId, dab.x, dab.y, dab.size * 0.5 * nibMul * Math.max(dab.aspectRatio, 1), now))
       this._strokeWet += seen
       this._liveWetQueue += seen
       batchWet = seen
@@ -8090,6 +8094,7 @@ export class PencilEngine implements PencilEngineAPI {
     // above everything that needs it — the composite's cached scalars want it
     // as much as the deposit does.
     const landedWet = wetAt(wetProfile, 0)
+    const wetPeakHere = wetPeak(wetProfile)
     const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = scratch.compositeScalars(() => {
       // #489: the bloom is isotropic, so a nib that is not round is measured by
       // the circle with its area rather than by either axis. Identical to the
@@ -8586,7 +8591,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     scratch.noteFinish({
       target, preset, profile, color, opacity: drawable[0].opacity,
-      bounds: compositeBounds, fieldSeed, landedWet, radiusPx: nibRadius,
+      bounds: compositeBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius,
     })
 
     target.markContentPainted(compositeBounds)
@@ -8710,7 +8715,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number] } = {},
   ): void {
     const { gl } = this
@@ -8845,6 +8850,9 @@ export class PencilEngine implements PencilEngineAPI {
      *  far its water runs past the footprint (watercolorSpreadBudget) — and
      *  the standing water the extended domain records. */
     water = 1, landedWet = 0, standing = 1,
+    /** (§17.25) The wettest paper the mark ran over: how far its water
+     *  joined an earlier mark's puddle (watercolorPuddleMerge). */
+    wetPeak = 0,
   ): { ops: Array<() => void>; finish: () => void } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
@@ -8974,6 +8982,7 @@ export class PencilEngine implements PencilEngineAPI {
     // resolve a cell.
     const costMaxIn = width + 3
     const inSteps = width + 2
+    const merge = watercolorPuddleMerge(wetPeak)
     const gather: Array<[number, number]> = [radiusPx / 2, radiusPx / 4, radiusPx / 8, 1].map(v => { const s = Math.max(1, Math.round(v)); return [s, s] })
     const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR): void => {
       dst.beginReplaceDraw()
@@ -9017,13 +9026,13 @@ export class PencilEngine implements PencilEngineAPI {
       }
       ops.push(() => { this._fieldOp(field.pressure, mobile, mobile, 10, 0.003, { band: [1 / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
       run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
-      ops.push(() => { this._fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax); pp.src = field.mask; pp.dst = tmp })
+      ops.push(() => { this._fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax, { d: field.band }); pp.src = field.mask; pp.dst = tmp })
       // Inward over a gentler relief: the band's inner edge follows the
       // valleys a few cells in (the photo's streaks pointing into the light
       // centre), not a third of the way to the middle.
       run(inSteps, costMaxIn, field.mask, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN)
       ops.push(() => {
-        this._fieldOp(field.band, field.pressure, field.pressure, 6, 0, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn] })
+        this._fieldOp(field.band, field.pressure, field.pressure, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn] })
         this._fieldOp(tmp, field.coverage, field.band, 11, standing, { d: field.band })
         this._fieldOp(field.coverage, tmp, tmp, 1, 0)
         this._fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
@@ -9052,6 +9061,21 @@ export class PencilEngine implements PencilEngineAPI {
       const st = { src: c, dst: a, out: a }
       ops.push(() => {
         fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
+        // (§17.25) A mark that landed in a puddle wets the paint already
+        // lying under its footprint: that paint is as mobile as the new -
+        // it never dried - so the same mobile share of it joins c and runs,
+        // settles and relocates with the new paint, to the MERGED front.
+        // Without this the earlier pass's tideline stayed put under the
+        // next pass, and a flat wash came out as a ladder of inner rims.
+        if (merge > 0) {
+          this._fieldOp(spare, c, c, 4, 0.003)
+          this._fieldOp(field.mask, c, b, 13, merge * WET_DIFFUSE_MOBILE, { d: spare })
+          fieldOp(c, field.mask, field.mask, 1, 0)
+        }
+        // Where earlier marks' SETTLED deposit lies, before b is overwritten
+        // with the fixed part - kept in `band` until the front reads it: the
+        // puddle this mark's water may have joined.
+        if (first) this._fieldOp(field.band, b, b, 4, 0.002)
         fieldOp(b, a, c, 1, -1)
       })
       // The water front, its band and the extended coverage come from the
@@ -9347,11 +9371,12 @@ export class PencilEngine implements PencilEngineAPI {
       if (this._settle) this._completeSettle()
       const bloom = watercolorBloomStrength(ctx.landedWet)
       // Dev probe for the rig: what this settle was given.
-      Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, reveal } })
+      Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
       const delivery = ribbonWaterDelivery(profile)
       const job = this._diffuseWashOps(
         scratch, targets, bounds, bloom, ctx.radiusPx,
         profile.waterLevel, ctx.landedWet, delivery.water * (delivery.retain + (1 - delivery.retain) * Math.min(1, ctx.landedWet)),
+        ctx.wetPeak,
       )
       if (job) {
         const complete = (): void => {
