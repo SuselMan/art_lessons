@@ -258,6 +258,12 @@ breaks. Everyone not on the list gets a plain 404 from `/api/admin/*`.
      kernel-tuning section below)
    - rsyncs `~deploy/web-dist-incoming/` into nginx's webroot
    - `docker compose -f docker-compose.prod.yml pull`
+   - (#598) *before* touching the running server: makes sure Postgres is up
+     and healthy, then runs `prisma migrate deploy` in a throwaway container
+     from the **new** image. A failed migration stops the deploy with the old
+     server still serving; a new server never starts against an older schema
+     (that ordering took prod down for ~1.5 min on 24.09). Old code briefly
+     runs on the new schema, so migrations stay additive
    - stops the outgoing server on its own and prints its exit code plus the
      last lines of its log (#499). That is where #497's shutdown report is
      read: `up -d` removes the old container along with its logs, so before
@@ -268,8 +274,6 @@ breaks. Everyone not on the list gets a plain 404 from `/api/admin/*`.
    - `up -d` (pulls the already-built image, recreates the container only if
      the resolved image reference actually changed — SHA-tagged, so it always
      does when the code did)
-   - waits for Postgres's healthcheck, then runs
-     `prisma migrate deploy` inside the server container
    - `nginx -t` + reload (picks up a config change, never restarts — no
      dropped connections for existing participants)
    - prunes dangling Docker images so disk usage doesn't grow forever
