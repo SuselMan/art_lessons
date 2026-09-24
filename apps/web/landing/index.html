@@ -111,15 +111,15 @@
       <ul class="facts">
         <li>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1" /><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" /></svg>
-          <div><strong>Students join by link</strong><span>They type a name and they're in. No account, no install.</span></div>
+          <strong>Students join by link</strong><span>No account. No install.</span>
         </li>
         <li>
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="13" height="16" rx="2" /><path d="M20 8v11M18 20h4" /></svg>
-          <div><strong>Tablet or pen tablet</strong><span>iPad with Apple Pencil, Android with a stylus, or a Wacom on a computer.</span></div>
+          <strong>Any pen, any tablet</strong><span>iPad, Android, or a Wacom on a computer.</span>
         </li>
         <li>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4V3Z" /></svg>
-          <div><strong>The room stays</strong><span>The drawing is still there at the next lesson — and in between.</span></div>
+          <strong>The room stays</strong><span>The drawing waits for the next lesson.</span>
         </li>
       </ul>
     </section>
@@ -129,29 +129,28 @@
         <h2>Materials that behave like materials</h2>
         <p>
           Every mark reacts to the tooth of the paper, to how hard you press and how you
-          tilt the pen. Each stroke below was drawn in Grafetto.
+          tilt the pen. This sheet was drawn in Grafetto.
         </p>
       </div>
-      <ul class="materials">
-        <li><img src="./assets/stroke-graphite.webp" width="900" height="130" alt="A graphite pencil stroke on paper" loading="lazy" />
-          <h3>Graphite pencil</h3><p>Fourteen grades, 6H to 6B, and colour.</p></li>
-        <li><img src="./assets/stroke-charcoal.webp" width="900" height="130" alt="A charcoal stroke on paper" loading="lazy" />
-          <h3>Charcoal</h3><p>Vine, willow and compressed. It crumbles and catches the paper.</p></li>
-        <li><img src="./assets/stroke-liner.webp" width="900" height="130" alt="An even liner stroke on paper" loading="lazy" />
-          <h3>Liner</h3><p>An even line for sketching and architecture.</p></li>
-        <li><img src="./assets/stroke-brushpen.webp" width="900" height="130" alt="A tapering brush pen stroke on paper" loading="lazy" />
-          <h3>Brush pen</h3><p>A line that swells and tapers — for manga and lettering.</p></li>
-        <li><img src="./assets/stroke-marker.webp" width="900" height="130" alt="A chisel marker stroke on paper" loading="lazy" />
-          <h3>Marker</h3><p>Bullet and chisel tips. Overlapping passes get darker.</p></li>
-        <li><img src="./assets/stroke-watercolor.webp" width="900" height="130" alt="A watercolour stroke on paper" loading="lazy" />
-          <h3>Watercolour</h3><p>Washes pool on the paper and dry with an edge.</p></li>
-        <li><img src="./assets/stroke-digital.webp" width="900" height="130" alt="A digital brush stroke on paper" loading="lazy" />
-          <h3>Digital brush</h3><p>Soft and hard brushes for lessons in digital drawing.</p></li>
-        <li class="materials-more">
-          <h3>And the rest of the desk</h3>
-          <p>Eraser, blending stump, ruler, proportion grid, reference photos and layers.</p>
-        </li>
-      </ul>
+      <!-- A test sheet, the way an artist tries out new materials: one sheet,
+           every mark drawn by the engine on its own paper. Labels sit on the
+           sheet in % so they stay with their marks at any width. -->
+      <div class="sheet-scroll">
+        <figure class="sheet">
+          <img src="./assets/sheet.webp" width="1600" height="1159" loading="lazy"
+               alt="A test sheet: graphite hatching, a mass of charcoal, a watercolour wash, two crossing marker passes, a box drawn with a liner, brush pen curves and digital brush strokes" />
+          <figcaption>
+            <span class="tag" style="left:4.5%; top:38%">Graphite, 6H–6B</span>
+            <span class="tag" style="left:37%; top:34%">Charcoal: vine, willow, compressed</span>
+            <span class="tag" style="left:69%; top:34%">Watercolour</span>
+            <span class="tag" style="left:4%; top:64%">Marker, darker where passes overlap</span>
+            <span class="tag" style="left:62%; top:58%">Liner</span>
+            <span class="tag" style="left:71%; top:72.5%">Brush pen</span>
+            <span class="tag" style="left:66%; top:84%">Digital brush</span>
+          </figcaption>
+        </figure>
+      </div>
+      <p class="aside">Also on the desk: eraser, blending stump, ruler, proportion grid, reference photos and layers.</p>
     </section>
 
     <section id="lesson" class="section">
@@ -176,39 +175,50 @@
           <h3>Send the link</h3>
           <p>Your student opens it in a browser, types a name, and is in.</p>
         </li>
-        <li>
-          <figure class="shot">
-            <img class="t-dark" src="./assets/step-draw-dark.webp" width="900" height="675" alt="A box drawing with the teacher's perspective lines and the student's cursor" loading="lazy" />
-            <img class="t-light" src="./assets/step-draw-light.webp" width="900" height="675" alt="A box drawing with the teacher's perspective lines and the student's cursor" loading="lazy" />
-          </figure>
-          <h3>Draw together</h3>
-          <p>You both see every stroke as it's drawn, with each person's cursor and name. Zoom and turn your own view without moving theirs.</p>
-        </li>
       </ol>
+
+      <!-- Step 3 is the product, so it gets the width. The callouts explain two
+           things the app actually does; they are not decoration. -->
+      <div class="together">
+        <h3 class="together-title">Draw together</h3>
+        <figure class="together-sheet">
+          <img class="t-dark" src="./assets/together-dark.webp" width="1472" height="912" loading="lazy"
+               alt="A student's box drawing. The teacher's perspective lines run to the vanishing point in blue; the student's cursor, labelled Max, sits on the shaded side." />
+          <img class="t-light" src="./assets/together-light.webp" width="1472" height="912" loading="lazy"
+               alt="A student's box drawing. The teacher's perspective lines run to the vanishing point in blue; the student's cursor, labelled Max, sits on the shaded side." />
+          <figcaption>
+            <span class="callout callout-teacher" style="left:72%; top:24%">
+              <strong>Your correction, on its own layer</strong>Hide it, and the student tries again.
+            </span>
+            <span class="callout callout-student" style="left:41%; top:66%">
+              <strong>Every stroke shows up as it's drawn</strong>With each person's cursor and name.
+            </span>
+          </figcaption>
+        </figure>
+        <p class="together-note">Each of you zooms and turns the sheet on your own screen, without moving it for the other.</p>
+      </div>
     </section>
 
     <section id="homework" class="section homework">
       <div>
-        <h2>The lesson doesn't end when the call does</h2>
-        <p>
-          A room isn't a meeting that closes. It's the sheet itself, and it stays.
-        </p>
+        <h2>The room stays.</h2>
+        <p>After the lesson, your student keeps drawing on the same sheet.</p>
       </div>
       <ul class="homework-points">
-        <li><h3>Practice between lessons</h3><p>The student comes back to the same sheet and keeps working on it.</p></li>
-        <li><h3>Review the drawing, not a photo of it</h3><p>Open the room and see exactly what was done. Correct it on a layer of your own.</p></li>
-        <li><h3>Close it, or give it again</h3><p>Close a finished room so it stays as it was. Copy it to set the same task to someone else.</p></li>
+        <li><h3>Review the drawing, not a photo of it</h3><p>Open the room and see exactly what was done.</p></li>
+        <li><h3>Close it when it's done</h3><p>A closed room stays as it was, for both of you.</p></li>
+        <li><h3>Give the same task again</h3><p>Copy a room to set it to another student.</p></li>
       </ul>
     </section>
 
     <section class="section devices" aria-label="Devices">
-      <p>Runs in the browser on</p>
+      <h2>Draw with the device you already use.</h2>
       <ul>
         <li>iPad with Apple Pencil</li>
         <li>Android tablets with a stylus</li>
         <li>Computers with a Wacom, XP-Pen or Huion</li>
       </ul>
-      <p class="devices-note">Keep your usual video call running alongside — Grafetto is the paper, not the camera.</p>
+      <p>Keep your usual video call running alongside. Grafetto is the paper, not the camera.</p>
     </section>
 
     <!-- PLACEHOLDER(#246): who makes this. In a cold-message funnel the page has to
