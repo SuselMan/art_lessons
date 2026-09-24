@@ -198,8 +198,7 @@ main { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
 
 .play {
   position: absolute;
-  /* Over empty paper to the left of the drawing, not on top of it. */
-  left: 34%; top: 62%;
+  left: 50%; top: 50%;
   width: clamp(64px, 8vw, 88px);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
@@ -320,15 +319,22 @@ main { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
   box-shadow: var(--shadow), 0 0 0 1px var(--border);
 }
 .together-sheet img { width: 100%; }
-.together-notes { position: relative; min-height: 5.5rem; }
-.note { position: absolute; top: 0; max-width: 19rem; color: var(--dim); font-size: 0.95rem; line-height: 1.45; }
+/* Each note sits under the point where its arrow leaves the sheet (about a
+   third and nine-tenths across). A grid rather than absolute positions, so
+   the two can never run into each other at any width. */
+.together-notes {
+  display: grid;
+  grid-template-columns: 31% minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+.note { margin: 0; color: var(--dim); font-size: 0.95rem; line-height: 1.45; }
 .note strong { display: block; color: var(--bright); font-weight: 600; }
-.note-student { left: 33%; transform: translateX(-12px); }
-.note-teacher { right: 10%; transform: translateX(12px); text-align: right; }
+.note-student { grid-column: 2; }
+.note-teacher { grid-column: 3; text-align: right; padding-right: 8%; }
 .together-note { color: var(--dim); margin-top: 8px; }
 @media (max-width: 760px) {
-  .together-notes { display: grid; gap: 14px; min-height: 0; }
-  .note { position: static; max-width: none; transform: none; text-align: left; }
+  .together-notes { grid-template-columns: 1fr; gap: 14px; }
+  .note-student, .note-teacher { grid-column: 1; text-align: left; padding-right: 0; }
 }
 
 /* Homework */
@@ -359,13 +365,6 @@ main { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
   font-size: 0.95rem;
 }
 .devices p { color: var(--dim); font-size: 0.97rem; }
-
-/* Maker */
-.maker { display: grid; grid-template-columns: 96px 1fr; gap: 28px; align-items: center; max-width: 44rem; }
-.maker > div { display: grid; gap: 10px; }
-.maker h2 { font-size: 1.4rem; letter-spacing: -0.01em; }
-.maker-photo { width: 96px; height: 96px; border-radius: 50%; border: 1px dashed var(--dim); }
-.maker .placeholder { color: var(--dim); font-style: italic; }
 
 /* Closing: bare, with one real graphite stroke behind the words. */
 .closing {
@@ -398,12 +397,11 @@ main { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
   max-width: var(--wide);
   margin: 0 auto;
   padding: 40px var(--gutter) 48px;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
   gap: 16px;
   color: var(--dim);
   font-size: 0.92rem;
 }
-.foot-logo { color: var(--dim); height: 26px; width: auto; }
 .foot nav { display: flex; flex-wrap: wrap; gap: 22px; }
 .foot a { text-decoration: none; }
 .foot a:hover { color: var(--bright); }
