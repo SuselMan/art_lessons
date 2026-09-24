@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AdminUserDetail } from '@grafetto/shared'
 
 import { ApiError } from '../../lib/api'
-import { banUser, fetchAdminUser, unbanUser } from '../../lib/adminApi'
+import { banUser, fetchAdminUser, revokeSessions, unbanUser } from '../../lib/adminApi'
+import { DeviceList, IpList } from './Devices'
 import { ActionTable } from './Journal'
 import { ago, date } from './format'
 import styles from './Admin.module.css'
@@ -15,6 +16,7 @@ const BAN_ERRORS: Record<string, string> = {
   cannot_ban_self: 'You cannot ban yourself.',
   cannot_ban_admin: 'This is an admin. Remove them from ADMIN_EMAILS instead.',
   already_banned: 'Already banned.',
+  cannot_revoke_self: 'Sign yourself out from the app instead.',
   not_banned: 'Not banned.',
 }
 
@@ -71,7 +73,35 @@ function BanControl({ user }: { user: AdminUserDetail }) {
   )
 }
 
-export function UserDetail({ userId, onBack }: { userId: string; onBack: () => void }) {
+/** (#589) Every browser signed in as this person becomes a guest on its next
+ *  request. The account and its lessons are untouched. */
+function RevokeControl({ user }: { user: AdminUserDetail }) {
+  const queryClient = useQueryClient()
+  const revoke = useMutation({
+    mutationFn: () => revokeSessions(user.id),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin'] }) },
+  })
+  return (
+    <div className={styles.banBox}>
+      <p>
+        Sign out everywhere: every browser signed in as this person becomes a guest on its next request. Nothing is
+        deleted.{user.sessionsRevokedAt && <> Last done {date(user.sessionsRevokedAt)}.</>}
+      </p>
+      <div>
+        <button type="button" className={styles.button} disabled={revoke.isPending} onClick={() => revoke.mutate()}>
+          Sign out everywhere
+        </button>
+      </div>
+      {revoke.error && <div className={styles.error}>{errorText(revoke.error)}</div>}
+    </div>
+  )
+}
+
+export function UserDetail({ userId, onBack, onOpenIp }: {
+  userId: string
+  onBack: () => void
+  onOpenIp: (ip: string) => void
+}) {
   const { data: user, error } = useQuery({ queryKey: ['admin', 'user', userId], queryFn: () => fetchAdminUser(userId) })
 
   return (
@@ -95,6 +125,13 @@ export function UserDetail({ userId, onBack }: { userId: string; onBack: () => v
           </dl>
 
           <BanControl user={user} />
+          {user.email && <RevokeControl user={user} />}
+
+          <h3 className={styles.sectionTitle}>Devices</h3>
+          <DeviceList devices={user.devices} onOpenIp={onOpenIp} />
+
+          <h3 className={styles.sectionTitle}>Addresses</h3>
+          <IpList ips={user.ips} onOpenIp={onOpenIp} />
 
           <h3 className={styles.sectionTitle}>Lessons</h3>
           {user.lessons.length === 0
@@ -117,7 +154,7 @@ export function UserDetail({ userId, onBack }: { userId: string; onBack: () => v
             )}
 
           <h3 className={styles.sectionTitle}>Admin actions</h3>
-          <ActionTable actions={user.actions} />
+          <ActionTable actions={user.actions} onOpenIp={onOpenIp} />
         </>
       )}
     </section>

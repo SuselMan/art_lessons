@@ -1,5 +1,6 @@
 import type {
-  AdminActionList, AdminLessonList, AdminOverview, AdminUserDetail, AdminUserFilter, AdminUserList,
+  AdminActionList, AdminIpBanList, AdminIpDetail, AdminLessonList, AdminOverview, AdminUserDetail, AdminUserFilter,
+  AdminUserList, IpBanDurationHours,
 } from '@grafetto/shared'
 
 import { apiFetch } from './api'
@@ -50,4 +51,28 @@ export function adminLessonThumbnailUrl(id: string): string {
 
 export function fetchAdminActions(): Promise<AdminActionList> {
   return apiFetch('/api/admin/actions')
+}
+
+export function revokeSessions(id: string): Promise<{ ok: true }> {
+  return apiFetch(`/api/admin/users/${encodeURIComponent(id)}/revoke-sessions`, { method: 'POST' })
+}
+
+export function fetchAdminIp(ip: string): Promise<AdminIpDetail> {
+  return apiFetch(`/api/admin/ips/${encodeURIComponent(ip)}`)
+}
+
+export function banIp(ip: string, reason: string, hours: IpBanDurationHours): Promise<{ ok: true }> {
+  return apiFetch(`/api/admin/ips/${encodeURIComponent(ip)}/ban`, {
+    method: 'POST', body: JSON.stringify({ reason, hours }),
+  })
+}
+
+export function unbanIp(ip: string, reason: string): Promise<{ ok: true }> {
+  return apiFetch(`/api/admin/ips/${encodeURIComponent(ip)}/unban`, {
+    method: 'POST', body: JSON.stringify({ reason }),
+  })
+}
+
+export function fetchIpBans(): Promise<AdminIpBanList> {
+  return apiFetch('/api/admin/ip-bans')
 }

@@ -6,7 +6,11 @@ import { fetchAdminActions } from '../../lib/adminApi'
 import { date, shortId } from './format'
 import styles from './Admin.module.css'
 
-export function ActionTable({ actions, onOpenUser }: { actions: AdminActionRow[]; onOpenUser?: (id: string) => void }) {
+export function ActionTable({ actions, onOpenUser, onOpenIp }: {
+  actions: AdminActionRow[]
+  onOpenUser?: (id: string) => void
+  onOpenIp?: (ip: string) => void
+}) {
   if (actions.length === 0) return <p className={styles.empty}>Nothing yet.</p>
   return (
     <div className={styles.tableWrap}><table className={styles.table}>
@@ -16,8 +20,15 @@ export function ActionTable({ actions, onOpenUser }: { actions: AdminActionRow[]
           <tr key={action.id}>
             <td>{date(action.createdAt)}</td>
             <td>{action.adminEmail ?? shortId(action.adminId)}</td>
-            <td><span className={action.action === 'ban' ? styles.badgeBanned : styles.badge}>{action.action}</span></td>
             <td>
+              <span className={action.action === 'ban' || action.action === 'ip_ban' ? styles.badgeBanned : styles.badge}>
+                {action.action}
+              </span>
+            </td>
+            <td>
+              {action.targetIp && (onOpenIp
+                ? <button type="button" className={styles.link} onClick={() => onOpenIp(action.targetIp!)}>{action.targetIp}</button>
+                : action.targetIp)}
               {action.targetUserId && (onOpenUser
                 ? (
                   <button type="button" className={styles.link} onClick={() => onOpenUser(action.targetUserId!)}>
@@ -34,13 +45,13 @@ export function ActionTable({ actions, onOpenUser }: { actions: AdminActionRow[]
   )
 }
 
-export function Journal({ onOpenUser }: { onOpenUser: (id: string) => void }) {
+export function Journal({ onOpenUser, onOpenIp }: { onOpenUser: (id: string) => void; onOpenIp: (ip: string) => void }) {
   const { data, error } = useQuery({ queryKey: ['admin', 'actions'], queryFn: fetchAdminActions })
   return (
     <section className={styles.section}>
-      <p className={styles.hint}>Every ban and unban, newest first. Written in the same transaction as the change itself.</p>
+      <p className={styles.hint}>Every ban, unban, IP ban and sign-out-everywhere, newest first. Written in the same transaction as the change itself.</p>
       {error && <div className={styles.error}>Failed to load: {String(error)}</div>}
-      {data && <ActionTable actions={data.actions} onOpenUser={onOpenUser} />}
+      {data && <ActionTable actions={data.actions} onOpenUser={onOpenUser} onOpenIp={onOpenIp} />}
     </section>
   )
 }

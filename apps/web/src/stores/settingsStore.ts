@@ -40,7 +40,7 @@ import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/loc
 // this app (hotkeys, panel position, one-time hints).
 const LOCALE_STORAGE_KEY = 'al_locale'
 const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
-const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
+export const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
 const COMPACT_STORAGE_KEY = 'al_compact_layout'
 const COLOR_PICKER_MODE_STORAGE_KEY = 'al_color_picker_mode'
 const LAST_PAPER_TYPE_STORAGE_KEY = 'al_last_paper_type'
