@@ -98,7 +98,9 @@ export function BoardStrip({
               role="button"
               tabIndex={0}
               aria-pressed={isCurrent}
-              aria-label={board.name}
+              // (#595) The name the tile shows, so a screen reader and the
+              // eye agree on "Моя работа" rather than on the student's name.
+              aria-label={board.id === ownWorkId ? t('class.myWork') : board.name}
               className={clsx(styles.tile, isCurrent && styles.tileCurrent)}
               onClick={() => { if (!isRenaming) onSelect(board.id) }}
               onKeyDown={e => {
