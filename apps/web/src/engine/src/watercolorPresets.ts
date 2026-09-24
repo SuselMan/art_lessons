@@ -804,17 +804,17 @@ export function watercolorSpreadBudget(radiusPx: number, water: number, landedWe
  *  rounds to nothing - measured, the advection at three times the oracle's
  *  rate only flattened the profile. Moving the share in one pass keeps the
  *  amount whatever the precision. */
-export const WC_BLOOM_SHARE = 0.5
+export const WC_BLOOM_SHARE = 0.65
 /** How much darker than its body a mark's rim ends up — the tideline of
  *  every wash (str_ldm_2809, gran_wa_main): the band gets this much of the
  *  body's density on top of its own. The share of the interior moved is
  *  worked out from it and the mark's radius, so a broad wash and a thin
  *  line get the same rim rather than the broad one drowning in it. */
-export const WC_TIDE_RIM = 1.0
+export const WC_TIDE_RIM = 2.0
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */
-export const WC_RIM_BAND_PX = 6
+export const WC_RIM_BAND_PX = 10
 export const WC_RIM_INSET_PX = 3
 /** How far the rim's edge wanders, px, with a slow noise of the world
  *  position: a stroke's tideline barely (the edge is the stroke's), a

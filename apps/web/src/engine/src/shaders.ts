@@ -2848,7 +2848,7 @@ export const WC_FIELD_OP_FRAG = `
   // (s17.25) The rim's deposition profile: the tail's weight against the
   // sharp peak, its floor on a paper crest, and the height window that
   // counts as a valley (paper height ~0.5 +/- 0.19).
-  const float WC_RIM_TAIL = 0.35;
+  const float WC_RIM_TAIL = 0.6;
   const float WC_RIM_TAIL_FLOOR = 0.25;
   const float WC_RIM_VALLEY_LO = 0.35;
   const float WC_RIM_VALLEY_HI = 0.6;

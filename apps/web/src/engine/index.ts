@@ -8974,7 +8974,10 @@ export class PencilEngine implements PencilEngineAPI {
     const budgetPx = watercolorSpreadBudget(radiusPx, water, landedWet)
     const costMax = budgetPx + 4
     const frontSteps = Math.min(WC_FRONT_MAX_STEPS, Math.ceil(1.4 * budgetPx))
-    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 8)))
+    // A fifth of the radius (the photo's ring: FWHM 0.2 R_front), capped:
+    // the mass sits at the front, the tail behind it is what the valleys
+    // carry, so the band's depth is what survives a blur, not its darkness.
+    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5)))
     // The band is the last `width` cells inside the front, measured by a
     // second relaxation run INWARD from everything past the budget, over the
     // same paper: a band from the outward cost alone cannot reach into the
