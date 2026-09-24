@@ -38,7 +38,9 @@ vi.mock('./loginCodes.js', async (importOriginal) => ({
 
 // (#587) Bans are their own module with their own in-memory set; here they
 // are a seam, so each test says who is banned.
-const mockBans = vi.hoisted(() => ({ isBanned: vi.fn(), isEmailBanned: vi.fn() }))
+const mockBans = vi.hoisted(() => ({
+  isBanned: vi.fn(), isEmailBanned: vi.fn(), isIpBanned: vi.fn(), isTokenRevoked: vi.fn(),
+}))
 vi.mock('./bans.js', () => mockBans)
 
 const mockSendEmail = vi.hoisted(() => vi.fn())
@@ -95,6 +97,8 @@ beforeEach(() => {
   mockSendEmail.mockReset()
   mockBans.isBanned.mockReset().mockReturnValue(false)
   mockBans.isEmailBanned.mockReset().mockResolvedValue(false)
+  mockBans.isIpBanned.mockReset().mockReturnValue(false)
+  mockBans.isTokenRevoked.mockReset().mockReturnValue(false)
 
   mockPrisma.user.create.mockResolvedValue({ id: 'guest-1' })
   mockCodes.issueCode.mockResolvedValue(ISSUED)
@@ -332,6 +336,42 @@ describe('bans (#587)', () => {
     expect(res.statusCode).toBe(403)
     expect(res.json()).toEqual({ error: 'banned' })
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
+  })
+})
+
+describe('devices, revocation and IP bans (#589, #590)', () => {
+  it('refuses a banned address before minting anything, cookie or not', async () => {
+    const app = await buildApp()
+    mockBans.isIpBanned.mockImplementation((ip: string) => ip === '203.0.113.7')
+
+    const res = await app.inject({ method: 'GET', url: '/api/me', remoteAddress: '::ffff:203.0.113.7' })
+
+    expect(res.statusCode).toBe(403)
+    expect(res.json()).toEqual({ error: 'banned' })
+    expect(mockPrisma.user.create).not.toHaveBeenCalled()
+  })
+
+  it('turns a revoked token into a fresh guest, like signing out', async () => {
+    const app = await buildApp()
+    mockBans.isTokenRevoked.mockReturnValue(true)
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'guest-1', email: null, name: null })
+
+    const res = await app.inject({
+      method: 'GET', url: '/api/me', cookies: { [IDENTITY_COOKIE]: signIdentityToken('teacher-1') },
+    })
+
+    expect(res.json()).toMatchObject({ userId: 'guest-1' })
+    expect(mockPrisma.user.create).toHaveBeenCalledOnce()
+  })
+
+  it('gives a browser its device cookie once and keeps it', async () => {
+    const app = await buildApp()
+    const first = await app.inject({ method: 'GET', url: '/api/me' })
+    const device = first.cookies.find(c => c.name === 'al_dev')
+    expect(device?.value).toMatch(/^[0-9a-f-]{36}$/)
+
+    const second = await app.inject({ method: 'GET', url: '/api/me', cookies: { al_dev: device!.value } })
+    expect(second.cookies.find(c => c.name === 'al_dev')).toBeUndefined()
   })
 })
 

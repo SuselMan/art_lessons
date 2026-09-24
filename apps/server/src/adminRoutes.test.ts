@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 import { registerAdminRoutes, type AdminLive } from './adminRoutes.js'
-import { isBanned, noteBanned } from './bans.js'
+import { isBanned, isIpBanned, isTokenRevoked, noteBanned, noteIpBan } from './bans.js'
 
 // Route-level tests, Prisma mocked — same shape as roomFolderRoutes.test.ts.
 const mockPrisma = vi.hoisted(() => ({
@@ -12,6 +12,9 @@ const mockPrisma = vi.hoisted(() => ({
   operation: { groupBy: vi.fn() },
   roomThumbnail: { findUnique: vi.fn() },
   adminAction: { create: vi.fn(), findMany: vi.fn() },
+  userDevice: { findMany: vi.fn(), groupBy: vi.fn() },
+  ipSighting: { findMany: vi.fn(), groupBy: vi.fn(), count: vi.fn() },
+  ipBan: { create: vi.fn(), findMany: vi.fn(), count: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(),
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
@@ -25,14 +28,15 @@ const USERS: Record<string, { email: string | null; bannedAt: Date | null }> = {
   'spammer-1': { email: 'spam@example.com', bannedAt: null },
 }
 
-function buildApp(userId: string, live: Partial<AdminLive> = {}): { app: FastifyInstance; disconnectUser: ReturnType<typeof vi.fn> } {
+function buildApp(userId: string, live: Partial<AdminLive> = {}) {
   const app = Fastify()
   app.addHook('preHandler', async (request) => {
     request.userId = userId
   })
   const disconnectUser = vi.fn()
-  registerAdminRoutes(app, { connectedUserIds: () => [], disconnectUser, ...live })
-  return { app, disconnectUser }
+  const disconnectIp = vi.fn()
+  registerAdminRoutes(app, { connectedUserIds: () => [], disconnectUser, disconnectIp, ...live })
+  return { app, disconnectUser, disconnectIp }
 }
 
 beforeEach(() => {
@@ -48,6 +52,9 @@ beforeEach(() => {
   mockPrisma.$transaction.mockResolvedValue([])
   mockPrisma.adminAction.findMany.mockResolvedValue([])
   noteBanned('spammer-1', false)
+  noteIpBan('203.0.113.7', null)
+  mockPrisma.user.findMany.mockResolvedValue([])
+  mockPrisma.ipSighting.count.mockResolvedValue(0)
 })
 
 describe('who may use it (#586)', () => {
@@ -197,5 +204,93 @@ describe('user list (#586)', () => {
     const res = await app.inject({ method: 'GET', url: '/api/admin/users' })
 
     expect(res.json()).toMatchObject({ total: 1, users: [{ id: 'teacher-1', online: true, ownedLessons: 2 }] })
+  })
+})
+
+describe('sign out everywhere (#589)', () => {
+  it('stamps the revocation, journals it, refuses older tokens and closes live sockets', async () => {
+    const { app, disconnectUser } = buildApp('admin-1')
+    const before = Math.floor(Date.now() / 1000) - 5
+
+    const res = await app.inject({ method: 'POST', url: '/api/admin/users/teacher-1/revoke-sessions' })
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'teacher-1' }, data: { sessionsRevokedAt: expect.any(Date) },
+    })
+    expect(mockPrisma.adminAction.create).toHaveBeenCalledWith({
+      data: { adminId: 'admin-1', action: 'revoke_sessions', targetUserId: 'teacher-1' },
+    })
+    expect(isTokenRevoked('teacher-1', before)).toBe(true)
+    // A token signed in the same second as the revocation is the sign-in that
+    // follows it, not one the revocation was aimed at.
+    expect(isTokenRevoked('teacher-1', Math.floor(Date.now() / 1000))).toBe(false)
+    expect(disconnectUser).toHaveBeenCalledWith('teacher-1')
+  })
+})
+
+describe('IP bans (#590)', () => {
+  const ban = (app: FastifyInstance, ip: string, payload: object) =>
+    app.inject({ method: 'POST', url: `/api/admin/ips/${encodeURIComponent(ip)}/ban`, payload, remoteAddress: '198.51.100.1' })
+
+  it('bans for one of the fixed durations, journals it, and closes sockets from the address', async () => {
+    const { app, disconnectIp } = buildApp('admin-1')
+
+    const res = await ban(app, '203.0.113.7', { reason: 'ban evasion', hours: 24 })
+
+    expect(res.statusCode).toBe(200)
+    const created = mockPrisma.ipBan.create.mock.calls[0][0].data
+    expect(created).toMatchObject({ ip: '203.0.113.7', reason: 'ban evasion', createdById: 'admin-1' })
+    const hours = (created.expiresAt.getTime() - Date.now()) / 3_600_000
+    expect(hours).toBeGreaterThan(23.9)
+    expect(hours).toBeLessThanOrEqual(24)
+    expect(mockPrisma.adminAction.create).toHaveBeenCalledWith({
+      data: { adminId: 'admin-1', action: 'ip_ban', targetIp: '203.0.113.7', reason: 'ban evasion (24 h)' },
+    })
+    expect(isIpBanned('203.0.113.7')).toBe(true)
+    expect(disconnectIp).toHaveBeenCalledWith('203.0.113.7')
+  })
+
+  it('has no "forever": any duration outside the menu is refused', async () => {
+    const { app } = buildApp('admin-1')
+    for (const hours of [0, 2, 24 * 365, 'forever', undefined]) {
+      const res = await ban(app, '203.0.113.7', { reason: 'x', hours })
+      expect(res.json()).toEqual({ error: 'invalid_duration' })
+    }
+    expect(mockPrisma.ipBan.create).not.toHaveBeenCalled()
+  })
+
+  it('will not ban the address the admin is using, nor one an admin was seen on', async () => {
+    const { app } = buildApp('admin-1')
+    const own = await ban(app, '198.51.100.1', { reason: 'x', hours: 1 })
+    expect(own.json()).toEqual({ error: 'cannot_ban_own_ip' })
+
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 'admin-2' }])
+    mockPrisma.ipSighting.count.mockResolvedValue(1)
+    const shared = await ban(app, '203.0.113.7', { reason: 'x', hours: 1 })
+    expect(shared.json()).toEqual({ error: 'admin_seen_on_ip' })
+    expect(mockPrisma.ipBan.create).not.toHaveBeenCalled()
+  })
+
+  it('lifts every active ban on the address', async () => {
+    noteIpBan('203.0.113.7', Date.now() + 3_600_000)
+    mockPrisma.ipBan.count.mockResolvedValue(1)
+    const { app } = buildApp('admin-1')
+
+    const res = await app.inject({ method: 'POST', url: '/api/admin/ips/203.0.113.7/unban', payload: {} })
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.ipBan.updateMany).toHaveBeenCalledWith({
+      where: { ip: '203.0.113.7', liftedAt: null, expiresAt: { gt: expect.any(Date) } },
+      data: { liftedAt: expect.any(Date) },
+    })
+    expect(isIpBanned('203.0.113.7')).toBe(false)
+  })
+
+  it('forgets a ban the moment it expires, without anyone lifting it', () => {
+    const now = Date.now()
+    noteIpBan('203.0.113.7', now + 1000)
+    expect(isIpBanned('203.0.113.7', now)).toBe(true)
+    expect(isIpBanned('203.0.113.7', now + 1000)).toBe(false)
   })
 })

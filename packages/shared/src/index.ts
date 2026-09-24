@@ -2222,6 +2222,8 @@ export function strokeDabs(op: StrokeOperation): Dab[] {
 }
 
 export type {
-  AdminActionList, AdminActionRow, AdminLessonList, AdminLessonRow, AdminLiveLesson, AdminOverview,
-  AdminUserDetail, AdminUserFilter, AdminUserLesson, AdminUserList, AdminUserRow,
+  AdminActionList, AdminActionRow, AdminDevice, AdminIpBan, AdminIpBanList, AdminIpDetail, AdminLessonList,
+  AdminLessonRow, AdminLiveLesson, AdminOverview, AdminUserDetail, AdminUserFilter, AdminUserIp, AdminUserLesson,
+  AdminUserList, AdminUserRow, ClientEnvironment, IpBanDurationHours,
 } from './admin.js'
+export { IP_BAN_DURATIONS_HOURS, sanitizeClientEnvironment } from './admin.js'
