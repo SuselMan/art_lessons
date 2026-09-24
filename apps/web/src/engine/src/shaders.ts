@@ -911,9 +911,14 @@ export const DAB_FRAG = `
   // What changes is what lies above it — a second glaze now reads 0.67 and a
   // third 0.81, where before every one of them read the same clipped value.
   const float WC_DENSITY_K = 0.54;
+  // (#536, s17.26) The dry brush reads the paper's catch over this many px.
+  const float WC_DRY_TOOTH_PX = 2.5;
+  const float WC_DRY_COARSE = 0.75;
+  const float WC_DRY_LIFT = 0.5;
+  const float WC_DRY_CONTACT_W = 0.3;
   // (#536, s17.26) The ink stamp's profile: 1 = a cone to the centre, 3 = a
-  // plateau with a ramp over the outer third of the nib.
-  const float WC_STAMP_PLATEAU = 3.0;
+  // plateau with a ramp over the outer half of the nib.
+  const float WC_STAMP_PLATEAU = 2.0;
   /** (#536) How far below the blur's half point the wash's re-threshold sits on
    *  fully wet paper — the tool's only term that makes a mark genuinely bigger
    *  rather than merely softer or more irregular. See its use, under u_spreadPx.
@@ -1285,14 +1290,14 @@ ${WC_NOISE_GLSL}
       float dPx = markerNibDistPx();
       float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
-      // (#536, s17.26) A plateau with a ramp over the outer third of the
+      // (#536, s17.26) A plateau with a ramp over the outer half of the
       // nib, not a cone to the centre: the cone summed along a stroke gave a
       // cross-section that fell off over the whole radius - a soft film with
       // no edge, and a tideline sitting in the trough beyond it ("печенька").
       // A wet stroke's film is flat and ends where the water ends. The sum
       // still meets stamps entering and leaving smoothly enough; the
       // diffusion pass (s17.11) levels what ripple is left. Mean over the
-      // disc 0.70 against the cone's 0.33: WATERCOLOR_CONE_DEPOSIT_GAIN
+      // disc 0.58 against the cone's 0.33: WATERCOLOR_CONE_DEPOSIT_GAIN
       // carries the conversion.
       float depth = clamp(-dPx / max(v_radius, 1e-4) * WC_STAMP_PLATEAU, 0.0, 1.0);
       float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
@@ -1686,12 +1691,24 @@ ${WC_NOISE_GLSL}
         // Where a bundle sits, the brush reaches further down into the paper;
         // between bundles it barely touches even a crest. So the bristles
         // modulate the paper's own catch rather than being laid over the result.
-        float reach = paperCatch * mix(0.55, 1.45, bristle);
+        // (s17.26) At the sheet's tooth, not its grain: the catch averaged
+        // over a few pixels, so a dry brush skips pits the size of the
+        // paper's texture and leaves crests as blobs (dry_wa_effect), not a
+        // pixel speckle. Four taps rather than a mip: a mip chain is the
+        // driver's filter, and the composite must agree across devices.
+        vec2 dTex = WC_DRY_TOOTH_PX / u_paperTexSize * u_paperScale;
+        float coarse = 0.25 * (texture2D(u_paperHeightMap, paperUV + dTex).a + texture2D(u_paperHeightMap, paperUV - dTex).a
+          + texture2D(u_paperHeightMap, paperUV + vec2(dTex.x, -dTex.y)).a + texture2D(u_paperHeightMap, paperUV + vec2(-dTex.x, dTex.y)).a);
+        float catchTooth = mix(paperCatch, coarse, WC_DRY_COARSE);
+        float reach = catchTooth * mix(0.55, 1.45, bristle);
         // The threshold climbs with dryness: at 0 it sits below every catch
         // value and nothing is cut, at 1 only the highest crests under a bundle
         // survive.
-        float lift = mix(-0.05, 0.72, dryness);
-        float contact = smoothstep(lift, lift + 0.22, reach);
+        // (s17.26) 0.72 kept only the highest crests: a dry stroke was a
+        // thin sparse speckle where the photographs (dry_wa_effect) show
+        // half the tooth taking paint at the start and thinning along.
+        float lift = mix(-0.05, WC_DRY_LIFT, dryness);
+        float contact = smoothstep(lift, lift + WC_DRY_CONTACT_W, reach);
         coverage *= mix(1.0, contact, dryness);
       }
 
@@ -2895,8 +2912,15 @@ export const WC_FIELD_OP_FRAG = `
     }
     if (u_mode > 12.5) {
       // a + u_k * b where u_d says (its .r): the earlier paint under a
-      // footprint re-mobilised by a wet landing (s17.25).
-      gl_FragColor = WC_FIELD_FIT(a + u_k * b * texture2D(u_d, v_uv).r);
+      // footprint re-mobilised by a wet landing (s17.25). As much of it as
+      // fits: a clean puddle's amount is most of a byte, and scaling the
+      // SUM down to fit took the new paint's pigment with it - a stroke into
+      // a puddle came out nearly white. The added part shrinks instead, in
+      // its own proportions, so the new paint is never touched.
+      vec4 add = u_k * b * texture2D(u_d, v_uv).r;
+      float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
+      float peak = max(max(add.r, add.g), max(add.b, add.a));
+      gl_FragColor = a + add * min(1.0, room / max(peak, 1e-4));
       return;
     }
     if (u_mode > 11.5) {

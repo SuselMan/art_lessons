@@ -696,6 +696,17 @@ const WATERCOLOR_START_EXCESS_RADII = 1.2
  *  and dumps nothing. That rule then covers three cases with one predicate: the
  *  head of a mark on dry paper, a second pass over something still wet, and the
  *  sixth band of a flat wash laid up against the wet fifth. */
+/** (s17.26) How much more pigment a wet sheet pulls out of the brush than a
+ *  dry one: the water on the paper draws the paint out by capillarity, which
+ *  is why a charge-in reads strong at the brush and feathers away, not pale.
+ *  Without it the same brush laid the same dose into a puddle, the front
+ *  spread it over three times the area, and a stroke into clean water came
+ *  out at half a dry stroke's density (0.35 against 0.61). */
+export function watercolorWetPull(paperWet: number): number {
+  return 1 + WC_WET_PULL * clamp01(paperWet)
+}
+export const WC_WET_PULL = 1.0
+
 export function watercolorStartExcess(usedRadii: number, landedWet: number): number {
   const gate = 1 - clamp01(landedWet)
   return 1 + WATERCOLOR_START_EXCESS * gate * Math.exp(-usedRadii / WATERCOLOR_START_EXCESS_RADII)
