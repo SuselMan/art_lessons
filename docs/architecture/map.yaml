@@ -1069,8 +1069,14 @@ modules:
       - apps/server/src/socketHandlers.test.ts
       - apps/server/src/lessons.ts
       - apps/server/src/boards.test.ts
-    adr: [002-collaborative-undo, 014-boards]
+      - apps/server/src/classMode.ts
+      - apps/server/src/classMode.test.ts
+    adr: [002-collaborative-undo, 014-boards, 015-class-mode]
     notes:
+      - >-
+        Работа в классе (ADR 015): личная доска — доска урока с владельцем-учеником. Кто её
+        видит, решает одна функция canSeeBoard (lessons.ts) — и для join_room, и для REST, и для
+        LessonState, который собирается под получателя и шлётся событием lesson_state.
       - >-
         Map остаётся источником правды для всего живого; запись в Postgres — fire-and-forget,
         её не ждут на горячем пути. Плата: операция, проигравшая гонку падению сервера,
