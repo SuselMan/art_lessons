@@ -605,18 +605,22 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
     // ordinary damp mix (0.55) that puddle never opened the gate — so the pass
     // whose whole job is moving pigment through standing water had never once
     // run in the case it exists for.
+    // (s17.30) ...and now off altogether: the deposit carries the pigment
+    // (s17.29), and this pass hid the deposit's structure behind its own ring.
     const damp = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.55, pigment: 0.6 }))
     const wet = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.95, pigment: 0.6 }))
-    expect(damp.migrate).toBeGreaterThan(0)
-    expect(wet.migrate).toBeGreaterThan(damp.migrate * 0.5)
+    expect(damp.migrate).toBe(0)
+    expect(wet.migrate).toBe(0)
   })
 
   it('runs on a dry brush dragged through water already on the paper', () => {
     // The case the whole thing exists for, and the one it could not reach: the
     // brush is nearly dry, the paper is not.
+    // (s17.30) Off for the same reason as above; the case lives in the
+    // deposit's remobilisation (mode 13) and carry now.
     const dryBrush = watercolorPresetString('normal', { water: 0.12, pigment: 0.8 })
     expect(ribbonProfileFor('watercolor', dryBrush, 0).migrate).toBe(0)
-    expect(ribbonProfileFor('watercolor', dryBrush, 0.9).migrate).toBeGreaterThan(0)
+    expect(ribbonProfileFor('watercolor', dryBrush, 0.9).migrate).toBe(0)
   })
 
   // The reach and the gate travel with the profile so a peer replaying the
@@ -639,7 +643,10 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
     const mix = { water: 0.95, pigment: 0.6 }
     const a = ribbonProfileFor('watercolor', watercolorPresetString('normal', mix, staining.code))
     const b = ribbonProfileFor('watercolor', watercolorPresetString('normal', mix, lifting.code))
-    expect(a.migrate).toBeLessThan(b.migrate)
+    // (s17.30) The composite's migration is off for every paint; staining's
+    // say on transport is a debt of the deposit's carry, not of this pass.
+    expect(a.migrate).toBe(0)
+    expect(b.migrate).toBe(0)
   })
 
   // Every other tool goes through the same program, and a nonzero gain there

@@ -3028,7 +3028,14 @@ export const WC_FIELD_OP_FRAG = `
       // SUM down to fit took the new paint's pigment with it - a stroke into
       // a puddle came out nearly white. The added part shrinks instead, in
       // its own proportions, so the new paint is never touched.
-      vec4 add = u_k * b * texture2D(u_d, v_uv).r;
+      // (s17.30) ...and only the share the NEW water can take up: the new
+      // mobile amount over the new plus the settled - a clean-water stroke
+      // over an equal wash lifts half the wash under it, a light touch a
+      // little. All of it (the design thread's "invisible pressure") made
+      // a water stroke over a wet wash push nearly every grain of the wash
+      // out from under itself: a white band with dark ragged edges.
+      float share = a.a / max(a.a + b.a, 1e-4);
+      vec4 add = u_k * share * b * texture2D(u_d, v_uv).r;
       float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
       float peak = max(max(add.r, add.g), max(add.b, add.a));
       gl_FragColor = a + add * min(1.0, room / max(peak, 1e-4));

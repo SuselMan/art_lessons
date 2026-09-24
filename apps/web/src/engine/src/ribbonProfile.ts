@@ -867,11 +867,19 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     // threshold cannot migrate anywhere — and a zero here skips sixty texture
     // reads per fragment instead of spending them on a result known in advance.
     // Measured at roughly half the composite's cost on a full-width band.
-    migrate: transportWater <= WATERCOLOR_MIGRATE_LO
+    // (#536, s17.30) Off. The composite's migration was the presentation-time
+    // stand-in for pigment transport; the deposit carries it now (s17.29),
+    // and measured on the rig this pass HID the deposit's structure - a
+    // clean-water stroke over a wet wash showed as a thin white outline (the
+    // pass's own ring, Ilya's "чёткий контур каждого касания") where the
+    // deposit held a real band. The design thread: an effect that answers
+    // "where did the pigment move" has no place in the composite. Kept as
+    // code behind this zero until the concentration transport lands.
+    migrate: 0 * (transportWater <= WATERCOLOR_MIGRATE_LO
       ? 0
       : WATERCOLOR_MIGRATE_GAIN
         * (1 - 0.7 * paint.staining)
-        * (0.6 + 0.8 * paint.diffusion),
+        * (0.6 + 0.8 * paint.diffusion)),
     migrateOfRadius: WATERCOLOR_MIGRATE_OF_RADIUS,
     migrateLo: WATERCOLOR_MIGRATE_LO,
     migrateHi: WATERCOLOR_MIGRATE_HI,
