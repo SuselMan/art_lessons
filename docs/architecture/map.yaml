@@ -826,7 +826,6 @@ modules:
       - apps/web/src/lib/appVersion.test.ts
       - apps/web/src/lib/theme.ts
       - apps/web/src/lib/image.ts
-      - apps/web/src/lib/thumbnail.ts
       - apps/web/src/lib/clipboardStorage.ts
       - apps/web/src/lib/clipboardStorage.test.ts
       - apps/web/src/lib/uiPreferences.ts
