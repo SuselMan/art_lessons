@@ -1023,6 +1023,7 @@ modules:
       - apps/web/src/engine/src/shapeGeometry*.ts
       - apps/web/src/engine/src/selectionMask*.ts
       - apps/web/src/engine/src/matrix*.ts
+      - apps/web/src/engine/src/previewChain*.ts
       - apps/web/src/engine/src/utils.ts
     adr: [010-fill-tool]
     notes:
