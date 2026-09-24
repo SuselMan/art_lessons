@@ -95,9 +95,20 @@
             <path class="t-mark t3" pathLength="1" d="M384 176 C 406 186, 408 232, 392 250" />
             <path class="t-mark t4" pathLength="1" d="M382 186 L398 208 M398 208 L380 318" />
           </g>
+
+          <!-- Participants' cursors as the room draws them (PeerCursors.tsx):
+               a dot in the person's colour and a name tag beside it. -->
+          <g class="peer peer-teacher" transform="translate(380 318)">
+            <circle r="4.5" />
+            <rect x="9" y="-10" width="50" height="20" rx="10" />
+            <text x="34" y="4">Anna</text>
+          </g>
+          <g class="peer peer-student" transform="translate(96 368)">
+            <circle r="4.5" />
+            <rect x="9" y="-10" width="42" height="20" rx="10" />
+            <text x="30" y="4">Max</text>
+          </g>
         </svg>
-        <!-- No named cursors on purpose: the app doesn't show other people's
-             pointers, and the page promises only what the app does (#246 §2.3). -->
         <figcaption>
           <span class="key key-student">Student’s drawing</span>
           <span class="key key-teacher">Teacher’s correction</span>

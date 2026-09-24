@@ -160,6 +160,14 @@ main { max-width: 1200px; margin: 0 auto; padding: 0 var(--gutter); }
   .teacher path { animation: none; stroke-dashoffset: 0; }
 }
 
+.peer text { font: 500 11px/1 var(--sans); fill: #fff; text-anchor: middle; }
+.peer-teacher circle, .peer-teacher rect { fill: #4747a3; }
+.peer-student circle, .peer-student rect { fill: #2f7a64; }
+/* The teacher's tag arrives with the last correction mark. */
+.peer-teacher { opacity: 0; animation: appear 0.3s ease-out 2.7s forwards; }
+@keyframes appear { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .peer-teacher { animation: none; opacity: 1; } }
+
 .sheet figcaption {
   display: flex;
   gap: 20px;
