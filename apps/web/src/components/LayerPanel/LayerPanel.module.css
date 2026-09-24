@@ -200,6 +200,8 @@
      it to the browser would let a diagonal drag turn into a swipe. */
   touch-action: pan-y pinch-zoom;
   transition: background var(--duration-fast);
+  /* Anchor for .drawerOutline. */
+  position: relative;
 }
 .rowMain:active { cursor: grabbing; }
 .rowMain:hover { background: var(--color-surface-hover); }
@@ -220,6 +222,29 @@
   background: color-mix(in srgb, var(--color-accent) 20%, transparent);
   outline: 1px dashed color-mix(in srgb, var(--color-accent) 70%, transparent);
   outline-offset: -1px;
+}
+
+/* A peer is drawing into this row (or, on a collapsed folder, somewhere
+   inside it). Its own element rather than another box-shadow on the row:
+   .rowActive already owns the row's shadow and .rowSelected its outline, and
+   a peer can be drawing on exactly the row this viewer has active. The ring
+   colours come inline — they are the peers' own identity colours, the same
+   ones as their cursor and their dot in the participants list. */
+.drawerOutline {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: layer-drawer-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes layer-drawer-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawerOutline { animation: none; opacity: 0.8; }
 }
 
 /* Background row: no drag cursor */

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { currentlyDrawing, sameIds } from './drawingIndicator'
+import {
+  currentlyDrawing, currentlyDrawingLayers, layerActivityKey, sameIds, sameLayerDrawers,
+} from './drawingIndicator'
 
 describe('currentlyDrawing', () => {
   it('includes ids active within the timeout window', () => {
@@ -38,5 +40,39 @@ describe('sameIds', () => {
 
   it('is true for two empty lists', () => {
     expect(sameIds([], [])).toBe(true)
+  })
+})
+
+describe('currentlyDrawingLayers', () => {
+  const act = (userId: string, layerId: string, at: number) =>
+    ({ [layerActivityKey(userId, layerId)]: { userId, layerId, at } })
+
+  it('groups active users by the layer they draw into', () => {
+    const result = currentlyDrawingLayers(
+      { ...act('b', 'L1', 1900), ...act('a', 'L1', 1800), ...act('c', 'L2', 1950) },
+      2000, 500,
+    )
+    expect(result).toEqual({ L1: ['a', 'b'], L2: ['c'] })
+  })
+
+  it('drops pairs older than the timeout, and layers left with nobody', () => {
+    const result = currentlyDrawingLayers(
+      { ...act('a', 'L1', 1000), ...act('a', 'L2', 1900) },
+      2000, 500,
+    )
+    expect(result).toEqual({ L2: ['a'] })
+  })
+})
+
+describe('sameLayerDrawers', () => {
+  it('ignores drawer order', () => {
+    expect(sameLayerDrawers({ L1: ['a', 'b'] }, { L1: ['b', 'a'] })).toBe(true)
+  })
+
+  it('notices a layer appearing, disappearing or changing hands', () => {
+    expect(sameLayerDrawers({}, { L1: ['a'] })).toBe(false)
+    expect(sameLayerDrawers({ L1: ['a'] }, {})).toBe(false)
+    expect(sameLayerDrawers({ L1: ['a'] }, { L2: ['a'] })).toBe(false)
+    expect(sameLayerDrawers({ L1: ['a'] }, { L1: ['b'] })).toBe(false)
   })
 })
