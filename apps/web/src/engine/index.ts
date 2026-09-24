@@ -778,6 +778,12 @@ export interface PencilEngineAPI {
   // resource (_compositeFBO/_belowCache/_aboveCache), same as context-restore
   // already does for _initGL.
   resizeCanvas(width: number, height: number): void
+  // (#246) The canvas moved on screen without changing size — the page around
+  // it scrolled. Every room fills a non-scrolling viewport, so resizeCanvas
+  // was the only layout event there was; the landing's try-it sheet sits in a
+  // scrolling page, and without this the cached rect would put every stroke
+  // after a scroll exactly one scroll-distance away from the pen.
+  invalidateCanvasRect(): void
   // Live gizmo-drag preview (#120): renders each layer's *current* content
   // through the given transform into a scratch buffer composited in place
   // of the real one — never mutates the real layer buffer. Call on every
@@ -3462,6 +3468,11 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See PencilEngineAPI's doc comment. */
+  /** See PencilEngineAPI's doc comment. */
+  invalidateCanvasRect(): void {
+    this._canvasRectCache = null
+  }
+
   resizeCanvas(width: number, height: number): void {
     const { gl, canvas } = this
     if (canvas.width === width && canvas.height === height) return
