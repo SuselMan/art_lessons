@@ -556,7 +556,7 @@ const WATERCOLOR_MIN_HALF_WIDTH_PX = 0.75
  *  along fibres far more than ink does, so its boundary is the most irregular
  *  of any tool here. Still rim-only by construction (the shader scales the term
  *  by 1 - coverage), so no value of this can put holes inside a wash. */
-const WATERCOLOR_PAPER_EDGE = 0.55
+const WATERCOLOR_PAPER_EDGE = 0.0 // (s17.27) the sheet's pits no longer bite the contour: on Ilya's photographs a stroke's edge is the brush's own smooth line, and the bite turned the tideline into specks
 
 /** ADR 011 §3.5 — the **cap** on how far the wash may leave the brush's own
  *  footprint, in canvas px. The engine scales the actual reach with the

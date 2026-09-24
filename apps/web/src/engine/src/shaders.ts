@@ -366,6 +366,7 @@ export const RIBBON_VERT = `
   // the composite has to be able to tell them apart per pixel.
   attribute float a_inkWet;
   attribute float a_inkStrength;
+  attribute float a_puddle;
 
   uniform vec2 u_resolution;
 
@@ -374,6 +375,7 @@ export const RIBBON_VERT = `
   varying float v_inkWater;
   varying float v_across;
   varying float v_inkWet;
+  varying float v_puddle;
   varying float v_inkStrength;
 
   void main() {
@@ -383,6 +385,7 @@ export const RIBBON_VERT = `
     v_across = a_across;
     v_inkWet = a_inkWet;
     v_inkStrength = a_inkStrength;
+    v_puddle = a_puddle;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -435,6 +438,7 @@ export const RIBBON_FRAG = `
   varying float v_inkWater;
   varying float v_across;
   varying float v_inkWet;
+  varying float v_puddle;
   varying float v_inkStrength;
 
   // (#536) The band half of the deposited mottling. The world origin has to be
@@ -514,7 +518,7 @@ ${WC_NOISE_GLSL}
       ? (u_depthWrite > 0.5
           ? vec4(amount * v_inkStrength * u_tau / WC_DEPTH_SCALE, amount * v_inkStrength)
           : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount))
-      : vec4(acrossEncoded * amount, amount, amount * max(bandWet, u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
+      : vec4(acrossEncoded * amount, amount, amount * max(bandWet, v_puddle * u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
   }
 `;
 
@@ -686,6 +690,8 @@ export const DAB_FRAG = `
   /** (#536, s17.11/13) See RIBBON_FRAG's u_washWater and u_waterRetain -
    *  the coverage stamp's .b, from these and u_paperWet the same way. */
   uniform float u_washWater;
+  // (s17.27) How deep the water stands under this stamp - see markerRibbon.ts.
+  uniform float u_puddle;
   uniform float u_waterRetain;
   // (#536) How strong the paint in the brush was for this dab — the pigment
   // slider, resolved per stroke. Rides the deposit for the reason
@@ -1272,7 +1278,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
 
@@ -2893,12 +2899,21 @@ export const WC_FIELD_OP_FRAG = `
   // sharp peak, its floor on a paper crest, and the height window that
   // counts as a valley (paper height ~0.5 +/- 0.19).
   const float WC_RIM_TAIL = 0.6;
-  const float WC_RIM_TAIL_TIDE = 0.2;
+  const float WC_RIM_TAIL_TIDE = 0.0;
   const float WC_RIM_TAIL_FLOOR = 0.25;
   const float WC_RIM_VALLEY_LO = 0.35;
   const float WC_RIM_VALLEY_HI = 0.6;
   // (s17.26) How much rim a texel keeps where the record says no water stood.
   const float WC_RIM_DRY_FLOOR = 0.15;
+  // (s17.27) The share of the mark's standing level below which its water
+  // did not stand: the front's seed ends there.
+  const float WC_SEED_FILM_LO = 0.15;
+  const float WC_SEED_FILM_HI = 0.3;
+  // A near step: the puddle's edge is where the RELAXATION starts, not a
+  // ramp of preset cost - a ramp gave the backrun a smooth arc, the
+  // relief-run front gives it the photographs' fingers.
+  const float WC_SEED_DEEP_LO = 0.78;
+  const float WC_SEED_DEEP_HI = 0.84;
   varying vec2 v_uv;
   void main() {
     vec4 a = texture2D(u_a, v_uv);
@@ -2950,8 +2965,23 @@ export const WC_FIELD_OP_FRAG = `
       // the fringe a code or two apart, and a step there flips whole texels
       // of the domain and its band between the two, where a ramp moves the
       // front by a fraction of a cell.
+      // (s17.27) ...and only where the mark's water STOOD (the coverage's
+      // record, b.b, against the mark's own standing level u_band.y): a
+      // stroke that ran dry along its length seeds its front at its wet
+      // start, and the front - the backrun of the photographs - lies inside
+      // the stroke where the puddle met the drier body.
+      // Two depths of water in the record: the FILM the brush lays along
+      // its path (WC_FILM_STAND of the mark's level) seeds at u_size.x, one
+      // cell short of the budget, so its front is its own contour; the
+      // PUDDLE - where the brush landed, or a wet wash - seeds at zero, and
+      // its front runs out INTO the film by the paper's relief and stops a
+      // cell short of the film's own cost: the ragged backrun inside a
+      // stroke. Where no water stood, unreached.
       float m = 1.0 - smoothstep(u_k, u_k * 4.0, a.a);
-      float cost = a.a > u_k ? m * u_band.x : 1.0;
+      float rel = b.b / max(u_band.y, 1e-4);
+      float film = smoothstep(WC_SEED_FILM_LO, WC_SEED_FILM_HI, rel);
+      float deep = smoothstep(WC_SEED_DEEP_LO, WC_SEED_DEEP_HI, rel);
+      float cost = a.a > u_k ? mix(1.0, mix(u_size.x, m * u_band.x, deep), film) : 1.0;
       gl_FragColor = vec4(cost, 0.0, 0.0, 1.0);
       return;
     }
@@ -2981,7 +3011,10 @@ export const WC_FIELD_OP_FRAG = `
       float costOut = texture2D(u_d, v_uv).r;
       float costIn = inward.r;
       float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, costOut);
-      float sharp = 1.0 - smoothstep(0.5 * u_size.y, 2.0 * u_size.y, costIn);
+      // The line sits on the second ring in from the front, not the first:
+      // the first is the stroke's antialiased fringe, where the standing
+      // record is fractional and the line came out as a row of dots.
+      float sharp = 1.0 - smoothstep(1.5 * u_size.y, 3.0 * u_size.y, costIn);
       float valley = 1.0 - smoothstep(WC_RIM_VALLEY_LO, WC_RIM_VALLEY_HI, inward.g);
       float tail = (1.0 - smoothstep(u_band.y, u_band.y + u_size.y, costIn)) * (WC_RIM_TAIL_FLOOR + (1.0 - WC_RIM_TAIL_FLOOR) * valley);
       // (s17.25) One puddle, one front: where this mark landed wet and its
@@ -2991,12 +3024,26 @@ export const WC_FIELD_OP_FRAG = `
       // tideline is the line itself with a short tail - a deep tail with
       // valley fingers on every stroke read as a lobed outline.
       float profileBloom = inside * min(sharp + WC_RIM_TAIL * tail, 1.0);
-      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail, 1.0);
+      // (s17.27) ...and the puddle's front inside the film: the last cells
+      // the puddle's cost reached before the film's own (u_band.x less one
+      // cell, see the seed). The film's texels sit exactly at that cost and
+      // are left out by the half-cell margin.
+      // u_band.y is the band's width in the INWARD pass's units; the same
+      // width in the outward cost's units is u_band.y * u_size.x / u_size.y
+      // (one cell of each). Mixed up, the band covered the whole puddle.
+      float filmCost = u_band.x - u_size.x;
+      float wOut = u_band.y * u_size.x / u_size.y;
+      float backrun = inside * smoothstep(filmCost - wOut, filmCost - 0.4 * wOut, costOut) * (1.0 - smoothstep(filmCost - 0.6 * u_size.x, filmCost - 0.3 * u_size.x, costOut));
+      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail + backrun, 1.0);
       // (s17.26) Where water actually stood, from the coverage's record
       // (b, extended over the domain): a rim forms where a puddle dried,
       // not along a stroke that ran dry. u_origin.x is the mark's own
       // standing level, so the record reads 0..1 against it.
-      float stood = clamp(b.b / max(u_origin.x, 1e-3), 0.0, 1.0);
+      // ...and the record is read as the most any of the 3x3 around holds,
+      // for the same reason: one texel of fringe must not break the line.
+      float bb = b.b;
+      for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) bb = max(bb, texture2D(u_b, v_uv + vec2(float(i), float(j)) * u_dir).b);
+      float stood = clamp(bb / max(u_origin.x, 1e-3), 0.0, 1.0);
       float stoodW = mix(WC_RIM_DRY_FLOOR, 1.0, stood);
       // The bloom's band (.r): the wash's paint the drop pushed lands here,
       // wherever the water reached. The tide's band (.b): this mark's own
@@ -3231,8 +3278,17 @@ export const WC_WATER_FRONT_FRAG = `
   uniform float u_climb;
   uniform float u_floor;
   uniform float u_costMax;
+  // (s17.27) The wash's film (its stitched coverage, .a): a front runs over
+  // a wet film by the paper's relief, and onto DRY paper at u_dryCost times
+  // the price - the sheet's sizing holds a film's edge where the brush left
+  // it. Ilya's photographs: a stroke on dry paper has the brush's own
+  // smooth contour whatever its water; the ragged fronts are inside the
+  // stroke where its puddle met its drier body, and in a wet wash.
+  uniform sampler2D u_film;
+  uniform float u_dryCost;
   varying vec2 v_uv;
-  const float WC_FRONT_SMOOTH = 2.0;
+  const float WC_FILM_LO = 0.02;
+  const float WC_FILM_HI = 0.15;
 
   float wcFrontHeightAt(vec2 px) {
     vec2 paperUV = (px + u_paperOrigin) / u_paperTexSize * u_paperScale;
@@ -3266,10 +3322,12 @@ export const WC_WATER_FRONT_FRAG = `
       // Two cells, or half the budget on a mark whose water runs further
       // (u_costMax is the budget plus four): a big wet blob's lobes stay at
       // half its spread, a drop's front keeps its fingers.
-      float ran = ci * u_costMax;
-      float smoothRun = max(WC_FRONT_SMOOTH, 0.5 * (u_costMax - 4.0));
-      float relief = ran < smoothRun ? 1.0 : max(u_floor, 1.0 + u_climb * (hj - wcFrontHeightAt(px + o)));
-      float edge = len * relief;
+      float relief = max(u_floor, 1.0 + u_climb * (hj - wcFrontHeightAt(px + o)));
+      // Thresholded: the silhouette's antialiased ramp is two or three
+      // texels wide, and read raw it priced the film's own edge like dry
+      // paper - the inward pass could not enter, and the tideline was gone.
+      float film = smoothstep(WC_FILM_LO, WC_FILM_HI, texture2D(u_film, v_uv).a);
+      float edge = len * relief * mix(u_dryCost, 1.0, film);
       best = min(best, ci * u_costMax + edge);
     }
     // .g: the paper's height here, for the band's valley term (mode 6 of

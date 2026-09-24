@@ -707,6 +707,25 @@ export function watercolorWetPull(paperWet: number): number {
 }
 export const WC_WET_PULL = 1.0
 
+/** (s17.27) How deep the water stands under a dab, as a share of the mark's
+ *  standing level: 1 where the brush landed with its surplus (the puddle)
+ *  and wherever it works into a wet wash, WC_FILM_STAND for the film it
+ *  lays along the stroke. Two records the front reads apart (see the seed
+ *  in WC_FIELD_OP_FRAG): the film's edge is the stroke's contour, the
+ *  puddle's front dries last and runs ragged into the film. */
+export function watercolorPuddleDepth(usedRadii: number, landedWet: number, paperWet: number): number {
+  // The landing puddle runs out over WC_PUDDLE_RADII of travel - slower than
+  // the deposit's surplus (WATERCOLOR_START_EXCESS_RADII): the photographs'
+  // dark start is one to two stroke widths long. None on a wet landing:
+  // there the sheet's water is the puddle (the w term).
+  const e = (1 - clamp01(landedWet)) * Math.exp(-usedRadii / WC_PUDDLE_RADII)
+  const w = clamp01(paperWet / WC_PUDDLE_WET_FULL)
+  return 1 - (1 - WC_FILM_STAND) * (1 - e) * (1 - w)
+}
+export const WC_FILM_STAND = 0.45
+export const WC_PUDDLE_RADII = 3
+export const WC_PUDDLE_WET_FULL = 0.5
+
 export function watercolorStartExcess(usedRadii: number, landedWet: number): number {
   const gate = 1 - clamp01(landedWet)
   return 1 + WATERCOLOR_START_EXCESS * gate * Math.exp(-usedRadii / WATERCOLOR_START_EXCESS_RADII)
@@ -809,7 +828,7 @@ export const WC_FRONT_CLIMB = 30
 /** 0.22 let a valley run 4.5x further than a ridge: on a stroke's 3 px budget
  *  that is a 14 px spike, and every stroke came out a cookie (Ilya). 0.5 keeps
  *  the lobes at twice the mean run. */
-export const WC_FRONT_FLOOR = 0.5
+export const WC_FRONT_FLOOR = 0.85
 /** The inward pass that places the band (s17.24): same law, a gentler
  *  relief, so the band is `width` cells deep with fingers a few cells
  *  longer in the valleys - at the outward pass's floor a valley ran the
@@ -817,14 +836,27 @@ export const WC_FRONT_FLOOR = 0.5
 export const WC_FRONT_CLIMB_IN = 15
 export const WC_FRONT_FLOOR_IN = 0.5
 /** Relaxation steps per settle, capped: each is one cheap 8-tap pass. */
-export const WC_FRONT_MAX_STEPS = 28
+export const WC_FRONT_MAX_STEPS = 56
+/** (s17.27) How much dearer a front's step onto dry paper is than over the
+ *  wash's own film: at 4 a stroke's spread past the brush is a quarter of
+ *  its budget - a pixel - and its edge is the brush's contour; inside the
+ *  film the same budget runs the puddle's front out along the valleys. */
+export const WC_FRONT_DRY_COST = 24
 /** How far the water runs past the footprint, px, from the mark's radius,
  *  the brush's water and the wetness it landed in: a wet brush on wet paper
  *  spreads a third of its radius (the photo's drop: 1.3 x), the same brush
  *  on dry paper a tenth — a wet-on-dry mark bleeds only a little. */
 export function watercolorSpreadBudget(radiusPx: number, water: number, landedWet: number): number {
   const w = clamp01(water), l = clamp01(landedWet)
-  return Math.max(2, Math.min(40, radiusPx * (0.1 + 0.4 * w * (0.15 + 0.85 * l))))
+  // (s17.27) At least 0.3 R: this is also how far a landing puddle's front
+  // runs into the stroke's film (the backrun's fingers, 0.2-0.3 R in the
+  // photographs); past the film, onto dry paper, WC_FRONT_DRY_COST divides
+  // it to a pixel.
+  // In COST units, and over the baked paper's relief a cell costs 1.6 on
+  // average (measured: a 1.2-unit puddle seed reached the film's 5.3 in two
+  // to three cells) - so 0.6 R of budget is about 0.35 R of run, the
+  // photographs' backrun and the drop's 1.3 R alike.
+  return Math.max(2, Math.min(40, radiusPx * (0.5 + 0.1 * w * (0.15 + 0.85 * l))))
 }
 
 /** The share of the wash's settled paint that a drop of water lifts and
@@ -846,7 +878,7 @@ export const WC_BLOOM_SHARE = 0.65
  *  body's density on top of its own. The share of the interior moved is
  *  worked out from it and the mark's radius, so a broad wash and a thin
  *  line get the same rim rather than the broad one drowning in it. */
-export const WC_TIDE_RIM = 1.4
+export const WC_TIDE_RIM = 2.0
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

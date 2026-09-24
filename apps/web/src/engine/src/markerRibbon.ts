@@ -65,7 +65,11 @@ import type { Dab } from '@grafetto/shared'
 // With one scalar for the whole wash, whichever stroke happened to be first
 // decided the lot — and a wash that opened with clean water rendered its own
 // paint invisible at pen-up.
-const FLOATS_PER_VERTEX = 8 // …, across, inkDeposit*paperWet, inkDeposit*strength
+// (#536, s17.27) Nine: how DEEP the water stands under this segment, 1 for
+// the puddle a brush leaves where it lands (and in a wet wash), less for the
+// film it lays along the stroke. The photographs: a stroke's puddle dries
+// last and leaves a ragged front inside the stroke where it met the film.
+const FLOATS_PER_VERTEX = 9 // …, across, inkDeposit*paperWet, inkDeposit*strength, puddle
 
 /** Which shape the nib actually is. Mirrors DAB_FRAG's markerNibDistPx —
  *  the two must agree, or the bands and the stamps they connect would be built
@@ -255,7 +259,7 @@ export function buildRibbonBands(
    *  Watercolor passes one so its bands share the stamps' normalization and
    *  water depletion — the two overlap almost everywhere, so leaving the bands
    *  on the old scale would let them swamp whatever the stamps expressed. */
-  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number; strength: number },
+  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number; strength: number; puddle?: number },
 ): Float32Array {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
@@ -265,8 +269,9 @@ export function buildRibbonBands(
   let inkWater = 0 // the same deposit, weighted by that segment's own water
   let inkWet = 0 // …and by how wet the paper under it already was (#536)
   let inkStrength = 0 // …and by how strong the paint was (#536)
+  let puddle = 1 // (s17.27) how deep the water stands here
   const push = (x: number, y: number, edge: number, across: number): void => {
-    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength)
+    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength, puddle)
   }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
@@ -325,11 +330,13 @@ export function buildRibbonBands(
       inkWater = ink * got.water
       inkWet = ink * got.paperWet
       inkStrength = ink * got.strength
+      puddle = got.puddle ?? 1
     } else {
       ink = d1.opacity * travel * 0.5
       inkWater = 0
       inkWet = 0
       inkStrength = 0
+      puddle = 1
     }
 
     const steps = poseSubdivisions(

@@ -69,8 +69,8 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
-  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
-  watercolorSpreadBudget, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_MAX_STEPS, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
+  watercolorSpreadBudget, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_MAX_STEPS, WC_FRONT_DRY_COST, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -2330,6 +2330,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonAcrossLoc!: number
   private _ribbonInkWetLoc!: number
   private _ribbonInkStrengthLoc!: number
+  private _ribbonPuddleLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
@@ -5559,7 +5560,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_puddle', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5598,7 +5599,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
-      'u_climb', 'u_floor', 'u_costMax',
+      'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost',
     ])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
@@ -5651,6 +5652,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonAcrossLoc = gl.getAttribLocation(this._ribbonProg, 'a_across')
     this._ribbonInkWetLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWet')
     this._ribbonInkStrengthLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkStrength')
+    this._ribbonPuddleLoc = gl.getAttribLocation(this._ribbonProg, 'a_puddle')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -8305,6 +8307,7 @@ export class PencilEngine implements PencilEngineAPI {
     const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1
     const mottleSeed = strokeSeed ?? [0, 0]
     const excessByDab = new Map<Dab, number>()
+    const puddleByDab = new Map<Dab, number>()
     {
       let prev = prevDab
       let used = scratch.waterUsed
@@ -8364,6 +8367,7 @@ export class PencilEngine implements PencilEngineAPI {
         // moment of landing.
         const excess = profile.waterDepletion ? watercolorStartExcess(pigUsed, landedWet) : 1
         excessByDab.set(dab, excess)
+        puddleByDab.set(dab, watercolorPuddleDepth(pigUsed, landedWet, wetHere))
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
         if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
@@ -8418,6 +8422,7 @@ export class PencilEngine implements PencilEngineAPI {
         waterByDab.set(grown, waterByDab.get(dab) ?? 0)
         pigmentByDab.set(grown, pigmentByDab.get(dab) ?? 1)
         excessByDab.set(grown, excessByDab.get(dab) ?? 1)
+        puddleByDab.set(grown, puddleByDab.get(dab) ?? 1)
         paperWetByDab.set(grown, paperWetByDab.get(dab) ?? 0)
       }
     }
@@ -8428,7 +8433,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
     // which is what the marker and the brush pen get.
     const inkFor = profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number } => {
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number } => {
         // #489: same measure the stamps use, and it has to be the same one —
         // the bands overlap the stamps almost everywhere, so two different
         // readings of "how far in nib units" would show up as a seam.
@@ -8452,6 +8457,7 @@ export class PencilEngine implements PencilEngineAPI {
           water: waterByDab.get(d1) ?? 0,
           paperWet: paperWetByDab.get(d1) ?? 0,
           strength: inkStrength,
+          puddle: puddleByDab.get(d1) ?? 1,
         }
       }
       : undefined
@@ -8475,7 +8481,7 @@ export class PencilEngine implements PencilEngineAPI {
         // diffusion pass gates on. See u_washWater.
         this._drawRibbonNibPass(
           coverage, tile, dab, preset, profile, 6, 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
-          paperWetByDab.get(dab) ?? 0,
+          paperWetByDab.get(dab) ?? 0, 1, [0, 0], null, 0, 0, null, puddleByDab.get(dab) ?? 1,
         )
       }
       if (bands.length) {
@@ -8974,7 +8980,11 @@ export class PencilEngine implements PencilEngineAPI {
     // gathered by the rim's kernel, kept in `mask`.
     const budgetPx = watercolorSpreadBudget(radiusPx, water, landedWet)
     const costMax = budgetPx + 4
-    const frontSteps = Math.min(WC_FRONT_MAX_STEPS, Math.ceil(1.4 * budgetPx))
+    // (§17.27) …plus the mark's radius: the puddle's front starts inside
+    // the footprint and has to cross it before it runs its budget into the
+    // film. At nine steps for a 6 px budget it stopped a third of the way
+    // across a 20 px puddle and the backrun never reached the film.
+    const frontSteps = Math.min(WC_FRONT_MAX_STEPS, Math.ceil(1.4 * budgetPx + radiusPx))
     // A fifth of the radius (the photo's ring: FWHM 0.2 R_front), capped:
     // the mass sits at the front, the tail behind it is what the valleys
     // carry, so the band's depth is what survives a blur, not its darkness.
@@ -8994,7 +9004,13 @@ export class PencilEngine implements PencilEngineAPI {
     // …and a rim wants free water to dry out of: none from a brush that
     // carried none.
     const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
-    const gather: Array<[number, number]> = [radiusPx / 2, radiusPx / 4, radiusPx / 8, 1].map(v => { const s = Math.max(1, Math.round(v)); return [s, s] })
+    // (§17.27) Dyadic strides, 1, 2, 4, 8… up to the mark's radius: a 3x3
+    // binomial at each is the à-trous B-spline, a smooth kernel of reach
+    // ~radius. The old r/2, r/4, r/8, 1 was the same reach with a bumpy
+    // kernel, and on a band one or two texels wide the bumps of the
+    // gathered band divided the moved paint into DOTS along the line.
+    const gather: Array<[number, number]> = []
+    for (let st = 1; st <= Math.max(1, radiusPx / 2) && gather.length < 6; st *= 2) gather.push([st, st])
     const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR): void => {
       dst.beginReplaceDraw()
       gl.useProgram(this._waterFrontProg)
@@ -9008,6 +9024,10 @@ export class PencilEngine implements PencilEngineAPI {
       gl.activeTexture(gl.TEXTURE1)
       gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
       gl.uniform1i(u.u_paperHeightMap, 1)
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
+      gl.uniform1i(u.u_film, 2)
+      gl.uniform1f(u.u_dryCost, WC_FRONT_DRY_COST)
       gl.activeTexture(gl.TEXTURE0)
       gl.uniform2f(u.u_resolution, field.w, field.h)
       gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
@@ -9035,32 +9055,39 @@ export class PencilEngine implements PencilEngineAPI {
           })
         }
       }
-      ops.push(() => { this._fieldOp(field.pressure, mobile, mobile, 10, 0.003, { band: [1 / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
+      ops.push(() => { this._fieldOp(field.pressure, mobile, field.coverage, 10, 0.003, { band: [1 / costMax, standing], size: [(budgetPx - 1) / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
       run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
       ops.push(() => { this._fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax, { d: field.band }); pp.src = field.mask; pp.dst = tmp })
       // Inward over a gentler relief: the band's inner edge follows the
       // valleys a few cells in (the photo's streaks pointing into the light
       // centre), not a third of the way to the middle.
-      run(inSteps, costMaxIn, field.mask, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN)
+      // The first two cells in from the front flat, so the sharp peak of
+      // the deposition profile (mode 6) is a continuous line along the
+      // front - with the relief from the first cell it broke into dots
+      // (the photographs' tideline is a thin unbroken line); the tail
+      // behind it takes the relief and its fingers.
+      run(2, costMaxIn, field.mask, 0, 1)
+      run(inSteps - 2, costMaxIn, field.mask, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN)
       ops.push(() => {
         this._fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
         this._fieldOp(field.coverage, tmp, tmp, 1, 0)
-        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp] })
+        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1] })
         this._fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
-        this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[1] })
-        this._fieldOp(tmp, field.mask, field.mask, 5, 0, { dir: gather[2] })
-        this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[3] })
+        let gs = tmp, gd = field.mask
+        for (let i = 1; i < gather.length; i++) { this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
+        if (gs !== field.mask) this._fieldOp(field.mask, gs, gs, 1, 0)
       })
     }
     // (§17.23) The rim: `share` of `paint` inside the footprint goes to the
     // band. Two free buffers; the result lands in `t2`.
     const rim = (paint: AccumulationBuffer, share: number, t1: AccumulationBuffer, t2: AccumulationBuffer, tide = false): void => {
       this._fieldOp(t1, paint, paint, 7, share, { d: field.band })
-      this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[0] })
-      this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[1] })
-      this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[2] })
-      this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[3] })
-      this._fieldOp(t2, paint, t1, tide ? 14 : 8, share, { c: field.mask, d: field.band })
+      let gs = t1, gd = t2
+      for (let i = 0; i < gather.length; i++) { this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
+      // The gathered paint is in gs; the sum lands in t2, so the other is
+      // its scratch.
+      if (gs === t2) { this._fieldOp(t1, gs, gs, 1, 0); gs = t1 }
+      this._fieldOp(t2, paint, gs, tide ? 14 : 8, share, { c: field.mask, d: field.band })
     }
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
@@ -9502,6 +9529,9 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536, s17.19) Ink mode into the colour record: the paint's absorption
      *  per channel; null writes the deposit as always. */
     depthTau: readonly [number, number, number] | null = null,
+    /** (s17.27) How deep the water stands under this dab — see
+     *  watercolorPuddleDepth. Only the coverage stamp reads it. */
+    puddle = 1,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -9559,6 +9589,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_inkWater, inkWater)
     gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
     gl.uniform1f(u.u_paperWet, paperWet)
+    gl.uniform1f(u.u_puddle, puddle)
     // (#536, s17.11/13) What this stroke delivers and what dry paper keeps of
     // it — the mix's water, not this dab's depleted load — into the record of
     // standing water the diffusion pass gates on. See u_washWater.
@@ -9604,6 +9635,7 @@ export class PencilEngine implements PencilEngineAPI {
       local[i + 5] = bands[i + 5]
       local[i + 6] = bands[i + 6]
       local[i + 7] = bands[i + 7]
+      local[i + 8] = bands[i + 8]
     }
 
     if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
@@ -9639,6 +9671,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._ribbonInkWetLoc, 1, gl.FLOAT, false, stride, 24)
     gl.enableVertexAttribArray(this._ribbonInkStrengthLoc)
     gl.vertexAttribPointer(this._ribbonInkStrengthLoc, 1, gl.FLOAT, false, stride, 28)
+    gl.enableVertexAttribArray(this._ribbonPuddleLoc)
+    gl.vertexAttribPointer(this._ribbonPuddleLoc, 1, gl.FLOAT, false, stride, 32)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 
