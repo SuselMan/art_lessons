@@ -394,6 +394,39 @@ export type Room = {
   // following student switches to. Absent means the lesson's own first board.
   // Set only on a lesson (and overlaid onto its boards, see `lessonId`).
   activeBoardId?: string
+  // (#595, ADR 015) Set together on a *personal board* — a student's own page
+  // in one assignment round — and absent on every other room. Only this
+  // student and the teacher (the lesson's owner) may draw on it; the server
+  // refuses anyone else with `board_not_yours`.
+  assignmentId?: string
+  boardOwnerId?: string
+  // (#595) Lesson only (overlaid onto its boards like `activeBoardId`): who
+  // sees a student's personal board besides the student and the teacher.
+  // Absent on rows the server builds by hand; `teacher_only` is the default.
+  classVisibility?: ClassVisibility
+}
+
+/** (#595, ADR 015 §3) Whether students see each other's personal boards.
+ *  `teacher_only` — only the teacher and the board's own student; `class` —
+ *  everyone in the lesson may look (and only look: drawing stays the student's
+ *  and the teacher's). Spelled as the Postgres enum, like `RoomAccessMode`. */
+export type ClassVisibility = 'teacher_only' | 'class'
+
+export const CLASS_VISIBILITIES: readonly ClassVisibility[] = ['teacher_only', 'class']
+
+export function isClassVisibility(value: unknown): value is ClassVisibility {
+  return typeof value === 'string' && (CLASS_VISIBILITIES as readonly string[]).includes(value)
+}
+
+/** (#595, ADR 015 §2) One round of work in class. Its personal boards are the
+ *  `BoardSummary` entries carrying its id. `endedAt` is set once the teacher
+ *  has called everyone back ("Все ко мне"); the boards stay. */
+export type AssignmentSummary = {
+  id: string
+  name: string
+  order: number
+  createdAt: string
+  endedAt?: string
 }
 
 // (#176, ADR 014) One entry of a lesson's board strip — what the client needs
@@ -405,19 +438,41 @@ export type BoardSummary = {
   name: string
   order: number
   // Same cache-busting key `Room.thumbnailUpdatedAt` is; absent until the
-  // board has been baked once. As of the moment the list was built: a
-  // thumbnail uploaded since is not announced live.
+  // board has been baked once. Kept current by `board_thumbnail_updated`
+  // (#595) for everyone who may see the board.
   thumbnailUpdatedAt?: string
+  // (#595) Set on a personal board only — see `Room.assignmentId`. Personal
+  // boards are not pages of the lesson's strip: they have their own grid, and
+  // their `order` is meaningless.
+  assignmentId?: string
+  ownerId?: string
 }
 
 /** The lesson half of a board's `room_state` (#176): which lesson this board
  *  belongs to, every board in it, and the one the teacher is on. `id` is the
- *  lesson's id — for a room with a single board it equals `room.id`. */
+ *  lesson's id — for a room with a single board it equals `room.id`.
+ *
+ *  (#595) Built *for its recipient*: `boards` holds every shared board, and
+ *  of the personal ones only those this person may see (their own, all of
+ *  them for the teacher, all of them under `classVisibility: 'class'`, and the
+ *  one in the spotlight). Which is why it arrives on its own as `lesson_state`
+ *  whenever that set changes, rather than as a broadcast delta. */
 export type LessonState = {
   id: string
   boards: BoardSummary[]
   // Null means the lesson's own first board — see `Room.activeBoardId`.
   activeBoardId: string | null
+  // (#595, ADR 015) Every assignment round of this lesson, in order.
+  assignments: AssignmentSummary[]
+  // The round in progress; null when there is none. While it is set, a
+  // following student is on their own board in it (see the web's followTarget).
+  activeAssignmentId: string | null
+  // The personal board the teacher is showing everyone; null when none. A
+  // following student is on it while it is set, whatever else is going on.
+  spotlightBoardId: string | null
+  classVisibility: ClassVisibility
+  // Who has a hand up, by userId. Live only, never persisted — like freeze.
+  handsRaised: string[]
 }
 
 // (#226) Everything the access panel (#228) shows about one room, fetched in
@@ -1762,6 +1817,10 @@ export type JoinDenial =
   | 'login_required'
   | 'pending_approval'
   | 'server_busy'
+  // (#595) A student's personal board, and this person is neither that
+  // student nor the teacher, and the lesson does not show work to the class.
+  // Only ever the answer for a board of a lesson the caller is already in.
+  | 'board_not_visible'
 
 export type JoinResult =
   | { ok: true; userId: string }
@@ -1894,6 +1953,10 @@ export type RejectReason =
   // closing is a state the lesson is in — different UI, different wording,
   // and only one of them survives a server restart.
   | 'room_closed'
+  // (#595, ADR 015 §3) A student's personal board, and the sender is neither
+  // that student nor the teacher. Final, like `room_closed`: nothing the
+  // sender can wait out.
+  | 'board_not_yours'
   // The operation references a layerId/folderId no longer in the room's
   // alive set (deleted or consumed by a merge) — see rooms.ts's aliveIds.
   | 'target_gone'
@@ -2089,7 +2152,30 @@ export type ServerToClientEvents = {
   // `room_state` for it before this arrives; the client is free to `join_room`
   // whichever board it would rather be on.
   board_deleted: (data: { boardId: string }) => void
+
+  // (#595, ADR 015 §4) Class mode.
+
+  // The lesson half of `room_state`, alone, rebuilt for this recipient. Sent
+  // to each socket in the lesson whenever *which boards it may see* can have
+  // changed: an assignment started or ended, the spotlight moved, the
+  // visibility setting changed, a latecomer's board was made. Authoritative —
+  // replaces the client's strip, assignments, spotlight and visibility.
+  lesson_state: (data: { lesson: LessonState }) => void
+  // A hand went up or down. On the lesson channel: a raised hand is not
+  // private, the class sees it just as it would in a room.
+  participant_hand_changed: (data: { userId: string; raised: boolean }) => void
+  // A board's preview was re-uploaded. Only to the sockets that may see the
+  // board (a student's work is not announced to classmates under
+  // `teacher_only`). Before this the strip only ever had the pictures that
+  // existed when the lesson was opened.
+  board_thumbnail_updated: (data: { boardId: string; updatedAt: string }) => void
 }
+
+/** (#595) `assignment_start`'s answer. `already_running`: one round at a
+ *  time, the previous one has to be ended ("Все ко мне") first. */
+export type AssignmentStartResult =
+  | { ok: true; assignment: AssignmentSummary }
+  | { ok: false; error: 'not_owner' | 'already_running' | 'server_error' }
 
 export type ClientToServerEvents = {
   /** Registers a new room and joins the calling socket as its `owner` —
@@ -2097,7 +2183,7 @@ export type ClientToServerEvents = {
    *  regardless of when other participants subsequently call `join_room`. */
   create_room: (
     data: {
-      room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'>
+      room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools' | 'classVisibility'>
       password?: string
       // (#232) Who may enter, decided at creation rather than only afterwards
       // through the access panel. Omitted means `anyone_with_link`, which is
@@ -2177,6 +2263,25 @@ export type ClientToServerEvents = {
   // the teacher's board, and broadcast as `active_board_changed`. Ignored for
   // an id that is not a board of this lesson.
   set_active_board: (data: { boardId: string | null }) => void
+
+  // (#595, ADR 015 §4) Class mode. All but `set_hand_raised` are
+  // teacher-only (the lesson's owner), checked server-side like every owner
+  // control.
+
+  // Hands out a round: a new assignment and a blank personal board for every
+  // student in the lesson right now. `name` is what the grid is titled; the
+  // client sends a localised default.
+  assignment_start: (data: { name: string }, ack: (result: AssignmentStartResult) => void) => void
+  // "Все ко мне": ends the round in progress and clears the spotlight. The
+  // students' boards stay theirs.
+  assignment_end: () => void
+  // Shows one personal board of the running round to the whole class, or
+  // (null) stops showing it.
+  set_spotlight: (data: { boardId: string | null }) => void
+  // A student's own hand; the teacher may lower (or raise) anyone's by
+  // naming them. Ignored for anyone else naming someone else.
+  set_hand_raised: (data: { raised: boolean; userId?: string }) => void
+  set_class_visibility: (data: { value: ClassVisibility }) => void
 }
 
 // Hotkeys

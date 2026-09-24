@@ -14,7 +14,8 @@ describe('resetBoardState (#176)', () => {
     // Lesson (roomSlice) — survives.
     s.setUserId('teacher')
     s.setPalette(['#123456'])
-    s.setLesson({ id: 'L', boards: [{ id: 'L', name: 'Cube', order: 0 }, { id: 'B2', name: 'Cube 2', order: 1 }], activeBoardId: 'B2' })
+    s.setLesson({ id: 'L', boards: [{ id: 'L', name: 'Cube', order: 0 }, { id: 'B2', name: 'Cube 2', order: 1 }], activeBoardId: 'B2',
+      assignments: [], activeAssignmentId: null, spotlightBoardId: null, classVisibility: 'teacher_only', handsRaised: [] })
     s.setBoardId('B2')
     s.setFollowing(false)
     s.applyParticipantAction({ type: 'peer_joined', participant: { userId: 'x', name: 'X', role: 'member', color: '#fff', frozen: false, boardId: 'L' } })

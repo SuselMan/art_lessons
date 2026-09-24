@@ -13,9 +13,9 @@ import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import {
-  evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData,
+  announceBoardThumbnail, evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData,
 } from './socketHandlers.js'
-import { flushAllRoomWrites, pendingWriteCount } from './rooms.js'
+import { flushAllRoomWrites, noteBoardThumbnail, pendingWriteCount } from './rooms.js'
 import { disconnectAllClients } from './shutdown.js'
 import { prisma } from './prisma.js'
 import { identityHook } from './identity.js'
@@ -164,7 +164,14 @@ registerBoardRoutes(app, {
     app.log.error({ err, lessonId, boardId }, 'failed to move sockets off a deleted board')),
 })
 registerSnapshotRoutes(app)
-registerThumbnailRoutes(app)
+// (#595) A stored preview is announced live to whoever may see that board —
+// the strip and the class grid both refresh from it.
+registerThumbnailRoutes(app, (boardId, updatedAt) => {
+  const lessonId = noteBoardThumbnail(boardId, updatedAt)
+  if (!lessonId) return
+  void announceBoardThumbnail(io, lessonId, boardId, updatedAt).catch(err =>
+    app.log.error({ err, lessonId, boardId }, 'failed to announce a board thumbnail'))
+})
 // (#586, #587) The admin panel. It reads the live socket list and closes a
 // banned person's sockets, hence the two callbacks over `io`.
 registerAdminRoutes(app, {
