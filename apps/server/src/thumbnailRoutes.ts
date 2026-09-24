@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
-import { getParticipant } from './rooms.js'
-import { lessonOf } from './lessons.js'
+import { canSeeResidentBoard, getParticipant } from './rooms.js'
+import { canSeeBoard, lessonOf } from './lessons.js'
 
 /** (#176) The two persisted checks below are about *membership*, and
  *  membership is the lesson's: a `RoomParticipant` row is only ever written
@@ -13,13 +13,18 @@ import { lessonOf } from './lessons.js'
  *  are read instead. */
 async function persistedMembership(
   roomId: string, userId: string,
-): Promise<{ lessonId: string; ownerId: string; participates: boolean } | null> {
+): Promise<{ lessonId: string; ownerId: string; participates: boolean; visible: boolean } | null> {
   const room = await prisma.room.findUnique({
     where: { id: roomId },
     select: {
-      ownerId: true, lessonId: true,
+      ownerId: true, lessonId: true, boardOwnerId: true,
       participants: { where: { userId }, select: { userId: true } },
-      lesson: { select: { participants: { where: { userId }, select: { userId: true } } } },
+      lesson: {
+        select: {
+          classVisibility: true, spotlightBoardId: true,
+          participants: { where: { userId }, select: { userId: true } },
+        },
+      },
     },
   })
   if (!room) return null
@@ -28,6 +33,13 @@ async function persistedMembership(
     lessonId: lessonOf({ id: roomId, lessonId: room.lessonId }),
     ownerId: room.ownerId,
     participates: participants.length > 0,
+    // (#595) A classmate's personal board is out of bounds unless the lesson
+    // shows work to the class — the same rule the socket applies, read off
+    // the rows. `ownerId` is the lesson's on every board (boardRoutes.ts).
+    visible: canSeeBoard(userId, {
+      board: { id: roomId, boardOwnerId: room.boardOwnerId },
+      lesson: { ownerId: room.ownerId, classVisibility: room.lesson?.classVisibility, spotlightBoardId: room.lesson?.spotlightBoardId },
+    }),
   }
 }
 
@@ -51,7 +63,7 @@ async function persistedMembership(
  *  able to *overwrite* it is not. */
 async function hasPersistedRoomAccess(roomId: string, userId: string): Promise<boolean> {
   const membership = await persistedMembership(roomId, userId)
-  if (!membership) return false
+  if (!membership || !membership.visible) return false
   return membership.ownerId === userId || membership.participates
 }
 
@@ -77,7 +89,7 @@ async function hasPersistedRoomAccess(roomId: string, userId: string): Promise<b
  *  everyone's lesson list. */
 async function hasPersistedUploadAccess(roomId: string, userId: string): Promise<boolean> {
   const membership = await persistedMembership(roomId, userId)
-  if (!membership) return false
+  if (!membership || !membership.visible) return false
   // The owner is exempt from their own block list for the same reason
   // roomAccess.ts's join gate exempts them: a room whose owner can be locked
   // out of it is a room that can be stolen.
@@ -103,6 +115,79 @@ const MAX_THUMBNAIL_DIMENSION_PX = 800
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 // Signature (8) + IHDR chunk's length (4) + type (4) + width (4) + height (4).
 const MIN_PNG_HEADER_BYTES = 24
+
+const WEBP_MIN_HEADER_BYTES = 30
+
+/** (#595) The WebP counterpart of `sniffPng` below, for the cheap live preview
+ *  (engine.bakePreview). Same standing: not a decoder, just enough of the
+ *  container — `RIFF`, size, `WEBP`, then the first chunk — to read the
+ *  canvas size and refuse anything that isn't a plausibly-sized WebP. The
+ *  three chunk kinds a browser encoder can open with each keep the size in a
+ *  different place (RFC 9649 §2.5–2.7). */
+function sniffWebp(buffer: Buffer): { ok: true; width: number; height: number } | { ok: false } {
+  if (buffer.length < WEBP_MIN_HEADER_BYTES) return { ok: false }
+  if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') return { ok: false }
+  const chunk = buffer.toString('ascii', 12, 16)
+  let width: number
+  let height: number
+  if (chunk === 'VP8X') {
+    width = 1 + buffer.readUIntLE(24, 3)
+    height = 1 + buffer.readUIntLE(27, 3)
+  } else if (chunk === 'VP8L') {
+    if (buffer[20] !== 0x2f) return { ok: false }
+    const bits = buffer.readUInt32LE(21)
+    width = 1 + (bits & 0x3fff)
+    height = 1 + ((bits >> 14) & 0x3fff)
+  } else if (chunk === 'VP8 ') {
+    if (buffer[23] !== 0x9d || buffer[24] !== 0x01 || buffer[25] !== 0x2a) return { ok: false }
+    width = buffer.readUInt16LE(26) & 0x3fff
+    height = buffer.readUInt16LE(28) & 0x3fff
+  } else {
+    return { ok: false }
+  }
+  if (width <= 0 || height <= 0 || width > MAX_THUMBNAIL_DIMENSION_PX || height > MAX_THUMBNAIL_DIMENSION_PX) {
+    return { ok: false }
+  }
+  return { ok: true, width, height }
+}
+
+/** Which image a thumbnail upload is, by its bytes — never by a header the
+ *  client chose. Null for anything else. */
+export function sniffThumbnail(buffer: Buffer): 'image/png' | 'image/webp' | null {
+  if (sniffPng(buffer).ok) return 'image/png'
+  if (sniffWebp(buffer).ok) return 'image/webp'
+  return null
+}
+
+/** (#595, ADR 015 §4) At most one stored preview per board per this many ms.
+ *  The class grid is the first thing that uploads often on purpose (a
+ *  student's tablet every few seconds while they draw), and #324 left this
+ *  route unlimited until something did. Excess is answered 429 and the
+ *  client drops it silently — the next one is seconds away. In memory, like
+ *  every other limit here: one process, and a restart forgetting it is fine. */
+export const THUMBNAIL_MIN_INTERVAL_MS = 3000
+const lastThumbnailAt = new Map<string, number>()
+
+function thumbnailTooSoon(roomId: string, now: number): boolean {
+  const last = lastThumbnailAt.get(roomId)
+  if (last !== undefined && now - last < THUMBNAIL_MIN_INTERVAL_MS) return true
+  lastThumbnailAt.set(roomId, now)
+  // Keeps the map from growing without bound over a long uptime: anything
+  // older than the window is no longer limiting anybody.
+  if (lastThumbnailAt.size > 10_000) {
+    for (const [id, at] of lastThumbnailAt) if (now - at >= THUMBNAIL_MIN_INTERVAL_MS) lastThumbnailAt.delete(id)
+  }
+  return false
+}
+
+/** Test seam: forget every board's last upload. */
+export function _resetThumbnailLimit(): void {
+  lastThumbnailAt.clear()
+}
+
+/** (#595) Told after every stored preview, so the lesson can refresh the
+ *  picture live (index.ts wires it to the socket side). */
+export type ThumbnailNotifier = (roomId: string, updatedAt: string) => void
 
 /** Manual PNG-header sniff — deliberately not a real decoder (no new
  *  dependency, see .claude/rules.md's "no deps without a clear reason"): just
@@ -141,7 +226,7 @@ function sniffPng(buffer: Buffer): { ok: true; width: number; height: number } |
  *  without a guard, a plain HTTP client could read or overwrite a
  *  password-protected room's thumbnail by guessing its id, bypassing the
  *  socket-level password check entirely. */
-export function registerThumbnailRoutes(app: FastifyInstance): void {
+export function registerThumbnailRoutes(app: FastifyInstance, notify?: ThumbnailNotifier): void {
   app.post<{ Params: { roomId: string }; Body: { data: string } }>(
     '/api/rooms/:roomId/thumbnail',
     { bodyLimit: THUMBNAIL_UPLOAD_BODY_LIMIT_BYTES },
@@ -153,7 +238,11 @@ export function registerThumbnailRoutes(app: FastifyInstance): void {
       // is still queued (rooms.ts's `enqueueWrite` — it is fire-and-forget, so
       // a live participant can briefly have no row yet). The persisted check
       // is the exit path's fallback; see hasPersistedUploadAccess.
-      if (!getParticipant(roomId, request.userId) && !(await hasPersistedUploadAccess(roomId, request.userId))) {
+      // (#595) The live branch now also asks whether this person may see the
+      // board at all: being in the lesson is no longer being allowed at every
+      // board of it (a classmate's personal board).
+      const live = getParticipant(roomId, request.userId) !== undefined && canSeeResidentBoard(roomId, request.userId)
+      if (!live && !(await hasPersistedUploadAccess(roomId, request.userId))) {
         return reply.code(403).send({ error: 'forbidden' })
       }
 
@@ -167,18 +256,25 @@ export function registerThumbnailRoutes(app: FastifyInstance): void {
         return reply.code(400).send({ error: 'bad_request' })
       }
 
-      if (!sniffPng(buffer).ok) return reply.code(400).send({ error: 'invalid_png' })
+      // `invalid_png` kept as the code for anything unrecognised: older
+      // clients read it, and it still says what went wrong.
+      const contentType = sniffThumbnail(buffer)
+      if (!contentType) return reply.code(400).send({ error: 'invalid_png' })
+      // After validation, so a malformed upload does not use up the window.
+      if (thumbnailTooSoon(roomId, Date.now())) return reply.code(429).send({ error: 'rate_limited' })
 
       // Copied into a fresh, plain-ArrayBuffer-backed Uint8Array — same
       // reason as rooms.ts's saveSnapshot: Prisma's generated Bytes-field
       // type is narrower than Buffer's own (SharedArrayBuffer-compatible)
       // backing type, so a straight pass-through doesn't typecheck.
       const bytes = new Uint8Array(buffer)
-      await prisma.roomThumbnail.upsert({
+      const stored = await prisma.roomThumbnail.upsert({
         where: { roomId },
-        create: { roomId, data: bytes },
-        update: { data: bytes },
+        create: { roomId, data: bytes, contentType },
+        update: { data: bytes, contentType },
+        select: { updatedAt: true },
       })
+      notify?.(roomId, stored.updatedAt.toISOString())
       return { ok: true }
     },
   )
@@ -189,7 +285,7 @@ export function registerThumbnailRoutes(app: FastifyInstance): void {
 
     const thumbnail = await prisma.roomThumbnail.findUnique({
       where: { roomId },
-      select: { data: true, updatedAt: true },
+      select: { data: true, contentType: true, updatedAt: true },
     })
     if (!thumbnail) return reply.code(404).send({ error: 'not_found' })
 
@@ -200,7 +296,7 @@ export function registerThumbnailRoutes(app: FastifyInstance): void {
     if (request.headers['if-none-match'] === etag) return reply.code(304).send()
 
     reply
-      .header('Content-Type', 'image/png')
+      .header('Content-Type', thumbnail.contentType)
       // Private (never a shared/CDN cache — this can be a password-protected
       // room's content) and short-lived: the client re-POSTs periodically, so
       // a long max-age would just mean stale room-card previews.

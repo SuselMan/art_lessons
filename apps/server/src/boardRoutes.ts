@@ -82,7 +82,9 @@ async function requireOwnedLesson(
  *  from whatever a client last saw. */
 async function loadStrip(lessonId: string): Promise<BoardSummary[]> {
   const rows = await prisma.room.findMany({
-    where: { OR: [{ id: lessonId }, { lessonId }] },
+    // (#595) Pages of the lesson only: a student's personal board is not in
+    // the strip, and its `boardOrder` means nothing (classMode.ts).
+    where: { OR: [{ id: lessonId }, { lessonId, assignmentId: null }] },
     orderBy: { boardOrder: 'asc' },
     select: { id: true, name: true, boardOrder: true, thumbnail: { select: { updatedAt: true } } },
   })
@@ -107,7 +109,7 @@ export function registerBoardRoutes(app: FastifyInstance, notify?: BoardNotifier
     // persistRoomCreate is fire-and-forget); the FK below needs it landed.
     await flushRoomWrites(lesson.id)
 
-    const last = await prisma.room.aggregate({ where: { lessonId: lesson.id }, _max: { boardOrder: true } })
+    const last = await prisma.room.aggregate({ where: { lessonId: lesson.id, assignmentId: null }, _max: { boardOrder: true } })
     const boardOrder = (last._max.boardOrder ?? 0) + 1
     // Default name: the lesson's, numbered — locale-neutral, and what the
     // strip would show for an unnamed page anyway. The client can rename.

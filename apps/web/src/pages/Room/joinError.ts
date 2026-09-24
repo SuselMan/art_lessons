@@ -32,6 +32,9 @@ export function joinGateStateFor(reason: JoinFailureReason): 'login' | 'pending'
     // попробовать снова, а форма и есть кнопка «снова». Отдельный экран
     // отнял бы её ради сообщения, которое и так помещается в строку.
     case 'server_busy': return null
+    // (#595) Only ever asked for a board of a lesson one is already in — a
+    // page turn, not an entrance. The page stays where it was.
+    case 'board_not_visible': return null
   }
 }
 
@@ -58,6 +61,9 @@ export function canRetryJoinLater(reason: JoinFailureReason): boolean {
     // Resolves on its own, but by someone else's action and through
     // `join_request_resolved` — not by this client asking again.
     case 'pending_approval': return false
+    // (#595) Changes only when the teacher changes the lesson's visibility,
+    // and that arrives on its own as `lesson_state`.
+    case 'board_not_visible': return false
   }
 }
 
@@ -86,5 +92,7 @@ export function describeJoinError(reason: JoinFailureReason, t: TFunction): stri
     // ничего не сделал не так, и через минуту всё получится.
     case 'server_busy':
       return t('join.error.serverBusy')
+    case 'board_not_visible':
+      return t('join.error.boardNotVisible')
   }
 }

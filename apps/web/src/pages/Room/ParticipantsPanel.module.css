@@ -271,3 +271,22 @@
   color: var(--color-warning);
   background: color-mix(in srgb, var(--color-warning) 16%, transparent);
 }
+
+/* (#595) The row's own icon buttons — a raised hand, the way to a student's
+   work — the same footprint as the "⋮" beside them. */
+.rowIconBtn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+}
+button.rowIconBtn:hover { color: var(--color-text); background: var(--color-surface-2); }
+.rowIconBtn :global(.material-symbols-outlined) { font-size: 17px; }
+
+/* A raised hand is the one thing in the list asking for the teacher. */
+.hand { color: var(--color-warning); }
+button.hand:hover { color: var(--color-warning); }

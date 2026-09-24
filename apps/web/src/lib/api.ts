@@ -1,5 +1,7 @@
 import type { BoardSummary, Room, RoomAccessInfo, RoomAccessMode, RoomFolder, RoomInvite } from '@grafetto/shared'
 
+import { BANNED_ERROR_CODE, noteBanned } from './banned'
+
 // Same-origin: the Vite dev server proxies /api to apps/server (see
 // vite.config.ts) — needed because the dev server runs https (for
 // AudioWorklet on LAN, #153) while the backend stays plain http, and a
@@ -26,7 +28,7 @@ export class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include', // ships the identity cookie (#41) cross-origin
     // Only sent when there's a body — Fastify's JSON body parser rejects a
@@ -43,6 +45,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       && typeof body.retryAfterSeconds === 'number'
       ? body.retryAfterSeconds
       : undefined
+    // (#587) Whichever request hears it first tells the whole app — see
+    // lib/banned.ts.
+    if (res.status === 403 && code === BANNED_ERROR_CODE) noteBanned()
     throw new ApiError(res.status, code, retryAfter)
   }
   return res.json()

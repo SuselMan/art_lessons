@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client'
 
 import { forkSeedUserId, type Operation } from '@grafetto/shared'
 import { prisma } from './prisma.js'
-import { isLesson, lessonOf } from './lessons.js'
+import { canSeeBoard, isLesson, lessonOf } from './lessons.js'
 import { toWireRoom } from './roomMapper.js'
 import { flushRoomWrites, residentOperationWhere } from './rooms.js'
 
@@ -337,12 +337,20 @@ export function registerForkRoutes(app: FastifyInstance): void {
     // board found a moment before its lesson's delete landed can.
     if (!lesson) return reply.code(404).send({ error: 'not_found' })
     if (!membership && lesson.ownerId !== userId) return reply.code(403).send({ error: 'forbidden' })
+    // (#595) «Взять в работу» from a classmate's personal board is taking a
+    // copy of work the lesson does not show you. The same rule as looking.
+    if (scope === 'board' && !canSeeBoard(userId, { board: source, lesson })) {
+      return reply.code(403).send({ error: 'forbidden' })
+    }
 
     // Which boards travel. For a lesson fork the given id may be any board of
     // it — the whole lesson goes either way, lesson first so the boards'
     // `lessonId` has a row to point at when they are written.
     const sourceBoards: SourceBoard[] = scope === 'lesson'
-      ? [lesson, ...await prisma.room.findMany({ where: { lessonId: lesson.id }, orderBy: { boardOrder: 'asc' } })]
+      // (#595, ADR 015 §7) The lesson's pages only. Assignments and personal
+      // boards are one class's work on one day, not part of the lesson as a
+      // template.
+      ? [lesson, ...await prisma.room.findMany({ where: { lessonId: lesson.id, assignmentId: null }, orderBy: { boardOrder: 'asc' } })]
       : [source]
 
     const forkId = randomUUID().slice(0, 12)

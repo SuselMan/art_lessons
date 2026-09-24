@@ -185,8 +185,9 @@ export function BoardStrip({
 }
 
 interface TeacherChipProps {
-  /** The teacher's board, for its name. */
-  board: BoardSummary | undefined
+  /** What the chip says — where following would take this student (#595:
+   *  the teacher's board, their own work, or a work being shown to all). */
+  text: string
   /** Whether the strip is open below the header, so the chip moves out of
    *  its way. */
   stripOpen: boolean
@@ -197,9 +198,8 @@ interface TeacherChipProps {
  *  another board by hand. One tap goes to the teacher's board and switches
  *  following back on; the chip is the only way back into following, which is
  *  why it is a chip and not a line in a panel. */
-export function TeacherChip({ board, stripOpen, onReturn }: TeacherChipProps) {
+export function TeacherChip({ text, stripOpen, onReturn }: TeacherChipProps) {
   const t = useT()
-  if (!board) return null
   return (
     <button
       type="button"
@@ -208,7 +208,7 @@ export function TeacherChip({ board, stripOpen, onReturn }: TeacherChipProps) {
       title={t('boards.returnToTeacher')}
     >
       <Icon name="school" />
-      <span className={styles.chipText}>{t('boards.teacherOn', { name: board.name })}</span>
+      <span className={styles.chipText}>{text}</span>
     </button>
   )
 }

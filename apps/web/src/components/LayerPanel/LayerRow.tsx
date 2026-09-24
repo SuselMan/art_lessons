@@ -79,6 +79,24 @@ export interface LayerRowProps {
    *  Photoshop/Krita gesture, for a mouse) and a long press on the eye (for a
    *  finger, where there is no Alt). */
   onSolo?: (id: string) => void
+  /** Colours of the peers drawing into this row right now (for a collapsed
+   *  folder: anywhere inside it). Drawn as a soft pulsing outline, one ring
+   *  per peer, so the teacher can see where a student is working without
+   *  finding their cursor on the canvas first. */
+  drawerColors?: readonly string[]
+}
+
+/** Past three rings the outline stops reading as rings and starts eating the
+ *  row; three people on one layer is already the unusual case. */
+const MAX_DRAWER_RINGS = 3
+const DRAWER_RING_PX = 2
+
+/** Nested inset rings, the first peer innermost — box-shadows paint in list
+ *  order, so each wider ring shows only as the band outside the one before. */
+function drawerRings(colors: readonly string[]): string {
+  return colors.slice(0, MAX_DRAWER_RINGS)
+    .map((c, i) => `inset 0 0 0 ${(i + 1) * DRAWER_RING_PX}px ${c}`)
+    .join(', ')
 }
 
 function LayerRowImpl({
@@ -88,7 +106,7 @@ function LayerRowImpl({
   editing = false, onStartEditing, onStopEditing,
   onToggleCollapse, onMergeDown, onDuplicate, onClear, onFilters, onDelete,
   onPointerDown, onPointerUp, onPointerMove,
-  selectionMode = false, onToggleSelected,
+  selectionMode = false, onToggleSelected, drawerColors,
 }: LayerRowProps) {
   const t = useT()
   const nameRef = useRef<HTMLInputElement>(null)
@@ -162,6 +180,13 @@ function LayerRowImpl({
       onPointerCancel={onPointerUp}
       onPointerMove={onPointerMove}
     >
+      {drawerColors && drawerColors.length > 0 && (
+        <span
+          className={styles.drawerOutline}
+          style={{ boxShadow: drawerRings(drawerColors) }}
+          aria-hidden="true"
+        />
+      )}
       {/* (#411) A checkbox in selection mode. Deliberately *additive* rather
           than replacing the grip: dragging a whole selection is the point of
           #413, so the handle has to survive the mode that builds the

@@ -316,6 +316,7 @@ export const en = {
   'join.error.accessRevoked': 'The host has removed your access to this project.',
   'join.error.loginRequired': 'This project is invite-only. Sign in with the address you were invited by.',
   'join.error.pendingApproval': 'Your request to join has been sent to the host. This page will let you in once they approve it.',
+  'join.error.boardNotVisible': "This is a classmate's work, and the teacher hasn't opened the class's work to everyone.",
   'join.error.serverBusy': 'The server is at capacity right now. Wait a moment and try again — nothing of yours is lost.',
 
   // ── no WebGL (#570) ────────────────────────────────────────────────────
@@ -344,6 +345,12 @@ export const en = {
   'notFound.body': "The address doesn't lead anywhere in Grafetto. If it came from someone else, ask them for the link again — a room link looks like grafetto.com/room/… and nothing more.",
   'notFound.toLessons': 'Go to my projects',
   'notFound.create': 'Start a new project',
+  // (#587) Shown instead of the whole app when the server refuses this
+  // account. No "write to us" line: there is no support address yet, and
+  // naming one that bounces is worse than naming none.
+  'banned.heading': 'This account has been blocked',
+  'banned.body': 'Access to Grafetto has been suspended for this account.',
+  'banned.reload': 'Reload',
 
   // ── project: header & canvas actions ───────────────────────────────────
   'room.home': 'Grafetto — leave this project',
@@ -396,6 +403,7 @@ export const en = {
   'room.panel.color': 'Color',
   'room.panel.toolSettings': 'Tool settings',
   'room.panel.participants': 'Participants',
+  'room.panel.class': 'Class',
   'room.noToolSettings': 'This tool has no settings yet.',
   'room.nibAngle': 'Nib angle',
 
@@ -477,6 +485,53 @@ export const en = {
   'boards.error.rename': 'Could not rename the board',
   'boards.error.reorder': 'Could not move the board',
   'boards.error.delete': 'Could not delete the board',
+  // (#595, ADR 015) Class mode: assignment rounds, the class grid, hands.
+  'class.title': 'Class',
+  'class.places': 'Where the class is',
+  'class.myBoards': 'My boards',
+  'class.here': 'Class is here',
+  'class.atTeacher': 'With me',
+  'class.teacherBoard': "Teacher's board",
+  'class.gather': 'Everyone to me',
+  'class.sendHere': 'Send everyone here',
+  'class.newAssignment': 'New assignment',
+  'class.toMyWork': 'To my work',
+  'class.allWorks': 'All works',
+  'class.allWorksOf': 'All works: {name}',
+  'class.shownToAll': 'Shown to everyone: {name}',
+  'class.lowerHandOf': "Lower {name}'s hand",
+  'class.openWorkOf': "Open {name}'s work",
+  'class.handsBadge': 'raised hands: {n}',
+  'class.defaultName': 'Assignment {n}',
+  'class.assignmentName': 'Assignment name',
+  'class.start': 'Hand out',
+  'class.startHint': 'Every student in the lesson gets a blank board of their own and goes to it. Anyone absent now gets one when you send the class back here.',
+  'class.spotlight': 'Show everyone',
+  'class.spotlightOff': 'Stop showing',
+  'class.spotlightOn': 'Shown to everyone',
+  'class.handRaised': 'Hand raised',
+  'class.raiseHand': 'Raise hand',
+  'class.lowerHand': 'Lower hand',
+  'class.present': 'In the lesson',
+  'class.absent': 'Not in the lesson',
+  'class.notStarted': 'Nothing yet',
+  'class.updatedJustNow': 'updated just now',
+  'class.updatedMinutes': 'updated {n} min ago',
+  'class.noStudents': 'There were no students in the lesson when this was handed out. Anyone who joins now gets a board.',
+  'class.barLabel': "{name}'s board",
+  'class.previous': 'Previous student',
+  'class.next': 'Next student',
+  'class.editInWork': 'Edit the work',
+  'class.editInWorkHint': "Off: what you draw is a remark over the work. On: you draw in the student's own layers.",
+  'class.chipOwnWork': 'Back to your work',
+  'class.chipSpotlight': "The teacher is showing {name}'s work",
+  'class.teacherWatching': 'The teacher is looking at your work',
+  'class.readOnly': "{name}'s work — you can look, not draw",
+  'class.backToOwn': 'To my work',
+  'class.error.start': 'Could not hand out the assignment',
+  'class.visibility.heading': 'Work in class',
+  'class.visibility.label': "Students see each other's work",
+  'class.visibility.hint': 'Off: only you and the student see a student’s board. On: the whole class can look at every board — drawing on it stays the student’s and yours.',
   // (#201) The queue is durable, so these describe a delay, never a loss —
   // the wording has to carry that, since the whole point is to stop people
   // concluding their work is gone.

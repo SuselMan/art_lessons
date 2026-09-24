@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 
-import { getLayerSnapshot, getOperationsBefore, getParticipant, getSnapshotIndex, saveSnapshot } from './rooms.js'
+import {
+  canSeeResidentBoard, getLayerSnapshot, getOperationsBefore, getParticipant, getSnapshotIndex, saveSnapshot,
+} from './rooms.js'
 
 const MAX_BACKFILL_PAGE_SIZE = 500
 // Fastify's default bodyLimit is 1MB — comfortably too small for a gzipped,
@@ -16,6 +18,12 @@ const SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES = 20 * 1024 * 1024
  *  password check) — otherwise a plain HTTP client could pull a password-
  *  protected room's content by guessing its id, bypassing the socket-level
  *  password check entirely. */
+/** In the lesson live, and (#595) allowed to see this particular board — a
+ *  classmate's personal board is not everyone's just because the lesson is. */
+function mayUseBoard(roomId: string, userId: string): boolean {
+  return getParticipant(roomId, userId) !== undefined && canSeeResidentBoard(roomId, userId)
+}
+
 export function registerSnapshotRoutes(app: FastifyInstance): void {
   app.post<{
     Params: { roomId: string }
@@ -25,7 +33,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
     { bodyLimit: SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES },
     async (request, reply) => {
       const { roomId } = request.params
-      if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+      if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
       const { seq, layerState, layers } = request.body
       // (#371) `layers` maps layerId to one base64 gzipped `encodeLayerTiles`
@@ -81,7 +89,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
   // that had baked and uploaded those pixels minutes earlier.
   app.get<{ Params: { roomId: string } }>('/api/rooms/:roomId/snapshots/index', async (request, reply) => {
     const { roomId } = request.params
-    if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+    if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
     const index = await getSnapshotIndex(roomId)
     if (!index) return reply.code(204).send()
@@ -102,7 +110,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
     '/api/rooms/:roomId/snapshots/:layerId/:seq',
     async (request, reply) => {
       const { roomId, layerId } = request.params
-      if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+      if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
       const seq = Number(request.params.seq)
       if (!Number.isInteger(seq)) return reply.code(400).send({ error: 'bad_request' })
@@ -147,7 +155,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
     '/api/rooms/:roomId/operations',
     async (request, reply) => {
       const { roomId } = request.params
-      if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+      if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
       const beforeSeq = Number(request.query.beforeSeq)
       const limit = Math.min(Number(request.query.limit ?? String(MAX_BACKFILL_PAGE_SIZE)), MAX_BACKFILL_PAGE_SIZE)

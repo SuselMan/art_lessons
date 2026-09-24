@@ -14,6 +14,7 @@ const mockPrisma = vi.hoisted(() => ({
   roomParticipant: { upsert: vi.fn() },
   roomPalette: { findUnique: vi.fn(), upsert: vi.fn() },
   roomLayerState: { findUnique: vi.fn() },
+  assignment: { findMany: vi.fn() },
   roomLayerSnapshot: { groupBy: vi.fn() },
   operation: { create: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
 }))
@@ -102,6 +103,7 @@ beforeEach(() => {
       .sort((a, b) => a.boardOrder - b.boardOrder)
   })
   mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
+  mockPrisma.assignment.findMany.mockResolvedValue([])
   mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValue([])
   mockPrisma.operation.findMany.mockResolvedValue([])
   mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: null } })
@@ -373,6 +375,7 @@ describe('the strip and the active board', () => {
     const expected = {
       id: lessonId, activeBoardId: null,
       boards: [{ id: lessonId, name: 'Still life', order: 0 }, { id: boardId, name: 'Page 2', order: 1 }],
+      assignments: [], activeAssignmentId: null, spotlightBoardId: null, classVisibility: 'teacher_only', handsRaised: [],
     }
     expect(getRoomSnapshot(boardId)?.lesson).toEqual(expected)
     expect(getRoomSnapshot(lessonId)?.lesson).toEqual(expected)
@@ -383,6 +386,7 @@ describe('the strip and the active board', () => {
     const lessonId = makeLesson()
     expect(getRoomSnapshot(lessonId)?.lesson).toEqual({
       id: lessonId, activeBoardId: null, boards: [{ id: lessonId, name: 'Still life', order: 0 }],
+      assignments: [], activeAssignmentId: null, spotlightBoardId: null, classVisibility: 'teacher_only', handsRaised: [],
     })
   })
 

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
+import { isEmailBanned } from './bans.js'
 import { IDENTITY_COOKIE, identityCookieOptions, signIdentityToken } from './identity.js'
 import { isEmailConfigured, sendEmail } from './email.js'
 import { buildLoginCodeEmail, isEmailLocale } from './loginCodeEmail.js'
@@ -69,6 +70,14 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       return reply.code(429).send({ error: 'rate_limited' })
     }
 
+    // (#587) A banned address gets no mail at all. Saying so plainly, rather
+    // than pretending a code went out, is deliberate: the ban is not a secret
+    // from the person it is about, and a silent inbox would only earn us a
+    // support request asking where the code went.
+    if (await isEmailBanned(normalizeEmail(email))) {
+      return reply.code(403).send({ error: 'banned' })
+    }
+
     const issued = await issueCode(email)
     if ('retryAfterMs' in issued) {
       return reply
@@ -124,6 +133,12 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       await failedCodes.countFailure(request)
       const status = result.reason === 'attempts_exhausted' ? 429 : 401
       return reply.code(status).send({ error: result.reason })
+    }
+
+    // (#587) A code mailed a minute before the ban landed is still valid as a
+    // code; it must not be valid as a way back in.
+    if (await isEmailBanned(normalizeEmail(email))) {
+      return reply.code(403).send({ error: 'banned' })
     }
 
     const user = await claimIdentity(request.userId, normalizeEmail(email))
@@ -194,8 +209,8 @@ async function claimIdentity(currentUserId: string, email: string): Promise<Clai
 
   const current = await prisma.user.findUnique({ where: { id: currentUserId }, select })
   if (current && current.email === null) {
-    return prisma.user.update({ where: { id: currentUserId }, data: { email }, select })
+    return prisma.user.update({ where: { id: currentUserId }, data: { email, registeredAt: new Date() }, select })
   }
 
-  return prisma.user.create({ data: { email }, select })
+  return prisma.user.create({ data: { email, registeredAt: new Date() }, select })
 }
