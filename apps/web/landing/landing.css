@@ -305,6 +305,10 @@ main { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
 .try-tools button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--bright); }
 .try-tools img { width: 64px; height: auto; }
 .try-tools [data-action] { min-width: 72px; }
+/* Nothing to undo or clear until the sheet is open. */
+.try:not([data-state="live"]) .try-edit { opacity: 0.4; pointer-events: none; }
+.try-stage { cursor: pointer; }
+.try[data-state="live"] .try-stage { cursor: default; }
 .try-sep { flex: 1 1 0; min-width: 8px; }
 @media (max-width: 560px) {
   .try-stage { aspect-ratio: 4 / 5; }
