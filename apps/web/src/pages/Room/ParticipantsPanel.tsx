@@ -21,6 +21,14 @@ interface ParticipantsPanelProps {
   /** Which request's answer is in flight; that row's buttons go quiet. */
   resolvingRequestId?: string | null
   onResolveJoinRequest?: (requestId: string, approved: boolean) => void
+  /** (#595, ADR 015 §11) Who has a hand up. Shown to everyone — a raised hand
+   *  in a room is not private; the teacher lowers one by tapping it. */
+  handsRaised?: readonly string[]
+  onLowerHand?: (userId: string) => void
+  /** (#595) The teacher's way to a student's work: their board in the
+   *  assignment the class is on (or was last on), if they have one. */
+  workOf?: (userId: string) => string | undefined
+  onOpenWork?: (boardId: string) => void
 }
 
 interface JoinQueueSectionProps {
@@ -113,6 +121,7 @@ function JoinQueueSection({ requests, resolvingId, onResolve }: JoinQueueSection
 export const ParticipantsPanel = memo(function ParticipantsPanel({
   participants, drawingIds, myUserId, isOwner, onToggleFreeze,
   joinRequests, resolvingRequestId = null, onResolveJoinRequest,
+  handsRaised = [], onLowerHand, workOf, onOpenWork,
 }: ParticipantsPanelProps) {
   const t = useT()
 
@@ -185,6 +194,37 @@ export const ParticipantsPanel = memo(function ParticipantsPanel({
                     {tags.join(' · ')}
                   </span>
                 </span>
+
+                {handsRaised.includes(p.userId) && (isOwner && onLowerHand ? (
+                  <button
+                    type="button"
+                    className={clsx(styles.rowIconBtn, styles.hand)}
+                    onClick={() => onLowerHand(p.userId)}
+                    title={t('class.lowerHandOf', { name: p.name })}
+                    aria-label={t('class.lowerHandOf', { name: p.name })}
+                  >
+                    <Icon name="pan_tool" />
+                  </button>
+                ) : (
+                  <span className={clsx(styles.rowIconBtn, styles.hand)} title={t('class.handRaised')} role="img" aria-label={t('class.handRaised')}>
+                    <Icon name="pan_tool" />
+                  </span>
+                ))}
+
+                {isOwner && !isSelf && workOf && onOpenWork && (() => {
+                  const work = workOf(p.userId)
+                  return work && (
+                    <button
+                      type="button"
+                      className={styles.rowIconBtn}
+                      onClick={() => onOpenWork(work)}
+                      title={t('class.openWorkOf', { name: p.name })}
+                      aria-label={t('class.openWorkOf', { name: p.name })}
+                    >
+                      <Icon name="draw" />
+                    </button>
+                  )
+                })()}
 
                 {canModerate && (
                   <Menu

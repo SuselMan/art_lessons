@@ -1,0 +1,186 @@
+/* (#595, ADR 015 §11) "Where the class is", above the participants list in the
+   Class tab. Same 256px column and the same row inset as the participants
+   list below it (ParticipantsPanel.module.css), so the two read as one panel. */
+
+.places {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 5px 10px;
+  border-bottom: 1px solid var(--color-border-soft);
+  flex-shrink: 0;
+}
+
+.heading {
+  margin: 0;
+  padding: 2px 5px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 2px 4px 2px 5px;
+  border-radius: var(--radius-md);
+}
+
+/* The place the class is: the one row that has to be found at a glance. */
+.rowActive {
+  background: var(--color-surface-2);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 4px;
+  color: var(--color-text);
+  font-size: 13px;
+  text-align: left;
+}
+.label :global(.material-symbols-outlined) { font-size: 18px; color: var(--color-text-dim); flex-shrink: 0; }
+
+.labelBtn {
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.labelBtn:hover { background: var(--color-surface-hover); }
+
+.labelCurrent { font-weight: 600; }
+.labelCurrent :global(.material-symbols-outlined) { color: var(--color-accent); }
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.here {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+.here :global(.material-symbols-outlined) { font-size: 16px; }
+
+.action {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 15px;
+  border: 1px solid var(--color-accent-border);
+  font-size: 12px;
+  color: var(--color-text);
+  white-space: nowrap;
+  transition: background var(--duration-fast);
+}
+.action:hover { background: var(--color-surface-hover); }
+
+.iconBtn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+}
+.iconBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.iconBtn :global(.material-symbols-outlined) { font-size: 18px; }
+
+.spotlight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 6px 4px 6px 9px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  font-size: 12px;
+  color: var(--color-text);
+}
+.spotlight > :global(.material-symbols-outlined) { font-size: 16px; color: var(--color-accent); }
+.spotlight .name { flex: 1; }
+
+.add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  min-height: 36px;
+  padding: 0 9px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border-strong);
+  font-size: 13px;
+  color: var(--color-text-dim);
+}
+.add:hover { color: var(--color-text); border-color: var(--color-accent-border); background: var(--color-surface-hover); }
+.add :global(.material-symbols-outlined) { font-size: 18px; }
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+.input {
+  height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+}
+
+.formActions { display: flex; gap: 6px; }
+
+.submit,
+.cancel {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+.submit { background: var(--color-accent); color: var(--color-on-accent); font-weight: 600; }
+.submit:hover { background: var(--color-accent-hover); }
+.submit:disabled { opacity: 0.6; cursor: default; }
+.cancel { color: var(--color-text-dim); }
+.cancel:hover { color: var(--color-text); background: var(--color-surface-hover); }
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-dim);
+}

@@ -19,6 +19,7 @@ const mockPrisma = vi.hoisted(() => ({
   roomParticipant: { upsert: vi.fn(), findUnique: vi.fn() },
   roomPalette: { findUnique: vi.fn(), upsert: vi.fn() },
   roomLayerState: { findUnique: vi.fn() },
+  assignment: { findMany: vi.fn() },
   roomLayerSnapshot: { groupBy: vi.fn() },
   operation: { create: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
   roomBlock: { findUnique: vi.fn() },
@@ -138,6 +139,7 @@ beforeEach(async () => {
   mockPrisma.room.findMany.mockImplementation(async ({ where }: { where: { OR: [{ id: string }] } }) =>
     [...rows.values()].filter(r => r.id === where.OR[0].id || r.lessonId === where.OR[0].id))
   mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
+  mockPrisma.assignment.findMany.mockResolvedValue([])
   mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValue([])
   mockPrisma.operation.findMany.mockResolvedValue([])
   mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: null } })
@@ -194,6 +196,7 @@ describe('join_room to a board on a live socket (#176)', () => {
     expect(received.lesson).toEqual({
       id: lessonId, activeBoardId: null,
       boards: [{ id: lessonId, name: lessonId, order: 0 }, { id: boardId, name: boardId, order: 1 }],
+      assignments: [], activeAssignmentId: null, spotlightBoardId: null, classVisibility: 'teacher_only', handsRaised: [],
     })
     expect(received.participants.map(p => [p.userId, p.boardId])).toEqual([['teacher', lessonId], ['student', boardId]])
   })

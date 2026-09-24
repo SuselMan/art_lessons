@@ -14,10 +14,9 @@ export type BoardsAction =
   // The full order, lesson first — see the shared `boards_reordered` event.
   | { type: 'boards_reordered'; order: string[] }
   | { type: 'board_deleted'; boardId: string }
-  // Local only: this client just uploaded a thumbnail for `boardId`. The
-  // server never announces thumbnails live (BoardSummary.thumbnailUpdatedAt
-  // is as of join time), so the strip would otherwise show the picture a
-  // board had when the lesson was opened until the next reload.
+  // A board's preview was re-uploaded: by this client (its own upload
+  // answered ok), or by anyone, announced as `board_thumbnail_updated`
+  // (#595). Either way the strip and the class grid re-fetch the picture.
   | { type: 'thumbnail_baked'; boardId: string; at: string }
 
 export function sortBoards(boards: readonly BoardSummary[]): BoardSummary[] {
@@ -97,11 +96,33 @@ export function followTarget(input: {
   activeBoardId: string | null
   boardId: string | null
   wantedBoardId: string | null
+  // (#595) Class mode — see followDestination. Optional so a caller that
+  // knows nothing of it keeps the plain "teacher's board" rule.
+  spotlightBoardId?: string | null
+  ownAssignmentBoardId?: string | null
 }): string | null {
   if (!input.following || input.isOwner || !input.lessonId) return null
-  const teacher = teacherBoardId({ id: input.lessonId, activeBoardId: input.activeBoardId })
+  const destination = followDestination({
+    lessonId: input.lessonId, activeBoardId: input.activeBoardId,
+    spotlightBoardId: input.spotlightBoardId ?? null, ownAssignmentBoardId: input.ownAssignmentBoardId ?? null,
+  })
   const heading = input.wantedBoardId ?? input.boardId
-  return heading === teacher ? null : teacher
+  return heading === destination ? null : destination
+}
+
+/** (#595, ADR 015 §6) Where "following the teacher" leads a student right
+ *  now. The one the teacher is showing everyone, if any; else, while a round
+ *  runs, the student's own board in it; else the teacher's board — exactly
+ *  ADR 014's rule, which is what is left once class mode steps aside. */
+export function followDestination(input: {
+  lessonId: string
+  activeBoardId: string | null
+  spotlightBoardId: string | null
+  ownAssignmentBoardId: string | null
+}): string {
+  return input.spotlightBoardId
+    ?? input.ownAssignmentBoardId
+    ?? teacherBoardId({ id: input.lessonId, activeBoardId: input.activeBoardId })
 }
 
 /** Whether a hand-picked board leaves following on.

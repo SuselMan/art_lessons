@@ -1,4 +1,4 @@
-import { sanitizeEnabledTools, type Room, type RoomAccessMode, type RoomFolder } from '@grafetto/shared'
+import { sanitizeEnabledTools, type ClassVisibility, type Room, type RoomAccessMode, type RoomFolder } from '@grafetto/shared'
 
 /** Shared by roomRoutes.ts (REST "Мои уроки" list) and rooms.ts (cold-load
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type
@@ -32,6 +32,10 @@ export function toWireRoom(r: {
   lessonId?: string | null
   boardOrder?: number
   activeBoardId?: string | null
+  // (#595) Class mode columns — same optionality as the board ones above.
+  assignmentId?: string | null
+  boardOwnerId?: string | null
+  classVisibility?: ClassVisibility
   // (#209) A `select`-based relation, not the full RoomThumbnail row — every
   // call site includes only `{ updatedAt: true }` so the (potentially large)
   // `data` Bytes column is never fetched just to build a room list/card.
@@ -60,6 +64,9 @@ export function toWireRoom(r: {
     lessonId: r.lessonId ?? undefined,
     boardOrder: r.boardOrder,
     activeBoardId: r.activeBoardId ?? undefined,
+    assignmentId: r.assignmentId ?? undefined,
+    boardOwnerId: r.boardOwnerId ?? undefined,
+    classVisibility: r.classVisibility,
   }
 }
 
