@@ -128,65 +128,75 @@
     </section>
 
     <section id="materials" class="section">
-      <div class="section-head">
-        <h2>Try the paper yourself</h2>
-        <p>
-          The real pencils on the real paper. Press harder, tilt the pen, layer the graphite —
-          with a stylus if you have one, or a mouse.
-        </p>
-      </div>
-      <!-- (#246) The engine and one paper texture load on the first action (a
-           tool, the button, a tap on the paper), not with the page. Nothing here talks to the server: no room, no /api, no cookie. -->
-      <div class="try" data-try data-state="idle">
-        <div class="try-stage">
-          <canvas class="try-canvas" hidden></canvas>
-          <button class="try-start btn btn-primary" type="button">Try it on this sheet</button>
-          <p class="try-status" role="status" hidden></p>
+      <!-- (#246) One product object: the words on the left, the sheet and its
+           tools on the right. The engine and one paper texture load on the
+           first action (a tool, the button, a tap on the paper), not with the
+           page. Nothing here talks to the server: no room, no /api, no cookie. -->
+      <div class="try-panel">
+        <div class="try-copy">
+          <h2>Try the paper yourself.</h2>
+          <p>The real pencils on the real paper. Press harder, tilt the pen, layer the graphite — with a stylus if you have one, or a mouse.</p>
+          <p class="try-more">In a lesson you also get a blending stump, a ruler, a proportion grid, reference photos, layers and each tool’s own settings.</p>
         </div>
-        <div class="try-tools" role="toolbar" aria-label="Tools">
-          <button type="button" data-tool="pencil" aria-pressed="false"><img src="../src/assets/tools/pencil.png" alt="" />Pencil</button>
-          <button type="button" data-tool="charcoal" aria-pressed="false"><img src="../src/assets/tools/charcoal.png" alt="" />Charcoal</button>
-          <button type="button" data-tool="liner" aria-pressed="false"><img src="../src/assets/tools/liner.png" alt="" />Liner</button>
-          <button type="button" data-tool="brushPen" aria-pressed="false"><img src="../src/assets/tools/brushPen.png" alt="" />Brush pen</button>
-          <button type="button" data-tool="marker" aria-pressed="false"><img src="../src/assets/tools/marker.png" alt="" />Marker</button>
-          <button type="button" data-tool="watercolor" aria-pressed="false"><img src="../src/assets/tools/watercolor.png" alt="" />Watercolour</button>
-          <button type="button" data-tool="eraser" aria-pressed="false" class="try-eraser">Eraser</button>
-          <span class="try-sep" aria-hidden="true"></span>
-          <button type="button" data-action="undo" class="try-edit">Undo</button>
-          <button type="button" data-action="clear" class="try-edit">Clear</button>
+        <div class="try" data-try data-state="idle">
+          <div class="try-stage">
+            <canvas class="try-canvas" hidden></canvas>
+            <button class="try-start btn btn-primary" type="button">Try it on this sheet</button>
+            <p class="try-status" role="status" hidden></p>
+          </div>
+          <div class="try-tools" role="toolbar" aria-label="Tools">
+            <div class="try-tool-list">
+              <button type="button" data-tool="pencil" aria-pressed="false"><img src="../src/assets/tools/pencil.png" alt="" />Pencil</button>
+              <button type="button" data-tool="charcoal" aria-pressed="false"><img src="../src/assets/tools/charcoal.png" alt="" />Charcoal</button>
+              <button type="button" data-tool="liner" aria-pressed="false"><img src="../src/assets/tools/liner.png" alt="" />Liner</button>
+              <button type="button" data-tool="brushPen" aria-pressed="false"><img src="../src/assets/tools/brushPen.png" alt="" />Brush pen</button>
+              <button type="button" data-tool="marker" aria-pressed="false"><img src="../src/assets/tools/marker.png" alt="" />Marker</button>
+              <button type="button" data-tool="watercolor" aria-pressed="false"><img src="../src/assets/tools/watercolor.png" alt="" />Watercolour</button>
+              <button type="button" data-tool="eraser" aria-pressed="false">Eraser</button>
+            </div>
+            <button type="button" data-action="undo" class="try-edit" aria-label="Undo" title="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg></button>
+            <button type="button" data-action="clear" class="try-edit" aria-label="Clear the sheet" title="Clear the sheet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button>
+          </div>
         </div>
       </div>
-      <p class="aside">In a lesson you also get a blending stump, a ruler, a proportion grid, reference photos, layers — and each tool's own settings.</p>
     </section>
 
     <section id="lesson" class="section">
-      <div class="section-head">
+      <div class="section-head section-head-split">
         <h2>How a lesson goes</h2>
+        <p>Two steps to set up. Then you just draw — together.</p>
       </div>
       <!-- A lesson really is a sequence, so the steps are numbered. -->
       <ol class="steps">
-        <li>
+        <li class="card">
+          <div class="step-text">
+            <h3>Open a room</h3>
+            <p>Name it, pick the paper and the sheet size. You get a link.</p>
+          </div>
           <figure class="shot">
             <img class="t-dark" src="./assets/step-create-dark.webp" width="900" height="737" alt="The new project form: name, paper texture, canvas size" loading="lazy" />
             <img class="t-light" src="./assets/step-create-light.webp" width="900" height="737" alt="The new project form: name, paper texture, canvas size" loading="lazy" />
           </figure>
-          <h3>Open a room</h3>
-          <p>Name it, pick the paper and the sheet size. You get a link.</p>
         </li>
-        <li>
+        <li class="card">
+          <div class="step-text">
+            <h3>Send the link</h3>
+            <p>Your student opens it in a browser, types a name, and is in.</p>
+          </div>
           <figure class="shot">
             <img class="t-dark" src="./assets/step-join-dark.webp" width="900" height="597" alt="The join form, asking only for a name" loading="lazy" />
             <img class="t-light" src="./assets/step-join-light.webp" width="900" height="597" alt="The join form, asking only for a name" loading="lazy" />
           </figure>
-          <h3>Send the link</h3>
-          <p>Your student opens it in a browser, types a name, and is in.</p>
         </li>
       </ol>
 
       <!-- Step 3 is the product, so it gets the width. The notes explain two
            things the app actually does; they are not decoration. -->
-      <div class="together">
-        <h3 class="together-title">Draw together</h3>
+      <div class="card together">
+        <div class="step-text">
+          <h3 class="together-title">Draw together</h3>
+          <p>Each of you zooms and turns the sheet on your own screen, without moving it for the other.</p>
+        </div>
         <figure class="together-sheet">
           <img class="t-dark" src="./assets/together-dark.webp" width="1472" height="912" loading="lazy"
                alt="A student's box drawing. The teacher's perspective lines run to the vanishing point in blue, and two arrows in the same blue point at the correction and at the student's cursor, labelled Max." />
@@ -199,7 +209,6 @@
           <p class="note note-student"><strong>Every stroke shows up as it's drawn</strong>With each person's cursor and name.</p>
           <p class="note note-teacher"><strong>Your correction, on its own layer</strong>Hide it, and the student tries again.</p>
         </div>
-        <p class="together-note">Each of you zooms and turns the sheet on your own screen, without moving it for the other.</p>
       </div>
     </section>
 
@@ -209,20 +218,33 @@
         <p>After the lesson, your student keeps drawing on the same sheet.</p>
       </div>
       <ul class="homework-points">
-        <li><h3>Review the drawing, not a photo of it</h3><p>Open the room and see exactly what was done.</p></li>
-        <li><h3>Close it when it's done</h3><p>A closed room stays as it was, for both of you.</p></li>
-        <li><h3>Give the same task again</h3><p>Copy a room to set it to another student.</p></li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>
+          <div><h3>Review the drawing, not a photo of it</h3><p>Open the room and see exactly what was done.</p></div>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /></svg>
+          <div><h3>Close it when it's done</h3><p>A closed room stays as it was, for both of you.</p></div>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg>
+          <div><h3>Give the same task again</h3><p>Copy a room to set it to another student.</p></div>
+        </li>
       </ul>
     </section>
 
-    <section class="section devices" aria-label="Devices">
-      <h2>Draw with the device you already use.</h2>
-      <ul>
-        <li>iPad with Apple Pencil</li>
-        <li>Android tablets with a stylus</li>
-        <li>Computers with a Wacom, XP-Pen or Huion</li>
-      </ul>
-      <p>Keep your usual video call running alongside. Grafetto is the paper, not the camera.</p>
+    <section class="section" aria-label="Devices">
+      <div class="card devices">
+        <div>
+          <h2>Draw with the device you already use.</h2>
+          <p>Keep your usual video call running alongside — Grafetto is the paper, not the camera.</p>
+        </div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" /><path d="M10.5 18.5h3" /></svg>iPad with Apple Pencil</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="14" rx="2.5" /><path d="M9 21.5h6" /></svg>Android tablets with a stylus</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="19" height="12" rx="1.5" /><path d="M8 20h8M12 16v4" /></svg>Computers with a Wacom, XP-Pen or Huion</li>
+        </ul>
+      </div>
     </section>
 
     <section class="closing">
