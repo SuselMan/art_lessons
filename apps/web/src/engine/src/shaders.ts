@@ -918,11 +918,22 @@ export const DAB_FRAG = `
   // third 0.81, where before every one of them read the same clipped value.
   const float WC_DENSITY_K = 0.54;
   // (#536, s17.26) The dry brush reads the paper's catch over this many px.
-  const float WC_DRY_TOOTH_PX = 2.5;
-  const float WC_DRY_COARSE = 0.75;
+  // (s17.29) 6, from 2.5: Ilya's series 6 - the gaps a dry brush leaves are
+  // islands a millimetre or two across (10-20 px at the room's scale), not
+  // a speckle at the grain; at 2.5 px the mark read as a solid film with a
+  // fine roughness over it.
+  const float WC_DRY_TOOTH_PX = 9.0;
+  // (s17.29) All of the contact from the tooth's scale, none from the
+  // grain: at 0.75 the grain's quarter set the threshold's texture and the
+  // gaps came out as a speckle over a film, where the photographs have
+  // islands the size of the tooth with a plain film between.
+  const float WC_DRY_COARSE = 1.0;
   const float WC_DRY_LIFT = 0.5;
-  const float WC_DRY_WATER_LO = 0.12;
-  const float WC_DRY_WATER_HI = 0.45;
+  // (s17.29) The water at which the contact starts breaking - 0.6, from
+  // 0.45: the series' strokes at 0.21-0.36 water are all broken in the
+  // photograph, and at 0.45 the gate had them nearly closed.
+  const float WC_DRY_WATER_LO = 0.15;
+  const float WC_DRY_WATER_HI = 0.5;
   const float WC_DRY_CONTACT_W = 0.3;
   // (#536, s17.26) The ink stamp's profile: 1 = a cone to the centre, 3 = a
   // plateau with a ramp over the outer half of the nib.
@@ -1706,11 +1717,21 @@ ${WC_NOISE_GLSL}
         // paper's texture and leaves crests as blobs (dry_wa_effect), not a
         // pixel speckle. Four taps rather than a mip: a mip chain is the
         // driver's filter, and the composite must agree across devices.
-        vec2 dTex = WC_DRY_TOOTH_PX / u_paperTexSize * u_paperScale;
-        float coarse = 0.25 * (texture2D(u_paperHeightMap, paperUV + dTex).a + texture2D(u_paperHeightMap, paperUV - dTex).a
-          + texture2D(u_paperHeightMap, paperUV + vec2(dTex.x, -dTex.y)).a + texture2D(u_paperHeightMap, paperUV + vec2(-dTex.x, dTex.y)).a);
+        // (s17.29) A 3x3 box at the tooth's scale, not four diagonal taps
+        // at it: four taps that far apart aliased the sheet's own period
+        // into a maze of straight corridors (series 6 read as a printed
+        // pattern); nine taps a third of the scale apart are a low-pass.
+        vec2 dTex = (WC_DRY_TOOTH_PX / 3.0) / u_paperTexSize * u_paperScale;
+        float coarse = 0.0;
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) coarse += texture2D(u_paperHeightMap, paperUV + vec2(float(i), float(j)) * dTex).a;
+        coarse /= 9.0;
         float catchTooth = mix(paperCatch, coarse, WC_DRY_COARSE);
-        float reach = catchTooth * mix(0.55, 1.45, bristle);
+        // (s17.29) The hair's say on the contact 0.55-1.45 -> 0.8-1.2: at
+        // the old swing the hair field, read through the across coordinate
+        // the stamps write, drew a ladder of straight corridors along and
+        // across the mark; the photographs' gaps are the sheet's islands
+        // with a light grain of the hairs over them, not the other way.
+        float reach = catchTooth * mix(0.8, 1.2, bristle);
         // The threshold climbs with dryness: at 0 it sits below every catch
         // value and nothing is cut, at 1 only the highest crests under a bundle
         // survive.
@@ -2919,9 +2940,80 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_SEED_DEEP_LO = 0.78;
   const float WC_SEED_DEEP_HI = 0.84;
   varying vec2 v_uv;
+  // (s17.29) Mode 15, the carry: how much of a texel's paint goes to the
+  // neighbour at uvj, before normalisation - zero unless the neighbour is
+  // in the domain (cost at most u_band.x) and further along the cost than
+  // the texel (the water runs outward), else the CONDUCTANCE of the step
+  // (its length over its cost in cells) to the power u_size.x. u_size.y is
+  // costMax, u_origin.x the stride's length in texels.
+  float wcCarryWeight(float ci, vec2 uvj) {
+    if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) return 0.0;
+    float cj = texture2D(u_d, uvj).r;
+    if (cj > u_band.x) return 0.0;
+    float d = (cj - ci) * u_size.y;
+    if (d <= 1e-3) return 0.0;
+    return pow(min(u_origin.x / d, 4.0), u_size.x);
+  }
+  vec2 wcCarryDir(int k) {
+    return k == 0 ? vec2(1.0, 0.0) : k == 1 ? vec2(-1.0, 0.0) : k == 2 ? vec2(0.0, 1.0) : vec2(0.0, -1.0);
+  }
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 14.5) {
+      // (s17.29) One carry step. What moves is the mobile paint (a, all
+      // four channels, in the texel's own proportions); what the flow
+      // EQUALISES is the total pigment, mobile plus fixed (a.a + b.a): a
+      // texel in the domain hands its four axis neighbours a stride away,
+      // split by wcCarryWeight, u_k of its excess of total over theirs -
+      // never more than its mobile amount - and receives what each
+      // neighbour's own split sends this way: donor form, the field is
+      // conserved to the eight-bit write. The flow fills the domain to
+      // the source's concentration and stops, as water carrying paint
+      // into a wet wash does (the photographs' fingers are the body's
+      // density, not a line at their tips): moving a fixed share piled it
+      // all in single texels at the front, and equalising the mobile
+      // amount alone sent a mark's paint and the re-mobilised wash under
+      // it into fingers denser than its body, because the wash's settled
+      // paint in the domain did not count.
+      // Mode 16 is the same step for the COLOUR record (a): the fractions
+      // come from the deposit's mobile (u_c) and fixed (u_b) fields, so
+      // the two records move by identical fractions.
+      float ci = texture2D(u_d, v_uv).r;
+      vec4 out4 = a;
+      bool colour = u_mode > 15.5;
+      vec4 m = colour ? texture2D(u_c, v_uv) : a;
+      float Ti = m.a + b.a;
+      if (ci <= u_band.x) {
+        float ws[4];
+        float wsum = 0.0;
+        for (int k = 0; k < 4; k++) { ws[k] = wcCarryWeight(ci, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
+        for (int k = 0; k < 4; k++) {
+          vec2 uvj = v_uv + wcCarryDir(k) * u_dir;
+          if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
+          vec4 aj = texture2D(u_a, uvj);
+          vec4 mj = colour ? texture2D(u_c, uvj) : aj;
+          float Tj = mj.a + texture2D(u_b, uvj).a;
+          // Give: my share toward j, of my excess of total over j, capped
+          // at what is mobile here.
+          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0), m.a) / max(m.a, 1e-4));
+          // Take: j's share toward me, of its excess over me - the same
+          // expression j evaluates on its side.
+          float cj = texture2D(u_d, uvj).r;
+          if (cj > u_band.x) continue;
+          int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
+          float wj = 0.0, wme = 0.0;
+          for (int mm = 0; mm < 4; mm++) {
+            float w = wcCarryWeight(cj, uvj + wcCarryDir(mm) * u_dir);
+            wj += w;
+            if (mm == back) wme = w;
+          }
+          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0), mj.a) / max(mj.a, 1e-4));
+        }
+      }
+      gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));
+      return;
+    }
     if (u_mode > 13.5) {
       // Mode 8 for the tide: the band is the texture's .b, its gather c.b.
       vec4 bd = texture2D(u_d, v_uv);

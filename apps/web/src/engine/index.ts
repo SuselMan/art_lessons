@@ -58,7 +58,7 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE } from './src/wetDiffusion'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, type WetDiffuseStep } from './src/wetDiffusion'
 import { pigmentAbsorption } from './src/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
@@ -70,7 +70,7 @@ import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
-  watercolorSpreadBudget, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_MAX_STEPS, WC_FRONT_DRY_COST, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -922,7 +922,7 @@ export interface PencilEngineAPI {
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
   /** (#536, §17.24) Dev-only A/B: composite spread and migration off. */
-  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean }): void
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean }): void
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
@@ -3541,9 +3541,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (#536, §17.24) Applied in _drawRibbonCompositeDab, so a replay under the
    *  switch recomposites the same deposit without the effect. */
-  private _wcAb = { noSpread: false, noMigrate: false }
-  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean }): void {
-    this._wcAb = { ...ab }
+  private _wcAb = { noSpread: false, noMigrate: false, noDiffuse: false, noCarry: false }
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean }): void {
+    this._wcAb = { noSpread: ab.noSpread, noMigrate: ab.noMigrate, noDiffuse: !!ab.noDiffuse, noCarry: !!ab.noCarry }
     this._display()
   }
 
@@ -8811,7 +8811,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13 | 14, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15 | 16, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number] } = {},
   ): void {
     const { gl } = this
@@ -9067,13 +9067,17 @@ export class PencilEngine implements PencilEngineAPI {
     // stitched coverage extended over the domain, so the silhouette and the
     // diffusion's gate reach as far as the water did. Then the band
     // gathered by the rim's kernel, kept in `mask`.
-    const budgetPx = watercolorSpreadBudget(radiusPx, water, landedWet)
+    // (§17.29) ...by the WETTEST paper the mark ran over, not where it
+    // landed: Ilya's series 5 lays the second stroke from dry paper into
+    // the first, and its front has to run where the first stroke is.
+    const runWet = Math.max(landedWet, wetPeak)
+    const budgetPx = watercolorSpreadBudget(radiusPx, water, runWet)
     const costMax = budgetPx + 4
     // (§17.27) …plus the mark's radius: the puddle's front starts inside
     // the footprint and has to cross it before it runs its budget into the
     // film. At nine steps for a 6 px budget it stopped a third of the way
     // across a 20 px puddle and the backrun never reached the film.
-    const frontSteps = Math.min(WC_FRONT_MAX_STEPS, Math.ceil(1.4 * budgetPx + radiusPx))
+    const frontSteps = watercolorFrontSteps(budgetPx, radiusPx, runWet)
     // A fifth of the radius (the photo's ring: FWHM 0.2 R_front), capped:
     // the mass sits at the front, the tail behind it is what the valleys
     // carry, so the band's depth is what survives a blur, not its darkness.
@@ -9184,9 +9188,17 @@ export class PencilEngine implements PencilEngineAPI {
     // The gate is the coverage alone (wcWaterAt), so the deposit and its
     // colour record — two records, one suspension — move by identical
     // fractions, to the bit. Each step is one entry of `ops`.
-    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer): { out: AccumulationBuffer } => {
+    const diffuseSteps: readonly WetDiffuseStep[] = this._wcAb.noDiffuse ? [] : WET_DIFFUSE_SCHEDULE
+    // (§17.29) The colour record, when there is one (two paints or more),
+    // is split and carried in LOCKSTEP with the deposit inside the
+    // deposit's own settle: the carry's fractions depend on the deposit's
+    // mobile and fixed amounts at every step, so the colour cannot be
+    // carried on its own afterwards. `follow` is the colour settle that
+    // then runs the rest (bloom, diffusion, tide) on the carried record.
+    const colour = scratch.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
+    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
       const st = { src: c, dst: a, out: a }
-      ops.push(() => {
+      if (!follow) ops.push(() => {
         fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
         // (§17.25) A mark that landed in a puddle wets the paint already
         // lying under its footprint: that paint is as mobile as the new -
@@ -9194,23 +9206,74 @@ export class PencilEngine implements PencilEngineAPI {
         // settles and relocates with the new paint, to the MERGED front.
         // Without this the earlier pass's tideline stayed put under the
         // next pass, and a flat wash came out as a ladder of inner rims.
+        // The gate (the mask of the mobile field) in `mask` and the merged
+        // field through `band` - both free until the front writes them;
+        // not `spare`, which is the colour record's deposit here.
         if (merge > 0) {
-          this._fieldOp(spare, c, c, 4, 0.003)
+          this._fieldOp(field.mask, c, c, 4, 0.003)
           // All of it, not the mobile share: paint that never dried is not
           // partly settled, and the quarter that stayed behind was a faint
           // line at every pass boundary of a graded wash.
-          this._fieldOp(field.mask, c, b, 13, merge, { d: spare })
-          fieldOp(c, field.mask, field.mask, 1, 0)
+          this._fieldOp(field.band, c, b, 13, merge, { d: field.mask })
+          fieldOp(c, field.band, field.band, 1, 0)
         }
         // Where earlier marks' SETTLED deposit lies, before b is overwritten
         // with the fixed part - kept in `band` until the front reads it: the
         // puddle this mark's water may have joined.
         if (first) this._fieldOp(field.band, b, b, 4, 0.002)
         fieldOp(b, a, c, 1, -1)
+        // The colour record's split, by the same gate; `a` is free now.
+        if (colour && first) {
+          fieldOp(colour.c, colour.a, colour.b, 0, WET_DIFFUSE_MOBILE)
+          if (merge > 0) {
+            this._fieldOp(a, colour.c, colour.b, 13, merge, { d: field.mask })
+            fieldOp(colour.c, a, a, 1, 0)
+          }
+          fieldOp(colour.b, colour.a, colour.c, 1, -1)
+        }
       })
       // The water front, its band and the extended coverage come from the
       // deposit's mobile field, once; the colour record rides the same.
       if (first) frontOps(c, a)
+      // (§17.29) The front carries the paint: the mobile field runs along
+      // the front's cost, from the footprint out to where the water
+      // stopped, in strided steps of WC_FIELD_OP_FRAG's mode 15 - so a
+      // loaded mark into a wet wash sends its own pigment into the wash in
+      // the fingers the front cut, at near the body's density (Ilya's
+      // series 5), instead of leaving it inside its own contour with only
+      // the water gone on. The film's own contour ring (the last cell and
+      // a half of the budget) is left out of the domain here: on dry paper
+      // the whole film sits one cell short of its budget, and with the
+      // ring in, every stroke piled its outer texels into a hard line.
+      // What the flow equalises is the TOTAL pigment - mobile plus fixed
+      // (b): the wash's settled paint lying in the domain counts, or a
+      // mark over a wet wash sent its own paint and the re-mobilised wash
+      // under it out into fingers denser than its body, and the body went
+      // pale. The deposit ping-pongs c and a; the colour record cc and ca,
+      // in lockstep, taking the deposit's fractions (mode 16).
+      if (first && !this._wcAb.noCarry) {
+        const carry = watercolorCarryStrides(budgetPx)
+        let src = c, dst = a
+        let csrc = colour?.c, cdst = colour?.a
+        for (let i = 0; i < carry.length; i += 4) {
+          const n = Math.min(4, carry.length - i)
+          const plan: Array<{ s: number; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
+          for (let j = 0; j < n; j++) {
+            plan.push({ s: carry[i + j], src, dst, csrc, cdst })
+            const t = src; src = dst; dst = t
+            const ct = csrc; csrc = cdst; cdst = ct
+          }
+          ops.push(() => {
+            for (const p of plan) {
+              const opts = { d: field.pressure, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, 0] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], origin: [p.s, 0] as [number, number] }
+              if (p.csrc && p.cdst) this._fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
+              this._fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
+            }
+          })
+        }
+        if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
+        if (colour && csrc && csrc !== colour.c) { const from = csrc, to = colour.c; ops.push(() => fieldOp(to, from, from, 1, 0)) }
+      }
       // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
       // footprint goes to the footprint's edge — the light patch with the
       // dark ragged ring. Only as much as the recorded wetness says the wash
@@ -9221,7 +9284,7 @@ export class PencilEngine implements PencilEngineAPI {
           fieldOp(b, spare, spare, 1, 0)
         })
       }
-      for (const { radius, knight } of WET_DIFFUSE_SCHEDULE) {
+      for (const { radius, knight } of diffuseSteps) {
         ops.push(() => {
           diffuseStep(st.src, st.dst, radius, knight)
           const t = st.src; st.src = st.dst; st.dst = t
@@ -9239,7 +9302,10 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // The deposit's settle borrows a colour buffer as its spare; the colour
     // settle, when it runs, borrows a deposit one (both are done by then).
-    const dep = settle(field.a, field.b, field.c, true, field.cc)
+    // The deposit's spare: the colour record's deposit buffer once the
+    // record is split (its mobile part lives in cc from the first op on),
+    // else the unused cc.
+    const dep = settle(field.a, field.b, field.c, true, colour ? field.ca : field.cc)
     // (#536, §17.20) One paint so far: its colour record is its deposit's
     // mass times one absorption everywhere, so it is rebuilt from the moved
     // deposit in a single pass instead of carried through the schedule
@@ -9280,7 +9346,12 @@ export class PencilEngine implements PencilEngineAPI {
         outColor.endDraw()
       })
     } else {
-      col = settle(field.ca, field.cb, field.cc, false, field.c)
+      // Its spare is whichever deposit buffer the deposit's settle will NOT
+      // leave its result in: the schedule ping-pongs c and a, so an even
+      // count of steps (none, under the wcNoDiffuse A/B) lands in c. Read
+      // at plan time, dep.out is still its initial value - that was a
+      // settle with no steps copying the colour rim over its own deposit.
+      col = settle(field.ca, field.cb, field.cc, false, diffuseSteps.length % 2 === 0 ? field.a : field.c, true)
     }
 
     // …and home, tile by tile — and this is the new settled deposit.

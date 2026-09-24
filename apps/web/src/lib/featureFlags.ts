@@ -77,6 +77,18 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     envVar: 'VITE_WC_NO_MIGRATE',
   },
   {
+    key: 'wcNoDiffuse',
+    label: 'Watercolor A/B: wet diffusion off (dev only)',
+    description: 'Skips the wet diffusion schedule at the settle (ADR 011 s17.11): the mobile paint moves only with the water front (s17.29). Shows what the isotropic smear adds - or erases.',
+    envVar: 'VITE_WC_NO_DIFFUSE',
+  },
+  {
+    key: 'wcNoCarry',
+    label: 'Watercolor A/B: front carry off (dev only)',
+    description: 'Skips the carry of the mobile paint along the water front (ADR 011 s17.29): the paint stays inside the footprint and only the diffusion moves it.',
+    envVar: 'VITE_WC_NO_CARRY',
+  },
+  {
     key: 'wcPerfHud',
     label: 'Watercolor: performance readout (dev only)',
     description: 'Live frame interval, batch cost, settle time and GPU memory of the watercolor tool (#536, ADR 011 s17.22) - for reading numbers off a tablet with no inspector attached.',

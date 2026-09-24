@@ -2545,9 +2545,11 @@ export function Room() {
   // effects the deposit now carries itself.
   const wcNoSpread = getFeatureFlag('wcNoSpread')
   const wcNoMigrate = getFeatureFlag('wcNoMigrate')
+  const wcNoDiffuse = getFeatureFlag('wcNoDiffuse')
+  const wcNoCarry = getFeatureFlag('wcNoCarry')
   useEffect(() => {
-    engineRef.current?.setWatercolorAb({ noSpread: wcNoSpread, noMigrate: wcNoMigrate })
-  }, [wcNoSpread, wcNoMigrate, engineEpoch])
+    engineRef.current?.setWatercolorAb({ noSpread: wcNoSpread, noMigrate: wcNoMigrate, noDiffuse: wcNoDiffuse, noCarry: wcNoCarry })
+  }, [wcNoSpread, wcNoMigrate, wcNoDiffuse, wcNoCarry, engineEpoch])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:

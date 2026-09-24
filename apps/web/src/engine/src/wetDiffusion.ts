@@ -84,9 +84,17 @@ export const WET_DIFFUSE_B = 0.03
 //  axes, so consecutive scales interleave sixteen directions, and a knight
 //  step of r reaches r·√5.
 export interface WetDiffuseStep { readonly radius: number; readonly knight: boolean }
+//  (#536, s17.29) The coarse steps (32, 21, 16, 14, 8, 7) are gone: they
+//  were the stand-in for FLOW - pigment dropped into a puddle running to its
+//  edge - and now the water front carries the paint along its own cost,
+//  in the fingers the paper cuts (mode 15 of WC_FIELD_OP_FRAG). Measured on
+//  a loaded stroke across a wet wash (Ilya's series 5): with the coarse
+//  steps the stroke's paint was a haze over the WHOLE wash and its body
+//  under the wash went pale, where the photograph keeps the body and sends
+//  the paint out in fingers of the body's density; without them the
+//  fingers the carry filled stayed. What is left is the fine smoothing a
+//  film does over its last few texels.
 export const WET_DIFFUSE_SCHEDULE: readonly WetDiffuseStep[] = [
-  { radius: 21, knight: true }, { radius: 32, knight: false }, { radius: 14, knight: true },
-  { radius: 16, knight: false }, { radius: 7, knight: true }, { radius: 8, knight: false },
   { radius: 4, knight: false }, { radius: 3, knight: true }, { radius: 2, knight: false },
   { radius: 1, knight: true }, { radius: 1, knight: false },
 ]

@@ -147,12 +147,14 @@ describe('wet diffusion oracle (#536, ADR 011 §17.11)', () => {
     const c = centreOfMass(f, wetDiffuseScheduled(f))
     expect(c.x).toBeCloseTo(48, 9)
     expect(c.y).toBeCloseTo(48, 9)
-    // …and it reaches: a 4-cell drop must carry pigment well past twenty
-    // cells out, which radius-1 steps could not do in five.
+    // …and it reaches a little past the drop, and no further: the coarse
+    // steps that carried a drop across a puddle are the water front's job
+    // now (s17.29), the schedule only smooths the last texels.
     let reach = 0
     for (let x = 48; x < 97; x++) if (p[48 * 96 + x] > 1e-4) reach = x - 48
-    expect(reach).toBeGreaterThan(30)
-    expect(WET_DIFFUSE_RADII.length).toBe(11)
+    expect(reach).toBeGreaterThan(8)
+    expect(reach).toBeLessThan(24)
+    expect(WET_DIFFUSE_RADII.length).toBe(5)
     // …and the knight's ring is a stencil too: symmetric, conserving.
     const k = makeWetGrid(33, 33)
     disc(k, 16, 16, 14, k.water, 1)

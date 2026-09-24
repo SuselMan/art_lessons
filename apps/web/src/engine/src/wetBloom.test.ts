@@ -2,9 +2,21 @@ import { describe, expect, it } from 'vitest'
 
 import {
   makeWetGrid, wetDiffuseStepMany, totalPigment,
-  WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_D, WET_DIFFUSE_B,
-  type WetDiffuseOpts,
+  WET_DIFFUSE_D, WET_DIFFUSE_B,
+  type WetDiffuseOpts, type WetDiffuseStep,
 } from './wetDiffusion'
+
+// (s17.29) The schedule these proofs ran on: the coarse steps carried the
+// paint across the puddle here. The shipped schedule is the fine steps only
+// (the water front carries the paint now), and these are proofs of the
+// pressure-drift OPERATOR, not of the shipped schedule - so they keep the
+// schedule they were proved on.
+const ORACLE_SCHEDULE: readonly WetDiffuseStep[] = [
+  { radius: 21, knight: true }, { radius: 32, knight: false }, { radius: 14, knight: true },
+  { radius: 16, knight: false }, { radius: 7, knight: true }, { radius: 8, knight: false },
+  { radius: 4, knight: false }, { radius: 3, knight: true }, { radius: 2, knight: false },
+  { radius: 1, knight: true }, { radius: 1, knight: false },
+]
 
 // #536, ADR 011 §17.23. The two effects the reference base puts first
 // (docs/reference/watercolor-effects.md, effects 2 and 3) proved on the CPU
@@ -20,7 +32,7 @@ const N = 128, C = 64
 
 function runSchedule(grid: ReturnType<typeof makeWetGrid>, pigment: Float64Array, opts: WetDiffuseOpts, d = WET_DIFFUSE_D): Float64Array {
   let f = [pigment]
-  for (const st of WET_DIFFUSE_SCHEDULE) f = wetDiffuseStepMany(grid, f, d, WET_DIFFUSE_B, st.radius, st.knight, opts)
+  for (const st of ORACLE_SCHEDULE) f = wetDiffuseStepMany(grid, f, d, WET_DIFFUSE_B, st.radius, st.knight, opts)
   return f[0]
 }
 

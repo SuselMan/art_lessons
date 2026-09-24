@@ -465,7 +465,10 @@ export function watercolorWaterEffects(water: number): {
     // How strongly the paper's own relief breaks the contact. 0 above about
     // 0.62 water: a loaded brush floods the valleys and touches everything.
     // Below that it rises fast, and by 0.2 the brush is riding the crests.
-    dryContact: 1 - smoothstepJs(0.20, 0.62, water),
+    // (s17.29) 0.22-0.55, from 0.20-0.62: series 6 - at 0.21 water the
+    // photograph's mark is broken over its whole length, at 0.36 it is a
+    // film with the tooth breaking through only where the brush ran fast.
+    dryContact: 1 - smoothstepJs(0.22, 0.55, water),
   }
 }
 
@@ -863,8 +866,55 @@ export const WC_FRONT_FLOOR = 0.85
  *  band a third of the way to the centre and the ring read as a smear. */
 export const WC_FRONT_CLIMB_IN = 15
 export const WC_FRONT_FLOOR_IN = 0.5
-/** Relaxation steps per settle, capped: each is one cheap 8-tap pass. */
+/** Relaxation steps per settle, capped: each is one cheap 8-tap pass.
+ *  (s17.29) ...on dry paper. A mark that lands wet runs a longer front
+ *  (watercolorSpreadBudget), and its cap grows by WC_FRONT_WET_STEPS times
+ *  the landing wetness - a big brush on dry paper never pays for a run
+ *  its dry-paper cost would stop at a pixel anyway. */
 export const WC_FRONT_MAX_STEPS = 56
+export const WC_FRONT_WET_STEPS = 100
+export function watercolorFrontSteps(budget: number, radiusPx: number, landedWet: number): number {
+  const cap = WC_FRONT_MAX_STEPS + Math.round(WC_FRONT_WET_STEPS * clamp01(landedWet))
+  return Math.min(cap, Math.ceil(1.4 * budget + radiusPx))
+}
+/** (s17.29) The front CARRIES the mark's mobile paint: per carry step a
+ *  texel hands this share of its paint to its in-domain neighbours that lie
+ *  further along the front's cost (the water runs from the footprint to
+ *  the front), split between them by conductance to the WC_CARRY_POW - the
+ *  cheap step along a valley takes nearly all of it, the dear one over a
+ *  ridge next to none, which is what makes fingers of near-body density
+ *  rather than a halo. Where no neighbour lies further along the cost -
+ *  the front itself - the paint stays: it piles at the front. */
+export const WC_CARRY_RATE = 1.0
+export const WC_CARRY_POW = 3
+export const WC_CARRY_MAX_STEPS = 20
+/** The carry's strides, texels, one per step: dyadic up to the budget and
+ *  back, repeated until the paint can have travelled the whole budget
+ *  (rate x stride summed), capped. A coarse step reaches into the
+ *  footprint's flat interior (cost 0 throughout, so a unit step there has
+ *  no gradient to follow) as far as its stride - and that is the supply:
+ *  with the top stride at a quarter of the budget only a thin ring of the
+ *  footprint fed the fingers and they filled to a third of the body
+ *  (oracle on the room's series 5); at the whole budget the interior
+ *  feeds them and they fill to 0.75-0.95 of the body over most of the
+ *  run, the photograph's density. The fine strides take the coarse steps'
+ *  blockiness out again, as the diffusion schedule does. */
+export function watercolorCarryStrides(budgetPx: number): number[] {
+  const top = Math.max(1, Math.floor(budgetPx))
+  const up: number[] = []
+  for (let s = 1; s <= top; s *= 2) up.push(s)
+  const cycle = [...up, ...up.slice().reverse()]
+  // Whole cycles only: the fine strides after the coarse ones are what
+  // takes the coarse steps' blocks out, so a cycle never ends on a coarse
+  // step whatever the budget.
+  const out: number[] = [...cycle]
+  let sum = cycle.reduce((a, s) => a + s, 0)
+  while (sum * WC_CARRY_RATE < budgetPx && out.length + cycle.length <= WC_CARRY_MAX_STEPS) {
+    out.push(...cycle)
+    sum += cycle.reduce((a, s) => a + s, 0)
+  }
+  return out
+}
 /** (s17.27) How much dearer a front's step onto dry paper is than over the
  *  wash's own film: at 4 a stroke's spread past the brush is a quarter of
  *  its budget - a pixel - and its edge is the brush's contour; inside the
@@ -884,8 +934,17 @@ export function watercolorSpreadBudget(radiusPx: number, water: number, landedWe
   // average (measured: a 1.2-unit puddle seed reached the film's 5.3 in two
   // to three cells) - so 0.6 R of budget is about 0.35 R of run, the
   // photographs' backrun and the drop's 1.3 R alike.
-  return Math.max(2, Math.min(40, radiusPx * (0.5 + 0.1 * w * (0.15 + 0.85 * l))))
+  // (s17.29) On WET paper the run is the mark's own: a loaded stroke into a
+  // wet wash sends its paint a third of its width into the wash (Ilya's
+  // series 5: the fingers reach ~0.65 R), which is ~1.05 R of cost; 0.6 R
+  // gave 15 px on a 160 px stroke and the fingers vanished at the room's
+  // scale. On dry paper the term is a tenth of that, as before.
+  return Math.max(2, Math.min(WC_SPREAD_BUDGET_MAX, radiusPx * (0.5 + WC_SPREAD_WET * w * (0.15 + 0.85 * l))))
 }
+export const WC_SPREAD_WET = 0.55
+/** The cap, cost units: 8 bits resolve 0.4 of a unit at this costMax, which
+ *  still places a front to half a cell. */
+export const WC_SPREAD_BUDGET_MAX = 100
 
 /** The share of the wash's settled paint that a drop of water lifts and
  *  carries to its front, at full bloom strength (watercolorBloomStrength):

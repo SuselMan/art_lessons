@@ -74,8 +74,11 @@ describe('pigment optics (#536, ADR 011 §17.19)', () => {
         }
       }
     }
-    lay(30, tb)
-    lay(66, ty)
+    // (s17.29) Nine texels apart, from thirty-six: the schedule is the fine
+    // smoothing now, carrying a drop across a puddle is the water front's
+    // job (index.ts, mode 15 of WC_FIELD_OP_FRAG).
+    lay(41, tb)
+    lay(55, ty)
     const before = [mass, dr, dg, db].map(f => f.reduce((a, v) => a + v, 0))
     let fields: Float64Array[] = [mass, dr, dg, db]
     for (const st of WET_DIFFUSE_SCHEDULE) fields = wetDiffuseStepMany(g, fields, undefined, undefined, st.radius, st.knight)
@@ -85,7 +88,7 @@ describe('pigment optics (#536, ADR 011 §17.19)', () => {
       const i = 24 * g.width + x
       return mixtureColor([fields[1][i], fields[2][i], fields[3][i]], fields[0][i], [1, 1, 1])
     }
-    const left = colourAt(8), mid = colourAt(48), right = colourAt(88)
+    const left = colourAt(34), mid = colourAt(48), right = colourAt(62)
     expect(fields[0][24 * g.width + 48]).toBeGreaterThan(1e-4)
     // Middle: green.
     expect(mid[1]).toBeGreaterThan(mid[0])

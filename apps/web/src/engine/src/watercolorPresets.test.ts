@@ -17,7 +17,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
-  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorPuddleMerge, watercolorSpreadBudget,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorPuddleMerge, watercolorSpreadBudget, watercolorFrontSteps, watercolorCarryStrides, WC_CARRY_RATE, WC_CARRY_MAX_STEPS,
   watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
@@ -110,9 +110,33 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     expect(watercolorSpreadBudget(30, 1, 0)).toBeGreaterThan(watercolorSpreadBudget(30, 0, 0))
     // In cost units, over a relief that costs ~1.6 a cell: the photo's drop
     // runs a third of its radius on damp paper.
-    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeGreaterThan(0.45)
-    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeLessThan(0.7)
-    expect(watercolorSpreadBudget(300, 1, 1)).toBe(40)
+    // (s17.29) ...and on wet paper about a radius: series 5's fingers.
+    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeGreaterThan(0.7)
+    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeLessThan(0.95)
+    expect(watercolorSpreadBudget(30, 1, 1) / 30).toBeGreaterThan(1)
+    expect(watercolorSpreadBudget(30, 1, 0) / 30).toBeLessThan(0.65)
+    expect(watercolorSpreadBudget(300, 1, 1)).toBe(100)
+    // The front's steps: capped low on dry paper, higher on wet.
+    expect(watercolorFrontSteps(100, 200, 0)).toBe(56)
+    expect(watercolorFrontSteps(100, 200, 1)).toBe(156)
+    expect(watercolorFrontSteps(10, 20, 1)).toBe(34)
+  })
+
+  it('carries the paint the whole budget in a few strided steps (§17.29)', () => {
+    for (const budget of [2, 6, 18, 40]) {
+      const strides = watercolorCarryStrides(budget)
+      const reach = strides.reduce((a, s) => a + s, 0) * WC_CARRY_RATE
+      expect(strides.length).toBeLessThanOrEqual(WC_CARRY_MAX_STEPS)
+      // Reaches the budget (a whole cycle of dyadic strides up to the
+      // budget sums to about four times it).
+      expect(reach).toBeGreaterThanOrEqual(budget)
+      // No stride coarser than the budget: the paint follows the front's
+      // fingers, it does not jump past them.
+      expect(Math.max(...strides)).toBeLessThanOrEqual(Math.max(1, budget))
+      // ...and the fine strides come back after the coarse ones.
+      expect(strides[strides.length - 1]).toBeLessThan(Math.max(...strides) + 1)
+    }
+    expect(watercolorCarryStrides(18)).toEqual([1, 2, 4, 8, 16, 16, 8, 4, 2, 1])
   })
 
   it('runs a brush dry only when it carries pigment', () => {
