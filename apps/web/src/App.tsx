@@ -4,10 +4,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ConfirmDialogProvider } from './components/ConfirmDialog'
 import { NoticeStack } from './components/Notice'
+import { StatusCard } from './components/StatusCard'
 import { prefetchPaper } from './engine/src/paperLoader'
 import { queryClient } from './lib/queryClient'
 import { importRoomPage } from './lib/roomChunk'
 import { useSettingsStore } from './stores/settingsStore'
+import { useT } from './i18n'
+import { useBanned } from './lib/banned'
 
 // Route-level code splitting (#130): Room alone pulls in the WebGL pencil
 // engine, @dnd-kit, and socket.io-client — none of which /login, /create, or
@@ -20,6 +23,10 @@ const Auth       = lazy(() => import('./pages/Auth').then(m => ({ default: m.Aut
 const MyLessons  = lazy(() => import('./pages/MyLessons').then(m => ({ default: m.MyLessons })))
 const Settings   = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
 const NotFound   = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })))
+// (#588) Its own chunk like every page, which here matters for more than size:
+// nobody but an admin should download the admin panel's code on the way to a
+// lesson.
+const Admin      = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin })))
 
 // No spinner/skeleton convention exists elsewhere in the app yet — a blank
 // page in the app's own background color (avoids a white flash) is enough
@@ -54,8 +61,22 @@ function usePaperPrefetch(): void {
   }, [])
 }
 
+/** (#587) What a banned account sees instead of any page. Reload is the one
+ *  useful action: it is how an unban reaches a tab that was already open. */
+function Banned() {
+  const t = useT()
+  return (
+    <StatusCard
+      heading={t('banned.heading')}
+      body={t('banned.body')}
+      action={{ label: t('banned.reload'), onClick: () => window.location.reload() }}
+    />
+  )
+}
+
 export function App() {
   usePaperPrefetch()
+  const banned = useBanned()
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -72,17 +93,18 @@ export function App() {
               Suspense so a chunk that throws while loading is caught too. */}
           <AppErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
-              <Routes>
+              {banned ? <Banned /> : <Routes>
                 <Route path="/" element={<Navigate to="/create" replace />} />
                 <Route path="/create" element={<CreateRoom />} />
                 <Route path="/room/:id" element={<Room />} />
                 <Route path="/login" element={<Auth />} />
                 <Route path="/my-lessons" element={<MyLessons />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/admin" element={<Admin />} />
                 {/* (#572) Anything else. Without it a non-matching address
                     rendered nothing at all — see pages/NotFound. */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
+              </Routes>}
             </Suspense>
           </AppErrorBoundary>
         </BrowserRouter>

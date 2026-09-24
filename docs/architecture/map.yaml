@@ -239,6 +239,19 @@ modules:
       - apps/web/src/pages/NotFound/**
     tags: [ui]
 
+  - id: screen-admin
+    title: Админка
+    layer: screens
+    owns: >-
+      Панель для одного читателя (#585): кто онлайн и в каких уроках, регистрации, пользователи
+      и уроки со счётчиками, бан аккаунта с причиной, журнал действий. По-английски, как все
+      внутренние панели. Всем, кроме адресов из `ADMIN_EMAILS`, отвечает обычной 404. В сам
+      рисунок чужого урока не пускает — только миниатюра.
+    files:
+      - apps/web/src/pages/Admin/**
+      - apps/web/src/lib/adminApi.ts
+    tags: [админка]
+
   # ------------------------------------------------------------------ редактор: вид
 
   - id: room-shell
@@ -712,6 +725,7 @@ modules:
       - apps/web/src/lib/api.ts
       - apps/web/src/lib/queryClient.ts
       - apps/web/src/lib/authState.ts
+      - apps/web/src/lib/banned.ts
       - apps/web/src/lib/shareRoom.ts
       - apps/web/src/lib/shareRoom.test.ts
       - apps/web/src/lib/useShareRoom.ts
@@ -1099,6 +1113,18 @@ modules:
       - apps/server/src/roomAccess.test.ts
     tags: [аккаунты, доступ]
 
+  - id: server-admin
+    title: Админка и баны
+    layer: server-http
+    owns: >-
+      `/api/admin/*` за allow-list email (#586) и бан аккаунта (#587). Множество забаненных
+      живёт в памяти процесса: его читают identityHook и хэндшейк сокета на каждом запросе,
+      а пишут только маршруты бана — после записи в базу и журнал `AdminAction`.
+    files:
+      - apps/server/src/adminRoutes*.ts
+      - apps/server/src/bans.ts
+    tags: [админка, аккаунты]
+
   - id: server-health
     title: Здоровье процесса
     layer: server-http
@@ -1146,6 +1172,7 @@ modules:
       действие рисования сериализуемо с первого дня.
     files:
       - packages/shared/src/index.ts
+      - packages/shared/src/admin.ts
       - packages/shared/src/rejectReason.test.ts
       - packages/shared/src/transformMatrix.test.ts
       - packages/shared/src/toolset.test.ts

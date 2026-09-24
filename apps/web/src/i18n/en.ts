@@ -344,6 +344,12 @@ export const en = {
   'notFound.body': "The address doesn't lead anywhere in Grafetto. If it came from someone else, ask them for the link again — a room link looks like grafetto.com/room/… and nothing more.",
   'notFound.toLessons': 'Go to my projects',
   'notFound.create': 'Start a new project',
+  // (#587) Shown instead of the whole app when the server refuses this
+  // account. No "write to us" line: there is no support address yet, and
+  // naming one that bounces is worse than naming none.
+  'banned.heading': 'This account has been blocked',
+  'banned.body': 'Access to Grafetto has been suspended for this account.',
+  'banned.reload': 'Reload',
 
   // ── project: header & canvas actions ───────────────────────────────────
   'room.home': 'Grafetto — leave this project',
