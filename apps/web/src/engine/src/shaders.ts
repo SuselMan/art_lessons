@@ -2481,6 +2481,41 @@ export const DISPLAY_TRANSPARENT_FRAG = `
   }
 `;
 
+// (#595, ADR 015 §5) One step of bakePreview's GPU downscale chain — see
+// previewChain.ts for the step sizes and why it is a chain at all.
+//
+// Four hardware-bilinear taps at +-u_tapOffset around the destination pixel's
+// centre, where u_tapOffset is a quarter of a *destination* pixel in uv units
+// (0.25 / dstSize). For an exact 2x step that lands each tap on a source texel
+// centre, so the four taps are exactly the 2x2 block and the result is a plain
+// box average. For the one shorter, non-integer final step (factor 1..2) the
+// taps spread over the destination pixel's footprint and bilinear weighting
+// fills in between — still every source texel under the footprint contributes.
+//
+// highp on purpose: at mediump a uv over a 1754-texel source is only good to
+// a texel or two, which would smear exactly the grain this exists to keep.
+// Input is the opaque paper-composed image (alpha 1 everywhere), so averaging
+// straight colour is correct — there is no premultiplication to respect.
+// Uniform names are unique to this program (u_src, u_tapOffset): the test
+// MockGL tags programs by the uniforms their source declares, and this one
+// must read as an unrasterized 'other' pass.
+export const DOWNSAMPLE_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_src;
+  uniform vec2 u_tapOffset;
+
+  varying vec2 v_uv;
+
+  void main() {
+    vec4 sum = texture2D(u_src, v_uv + vec2(-u_tapOffset.x, -u_tapOffset.y));
+    sum += texture2D(u_src, v_uv + vec2( u_tapOffset.x, -u_tapOffset.y));
+    sum += texture2D(u_src, v_uv + vec2(-u_tapOffset.x,  u_tapOffset.y));
+    sum += texture2D(u_src, v_uv + vec2( u_tapOffset.x,  u_tapOffset.y));
+    gl_FragColor = sum * 0.25;
+  }
+`;
+
 // #141: this samples the paper map via plain screen UV (v_uv) — fixed,
 // screen-locked, so the paper grain neither pans nor zooms with the camera.
 // That's exactly right for a bounded room (its whole canvas element is

@@ -3,16 +3,7 @@ import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 
-// downscaleForThumbnail (lib/thumbnail.ts) is Canvas/OffscreenCanvas-backed
-// — real rasterization vitest's `node` environment (see vitest.config.ts)
-// can't do, same reason MockGL-based engine tests never assert on real
-// pixel output. Mocked here so these tests can cover uploadThumbnail's own
-// call shape (fires on the same boundary, best-effort, doesn't block the
-// layer-snapshot upload) without needing a real canvas.
-const { downscaleForThumbnail } = vi.hoisted(() => ({ downscaleForThumbnail: vi.fn() }))
-vi.mock('../../lib/thumbnail', () => ({ downscaleForThumbnail }))
-
-import { createSnapshotUploader } from './snapshotSync'
+import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 
 function layerState(overrides: Partial<LayerState> = {}): LayerState {
   return {
@@ -33,7 +24,9 @@ function layerState(overrides: Partial<LayerState> = {}): LayerState {
  *  painted. Pass it explicitly to exercise the dirty gate itself. */
 function fakeEngine(
   bakeResults: Record<string, Uint8Array | null>,
-  exportPNGResult: Blob | null = null,
+  // (#595) What engine.bakePreview() resolves with — the finished, already
+  // small thumbnail; the engine's own tests cover how it gets that way.
+  previewResult: Blob | null = null,
   dirty: string[] = Object.keys(bakeResults),
   // (#386) What the engine holds buffers for. Defaults to the layers this
   // fake has content for, which is what a real engine's buffer map looks like
@@ -48,7 +41,7 @@ function fakeEngine(
       bakeCalls.push(layerId)
       return bakeResults[layerId] ?? null
     },
-    exportPNG: async () => exportPNGResult,
+    bakePreview: async () => previewResult,
   } as unknown as PencilEngineAPI
   return { engine, bakeCalls }
 }
@@ -63,7 +56,6 @@ const originalFetch = global.fetch
 
 beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true })
-  downscaleForThumbnail.mockReset().mockResolvedValue(null)
 })
 
 afterEach(() => {
@@ -179,22 +171,20 @@ describe('createSnapshotUploader', () => {
   })
 
   describe('thumbnail (#210)', () => {
-    it('also uploads a downscaled thumbnail on the same boundary crossing', async () => {
-      const fullExport = new Blob(['full-composite'])
-      const thumbnail = new Blob(['downscaled'])
-      downscaleForThumbnail.mockResolvedValue(thumbnail)
+    it('also uploads the baked preview on the same boundary crossing', async () => {
+      const preview = new Blob(['preview'], { type: 'image/webp' })
       const uploader = createSnapshotUploader('room-1')
-      const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) }, fullExport)
+      const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) }, preview)
 
       uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(1))
 
-      expect(downscaleForThumbnail).toHaveBeenCalledWith(fullExport)
       const [, init] = fetchCallsTo('/api/rooms/room-1/thumbnail')[0]
       expect(init.method).toBe('POST')
       expect(init.credentials).toBe('include')
       const body = JSON.parse(init.body)
-      expect(typeof body.data).toBe('string')
+      // The preview's own bytes, untouched — no re-encode on the way out.
+      expect(atob(body.data)).toBe('preview')
       // Doesn't reuse or require a seq/layerState — the thumbnail endpoint's
       // contract is just "the latest composite," unlike /snapshots.
       expect(body.seq).toBeUndefined()
@@ -205,9 +195,8 @@ describe('createSnapshotUploader', () => {
     })
 
     it('fires the thumbnail attempt even when there is nothing to bake for a layer snapshot', async () => {
-      downscaleForThumbnail.mockResolvedValue(new Blob(['thumb']))
       const uploader = createSnapshotUploader('room-1')
-      const { engine } = fakeEngine({}, new Blob(['full'])) // every bakeNetworkSnapshot call returns null
+      const { engine } = fakeEngine({}, new Blob(['thumb'])) // every bakeNetworkSnapshot call returns null
 
       uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(1))
@@ -218,21 +207,9 @@ describe('createSnapshotUploader', () => {
       expect(body.layers).toEqual({})
     })
 
-    it('skips the thumbnail upload (without throwing) when exportPNG resolves null', async () => {
+    it('skips the thumbnail upload (without throwing) when bakePreview resolves null', async () => {
       const uploader = createSnapshotUploader('room-1')
       const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) }, null)
-
-      uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
-      await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
-
-      expect(downscaleForThumbnail).not.toHaveBeenCalled()
-      expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(0)
-    })
-
-    it('skips the thumbnail upload when downscaleForThumbnail resolves null', async () => {
-      downscaleForThumbnail.mockResolvedValue(null)
-      const uploader = createSnapshotUploader('room-1')
-      const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) }, new Blob(['full']))
 
       uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
@@ -242,14 +219,13 @@ describe('createSnapshotUploader', () => {
     })
 
     it('swallows a failed thumbnail upload rather than throwing, independently of the snapshot upload', async () => {
-      downscaleForThumbnail.mockResolvedValue(new Blob(['thumb']))
       global.fetch = vi.fn().mockImplementation((url: string) =>
         url === '/api/rooms/room-1/thumbnail'
           ? Promise.reject(new Error('network down'))
           : Promise.resolve({ ok: true }),
       )
       const uploader = createSnapshotUploader('room-1')
-      const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) }, new Blob(['full']))
+      const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) }, new Blob(['thumb']))
 
       expect(() => {
         uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
@@ -257,6 +233,30 @@ describe('createSnapshotUploader', () => {
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(1))
     })
+  })
+})
+
+describe('uploadThumbnail (#595)', () => {
+  it('resolves true when the server stored the preview', async () => {
+    const { engine } = fakeEngine({}, new Blob(['p']))
+    await expect(uploadThumbnail('room-1', engine)).resolves.toBe(true)
+  })
+
+  it('treats a rate-limit 429 as a quiet "not this time"', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 429 })
+    const { engine } = fakeEngine({}, new Blob(['p']))
+    await expect(uploadThumbnail('room-1', engine)).resolves.toBe(false)
+  })
+
+  it('resolves false without a request when the engine could not bake', async () => {
+    const { engine } = fakeEngine({}, null)
+    await expect(uploadThumbnail('room-1', engine)).resolves.toBe(false)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('resolves false rather than throwing when baking itself throws', async () => {
+    const engine = { bakePreview: async () => { throw new Error('context lost') } } as unknown as PencilEngineAPI
+    await expect(uploadThumbnail('room-1', engine)).resolves.toBe(false)
   })
 })
 
