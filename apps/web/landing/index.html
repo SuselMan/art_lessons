@@ -177,24 +177,22 @@
         </li>
       </ol>
 
-      <!-- Step 3 is the product, so it gets the width. The callouts explain two
+      <!-- Step 3 is the product, so it gets the width. The notes explain two
            things the app actually does; they are not decoration. -->
       <div class="together">
         <h3 class="together-title">Draw together</h3>
         <figure class="together-sheet">
           <img class="t-dark" src="./assets/together-dark.webp" width="1472" height="912" loading="lazy"
-               alt="A student's box drawing. The teacher's perspective lines run to the vanishing point in blue; the student's cursor, labelled Max, sits on the shaded side." />
+               alt="A student's box drawing. The teacher's perspective lines run to the vanishing point in blue, and two arrows in the same blue point at the correction and at the student's cursor, labelled Max." />
           <img class="t-light" src="./assets/together-light.webp" width="1472" height="912" loading="lazy"
-               alt="A student's box drawing. The teacher's perspective lines run to the vanishing point in blue; the student's cursor, labelled Max, sits on the shaded side." />
-          <figcaption>
-            <span class="callout callout-teacher" style="left:72%; top:24%">
-              <strong>Your correction, on its own layer</strong>Hide it, and the student tries again.
-            </span>
-            <span class="callout callout-student" style="left:41%; top:66%">
-              <strong>Every stroke shows up as it's drawn</strong>With each person's cursor and name.
-            </span>
-          </figcaption>
+               alt="A student's box drawing. The teacher's perspective lines run to the vanishing point in blue, and two arrows in the same blue point at the correction and at the student's cursor, labelled Max." />
         </figure>
+        <!-- The teacher's own arrows, drawn in the room, leave the bottom edge of the
+             sheet at these two points; each note sits under its arrow. -->
+        <div class="together-notes">
+          <p class="note note-student"><strong>Every stroke shows up as it's drawn</strong>With each person's cursor and name.</p>
+          <p class="note note-teacher"><strong>Your correction, on its own layer</strong>Hide it, and the student tries again.</p>
+        </div>
         <p class="together-note">Each of you zooms and turns the sheet on your own screen, without moving it for the other.</p>
       </div>
     </section>

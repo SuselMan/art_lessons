@@ -320,25 +320,15 @@ main { max-width: var(--wide); margin: 0 auto; padding: 0 var(--gutter); }
   box-shadow: var(--shadow), 0 0 0 1px var(--border);
 }
 .together-sheet img { width: 100%; }
-.callout {
-  position: absolute;
-  max-width: 17rem;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: var(--raised);
-  color: var(--dim);
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.45);
-  font-size: 0.92rem;
-  line-height: 1.4;
-}
-.callout strong { display: block; color: var(--bright); font-weight: 600; margin-bottom: 2px; }
-.callout-teacher { border-left: 3px solid #5a5ad0; }
-.callout-student { border-left: 3px solid #f07818; }
-.together-note { color: var(--dim); }
+.together-notes { position: relative; min-height: 5.5rem; }
+.note { position: absolute; top: 0; max-width: 19rem; color: var(--dim); font-size: 0.95rem; line-height: 1.45; }
+.note strong { display: block; color: var(--bright); font-weight: 600; }
+.note-student { left: 33%; transform: translateX(-12px); }
+.note-teacher { right: 10%; transform: translateX(12px); text-align: right; }
+.together-note { color: var(--dim); margin-top: 8px; }
 @media (max-width: 760px) {
-  .together-sheet figcaption { position: static; display: grid; gap: 10px; padding: 12px; background: var(--surface); }
-  .callout { position: static; max-width: none; }
+  .together-notes { display: grid; gap: 14px; min-height: 0; }
+  .note { position: static; max-width: none; transform: none; text-align: left; }
 }
 
 /* Homework */
