@@ -3082,10 +3082,15 @@ export const WC_FIELD_OP_FRAG = `
       return;
     }
     if (u_mode > 5.5) {
+      if (u_mode > 8.5) {
+        // (s17.30) The bloom's lift: by the dome (band .a), not the domain.
+        gl_FragColor = u_k * a * texture2D(u_d, v_uv).a;
+        return;
+      }
       if (u_mode > 7.5) {
         vec4 bd = texture2D(u_d, v_uv);
         vec4 c = texture2D(u_c, v_uv);
-        gl_FragColor = WC_FIELD_FIT(a * (1.0 - u_k * bd.g) + bd.r * b / max(c.r, 1e-3));
+        gl_FragColor = WC_FIELD_FIT(a * (1.0 - u_k * bd.a) + bd.r * b / max(c.r, 1e-3));
         return;
       }
       if (u_mode > 6.5) {
@@ -3147,7 +3152,13 @@ export const WC_FIELD_OP_FRAG = `
       // that was still damp or wet (u_origin.y): no dry paper there to stop
       // at, the bloom is the only edge. A merge (u_k) is the wet extreme.
       float over = inward.b * max(u_k, u_origin.y);
-      gl_FragColor = vec4(profileBloom * stoodW, inside, profileTide * stoodW * (1.0 - over), 1.0);
+      // .a: the DOME over the drop - how much of the wash's paint the bloom
+      // lifts here: all of it under the centre, falling to none at the
+      // front (s17.30). A uniform lift over the domain left a hard-edged
+      // hole; the photographs' light patch is soft-edged with the paint
+      // piling at the ring.
+      float dome = inside * (1.0 - smoothstep(0.35 * u_band.x, u_band.x, costOut));
+      gl_FragColor = vec4(profileBloom * stoodW, inside, profileTide * stoodW * (1.0 - over), dome);
       return;
     }
     if (u_mode > 4.5) {

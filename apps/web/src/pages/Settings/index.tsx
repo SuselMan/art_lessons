@@ -5,6 +5,7 @@ import { OptionGroup } from '../../components/OptionGroup'
 import { LOCALES, LOCALE_NAMES, useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
 import { APP_VERSION, isDeployedBuild } from '../../lib/appVersion'
+import { WATERCOLOR_ROUND } from '../../engine'
 import { COMPACT_PREFERENCES, DEVICE_TYPES, type CompactPreference, type DeviceType } from '../../lib/deviceType'
 import { checkForUpdateNow } from '../../lib/registerServiceWorker'
 import { THEMES, type Theme } from '../../lib/theme'
@@ -171,7 +172,7 @@ function VersionSection() {
         {/* A build identity, not prose — monospace so two of them can be
             compared character by character, which is the only thing anyone
             ever does with it. */}
-        <code className={styles.version}>{APP_VERSION}</code>
+        <code className={styles.version}>{APP_VERSION} · {WATERCOLOR_ROUND}</code>
         {isDeployedBuild() && (
           <button
             type="button"

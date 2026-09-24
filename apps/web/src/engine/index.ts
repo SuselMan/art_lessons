@@ -59,6 +59,7 @@ import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, type WetDiffuseStep } from './src/wetDiffusion'
+export { WATERCOLOR_ROUND } from './src/watercolorPresets'
 import { pigmentAbsorption } from './src/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
@@ -8533,7 +8534,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       : undefined
     const bands = buildRibbonBands(
-      drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
+      drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor, film,
     )
 
     // (#536, s17.13) The hairs' bundle count, for the ink pass below and the
@@ -8811,7 +8812,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15 | 16, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number] } = {},
   ): void {
     const { gl } = this
@@ -9174,7 +9175,12 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.23) The rim: `share` of `paint` inside the footprint goes to the
     // band. Two free buffers; the result lands in `t2`.
     const rim = (paint: AccumulationBuffer, share: number, t1: AccumulationBuffer, t2: AccumulationBuffer, tide = false): void => {
-      this._fieldOp(t1, paint, paint, 7, share, { d: field.band })
+      // (s17.30) The bloom lifts the wash's paint by the DOME over the drop
+      // (band .a: all of it under the centre, none at the front), the tide
+      // the mark's own paint over the whole domain (band .g). A uniform lift
+      // left a hard-edged hole the size of the drop's footprint - Ilya's
+      // "слишком резко обеляет лужу в месте касания".
+      this._fieldOp(t1, paint, paint, tide ? 7 : 9, share, { d: field.band })
       let gs = t1, gd = t2
       for (let i = 0; i < gather.length; i++) { this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
       // The gathered paint is in gs; the sum lands in t2, so the other is

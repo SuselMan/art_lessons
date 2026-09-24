@@ -260,6 +260,16 @@ export function buildRibbonBands(
    *  water depletion — the two overlap almost everywhere, so leaving the bands
    *  on the old scale would let them swamp whatever the stamps expressed. */
   inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number; strength: number; puddle?: number },
+  /** (#536, s17.30) Emit the nib body at EVERY pose, the real samples too,
+   *  not only the interpolated ones. Under the watercolour film's MAX blend
+   *  the band and the sample's shader stamp do not add: the stamp is a
+   *  plateau with a ramp over the outer half, the band is full to its edge,
+   *  and on the outer side of a turn the wedge between two bands was covered
+   *  by the ramp alone - a row of light spokes round every circle ("лента
+   *  мазка рвётся при круговых движениях"). A full body at the vertex fills
+   *  the wedge; under MAX it costs nothing in tone. Additive modes must not
+   *  set this: the body would deposit on top of the stamp. */
+  fillEveryPose = false,
 ): Float32Array {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
@@ -363,7 +373,7 @@ export function buildRibbonBands(
 
       // Interior sub-poses only: the endpoints already have their own exact,
       // shader-drawn nib stamp.
-      if (k > 0) body(ca, ga, nx, ny)
+      if (k > 0 || fillEveryPose) body(ca, ga, nx, ny)
     }
   }
 
