@@ -65,6 +65,10 @@ services:
       # which only ever delivers to the account owner — enough to smoke-test a
       # box, not enough to release. Set once a real domain is verified.
       EMAIL_FROM: ${EMAIL_FROM:-}
+      # (#586) Comma-separated addresses allowed into /admin. A repo variable,
+      # not a secret — the list is not what protects the panel, signing in as
+      # one of those addresses is. Empty means the panel has no admins.
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     ports:
       # Bound to loopback only — nginx on the host is the sole public entry
       # point (see deploy/nginx.conf), same reasoning as any reverse-proxied

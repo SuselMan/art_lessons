@@ -223,6 +223,15 @@ to an address on it. Until that is done, sign-in mail reaches nobody but the
 account owner. The domain is not chosen yet (#327) — which makes the brand
 domain a blocker for logging in, not just for branding.
 
+### Admin panel (#585)
+
+**Variable**: `ADMIN_EMAILS` — comma-separated addresses allowed into `/admin`,
+e.g. `you@example.com,partner@example.com`. Same route as `EMAIL_FROM` (workflow →
+`deploy.sh` → compose → container). Not a secret: the list only says *who*,
+and getting in still takes a sign-in code mailed to that address. Empty means
+the panel has no admins — the server warns about it at boot, nothing else
+breaks. Everyone not on the list gets a plain 404 from `/api/admin/*`.
+
 ## What happens on every push to main
 
 1. `.github/workflows/deploy.yml`'s `test` job: `npm ci` +

@@ -1216,6 +1216,35 @@ export function isRoomResident(roomId: string): boolean {
   return rooms.has(roomId)
 }
 
+export type LiveLesson = {
+  lessonId: string
+  name: string
+  ownerId: string
+  boards: number
+  participants: Array<{ userId: string; name: string; role: Participant['role']; boardId: string | undefined }>
+}
+
+/** (#586) Lessons somebody is in right now, for the admin panel. Presence is
+ *  a fact about the lesson (see `currentSocketForParticipant`), so boards are
+ *  not listed on their own — a board is live exactly when someone in its
+ *  lesson is on it, and `boardId` says who. */
+export function listLiveLessons(): LiveLesson[] {
+  const live: LiveLesson[] = []
+  for (const record of rooms.values()) {
+    if (record.lessonId !== null || record.participants.size === 0) continue
+    live.push({
+      lessonId: record.room.id,
+      name: record.room.name,
+      ownerId: record.room.ownerId,
+      boards: Math.max(1, record.boards.length),
+      participants: [...record.participants.values()].map(p => ({
+        userId: p.userId, name: p.name, role: p.role, boardId: p.boardId,
+      })),
+    })
+  }
+  return live
+}
+
 /** Test-only seam: resolves once `roomId`'s in-flight Postgres writes (if
  *  any) have settled, so tests can assert `leaveRoom`'s deferred-eviction
  *  behavior without a real database — enqueueWrite's rejections are caught

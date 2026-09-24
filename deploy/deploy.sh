@@ -139,6 +139,9 @@ export SENTRY_RELEASE="${SENTRY_RELEASE:-}"
 # whose absence is an outage rather than a missing feature.
 export RESEND_API_KEY="${RESEND_API_KEY:-}"
 export EMAIL_FROM="${EMAIL_FROM:-}"
+# (#586) Who may open /admin. Absent means nobody can — the rest of the app
+# does not care.
+export ADMIN_EMAILS="${ADMIN_EMAILS:-}"
 docker compose -f docker-compose.prod.yml pull
 
 # (#499) Stop the outgoing server *before* `up -d`, and read what it said on
