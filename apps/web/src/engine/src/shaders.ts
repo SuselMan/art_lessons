@@ -3158,7 +3158,15 @@ export const WC_FIELD_OP_FRAG = `
       // hole; the photographs' light patch is soft-edged with the paint
       // piling at the ring.
       float dome = inside * (1.0 - smoothstep(0.35 * u_band.x, u_band.x, costOut));
-      gl_FragColor = vec4(profileBloom * stoodW, inside, profileTide * stoodW * (1.0 - over), dome);
+      // .g: what the TIDE may take from - the domain less where an earlier
+      // mark's paint lies under a wet landing (s17.30). The tide took its
+      // share of everything mobile inside, the re-mobilised earlier paint
+      // included, and landed it on a band that is zero over the earlier
+      // mark: the mass left the overlap for the outer contour, and at the
+      // new pass's fringe, where no new paint made up for it, a flat wash
+      // showed a light seam along every pass (band 43 against 60 of the
+      // earlier pass alone, two-pass rig).
+      gl_FragColor = vec4(profileBloom * stoodW, inside * (1.0 - over), profileTide * stoodW * (1.0 - over), dome);
       return;
     }
     if (u_mode > 4.5) {
