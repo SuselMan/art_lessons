@@ -69,7 +69,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
-  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
+  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
   watercolorSpreadBudget, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_MAX_STEPS, WC_FRONT_DRY_COST, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
@@ -1620,6 +1620,18 @@ interface RibbonTileScratch {
   inkColor: AccumulationBuffer | null
   /** Its settled counterpart, as inkSettled is to inkLoad. */
   colorSettled: AccumulationBuffer | null
+  /** (#536, s17.28) The gesture's FILM: its stamps and bands under MAX, so a
+   *  texel holds the thickest thing the brush left there and never the
+   *  count of overlapping stamps. inkLoad is rebuilt per batch as
+   *  inkBase + strokeInk, inkBase being the wash as it stood when this
+   *  gesture began (refreshed on the first batch of each gesture). The
+   *  colour record has the same pair. Null until a gesture with film draws. */
+  strokeInk: AccumulationBuffer | null
+  inkBase: AccumulationBuffer | null
+  strokeColor: AccumulationBuffer | null
+  colorBase: AccumulationBuffer | null
+  /** Which gesture the film buffers belong to (RibbonStrokeScratch.gesture). */
+  filmGesture: number
 }
 
 class RibbonStrokeScratch {
@@ -1820,7 +1832,15 @@ class RibbonStrokeScratch {
    *  it instead of arriving as another mark on top — the two share one
    *  silhouette, so there is no boundary between them to draw, and only the
    *  outer perimeter of the whole wash gets a tideline. */
+  /** (§17.28) The last dab that deposited — the anchor the travel quantum
+   *  measures from (watercolorTravelQuantum). Per gesture. */
+  lastKept: Dab | undefined = undefined
+  /** (§17.28) Counts the gestures of this wash; the film buffers of a tile
+   *  are refreshed when a batch arrives from a gesture they were not made for. */
+  gesture = 0
   beginStroke(): void {
+    this.lastKept = undefined
+    this.gesture++
     this._waterUsed = 0
     // (#536) Including everything the brush drank from the paper last stroke.
     // The exchange is intra-stroke by decision — see watercolorWaterClock's own
@@ -1861,6 +1881,28 @@ class RibbonStrokeScratch {
    *  "original") base rather than a crash or a wrong result. Not worth
    *  guarding against for v1: a single marker gesture spans very few tiles,
    *  nowhere near what it'd take to force an eviction on its own. */
+  /** (§17.28) The gesture's film buffers for a tile, made or refreshed for
+   *  the current gesture: the base is the deposit as it stands now, the film
+   *  starts empty. */
+  filmBuffers(tile: AccumulationBuffer): { strokeInk: AccumulationBuffer; inkBase: AccumulationBuffer; strokeColor: AccumulationBuffer | null; colorBase: AccumulationBuffer | null } | null {
+    const entry = this.getOrCreate(tile)
+    if (!entry.inkLoad) return null
+    if (entry.filmGesture !== this.gesture) {
+      entry.strokeInk ??= this.pool.acquire(tile.width, tile.height)
+      entry.inkBase ??= this.pool.acquire(tile.width, tile.height)
+      entry.strokeInk.clear()
+      entry.inkLoad.copyTo(entry.inkBase)
+      if (entry.inkColor) {
+        entry.strokeColor ??= this.pool.acquire(tile.width, tile.height)
+        entry.colorBase ??= this.pool.acquire(tile.width, tile.height)
+        entry.strokeColor.clear()
+        entry.inkColor.copyTo(entry.colorBase)
+      }
+      entry.filmGesture = this.gesture
+    }
+    return { strokeInk: entry.strokeInk!, inkBase: entry.inkBase!, strokeColor: entry.strokeColor, colorBase: entry.colorBase }
+  }
+
   getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
     let entry = this._tiles.get(tile)
     if (!entry) {
@@ -1885,7 +1927,7 @@ class RibbonStrokeScratch {
       // The settled pair is taken on the first settle, by the pass that needs
       // it — a marker gesture never does, and three buffers a tile was already
       // the churn #385 is about.
-      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null }
+      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1 }
       this._tiles.set(tile, entry)
     }
     return entry
@@ -1904,7 +1946,8 @@ class RibbonStrokeScratch {
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
-    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled } of this._tiles.values()) {
+    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled, strokeInk, inkBase, strokeColor, colorBase } of this._tiles.values()) {
+      for (const b of [strokeInk, inkBase, strokeColor, colorBase]) if (b) this.pool.release(b)
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
       if (inkSettled) this.pool.release(inkSettled)
@@ -2510,6 +2553,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _instBLoc!: number
   private _instOpacityLoc!: number
   private _dabInstBuf!: WebGLBuffer
+  private _minmaxExt: { MAX_EXT: number } | null = null
   private _instancedArraysExt: InstancedArraysExt | null = null
   // Reused/grown scratch buffer for the per-dab instance data upload — no
   // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
@@ -5660,6 +5704,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonBuf  = gl.createBuffer()!
 
     this._instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
+    // (#536, s17.28) MAX blending for the watercolor film. Without it (rare -
+    // the extension is in every WebGL1 that matters) the deposit falls back
+    // to the additive sum of stamps.
+    this._minmaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
 
     this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
@@ -8038,12 +8086,30 @@ export class PencilEngine implements PencilEngineAPI {
     // not rewrite what the operation says. Being a pure function of dab.size,
     // it lands identically on every replay anyway.
     const floorPx = profile.minHalfWidthPx
-    const drawable = floorPx === null
+    let drawable = floorPx === null
       ? dabs.filter(d => d.size * 0.5 * preset.sizeMultiplier >= 0.5)
       : dabs.map(d => {
         const half = d.size * 0.5 * preset.sizeMultiplier
         return half >= floorPx ? d : { ...d, size: (floorPx * 2) / preset.sizeMultiplier }
       })
+    // (§17.28) The deposit as a FILM under MAX blending - see RibbonTileScratch.strokeInk.
+    const film = profile.normalizeDeposit && !!this._minmaxExt && !!scratch
+    // (§17.28) Only the dabs that MOVED deposit - see watercolorTravelQuantum.
+    // The anchor is the last dab kept, carried on the scratch across the
+    // gesture's batches so a live stroke and its replay keep the same dabs.
+    if (profile.normalizeDeposit && scratch) {
+      // …and the ribbon bridges from the last kept dab, never from a dropped
+      // one, so the bands' geometry is the same set of dabs live and replayed.
+      if (scratch.lastKept) prevDab = scratch.lastKept
+      const kept: Dab[] = []
+      let anchor = prevDab
+      for (const d of drawable) {
+        const q = watercolorTravelQuantum(d.size * 0.5 * preset.sizeMultiplier)
+        if (!anchor || Math.hypot(d.x - anchor.x, d.y - anchor.y) >= q) { kept.push(d); anchor = d }
+      }
+      if (kept.length) scratch.lastKept = kept[kept.length - 1]
+      drawable = kept
+    }
     if (!drawable.length) return
 
     const { nibShape, cornerFraction } = profile
@@ -8374,8 +8440,11 @@ export class PencilEngine implements PencilEngineAPI {
         // The stamps' share of the dose, doubled back up because the legacy
         // formula's 0.5 assumed an even split with the bands.
         const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
+        // (§17.28) Under MAX the stamp's value IS the film: spacing-free.
         deposits.push(profile.normalizeDeposit
-          ? profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft * excess
+          ? (film
+            ? profile.depositPerRadius * WC_FILM_DOSE * pigmentLeft * excess
+            : profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft * excess)
           : dab.opacity * seg * 0.5)
         prev = dab
       }
@@ -8448,8 +8517,10 @@ export class PencilEngine implements PencilEngineAPI {
         // (markerRibbon.ts's FLOATS_PER_VERTEX) precisely so that how the
         // stroke was cut into pointer events cannot change the result.
         return {
-          ink: profile.depositPerRadius * (travel / radius) * 0.5
-            * ((1 - profile.stampInkShare) * 2) * (pigmentByDab.get(d1) ?? 1)
+          ink: (film
+            ? profile.depositPerRadius * WC_FILM_DOSE * 2
+            : profile.depositPerRadius * (travel / radius) * 0.5 * ((1 - profile.stampInkShare) * 2))
+            * (pigmentByDab.get(d1) ?? 1)
             * (excessByDab.get(d1) ?? 1)
             // (#536) …less what this dab shed into standing water — see the
             // halo, which is made of exactly this share.
@@ -8500,40 +8571,48 @@ export class PencilEngine implements PencilEngineAPI {
       //
       // Skipped entirely for a covering ink, which has no such quantity — see
       // RibbonProfile.ink.
-      if (inkLoad) {
+      // (§17.28) With the film on, the stamps and bands go into the gesture's
+      // own buffers under MAX and inkLoad/inkColor are rebuilt as base + film
+      // over the batch's rect; without it, straight into inkLoad additively.
+      const fb = film && inkLoad ? scratch.filmBuffers(tile.buffer) : null
+      const inkDest = fb ? fb.strokeInk : inkLoad
+      const colorDest = fb ? fb.strokeColor : inkColor
+      const beginInk = (buf: AccumulationBuffer): void => { if (fb) buf.beginMaxDraw(this._minmaxExt!); else buf.beginAdditiveDraw() }
+      const bandMode = fb ? 'ink-max' as const : 'ink' as const
+      if (inkDest) {
         for (let i = 0; i < drawable.length; i++) {
-          inkLoad.beginAdditiveDraw()
+          beginInk(inkDest)
           this._drawRibbonNibPass(
-            inkLoad, tile, drawable[i], preset, profile, 7,
+            inkDest, tile, drawable[i], preset, profile, 7,
             deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
             paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk,
           )
-          inkLoad.endDraw()
+          inkDest.endDraw()
         }
         if (bands.length) {
           this._drawRibbonBands(
-            inkLoad, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
+            inkDest, tile, bands, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
             0, 0, combs, profile.bristleInk,
           )
         }
         // (#536, §17.19) …and the same figure once more, into the colour
         // record: the paint's optical depth per texel. Same dose, same hairs,
         // same mottling, so depth and deposit agree to the texel.
-        if (inkColor) {
+        if (colorDest) {
           for (let i = 0; i < drawable.length; i++) {
-            inkColor.beginAdditiveDraw()
+            beginInk(colorDest)
             this._drawRibbonNibPass(
-              inkColor, tile, drawable[i], preset, profile, 7,
+              colorDest, tile, drawable[i], preset, profile, 7,
               deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
               waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
               paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk, tau,
             )
-            inkColor.endDraw()
+            colorDest.endDraw()
           }
           if (bands.length) {
             this._drawRibbonBands(
-              inkColor, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
+              colorDest, tile, bands, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
               0, 0, combs, profile.bristleInk, tau,
             )
           }
@@ -8550,17 +8629,27 @@ export class PencilEngine implements PencilEngineAPI {
       // уйти, такого быть не может"). No coverage stamp for the halo for the
       // same reason: it must not grow the silhouette. Skipped outright on dry
       // paper: no wet dab, no second pass, no cost.
-      if (anyHalo && inkLoad) {
+      if (anyHalo && inkDest) {
         for (let i = 0; i < haloDabs.length; i++) {
           const dose = haloDoseByDab.get(haloDabs[i]) ?? 0
           if (dose <= 0) continue
-          inkLoad.beginAdditiveDraw()
+          beginInk(inkDest)
           this._drawRibbonNibPass(
-            inkLoad, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
+            inkDest, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
             waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
             paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage, combs, profile.bristleInk,
           )
-          inkLoad.endDraw()
+          inkDest.endDraw()
+        }
+      }
+      // (§17.28) The deposit the composite and the settle read: the wash as it
+      // stood before this gesture plus the gesture's film, over this batch's
+      // rect (the film outside it is unchanged since the last batch).
+      if (fb && inkLoad) {
+        const rect = this._revealRect(tile, compositeBounds)
+        if (rect) {
+          this._fieldOp(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
+          if (inkColor && fb.strokeColor && fb.colorBase) this._fieldOp(inkColor, fb.colorBase, fb.strokeColor, 1, 1, { scissor: rect })
         }
       }
 
@@ -9613,7 +9702,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the geometry itself is built once for the whole batch rather than per
    *  tile. */
   private _drawRibbonBands(
-    dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink', aaPx: number,
+    dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink' | 'ink-max', aaPx: number,
     cloud = 0, gran = 0, mottleSeed: [number, number] = [0, 0],
     /** (#536, s17.11/13) Coverage mode only: the water the stroke delivers
      *  and what dry paper keeps of it, into .b together with each band's
@@ -9638,11 +9727,11 @@ export class PencilEngine implements PencilEngineAPI {
       local[i + 8] = bands[i + 8]
     }
 
-    if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
+    if (mode === 'ink-max') dest.beginMaxDraw(this._minmaxExt!); else if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
     gl.useProgram(this._ribbonProg)
     gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
     gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
-    gl.uniform1f(this._ribbonUni.u_mode, mode === 'ink' ? 1 : 0)
+    gl.uniform1f(this._ribbonUni.u_mode, mode === 'coverage' ? 0 : 1)
     gl.uniform2f(this._ribbonUni.u_worldOrigin, tile.originX, -tile.originY || 0)
     gl.uniform1f(this._ribbonUni.u_cloudDeposit, cloud)
     gl.uniform1f(this._ribbonUni.u_granDeposit, gran)

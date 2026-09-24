@@ -921,6 +921,8 @@ export const DAB_FRAG = `
   const float WC_DRY_TOOTH_PX = 2.5;
   const float WC_DRY_COARSE = 0.75;
   const float WC_DRY_LIFT = 0.5;
+  const float WC_DRY_WATER_LO = 0.12;
+  const float WC_DRY_WATER_HI = 0.45;
   const float WC_DRY_CONTACT_W = 0.3;
   // (#536, s17.26) The ink stamp's profile: 1 = a cone to the centre, 3 = a
   // plateau with a ramp over the outer half of the nib.
@@ -1692,7 +1694,9 @@ ${WC_NOISE_GLSL}
       // the bundles stop breaking the silhouette and start delivering unevenly
       // inside a solid mark. Still readable, and weaker, which is what a real
       // one does under water.
-      float dryness = u_dryContact * (1.0 - max(waterHere, paperWetHere));
+      // (s17.28) A gate, not a line: the photographs show a full film at
+      // half water and the tooth breaking through only near dry.
+      float dryness = u_dryContact * (1.0 - smoothstep(WC_DRY_WATER_LO, WC_DRY_WATER_HI, max(waterHere, paperWetHere)));
       if (dryness > 0.0) {
         // Where a bundle sits, the brush reaches further down into the paper;
         // between bundles it barely touches even a crest. So the bristles

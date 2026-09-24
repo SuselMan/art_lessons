@@ -274,9 +274,24 @@ export class AccumulationBuffer {
     gl.disable(gl.BLEND)
   }
 
+  /** (#536, s17.28) Blend by MAX (EXT_blend_minmax): what lands on a texel is
+   *  the largest of the writes, not their sum. The watercolor deposit is a
+   *  FILM the brush leaves, and a film is as thick as the brush made it, not
+   *  as thick as the number of stamps that happened to overlap there. */
+  beginMaxDraw(ext: { MAX_EXT: number }): void {
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE)
+    gl.blendEquation(ext.MAX_EXT)
+  }
+
   endDraw(): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
     this.gl.disable(this.gl.BLEND)
+    this.gl.blendEquation(this.gl.FUNC_ADD)
   }
 
   clear(): void {

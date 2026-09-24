@@ -815,7 +815,13 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     //  this is finally a number that can be turned rather than a symptom of
     //  something else — which is the first time in this issue that has been
     //  true of the hair. Zero-mean, so raising it does not darken the mark.
-    bristleInk: 0.62,
+    // (s17.28) 0: the hair no longer combs the DOSE. Ilya's photographs: a
+    // loaded stroke's body is one flat film, and the hair shows only where
+    // the brush is nearly dry - as breaks in the contact along the paper's
+    // tooth, which the composite's dry-contact term draws (u_dryContact, with
+    // the bundle field modulating the reach). The density comb read as a
+    // rake at every water level once the water ran down along the stroke.
+    bristleInk: 0,
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.

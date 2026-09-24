@@ -678,6 +678,11 @@ export class MockGL {
   // per-pixel lerp). Every other call site still pairs its src factor with
   // ONE_MINUS_SRC_ALPHA — see the module docstring's blend-arithmetic note.
   blendFunc(src: number, dst: number): void { this._blendSrc = src; this._blendDst = dst }
+  // (#536, s17.28) The watercolor film blends by MAX through EXT_blend_minmax;
+  // the mock reports no such extension (see getExtension), so the engine takes
+  // its additive path here, and endDraw's reset to FUNC_ADD is a no-op.
+  readonly FUNC_ADD = 0x8006
+  blendEquation(_mode: number): void {}
 
   clearColor(_r: number, _g: number, _b: number, a: number): void { this._clearAlpha = a }
 

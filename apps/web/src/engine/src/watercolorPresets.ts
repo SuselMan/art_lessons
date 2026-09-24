@@ -646,7 +646,10 @@ const WATER_FLOOR = 0.04
 //  slowly and far, a dry one fast and near. A tuning shape, not a law — if
 //  the wet line lives too long, only the spread changes, never the amount.
 const PIGMENT_RUN_DRY_RADII = 8
-const PIGMENT_RUN_WET_RADII = 32
+// (s17.28) 80, from 32: on Ilya's photographs a loaded wet stroke of sixteen
+// radii is nearly one tone end to end (a tenth lighter at the lift), where 32
+// lost a third of it; the dry run stays short - his dry strokes do fade.
+const PIGMENT_RUN_WET_RADII = 80
 
 // ─── The touch-down (#536) ──────────────────────────────────────────────────
 //
@@ -725,6 +728,31 @@ export function watercolorPuddleDepth(usedRadii: number, landedWet: number, pape
 export const WC_FILM_STAND = 0.45
 export const WC_PUDDLE_RADII = 3
 export const WC_PUDDLE_WET_FULL = 0.5
+
+/** (s17.28) The least a dab has to have moved from the last one DEPOSITED for
+ *  it to deposit at all - a share of the nib's radius, never under a pixel
+ *  and a half. The deposit is laid per unit of travel, and a pen held still
+ *  is not still: the tablet reports it a pixel this way and that at 120 Hz,
+ *  and DabSystem's spacing collapses to its 1 px floor at that speed, so a
+ *  half-second dwell before the lift arrived as forty dabs a pixel apart -
+ *  forty pixels of "travel" packed into one nib, a blob at every end of
+ *  Ilya's strokes where the paper had a light lift. Sensor noise is not
+ *  travel. A slow stroke that really moves crosses the quantum every few
+ *  samples and loses nothing: the kept dab's travel is the whole distance
+ *  from the last kept one. */
+/** (s17.28) The deposit a stroke's FILM carries per texel, in units of the
+ *  profile's depositPerRadius, before the brush's load and landing surplus.
+ *  Under MAX blending (AccumulationBuffer.beginMaxDraw) a texel holds one
+ *  stamp's value, so the value is the film itself, spacing-free; under the
+ *  old additive sum it was seg/R per stamp and 2R/seg stamps deep. Set so
+ *  the calibration stroke keeps D_body 0.6. */
+export const WC_FILM_DOSE = 0.62
+
+export function watercolorTravelQuantum(radiusPx: number): number {
+  return Math.max(WC_TRAVEL_QUANTUM_MIN_PX, radiusPx * WC_TRAVEL_QUANTUM)
+}
+export const WC_TRAVEL_QUANTUM = 0.06
+export const WC_TRAVEL_QUANTUM_MIN_PX = 1.5
 
 export function watercolorStartExcess(usedRadii: number, landedWet: number): number {
   const gate = 1 - clamp01(landedWet)

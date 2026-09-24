@@ -358,7 +358,10 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
     const dryBudget = watercolorPigmentRun(0) * watercolorPigmentRate(0)
     const wetBudget = watercolorPigmentRun(1) * watercolorPigmentRate(1)
     expect(wetBudget).toBeGreaterThan(dryBudget)
-    expect(wetBudget).toBeLessThan(dryBudget * 3)
+    // (s17.28) A wet brush spends its pigment over ten times the run of a dry
+    // one at half the rate: five times the budget, and Ilya's photographs
+    // want a loaded wet stroke nearly one tone for sixteen radii.
+    expect(wetBudget).toBeLessThan(dryBudget * 6)
     for (const water of [0, 0.5, 1]) {
       const budget = watercolorPigmentRun(water) * watercolorPigmentRate(water)
       // Path geometry is not an input, only travel: a fine-stepped scribble and
