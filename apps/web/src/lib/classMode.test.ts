@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AssignmentSummary, BoardSummary } from '@grafetto/shared'
+import type { BoardSummary } from '@grafetto/shared'
 
 import { followDestination, followTarget } from './boards'
 import {
-  classGrid, followChip, isForeignPersonalBoard, latestOwnBoard, neighbourInGrid, ownBoardIn, stripBoards,
+  classGrid, followChip, isForeignPersonalBoard, neighbourInGrid, ownBoardIn, stripBoards,
 } from './classMode'
 
 const lesson: BoardSummary = { id: 'L', name: 'Cube', order: 0 }
@@ -13,23 +13,16 @@ const alice1: BoardSummary = { id: 'A1', name: 'Alice', order: 0, assignmentId: 
 const bob1: BoardSummary = { id: 'B1', name: 'Bob', order: 0, assignmentId: 'R1', ownerId: 'bob' }
 const alice2: BoardSummary = { id: 'A2', name: 'Alice', order: 0, assignmentId: 'R2', ownerId: 'alice' }
 const boards = [lesson, page2, alice1, bob1, alice2]
-const rounds: AssignmentSummary[] = [
-  { id: 'R1', name: 'Cube', order: 1, createdAt: '2026-09-24T10:00:00Z', endedAt: '2026-09-24T10:20:00Z' },
-  { id: 'R2', name: 'Cylinder', order: 2, createdAt: '2026-09-24T10:30:00Z' },
-]
 
 describe('class mode on the client (#595)', () => {
   it('keeps personal boards out of the strip', () => {
     expect(stripBoards(boards).map(b => b.id)).toEqual(['L', 'P2'])
   })
 
-  it('finds a student\'s board in a round, and their latest one after the round is over', () => {
+  it('finds a student\'s board in an assignment, and nothing where the class is with the teacher', () => {
     expect(ownBoardIn(boards, 'R1', 'alice')?.id).toBe('A1')
+    expect(ownBoardIn(boards, 'R2', 'bob')).toBeUndefined()
     expect(ownBoardIn(boards, null, 'alice')).toBeUndefined()
-    expect(latestOwnBoard(boards, rounds, 'R2', 'alice')?.id).toBe('A2')
-    expect(latestOwnBoard(boards, rounds, null, 'alice')?.id).toBe('A2')
-    expect(latestOwnBoard(boards, rounds, null, 'bob')?.id).toBe('B1')
-    expect(latestOwnBoard(boards, rounds, null, 'carol')).toBeUndefined()
   })
 
   it('orders the grid raised hands first, then by name, and walks it round', () => {

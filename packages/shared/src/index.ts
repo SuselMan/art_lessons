@@ -418,15 +418,15 @@ export function isClassVisibility(value: unknown): value is ClassVisibility {
   return typeof value === 'string' && (CLASS_VISIBILITIES as readonly string[]).includes(value)
 }
 
-/** (#595, ADR 015 §2) One round of work in class. Its personal boards are the
- *  `BoardSummary` entries carrying its id. `endedAt` is set once the teacher
- *  has called everyone back ("Все ко мне"); the boards stay. */
+/** (#595, ADR 015 §2, §11) One assignment of the lesson — "draw the cube".
+ *  Its personal boards are the `BoardSummary` entries carrying its id. It
+ *  never ends: the class is sent to it, called away from it and sent back
+ *  (`set_class_location`), and its boards stay the students' throughout. */
 export type AssignmentSummary = {
   id: string
   name: string
   order: number
   createdAt: string
-  endedAt?: string
 }
 
 // (#176, ADR 014) One entry of a lesson's board strip — what the client needs
@@ -464,8 +464,9 @@ export type LessonState = {
   activeBoardId: string | null
   // (#595, ADR 015) Every assignment round of this lesson, in order.
   assignments: AssignmentSummary[]
-  // The round in progress; null when there is none. While it is set, a
-  // following student is on their own board in it (see the web's followTarget).
+  // Where the class is (ADR 015 §11): an assignment — each student on their
+  // own board in it — or null, everyone on the teacher's board. A following
+  // student goes where this says (see the web's followTarget).
   activeAssignmentId: string | null
   // The personal board the teacher is showing everyone; null when none. A
   // following student is on it while it is set, whatever else is going on.
@@ -2171,11 +2172,11 @@ export type ServerToClientEvents = {
   board_thumbnail_updated: (data: { boardId: string; updatedAt: string }) => void
 }
 
-/** (#595) `assignment_start`'s answer. `already_running`: one round at a
- *  time, the previous one has to be ended ("Все ко мне") first. */
+/** (#595) `assignment_start`'s answer. `busy`: another one is still being
+ *  created — a double tap, answered once. */
 export type AssignmentStartResult =
   | { ok: true; assignment: AssignmentSummary }
-  | { ok: false; error: 'not_owner' | 'already_running' | 'server_error' }
+  | { ok: false; error: 'not_owner' | 'busy' | 'server_error' }
 
 export type ClientToServerEvents = {
   /** Registers a new room and joins the calling socket as its `owner` —
@@ -2268,15 +2269,16 @@ export type ClientToServerEvents = {
   // teacher-only (the lesson's owner), checked server-side like every owner
   // control.
 
-  // Hands out a round: a new assignment and a blank personal board for every
-  // student in the lesson right now. `name` is what the grid is titled; the
+  // A new assignment: a blank personal board for every student in the lesson
+  // right now, and the class sent there. `name` titles it in the list; the
   // client sends a localised default.
   assignment_start: (data: { name: string }, ack: (result: AssignmentStartResult) => void) => void
-  // "Все ко мне": ends the round in progress and clears the spotlight. The
-  // students' boards stay theirs.
-  assignment_end: () => void
-  // Shows one personal board of the running round to the whole class, or
-  // (null) stops showing it.
+  // (ADR 015 §11) Where the class is: an assignment of this lesson — every
+  // student to their own board in it, one made for anyone who has none — or
+  // null, "Все ко мне", everyone to the teacher's board. Clears the spotlight.
+  set_class_location: (data: { assignmentId: string | null }) => void
+  // Shows one student's personal board to the whole class, or (null) stops
+  // showing it. Any assignment's, wherever the class is.
   set_spotlight: (data: { boardId: string | null }) => void
   // A student's own hand; the teacher may lower (or raise) anyone's by
   // naming them. Ignored for anyone else naming someone else.

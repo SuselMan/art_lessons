@@ -1,4 +1,4 @@
-import type { AssignmentSummary, BoardSummary } from '@grafetto/shared'
+import type { BoardSummary } from '@grafetto/shared'
 
 // (#595, ADR 015 §6) Class mode's reading of the lesson's board list, as pure
 // functions — the same reason lib/boards.ts exists. The server has already
@@ -23,22 +23,6 @@ export function ownBoardIn(
 ): BoardSummary | undefined {
   if (!assignmentId) return undefined
   return boards.find(b => b.assignmentId === assignmentId && b.ownerId === userId)
-}
-
-/** A student's "Моя работа": their board in the running round, else their
- *  board in the most recent round they took part in. The work stays theirs
- *  after "Все ко мне" (ADR 015 §3), and this is how they get back to it. */
-export function latestOwnBoard(
-  boards: readonly BoardSummary[], assignments: readonly AssignmentSummary[],
-  activeAssignmentId: string | null, userId: string,
-): BoardSummary | undefined {
-  const active = ownBoardIn(boards, activeAssignmentId, userId)
-  if (active) return active
-  for (const assignment of [...assignments].sort((a, b) => b.order - a.order)) {
-    const own = ownBoardIn(boards, assignment.id, userId)
-    if (own) return own
-  }
-  return undefined
 }
 
 export type GridTile = {

@@ -83,54 +83,14 @@
 }
 .close:hover { color: var(--color-text); background: var(--color-surface-hover); }
 
-.empty,
-.startHint {
+.empty {
   margin: 0;
+  padding: 24px 4px;
+  text-align: center;
   color: var(--color-text-dim);
   font-size: 14px;
   line-height: 1.45;
 }
-.empty { padding: 24px 4px; text-align: center; }
-
-.start {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 4px 2px 8px;
-}
-
-.startRow {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.startInput {
-  flex: 1;
-  min-width: 180px;
-  height: var(--touch-target);
-  padding: 0 12px;
-  font: inherit;
-  font-size: 15px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
-  color: var(--color-text);
-  outline: none;
-}
-.startInput:focus { border-color: var(--color-accent-border); }
-
-.startBtn {
-  height: var(--touch-target);
-  padding: 0 20px;
-  border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-size: 15px;
-  font-weight: 600;
-}
-.startBtn:hover { background: var(--color-accent-hover); }
-.startBtn:disabled { opacity: 0.6; cursor: default; }
 
 /* The tiles: as large as the width allows, down to a size a tablet can still
    tell one drawing from another at. */

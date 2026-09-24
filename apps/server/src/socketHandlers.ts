@@ -5,10 +5,10 @@ import { isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ
 
 import {
   abortAssignmentStart, addPaletteColor, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, createRoom,
-  endAssignment, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getClassroom, getLessonStateFor,
+  ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getClassroom, getLessonStateFor,
   getOperationRejectReason, getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
   leaveRoom, noteAssignmentStarted, noteBoardCreated, personalBoardIn, recordOperation, releaseLockOnUndo,
-  releaseRoomIfUnused, removePaletteColor, setActiveBoard, setClassVisibility, setHandRaised, setLayerLocked,
+  releaseRoomIfUnused, removePaletteColor, setActiveBoard, setClassLocation, setClassVisibility, setHandRaised, setLayerLocked,
   setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, setRoomTools, setSpotlight, updateAliveIds,
 } from './rooms.js'
 import { createAssignment, createPersonalBoard } from './classMode.js'
@@ -215,11 +215,23 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   // комнате уже отчитались», и оно должно переживать отдельное соединение.
   const lagWatch = createSnapshotLagWatch()
 
-  /** (#595, ADR 015 §4) The latecomer's board: a student in the lesson while a
-   *  round runs who has no board in it yet gets one, and everyone who may see
-   *  it is told. A no-op for anyone who already has theirs — which is every
-   *  reconnect and every page turn. Nobody gets a board they were not present
-   *  for: an absent student is not an empty tile. */
+  /** Every student present gets a board in the assignment the class is on,
+   *  if they have none yet — see givePersonalBoard. */
+  const giveMissingBoards = (lessonId: string) => {
+    for (const student of getClassroom(lessonId)?.students ?? []) {
+      void givePersonalBoard(lessonId, student).catch(err => {
+        log.error({ err, lessonId, userId: student.userId }, 'failed to create a missing personal board')
+        reportException(err, { lessonId, userId: student.userId })
+      })
+    }
+  }
+
+  /** (#595, ADR 015 §4, §11) A student in the lesson while the class is on an
+   *  assignment, with no board in it yet — a latecomer, or someone absent when
+   *  it was handed out — gets one, and everyone who may see it is told. A
+   *  no-op for anyone who already has theirs — which is every reconnect and
+   *  every page turn. Nobody gets a board they are not present for: an absent
+   *  student is not an empty tile. */
   const givePersonalBoard = async (lessonId: string, student: { userId: string; name: string }) => {
     const classroom = getClassroom(lessonId)
     const assignmentId = classroom?.activeAssignmentId
@@ -758,9 +770,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
 
     const isTeacher = (roomId: string, userId: string) => getParticipant(roomId, userId)?.role === 'owner'
 
-    // Hands out a round. The rows are written first (one transaction, see
+    // A new assignment. The rows are written first (one transaction, see
     // classMode.ts), then the lesson learns about them: each socket its own
     // lesson_state, in which a following student finds their board and goes.
+    // The class is sent there whatever it was doing — a new assignment is
+    // handed out to be worked on.
     socket.on('assignment_start', async ({ name }, ack) => {
       const { roomId, userId, lessonId } = socket.data
       const reply = typeof ack === 'function' ? ack : () => {}
@@ -769,7 +783,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         return
       }
       if (!beginAssignmentStart(lessonId)) {
-        reply({ ok: false, error: 'already_running' })
+        reply({ ok: false, error: 'busy' })
         return
       }
       const title = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : '—'
@@ -781,11 +795,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         log.info({ lessonId, assignmentId: assignment.id, boards: boards.length }, 'assignment started')
         reply({ ok: true, assignment })
         // Anyone who arrived while the rows were being written was not in
-        // `students` and got no board from `givePersonalBoard` either (there
-        // was no round yet). Sweep once more now that there is.
-        for (const student of getClassroom(lessonId)?.students ?? []) {
-          if (!boards.some(b => b.ownerId === student.userId)) void givePersonalBoard(lessonId, student).catch(() => {})
-        }
+        // `students`, and their join found the class somewhere else. Sweep once
+        // more now that it is here.
+        giveMissingBoards(lessonId)
       } catch (err) {
         abortAssignmentStart(lessonId)
         log.error({ err, lessonId }, 'failed to start an assignment')
@@ -794,13 +806,17 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       }
     })
 
-    // "Все ко мне". Ends the round, takes down the spotlight; following
-    // students fall back to the teacher's board with the lesson_state.
-    socket.on('assignment_end', () => {
+    // (ADR 015 §11) Moves the class: "Все ко мне" (null) or "Вернуть всех
+    // сюда" (an assignment). Everyone hears where the class is now; a student
+    // with no board in that assignment — absent when it was handed out — gets
+    // one right after.
+    socket.on('set_class_location', ({ assignmentId }) => {
       const { roomId, userId, lessonId } = socket.data
       if (!roomId || !userId || !lessonId || !isTeacher(roomId, userId)) return
-      if (endAssignment(lessonId) === null) return
+      if (assignmentId !== null && typeof assignmentId !== 'string') return
+      if (!setClassLocation(lessonId, assignmentId)) return
       void sendLessonState(io, lessonId)
+      if (assignmentId !== null) giveMissingBoards(lessonId)
     })
 
     socket.on('set_spotlight', ({ boardId }) => {

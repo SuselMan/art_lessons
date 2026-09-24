@@ -227,27 +227,67 @@ describe('handing out a round (#595)', () => {
     expect(aliceState.boards.some(b => b.id === aliceState.id)).toBe(true)
   })
 
-  it('is the teacher\'s alone, and one round at a time', async () => {
-    const { teacher, alice } = await classInSession()
+  it('is the teacher\'s alone; a second one is added to the list and the class is sent there', async () => {
+    const { teacher, alice, teacherState } = await classInSession()
     expect(await start(alice)).toEqual({ ok: false, error: 'not_owner' })
-    expect(await start(teacher)).toEqual({ ok: false, error: 'already_running' })
+
+    const moved = next(alice, 'lesson_state')
+    const second = await start(teacher, 'Cylinder')
+    expect(second.ok).toBe(true)
+    const lesson = (await moved).lesson
+    expect(lesson.assignments.map(a => a.name)).toEqual(['Cube', 'Cylinder'])
+    expect(lesson.activeAssignmentId).not.toBe(teacherState.activeAssignmentId)
+    // A board in each: the first one's work is still hers.
+    expect(personal(lesson)).toHaveLength(2)
   })
 
-  it('"Все ко мне" ends it: no round, no spotlight, and the next one may start', async () => {
-    const { teacher, alice, aliceBoard } = await classInSession()
+  it('"Все ко мне" moves the class without ending anything, and "Вернуть всех сюда" brings it back to the same work', async () => {
+    const { teacher, alice, aliceBoard, aliceState } = await classInSession()
+    const assignmentId = aliceState.activeAssignmentId!
     teacher.emit('set_spotlight', { boardId: aliceBoard })
     await next(alice, 'lesson_state')
 
-    const ended = next(alice, 'lesson_state')
-    teacher.emit('assignment_end')
-    const lesson = (await ended).lesson
-    expect(lesson.activeAssignmentId).toBeNull()
-    expect(lesson.spotlightBoardId).toBeNull()
-    expect(lesson.assignments[0].endedAt).toBeDefined()
-    // The work stays the student's.
-    expect(personal(lesson).map(b => b.id)).toEqual([aliceBoard])
+    const gathered = next(alice, 'lesson_state')
+    teacher.emit('set_class_location', { assignmentId: null })
+    const atTeacher = (await gathered).lesson
+    expect(atTeacher.activeAssignmentId).toBeNull()
+    expect(atTeacher.spotlightBoardId).toBeNull()
+    expect(atTeacher.assignments.map(a => a.id)).toEqual([assignmentId])
+    expect(personal(atTeacher).map(b => b.id)).toEqual([aliceBoard])
 
-    expect((await start(teacher, 'Cylinder')).ok).toBe(true)
+    const back = next(alice, 'lesson_state')
+    teacher.emit('set_class_location', { assignmentId })
+    const returned = (await back).lesson
+    expect(returned.activeAssignmentId).toBe(assignmentId)
+    // The same board, not a fresh one.
+    expect(personal(returned).map(b => b.id)).toEqual([aliceBoard])
+  })
+
+  it('a student absent when it was handed out gets a board when the class is sent back to it', async () => {
+    const { lessonId, teacher, aliceState } = await classInSession()
+    const assignmentId = aliceState.activeAssignmentId!
+    teacher.emit('set_class_location', { assignmentId: null })
+    await next(teacher, 'lesson_state')
+
+    // Carol arrives while the class is with the teacher: nothing to give her.
+    const carol = client('carol')
+    await join(carol, lessonId, 'Carol')
+    await silent(carol, 'lesson_state')
+
+    const given = new Promise<LessonState>(resolve => {
+      carol.on('lesson_state', ({ lesson }) => { if (personal(lesson).length > 0) resolve(lesson) })
+    })
+    teacher.emit('set_class_location', { assignmentId })
+    const lesson = await given
+    expect(personal(lesson).map(b => [b.ownerId, b.assignmentId])).toEqual([['carol', assignmentId]])
+  })
+
+  it('moves the class only for the teacher, and only to an assignment of this lesson', async () => {
+    const { teacher, alice, bob } = await classInSession()
+    alice.emit('set_class_location', { assignmentId: null })
+    await silent(bob, 'lesson_state')
+    teacher.emit('set_class_location', { assignmentId: 'not-an-assignment' })
+    await silent(bob, 'lesson_state')
   })
 
   it('gives a latecomer a board of their own, and tells nobody else it exists', async () => {
@@ -320,7 +360,16 @@ describe('who may see and draw on a personal board (#595)', () => {
     await silent(alice, 'active_board_changed')
   })
 
-  it('refuses a spotlight on anything that is not a board of the running round', async () => {
+  it('shows a work to everyone wherever the class is — with the teacher, too', async () => {
+    const { teacher, bob, aliceBoard } = await classInSession()
+    teacher.emit('set_class_location', { assignmentId: null })
+    await next(bob, 'lesson_state')
+    const lit = next(bob, 'lesson_state')
+    teacher.emit('set_spotlight', { boardId: aliceBoard })
+    expect((await lit).lesson.spotlightBoardId).toBe(aliceBoard)
+  })
+
+  it('refuses a spotlight on anything that is not a student\'s board', async () => {
     const { lessonId, teacher, bob } = await classInSession()
     teacher.emit('set_spotlight', { boardId: lessonId })
     await silent(bob, 'lesson_state')

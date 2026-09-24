@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from '@playwright/test'
+import type { BrowserContext, Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
 import { createRoom, drawStroke, joinRoom, operations, waitForOperations, waitForRoomReady } from '../support/room'
@@ -62,15 +62,29 @@ function strokesBy(page: Page, userId: string): Promise<number> {
   return operations(page).then(ops => ops.filter(op => op.type === 'stroke' && op.userId === userId).length)
 }
 
-async function openGrid(page: Page): Promise<void> {
-  const toggle = page.getByRole('button', { name: 'Class', exact: true }).first()
-  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click()
-  await expect(page.getByRole('dialog', { name: 'Class' })).toBeVisible()
+/** The Class tab of the right-hand panel, opened if it is not already. Its
+ *  first section is "where the class is" for the teacher, "my boards" for a
+ *  student. */
+async function openClassTab(page: Page, section: 'Where the class is' | 'My boards'): Promise<Locator> {
+  const region = page.getByRole('region', { name: section })
+  if (!(await region.isVisible())) await page.getByRole('button', { name: /^Open Class/ }).click()
+  await expect(region).toBeVisible()
+  return region
 }
 
-/** (#595, ADR 015 §9 step 7) A lesson in two phases: the teacher explains on
- *  their own board, then hands out an assignment, walks the class, shows one
- *  work to everyone and calls the class back.
+/** The big grid of one assignment's works, opened from the Class tab. */
+async function openGrid(page: Page, assignment: string): Promise<Locator> {
+  const places = await openClassTab(page, 'Where the class is')
+  await places.getByRole('button', { name: `All works: ${assignment}` }).click()
+  const grid = page.getByRole('dialog', { name: 'Class' })
+  await expect(grid).toBeVisible()
+  return grid
+}
+
+/** (#595, ADR 015 §9 step 7, §11) A lesson in two phases: the teacher explains
+ *  on their own board, then hands out an assignment, walks the class, shows
+ *  one work to everyone, calls the class back — and sends it back to the same
+ *  work, which is the ordinary rhythm of a lesson rather than an edge case.
  *
  *  Unit tests cover the server's rights and channels and the client's follow
  *  rule one at a time; this is the promise they make together, in a real
@@ -79,7 +93,7 @@ async function openGrid(page: Page): Promise<void> {
  *  when the class comes back. One test, because every step is the next one's
  *  setup. */
 test.describe('class mode', () => {
-  test('hand out, draw, walk the class, show one to all, call everyone back', async ({ page: teacher, browser }) => {
+  test('hand out, draw, walk the class, show one to all, call everyone back and send them back', async ({ page: teacher, browser }) => {
     test.setTimeout(300_000)
 
     const lessonId = await createRoom(teacher, 'E2E class')
@@ -110,9 +124,10 @@ test.describe('class mode', () => {
       let aliceBoard = ''
       let bobBoard = ''
 
-      await test.step('the teacher hands out a round and each student is taken to a blank board of their own', async () => {
-        await openGrid(teacher)
-        await teacher.getByRole('button', { name: 'Hand out', exact: true }).click()
+      await test.step('the teacher hands out an assignment and each student is taken to a blank board of their own', async () => {
+        const places = await openClassTab(teacher, 'Where the class is')
+        await places.getByRole('button', { name: 'New assignment' }).click()
+        await places.getByRole('button', { name: 'Hand out', exact: true }).click()
 
         aliceBoard = await ownBoard(alice)
         bobBoard = await ownBoard(bob)
@@ -128,8 +143,10 @@ test.describe('class mode', () => {
         expect((await classState(teacher)).personal.map(b => b.id).sort()).toEqual([aliceBoard, bobBoard].sort())
         // The teacher stays where they were: handing out is not a page turn.
         expect((await classState(teacher)).boardId).toBe(lessonId)
-        await expect(teacher.getByRole('dialog', { name: 'Class' }).getByRole('button', { name: 'Alice' })).toBeVisible()
-        await expect(teacher.getByRole('dialog', { name: 'Class' }).getByRole('button', { name: 'Bob' })).toBeVisible()
+        await expect(places.getByRole('img', { name: 'Class is here' })).toBeVisible()
+        const grid = await openGrid(teacher, 'Assignment 1')
+        await expect(grid.getByRole('button', { name: 'Alice' })).toBeVisible()
+        await expect(grid.getByRole('button', { name: 'Bob' })).toBeVisible()
       })
 
       await test.step('a classmate\'s board is closed over REST too', async () => {
@@ -167,11 +184,13 @@ test.describe('class mode', () => {
         await expect.poll(() => strokesBy(alice, teacherId)).toBe(1)
       })
 
-      await test.step('Bob raises his hand and the teacher sees it', async () => {
+      await test.step('Bob raises his hand: a badge on the Class tab, a hand by his name, and in the grid', async () => {
         await bob.getByRole('button', { name: 'Raise hand' }).click()
         await teacher.waitForFunction(id => window.__roomStore!.getState().handsRaised.includes(id), bobId)
-        await openGrid(teacher)
-        await expect(teacher.getByRole('dialog', { name: 'Class' }).getByTitle('Hand raised')).toBeVisible()
+        await expect(teacher.getByRole('button', { name: /raised hands: 1/ })).toBeVisible()
+        await expect(teacher.getByRole('button', { name: "Lower Bob's hand" })).toBeVisible()
+        const grid = await openGrid(teacher, 'Assignment 1')
+        await expect(grid.getByTitle('Hand raised')).toBeVisible()
       })
 
       await test.step('"Show everyone" puts Bob\'s work in front of the class, read-only for Alice', async () => {
@@ -193,18 +212,32 @@ test.describe('class mode', () => {
         await waitForReadOnlyBoard(carol, bobBoard)
       })
 
-      await test.step('"Everyone to me" brings the class back to the teacher\'s board, and the work stays', async () => {
+      await test.step('"Everyone to me" brings the class to the teacher\'s board without ending anything', async () => {
         await teacher.getByRole('dialog', { name: 'Class' }).getByRole('button', { name: 'Everyone to me' }).click()
         for (const page of [alice, bob]) await waitForBoard(page, lessonId)
         expect((await classState(alice)).activeAssignmentId).toBeNull()
         expect((await classState(alice)).spotlightBoardId).toBeNull()
+        const places = await openClassTab(teacher, 'Where the class is')
+        await expect(places.getByRole('button', { name: 'Send everyone here' })).toBeVisible()
+      })
 
-        // Alice goes back to her own work from the strip.
-        await alice.getByRole('button', { name: 'Boards', exact: true }).click()
-        await alice.getByRole('region', { name: 'Boards' }).getByRole('button', { name: 'My work' }).click()
+      await test.step('"Send everyone here" returns every student to their own work, as they left it', async () => {
+        const places = await openClassTab(teacher, 'Where the class is')
+        await places.getByRole('button', { name: 'Send everyone here' }).click()
+        await waitForBoard(alice, aliceBoard)
+        await waitForBoard(bob, bobBoard)
+        await expect.poll(() => strokesBy(alice, aliceId)).toBe(1)
+        await expect.poll(() => strokesBy(bob, bobId)).toBe(1)
+      })
+
+      await test.step('a student gets back to their work from "My boards" on their own', async () => {
+        await (await openClassTab(teacher, 'Where the class is')).getByRole('button', { name: 'Everyone to me' }).click()
+        await waitForBoard(alice, lessonId)
+
+        const mine = await openClassTab(alice, 'My boards')
+        await mine.getByRole('button', { name: 'Assignment 1' }).click()
         await waitForBoard(alice, aliceBoard)
         await expect.poll(() => strokesBy(alice, aliceId)).toBe(1)
-        await expect(alice.getByRole('button', { name: /Back to your work/ })).toHaveCount(0)
       })
     } finally {
       for (const context of contexts) await context.close()

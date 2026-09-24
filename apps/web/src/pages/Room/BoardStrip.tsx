@@ -33,14 +33,6 @@ interface BoardStripProps {
   onRename: (boardId: string, name: string) => void
   onMove: (boardId: string, direction: -1 | 1) => void
   onDelete: (boardId: string) => void
-  /** (#595) A student's own board in the latest round, if any — shown in the
-   *  strip as "Моя работа" rather than under its name (which is theirs). */
-  ownWorkId?: string
-  /** (#595) The teacher's "Раздать задание" beside the "+"; absent for
-   *  everyone else. `classActive` turns it into "Класс" while a round runs:
-   *  one round at a time, and the way to the running one is the grid. */
-  onClassAction?: () => void
-  classActive?: boolean
 }
 
 /** (#176, ADR 014 §7 step 4) The strip of a lesson's boards, dropped down
@@ -59,7 +51,7 @@ interface BoardStripProps {
  *  by moving the inner one out. */
 export function BoardStrip({
   boards, lessonId, currentId, teacherId, participants, canEdit, compact, busy,
-  onSelect, onClose, onCreate, onRename, onMove, onDelete, ownWorkId, onClassAction, classActive,
+  onSelect, onClose, onCreate, onRename, onMove, onDelete,
 }: BoardStripProps) {
   const t = useT()
   // Non-null *is* the editing state, same as the header's own rename: the
@@ -98,9 +90,7 @@ export function BoardStrip({
               role="button"
               tabIndex={0}
               aria-pressed={isCurrent}
-              // (#595) The name the tile shows, so a screen reader and the
-              // eye agree on "Моя работа" rather than on the student's name.
-              aria-label={board.id === ownWorkId ? t('class.myWork') : board.name}
+              aria-label={board.name}
               className={clsx(styles.tile, isCurrent && styles.tileCurrent)}
               onClick={() => { if (!isRenaming) onSelect(board.id) }}
               onKeyDown={e => {
@@ -146,11 +136,9 @@ export function BoardStrip({
                     onBlur={submitRename}
                   />
                 ) : (
-                  <span className={styles.name} title={isCurrent ? t('boards.youAreHere') : board.name}>
-                    {board.id === ownWorkId ? t('class.myWork') : board.name}
-                  </span>
+                  <span className={styles.name} title={isCurrent ? t('boards.youAreHere') : board.name}>{board.name}</span>
                 )}
-                {canEdit && !isRenaming && board.id !== ownWorkId && (
+                {canEdit && !isRenaming && (
                   // Stops the tile's own click: opening the menu is not a page
                   // turn. Menu's trigger already stops propagation of the
                   // click; this wrapper covers the keyboard path too.
@@ -189,12 +177,6 @@ export function BoardStrip({
           <button type="button" className={styles.add} onClick={onCreate} disabled={busy} title={t('boards.add')}>
             <Icon name="add" />
             <span>{t('boards.add')}</span>
-          </button>
-        )}
-        {onClassAction && (
-          <button type="button" className={styles.add} onClick={onClassAction}>
-            <Icon name="grid_view" />
-            <span>{t(classActive ? 'class.open' : 'class.startStrip')}</span>
           </button>
         )}
       </div>

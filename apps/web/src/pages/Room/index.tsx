@@ -27,6 +27,7 @@ import { Menu, type MenuAction } from '../../components/Menu'
 import { Notice } from '../../components/Notice'
 import { BoardStrip, TeacherChip } from './BoardStrip'
 import { ClassBar, ClassGrid } from './ClassGrid'
+import { ClassPlaces } from './ClassPlaces'
 import { createPreviewSchedule } from './previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
@@ -144,7 +145,7 @@ import {
   activeBoardPayload, entryBoard, followDestination, followTarget, followingAfterPick, movedOrder, teacherBoardId,
 } from '../../lib/boards'
 import {
-  classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, latestOwnBoard, neighbourInGrid, ownBoardIn,
+  classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, neighbourInGrid, ownBoardIn,
   stripBoards,
 } from '../../lib/classMode'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
@@ -1234,10 +1235,7 @@ function RoomEditor() {
    *  room_state may still be a board's id. */
   const knownLessonId = useRoomStore(s => s.lessonId)
   const teacherBoard = knownLessonId ? teacherBoardId({ id: knownLessonId, activeBoardId }) : undefined
-  /** (#176) The strip is offered when there is something to turn to, or to
-   *  the owner who can make it so. The phone shell (#512) only turns pages —
-   *  for the owner too, so there it needs a second board to be worth opening. */
-  // ── class mode (#595, ADR 015 §6) ─────────────────────────────────────────
+  // ── class mode (#595, ADR 015 §6, §11) ──────────────────────────────────
   // What the server put in `boards` is already what this person may see; the
   // split below is only about where each board goes on screen.
   const assignments = useRoomStore(s => s.assignments)
@@ -1245,40 +1243,63 @@ function RoomEditor() {
   const spotlightBoardId = useRoomStore(s => s.spotlightBoardId)
   const classVisibility = useRoomStore(s => s.classVisibility)
   const handsRaised = useRoomStore(s => s.handsRaised)
-  const [classGridOpen, setClassGridOpen] = useState(false)
+  /** The assignment whose works the big grid is showing; null — closed. */
+  const [gridAssignmentId, setGridAssignmentId] = useState<string | null>(null)
   const [assignmentBusy, setAssignmentBusy] = useState(false)
-  const activeAssignment = assignments.find(a => a.id === activeAssignmentId) ?? null
   const presentUserIds = useMemo(() => new Set(participants.map(p => p.userId)), [participants])
-  const gridTiles = useMemo(
-    () => classGrid(boards, activeAssignmentId, presentUserIds, handsRaised),
-    [boards, activeAssignmentId, presentUserIds, handsRaised],
-  )
   const currentBoardSummary = boards.find(b => b.id === boardId)
   const onPersonalBoard = currentBoardSummary !== undefined && isPersonalBoard(currentBoardSummary)
   const ownAssignmentBoardId = ownBoardIn(boards, activeAssignmentId, myUserId)?.id ?? null
-  /** A student's "Моя работа" tile in the strip. */
-  const myWorkId = isOwner ? undefined : latestOwnBoard(boards, assignments, activeAssignmentId, myUserId)?.id
+  /** The grid, and the teacher's ‹ › on a student's board, both walk the works
+   *  of one assignment: the grid's own, the board's own. */
+  const gridAssignment = assignments.find(a => a.id === gridAssignmentId) ?? null
+  const gridTiles = useMemo(
+    () => classGrid(boards, gridAssignmentId, presentUserIds, handsRaised),
+    [boards, gridAssignmentId, presentUserIds, handsRaised],
+  )
+  const barTiles = useMemo(
+    () => classGrid(boards, currentBoardSummary?.assignmentId ?? null, presentUserIds, handsRaised),
+    [boards, currentBoardSummary?.assignmentId, presentUserIds, handsRaised],
+  )
+  /** A student's own board in each assignment they have one in — the Class
+   *  tab's "my boards". */
+  const ownBoards = useMemo(() => {
+    const own = new Map<string, string>()
+    for (const b of boards) if (b.ownerId === myUserId && b.assignmentId) own.set(b.assignmentId, b.id)
+    return own
+  }, [boards, myUserId])
+  /** The teacher's way to a student's work from the participants list: their
+   *  board where the class is, else in the latest assignment they have one in. */
+  const workOf = useCallback((userId: string) => {
+    const s = useRoomStore.getState()
+    const byOrder = [...s.assignments].sort((a, b) => b.order - a.order).map(a => a.id)
+    for (const assignmentId of [s.activeAssignmentId, ...byOrder]) {
+      const own = ownBoardIn(s.boards, assignmentId, userId)
+      if (own) return own.id
+    }
+    return undefined
+  }, [])
   /** A classmate's work this client was let in to look at: drawing on it is
    *  refused server-side (`board_not_yours`), so it is shown closed. */
   const readOnlyBoard = isForeignPersonalBoard(currentBoardSummary, myUserId, isOwner)
   const myHandRaised = handsRaised.includes(myUserId)
+  /** Raised hands of people present — the Class tab's badge counts them. */
+  const handsUp = handsRaised.filter(id => presentUserIds.has(id)).length
   const followDest = knownLessonId
     ? followDestination({ lessonId: knownLessonId, activeBoardId, spotlightBoardId, ownAssignmentBoardId })
     : undefined
-  /** The grid is the teacher's always; a student's only when the lesson shows
-   *  work to the class and there is a round to look at. Not in the phone
-   *  shell, which only watches (ADR 014 §6). */
-  const classGridAvailable = !compact && (isOwner || (classVisibility === 'class' && activeAssignmentId !== null))
+  /** "All works" is the teacher's always; a student's only when the lesson
+   *  shows work to the class. Not in the phone shell, which only watches. */
+  const canOpenGrid = !compact && (isOwner || classVisibility === 'class')
   /** "Учитель смотрит вашу работу": the teacher is on this student's own board. */
   const teacherOnMyBoard = !isOwner && onPersonalBoard && currentBoardSummary?.ownerId === myUserId
     && participants.some(p => p.role === 'owner' && p.boardId === boardId)
-  /** The strip's pages, plus a student's own work. */
-  const stripList = useMemo(() => {
-    const pages = stripBoards(boards)
-    const own = myWorkId ? boards.find(b => b.id === myWorkId) : undefined
-    return own ? [...pages, own] : pages
-  }, [boards, myWorkId])
+  /** The strip is the lesson's pages only — personal boards live in the Class tab. */
+  const stripList = useMemo(() => stripBoards(boards), [boards])
 
+  /** (#176) The strip is offered when there is something to turn to, or to
+   *  the owner who can make it so. The phone shell (#512) only turns pages —
+   *  for the owner too, so there it needs a second board to be worth opening. */
   const stripAvailable = compact ? stripList.length > 1 : (isOwner || stripList.length > 1)
   const showTeacherChip = !isOwner && !following && followDest !== undefined && followDest !== boardId
   const chip = followDest === undefined ? null : followChip({
@@ -1313,13 +1334,13 @@ function RoomEditor() {
     s.setFollowing(true)
     switchBoardRef.current?.(destinationOf(s) ?? s.lessonId)
   }, [])
-  /** (#595) A board opened from the class grid or the teacher's ‹ ›. For the
-   *  teacher it is a visit, not a page turn: an ordinary join, never
-   *  `set_active_board` — the class must not be sent to a student's work
-   *  because the teacher went to look at it (ADR 015 §4). A student opening
-   *  a classmate's work is stepping away, like any hand-picked board. */
+  /** (#595) A board opened from the class grid, the Class tab or the
+   *  teacher's ‹ ›. For the teacher it is a visit, not a page turn: an ordinary
+   *  join, never `set_active_board` — the class must not be sent to a
+   *  student's work because the teacher went to look at it (ADR 015 §4). A
+   *  student going to a board by hand is stepping away, like any pick. */
   const openClassBoard = useCallback((next: string) => {
-    setClassGridOpen(false)
+    setGridAssignmentId(null)
     if (isOwnerRef.current) switchBoardRef.current?.(next)
     else selectBoard(next)
   }, [selectBoard])
@@ -1332,9 +1353,10 @@ function RoomEditor() {
       if (!result.ok) notifyError(t('class.error.start'), { key: 'assignment-start' })
     })
   }, [assignmentBusy, t])
-  const endAssignment = useCallback(() => {
-    socketRef.current?.emit('assignment_end')
-    setClassGridOpen(false)
+  /** (ADR 015 §11) Moves the class: to an assignment, or (null) "Все ко мне". */
+  const setClassLocation = useCallback((assignmentId: string | null) => {
+    socketRef.current?.emit('set_class_location', { assignmentId })
+    setGridAssignmentId(null)
   }, [])
   const setSpotlight = useCallback((target: string | null) => {
     socketRef.current?.emit('set_spotlight', { boardId: target })
@@ -1347,9 +1369,9 @@ function RoomEditor() {
   }, [])
   const stepInGrid = useCallback((step: -1 | 1) => {
     if (!boardId) return
-    const next = neighbourInGrid(gridTiles, boardId, step)
+    const next = neighbourInGrid(barTiles, boardId, step)
     if (next) switchBoardRef.current?.(next)
-  }, [boardId, gridTiles])
+  }, [boardId, barTiles])
   const addBoard = useCallback(async () => {
     const lesson = useRoomStore.getState().lessonId
     if (!lesson || boardBusy) return
@@ -7649,12 +7671,6 @@ function RoomEditor() {
       checked: boardsOpen,
       onClick: () => setBoardsOpen(o => !o),
     }] : []),
-    ...(classGridAvailable ? [{
-      label: t('class.open'),
-      icon: 'grid_view' as const,
-      checked: classGridOpen,
-      onClick: () => setClassGridOpen(o => !o),
-    }] : []),
     ...(!isOwner && knownLessonId ? [{
       label: t(myHandRaised ? 'class.lowerHand' : 'class.raiseHand'),
       icon: 'pan_tool' as const,
@@ -7901,22 +7917,10 @@ function RoomEditor() {
               </button>
             </>
           )}
-          {/* (#595) The class grid, and a student's raised hand. Both are
-              things done *during* a lesson, between strokes — the test this
-              panel holds every control to (#320). The hand is there for the
-              whole lesson, not only a round: a question is not an
-              assignment-only thing. */}
-          {!narrowHeader && classGridAvailable && (
-            <button
-              className={clsx(styles.headerIconBtn, classGridOpen && styles.headerIconBtnActive)}
-              onClick={() => setClassGridOpen(o => !o)}
-              title={t('class.open')}
-              aria-label={t('class.open')}
-              aria-pressed={classGridOpen}
-            >
-              <Icon name="grid_view" />
-            </button>
-          )}
+          {/* (#595) A student's raised hand — done *during* a lesson, between
+              strokes, the test this panel holds every control to (#320). There
+              for the whole lesson, not only an assignment: a question is not an
+              assignment-only thing. The teacher sees it in the Class tab. */}
           {!narrowHeader && !isOwner && knownLessonId && (
             <button
               className={clsx(styles.headerIconBtn, myHandRaised && styles.headerIconBtnActive)}
@@ -8001,9 +8005,6 @@ function RoomEditor() {
           {boardsOpen && stripAvailable && (
             <BoardStrip
               boards={stripList}
-              ownWorkId={myWorkId}
-              onClassAction={isOwner && !compact ? () => { setBoardsOpen(false); setClassGridOpen(true) } : undefined}
-              classActive={activeAssignmentId !== null}
               lessonId={knownLessonId}
               currentId={wantedBoardRef.current ?? boardId}
               teacherId={teacherBoard}
@@ -8028,13 +8029,13 @@ function RoomEditor() {
           )}
           {/* (#595) The teacher's bar on a student's board. Takes the chip's
               place — the teacher never has one. */}
-          {isOwner && onPersonalBoard && currentBoardSummary && !compact && !classGridOpen && !(boardsOpen && stripAvailable) && (
+          {isOwner && onPersonalBoard && currentBoardSummary && !compact && gridAssignmentId === null && !(boardsOpen && stripAvailable) && (
             <ClassBar
               name={currentBoardSummary.name}
               lit={spotlightBoardId === currentBoardSummary.id}
-              canStep={gridTiles.length > 1}
+              canStep={barTiles.length > 1}
               annotating={annotationMode}
-              onGrid={() => setClassGridOpen(true)}
+              onGrid={() => setGridAssignmentId(currentBoardSummary.assignmentId ?? null)}
               onStep={stepInGrid}
               onSpotlight={() => setSpotlight(spotlightBoardId === currentBoardSummary.id ? null : currentBoardSummary.id)}
               onAnnotatingChange={next => toggleAnnotationMode(next)}
@@ -8044,19 +8045,18 @@ function RoomEditor() {
       )}
 
       {/* (#595) The class grid, over the canvas — see ClassGrid's own note. */}
-      {classGridOpen && classGridAvailable && (
+      {gridAssignment && canOpenGrid && (
         <ClassGrid
-          assignment={activeAssignment}
+          assignment={gridAssignment}
+          isCurrent={gridAssignment.id === activeAssignmentId}
           tiles={gridTiles}
           isTeacher={isOwner}
           currentId={boardId}
           spotlightBoardId={spotlightBoardId}
-          busy={assignmentBusy}
-          defaultName={t('class.defaultName', { n: assignments.length + 1 })}
           onOpen={openClassBoard}
-          onClose={() => setClassGridOpen(false)}
-          onStart={startAssignment}
-          onEnd={endAssignment}
+          onClose={() => setGridAssignmentId(null)}
+          onGather={() => setClassLocation(null)}
+          onSendHere={() => setClassLocation(gridAssignment.id)}
           onSpotlight={setSpotlight}
           onLowerHand={whose => setHandRaised(false, whose)}
         />
@@ -8907,7 +8907,7 @@ function RoomEditor() {
               icon="visibility"
               role="status"
               message={t('class.readOnly', { name: currentBoardSummary.name })}
-              action={myWorkId ? { label: t('class.backToOwn'), onClick: () => selectBoard(myWorkId) } : undefined}
+              action={ownAssignmentBoardId ? { label: t('class.backToOwn'), onClick: () => selectBoard(ownAssignmentBoardId) } : undefined}
             />
           )}
           {/* (#222) Wins over the freeze banner when both apply: a closed
@@ -9035,13 +9035,19 @@ function RoomEditor() {
                 // moderation actions on each of them — plus the room-wide
                 // freeze in this tab's own header, which is where it moved to
                 // from the top bar.
-                id: 'participants', icon: 'group', title: t('room.panel.participants'),
+                // (#595, ADR 015 §11) The Class tab: where the class is, the
+                // lesson's assignments, and the people in it.
+                id: 'participants', icon: 'group', title: t('room.panel.class'),
                 // (#380) The one thing in this panel that needs an answer
                 // *now*. Without it on the strip, the waiting section below
                 // only reaches an owner who was already looking at this tab —
-                // which, mid-lesson, is nobody.
-                badge: joinQueue.requests.length,
-                badgeLabel: t('room.joinQueue.badge', { n: joinQueue.requests.length }),
+                // which, mid-lesson, is nobody. (#595) Raised hands are the
+                // other one, counted with it — like unread messages.
+                badge: isOwner ? joinQueue.requests.length + handsUp : 0,
+                badgeLabel: [
+                  joinQueue.requests.length > 0 ? t('room.joinQueue.badge', { n: joinQueue.requests.length }) : null,
+                  handsUp > 0 && isOwner ? t('class.handsBadge', { n: handsUp }) : null,
+                ].filter(Boolean).join(' · '),
                 headerActions: (
                   <ParticipantsRoomActions
                     isOwner={isOwner}
@@ -9050,6 +9056,29 @@ function RoomEditor() {
                   />
                 ),
                 content: (
+                  <>
+                  {knownLessonId && teacherBoard !== undefined && !compact && (
+                    <ClassPlaces
+                      isTeacher={isOwner}
+                      assignments={assignments}
+                      activeAssignmentId={activeAssignmentId}
+                      spotlight={spotlightBoardId
+                        ? { name: boards.find(b => b.id === spotlightBoardId)?.name ?? '' }
+                        : null}
+                      ownBoards={ownBoards}
+                      currentBoardId={boardId}
+                      teacherBoardId={teacherBoard}
+                      canOpenGrid={canOpenGrid}
+                      busy={assignmentBusy}
+                      defaultName={t('class.defaultName', { n: assignments.length + 1 })}
+                      onGather={() => setClassLocation(null)}
+                      onSendTo={setClassLocation}
+                      onStart={startAssignment}
+                      onOpenGrid={setGridAssignmentId}
+                      onGoto={selectBoard}
+                      onSpotlightOff={() => setSpotlight(null)}
+                    />
+                  )}
                   <ParticipantsPanel
                     participants={participants}
                     drawingIds={drawingIds}
@@ -9059,7 +9088,12 @@ function RoomEditor() {
                     joinRequests={joinQueue.requests}
                     resolvingRequestId={joinQueue.resolvingId}
                     onResolveJoinRequest={joinQueue.resolve}
+                    handsRaised={handsRaised}
+                    onLowerHand={whose => setHandRaised(false, whose)}
+                    workOf={workOf}
+                    onOpenWork={openClassBoard}
                   />
+                  </>
                 ),
               },
               {

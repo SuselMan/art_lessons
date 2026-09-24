@@ -880,12 +880,9 @@ async function loadAssignments(lessonId: string): Promise<AssignmentSummary[]> {
 }
 
 export function toAssignmentSummary(row: {
-  id: string; name: string; order: number; createdAt: Date; endedAt: Date | null
+  id: string; name: string; order: number; createdAt: Date
 }): AssignmentSummary {
-  return {
-    id: row.id, name: row.name, order: row.order, createdAt: row.createdAt.toISOString(),
-    ...(row.endedAt ? { endedAt: row.endedAt.toISOString() } : {}),
-  }
+  return { id: row.id, name: row.name, order: row.order, createdAt: row.createdAt.toISOString() }
 }
 
 /** Registers a new room and immediately seats its creator as `owner`.
@@ -2138,13 +2135,13 @@ export function getClassroom(roomId: string): Classroom | undefined {
   }
 }
 
-/** Claims the right to start a round. False while one is running or another
- *  start is still writing — one round at a time (ADR 015 §2). The claim is
- *  released by `noteAssignmentStarted` or `abortAssignmentStart`. */
+/** Claims the right to create an assignment. False while another creation is
+ *  still writing — a double tap makes one. The claim is released by
+ *  `noteAssignmentStarted` or `abortAssignmentStart`. */
 export function beginAssignmentStart(lessonId: string): boolean {
   const lesson = rooms.get(lessonId)
   if (!lesson || lesson.lessonId !== null) return false
-  if (lesson.activeAssignmentId !== null || lesson.assignmentStarting) return false
+  if (lesson.assignmentStarting) return false
   lesson.assignmentStarting = true
   return true
 }
@@ -2167,22 +2164,22 @@ export function noteAssignmentStarted(lessonId: string, assignment: AssignmentSu
   for (const board of boards) noteBoardCreated(lessonId, board)
 }
 
-/** "Все ко мне": the round in progress ends and nobody is in the spotlight.
- *  Returns the ended round's id, or null when none was running. The boards
- *  stay — they are the students' work. */
-export function endAssignment(lessonId: string): string | null {
+/** (ADR 015 §11) Moves the class: to an assignment of this lesson, or
+ *  (null) to the teacher's board — "Все ко мне". The spotlight comes down
+ *  with any move. False, nothing changed, for an assignment this lesson does
+ *  not have, or for the place the class already is. Nothing ends: the
+ *  assignment stays in the list, its boards the students'. */
+export function setClassLocation(lessonId: string, assignmentId: string | null): boolean {
   const lesson = rooms.get(lessonId)
-  if (!lesson || lesson.lessonId !== null || lesson.activeAssignmentId === null) return null
-  const ended = lesson.activeAssignmentId
-  const endedAt = new Date()
-  lesson.activeAssignmentId = null
+  if (!lesson || lesson.lessonId !== null) return false
+  if (assignmentId !== null && !lesson.assignments.some(a => a.id === assignmentId)) return false
+  if (lesson.activeAssignmentId === assignmentId) return false
+  lesson.activeAssignmentId = assignmentId
   lesson.spotlightBoardId = null
-  lesson.assignments = lesson.assignments.map(a => a.id === ended ? { ...a, endedAt: endedAt.toISOString() } : a)
-  enqueueWrite(lessonId, () => prisma.$transaction([
-    prisma.assignment.update({ where: { id: ended }, data: { endedAt } }),
-    prisma.room.update({ where: { id: lessonId }, data: { activeAssignmentId: null, spotlightBoardId: null } }),
-  ]))
-  return ended
+  enqueueWrite(lessonId, () => prisma.room.update({
+    where: { id: lessonId }, data: { activeAssignmentId: assignmentId, spotlightBoardId: null },
+  }))
+  return true
 }
 
 /** The personal board `userId` has in round `assignmentId`, if any. */
@@ -2190,17 +2187,16 @@ export function personalBoardIn(lessonId: string, assignmentId: string, userId: 
   return rooms.get(lessonId)?.boards.find(b => b.assignmentId === assignmentId && b.ownerId === userId)
 }
 
-/** Puts a personal board of the running round in front of the class, or
- *  (null) takes it down. False — nothing changed — for anything that is not a
- *  personal board of the running round: the spotlight is a part of the round,
- *  and a board from last week's round shown "to everyone" would be shown to
- *  a class that has no grid for it. */
+/** Puts a student's personal board in front of the class, or (null) takes it
+ *  down. Any assignment's (ADR 015 §11: "show everyone" works wherever the
+ *  class is). False — nothing changed — for anything that is not a personal
+ *  board of this lesson: a shared board is already everyone's. */
 export function setSpotlight(lessonId: string, boardId: string | null): boolean {
   const lesson = rooms.get(lessonId)
   if (!lesson || lesson.lessonId !== null) return false
   if (boardId !== null) {
     const board = lesson.boards.find(b => b.id === boardId)
-    if (!board || !board.assignmentId || board.assignmentId !== lesson.activeAssignmentId) return false
+    if (!board || !board.assignmentId) return false
   }
   if (lesson.spotlightBoardId === boardId) return false
   lesson.spotlightBoardId = boardId

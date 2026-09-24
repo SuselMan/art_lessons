@@ -337,6 +337,7 @@ modules:
       - apps/web/src/pages/Room/ParticipantsPanel.*
       - apps/web/src/pages/Room/BoardStrip.*
       - apps/web/src/pages/Room/ClassGrid.*
+      - apps/web/src/pages/Room/ClassPlaces.*
       - apps/web/src/pages/Room/PencilSoundTuningPanel.*
     tags: [панели]
 

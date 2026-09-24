@@ -10,22 +10,22 @@ import type { GridTile } from '../../lib/classMode'
 import styles from './ClassGrid.module.css'
 
 interface ClassGridProps {
-  /** The round in progress; null when there is none (the teacher then sees
-   *  the form that hands one out). */
-  assignment: AssignmentSummary | null
+  /** The assignment whose works these are — the one opened from the Class
+   *  tab, not necessarily the one the class is on. */
+  assignment: AssignmentSummary
+  /** Whether the class is on this assignment right now. */
+  isCurrent: boolean
   tiles: GridTile[]
   isTeacher: boolean
   /** The board this client is on, framed like the strip frames its page. */
   currentId: string | null
   spotlightBoardId: string | null
-  /** A request is in flight (handing out a round). */
-  busy: boolean
-  /** The default name the form offers — "Задание N". */
-  defaultName: string
   onOpen: (boardId: string) => void
   onClose: () => void
-  onStart: (name: string) => void
-  onEnd: () => void
+  /** "Все ко мне" — shown while the class is on this assignment. */
+  onGather: () => void
+  /** "Вернуть всех сюда" — shown while it is not. */
+  onSendHere: () => void
   onSpotlight: (boardId: string | null) => void
   onLowerHand: (userId: string) => void
 }
@@ -40,25 +40,25 @@ function updatedAgo(at: string | undefined, now: number, t: TFunction): string {
   return t('class.updatedMinutes', { n: minutes })
 }
 
-/** (#595, ADR 015 §6) The class at a glance: one tile per student's board in
- *  the running round — its live preview, the student's name, whether they
+/** (#595, ADR 015 §6, §11) All the works of one assignment at a glance — the
+ *  big view behind the Class tab's "Все работы": one tile per student's board — its live preview, the student's name, whether they
  *  are here, a raised hand, how fresh the picture is. Raised hands first,
  *  then by name (see lib/classMode's classGrid). A tap goes to the board.
  *
- *  The teacher's version also carries the round's controls: showing one work
- *  to everyone, "Все ко мне", and — with no round running — handing one out.
- *  Students get it read-only, and only when the lesson shows work to the
- *  class; what they may open is what the server put in their list.
+ *  The teacher's version also carries the controls: showing one work to
+ *  everyone, and moving the class — "Все ко мне" from here, or "Вернуть всех
+ *  сюда" when it is elsewhere. Students get it read-only, and only when the
+ *  lesson shows work to the class; what they may open is what the server put
+ *  in their list.
  *
  *  An overlay over the canvas rather than a page: the teacher dips into it
  *  between two students, and leaving the editor would tear the engine down
  *  for nothing. */
 export function ClassGrid({
-  assignment, tiles, isTeacher, currentId, spotlightBoardId, busy, defaultName,
-  onOpen, onClose, onStart, onEnd, onSpotlight, onLowerHand,
+  assignment, isCurrent, tiles, isTeacher, currentId, spotlightBoardId,
+  onOpen, onClose, onGather, onSendHere, onSpotlight, onLowerHand,
 }: ClassGridProps) {
   const t = useT()
-  const [name, setName] = useState(defaultName)
   // "N min ago" has to move on its own while the grid is open.
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -76,18 +76,22 @@ export function ClassGrid({
       <section className={styles.panel} role="dialog" aria-label={t('class.title')}>
         <header className={styles.head}>
           <Icon name="grid_view" />
-          <h2 className={styles.title}>{assignment ? assignment.name : t('class.title')}</h2>
+          <h2 className={styles.title}>{assignment.name}</h2>
           <span className={styles.spacer} />
-          {isTeacher && assignment && spotlightBoardId && (
+          {isTeacher && spotlightBoardId && tiles.some(tile => tile.board.id === spotlightBoardId) && (
             <button type="button" className={styles.headAction} onClick={() => onSpotlight(null)}>
               <Icon name="visibility_off" />
               <span>{t('class.spotlightOff')}</span>
             </button>
           )}
-          {isTeacher && assignment && (
-            <button type="button" className={clsx(styles.headAction, styles.headActionPrimary)} onClick={onEnd}>
-              <Icon name="group" />
-              <span>{t('class.end')}</span>
+          {isTeacher && (
+            <button
+              type="button"
+              className={clsx(styles.headAction, styles.headActionPrimary)}
+              onClick={isCurrent ? onGather : onSendHere}
+            >
+              <Icon name={isCurrent ? 'group' : 'move_down'} />
+              <span>{t(isCurrent ? 'class.gather' : 'class.sendHere')}</span>
             </button>
           )}
           <button type="button" className={styles.close} onClick={onClose} title={t('common.close')} aria-label={t('common.close')}>
@@ -95,33 +99,9 @@ export function ClassGrid({
           </button>
         </header>
 
-        {!assignment && isTeacher && (
-          <form
-            className={styles.start}
-            onSubmit={e => { e.preventDefault(); onStart(name.trim() || defaultName) }}
-          >
-            <p className={styles.startHint}>{t('class.startHint')}</p>
-            <div className={styles.startRow}>
-              <input
-                className={styles.startInput}
-                value={name}
-                onChange={e => setName(e.target.value)}
-                aria-label={t('class.assignmentName')}
-                placeholder={defaultName}
-                maxLength={120}
-              />
-              <button type="submit" className={styles.startBtn} disabled={busy}>
-                {t(busy ? 'common.working' : 'class.start')}
-              </button>
-            </div>
-          </form>
-        )}
+        {tiles.length === 0 && <p className={styles.empty}>{t('class.noStudents')}</p>}
 
-        {!assignment && !isTeacher && <p className={styles.empty}>{t('class.noRound')}</p>}
-
-        {assignment && tiles.length === 0 && <p className={styles.empty}>{t('class.noStudents')}</p>}
-
-        {assignment && tiles.length > 0 && (
+        {tiles.length > 0 && (
           <div className={styles.grid}>
             {tiles.map(({ board, present, handRaised }) => {
               const lit = board.id === spotlightBoardId
