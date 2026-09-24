@@ -624,7 +624,7 @@ const WATERCOLOR_STAMP_INK_SHARE = 0.82
  *  build before anything saturates. WATERCOLOR_DENSITY_K in the shader is set
  *  against this: move one and the other has to follow, or the tool changes
  *  tone. */
-const WATERCOLOR_CONE_DEPOSIT_GAIN = 0.27
+const WATERCOLOR_CONE_DEPOSIT_GAIN = 0.19
 
 //  (#536, §17.24) 3, from 26: the spread is the water front's now (the
 //  settle extends the silhouette to where the water ran); the composite's

@@ -911,6 +911,9 @@ export const DAB_FRAG = `
   // What changes is what lies above it — a second glaze now reads 0.67 and a
   // third 0.81, where before every one of them read the same clipped value.
   const float WC_DENSITY_K = 0.54;
+  // (#536, s17.26) The ink stamp's profile: 1 = a cone to the centre, 3 = a
+  // plateau with a ramp over the outer third of the nib.
+  const float WC_STAMP_PLATEAU = 3.0;
   /** (#536) How far below the blur's half point the wash's re-threshold sits on
    *  fully wet paper — the tool's only term that makes a mark genuinely bigger
    *  rather than merely softer or more irregular. See its use, under u_spreadPx.
@@ -1282,7 +1285,16 @@ ${WC_NOISE_GLSL}
       float dPx = markerNibDistPx();
       float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
-      float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
+      // (#536, s17.26) A plateau with a ramp over the outer third of the
+      // nib, not a cone to the centre: the cone summed along a stroke gave a
+      // cross-section that fell off over the whole radius - a soft film with
+      // no edge, and a tideline sitting in the trough beyond it ("печенька").
+      // A wet stroke's film is flat and ends where the water ends. The sum
+      // still meets stamps entering and leaving smoothly enough; the
+      // diffusion pass (s17.11) levels what ripple is left. Mean over the
+      // disc 0.70 against the cone's 0.33: WATERCOLOR_CONE_DEPOSIT_GAIN
+      // carries the conversion.
+      float depth = clamp(-dPx / max(v_radius, 1e-4) * WC_STAMP_PLATEAU, 0.0, 1.0);
       float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
       // (#536, s17.13) The hairs, into the deposit - the stamp's half of what
       // RIBBON_FRAG's ink mode does, on the same across coordinate the
@@ -1416,9 +1428,17 @@ ${WC_NOISE_GLSL}
       // "светлые артефакты, после высыхания остались" were. With the prior
       // the fringe is the batch's colour and the body is the mixture.
       vec4 depth = texture2D(u_inkColor, tileUV);
+      // (s17.26) …and the prior grows where the mass is thin: the front's
+      // extension and a relocated rim's fringe hold a few codes of mass with
+      // a depth rounded per channel, and a bare ratio there swung the hue
+      // texel by texel - red, cyan and blue specks along a yellow mark's
+      // edge in the replay. Under WC_DEPTH_THIN of mass the batch's own
+      // colour takes over; a body's mass is ten times that.
       const float WC_DEPTH_PRIOR = 0.03;
+      const float WC_DEPTH_THIN = 0.12;
+      float thinPrior = WC_DEPTH_PRIOR + WC_DEPTH_THIN * (1.0 - smoothstep(0.0, WC_DEPTH_THIN, depth.a));
       vec3 tauBatch = -log(max(u_color, vec3(0.02)));
-      vec3 tauHere = (depth.rgb * WC_DEPTH_SCALE + tauBatch * WC_DEPTH_PRIOR) / (depth.a + WC_DEPTH_PRIOR);
+      vec3 tauHere = (depth.rgb * WC_DEPTH_SCALE + tauBatch * thinPrior) / (depth.a + thinPrior);
       vec3 paint = exp(-tauHere);
 
       // §4.1 - how wet the brush was *here*, recovered from the deposit's own
@@ -2845,21 +2865,38 @@ export const WC_FIELD_OP_FRAG = `
   uniform vec2 u_origin;
   uniform vec2 u_size;
   uniform vec2 u_band;
+  // (s17.26) Fit a record into its 8 bits WITHOUT changing its channel
+  // ratios: a rim gathers three times a body's mass, and for a yellow the
+  // depth's blue channel overflowed alone - a per-channel clamp turned the
+  // rim magenta and cyan, texel by texel. Scaling the whole vec4 keeps the
+  // colour (and water, paper, strength ratios) and loses only the mass
+  // past the ceiling.
+  #define WC_FIELD_FIT(v) ((v) / max(1.0, max(max((v).r, (v).g), max((v).b, (v).a))))
   // (s17.25) The rim's deposition profile: the tail's weight against the
   // sharp peak, its floor on a paper crest, and the height window that
   // counts as a valley (paper height ~0.5 +/- 0.19).
   const float WC_RIM_TAIL = 0.6;
+  const float WC_RIM_TAIL_TIDE = 0.2;
   const float WC_RIM_TAIL_FLOOR = 0.25;
   const float WC_RIM_VALLEY_LO = 0.35;
   const float WC_RIM_VALLEY_HI = 0.6;
+  // (s17.26) How much rim a texel keeps where the record says no water stood.
+  const float WC_RIM_DRY_FLOOR = 0.15;
   varying vec2 v_uv;
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 13.5) {
+      // Mode 8 for the tide: the band is the texture's .b, its gather c.b.
+      vec4 bd = texture2D(u_d, v_uv);
+      vec4 c = texture2D(u_c, v_uv);
+      gl_FragColor = WC_FIELD_FIT(a * (1.0 - u_k * bd.g) + bd.b * b / max(c.b, 1e-3));
+      return;
+    }
     if (u_mode > 12.5) {
       // a + u_k * b where u_d says (its .r): the earlier paint under a
       // footprint re-mobilised by a wet landing (s17.25).
-      gl_FragColor = clamp(a + u_k * b * texture2D(u_d, v_uv).r, 0.0, 1.0);
+      gl_FragColor = WC_FIELD_FIT(a + u_k * b * texture2D(u_d, v_uv).r);
       return;
     }
     if (u_mode > 11.5) {
@@ -2873,7 +2910,10 @@ export const WC_FIELD_OP_FRAG = `
       return;
     }
     if (u_mode > 10.5) {
-      float inside = texture2D(u_d, v_uv).g;
+      // The domain straight from the outward cost (u_d, budget u_band.x,
+      // cell u_size.x), so the coverage can be extended BEFORE the band is
+      // built and the band can read the standing water it records.
+      float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, texture2D(u_d, v_uv).r);
       float r = a.a > 0.002 ? a.r : 0.5 * inside;
       gl_FragColor = vec4(r, max(a.g, inside), max(a.b, inside * u_k), max(a.a, inside));
       return;
@@ -2895,7 +2935,7 @@ export const WC_FIELD_OP_FRAG = `
       if (u_mode > 7.5) {
         vec4 bd = texture2D(u_d, v_uv);
         vec4 c = texture2D(u_c, v_uv);
-        gl_FragColor = clamp(a * (1.0 - u_k * bd.g) + bd.r * b / max(c.r, 1e-3), 0.0, 1.0);
+        gl_FragColor = WC_FIELD_FIT(a * (1.0 - u_k * bd.g) + bd.r * b / max(c.r, 1e-3));
         return;
       }
       if (u_mode > 6.5) {
@@ -2923,8 +2963,24 @@ export const WC_FIELD_OP_FRAG = `
       // (s17.25) One puddle, one front: where this mark landed wet and its
       // front runs over an earlier mark (inward.b), the two waters merged
       // and there is no line of stoppage - u_k is how wet it landed.
-      float band = inside * min(sharp + WC_RIM_TAIL * tail, 1.0) * (1.0 - u_k * inward.b);
-      gl_FragColor = vec4(band, inside, 0.0, 1.0);
+      // The bloom's ring is deep with fingers (the photo's); a stroke's
+      // tideline is the line itself with a short tail - a deep tail with
+      // valley fingers on every stroke read as a lobed outline.
+      float profileBloom = inside * min(sharp + WC_RIM_TAIL * tail, 1.0);
+      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail, 1.0);
+      // (s17.26) Where water actually stood, from the coverage's record
+      // (b, extended over the domain): a rim forms where a puddle dried,
+      // not along a stroke that ran dry. u_origin.x is the mark's own
+      // standing level, so the record reads 0..1 against it.
+      float stood = clamp(b.b / max(u_origin.x, 1e-3), 0.0, 1.0);
+      float stoodW = mix(WC_RIM_DRY_FLOOR, 1.0, stood);
+      // The bloom's band (.r): the wash's paint the drop pushed lands here,
+      // wherever the water reached. The tide's band (.b): this mark's own
+      // line of stoppage - none where the mark lies over an earlier mark
+      // that was still damp or wet (u_origin.y): no dry paper there to stop
+      // at, the bloom is the only edge. A merge (u_k) is the wet extreme.
+      float over = inward.b * max(u_k, u_origin.y);
+      gl_FragColor = vec4(profileBloom * stoodW, inside, profileTide * stoodW * (1.0 - over), 1.0);
       return;
     }
     if (u_mode > 4.5) {
@@ -2956,7 +3012,7 @@ export const WC_FIELD_OP_FRAG = `
       gl_FragColor = vec4(a.b * u_tau / 4.0, a.b);
       return;
     }
-    gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : a + b * u_k;
+    gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : WC_FIELD_FIT(a + b * u_k);
   }
 `;
 
@@ -3152,6 +3208,7 @@ export const WC_WATER_FRONT_FRAG = `
   uniform float u_floor;
   uniform float u_costMax;
   varying vec2 v_uv;
+  const float WC_FRONT_SMOOTH = 2.0;
 
   float wcFrontHeightAt(vec2 px) {
     vec2 paperUV = (px + u_paperOrigin) / u_paperTexSize * u_paperScale;
@@ -3178,7 +3235,17 @@ export const WC_WATER_FRONT_FRAG = `
       float ci = texture2D(u_cost, uvj).r;
       if (ci >= 0.999) continue;
       float len = k < 4 ? 1.0 : 1.41421356;
-      float edge = len * max(u_floor, 1.0 + u_climb * (hj - wcFrontHeightAt(px + o)));
+      // (s17.26) The first WC_FRONT_SMOOTH cells of run are flat: a stroke's
+      // 2-3 px of spread on dry paper gave a lobed edge on every stroke
+      // ("печенька"); the sheet's sizing holds a thin film's edge, and the
+      // relief bends only a front that runs on past it (a drop's).
+      // Two cells, or half the budget on a mark whose water runs further
+      // (u_costMax is the budget plus four): a big wet blob's lobes stay at
+      // half its spread, a drop's front keeps its fingers.
+      float ran = ci * u_costMax;
+      float smoothRun = max(WC_FRONT_SMOOTH, 0.5 * (u_costMax - 4.0));
+      float relief = ran < smoothRun ? 1.0 : max(u_floor, 1.0 + u_climb * (hj - wcFrontHeightAt(px + o)));
+      float edge = len * relief;
       best = min(best, ci * u_costMax + edge);
     }
     // .g: the paper's height here, for the band's valley term (mode 6 of

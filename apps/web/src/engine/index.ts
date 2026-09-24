@@ -69,7 +69,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
-  watercolorBloomStrength, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_RIM, WC_RIM_BAND_PX,
+  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
   watercolorSpreadBudget, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_MAX_STEPS, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
@@ -8715,7 +8715,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 11 | 12 | 13 | 14, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number] } = {},
   ): void {
     const { gl } = this
@@ -8986,6 +8986,13 @@ export class PencilEngine implements PencilEngineAPI {
     const costMaxIn = width + 3
     const inSteps = width + 2
     const merge = watercolorPuddleMerge(wetPeak)
+    // (§17.26) A mark laid over an earlier mark that was still damp has no
+    // dry paper to stop at there: its own tideline stands down over it (the
+    // bloom ring is the edge), fully on wet.
+    const damp = watercolorDampOver(wetPeak)
+    // …and a rim wants free water to dry out of: none from a brush that
+    // carried none.
+    const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
     const gather: Array<[number, number]> = [radiusPx / 2, radiusPx / 4, radiusPx / 8, 1].map(v => { const s = Math.max(1, Math.round(v)); return [s, s] })
     const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR): void => {
       dst.beginReplaceDraw()
@@ -9035,9 +9042,9 @@ export class PencilEngine implements PencilEngineAPI {
       // centre), not a third of the way to the middle.
       run(inSteps, costMaxIn, field.mask, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN)
       ops.push(() => {
-        this._fieldOp(field.band, field.pressure, field.pressure, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn] })
-        this._fieldOp(tmp, field.coverage, field.band, 11, standing, { d: field.band })
+        this._fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
         this._fieldOp(field.coverage, tmp, tmp, 1, 0)
+        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp] })
         this._fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
         this._fieldOp(field.mask, tmp, tmp, 5, 0, { dir: gather[1] })
         this._fieldOp(tmp, field.mask, field.mask, 5, 0, { dir: gather[2] })
@@ -9046,13 +9053,13 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // (§17.23) The rim: `share` of `paint` inside the footprint goes to the
     // band. Two free buffers; the result lands in `t2`.
-    const rim = (paint: AccumulationBuffer, share: number, t1: AccumulationBuffer, t2: AccumulationBuffer): void => {
+    const rim = (paint: AccumulationBuffer, share: number, t1: AccumulationBuffer, t2: AccumulationBuffer, tide = false): void => {
       this._fieldOp(t1, paint, paint, 7, share, { d: field.band })
       this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[0] })
       this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[1] })
       this._fieldOp(t2, t1, t1, 5, 0, { dir: gather[2] })
       this._fieldOp(t1, t2, t2, 5, 0, { dir: gather[3] })
-      this._fieldOp(t2, paint, t1, 8, share, { c: field.mask, d: field.band })
+      this._fieldOp(t2, paint, t1, tide ? 14 : 8, share, { c: field.mask, d: field.band })
     }
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
@@ -9072,7 +9079,10 @@ export class PencilEngine implements PencilEngineAPI {
         // next pass, and a flat wash came out as a ladder of inner rims.
         if (merge > 0) {
           this._fieldOp(spare, c, c, 4, 0.003)
-          this._fieldOp(field.mask, c, b, 13, merge * WET_DIFFUSE_MOBILE, { d: spare })
+          // All of it, not the mobile share: paint that never dried is not
+          // partly settled, and the quarter that stayed behind was a faint
+          // line at every pass boundary of a graded wash.
+          this._fieldOp(field.mask, c, b, 13, merge, { d: spare })
           fieldOp(c, field.mask, field.mask, 1, 0)
         }
         // Where earlier marks' SETTLED deposit lies, before b is overwritten
@@ -9104,7 +9114,7 @@ export class PencilEngine implements PencilEngineAPI {
       // share of it to the rim as it dries. The moved field lands in `dst`,
       // the sum with the fixed paint in `src`.
       ops.push(() => {
-        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusPx, width), st.dst, spare)
+        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusPx, width) * tideWater, st.dst, spare, true)
         st.out = st.src
         fieldOp(st.out, b, spare, 1, 1)
       })
@@ -9372,7 +9382,9 @@ export class PencilEngine implements PencilEngineAPI {
     if (scratch.diffusePending) {
       scratch.diffusePending = false
       if (this._settle) this._completeSettle()
-      const bloom = watercolorBloomStrength(ctx.landedWet)
+      // (§17.26) …and a loaded brush pushes the wash under it less than a
+      // brush of clean water: its own paint lands where the water goes.
+      const bloom = watercolorBloomStrength(ctx.landedWet) * watercolorBloomPush(profile.pigmentLevel)
       // Dev probe for the rig: what this settle was given.
       Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
       const delivery = ribbonWaterDelivery(profile)

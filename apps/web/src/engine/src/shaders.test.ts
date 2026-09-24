@@ -45,9 +45,12 @@ describe('every shader declares what it uses (#536)', () => {
   for (const [name, src] of PROGRAMS) {
     it(`${name} has no undeclared WC_ constant`, () => {
       const body = code(src)
-      const declared = new Set(
-        [...body.matchAll(/\bconst\s+\w+\s+(WC_[A-Z0-9_]+)\s*=/g)].map(m => m[1]),
-      )
+      // A `#define`, with or without arguments, declares too: the helper
+      // functions the linker choked on (see the ANGLE note) live as macros.
+      const declared = new Set([
+        ...[...body.matchAll(/\bconst\s+\w+\s+(WC_[A-Z0-9_]+)\s*=/g)].map(m => m[1]),
+        ...[...body.matchAll(/#define\s+(WC_[A-Z0-9_]+)/g)].map(m => m[1]),
+      ])
       const used = new Set([...body.matchAll(/\b(WC_[A-Z0-9_]+)\b/g)].map(m => m[1]))
       const missing = [...used].filter(u => !declared.has(u)).sort()
       expect(missing).toEqual([])

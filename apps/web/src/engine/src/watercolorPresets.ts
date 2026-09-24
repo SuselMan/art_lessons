@@ -754,6 +754,28 @@ export function watercolorBloomStrength(paperWet: number): number {
 export function watercolorPuddleMerge(paperWet: number): number {
   return smoothstepJs(WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, clamp01(paperWet))
 }
+/** (s17.26) How much of the bloom a brush's own pigment cancels: clean
+ *  water pushes the wash's paint out to its front in full, a brush loaded
+ *  with paint pushes a third as much - and lays its own on top, so a second
+ *  pass of full paint into a damp wash reads darker, not paler. Ilya: "мокрое
+ *  на мокром даже с полным пигментом делает лужу сильно светлее". */
+export function watercolorBloomPush(pigmentLevel: number): number {
+  return 1 - WC_BLOOM_PIGMENT_CANCEL * clamp01(pigmentLevel)
+}
+export const WC_BLOOM_PIGMENT_CANCEL = 0.7
+/** (s17.26) How much a mark's own tideline stands down where it lies over an
+ *  earlier mark that was still damp: a drying front needs dry paper to stop
+ *  at, and over damp paper the water just keeps going - the only edge there
+ *  is the bloom's. Rises from barely damp; complete well before wet. */
+export function watercolorDampOver(paperWet: number): number {
+  return smoothstepJs(WC_DAMP_OVER_LO, WC_DAMP_OVER_HI, clamp01(paperWet))
+}
+export const WC_DAMP_OVER_LO = 0.08
+export const WC_DAMP_OVER_HI = 0.35
+/** (s17.26) The standing water at which a mark's tideline is at full
+ *  strength; below it the rim scales down - a nearly dry brush leaves next
+ *  to no line. */
+export const WC_TIDE_STANDING_FULL = 0.6
 export const WC_BLOOM_DAMP_LO = 0.06
 export const WC_BLOOM_DAMP_PEAK = 0.25
 export const WC_BLOOM_WET_LO = 0.45
@@ -773,7 +795,10 @@ export const WC_BLOOM_WET_HI = 0.7
  *  10–16 lobes and an angular spread of 0.08 at 30, against the photo's
  *  1.3 and 10–12; 60 stalls it at 1.19 R. */
 export const WC_FRONT_CLIMB = 30
-export const WC_FRONT_FLOOR = 0.22
+/** 0.22 let a valley run 4.5x further than a ridge: on a stroke's 3 px budget
+ *  that is a 14 px spike, and every stroke came out a cookie (Ilya). 0.5 keeps
+ *  the lobes at twice the mean run. */
+export const WC_FRONT_FLOOR = 0.5
 /** The inward pass that places the band (s17.24): same law, a gentler
  *  relief, so the band is `width` cells deep with fingers a few cells
  *  longer in the valleys - at the outward pass's floor a valley ran the
@@ -810,7 +835,7 @@ export const WC_BLOOM_SHARE = 0.65
  *  body's density on top of its own. The share of the interior moved is
  *  worked out from it and the mark's radius, so a broad wash and a thin
  *  line get the same rim rather than the broad one drowning in it. */
-export const WC_TIDE_RIM = 2.0
+export const WC_TIDE_RIM = 1.4
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */
