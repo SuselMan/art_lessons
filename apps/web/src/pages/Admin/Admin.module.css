@@ -211,7 +211,9 @@
 
 .error {
   color: var(--color-error);
-  background: var(--color-error-fill);
+  /* A tint, not the solid fill: the solid one is made for --color-on-accent
+     text, and red on it is unreadable (contrast.test.ts). */
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
 }
@@ -306,8 +308,8 @@
 
 .buttonDanger {
   background: var(--color-error-fill);
-  border-color: var(--color-error);
-  color: var(--color-error);
+  border-color: var(--color-error-fill);
+  color: var(--color-on-accent);
 }
 
 .buttonDanger:not(:disabled):hover { background: var(--color-error-fill-hover); }
