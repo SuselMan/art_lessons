@@ -287,6 +287,7 @@ modules:
       - apps/web/src/pages/Room/useTransformSession.ts
       - apps/web/src/pages/Room/useAnnotations.tsx
       - apps/web/src/pages/Room/useSelection.ts
+      - apps/web/src/pages/Room/useLayerPanelBridge.ts
     issues: [25, 493]
     notes:
       - >-

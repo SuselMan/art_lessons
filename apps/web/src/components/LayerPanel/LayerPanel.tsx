@@ -68,6 +68,12 @@ export interface LayerPanelProps {
    *  row gets an outline in those colours; a collapsed folder takes on the
    *  colours of everything inside it, since its rows are not on screen. */
   drawerColors?: Readonly<Record<string, readonly string[]>>
+  /** (#608) Decodes a raster ahead of its `image_import`, so the op paints
+   *  synchronously instead of on a later frame — see handleImportImageChange. */
+  preloadImage?: (src: string) => Promise<void>
+  /** (#608) An import has landed on its new layer, which is now active: hand
+   *  the user the tool that moves it. The Room decides whether it may. */
+  onImageImported?: () => void
 }
 
 // (#411) How long a still finger has to rest on a row to open selection mode,
@@ -97,7 +103,7 @@ const TOUCH_DRAG_DELAY_MS = 400
 // reason.
 export const LayerPanel = memo(function LayerPanel({
   layerState, onChange, onOp, isOwner, hasLayerContent, soloIds, onSoloChange, onOpenFilters,
-  drawerColors,
+  drawerColors, preloadImage, onImageImported,
 }: LayerPanelProps) {
   const t = useT()
   const { items, rootOrder, activeId, selectedIds } = layerState
@@ -562,9 +568,20 @@ export const LayerPanel = memo(function LayerPanel({
     setImportError(null)
     try {
       const { dataUrl, width, height } = await readImageFile(file)
+      // (#608) Decoded before the op, not after: the transform session opened
+      // below frames the layer's painted content, and an import the engine
+      // still has to decode is not in the layer yet — the frame would fall
+      // back to the whole sheet.
+      await preloadImage?.(dataUrl)
       const newId = nanoid(8)
       addLayerAbove(newId, file.name.replace(/\.[^./]+$/, '') || t('layers.referenceName'))
       onOp({ type: 'image_import', layerId: newId, image: dataUrl, width, height })
+      // (#608) People did not find the transform tool on their own, and moving
+      // and sizing a reference is nearly always the next thing done with it —
+      // the same reasoning that already opens the gizmo on a paste. Only when
+      // the pixels really landed: a refused op (room not ready, editing
+      // closed) leaves an empty layer, and a gizmo on it would frame nothing.
+      if (hasLayerContent(newId)) onImageImported?.()
     } catch (err) {
       setImportError(err instanceof Error ? err.message : t('layers.importFailed'))
     } finally {
@@ -574,7 +591,7 @@ export const LayerPanel = memo(function LayerPanel({
       // there's no upside to doing it before the read is done, either.
       input.value = ''
     }
-  }, [addLayerAbove, onOp, t])
+  }, [addLayerAbove, onOp, t, preloadImage, hasLayerContent, onImageImported])
 
   const handleDelete = useCallback(async (ids?: string[]) => {
     const targets = (ids ?? (selectedIds.length > 0 ? selectedIds : [activeId]))
