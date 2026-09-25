@@ -65,6 +65,35 @@ beforeEach(() => {
   mockPrisma.roomBlock.findMany.mockResolvedValue([])
 })
 
+// (#176, ADR 014) Access is a fact about the lesson. An invite, block,
+// password or request written under a board's id would be a row the join
+// gate never reads, so the routes refuse the id instead of accepting a
+// change that silently changes nothing.
+describe('a board id is not found here (#176)', () => {
+  const calls: Array<[string, (app: FastifyInstance) => Res]> = [
+    ['GET /access', app => get(app, '/api/rooms/board-1/access')],
+    ['PATCH /access', app => patch(app, '/api/rooms/board-1/access', { accessMode: 'invite_only' })],
+    ['POST /invites', app => post(app, '/api/rooms/board-1/invites', { email: 'a@b.com' })],
+    ['DELETE /invites', app => del(app, '/api/rooms/board-1/invites/a%40b.com')],
+    ['POST /approve', app => post(app, '/api/rooms/board-1/join-requests/req-1/approve')],
+    ['POST /kick', app => post(app, '/api/rooms/board-1/kick', { userId: 'student' })],
+    ['DELETE /blocks', app => del(app, '/api/rooms/board-1/blocks/student')],
+  ]
+
+  for (const [label, call] of calls) {
+    it(`${label} is 404 for a board, even for its owner`, async () => {
+      mockPrisma.room.findUnique.mockResolvedValue({ ...ROOM, id: 'board-1', lessonId: 'room-1' })
+
+      const res = await call(buildApp(OWNER))
+
+      expect(res.statusCode).toBe(404)
+      expect(mockPrisma.room.update).not.toHaveBeenCalled()
+      expect(mockPrisma.roomInvite.upsert).not.toHaveBeenCalled()
+      expect(mockPrisma.roomBlock.upsert).not.toHaveBeenCalled()
+    })
+  }
+})
+
 describe('ownership (#226)', () => {
   // Every route shares one gate, so this is asserted across the set rather
   // than restated per endpoint: a member who could edit the allow-list could

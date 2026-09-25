@@ -104,6 +104,16 @@
   background: color-mix(in srgb, var(--color-warning) 12%, transparent);
 }
 
+/* (#557) Solo switch — lit in the accent while a solo is on, like the lock,
+   because both mean "this panel is in a state you asked for". */
+.toolbarBtnSolo {
+  color: var(--color-accent);
+}
+.toolbarBtnSolo:hover {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
 .hiddenFileInput {
   display: none;
 }
@@ -190,6 +200,8 @@
      it to the browser would let a diagonal drag turn into a swipe. */
   touch-action: pan-y pinch-zoom;
   transition: background var(--duration-fast);
+  /* Anchor for .drawerOutline. */
+  position: relative;
 }
 .rowMain:active { cursor: grabbing; }
 .rowMain:hover { background: var(--color-surface-hover); }
@@ -210,6 +222,29 @@
   background: color-mix(in srgb, var(--color-accent) 20%, transparent);
   outline: 1px dashed color-mix(in srgb, var(--color-accent) 70%, transparent);
   outline-offset: -1px;
+}
+
+/* A peer is drawing into this row (or, on a collapsed folder, somewhere
+   inside it). Its own element rather than another box-shadow on the row:
+   .rowActive already owns the row's shadow and .rowSelected its outline, and
+   a peer can be drawing on exactly the row this viewer has active. The ring
+   colours come inline — they are the peers' own identity colours, the same
+   ones as their cursor and their dot in the participants list. */
+.drawerOutline {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: layer-drawer-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes layer-drawer-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawerOutline { animation: none; opacity: 0.8; }
 }
 
 /* Background row: no drag cursor */
@@ -253,6 +288,20 @@
 }
 .rowIconBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
 .rowIconBtn :global(.material-symbols-outlined) { font-size: 15px; }
+
+/* (#557) The eye during a solo. The soloed row's eye is lit; every other
+   row's is faded rather than switched to the crossed-out glyph, since the
+   shared visibility it reports has not changed — only this viewer's look at
+   it has. Faded further than .rowIconBtnDim so the two states are telling
+   apart on a tablet. */
+.rowIconBtnSolo {
+  color: var(--color-accent);
+}
+.rowIconBtnSolo:hover { color: var(--color-accent); }
+.rowIconBtnSoloHidden {
+  color: var(--color-text-faint);
+  opacity: 0.45;
+}
 
 /* Lock icon: dim (unlocked state) */
 .rowIconBtnDim {

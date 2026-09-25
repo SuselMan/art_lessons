@@ -1,4 +1,4 @@
-import type { Room, RoomAccessMode, RoomFolder } from '@grafetto/shared'
+import { sanitizeEnabledTools, type ClassVisibility, type Room, type RoomAccessMode, type RoomFolder } from '@grafetto/shared'
 
 /** Shared by roomRoutes.ts (REST "Мои уроки" list) and rooms.ts (cold-load
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type
@@ -15,12 +15,27 @@ export function toWireRoom(r: {
   // shapes, and a future divergence between them surfaces here as a type
   // error instead of being laundered through an `as`.
   accessMode: RoomAccessMode
+  // (#548) The room's toolset column. Optional for the same reason
+  // `parentRoomId` below is: the callers that build this shape by hand don't
+  // have one. Read through the shared sanitizer rather than cast, so a row
+  // holding an id this build has never heard of (written by a newer one)
+  // opens the room without it instead of failing to parse.
+  enabledTools?: string[]
   // (#317) Present on rows read straight from Prisma; absent on the callers
   // that build this shape by hand (rooms.ts's in-memory record), which is why
   // it's optional rather than `string | null`.
   parentRoomId?: string | null
   // (#222) Same optionality reasoning as `parentRoomId` above.
   closedAt?: Date | null
+  // (#176) The three board columns — same optionality reasoning as
+  // `parentRoomId`: present on a Prisma row, absent on a hand-built shape.
+  lessonId?: string | null
+  boardOrder?: number
+  activeBoardId?: string | null
+  // (#595) Class mode columns — same optionality as the board ones above.
+  assignmentId?: string | null
+  boardOwnerId?: string | null
+  classVisibility?: ClassVisibility
   // (#209) A `select`-based relation, not the full RoomThumbnail row — every
   // call site includes only `{ updatedAt: true }` so the (potentially large)
   // `data` Bytes column is never fetched just to build a room list/card.
@@ -39,12 +54,19 @@ export function toWireRoom(r: {
     infinite: r.infinite,
     canvasWidth: r.canvasWidth ?? undefined, canvasHeight: r.canvasHeight ?? undefined,
     hasPassword: r.passwordHash !== null, accessMode: r.accessMode, ownerId: r.ownerId,
+    enabledTools: sanitizeEnabledTools(r.enabledTools),
     ownerName: r.owner?.name ?? undefined,
     createdAt: r.createdAt.toISOString(),
     thumbnailUpdatedAt: r.thumbnail?.updatedAt.toISOString(),
     folderId: r.folderId ?? undefined,
     parentRoomId: r.parentRoomId ?? undefined,
     closedAt: r.closedAt?.toISOString(),
+    lessonId: r.lessonId ?? undefined,
+    boardOrder: r.boardOrder,
+    activeBoardId: r.activeBoardId ?? undefined,
+    assignmentId: r.assignmentId ?? undefined,
+    boardOwnerId: r.boardOwnerId ?? undefined,
+    classVisibility: r.classVisibility,
   }
 }
 

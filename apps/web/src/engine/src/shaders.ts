@@ -1360,6 +1360,60 @@ ${WC_NOISE_GLSL}
       return;
     }
 
+    // u_inkMode=10 (#547, ADR 013 §4) — the digital brush's coverage stamp.
+    //
+    // The one genuinely new piece of rendering this tool needed. Mode 6 above
+    // draws the ribbon's *rigid nib*: a flat disc with a fixed one-pixel ramp,
+    // which is right for a felt tip and useless as a brush, because the whole
+    // difference between a soft brush and a hard one lives in that ramp.
+    //
+    // Two things this deliberately does not do:
+    //
+    //  - it does not touch mode 6, so the marker, the brush pen and watercolor
+    //    cannot regress by side effect. A shared branch "with a hardness term"
+    //    would have been smaller and would have put three shipped tools at the
+    //    mercy of this one's tuning;
+    //  - it reads no paper. This mark is not ink soaking into a sheet and not
+    //    graphite catching on tooth (ADR 013 §8) — its texture is the brush's
+    //    own, and in v1 there is none.
+    //
+    // Bounded band rather than an open ">" like the composite branches below:
+    // 10.0 would satisfy both "> 8.5" (watercolor) and "> 7.5" (brush pen), and
+    // a stamp that fell through into a composite would write finished pixels
+    // into the coverage buffer.
+    if (u_inkMode > 9.5 && u_inkMode < 10.5) {
+      // Normalized radius: v_localUV is the dab's own frame, 1.0 at the
+      // boundary, so this is scale-free and an ellipse comes out as one.
+      float d = length(v_localUV);
+      if (d >= 1.0) discard;
+
+      // The ramp is a fraction of the *mark*, not an absolute width, which is
+      // the difference between an edge that belongs to a tip and one that
+      // belongs to a brush: a soft 200px brush has to have a 200px-scale
+      // falloff. u_aaPx enters only as the floor, so the hardest brush in the
+      // set still antialiases rather than drawing a jagged disc — see
+      // DIGITAL_BRUSH_MIN_AA_PX.
+      float aaNorm = clamp(u_aaPx / max(v_radius, 1e-4), 0.004, 0.9);
+      float inner = min(u_hardness, 1.0 - aaNorm);
+      float mask = 1.0 - smoothstep(inner, 1.0, d);
+
+      // v_opacity carries this dab's **flow**, not the stroke's opacity — the
+      // engine passes digitalBrushFlow() here (ADR 013 §3). The two must not be
+      // collapsed: flow accumulates through this buffer's own source-over blend
+      // and saturates, while opacity is applied once, later, by the composite
+      // over the frozen pre-stroke layer. Collapse them and every place a
+      // stroke crosses itself comes out darker than the rest of it, which is
+      // the single most recognisable flaw of a hand-rolled digital brush.
+      float amount = mask * v_opacity;
+      if (amount <= 0.0) discard;
+      // Premultiplied, against ONE/ONE_MINUS_SRC_ALPHA (AccumulationBuffer's
+      // beginDraw) — so repeated stamps accumulate as textbook "over" and
+      // approach 1.0 without ever passing it. No clamp needed anywhere, which
+      // is why this needs no additive pass of its own.
+      gl_FragColor = vec4(vec3(amount), amount);
+      return;
+    }
+
     float dist = length(v_localUV);
     // #452: v_wick is 0 for every tool but the liner, so this is the exact
     // "dist > 1.0" cutoff it has always been everywhere else. Only the liner
@@ -2686,6 +2740,18 @@ export const SMUDGE_PICKUP_FRAG = `
   uniform sampler2D u_patch;    // canvas patch under this dab (premultiplied)
   uniform sampler2D u_carried;  // the imprint as of the previous dab, same normalized square
   uniform float u_rate;         // 0..1 — how much of the imprint this dab refreshes (1 = prime it outright)
+  // (#573) The digital brush's mixer: its own colour (premultiplied, opaque)
+  // folded into the imprint after the pickup, by u_paintLoad. 0 for the smudge
+  // tool itself, where mix(x, paint, 0.0) is x exactly — the stump carries no
+  // paint of its own.
+  uniform vec4 u_paint;
+  uniform float u_paintLoad;
+  // (#573) 1 for the mixer: the pickup is weighted by how much paint is
+  // actually under the brush. A loaded brush dragged over bare paper does not
+  // pick the paper's transparency up into itself — that is what made the
+  // mixer lay a pale 40% film on an empty sheet. 0 for smudge, whose stump
+  // carries nothing of its own and must be free to go clean.
+  uniform float u_alphaPickup;
 
   varying vec2 v_uv;
 
@@ -2693,7 +2759,12 @@ export const SMUDGE_PICKUP_FRAG = `
     // Straight per-texel refresh, blending disabled by the caller: this
     // writes the imprint's new value outright, it does not accumulate onto
     // the previous one (the previous one is an input here, u_carried).
-    gl_FragColor = mix(texture2D(u_carried, v_uv), texture2D(u_patch, v_uv), u_rate);
+    // Not named "patch": that is a keyword in desktop GLSL 4, which is what
+    // ANGLE translates this shader into on some platforms.
+    vec4 under = texture2D(u_patch, v_uv);
+    float rate = u_rate * mix(1.0, under.a, u_alphaPickup);
+    vec4 picked = mix(texture2D(u_carried, v_uv), under, rate);
+    gl_FragColor = mix(picked, u_paint, u_paintLoad);
   }
 `;
 
@@ -3809,6 +3880,41 @@ export const DISPLAY_TRANSPARENT_FRAG = `
   }
 `;
 
+// (#595, ADR 015 §5) One step of bakePreview's GPU downscale chain — see
+// previewChain.ts for the step sizes and why it is a chain at all.
+//
+// Four hardware-bilinear taps at +-u_tapOffset around the destination pixel's
+// centre, where u_tapOffset is a quarter of a *destination* pixel in uv units
+// (0.25 / dstSize). For an exact 2x step that lands each tap on a source texel
+// centre, so the four taps are exactly the 2x2 block and the result is a plain
+// box average. For the one shorter, non-integer final step (factor 1..2) the
+// taps spread over the destination pixel's footprint and bilinear weighting
+// fills in between — still every source texel under the footprint contributes.
+//
+// highp on purpose: at mediump a uv over a 1754-texel source is only good to
+// a texel or two, which would smear exactly the grain this exists to keep.
+// Input is the opaque paper-composed image (alpha 1 everywhere), so averaging
+// straight colour is correct — there is no premultiplication to respect.
+// Uniform names are unique to this program (u_src, u_tapOffset): the test
+// MockGL tags programs by the uniforms their source declares, and this one
+// must read as an unrasterized 'other' pass.
+export const DOWNSAMPLE_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_src;
+  uniform vec2 u_tapOffset;
+
+  varying vec2 v_uv;
+
+  void main() {
+    vec4 sum = texture2D(u_src, v_uv + vec2(-u_tapOffset.x, -u_tapOffset.y));
+    sum += texture2D(u_src, v_uv + vec2( u_tapOffset.x, -u_tapOffset.y));
+    sum += texture2D(u_src, v_uv + vec2(-u_tapOffset.x,  u_tapOffset.y));
+    sum += texture2D(u_src, v_uv + vec2( u_tapOffset.x,  u_tapOffset.y));
+    gl_FragColor = sum * 0.25;
+  }
+`;
+
 // #141: this samples the paper map via plain screen UV (v_uv) — fixed,
 // screen-locked, so the paper grain neither pans nor zooms with the camera.
 // That's exactly right for a bounded room (its whole canvas element is
@@ -4463,5 +4569,634 @@ export const PAPER_COMPOSE_FRAG = `
     }
 
     gl_FragColor = vec4(mix(u_deskColor, color, onPage), 1.0);
+  }
+`;
+
+// (#527) Rasterizes one shape — rectangle, ellipse, star or line — into a
+// layer tile. Runs once per tile the shape touches, on commit and on every
+// frame of the editing session's preview.
+//
+// Reuses DISPLAY_VERT's fullscreen quad and AREA_MASK_FRAG's trick of turning
+// the quad's uv into a world position through the tile's own size and origin,
+// so the same shader draws into a real tile, a scratch tile or a preview
+// without anything upstream translating coordinates.
+//
+// **What it deliberately does not use.** No fwidth/dFdx: the antialiased rim
+// is one layer unit, which is one pixel of a tile buffer by construction, so
+// the ramp is a constant rather than a screen-space derivative — and
+// derivatives are the family `.claude/rules.md` singles out as having broken
+// cross-device agreement three times. No trigonometry for placement, sectors
+// or stroke geometry either: every cos/sin/atan those would need is computed
+// once in JavaScript (shapeGeometry.ts) and arrives as a uniform. What is left
+// is one `atan` in the star's angular fold, which has no cheaper form and
+// whose error moves an edge by a small fraction of a pixel rather than
+// changing what is drawn.
+//
+// **The distance fields.** Rectangle and line are exact. The ellipse is a
+// first-order estimate — F/|grad F| — which is exact on the contour itself and
+// only approximate away from it, i.e. correct exactly where the antialiased
+// edge and the stroke band read it. The star folds space into one sector and
+// measures against a single edge, which is exact for the contour and needs its
+// normal for one more reason: a star's frame need not be square, so it is
+// defined in a normalized space and the distance has to be converted back
+// through the local gradient, or a stroke on a wide star would be thicker
+// along one axis than the other.
+export const SHAPE_FRAG = `
+  precision highp float;
+
+  uniform vec2 u_dstSize;
+  uniform vec2 u_dstOrigin;
+
+  uniform vec2 u_center;
+  uniform vec2 u_rotCS;
+  uniform vec2 u_half;
+
+  uniform int u_kind;
+  uniform vec3 u_base;
+  uniform vec3 u_outer;
+  uniform vec3 u_inner;
+  uniform float u_hasInner;
+  uniform float u_strokeContours;
+  uniform vec2 u_band;
+
+  uniform float u_ringRatio;
+  uniform float u_closePath;
+  uniform float u_sectorMode;
+  uniform vec2 u_sectorDir;
+  uniform vec2 u_sectorCS;
+
+  uniform float u_starPoints;
+  uniform vec2 u_starRot;
+
+  uniform vec2 u_lineDir;
+  uniform float u_lineHalfLen;
+  uniform float u_lineCap;
+
+  uniform vec3 u_fillColor;
+  uniform float u_hasFill;
+  uniform vec3 u_strokeColor;
+  uniform float u_hasStroke;
+
+  varying vec2 v_uv;
+
+  const float PI = 3.141592653589793;
+
+  // Coverage from a signed distance, over a one-unit ramp centred on the
+  // contour. Linear rather than smoothstep: a shape's edge is a straight cut
+  // through the pixel, and the fraction of the pixel it covers is linear in
+  // the distance to it.
+  float cov(float d) {
+    return clamp(0.5 - d, 0.0, 1.0);
+  }
+
+  float sdRoundBox(vec2 p, vec2 b, float r) {
+    vec2 q = abs(p) - b + r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+  }
+
+  float sdEllipse(vec2 p, vec2 ab) {
+    vec2 q = p / ab;
+    float k = length(q);
+    if (k < 1e-6) return -min(ab.x, ab.y);
+    // grad of length(p/ab) with respect to p, so (k - 1) / |grad| is the
+    // first-order distance to the k = 1 contour.
+    vec2 g = vec2(q.x / ab.x, q.y / ab.y) / k;
+    return (k - 1.0) / max(length(g), 1e-9);
+  }
+
+  // The sector, as a wedge test built from two half-planes. u_sectorDir is the
+  // bisector and u_sectorCS the half aperture's (cos, sin); mode 2 is the
+  // reflex case, which is the complement of the opposite wedge.
+  float sdWedge(vec2 p) {
+    if (u_sectorMode < 0.5) return -1e9;
+    vec2 d = u_sectorDir;
+    vec2 n1 = vec2(d.x * u_sectorCS.y + d.y * u_sectorCS.x, d.y * u_sectorCS.y - d.x * u_sectorCS.x);
+    vec2 n2 = vec2(d.x * u_sectorCS.y - d.y * u_sectorCS.x, d.y * u_sectorCS.y + d.x * u_sectorCS.x);
+    float w = max(-dot(p, n1), -dot(p, n2));
+    return u_sectorMode > 1.5 ? -w : w;
+  }
+
+  // The ellipse without its sector cut: a ring or a full ellipse. Kept
+  // separate because an *open* sector's stroke follows only this contour —
+  // the arcs — while its fill is still the closed region (see below).
+  float sdEllipseBody(vec2 p, vec3 prm) {
+    float d = sdEllipse(p, prm.xy);
+    if (u_ringRatio > 0.0) d = max(d, -sdEllipse(p, prm.xy * u_ringRatio));
+    return d;
+  }
+
+  // The wedge arrives as a value rather than being called for here, and that
+  // is not a micro-optimisation: calling sdWedge from more than one place makes
+  // this program fail to *link* on ANGLE/D3D11, with an empty info log and a
+  // lost context (found by bisection, #527). Computing it once in main and
+  // passing it down is both the fix and the cheaper shape — the sector does not
+  // depend on which contour is being measured.
+  float sdEllipseShape(vec2 p, vec3 prm, float wedge) {
+    float d = sdEllipseBody(p, prm);
+    if (u_sectorMode > 0.5) d = max(d, wedge);
+    return d;
+  }
+
+  // Distance to a star, in the normalized space where its frame is a unit
+  // circle. Writes the contour normal in that same space, which the caller
+  // needs to convert the distance back to layer units.
+  float sdStarN(vec2 q, float R, float r, out vec2 nrm) {
+    vec2 p = vec2(q.x * u_starRot.x + q.y * u_starRot.y, -q.x * u_starRot.y + q.y * u_starRot.x);
+    float an = PI / u_starPoints;
+    float a = atan(p.y, p.x);
+    float k = mod(a + an, 2.0 * an) - an;
+    float L = length(p);
+    float cs = cos(k);
+    float sn = sin(k);
+    vec2 f = L * vec2(cs, abs(sn));
+
+    vec2 A = vec2(R, 0.0);
+    vec2 B = vec2(r * cos(an), r * sin(an));
+    vec2 e = B - A;
+    vec2 w = f - A;
+    float h = clamp(dot(w, e) / max(dot(e, e), 1e-12), 0.0, 1.0);
+    vec2 dv = w - e * h;
+    float len = length(dv);
+    float sgn = (e.x * w.y - e.y * w.x) > 0.0 ? -1.0 : 1.0;
+
+    vec2 nf = len > 1e-9 ? dv / len * sgn : vec2(1.0, 0.0);
+    if (sn < 0.0) nf.y = -nf.y;
+    float fa = a - k;
+    vec2 rr = vec2(cos(fa), sin(fa));
+    vec2 nr = vec2(nf.x * rr.x - nf.y * rr.y, nf.x * rr.y + nf.y * rr.x);
+    nrm = vec2(nr.x * u_starRot.x - nr.y * u_starRot.y, nr.x * u_starRot.y + nr.y * u_starRot.x);
+    return len * sgn;
+  }
+
+  float sdStarShape(vec2 p, vec3 prm) {
+    vec2 q = p / u_half;
+    vec2 nrm;
+    float dn = sdStarN(q, prm.x, prm.y, nrm);
+    // Back to layer units: the normalized-space gradient of this field, seen
+    // in layer space, is the normal divided by the half-extents.
+    float scale = length(vec2(nrm.x / u_half.x, nrm.y / u_half.y));
+    return dn / max(scale, 1e-9);
+  }
+
+  // A line has no interior, so this returns the distance to the *stroked*
+  // band directly: the cap decides whether the ends are rounded, cut flush or
+  // extended by half the width.
+  float sdLineBand(vec2 p) {
+    float halfW = max(u_band.y, 0.0);
+    float t = dot(p, u_lineDir);
+    float s = dot(p, vec2(-u_lineDir.y, u_lineDir.x));
+    if (u_lineCap > 0.5 && u_lineCap < 1.5) {
+      return length(vec2(max(abs(t) - u_lineHalfLen, 0.0), s)) - halfW;
+    }
+    float ext = u_lineCap > 1.5 ? halfW : 0.0;
+    return max(abs(t) - (u_lineHalfLen + ext), abs(s) - halfW);
+  }
+
+  float shapeDist(vec2 p, vec3 prm, float wedge) {
+    if (u_kind == 0) return sdRoundBox(p, prm.xy, prm.z);
+    if (u_kind == 1) return sdEllipseShape(p, prm, wedge);
+    return sdStarShape(p, prm);
+  }
+
+  void main() {
+    vec2 worldPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize + u_dstOrigin;
+    vec2 rel = worldPx - u_center;
+    vec2 p = vec2(rel.x * u_rotCS.x + rel.y * u_rotCS.y, -rel.x * u_rotCS.y + rel.y * u_rotCS.x);
+
+    // Exactly one call, for the linker's sake — see sdEllipseShape.
+    float wedge = sdWedge(p);
+    float fillA = 0.0;
+    float strokeA = 0.0;
+
+    if (u_kind == 3) {
+      strokeA = u_hasStroke * cov(sdLineBand(p));
+    } else {
+      float dBase = shapeDist(p, u_base, wedge);
+      // A fill is always the closed region: an open contour has no inside
+      // anyone would predict, so closePath governs the stroke alone.
+      fillA = u_hasFill * cov(dBase);
+      if (u_hasStroke > 0.5) {
+        if (u_kind == 1 && u_sectorMode > 0.5 && u_closePath < 0.5) {
+          // Open sector: stroke the arcs only, clipped to the sector, instead
+          // of running the band around the straight sides as well.
+          float band = abs(sdEllipseBody(p, u_base) - u_band.x) - u_band.y;
+          strokeA = cov(max(band, wedge));
+        } else if (u_strokeContours > 0.5) {
+          float dOut = shapeDist(p, u_outer, wedge);
+          float d = dOut;
+          if (u_hasInner > 0.5) d = max(dOut, -shapeDist(p, u_inner, wedge));
+          strokeA = cov(d);
+        } else {
+          strokeA = cov(abs(dBase - u_band.x) - u_band.y);
+        }
+      }
+    }
+
+    // Stroke over fill, both premultiplied — the layer buffer stores
+    // premultiplied colour in .rgb and coverage in .a, and beginDraw()'s
+    // (ONE, ONE_MINUS_SRC_ALPHA) expects exactly this.
+    float a = strokeA + fillA * (1.0 - strokeA);
+    vec3 rgb = u_strokeColor * strokeA + u_fillColor * fillA * (1.0 - strokeA);
+    gl_FragColor = vec4(rgb, a);
+  }
+`;
+
+// ─── Digital brush, stamp model (#573, ADR 013 §11) ─────────────────────────
+//
+// The digital brush's own two programs. Until #573 the brush borrowed DAB_FRAG:
+// its stamp was u_inkMode=10 and its composite the brush pen's u_inkMode=8.
+// That was right for one round tip and stops being right the moment the tip is
+// a picture — a new sampler in DAB_FRAG would have to be bound, validly, by
+// every one of the dozen draw paths that share that program (the 1282 lesson
+// in engine's _drawRibbonNibPass), and three shipped tools would sit one typo
+// away from regressing. A program of its own costs one compile.
+//
+// The coverage buffer this writes has two meanings in two channels, which is
+// the whole of the new model:
+//
+//   .rgb  flow, accumulated as textbook "over" — `c' = f + c * (1 - f)`,
+//         through blendFunc(ONE, ONE_MINUS_SRC_COLOR). Approaches 1, never
+//         passes it, exactly as before.
+//   .a    the stroke's opacity *ceiling*, the highest any stamp so far has
+//         allowed here — through blendEquation MAX (EXT_blend_minmax).
+//
+// The composite multiplies the two. That is Photoshop's and Krita's meaning
+// of pressure→opacity, and the thing a flow curve cannot do: scrubbing back
+// and forth at a light pressure inside one stroke saturates the flow, and the
+// ceiling holds the tone where the light pressure put it. With the switch off
+// every stamp's ceiling is 1 and the composite reads flow alone.
+export const BRUSH_STAMP_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_paperHeightMap;
+  uniform sampler2D u_tip;
+  uniform vec2 u_paperScale;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
+  // 0 = the round procedural ramp, 1 = the bitmap mask in u_tip.
+  uniform float u_tipKind;
+  uniform float u_hardness;
+  // Antialiasing floor for the round ramp, canvas px.
+  uniform float u_aaPx;
+  // This stamp's opacity ceiling (digitalBrushCeiling), 1 with the switch off.
+  uniform float u_ceiling;
+  // How strongly the paper's tooth breaks this brush's contact (0..1), and the
+  // pressure pushing it into the tooth.
+  uniform float u_paper;
+  uniform float u_paperPressure;
+  // The brush's own canvas-anchored texture (tipMasks.ts, BrushTextureId):
+  // how strongly it breaks the mark, the world size of one tile, and this
+  // tile's world origin already reduced modulo that size on the CPU — so the
+  // numbers stay small enough for a mediump fallback not to shift the grain.
+  uniform sampler2D u_texture;
+  uniform float u_texStrength;
+  uniform float u_texPeriod;
+  uniform vec2 u_texOrigin;
+  uniform vec2 u_resolution;
+
+  varying vec2 v_localUV;
+  varying float v_opacity;
+  varying float v_radius;
+
+  void main() {
+    float shape;
+    if (u_tipKind < 0.5) {
+      // Normalized radius: v_localUV is the dab's own frame, 1.0 at the
+      // boundary, so this is scale-free and an ellipse comes out as one.
+      float d = length(v_localUV);
+      if (d >= 1.0) discard;
+      // The ramp is a fraction of the *mark*, not an absolute width: a soft
+      // 200px brush has to have a 200px-scale falloff. u_aaPx enters only as
+      // the floor, so the hardest brush still antialiases.
+      float aaNorm = clamp(u_aaPx / max(v_radius, 1e-4), 0.004, 0.9);
+      float inner = min(u_hardness, 1.0 - aaNorm);
+      shape = 1.0 - smoothstep(inner, 1.0, d);
+    } else {
+      // The quad spans -1..1 in the stamp's own (rotated) frame, and the mask
+      // is stored with row 0 on top — see tipMasks.ts on orientation.
+      shape = texture2D(u_tip, v_localUV * 0.5 + 0.5).r;
+    }
+    if (shape <= 0.0) discard;
+
+    // v_opacity carries this stamp's *flow* (per-pass normalized, jittered).
+    float amount = shape * v_opacity;
+
+    if (u_paper > 0.0) {
+      // World-space paper, the same sampling DAB_FRAG uses (#141): the same
+      // world point reads the same texel whichever tile it lands in.
+      vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
+      float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
+      // Pressure pushes the stick down into the valleys: at a light touch only
+      // the ridges take pigment, at full weight most of the sheet does. One
+      // sample of a value baked offline in double precision, a smoothstep and
+      // a mix — nothing amplified, so every GPU agrees (.claude/rules.md).
+      float reach = mix(0.62, 0.12, u_paperPressure);
+      float tooth = smoothstep(reach, reach + 0.3, paperCatch);
+      amount *= mix(1.0, tooth, u_paper);
+    }
+    if (u_texStrength > 0.0) {
+      // World position, top-down like every Dab.x/y; tiles draw with GL's
+      // bottom-up rows, so y is measured back from the tile's top.
+      vec2 w = vec2(u_texOrigin.x + gl_FragCoord.x,
+                    u_texOrigin.y + (u_resolution.y - gl_FragCoord.y));
+      float g = texture2D(u_texture, w / u_texPeriod).r;
+      // Same pressure-into-tooth rule as the paper above, on the brush's own
+      // grain: a light touch catches only the high points.
+      // Stays well above the bottom of the range even at full weight: a real
+      // dry brush breaks up however hard it is pressed, which is the point.
+      float reach = mix(0.7, 0.34, u_paperPressure);
+      amount *= mix(1.0, smoothstep(reach - 0.1, reach + 0.14, g), u_texStrength);
+    }
+    if (amount <= 0.0) discard;
+
+    // The ceiling follows the stamp's silhouette only as far as needed to stay
+    // continuous: a hard step at the stamp's rim would draw a visible circle
+    // wherever a firm stamp's edge crosses a lighter part of the same stroke.
+    float ceiling = u_ceiling * smoothstep(0.0, 0.3, shape);
+    gl_FragColor = vec4(vec3(amount), ceiling);
+  }
+`;
+
+// The finished pixel, recomputed from the layer as it was before the stroke
+// and the stroke's own coverage — the same "freeze, accumulate, recompute"
+// the marker established (RibbonStrokeScratch), so a pixel the stroke revisits
+// is recomputed rather than painted over again.
+export const BRUSH_COMPOSITE_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_original;
+  uniform sampler2D u_strokeCoverage;
+  uniform vec2 u_resolution;
+  uniform vec3 u_color;
+  // The stroke's opacity — the user's slider, applied once to the finished
+  // silhouette (ADR 013 §3).
+  uniform float u_opacity;
+  // 1 = multiply flow by the stored ceiling (the pressure→opacity switch on).
+  uniform float u_useCeiling;
+  // Screentone pitch in world px, 0 = continuous tone.
+  uniform float u_screentone;
+  // This tile's world origin, already reduced modulo the screen's own period
+  // on the CPU — see _drawBrushComposite. Keeps every number this shader
+  // handles small, so a mediump fallback cannot shift the dots.
+  uniform vec2 u_screenOrigin;
+  // (#579) Digital watercolor — see BrushDescriptor.wet. u_wetEdgePx is a
+  // constant of the gesture (the first dab's size), so a live stroke and a
+  // replay of it read the same neighbourhood.
+  uniform float u_wetEdge;
+  uniform float u_wetEdgePx;
+  uniform float u_mottle;
+  uniform float u_granulation;
+  uniform float u_glaze;
+  // Canvas-anchored tone textures, each with its origin reduced modulo its own
+  // period on the CPU (same reason as u_screenOrigin).
+  uniform sampler2D u_cloudTex;
+  uniform sampler2D u_grainTex;
+  uniform float u_cloudPeriod;
+  uniform vec2 u_cloudOrigin;
+  uniform float u_grainPeriod;
+  uniform vec2 u_grainOrigin;
+  // (#581) Which wet model: 1 = #579's (tone by coverage, kept so strokes
+  // recorded with those brushes replay unchanged), 2 = density through a
+  // power on the colour's transmittance. 0 for brushes that are not wet.
+  uniform float u_wetModel;
+  uniform float u_bloom;
+  uniform float u_feather;
+  // The room's paper, for granulation: pigment settles in its valleys.
+  uniform sampler2D u_paperHeightMap;
+  uniform vec2 u_paperScale;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
+
+  void main() {
+    vec2 tileUV = gl_FragCoord.xy / u_resolution;
+    vec4 c = texture2D(u_strokeCoverage, tileUV);
+    if (c.r <= 0.0) discard;
+    float cov = c.r;
+    if (u_useCeiling > 0.5) cov *= c.a;
+
+    // ── (#581) Wet model 2 ──────────────────────────────────────────────────
+    //
+    // Everything below is taken from the watercolor NPR literature rather
+    // than tuned from scratch — Bousseau et al. 2006, Curtis et al. 1997,
+    // Montesdeoca et al. 2017 (MNPR) — and it hangs on one idea from all three:
+    // pigment concentration is a *density* applied to the colour's
+    // transmittance, T' = T^d, not a blend toward paper. That is what makes a
+    // concentrated patch darker and more saturated at once, as real pigment
+    // is; blending toward paper makes it darker and greyer, which was the main
+    // thing that read as fake in model 1.
+    if (u_wetModel > 1.5) {
+      vec2 w = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+      vec2 cw = u_cloudOrigin + w;
+
+      // Wet-in-wet edge: the rim dissolves into a feathered, uneven fringe
+      // instead of a line. Fine noise pushes the soft outer ramp in and out.
+      // Only the outer fringe moves (fringe falls to 0 by half coverage): the
+      // body of the stroke is not the edge, and modulating it too printed the
+      // noise's tile as a row of blocks. Two scales, so the fringe has both
+      // lobes and fine fibres and neither repeats visibly.
+      if (u_feather > 0.0) {
+        float lobes = texture2D(u_cloudTex, cw / (u_cloudPeriod * 0.5)).r;
+        float fibres = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r;
+        float fringe = 1.0 - smoothstep(0.0, 0.55, cov);
+        float n = mix(lobes, fibres, 0.35) - 0.5;
+        cov = clamp(cov * (1.0 + u_feather * n * 2.4 * fringe), 0.0, 1.0);
+        if (cov <= 0.002) discard;
+      }
+
+      // Edge darkening at two scales (a difference of box rings, the DoG of
+      // MNPR): a narrow ring for the sharp outer front of the tideline, a
+      // wide one for its falloff inward. Sixteen fixed directions and no
+      // helper function, for the reasons the model-1 block below gives.
+      float edge = 0.0;
+      if (u_wetEdge > 0.0) {
+        vec2 rN = vec2(max(u_wetEdgePx * 0.3, 1.0)) / u_resolution;
+        vec2 rW = vec2(u_wetEdgePx) / u_resolution;
+        vec4 q;
+        float nearSum = 0.0;
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(1.0, 0.0));        nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(-1.0, 0.0));       nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.0, 1.0));        nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.0, -1.0));       nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.7071, 0.7071));   nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(-0.7071, 0.7071));  nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(0.7071, -0.7071));  nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rN * vec2(-0.7071, -0.7071)); nearSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        float wideSum = 0.0;
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.9239, 0.3827));   wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.9239, 0.3827));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.9239, -0.3827));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.9239, -0.3827)); wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.3827, 0.9239));   wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.3827, 0.9239));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(0.3827, -0.9239));  wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        q = texture2D(u_strokeCoverage, tileUV + rW * vec2(-0.3827, -0.9239)); wideSum += smoothstep(0.0, 0.55, u_useCeiling > 0.5 ? q.r * q.a : q.r);
+        // Read on coverage saturated at half: what makes a tideline is the
+        // boundary of the wet area, not the terraces where one more stamp
+        // overlapped — at a stroke's round start those terraces are a set of
+        // concentric arcs, and the sharp ring drew every one of them.
+        float covS = smoothstep(0.0, 0.55, cov);
+        float sharp = clamp((covS - nearSum / 8.0) * 5.0, 0.0, 1.0);
+        float wide = clamp((covS - wideSum / 8.0) * 2.2, 0.0, 1.0);
+        edge = max(sharp, wide * 0.5);
+      }
+
+      // Low-frequency turbulence — Bousseau's d = 1 + beta(T - 0.5).
+      float cloud = texture2D(u_cloudTex, cw / u_cloudPeriod).r;
+
+      // Blooms / backruns: where water crept back into a drying wash it pushed
+      // the pigment outward — a lighter patch with a dark, branching border.
+      // The border is a threshold of domain-warped noise, which is what gives
+      // it the cauliflower fingers; the band around the threshold is the dark
+      // line. Only in the stroke's body: a bloom does not start at the rim.
+      float bloomIn = 0.0;
+      float bloomRim = 0.0;
+      if (u_bloom > 0.0) {
+        vec2 warp = vec2(texture2D(u_cloudTex, cw / (u_cloudPeriod * 0.9)).r,
+                         texture2D(u_cloudTex, (cw + vec2(173.0, 91.0)) / (u_cloudPeriod * 0.9)).r) - 0.5;
+        // A second, fine warp crinkles the border into the cauliflower fringe
+        // a real backrun has; without it the border is a smooth blob.
+        float crinkle = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r - 0.5;
+        float b = texture2D(u_cloudTex, (cw + warp * 110.0) / (u_cloudPeriod * 1.5)).r + crinkle * 0.05;
+        // Rare and large rather than a scatter of pale islands: only the top
+        // of the noise blooms, and each bloom spans a good part of the stroke.
+        // Uniform pale patches with a neat outline everywhere read as a skin
+        // condition, not as paint ("витилиго" — Ilya).
+        //
+        // Biased toward the stroke's edge: a backrun is water creeping back
+        // in from the wetter rim into a drying wash, so it starts there.
+        float nearEdge = 1.0 - smoothstep(0.55, 0.98, cov);
+        float th = 1.0 - u_bloom * 0.2 - 0.12 * nearEdge;
+        float body = smoothstep(0.3, 0.7, cov);
+        // Barely lighter inside, fading in over a wide band: the eye should
+        // find the rim, not a hole.
+        bloomIn = smoothstep(th, th + 0.16, b) * body;
+        // The pigment piles up on the outside of the front, and fades outward
+        // — a soft dark band, not an ink outline.
+        bloomRim = smoothstep(th - 0.1, th - 0.006, b) * (1.0 - smoothstep(th - 0.006, th + 0.01, b)) * body;
+      }
+
+      // Granulation: pigment settles in the paper's valleys, the *opposite*
+      // sign to dry brush, and shows most in a pale wash (MNPR). The canvas
+      // grit stands in where the paper is smooth.
+      float grain = 0.5;
+      if (u_granulation > 0.0) {
+        vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
+        float h = texture2D(u_paperHeightMap, paperUV).r;
+        float g = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r;
+        grain = mix(g, h, 0.7);
+      }
+
+      float d = 1.0;
+      d += u_wetEdge * (1.5 * edge - 0.35 * (1.0 - edge));
+      d *= 1.0 + u_mottle * (cloud - 0.5) * 1.1;
+      d += u_granulation * (0.5 - grain) * 1.3 * (1.0 + 1.5 * (1.0 - cov));
+      d *= 1.0 - 0.3 * bloomIn;
+      d += u_bloom * 0.9 * bloomRim;
+      d = max(d, 0.05);
+
+      // The stroke as a transmittance filter at its base concentration, then
+      // concentrated by d.
+      float a0 = clamp(cov * u_opacity, 0.0, 1.0);
+      vec3 T = pow(max(mix(vec3(1.0), u_color, a0), vec3(0.002)), vec3(d));
+      // Back to a premultiplied layer colour: the darkest channel sets the
+      // alpha, and the colour follows so that over white it reproduces T
+      // exactly (cs + 1 - aE == T).
+      float aE = clamp(1.0 - min(T.r, min(T.g, T.b)), 0.0, 1.0);
+      vec3 cs = T - vec3(1.0 - aE);
+      vec4 dst0 = texture2D(u_original, tileUV);
+      if (u_glaze > 0.5) {
+        // Over paint: Cd * T exactly — the subtractive layering of a glaze.
+        gl_FragColor = vec4(cs * dst0.rgb + cs * (1.0 - dst0.a) + dst0.rgb * (1.0 - aE),
+                            aE + (1.0 - aE) * dst0.a);
+      } else {
+        gl_FragColor = vec4(cs + (1.0 - aE) * dst0.rgb, aE + (1.0 - aE) * dst0.a);
+      }
+      return;
+    }
+
+    if (u_wetEdge > 0.0) {
+      // Mean coverage on two rings around this pixel. Where the stroke's own
+      // coverage stands above its surroundings the pixel is at the rim, where
+      // it matches them it is inside. Sixteen fixed directions written out
+      // rather than a loop over sin/cos: no transcendental per pixel, and no
+      // helper function called from several places — the ANGLE link failure
+      // with an empty log that pattern produced once already.
+      //
+      // Clamped at the tile's border like every coverage read here, so within
+      // one ring's width of a tile seam the rim is read a little softer. A
+      // bounded room's seams sit at x=1024/y=1024.
+      vec2 r1 = vec2(u_wetEdgePx) / u_resolution;
+      vec2 r2 = r1 * 0.5;
+      float ring = 0.0;
+      vec4 s;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(1.0, 0.0));        ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(-1.0, 0.0));       ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.0, 1.0));        ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.0, -1.0));       ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.7071, 0.7071));   ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(-0.7071, 0.7071));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(0.7071, -0.7071));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r1 * vec2(-0.7071, -0.7071)); ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.9239, 0.3827));   ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.9239, 0.3827));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.9239, -0.3827));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.9239, -0.3827)); ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.3827, 0.9239));   ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.3827, 0.9239));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(0.3827, -0.9239));  ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      s = texture2D(u_strokeCoverage, tileUV + r2 * vec2(-0.3827, -0.9239)); ring += u_useCeiling > 0.5 ? s.r * s.a : s.r;
+      float around = ring / 16.0;
+      float rim = clamp((cov - around) * 3.0, 0.0, 1.0);
+      // The interior gives up pigment to the rim: lighter inside, full tone at
+      // the edge, a touch darker than full right on it.
+      cov *= (1.0 - u_wetEdge * 0.45 * (1.0 - rim)) + u_wetEdge * 0.3 * rim;
+    }
+
+    if (u_mottle > 0.0 || u_granulation > 0.0) {
+      vec2 w = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+      // Both have a mean of ~0.5, so each factor averages to 1: the stroke
+      // keeps its overall tone and only its distribution changes.
+      float cloud = texture2D(u_cloudTex, (u_cloudOrigin + w) / u_cloudPeriod).r;
+      float grain = texture2D(u_grainTex, (u_grainOrigin + w) / u_grainPeriod).r;
+      cov *= mix(1.0, 0.5 + cloud, u_mottle);
+      cov *= mix(1.0, 0.35 + 1.3 * grain, u_granulation);
+      cov = clamp(cov, 0.0, 1.0);
+    }
+
+    if (u_screentone > 0.0) {
+      // World position, top-down like every Dab.x/y: tiles are drawn with GL's
+      // bottom-up rows, so y is measured back from the tile's top.
+      vec2 w = vec2(u_screenOrigin.x + gl_FragCoord.x,
+                    u_screenOrigin.y + (u_resolution.y - gl_FragCoord.y));
+      // A 45-degree lattice whose period along both world axes is exactly
+      // 2 * pitch, which is what lets the CPU reduce the origin exactly.
+      vec2 lat = vec2(w.x + w.y, w.y - w.x) / (2.0 * u_screentone);
+      vec2 f = fract(lat) - 0.5;
+      // Cell side in world px is pitch * sqrt(2); the distance to the dot's
+      // centre follows.
+      float d = length(f) * u_screentone * 1.41421356;
+      // Dot radius whose area is the tone (cov * cell area = pi r^2), eased
+      // up to a full cover as the tone approaches solid — at 1.0 the area rule
+      // alone leaves a lattice of gaps.
+      float areaR = sqrt(cov * 2.0 / 3.14159265) * u_screentone;
+      float r = mix(areaR, u_screentone * 1.05, smoothstep(0.7, 1.0, cov));
+      cov = clamp(r - d + 0.5, 0.0, 1.0);
+    }
+
+    float alpha = clamp(cov * u_opacity, 0.0, 1.0);
+    vec4 dst = texture2D(u_original, tileUV);
+    if (u_glaze > 0.5) {
+      // (#579) Premultiplied "multiply": Cs*Cd + Cs*(1 - ad) + Cd*(1 - as).
+      // Over paint it darkens what is there by the stroke's colour, over an
+      // empty part of the layer it is plain "over" — so a glaze on a blank
+      // sheet looks exactly like any other stroke until it crosses another.
+      vec3 cs = alpha * u_color;
+      gl_FragColor = vec4(cs * dst.rgb + cs * (1.0 - dst.a) + dst.rgb * (1.0 - alpha),
+                          alpha + (1.0 - alpha) * dst.a);
+      return;
+    }
+    // Textbook premultiplied "over" onto the frozen pre-stroke pixel.
+    gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
+                        alpha + (1.0 - alpha) * dst.a);
   }
 `;

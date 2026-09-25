@@ -1,0 +1,249 @@
+/* (#176, ADR 014 §7 step 4) The board strip: a row of page thumbnails that
+   drops down under the header. Absolutely placed, like the header itself, so
+   opening it never reflows the canvas; centred between the two rails so it
+   sits over the paper rather than over the tool columns. */
+
+.strip {
+  position: absolute;
+  top: calc(var(--header-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(760px, calc(100% - 2 * var(--rail-w) - 16px));
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-lg);
+  user-select: none;
+  transition: opacity var(--duration-normal) ease;
+}
+
+/* The compact shell (#512) has no rails, so the strip may use the width. */
+.stripCompact {
+  max-width: calc(100% - 16px);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.headSpacer { flex: 1; }
+
+.headBtn {
+  width: var(--touch-target-sm);
+  height: var(--touch-target-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  flex-shrink: 0;
+}
+.headBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.headBtn :global(.material-symbols-outlined) { font-size: 20px; }
+
+.row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 2px 2px 6px;
+  scrollbar-width: thin;
+}
+
+/* One board. A button with a picture and a name; the frame is the selection
+   state, the corner badges say who is where. */
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 132px;
+  flex-shrink: 0;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.tile:hover { background: var(--color-surface-hover); }
+.tileCurrent { border-color: var(--color-accent); }
+.tileCurrent:hover { background: transparent; }
+
+.picture {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-paper-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-faint);
+}
+.picture img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.picture :global(.material-symbols-outlined) { font-size: 26px; }
+
+/* The teacher's badge, top-left over the picture. Accent-filled so it reads
+   at thumbnail size, and the same glyph the chip uses, so the two say "the
+   teacher" the same way. */
+.teacher {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: 0 0 0 2px var(--color-surface-raised);
+}
+.teacher :global(.material-symbols-outlined) { font-size: 14px; }
+
+/* How many people are on this board — bottom-right, only when non-zero. */
+.count {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-scrim);
+  color: var(--color-text-bright);
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 2px;
+}
+
+.nameInput {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+}
+
+/* The per-board "⋮". A real button inside the tile button is invalid HTML, so
+   the tile is a div with role=button and this sits beside the name. */
+.menuTrigger {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  flex-shrink: 0;
+}
+.menuTrigger:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.menuTrigger :global(.material-symbols-outlined) { font-size: 18px; }
+
+/* "+" — the same footprint as a tile, so the row reads as "pages, then a
+   place for the next one". */
+.add {
+  width: 132px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 2px dashed var(--color-border-strong);
+  color: var(--color-text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color var(--duration-fast), border-color var(--duration-fast), background var(--duration-fast);
+}
+.add:hover { color: var(--color-text); border-color: var(--color-accent-border); background: var(--color-surface-hover); }
+.add:disabled { opacity: 0.5; cursor: default; }
+.add :global(.material-symbols-outlined) { font-size: 28px; }
+
+/* (#176) The chip a student who stepped away sees: "the teacher is on …".
+   Under the header, centred, above the strip when both are up. One tap goes
+   back and switches following on again. */
+.chip {
+  position: absolute;
+  top: calc(var(--header-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--touch-target-sm);
+  padding: 0 14px 0 10px;
+  border-radius: 20px;
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: 13px;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+  max-width: calc(100% - 32px);
+  cursor: pointer;
+  transition: opacity var(--duration-normal) ease, background var(--duration-fast);
+}
+.chip:hover { background: var(--color-surface-hover); }
+.chip :global(.material-symbols-outlined) { font-size: 18px; color: var(--color-accent); }
+.chipText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* When the strip is open the chip would sit on top of it; push it below. */
+.chipBelowStrip {
+  top: auto;
+  bottom: 16px;
+}

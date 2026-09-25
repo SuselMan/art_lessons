@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 
@@ -18,6 +18,13 @@ export interface MenuAction {
   danger?: boolean
   disabled?: boolean
   title?: string // tooltip — e.g. explaining why a stub action is disabled
+  /** (#575) Makes the item a toggle: `menuitemcheckbox` with a tick at the
+   *  end while on. For a header button that folded into the menu on a narrow
+   *  screen and was a pressed/unpressed toggle up there — without it the item
+   *  can't say which state it would switch *from*. */
+  checked?: boolean
+  /** (#575) A rule above this item, to set a group apart from the rest. */
+  separatorBefore?: boolean
 }
 
 interface MenuProps {
@@ -89,34 +96,40 @@ export function Menu({ trigger, triggerClassName, triggerLabel, actions, align =
           style={style}
         >
           {actions.map(action => (
-            // A disabled item is a <span>, not a disabled <button>: a disabled
-            // button swallows its own mouse events, so the browser never shows
-            // its `title` — and on a stubbed-out action that tooltip is the
-            // whole reason the item is listed at all (#328's "Block").
-            action.disabled ? (
-              <span
-                key={action.label}
-                role="menuitem"
-                aria-disabled="true"
-                className={clsx(styles.item, styles.itemDisabled)}
-                title={action.title}
-              >
-                {action.icon && <Icon name={action.icon} />}
-                {action.label}
-              </span>
-            ) : (
-              <button
-                key={action.label}
-                type="button"
-                role="menuitem"
-                className={action.danger ? styles.dangerItem : styles.item}
-                title={action.title}
-                onClick={() => { setOpen(false); action.onClick() }}
-              >
-                {action.icon && <Icon name={action.icon} />}
-                {action.label}
-              </button>
-            )
+            <Fragment key={action.label}>
+              {action.separatorBefore && <div className={styles.separator} role="separator" />}
+              {/* A disabled item is a <span>, not a disabled <button>: a
+                  disabled button swallows its own mouse events, so the browser
+                  never shows its `title` — and on a stubbed-out action that
+                  tooltip is the whole reason the item is listed at all (#328's
+                  "Block"). */}
+              {action.disabled ? (
+                <span
+                  role={action.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                  aria-checked={action.checked}
+                  aria-disabled="true"
+                  className={clsx(styles.item, styles.itemDisabled)}
+                  title={action.title}
+                >
+                  {action.icon && <Icon name={action.icon} />}
+                  {action.label}
+                  {action.checked && <span className={styles.check}><Icon name="check" /></span>}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  role={action.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                  aria-checked={action.checked}
+                  className={action.danger ? styles.dangerItem : styles.item}
+                  title={action.title}
+                  onClick={() => { setOpen(false); action.onClick() }}
+                >
+                  {action.icon && <Icon name={action.icon} />}
+                  {action.label}
+                  {action.checked && <span className={styles.check}><Icon name="check" /></span>}
+                </button>
+              )}
+            </Fragment>
           ))}
         </div>,
         document.body,

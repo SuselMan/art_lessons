@@ -57,6 +57,15 @@ export function OptionPreview({ option, shape }: OptionPreviewProps) {
       </span>
     )
   }
+  if (option.photo) {
+    return (
+      <span
+        className={clsx(styles.preview, shape === 'dot' ? styles.previewPhotoDot : styles.previewPhoto)}
+        style={{ backgroundImage: `url(${option.photo})` }}
+        role="presentation"
+      />
+    )
+  }
   if (!option.image) return null
   return (
     <span

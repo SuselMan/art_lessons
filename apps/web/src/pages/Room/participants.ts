@@ -12,9 +12,15 @@ export type ParticipantsAction =
   // is accepted — every participant gets this (not just the target), so
   // ParticipantsBar can show the frozen indicator for everyone else too.
   | { type: 'participant_frozen_changed'; userId: string; frozen: boolean }
+  // (#176, ADR 014) Someone in the lesson turned to another board. Sent to
+  // everyone *else* in the lesson; the mover learns their own board from the
+  // `room_state` the turn hands them, which carries the whole roster afresh.
+  | { type: 'peer_board_changed'; userId: string; boardId: string }
 
 export function participantsReducer(state: Participant[], action: ParticipantsAction): Participant[] {
   switch (action.type) {
+    case 'peer_board_changed':
+      return state.map(p => (p.userId === action.userId ? { ...p, boardId: action.boardId } : p))
     case 'room_state':
       // The snapshot is authoritative — replaces whatever we had (e.g. after
       // a reconnect where our local list may be stale).

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { computeRayAngles, computeRayCount, maxRingsForRay, assignRingsRoundRobin, layoutFlyoutItems } from './colorFlyout'
+import { computeRayAngles, computeRayCount, maxRingsForRay, assignRingsRoundRobin, layoutFlyoutItems, paletteFlyoutActions } from './colorFlyout'
 
 describe('computeRayCount', () => {
   it('grows with baseRadius (bigger ring-1 circumference fits more rays)', () => {
@@ -86,5 +86,27 @@ describe('layoutFlyoutItems', () => {
     const [pos] = layoutFlyoutItems(1, { x: 250, y: 250 }, { width: 500, height: 500 }, config)
     expect(pos.x).toBeCloseTo(0)
     expect(pos.y).toBeCloseTo(-config.baseRadius)
+  })
+})
+
+describe('paletteFlyoutActions (#542)', () => {
+  it('offers only the way out to the picker for a tool with one colour', () => {
+    expect(paletteFlyoutActions(null)).toEqual(['picker'])
+  })
+
+  it('adds swap and "no colour" for a tool carrying two', () => {
+    expect(paletteFlyoutActions({ fillColor: [0, 0, 1] })).toEqual(['picker', 'swap', 'none'])
+  })
+
+  it('drops the swap when there is no fill to trade with', () => {
+    // The line. Switching its stroke off still has to be reachable, so `none`
+    // stays — it is the swap alone that has nothing to act on.
+    expect(paletteFlyoutActions({ fillColor: null })).toEqual(['picker', 'none'])
+  })
+
+  it('keeps the picker first, so its place in the fan never moves', () => {
+    for (const pair of [null, { fillColor: null }, { fillColor: [0, 0, 1] }]) {
+      expect(paletteFlyoutActions(pair)[0]).toBe('picker')
+    }
   })
 })

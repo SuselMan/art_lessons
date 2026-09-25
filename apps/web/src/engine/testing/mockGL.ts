@@ -38,7 +38,7 @@ export type UniformValue = number | number[]
 
 interface MockProgram {
   fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'imageBlit' | 'smudge' | 'smudgePickup'
-    | 'areaTransform' | 'areaMask' | 'other'
+    | 'areaTransform' | 'areaMask' | 'brushStamp' | 'brushComposite' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
@@ -95,6 +95,9 @@ const ENUM = {
   FRAMEBUFFER: 16, COLOR_ATTACHMENT0: 17, FRAMEBUFFER_COMPLETE: 18,
   COLOR_BUFFER_BIT: 19, TRIANGLES: 20, FLOAT: 21,
   BLEND: 22, ONE: 23, ONE_MINUS_SRC_ALPHA: 24, ZERO: 25, SRC_ALPHA: 28,
+  // (#573) The digital brush's coverage blend: rgb as "over" through
+  // ONE_MINUS_SRC_COLOR, under FUNC_ADD.
+  ONE_MINUS_SRC_COLOR: 63, FUNC_ADD: 64,
   // (#446) The selection mask's own upload format — one byte per texel,
   // which this mock's single-scalar-per-texel model happens to match exactly.
   ALPHA: 30,
@@ -141,6 +144,8 @@ export class MockGL {
   readonly SCISSOR_TEST = 0x0c11
   readonly ONE = ENUM.ONE
   readonly ONE_MINUS_SRC_ALPHA = ENUM.ONE_MINUS_SRC_ALPHA
+  readonly ONE_MINUS_SRC_COLOR = ENUM.ONE_MINUS_SRC_COLOR
+  readonly FUNC_ADD = ENUM.FUNC_ADD
   readonly ZERO = ENUM.ZERO
   readonly SRC_ALPHA = ENUM.SRC_ALPHA
   readonly ALPHA = ENUM.ALPHA
@@ -215,6 +220,10 @@ export class MockGL {
 
   private _tagFragShader(source: string): MockProgram['fragTag'] {
     if (source.includes('u_eraseMode')) return 'dab'
+    // (#573) The digital brush's own two programs — each has one uniform no
+    // other shader declares.
+    if (source.includes('u_tipKind')) return 'brushStamp'
+    if (source.includes('u_useCeiling')) return 'brushComposite'
     // Order matters against 'dab' above only: DAB_FRAG is caught by
     // u_eraseMode first, and these two names appear in no other shader.
     if (source.includes('u_patchOrigin')) return 'smudge'
@@ -680,9 +689,20 @@ export class MockGL {
   blendFunc(src: number, dst: number): void { this._blendSrc = src; this._blendDst = dst }
   // (#536, s17.28) The watercolor film blends by MAX through EXT_blend_minmax;
   // the mock reports no such extension (see getExtension), so the engine takes
-  // its additive path here, and endDraw's reset to FUNC_ADD is a no-op.
-  readonly FUNC_ADD = 0x8006
-  blendEquation(_mode: number): void {}
+  // its additive path here, and endDraw's reset to FUNC_ADD (blendEquation
+  // below) is a no-op.
+  // (#573) Accepted and ignored: the only caller is the digital brush's
+  // coverage pass, whose rasterizer below models its "over" directly — and
+  // this mock has one channel, so there is no separate alpha to MAX into.
+  blendFuncSeparate(src: number, dst: number, _srcA: number, _dstA: number): void { this._blendSrc = src; this._blendDst = dst }
+  blendEquation(_mode: number): void { /* FUNC_ADD is the only equation modelled */ }
+  blendEquationSeparate(_rgb: number, _alpha: number): void { /* see blendEquation */ }
+
+  /** (#573) Every digital brush stamp and composite draw, in order, with the
+   *  uniforms it was made with. A list rather than _dabDraws' per-mode map:
+   *  these tests ask about sequences — how many stamps a dab threw, whether
+   *  two replays threw the same ones. */
+  readonly brushDraws: { kind: 'stamp' | 'composite'; uniforms: Map<string, UniformValue> }[] = []
 
   clearColor(_r: number, _g: number, _b: number, a: number): void { this._clearAlpha = a }
 
@@ -709,6 +729,14 @@ export class MockGL {
       case 'imageBlit': this._rasterImageBlit(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
       case 'smudgePickup': this._rasterSmudgePickup(info, prog.uniforms); break
+      case 'brushStamp':
+        this.brushDraws.push({ kind: 'stamp', uniforms: new Map(prog.uniforms) })
+        this._rasterBrushStamp(info, prog.uniforms)
+        break
+      case 'brushComposite':
+        this.brushDraws.push({ kind: 'composite', uniforms: new Map(prog.uniforms) })
+        this._rasterBrushComposite(info, prog.uniforms)
+        break
       // 'display' / 'papergen': visual-only passes never read back via
       // readPixels() in these tests — intentionally not rasterized.
       default: break
@@ -980,7 +1008,59 @@ export class MockGL {
         const v = clipY * 0.5 + 0.5
         const p = sampleUnit(patch, u, v)
         const c = sampleUnit(carried, u, v)
-        data[ty * width + tx] = c + (p - c) * rate
+        // (#573) The mixer weights its pickup by the paint under it.
+        const alphaPickup = (uniforms.get('u_alphaPickup') as number) ?? 0
+        const picked = c + (p - c) * rate * (1 + (p - 1) * alphaPickup)
+        // (#573) The mixer's paint, folded in after the pickup. One channel
+        // here, so the paint is its alpha — opaque, 1.
+        const load = (uniforms.get('u_paintLoad') as number) ?? 0
+        data[ty * width + tx] = picked + (1 - picked) * load
+      }
+    }
+  }
+
+  // (#573) BRUSH_STAMP_FRAG, round tips only (a bitmap tip reads as its round
+  // envelope here — the mask itself is covered by tipMasks.test.ts), and flow
+  // only: the opacity ceiling lives in a second channel this mock does not
+  // have. Enough to see *where* a stroke lays coverage and how much.
+  private _rasterBrushStamp(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
+    const radius = (uniforms.get('u_dabRadius') as number) ?? 1
+    const hardness = (uniforms.get('u_hardness') as number) ?? 0.5
+    const flow = (uniforms.get('u_opacity') as number) ?? 1
+    const pad = radius + 2
+    for (let py = Math.max(0, Math.floor(cy - pad)); py < Math.min(height, Math.ceil(cy + pad)); py++) {
+      for (let px = Math.max(0, Math.floor(cx - pad)); px < Math.min(width, Math.ceil(cx + pad)); px++) {
+        const d = Math.hypot(px + 0.5 - cx, py + 0.5 - cy) / Math.max(radius, 1e-4)
+        if (d >= 1) continue
+        const amount = (1 - smoothstep(Math.min(hardness, 0.99), 1, d)) * flow
+        const idx = py * width + px
+        data[idx] = amount + data[idx] * (1 - amount)
+      }
+    }
+  }
+
+  // (#573) BRUSH_COMPOSITE_FRAG without the screentone: the frozen original
+  // with the stroke's coverage laid over it at the stroke's opacity, wherever
+  // the coverage is non-zero.
+  private _rasterBrushComposite(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const coverageTex = this._textureUnits[(uniforms.get('u_strokeCoverage') as number) ?? 1] ?? null
+    const originalTex = this._textureUnits[(uniforms.get('u_original') as number) ?? 0] ?? null
+    const coverage = coverageTex ? this._textureData.get(coverageTex) : undefined
+    const original = originalTex ? this._textureData.get(originalTex) : undefined
+    if (!coverage || !original) return
+    const opacity = (uniforms.get('u_opacity') as number) ?? 1
+    const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
+    const radius = ((uniforms.get('u_dabRadius') as number) ?? 1) * Math.SQRT2 + 1
+    for (let py = Math.max(0, Math.floor(cy - radius)); py < Math.min(height, Math.ceil(cy + radius)); py++) {
+      for (let px = Math.max(0, Math.floor(cx - radius)); px < Math.min(width, Math.ceil(cx + radius)); px++) {
+        const idx = py * width + px
+        const cov = coverage.data[idx] ?? 0
+        if (cov <= 0) continue
+        const a = clamp(cov * opacity, 0, 1)
+        data[idx] = a + (1 - a) * (original.data[idx] ?? 0)
       }
     }
   }

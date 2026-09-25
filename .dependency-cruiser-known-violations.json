@@ -1,0 +1,836 @@
+[
+  {
+    "type": "dependency",
+    "from": "apps/web/scripts/bakePaperTextures.ts",
+    "to": "apps/web/src/engine/src/paperCatch.ts",
+    "unresolvedTo": "../src/engine/src/paperCatch.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/scripts/bakePaperTextures.ts",
+    "to": "apps/web/src/engine/src/paperConstants.ts",
+    "unresolvedTo": "../src/engine/src/paperConstants.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/scripts/bakePaperTextures.ts",
+    "to": "apps/web/src/engine/src/paperManifest.ts",
+    "unresolvedTo": "../src/engine/src/paperManifest.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/scripts/paperAssetIO.ts",
+    "to": "apps/web/src/engine/src/paperConstants.ts",
+    "unresolvedTo": "../src/engine/src/paperConstants.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/scripts/paperAssetIO.ts",
+    "to": "apps/web/src/engine/src/paperManifest.ts",
+    "unresolvedTo": "../src/engine/src/paperManifest.js",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/App.tsx",
+    "to": "apps/web/src/engine/src/paperLoader.ts",
+    "unresolvedTo": "./engine/src/paperLoader",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/components/PaperPreview/index.tsx",
+    "to": "apps/web/src/engine/src/paperLoader.ts",
+    "unresolvedTo": "../../engine/src/paperLoader",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/components/PaperPreview/index.tsx",
+    "to": "apps/web/src/engine/src/shaders.ts",
+    "unresolvedTo": "../../engine/src/shaders",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/index.tsx",
+    "to": "apps/web/src/engine/src/paperLoader.ts",
+    "unresolvedTo": "../../engine/src/paperLoader",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/reportRestore.ts",
+    "to": "apps/web/src/engine/src/snapshotAudit.ts",
+    "unresolvedTo": "../../engine/src/snapshotAudit",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/restoreReport.ts",
+    "to": "apps/web/src/engine/src/snapshotAudit.ts",
+    "unresolvedTo": "../../engine/src/snapshotAudit",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/RoomLoadingOverlay.tsx",
+    "to": "apps/web/src/engine/src/paperLoader.ts",
+    "unresolvedTo": "../../engine/src/paperLoader",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/snapshotRestore.ts",
+    "to": "apps/web/src/engine/src/snapshotCodec.ts",
+    "unresolvedTo": "../../engine/src/snapshotCodec",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/snapshotSync.ts",
+    "to": "apps/web/src/engine/src/snapshotCodec.ts",
+    "unresolvedTo": "../../engine/src/snapshotCodec",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/noticeStore.ts",
+    "to": "apps/web/src/components/Notice/Notice.tsx",
+    "unresolvedTo": "../components/Notice/Notice",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/settingsStore.ts",
+    "to": "apps/web/src/components/ColorPicker/pickerModes.ts",
+    "unresolvedTo": "../components/ColorPicker/pickerModes",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/settingsStore.ts",
+    "to": "apps/web/src/components/FloatingToolPanel/slots.ts",
+    "unresolvedTo": "../components/FloatingToolPanel/slots",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/slices/layerSlice.ts",
+    "to": "apps/web/src/pages/Room/RulerOverlay.tsx",
+    "unresolvedTo": "../../pages/Room/RulerOverlay",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/slices/layerSlice.ts",
+    "to": "apps/web/src/pages/Room/transformMath.ts",
+    "unresolvedTo": "../../pages/Room/transformMath",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/slices/roomSlice.ts",
+    "to": "apps/web/src/pages/Room/participants.ts",
+    "unresolvedTo": "../../pages/Room/participants",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/slices/toolSlice.ts",
+    "to": "apps/web/src/pages/Room/toolSchemas.ts",
+    "unresolvedTo": "../../pages/Room/toolSchemas",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/stores/slices/viewportSlice.ts",
+    "to": "apps/web/src/pages/Room/useViewport.ts",
+    "unresolvedTo": "../../pages/Room/useViewport",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "store-holds-no-ui"
+    }
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/components/ColorPicker/pickerModes.ts",
+    "to": "apps/web/src/i18n/index.ts",
+    "unresolvedTo": "../../i18n",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/i18n/index.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/stores/settingsStore.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/components/ColorPicker/pickerModes.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/components/FloatingToolPanel/slots.ts",
+    "to": "apps/web/src/components/FloatingToolPanel/tools.ts",
+    "unresolvedTo": "./tools",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/components/FloatingToolPanel/tools.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/i18n/index.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/stores/settingsStore.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/components/FloatingToolPanel/slots.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/components/FloatingToolPanel/slots.ts",
+    "to": "apps/web/src/i18n/index.ts",
+    "unresolvedTo": "../../i18n",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/i18n/index.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/stores/settingsStore.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/components/FloatingToolPanel/slots.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/engine/src/brushPenPresets.ts",
+    "to": "apps/web/src/engine/src/dabShaping.ts",
+    "unresolvedTo": "./dabShaping",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/brushPenPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/engine/src/dabShaping.ts",
+    "to": "apps/web/src/engine/src/markerPresets.ts",
+    "unresolvedTo": "./markerPresets",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/engine/src/markerPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/engine/src/dabShaping.ts",
+    "to": "apps/web/src/engine/src/watercolorPresets.ts",
+    "unresolvedTo": "./watercolorPresets",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/engine/src/watercolorPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/engine/src/linerPresets.ts",
+    "to": "apps/web/src/engine/src/markerPresets.ts",
+    "unresolvedTo": "./markerPresets",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/engine/src/markerPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/linerPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/engine/src/watercolorPresets.ts",
+    "to": "apps/web/src/engine/src/brushPenPresets.ts",
+    "unresolvedTo": "./brushPenPresets",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/engine/src/brushPenPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/watercolorPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/engine/src/watercolorPresets.ts",
+    "to": "apps/web/src/engine/src/markerPresets.ts",
+    "unresolvedTo": "./markerPresets",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/engine/src/markerPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/watercolorPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/lib/hotkeys.ts",
+    "to": "apps/web/src/i18n/index.ts",
+    "unresolvedTo": "../i18n",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/i18n/index.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/stores/settingsStore.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/lib/hotkeys.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/pages/Room/cameraMath.ts",
+    "to": "apps/web/src/pages/Room/useViewport.ts",
+    "unresolvedTo": "./useViewport",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/pages/Room/cameraMath.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/pages/Room/useViewport.ts",
+    "to": "apps/web/src/stores/roomStore.ts",
+    "unresolvedTo": "../../stores/roomStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/stores/roomStore.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/stores/slices/viewportSlice.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/pages/Room/useViewport.ts",
+    "to": "apps/web/src/stores/slices/viewportSlice.ts",
+    "unresolvedTo": "../../stores/slices/viewportSlice",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/stores/slices/viewportSlice.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "packages/shared/src/dabCodec.ts",
+    "to": "packages/shared/src/index.ts",
+    "unresolvedTo": "./index.js",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "packages/shared/src/index.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "packages/shared/src/dabCodec.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "module",
+    "from": "apps/server/src/scripts/loadTest.ts",
+    "to": "apps/server/src/scripts/loadTest.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  },
+  {
+    "type": "module",
+    "from": "apps/server/src/scripts/synthStrokeSamples.mts",
+    "to": "apps/server/src/scripts/synthStrokeSamples.mts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  },
+  {
+    "type": "module",
+    "from": "apps/web/scripts/bakeAppIcons.ts",
+    "to": "apps/web/scripts/bakeAppIcons.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  }
+]

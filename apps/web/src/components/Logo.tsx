@@ -1,4 +1,5 @@
 import logoSvg from '../assets/logo.svg?raw'
+import logoMarkSvg from '../assets/logo-mark.svg?raw'
 
 import styles from './Logo.module.css'
 
@@ -21,14 +22,20 @@ import styles from './Logo.module.css'
  *
  *  Size comes from the call site: the wrapper sets a height, and the SVG fills
  *  it while keeping its own aspect ratio. `role="img"` plus the label replaces
- *  the `alt` the <img> carried. */
-export function Logo() {
+ *  the `alt` the <img> carried.
+ *
+ *  (#575) `mark` is the purple "g" alone, for a header too narrow to spend
+ *  ~80px on the name. It is the same two shapes cut out of logo.svg with the
+ *  same 388-unit viewBox height, so at a given height the "g" is exactly the
+ *  size it is inside the full wordmark — switching variants doesn't make the
+ *  glyph jump. Not logo-icon.svg: that one carries the favicon's black tile. */
+export function Logo({ variant = 'full' }: { variant?: 'full' | 'mark' }) {
   return (
     <span
       className={styles.mark}
       role="img"
       aria-label="Grafetto"
-      dangerouslySetInnerHTML={{ __html: logoSvg }}
+      dangerouslySetInnerHTML={{ __html: variant === 'mark' ? logoMarkSvg : logoSvg }}
     />
   )
 }

@@ -240,6 +240,56 @@ describe('DELETE /api/rooms/:id/participation', () => {
   })
 })
 
+// (#176, ADR 014) Boards are pages of a lesson, not cards: every list here
+// asks for `lessonId: null`, and every per-room route here answers 404 for a
+// board id — a board is created, renamed and deleted through boardRoutes.ts,
+// which is also where its lesson gets told.
+describe('boards are not rooms in this API (#176)', () => {
+  it('GET /mine lists lessons only', async () => {
+    mockPrisma.room.findMany.mockResolvedValue([])
+    const app = buildApp('user-1')
+
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/mine' })
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.room.findMany).toHaveBeenCalledTimes(2)
+    for (const [args] of mockPrisma.room.findMany.mock.calls) {
+      expect(args.where).toMatchObject({ lessonId: null })
+    }
+  })
+
+  it('GET /search lists lessons only', async () => {
+    mockPrisma.room.findMany.mockResolvedValueOnce([])
+    const app = buildApp('user-1')
+
+    await search(app, 'still')
+
+    expect(mockPrisma.room.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ lessonId: null }) }),
+    )
+  })
+
+  const board = () => dbRoom({ id: 'board-1', lessonId: 'room-1', boardOrder: 1 })
+  const calls: Array<[string, () => Promise<{ statusCode: number }>]> = [
+    ['PATCH /:id', () => buildApp('user-1').inject({ method: 'PATCH', url: '/api/rooms/board-1', payload: { name: 'X' } })],
+    ['PATCH /:id/closed', () => buildApp('user-1').inject({ method: 'PATCH', url: '/api/rooms/board-1/closed', payload: { closed: true } })],
+    ['DELETE /:id', () => buildApp('user-1').inject({ method: 'DELETE', url: '/api/rooms/board-1' })],
+    ['DELETE /:id/participation', () => buildApp('user-2').inject({ method: 'DELETE', url: '/api/rooms/board-1/participation' })],
+  ]
+  for (const [label, call] of calls) {
+    it(`${label} is 404 for a board`, async () => {
+      mockPrisma.room.findUnique.mockResolvedValue(board())
+
+      const res = await call()
+
+      expect(res.statusCode).toBe(404)
+      expect(mockPrisma.room.update).not.toHaveBeenCalled()
+      expect(mockPrisma.room.delete).not.toHaveBeenCalled()
+      expect(mockSetRoomClosed).not.toHaveBeenCalled()
+    })
+  }
+})
+
 describe('GET /api/rooms/search', () => {
   it('returns matches scoped to the caller and maps owner name', async () => {
     mockPrisma.room.findMany.mockResolvedValueOnce([dbRoom()])

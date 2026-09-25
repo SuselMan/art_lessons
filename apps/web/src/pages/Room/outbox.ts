@@ -132,6 +132,44 @@ export class Outbox {
   get pendingCount(): number { return this.pending.size }
   get stalledCount(): number { return this.stalled.size }
 
+  /** (#176, ADR 014 §4) Resolves once nothing is still trying to go out —
+   *  every entry either confirmed or stalled — or after `timeoutMs`,
+   *  whichever comes first. A page turn waits on this before it asks the
+   *  server to move the socket: an operation carries no board of its own, so
+   *  one still on the wire when the socket moves would be recorded against
+   *  the *next* board.
+   *
+   *  Bounded on purpose. With the connection down the queue never drains, and
+   *  a person who wants the next page should not be held on this one for it:
+   *  once this instance is disposed its entries stay persisted under their
+   *  own board and go out the next time that board is opened (see dispose),
+   *  so switching with work still queued delays it rather than losing it.
+   *  Stalled entries count as settled for the same reason — they are not going
+   *  anywhere until a resendAll, and that is a reconnect's business. */
+  whenIdle(timeoutMs: number): Promise<void> {
+    if (this.isIdle()) return Promise.resolve()
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { this.idleWaiters.delete(finish); resolve() }, timeoutMs)
+      const finish = () => { clearTimeout(timer); resolve() }
+      this.idleWaiters.add(finish)
+    })
+  }
+
+  private isIdle(): boolean {
+    return this.disposed || this.pending.size === this.stalled.size
+  }
+
+  private readonly idleWaiters = new Set<() => void>()
+
+  /** Called wherever the pending/stalled counts move — the same moments
+   *  `onPendingChange` fires. */
+  private settleIdleWaiters(): void {
+    if (!this.isIdle() || this.idleWaiters.size === 0) return
+    const waiters = [...this.idleWaiters]
+    this.idleWaiters.clear()
+    for (const finish of waiters) finish()
+  }
+
   /** (#358) Retires this queue when its room is left. After this nothing it
    *  holds is sent, and none of its callbacks fire again.
    *
@@ -161,6 +199,7 @@ export class Outbox {
     this.waiting.length = 0
     this.pending.clear()
     this.stalled.clear()
+    this.settleIdleWaiters()
   }
 
   /** Queues `op` and makes the first send attempt immediately. Persisting it
@@ -294,6 +333,7 @@ export class Outbox {
         if (!result.ok && isTransientReject(result.reason)) throw new Error(result.reason)
         this.pending.delete(opId)
         this.onPendingChange?.(this.pending.size, this.stalled.size)
+        this.settleIdleWaiters()
         try {
           await this.storage.delete(opId)
         } catch (err) {
@@ -313,6 +353,7 @@ export class Outbox {
           this.stalled.add(opId)
           this.onPendingChange?.(this.pending.size, this.stalled.size)
           this.onStalled?.(entry.op)
+          this.settleIdleWaiters()
           return
         }
         const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (entry.attempts - 1), MAX_BACKOFF_MS)

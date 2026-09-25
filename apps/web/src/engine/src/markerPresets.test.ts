@@ -34,10 +34,23 @@ describe('markerNibFromPreset (#251, ADR 004 §1)', () => {
 })
 
 describe('MARKER_BULLET_DAB_SHAPING (#251, ADR 004 §1: reuse liner\'s curve as-is)', () => {
-  it('matches LINER_DAB_SHAPING\'s own weak pressure response exactly', () => {
+  // (#532) `size` no longer does, and deliberately: the liner's curve became a
+  // knee that models a rigid nozzle seating against the sheet, which is the
+  // one thing a compressible felt tip is not. `aspect` and `angle` are still
+  // shared verbatim — see the tests right below.
+  it('keeps a mild proportional pressure response where liner now has a knee', () => {
+    // Mild: the whole swing stays inside ±10%, which is what separates every
+    // ink tool from the pencil's several-fold response.
     for (const pressure of [0, 0.25, 0.5, 0.75, 1]) {
-      expect(MARKER_BULLET_DAB_SHAPING.size(pressure, 0)).toBeCloseTo(LINER_DAB_SHAPING.size(pressure, 0))
+      expect(MARKER_BULLET_DAB_SHAPING.size(pressure, 0)).toBeGreaterThan(0.9)
+      expect(MARKER_BULLET_DAB_SHAPING.size(pressure, 0)).toBeLessThan(1.1)
     }
+    // Proportional, not knee-shaped: still rising where liner has gone flat.
+    expect(MARKER_BULLET_DAB_SHAPING.size(1, 0)).toBeGreaterThan(MARKER_BULLET_DAB_SHAPING.size(0.5, 0))
+    expect(LINER_DAB_SHAPING.size(1, 0)).toBeCloseTo(LINER_DAB_SHAPING.size(0.5, 0))
+    // And it does not follow liner down at a feather touch — a felt tip that
+    // is touching the paper at all is already its own full width.
+    expect(MARKER_BULLET_DAB_SHAPING.size(0.02, 0)).toBeGreaterThan(LINER_DAB_SHAPING.size(0.02, 0) + 0.25)
   })
 
   it('matches LINER_DAB_SHAPING\'s own mild tilt->aspect response exactly', () => {

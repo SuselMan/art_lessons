@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
-import { registerThumbnailRoutes } from './thumbnailRoutes.js'
+import { _resetThumbnailLimit, registerThumbnailRoutes } from './thumbnailRoutes.js'
 
 // Route-level tests, not rooms.ts's own in-memory participant tracking — so
 // unlike rooms.test.ts/roomSnapshots.test.ts, both Prisma *and* getParticipant
@@ -36,7 +36,7 @@ function mockRoomAccess(
 }
 
 const mockGetParticipant = vi.hoisted(() => vi.fn())
-vi.mock('./rooms.js', () => ({ getParticipant: mockGetParticipant }))
+vi.mock('./rooms.js', () => ({ getParticipant: mockGetParticipant, canSeeResidentBoard: () => true }))
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
@@ -53,12 +53,12 @@ function pngHeader(width: number, height: number): Buffer {
   return buf
 }
 
-function buildApp(userId = 'user-1'): FastifyInstance {
+function buildApp(userId = 'user-1', notify?: (roomId: string, updatedAt: string) => void): FastifyInstance {
   const app = Fastify()
   app.addHook('preHandler', async (request) => {
     request.userId = userId
   })
-  registerThumbnailRoutes(app)
+  registerThumbnailRoutes(app, notify)
   return app
 }
 
@@ -72,7 +72,9 @@ function postThumbnail(app: FastifyInstance, roomId: string, buffer: Buffer) {
 }
 
 beforeEach(() => {
+  _resetThumbnailLimit()
   mockPrisma.roomThumbnail.upsert.mockReset()
+  mockPrisma.roomThumbnail.upsert.mockResolvedValue({ updatedAt: new Date(1) })
   mockPrisma.roomThumbnail.findUnique.mockReset()
   mockPrisma.room.findUnique.mockReset()
   mockPrisma.roomBlock.findUnique.mockReset()
@@ -201,6 +203,57 @@ describe('POST /api/rooms/:roomId/thumbnail', () => {
   })
 })
 
+// (#176, ADR 014) A board's thumbnail is its own, but the right to see or
+// overwrite it is the lesson's: participation rows and blocks are written
+// under the lesson, so a board id has to be resolved through its `lesson`
+// relation before either can be found.
+describe('a board resolves access through its lesson (#176)', () => {
+  function mockBoardAccess(lessonParticipantIds: string[], { blocked = false }: { blocked?: boolean } = {}) {
+    mockPrisma.room.findUnique.mockResolvedValueOnce({
+      ownerId: 'user-1', lessonId: 'room-1',
+      // A board never has participant rows of its own — the query still asks,
+      // and the answer is always empty.
+      participants: [],
+      lesson: { participants: lessonParticipantIds.map(userId => ({ userId })) },
+    })
+    mockPrisma.roomBlock.findUnique.mockResolvedValueOnce(blocked ? { id: 'block-1' } : null)
+  }
+
+  it('GET serves a board\'s preview to a participant of its lesson', async () => {
+    mockBoardAccess(['user-2'])
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data: Buffer.from('png'), updatedAt: new Date(1), contentType: 'image/png' })
+    const app = buildApp('user-2')
+
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/board-1/thumbnail' })
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.roomThumbnail.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { roomId: 'board-1' } }))
+  })
+
+  it('GET refuses someone who is in no lesson of the board', async () => {
+    mockBoardAccess([])
+    const app = buildApp('user-2')
+
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/board-1/thumbnail' })
+
+    expect(res.statusCode).toBe(403)
+  })
+
+  it('POST checks the block under the lesson\'s id, not the board\'s', async () => {
+    mockGetParticipant.mockReturnValue(undefined)
+    mockBoardAccess(['user-2'], { blocked: true })
+    const app = buildApp('user-2')
+
+    const res = await postThumbnail(app, 'board-1', pngHeader(100, 100))
+
+    expect(res.statusCode).toBe(403)
+    expect(mockPrisma.roomBlock.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { roomId_userId: { roomId: 'room-1', userId: 'user-2' } },
+    }))
+    expect(mockPrisma.roomThumbnail.upsert).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/rooms/:roomId/thumbnail', () => {
   // #209 follow-up (caught in live QA): GET is fetched from MyLessons'
   // RoomCard, precisely when the caller is *not* live-connected to the room
@@ -211,7 +264,7 @@ describe('GET /api/rooms/:roomId/thumbnail', () => {
     mockRoomAccess({ ownerId: 'user-1', participantIds: [] })
     const data = pngHeader(200, 100)
     const updatedAt = new Date('2026-07-21T00:00:00.000Z')
-    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt })
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt, contentType: 'image/png' })
     const app = buildApp()
 
     const res = await app.inject({ method: 'GET', url: '/api/rooms/room-1/thumbnail' })
@@ -226,7 +279,7 @@ describe('GET /api/rooms/:roomId/thumbnail', () => {
     mockRoomAccess({ ownerId: 'someone-else', participantIds: ['user-1'] })
     const data = pngHeader(200, 100)
     const updatedAt = new Date('2026-07-21T00:00:00.000Z')
-    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt })
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt, contentType: 'image/png' })
     const app = buildApp()
 
     const res = await app.inject({ method: 'GET', url: '/api/rooms/room-1/thumbnail' })
@@ -270,7 +323,7 @@ describe('GET /api/rooms/:roomId/thumbnail', () => {
     mockRoomAccess({ ownerId: 'user-1', participantIds: [] })
     const data = pngHeader(200, 100)
     const updatedAt = new Date('2026-07-21T00:00:00.000Z')
-    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt })
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt, contentType: 'image/png' })
     const app = buildApp()
 
     const res = await app.inject({
@@ -280,5 +333,76 @@ describe('GET /api/rooms/:roomId/thumbnail', () => {
     })
 
     expect(res.statusCode).toBe(304)
+  })
+})
+
+/** (#595) The smallest lossless WebP header the sniff accepts: RIFF, WEBP,
+ *  a `VP8L` chunk and its 14-bit width/height fields. */
+function webpLosslessHeader(width: number, height: number): Buffer {
+  const buf = Buffer.alloc(30)
+  buf.write('RIFF', 0, 'ascii')
+  buf.writeUInt32LE(22, 4)
+  buf.write('WEBP', 8, 'ascii')
+  buf.write('VP8L', 12, 'ascii')
+  buf.writeUInt32LE(10, 16)
+  buf[20] = 0x2f
+  buf.writeUInt32LE(((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14), 21)
+  return buf
+}
+
+describe('the live class-grid preview (#595)', () => {
+  beforeEach(() => {
+    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'member', color: '#fff' })
+  })
+
+  it('accepts a WebP and stores it as one, serving it back with its own type', async () => {
+    const app = buildApp()
+    const res = await postThumbnail(app, 'room-1', webpLosslessHeader(320, 240))
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.roomThumbnail.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ contentType: 'image/webp' }),
+      update: expect.objectContaining({ contentType: 'image/webp' }),
+    }))
+
+    mockRoomAccess({ ownerId: 'user-1', participantIds: [] })
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data: Buffer.from('w'), updatedAt: new Date(2), contentType: 'image/webp' })
+    const got = await app.inject({ method: 'GET', url: '/api/rooms/room-1/thumbnail' })
+    expect(got.headers['content-type']).toBe('image/webp')
+  })
+
+  it('refuses an oversized WebP like an oversized PNG', async () => {
+    const res = await postThumbnail(buildApp(), 'room-1', webpLosslessHeader(1200, 240))
+    expect(res.statusCode).toBe(400)
+    expect(mockPrisma.roomThumbnail.upsert).not.toHaveBeenCalled()
+  })
+
+  it('stores at most one preview per board per window, and answers the rest 429', async () => {
+    const app = buildApp()
+    expect((await postThumbnail(app, 'room-1', pngHeader(200, 100))).statusCode).toBe(200)
+    expect((await postThumbnail(app, 'room-1', pngHeader(200, 100))).statusCode).toBe(429)
+    // Per board, not per person: another board is not held up.
+    expect((await postThumbnail(app, 'room-2', pngHeader(200, 100))).statusCode).toBe(200)
+    expect(mockPrisma.roomThumbnail.upsert).toHaveBeenCalledTimes(2)
+  })
+
+  it('announces a stored preview with the row\'s own timestamp', async () => {
+    const notify = vi.fn()
+    mockPrisma.roomThumbnail.upsert.mockResolvedValueOnce({ updatedAt: new Date('2026-09-24T12:00:00Z') })
+    await postThumbnail(buildApp('user-1', notify), 'room-1', pngHeader(200, 100))
+    expect(notify).toHaveBeenCalledWith('room-1', '2026-09-24T12:00:00.000Z')
+  })
+  it('keeps a classmate\'s personal board out of reach under teacher_only, and opens it under class', async () => {
+    const personalRow = (classVisibility: 'teacher_only' | 'class') => ({
+      ownerId: 'teacher', lessonId: 'lesson-1', boardOwnerId: 'alice', participants: [],
+      lesson: { classVisibility, spotlightBoardId: null, participants: [{ userId: 'bob' }] },
+    })
+    const app = buildApp('bob')
+
+    mockPrisma.room.findUnique.mockResolvedValueOnce(personalRow('teacher_only'))
+    expect((await app.inject({ method: 'GET', url: '/api/rooms/alice-board/thumbnail' })).statusCode).toBe(403)
+
+    mockPrisma.room.findUnique.mockResolvedValueOnce(personalRow('class'))
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data: Buffer.from('p'), updatedAt: new Date(3), contentType: 'image/png' })
+    expect((await app.inject({ method: 'GET', url: '/api/rooms/alice-board/thumbnail' })).statusCode).toBe(200)
   })
 })

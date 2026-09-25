@@ -58,4 +58,49 @@ test.describe('a connection that drops mid-lesson', () => {
       await witness.close()
     }
   })
+
+  // (#493) The other direction, and until now the untested one. The student's
+  // wifi drops, the teacher keeps drawing, the wifi comes back: the rejoin's
+  // `room_state` carries what the student missed, and it has to land in an
+  // engine that is already open — the catch-up path, not the join one.
+  //
+  // Found by breaking it on purpose: with the tail replay disabled for
+  // catch-ups only, every other scenario in this suite still passed. The join
+  // path is covered many times over, because every test opens a room; the
+  // catch-up path is only reached by a reconnect *while someone else draws*,
+  // and nothing did that.
+  test('what was drawn while a student was offline reaches them when they return', async ({ page, browser }) => {
+    const roomId = await createRoom(page)
+    await waitForRoomReady(page)
+
+    const student = await browser.newContext()
+    const studentPage = await student.newPage()
+    try {
+      await joinRoom(studentPage, roomId)
+      await drawStroke(page, [[320, 260], [640, 260]])
+      await waitForOperations(page, 'stroke', 1)
+      await waitForOperations(studentPage, 'stroke', 1)
+
+      await student.setOffline(true)
+      // Drawn while the student cannot hear about it: no live packet, no
+      // `operation_confirmed`. The only way it reaches them is the tail of the
+      // `room_state` their rejoin will be answered with.
+      await drawStroke(page, [[320, 420], [640, 420]])
+      await waitForOperations(page, 'stroke', 2)
+      // Long enough for the student's socket to notice it is gone; otherwise
+      // the packet could still be sitting in a buffer that survives.
+      await studentPage.waitForTimeout(3000)
+      expect((await operations(studentPage)).filter(op => op.type === 'stroke')).toHaveLength(1)
+
+      await student.setOffline(false)
+      await expect.poll(
+        async () => (await operations(studentPage)).filter(op => op.type === 'stroke').length,
+        { timeout: 45_000, message: 'the stroke drawn while offline should arrive with the rejoin' },
+      ).toBe(2)
+      const layer = await activeLayerId(studentPage)
+      expect(await maxDarknessOverContent(studentPage, layer)).toBeGreaterThan(INK)
+    } finally {
+      await student.close()
+    }
+  })
 })

@@ -8,6 +8,7 @@ import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Menu } from '../Menu'
 import { isFolder } from '../../lib/layers'
+import { useLongPress } from '../../lib/useLongPress'
 import styles from './LayerPanel.module.css'
 
 export interface LayerRowProps {
@@ -44,6 +45,8 @@ export interface LayerRowProps {
   // and everything inside it.
   onDuplicate?: (id: string) => void
   onClear?: (id: string) => void
+  /** (#574) Opens the filter dialog on this layer. */
+  onFilters?: (id: string) => void
   onDelete?: (id: string) => void
   // (#411) Long-press-to-enter-selection-mode. `onPointerMove` cancels it:
   // once the drag moved to the grip, `.rowMain` no longer sets
@@ -64,19 +67,50 @@ export interface LayerRowProps {
    *  same, and a row showing an open padlock while silently declining every
    *  stroke is the failure this issue is about. */
   lockedByFolder?: boolean
+  /** (#557) This row is one of the layers the viewer has soloed. Its menu
+   *  offers the way back out, and its eye is lit to say where the solo is. */
+  soloTarget?: boolean
+  /** (#557) A solo is on and this row is not in it. Its eye is dimmed, not
+   *  changed: the shared visibility is exactly what it was, and the icon has
+   *  to keep saying so — a struck-through eye would claim someone hid it. */
+  soloHidden?: boolean
+  /** (#557) Solo this row, or end the solo when the row is already its
+   *  target. Reached three ways: the row menu, Alt+click on the eye (the
+   *  Photoshop/Krita gesture, for a mouse) and a long press on the eye (for a
+   *  finger, where there is no Alt). */
+  onSolo?: (id: string) => void
+  /** Colours of the peers drawing into this row right now (for a collapsed
+   *  folder: anywhere inside it). Drawn as a soft pulsing outline, one ring
+   *  per peer, so the teacher can see where a student is working without
+   *  finding their cursor on the canvas first. */
+  drawerColors?: readonly string[]
+}
+
+/** Past three rings the outline stops reading as rings and starts eating the
+ *  row; three people on one layer is already the unusual case. */
+const MAX_DRAWER_RINGS = 3
+const DRAWER_RING_PX = 2
+
+/** Nested inset rings, the first peer innermost — box-shadows paint in list
+ *  order, so each wider ring shows only as the band outside the one before. */
+function drawerRings(colors: readonly string[]): string {
+  return colors.slice(0, MAX_DRAWER_RINGS)
+    .map((c, i) => `inset 0 0 0 ${(i + 1) * DRAWER_RING_PX}px ${c}`)
+    .join(', ')
 }
 
 function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isTravelling = false, isOwner,
-  lockedByFolder = false,
+  lockedByFolder = false, soloTarget = false, soloHidden = false, onSolo,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
-  onToggleCollapse, onMergeDown, onDuplicate, onClear, onDelete,
+  onToggleCollapse, onMergeDown, onDuplicate, onClear, onFilters, onDelete,
   onPointerDown, onPointerUp, onPointerMove,
-  selectionMode = false, onToggleSelected,
+  selectionMode = false, onToggleSelected, drawerColors,
 }: LayerRowProps) {
   const t = useT()
   const nameRef = useRef<HTMLInputElement>(null)
+  const soloPress = useLongPress({ onLongPress: () => onSolo?.(item.id) })
 
   const isFolderItem = isFolder(item)
   const isBackground = item.id === BACKGROUND_LAYER_ID
@@ -146,6 +180,13 @@ function LayerRowImpl({
       onPointerCancel={onPointerUp}
       onPointerMove={onPointerMove}
     >
+      {drawerColors && drawerColors.length > 0 && (
+        <span
+          className={styles.drawerOutline}
+          style={{ boxShadow: drawerRings(drawerColors) }}
+          aria-hidden="true"
+        />
+      )}
       {/* (#411) A checkbox in selection mode. Deliberately *additive* rather
           than replacing the grip: dragging a whole selection is the point of
           #413, so the handle has to survive the mode that builds the
@@ -182,10 +223,25 @@ function LayerRowImpl({
         )
       }
 
+      {/* (#557) The eye carries the solo gestures too, because the eye is
+          where anyone used to another drawing app will try them. A long press
+          here used to fall through to the row and open selection mode; it
+          means solo now, so the pointerdown stops at the button — which also
+          keeps a hold on the eye from arming the row drag. A plain tap still
+          toggles visibility exactly as before. */}
       <button
-        className={styles.rowIconBtn}
-        onClick={e => { e.stopPropagation(); onToggleVisible(item.id) }}
-        title={t(item.visible ? 'layers.hide' : 'layers.show')}
+        className={clsx(
+          styles.rowIconBtn,
+          soloTarget && styles.rowIconBtnSolo,
+          soloHidden && styles.rowIconBtnSoloHidden,
+        )}
+        onPointerDown={e => { e.stopPropagation(); soloPress.onPointerDown(e) }}
+        onClick={e => {
+          e.stopPropagation()
+          if (e.altKey && onSolo) onSolo(item.id)
+          else onToggleVisible(item.id)
+        }}
+        title={soloHidden ? t('layers.hiddenBySolo') : t(item.visible ? 'layers.hide' : 'layers.show')}
         aria-label={t(item.visible ? 'layers.hide' : 'layers.show')}
       >
         <Icon name={item.visible ? 'visibility' : 'visibility_off'} />
@@ -298,6 +354,14 @@ function LayerRowImpl({
               icon: item.visible ? 'visibility_off' : 'visibility',
               onClick: () => onToggleVisible(item.id),
             },
+            // (#557) Right under Hide/Show because it is the other answer to
+            // the same question — what do I want to see — with the difference
+            // that this one is private and leaves the room's eyes alone.
+            {
+              label: t(soloTarget ? 'layers.unsolo' : 'layers.solo'),
+              icon: soloTarget ? 'center_focus_weak' : 'center_focus_strong',
+              onClick: () => onSolo?.(item.id),
+            },
             {
               label: lockInherited ? t('layers.lockedByFolder') : t(isLocked ? 'layers.unlock' : 'layers.lock'),
               icon: showsLocked ? 'lock_open' : 'lock',
@@ -322,6 +386,15 @@ function LayerRowImpl({
             // (#329) A folder holds no pixels of its own — clearing one would
             // have to mean clearing its children, which is a different action
             // nobody asked for.
+            // (#574) Filters rewrite pixels, so they are off where painting
+            // is: a folder has none, and a locked layer refuses them — shown
+            // as disabled here rather than silently dropped at dispatch.
+            ...(onFilters ? [{
+              label: t('layers.filters'),
+              icon: 'tune' as const,
+              onClick: () => onFilters(item.id),
+              disabled: isFolderItem || showsLocked || (isOwnerLocked && !isOwner),
+            }] : []),
             { label: t('layers.clearLayer'), icon: 'delete_forever',  onClick: () => onClear?.(item.id), disabled: isFolderItem },
             { label: t('common.delete'),     icon: 'delete',          onClick: () => onDelete?.(item.id), danger: true },
           ]}

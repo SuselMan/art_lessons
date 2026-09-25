@@ -11,11 +11,33 @@
  *  globalSetup.ts). It is never `art_lessons_pg`.
  */
 
-export const WEB_PORT = 5491
-export const SERVER_PORT = 4491
-export const DB_PORT = 55491
+/** Shifts every port and the container name, so two checkouts can run the
+ *  suite at the same time.
+ *
+ *  Found by needing it: a second worktree started a run while the first was
+ *  mid-suite, and `--strictPort` did exactly what it was asked to — failed
+ *  loudly — with `4491 is already used`. The rest of this repo already assumes
+ *  this happens (the dev server's own `SERVER_PORT` override exists for it,
+ *  and the comment there says several worktrees are open routinely), so a
+ *  harness with three hardcoded ports and one container name was the odd one
+ *  out.
+ *
+ *  An offset rather than three separate variables: they have to move together
+ *  — the vite proxy has to reach *this* run's server, and the server has to
+ *  reach *this* run's database — and three knobs that must agree are three
+ *  chances to typo one of them. `E2E_PORT_OFFSET=1` is the whole ceremony. */
+const OFFSET = Number(process.env.E2E_PORT_OFFSET ?? 0)
 
-export const DB_CONTAINER = 'grafetto_pg_e2e'
+export const WEB_PORT = 5491 + OFFSET
+export const SERVER_PORT = 4491 + OFFSET
+export const DB_PORT = 55491 + OFFSET
+
+// The container is named after the offset too. Sharing one name across two
+// runs would be worse than sharing a port: the second run's globalSetup
+// removes and recreates the container the first one is using, and the first
+// would fail somewhere in the middle with its rooms gone — a confusing failure
+// a long way from its cause.
+export const DB_CONTAINER = OFFSET === 0 ? 'grafetto_pg_e2e' : `grafetto_pg_e2e_${OFFSET}`
 export const DB_USER = 'e2e'
 export const DB_NAME = 'e2e'
 export const DB_PASSWORD = 'e2e'

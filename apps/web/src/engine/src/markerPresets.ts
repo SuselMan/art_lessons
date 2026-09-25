@@ -38,11 +38,20 @@ function lerp(a: number, b: number, t: number): number {
 
 // ADR 004 §2 (shared with liner, ADR 003 §1-2/§6): a marker's felt/alcohol
 // tip doesn't compress under ordinary hand pressure the way graphite does —
-// same ±6-8% width swing as LINER_WIDTH_FLOOR/_CEIL, reused verbatim for
-// both marker nibs rather than invented fresh (dabShaping.ts's file header
-// gives the same reasoning for why liner needed its own curve in the first
-// place; marker's case for reusing liner's, rather than pencil's, is that
-// same reasoning).
+// a ±6-8% width swing rather than the pencil's several-fold one
+// (dabShaping.ts's file header gives the same reasoning for why liner needed
+// its own curve in the first place; marker's case for not using pencil's is
+// that same reasoning).
+//
+// (#532) These were a verbatim copy of liner's own two constants, and are now
+// the divergence the comment below always said this file was ready for. The
+// liner's curve became a knee — flat above the pressure that seats the nib,
+// falling away below it — because a fineliner's tip is a rigid cylinder whose
+// contact patch cannot exceed the nozzle. A felt or brush marker tip is the
+// one thing that argument does not describe: it is compressible, it genuinely
+// does spread under the hand, and a mild proportional response across the
+// whole range is the right first pass for it. Uncalibrated either way — nobody
+// has checked marker width against a real one the way Ilya checked the liner.
 const MARKER_WIDTH_FLOOR = 0.94
 const MARKER_WIDTH_CEIL = 1.08
 
@@ -50,9 +59,11 @@ const MARKER_WIDTH_CEIL = 1.08
 // тот же принцип, что уже есть у линера — переиспользуем ту же кривую, не
 // изобретаем новую." Deliberately its own named export (not a bare
 // `export { LINER_DAB_SHAPING as MARKER_BULLET_DAB_SHAPING }`) so a future
-// divergence between the two tools doesn't require touching call sites —
-// but the formulas themselves are intentionally identical to
-// LINER_DAB_SHAPING in dabShaping.ts right now.
+// divergence between the two tools doesn't require touching call sites — and
+// as of #532 that divergence has arrived: `size` is now genuinely a different
+// curve from liner's (see MARKER_WIDTH_FLOOR above for why a compressible tip
+// doesn't get the fineliner's knee), while `aspect` and `angle` remain
+// deliberately identical to LINER_DAB_SHAPING's.
 export const MARKER_BULLET_DAB_SHAPING: DabShapingProfile = {
   size:   pressure => lerp(MARKER_WIDTH_FLOOR, MARKER_WIDTH_CEIL, pressure),
   aspect: tiltNorm  => 1 + 0.15 * tiltNorm,

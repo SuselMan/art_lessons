@@ -138,6 +138,23 @@ export const en = {
   'create.submitting': 'Opening…',
   'create.error.customSize': 'Custom size must be between 100 and 4096 pixels',
   'create.error.invalidInvite': "“{email}” doesn't look like an email address",
+  // (#570) Refused before an id is minted — see CreateRoom's handleSubmit.
+  'create.error.noWebgl': "Drawing won't work in this browser: it can't use WebGL. Restart the browser and try again, or open Grafetto in another one.",
+
+  // (#548) The form is three tabs, not one column: paper and size are the
+  // decision people actually came to make, and access and the toolset are two
+  // separate ones that used to stretch the page past what it could hold.
+  'create.tab.general': 'Project',
+  'create.tab.access': 'Access',
+  'create.tab.tools': 'Tools',
+  // Summary rows on the first tab. A tab nobody opens is a setting nobody
+  // knows exists, so the first tab keeps saying what the other two currently
+  // hold — and each row is the way in.
+  'create.summary.password.on': 'with a password',
+  'create.summary.password.off': 'no password',
+  'create.summary.invites': 'invited: {n}',
+  'create.summary.toolsAll': 'all tools',
+  'create.summary.tools': '{n} of {total} tools',
 
   // ── paper picker vocabulary ────────────────────────────────────────────
   // Two axes (how much tooth × what the fibre looks like) plus `flat`, the
@@ -299,7 +316,41 @@ export const en = {
   'join.error.accessRevoked': 'The host has removed your access to this project.',
   'join.error.loginRequired': 'This project is invite-only. Sign in with the address you were invited by.',
   'join.error.pendingApproval': 'Your request to join has been sent to the host. This page will let you in once they approve it.',
+  'join.error.boardNotVisible': "This is a classmate's work, and the teacher hasn't opened the class's work to everyone.",
   'join.error.serverBusy': 'The server is at capacity right now. Wait a moment and try again — nothing of yours is lost.',
+
+  // ── no WebGL (#570) ────────────────────────────────────────────────────
+  // Replaces the editor when the browser refuses a WebGL context. Written for
+  // the person in front of it, who did nothing wrong and mostly needs to know
+  // that a restart is the usual fix; the browser's own diagnostics go
+  // underneath, unlabelled, for whoever they end up showing it to.
+  'webgl.heading': "Drawing won't work in this browser",
+  'webgl.body': "It can't use WebGL right now — the graphics feature the canvas is built on. This is usually the browser, not the device, and usually temporary.",
+  'webgl.hint.restart': 'Close the browser completely and open it again — this fixes it most of the time.',
+  'webgl.hint.acceleration': 'Check that hardware acceleration is turned on in the browser settings.',
+  'webgl.hint.otherBrowser': 'Or open this link in a different browser.',
+  'webgl.retry': 'Try again',
+
+  // ── something broke (#570) ─────────────────────────────────────────────
+  // The error boundary's screen: the page threw and nothing under it can
+  // render. Whatever was drawn is on the server already — only the page is
+  // gone, which is what the second sentence is there to say.
+  'error.heading': 'Something went wrong',
+  'error.body': "The page ran into a problem it couldn't recover from. Reloading usually helps, and what was already drawn is safe on the server.",
+  'error.reload': 'Reload the page',
+  'error.toLessons': 'Go to my projects',
+
+  // ── no such page (#572) ────────────────────────────────────────────────
+  'notFound.heading': "There's no such page",
+  'notFound.body': "The address doesn't lead anywhere in Grafetto. If it came from someone else, ask them for the link again — a room link looks like grafetto.com/room/… and nothing more.",
+  'notFound.toLessons': 'Go to my projects',
+  'notFound.create': 'Start a new project',
+  // (#587) Shown instead of the whole app when the server refuses this
+  // account. No "write to us" line: there is no support address yet, and
+  // naming one that bounces is worse than naming none.
+  'banned.heading': 'This account has been blocked',
+  'banned.body': 'Access to Grafetto has been suspended for this account.',
+  'banned.reload': 'Reload',
 
   // ── project: header & canvas actions ───────────────────────────────────
   'room.home': 'Grafetto — leave this project',
@@ -352,6 +403,7 @@ export const en = {
   'room.panel.color': 'Color',
   'room.panel.toolSettings': 'Tool settings',
   'room.panel.participants': 'Participants',
+  'room.panel.class': 'Class',
   'room.noToolSettings': 'This tool has no settings yet.',
   'room.nibAngle': 'Nib angle',
 
@@ -406,6 +458,80 @@ export const en = {
   'room.error.rename': 'Could not rename the project',
   'room.error.reopen': 'Could not reopen the project',
   'room.error.takeCopy': 'Could not make your copy',
+
+  // ── (#176, ADR 014) Boards — the pages of one lesson ─────────────────────
+  // "Board", not "page": a page turns for everyone, a board is somewhere the
+  // teacher stands, and a student can stay behind on another one. The chip
+  // is the way back.
+  'boards.open': 'Boards',
+  'boards.title': 'Boards',
+  'boards.close': 'Hide boards',
+  'boards.add': 'New board',
+  'boards.teacherHere': 'The teacher is on this board',
+  'boards.youAreHere': 'You are on this board',
+  'boards.teacherOn': 'Teacher is on “{name}”',
+  'boards.returnToTeacher': 'Go to the teacher\'s board',
+  'boards.rename': 'Rename',
+  'boards.moveLeft': 'Move left',
+  'boards.moveRight': 'Move right',
+  'boards.delete': 'Delete board',
+  'boards.deleteTitle': 'Delete “{name}”?',
+  'boards.deleteMessage': 'Everything drawn on this board goes with it, for everyone. This cannot be undone.',
+  'boards.people': {
+    one: '{n} person on this board',
+    other: '{n} people on this board',
+  },
+  'boards.error.create': 'Could not add a board',
+  'boards.error.rename': 'Could not rename the board',
+  'boards.error.reorder': 'Could not move the board',
+  'boards.error.delete': 'Could not delete the board',
+  // (#595, ADR 015) Class mode: assignment rounds, the class grid, hands.
+  'class.title': 'Class',
+  'class.places': 'Where the class is',
+  'class.myBoards': 'My boards',
+  'class.here': 'Class is here',
+  'class.atTeacher': 'With me',
+  'class.teacherBoard': "Teacher's board",
+  'class.gather': 'Everyone to me',
+  'class.sendHere': 'Send everyone here',
+  'class.newAssignment': 'New assignment',
+  'class.toMyWork': 'To my work',
+  'class.allWorks': 'All works',
+  'class.allWorksOf': 'All works: {name}',
+  'class.shownToAll': 'Shown to everyone: {name}',
+  'class.lowerHandOf': "Lower {name}'s hand",
+  'class.openWorkOf': "Open {name}'s work",
+  'class.handsBadge': 'raised hands: {n}',
+  'class.defaultName': 'Assignment {n}',
+  'class.assignmentName': 'Assignment name',
+  'class.start': 'Hand out',
+  'class.startHint': 'Every student in the lesson gets a blank board of their own and goes to it. Anyone absent now gets one when you send the class back here.',
+  'class.spotlight': 'Show everyone',
+  'class.spotlightOff': 'Stop showing',
+  'class.spotlightOn': 'Shown to everyone',
+  'class.handRaised': 'Hand raised',
+  'class.raiseHand': 'Raise hand',
+  'class.lowerHand': 'Lower hand',
+  'class.present': 'In the lesson',
+  'class.absent': 'Not in the lesson',
+  'class.notStarted': 'Nothing yet',
+  'class.updatedJustNow': 'updated just now',
+  'class.updatedMinutes': 'updated {n} min ago',
+  'class.noStudents': 'There were no students in the lesson when this was handed out. Anyone who joins now gets a board.',
+  'class.barLabel': "{name}'s board",
+  'class.previous': 'Previous student',
+  'class.next': 'Next student',
+  'class.editInWork': 'Edit the work',
+  'class.editInWorkHint': "Off: what you draw is a remark over the work. On: you draw in the student's own layers.",
+  'class.chipOwnWork': 'Back to your work',
+  'class.chipSpotlight': "The teacher is showing {name}'s work",
+  'class.teacherWatching': 'The teacher is looking at your work',
+  'class.readOnly': "{name}'s work — you can look, not draw",
+  'class.backToOwn': 'To my work',
+  'class.error.start': 'Could not hand out the assignment',
+  'class.visibility.heading': 'Work in class',
+  'class.visibility.label': "Students see each other's work",
+  'class.visibility.hint': 'Off: only you and the student see a student’s board. On: the whole class can look at every board — drawing on it stays the student’s and yours.',
   // (#201) The queue is durable, so these describe a delay, never a loss —
   // the wording has to carry that, since the whole point is to stop people
   // concluding their work is gone.
@@ -429,6 +555,20 @@ export const en = {
   'room.paperFailed.body': 'Drawing needs the paper texture, so the project stays closed until it loads. Nothing has been lost — the drawing is on the server.',
   'room.paperFailed.retry': 'Try again',
   'room.paperFailed.retrying': 'Loading…',
+
+  // (#533) The room's stored pixels did not arrive. Deliberately says the
+  // drawing is safe before it says anything else: what this screen looks like
+  // from the reader's side is their lesson gone, and the one thing they need
+  // to know first is that it is not.
+  'room.restoreFailed.title': "The drawing didn't load",
+  'room.restoreFailed.body': 'The connection dropped before the drawing arrived, so the project stays closed rather than showing you a blank sheet. Nothing has been lost — everything is on the server.',
+  // (#538) The other way a room can fail to open: the pixels arrived and
+  // putting them on screen threw. Deliberately vague about the cause, because
+  // we do not know it at the moment this is shown — the reports behind it are
+  // both a tablet running out of graphics memory and a bug of our own — and
+  // naming the wrong one is the same mistake as saying nothing.
+  'room.restoreFailed.bodyDevice': 'Something went wrong while the project was being put together on this device, so it stays closed rather than showing you a blank sheet. Nothing has been lost — everything is on the server, and the failure has been reported.',
+  'room.restoreFailed.retry': 'Try again',
   'room.connection.offline': 'No connection — reconnecting…',
   'room.connection.offlineWithPending': {
     one: 'No connection. {n} stroke is saved on this device and will be sent once you reconnect.',
@@ -475,6 +615,16 @@ export const en = {
   'room.loading.paper': 'Unrolling the paper...',
 
   // ── tools ──────────────────────────────────────────────────────────────
+  // (#544) The one rail button all seven materials now live behind. Its
+  // tooltip has to do two jobs the per-material tooltips did not: name what is
+  // in hand, and say that there is a choice behind it at all.
+  'tool.drawing': 'Drawing tool',
+  'tool.drawingTitle': '{tool} — tap again or hold to pick another drawing tool',
+  // The pencil is the one material with hotkeys of its own that have
+  // nowhere else to be announced — the grade picker beside it is a 40 px
+  // square with no room for a hint.
+  'tool.drawingTitlePencil':
+    '{tool} ({hotkeys} for harder / softer grade) — tap again or hold to pick another drawing tool',
   'tool.pencil': 'Pencil',
   'tool.pencilTitle': 'Pencil  ({hotkeys} for harder / softer grade)',
   'tool.eraser': 'Eraser',
@@ -496,6 +646,41 @@ export const en = {
   'tool.watercolorMix.wet': 'Wet',
   'tool.watercolor': 'Watercolor',
   'tool.watercolorTitle': 'Watercolor \u2014 transparent wash; glaze a second pass over a dry one to deepen it  {hotkey}',
+  'tool.digitalBrush': 'Digital brush',
+  'tool.digitalBrushTitle': 'Digital brush — round, textured, bristle, mixing and scatter brushes; the only tool here that imitates no real material  {hotkey}',
+  'tool.field.brush': 'Brush',
+  'tool.field.sizeFromPressure': 'Pressure changes size',
+  'tool.field.opacityFromPressure': 'Pressure changes opacity',
+  'tool.brush.softRound': 'Soft round',
+  'tool.brush.mediumRound': 'Medium round',
+  'tool.brush.hardRound': 'Hard round',
+  'tool.brush.inkRound': 'Ink round',
+  'tool.brush.opaquePaint': 'Opaque paint',
+  'tool.brush.flat': 'Flat',
+  'tool.brush.texturedPaint': 'Textured paint',
+  'tool.brush.bristle': 'Bristle',
+  'tool.brush.mixer': 'Mixing brush',
+  'tool.brush.airbrush': 'Airbrush',
+  'tool.brush.chalk': 'Chalk',
+  'tool.brush.grain': 'Grain',
+  'tool.brush.screentone': 'Screentone',
+  'tool.brush.splatter': 'Splatter',
+  'tool.brush.grass': 'Grass',
+  'tool.brush.foliage': 'Foliage',
+  'tool.brushGroup.line': 'Line',
+  'tool.brushGroup.paint': 'Paint',
+  'tool.brushGroup.wet': 'Digital watercolor',
+  'tool.brush.wetOnWet': 'Wet-in-wet',
+  'tool.brush.wetWash': 'Wash',
+  'tool.brush.wetEdge': 'Wet edge',
+  'tool.brush.granulating': 'Granulating',
+  'tool.brush.dryWash': 'Dry brush',
+  'tool.brush.wetBands': 'Glazed bands',
+  'tool.brush.sponge': 'Sponge',
+  'tool.brush.gouache': 'Gouache',
+  'tool.brushGroup.soft': 'Soft',
+  'tool.brushGroup.texture': 'Texture',
+  'tool.brushGroup.scatter': 'Scatter',
   'tool.brushPen': 'Brush pen',
   'tool.brushPenTitle': 'Brush pen — flexible ink nib; line width follows your pressure  {hotkey}',
   'tool.hand': 'Hand',
@@ -509,6 +694,19 @@ export const en = {
   'tool.selection': 'Select',
   'tool.selectionTitle': 'Select — mark a region, then move it with Transform, or cut/copy/paste it. Esc clears it  {hotkey}',
   'tool.fill': 'Fill',
+  'tool.shape': 'Shape',
+  'tool.shapeTitle': '{shape} — drag one out; tap again or hold to pick another shape. Shift constrains, Alt draws from the centre. Enter applies, Esc cancels',
+  // (#525) The four shapes, which are the kind picker's options rather than
+  // four tools. No {hotkey} yet — see the annotation tools above for why a
+  // placeholder with nothing to fill it is worse than none.
+  'tool.rectangle': 'Rectangle',
+  'tool.rectangleTitle': 'Rectangle — drag a frame; Shift keeps it square, Alt draws from the centre. Enter applies, Esc cancels',
+  'tool.ellipse': 'Ellipse',
+  'tool.ellipseTitle': 'Ellipse — drag a frame; Shift makes it a circle, Alt draws from the centre. Sector and ring are in its settings',
+  'tool.polystar': 'Star',
+  'tool.polystarTitle': 'Star — a polygon at zero starness, a star above it; set the number of points in its settings',
+  'tool.line': 'Line',
+  'tool.lineTitle': 'Line — drag from one end to the other; Shift snaps the angle',
   'tool.grid': 'Grid',
   'tool.gridTitle': 'Construction grid  {hotkey}',
   // (#509/#510) No {hotkey} in either title, unlike every tool above: neither
@@ -520,6 +718,8 @@ export const en = {
   'tool.annotatePenTitle': 'Annotation pen — circle or point at something over the drawing. Marks are not part of the picture',
   'tool.annotateEraser': 'Annotation eraser',
   'tool.annotateEraserTitle': 'Annotation eraser — drag over notes and pen marks to remove them. It never touches the drawing',
+  'tool.annotationsClear': 'Remove all annotations',
+  'tool.annotationsClearTitle': 'Remove all annotations — every note and pen mark in the room, for everyone. Undo brings them back',
   'room.annotationMode': 'Annotations',
   'room.annotationModeTitle': 'Annotations — swaps the toolbar for notes and the annotation pen. Nothing here touches the drawing',
   'room.annotationsHide': 'Hide notes',
@@ -554,6 +754,42 @@ export const en = {
   'tool.field.tolerance': 'Tolerance',
   'tool.field.gapClose': 'Close gaps',
   'tool.field.fillExpand': 'Bleed under line',
+  // Shapes (#529). "Stroke" and "Fill" name the two colours a shape carries;
+  // every other tool has one, so these are the first labels in the app that
+  // have to say which colour they mean.
+  'tool.field.strokeColor': 'Stroke',
+  'tool.field.strokeOn': 'Stroke',
+  'tool.field.strokeWidth': 'Stroke width',
+  'tool.field.strokeAlign': 'Stroke position',
+  'tool.strokeAlign.inside': 'Inside',
+  'tool.strokeAlign.center': 'Centred',
+  'tool.strokeAlign.outside': 'Outside',
+  'tool.field.fillColor': 'Fill',
+  'tool.field.fillOn': 'Fill',
+  'tool.field.cornerRadius': 'Corner radius',
+  'tool.field.strokeJoin': 'Corners',
+  'tool.strokeJoin.miter': 'Sharp',
+  'tool.strokeJoin.round': 'Rounded',
+  'tool.field.startAngle': 'Start angle',
+  'tool.field.endAngle': 'End angle',
+  'tool.field.innerRadius': 'Inner radius',
+  'tool.field.closePath': 'Close the outline',
+  'tool.field.points': 'Points',
+  'tool.field.starness': 'Starness',
+  'tool.field.rotation': 'Rotation',
+  'tool.field.strokeCap': 'Ends',
+  'tool.strokeCap.butt': 'Flat',
+  'tool.strokeCap.round': 'Round',
+  'tool.strokeCap.square': 'Square',
+  'tool.field.snapAngle': 'Snap the angle',
+  'room.shape.stroke': 'Stroke colour',
+  'room.shape.fill': 'Fill colour',
+  'room.shape.swap': 'Swap stroke and fill',
+  'room.shape.none': 'No colour',
+  'room.shape.width': 'Width',
+  'room.shape.height': 'Height',
+  'room.shape.ratio': 'Proportions',
+  'room.shape.ratioFree': 'Free',
   'tool.field.tiltResponse': 'Tilt response',
   'tool.field.pressureResponse': 'Pressure response',
   // The three curve shapes (#409). Named for how the tool answers the stylus,
@@ -605,8 +841,10 @@ export const en = {
   'palette.slotEmpty': 'Empty slot',
   'palette.slotEmptyHold': 'Empty slot — hold to put a tool here',
   'palette.slotClear': 'Leave empty',
-  'palette.roleDrawing': 'Last drawing tool',
-  'palette.roleSecondary': 'Last eraser / smudge tool',
+  // (#544) The group slots' own tooltip. It has to carry one gesture more than
+  // the plain one above — the second tap — because that is the only place on
+  // the panel where the gesture exists to be learned from.
+  'palette.slotGroupHold': '{item} — tap again to pick another, hold to change this slot',
   'palette.mode': 'Picker shape',
   'palette.mode.bar': 'Hue strip',
   'palette.mode.ring': 'Hue ring',
@@ -632,6 +870,7 @@ export const en = {
   'layers.mergeSelected': 'Merge selected',
   'layers.mergeDown': 'Merge down',
   'layers.duplicate': 'Duplicate',
+  'layers.filters': 'Filters…',
   'layers.deleteSelected': 'Delete selected',
   'layers.deleteLayer': 'Delete layer',
   // (#329) Was "Clear canvas" in the room header, which is not what it ever
@@ -648,6 +887,12 @@ export const en = {
   'layers.importFailed': 'Could not import image',
   'layers.hide': 'Hide',
   'layers.show': 'Show',
+  // (#557) Solo: a private filter, so the words say what you will see, not
+  // what happens to the layers — nothing happens to them.
+  'layers.solo': 'Show only this layer',
+  'layers.soloSelected': 'Show only the selected layers',
+  'layers.unsolo': 'Show all layers again',
+  'layers.hiddenBySolo': 'Out of view while only another layer is shown',
   'layers.lock': 'Lock',
   'layers.unlock': 'Unlock',
   'layers.backgroundLocked': 'The background is always locked',
@@ -669,6 +914,23 @@ export const en = {
 
   // ── editor settings panel (#174 hotkeys tab, #321 general/access tabs) ──
   'editorSettings.title': 'Settings',
+  // ── (#548) room toolset ────────────────────────────────────────────────
+  // Which tools a project offers. Shown on the creation form and in the
+  // project's own settings — the same picker, so one vocabulary.
+  'toolset.group.materials': 'Materials',
+  'toolset.group.secondary': 'Working the marks',
+  'toolset.group.utility': 'Utilities',
+  'toolset.selected': 'Enabled: {n} of {total}',
+  'toolset.enableAll': 'Enable all',
+  'toolset.lastMaterial': 'At least one material has to stay — a project nobody can draw in is a closed one.',
+  'toolset.hint':
+    'Everyone in the project sees the same tools, you included. You can change this later in the project settings.',
+  // Said when the tool in someone's hand stops being offered. Neutral about
+  // who did it: the owner sees this too, and "the teacher turned it off"
+  // would be a lie on their own screen.
+  'toolset.withdrawn': 'That tool is no longer offered here',
+  'editorSettings.tab.tools': 'Tools',
+
   'editorSettings.tab.general': 'General',
   'editorSettings.tab.access': 'Access',
   'editorSettings.tab.hotkeys': 'Hotkeys',
@@ -746,6 +1008,7 @@ export const en = {
   'hotkey.toggleMarker': 'Toggle marker / pencil',
   'hotkey.toggleBrushPen': 'Toggle brush pen / pencil',
   'hotkey.toggleWatercolor': 'Toggle watercolor / pencil',
+  'hotkey.toggleDigitalBrush': 'Toggle digital brush / pencil',
   'hotkey.toggleEyedropper': 'Toggle eyedropper',
   'hotkey.toggleRuler': 'Toggle ruler',
   'hotkey.toggleTransform': 'Toggle transform',
@@ -762,6 +1025,39 @@ export const en = {
   'hotkey.zoomIn': 'Zoom in',
   'hotkey.zoomOut': 'Zoom out',
   'hotkey.zoomReset': 'Zoom to 100%',
+
+  // ── layer filters (#574) ──
+  'filter.title': 'Filter',
+  'filter.kind.gaussian_blur': 'Gaussian blur',
+  'filter.kind.motion_blur': 'Motion blur',
+  'filter.kind.hsl': 'Hue / Saturation',
+  'filter.kind.curves': 'Curves',
+  'filter.kind.color_balance': 'Color balance',
+  'filter.radius': 'Radius',
+  'filter.angle': 'Angle',
+  'filter.distance': 'Distance',
+  'filter.hue': 'Hue',
+  'filter.saturation': 'Saturation',
+  'filter.lightness': 'Lightness',
+  'filter.channel': 'Channel',
+  'filter.channel.value': 'Value',
+  'filter.channel.red': 'Red',
+  'filter.channel.green': 'Green',
+  'filter.channel.blue': 'Blue',
+  'filter.range': 'Tonal range',
+  'filter.range.shadows': 'Shadows',
+  'filter.range.midtones': 'Midtones',
+  'filter.range.highlights': 'Highlights',
+  'filter.cyanRed': 'Cyan — Red',
+  'filter.magentaGreen': 'Magenta — Green',
+  'filter.yellowBlue': 'Yellow — Blue',
+  'filter.preserveLuminosity': 'Preserve luminosity',
+  'filter.preview': 'Preview',
+  'filter.apply': 'Apply',
+  'filter.reset': 'Reset',
+  'filter.curveHint': 'Click the curve to add a point, drag a point off the graph to remove it.',
+  'filter.working': 'Calculating…',
+  'filter.layer': 'Layer: {name}',
 } satisfies Record<string, Message>
 
 export type TranslationKey = keyof typeof en

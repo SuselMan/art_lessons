@@ -1,0 +1,351 @@
+/* (#588) The admin panel. A working tool for one reader, so dense rather than
+   airy: tables over cards, small type, everything on tokens so both themes work
+   without a line of their own. */
+
+.page {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--color-text-bright);
+  text-decoration: none;
+}
+
+.brandTag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-right: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tab:hover { background: var(--color-surface-hover); color: var(--color-text); }
+
+.tabActive,
+.tabActive:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-bright);
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 16px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-top: 8px;
+}
+
+.detailTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-bright);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.stat {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.statLabel { color: var(--color-text-dim); font-size: 12px; }
+.statValue { font-size: 24px; font-weight: 700; color: var(--color-text-bright); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.statSub { color: var(--color-text-faint); font-size: 12px; margin-top: 2px; }
+
+/* Tables scroll inside their wrapper on a narrow screen; the page never does. */
+.tableWrap {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border-soft);
+  white-space: nowrap;
+}
+
+.table th {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-text-dim);
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+
+.rowLink { cursor: pointer; }
+.rowLink:hover td { background: var(--color-surface-hover); }
+
+.num { text-align: right !important; font-variant-numeric: tabular-nums; }
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+.dim { color: var(--color-text-dim); }
+
+.thumbCell { width: 56px; padding-top: 6px !important; padding-bottom: 6px !important; }
+
+.thumb {
+  display: block;
+  width: 48px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-tint);
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.segmented {
+  display: flex;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.segment {
+  padding: 5px 12px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  cursor: pointer;
+  font: inherit;
+}
+
+.segmentActive { background: var(--color-surface-2); color: var(--color-text-bright); }
+
+.search {
+  flex: 1 1 220px;
+  max-width: 360px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.hint { color: var(--color-text-faint); font-size: 12px; }
+.empty { color: var(--color-text-dim); }
+
+.error {
+  color: var(--color-error);
+  /* A tint, not the solid fill: the solid one is made for --color-on-accent
+     text, and red on it is unreadable (contrast.test.ts). */
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-accent);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.link:hover { text-decoration: underline; }
+
+.chip {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.badge,
+.badgeLive,
+.badgeBanned {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+}
+
+.badgeLive { color: var(--color-success); border-color: var(--color-success); }
+.badgeBanned { color: var(--color-error); border-color: var(--color-error); }
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+}
+
+.facts dt { color: var(--color-text-dim); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+.banBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 560px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-dim);
+}
+
+.banBoxActive { border-color: var(--color-error); }
+
+.reason {
+  width: 100%;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.button {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-2);
+  color: var(--color-text-bright);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.button:disabled { opacity: 0.45; cursor: default; }
+
+.buttonDanger {
+  background: var(--color-error-fill);
+  border-color: var(--color-error-fill);
+  color: var(--color-on-accent);
+}
+
+.buttonDanger:not(:disabled):hover { background: var(--color-error-fill-hover); }
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* (#589) Device cards in a person's detail view. */
+.devices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 10px;
+}
+
+.device {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.deviceHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--color-text-bright);
+}
+
+.factRow { display: contents; }
+
+.monoTitle { font-family: var(--font-mono); font-size: 18px; }

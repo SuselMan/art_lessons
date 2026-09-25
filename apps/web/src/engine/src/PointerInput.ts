@@ -16,8 +16,54 @@ import {
 // PointerInput never even calls getPredictedEvents() otherwise, so this is
 // zero-cost when the caller doesn't opt in. Predicted samples are extracted
 // via _extractPredicted(), a non-mutating twin of _extract(): it must never
-// touch _lastT/_lastX/_lastY, since those drive the *real* speed calculation
-// for the next genuine sample and a wrong prediction must never corrupt it.
+// touch _lastT/_lastX/_lastY/_speed, since those drive the *real* speed
+// calculation for the next genuine sample and a wrong prediction must never
+// corrupt it.
+//
+// ─── Speed (#532) ───────────────────────────────────────────────────────────
+//
+// `PointerData.speed` is not a diagnostic: it reaches the canvas. Every liner
+// and marker dab's ink deposit is `linerSpeedFlow(speed)` and every graphite
+// and smudge dab's is `max(0.7, 1 - speed*0.15)`, both baked into the recorded
+// operation. So a wrong speed is not a wrong number in a log — it is wrong
+// pixels, permanently, for everyone replaying that stroke.
+//
+// It was wrong. Until #532 `dt` came from `performance.now()` — the moment the
+// *handler* ran, not the moment the sample was taken. Those are not the same
+// clock in the case that matters: `_handleMove` takes the whole
+// `getCoalescedEvents()` batch and runs `_extract` over it in one tight loop
+// (see _handleMove below), so `performance.now()` barely advances across a
+// batch that spans a real 8-11 ms of hand movement. One event in the batch got
+// the entire inter-frame `dt` against a single sample's worth of distance, and
+// the rest got `dt` ~ 0.02 ms against theirs.
+//
+// Measured on eight real liner strokes from a room log (3545 dabs, an iPad
+// stylus), decoded per dab:
+//
+//     80.0% of dabs   flow 0.50   (linerSpeedFlow's "very fast" clamp)
+//     16.6% of dabs   flow 1.40   (its "stopped" clamp)
+//      3.4% of dabs   anywhere in between
+//
+// The 11 ms bands — true speed 0.24-1.17 px/ms, i.e. ordinary hatching — are
+// the ones that came out at the *fast* clamp. So the tool spent 80% of its ink
+// at half flow (reported as "ложится неплотно") while alternating with the
+// opposite clamp once per frame (reported as "зебра, полосы через равный
+// интервал"). One bug, both symptoms.
+//
+// The sample's own time was already available and already recorded — every
+// PointerData carries `timeStamp`, and it is what the measurement above was
+// reconstructed from. It just wasn't the thing being differenced.
+//
+// Two properties this now has, and both are load-bearing:
+//
+//  - **Time comes from the event.** `ev.timeStamp` shares its origin with
+//    `performance.now()`, so nothing else that mixes the two had to move.
+//  - **Samples with no time between them do not produce a speed.** A device
+//    that stamps a whole coalesced batch with one timestamp (they exist) would
+//    otherwise divide by ~0. Rather than clamp that, `_extract` leaves the
+//    reference point alone until real time has passed — so the next sample
+//    with a positive `dt` measures across the whole batch, which is that
+//    batch's honest average speed, not an infinity to be clamped away.
 
 export interface PointerData {
   x: number
@@ -35,6 +81,45 @@ export interface PointerData {
   timeStamp: number
 }
 
+/** Time constant (ms) of the speed smoother below.
+ *
+ *  A correctly-timed per-sample speed is still not a usable one: a 240 Hz
+ *  stylus reports a fresh position every ~4 ms, and over 4 ms the difference
+ *  between two positions is mostly quantization of the digitizer, not hand
+ *  movement. Differencing it gives a figure that swings tens of percent
+ *  sample to sample while the hand is doing nothing unusual — which the ink
+ *  curves would faithfully turn back into banding, just a finer-pitched
+ *  banding than the one #532 removed.
+ *
+ *  30 ms sits between the two timescales: well above the sample interval of
+ *  every reporting rate we see (4-16 ms), well below the ~100 ms over which a
+ *  hand actually accelerates into or out of a stroke. */
+export const SPEED_SMOOTHING_TAU_MS = 30
+
+/**
+ * One step of an exponential moving average over speed, in px/ms.
+ *
+ * The weight is derived from elapsed time rather than being a fixed per-sample
+ * constant, and that is the whole point of it: `1 - exp(-dt/tau)` makes the
+ * smoother's behaviour a function of *milliseconds*, so a 240 Hz stylus, a
+ * 120 Hz one and a 60 Hz mouse all converge at the same real-world rate. A
+ * fixed alpha would instead smooth four times as hard on the fastest device,
+ * i.e. would give the same hand a different line on different hardware.
+ *
+ * It also makes the estimator naturally robust to the pathological sample —
+ * a 0.1 ms gap carries a weight of 0.003, so a huge instantaneous quotient
+ * moves the average by almost nothing instead of needing to be clamped.
+ *
+ * `prev < 0` means "nothing measured yet" and seeds the average with the first
+ * real sample rather than ramping up from zero — otherwise every stroke would
+ * open with a few dabs of falsely-slow speed, which for the liner is extra ink
+ * and would read as a blob at the start of every mark.
+ */
+export function smoothSpeed(prev: number, raw: number, dtMs: number): number {
+  if (prev < 0) return raw
+  return prev + (raw - prev) * (1 - Math.exp(-dtMs / SPEED_SMOOTHING_TAU_MS))
+}
+
 type PointerEventName = 'start' | 'move' | 'end'
 type PointerHandler = (data: PointerData) => void
 type PredictHandler = (data: PointerData[]) => void
@@ -44,9 +129,16 @@ export class PointerInput {
   private _handlers: Partial<Record<PointerEventName, PointerHandler>>
   private _predictHandler?: PredictHandler
   private _active: boolean
+  // The last sample used as the speed reference: its own `timeStamp` (#532 —
+  // not performance.now(), see this file's Speed section) and its canvas
+  // coordinates. Advanced only by a sample that had real time between it and
+  // this one, so a zero-duration coalesced run measures across itself.
   private _lastT: number
   private _lastX: number
   private _lastY: number
+  // Smoothed speed in px/ms (smoothSpeed above); -1 until this stroke has a
+  // first real measurement to seed it with.
+  private _speed: number
   private _transform: ((clientX: number, clientY: number) => { x: number; y: number }) | null
 
   // (#187) Which pointer actually started/owns the in-progress stroke.
@@ -97,6 +189,7 @@ export class PointerInput {
     this._lastT = 0
     this._lastX = 0
     this._lastY = 0
+    this._speed = -1
     this._transform = null
     this._activePointerId = null
     this._activePointerType = null
@@ -193,16 +286,20 @@ export class PointerInput {
   }
 
   private _extract(e: PointerEvent): PointerData {
-    const now = performance.now()
-    const dt  = now - this._lastT || 1
-
     const { x, y } = this._toCanvasCoords(e)
-    const speed = Math.hypot(x - this._lastX, y - this._lastY) / dt
-    this._lastT = now
-    this._lastX = x
-    this._lastY = y
+    const dt = e.timeStamp - this._lastT
+    // `dt <= 0` deliberately advances nothing at all — not the average, not
+    // the reference point. See this file's Speed section: holding the
+    // reference is what lets the next timed sample measure the whole
+    // zero-duration run in one honest quotient.
+    if (dt > 0) {
+      this._speed = smoothSpeed(this._speed, Math.hypot(x - this._lastX, y - this._lastY) / dt, dt)
+      this._lastT = e.timeStamp
+      this._lastX = x
+      this._lastY = y
+    }
 
-    return this._toPointerData(e, x, y, speed)
+    return this._toPointerData(e, x, y, Math.max(this._speed, 0))
   }
 
   // Non-mutating twin of _extract(), used only for predicted samples (see
@@ -210,13 +307,14 @@ export class PointerInput {
   // but must never write _lastT/_lastX/_lastY — a wrong prediction must never
   // corrupt the real speed calculation for the next genuine sample.
   private _extractPredicted(e: PointerEvent): PointerData {
-    const now = performance.now()
-    const dt  = now - this._lastT || 1
-
     const { x, y } = this._toCanvasCoords(e)
-    const speed = Math.hypot(x - this._lastX, y - this._lastY) / dt
+    const dt = e.timeStamp - this._lastT
+    // Same arithmetic as _extract, assigned to a local instead of to `this`.
+    const speed = dt > 0
+      ? smoothSpeed(this._speed, Math.hypot(x - this._lastX, y - this._lastY) / dt, dt)
+      : this._speed
 
-    return this._toPointerData(e, x, y, speed)
+    return this._toPointerData(e, x, y, Math.max(speed, 0))
   }
 
   /** (#517) The fix for strokes that vanished on iPad, and a listener that
@@ -311,7 +409,16 @@ export class PointerInput {
     this._orphanMoveLogged = false
     this._activePointerId = e.pointerId
     this._activePointerType = e.pointerType
-    this._lastT = performance.now()
+    // The reference point is seeded here rather than being left to the
+    // `_extract` below, which since #532 only advances it when real time has
+    // passed — and no time has passed on the very sample that defines it.
+    // Without this the first move of a stroke would measure its distance from
+    // wherever the *previous* stroke ended, i.e. from across the canvas.
+    const down = this._toCanvasCoords(e)
+    this._lastT = e.timeStamp
+    this._lastX = down.x
+    this._lastY = down.y
+    this._speed = -1
     this._emit('start', this._extract(e))
   }
 

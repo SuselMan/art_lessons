@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create, type StateCreator } from 'zustand'
 
 import { createLayerSlice, type LayerSlice } from './slices/layerSlice'
 import { createViewportSlice, type ViewportSlice } from './slices/viewportSlice'
@@ -53,4 +53,52 @@ const initialRoomStoreState = useRoomStore.getState()
  *  actually reset. */
 export function resetRoomStore(): void {
   useRoomStore.setState(initialRoomStoreState, true)
+}
+
+/** (#176, ADR 014 §4) The content slices' keys — what a page turn resets.
+ *  Enumerated from throwaway instances of the slices themselves rather than
+ *  listed by hand, so a field added to layerSlice tomorrow is reset tomorrow
+ *  without anyone remembering this file. */
+function keysOf<T extends object>(creator: StateCreator<T>): string[] {
+  return Object.keys(create<T>()(creator).getState())
+}
+
+const CONTENT_SLICE_KEYS = new Set<string>([
+  ...keysOf(createLayerSlice),
+  ...keysOf(createViewportSlice),
+  ...keysOf(createStrokeSlice),
+  ...keysOf(createSelectionSlice),
+  ...keysOf(createAnnotationSlice),
+])
+
+/** Content-slice fields that nonetheless describe the *person*, not the page,
+ *  and so survive a page turn the way the tool in hand does: the camera (a
+ *  sketchbook keeps your zoom when you flip the page — the page itself is
+ *  re-fitted by the caller when that is wanted), the rotation lock, and
+ *  whether the annotation rail / the notes are shown. Everything else in
+ *  those slices is derived from one board's operation log or is a gesture in
+ *  progress on it. */
+const SURVIVES_PAGE_TURN: ReadonlySet<keyof RoomStore> = new Set<keyof RoomStore>([
+  'viewport', 'rotationLocked', 'annotationMode', 'annotationsHidden',
+])
+
+/** (#176, ADR 014 §4) Resets the content slices — layers, selection, stroke,
+ *  annotations — for the next board, and leaves `roomSlice` (the lesson:
+ *  roster, palette, strip, who is following) and `toolSlice` (the tool,
+ *  preset and colour in hand) exactly as they are. `resetRoomStore()` stays
+ *  the thing that runs on entering a lesson; this runs on turning a page
+ *  inside one.
+ *
+ *  A merge, not a replace: the kept slices are the majority of the store and
+ *  copying them through a replace would only be a second way to get the list
+ *  of kept keys wrong. */
+export function resetBoardState(): void {
+  const fresh: Partial<RoomStore> = {}
+  for (const key of CONTENT_SLICE_KEYS) {
+    const k = key as keyof RoomStore
+    if (SURVIVES_PAGE_TURN.has(k)) continue
+    // Actions are the same stable references either way; only data changes.
+    Object.assign(fresh, { [k]: initialRoomStoreState[k] })
+  }
+  useRoomStore.setState(fresh)
 }

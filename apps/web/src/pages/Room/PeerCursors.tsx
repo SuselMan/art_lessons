@@ -15,6 +15,8 @@ export interface PeerCursorPosition {
   y: number
 }
 
+const IDLE_HIDE_MS = 5000
+
 interface PeerCursorsProps {
   // (#152) The raw socket, not a `cursors` array computed by Room — see the
   // effect below for why: cursor *position* state now lives entirely inside
@@ -63,12 +65,38 @@ interface PeerCursorsProps {
  *  ordinary prop. */
 export function PeerCursors({ socket, participants, zoom, angle }: PeerCursorsProps) {
   const [cursors, setCursors] = useState<Record<string, PeerCursorPosition>>({})
+  // A cursor that has not moved for IDLE_HIDE_MS fades out: a peer who walked
+  // away from the tablet otherwise leaves a name tag parked over the drawing.
+  // The position is kept, so the next packet brings it back where it was.
+  const [idle, setIdle] = useState<ReadonlySet<string>>(() => new Set())
 
   useEffect(() => {
     if (!socket) return
+    const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
+    const clearIdle = (peerId: string) => {
+      const timer = idleTimers.get(peerId)
+      if (timer !== undefined) clearTimeout(timer)
+      idleTimers.delete(peerId)
+      setIdle(prev => {
+        if (!prev.has(peerId)) return prev
+        const next = new Set(prev)
+        next.delete(peerId)
+        return next
+      })
+    }
+    // Called on every packet, so it must not re-render when nothing changes:
+    // the idle set is only touched on the rare wake-up, never on plain motion.
+    const markActive = (peerId: string) => {
+      clearIdle(peerId)
+      idleTimers.set(peerId, setTimeout(() => {
+        idleTimers.delete(peerId)
+        setIdle(prev => new Set(prev).add(peerId))
+      }, IDLE_HIDE_MS))
+    }
     const handleCursor = (data: CursorMoveData & { userId: string }) => {
       const { userId: peerId, x, y } = data
       setCursors(prev => ({ ...prev, [peerId]: { userId: peerId, x, y } }))
+      markActive(peerId)
     }
     // (#431) While a peer is drawing, their cursor rides the ink: the position
     // is the last dab of the packet that just painted, so the dot sits at the
@@ -89,8 +117,10 @@ export function PeerCursors({ socket, participants, zoom, angle }: PeerCursorsPr
       // component's own docstring, and Dab's) — so this is a read, not a
       // conversion. If that ever stops being true, both break together.
       setCursors(prev => ({ ...prev, [data.userId]: { userId: data.userId, x: last.x, y: last.y } }))
+      markActive(data.userId)
     }
     const handleLeft = (leftUserId: string) => {
+      clearIdle(leftUserId)
       setCursors(prev => {
         if (!(leftUserId in prev)) return prev
         const next = { ...prev }
@@ -105,6 +135,7 @@ export function PeerCursors({ socket, participants, zoom, angle }: PeerCursorsPr
       socket.off('peer_cursor', handleCursor)
       socket.off('peer_stroke_live', handleStrokeLive)
       socket.off('peer_left', handleLeft)
+      for (const timer of idleTimers.values()) clearTimeout(timer)
     }
   }, [socket])
 
@@ -121,7 +152,15 @@ export function PeerCursors({ socket, participants, zoom, angle }: PeerCursorsPr
         return (
           <div
             key={userId}
-            className={styles.cursorMarker}
+            // (#493) The one thing in here a test can hold on to. Peer cursors
+            // live in this component's own state rather than the store (see
+            // above, #152), so there is nothing to read from outside; the class
+            // names are CSS-Module hashes, and the label text also appears in
+            // the participants panel. Without this the whole cursor path — a
+            // pointermove in one browser becoming a dot in another — is
+            // unobservable, which is how it stayed untested until now.
+            data-testid="peer-cursor"
+            className={idle.has(userId) ? `${styles.cursorMarker} ${styles.cursorMarkerIdle}` : styles.cursorMarker}
             style={{ transform: `translate(${x}px, ${y}px) scale(${counterScale}) rotate(${-angle}rad)` }}
           >
             <div className={styles.cursorDot} style={{ background: participant.color }} />

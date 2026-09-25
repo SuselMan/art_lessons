@@ -41,10 +41,40 @@ export function OptionPopup({
     itemRefs.current[next]?.focus()
   }
 
+  const renderItem = (option: PickerOption, i: number, tile: boolean) => (
+    <button
+      key={option.value}
+      ref={el => { itemRefs.current[i] = el }}
+      type="button"
+      role="option"
+      data-value={option.value}
+      aria-selected={option.value === value}
+      className={clsx(styles.item, tile && styles.itemTile, option.value === value && styles.itemSelected)}
+      onClick={() => { onSelect(option.value); onDismiss() }}
+    >
+      <OptionPreview option={option} shape="strip" />
+      <span className={styles.itemLabel}>{option.label}</span>
+      {option.value === value && <Icon name="check" />}
+    </button>
+  )
+
+  // (#573) Consecutive options sharing a heading form one section. Indexes are
+  // kept from the flat list, so arrow keys still walk every option in order.
+  const grouped = options.some(o => o.group !== undefined)
+  const sections: { title: string; items: { option: PickerOption; index: number }[] }[] = []
+  if (grouped) {
+    options.forEach((option, index) => {
+      const title = option.group ?? ''
+      const last = sections[sections.length - 1]
+      if (last && last.title === title) last.items.push({ option, index })
+      else sections.push({ title, items: [{ option, index }] })
+    })
+  }
+
   return createPortal(
     <div
       ref={popupRef}
-      className={styles.popup}
+      className={clsx(styles.popup, grouped && styles.popupGrouped)}
       role="listbox"
       aria-label={label}
       style={style}
@@ -57,22 +87,16 @@ export function OptionPopup({
         else if (e.key === 'Escape') { onDismiss(); e.preventDefault() }
       }}
     >
-      {options.map((option, i) => (
-        <button
-          key={option.value}
-          ref={el => { itemRefs.current[i] = el }}
-          type="button"
-          role="option"
-          data-value={option.value}
-          aria-selected={option.value === value}
-          className={clsx(styles.item, option.value === value && styles.itemSelected)}
-          onClick={() => { onSelect(option.value); onDismiss() }}
-        >
-          <OptionPreview option={option} shape="strip" />
-          <span className={styles.itemLabel}>{option.label}</span>
-          {option.value === value && <Icon name="check" />}
-        </button>
-      ))}
+      {grouped
+        ? sections.map(section => (
+          <div key={section.title} role="group" aria-label={section.title} className={styles.section}>
+            {section.title && <div className={styles.sectionTitle}>{section.title}</div>}
+            <div className={styles.sectionGrid}>
+              {section.items.map(({ option, index }) => renderItem(option, index, true))}
+            </div>
+          </div>
+        ))
+        : options.map((option, i) => renderItem(option, i, false))}
     </div>,
     document.body,
   )

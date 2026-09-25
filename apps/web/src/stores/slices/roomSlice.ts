@@ -1,7 +1,10 @@
 import type { StateCreator } from 'zustand'
-import type { Participant, RoomAccessMode } from '@grafetto/shared'
+import type {
+  AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, RoomAccessMode, ToggleableTool,
+} from '@grafetto/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
+import { boardsReducer, sortBoards, type BoardsAction } from '../../lib/boards'
 import type { PaperType } from '@grafetto/shared'
 
 // This is the spec's vaguest bucket ("room: id, name, participants, local
@@ -37,6 +40,11 @@ export interface RoomInfo {
   // point that has to supply it by hand is the creator's own (nothing has
   // been received yet) — see toRoomConfig in Room/index.tsx.
   accessMode: RoomAccessMode
+  // (#548) Which tools the room offers, or absent for "all of them" — the
+  // shared `Room.enabledTools`, unchanged. Optional, unlike `accessMode`
+  // above, and for the opposite reason: here the absence is itself the
+  // meaning, so there is no default anyone could spell out wrong.
+  enabledTools?: ToggleableTool[]
 }
 
 export interface RoomInfoSlice {
@@ -81,6 +89,65 @@ export interface RoomInfoSlice {
   // the tab that made it — enough for what reads it, which is the warning on
   // the Share menu item.
   setRoomAccessMode: (accessMode: RoomAccessMode) => void
+  // (#548) The room's toolset — another column of the room, arriving inside
+  // `room` on join. Unlike `accessMode` this one *does* have a socket event
+  // (`room_tools_changed`), because it has to reach every participant the
+  // moment the owner changes it: a teacher taking the eraser off the desk
+  // mid-lesson is not a setting that can wait for everyone to reload.
+  //
+  // `undefined` = the room offers everything; see `sanitizeEnabledTools`.
+  setRoomEnabledTools: (enabledTools: ToggleableTool[] | undefined) => void
+
+  // ── Boards (#176, ADR 014 §4) ──────────────────────────────────────────
+  // The lesson is the social unit — one socket, one roster, one strip — and
+  // the board is the content unit: the engine, the outbox and the snapshot
+  // load all key on `boardId`. All of this survives `resetBoardState()`
+  // (a page turn) and dies with `resetRoomStore()` (entering a lesson).
+
+  /** The lesson this session is in; null until the first `room_state`. For a
+   *  lesson with one board it equals `room.id`. What every lesson-level REST
+   *  call (access, rename, close, boards) is addressed to. */
+  lessonId: string | null
+  /** The board whose content the engine holds or is loading — set exactly
+   *  when that board's `room_state` arrives (see Room/index.tsx's
+   *  handleRoomState), never ahead of it, so an engine keyed on this is never
+   *  built for a board the server has not seated us on. Null until then. */
+  boardId: string | null
+  /** The strip, in `order`. The lesson's own board is the first entry, under
+   *  the lesson's id. */
+  boards: BoardSummary[]
+  /** The teacher's board; null means the lesson's own first board (the same
+   *  spelling the wire uses — see `Room.activeBoardId`). */
+  activeBoardId: string | null
+  /** Whether this client turns the page when the teacher does. On by
+   *  default; a hand-picked board turns it off, the "teacher is on …" chip
+   *  turns it back on. Meaningless for the owner — they never follow —
+   *  which is why it is stored raw and combined with `isOwner` at the read
+   *  site (see `followTarget` in lib/boards.ts). */
+  following: boolean
+  /** From `room_state.lesson`, on every join and reconnect. */
+  setLesson: (lesson: LessonState) => void
+  setBoardId: (boardId: string | null) => void
+  setActiveBoardId: (boardId: string | null) => void
+  setFollowing: (following: boolean) => void
+  applyBoardsAction: (action: BoardsAction) => void
+
+  // ── Class mode (#595, ADR 015 §6) ───────────────────────────────────────
+  // All of it arrives whole in `room_state.lesson` / `lesson_state`, built by
+  // the server for this person — so `boards` above already holds exactly the
+  // personal boards this client may see, and nothing here filters for
+  // privacy. Survives a page turn like the rest of this slice.
+
+  /** Every assignment round of the lesson, in order. */
+  assignments: AssignmentSummary[]
+  /** The round in progress; null when there is none. */
+  activeAssignmentId: string | null
+  /** The personal board the teacher is showing everyone; null when none. */
+  spotlightBoardId: string | null
+  classVisibility: ClassVisibility
+  /** Who has a hand up, by userId. */
+  handsRaised: string[]
+  setHandRaised: (userId: string, raised: boolean) => void
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
@@ -108,4 +175,32 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   setRoomAccessMode: accessMode => set(state => (
     state.room ? { room: { ...state.room, accessMode } } : {}
   )),
+  setRoomEnabledTools: enabledTools => set(state => (
+    state.room ? { room: { ...state.room, enabledTools } } : {}
+  )),
+  lessonId: null,
+  boardId: null,
+  boards: [],
+  activeBoardId: null,
+  following: true,
+  setLesson: lesson => set({
+    lessonId: lesson.id, boards: sortBoards(lesson.boards), activeBoardId: lesson.activeBoardId,
+    assignments: lesson.assignments, activeAssignmentId: lesson.activeAssignmentId,
+    spotlightBoardId: lesson.spotlightBoardId, classVisibility: lesson.classVisibility,
+    handsRaised: lesson.handsRaised,
+  }),
+  setBoardId: boardId => set({ boardId }),
+  setActiveBoardId: activeBoardId => set({ activeBoardId }),
+  setFollowing: following => set({ following }),
+  applyBoardsAction: action => set(state => ({ boards: boardsReducer(state.boards, action) })),
+  assignments: [],
+  activeAssignmentId: null,
+  spotlightBoardId: null,
+  classVisibility: 'teacher_only',
+  handsRaised: [],
+  setHandRaised: (userId, raised) => set(state => {
+    const has = state.handsRaised.includes(userId)
+    if (has === raised) return {}
+    return { handsRaised: raised ? [...state.handsRaised, userId] : state.handsRaised.filter(id => id !== userId) }
+  }),
 })

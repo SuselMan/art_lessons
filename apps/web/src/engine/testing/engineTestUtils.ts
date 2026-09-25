@@ -150,6 +150,7 @@ export function createTestEngine(
 interface EngineInternals {
   _layers: Map<string, ILayerBuffer>
   _checkpoints: Array<{ layerId: string; opIds: string[] }>
+  _checkpointBytes: number
   _onStart: (e: PointerData) => void
   _onMove: (e: PointerData) => void
   _onEnd: (e: PointerData) => void
@@ -375,6 +376,13 @@ export function checkpointCountFor(engine: PencilEngine, layerId: string): numbe
   return internals(engine)._checkpoints.filter(cp => cp.layerId === layerId).length
 }
 
+/** (#467) How many bytes this engine's checkpoints actually hold. The pinned
+ *  ones are exempt from the byte budget and are held for the life of the room,
+ *  so "how big is this" is the whole question that file answers. */
+export function checkpointBytes(engine: PencilEngine): number {
+  return internals(engine)._checkpointBytes
+}
+
 /** #134-follow-up white-box access: how much bigger the assembly buffer is
  *  than the real canvas, per axis, *rounded to the nearest whole pixel* —
  *  see _assemblyPad's own doc comment in engine/index.ts. Both components
@@ -545,7 +553,12 @@ export function markerReplayChunkFor(
  *  composite: 8 is the brush pen's, 9 is watercolor's. The helper keeps its
  *  original name because what it does is unchanged and every marker test
  *  already calls it by that name. */
-export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9): { blendEnabled: boolean; opacity: number; count: number } | undefined {
+/** (#573) Every digital-brush stamp/composite draw so far, in order. */
+export function brushDraws(engine: PencilEngine): { kind: 'stamp' | 'composite'; uniforms: Map<string, unknown> }[] {
+  return internals(engine).gl.brushDraws
+}
+
+export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9 | 10): { blendEnabled: boolean; opacity: number; count: number } | undefined {
   return internals(engine).gl.lastDabDraw(inkMode)
 }
 

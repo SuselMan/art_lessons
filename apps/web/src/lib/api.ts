@@ -1,4 +1,6 @@
-import type { Room, RoomAccessInfo, RoomAccessMode, RoomFolder, RoomInvite } from '@grafetto/shared'
+import type { BoardSummary, Room, RoomAccessInfo, RoomAccessMode, RoomFolder, RoomInvite } from '@grafetto/shared'
+
+import { BANNED_ERROR_CODE, noteBanned } from './banned'
 
 // Same-origin: the Vite dev server proxies /api to apps/server (see
 // vite.config.ts) — needed because the dev server runs https (for
@@ -26,7 +28,7 @@ export class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include', // ships the identity cookie (#41) cross-origin
     // Only sent when there's a body — Fastify's JSON body parser rejects a
@@ -43,6 +45,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       && typeof body.retryAfterSeconds === 'number'
       ? body.retryAfterSeconds
       : undefined
+    // (#587) Whichever request hears it first tells the whole app — see
+    // lib/banned.ts.
+    if (res.status === 403 && code === BANNED_ERROR_CODE) noteBanned()
     throw new ApiError(res.status, code, retryAfter)
   }
   return res.json()
@@ -139,10 +144,18 @@ export function setRoomClosed(id: string, closed: boolean): Promise<Room> {
 // mechanism homework runs on (#314 §4). The name is passed from here rather
 // than composed server-side because server responses stay untranslated
 // (#208), and "Still life — copy" has to be in the reader's own language.
-export function forkRoom(id: string, name?: string): Promise<{ room: Room }> {
+//
+// (#568, ADR 014 §5) `scope` says how much travels. `'board'` copies the one
+// room whose id is given — whichever board of a lesson it is — into a
+// standalone room: «взять в работу» from inside a closed lesson, the sheet the
+// student was looking at. `'lesson'` copies the lesson and every board of it:
+// «Форк» from the lesson list, which is how a prepared lesson is reused.
+export type ForkScope = 'lesson' | 'board'
+
+export function forkRoom(id: string, { name, scope }: { name?: string; scope: ForkScope }): Promise<{ room: Room }> {
   return apiFetch<{ room: Room }>(`/api/rooms/${id}/fork`, {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, scope }),
   })
 }
 
@@ -264,4 +277,40 @@ export function deleteFolder(id: string): Promise<{ ok: true }> {
 // comment on the endpoint for the matching rationale.
 export function searchRooms(q: string): Promise<{ rooms: Room[] }> {
   return apiFetch<{ rooms: Room[] }>(`/api/rooms/search?q=${encodeURIComponent(q)}`)
+}
+
+// ── Boards (#176, ADR 014) ────────────────────────────────────────────────
+//
+// Owner-only, all addressed by the *lesson* id (boardRoutes.ts answers 404 for
+// a board id in that position). The live half of each — `board_created`,
+// `board_renamed`, `boards_reordered`, `board_deleted` — reaches everyone in
+// the lesson over the socket, the caller included, so the reply here is only
+// for acting on the result at once (switching to the board just made).
+
+export function createBoard(lessonId: string, name?: string): Promise<BoardSummary> {
+  return apiFetch<BoardSummary>(`/api/rooms/${lessonId}/boards`, {
+    method: 'POST',
+    body: JSON.stringify(name === undefined ? {} : { name }),
+  })
+}
+
+export function renameBoard(lessonId: string, boardId: string, name: string): Promise<{ board: BoardSummary; order: string[] }> {
+  return apiFetch<{ board: BoardSummary; order: string[] }>(`/api/rooms/${lessonId}/boards/${boardId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+}
+
+/** `order` is the board's new position in the strip; the reply carries the
+ *  whole resulting order, lesson first. */
+export function reorderBoard(lessonId: string, boardId: string, order: number): Promise<{ board: BoardSummary; order: string[] }> {
+  return apiFetch<{ board: BoardSummary; order: string[] }>(`/api/rooms/${lessonId}/boards/${boardId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ order }),
+  })
+}
+
+/** Hard delete, content and all — the caller confirms first (ADR 014 §3). */
+export function deleteBoard(lessonId: string, boardId: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/rooms/${lessonId}/boards/${boardId}`, { method: 'DELETE' })
 }

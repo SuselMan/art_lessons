@@ -18,12 +18,28 @@ export const MATERIAL_ICON_NAMES = [
   'account_circle',
   'add',
   'add_photo_alternate',
+  // #176 — the board strip: an open book for "pages of this lesson", the
+  // teacher's mortarboard on the page they are on, and the left chevron the
+  // per-board menu needs beside the right one that already existed.
+  'auto_stories',
+  'block',
   'brush',
+  // #547 — the digital brush. 'brush' is the brush pen's, and the two must not
+  // share a glyph: they sit next to each other in the bar and are the pair a
+  // user is most likely to confuse (one imitates a nib, the other imitates
+  // nothing).
+  'format_paint',
+  // #557 — layer solo, on and off. A pair on purpose: the same frame with the
+  // dot filled in or not reads as one switch in two positions.
+  'center_focus_strong',
+  'center_focus_weak',
   'change_history',
   'check',
+  'circle',
   'check_box',
   'check_box_outline_blank',
   'check_circle',
+  'chevron_left',
   'chevron_right',
   'close',
   'cloud_off',
@@ -35,6 +51,7 @@ export const MATERIAL_ICON_NAMES = [
   'create_new_folder',
   'delete',
   'delete_forever',
+  'delete_sweep',
   'deselect',
   'download',
   'draw',
@@ -58,6 +75,7 @@ export const MATERIAL_ICON_NAMES = [
   // fixed tool — "whatever I last drew with" — worn in the corner of that
   // tool's own icon. Without it the chooser shows two identical pencils.
   'history',
+  'horizontal_rule',
   'image_not_supported',
   'info',
   'ink_eraser',
@@ -82,9 +100,11 @@ export const MATERIAL_ICON_NAMES = [
   'humidity_high',
   'pan_tool',
   'pinch',
+  'rectangle',
   'redo',
   'rotate_90_degrees_cw',
   'save',
+  'school',
   'screen_rotation_alt',
   'search',
   'search_off',
@@ -92,7 +112,9 @@ export const MATERIAL_ICON_NAMES = [
   'settings',
   'share',
   'square_foot',
+  'star',
   'stylus',
+  'swap_horiz',
   'text_fields',
   'transform',
   'trip_origin',
@@ -118,6 +140,19 @@ export type MaterialIconName = (typeof MATERIAL_ICON_NAMES)[number]
 export const CUSTOM_ICON_NAMES = [
   'bullet-tip', 'charcoal', 'chisel-tip', 'distort', 'free-transform', 'freehand-lasso',
   'point-lasso', 'rectangle-lasso', 'skew-and-rotate', 'smudge',
+  // (#529) The shape stroke's three geometric choices — where the stroke sits
+  // relative to the contour, how it turns a corner, how it ends. Custom rather
+  // than Material for the reason the lasso glyphs are: each of these is a
+  // *difference between two drawings of the same thing*, which no icon in a
+  // general-purpose set expresses — and unlike a mode or a material, it can be
+  // drawn literally.
+  'cap-butt', 'cap-round', 'cap-square', 'join-miter', 'join-round',
+  'stroke-center', 'stroke-inside', 'stroke-outside',
+  // (#541) The shape tool's own button: a square with a circle over it, which
+  // is how every editor says "shapes" rather than "rectangle". Wearing the
+  // selected shape instead said "this is the rectangle tool", and hid the fact
+  // that there are four.
+  'shapes',
 ] as const
 
 export type CustomIconName = (typeof CUSTOM_ICON_NAMES)[number]

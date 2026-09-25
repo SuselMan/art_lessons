@@ -40,18 +40,36 @@ const PATH_A = [10, 35, 60, 85, 110, 135].map(x => ({ x, y: 10 }))
 const PATH_B = [10, 35, 60, 85, 110, 135].map(x => ({ x, y: 40 }))
 
 describe('liner tool (#241, ADR 003)', () => {
-  it('keeps dab width within a narrow ~±10% band across the full pressure range, unlike pencil', async () => {
+  it('holds one width across the whole usable pressure range, and thins only at a feather touch', async () => {
+    // (#532) This used to assert a narrow band across the *whole* range,
+    // because the curve was `lerp(0.94, 1.08, pressure)` — a wobble everywhere
+    // and a knee nowhere. Ilya checked it against a real fineliner: pressing
+    // harder does not widen the line at all (the nozzle is a rigid cylinder
+    // and is already fully seated), while a genuinely feather-light touch does
+    // draw thinner. So the property to pin is a plateau plus a knee, not a
+    // band — and the old assertion would have passed happily on a curve with
+    // neither.
     const engine = await setupLayer()
 
     engine.setTool('liner')
-    simulateStroke(engine, PATH_A, { pressure: 0 })
-    const linerLow = strokeDabs(lastStroke(engine))[0].size
+    simulateStroke(engine, PATH_A, { pressure: 0.35 })
+    const linerMid = strokeDabs(lastStroke(engine))[0].size
     simulateStroke(engine, PATH_B, { pressure: 1 })
     const linerHigh = strokeDabs(lastStroke(engine))[0].size
 
-    expect(linerLow).toBeGreaterThan(0)
-    // ADR 003 §1: width = baseWidth * lerp(0.94, 1.08, pressureCurve) -> ratio ~1.15.
-    expect(linerHigh / linerLow).toBeLessThan(1.2)
+    expect(linerMid).toBeGreaterThan(0)
+    // Flat: leaning on it from ordinary pressure to full changes nothing.
+    expect(linerHigh).toBeCloseTo(linerMid, 5)
+
+    // The knee: a touch light enough that the tip is not fully seated draws a
+    // real but visibly thinner line. "Visibly" is the point — the pre-#532
+    // curve put this at 0.94 of full width, which is nothing.
+    simulateStroke(engine, PATH_A.map(p => ({ x: p.x, y: p.y + 120 })), { pressure: 0.02 })
+    const linerFeather = strokeDabs(lastStroke(engine))[0].size
+
+    expect(linerFeather).toBeLessThan(linerHigh * 0.75)
+    // ADR 003 §6: thinner, never tapering toward nothing.
+    expect(linerFeather).toBeGreaterThan(linerHigh * 0.5)
 
     engine.setTool('pencil')
     simulateStroke(engine, PATH_A.map(p => ({ x: p.x, y: p.y + 60 })), { pressure: 0 })
