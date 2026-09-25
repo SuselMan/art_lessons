@@ -92,9 +92,7 @@ import { QuickSettingsBar } from './QuickSettingsBar'
 import { ToolSettingsTab } from './ToolSettingsTab'
 import { resolveDisplayName } from './displayName'
 import { ZOOM_MAX, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
-import {
-  groupLostOpsByLayer, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
-} from './lostWork'
+import { createLostWorkBatcher, recoveryOperations, type LostContentOp } from './lostWork'
 import { Outbox } from './outbox'
 import { createSocketRevival } from './socketRevival'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
@@ -860,15 +858,17 @@ function RoomEditor() {
   // merge/transform — and it stays the plain notice it has always been.
   // Deliberately not an automatic room fork (see Outbox's onSettled).
   const [lostWork, setLostWork] = useState<{ layerNames: string[]; restoredLayerIds: string[] } | null>(null)
-  // Rejected content operations waiting to be recovered as a batch. They
-  // arrive one ack at a time as the outbox drains, so recovery debounces
-  // rather than reacting to each — see scheduleLostWorkRecovery.
-  const lostContentOpsRef = useRef<LostContentOp[]>([])
-  const lostWorkTimerRef = useRef<number | null>(null)
-  const lostWorkFirstAtRef = useRef<number | null>(null)
   // Assigned once recoverLostWork exists (it needs the engine and
   // syncFromLog, both defined well below the Outbox this is called from).
-  const recoverLostWorkRef = useRef<(() => void) | null>(null)
+  const recoverLostWorkRef = useRef<((ops: LostContentOp[]) => void) | null>(null)
+  // (#312) Rejected content operations waiting to be recovered as a batch —
+  // see createLostWorkBatcher for the debounce and its cap.
+  const lostWorkBatchRef = useRef(createLostWorkBatcher({
+    onFlush: ops => recoverLostWorkRef.current?.(ops),
+    quietMs: LOST_WORK_QUIET_MS, maxWaitMs: LOST_WORK_MAX_WAIT_MS,
+    timers: { set: (fn, ms) => window.setTimeout(fn, ms), clear: id => window.clearTimeout(id) },
+    now: () => Date.now(),
+  }))
   // (#346) Same shape, same reason: `requestFullResync` is defined inside the
   // socket-wiring effect (it needs that effect's own `socket`), and the paper
   // retry below — a UI callback with no socket of its own — is what has to
@@ -1457,32 +1457,10 @@ function RoomEditor() {
     snapshotGateRef.current.restoreCompleted(latestKnownSeqRef.current)
   }, [])
 
-  // (#312) Queues one rejected content operation for recovery and (re)arms
-  // the batch timer.
-  //
-  // Debounced rather than immediate because these arrive one ack at a time
-  // as the outbox drains (MAX_CONCURRENT_SENDS at once, #298): reacting per
-  // operation would mint one replacement layer per lost stroke. Debounce
-  // alone would never fire on a long enough backlog, so it's capped — after
-  // LOST_WORK_MAX_WAIT_MS from the first rejection the batch goes through
-  // regardless, and anything still arriving simply forms the next batch.
+  // (#312) Queues one rejected content operation for recovery — see
+  // createLostWorkBatcher.
   const scheduleLostWorkRecovery = useCallback((op: LostContentOp) => {
-    lostContentOpsRef.current.push(op)
-    const now = Date.now()
-    lostWorkFirstAtRef.current ??= now
-
-    const run = () => {
-      lostWorkTimerRef.current = null
-      lostWorkFirstAtRef.current = null
-      recoverLostWorkRef.current?.()
-    }
-    if (now - lostWorkFirstAtRef.current >= LOST_WORK_MAX_WAIT_MS) {
-      if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
-      run()
-      return
-    }
-    if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
-    lostWorkTimerRef.current = window.setTimeout(run, LOST_WORK_QUIET_MS)
+    lostWorkBatchRef.current.add(op)
   }, [])
 
   // (#289 epic, reliable history spec v0.2 §9) Every outgoing operation goes
@@ -1810,33 +1788,21 @@ function RoomEditor() {
   // returns (#207): a snapshot taken after the deletion no longer contains
   // the layer, and the strokes below it get pruned, so the author's own
   // device is the last place this work exists.
-  const recoverLostWork = useCallback(() => {
-    const collected = lostContentOpsRef.current
-    lostContentOpsRef.current = []
+  const recoverLostWork = useCallback((lost: LostContentOp[]) => {
     const engine = engineRef.current
-    if (!collected.length || !engine) return
-
-    const { layerState: liveLayerState, userId } = useRoomStore.getState()
-    const log = engine.getOperations()
-    const layerNames: string[] = []
-    const restoredLayerIds: string[] = []
-
-    for (const [deadLayerId, ops] of groupLostOpsByLayer(collected)) {
-      const originalName = resolveDeletedLayerName(deadLayerId, liveLayerState, log, restoredLayerStateRef.current)
-        ?? t('room.lostWork.unnamedLayer')
-      const newLayerId = nanoid(10)
-      // Same optimistic path dispatchOp takes for local-island work: a
-      // brand-new layer and strokes onto it can't conflict with anything,
-      // since nobody else has heard of the id yet.
-      engine.appendOperation({
-        id: nanoid(10), type: 'layer_add', userId, timestamp: Date.now(),
-        layerId: newLayerId, name: t('room.lostWork.restoredLayerName', { name: originalName }),
-      })
-      for (const op of ops) engine.appendOperation(retargetToLayer(op, newLayerId, nanoid(10), Date.now()))
-      layerNames.push(originalName)
-      restoredLayerIds.push(newLayerId)
-    }
-
+    if (!lost.length || !engine) return
+    const { layerState: live, userId } = useRoomStore.getState()
+    // (#493) Which operations bring it back — see recoveryOperations. Same
+    // optimistic path dispatchOp takes for local-island work: a brand-new
+    // layer and strokes onto it can't conflict with anything, since nobody
+    // else has heard of the id yet.
+    const { operations, layerNames, restoredLayerIds } = recoveryOperations({
+      lost, live, log: engine.getOperations(), restored: restoredLayerStateRef.current, userId,
+      unnamedLayer: t('room.lostWork.unnamedLayer'),
+      restoredName: name => t('room.lostWork.restoredLayerName', { name }),
+      newId: () => nanoid(10), now: () => Date.now(),
+    })
+    for (const op of operations) engine.appendOperation(op)
     syncFromLog()
     setLostWork({ layerNames, restoredLayerIds })
   }, [syncFromLog, t])
@@ -1995,9 +1961,7 @@ function RoomEditor() {
 
   // Any pending batch dies with the room — a timer firing after unmount would
   // append to an engine that no longer exists.
-  useEffect(() => () => {
-    if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
-  }, [])
+  useEffect(() => () => { lostWorkBatchRef.current.reset() }, [])
 
   // Applies an operation that arrived from the network (room_state replay or
   // operation_confirmed) exactly once. The guard isn't full reconnect/catch-up
@@ -2281,9 +2245,7 @@ function RoomEditor() {
     pendingPreviewsRef.current = createPendingPreviews()
     streamedStrokeIdsRef.current = new Set()
     restoredLayerStateRef.current = null
-    lostContentOpsRef.current = []
-    if (lostWorkTimerRef.current !== null) { window.clearTimeout(lostWorkTimerRef.current); lostWorkTimerRef.current = null }
-    lostWorkFirstAtRef.current = null
+    lostWorkBatchRef.current.reset()
     setLostWork(null)
     setRestoreFailure(null)
     // Blocked until the new engine's replay says otherwise — the same gate a
