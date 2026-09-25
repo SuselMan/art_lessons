@@ -9,6 +9,7 @@ import {
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { CheckpointStore } from './src/checkpointStore'
+import { ScratchFreeList, ScratchSlot } from './src/scratchPools'
 import { previewDownscaleChain } from './src/previewChain'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
@@ -1828,7 +1829,7 @@ export class PencilEngine implements PencilEngineAPI {
   // _previewBuf has never been created yet or was invalidated by context
   // loss; _previewBuf itself is still nulled every stroke end (see _onEnd)
   // so _display()'s `if (this._previewBuf)` blend-skip is unaffected.
-  private _previewBufPool: AccumulationBuffer | null = null
+  private _previewBufPool: ScratchSlot<AccumulationBuffer>
 
   // Live-tip segment preview (#104) — all no-ops unless _liveTip is true.
   // _tipBuf is a dedicated, stroke-scoped AccumulationBuffer, same lifecycle
@@ -1842,7 +1843,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _tipBuf: AccumulationBuffer | null = null
   private _tipBufOrigin = { x: 0, y: 0 }
   // (#155) Same pooling as _previewBufPool above, see _acquireTipBuf.
-  private _tipBufPool: AccumulationBuffer | null = null
+  private _tipBufPool: ScratchSlot<AccumulationBuffer>
 
   // (#155) Scratch buffers for _bakeTransform's per-destination-tile pass —
   // unlike _tipBufPool/_previewBufPool (always exactly one buffer, canvas-
@@ -1854,7 +1855,7 @@ export class PencilEngine implements PencilEngineAPI {
   // Every tile a single bake touches is the same size (a room's tile grid
   // never changes shape after construction — see _tileSize), so in practice
   // this settles into a pool of uniformly-sized buffers after the first bake.
-  private _transformScratchPool: AccumulationBuffer[] = []
+  private _transformScratchPool: ScratchFreeList<AccumulationBuffer>
 
   // Smudge scratch patches (#14) — a small size-keyed free list, same
   // pooling shape as _transformScratchPool above (see
@@ -1864,7 +1865,7 @@ export class PencilEngine implements PencilEngineAPI {
   // always NEAREST (see AccumulationBuffer's own 'nearest' filter comment
   // for why) — sharing one pool would risk handing either caller a buffer
   // filtered the wrong way for what it's about to do with it.
-  private _smudgeScratchPool: AccumulationBuffer[] = []
+  private _smudgeScratchPool: ScratchFreeList<AccumulationBuffer>
 
   // Marker's own per-stroke, per-tile scratch (original content + this
   // stroke's accumulated coverage — see RibbonStrokeScratch's own doc
@@ -2492,6 +2493,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!gl) throw new Error('WebGL not supported')
     this.gl = gl
     this._ribbonScratchPool = new RibbonScratchPool(gl)
+    // (#494) See scratchPools.ts. What each buffer is set up for — transform's
+    // resample and smudge's patches sample differently — stays here.
+    this._previewBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
+    this._tipBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
+    this._transformScratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h))
+    this._smudgeScratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'))
 
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
@@ -4017,18 +4024,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._assemblyFBO.destroy()
     // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
     // are just a possibly-mid-stroke alias of the same object (see
-    // _acquirePooledBuf), so destroying via the pool alone avoids a
+    // ScratchSlot), so destroying via the pool alone avoids a
     // double-destroy of the same GL object.
-    this._previewBufPool?.destroy()
-    this._previewBufPool = null
+    this._previewBufPool.destroy()
     this._previewBuf = null
-    this._tipBufPool?.destroy()
-    this._tipBufPool = null
+    this._tipBufPool.destroy()
     this._tipBuf = null
-    for (const b of this._transformScratchPool) b.destroy()
-    this._transformScratchPool = []
-    for (const b of this._smudgeScratchPool) b.destroy()
-    this._smudgeScratchPool = []
+    this._transformScratchPool.destroy()
+    this._smudgeScratchPool.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
@@ -4704,11 +4707,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._startPaperLoad(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._previewBuf = null
-    this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
+    this._previewBufPool.forget() // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
-    this._tipBufPool = null
-    this._transformScratchPool = [] // (#155) pooled GL objects are dead too, not worth destroy()ing
-    this._smudgeScratchPool = [] // same reasoning, see #14
+    this._tipBufPool.forget()
+    this._transformScratchPool.forget() // (#155) pooled GL objects are dead too, not worth destroy()ing
+    this._smudgeScratchPool.forget() // same reasoning, see #14
     this._ribbonStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
     this._ribbonStrokeScratch = null
     // Context loss took the wash's buffers too; drop the handles without
@@ -5748,12 +5751,12 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgMaxFrame = 0
     }
     if (this._predictPointer) {
-      this._previewBuf = this._acquirePooledBuf('_previewBufPool')
+      this._previewBuf = this._previewBufPool.acquire(this.canvas.width, this.canvas.height)
       this._previewBuf.clear()
       this._previewBufOrigin = this._cameraCenteredOrigin()
     }
     if (this._liveTip) {
-      this._tipBuf = this._acquirePooledBuf('_tipBufPool')
+      this._tipBuf = this._tipBufPool.acquire(this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
       this._tipBufOrigin = this._cameraCenteredOrigin()
     }
@@ -5963,7 +5966,7 @@ export class PencilEngine implements PencilEngineAPI {
     // ended — the final _display() below must show only real content.
     // (#155) Only drops the *active* reference now, not the underlying GL
     // object — that stays alive in _previewBufPool for the next stroke to
-    // reuse (see _acquirePooledBuf). _display()'s `if (this._previewBuf)`
+    // reuse (see ScratchSlot). _display()'s `if (this._previewBuf)`
     // blend-skip is keyed on this reference, not the pool, so behavior here
     // is identical to the old destroy(); only the GL object's lifetime
     // changed.
@@ -7814,14 +7817,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  three of them per dab). Kept separate from _transformScratchPool so
    *  neither caller can be handed a buffer set up for the other's sampling. */
   private _acquireSmudgeScratchBuf(size: number): AccumulationBuffer {
-    const pool = this._smudgeScratchPool
-    const idx = pool.findIndex(b => b.width === size && b.height === size)
-    if (idx !== -1) return pool.splice(idx, 1)[0]
-    return new AccumulationBuffer(this.gl, size, size, 'linear')
+    return this._smudgeScratchPool.acquire(size, size)
   }
 
   private _releaseSmudgeScratchBuf(buf: AccumulationBuffer): void {
-    this._smudgeScratchPool.push(buf)
+    this._smudgeScratchPool.release(buf)
   }
 
   // ─── Marker (#250, ADR 004 §3; compositing redesigned in a follow-up —
@@ -9199,52 +9199,14 @@ export class PencilEngine implements PencilEngineAPI {
     return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
   }
 
-  /** (#155) Returns this[poolField], creating or recreating it first if it's
-   *  missing or the wrong size (canvas.width x canvas.height, which changes
-   *  on infinite-room resizeCanvas). Fixes a real stall: _onStart used to
-   *  `new AccumulationBuffer(...)` a fresh _tipBuf/_previewBuf on *every*
-   *  single stroke — a full GL texture + framebuffer allocation, capped off
-   *  by AccumulationBuffer's own checkFramebufferStatus call (a known
-   *  GPU-sync point on some drivers) — then destroy it again at stroke end.
-   *  Harmless for a bounded room (buffer size = the room's fixed page size),
-   *  but for an infinite room this is sized to the DPR-scaled *viewport*
-   *  (see #154) — multi-megapixel on a real tablet — so every single
-   *  pointerdown paid a real allocation + sync stall. Measured on-device via
-   *  Chrome's own Interaction-to-Next-Paint breakdown: ~1s presentation
-   *  delay on a `pointerdown`, with JS-side processing under 20ms — exactly
-   *  a GPU-side stall the engine's own JS-timing stats (StrokeDebugStats)
-   *  can't see, since they only time the per-move paint path, not stroke
-   *  start. Fastest to notice writing short strokes quickly (many
-   *  pointerdowns in a row), which is exactly what surfaced this.
-   *
-   *  Reusing the same GL object across strokes (only reallocating on an
-   *  actual size change) turns that into a no-op after the first stroke.
-   *  The pool field stays alive across strokes; the *active* _tipBuf/
-   *  _previewBuf reference is still nulled at stroke end (see _onEnd) so
-   *  _display()'s `if (this._tipBuf)` blend-skip when idle is unaffected —
-   *  only the underlying GL object's lifetime changed, not the preview's own
-   *  visibility semantics. */
-  private _acquirePooledBuf(poolField: '_tipBufPool' | '_previewBufPool'): AccumulationBuffer {
-    const { canvas } = this
-    const existing = this[poolField]
-    if (existing && existing.width === canvas.width && existing.height === canvas.height) return existing
-    existing?.destroy()
-    const fresh = new AccumulationBuffer(this.gl, canvas.width, canvas.height)
-    this[poolField] = fresh
-    return fresh
-  }
-
   // (#155) _transformScratchPool's acquire/release pair — see the field's
   // own comment for why this is a free list rather than a single slot.
   private _acquireScratchBuf(width: number, height: number): AccumulationBuffer {
-    const pool = this._transformScratchPool
-    const idx = pool.findIndex(b => b.width === width && b.height === height)
-    if (idx !== -1) return pool.splice(idx, 1)[0]
-    return new AccumulationBuffer(this.gl, width, height)
+    return this._transformScratchPool.acquire(width, height)
   }
 
   private _releaseScratchBuf(buf: AccumulationBuffer): void {
-    this._transformScratchPool.push(buf)
+    this._transformScratchPool.release(buf)
   }
 
   /** (#138) World point that a live-tip/predicted/peer-reveal preview

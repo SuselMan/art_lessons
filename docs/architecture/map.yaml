@@ -950,6 +950,7 @@ modules:
       - apps/web/src/engine/src/tileMath*.ts
       - apps/web/src/engine/src/retileSnapshot*.ts
       - apps/web/src/engine/src/pinnedTiles*.ts
+      - apps/web/src/engine/src/scratchPools*.ts
     notes:
       - >-
         Формат приколотых чекпойнтов (#467) намеренно живёт только в памяти процесса: на диск
