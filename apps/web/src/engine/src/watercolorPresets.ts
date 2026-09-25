@@ -688,7 +688,11 @@ const PIGMENT_RUN_WET_RADII = 80
 //  штриха выглядит насыщеннее всегда". A loaded brush does dump on landing.
 //  (#536, s17.20, twice) 1.6, from 0.9, over 1.2 radii: "вначале штриха
 //  должно ложиться больше пигмента всё ещё".
-const WATERCOLOR_START_EXCESS = 1.6
+// (s17.37) Split by the dwell test: a touch with no pause is only a little
+// darker than the body (base), a pause unloads the reservoir (dwell part,
+// at full saturation). The photograph's dwell puddle is ~2x the body.
+const WATERCOLOR_START_EXCESS_BASE = 0.3
+const WATERCOLOR_START_EXCESS_DWELL = 1.8
 
 /** How fast that surplus is spent, in the brush's own radii. Under one radius
  *  on purpose. Two to four radii — the first number reached for — is a
@@ -724,12 +728,16 @@ export const WC_WET_PULL = 1.0
  *  lays along the stroke. Two records the front reads apart (see the seed
  *  in WC_FIELD_OP_FRAG): the film's edge is the stroke's contour, the
  *  puddle's front dries last and runs ragged into the film. */
-export function watercolorPuddleDepth(usedRadii: number, landedWet: number, paperWet: number): number {
+export function watercolorPuddleDepth(usedRadii: number, landedWet: number, paperWet: number, dwellMs = 0): number {
   // The landing puddle runs out over WC_PUDDLE_RADII of travel - slower than
   // the deposit's surplus (WATERCOLOR_START_EXCESS_RADII): the photographs'
   // dark start is one to two stroke widths long. None on a wet landing:
   // there the sheet's water is the puddle (the w term).
-  const e = (1 - clamp01(landedWet)) * Math.exp(-usedRadii / WC_PUDDLE_RADII)
+  // (s17.37) ...and none without a DWELL: a brush that lands and goes lays
+  // a film from the first touch (the dwell test's first stroke has no
+  // puddle edge); the puddle is what the standing brush's reservoir
+  // leaves, by the time it stood.
+  const e = watercolorDwellWater(dwellMs) * (1 - clamp01(landedWet)) * Math.exp(-usedRadii / WC_PUDDLE_RADII)
   const w = clamp01(paperWet / WC_PUDDLE_WET_FULL)
   return 1 - (1 - WC_FILM_STAND) * (1 - e) * (1 - w)
 }
@@ -762,9 +770,30 @@ export function watercolorTravelQuantum(radiusPx: number): number {
 export const WC_TRAVEL_QUANTUM = 0.06
 export const WC_TRAVEL_QUANTUM_MIN_PX = 1.5
 
-export function watercolorStartExcess(usedRadii: number, landedWet: number): number {
+export function watercolorStartExcess(usedRadii: number, landedWet: number, dwellMs = 0): number {
   const gate = 1 - clamp01(landedWet)
-  return 1 + WATERCOLOR_START_EXCESS * gate * Math.exp(-usedRadii / WATERCOLOR_START_EXCESS_RADII)
+  // (s17.37) The surplus is mostly the brush's DWELL on landing: Ilya's
+  // dwell test - no pause, a start only a little darker with no edge; a
+  // pause, a dark landing puddle growing with it. A base for the moment
+  // of contact, the rest by the time the brush stood.
+  const dose = WATERCOLOR_START_EXCESS_BASE + WATERCOLOR_START_EXCESS_DWELL * watercolorDwellPigment(dwellMs)
+  return 1 + dose * gate * Math.exp(-usedRadii / WATERCOLOR_START_EXCESS_RADII)
+}
+// ─── The landing dwell (#536, ADR 011 s17.37) ───────────────────────────────
+//
+// How long the brush stood at its landing before it moved (t_eff: the time
+// the nib stayed within WC_DWELL_RADIUS of the landing point), and what it
+// does: the reservoir unloads water and pigment while it stands, saturating
+// as an exponential - the water faster than the pigment (the design thread's
+// tau_w 0.35-0.6 s, tau_p 0.5-0.8 s). Both 0..1.
+export const WC_DWELL_RADIUS = 0.3
+export const WC_DWELL_TAU_WATER_MS = 450
+export const WC_DWELL_TAU_PIGMENT_MS = 650
+export function watercolorDwellWater(dwellMs: number): number {
+  return 1 - Math.exp(-Math.max(dwellMs, 0) / WC_DWELL_TAU_WATER_MS)
+}
+export function watercolorDwellPigment(dwellMs: number): number {
+  return 1 - Math.exp(-Math.max(dwellMs, 0) / WC_DWELL_TAU_PIGMENT_MS)
 }
 
 /** Water remaining after `usedRadii` radii of travel, as a fraction of the
@@ -1000,7 +1029,7 @@ export const WC_TIDE_RIM = 1.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r12 (§17.35)'
+export const WATERCOLOR_ROUND = 'акварель r13 (§17.37)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

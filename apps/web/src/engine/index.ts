@@ -71,7 +71,7 @@ import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -1764,11 +1764,14 @@ class RibbonStrokeScratch {
     wetPeak: number
     /** (#536, §17.23) The widest dab radius of the operation, px. */
     radiusPx: number
+    /** (#536, §17.37) How long the brush stood on landing, ms. */
+    dwellMs: number
   } | null = null
 
   noteFinish(ctx: NonNullable<RibbonStrokeScratch['_finish']>): void {
     const prev = this._finish
     if (!prev) { this._finish = ctx; return }
+    prev.dwellMs = Math.max(prev.dwellMs, ctx.dwellMs)
     prev.bounds = {
       minX: Math.min(prev.bounds.minX, ctx.bounds.minX),
       minY: Math.min(prev.bounds.minY, ctx.bounds.minY),
@@ -1839,9 +1842,20 @@ class RibbonStrokeScratch {
   /** (§17.28) Counts the gestures of this wash; the film buffers of a tile
    *  are refreshed when a batch arrives from a gesture they were not made for. */
   gesture = 0
+  /** (#536, §17.37) The gesture's landing: where the nib came down and its
+   *  radius there, and how long it stood within WC_DWELL_RADIUS of it before
+   *  moving on (the dabs' own clock, Dab.t). Frozen once a dab leaves. Per
+   *  gesture, and a pure function of the operation's dabs, so a replay
+   *  counts the same dwell to the millisecond. */
+  landing: { x: number; y: number; r: number; t: number } | null = null
+  dwellMs = 0
+  dwellDone = false
   beginStroke(): void {
     this.lastKept = undefined
     this.gesture++
+    this.landing = null
+    this.dwellMs = 0
+    this.dwellDone = false
     this._waterUsed = 0
     // (#536) Including everything the brush drank from the paper last stroke.
     // The exchange is intra-stroke by decision — see watercolorWaterClock's own
@@ -8390,6 +8404,16 @@ export class PencilEngine implements PencilEngineAPI {
         // point for a dwell tick — both are "no direction", and both are what
         // the null branch answers.
         const minor = dab.size * 0.5 * preset.sizeMultiplier
+        // (§17.37) The landing dwell: the time the nib has stayed within
+        // WC_DWELL_RADIUS of where it came down, on the dabs' own clock.
+        // Read per dab as it stands so far, so a live stroke's landing
+        // dabs and a replay's see the same values in the same order.
+        if (!scratch.landing) scratch.landing = { x: dab.x, y: dab.y, r: minor * Math.max(dab.aspectRatio, 1), t: dab.t }
+        else if (!scratch.dwellDone) {
+          const L = scratch.landing
+          if (Math.hypot(dab.x - L.x, dab.y - L.y) <= WC_DWELL_RADIUS * L.r) scratch.dwellMs = Math.max(scratch.dwellMs, dab.t - L.t)
+          else scratch.dwellDone = true
+        }
         const dx = prev ? dab.x - prev.x : 0
         const dy = prev ? dab.y - prev.y : 0
         const travelAngle = Math.hypot(dx, dy) > 0.01 ? Math.atan2(dy, dx) : null
@@ -8432,9 +8456,9 @@ export class PencilEngine implements PencilEngineAPI {
         // one: a brush that drank from a puddle halfway along has not gone back
         // to being freshly set down, and the touch-down surplus is about the
         // moment of landing.
-        const excess = profile.waterDepletion ? watercolorStartExcess(pigUsed, landedWet) : 1
+        const excess = profile.waterDepletion ? watercolorStartExcess(pigUsed, landedWet, scratch.dwellMs) : 1
         excessByDab.set(dab, excess)
-        puddleByDab.set(dab, watercolorPuddleDepth(pigUsed, landedWet, wetHere))
+        puddleByDab.set(dab, watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
         if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
@@ -8688,7 +8712,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     scratch.noteFinish({
       target, preset, profile, color, opacity: drawable[0].opacity,
-      bounds: compositeBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius,
+      bounds: compositeBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius, dwellMs: scratch.dwellMs,
     })
 
     target.markContentPainted(compositeBounds)
@@ -8813,7 +8837,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number] } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number] } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -8845,6 +8869,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_origin, opts.origin ? opts.origin[0] : 0, opts.origin ? opts.origin[1] : 0)
     gl.uniform2f(u.u_size, opts.size ? opts.size[0] : out.width, opts.size ? opts.size[1] : out.height)
     gl.uniform2f(u.u_band, opts.band ? opts.band[0] : 0, opts.band ? opts.band[1] : 0)
+    gl.uniform3fv(u.u_tau, opts.tau ?? [0, 0, 0])
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
     out.endDraw()
@@ -8950,6 +8975,9 @@ export class PencilEngine implements PencilEngineAPI {
     /** (§17.25) The wettest paper the mark ran over: how far its water
      *  joined an earlier mark's puddle (watercolorPuddleMerge). */
     wetPeak = 0,
+    /** (§17.37) How long the brush stood on landing, ms: the strength of
+     *  the line where its landing puddle's front met the film. */
+    dwellMs = 0,
   ): { ops: Array<() => void>; finish: () => void } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
@@ -9165,7 +9193,7 @@ export class PencilEngine implements PencilEngineAPI {
       ops.push(() => {
         this._fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
         this._fieldOp(field.coverage, tmp, tmp, 1, 0)
-        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1] })
+        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1], tau: [watercolorDwellWater(dwellMs), 0, 0] })
         this._fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
         let gs = tmp, gd = field.mask
         for (let i = 1; i < gather.length; i++) { this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
@@ -9585,7 +9613,7 @@ export class PencilEngine implements PencilEngineAPI {
       const job = this._diffuseWashOps(
         scratch, targets, bounds, bloom, ctx.radiusPx,
         profile.waterLevel, ctx.landedWet, delivery.water * (delivery.retain + (1 - delivery.retain) * Math.min(1, ctx.landedWet)),
-        ctx.wetPeak,
+        ctx.wetPeak, ctx.dwellMs,
       )
       if (job) {
         const complete = (): void => {

@@ -2930,6 +2930,8 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_RIM_VALLEY_HI = 0.6;
   // (s17.26) How much rim a texel keeps where the record says no water stood.
   const float WC_RIM_DRY_FLOOR = 0.15;
+  // (s17.37) The landing puddle's edge against the stroke's contour, per length.
+  const float WC_BACKRUN_GAIN = 2.5;
   // (s17.27) The share of the mark's standing level below which its water
   // did not stand: the front's seed ends there.
   const float WC_SEED_FILM_LO = 0.15;
@@ -3169,7 +3171,18 @@ export const WC_FIELD_OP_FRAG = `
       // paint, so a landing reads darker with a soft edge, which is what
       // the photographs of a loaded wet stroke show (series 1); the hard
       // dark start of a thin wash (series 2) waits for the dwell test.
-      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail, 1.0);
+      // (s17.37) ...and back, by the landing DWELL (u_tau.x, 0..1): the
+      // dwell test showed the hard edge is the front of a puddle the
+      // standing brush left, growing with the pause, and absent without
+      // one - not a rim of every landing. The seed is the puddle
+      // (watercolorPuddleDepth by dwell), the line its front in the film.
+      float filmCost = u_band.x - u_size.x;
+      float wOut = u_band.y * u_size.x / u_size.y;
+      float backrun = u_tau.x * inside * smoothstep(filmCost - wOut, filmCost - 0.4 * wOut, costOut) * (1.0 - smoothstep(filmCost - 0.6 * u_size.x, filmCost - 0.3 * u_size.x, costOut));
+      // The puddle's edge weighs WC_BACKRUN_GAIN times the contour per unit
+      // of length: the puddle holds the reservoir's dose and its rim dries
+      // against the film, the photograph's edge is darker than any contour.
+      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail, 1.0) + WC_BACKRUN_GAIN * backrun;
       // (s17.26) Where water actually stood, from the coverage's record
       // (b, extended over the domain): a rim forms where a puddle dried,
       // not along a stroke that ran dry. u_origin.x is the mark's own

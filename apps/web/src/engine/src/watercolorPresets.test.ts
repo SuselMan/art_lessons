@@ -23,7 +23,7 @@ import {
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
-  watercolorWashSignature, watercolorStartExcess,
+  watercolorWashSignature, watercolorStartExcess, watercolorPuddleDepth, WC_FILM_STAND,
 } from './watercolorPresets'
 import { watercolorPigmentByCode, WATERCOLOR_PIGMENTS, DEFAULT_WATERCOLOR_PIGMENT } from './watercolorPigments'
 import { brushPenWidth } from './brushPenPresets'
@@ -945,7 +945,17 @@ describe('paper wetness against brush water (#536)', () => {
 describe('the touch-down surplus (#536)', () => {
   it('is a short surplus, not a second depletion curve', () => {
     // Heavier as the brush lands…
+    // (s17.37) A touch with no pause: a little; with a two-second dwell:
+    // about twice the body, as the dwell test photographed.
     expect(watercolorStartExcess(0, 0)).toBeGreaterThan(1.1)
+    expect(watercolorStartExcess(0, 0)).toBeLessThan(1.5)
+    expect(watercolorStartExcess(0, 0, 2000)).toBeGreaterThan(2)
+    expect(watercolorStartExcess(0, 0, 500)).toBeGreaterThan(watercolorStartExcess(0, 0))
+    expect(watercolorStartExcess(0, 0, 500)).toBeLessThan(watercolorStartExcess(0, 0, 2000))
+    // ...and the puddle seed only with a dwell: a landing that moves on at
+    // once lays a film, a landing that stood a while a puddle.
+    expect(watercolorPuddleDepth(0, 0, 0, 0)).toBeCloseTo(WC_FILM_STAND, 6)
+    expect(watercolorPuddleDepth(0, 0, 0, 2000)).toBeGreaterThan(0.95)
     // …and spent within a radius or two, which is the whole difference between
     // "the brush arrived carrying something" and a dark segment at the start of
     // every line. A flat wash is a series of bands; at four radii this would be
