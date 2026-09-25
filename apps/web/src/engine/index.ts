@@ -1409,6 +1409,14 @@ const CHECKPOINT_REFUSAL_ALARM = 20
 // raising them separately (see apps/server/src/index.ts's maxHttpBufferSize)
 // already buys. See _flushStrokeChunk's own comment for the mechanism.
 const STROKE_DAB_CHUNK_LIMIT = 800
+/** (#536, §17.43) ...and a watercolour chunk is also cut by its SPAN: the
+ *  settle works in a field capped at 1536 px a side (_diffuseWashOps), and a
+ *  sheet-wide sweep whose chunk outgrew it settled inside a window with a
+ *  wall at its edge - the front, the carry and the tide stopped at a
+ *  straight line, and the paint past it never reached the dry target
+ *  (Ilya's room HcpkzwNX: vertical seams through every big wash). Cut at a
+ *  span that leaves room for the field's pad on both sides. */
+const WC_STROKE_CHUNK_SPAN_PX = 1100
 
 /** (#536, ADR 011 §17.12) How long the screen takes to converge on a wash's
  *  settled picture after pen-up. Presentation only: the layer holds the dry
@@ -2934,6 +2942,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  rejoins the chunks through _replayChunkScratch, so the author and
    *  everyone else were looking at different marks. */
   private _strokeChunkTail: Dab | undefined
+  /** (#536, §17.43) The current chunk's dab bounds, for the span cut. */
+  private _strokeChunkBox: { minX: number; minY: number; maxX: number; maxY: number } | null = null
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278/#489: the active tool's live nib angle — canvas-space radians (the
@@ -6510,6 +6520,7 @@ export class PencilEngine implements PencilEngineAPI {
     // replayed path go through exactly one rule (see _smudgeResumeGesture).
     this._strokeDabs    = []
     this._strokeChunkTail = undefined
+    this._strokeChunkBox = null
     // #482: the running arc length and the speed-contact factor both used to
     // live here as per-stroke engine fields. They are tip state now (TipState),
     // reset by DabSystem alongside the bend and the input filters — one record
@@ -6835,6 +6846,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
     this._strokeChunkTail = undefined
+    this._strokeChunkBox = null
     // (#536) …and only now may the *next* stroke read it. It has been on screen
     // since the first dab — see PaperWetness._pending on why those are two
     // different questions.
@@ -7195,6 +7207,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._scheduleDryingRepaint()
     }
     this._strokeDabs.push(...dabs)
+    for (const d of dabs) this._noteChunkDab(d)
     // (#429) Same dab objects, queued for the live channel — see
     // onLiveStrokeDabs on why both paths must read the one baked result.
     if (this._onLiveStrokeDabs) { this._liveDabQueue.push(...dabs); this._emitLiveDabsIfDue() }
@@ -7210,7 +7223,7 @@ export class PencilEngine implements PencilEngineAPI {
     // A stroke held down long enough (a big fill, a slow scribble) can
     // accumulate dabs indefinitely — see STROKE_DAB_CHUNK_LIMIT's own
     // comment on why that's a real problem, not just a memory nicety.
-    if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
+    if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT || this._chunkSpanExceeded()) this._flushStrokeChunk()
   }
 
   /** (#520) Lays this batch of already-baked dabs into every *other* layer the
@@ -7319,13 +7332,14 @@ export class PencilEngine implements PencilEngineAPI {
     // silently doesn't.
     this._paintExtraLayers([dab])
     this._strokeDabs.push(dab)
+    this._noteChunkDab(dab)
     // (#429) A dwell dab is a real dab of this gesture — it goes into the
     // operation, so it has to go down the live channel too, or a peer's
     // pre-painted prefix would drift out of step with the operation's own
     // dab count and the claim would skip the wrong ones.
     if (this._onLiveStrokeDabs) { this._liveDabQueue.push(dab); this._emitLiveDabsIfDue() }
     if (this._strokeLayerId !== this._activeId) this._invalidateSplitCache()
-    if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
+    if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT || this._chunkSpanExceeded()) this._flushStrokeChunk()
     this._scheduleDisplay()
   }
 
@@ -7381,6 +7395,23 @@ export class PencilEngine implements PencilEngineAPI {
     this._liveWetQueue = ''
   }
 
+  private _noteChunkDab(d: Dab): void {
+    const b = this._strokeChunkBox
+    if (!b) { this._strokeChunkBox = { minX: d.x, minY: d.y, maxX: d.x, maxY: d.y }; return }
+    if (d.x < b.minX) b.minX = d.x
+    if (d.x > b.maxX) b.maxX = d.x
+    if (d.y < b.minY) b.minY = d.y
+    if (d.y > b.maxY) b.maxY = d.y
+  }
+
+  /** (#536, §17.43) Whether the watercolour chunk in progress has grown past
+   *  the settle field's reach - see WC_STROKE_CHUNK_SPAN_PX. */
+  private _chunkSpanExceeded(): boolean {
+    const b = this._strokeChunkBox
+    if (!b || this._strokeTool !== 'watercolor') return false
+    return Math.max(b.maxX - b.minX, b.maxY - b.minY) + this._opts.size > WC_STROKE_CHUNK_SPAN_PX
+  }
+
   private _flushStrokeChunk(): void {
     const layerId = this._strokeLayerId
     if (!layerId || !this._strokeDabs.length) return
@@ -7407,6 +7438,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._strokeChunkTail = this._strokeDabs[this._strokeDabs.length - 1]
     this._strokeDabs = []
+    this._strokeChunkBox = null
     // Drained with the dabs it belongs to: the next chunk's profile starts at
     // its own first dab, exactly as a replayed operation's does.
     this._strokeWet = ''
@@ -10671,6 +10703,29 @@ export class PencilEngine implements PencilEngineAPI {
 
     // …and home, tile by tile — and this is the new settled deposit.
     const finish = (): void => {
+      // (§17.43) The dry target first catches up with the deposit over the
+      // WHOLE gesture, window or no window: a stroke wider than the field
+      // (a replayed sheet-wide sweep from before the span cut) has paint
+      // outside the rect that no settle touched, and the composite reads
+      // the dry target - that paint had simply vanished from the picture.
+      if (groupDry) {
+        const bx0 = Math.floor(bounds.minX) - pad, by0 = Math.floor(bounds.minY) - pad
+        const bx1 = Math.ceil(bounds.maxX) + pad, by1 = Math.ceil(bounds.maxY) + pad
+        for (const tile of targets) {
+          const entry = scratch.peek(tile.buffer)
+          if (!entry?.inkLoad) continue
+          const rx0 = Math.max(bx0, tile.originX), ry0 = Math.max(by0, tile.originY)
+          const rx1 = Math.min(bx1, tile.originX + tile.buffer.width), ry1 = Math.min(by1, tile.originY + tile.buffer.height)
+          if (rx1 <= rx0 || ry1 <= ry0) continue
+          const tx = rx0 - tile.originX, ty = tile.buffer.height - (ry1 - tile.originY)
+          if (!entry.inkDry) { entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); entry.inkLoad.copyTo(entry.inkDry) }
+          else entry.inkLoad.copyRegionInto(entry.inkDry, tx, ty, tx, ty, rx1 - rx0, ry1 - ry0)
+          if (entry.inkColor) {
+            if (!entry.colorDry) { entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); entry.inkColor.copyTo(entry.colorDry) }
+            else entry.inkColor.copyRegionInto(entry.colorDry, tx, ty, tx, ty, rx1 - rx0, ry1 - ry0)
+          }
+        }
+      }
       for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
         const entry = scratch.peek(tile.buffer)
         if (!entry?.inkLoad || !entry.inkSettled) continue
@@ -10685,24 +10740,33 @@ export class PencilEngine implements PencilEngineAPI {
           col.out.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
         }
         if (dry) {
+          // (§17.43) First the wet state over the whole of this tile's part of
+          // the field: the field is capped (CAP above), and a sweep wider than
+          // it left the dry target past the window at whatever it held before
+          // this stroke - the paint outside the window vanished from the
+          // composite. Then the dry result over the field less its margin.
+          if (!entry.inkDry) {
+            entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+            entry.inkLoad.copyTo(entry.inkDry)
+          } else {
+            dep.out.copyRegionInto(entry.inkDry, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+          }
+          if (entry.inkColor) {
+            if (!entry.colorDry) {
+              entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+              entry.inkColor.copyTo(entry.colorDry)
+            } else {
+              col.out.copyRegionInto(entry.colorDry, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+            }
+          }
           // The dry target over the field less its margin (see `pad`): where
           // the field was clipped by the tile's own edge there is no margin
           // to leave, the tile ends there.
           const ix0 = ox0 === x0 && x0 > minX ? ox0 + dryMargin : ox0, iy0 = oy0 === y0 && y0 > minY ? oy0 + dryMargin : oy0
           const ix1 = ox1 === x1 && x1 < maxX ? ox1 - dryMargin : ox1, iy1 = oy1 === y1 && y1 < maxY ? oy1 - dryMargin : oy1
           if (ix1 <= ix0 || iy1 <= iy0) continue
-          if (!entry.inkDry) {
-            entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-            entry.inkLoad.copyTo(entry.inkDry)
-          }
           dry.dep.copyRegionInto(entry.inkDry, ix0 - x0, field.h - (iy1 - y0), ix0 - tile.originX, tile.buffer.height - (iy1 - tile.originY), ix1 - ix0, iy1 - iy0)
-          if (entry.inkColor) {
-            if (!entry.colorDry) {
-              entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-              entry.inkColor.copyTo(entry.colorDry)
-            }
-            dry.col.copyRegionInto(entry.colorDry, ix0 - x0, field.h - (iy1 - y0), ix0 - tile.originX, tile.buffer.height - (iy1 - tile.originY), ix1 - ix0, iy1 - iy0)
-          }
+          if (entry.inkColor && entry.colorDry) dry.col.copyRegionInto(entry.colorDry, ix0 - x0, field.h - (iy1 - y0), ix0 - tile.originX, tile.buffer.height - (iy1 - tile.originY), ix1 - ix0, iy1 - iy0)
         }
       }
     }
