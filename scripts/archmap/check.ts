@@ -7,6 +7,7 @@
  *   - a source file no module claims  → the map has not caught up with the code
  *   - a file two modules claim        → the map contradicts itself
  *   - a glob that matches nothing     → the code moved out from under the map
+ *   - a file over its line budget     → it grew again after being cut down (#493)
  *
  * Run it in CI next to typecheck/lint/test. Adding a folder then costs one paragraph of prose,
  * which is the whole point: the paragraph is the part a reader actually needs.
@@ -43,12 +44,37 @@ function main(): void {
     problems.push('  Код переехал — поправь или удали запись.');
   }
 
+  // (#493) Budgets. Room/index.tsx grew by about as much as a month of
+  // decomposition took out of it — every new feature landed in the one file —
+  // so cutting it down without a ceiling was a treadmill. The ceiling is what
+  // makes each extraction stick.
+  const notes: string[] = [];
+  const loc = new Map(files.map((f) => [f.path, f.loc]));
+  for (const b of map.budgets ?? []) {
+    const n = loc.get(b.file);
+    if (n === undefined) {
+      problems.push(`бюджет указывает на файл, которого нет: ${b.file}`);
+      continue;
+    }
+    if (n > b.maxLines) {
+      problems.push(
+        `${b.file}: ${n} строк при бюджете ${b.maxLines} (+${n - b.maxLines}).`,
+        `  ${b.why}`,
+        '  Новое — рядом, хуком или модулем, а не в этот файл. Если без этого никак — подними',
+        '  бюджет в map.yaml отдельной строкой и напиши в коммите, почему.',
+      );
+    } else if (b.maxLines - n >= 100) {
+      notes.push(`  ${b.file}: ${n} строк, бюджет ${b.maxLines} — можно ужать.`);
+    }
+  }
+
   const covered = files.length - a.unclaimed.length;
   if (!problems.length) {
     console.log(
       `map:check ok — ${map.modules.length} модулей описывают все ${files.length} файлов ` +
         `(${map.layers.length} слоёв, ${map.flows.length} потока).`,
     );
+    for (const line of notes) console.log(line);
     return;
   }
 

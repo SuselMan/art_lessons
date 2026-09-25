@@ -67,11 +67,22 @@ export interface FlowDef {
   steps: FlowStep[];
 }
 
+/** (#493) A ceiling on one file's length — a ratchet, not an aspiration.
+ *  `map:check` fails when the file outgrows it; when code is moved out, the
+ *  ceiling is lowered to match in the same change, and it never goes back up
+ *  without someone writing down why. */
+export interface BudgetDef {
+  file: string;
+  maxLines: number;
+  why: string;
+}
+
 export interface ArchMap {
   groups: GroupDef[];
   layers: LayerDef[];
   modules: ModuleDef[];
   flows: FlowDef[];
+  budgets?: BudgetDef[];
 }
 
 export interface FileFacts {
