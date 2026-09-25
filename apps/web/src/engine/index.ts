@@ -12675,32 +12675,21 @@ export class PencilEngine implements PencilEngineAPI {
     // and shifts every texel off the cell it stands for, which is how the
     // overlay ended up both wider than the brush and blocky.
     const w = inW + 2, h = inH + 2
+    // (§17.44) One pass over the field, then the two filters separably: the
+    // 5x5 max of the body as two 5-tap passes, the tent as it was.
+    const raster = this._paperWet.raster(b.minCx, b.minCy, step, inW, inH, now)
     const cells = new Float32Array(w * h)
-    for (let ty = 0; ty < inH; ty++) {
-      for (let tx = 0; tx < inW; tx++) {
-        // The wettest cell in the texel's footprint, not the average: a puddle
-        // must not thin out just because the map got coarse.
-        let best = 0
-        for (let sy = 0; sy < step; sy++) {
-          for (let sx = 0; sx < step; sx++) {
-            const v = this._paperWet.atCell(b.minCx + tx * step + sx, b.minCy + ty * step + sy, now)
-            if (v > best) best = v
-          }
-        }
-        cells[(ty + 1) * w + (tx + 1)] = best
-      }
-    }
-    // (#536, §17.22) Two channels, both derived here rather than in the
-    // compose shader: the 3x3 binomial tent the sheen reads (L) and the 5x5
-    // body level the edge is normalised by (A). The shader used to take 34
-    // samples of this map per SCREEN pixel per frame for a field of a few
-    // thousand texels that changes eight times a second — measured at 2.6 ms
-    // a frame on a desktop GPU with half the screen wet, the single largest
-    // cost of a watercolor session. The tent commutes with the bilinear
-    // filter, so its value at any screen pixel is bit-for-bit what the nine
-    // taps gave; the body is a plateau level and reads the same to the eye.
+    for (let ty = 0; ty < inH; ty++) cells.set(raster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
     const data = new Uint8Array(w * h * 2)
     const at = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : cells[y * w + x]
+    const rowMax = new Float32Array(w * h)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let m = 0
+        for (let i = -2; i <= 2; i++) { const v = at(x + i, y); if (v > m) m = v }
+        rowMax[y * w + x] = m
+      }
+    }
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const tent = (
@@ -12709,7 +12698,7 @@ export class PencilEngine implements PencilEngineAPI {
           + at(x + 1, y + 1) + at(x - 1, y + 1) + at(x + 1, y - 1) + at(x - 1, y - 1)
         ) * 0.0625
         let body = 0
-        for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) body = Math.max(body, at(x + i, y + j))
+        for (let j = -2; j <= 2; j++) { const yy = y + j; if (yy < 0 || yy >= h) continue; const v = rowMax[yy * w + x]; if (v > body) body = v }
         data[(y * w + x) * 2] = Math.round(Math.min(tent, 1) * 255)
         data[(y * w + x) * 2 + 1] = Math.round(Math.min(body, 1) * 255)
       }

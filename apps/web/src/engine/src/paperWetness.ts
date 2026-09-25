@@ -54,7 +54,9 @@ export const WET_CELL_PX = 8
 //  his estimate.
 export const WET_DRY_MS = 60000
 
-interface WetCell { w: number; at: number }
+/** (#536, §17.44) cx, cy: the cell's own indices, so a pass over the field
+ *  (raster) never parses its key. */
+interface WetCell { w: number; at: number; cx: number; cy: number }
 
 function key(cx: number, cy: number): string {
   return `${cx},${cy}`
@@ -136,7 +138,7 @@ export class PaperWetness {
         const k = key(cx, cy)
         const prev = cells.get(k)
         const held = prev ? PaperWetness._decayed(prev, now) : 0
-        cells.set(k, { w: Math.max(held, amount), at: now })
+        cells.set(k, { w: Math.max(held, amount), at: now, cx, cy })
       }
     }
     this._notePeak(amount, now)
@@ -236,7 +238,7 @@ export class PaperWetness {
         const prev = dst.get(k)
         const held = prev ? PaperWetness._decayed(prev, now) : 0
         const w = Math.max(held, cell.w)
-        dst.set(k, { w, at: cell.at })
+        dst.set(k, { w, at: cell.at, cx: cell.cx, cy: cell.cy })
         // The committed cell can be *wetter than it was* on a clock that has
         // just been restarted — a stroke laid inside a standing puddle carries
         // the puddle's own level forward with a fresh drying window. The peak
@@ -374,8 +376,8 @@ export class PaperWetness {
     for (const [, cells] of [...this._layers, ...this._pending]) {
       for (const [k, cell] of cells) {
         if (PaperWetness._decayed(cell, now) <= 0.01) continue
-        const comma = k.indexOf(',')
-        const cx = Number(k.slice(0, comma)), cy = Number(k.slice(comma + 1))
+        void k
+        const { cx, cy } = cell
         if (cx < minCx) minCx = cx
         if (cy < minCy) minCy = cy
         if (cx > maxCx) maxCx = cx
@@ -383,6 +385,28 @@ export class PaperWetness {
       }
     }
     return minCx === Infinity ? null : { minCx, minCy, maxCx, maxCy }
+  }
+
+  /** (#536, §17.44) The whole field, every layer unioned, as a grid of
+   *  inW x inH samples, each the wettest cell of its step x step block from
+   *  (minCx, minCy): one pass over the cells. The display used to ask
+   *  atCell for every cell of every block - a string key and two array
+   *  spreads per lookup, 170 000 of them every 120 ms on a sheet-wide wash,
+   *  50 ms a frame on the tablet. */
+  raster(minCx: number, minCy: number, step: number, inW: number, inH: number, now: number): Float32Array {
+    const out = new Float32Array(inW * inH)
+    const pass = (cells: Map<string, WetCell>): void => {
+      for (const cell of cells.values()) {
+        const tx = Math.floor((cell.cx - minCx) / step), ty = Math.floor((cell.cy - minCy) / step)
+        if (tx < 0 || ty < 0 || tx >= inW || ty >= inH) continue
+        const w = PaperWetness._decayed(cell, now)
+        const i = ty * inW + tx
+        if (w > out[i]) out[i] = w
+      }
+    }
+    for (const cells of this._layers.values()) pass(cells)
+    for (const cells of this._pending.values()) pass(cells)
+    return out
   }
 
   /** Wetness at a cell, taking the wettest layer — see bounds() on why the
