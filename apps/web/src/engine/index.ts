@@ -9926,7 +9926,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number] } = {},
   ): void {
     const { gl } = this
@@ -10345,35 +10345,40 @@ export class PencilEngine implements PencilEngineAPI {
         // settles and relocates with the new paint, to the MERGED front.
         // Without this the earlier pass's tideline stayed put under the
         // next pass, and a flat wash came out as a ladder of inner rims.
-        // The gate (the mask of the mobile field) in `mask` and the merged
-        // field through `band` - both free until the front writes them;
-        // not `spare`, which is the colour record's deposit here.
-        if (merge > 0) {
-          this._fieldOp(field.mask, c, c, 4, 0.003)
-          // All of it, not the mobile share: paint that never dried is not
-          // partly settled, and the quarter that stayed behind was a faint
-          // line at every pass boundary of a graded wash.
-          this._fieldOp(field.band, c, b, 13, merge, { d: field.mask })
-          fieldOp(c, field.band, field.band, 1, 0)
-        }
+        // (§17.41) ...and it happens AFTER the front is known, over the
+        // dome of the puddle the landing joined - see below.
         // Where earlier marks' SETTLED deposit lies, before b is overwritten
         // with the fixed part - kept in `band` until the front reads it: the
         // puddle this mark's water may have joined.
         if (first) this._fieldOp(field.band, b, b, 4, 0.002)
         fieldOp(b, a, c, 1, -1)
-        // The colour record's split, by the same gate; `a` is free now.
+        // The colour record's split, by the same gate.
         if (colour && first) {
           fieldOp(colour.c, colour.a, colour.b, 0, WET_DIFFUSE_MOBILE)
-          if (merge > 0) {
-            this._fieldOp(a, colour.c, colour.b, 13, merge, { d: field.mask })
-            fieldOp(colour.c, a, a, 1, 0)
-          }
           fieldOp(colour.b, colour.a, colour.c, 1, -1)
         }
       })
       // The water front, its band and the extended coverage come from the
       // deposit's mobile field, once; the colour record rides the same.
       if (first) frontOps(c, a)
+      // (§17.41) The wet landing re-mobilises the earlier paint over the
+      // DOME of the puddle it joined (band .a, from the front just run),
+      // not only under its footprint: the two paints then mix both ways in
+      // the puddle diffusion below. The moved share leaves the fixed field
+      // (b) as it joins the mobile one (c), for the deposit and the colour
+      // record alike. `a` and `spare` are the temporaries.
+      if (first && merge > 0) ops.push(() => {
+        this._fieldOp(a, c, b, 18, merge, { d: field.band })
+        this._fieldOp(spare, b, c, 3, 0, { c: a })
+        fieldOp(c, a, a, 1, 0)
+        fieldOp(b, spare, spare, 1, 0)
+        if (colour) {
+          this._fieldOp(a, colour.c, colour.b, 18, merge, { d: field.band })
+          this._fieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
+          fieldOp(colour.c, a, a, 1, 0)
+          fieldOp(colour.b, spare, spare, 1, 0)
+        }
+      })
       // (§17.29) The front carries the paint: the mobile field runs along
       // the front's cost, from the footprint out to where the water
       // stopped, in strided steps of WC_FIELD_OP_FRAG's mode 15 - so a

@@ -1040,12 +1040,12 @@ export const WC_BLOOM_SHARE = 0.65
  *  line get the same rim rather than the broad one drowning in it. */
 //  (s17.30) 1.6, from 2.0: on Ilya's layer of circles and blots the line
 //  read as a drawn outline - "слишком контрастный".
-export const WC_TIDE_RIM = 1.25
+export const WC_TIDE_RIM = 0.9
 /** (#536, s17.30) Which round of the watercolour work this build carries,
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r16 (§17.40)'
+export const WATERCOLOR_ROUND = 'акварель r17 (§17.41)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

@@ -3001,6 +3001,9 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_RIM_VALLEY_HI = 0.6;
   // (s17.26) How much rim a texel keeps where the record says no water stood.
   const float WC_RIM_DRY_FLOOR = 0.15;
+  // (s17.41) How much of the earlier paint a wet landing re-mobilises across
+  // the puddle, at the dome's full.
+  const float WC_REMOB_DOME = 0.6;
   // (s17.37) The landing puddle's edge against the stroke's contour, per length.
   const float WC_BACKRUN_GAIN = 2.5;
   // (s17.27) The share of the mark's standing level below which its water
@@ -3077,6 +3080,24 @@ export const WC_FIELD_OP_FRAG = `
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 17.5) {
+      // (s17.41) Mode 13 over the DOME (u_d.a) instead of the footprint: a
+      // wet landing re-mobilises the earlier paint across the puddle its
+      // water joined, most under the brush and less toward the front, so
+      // the two paints mix both ways within the puddle - not only the new
+      // one into the old. Under the footprint alone the earlier mark kept
+      // its own contour through the new one, and the mixing ran one way
+      // ("одна линия растеклась, а другая нет"). The share: the new water's
+      // where the new paint lies, at least WC_REMOB_DOME of the dome
+      // elsewhere.
+      float dome = texture2D(u_d, v_uv).a;
+      float share = max(a.a / max(a.a + b.a, 1e-4), WC_REMOB_DOME * dome);
+      vec4 add = u_k * share * dome * b;
+      float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
+      float peak = max(max(add.r, add.g), max(add.b, add.a));
+      gl_FragColor = a + add * min(1.0, room / max(peak, 1e-4));
+      return;
+    }
     if (u_mode > 16.5) {
       // (s17.40) The puddle's mixing gate: the coverage with its standing
       // water (.b) scaled by the dome over the footprint (u_d.a).
@@ -3234,7 +3255,14 @@ export const WC_FIELD_OP_FRAG = `
       float rel = b.b / max(u_band.y, 1e-4);
       float film = smoothstep(WC_SEED_FILM_LO, WC_SEED_FILM_HI, rel);
       float deep = smoothstep(WC_SEED_DEEP_LO, WC_SEED_DEEP_HI, rel);
-      float cost = a.a > u_k ? mix(1.0, mix(u_size.x, m * u_band.x, deep), film) : 1.0;
+      // (s17.41) The film seeds wherever the mark laid paint, whatever its
+      // standing water: gating it by the standing record (s17.27) put the
+      // domain's edge INSIDE a stroke wherever the brush's water ran out or
+      // rose over its own film, and the tide's line ran along that inner
+      // edge ("подтёк внутри одного мазка"). The dwell test settled where
+      // a hard line inside a stroke comes from: the landing puddle (deep
+      // seed, backrun by dwell), not a drier stretch of film.
+      float cost = a.a > u_k ? mix(u_size.x, m * u_band.x, deep) : 1.0;
       gl_FragColor = vec4(cost, 0.0, 0.0, 1.0);
       return;
     }
