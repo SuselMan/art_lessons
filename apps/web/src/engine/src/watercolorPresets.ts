@@ -941,7 +941,12 @@ export const WC_CARRY_TRAVEL = 0.35
 export const WC_CARRY_POW = 3
 export const WC_CARRY_MAX_STEPS = 24
 /** The pigment's horizon as a share of the water front's budget. */
-export const WC_CARRY_HORIZON = 0.5
+//  (s17.40) 1.0, from 0.5: at half the budget the moved paint ended on an
+//  iso-line of the cost that, in a uniform film, is a smooth curve parallel
+//  to the footprint - Ilya's "жёлтый проникает ровной линией" - while the
+//  ragged front lay further out unused. To the front, with the fade
+//  (WC_CARRY_FADE) and the travelling share keeping the body.
+export const WC_CARRY_HORIZON = 1.0
 /** The carry's strides, texels, one per step: dyadic up to the budget and
  *  back, repeated until the paint can have travelled the whole budget
  *  (rate x stride summed), capped. A coarse step reaches into the
@@ -974,6 +979,9 @@ export function watercolorCarryStrides(budgetPx: number): number[] {
  *  its budget - a pixel - and its edge is the brush's contour; inside the
  *  film the same budget runs the puddle's front out along the valleys. */
 export const WC_FRONT_DRY_COST = 24
+/** (s17.40) ...and at least this share of the budget per cell of dry paper:
+ *  two cells of run past the brush whatever the budget. */
+export const WC_FRONT_DRY_SHARE = 0.5
 /** How far the water runs past the footprint, px, from the mark's radius,
  *  the brush's water and the wetness it landed in: a wet brush on wet paper
  *  spreads a third of its radius (the photo's drop: 1.3 x), the same brush
@@ -1032,12 +1040,12 @@ export const WC_BLOOM_SHARE = 0.65
  *  line get the same rim rather than the broad one drowning in it. */
 //  (s17.30) 1.6, from 2.0: on Ilya's layer of circles and blots the line
 //  read as a drawn outline - "слишком контрастный".
-export const WC_TIDE_RIM = 1.6
+export const WC_TIDE_RIM = 1.25
 /** (#536, s17.30) Which round of the watercolour work this build carries,
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r15 (§17.39)'
+export const WATERCOLOR_ROUND = 'акварель r16 (§17.40)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

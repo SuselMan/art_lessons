@@ -3006,6 +3006,12 @@ export const WC_FIELD_OP_FRAG = `
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 16.5) {
+      // (s17.40) The puddle's mixing gate: the coverage with its standing
+      // water (.b) scaled by the dome over the footprint (u_d.a).
+      gl_FragColor = vec4(a.r, a.g, a.b * texture2D(u_d, v_uv).a, a.a);
+      return;
+    }
     if (u_mode > 14.5) {
       // (s17.29) One carry step. What moves is the mobile paint (a, all
       // four channels, in the texel's own proportions); what the flow

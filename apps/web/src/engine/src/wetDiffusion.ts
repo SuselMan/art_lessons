@@ -98,6 +98,15 @@ export const WET_DIFFUSE_SCHEDULE: readonly WetDiffuseStep[] = [
   { radius: 4, knight: false }, { radius: 3, knight: true }, { radius: 2, knight: false },
   { radius: 1, knight: true }, { radius: 1, knight: false },
 ]
+/** (#536, s17.40) The puddle's own mixing on a WET landing: the coarse
+ *  steps s17.29 took out of the schedule, run before it and gated to the
+ *  dome over the footprint (index.ts) - the liquid the mark shares with
+ *  the wash evens its paint out over tens of texels, the fingers past the
+ *  footprint are left alone. */
+export const WET_DIFFUSE_PUDDLE_SCHEDULE: readonly WetDiffuseStep[] = [
+  { radius: 21, knight: true }, { radius: 32, knight: false }, { radius: 14, knight: true },
+  { radius: 16, knight: false }, { radius: 7, knight: true }, { radius: 8, knight: false },
+]
 /** The plain radii, for callers that only need a length or a count. */
 export const WET_DIFFUSE_RADII: readonly number[] = WET_DIFFUSE_SCHEDULE.map(s => s.radius)
 export const WET_DIFFUSE_STEPS = WET_DIFFUSE_SCHEDULE.length
@@ -105,7 +114,7 @@ export const WET_DIFFUSE_STEPS = WET_DIFFUSE_SCHEDULE.length
  *  the steps' reaches (a knight step reaches radius·√5, rounded up). The
  *  engine pads the field it diffuses by this, so nothing ever reaches the
  *  field's edge and the edge is never a wall anyone can see. */
-export const WET_DIFFUSE_REACH = WET_DIFFUSE_SCHEDULE.reduce(
+export const WET_DIFFUSE_REACH = [...WET_DIFFUSE_PUDDLE_SCHEDULE, ...WET_DIFFUSE_SCHEDULE].reduce(
   (a, s) => a + (s.knight ? Math.ceil(s.radius * Math.SQRT2 * 1.582) : s.radius), 0,
 )
 /** The share of a deposit that is MOBILE — that the schedule moves at all.

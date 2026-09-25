@@ -141,7 +141,7 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
       // ...and the fine strides come back after the coarse ones.
       expect(strides[strides.length - 1]).toBeLessThan(Math.max(...strides) + 1)
     }
-    expect(watercolorCarryStrides(18)).toEqual([1, 2, 4, 8, 8, 4, 2, 1, 1, 2, 4, 8, 8, 4, 2, 1])
+    expect(watercolorCarryStrides(18)).toEqual([1, 2, 4, 8, 16, 16, 8, 4, 2, 1])
   })
 
   it('runs a brush dry only when it carries pigment', () => {

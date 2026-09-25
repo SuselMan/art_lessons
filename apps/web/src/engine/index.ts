@@ -58,7 +58,7 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, type WetDiffuseStep } from './src/wetDiffusion'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, type WetDiffuseStep } from './src/wetDiffusion'
 export { WATERCOLOR_ROUND } from './src/watercolorPresets'
 import { pigmentAbsorption } from './src/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
@@ -71,7 +71,7 @@ import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -8836,7 +8836,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number] } = {},
   ): void {
     const { gl } = this
@@ -9061,7 +9061,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this._fieldOp(out, a, b, mode, k)
-    const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean): void => {
+    const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage): void => {
       dst.beginReplaceDraw()
       gl.useProgram(this._diffuseProg)
       const u = this._diffuseUni
@@ -9072,7 +9072,7 @@ export class PencilEngine implements PencilEngineAPI {
       gl.bindTexture(gl.TEXTURE_2D, src.texture)
       gl.uniform1i(u.u_ink, 0)
       gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
+      gl.bindTexture(gl.TEXTURE_2D, gate.texture)
       gl.uniform1i(u.u_coverage, 1)
       gl.activeTexture(gl.TEXTURE2)
       gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
@@ -9158,7 +9158,13 @@ export class PencilEngine implements PencilEngineAPI {
       gl.activeTexture(gl.TEXTURE2)
       gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
       gl.uniform1i(u.u_film, 2)
-      gl.uniform1f(u.u_dryCost, WC_FRONT_DRY_COST)
+      // (s17.40) ...never less than a share of the budget: a stroke that
+      // lands in a puddle carries the puddle's budget (up to 160) out onto
+      // dry paper, and at a flat 24 a cell its front ran four cells past
+      // the brush there - Ilya's "рваный край вне лужи". At half the
+      // budget a cell, the run on dry paper is two cells whatever the
+      // budget.
+      gl.uniform1f(u.u_dryCost, Math.max(WC_FRONT_DRY_COST, budgetPx * WC_FRONT_DRY_SHARE))
       gl.activeTexture(gl.TEXTURE0)
       gl.uniform2f(u.u_resolution, field.w, field.h)
       gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
@@ -9317,6 +9323,26 @@ export class PencilEngine implements PencilEngineAPI {
         if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
         if (colour && csrc && csrc !== colour.c) { const from = csrc, to = colour.c; ops.push(() => fieldOp(to, from, from, 1, 0)) }
       }
+      // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
+      // and the wash under it are one liquid, and the paint in it - the
+      // new, and the wash's re-mobilised under it - evens out across the
+      // footprint over tens of texels, as the coarse diffusion did for
+      // every mark before §17.29 took it out (it erased the fingers at the
+      // front). Back for the wet landing only, gated by the DOME over the
+      // footprint (band .a: full inside, none at the front), so the fingers
+      // the carry cut past the footprint keep their edges. Without it the
+      // earlier mark's paint stopped at its own contour under the new mark
+      // - Ilya's "жёлтый проникает ровной линией" - and the new mark's
+      // footprint over the wash stayed a paler band where the carry had
+      // taken from it ("область между штрихом и рваным краем"). The gate
+      // texture is built once into `pressure`, free after the carry.
+      if (first && merge > 0) ops.push(() => this._fieldOp(field.pressure, field.coverage, field.coverage, 17, 0, { d: field.band }))
+      for (const { radius, knight } of merge > 0 ? WET_DIFFUSE_PUDDLE_SCHEDULE : []) {
+        ops.push(() => {
+          diffuseStep(st.src, st.dst, radius, knight, field.pressure)
+          const t = st.src; st.src = st.dst; st.dst = t
+        })
+      }
       // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
       // footprint goes to the footprint's edge — the light patch with the
       // dark ragged ring. Only as much as the recorded wetness says the wash
@@ -9394,7 +9420,7 @@ export class PencilEngine implements PencilEngineAPI {
       // count of steps (none, under the wcNoDiffuse A/B) lands in c. Read
       // at plan time, dep.out is still its initial value - that was a
       // settle with no steps copying the colour rim over its own deposit.
-      col = settle(field.ca, field.cb, field.cc, false, diffuseSteps.length % 2 === 0 ? field.a : field.c, true)
+      col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
     }
 
     // …and home, tile by tile — and this is the new settled deposit.
