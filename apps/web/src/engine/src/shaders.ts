@@ -3139,10 +3139,16 @@ export const WC_FIELD_OP_FRAG = `
       // u_band.y is the band's width in the INWARD pass's units; the same
       // width in the outward cost's units is u_band.y * u_size.x / u_size.y
       // (one cell of each). Mixed up, the band covered the whole puddle.
-      float filmCost = u_band.x - u_size.x;
-      float wOut = u_band.y * u_size.x / u_size.y;
-      float backrun = inside * smoothstep(filmCost - wOut, filmCost - 0.4 * wOut, costOut) * (1.0 - smoothstep(filmCost - 0.6 * u_size.x, filmCost - 0.3 * u_size.x, costOut));
-      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail + backrun, 1.0);
+      // (s17.31) The backrun LINE at the puddle's front inside the film is
+      // gone: on Ilya's layer of single strokes every wet loaded stroke
+      // started with a hard dark arc ("кайма в начале, неприятно"), and a
+      // stroke crossing its own wet film drew the same arc round the
+      // crossing - one puddle has no line inside it. The puddle's front
+      // still runs (the seed is unchanged) and the carry still moves its
+      // paint, so a landing reads darker with a soft edge, which is what
+      // the photographs of a loaded wet stroke show (series 1); the hard
+      // dark start of a thin wash (series 2) waits for the dwell test.
+      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail, 1.0);
       // (s17.26) Where water actually stood, from the coverage's record
       // (b, extended over the domain): a rim forms where a puddle dried,
       // not along a stroke that ran dry. u_origin.x is the mark's own

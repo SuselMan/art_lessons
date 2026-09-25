@@ -890,9 +890,18 @@ export function watercolorFrontSteps(budget: number, radiusPx: number, landedWet
  *  ridge next to none, which is what makes fingers of near-body density
  *  rather than a halo. Where no neighbour lies further along the cost -
  *  the front itself - the paint stays: it piles at the front. */
-export const WC_CARRY_RATE = 1.0
+//  (s17.31) 0.5, from 1.0, and the strides up to HALF the budget: at full
+//  equalisation over the whole water domain a loaded stroke into a damp
+//  wash drained its own body into the wash (Ilya's colour pairs: "вокруг
+//  одного штриха светлый слой"); the photographs keep the body's density
+//  and send narrow fingers out. The pigment's horizon is shorter than the
+//  water's - the sheet filters it - so the carry equalises part-way, over
+//  the nearer half of the domain.
+export const WC_CARRY_RATE = 0.5
 export const WC_CARRY_POW = 3
-export const WC_CARRY_MAX_STEPS = 20
+export const WC_CARRY_MAX_STEPS = 24
+/** The pigment's horizon as a share of the water front's budget. */
+export const WC_CARRY_HORIZON = 0.5
 /** The carry's strides, texels, one per step: dyadic up to the budget and
  *  back, repeated until the paint can have travelled the whole budget
  *  (rate x stride summed), capped. A coarse step reaches into the
@@ -905,7 +914,7 @@ export const WC_CARRY_MAX_STEPS = 20
  *  run, the photograph's density. The fine strides take the coarse steps'
  *  blockiness out again, as the diffusion schedule does. */
 export function watercolorCarryStrides(budgetPx: number): number[] {
-  const top = Math.max(1, Math.floor(budgetPx))
+  const top = Math.max(1, Math.floor(budgetPx * WC_CARRY_HORIZON))
   const up: number[] = []
   for (let s = 1; s <= top; s *= 2) up.push(s)
   const cycle = [...up, ...up.slice().reverse()]
@@ -977,7 +986,7 @@ export const WC_TIDE_RIM = 1.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r8 (§17.30)'
+export const WATERCOLOR_ROUND = 'акварель r9 (§17.31)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

@@ -17,7 +17,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
-  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorPuddleMerge, watercolorSpreadBudget, watercolorFrontSteps, watercolorCarryStrides, WC_CARRY_RATE, WC_CARRY_MAX_STEPS,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorPuddleMerge, watercolorSpreadBudget, watercolorFrontSteps, watercolorCarryStrides, WC_CARRY_RATE, WC_CARRY_MAX_STEPS, WC_CARRY_HORIZON,
   watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
@@ -132,11 +132,11 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
       expect(reach).toBeGreaterThanOrEqual(budget)
       // No stride coarser than the budget: the paint follows the front's
       // fingers, it does not jump past them.
-      expect(Math.max(...strides)).toBeLessThanOrEqual(Math.max(1, budget))
+      expect(Math.max(...strides)).toBeLessThanOrEqual(Math.max(1, budget * WC_CARRY_HORIZON))
       // ...and the fine strides come back after the coarse ones.
       expect(strides[strides.length - 1]).toBeLessThan(Math.max(...strides) + 1)
     }
-    expect(watercolorCarryStrides(18)).toEqual([1, 2, 4, 8, 16, 16, 8, 4, 2, 1])
+    expect(watercolorCarryStrides(18)).toEqual([1, 2, 4, 8, 8, 4, 2, 1, 1, 2, 4, 8, 8, 4, 2, 1])
   })
 
   it('runs a brush dry only when it carries pigment', () => {
