@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -95,7 +95,7 @@ import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, watercolorFrontStrides, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -1417,6 +1417,10 @@ const STROKE_DAB_CHUNK_LIMIT = 800
  *  (Ilya's room HcpkzwNX: vertical seams through every big wash). Cut at a
  *  span that leaves room for the field's pad on both sides. */
 const WC_STROKE_CHUNK_SPAN_PX = 1100
+/** (#536, §17.44) From this brush radius up the settle runs at half
+ *  resolution (_diffuseWashOps), and its window - and the chunk span with
+ *  it - is twice as wide in the world. */
+const WC_HALF_RES_RADIUS_PX = 48
 
 /** (#536, ADR 011 §17.12) How long the screen takes to converge on a wash's
  *  settled picture after pen-up. Presentation only: the layer holds the dry
@@ -2035,8 +2039,11 @@ class RibbonStrokeScratch {
    *  wash - with the replay cache's four washes that was 384 MB of scratch
    *  on a two-tile layer, and the rebuild behind an undo on top of it. The
    *  next gesture (or chunk) acquires them again from the pool. */
-  releaseFilm(): void {
+  releaseFilm(gesture = this.gesture): void {
     for (const entry of this._tiles.values()) {
+      // Only the film the landed settle consumed: a chunk's settle lands
+      // while the next chunk's film is being painted.
+      if (entry.filmGesture !== gesture) continue
       for (const b of [entry.strokeInk, entry.inkBase, entry.strokeColor, entry.colorBase]) if (b) this.pool.release(b)
       entry.strokeInk = null; entry.inkBase = null; entry.strokeColor = null; entry.colorBase = null
       entry.filmGesture = -1
@@ -2477,6 +2484,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldOpProg!: WebGLProgram
   private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
   private _fieldOpPosLoc = -1
+  /** (#536, §17.44) WC_RESAMPLE_FRAG - tile <-> half-resolution settle field. */
+  private _resampleProg!: WebGLProgram
+  private _resampleUni!: Record<string, WebGLUniformLocation | null>
+  private _resamplePosLoc = -1
   private _revealUni!: Record<string, WebGLUniformLocation | null>
   private _revealPosLoc = -1
   /** Keyed by the layer tile the wash settled into. Presentation state only:
@@ -3260,6 +3271,14 @@ export class PencilEngine implements PencilEngineAPI {
     // buffers, and until these run they still hold whatever the batch's undos
     // left half-applied. See _rebuildLayerOrDefer.
     this._flushPendingRebuilds()
+    // (#536, §17.44) A batch of history (room join, reconnect, a rebuild) is
+    // over: the washes it replayed are closed - their pixels are on the
+    // layer - and their scratch was holding hundreds of megabytes of GPU
+    // memory on the tablet for joins that will never come. A peer's wash
+    // still open would lose only its joinability, and only if a history
+    // batch lands in the middle of it.
+    for (const chunk of this._replayRibbonChunks.values()) chunk.scratch.destroy()
+    this._replayRibbonChunks.clear()
     this._display()
   }
 
@@ -5999,6 +6018,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
+    this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
@@ -6078,10 +6098,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
+    this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
-      'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost',
+      'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride',
     ])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
@@ -6134,6 +6155,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
+    this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
@@ -7415,7 +7437,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _chunkSpanExceeded(): boolean {
     const b = this._strokeChunkBox
     if (!b || this._strokeTool !== 'watercolor') return false
-    return Math.max(b.maxX - b.minX, b.maxY - b.minY) + this._opts.size > WC_STROKE_CHUNK_SPAN_PX
+    const span = WC_STROKE_CHUNK_SPAN_PX * (this._opts.size * 0.5 >= WC_HALF_RES_RADIUS_PX ? 2 : 1)
+    return Math.max(b.maxX - b.minX, b.maxY - b.minY) + this._opts.size > span
   }
 
   private _flushStrokeChunk(): void {
@@ -7465,7 +7488,7 @@ export class PencilEngine implements PencilEngineAPI {
     // synchronous form was a hitch of tens to hundreds of milliseconds every
     // chunk on a big brush ("слишком сильно тормозит при больших штрихах").
     if (this._ribbonStrokeScratch) {
-      this._finishRibbonStroke(this._ribbonStrokeScratch, true)
+      this._finishRibbonStroke(this._ribbonStrokeScratch, true, false)
       this._ribbonStrokeScratch.newFilm()
     }
   }
@@ -10096,7 +10119,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  the settle's outward and inward passes and the group tide's inward one. */
   private _waterFrontStep(
     field: NonNullable<PencilEngine['_diffuseField']>, x0: number, y0: number, dryCost: number,
-    src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number,
+    src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
+    /** (§17.44) World px per field cell. */
+    scale = 1,
   ): void {
     const { gl } = this
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
@@ -10118,13 +10143,52 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_dryCost, dryCost)
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform2f(u.u_resolution, field.w, field.h)
-    gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperOrigin, x0 / scale, -(y0 / scale + field.h))
+    gl.uniform2f(u.u_paperTexSize, paperTexW / scale, paperTexH / scale)
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     gl.uniform1f(u.u_climb, climb)
     gl.uniform1f(u.u_floor, floor)
     gl.uniform1f(u.u_costMax, max)
+    gl.uniform1f(u.u_stride, stride)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    dst.endDraw()
+  }
+
+  /** (#536, §17.44) One WC_RESAMPLE_FRAG draw into `dst` over the GL rect
+   *  (dx, dy, dw, dh). Mode 0 averages `src` down (ratio 2), mode 1 writes
+   *  base + up(src) - up(old), mode 2 max(base, up(src)) (ratio 1/2). `dst`
+   *  must not be `base`: modes 1 and 2 go through a temporary. */
+  private _wcResample(
+    dst: AccumulationBuffer, dx: number, dy: number, dw: number, dh: number,
+    src: AccumulationBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2,
+    old: AccumulationBuffer | null = null, base: AccumulationBuffer | null = null,
+    /** The source texels the draw may read: [x0, y0, x1, y1). The whole source by default. */
+    clampRect: [number, number, number, number] | null = null,
+  ): void {
+    if (dw <= 0 || dh <= 0) return
+    const { gl } = this
+    dst.beginReplaceDraw()
+    gl.enable(gl.SCISSOR_TEST)
+    gl.scissor(dx, dy, dw, dh)
+    gl.useProgram(this._resampleProg)
+    const u = this._resampleUni
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._resamplePosLoc)
+    gl.vertexAttribPointer(this._resamplePosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.texture); gl.uniform1i(u.u_src, 0)
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, (old ?? src).texture); gl.uniform1i(u.u_old, 1)
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, (base ?? src).texture); gl.uniform1i(u.u_base, 2)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.uniform2f(u.u_srcSize, src.width, src.height)
+    gl.uniform2f(u.u_baseSize, (base ?? dst).width, (base ?? dst).height)
+    gl.uniform2f(u.u_dstOrigin, dx, dy)
+    gl.uniform2f(u.u_srcOrigin, sx, sy)
+    gl.uniform1f(u.u_ratio, ratio)
+    gl.uniform1f(u.u_mode, mode)
+    const cr = clampRect ?? [0, 0, src.width, src.height]
+    gl.uniform4f(u.u_clamp, cr[0], cr[1], cr[2], cr[3])
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.disable(gl.SCISSOR_TEST)
     dst.endDraw()
   }
 
@@ -10241,7 +10305,15 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536, §17.22) 1536, from 2048: seven buffers of 2048² are 117 MB, which
     // a tablet does not have to spare; at 1536 the field is 66 MB and a 400 px
     // brush's whole gesture still fits it with its reach.
-    const CAP = 1536
+    // (§17.44) A big brush settles at HALF resolution: every pass of the
+    // settle over a field a quarter the size, and a window twice as wide in
+    // the world. The field holds cells of S px; what goes back to the tiles
+    // is the field's change, brought up and added to the full-resolution
+    // record (_wcResample), so the grain and the brush's texture are the
+    // tile's own and only the movement is coarse. On the tablet a 400 px
+    // zigzag's settle was 70 ms an entry and ~40 entries a chunk.
+    const S = radiusPx >= WC_HALF_RES_RADIUS_PX ? 2 : 1
+    const CAP = 1536 * S
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const t of tiles) {
       minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY)
@@ -10270,10 +10342,49 @@ export class PencilEngine implements PencilEngineAPI {
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
     if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
+    if (S > 1) {
+      // Cell-aligned: tile edges are multiples of 1024, so a rect on even
+      // coordinates maps every tile overlap onto whole cells.
+      x0 = Math.max(minX, Math.floor(x0 / S) * S); y0 = Math.max(minY, Math.floor(y0 / S) * S)
+      x1 = Math.min(maxX, Math.ceil(x1 / S) * S); y1 = Math.min(maxY, Math.ceil(y1 / S) * S)
+    }
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
-    const field = this._diffuseFieldFor(w, h)
+    const field = this._diffuseFieldFor(w / S, h / S)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    // (§17.44) At half resolution what goes home is the SETTLED wash at full
+    // resolution plus the field's result less its own settled part: the
+    // wash already on the paper keeps its grain and texture to the pixel,
+    // and the operation's own wet paint comes back from the field whole -
+    // smoothed, as wet paint is. Returning the whole deposit plus the
+    // field's change kept the new film's one-pixel edge, which the half-
+    // resolution field cannot see, and every pass of a big brush left a
+    // thin line where its edge had been. So: the settled part in the field
+    // (b0, cb0) and at full resolution per tile (snapshots, taken at the
+    // stitch - a running gesture's next batch refreshes the film's base).
+    const a0 = S > 1 ? this._ribbonScratchPool.acquire(field.w, field.h) : null
+    const ca0 = S > 1 ? this._ribbonScratchPool.acquire(field.w, field.h) : null
+    const snapshots = new Map<AccumulationBuffer, { ink: AccumulationBuffer; color: AccumulationBuffer | null }>()
+    // The settle's rect in the field's GL cells, for the interpolation's clamp.
+    const fieldRect: [number, number, number, number] = [0, field.h - h / S, w / S, field.h]
+    // A world rect of a tile into the field (S = 1: a copy; else the 2x2 mean).
+    const toField = (src: AccumulationBuffer, tile: PaintTarget, wx0: number, wy0: number, wx1: number, wy1: number, dst: AccumulationBuffer): void => {
+      const tx = wx0 - tile.originX, ty = tile.buffer.height - (wy1 - tile.originY)
+      const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
+      if (S === 1) src.copyRegionInto(dst, tx, ty, fx, fy, wx1 - wx0, wy1 - wy0)
+      else this._wcResample(dst, fx, fy, (wx1 - wx0) / S, (wy1 - wy0) / S, src, tx, ty, S, 0)
+    }
+    // ...and back: S = 1, the field's value; else base + up(new - old). The
+    // target may be the base: the draw goes through a pooled temporary.
+    const fromField = (fNew: AccumulationBuffer, fOld: AccumulationBuffer | null, tile: PaintTarget, wx0: number, wy0: number, wx1: number, wy1: number, target: AccumulationBuffer, base: AccumulationBuffer): void => {
+      const tx = wx0 - tile.originX, ty = tile.buffer.height - (wy1 - tile.originY)
+      const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
+      if (S === 1 || !fOld) { fNew.copyRegionInto(target, fx, fy, tx, ty, wx1 - wx0, wy1 - wy0); return }
+      const tmp = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+      this._wcResample(tmp, tx, ty, wx1 - wx0, wy1 - wy0, fNew, fx, fy, 1 / S, 1, fOld, base, fieldRect)
+      tmp.copyRegionInto(target, tx, ty, tx, ty, wx1 - wx0, wy1 - wy0)
+      this._ribbonScratchPool.release(tmp)
+    }
 
     // Every tile's overlap with the rect, and the settled records the tiles
     // still lack — acquired now so the steps below can assume them.
@@ -10281,11 +10392,16 @@ export class PencilEngine implements PencilEngineAPI {
     for (const tile of tiles) {
       const entry = scratch.peek(tile.buffer)
       if (!entry?.inkLoad) continue
-      if (!entry.inkSettled) {
+      // (§17.44) The settled records are only needed without the film: with
+      // it, the film's base (inkBase/colorBase, refreshed on the gesture's
+      // first batch) IS the wash as it stood before the operation, and a
+      // second pair of tile-sized textures per tile holding the same thing
+      // was a quarter of the gigabyte of scratch the tablet carried.
+      if (!this._minmaxExt && !entry.inkSettled) {
         entry.inkSettled = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
         entry.inkSettled.clear()
       }
-      if (entry.inkColor && !entry.colorSettled) {
+      if (!this._minmaxExt && entry.inkColor && !entry.colorSettled) {
         entry.colorSettled = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
         entry.colorSettled.clear()
       }
@@ -10297,6 +10413,9 @@ export class PencilEngine implements PencilEngineAPI {
     if (!overlaps.length) return null
 
     const ops: Array<() => void> = []
+    // (§17.44) The gesture whose film this settle consumes, fixed now: a
+    // chunk's settle may land after the next chunk's film has begun.
+    const gesture = scratch.gesture
     // Stitch: every tile's overlap with the rect, top-down world → bottom-up
     // GL on both sides, exactly as _gatherSmudgePatch does it. `a` takes the
     // deposit, `b` what was settled, `coverage` the silhouette.
@@ -10308,17 +10427,34 @@ export class PencilEngine implements PencilEngineAPI {
       field.cb.clear()
       for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
         const entry = scratch.peek(tile.buffer)
-        if (!entry?.inkLoad || !entry.inkSettled) continue
-        const sx = ox0 - tile.originX, sy = tile.buffer.height - (oy1 - tile.originY)
-        const dx = ox0 - x0, dy = field.h - (oy1 - y0)
-        entry.inkLoad.copyRegionInto(field.a, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        entry.inkSettled.copyRegionInto(field.b, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        entry.coverage.copyRegionInto(field.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        if (entry.inkColor && entry.colorSettled) {
-          entry.inkColor.copyRegionInto(field.ca, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-          entry.colorSettled.copyRegionInto(field.cb, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        if (!entry?.inkLoad) continue
+        // The settled wash: the film's base where this operation's gesture
+        // laid paint on the tile, the deposit itself where it did not (no new
+        // paint there, nothing mobile), the old record without a film.
+        const settledInk = (entry.filmGesture === gesture ? entry.inkBase : null) ?? entry.inkSettled ?? entry.inkLoad
+        toField(entry.inkLoad, tile, ox0, oy0, ox1, oy1, field.a)
+        toField(settledInk, tile, ox0, oy0, ox1, oy1, field.b)
+        if (S > 1) {
+          const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
+          const ink = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+          settledInk.copyRegionInto(ink, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
+          let color: AccumulationBuffer | null = null
+          if (entry.inkColor) {
+            const sc = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
+            color = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+            sc.copyRegionInto(color, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
+          }
+          snapshots.set(tile.buffer, { ink, color })
+        }
+        toField(entry.coverage, tile, ox0, oy0, ox1, oy1, field.coverage)
+        if (entry.inkColor) {
+          const settledColor = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
+          toField(entry.inkColor, tile, ox0, oy0, ox1, oy1, field.ca)
+          toField(settledColor, tile, ox0, oy0, ox1, oy1, field.cb)
         }
       }
+      if (a0) field.b.copyTo(a0)
+      if (ca0) field.cb.copyTo(ca0)
     })
 
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
@@ -10344,12 +10480,12 @@ export class PencilEngine implements PencilEngineAPI {
       // The paper at the world position of a texel. A tile passes
       // (originX, -originY) and lets its height of 1024 fold into the paper's
       // period; a rect of any height has to say where its bottom row is.
-      gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
-      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+      gl.uniform2f(u.u_paperOrigin, x0 / S, -(y0 / S + field.h))
+      gl.uniform2f(u.u_paperTexSize, paperTexW / S, paperTexH / S)
       gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
       gl.uniform1f(u.u_d, WET_DIFFUSE_D)
       gl.uniform1f(u.u_b, WET_DIFFUSE_B)
-      gl.uniform1f(u.u_radius, radius)
+      gl.uniform1f(u.u_radius, Math.max(1, Math.round(radius / S)))
       gl.uniform1f(u.u_stencil, knight ? 1 : 0)
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       dst.endDraw()
@@ -10371,17 +10507,19 @@ export class PencilEngine implements PencilEngineAPI {
     // landed: Ilya's series 5 lays the second stroke from dry paper into
     // the first, and its front has to run where the first stroke is.
     const runWet = Math.max(landedWet, wetPeak)
-    const budgetPx = watercolorSpreadBudget(radiusPx, water, runWet)
+    // (§17.44) In the field's cells from here on: budget and radius over S.
+    const budgetPx = watercolorSpreadBudget(radiusPx, water, runWet) / S
+    const radiusC = radiusPx / S
     const costMax = budgetPx + 4
     // (§17.27) …plus the mark's radius: the puddle's front starts inside
     // the footprint and has to cross it before it runs its budget into the
     // film. At nine steps for a 6 px budget it stopped a third of the way
     // across a 20 px puddle and the backrun never reached the film.
-    const frontSteps = watercolorFrontSteps(budgetPx, radiusPx, runWet)
+    const frontSteps = watercolorFrontSteps(budgetPx, radiusC, runWet)
     // A fifth of the radius (the photo's ring: FWHM 0.2 R_front), capped:
     // the mass sits at the front, the tail behind it is what the valleys
     // carry, so the band's depth is what survives a blur, not its darkness.
-    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5)))
+    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusC / 5)))
     // The band is the last `width` cells inside the front, measured by a
     // second relaxation run INWARD from everything past the budget, over the
     // same paper: a band from the outward cost alone cannot reach into the
@@ -10403,15 +10541,15 @@ export class PencilEngine implements PencilEngineAPI {
     // kernel, and on a band one or two texels wide the bumps of the
     // gathered band divided the moved paint into DOTS along the line.
     const gather: Array<[number, number]> = []
-    for (let st = 1; st <= Math.max(1, radiusPx / 2) && gather.length < 6; st *= 2) gather.push([st, st])
+    for (let st = 1; st <= Math.max(1, radiusC / 2) && gather.length < 6; st *= 2) gather.push([st, st])
     // (s17.40) The dry cost never less than a share of the budget: a stroke
     // that lands in a puddle carries the puddle's budget (up to 160) out
     // onto dry paper, and at a flat 24 a cell its front ran four cells past
     // the brush there - Ilya's "рваный край вне лужи". At half the budget
     // a cell, the run on dry paper is two cells whatever the budget.
     const dryCost = Math.max(WC_FRONT_DRY_COST, budgetPx * WC_FRONT_DRY_SHARE)
-    const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR): void =>
-      this._waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor)
+    const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR, stride = 1): void =>
+      this._waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S)
     // The front as entries of `ops`, a few relaxation steps per entry so no
     // frame runs the whole field thirty times: the outward cost from the
     // footprint into `pressure`, the inward cost from past-the-budget into
@@ -10419,17 +10557,20 @@ export class PencilEngine implements PencilEngineAPI {
     // and the band gathered into `mask` for the rims.
     const frontOps = (mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
       const pp = { src: field.pressure, dst: tmp }
-      const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number): void => {
-        for (let i = 0; i < steps; i += 4) {
-          const n = Math.min(4, steps - i)
+      const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number, strides?: readonly number[]): void => {
+        const list = strides ?? Array.from({ length: steps }, () => 1)
+        for (let i = 0; i < list.length; i += 4) {
+          const chunk = list.slice(i, i + 4)
+          const last = i + chunk.length >= list.length
           ops.push(() => {
-            for (let j = 0; j < n; j++) { frontStep(pp.src, pp.dst, max, climb, floor); const t = pp.src; pp.src = pp.dst; pp.dst = t }
-            if (i + n >= steps && pp.src !== home) this._fieldOp(home, pp.src, pp.src, 1, 0)
+            for (const st of chunk) { frontStep(pp.src, pp.dst, max, climb, floor, st); const t = pp.src; pp.src = pp.dst; pp.dst = t }
+            if (last && pp.src !== home) this._fieldOp(home, pp.src, pp.src, 1, 0)
           })
         }
       }
       ops.push(() => { this._fieldOp(field.pressure, mobile, field.coverage, 10, 0.003, { band: [1 / costMax, standing], size: [(budgetPx - 1) / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
-      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
+      // (§17.44) Jumps, then unit passes - see WC_WATER_FRONT_FRAG's u_stride.
+      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR, watercolorFrontStrides(frontSteps))
       ops.push(() => { this._fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax, { d: field.band }); pp.src = field.mask; pp.dst = tmp })
       // Inward over a gentler relief: the band's inner edge follows the
       // valleys a few cells in (the photo's streaks pointing into the light
@@ -10632,7 +10773,7 @@ export class PencilEngine implements PencilEngineAPI {
           st.out = st.src
           return
         }
-        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusPx, width) * tideWater, st.dst, spare, true)
+        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusC, width) * tideWater, st.dst, spare, true)
         st.out = st.src
         fieldOp(st.out, b, spare, 1, 1)
       })
@@ -10706,8 +10847,8 @@ export class PencilEngine implements PencilEngineAPI {
       const dryCol = col.out === field.ca ? field.cc : field.ca
       const dc = scratch.dryCtx
       this._groupTideOps(
-        ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0), Math.max(standing, dc?.standing ?? 0), scratch.paints,
-        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure],
+        ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0) / S, Math.max(standing, dc?.standing ?? 0), scratch.paints,
+        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S,
       )
       dry = { dep: dryDep, col: dryCol }
     }
@@ -10739,60 +10880,65 @@ export class PencilEngine implements PencilEngineAPI {
       }
       for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
         const entry = scratch.peek(tile.buffer)
-        if (!entry?.inkLoad || !entry.inkSettled) continue
-        const sx = ox0 - x0, sy = field.h - (oy1 - y0)
-        const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
-        dep.out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        dep.out.copyRegionInto(entry.inkSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        if (!entry?.inkLoad) continue
+        const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY), tw = ox1 - ox0, th = oy1 - oy0
+        // (§17.44) A film that began while the settle ran (the next chunk's,
+        // see newFilm) sits on a base copied before it landed: the settled
+        // result goes onto that BASE, and the deposit is rebuilt as base +
+        // film below - or the next chunk's paint vanished from the overlap
+        // until the gesture ended. Otherwise it goes onto the deposit.
+        const runningFilm = entry.filmGesture !== gesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk && !!entry.inkBase
+        const settledInk = runningFilm ? entry.inkBase! : entry.inkLoad
+        const snap = snapshots.get(tile.buffer)
+        fromField(dep.out, a0, tile, ox0, oy0, ox1, oy1, settledInk, snap?.ink ?? settledInk)
+        if (entry.inkSettled) settledInk.copyRegionInto(entry.inkSettled, tx, ty, tx, ty, tw, th)
         // (§17.24) …and the coverage the water front extended - MERGED by
-        // max (§17.44): the settle may have run over the frames while the
-        // gesture went on stamping the next chunk's coverage, and a copy
-        // threw those stamps away. The tile's region is brought into the
-        // field's free `mask`, maxed with the extended coverage into `band`,
-        // and that goes home.
-        entry.coverage.copyRegionInto(field.mask, dx, dy, sx, sy, ox1 - ox0, oy1 - oy0)
-        this._fieldOp(field.band, field.coverage, field.mask, 20, 0)
-        field.band.copyRegionInto(entry.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        // (§17.44) ...and a film that began while the settle ran (the next
-        // chunk's, see newFilm) sits on a base copied before it landed: the
-        // base catches up, and the next batch's rebuild of inkLoad as base +
-        // film shows the settled chunk under the paint laid since.
-        if (entry.inkBase) dep.out.copyRegionInto(entry.inkBase, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        if (entry.colorBase && entry.inkColor) col.out.copyRegionInto(entry.colorBase, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        if (entry.inkColor && entry.colorSettled) {
-          col.out.copyRegionInto(entry.inkColor, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-          col.out.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        // max (§17.44): the gesture may have gone on stamping the next
+        // chunk's coverage while the settle ran.
+        if (S === 1) {
+          const sx = ox0 - x0, sy = field.h - (oy1 - y0)
+          entry.coverage.copyRegionInto(field.mask, tx, ty, sx, sy, tw, th)
+          this._fieldOp(field.band, field.coverage, field.mask, 20, 0)
+          field.band.copyRegionInto(entry.coverage, sx, sy, tx, ty, tw, th)
+        } else {
+          const tmp = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+          this._wcResample(tmp, tx, ty, tw, th, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 2, null, entry.coverage, fieldRect)
+          tmp.copyRegionInto(entry.coverage, tx, ty, tx, ty, tw, th)
+          this._ribbonScratchPool.release(tmp)
+        }
+        const settledColor = entry.inkColor ? (runningFilm && entry.colorBase ? entry.colorBase : entry.inkColor) : null
+        if (settledColor) {
+          fromField(col.out, ca0, tile, ox0, oy0, ox1, oy1, settledColor, snap?.color ?? settledColor)
+          if (entry.colorSettled) settledColor.copyRegionInto(entry.colorSettled, tx, ty, tx, ty, tw, th)
+        }
+        if (runningFilm) {
+          const rect: [number, number, number, number] = [tx, ty, tw, th]
+          this._fieldOp(entry.inkLoad, entry.inkBase!, entry.strokeInk!, 1, 1, { scissor: rect })
+          if (entry.inkColor && entry.colorBase && entry.strokeColor) this._fieldOp(entry.inkColor, entry.colorBase, entry.strokeColor, 1, 1, { scissor: rect })
         }
         if (dry) {
-          // (§17.43) First the wet state over the whole of this tile's part of
-          // the field: the field is capped (CAP above), and a sweep wider than
-          // it left the dry target past the window at whatever it held before
-          // this stroke - the paint outside the window vanished from the
-          // composite. Then the dry result over the field less its margin.
-          if (!entry.inkDry) {
-            entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-            entry.inkLoad.copyTo(entry.inkDry)
-          } else {
-            dep.out.copyRegionInto(entry.inkDry, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+          // (§17.43) First the settled wet state over the whole of this
+          // tile's part of the field (the field is capped; past the window
+          // the dry target keeps up with the deposit), then the dry result
+          // over the field less its margin - the tide's change on top.
+          if (!entry.inkDry) { entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); settledInk.copyTo(entry.inkDry) }
+          else settledInk.copyRegionInto(entry.inkDry, tx, ty, tx, ty, tw, th)
+          if (settledColor) {
+            if (!entry.colorDry) { entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); settledColor.copyTo(entry.colorDry) }
+            else settledColor.copyRegionInto(entry.colorDry, tx, ty, tx, ty, tw, th)
           }
-          if (entry.inkColor) {
-            if (!entry.colorDry) {
-              entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-              entry.inkColor.copyTo(entry.colorDry)
-            } else {
-              col.out.copyRegionInto(entry.colorDry, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-            }
-          }
-          // The dry target over the field less its margin (see `pad`): where
-          // the field was clipped by the tile's own edge there is no margin
-          // to leave, the tile ends there.
+          // Where the field was clipped by the tile's own edge there is no
+          // margin to leave, the tile ends there.
           const ix0 = ox0 === x0 && x0 > minX ? ox0 + dryMargin : ox0, iy0 = oy0 === y0 && y0 > minY ? oy0 + dryMargin : oy0
           const ix1 = ox1 === x1 && x1 < maxX ? ox1 - dryMargin : ox1, iy1 = oy1 === y1 && y1 < maxY ? oy1 - dryMargin : oy1
           if (ix1 <= ix0 || iy1 <= iy0) continue
-          dry.dep.copyRegionInto(entry.inkDry, ix0 - x0, field.h - (iy1 - y0), ix0 - tile.originX, tile.buffer.height - (iy1 - tile.originY), ix1 - ix0, iy1 - iy0)
-          if (entry.inkColor && entry.colorDry) dry.col.copyRegionInto(entry.colorDry, ix0 - x0, field.h - (iy1 - y0), ix0 - tile.originX, tile.buffer.height - (iy1 - tile.originY), ix1 - ix0, iy1 - iy0)
+          fromField(dry.dep, dep.out, tile, ix0, iy0, ix1, iy1, entry.inkDry, entry.inkDry)
+          if (entry.colorDry) fromField(dry.col, col.out, tile, ix0, iy0, ix1, iy1, entry.colorDry, entry.colorDry)
         }
       }
+      if (a0) this._ribbonScratchPool.release(a0)
+      if (ca0) this._ribbonScratchPool.release(ca0)
+      for (const snap of snapshots.values()) { this._ribbonScratchPool.release(snap.ink); if (snap.color) this._ribbonScratchPool.release(snap.color) }
     }
     return { ops, finish }
   }
@@ -10812,6 +10958,8 @@ export class PencilEngine implements PencilEngineAPI {
     radiusPx: number, standing: number, paints: ReadonlySet<string>,
     dep: AccumulationBuffer, col: AccumulationBuffer | null, outDep: AccumulationBuffer, outCol: AccumulationBuffer,
     free: [AccumulationBuffer, AccumulationBuffer, AccumulationBuffer],
+    /** (§17.44) World px per field cell; radiusPx is in cells already. */
+    scale = 1,
   ): void {
     const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5)))
     const costMaxIn = width + 3
@@ -10833,7 +10981,7 @@ export class PencilEngine implements PencilEngineAPI {
       ops.push(() => {
         for (let j = 0; j < n; j++) {
           const flat = i + j < 2
-          this._waterFrontStep(field, x0, y0, WC_FRONT_DRY_COST, pp.src, pp.dst, costMaxIn, flat ? 0 : WC_FRONT_CLIMB_IN, flat ? 1 : WC_FRONT_FLOOR_IN)
+          this._waterFrontStep(field, x0, y0, WC_FRONT_DRY_COST, pp.src, pp.dst, costMaxIn, flat ? 0 : WC_FRONT_CLIMB_IN, flat ? 1 : WC_FRONT_FLOOR_IN, 1, scale)
           const t = pp.src; pp.src = pp.dst; pp.dst = t
         }
         if (i + n >= inSteps && pp.src !== field.mask) this._fieldOp(field.mask, pp.src, pp.src, 1, 0)
@@ -11018,6 +11166,11 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._settle) this._completeSettle()
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     this._settle = { scratch, ops, next: 0, complete, raf: 0 }
+    // (§17.44) The stitch - the settle's first entry, copies only - runs NOW:
+    // it captures the deposit and its settled base as they stand at this
+    // boundary, before the next chunk's batches rebuild them. The dear
+    // passes are what gets spread over the frames.
+    if (ops.length) { ops[0](); this._settle.next = 1 }
     this._wcPerf.settleStart = performance.now()
     this._wcPerf.settleOps = ops.length
     this._scheduleSettleTick()
@@ -11129,6 +11282,13 @@ export class PencilEngine implements PencilEngineAPI {
      *  showed and converge on the settled picture over WC_REVEAL_MS. A replay
      *  settles silently — the picture it builds is already the dry target. */
     reveal = false,
+    /** (§17.44) Whether the settle is spread over frames under a REVEAL (the
+     *  fade from the live picture to the settled one). A chunk boundary in
+     *  the middle of a gesture spreads its settle but does not reveal: the
+     *  brush is still painting there, and the fade redrew every tile of the
+     *  chunk thirty times a second for a second and a half - 1555 draw
+     *  calls on one zigzag on the tablet. The pen-up reveals the lot. */
+    fade = reveal,
   ): void {
     // (#536, §17.22) Whatever the last batches left for the frame lands now,
     // for every ribbon tool: the marker's scratch is torn down right after
@@ -11137,10 +11297,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._liveComposite?.scratch === scratch) this._flushLiveComposite()
     const ctx = scratch.finishContext
     if (!ctx || !ctx.profile.normalizeDeposit) return
+    // (§17.44) Which film this settle consumes - see releaseFilm.
+    const settledGesture = scratch.gesture
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
-    if (reveal) for (const tile of targets) this._revealWash(tile, target)
+    if (reveal && fade) for (const tile of targets) this._revealWash(tile, target)
     const { spreadPx, water, migratePx, bristleRadiusPx } = scratch.compositeScalars(
       () => ({
         spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0,
@@ -11149,6 +11311,9 @@ export class PencilEngine implements PencilEngineAPI {
     )
     scratch.noteDabSpacing(0)
     const dir = scratch.noteDirection(0, 0)
+    // (§17.44) A tile under a newer, still-running film shows the wet deposit
+    // (settled base + that film), not the dry target, which has no film in it.
+    const runningFilm = (entry: RibbonTileScratch): boolean => entry.filmGesture !== settledGesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk
     const composite = (): void => {
       for (const tile of targets) {
         const entry = scratch.peek(tile.buffer)
@@ -11159,7 +11324,8 @@ export class PencilEngine implements PencilEngineAPI {
         // rim it lays is a few pixels wide — the average would take it away.
         // (§17.42) The provisional dry target where the settle built one.
         this._drawRibbonCompositeRect(
-          tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkDry ?? entry.inkLoad, entry.colorDry ?? entry.inkColor, color, opacity,
+          tile, bounds, preset, profile, entry.original, entry.coverage,
+          runningFilm(entry) ? entry.inkLoad : entry.inkDry ?? entry.inkLoad, runningFilm(entry) ? entry.inkColor : entry.colorDry ?? entry.inkColor, color, opacity,
           fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
         )
       }
@@ -11208,7 +11374,7 @@ export class PencilEngine implements PencilEngineAPI {
         const complete = (): void => {
           job.finish()
           composite()
-          scratch.releaseFilm()
+          scratch.releaseFilm(settledGesture)
           if (reveal) {
             // The settle lands now, so the reveal eases in from now — not
             // from the pen-up a few frames ago, which would show a slice of
@@ -11232,7 +11398,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     composite()
-    scratch.releaseFilm()
+    scratch.releaseFilm(settledGesture)
   }
 
   /** ADR 004 "Ревизия v1.5" §2: how far this dab travelled since the

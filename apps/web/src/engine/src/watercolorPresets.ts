@@ -922,6 +922,21 @@ export const WC_FRONT_FLOOR_IN = 0.5
  *  its dry-paper cost would stop at a pixel anyway. */
 export const WC_FRONT_MAX_STEPS = 56
 export const WC_FRONT_WET_STEPS = 160
+/** (s17.44) The outward front's pass schedule for a run of `steps` cells:
+ *  dyadic jumps from the largest power of two under the run down to 2, then
+ *  WC_FRONT_UNIT_PASSES unit passes - the jumps carry the front across the
+ *  domain, the unit passes put back the cell-scale detail the relief gives
+ *  its edge. On a 400 px brush into a wash that is ~15 passes where the
+ *  plain relaxation needed 216, and those passes were most of the settle's
+ *  cost on the tablet (70 ms an entry). */
+export const WC_FRONT_UNIT_PASSES = 8
+export function watercolorFrontStrides(steps: number): number[] {
+  if (steps <= WC_FRONT_UNIT_PASSES) return Array.from({ length: steps }, () => 1)
+  const out: number[] = []
+  for (let st = 2 ** Math.floor(Math.log2(steps)); st >= 2; st /= 2) out.push(st)
+  for (let i = 0; i < WC_FRONT_UNIT_PASSES; i++) out.push(1)
+  return out
+}
 export function watercolorFrontSteps(budget: number, radiusPx: number, landedWet: number): number {
   const l = clamp01(landedWet)
   const cap = WC_FRONT_MAX_STEPS + Math.round(WC_FRONT_WET_STEPS * l)

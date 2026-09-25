@@ -3664,6 +3664,66 @@ export const WC_DIFFUSE_FRAG = `
  *  edge runs ahead in the paper's valleys and stalls on its ridges — the
  *  drying front the rims are built on. min and add only, so live and
  *  replay agree to the bit. */
+/** (#536, ADR 011 §17.44) Moving a region between a tile (full resolution)
+ *  and the settle's field at 1/u_ratio of it, for the big brushes whose
+ *  settle runs at half resolution. Drawn over the destination with a scissor
+ *  on the region; gl_FragCoord is the destination pixel, u_dstOrigin the
+ *  region's corner there, u_srcOrigin the matching corner in the source, in
+ *  source texels, u_ratio source texels per destination pixel.
+ *  Mode 0: the 2x2 mean of the source (tile -> field).
+ *  Mode 1: base + up(new) - up(old), bilinear - the field's CHANGE brought
+ *          back onto the full-resolution record, so its grain and the
+ *          brush's texture survive and only the movement is coarse.
+ *  Mode 2: max(base, up(new)) - the coverage the water front extended. */
+export const WC_RESAMPLE_FRAG = `
+  precision highp float;
+  uniform sampler2D u_src;
+  uniform sampler2D u_old;
+  uniform sampler2D u_base;
+  uniform vec2 u_srcSize;
+  uniform vec2 u_baseSize;
+  uniform vec2 u_dstOrigin;
+  uniform vec2 u_srcOrigin;
+  uniform float u_ratio;
+  uniform float u_mode;
+  // (s17.44) The source rect the interpolation may read, in source texels:
+  // the settle field's own rect. Past it the field holds nothing of this
+  // settle, and a bilinear tap there halved the change on the rect's last
+  // half cell - a thin line along every settle window's edge.
+  uniform vec4 u_clamp;
+  varying vec2 v_uv;
+  vec4 wcTexel(sampler2D t, vec2 q) { return texture2D(t, (clamp(floor(q), u_clamp.xy, u_clamp.zw - 1.0) + 0.5) / u_srcSize); }
+  vec4 wcBilerp(sampler2D t, vec2 q) {
+    vec2 g = q - 0.5;
+    vec2 i = floor(g);
+    vec2 f = g - i;
+    vec4 a = wcTexel(t, i), b = wcTexel(t, i + vec2(1.0, 0.0));
+    vec4 c = wcTexel(t, i + vec2(0.0, 1.0)), d = wcTexel(t, i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+  void main() {
+    vec2 q = u_srcOrigin + (gl_FragCoord.xy - u_dstOrigin) * u_ratio;
+    if (u_mode < 0.5) {
+      gl_FragColor = 0.25 * (wcTexel(u_src, q + vec2(-0.5, -0.5)) + wcTexel(u_src, q + vec2(0.5, -0.5))
+        + wcTexel(u_src, q + vec2(-0.5, 0.5)) + wcTexel(u_src, q + vec2(0.5, 0.5)));
+      return;
+    }
+    vec4 base = texture2D(u_base, gl_FragCoord.xy / u_baseSize);
+    if (u_mode < 1.5) {
+      // The change fades out over the last cells of the settle's rect: the
+      // rect is padded past anything the settle can move, so what reaches
+      // its edge is the half-resolution round trip's own residue, and
+      // applied up to the edge and not past it, that residue drew a line
+      // along every window's edge on a flat wash.
+      float edge = min(min(q.x - u_clamp.x, u_clamp.z - q.x), min(q.y - u_clamp.y, u_clamp.w - q.y));
+      float keep = smoothstep(1.0, 6.0, edge);
+      gl_FragColor = clamp(base + keep * (wcBilerp(u_src, q) - wcBilerp(u_old, q)), 0.0, 1.0);
+      return;
+    }
+    gl_FragColor = max(base, wcBilerp(u_src, q));
+  }
+`;
+
 export const WC_WATER_FRONT_FRAG = `
   precision highp float;
   uniform sampler2D u_cost;
@@ -3683,6 +3743,13 @@ export const WC_WATER_FRONT_FRAG = `
   // stroke where its puddle met its drier body, and in a wet wash.
   uniform sampler2D u_film;
   uniform float u_dryCost;
+  // (s17.44) The step's length in texels. 1 is the plain relaxation; a
+  // longer one is a JUMP of that many cells in one pass, costed as the sum
+  // of the single steps it stands for - the climb terms telescope along a
+  // straight path (sum of h_i - h_{i+1} is h_here - h_far), the floor holds
+  // per cell. A dyadic schedule of jumps then a few unit passes reaches a
+  // front of hundreds of cells in ~16 passes instead of hundreds.
+  uniform float u_stride;
   varying vec2 v_uv;
   const float WC_FILM_LO = 0.02;
   const float WC_FILM_HI = 0.15;
@@ -3707,7 +3774,7 @@ export const WC_WATER_FRONT_FRAG = `
       else if (k == 5) o = vec2(-1.0,  1.0);
       else if (k == 6) o = vec2( 1.0, -1.0);
       else o = vec2(-1.0, -1.0);
-      vec2 uvj = v_uv + o * texel;
+      vec2 uvj = v_uv + o * u_stride * texel;
       if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
       float ci = texture2D(u_cost, uvj).r;
       if (ci >= 0.999) continue;
@@ -3719,7 +3786,7 @@ export const WC_WATER_FRONT_FRAG = `
       // Two cells, or half the budget on a mark whose water runs further
       // (u_costMax is the budget plus four): a big wet blob's lobes stay at
       // half its spread, a drop's front keeps its fingers.
-      float relief = max(u_floor, 1.0 + u_climb * (hj - wcFrontHeightAt(px + o)));
+      float relief = max(u_floor * u_stride, u_stride + u_climb * (hj - wcFrontHeightAt(px + o * u_stride)));
       // Thresholded: the silhouette's antialiased ramp is two or three
       // texels wide, and read raw it priced the film's own edge like dry
       // paper - the inward pass could not enter, and the tideline was gone.
