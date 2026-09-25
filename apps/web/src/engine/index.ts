@@ -10632,8 +10632,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  A flood fill needs an edge to stop at, and on this canvas that is not a
    *  given: layer storage is a sparse map of tiles that come into existence
    *  when something is painted on them, so "outward from an untouched pixel"
-   *  has no end. A room with a canvas has the obvious answer and uses it — the
-   *  canvas, exactly as a bucket behaves in every editor with a page. An
+   *  has no end. A room with a sheet has the obvious answer and uses it — the
+   *  sheet, exactly as a bucket behaves in every editor with a page. An
    *  infinite room (#436 took those off the create screen, but rooms made
    *  before it are still in production) has no page, so the drawing itself
    *  stands in for one: the content bounds of whatever the fill is reading,
@@ -10654,7 +10654,13 @@ export class PencilEngine implements PencilEngineAPI {
     }
     let rect: WorldRect
     if (!this._infinite) {
-      rect = { minX: 0, minY: 0, maxX: this.canvas.width, maxY: this.canvas.height }
+      // (#607) The sheet, not the canvas element. Until #470 those were the
+      // same size; since then the canvas is the on-screen surface (the size
+      // of the window), and a domain read off it left every tap below or
+      // right of that rectangle with no region at all — the fill silently did
+      // nothing on most of an A4 page.
+      const page = this._pageSize()
+      rect = { minX: 0, minY: 0, maxX: page.w, maxY: page.h }
     } else {
       // Union of what the source layers actually hold. Tracked per tile and
       // never read back from the GPU (see ILayerBuffer.getContentBoundsWorld),

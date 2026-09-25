@@ -11,9 +11,9 @@ import {
  *
  *  Placement is stated in world (page) coordinates and turned into screen
  *  ones through the camera, because where on the page a tap lands is exactly
- *  what #607 is about: the fill's domain is the on-screen surface's size, not
- *  the sheet's, so the same gesture works near the top-left of the page and
- *  does nothing below it. */
+ *  what #607 was about: the fill's domain was the on-screen surface's size,
+ *  not the sheet's, so the same gesture worked near the top-left of the page
+ *  and did nothing below it. */
 
 /** A bounded room's camera: `vp.cx/cy` is where the page's centre sits in the
  *  canvas element, `vp.zoom` its scale. The sheet opens unrotated. */
@@ -83,17 +83,22 @@ test.describe('the fill', () => {
     expect((await operations(page)).filter(op => op.type === 'area_fill')).toHaveLength(0)
   })
 
-  // (#607) Expected to fail until the fill's domain is the sheet rather than
-  // the on-screen surface. When this starts passing, the bug is fixed —
-  // remove `test.fail` here.
+  // (#607) The fill's domain was the on-screen surface rather than the sheet:
+  // below the window-sized rectangle at the page's top-left, a tap did
+  // nothing. This is the scenario that failed.
   test('a tap low on the sheet fills too', async ({ page }) => {
-    test.fail(true, '#607: the fill domain is the canvas element, not the page')
     await createRoom(page)
     await waitForRoomReady(page)
+    const layer = await activeLayerId(page)
     const [x, y] = await outlineAround(page, 877, 1800)
     await pickFill(page)
 
     await tapCanvas(page, x, y)
     await waitForOperations(page, 'area_fill', 1)
+    const fill = (await operations(page)).find((op): op is AreaFillOperation => op.type === 'area_fill')
+    expect(fill?.layerId).toBe(layer)
+    // The region is the outline's inside, down there — not the window-sized
+    // rectangle at the top of the page.
+    expect(fill!.y).toBeGreaterThan(1500)
   })
 })
