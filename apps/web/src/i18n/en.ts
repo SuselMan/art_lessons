@@ -637,7 +637,6 @@ export const en = {
   'tool.linerTitle': 'Liner — ink pen, near-constant line width  {hotkey}',
   'tool.marker': 'Marker',
   'tool.markerTitle': 'Marker — two-nib (bullet/chisel) marker rendering  {hotkey}',
-  'tool.field.pigmentCode': 'Paint',
   'tool.field.water': 'Water',
   'tool.field.pigment': 'Pigment',
   'tool.field.mix': 'Mix',

@@ -547,7 +547,6 @@ export const ru: Dictionary = {
   'tool.brushGroup.scatter': 'Разброс',
   'tool.brushPen': 'Перо',
   'tool.brushPenTitle': 'Перо — гибкий наконечник, толщина линии идёт за нажимом  {hotkey}',
-  'tool.field.pigmentCode': 'Краска',
   'tool.field.water': 'Вода',
   'tool.field.pigment': 'Пигмент',
   'tool.field.mix': 'Замес',

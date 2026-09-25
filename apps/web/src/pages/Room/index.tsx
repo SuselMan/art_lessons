@@ -12,7 +12,7 @@ import type {
   JoinDenial, BoardSummary, ClassVisibility, LessonState,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, unpackDabs, type ToggleableTool } from '@grafetto/shared'
-import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
+import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
@@ -2831,26 +2831,20 @@ function RoomEditor() {
   const watercolorResponse = toolSettings.watercolor.pressureResponse as string
   const watercolorWater = toolSettings.watercolor.water as number
   const watercolorPigment = toolSettings.watercolor.pigment as number
-  // #468 v5 — which paint, on top of how much of it. Rides the same string as
-  // a fourth field; a stroke recorded before v5 has no code and falls back.
-  const watercolorPaint = toolSettings.watercolor.pigmentCode as string
+  // (#536) The paint code rides the preset string as its fourth field, but the
+  // choice of a tube is gone from the UI: the colour comes from the ordinary
+  // picker like every other tool's, and every stroke records the default
+  // paint's behavioural numbers. A stroke recorded with another code still
+  // replays with it.
   // #489 — and which brush, as a fifth field. Absent from every stroke recorded
   // before it, which is why they replay as the round nib they were drawn with.
   const watercolorNib = toolSettings.watercolor.nib as string
   const watercolorPreset = watercolorPresetString(
     isPressureResponse(watercolorResponse) ? watercolorResponse : 'normal',
     { water: watercolorWater, pigment: watercolorPigment },
-    isWatercolorPigmentCode(watercolorPaint) ? watercolorPaint : undefined,
+    undefined,
     isWatercolorNib(watercolorNib) ? watercolorNib : undefined,
   )
-  // #468 v5 — picking a paint sets the tool's colour to that paint's own. The
-  // colour swatch stays editable afterwards: the four behavioural numbers still
-  // apply, which is the honest reading of "cobalt, but I want it warmer" — you
-  // are still painting with cobalt.
-  useEffect(() => {
-    if (!isWatercolorPigmentCode(watercolorPaint)) return
-    setToolSetting('watercolor', 'color', watercolorPigmentByCode(watercolorPaint).color)
-  }, [watercolorPaint, setToolSetting])
 
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
   // marker, the size label for liner, the charcoal type for charcoal, the

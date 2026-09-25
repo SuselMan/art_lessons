@@ -2,8 +2,6 @@ import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
   TILT_RESPONSES, DEFAULT_TILT_RESPONSE, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
   WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_DEFAULT,
-  WATERCOLOR_PIGMENT_CODES, WATERCOLOR_PIGMENT_SWATCHES, DEFAULT_WATERCOLOR_PIGMENT,
-  WATERCOLOR_PIGMENTS,
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
   WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, type WatercolorNib,
@@ -605,26 +603,6 @@ const watercolorSchema = (): ToolSchema => ({
     uiControls: ['select'],
     quickAccess: true,
     default: 'damp' satisfies WatercolorMixPreset,
-  },
-  // #468 v5, ADR 011 §5 — which paint, as distinct from how much of it.
-  //
-  // A colour picker cannot express this and never could: French Ultramarine and
-  // a phthalo blue can be set to the same RGB and still behave nothing alike —
-  // one granulates heavily and lifts off the paper, the other lays flat and
-  // stains. Picking a tube is also how the choice is actually made at a real
-  // desk; nobody mixes a hex value.
-  //
-  // The swatches are generated from each paint's own colour rather than being
-  // photographed marks like the pencil grades', because what distinguishes one
-  // tube from the next here *is* the colour — see WATERCOLOR_PIGMENT_SWATCHES.
-  pigmentCode: {
-    nameKey: 'tool.field.pigmentCode',
-    valueType: { kind: 'enumOptions', options: WATERCOLOR_PIGMENT_CODES },
-    optionLabels: Object.fromEntries(WATERCOLOR_PIGMENTS.map(p => [p.code, p.name])),
-    optionImages: WATERCOLOR_PIGMENT_SWATCHES,
-    uiControls: ['select'],
-    quickAccess: true,
-    default: DEFAULT_WATERCOLOR_PIGMENT,
   },
   size: {
     nameKey: 'tool.field.size',
