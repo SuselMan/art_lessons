@@ -898,6 +898,9 @@ export function watercolorFrontSteps(budget: number, radiusPx: number, landedWet
 //  water's - the sheet filters it - so the carry equalises part-way, over
 //  the nearer half of the domain.
 export const WC_CARRY_RATE = 0.5
+/** (s17.35) The share of a texel's mobile paint that travels with the front
+ *  at all; the rest stays in the footprint as if fixed. */
+export const WC_CARRY_TRAVEL = 0.35
 export const WC_CARRY_POW = 3
 export const WC_CARRY_MAX_STEPS = 24
 /** The pigment's horizon as a share of the water front's budget. */
@@ -997,7 +1000,7 @@ export const WC_TIDE_RIM = 1.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r11 (§17.34)'
+export const WATERCOLOR_ROUND = 'акварель r12 (§17.35)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

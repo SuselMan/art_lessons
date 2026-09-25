@@ -2946,14 +2946,24 @@ export const WC_FIELD_OP_FRAG = `
   // the texel (the water runs outward), else the CONDUCTANCE of the step
   // (its length over its cost in cells) to the power u_size.x. u_size.y is
   // costMax, u_origin.x the stride's length in texels.
+  const float WC_CARRY_FADE = 0.75;
   float wcCarryWeight(float ci, vec2 uvj) {
     if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) return 0.0;
     float cj = texture2D(u_d, uvj).r;
     if (cj > u_band.x) return 0.0;
     float d = (cj - ci) * u_size.y;
     if (d <= 1e-3) return 0.0;
-    return pow(min(u_origin.x / d, 4.0), u_size.x);
+    // (s17.35) ...fading with how far along the front the RECEIVER lies:
+    // the flux weakens toward the horizon, so the moved paint lies along the
+    // way, dense near the footprint and thin at the tips, instead of piling
+    // in a band at the horizon - the ring twice the footprint's density that
+    // read as "пустое место, потом линия растекания". The sheet filters the
+    // pigment as the water goes on (the design thread's immobilisation, in
+    // its cheapest form).
+    float fade = 1.0 - WC_CARRY_FADE * smoothstep(0.0, u_band.x, cj);
+    return pow(min(u_origin.x / d, 4.0), u_size.x) * fade;
   }
+
   vec2 wcCarryDir(int k) {
     return k == 0 ? vec2(1.0, 0.0) : k == 1 ? vec2(-1.0, 0.0) : k == 2 ? vec2(0.0, 1.0) : vec2(0.0, -1.0);
   }
@@ -2979,11 +2989,22 @@ export const WC_FIELD_OP_FRAG = `
       // Mode 16 is the same step for the COLOUR record (a): the fractions
       // come from the deposit's mobile (u_c) and fixed (u_b) fields, so
       // the two records move by identical fractions.
+      // (s17.35) ...and only u_origin.y of the mobile paint TRAVELS at all:
+      // the rest stays as if fixed, and the balance the flow equalises is
+      // the travelling share against the neighbour's. Equalising the whole
+      // mobile field drained a loaded stroke's footprint over a wet wash
+      // into the ring around it - the stroke read paler than its own
+      // surroundings ("пересекаются, потом пустое место, потом линия
+      // растекания"). The photographs keep the body; the sheet filters
+      // the pigment while the water goes on (the design thread's
+      // immobilisation), and this is its cheapest form: a share that never
+      // leaves, no second output buffer.
       float ci = texture2D(u_d, v_uv).r;
       vec4 out4 = a;
       bool colour = u_mode > 15.5;
       vec4 m = colour ? texture2D(u_c, v_uv) : a;
-      float Ti = m.a + b.a;
+      float trav = u_origin.y;
+      float Ti = trav * m.a + b.a;
       if (ci <= u_band.x) {
         float ws[4];
         float wsum = 0.0;
@@ -2993,10 +3014,10 @@ export const WC_FIELD_OP_FRAG = `
           if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
           vec4 aj = texture2D(u_a, uvj);
           vec4 mj = colour ? texture2D(u_c, uvj) : aj;
-          float Tj = mj.a + texture2D(u_b, uvj).a;
+          float Tj = trav * mj.a + texture2D(u_b, uvj).a;
           // Give: my share toward j, of my excess of total over j, capped
-          // at what is mobile here.
-          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0), m.a) / max(m.a, 1e-4));
+          // at what travels here.
+          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0), trav * m.a) / max(m.a, 1e-4));
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
           float cj = texture2D(u_d, uvj).r;
@@ -3008,7 +3029,7 @@ export const WC_FIELD_OP_FRAG = `
             wj += w;
             if (mm == back) wme = w;
           }
-          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0), mj.a) / max(mj.a, 1e-4));
+          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0), trav * mj.a) / max(mj.a, 1e-4));
         }
       }
       gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));
