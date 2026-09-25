@@ -22,7 +22,9 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  // (#246) landing/ is the marketing page; its try-it sheet imports the engine,
+  // so it is typechecked with the app rather than left to Vite, which does not.
+  "include": ["src", "landing"],
   // The service worker runs in a worker global, not the DOM — it has its own
   // project (tsconfig.sw.json) with the right lib. See that file.
   "exclude": ["src/pwa/sw.ts"]

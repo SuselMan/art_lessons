@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { currentlyDrawing, sameIds } from './drawingIndicator'
+import { useRoomStore } from '../../stores/roomStore'
+import {
+  currentlyDrawing, currentlyDrawingLayers, layerActivityKey, sameIds, sameLayerDrawers,
+  type LayerActivity,
+} from './drawingIndicator'
 
 /** How long after someone's last stroke event they stop counting as drawing. */
 const DRAWING_TIMEOUT_MS = 1500
@@ -10,6 +14,10 @@ export interface DrawingActivity {
   drawingIds: string[]
   /** Someone just drew — from a stroke operation, or this client's own pen. */
   markActive: (userId: string) => void
+  /** A peer's stroke landed on a layer — the layer panel outlines that row
+   *  in their colour. Peers only: the viewer's own stroke is on the row they
+   *  just picked, and outlining it under their pen says nothing new. */
+  markLayerActive: (userId: string, layerId: string) => void
   /** Someone left the room; drop them rather than waiting out the timeout. */
   forget: (userId: string) => void
   /** (#176) A page turn: nobody is drawing on a board this client has only
@@ -37,18 +45,28 @@ export interface DrawingActivity {
  *  person can actually see. */
 export function useDrawingActivity(): DrawingActivity {
   const lastActiveAtRef = useRef<Record<string, number>>({})
+  const layerActivityRef = useRef<Record<string, LayerActivity>>({})
   const [drawingIds, setDrawingIds] = useState<string[]>([])
 
   const markActive = useCallback((userId: string) => {
     lastActiveAtRef.current[userId] = Date.now()
   }, [])
 
+  const markLayerActive = useCallback((userId: string, layerId: string) => {
+    if (userId === useRoomStore.getState().userId) return
+    layerActivityRef.current[layerActivityKey(userId, layerId)] = { userId, layerId, at: Date.now() }
+  }, [])
+
   const forget = useCallback((userId: string) => {
     delete lastActiveAtRef.current[userId]
+    for (const [k, a] of Object.entries(layerActivityRef.current)) {
+      if (a.userId === userId) delete layerActivityRef.current[k]
+    }
   }, [])
 
   const reset = useCallback(() => {
     lastActiveAtRef.current = {}
+    layerActivityRef.current = {}
     setDrawingIds([])
   }, [])
 
@@ -59,9 +77,14 @@ export function useDrawingActivity(): DrawingActivity {
       // second for the whole life of the room, and a fresh array each time
       // would re-render the participants list just as often.
       setDrawingIds(prev => (sameIds(prev, next) ? prev : next))
+      // The layer panel's half, in the store because the panel reads it and
+      // the panel is not a child this hook hands props to.
+      const { layerDrawers, setLayerDrawers } = useRoomStore.getState()
+      const nextLayers = currentlyDrawingLayers(layerActivityRef.current, Date.now(), DRAWING_TIMEOUT_MS)
+      if (!sameLayerDrawers(layerDrawers, nextLayers)) setLayerDrawers(nextLayers)
     }, 300)
     return () => window.clearInterval(timer)
   }, [])
 
-  return { drawingIds, markActive, forget, reset }
+  return { drawingIds, markActive, markLayerActive, forget, reset }
 }

@@ -239,6 +239,31 @@ modules:
       - apps/web/src/pages/NotFound/**
     tags: [ui]
 
+  - id: screen-landing
+    title: Лендинг
+    layer: screens
+    owns: >-
+      Публичная страница на `/` (#246): отдельная страница сборки, не маршрут приложения —
+      не грузит его бандл и ни разу не ходит в `/api`, поэтому identity-кука появляется только
+      при входе в приложение. Единственный код в ней — лист «попробуй сам»: движок и одна бумага
+      подгружаются по кнопке, инструменты с пресетами по умолчанию, без комнаты и без сервера.
+    files:
+      - apps/web/landing/**
+    tags: [ui, маркетинг]
+
+  - id: screen-admin
+    title: Админка
+    layer: screens
+    owns: >-
+      Панель для одного читателя (#585): кто онлайн и в каких уроках, регистрации, пользователи
+      и уроки со счётчиками, бан аккаунта с причиной, журнал действий. По-английски, как все
+      внутренние панели. Всем, кроме адресов из `ADMIN_EMAILS`, отвечает обычной 404. В сам
+      рисунок чужого урока не пускает — только миниатюра.
+    files:
+      - apps/web/src/pages/Admin/**
+      - apps/web/src/lib/adminApi.ts
+    tags: [админка]
+
   # ------------------------------------------------------------------ редактор: вид
 
   - id: room-shell
@@ -341,6 +366,8 @@ modules:
     files:
       - apps/web/src/pages/Room/ParticipantsPanel.*
       - apps/web/src/pages/Room/BoardStrip.*
+      - apps/web/src/pages/Room/ClassGrid.*
+      - apps/web/src/pages/Room/ClassPlaces.*
       - apps/web/src/pages/Room/PencilSoundTuningPanel.*
     tags: [панели]
 
@@ -382,6 +409,7 @@ modules:
       - apps/web/src/pages/Room/snapshotGate.ts
       - apps/web/src/pages/Room/snapshotRestore.ts
       - apps/web/src/pages/Room/snapshotSync.ts
+      - apps/web/src/pages/Room/previewSchedule.ts
       - apps/web/src/pages/Room/socketRevival.ts
       - apps/web/src/pages/Room/syncStatus.ts
       - apps/web/src/pages/Room/connectionNotice.ts
@@ -595,6 +623,7 @@ modules:
       несёт `Room.enabledTools`, без собственного кодирования.
     files:
       - apps/web/src/components/ToolSetPicker/**
+      - apps/web/src/components/ClassVisibilityField/**
     issues: [548]
     notes:
       - >-
@@ -730,6 +759,8 @@ modules:
       - apps/web/src/lib/api.ts
       - apps/web/src/lib/queryClient.ts
       - apps/web/src/lib/authState.ts
+      - apps/web/src/lib/banned.ts
+      - apps/web/src/lib/environment.ts
       - apps/web/src/lib/shareRoom.ts
       - apps/web/src/lib/shareRoom.test.ts
       - apps/web/src/lib/useShareRoom.ts
@@ -776,6 +807,8 @@ modules:
     files:
       - apps/web/src/lib/boards.ts
       - apps/web/src/lib/boards.test.ts
+      - apps/web/src/lib/classMode.ts
+      - apps/web/src/lib/classMode.test.ts
     adr: [014-boards]
     tags: [доски, чистое]
 
@@ -829,7 +862,6 @@ modules:
       - apps/web/src/lib/appVersion.test.ts
       - apps/web/src/lib/theme.ts
       - apps/web/src/lib/image.ts
-      - apps/web/src/lib/thumbnail.ts
       - apps/web/src/lib/clipboardStorage.ts
       - apps/web/src/lib/clipboardStorage.test.ts
       - apps/web/src/lib/uiPreferences.ts
@@ -1026,6 +1058,7 @@ modules:
       - apps/web/src/engine/src/shapeGeometry*.ts
       - apps/web/src/engine/src/selectionMask*.ts
       - apps/web/src/engine/src/matrix*.ts
+      - apps/web/src/engine/src/previewChain*.ts
       - apps/web/src/engine/src/utils.ts
     adr: [010-fill-tool]
     notes:
@@ -1072,8 +1105,14 @@ modules:
       - apps/server/src/socketHandlers.test.ts
       - apps/server/src/lessons.ts
       - apps/server/src/boards.test.ts
-    adr: [002-collaborative-undo, 014-boards]
+      - apps/server/src/classMode.ts
+      - apps/server/src/classMode.test.ts
+    adr: [002-collaborative-undo, 014-boards, 015-class-mode]
     notes:
+      - >-
+        Работа в классе (ADR 015): личная доска — доска урока с владельцем-учеником. Кто её
+        видит, решает одна функция canSeeBoard (lessons.ts) — и для join_room, и для REST, и для
+        LessonState, который собирается под получателя и шлётся событием lesson_state.
       - >-
         Map остаётся источником правды для всего живого; запись в Postgres — fire-and-forget,
         её не ждут на горячем пути. Плата: операция, проигравшая гонку падению сервера,
@@ -1105,7 +1144,8 @@ modules:
     layer: server-http
     owns: >-
       Беспарольный вход по коду на email, выдача и проверка кодов, личность запроса,
-      ограничение частоты, правила доступа к комнате.
+      ограничение частоты, правила доступа к комнате. Устройства и адреса, с которых человек
+      заходит (#589): кука `al_dev`, запись визитов, окружение от клиента, срок хранения.
     files:
       - apps/server/src/authRoutes*.ts
       - apps/server/src/loginCodes*.ts
@@ -1115,7 +1155,20 @@ modules:
       - apps/server/src/rateLimit.ts
       - apps/server/src/roomAccess.ts
       - apps/server/src/roomAccess.test.ts
+      - apps/server/src/sessions*.ts
     tags: [аккаунты, доступ]
+
+  - id: server-admin
+    title: Админка и баны
+    layer: server-http
+    owns: >-
+      `/api/admin/*` за allow-list email (#586) и бан аккаунта (#587). Множество забаненных
+      живёт в памяти процесса: его читают identityHook и хэндшейк сокета на каждом запросе,
+      а пишут только маршруты бана — после записи в базу и журнал `AdminAction`.
+    files:
+      - apps/server/src/adminRoutes*.ts
+      - apps/server/src/bans.ts
+    tags: [админка, аккаунты]
 
   - id: server-health
     title: Здоровье процесса
@@ -1164,6 +1217,8 @@ modules:
       действие рисования сериализуемо с первого дня.
     files:
       - packages/shared/src/index.ts
+      - packages/shared/src/admin.ts
+      - packages/shared/src/admin.test.ts
       - packages/shared/src/rejectReason.test.ts
       - packages/shared/src/transformMatrix.test.ts
       - packages/shared/src/toolset.test.ts

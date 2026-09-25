@@ -34,8 +34,53 @@ model User {
   roomInvitesSent   RoomInvite[]
   roomJoinRequests  RoomJoinRequest[]
   roomBlocks        RoomBlock[]
+  // (#586) When this browser/account was last seen by the server. Not
+  // `updatedAt`, which only moves when the row is edited: a person who draws
+  // every day and never touches their profile would read as gone since
+  // signup. Written by identity.ts at most once per LAST_SEEN_WRITE_INTERVAL_MS,
+  // so it means "within the last few minutes", not to the second. Null for
+  // rows older than the column.
+  lastSeenAt        DateTime?
+  // (#586) When `email` was first filled in. Not `createdAt`: signing up
+  // claims the browser's existing guest row (see the comment above), so
+  // `createdAt` is the first visit, which can be months before the account.
+  registeredAt      DateTime?
+  // (#587) Account ban. Set means every HTTP request, socket handshake and
+  // sign-in code for this user is refused (see bans.ts). `bannedById` is a
+  // plain id rather than a relation: the journal (AdminAction) is the record
+  // of who did what, this is only the current state.
+  bannedAt          DateTime?
+  banReason         String?
+  bannedById        String?
+  // (#589) "Sign out everywhere": identity tokens issued before this moment
+  // are refused (identity.ts), which turns every browser holding one back
+  // into a fresh guest. Null means nothing was ever revoked.
+  sessionsRevokedAt DateTime?
+  devices           UserDevice[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+}
+
+// (#586) Journal of what an admin did — bans, unbans, and whatever comes next.
+// Deliberately free of relations: an entry must outlive the user or room it is
+// about (a deleted room's ban reason is exactly the thing worth still having),
+// so the ids are plain strings and nothing cascades into this table.
+model AdminAction {
+  id           String   @id @default(uuid())
+  adminId      String
+  // `ban` | `unban` | `revoke_sessions` | `ip_ban` | `ip_unban`. A String rather than an enum: new kinds of action will
+  // arrive with v2 (#589, #590), and an old row must stay readable without a
+  // migration for every one.
+  action       String
+  targetUserId String?
+  targetRoomId String?
+  // (#590) For `ip_ban` / `ip_unban`.
+  targetIp     String?
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetUserId])
 }
 
 // One outstanding sign-in code (#316). Not a relation to User on purpose: a
@@ -72,21 +117,21 @@ model LoginCode {
 }
 
 model Room {
-  id           String            @id
-  name         String
-  paper        String
+  id                 String              @id
+  name               String
+  paper              String
   // Hex color the creator picked for the paper background (see the shared
   // `Room.paperColor` doc comment) — nullable so pre-existing rows fall back
   // to DEFAULT_PAPER_COLORS[paper] client-side rather than needing a backfill.
-  paperColor   String?
+  paperColor         String?
   // Infinite (tiled) canvas — canvasWidth/canvasHeight are set iff !infinite.
   // Nullable rather than a sentinel so existing fixed-canvas rows/queries
   // don't need to special-case a magic value; `@default(false)` backfills
   // every pre-existing row as a fixed-canvas room with no data migration.
-  infinite     Boolean           @default(false)
-  canvasWidth  Int?
-  canvasHeight Int?
-  passwordHash String?
+  infinite           Boolean             @default(false)
+  canvasWidth        Int?
+  canvasHeight       Int?
+  passwordHash       String?
   // (#224) Who may enter at all. Deliberately independent of `passwordHash`,
   // which stays its own toggle applicable in either mode: the password is a
   // shared secret about the *link*, this is about *people*. A lesson can be
@@ -104,7 +149,7 @@ model Room {
   //
   // `@default` backfills every existing room as `anyone_with_link` — today's
   // actual behaviour, so the migration changes no room's accessibility.
-  accessMode   RoomAccessMode    @default(anyone_with_link)
+  accessMode         RoomAccessMode      @default(anyone_with_link)
   // (#548) Which tools this room offers. An empty list means "no restriction",
   // which is also what every pre-existing row backfills to — so this migration
   // changes no room's behaviour.
@@ -121,17 +166,17 @@ model Room {
   // list is read back through the shared sanitizer, which drops ids it does
   // not know, and that is what lets a row written by a newer build still open
   // in an older one instead of failing to parse.
-  enabledTools String[]          @default([])
-  closedAt     DateTime?
+  enabledTools       String[]            @default([])
+  closedAt           DateTime?
   // (#317) Fork lineage. `SetNull` rather than the `Cascade` every other
   // relation here uses, and deliberately so: deleting the lesson a student
   // forked from must never delete the student's own work with it. The fork
   // keeps everything it was seeded with — that content lives in its own
   // snapshot and operation rows, not in the parent's — and only forgets
   // where it came from.
-  parentRoomId String?
-  parent       Room?             @relation("RoomForks", fields: [parentRoomId], references: [id], onDelete: SetNull)
-  forks        Room[]            @relation("RoomForks")
+  parentRoomId       String?
+  parent             Room?               @relation("RoomForks", fields: [parentRoomId], references: [id], onDelete: SetNull)
+  forks              Room[]              @relation("RoomForks")
   // (#176, ADR 014) Boards. A lesson is an ordinary Room (`lessonId` null) and
   // is also its own first board; every additional board is a Room row whose
   // `lessonId` points at the lesson. Everything *social* — participants,
@@ -147,33 +192,92 @@ model Room {
   // that merely remembers its origin, a board is a page *of* this lesson and
   // has no meaning without it. Every pre-existing row is a lesson with one
   // board, so the migration is purely additive.
-  lessonId     String?
-  lesson       Room?             @relation("LessonBoards", fields: [lessonId], references: [id], onDelete: Cascade)
-  boards       Room[]            @relation("LessonBoards")
+  lessonId           String?
+  lesson             Room?               @relation("LessonBoards", fields: [lessonId], references: [id], onDelete: Cascade)
+  boards             Room[]              @relation("LessonBoards")
   // Position in the lesson's board strip. The lesson itself is always 0; a new
   // board takes max + 1. Meaningless (and left at 0) on a lesson row.
-  boardOrder   Int               @default(0)
+  boardOrder         Int                 @default(0)
   // The board the teacher is currently on — what a joiner lands on and what
   // followers switch to. Null means the lesson's own first board. Only ever
   // set on a lesson row. Not a relation on purpose: it may name a board that
   // was deleted a moment ago, and the delete route resets it rather than
   // asking Postgres to.
-  activeBoardId String?
-  ownerId      String
-  owner        User              @relation(fields: [ownerId], references: [id])
-  operations   Operation[]
-  participants RoomParticipant[]
-  invites      RoomInvite[]
-  joinRequests RoomJoinRequest[]
-  blocks       RoomBlock[]
-  snapshots    RoomLayerSnapshot[]
-  layerState   RoomLayerState?
-  palette      RoomPalette?
-  thumbnail    RoomThumbnail?
-  createdAt    DateTime          @default(now())
+  activeBoardId      String?
+  // (#595, ADR 015) Class mode. A *personal board* is a board with an owner of
+  // its own, one per student per assignment round: `assignmentId` and
+  // `boardOwnerId` are set together or not at all, and only on a board
+  // (`lessonId` set). Only the student and the teacher draw on it
+  // (`board_not_yours`); who else may *see* it is the lesson's
+  // `classVisibility`. `boardOwnerId` is not a relation for the same reason
+  // `activeBoardId` is not: nothing here needs Postgres to chase it, and a
+  // student's account going away must not take their lesson's grid with it.
+  assignmentId       String?
+  assignment         Assignment?         @relation("AssignmentBoards", fields: [assignmentId], references: [id], onDelete: Cascade)
+  boardOwnerId       String?
+  // Lesson rows only. The assignment round in progress (null — none), the
+  // personal board the teacher is showing the whole class (null — none), and
+  // whether students see each other's work. `teacher_only` by default: showing
+  // your work to everyone is awkward for beginners, and the teacher can open
+  // it up at any moment.
+  activeAssignmentId String?
+  spotlightBoardId   String?
+  classVisibility    ClassVisibility     @default(teacher_only)
+  assignments        Assignment[]        @relation("LessonAssignments")
+  ownerId            String
+  owner              User                @relation(fields: [ownerId], references: [id])
+  operations         Operation[]
+  participants       RoomParticipant[]
+  invites            RoomInvite[]
+  joinRequests       RoomJoinRequest[]
+  blocks             RoomBlock[]
+  snapshots          RoomLayerSnapshot[]
+  layerState         RoomLayerState?
+  palette            RoomPalette?
+  thumbnail          RoomThumbnail?
+  createdAt          DateTime            @default(now())
 
+  // (#595) One personal board per student per assignment — what makes the
+  // lazy creation for a latecomer safe to race (ADR 015 §2).
+  @@unique([assignmentId, boardOwnerId])
   // Every read of a lesson's boards is "its boards, in strip order".
   @@index([lessonId, boardOrder])
+}
+
+// (#595, ADR 015 §2) One round of work in class: "draw the cube", then later
+// "draw the cylinder". Its personal boards are shown together as one grid and
+// never mixed with another round's. A table rather than a flag on the board
+// because every question worth asking — which boards belong together, which
+// round a latecomer joins, what it is called, how its boards start — is a
+// question about the group, not about any one board.
+model Assignment {
+  id          String         @id @default(uuid())
+  lessonId    String
+  lesson      Room           @relation("LessonAssignments", fields: [lessonId], references: [id], onDelete: Cascade)
+  name        String
+  order       Int
+  // What a personal board starts with. Only `blank` is built; `copy_board`
+  // (seed from the teacher's board, `seedBoardId`) is in the model so adding
+  // it later is one enum value and one branch, with no data migration.
+  seed        AssignmentSeed @default(blank)
+  seedBoardId String?
+  createdAt   DateTime       @default(now())
+  endedAt     DateTime?
+  boards      Room[]         @relation("AssignmentBoards")
+
+  @@index([lessonId, order])
+}
+
+enum AssignmentSeed {
+  blank
+  copy_board
+}
+
+// Spelled as the wire values in packages/shared's `ClassVisibility`, the same
+// way `RoomAccessMode` is, so the row crosses to the client with no mapping.
+enum ClassVisibility {
+  teacher_only
+  class
 }
 
 // Persisted join history — one row per (room, user) ever, so "Мои уроки"
@@ -273,14 +377,14 @@ model Operation {
 // pixels don't match what's already stored (a cross-device determinism
 // violation — see rooms.ts's saveSnapshot).
 model RoomLayerSnapshot {
-  id      String @id @default(uuid())
-  roomId  String
-  room    Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  layerId String
-  seq     Int
-  data    Bytes
-  hash    String
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  roomId       String
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  layerId      String
+  seq          Int
+  data         Bytes
+  hash         String
+  createdAt    DateTime @default(now())
   // (#289 epic, reliable history spec v0.2 §13) Whether this snapshot has
   // been independently corroborated. `unverified` on arrival; `verified`
   // once a second, independently-produced bake of the same seq matched this
@@ -290,7 +394,7 @@ model RoomLayerSnapshot {
   // against anything else. `disputed` is deliberately terminal and never
   // auto-resolved: nothing here can tell which of two disagreeing bakes is
   // the correct one, so both stay and the raw operations stay too.
-  verification String @default("unverified")
+  verification String   @default("unverified")
 
   @@unique([roomId, layerId, seq])
   // Every read is "the newest row for this layer" (coveredSeq) or "the newest
@@ -339,11 +443,14 @@ model RoomPalette {
 // opaque per-layer tile blobs for fast rejoin, this is a single flat image
 // meant to be displayed directly.
 model RoomThumbnail {
-  id        String   @id @default(uuid())
-  roomId    String   @unique
-  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  data      Bytes
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  roomId      String   @unique
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  data        Bytes
+  // (#595) PNG for every row written before ADR 015; the cheap live preview
+  // (engine.bakePreview) uploads WebP where the browser can encode it.
+  contentType String   @default("image/png")
+  updatedAt   DateTime @updatedAt
 }
 
 // (#224, §6 of the release track #314) The allow-list an `invite_only` room
@@ -450,4 +557,65 @@ enum RoomJoinRequestStatus {
   pending
   approved
   denied
+}
+
+// (#589) One browser a person has used. "Browser" is the `al_dev` cookie
+// (identity.ts), not the identity cookie: signing in on a second browser gives
+// both the same user id, and the question this table answers is "which of
+// their devices", so the device needs an id of its own.
+//
+// `env` is what the client reports about itself (lib/environment.ts) — build,
+// screen, pen, GPU — and is replaced wholesale on every report. Json rather
+// than columns: it is read by one person in the admin panel and never
+// queried, and the set of fields will keep growing with the bugs it answers.
+model UserDevice {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId    String
+  userAgent   String
+  platform    String
+  browser     String
+  lastIp      String?
+  env         Json?
+  envAt       DateTime?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+
+  @@unique([userId, deviceId])
+  @@index([lastSeenAt])
+}
+
+// (#589, #590) Which address each person's device was seen from. Separate
+// from UserDevice because the question it answers runs the other way — "who
+// else came from this IP" — which is what makes an IP ban something one can
+// decide rather than guess. Not a relation to User on purpose: nothing about
+// it needs a join, and it is pruned on its own clock (sessions.ts).
+model IpSighting {
+  id          String   @id @default(uuid())
+  ip          String
+  userId      String
+  deviceId    String
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([ip, userId, deviceId])
+  @@index([userId])
+  @@index([lastSeenAt])
+}
+
+// (#590) A ban on an address, always with an end: one address is often a
+// mobile carrier's NAT or a school's whole network, and a permanent ban on it
+// would outlive the person it was meant for. `liftedAt` ends one early.
+model IpBan {
+  id          String    @id @default(uuid())
+  ip          String
+  reason      String
+  createdById String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  liftedAt    DateTime?
+
+  @@index([ip])
+  @@index([expiresAt])
 }

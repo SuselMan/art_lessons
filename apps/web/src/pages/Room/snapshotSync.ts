@@ -3,7 +3,6 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { compressLayerTiles } from '../../engine/src/snapshotCodec'
 import { reportInvariant } from '../../lib/reportInvariant'
-import { downscaleForThumbnail } from '../../lib/thumbnail'
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -39,12 +38,18 @@ async function uploadSnapshot(
   }
 }
 
-/** #210: room-list preview thumbnail. Exports the full composite (paper/
- *  background baked in, same as the manual "export PNG" button — see
- *  Room/index.tsx's handleExport), downscales it client-side
- *  (downscaleForThumbnail — never send full-resolution pixels to the
- *  thumbnail endpoint), and uploads the result. Best-effort: no retry,
- *  swallow failures.
+/** #210: room-list preview thumbnail. (#595, ADR 015 §5) Baked by
+ *  `engine.bakePreview()` — the same frame as the manual "export PNG" button
+ *  (paper baked in), but shrunk on the GPU and read back small, then WebP
+ *  (PNG where the browser cannot encode WebP; the server sniffs the format
+ *  from the bytes). The old route — full-size exportPNG, decode, 2D-canvas
+ *  downscale, re-encode — was a full-sheet readback plus two PNG encodes on
+ *  the device that is drawing, too heavy for the class grid's every-few-
+ *  seconds cadence. Best-effort: no retry, swallow failures.
+ *
+ *  Resolves true only when the server stored it. A 429 (the server accepts
+ *  one preview per board every few seconds) is an ordinary "not this time",
+ *  not an error: false, silently, like any other skipped upload.
  *
  *  Two call sites (#211 epic follow-up): `createSnapshotUploader`'s
  *  `onSeqObserved` below piggybacks it on the same SNAPSHOT_SEQ_INTERVAL
@@ -59,17 +64,17 @@ async function uploadSnapshot(
  *  leave first. */
 export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): Promise<boolean> {
   try {
-    const full = await engine.exportPNG()
-    if (!full) return false
-    const thumbnail = await downscaleForThumbnail(full)
-    if (!thumbnail) return false
-    const bytes = new Uint8Array(await thumbnail.arrayBuffer())
+    const preview = await engine.bakePreview()
+    if (!preview) return false
+    const bytes = new Uint8Array(await preview.arrayBuffer())
     const res = await fetch(`/api/rooms/${roomId}/thumbnail`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ data: bytesToBase64(bytes) }),
     })
+    // 429 lands here too, as `ok: false` — rate-limited is simply "not
+    // stored this time", nothing to report or retry.
     // (#176) Reported back so the board strip can refresh the picture of the
     // page just left — thumbnails are not announced over the socket.
     return res.ok
@@ -172,8 +177,8 @@ export function createSnapshotUploader(roomId: string) {
 
       // #210: independent of the layer-snapshot path above (fires even if
       // layers.size was 0 — a blank room still gets a thumbnail attempt,
-      // harmless either way) and never awaited here, so its own encode/
-      // downscale/upload work can't delay uploadSnapshot or the caller.
+      // harmless either way) and never awaited here, so its own bake/
+      // encode/upload work can't delay uploadSnapshot or the caller.
       void uploadThumbnail(roomId, engine)
     },
   }

@@ -9,7 +9,7 @@ import { isTransientReject, TRANSIENT_REJECT_REASONS, type RejectReason } from '
 describe('RejectReason: transient vs final', () => {
   const FINAL: RejectReason[] = [
     'room_frozen', 'participant_frozen', 'layer_owner_locked', 'layer_locked',
-    'not_owner', 'room_closed', 'target_gone',
+    'not_owner', 'room_closed', 'board_not_yours', 'target_gone',
   ]
 
   it.each(FINAL)('%s is a verdict — the sender drops the work', reason => {
@@ -27,7 +27,7 @@ describe('RejectReason: transient vs final', () => {
     const all = new Set<RejectReason>([...FINAL, ...TRANSIENT_REJECT_REASONS])
     const expected: Record<RejectReason, true> = {
       room_frozen: true, participant_frozen: true, layer_owner_locked: true,
-      layer_locked: true, not_owner: true, room_closed: true, target_gone: true,
+      layer_locked: true, not_owner: true, room_closed: true, board_not_yours: true, target_gone: true,
       not_joined: true, server_error: true,
     }
     expect([...all].sort()).toEqual(Object.keys(expected).sort())

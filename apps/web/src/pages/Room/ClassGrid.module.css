@@ -1,0 +1,268 @@
+/* (#595, ADR 015 §6) The class grid: every student's board of the running
+   round at once. An overlay over the editor rather than a page — the teacher
+   dips into it between two students — sized to leave the header visible, so
+   the lesson it belongs to never disappears from view. */
+
+.backdrop {
+  position: absolute;
+  inset: var(--header-h) 0 0 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 16px;
+  background: var(--color-scrim);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(1100px, 100%);
+  max-height: 100%;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--color-text);
+}
+.head > :global(.material-symbols-outlined) { font-size: 22px; color: var(--color-accent); }
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spacer { flex: 1; }
+
+.headAction {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--touch-target-sm);
+  padding: 0 14px 0 10px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+.headAction:hover { background: var(--color-surface-hover); }
+.headAction :global(.material-symbols-outlined) { font-size: 18px; }
+
+.headActionPrimary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.headActionPrimary:hover { background: var(--color-accent-hover); }
+
+.close {
+  width: var(--touch-target-sm);
+  height: var(--touch-target-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+}
+.close:hover { color: var(--color-text); background: var(--color-surface-hover); }
+
+.empty {
+  margin: 0;
+  padding: 24px 4px;
+  text-align: center;
+  color: var(--color-text-dim);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* The tiles: as large as the width allows, down to a size a tablet can still
+   tell one drawing from another at. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.tile:hover { background: var(--color-surface-hover); }
+.tileCurrent { border-color: var(--color-accent); }
+.tileLit { box-shadow: inset 0 0 0 1px var(--color-warning); }
+
+.picture {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-paper-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-faint);
+}
+.picture img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.picture > :global(.material-symbols-outlined) { font-size: 30px; }
+
+/* A raised hand, top-left — the one thing on the tile that asks for the
+   teacher, so it is the loudest. */
+.hand,
+.lit {
+  position: absolute;
+  top: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--color-surface-raised);
+}
+.hand { left: 6px; background: var(--color-warning); color: var(--color-bg); }
+.lit { right: 6px; background: var(--color-accent); color: var(--color-on-accent); }
+.hand :global(.material-symbols-outlined),
+.lit :global(.material-symbols-outlined) { font-size: 17px; }
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-text-faint);
+}
+.dotHere { background: var(--color-success); }
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tileActions { display: flex; gap: 2px; }
+
+.tileAction {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+}
+.tileAction:hover { color: var(--color-text); background: var(--color-surface-2); }
+.tileAction :global(.material-symbols-outlined) { font-size: 18px; }
+.tileActionOn { color: var(--color-accent); }
+
+.updated {
+  font-size: 12px;
+  color: var(--color-text-dim);
+  padding-left: 14px;
+}
+
+/* ── The teacher's bar on a student's board ─────────────────────────────── */
+
+.bar {
+  position: absolute;
+  top: calc(var(--header-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 2 * var(--panel-inset, 8px) - 16px);
+  padding: 4px;
+  border-radius: 24px;
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.barBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--touch-target-sm);
+  padding: 0 12px 0 8px;
+  border-radius: 20px;
+  color: var(--color-text);
+  transition: background var(--duration-fast);
+}
+.barBtn:hover { background: var(--color-surface-hover); }
+.barBtn :global(.material-symbols-outlined) { font-size: 18px; color: var(--color-text-dim); }
+.barBtnOn { background: var(--color-surface-2); }
+.barBtnOn :global(.material-symbols-outlined) { color: var(--color-accent); }
+
+.barIcon {
+  width: var(--touch-target-sm);
+  height: var(--touch-target-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--color-text-dim);
+}
+.barIcon:hover:not(:disabled) { color: var(--color-text); background: var(--color-surface-hover); }
+.barIcon:disabled { opacity: 0.35; cursor: default; }
+
+.barName {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  padding: 0 2px;
+}
+
+.barDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 2px;
+}

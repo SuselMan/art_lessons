@@ -32,6 +32,7 @@ import {
 } from './selection'
 import { patchItem } from './utils'
 import { buildDuplicateOps } from './duplicate'
+import { rollUpDrawerColors } from './drawerColors'
 import {
   isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
   placementAbove, normalizeMoveSet, isLockedByAncestor, soloKeepSet,
@@ -63,6 +64,10 @@ export interface LayerPanelProps {
   /** (#574) Opens the filter dialog on a layer. The dialog lives in the Room,
    *  not here: its preview draws on the canvas, which this panel never owns. */
   onOpenFilters?: (layerId: string) => void
+  /** Layer id → the colours of the peers drawing into it right now. Each such
+   *  row gets an outline in those colours; a collapsed folder takes on the
+   *  colours of everything inside it, since its rows are not on screen. */
+  drawerColors?: Readonly<Record<string, readonly string[]>>
 }
 
 // (#411) How long a still finger has to rest on a row to open selection mode,
@@ -92,6 +97,7 @@ const TOUCH_DRAG_DELAY_MS = 400
 // reason.
 export const LayerPanel = memo(function LayerPanel({
   layerState, onChange, onOp, isOwner, hasLayerContent, soloIds, onSoloChange, onOpenFilters,
+  drawerColors,
 }: LayerPanelProps) {
   const t = useT()
   const { items, rootOrder, activeId, selectedIds } = layerState
@@ -99,6 +105,10 @@ export const LayerPanel = memo(function LayerPanel({
 
   const flatList = useMemo(() => buildFlatList(layerState), [layerState])
   const flatIds  = useMemo(() => flatList.map(f => f.id), [flatList])
+  const rowDrawerColors = useMemo(
+    () => (drawerColors ? rollUpDrawerColors(layerState, drawerColors) : {}),
+    [layerState, drawerColors],
+  )
   const dropZone = useMemo(() => buildDropZoneMap(flatList), [flatList])
 
   const [dragId, setDragId]                     = useState<string | null>(null)
@@ -1127,6 +1137,7 @@ export const LayerPanel = memo(function LayerPanel({
                   isOwner={isOwner}
                   lockedByFolder={isLockedByAncestor(layerState, entry.id, isOwner)}
                   soloTarget={soloIds.includes(entry.id)}
+                  drawerColors={rowDrawerColors[entry.id]}
                   soloHidden={soloKeep !== null && !soloKeep.has(entry.id)}
                   onSolo={handleSolo}
                   onActivate={handleActivate}

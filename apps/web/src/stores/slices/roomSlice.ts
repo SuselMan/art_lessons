@@ -1,5 +1,7 @@
 import type { StateCreator } from 'zustand'
-import type { BoardSummary, LessonState, Participant, RoomAccessMode, ToggleableTool } from '@grafetto/shared'
+import type {
+  AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, RoomAccessMode, ToggleableTool,
+} from '@grafetto/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
 import { boardsReducer, sortBoards, type BoardsAction } from '../../lib/boards'
@@ -129,6 +131,23 @@ export interface RoomInfoSlice {
   setActiveBoardId: (boardId: string | null) => void
   setFollowing: (following: boolean) => void
   applyBoardsAction: (action: BoardsAction) => void
+
+  // ── Class mode (#595, ADR 015 §6) ───────────────────────────────────────
+  // All of it arrives whole in `room_state.lesson` / `lesson_state`, built by
+  // the server for this person — so `boards` above already holds exactly the
+  // personal boards this client may see, and nothing here filters for
+  // privacy. Survives a page turn like the rest of this slice.
+
+  /** Every assignment round of the lesson, in order. */
+  assignments: AssignmentSummary[]
+  /** The round in progress; null when there is none. */
+  activeAssignmentId: string | null
+  /** The personal board the teacher is showing everyone; null when none. */
+  spotlightBoardId: string | null
+  classVisibility: ClassVisibility
+  /** Who has a hand up, by userId. */
+  handsRaised: string[]
+  setHandRaised: (userId: string, raised: boolean) => void
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
@@ -166,9 +185,22 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   following: true,
   setLesson: lesson => set({
     lessonId: lesson.id, boards: sortBoards(lesson.boards), activeBoardId: lesson.activeBoardId,
+    assignments: lesson.assignments, activeAssignmentId: lesson.activeAssignmentId,
+    spotlightBoardId: lesson.spotlightBoardId, classVisibility: lesson.classVisibility,
+    handsRaised: lesson.handsRaised,
   }),
   setBoardId: boardId => set({ boardId }),
   setActiveBoardId: activeBoardId => set({ activeBoardId }),
   setFollowing: following => set({ following }),
   applyBoardsAction: action => set(state => ({ boards: boardsReducer(state.boards, action) })),
+  assignments: [],
+  activeAssignmentId: null,
+  spotlightBoardId: null,
+  classVisibility: 'teacher_only',
+  handsRaised: [],
+  setHandRaised: (userId, raised) => set(state => {
+    const has = state.handsRaised.includes(userId)
+    if (has === raised) return {}
+    return { handsRaised: raised ? [...state.handsRaised, userId] : state.handsRaised.filter(id => id !== userId) }
+  }),
 })

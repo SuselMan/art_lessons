@@ -5,7 +5,8 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { Prisma } from '@prisma/client'
 import type {
-  BoardSummary, LessonState, Operation, Participant, RejectReason, Room, RoomAccessMode, ToggleableTool,
+  AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Operation, Participant, RejectReason, Room,
+  RoomAccessMode, ToggleableTool,
 } from '@grafetto/shared'
 import {
   ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
@@ -14,6 +15,7 @@ import {
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
+import { canDrawOnBoard, canSeeBoard } from './lessons.js'
 
 // In-memory room store, backed by Postgres (#74) for durability across
 // restarts and RAM eviction — but the Map stays the single source of truth
@@ -68,6 +70,20 @@ interface RoomRecord {
   // queried, and kept current by the `noteBoard*` mirrors boardRoutes.ts
   // calls after each write. Empty on a board's own record: never read there.
   boards: BoardSummary[]
+  // (#595, ADR 015) Class mode, lesson records only — like `boards`, empty
+  // or null on a board's own record and never read there. The assignment
+  // rounds in order, the one in progress, the personal board in the
+  // spotlight. Mirrors of the lesson row, written through by the setters in
+  // the class-mode section below. `classVisibility` lives on `room`.
+  assignments: AssignmentSummary[]
+  activeAssignmentId: string | null
+  spotlightBoardId: string | null
+  // Raised hands, by userId. Live only, like `roomFrozen`: a hand is a
+  // gesture in a lesson, not a fact about it.
+  handsRaised: Set<string>
+  // True while `assignment_start` is writing its rows — the await between the
+  // teacher's tap and the round existing is where a double tap would make two.
+  assignmentStarting: boolean
   passwordHash: string | undefined
   operations: Operation[]
   participants: Map<string, Participant> // keyed by userId — live presence only, not join history
@@ -376,6 +392,7 @@ function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
       passwordHash, accessMode: room.accessMode, ownerId: room.ownerId,
       // (#548) `[]` is the column's own "no restriction" — see schema.prisma.
       enabledTools: room.enabledTools ?? [],
+      classVisibility: room.classVisibility ?? 'teacher_only',
     },
   }))
 }
@@ -771,6 +788,8 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   // (#176) The strip, for a lesson. A board's record keeps none: the list is
   // read off the lesson on every room_state, whichever board asked.
   const boards = dbRoom.lessonId === null ? await loadBoardSummaries(roomId) : []
+  // (#595) The lesson's assignment rounds, same reasoning as the strip.
+  const assignments = dbRoom.lessonId === null ? await loadAssignments(roomId) : []
 
   // (#254/#258) Rebuild the owner-lock mirror from the operation log itself
   // — `layer_owner_lock` is a normal, persisted Operation (unlike
@@ -808,6 +827,11 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     lessonId: dbRoom.lessonId,
     sockets: new Set(),
     boards,
+    assignments,
+    activeAssignmentId: dbRoom.lessonId === null ? dbRoom.activeAssignmentId ?? null : null,
+    spotlightBoardId: dbRoom.lessonId === null ? dbRoom.spotlightBoardId ?? null : null,
+    handsRaised: new Set(),
+    assignmentStarting: false,
     passwordHash: dbRoom.passwordHash ?? undefined,
     operations,
     participants: new Map(),
@@ -835,12 +859,30 @@ async function loadBoardSummaries(lessonId: string): Promise<BoardSummary[]> {
   const rows = await prisma.room.findMany({
     where: { OR: [{ id: lessonId }, { lessonId }] },
     orderBy: { boardOrder: 'asc' },
-    select: { id: true, name: true, boardOrder: true, thumbnail: { select: { updatedAt: true } } },
+    select: {
+      id: true, name: true, boardOrder: true, assignmentId: true, boardOwnerId: true,
+      thumbnail: { select: { updatedAt: true } },
+    },
   })
   return rows.map(row => ({
     id: row.id, name: row.name, order: row.boardOrder,
     thumbnailUpdatedAt: row.thumbnail?.updatedAt.toISOString(),
+    // (#595) Personal boards ride in the same cache — the strip and the class
+    // grid are one list, split by these two fields at the read site.
+    ...(row.assignmentId && row.boardOwnerId ? { assignmentId: row.assignmentId, ownerId: row.boardOwnerId } : {}),
   }))
+}
+
+/** (#595) A lesson's assignment rounds, in order. */
+async function loadAssignments(lessonId: string): Promise<AssignmentSummary[]> {
+  const rows = await prisma.assignment.findMany({ where: { lessonId }, orderBy: { order: 'asc' } })
+  return rows.map(toAssignmentSummary)
+}
+
+export function toAssignmentSummary(row: {
+  id: string; name: string; order: number; createdAt: Date
+}): AssignmentSummary {
+  return { id: row.id, name: row.name, order: row.order, createdAt: row.createdAt.toISOString() }
 }
 
 /** Registers a new room and immediately seats its creator as `owner`.
@@ -868,7 +910,7 @@ async function loadBoardSummaries(lessonId: string): Promise<BoardSummary[]> {
  *  even when the room isn't currently live in memory (e.g. a server
  *  restart between the original creation and this reload). */
 export function createRoom(
-  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'>,
+  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools' | 'classVisibility'>,
   password: string | undefined,
   ownerId: string,
   ownerName: string,
@@ -896,6 +938,8 @@ export function createRoom(
 
   const room: Room = {
     ...roomData,
+    // (#595) Checked, like `accessMode`: the payload is a socket's claim.
+    classVisibility: roomData.classVisibility === 'class' ? 'class' : 'teacher_only',
     hasPassword: !!password,
     // (#224/#232) Written through explicitly rather than left to the column
     // default, so the in-memory record and the row can never disagree about a
@@ -915,6 +959,8 @@ export function createRoom(
     // boardRoutes.ts, which seeds a row and lets the next join cold-load it.
     room, lessonId: null, sockets: new Set([socketId]),
     boards: [{ id: room.id, name: room.name, order: 0 }],
+    assignments: [], activeAssignmentId: null, spotlightBoardId: null, handsRaised: new Set(),
+    assignmentStarting: false,
     passwordHash, operations: [], participants, nextSeq: 1, palette,
     layerStateSeq: null, layerStateIds: null, coveredSeqByLayer: new Map(),
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
@@ -1072,6 +1118,9 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
 
   if (!lesson) return false
   const removed = lesson.participants.delete(userId)
+  // (#595) A hand belongs to someone in the room; one left up by a person who
+  // has gone would sit at the top of the teacher's grid for nobody.
+  if (removed) lesson.handsRaised.delete(userId)
   // The lesson goes only when it is empty of people — and takes its boards
   // with it (see evictNow).
   if (lesson.participants.size === 0) evictWhenIdle(lesson.room.id)
@@ -1214,6 +1263,35 @@ export function evictIdleRooms(): number {
  *  памяти бессмысленно, его комната уже в куче и ничего не добавит. */
 export function isRoomResident(roomId: string): boolean {
   return rooms.has(roomId)
+}
+
+export type LiveLesson = {
+  lessonId: string
+  name: string
+  ownerId: string
+  boards: number
+  participants: Array<{ userId: string; name: string; role: Participant['role']; boardId: string | undefined }>
+}
+
+/** (#586) Lessons somebody is in right now, for the admin panel. Presence is
+ *  a fact about the lesson (see `currentSocketForParticipant`), so boards are
+ *  not listed on their own — a board is live exactly when someone in its
+ *  lesson is on it, and `boardId` says who. */
+export function listLiveLessons(): LiveLesson[] {
+  const live: LiveLesson[] = []
+  for (const record of rooms.values()) {
+    if (record.lessonId !== null || record.participants.size === 0) continue
+    live.push({
+      lessonId: record.room.id,
+      name: record.room.name,
+      ownerId: record.room.ownerId,
+      boards: Math.max(1, record.boards.length),
+      participants: [...record.participants.values()].map(p => ({
+        userId: p.userId, name: p.name, role: p.role, boardId: p.boardId,
+      })),
+    })
+  }
+  return live
 }
 
 /** Test-only seam: resolves once `roomId`'s in-flight Postgres writes (if
@@ -1483,6 +1561,11 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
   // below, which is a live control over *other people* and never applies to
   // the person holding it.
   if (lesson.room.closedAt !== undefined) return 'room_closed'
+
+  // (#595, ADR 015 §3) Before the owner short-circuit so the gates read top to
+  // bottom — though the teacher passes it anyway: a personal board is its
+  // student's and the teacher's, and nobody else's, whatever else is true.
+  if (!canDrawOnBoard(userId, record.room, lesson.room.ownerId)) return 'board_not_yours'
 
   // (#518) Before the owner short-circuit, like `room_closed` above and for a
   // related reason: the shared lock is not a privilege one person holds over
@@ -1844,6 +1927,10 @@ export function findDuplicateOperation(roomId: string, operationId: string): Ope
 export function getRoomSnapshot(
   roomId: string,
   lastKnownSeq?: number,
+  // (#595) Who this is for: `lesson.boards` holds only the personal boards
+  // they may see (see lessonStateFor). Without one, none of them — the safe
+  // reading for a caller that has nobody in particular to show them to.
+  viewerId = '',
 ): {
   room: Room; latestSnapshotSeq: number | null
   tailOperations: Operation[]; participants: Participant[]
@@ -1880,8 +1967,42 @@ export function getRoomSnapshot(
     // a lesson is being in every board of it.
     participants: [...lesson.participants.values()],
     palette: lesson.palette, frozen: lesson.roomFrozen,
-    lesson: { id: lesson.room.id, boards: lesson.boards, activeBoardId: lesson.room.activeBoardId ?? null },
+    lesson: lessonStateFor(lesson, viewerId),
   }
+}
+
+/** (#595) The lesson half of `room_state`, for one recipient — see the shared
+ *  `LessonState`. Every personal board this person may not see is left out
+ *  entirely, not just its picture: under `teacher_only` a classmate's board id
+ *  is itself a thing they have no use for. */
+function lessonStateFor(lesson: RoomRecord, viewerId: string): LessonState {
+  const facts = lessonVisibility(lesson)
+  return {
+    id: lesson.room.id,
+    boards: lesson.boards.filter(b => canSeeBoard(viewerId, { board: { id: b.id, boardOwnerId: b.ownerId }, lesson: facts })),
+    activeBoardId: lesson.room.activeBoardId ?? null,
+    assignments: lesson.assignments,
+    activeAssignmentId: lesson.activeAssignmentId,
+    spotlightBoardId: lesson.spotlightBoardId,
+    classVisibility: facts.classVisibility,
+    handsRaised: [...lesson.handsRaised],
+  }
+}
+
+function lessonVisibility(lesson: RoomRecord): {
+  ownerId: string; classVisibility: ClassVisibility; spotlightBoardId: string | null
+} {
+  return {
+    ownerId: lesson.room.ownerId,
+    classVisibility: lesson.room.classVisibility ?? 'teacher_only',
+    spotlightBoardId: lesson.spotlightBoardId,
+  }
+}
+
+/** (#595) `LessonState` for `viewerId`, for the `lesson_state` event. */
+export function getLessonStateFor(lessonId: string, viewerId: string): LessonState | undefined {
+  const lesson = socialRecord(lessonId)
+  return lesson && lessonStateFor(lesson, viewerId)
 }
 
 // ── Boards (#176, ADR 014) ─────────────────────────────────────────────────
@@ -1908,7 +2029,11 @@ export function setActiveBoard(roomId: string, boardId: string | null): string |
   if (!lesson) return false
   const lessonId = lesson.room.id
   const stored = boardId === lessonId ? null : boardId
-  if (stored !== null && !lesson.boards.some(b => b.id === stored)) return false
+  // (#595, ADR 015 §4) Shared boards only. The teacher visiting a student's
+  // personal board is an ordinary `join_room`, not a page turn for the class:
+  // stored here, it would send every following student — and every later
+  // joiner and reload — onto somebody else's work.
+  if (stored !== null && !lesson.boards.some(b => b.id === stored && !b.ownerId)) return false
   lesson.room = { ...lesson.room, activeBoardId: stored ?? undefined }
   enqueueWrite(lessonId, () => prisma.room.update({ where: { id: lessonId }, data: { activeBoardId: stored } }))
   return stored
@@ -1960,6 +2085,159 @@ export function noteBoardDeleted(lessonId: string, boardId: string): { wasActive
   return { wasActive }
 }
 
+// ── Class mode (#595, ADR 015) ─────────────────────────────────────────────
+//
+// The in-memory half of assignments, spotlight, hands and visibility, with
+// the same caller-persists split the board mirrors above use where a row has
+// to be *created* (classMode.ts owns the transaction, this file is told), and
+// write-through here where it is only a column of the lesson.
+
+/** Whether `userId` may see the resident board `roomId` — see lessons.ts's
+ *  canSeeBoard. False for a room that is not resident: every caller has just
+ *  loaded it, or is asking on behalf of someone who would have to be on it. */
+export function canSeeResidentBoard(roomId: string, userId: string): boolean {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  return canSeeBoard(userId, { board: record.room, lesson: lessonVisibility(lessonRecordOf(record)) })
+}
+
+/** Whether `userId` may see board `boardId` of `lessonId`, answered from the
+ *  lesson's strip cache — for a board that need not itself be resident, such
+ *  as one whose preview just arrived. False for a board the lesson does not
+ *  list. */
+export function canSeeLessonBoard(lessonId: string, boardId: string, userId: string): boolean {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return false
+  const board = lesson.boards.find(b => b.id === boardId)
+  if (!board) return false
+  return canSeeBoard(userId, { board: { id: board.id, boardOwnerId: board.ownerId }, lesson: lessonVisibility(lesson) })
+}
+
+export type Classroom = {
+  lessonId: string
+  ownerId: string
+  activeAssignmentId: string | null
+  /** Students present right now (members, not the teacher), in join order. */
+  students: Array<{ userId: string; name: string }>
+}
+
+/** The facts class mode's socket handlers act on, for any board of a lesson. */
+export function getClassroom(roomId: string): Classroom | undefined {
+  const lesson = socialRecord(roomId)
+  if (!lesson) return undefined
+  return {
+    lessonId: lesson.room.id,
+    ownerId: lesson.room.ownerId,
+    activeAssignmentId: lesson.activeAssignmentId,
+    students: [...lesson.participants.values()]
+      .filter(p => p.role === 'member')
+      .map(p => ({ userId: p.userId, name: p.name })),
+  }
+}
+
+/** Claims the right to create an assignment. False while another creation is
+ *  still writing — a double tap makes one. The claim is released by
+ *  `noteAssignmentStarted` or `abortAssignmentStart`. */
+export function beginAssignmentStart(lessonId: string): boolean {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return false
+  if (lesson.assignmentStarting) return false
+  lesson.assignmentStarting = true
+  return true
+}
+
+export function abortAssignmentStart(lessonId: string): void {
+  const lesson = rooms.get(lessonId)
+  if (lesson) lesson.assignmentStarting = false
+}
+
+/** The round classMode.ts just wrote, with its personal boards. The lesson
+ *  row's own pointer was written in the same transaction. */
+export function noteAssignmentStarted(lessonId: string, assignment: AssignmentSummary, boards: BoardSummary[]): void {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return
+  lesson.assignmentStarting = false
+  lesson.assignments = [...lesson.assignments.filter(a => a.id !== assignment.id), assignment]
+    .sort((a, b) => a.order - b.order)
+  lesson.activeAssignmentId = assignment.id
+  lesson.spotlightBoardId = null
+  for (const board of boards) noteBoardCreated(lessonId, board)
+}
+
+/** (ADR 015 §11) Moves the class: to an assignment of this lesson, or
+ *  (null) to the teacher's board — "Все ко мне". The spotlight comes down
+ *  with any move. False, nothing changed, for an assignment this lesson does
+ *  not have, or for the place the class already is. Nothing ends: the
+ *  assignment stays in the list, its boards the students'. */
+export function setClassLocation(lessonId: string, assignmentId: string | null): boolean {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return false
+  if (assignmentId !== null && !lesson.assignments.some(a => a.id === assignmentId)) return false
+  if (lesson.activeAssignmentId === assignmentId) return false
+  lesson.activeAssignmentId = assignmentId
+  lesson.spotlightBoardId = null
+  enqueueWrite(lessonId, () => prisma.room.update({
+    where: { id: lessonId }, data: { activeAssignmentId: assignmentId, spotlightBoardId: null },
+  }))
+  return true
+}
+
+/** The personal board `userId` has in round `assignmentId`, if any. */
+export function personalBoardIn(lessonId: string, assignmentId: string, userId: string): BoardSummary | undefined {
+  return rooms.get(lessonId)?.boards.find(b => b.assignmentId === assignmentId && b.ownerId === userId)
+}
+
+/** Puts a student's personal board in front of the class, or (null) takes it
+ *  down. Any assignment's (ADR 015 §11: "show everyone" works wherever the
+ *  class is). False — nothing changed — for anything that is not a personal
+ *  board of this lesson: a shared board is already everyone's. */
+export function setSpotlight(lessonId: string, boardId: string | null): boolean {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return false
+  if (boardId !== null) {
+    const board = lesson.boards.find(b => b.id === boardId)
+    if (!board || !board.assignmentId) return false
+  }
+  if (lesson.spotlightBoardId === boardId) return false
+  lesson.spotlightBoardId = boardId
+  enqueueWrite(lessonId, () => prisma.room.update({ where: { id: lessonId }, data: { spotlightBoardId: boardId } }))
+  return true
+}
+
+/** A hand up or down. Only for someone present — a hand is a gesture in the
+ *  room — and only when it changes. */
+export function setHandRaised(lessonId: string, userId: string, raised: boolean): boolean {
+  const lesson = socialRecord(lessonId)
+  if (!lesson || !lesson.participants.has(userId)) return false
+  if (lesson.handsRaised.has(userId) === raised) return false
+  if (raised) lesson.handsRaised.add(userId)
+  else lesson.handsRaised.delete(userId)
+  return true
+}
+
+export function setClassVisibility(lessonId: string, value: ClassVisibility): boolean {
+  const lesson = rooms.get(lessonId)
+  if (!lesson || lesson.lessonId !== null) return false
+  if ((lesson.room.classVisibility ?? 'teacher_only') === value) return false
+  lesson.room = { ...lesson.room, classVisibility: value }
+  enqueueWrite(lessonId, () => prisma.room.update({ where: { id: lessonId }, data: { classVisibility: value } }))
+  return true
+}
+
+/** A board's preview was just stored: the strip cache learns its new key and
+ *  the caller learns which lesson to announce it in. Undefined when no
+ *  resident lesson lists the board — nobody is there to tell. */
+export function noteBoardThumbnail(boardId: string, updatedAt: string): string | undefined {
+  const own = rooms.get(boardId)
+  const candidates = own ? [lessonRecordOf(own)] : [...rooms.values()].filter(r => r.lessonId === null)
+  for (const lesson of candidates) {
+    if (!lesson.boards.some(b => b.id === boardId)) continue
+    lesson.boards = lesson.boards.map(b => b.id === boardId ? { ...b, thumbnailUpdatedAt: updatedAt } : b)
+    return lesson.room.id
+  }
+  return undefined
+}
+
 /** (#176) The `Room` a client is told about. For a lesson it is the record's
  *  own; for a board, the board's row with the lesson's social fields laid over
  *  it, so the client reads `room.closedAt` or `room.enabledTools` off one
@@ -1974,6 +2252,7 @@ function wireRoomOf(record: RoomRecord, lesson: RoomRecord): Room {
     closedAt: lesson.room.closedAt,
     enabledTools: lesson.room.enabledTools,
     activeBoardId: lesson.room.activeBoardId,
+    classVisibility: lesson.room.classVisibility,
   }
 }
 

@@ -64,6 +64,15 @@ export interface LayerSlice {
   soloIds: string[]
   setSoloIds: (ids: string[]) => void
 
+  /** Layer id → the peers drawing into it right now, for the layer panel's
+   *  outline in each peer's colour. A *reflection* of strokes already
+   *  received, inferred on the same "recently active" window as the
+   *  participants list (see pages/Room/drawingIndicator.ts) — nothing on the
+   *  wire says "started" or "stopped". Never includes the viewer's own id.
+   *  Board-scoped like the rest of this slice, so a page turn clears it. */
+  layerDrawers: Record<string, string[]>
+  setLayerDrawers: (drawers: Record<string, string[]>) => void
+
   // Ruler geometry + layer-transform-preview geometry — moved into the
   // store for consistency (#170 follow-up design), but deliberately
   // NEVER persisted: a ruler is for quickly comparing distances mid-
@@ -110,6 +119,8 @@ export const createLayerSlice: StateCreator<LayerSlice> = set => ({
   })),
   soloIds: [],
   setSoloIds: ids => set({ soloIds: ids }),
+  layerDrawers: {},
+  setLayerDrawers: drawers => set({ layerDrawers: drawers }),
 
   rulerLine: null,
   setRulerLine: line => set({ rulerLine: line }),

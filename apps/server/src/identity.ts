@@ -1,7 +1,11 @@
 import jwt from 'jsonwebtoken'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
+import { isBanned, isIpBanned, isTokenRevoked } from './bans.js'
 import { prisma } from './prisma.js'
+import {
+  DEVICE_COOKIE, deviceCookieOptions, newDeviceId, normalizeIp, readDeviceId, recordSighting,
+} from './sessions.js'
 
 // Every browser gets a stable identity the moment it first talks to the
 // server — an httpOnly JWT cookie pointing at a `User` row. Anonymous rooms
@@ -27,14 +31,19 @@ export function signIdentityToken(userId: string): string {
 export function verifyIdentityToken(token: string): string | null {
   try {
     const payload = jwt.verify(token, JWT_SECRET)
-    return typeof payload === 'object' && typeof payload.sub === 'string' ? payload.sub : null
+    if (typeof payload !== 'object' || typeof payload.sub !== 'string') return null
+    // (#589) "Sign out everywhere" refuses every token issued before it. A
+    // refused token reads exactly like no token: the browser becomes a fresh
+    // guest, which is what signing out has always meant here.
+    if (typeof payload.iat === 'number' && isTokenRevoked(payload.sub, payload.iat)) return null
+    return payload.sub
   } catch {
     return null
   }
 }
 
 async function createGuestUser(): Promise<string> {
-  const user = await prisma.user.create({ data: {} })
+  const user = await prisma.user.create({ data: { lastSeenAt: new Date() } })
   return user.id
 }
 
@@ -69,30 +78,52 @@ export function identityCookieOptions() {
  *  hook *after* a route still applies it to that route, so registering
  *  something "above the hook" exempts nothing (asserted in
  *  healthRoutes.test.ts, because the failure mode is silent). */
-export async function identityHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function identityHook(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | undefined> {
   if (request.routeOptions.config?.skipIdentity) return
+  const ip = normalizeIp(request.ip)
+  // (#590) First, and before a guest row can be minted: an address ban is
+  // aimed precisely at the person who comes back with no cookie at all.
+  if (isIpBanned(ip)) return reply.code(403).send({ error: 'banned' })
+
+  let deviceId = readDeviceId(request.cookies[DEVICE_COOKIE])
+  if (!deviceId) {
+    deviceId = newDeviceId()
+    reply.setCookie(DEVICE_COOKIE, deviceId, deviceCookieOptions())
+  }
+  request.deviceId = deviceId
+
   const existing = request.cookies[IDENTITY_COOKIE]
   const userId = existing && verifyIdentityToken(existing)
   if (userId) {
+    // (#587) Before the route runs, and for every route: a ban that only some
+    // endpoints respect is a list of the ones that don't. `/api/me` included
+    // — that refusal is how the client learns to show the banned screen.
+    if (isBanned(userId)) return reply.code(403).send({ error: 'banned' })
     request.userId = userId
+    recordSighting({ userId, deviceId, ip, userAgent: request.headers['user-agent'] })
     return
   }
   const freshUserId = await createGuestUser()
   request.userId = freshUserId
   reply.setCookie(IDENTITY_COOKIE, signIdentityToken(freshUserId), identityCookieOptions())
+  recordSighting({ userId: freshUserId, deviceId, ip, userAgent: request.headers['user-agent'] })
 }
+
+export type SocketIdentity = { userId: string; deviceId: string }
 
 /** Same resolution as `identityHook`, but for a Socket.io handshake, which has
  *  no `FastifyReply` to attach a fresh Set-Cookie to. In practice this never
  *  hits the "mint a new one" branch — the client always warms up its cookie
  *  via a plain HTTP call (`GET /api/me`) before ever opening a socket — but if
  *  it somehow does, this hands back a one-connection-only guest identity
- *  (logged, not persisted as a cookie) rather than failing the connection. */
-export async function resolveSocketIdentity(cookieHeader: string | undefined): Promise<string> {
+ *  (logged, not persisted as a cookie) rather than failing the connection.
+ *  The device falls back the same way, to a throwaway id. */
+export async function resolveSocketIdentity(cookieHeader: string | undefined): Promise<SocketIdentity> {
+  const deviceId = readDeviceId(extractCookie(cookieHeader, DEVICE_COOKIE)) ?? newDeviceId()
   const existing = extractCookie(cookieHeader, IDENTITY_COOKIE)
   const userId = existing && verifyIdentityToken(existing)
-  if (userId) return userId
-  return createGuestUser()
+  if (userId) return { userId, deviceId }
+  return { userId: await createGuestUser(), deviceId }
 }
 
 function extractCookie(header: string | undefined, name: string): string | undefined {
@@ -113,6 +144,9 @@ function extractCookie(header: string | undefined, name: string): string | undef
 declare module 'fastify' {
   interface FastifyRequest {
     userId: string
+    /** (#589) The `al_dev` cookie — which browser this is. Set by identityHook
+     *  alongside `userId`, on the same routes. */
+    deviceId: string
   }
   interface FastifyContextConfig {
     /** Opt this route out of `identityHook` — no `request.userId`, no cookie,

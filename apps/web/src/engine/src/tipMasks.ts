@@ -39,9 +39,9 @@
  *  bristle brush at 12 px would otherwise alias its 22 hairs into moiré. */
 export const TIP_MASK_SIZE = 256
 
-export type TipMaskId = 'chalk' | 'rough' | 'bristle' | 'speckle' | 'grass' | 'leaf'
+export type TipMaskId = 'chalk' | 'rough' | 'bristle' | 'speckle' | 'grass' | 'leaf' | 'clumps'
 
-export const TIP_MASK_IDS: readonly TipMaskId[] = ['chalk', 'rough', 'bristle', 'speckle', 'grass', 'leaf']
+export const TIP_MASK_IDS: readonly TipMaskId[] = ['chalk', 'rough', 'bristle', 'speckle', 'grass', 'leaf', 'clumps']
 
 // ─── Deterministic noise ────────────────────────────────────────────────────
 
@@ -257,6 +257,38 @@ function buildLeaf(): MaskFn {
   }
 }
 
+/** (#579) A wide flat brush whose hairs have clumped into a few wet bands —
+ *  dragged along the stroke, each band leaves its own glazed stripe, and where
+ *  two stripes' soft sides overlap the glaze darkens. The look of a stack of
+ *  parallel watercolor strokes, laid in one pass. Bands sit across the stroke
+ *  (along y), like the bristle tip's hairs. */
+function buildClumps(): MaskFn {
+  const next = stream(89)
+  const bands: { y: number; half: number; load: number }[] = []
+  const count = 4
+  for (let i = 0; i < count; i++) {
+    bands.push({
+      y: -0.66 + (1.32 * i) / (count - 1) + (next() - 0.5) * 0.08,
+      half: 0.2 + next() * 0.06,
+      load: 0.7 + next() * 0.3,
+    })
+  }
+  return (u, v, px, py) => {
+    // Short along the travel, so consecutive stamps merge into continuous
+    // stripes rather than printing their own ends.
+    const along = clamp01((0.5 - Math.abs(u)) / 0.2)
+    if (along <= 0) return 0
+    let best = 0
+    for (const b of bands) {
+      // Summed, not maxed, and soft-sided: where two clumps' edges overlap the
+      // tip lays more, which is the darker seam between stripes.
+      best += clamp01((b.half - Math.abs(v - b.y)) / 0.1) * b.load * 0.8
+    }
+    const fray = 0.85 + 0.15 * valueNoise(px, py, 3, 97)
+    return clamp01(best) * along * fray
+  }
+}
+
 const GENERATORS: Record<TipMaskId, () => MaskFn> = {
   chalk: () => chalk,
   rough: () => rough,
@@ -264,6 +296,7 @@ const GENERATORS: Record<TipMaskId, () => MaskFn> = {
   speckle: buildSpeckle,
   grass: buildGrass,
   leaf: buildLeaf,
+  clumps: buildClumps,
 }
 
 /** The mask at full resolution, row 0 on top, 0..255 per texel. */
@@ -328,9 +361,9 @@ function mipChain(base: Uint8Array): Uint8Array[] {
 // and the smooth one has no tooth at all. So these are the brush's own, tiled
 // across the canvas with REPEAT — which is why they are generated seamless.
 
-export type BrushTextureId = 'dry' | 'grit'
+export type BrushTextureId = 'dry' | 'grit' | 'cloud'
 
-export const BRUSH_TEXTURE_IDS: readonly BrushTextureId[] = ['dry', 'grit']
+export const BRUSH_TEXTURE_IDS: readonly BrushTextureId[] = ['dry', 'grit', 'cloud']
 
 /** Value noise whose lattice wraps at `period` cells, so the result tiles. */
 function tileNoise(x: number, y: number, cell: number, period: number, seed: number): number {
@@ -367,6 +400,10 @@ const TEXTURES: Record<BrushTextureId, (px: number, py: number) => number> = {
   dry: (px, py) => clamp01(tileFbm(px, py, 32, 71) * 0.75 + tileNoise(px, py, 4, TIP_MASK_SIZE / 4, 73) * 0.25),
   // Fine, even grit — pastel and chalk on any paper, the smooth one included.
   grit: (px, py) => clamp01(tileFbm(px, py, 16, 79) * 0.55 + tileNoise(px, py, 2, TIP_MASK_SIZE / 2, 83) * 0.45),
+  // (#579) Blooms in a wash: large soft clouds of denser and thinner pigment.
+  // Read as *tone* by the composite, never as holes, and stretched to full
+  // range so the composite's own strength decides how much of it shows.
+  cloud: (px, py) => clamp01((tileFbm(px, py, 64, 101) - 0.5) * 2.2 + 0.5),
 }
 
 /** A texture's full mip chain, level 0 first — 0..255, tileable. The box

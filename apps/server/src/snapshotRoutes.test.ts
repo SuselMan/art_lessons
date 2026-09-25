@@ -14,6 +14,8 @@ const mockRooms = vi.hoisted(() => ({
   getLayerSnapshot: vi.fn(),
   getOperationsBefore: vi.fn(),
   saveSnapshot: vi.fn(),
+  // (#595) Every board in these tests is a shared one.
+  canSeeResidentBoard: () => true,
 }))
 vi.mock('./rooms.js', () => mockRooms)
 

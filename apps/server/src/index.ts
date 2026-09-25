@@ -13,9 +13,9 @@ import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import {
-  evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData,
+  announceBoardThumbnail, evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData,
 } from './socketHandlers.js'
-import { flushAllRoomWrites, pendingWriteCount } from './rooms.js'
+import { flushAllRoomWrites, noteBoardThumbnail, pendingWriteCount } from './rooms.js'
 import { disconnectAllClients } from './shutdown.js'
 import { prisma } from './prisma.js'
 import { identityHook } from './identity.js'
@@ -31,6 +31,9 @@ import { registerForkRoutes } from './forkRoutes.js'
 import { registerBoardRoutes } from './boardRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
 import { registerThumbnailRoutes } from './thumbnailRoutes.js'
+import { adminEmails, registerAdminRoutes } from './adminRoutes.js'
+import { loadBans, loadIpBans, loadRevocations } from './bans.js'
+import { pruneSightings, registerSessionRoutes } from './sessions.js'
 
 // `trustProxy: 1` — trust exactly one hop, the host's nginx, which is the
 // sole public entry point (docker-compose.prod.yml binds this process to
@@ -161,7 +164,24 @@ registerBoardRoutes(app, {
     app.log.error({ err, lessonId, boardId }, 'failed to move sockets off a deleted board')),
 })
 registerSnapshotRoutes(app)
-registerThumbnailRoutes(app)
+// (#595) A stored preview is announced live to whoever may see that board —
+// the strip and the class grid both refresh from it.
+registerThumbnailRoutes(app, (boardId, updatedAt) => {
+  const lessonId = noteBoardThumbnail(boardId, updatedAt)
+  if (!lessonId) return
+  void announceBoardThumbnail(io, lessonId, boardId, updatedAt).catch(err =>
+    app.log.error({ err, lessonId, boardId }, 'failed to announce a board thumbnail'))
+})
+// (#586, #587) The admin panel. It reads the live socket list and closes a
+// banned person's sockets, hence the two callbacks over `io`.
+registerAdminRoutes(app, {
+  connectedUserIds: () => [...io.of('/').sockets.values()].flatMap(s => s.data.userId ? [s.data.userId] : []),
+  disconnectUser: userId => { io.in(userChannel(userId)).disconnectSockets(true) },
+  disconnectIp: ip => {
+    for (const socket of io.of('/').sockets.values()) if (socket.data.ip === ip) socket.disconnect(true)
+  },
+})
+registerSessionRoutes(app)
 
 // (#497) Сколько у выключения есть времени. Меньше десяти секунд не по вкусу:
 // `docker stop` шлёт SIGTERM и добивает SIGKILL'ом через свой grace period, а
@@ -169,6 +189,19 @@ registerThumbnailRoutes(app)
 // умолчанию. Уложиться надо внутри них — иначе выключение, написанное ради
 // сохранности, само окажется тем, кого убили на середине записи.
 const SHUTDOWN_DEADLINE_MS = 8000
+
+/** (#589) Devices and IP sightings are kept for SIGHTING_RETENTION_DAYS after
+ *  the last visit — the promise the privacy policy makes (#323). Once at boot,
+ *  then every six hours; `unref` so it never holds a shutdown open. */
+function startSightingPrune(): void {
+  const prune = () => {
+    pruneSightings()
+      .then(removed => { if (removed.devices + removed.ips > 0) app.log.info(removed, 'pruned old sightings') })
+      .catch(err => app.log.error({ err }, 'failed to prune sightings'))
+  }
+  prune()
+  setInterval(prune, 6 * 60 * 60 * 1000).unref()
+}
 
 let shuttingDown = false
 
@@ -254,6 +287,13 @@ const start = async () => {
     if (process.env.NODE_ENV === 'production' && !isEmailConfigured()) {
       app.log.error('RESEND_API_KEY is not set — nobody can sign in (see deploy/README.md)')
     }
+    // (#587) Before listening, not lazily: the first request after a restart
+    // must already meet every ban, and a banned person reconnecting the moment
+    // a deploy brings the server back is exactly who arrives first.
+    const [bans, ipBans, revocations] = await Promise.all([loadBans(), loadIpBans(), loadRevocations()])
+    if (bans + ipBans + revocations > 0) app.log.info({ bans, ipBans, revocations }, 'loaded bans and revocations')
+    startSightingPrune()
+    if (adminEmails().size === 0) app.log.warn('ADMIN_EMAILS is not set — the admin panel has no admins')
     // 4000 unless told otherwise (compose publishes that, and the Vite proxy
     // expects it). The override exists so a second checkout can be run and
     // tested next to a live dev server instead of fighting it for the port —

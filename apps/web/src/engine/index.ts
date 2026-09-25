@@ -1,13 +1,14 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
   createPlaceholderPaperTexture, generatePaperMipmaps, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
+import { previewDownscaleChain } from './src/previewChain'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
   CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
@@ -777,6 +778,12 @@ export interface PencilEngineAPI {
   // resource (_compositeFBO/_belowCache/_aboveCache), same as context-restore
   // already does for _initGL.
   resizeCanvas(width: number, height: number): void
+  // (#246) The canvas moved on screen without changing size — the page around
+  // it scrolled. Every room fills a non-scrolling viewport, so resizeCanvas
+  // was the only layout event there was; the landing's try-it sheet sits in a
+  // scrolling page, and without this the cached rect would put every stroke
+  // after a scroll exactly one scroll-distance away from the pen.
+  invalidateCanvasRect(): void
   // Live gizmo-drag preview (#120): renders each layer's *current* content
   // through the given transform into a scratch buffer composited in place
   // of the real one — never mutates the real layer buffer. Call on every
@@ -932,6 +939,14 @@ export interface PencilEngineAPI {
   // now. A bounded room's export is completely unaffected by this — see
   // _exportInfinitePNG's own doc comment for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
+  // (#595, ADR 015 §5) A small picture of the drawing for board thumbnails
+  // and the class grid: the same frame and content as exportPNG() (paper
+  // baked in; for an infinite room the "whole drawing" rect), shrunk on the
+  // GPU so its longer side is at most `maxSide`, and encoded as WebP (PNG
+  // where the browser cannot encode WebP — check `blob.type`). Only the small
+  // result is ever read back, which is what makes it cheap enough to call
+  // every few seconds on a tablet that is drawing. Null if encoding failed.
+  bakePreview(maxSide?: number): Promise<Blob | null>
   destroy(): void
 }
 
@@ -1367,6 +1382,19 @@ const SMUDGE_DEPOSIT_RATE = 2.0
  *  another colour start *mixed* rather than as a clean patch of its own. */
 const MIXER_PRIME_LOAD = 0.85
 
+/** #579 — the digital watercolor's wet rim, as a fraction of the brush's size,
+ *  clamped so a thin line still has one and a huge wash does not read its rim
+ *  from half a tile away (each ring sample is one texture read either way). */
+const WET_EDGE_OF_SIZE = 0.06
+const WET_EDGE_MIN_PX = 1.5
+const WET_EDGE_MAX_PX = 14
+
+/** #579 — world size of one tile of the bloom and granulation textures. Large
+ *  for the blooms, which are meant to be bigger than the brush; small for the
+ *  grain, which is meant to be finer than anything the brush draws. */
+const WET_CLOUD_PERIOD_PX = 640
+const WET_GRAIN_PERIOD_PX = 224
+
 // Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
 // marker has no hardness *scale* the way graphite's grades do (same
 // reasoning LINER_PRESET's own comment gives: one physical material, not a
@@ -1644,6 +1672,17 @@ class RibbonStrokeScratch {
     return this._tiles.get(tile) ?? null
   }
 
+  /** (#579) The digital watercolor's wet-edge reach, fixed by the gesture's
+   *  first dab — the same "first dab is what live and replay agree on" rule
+   *  as the spacing below. A per-batch value would draw a rim of a different
+   *  width across every batch boundary. */
+  private _brushEdgePx = 0
+
+  noteBrushEdgePx(px: number): number {
+    if (this._brushEdgePx === 0 && px > 0) this._brushEdgePx = px
+    return this._brushEdgePx
+  }
+
   noteDabSpacing(gap: number): number {
     if (this._dabSpacing === 0 && gap > 0.01) this._dabSpacing = gap
     return this._dabSpacing
@@ -1742,6 +1781,7 @@ class RibbonStrokeScratch {
     this._waterUsed = 0
     this._composite = null
     this._dabSpacing = 0
+    this._brushEdgePx = 0
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
@@ -2225,6 +2265,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperComposeProg!: WebGLProgram
   private _paperComposeUni!: Record<string, WebGLUniformLocation | null>
   private _paperComposePosLoc!: number
+
+  // (#595) bakePreview's 2x box-downscale step — see DOWNSAMPLE_FRAG.
+  private _previewDownsampleProg!: WebGLProgram
+  private _previewDownsampleUni!: Record<string, WebGLUniformLocation | null>
+  private _previewDownsamplePosLoc!: number
 
   // Batched dab rendering (#123) — one instanced draw call per _paintDabs
   // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
@@ -3423,6 +3468,11 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See PencilEngineAPI's doc comment. */
+  /** See PencilEngineAPI's doc comment. */
+  invalidateCanvasRect(): void {
+    this._canvasRectCache = null
+  }
+
   resizeCanvas(width: number, height: number): void {
     const { gl, canvas } = this
     if (canvas.width === width && canvas.height === height) return
@@ -3952,6 +4002,58 @@ export class PencilEngine implements PencilEngineAPI {
       return { x: 0, y: 0, width: w, height: h }
     })()
     return this._exportOffscreenPNG(transparent, rect)
+  }
+
+  /** See PencilEngineAPI's doc comment, and ADR 015 §5 for why it exists.
+   *
+   *  The old thumbnail path went exportPNG() -> decode -> 2D-canvas shrink ->
+   *  re-encode: a full-sheet readPixels (8.7 MB on A4) plus two PNG encodes
+   *  and a decode, all on the main thread of the device that is drawing.
+   *  Here the only full-size work is the GPU composite exportPNG already
+   *  does; the shrink is a chain of 2x box steps on the GPU
+   *  (previewDownscaleChain + DOWNSAMPLE_FRAG), and readPixels touches at
+   *  most maxSide x maxSide pixels.
+   *
+   *  Frame: identical to exportPNG — the bounded room's whole sheet, or an
+   *  infinite room's content bounds. An infinite room with nothing drawn has
+   *  no content bounds; exportPNG falls back to the on-screen view there, and
+   *  this falls back to blank paper of the viewport's size, which is the same
+   *  picture without touching the visible canvas. */
+  async bakePreview(maxSide = 320): Promise<Blob | null> {
+    await this._paperReady
+    if (this._destroyed || this._contextLost) return null
+    const rect = this._infinite
+      ? (this._allVisibleContentBounds() ?? {
+        x: this._infiniteCamera.wx - this.canvas.width / 2,
+        y: this._infiniteCamera.wy - this.canvas.height / 2,
+        width: Math.max(1, this.canvas.width),
+        height: Math.max(1, this.canvas.height),
+      })
+      : (() => {
+        const { w, h } = this._pageSize()
+        return { x: 0, y: 0, width: w, height: h }
+      })()
+    const composite = this._buildContentComposite(rect)
+    if (!composite) return null
+
+    const { bounds, buffer } = composite
+    const { gl } = this
+    const { width: w, height: h } = buffer
+    let current = new AccumulationBuffer(gl, w, h)
+    this._renderPaperComposeInto(buffer.texture, current.fbo, w, h, bounds)
+    buffer.destroy()
+
+    for (const step of previewDownscaleChain(w, h, Math.max(1, Math.floor(maxSide)))) {
+      const next = new AccumulationBuffer(gl, step.width, step.height)
+      this._renderDownsampleInto(current.texture, next.fbo, step.width, step.height)
+      current.destroy()
+      current = next
+    }
+
+    const pixels = current.readPixels()
+    const { width: pw, height: ph } = current
+    current.destroy()
+    return this._pixelsToBlob(pixels, pw, ph, 'image/webp', 0.8)
   }
 
   destroy(): void {
@@ -5279,6 +5381,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._areaMaskProg        = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
     this._shapeProg           = createProgram(gl, DISPLAY_VERT, SHAPE_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
+    this._previewDownsampleProg = createProgram(gl, DISPLAY_VERT, DOWNSAMPLE_FRAG)
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
@@ -5381,6 +5484,10 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
       'u_original', 'u_strokeCoverage', 'u_color', 'u_opacity', 'u_useCeiling',
       'u_screentone', 'u_screenOrigin',
+      'u_wetEdge', 'u_wetEdgePx', 'u_mottle', 'u_granulation', 'u_glaze',
+      'u_cloudTex', 'u_grainTex', 'u_cloudPeriod', 'u_cloudOrigin', 'u_grainPeriod', 'u_grainOrigin',
+      'u_wetModel', 'u_bloom', 'u_feather',
+      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
     ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
@@ -5392,6 +5499,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
     this._shapePosLoc          = gl.getAttribLocation(this._shapeProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
+    this._previewDownsampleUni = getUniforms(gl, this._previewDownsampleProg, ['u_src', 'u_tapOffset'])
+    this._previewDownsamplePosLoc = gl.getAttribLocation(this._previewDownsampleProg, 'a_position')
     this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
     this._smudgePickupPosLoc   = gl.getAttribLocation(this._smudgePickupProg, 'a_position')
     this._brushStampPosLoc     = gl.getAttribLocation(this._brushStampProg, 'a_position')
@@ -5676,7 +5785,16 @@ export class PencilEngine implements PencilEngineAPI {
     // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
     // mark. See dabSpacing.ts for the whole argument, including which tools
     // are deliberately left on the old rule.
-    this._dabs.footprint = isFootprintSpacedTool(this._strokeTool)
+    // (#579) Not for a brush whose stamps are separate marks (flowPer
+    // 'stamp': sponge, splatter, grass, foliage, grain). The footprint rule
+    // exists to hide the stamp — to keep a hard edge from reading as a row of
+    // discs — and for these the separate prints *are* the brush: a sponge
+    // spaced to the footprint came out as a smooth band with no dabs in it.
+    // Recorded strokes are unaffected: spacing is decided when the dabs are
+    // made, and a replay paints the dabs the log holds.
+    const stampBrush = this._strokeTool === 'digitalBrush'
+      && digitalBrushFromPreset(this._opts.pencilType).flowPer === 'stamp'
+    this._dabs.footprint = isFootprintSpacedTool(this._strokeTool) && !stampBrush
       ? {
         sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
         hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
@@ -8386,7 +8504,14 @@ export class PencilEngine implements PencilEngineAPI {
       let flow = brush.flow
       if (brush.flowPer === 'pass' && flow < 1) {
         const span = diameter * (brush.flowSpan ?? 1)
-        const travel = this._markerSegmentLength(dab, prev, diameter * 0.5)
+        // (#581) Wet model 2 gives the stroke's first dab one ordinary step of
+        // travel, not the half radius every other tool's first dab gets: that
+        // extra flow made a dense disc at the start, and the wet edge drew its
+        // outline as a ring inside the stroke. Model 2 only — every brush
+        // already shipped keeps drawing its first dab as it always has.
+        const travel = !prev && brush.wet?.model === 2
+          ? diameter * brush.spacing
+          : this._markerSegmentLength(dab, prev, diameter * 0.5)
         flow = 1 - Math.pow(1 - flow, Math.min(travel / span, 1))
       }
       const ceiling = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)
@@ -8407,6 +8532,18 @@ export class PencilEngine implements PencilEngineAPI {
     const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
+    // (#579) The wet edge reads coverage up to edgePx away, so a pixel's
+    // finished value depends on stamps that far off: the composite has to
+    // reach that much further than the stamps, or a later batch changes a
+    // pixel no composite ever revisits, and the stroke comes out different
+    // live and on replay.
+    const edgePx = brush.wet && brush.wet.edge > 0
+      ? scratch.noteBrushEdgePx(clampNum(dabs[0].size * preset.sizeMultiplier * WET_EDGE_OF_SIZE, WET_EDGE_MIN_PX, WET_EDGE_MAX_PX))
+      : 0
+    const pad = edgePx > 0 ? Math.ceil(edgePx) + 1 : 0
+    const compositeBounds = pad > 0
+      ? { minX: bounds.minX - pad, minY: bounds.minY - pad, maxX: bounds.maxX + pad, maxY: bounds.maxY + pad }
+      : bounds
 
     const tipTex = brush.tip.kind === 'bitmap' && brush.tip.mask ? this._tipTexture(brush.tip.mask) : null
     const grain = brush.texture ? { ...brush.texture, tex: this._brushTexture(brush.texture.id) } : null
@@ -8475,9 +8612,9 @@ export class PencilEngine implements PencilEngineAPI {
       if (minmax) gl.blendEquation(gl.FUNC_ADD)
       coverage.endDraw()
 
-      this._drawBrushComposite(tile, bounds, brush, original, coverage, color, dabs[0].opacity, useCeiling)
+      this._drawBrushComposite(tile, compositeBounds, brush, original, coverage, color, dabs[0].opacity, useCeiling, edgePx)
     }
-    target.markContentPainted(bounds)
+    target.markContentPainted(compositeBounds)
   }
 
   /** #573 — BRUSH_COMPOSITE_FRAG over `bounds` in one tile: the finished pixel
@@ -8487,13 +8624,49 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawBrushComposite(
     tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
     brush: BrushDescriptor, original: AccumulationBuffer, coverage: AccumulationBuffer,
-    color: [number, number, number], opacity: number, useCeiling: boolean,
+    color: [number, number, number], opacity: number, useCeiling: boolean, edgePx: number,
   ): void {
     const { gl } = this
     const { buffer } = tile
     buffer.beginReplaceDraw()
     gl.useProgram(this._brushCompositeProg)
     const u = this._brushCompositeUni
+    // (#579) Digital watercolor. Zeros for every other brush — uniforms outlive
+    // the draw that set them, and this program is shared by the whole set.
+    const wet = brush.wet
+    gl.uniform1f(u.u_wetEdge, wet && edgePx > 0 ? wet.edge : 0)
+    gl.uniform1f(u.u_wetEdgePx, edgePx)
+    gl.uniform1f(u.u_mottle, wet?.mottle ?? 0)
+    gl.uniform1f(u.u_granulation, wet?.granulation ?? 0)
+    gl.uniform1f(u.u_glaze, wet?.glaze ? 1 : 0)
+    // (#581) Model 2 and its two extra terms; a wet brush without a model is
+    // #579's, which is what every stroke recorded with those brushes says.
+    gl.uniform1f(u.u_wetModel, wet ? (wet.model ?? 1) : 0)
+    gl.uniform1f(u.u_bloom, wet?.bloom ?? 0)
+    gl.uniform1f(u.u_feather, wet?.feather ?? 0)
+    // The paper, for granulation — the same world-space sampling every dab
+    // shader here uses (#141).
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
+    gl.activeTexture(gl.TEXTURE4)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    gl.uniform1i(u.u_paperHeightMap, 4)
+    // Bound whether read or not: WebGL validates every declared sampler.
+    gl.activeTexture(gl.TEXTURE2)
+    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('cloud'))
+    gl.uniform1i(u.u_cloudTex, 2)
+    gl.activeTexture(gl.TEXTURE3)
+    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('grit'))
+    gl.uniform1i(u.u_grainTex, 3)
+    const wrapBy = (period: number) => (v: number): number => ((v % period) + period) % period
+    const cloudWrap = wrapBy(WET_CLOUD_PERIOD_PX)
+    const grainWrap = wrapBy(WET_GRAIN_PERIOD_PX)
+    gl.uniform1f(u.u_cloudPeriod, WET_CLOUD_PERIOD_PX)
+    gl.uniform2f(u.u_cloudOrigin, cloudWrap(tile.originX), cloudWrap(tile.originY))
+    gl.uniform1f(u.u_grainPeriod, WET_GRAIN_PERIOD_PX)
+    gl.uniform2f(u.u_grainOrigin, grainWrap(tile.originX), grainWrap(tile.originY))
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, original.texture)
@@ -10446,7 +10619,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     const pixels = patch.readPixels()
     patch.destroy()
-    const blob = await this._pixelsToPngBlob(unpremultiply(pixels), w, h)
+    const blob = await this._pixelsToBlob(unpremultiply(pixels), w, h)
     if (!blob) return null
     const image = await blobToDataUrl(blob)
     return image ? { image, x: minX, y: minY, width: w, height: h } : null
@@ -10575,7 +10748,7 @@ export class PencilEngine implements PencilEngineAPI {
     // readPixels hands back rows bottom-up, and flipping a domain-sized buffer
     // to fix that would be a pointless copy of up to 64 MB: the fill itself is
     // orientation-blind, so it runs in GL rows and only the two y coordinates
-    // that leave this method are converted back. `_pixelsToPngBlob` flips on
+    // that leave this method are converted back. `_pixelsToBlob` flips on
     // the way out, so the cropped raster is already in the order it wants.
     const seedCol = Math.floor(seedX) - rect.minX
     const seedRow = (h - 1) - (Math.floor(seedY) - rect.minY)
@@ -10595,7 +10768,7 @@ export class PencilEngine implements PencilEngineAPI {
       Math.round(color[0] * 255), Math.round(color[1] * 255), Math.round(color[2] * 255),
     ]
     const cropped = coverageToRgba(result.coverage, w, result.bounds, rgb)
-    const blob = await this._pixelsToPngBlob(cropped.pixels, cropped.width, cropped.height)
+    const blob = await this._pixelsToBlob(cropped.pixels, cropped.width, cropped.height)
     if (!blob) return null
     const image = await blobToDataUrl(blob)
     if (!image) return null
@@ -10987,16 +11160,51 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** Hand-builds a PNG Blob from raw RGBA8 bytes read back via
-   *  gl.readPixels — needed because _exportInfinitePNG's render target is
-   *  never the real on-screen canvas (see its own doc comment for why), so
-   *  there's no canvas.toBlob() to lean on the way every other export path
-   *  in this file does. gl.readPixels' rows come out GL/window-bottom-
-   *  first (the same convention getContentBounds' own doc comment explains
-   *  and corrects for) — flipped here so row 0 of the PNG is the visual
-   *  top, matching what canvas.toBlob() already gives for free via the
-   *  browser's own canvas-paint step. */
-  private _pixelsToPngBlob(pixels: Uint8Array, width: number, height: number): Promise<Blob | null> {
+  /** (#595) One step of bakePreview's downscale chain: `sourceTex` shrunk
+   *  into the whole of `targetFbo` (w x h) through DOWNSAMPLE_FRAG. The tap
+   *  offset is a quarter of a destination pixel — see the shader's comment for
+   *  why that is an exact 2x2 box on a halving step. */
+  private _renderDownsampleInto(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number): void {
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
+    gl.viewport(0, 0, w, h)
+    gl.disable(gl.BLEND)
+    gl.useProgram(this._previewDownsampleProg)
+    const u = this._previewDownsampleUni
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    gl.uniform1i(u.u_src, 0)
+    gl.uniform2f(u.u_tapOffset, 0.25 / w, 0.25 / h)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = this._previewDownsamplePosLoc
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** Hand-builds an image Blob from raw RGBA8 bytes read back via
+   *  gl.readPixels — needed because the export render targets are never the
+   *  real on-screen canvas (see _exportOffscreenPNG's own doc comment for
+   *  why), so there's no canvas.toBlob() of the GL canvas to lean on.
+   *  gl.readPixels' rows come out GL/window-bottom-first (the same convention
+   *  getContentBounds' own doc comment explains and corrects for) — flipped
+   *  here so row 0 of the image is the visual top.
+   *
+   *  Every caller hands it opaque or straight-alpha bytes (PAPER_COMPOSE_FRAG
+   *  writes alpha 1, DISPLAY_TRANSPARENT_FRAG un-premultiplies), which is what
+   *  putImageData expects — no premultiplication step belongs here.
+   *
+   *  (#595) `type` other than PNG is a request, not a guarantee: a browser
+   *  that cannot encode it (Safari and WebP) hands back a PNG instead, which
+   *  is accepted as is. Anything else — or a null from an encoder that
+   *  refused outright — falls back to an explicit PNG. */
+  private async _pixelsToBlob(
+    pixels: Uint8Array, width: number, height: number, type = 'image/png', quality?: number,
+  ): Promise<Blob | null> {
     const flipped = new Uint8ClampedArray(pixels.length)
     const rowBytes = width * 4
     for (let row = 0; row < height; row++) {
@@ -11008,9 +11216,12 @@ export class PencilEngine implements PencilEngineAPI {
     out.width = width
     out.height = height
     const ctx = out.getContext('2d')
-    if (!ctx) return Promise.resolve(null)
+    if (!ctx) return null
     ctx.putImageData(new ImageData(flipped, width, height), 0, 0)
-    return new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png'))
+    const encode = (t: string, q?: number) => new Promise<Blob | null>(resolve => out.toBlob(resolve, t, q))
+    const blob = await encode(type, quality)
+    if (type === 'image/png' || (blob && (blob.type === type || blob.type === 'image/png'))) return blob
+    return encode('image/png')
   }
 
   /** exportPNG's infinite-room path (#145) — see PencilEngineAPI.exportPNG's
@@ -11068,7 +11279,7 @@ export class PencilEngine implements PencilEngineAPI {
     buffer.destroy()
     out.destroy()
 
-    return this._pixelsToPngBlob(pixels, w, h)
+    return this._pixelsToBlob(pixels, w, h)
   }
 }
 

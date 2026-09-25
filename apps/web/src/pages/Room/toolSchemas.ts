@@ -387,6 +387,7 @@ const linerSchema = (): ToolSchema => ({
 const BRUSH_GROUP_LABEL_KEYS: Readonly<Record<BrushCategory, TranslationKey>> = {
   line: 'tool.brushGroup.line',
   paint: 'tool.brushGroup.paint',
+  wet: 'tool.brushGroup.wet',
   soft: 'tool.brushGroup.soft',
   texture: 'tool.brushGroup.texture',
   scatter: 'tool.brushGroup.scatter',
@@ -415,6 +416,14 @@ const digitalBrushSchema = (): ToolSchema => ({
       'splatter': 'tool.brush.splatter',
       'grass': 'tool.brush.grass',
       'foliage': 'tool.brush.foliage',
+      'wet-wash': 'tool.brush.wetWash',
+      'wet-on-wet': 'tool.brush.wetOnWet',
+      'wet-edge': 'tool.brush.wetEdge',
+      'granulating': 'tool.brush.granulating',
+      'dry-wash': 'tool.brush.dryWash',
+      'wet-bands': 'tool.brush.wetBands',
+      'sponge': 'tool.brush.sponge',
+      'gouache': 'tool.brush.gouache',
     },
     optionGroups: Object.fromEntries(
       DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]),

@@ -139,7 +139,35 @@ export SENTRY_RELEASE="${SENTRY_RELEASE:-}"
 # whose absence is an outage rather than a missing feature.
 export RESEND_API_KEY="${RESEND_API_KEY:-}"
 export EMAIL_FROM="${EMAIL_FROM:-}"
+# (#586) Who may open /admin. Absent means nobody can — the rest of the app
+# does not care.
+export ADMIN_EMAILS="${ADMIN_EMAILS:-}"
 docker compose -f docker-compose.prod.yml pull
+
+# (#598) Migrations first — from the *new* image, in a throwaway container,
+# while the old server is still serving.
+#
+# They used to run after `up -d`, through `exec` into the new server. That puts
+# new code in front of an old schema for as long as the migration takes, and
+# on 24.09 it took the site down: the #596 server read a table at boot that
+# did not exist yet, crashed, and restarted in a loop — which killed the `exec`
+# running the very migration that would have fixed it (exit 137). About a
+# minute and a half of 502 until it was migrated by hand.
+#
+# In this order a failed migration stops the deploy with the old server still
+# up (`set -e`), and a new server never starts against a schema older than
+# itself. The price is that the old server briefly runs against the new
+# schema, which is why migrations here stay additive.
+echo "==> Ensuring postgres is up"
+docker compose -f docker-compose.prod.yml up -d postgres
+for _ in $(seq 1 30); do
+  status=$(docker compose -f docker-compose.prod.yml ps --format json postgres | grep -o '"Health":"[a-z]*"' | cut -d'"' -f4 || true)
+  [ "$status" = "healthy" ] && break
+  sleep 2
+done
+
+echo "==> Applying Prisma migrations (new image, before the swap)"
+docker compose -f docker-compose.prod.yml run --rm --no-deps -T server npx prisma migrate deploy
 
 # (#499) Stop the outgoing server *before* `up -d`, and read what it said on
 # the way out.
@@ -196,15 +224,6 @@ fi
 
 docker compose -f docker-compose.prod.yml up -d
 
-echo "==> Waiting for postgres to be healthy"
-for _ in $(seq 1 30); do
-  status=$(docker compose -f docker-compose.prod.yml ps --format json postgres | grep -o '"Health":"[a-z]*"' | cut -d'"' -f4 || true)
-  [ "$status" = "healthy" ] && break
-  sleep 2
-done
-
-echo "==> Applying Prisma migrations"
-docker compose -f docker-compose.prod.yml exec -T server npx prisma migrate deploy
 
 # (#315) Everything the nightly backup needs, applied on every deploy rather
 # than once by hand on a runbook. Deliberately *after* the app is back up:

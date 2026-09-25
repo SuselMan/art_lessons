@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import mkcert from 'vite-plugin-mkcert'
@@ -110,7 +112,19 @@ function apiProxy() {
 export default defineConfig(({ mode }) => {
   const useHttps = mode !== 'http'
   return {
-    build: sentryAuthToken ? { sourcemap: 'hidden' } : {},
+    build: {
+      ...(sentryAuthToken ? { sourcemap: 'hidden' as const } : {}),
+      // (#246) The landing is its own page, not a route of the app: it must
+      // not load the app's bundle (paper prefetch, Sentry, service worker)
+      // nor call /api. Built alongside so its try-it sheet can share the
+      // engine chunk instead of shipping a second copy.
+      rollupOptions: {
+        input: {
+          main: fileURLToPath(new URL('./index.html', import.meta.url)),
+          landing: fileURLToPath(new URL('./landing/index.html', import.meta.url)),
+        },
+      },
+    },
     // (#177) Tree-shaking flags the Sentry SDK reads at build time: we never
     // trace, and its debug logging has no business in a shipped bundle.
     // Measured worth 1.6 kB gzip on the entry chunk — less than hoped, and

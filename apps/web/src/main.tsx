@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import './styles/global.css'
 import { fetchMe, type Me } from './lib/api'
+import { reportEnvironment } from './lib/environment'
 import { ME_QUERY_KEY } from './lib/authState'
 import { queryClient } from './lib/queryClient'
 import { setSentryDeviceType, setSentryUser } from './lib/sentry'
@@ -107,6 +108,10 @@ registerServiceWorker()
 queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
   .catch(err => console.error('failed to warm up identity', err))
   .finally(() => {
+    // (#589) Only once the identity (and device) cookies exist — the report
+    // is stored against them. A failed or refused warm-up (e.g. a ban) sends
+    // nothing.
+    if (queryClient.getQueryData(ME_QUERY_KEY)) reportEnvironment()
     // (#177) React 19 routes render-time errors through these two hooks
     // instead of letting them reach window.onerror, so without them every
     // component crash — the blank-screen class of bug — would be invisible

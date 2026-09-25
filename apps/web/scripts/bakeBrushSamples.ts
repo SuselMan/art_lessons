@@ -71,6 +71,7 @@ const BAND_H = OUT_H * 2
 const BRUSHES = [
   'ink-round', 'hard-round',
   'medium-round', 'opaque-paint', 'flat', 'textured-paint', 'bristle', 'mixer',
+  'wet-wash', 'wet-on-wet', 'wet-edge', 'granulating', 'dry-wash', 'wet-bands', 'sponge', 'gouache',
   'soft-round', 'airbrush',
   'chalk', 'grain', 'screentone',
   'splatter', 'grass', 'foliage',
