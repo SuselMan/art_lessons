@@ -8994,7 +8994,16 @@ export class PencilEngine implements PencilEngineAPI {
       minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY)
       maxX = Math.max(maxX, t.originX + t.buffer.width); maxY = Math.max(maxY, t.originY + t.buffer.height)
     }
-    const pad = WET_DIFFUSE_REACH + 1
+    // (§17.38) ...padded by the further of the diffusion's reach and the
+    // water front's run: the front's budget is in cost units and a cell
+    // costs at least WC_FRONT_FLOOR, so budget / floor px is the furthest
+    // the domain can lie past the footprint. With the diffusion trimmed
+    // to a few texels the pad shrank to six, a flooded landing's front
+    // (budget up to 160) ran into the field's edge, and the domain - and
+    // the coverage it extends - came out cut to the rect: a wash on the
+    // rig turned into a lopsided polygon.
+    const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, Math.max(landedWet, wetPeak)) / WC_FRONT_FLOOR)
+    const pad = Math.max(WET_DIFFUSE_REACH, frontReachPx) + 1
     let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }

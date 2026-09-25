@@ -2949,6 +2949,14 @@ export const WC_FIELD_OP_FRAG = `
   // (its length over its cost in cells) to the power u_size.x. u_size.y is
   // costMax, u_origin.x the stride's length in texels.
   const float WC_CARRY_FADE = 0.75;
+  // 1.0 = OFF, measured (s17.38): at 0.3 the balance drew the sheet's
+  // tooth as a net over the invasion zone, at 0.6 a blotch over every
+  // flat wash - and no fingers at either, because this sheet's relief has
+  // no 60-90 px channels to carry them (the spectrum of s17.25). Kept as
+  // the operator's shape for a sheet that has them.
+  const float WC_CARRY_RIDGE = 1.0;
+  const float WC_CARRY_VALLEY_HI = 0.46;
+  const float WC_CARRY_CREST_LO = 0.54;
   float wcCarryWeight(float ci, vec2 uvj) {
     if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) return 0.0;
     float cj = texture2D(u_d, uvj).r;
@@ -2963,7 +2971,33 @@ export const WC_FIELD_OP_FRAG = `
     // pigment as the water goes on (the design thread's immobilisation, in
     // its cheapest form).
     float fade = 1.0 - WC_CARRY_FADE * smoothstep(0.0, u_band.x, cj);
+    // (s17.38) ...and by the sheet's relief at the receiver: a valley takes
+    // the flow freely, a crest with a penalty - not a wall, or the domain
+    // would come apart into islands. The front's cost already prefers the
+    // valleys; this is what keeps the moved paint IN them instead of
+    // filling the domain evenly (the design thread: capillary
+    // conductivity, not a higher power on the gradient). The height is the
+    // cost texture's .g, written by the front's relaxation.
     return pow(min(u_origin.x / d, 4.0), u_size.x) * fade;
+  }
+  // (s17.38) The sheet's capillary conductance at a texel: a valley takes
+  // the flow freely, a crest with a penalty - not a wall, or the domain
+  // would come apart into islands. Applied to the AMOUNT that crosses into
+  // the receiver, not to the split between neighbours (there it cancelled
+  // in the normalisation and changed nothing). The front's cost already
+  // prefers the valleys; this keeps the moved paint IN them instead of
+  // filling the domain evenly - the design thread's "attenuate the
+  // outgoing flux", the cheapest form of settling on the way. The height
+  // is the cost texture's .g, written by the front's relaxation.
+  // At the sheet's TOOTH, not its grain: a 3x3 box of the height at three
+  // texels' stride (the dry contact's scale, s17.29). At the grain the
+  // balance came out as a speckle over the invasion zone; the
+  // photographs' fingers are the valley network a few texels wide.
+  float wcCapillary(vec2 uv) {
+    float h = 0.0;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) h += texture2D(u_d, uv + vec2(float(i), float(j)) * u_dir * (3.0 / max(u_origin.x, 1.0))).g;
+    h /= 9.0;
+    return mix(WC_CARRY_RIDGE, 1.0, 1.0 - smoothstep(WC_CARRY_VALLEY_HI, WC_CARRY_CREST_LO, h));
   }
 
   vec2 wcCarryDir(int k) {
@@ -3001,12 +3035,20 @@ export const WC_FIELD_OP_FRAG = `
       // the pigment while the water goes on (the design thread's
       // immobilisation), and this is its cheapest form: a share that never
       // leaves, no second output buffer.
+      // (s17.38) ...and what it equalises is the paint per unit of the
+      // sheet's CAPACITY (wcCapillary): a valley holds a full measure, a
+      // crest a fraction, so the balance the flow settles to is paint in
+      // the valleys, not an even fill of the domain. Weighting the rate
+      // alone (the first try) left the equilibrium even - valleys 1.27x
+      // the crests before the smoothing, 1.12x after. The photographs'
+      // fingers are the balance, not the rate.
       float ci = texture2D(u_d, v_uv).r;
       vec4 out4 = a;
       bool colour = u_mode > 15.5;
       vec4 m = colour ? texture2D(u_c, v_uv) : a;
       float trav = u_origin.y;
-      float Ti = trav * m.a + b.a;
+      float capI = wcCapillary(v_uv);
+      float Ti = (trav * m.a + b.a) / capI;
       if (ci <= u_band.x) {
         float ws[4];
         float wsum = 0.0;
@@ -3016,10 +3058,18 @@ export const WC_FIELD_OP_FRAG = `
           if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
           vec4 aj = texture2D(u_a, uvj);
           vec4 mj = colour ? texture2D(u_c, uvj) : aj;
-          float Tj = trav * mj.a + texture2D(u_b, uvj).a;
-          // Give: my share toward j, of my excess of total over j, capped
-          // at what travels here.
-          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0), trav * m.a) / max(m.a, 1e-4));
+          float capJ = wcCapillary(uvj);
+          float Tj = (trav * mj.a + texture2D(u_b, uvj).a) / capJ;
+          // Moving d from i to j lowers Ti by d/capI and raises Tj by
+          // d/capJ: the step toward balance is (Ti - Tj) times the pair's
+          // series capacity. Both sides evaluate the same expression.
+          // The harmonic mean: 1 between two full measures, so the rate of
+          // the plain balance is unchanged (the series capacity alone halved
+          // it and the drop in a clean puddle lost two thirds of its reach).
+          float capIJ = 2.0 * capI * capJ / (capI + capJ);
+          // Give: my share toward j, of my excess over j, capped at what
+          // travels here.
+          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 1e-4));
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
           float cj = texture2D(u_d, uvj).r;
@@ -3031,7 +3081,7 @@ export const WC_FIELD_OP_FRAG = `
             wj += w;
             if (mm == back) wme = w;
           }
-          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0), trav * mj.a) / max(mj.a, 1e-4));
+          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 1e-4));
         }
       }
       gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));
