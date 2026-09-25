@@ -9615,7 +9615,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (this._settle) this._completeSettle()
       // (§17.26) …and a loaded brush pushes the wash under it less than a
       // brush of clean water: its own paint lands where the water goes.
-      const bloom = watercolorBloomStrength(ctx.landedWet) * watercolorBloomPush(profile.pigmentLevel)
+      const bloom = watercolorBloomStrength(ctx.landedWet, profile.pigmentLevel) * watercolorBloomPush(profile.pigmentLevel)
       // Dev probe for the rig: what this settle was given.
       Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
       const delivery = ribbonWaterDelivery(profile)

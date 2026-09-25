@@ -834,12 +834,20 @@ export function watercolorBrushRunsDry(pigment: number): boolean {
 /** How strongly a mark laid into paper of recorded wetness `paperWet` blooms
  *  the wash under it: nothing on dry paper (a glaze), nothing on a wet one
  *  (the paint just mingles — bloom_sf_2632), the most on a damp one. */
-export function watercolorBloomStrength(paperWet: number): number {
+export function watercolorBloomStrength(paperWet: number, pigmentLevel = 1): number {
   const w = clamp01(paperWet)
   const rise = smoothstepJs(WC_BLOOM_DAMP_LO, WC_BLOOM_DAMP_PEAK, w)
   const fall = 1 - smoothstepJs(WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, w)
-  return rise * fall
+  // (s17.39) Standing down on WET paper is for a loaded pass: its paint
+  // mingles with the wash's and a flat wash keeps no inner rims (s17.25).
+  // Clean water is a drop whatever the wash's state: it pushes the wash's
+  // paint to its front. Ilya's water dabs into a fresh wash (landed 0.9,
+  // bloom 0) were light spots made by the diffusion alone, each its own,
+  // where the photograph shows one lightened pool with one soft rim.
+  const water = 1 - clamp01(pigmentLevel)
+  return rise * Math.max(fall, water * WC_BLOOM_WATER_ON_WET)
 }
+export const WC_BLOOM_WATER_ON_WET = 0.6
 /** (s17.25) How completely a mark's water joins the puddle it lands in:
  *  one puddle has one drying front, so where this mark's front runs into
  *  an earlier mark's water there is no tideline at all - the passes of a
@@ -1029,7 +1037,7 @@ export const WC_TIDE_RIM = 1.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r14 (§17.38)'
+export const WATERCOLOR_ROUND = 'акварель r15 (§17.39)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

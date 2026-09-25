@@ -91,6 +91,9 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     expect(watercolorBloomStrength(0.03)).toBe(0)
     expect(watercolorBloomStrength(0.3)).toBeGreaterThan(0.9)
     expect(watercolorBloomStrength(0.9)).toBe(0)
+    // (s17.39) ...a loaded pass; clean water still blooms a wet wash.
+    expect(watercolorBloomStrength(0.9, 0)).toBeGreaterThan(0.5)
+    expect(watercolorBloomStrength(0.9, 0)).toBeLessThan(watercolorBloomStrength(0.3, 0))
     expect(watercolorBloomStrength(0.55)).toBeLessThan(watercolorBloomStrength(0.3))
   })
 
