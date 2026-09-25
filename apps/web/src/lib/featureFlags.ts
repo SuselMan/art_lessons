@@ -89,6 +89,12 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     envVar: 'VITE_WC_NO_CARRY',
   },
   {
+    key: 'wcOpDry',
+    label: 'Watercolor A/B: every operation dries on its own (dev only)',
+    description: 'The r17 behaviour: tide and fixation at every pen-up, each operation a finished wash before the next arrives. Off, the wash dries as ONE component (ADR 011 s17.42): its operations stay one wet material and the tide is laid once, along the outer contour of the whole wash, as a provisional dry target at every pen-up.',
+    envVar: 'VITE_WC_OP_DRY',
+  },
+  {
     key: 'wcPerfHud',
     label: 'Watercolor: performance readout (dev only)',
     description: 'Live frame interval, batch cost, settle time and GPU memory of the watercolor tool (#536, ADR 011 s17.22) - for reading numbers off a tablet with no inspector attached.',

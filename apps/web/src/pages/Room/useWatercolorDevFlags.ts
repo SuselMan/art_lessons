@@ -32,7 +32,8 @@ export function useWatercolorDevFlags(engineRef: RefObject<PencilEngineAPI | nul
   const noMigrate = getFeatureFlag('wcNoMigrate')
   const noDiffuse = getFeatureFlag('wcNoDiffuse')
   const noCarry = getFeatureFlag('wcNoCarry')
+  const opDry = getFeatureFlag('wcOpDry')
   useEffect(() => {
-    engineRef.current?.setWatercolorAb({ noSpread, noMigrate, noDiffuse, noCarry })
-  }, [engineRef, noSpread, noMigrate, noDiffuse, noCarry, engineEpoch])
+    engineRef.current?.setWatercolorAb({ noSpread, noMigrate, noDiffuse, noCarry, opDry })
+  }, [engineRef, noSpread, noMigrate, noDiffuse, noCarry, opDry, engineEpoch])
 }

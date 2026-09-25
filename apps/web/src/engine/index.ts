@@ -94,7 +94,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
-  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX,
+  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
   watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
@@ -1006,8 +1006,16 @@ export interface PencilEngineAPI {
   exportPNG(transparent?: boolean): Promise<Blob | null>
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
-  /** (#536, §17.24) Dev-only A/B: composite spread and migration off. */
-  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean }): void
+  /** (#536, §17.24) Dev-only A/B: composite spread and migration off.
+   *  (§17.42) `opDry`: every operation dries on its own at pen-up (tide and
+   *  fixation per operation, the r17 behaviour) instead of the wash drying
+   *  as one component. */
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; opDry?: boolean }): void
+  /** (#536, §17.42) Dries every open wash NOW, as one component: the tide
+   *  along the union's outer contour is laid into the wet state itself, so
+   *  the next mark finds the wash dry. Returns how many washes it dried. Dev
+   *  probe for the rig today; the "dry now" command's engine half later. */
+  watercolorDryWash(): number
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
@@ -1748,6 +1756,15 @@ interface RibbonTileScratch {
   colorBase: AccumulationBuffer | null
   /** Which gesture the film buffers belong to (RibbonStrokeScratch.gesture). */
   filmGesture: number
+  /** (#536, §17.42) The wash's PROVISIONAL DRY TARGET: inkLoad - the wet
+   *  state, which is what the next operation of the wash starts from - with
+   *  the one tide laid along the outer contour of the wash's whole coverage,
+   *  recomputed at every pen-up. The composite reads this, never inkLoad,
+   *  once it exists; the live batches composite inkLoad (wet plus film), so
+   *  a brush touching the wash shows it wet again until the pen lifts. Null
+   *  under the per-operation drying A/B (wcOpDry). */
+  inkDry: AccumulationBuffer | null
+  colorDry: AccumulationBuffer | null
 }
 
 class RibbonStrokeScratch {
@@ -1881,6 +1898,17 @@ class RibbonStrokeScratch {
     radiusPx: number
     /** (#536, §17.37) How long the brush stood on landing, ms. */
     dwellMs: number
+  } | null = null
+
+  /** (#536, §17.42) What the group tide needs when the wash dries as one
+   *  component (watercolorDryWash): the composite's constants from the LAST
+   *  settled operation, the widest radius and the wettest standing level
+   *  of any, and the union of every settle's bounds. Set by the settle. */
+  dryCtx: {
+    target: ILayerBuffer; preset: PencilPreset; profile: RibbonProfile
+    color: [number, number, number]; opacity: number; fieldSeed: [number, number]
+    bounds: { minX: number; minY: number; maxX: number; maxY: number }
+    radiusPx: number; standing: number
   } | null = null
 
   noteFinish(ctx: NonNullable<RibbonStrokeScratch['_finish']>): void {
@@ -2068,7 +2096,7 @@ class RibbonStrokeScratch {
       // The settled pair is taken on the first settle, by the pass that needs
       // it — a marker gesture never does, and three buffers a tile was already
       // the churn #385 is about.
-      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1 }
+      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1, inkDry: null, colorDry: null }
       this._tiles.set(tile, entry)
     }
     return entry
@@ -2088,8 +2116,8 @@ class RibbonStrokeScratch {
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
-    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled, strokeInk, inkBase, strokeColor, colorBase } of this._tiles.values()) {
-      for (const b of [strokeInk, inkBase, strokeColor, colorBase]) if (b) this.pool.release(b)
+    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled, strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry } of this._tiles.values()) {
+      for (const b of [strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry]) if (b) this.pool.release(b)
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
       if (inkSettled) this.pool.release(inkSettled)
@@ -3743,9 +3771,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (#536, §17.24) Applied in _drawRibbonCompositeDab, so a replay under the
    *  switch recomposites the same deposit without the effect. */
-  private _wcAb = { noSpread: false, noMigrate: false, noDiffuse: false, noCarry: false }
-  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean }): void {
-    this._wcAb = { noSpread: ab.noSpread, noMigrate: ab.noMigrate, noDiffuse: !!ab.noDiffuse, noCarry: !!ab.noCarry }
+  private _wcAb = { noSpread: false, noMigrate: false, noDiffuse: false, noCarry: false, opDry: false }
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; opDry?: boolean }): void {
+    this._wcAb = { noSpread: ab.noSpread, noMigrate: ab.noMigrate, noDiffuse: !!ab.noDiffuse, noCarry: !!ab.noCarry, opDry: !!ab.opDry }
     this._display()
   }
 
@@ -9926,7 +9954,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number] } = {},
   ): void {
     const { gl } = this
@@ -9963,6 +9991,43 @@ export class PencilEngine implements PencilEngineAPI {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
     out.endDraw()
+  }
+
+  /** (#536, §17.24) One relaxation step of the water front's cost (WC_WATER_FRONT_FRAG)
+   *  over a settle field whose top-left is at world (x0, y0): src → dst. Shared by
+   *  the settle's outward and inward passes and the group tide's inward one. */
+  private _waterFrontStep(
+    field: NonNullable<PencilEngine['_diffuseField']>, x0: number, y0: number, dryCost: number,
+    src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number,
+  ): void {
+    const { gl } = this
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    dst.beginReplaceDraw()
+    gl.useProgram(this._waterFrontProg)
+    const u = this._waterFrontUni
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._waterFrontPosLoc)
+    gl.vertexAttribPointer(this._waterFrontPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, src.texture)
+    gl.uniform1i(u.u_cost, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    gl.uniform1i(u.u_paperHeightMap, 1)
+    gl.activeTexture(gl.TEXTURE2)
+    gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
+    gl.uniform1i(u.u_film, 2)
+    gl.uniform1f(u.u_dryCost, dryCost)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.uniform2f(u.u_resolution, field.w, field.h)
+    gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
+    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    gl.uniform1f(u.u_climb, climb)
+    gl.uniform1f(u.u_floor, floor)
+    gl.uniform1f(u.u_costMax, max)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    dst.endDraw()
   }
 
   /** Drops every reveal that has run out, or whose layer is gone. */
@@ -10093,7 +10158,16 @@ export class PencilEngine implements PencilEngineAPI {
     // the coverage it extends - came out cut to the rect: a wash on the
     // rig turned into a lopsided polygon.
     const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, Math.max(landedWet, wetPeak)) / WC_FRONT_FLOOR)
-    const pad = Math.max(WET_DIFFUSE_REACH, frontReachPx) + 1
+    // (§17.42) ...plus, when the wash dries as one component, the margin
+    // the group tide needs around what changed: its band is read off an
+    // inward relaxation of `inSteps` cells from the coverage's edge and its
+    // kernel gathers about a radius, so a texel closer than that to the
+    // field's edge could be missing a contour that lies just outside the
+    // field. The dry target is copied back over the field LESS this margin;
+    // the wet state over all of it.
+    const groupDry = !this._wcAb.opDry
+    const dryMargin = groupDry ? Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5))) + 2 + Math.ceil(radiusPx) + 2 : 0
+    const pad = Math.max(WET_DIFFUSE_REACH, frontReachPx) + 1 + dryMargin
     let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
     let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
     if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
@@ -10232,40 +10306,14 @@ export class PencilEngine implements PencilEngineAPI {
     // gathered band divided the moved paint into DOTS along the line.
     const gather: Array<[number, number]> = []
     for (let st = 1; st <= Math.max(1, radiusPx / 2) && gather.length < 6; st *= 2) gather.push([st, st])
-    const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR): void => {
-      dst.beginReplaceDraw()
-      gl.useProgram(this._waterFrontProg)
-      const u = this._waterFrontUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._waterFrontPosLoc)
-      gl.vertexAttribPointer(this._waterFrontPosLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, src.texture)
-      gl.uniform1i(u.u_cost, 0)
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-      gl.uniform1i(u.u_paperHeightMap, 1)
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
-      gl.uniform1i(u.u_film, 2)
-      // (s17.40) ...never less than a share of the budget: a stroke that
-      // lands in a puddle carries the puddle's budget (up to 160) out onto
-      // dry paper, and at a flat 24 a cell its front ran four cells past
-      // the brush there - Ilya's "рваный край вне лужи". At half the
-      // budget a cell, the run on dry paper is two cells whatever the
-      // budget.
-      gl.uniform1f(u.u_dryCost, Math.max(WC_FRONT_DRY_COST, budgetPx * WC_FRONT_DRY_SHARE))
-      gl.activeTexture(gl.TEXTURE0)
-      gl.uniform2f(u.u_resolution, field.w, field.h)
-      gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
-      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-      gl.uniform1f(u.u_climb, climb)
-      gl.uniform1f(u.u_floor, floor)
-      gl.uniform1f(u.u_costMax, max)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      dst.endDraw()
-    }
+    // (s17.40) The dry cost never less than a share of the budget: a stroke
+    // that lands in a puddle carries the puddle's budget (up to 160) out
+    // onto dry paper, and at a flat 24 a cell its front ran four cells past
+    // the brush there - Ilya's "рваный край вне лужи". At half the budget
+    // a cell, the run on dry paper is two cells whatever the budget.
+    const dryCost = Math.max(WC_FRONT_DRY_COST, budgetPx * WC_FRONT_DRY_SHARE)
+    const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR): void =>
+      this._waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor)
     // The front as entries of `ops`, a few relaxation steps per entry so no
     // frame runs the whole field thirty times: the outward cost from the
     // footprint into `pressure`, the inward cost from past-the-budget into
@@ -10335,10 +10383,21 @@ export class PencilEngine implements PencilEngineAPI {
     // carried on its own afterwards. `follow` is the colour settle that
     // then runs the rest (bloom, diffusion, tide) on the carried record.
     const colour = scratch.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
+    // (§17.42) The wash dries as ONE component: nothing of an operation is
+    // fixed at its pen-up - the whole of its paint is mobile, the earlier
+    // paint under the dome all of it too, and no tide is laid into the wet
+    // state; the tide goes, once, along the outer contour of the wash's
+    // whole coverage, into the PROVISIONAL dry target (inkDry) the
+    // composite shows, recomputed at every pen-up (_groupTideOps below).
+    // The design thread's diagnosis of the wet-on-wet pairs: each operation
+    // dried to the end before the next arrived, and no re-mobilisation
+    // turns "dry A, then dissolve A with B" into "wet A + wet B, dried
+    // together". The r17 behaviour stays as the wcOpDry A/B.
+    const mobileShare = groupDry ? 1 : WET_DIFFUSE_MOBILE
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
       const st = { src: c, dst: a, out: a }
       if (!follow) ops.push(() => {
-        fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
+        fieldOp(c, a, b, 0, mobileShare)
         // (§17.25) A mark that landed in a puddle wets the paint already
         // lying under its footprint: that paint is as mobile as the new -
         // it never dried - so the same mobile share of it joins c and runs,
@@ -10354,7 +10413,7 @@ export class PencilEngine implements PencilEngineAPI {
         fieldOp(b, a, c, 1, -1)
         // The colour record's split, by the same gate.
         if (colour && first) {
-          fieldOp(colour.c, colour.a, colour.b, 0, WET_DIFFUSE_MOBILE)
+          fieldOp(colour.c, colour.a, colour.b, 0, mobileShare)
           fieldOp(colour.b, colour.a, colour.c, 1, -1)
         }
       })
@@ -10367,13 +10426,14 @@ export class PencilEngine implements PencilEngineAPI {
       // the puddle diffusion below. The moved share leaves the fixed field
       // (b) as it joins the mobile one (c), for the deposit and the colour
       // record alike. `a` and `spare` are the temporaries.
+      const remobFloor = groupDry ? 1 : WC_REMOB_DOME
       if (first && merge > 0) ops.push(() => {
-        this._fieldOp(a, c, b, 18, merge, { d: field.band })
+        this._fieldOp(a, c, b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
         this._fieldOp(spare, b, c, 3, 0, { c: a })
         fieldOp(c, a, a, 1, 0)
         fieldOp(b, spare, spare, 1, 0)
         if (colour) {
-          this._fieldOp(a, colour.c, colour.b, 18, merge, { d: field.band })
+          this._fieldOp(a, colour.c, colour.b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
           this._fieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
           fieldOp(colour.c, a, a, 1, 0)
           fieldOp(colour.b, spare, spare, 1, 0)
@@ -10457,7 +10517,18 @@ export class PencilEngine implements PencilEngineAPI {
       // (§17.23) The tideline: after the paint has run, its puddle carries a
       // share of it to the rim as it dries. The moved field lands in `dst`,
       // the sum with the fixed paint in `src`.
+      // (§17.42) ...or not: under the group-dry oracle the tide waits for
+      // the whole wash (watercolorDryWash), and the operation's result is
+      // its moved paint over the fixed field, all of it still mobile.
       ops.push(() => {
+        if (groupDry) {
+          // Through the spare and back, so the result lands where the rim's
+          // would (st.src): the colour settle's spare is chosen by that.
+          fieldOp(spare, b, st.src, 1, 1)
+          fieldOp(st.src, spare, spare, 1, 0)
+          st.out = st.src
+          return
+        }
         rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusPx, width) * tideWater, st.dst, spare, true)
         st.out = st.src
         fieldOp(st.out, b, spare, 1, 1)
@@ -10518,6 +10589,22 @@ export class PencilEngine implements PencilEngineAPI {
       col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
     }
 
+    // (§17.42) The provisional dry target: the wet result with the one tide
+    // along the whole wash's contour, into the deposit and colour buffers
+    // the settle left free. The wash's own standing level and radius are
+    // the widest and wettest of its operations (dryCtx), not this one's.
+    let dry: { dep: AccumulationBuffer; col: AccumulationBuffer } | null = null
+    if (groupDry) {
+      const dryDep = dep.out === field.a ? field.c : field.a
+      const dryCol = col.out === field.ca ? field.cc : field.ca
+      const dc = scratch.dryCtx
+      this._groupTideOps(
+        ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0), Math.max(standing, dc?.standing ?? 0), scratch.paints,
+        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure],
+      )
+      dry = { dep: dryDep, col: dryCol }
+    }
+
     // …and home, tile by tile — and this is the new settled deposit.
     const finish = (): void => {
       for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
@@ -10533,9 +10620,215 @@ export class PencilEngine implements PencilEngineAPI {
           col.out.copyRegionInto(entry.inkColor, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
           col.out.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
         }
+        if (dry) {
+          // The dry target over the field less its margin (see `pad`): where
+          // the field was clipped by the tile's own edge there is no margin
+          // to leave, the tile ends there.
+          const ix0 = ox0 === x0 && x0 > minX ? ox0 + dryMargin : ox0, iy0 = oy0 === y0 && y0 > minY ? oy0 + dryMargin : oy0
+          const ix1 = ox1 === x1 && x1 < maxX ? ox1 - dryMargin : ox1, iy1 = oy1 === y1 && y1 < maxY ? oy1 - dryMargin : oy1
+          if (ix1 <= ix0 || iy1 <= iy0) continue
+          if (!entry.inkDry) {
+            entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+            entry.inkLoad.copyTo(entry.inkDry)
+          }
+          dry.dep.copyRegionInto(entry.inkDry, ix0 - x0, field.h - (iy1 - y0), ix0 - tile.originX, tile.buffer.height - (iy1 - tile.originY), ix1 - ix0, iy1 - iy0)
+          if (entry.inkColor) {
+            if (!entry.colorDry) {
+              entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+              entry.inkColor.copyTo(entry.colorDry)
+            }
+            dry.col.copyRegionInto(entry.colorDry, ix0 - x0, field.h - (iy1 - y0), ix0 - tile.originX, tile.buffer.height - (iy1 - tile.originY), ix1 - ix0, iy1 - iy0)
+          }
+        }
       }
     }
     return { ops, finish }
+  }
+
+  /** (#536, §17.42) The group tide as entries of `ops`: over a settle field
+   *  whose coverage holds the wash's whole coverage (the union of every
+   *  operation's domain), the wet deposit `dep` and its colour record `col`
+   *  (null with one paint: rebuilt from the dried deposit) get the ONE tide
+   *  along the coverage's outer contour, into `outDep` and `outCol`. `free`
+   *  is three buffers the routine may scribble on; `mask`, `pressure` and
+   *  `band` it takes for itself. The band is what the settle's own tide used
+   *  (mode 6), read off an inward relaxation seeded from outside the
+   *  coverage (mode 19) - no backrun, no "earlier mark", the whole union one
+   *  domain with the dome full throughout. */
+  private _groupTideOps(
+    ops: Array<() => void>, field: NonNullable<PencilEngine['_diffuseField']>, x0: number, y0: number,
+    radiusPx: number, standing: number, paints: ReadonlySet<string>,
+    dep: AccumulationBuffer, col: AccumulationBuffer | null, outDep: AccumulationBuffer, outCol: AccumulationBuffer,
+    free: [AccumulationBuffer, AccumulationBuffer, AccumulationBuffer],
+  ): void {
+    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5)))
+    const costMaxIn = width + 3
+    const inSteps = width + 2
+    const [t1, t2, t3] = free
+    // The seeds from the coverage (mode 19): the inward pass's into `mask`
+    // (inside unreached, outside the source), a stand-in outward cost into
+    // `pressure` (0 inside, 1 outside); then the inward relaxation over the
+    // relief as the settle runs it, the first two cells flat so the peak is
+    // a continuous line. `band` is the relaxation's ping-pong partner until
+    // it is written.
+    ops.push(() => {
+      this._fieldOp(field.mask, field.coverage, field.coverage, 19, 0.002, { dir: [1, 0] })
+      this._fieldOp(field.pressure, field.coverage, field.coverage, 19, 0.002)
+    })
+    const pp = { src: field.mask, dst: field.band }
+    for (let i = 0; i < inSteps; i += 4) {
+      const n = Math.min(4, inSteps - i)
+      ops.push(() => {
+        for (let j = 0; j < n; j++) {
+          const flat = i + j < 2
+          this._waterFrontStep(field, x0, y0, WC_FRONT_DRY_COST, pp.src, pp.dst, costMaxIn, flat ? 0 : WC_FRONT_CLIMB_IN, flat ? 1 : WC_FRONT_FLOOR_IN)
+          const t = pp.src; pp.src = pp.dst; pp.dst = t
+        }
+        if (i + n >= inSteps && pp.src !== field.mask) this._fieldOp(field.mask, pp.src, pp.src, 1, 0)
+      })
+    }
+    const gather: Array<[number, number]> = []
+    for (let st = 1; st <= Math.max(1, radiusPx / 2) && gather.length < 6; st *= 2) gather.push([st, st])
+    // A 3x3 binomial at each stride of `gather`, `from` untouched, the result
+    // in `out` (which may be one of the temporaries).
+    const blurTo = (out: AccumulationBuffer, from: AccumulationBuffer, tmpA: AccumulationBuffer, tmpB: AccumulationBuffer): void => {
+      let gs = from, gd = tmpA
+      for (let i = 0; i < gather.length; i++) {
+        this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] })
+        const next = gd === tmpA ? tmpB : tmpA
+        gs = gd; gd = next
+      }
+      if (gs !== out) this._fieldOp(out, gs, gs, 1, 0)
+    }
+    const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
+    const share = watercolorRimShare(WC_TIDE_RIM, radiusPx, width) * tideWater
+    const costMax = 8
+    ops.push(() => {
+      // The band (mode 6) over the whole union: costOut 0 inside the
+      // coverage so `inside` and the dome are 1 throughout, no backrun (tau
+      // 0), no "earlier mark" (the seed's .b is empty), the stood record
+      // from the coverage against the wash's wettest standing level. Then
+      // the band gathered by the rim's kernel, into `mask`.
+      this._fieldOp(field.band, field.pressure, field.coverage, 6, 0, {
+        c: field.mask, d: field.pressure, band: [0.5, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn],
+        origin: [standing, 0], dir: [1, 1], tau: [0, 0, 0],
+      })
+      blurTo(field.mask, field.band, t1, t3)
+    })
+    // The tide: `share` of ALL the paint inside (mode 7 by band .g, the whole
+    // union) gathered onto the band (mode 14) - the deposit and, with two
+    // paints or more, the colour record by the same fractions.
+    const tide = (paint: AccumulationBuffer, out: AccumulationBuffer): void => {
+      this._fieldOp(t1, paint, paint, 7, share, { d: field.band })
+      blurTo(t2, t1, t2, t3)
+      this._fieldOp(out, paint, t2, 14, share, { c: field.mask, d: field.band })
+    }
+    ops.push(() => tide(dep, outDep))
+    if (col) {
+      ops.push(() => tide(col, outCol))
+    } else {
+      const only = [...paints][0]
+      const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
+      ops.push(() => this._fieldOp(outCol, outDep, outDep, 2, 1, { c: outDep, d: outDep, tau: [tau[0], tau[1], tau[2]] }))
+    }
+  }
+
+  /** (#536, §17.42) The group-dry oracle's second half: every open wash —
+   *  the author's and the replayed ones — dries as ONE component. The tide
+   *  is laid once, along the outer contour of the wash's whole coverage (the
+   *  union of every operation's domain), out of all the paint inside, and
+   *  the tiles keep the result as their settled deposit. Synchronous: this
+   *  is a dev probe run by the rig after a replay, not a frame's work. */
+  watercolorDryWash(): number {
+    if (this._settle) this._completeSettle()
+    const scratches = new Set<RibbonStrokeScratch>()
+    if (this._wash) scratches.add(this._wash.scratch)
+    for (const chunk of this._replayRibbonChunks.values()) scratches.add(chunk.scratch)
+    let dried = 0
+    for (const scratch of scratches) if (this._dryWashScratch(scratch)) dried++
+    if (dried) {
+      this._scheduleFieldRelease()
+      this._displayIfNotSuspended()
+    }
+    return dried
+  }
+
+  private _dryWashScratch(scratch: RibbonStrokeScratch): boolean {
+    const ctx = scratch.dryCtx
+    if (!ctx || !scratch.live) return false
+    const { target, preset, profile, color, opacity, fieldSeed, radiusPx, standing } = ctx
+    // The tide's band and its gathering kernel reach about a radius from the
+    // contour; the field takes the wash's bounds plus that.
+    const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5)))
+    const pad = Math.ceil(radiusPx) + width + 2 + 4
+    const bounds = { minX: ctx.bounds.minX - pad, minY: ctx.bounds.minY - pad, maxX: ctx.bounds.maxX + pad, maxY: ctx.bounds.maxY + pad }
+    const targets = target.resolveForPaint(bounds)
+    const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
+    if (!tiles.length) return false
+    const CAP = 1536
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const t of tiles) {
+      minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY)
+      maxX = Math.max(maxX, t.originX + t.buffer.width); maxY = Math.max(maxY, t.originY + t.buffer.height)
+    }
+    let x0 = Math.max(minX, Math.floor(bounds.minX)), y0 = Math.max(minY, Math.floor(bounds.minY))
+    let x1 = Math.min(maxX, Math.ceil(bounds.maxX)), y1 = Math.min(maxY, Math.ceil(bounds.maxY))
+    if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
+    if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
+    const w = x1 - x0, h = y1 - y0
+    if (w <= 0 || h <= 0) return false
+    const field = this._diffuseFieldFor(w, h)
+    const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
+    for (const tile of tiles) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry?.inkLoad) continue
+      const ox0 = Math.max(x0, tile.originX), oy0 = Math.max(y0, tile.originY)
+      const ox1 = Math.min(x1, tile.originX + tile.buffer.width), oy1 = Math.min(y1, tile.originY + tile.buffer.height)
+      if (ox1 <= ox0 || oy1 <= oy0) continue
+      overlaps.push({ tile, ox0, oy0, ox1, oy1 })
+    }
+    if (!overlaps.length) return false
+    const colour = scratch.paints.size > 1
+    // Stitch: the deposit into a, the coverage, the colour record into ca.
+    field.a.clear(); field.coverage.clear(); field.ca.clear()
+    for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry?.inkLoad) continue
+      const sx = ox0 - tile.originX, sy = tile.buffer.height - (oy1 - tile.originY)
+      const dx = ox0 - x0, dy = field.h - (oy1 - y0)
+      entry.inkLoad.copyRegionInto(field.a, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      entry.coverage.copyRegionInto(field.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      if (colour && entry.inkColor) entry.inkColor.copyRegionInto(field.ca, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+    }
+    const ops: Array<() => void> = []
+    this._groupTideOps(ops, field, x0, y0, radiusPx, standing, scratch.paints, field.a, colour ? field.ca : null, field.c, field.cc, [field.b, field.cb, field.pressure])
+    for (const op of ops) op()
+    const dep = field.c, col = field.cc
+    // Home: the dried deposit is the tiles' deposit, their settled record and
+    // their dry target all three - the wash is dry - and the composite is
+    // redrawn over the wash's bounds.
+    for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry?.inkLoad) continue
+      const sx = ox0 - x0, sy = field.h - (oy1 - y0)
+      const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
+      for (const to of [entry.inkLoad, entry.inkSettled, entry.inkDry]) if (to) dep.copyRegionInto(to, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      for (const to of [entry.inkColor, entry.colorSettled, entry.colorDry]) if (to) col.copyRegionInto(to, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+    }
+    const { spreadPx, water, migratePx, bristleRadiusPx } = scratch.compositeScalars(
+      () => ({ spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0, fieldSeed: [0, 0] as [number, number], bristleRadiusPx: 0 }),
+    )
+    const dir = scratch.noteDirection(0, 0)
+    for (const tile of targets) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry) continue
+      this._drawRibbonCompositeRect(
+        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, entry.inkColor, color, opacity,
+        fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
+      )
+    }
+    target.markContentPainted(bounds)
+    return true
   }
 
   /** (#536, §17.22) Composites the live gesture's rects gathered since the
@@ -10712,8 +11005,9 @@ export class PencilEngine implements PencilEngineAPI {
         // average the deposit over a dab spacing to hide the dab pitch, but
         // the settle's diffusion has smoothed the pitch far past that, and the
         // rim it lays is a few pixels wide — the average would take it away.
+        // (§17.42) The provisional dry target where the settle built one.
         this._drawRibbonCompositeRect(
-          tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, entry.inkColor, color, opacity,
+          tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkDry ?? entry.inkLoad, entry.colorDry ?? entry.inkColor, color, opacity,
           fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
         )
       }
@@ -10740,9 +11034,22 @@ export class PencilEngine implements PencilEngineAPI {
       // Dev probe for the rig: what this settle was given.
       Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
       const delivery = ribbonWaterDelivery(profile)
+      const standing = delivery.water * (delivery.retain + (1 - delivery.retain) * Math.min(1, ctx.landedWet))
+      // (§17.42) ...and what the group tide will need, should the wash dry
+      // as one component.
+      const prevDry = scratch.dryCtx
+      scratch.dryCtx = {
+        target, preset, profile, color, opacity, fieldSeed,
+        bounds: prevDry ? {
+          minX: Math.min(prevDry.bounds.minX, bounds.minX), minY: Math.min(prevDry.bounds.minY, bounds.minY),
+          maxX: Math.max(prevDry.bounds.maxX, bounds.maxX), maxY: Math.max(prevDry.bounds.maxY, bounds.maxY),
+        } : { ...bounds },
+        radiusPx: Math.max(prevDry?.radiusPx ?? 0, ctx.radiusPx),
+        standing: Math.max(prevDry?.standing ?? 0, standing),
+      }
       const job = this._diffuseWashOps(
         scratch, targets, bounds, bloom, ctx.radiusPx,
-        profile.waterLevel, ctx.landedWet, delivery.water * (delivery.retain + (1 - delivery.retain) * Math.min(1, ctx.landedWet)),
+        profile.waterLevel, ctx.landedWet, standing,
         ctx.wetPeak, ctx.dwellMs,
       )
       if (job) {

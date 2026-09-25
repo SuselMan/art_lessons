@@ -3001,9 +3001,6 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_RIM_VALLEY_HI = 0.6;
   // (s17.26) How much rim a texel keeps where the record says no water stood.
   const float WC_RIM_DRY_FLOOR = 0.15;
-  // (s17.41) How much of the earlier paint a wet landing re-mobilises across
-  // the puddle, at the dome's full.
-  const float WC_REMOB_DOME = 0.6;
   // (s17.37) The landing puddle's edge against the stroke's contour, per length.
   const float WC_BACKRUN_GAIN = 2.5;
   // (s17.27) The share of the mark's standing level below which its water
@@ -3080,6 +3077,18 @@ export const WC_FIELD_OP_FRAG = `
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 18.5) {
+      // (s17.42) The group tide's seeds, from the wash's COVERAGE (a.a, the
+      // union of every operation's domain) instead of one operation's cost:
+      // with u_dir.x set, the inward pass's seed (inside unreached at 1,
+      // outside the source at 0 - mode 12's convention, .b empty: no
+      // "earlier mark" in one component); without it, a stand-in for the
+      // outward cost, 0 inside and 1 outside, so mode 6 reads the whole
+      // union as the domain with the dome full everywhere.
+      float m = smoothstep(u_k, u_k * 4.0, a.a);
+      gl_FragColor = u_dir.x > 0.0 ? vec4(m, 0.0, 0.0, 1.0) : vec4(1.0 - m, 0.0, 0.0, 1.0);
+      return;
+    }
     if (u_mode > 17.5) {
       // (s17.41) Mode 13 over the DOME (u_d.a) instead of the footprint: a
       // wet landing re-mobilises the earlier paint across the puddle its
@@ -3090,8 +3099,11 @@ export const WC_FIELD_OP_FRAG = `
       // ("одна линия растеклась, а другая нет"). The share: the new water's
       // where the new paint lies, at least WC_REMOB_DOME of the dome
       // elsewhere.
+      // (s17.42) The floor comes in as u_origin.x: WC_REMOB_DOME as a rule,
+      // 1.0 under the group-dry oracle, where the earlier paint never dried
+      // and all of it under the dome is one liquid with the new.
       float dome = texture2D(u_d, v_uv).a;
-      float share = max(a.a / max(a.a + b.a, 1e-4), WC_REMOB_DOME * dome);
+      float share = max(a.a / max(a.a + b.a, 1e-4), u_origin.x * dome);
       vec4 add = u_k * share * dome * b;
       float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
       float peak = max(max(add.r, add.g), max(add.b, add.a));
