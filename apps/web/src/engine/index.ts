@@ -1386,6 +1386,8 @@ export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.1
 // Undo depth is bounded by the log, not by memory: checkpoints only shorten the
 // replay tail. Interval/budget are starting points to be tuned by measurement (#76).
 const CHECKPOINT_INTERVAL = 20
+/** (#536, §17.43) ...and every fifth while painting watercolour: see _maybeCheckpoint. */
+const CHECKPOINT_INTERVAL_WATERCOLOR = 5
 const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 /** (#480) Сколько отказов _takeCheckpoint подряд по одному слою считаем не
  *  штатным «перо ещё внизу», а залипанием. Двадцать границ чекпойнта — это
@@ -2004,6 +2006,33 @@ class RibbonStrokeScratch {
   landing: { x: number; y: number; r: number; t: number } | null = null
   dwellMs = 0
   dwellDone = false
+  /** (#536, §17.43) Ends the gesture's FILM without ending the gesture: the
+   *  next batch starts a fresh film over the wash as the settle just left
+   *  it. Called at a chunk boundary, live and on replay alike, right after
+   *  the chunk's settle has landed — the film's base is refreshed from
+   *  inkLoad on the next batch (filmBuffers), so the settled chunk is what
+   *  the rest of the stroke paints over. Without this the next batch rebuilt
+   *  inkLoad as the PRE-gesture base plus the whole film and threw the
+   *  chunk's settle away — live only sometimes, by frame timing, so a long
+   *  stroke came back different after a reload. */
+  newFilm(): void {
+    this.gesture++
+  }
+
+  /** (#536, §17.43) Gives the film buffers back once a settle has landed:
+   *  four tile-sized textures per tile that are only read between the first
+   *  batch of a gesture and its settle, and were held for the life of the
+   *  wash - with the replay cache's four washes that was 384 MB of scratch
+   *  on a two-tile layer, and the rebuild behind an undo on top of it. The
+   *  next gesture (or chunk) acquires them again from the pool. */
+  releaseFilm(): void {
+    for (const entry of this._tiles.values()) {
+      for (const b of [entry.strokeInk, entry.inkBase, entry.strokeColor, entry.colorBase]) if (b) this.pool.release(b)
+      entry.strokeInk = null; entry.inkBase = null; entry.strokeColor = null; entry.colorBase = null
+      entry.filmGesture = -1
+    }
+  }
+
   beginStroke(): void {
     this.lastKept = undefined
     this.gesture++
@@ -5377,7 +5406,15 @@ export class PencilEngine implements PencilEngineAPI {
     // interactive path already) still does its own real scan for the actual
     // ops array, unaffected by this.
     const count = this._log.pixelOpDoneCount(layerId)
-    if (count === 0 || count % CHECKPOINT_INTERVAL !== 0) return
+    // (#536, §17.43) A watercolour operation replays with its whole settle -
+    // the front, the carry, the diffusion, the group tide, ~30 full-field
+    // passes - so a rebuild from a checkpoint twenty operations back (undo,
+    // redo, a revoke) took seconds on a desktop GPU and read as a hang on
+    // the tablet ("undo виснет, тормозит"); a long stroke is five chunk
+    // operations by itself. Checkpoints come four times as often while the
+    // watercolour is what is being laid down.
+    const interval = this._strokeTool === 'watercolor' ? CHECKPOINT_INTERVAL_WATERCOLOR : CHECKPOINT_INTERVAL
+    if (count === 0 || count % interval !== 0) return
     // Deferred off the stroke-completion path (#121): a full-canvas
     // readPixels right as the pointer lifts can stall the GPU pipeline long
     // enough to trip a mobile browser's context-loss watchdog. Idle time
@@ -7375,7 +7412,17 @@ export class PencilEngine implements PencilEngineAPI {
     // chunk operation: the diffusion inside runs once per operation, and the
     // author has to run it at the same moments the replay will, or the two
     // land on different pictures.
-    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
+    // (§17.43) ...synchronously, not spread over the frames under a reveal:
+    // the gesture goes on painting meanwhile, and a settle landing a few
+    // frames later copied the chunk's deposit AS IT WAS over what the brush
+    // had laid since - or, when the next batch's film rebuild came first,
+    // never landed at all. Which of the two happened was frame timing, and
+    // the replay (always synchronous) matched neither. Then a fresh film:
+    // see newFilm.
+    if (this._ribbonStrokeScratch) {
+      this._finishRibbonStroke(this._ribbonStrokeScratch, false)
+      this._ribbonStrokeScratch.newFilm()
+    }
   }
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
@@ -8751,7 +8798,13 @@ export class PencilEngine implements PencilEngineAPI {
     // operation. Both recomposite now; a chunked gesture simply does it again,
     // over larger bounds, when the next chunk arrives — the composite is a pure
     // recomputation, so repeating it is a no-op by construction.
-    if (!ribbonScratch) this._finishRibbonStroke(scratch)
+    if (!ribbonScratch) {
+      this._finishRibbonStroke(scratch)
+      // (§17.43) A chunk's end is a film's end, as at the live chunk flush;
+      // for a gesture's last operation the next stroke begins a new film
+      // anyway, so this is only ever what the flush did.
+      scratch.newFilm()
+    }
     // What this batch left standing, for the caller to feed the wetness field
     // — its own copy, since a throwaway scratch is destroyed on the next line.
     const standing = scratch.standing.size ? new Map(scratch.standing) : undefined
@@ -10420,25 +10473,6 @@ export class PencilEngine implements PencilEngineAPI {
       // The water front, its band and the extended coverage come from the
       // deposit's mobile field, once; the colour record rides the same.
       if (first) frontOps(c, a)
-      // (§17.41) The wet landing re-mobilises the earlier paint over the
-      // DOME of the puddle it joined (band .a, from the front just run),
-      // not only under its footprint: the two paints then mix both ways in
-      // the puddle diffusion below. The moved share leaves the fixed field
-      // (b) as it joins the mobile one (c), for the deposit and the colour
-      // record alike. `a` and `spare` are the temporaries.
-      const remobFloor = groupDry ? 1 : WC_REMOB_DOME
-      if (first && merge > 0) ops.push(() => {
-        this._fieldOp(a, c, b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
-        this._fieldOp(spare, b, c, 3, 0, { c: a })
-        fieldOp(c, a, a, 1, 0)
-        fieldOp(b, spare, spare, 1, 0)
-        if (colour) {
-          this._fieldOp(a, colour.c, colour.b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
-          this._fieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
-          fieldOp(colour.c, a, a, 1, 0)
-          fieldOp(colour.b, spare, spare, 1, 0)
-        }
-      })
       // (§17.29) The front carries the paint: the mobile field runs along
       // the front's cost, from the footprint out to where the water
       // stopped, in strided steps of WC_FIELD_OP_FRAG's mode 15 - so a
@@ -10478,6 +10512,30 @@ export class PencilEngine implements PencilEngineAPI {
         if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
         if (colour && csrc && csrc !== colour.c) { const from = csrc, to = colour.c; ops.push(() => fieldOp(to, from, from, 1, 0)) }
       }
+      // (§17.41) The wet landing re-mobilises the earlier paint over the
+      // DOME of the puddle it joined (band .a, from the front just run),
+      // (§17.43) AFTER the carry: re-mobilised before it, the earlier paint
+      // rode the new paint's front out of the footprint and piled in a line
+      // at the domain's edge; now only the new paint travels with the
+      // front, and the two paints mix by the puddle diffusion below, both
+      // ways and without a direction.
+      // not only under its footprint: the two paints then mix both ways in
+      // the puddle diffusion below. The moved share leaves the fixed field
+      // (b) as it joins the mobile one (c), for the deposit and the colour
+      // record alike. `a` and `spare` are the temporaries.
+      const remobFloor = groupDry ? 1 : WC_REMOB_DOME
+      if (first && merge > 0) ops.push(() => {
+        this._fieldOp(a, c, b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
+        this._fieldOp(spare, b, c, 3, 0, { c: a })
+        fieldOp(c, a, a, 1, 0)
+        fieldOp(b, spare, spare, 1, 0)
+        if (colour) {
+          this._fieldOp(a, colour.c, colour.b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
+          this._fieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
+          fieldOp(colour.c, a, a, 1, 0)
+          fieldOp(colour.b, spare, spare, 1, 0)
+        }
+      })
       // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
       // and the wash under it are one liquid, and the paint in it - the
       // new, and the wash's re-mobilised under it - evens out across the
@@ -10492,7 +10550,7 @@ export class PencilEngine implements PencilEngineAPI {
       // taken from it ("область между штрихом и рваным краем"). The gate
       // texture is built once into `pressure`, free after the carry.
       if (first && merge > 0) ops.push(() => this._fieldOp(field.pressure, field.coverage, field.coverage, 17, 0, { d: field.band }))
-      for (const { radius, knight } of merge > 0 ? WET_DIFFUSE_PUDDLE_SCHEDULE : []) {
+      for (const { radius, knight } of merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []) {
         ops.push(() => {
           diffuseStep(st.src, st.dst, radius, knight, field.pressure)
           const t = st.src; st.src = st.dst; st.dst = t
@@ -10586,7 +10644,11 @@ export class PencilEngine implements PencilEngineAPI {
       // count of steps (none, under the wcNoDiffuse A/B) lands in c. Read
       // at plan time, dep.out is still its initial value - that was a
       // settle with no steps copying the colour rim over its own deposit.
-      col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
+      // (s17.43) ...counting the puddle schedule only when it runs: under
+      // wcNoDiffuse it is skipped, and counting it anyway picked the buffer
+      // holding the deposit's result as the colour's spare - the A/B render
+      // came out with the colour record and the deposit out of step.
+      col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
     }
 
     // (§17.42) The provisional dry target: the wet result with the one tide
@@ -11056,6 +11118,7 @@ export class PencilEngine implements PencilEngineAPI {
         const complete = (): void => {
           job.finish()
           composite()
+          scratch.releaseFilm()
           if (reveal) {
             // The settle lands now, so the reveal eases in from now — not
             // from the pen-up a few frames ago, which would show a slice of
@@ -11079,6 +11142,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     composite()
+    scratch.releaseFilm()
   }
 
   /** ADR 004 "Ревизия v1.5" §2: how far this dab travelled since the

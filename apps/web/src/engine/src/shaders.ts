@@ -917,6 +917,11 @@ export const DAB_FRAG = `
   // What changes is what lies above it — a second glaze now reads 0.67 and a
   // third 0.81, where before every one of them read the same clipped value.
   const float WC_DENSITY_K = 0.54;
+  // (s17.43) How much more a black covers than a white per unit of mass, on
+  // the fourth power of darkness so a mid blue (Y 0.25) gains a third and a
+  // mid tone a tenth while a black gains the whole of it: at the square the
+  // blue's body went up by 70 % with the black's.
+  const float WC_TINT_DARK = 1.2;
   // (#536, s17.26) The dry brush reads the paper's catch over this many px.
   // (s17.29) 6, from 2.5: Ilya's series 6 - the gaps a dry brush leaves are
   // islands a millimetre or two across (10-20 px at the room's scale), not
@@ -1512,7 +1517,16 @@ ${WC_NOISE_GLSL}
       // texel by texel - red, cyan and blue specks along a yellow mark's
       // edge in the replay. Under WC_DEPTH_THIN of mass the batch's own
       // colour takes over; a body's mass is ten times that.
-      const float WC_DEPTH_PRIOR = 0.03;
+      // (s17.43) 0.03 -> 0: the constant part of the prior blended the BATCH's
+      // colour into every texel the composite touched, whatever the record
+      // held - 13 % of purple into a yellow body of 0.2 mass - and the
+      // composite touches its rect, so the second stroke's rect edge was a
+      // crisp line of colour change across the first paint ("чёткая линия
+      // смены цвета", "вот эта линия"). Hunted through the carry, the bloom,
+      // the halo and the dry contact first: none of the wash's buffers had
+      // the edge, only the composite's output did. The thin-mass term below
+      // keeps the fringe fix this prior was added for.
+      const float WC_DEPTH_PRIOR = 0.0;
       const float WC_DEPTH_THIN = 0.12;
       float thinPrior = WC_DEPTH_PRIOR + WC_DEPTH_THIN * (1.0 - smoothstep(0.0, WC_DEPTH_THIN, depth.a));
       vec3 tauBatch = -log(max(u_color, vec3(0.02)));
@@ -1761,7 +1775,17 @@ ${WC_NOISE_GLSL}
       // one does under water.
       // (s17.28) A gate, not a line: the photographs show a full film at
       // half water and the tooth breaking through only near dry.
-      float dryness = u_dryContact * (1.0 - smoothstep(WC_DRY_WATER_LO, WC_DRY_WATER_HI, max(waterHere, paperWetHere)));
+      // (s17.43) ...and the water STANDING on the texel now, from the wash's
+      // coverage record (.b), counts with them. The two ratios above are
+      // what the brush brought and what the paper held when the paint was
+      // laid; a wash that has since been flooded - a puddle a later stroke
+      // ran its front through, or a big blob whose brush ran low on water
+      // along the way - kept a low ratio and was composited as a dry-brush
+      // mark: the whole of Ilya's yellow puddle broke up on the tooth, and
+      // where a second stroke's coverage overwrote the across coordinate
+      // the break-up changed pattern along a line ("вот эта линия").
+      float standingHere = texture2D(u_strokeCoverage, tileUV).b;
+      float dryness = u_dryContact * (1.0 - smoothstep(WC_DRY_WATER_LO, WC_DRY_WATER_HI, max(max(waterHere, paperWetHere), standingHere)));
       if (dryness > 0.0) {
         // Where a bundle sits, the brush reaches further down into the paper;
         // between bundles it barely touches even a crest. So the bristles
@@ -1960,7 +1984,15 @@ ${WC_NOISE_GLSL}
       // is the only thing that lightens a centre or darkens a rim. The mass
       // is strength x deposit: ink.b, or its migration-consistent recount.
       float pigmentMass = strengthHere * deposit;
-      float density = 1.0 - exp(-pigmentMass / WC_DENSITY_K);
+      // (s17.43) ...weighed by the paint's own darkness: a dark pigment covers
+      // more per unit of mass than a light one (tinting strength - ivory
+      // black or indigo against a lemon yellow), and with one density curve
+      // for every paint a full-strength black dried to a mid grey (143 of 255
+      // against paper 246; Ilya: "должно быть явно чернее"). The luminance is
+      // the record's own colour, so a mixture darkens as it should.
+      float darkness = 1.0 - dot(paint, vec3(0.2126, 0.7152, 0.0722));
+      float tint = 1.0 + WC_TINT_DARK * pow(darkness, 4.0);
+      float density = 1.0 - exp(-pigmentMass * tint / WC_DENSITY_K);
 
       // §3.3 granulation - heavier pigment settles into the paper's pits while
       // the wash is still liquid and dries there. paperCatch is high on a fibre
@@ -3019,7 +3051,11 @@ export const WC_FIELD_OP_FRAG = `
   // the texel (the water runs outward), else the CONDUCTANCE of the step
   // (its length over its cost in cells) to the power u_size.x. u_size.y is
   // costMax, u_origin.x the stride's length in texels.
-  const float WC_CARRY_FADE = 0.75;
+  const float WC_CARRY_TAPER = 1.6;
+  // (s17.43) How much of the sheet's capacity for carried paint is gone at
+  // the front: the balance the flow settles to is paint proportional to
+  // capacity, so this is the density at the front against the source's.
+  const float WC_CARRY_TAIL = 0.85;
   // 1.0 = OFF, measured (s17.38): at 0.3 the balance drew the sheet's
   // tooth as a net over the invasion zone, at 0.6 a blotch over every
   // flat wash - and no fingers at either, because this sheet's relief has
@@ -3041,7 +3077,14 @@ export const WC_FIELD_OP_FRAG = `
     // read as "пустое место, потом линия растекания". The sheet filters the
     // pigment as the water goes on (the design thread's immobilisation, in
     // its cheapest form).
-    float fade = 1.0 - WC_CARRY_FADE * smoothstep(0.0, u_band.x, cj);
+    // (s17.43) ...all the way to nothing at the front, on a curve: at 0.75
+    // the flow still filled the domain to a level and stopped, and the
+    // domain's edge inside a wet wash was a crisp line of colour change
+    // (Ilya's two annotations, "чёткая линия смены цвета", "вот эта линия"
+    // - the lighter band of the second paint ending in a line inside the
+    // first). The pigment lags the water it rides in; its density falls
+    // toward the front and the edge is a fade, not a step.
+    float fade = pow(1.0 - smoothstep(0.0, u_band.x, cj), WC_CARRY_TAPER);
     // (s17.38) ...and by the sheet's relief at the receiver: a valley takes
     // the flow freely, a crest with a penalty - not a wall, or the domain
     // would come apart into islands. The front's cost already prefers the
@@ -3157,8 +3200,26 @@ export const WC_FIELD_OP_FRAG = `
       bool colour = u_mode > 15.5;
       vec4 m = colour ? texture2D(u_c, v_uv) : a;
       float trav = u_origin.y;
-      float capI = wcCapillary(v_uv);
-      float Ti = (trav * m.a + b.a) / capI;
+      // (s17.43) The sheet's capacity for the carried paint falls toward the
+      // front: the water that has travelled furthest holds the least pigment
+      // (the sheet filters it on the way - the design thread's immobilisation
+      // in its balance form). The flow settles to a density proportional to
+      // the capacity, so the paint fades out toward the front instead of
+      // filling the domain to one level and stopping at a line. Weighting the
+      // flux alone (WC_CARRY_TAPER) could not do this: it slows the fill, the
+      // balance is the same. Measured on Ilya's yellow/purple pair: the band
+      // was a flat tone with a six-texel step at the domain's edge.
+      float capI = wcCapillary(v_uv) * (1.0 - WC_CARRY_TAIL * smoothstep(0.0, u_band.x, ci));
+      // (s17.43) The NEW paint's own concentration, not the total: a pigment
+      // in water spreads whatever other pigment already lies there, and
+      // equalising the total kept a stroke's paint inside its footprint
+      // wherever the wash under it was dense - and, with the earlier paint
+      // re-mobilised before the carry, swept that paint out to the new
+      // front and piled it in a line ("чёткая линия смены цвета"). The
+      // earlier paint is re-mobilised AFTER the carry now and mixes by
+      // diffusion alone, both ways; the fixed field is still read for the
+      // colour record's fractions (u_b in mode 16) and nothing else.
+      float Ti = trav * m.a / capI;
       if (ci <= u_band.x) {
         float ws[4];
         float wsum = 0.0;
@@ -3168,8 +3229,9 @@ export const WC_FIELD_OP_FRAG = `
           if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
           vec4 aj = texture2D(u_a, uvj);
           vec4 mj = colour ? texture2D(u_c, uvj) : aj;
-          float capJ = wcCapillary(uvj);
-          float Tj = (trav * mj.a + texture2D(u_b, uvj).a) / capJ;
+          float cj = texture2D(u_d, uvj).r;
+          float capJ = wcCapillary(uvj) * (1.0 - WC_CARRY_TAIL * smoothstep(0.0, u_band.x, cj));
+          float Tj = trav * mj.a / capJ;
           // Moving d from i to j lowers Ti by d/capI and raises Tj by
           // d/capJ: the step toward balance is (Ti - Tj) times the pair's
           // series capacity. Both sides evaluate the same expression.
@@ -3182,7 +3244,6 @@ export const WC_FIELD_OP_FRAG = `
           if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 1e-4));
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
-          float cj = texture2D(u_d, uvj).r;
           if (cj > u_band.x) continue;
           int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
           float wj = 0.0, wme = 0.0;
@@ -4093,6 +4154,10 @@ export const PAPER_COMPOSE_FRAG = `
   /** (s17.33) The fresh-water shade: how much darker the wettest paper reads
    *  than merely damp paper, and the wetness it starts rising from. */
   const float WC_FRESH_SHADE = 0.07;
+  // (s17.43) The power applied to a painted colour under fresh water, at
+  // full freshness: 1.35 takes a mid blue (0.45) to 0.34, a near-white
+  // nowhere - deeper and more saturated, never greyer.
+  const float WC_FRESH_DEEPEN = 0.35;
   const float WC_FRESH_LO = 0.45;
   /** The cast shadow on the far side. Softer than the meniscus: it is the drop
    *  sitting on the paper, not the surface of the drop.
@@ -4590,7 +4655,18 @@ export const PAPER_COMPOSE_FRAG = `
     // fresh mark darker than the older wet around it and fades with the
     // same clock; it is a picture of the water, not of any paint (the
     // design thread: show the water, never a bloom the model has not made).
-    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh);
+    // (s17.43) ...on bare paper. Over PAINT the same neutral shade read as
+    // dirt: darkening every channel alike is what a grey wash over a colour
+    // does, and Ilya painted with it - "пока не высохло, цвет грязный". Wet
+    // paint is not greyer than dry, it is DEEPER: the film is thicker and
+    // more saturated, and dries lighter and duller. So over paint the fresh
+    // water deepens the tone instead (a power on the colour: whites stay
+    // white, a colour gains chroma as it darkens), and the neutral shade is
+    // kept for the paper between the marks, where a drop of clean water
+    // still has to show. Both fade with the same clock.
+    float onPaint = smoothstep(0.02, 0.25, graphite);
+    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh * (1.0 - onPaint));
+    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_FRESH_DEEPEN * fresh * onPaint));
     color += vec3(gloss);
     color *= 1.0 - shade;
 

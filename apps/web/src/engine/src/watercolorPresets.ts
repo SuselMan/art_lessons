@@ -865,7 +865,14 @@ export function watercolorPuddleMerge(paperWet: number): number {
 export function watercolorBloomPush(pigmentLevel: number): number {
   return 1 - WC_BLOOM_PIGMENT_CANCEL * clamp01(pigmentLevel)
 }
-export const WC_BLOOM_PIGMENT_CANCEL = 0.7
+// (s17.43) 0.7 -> 1.0: a LOADED stroke into a wet wash does not bloom the
+// wash at all. At 0.7 a full-pigment stroke still lifted a tenth of the
+// earlier paint from under its dome and piled it at its domain's edge - the
+// lighter band of the first colour inside the second ending in a crisp line
+// that Ilya annotated twice ("чёткая линия смены цвета", "вот эта линия").
+// The real cauliflower needs the brush wetter than the wash; clean water
+// keeps the whole of it, a half-loaded brush half.
+export const WC_BLOOM_PIGMENT_CANCEL = 1.0
 /** (s17.26) How much a mark's own tideline stands down where it lies over an
  *  earlier mark that was still damp: a drying front needs dry paper to stop
  *  at, and over damp paper the water just keeps going - the only edge there
@@ -1012,7 +1019,8 @@ export function watercolorSpreadBudget(radiusPx: number, water: number, landedWe
   const puddle = WC_SPREAD_PUDDLE * smoothstepJs(WC_SPREAD_PUDDLE_LO, 1, l)
   return Math.max(2, Math.min(WC_SPREAD_BUDGET_MAX, radiusPx * (0.5 + WC_SPREAD_WET * w * (0.15 + 0.85 * l)) + puddle))
 }
-export const WC_SPREAD_WET = 0.55
+// (s17.43) 0.55 -> 0.4: "растекание при смешивании должно быть чуть меньше".
+export const WC_SPREAD_WET = 0.4
 export const WC_SPREAD_PUDDLE = 60
 export const WC_SPREAD_PUDDLE_LO = 0.75
 /** The cap, cost units: 8 bits resolve 0.6 of a unit at this costMax, which
@@ -1050,7 +1058,7 @@ export const WC_REMOB_DOME = 0.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r18 (§17.42)'
+export const WATERCOLOR_ROUND = 'акварель r19 (§17.43)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */
@@ -1287,6 +1295,12 @@ const WATERCOLOR_HALO_GROWTH = 0.9
 //  spread differently from the first, because only the pass that landed wet
 //  got the extra disc. A mark now starts at the brush's own size and runs
 //  from there, once, at the settle. The plumbing stays for the record.
+// (s17.43) Already 0 when the colour-change line was hunted, and stays so:
+// the halo stamp is the wet-in-wet spread of ADR 011 s17.10,
+// a wider stamp of shed pigment clipped by the coverage - a hard-edged disc
+// around every wet dab, laid before the water front (s17.24) and the carry
+// (s17.29) existed to move the paint for real. With those two doing the
+// spreading it only added a second, cruder edge; off, kept for an A/B.
 const WATERCOLOR_HALO_SHED = 0
 
 /** A nearly dry brush still bleeds into standing water — plainly, in Ilya's
