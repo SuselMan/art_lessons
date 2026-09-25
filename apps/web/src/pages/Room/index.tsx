@@ -68,6 +68,7 @@ import { toRoomConfig } from './roomConfig'
 import { createRoomStateHandler } from './roomStateHandler'
 import { createRoomControlEventHandlers } from './roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
+import { useJoinGate } from './useJoinGate'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
 import { usePencilSound } from './usePencilSound'
@@ -91,7 +92,6 @@ import { QuickSettingsBar } from './QuickSettingsBar'
 import { ToolSettingsTab } from './ToolSettingsTab'
 import { resolveDisplayName } from './displayName'
 import { ZOOM_MAX, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
-import { describeJoinError, joinGateStateFor } from './joinError'
 import {
   groupLostOpsByLayer, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
 } from './lostWork'
@@ -111,7 +111,7 @@ import { useNarrowHeader } from '../../lib/useNarrowHeader'
 import { rotateAboutMatrix, type TransformMode } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { useJoinQueue } from './joinQueue'
-import { JoinGate, type JoinGateState } from './JoinGate'
+import { JoinGate } from './JoinGate'
 import { NoWebGL } from './NoWebGL'
 import { probeWebGL } from '../../lib/webgl'
 import {
@@ -1550,23 +1550,6 @@ function RoomEditor() {
   // later reconnect (a fresh socket id always means a fresh join — see the
   // handleConnect reconnect branch below).
   const lastJoinAttemptRef = useRef<{ name: string; password?: string } | null>(null)
-
-  // ── join gate state (joiner path only) ──────────────────────────────────────
-  // Prefilled, not fixed: the joiner can overwrite it in the gate, and what
-  // they type is what the room sees.
-  const [joinName,       setJoinName]       = useState(myDisplayName)
-  const [joinPassword,   setJoinPassword]   = useState('')
-  const [joinError,      setJoinError]      = useState<string | null>(null)
-  const [joinSubmitting, setJoinSubmitting] = useState(false)
-  // (#231) Which screen the gate is showing. Three of the server's refusals
-  // are states of the person rather than problems with the form — there is
-  // nothing to re-type when the answer is "you were blocked" or "the owner
-  // hasn't answered yet" — so they replace the form instead of appearing as
-  // an error under it. See JoinGateState.
-  const [joinState,      setJoinState]      = useState<JoinGateState>('form')
-  // (#513) Whether the gate is asking for a password yet. False until a join
-  // attempt that carried none comes back refused — see attemptJoin.
-  const [joinPasswordAsked, setJoinPasswordAsked] = useState(false)
 
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
   // engine is configured with, and while the ruler or the gizmo is selected
@@ -3325,6 +3308,16 @@ function RoomEditor() {
   const { handleTransformHandleDown, handleTransformCenterDown, handleTransformCenterReset } =
     useTransformGizmoGestures({ vpRef, vp, handActive, engineRef, transformSessionRef, pendingTransformCommitRef })
 
+  // ── join gate (joiner path only) ──────────────────────────────────────────
+  // (#493) The form, its screens and the attempt — see useJoinGate.
+  const {
+    joinName, setJoinName, joinPassword, setJoinPassword, joinError, joinSubmitting,
+    joinState, setJoinState, joinPasswordAsked, handleJoinSubmit, retryJoin, retryJoinRef,
+  } = useJoinGate({
+    id, myDisplayName, socketRef, latestKnownSeqRef, lastJoinAttemptRef, hasJoinedRef,
+    applyIdentity, outbox, startOpenTimer,
+  })
+
   // ── socket wiring (#84/#37/#38/join-gate) ──────────────────────────────────────
   // Runs once per room id, independent of `config` — a joiner doesn't have a
   // config yet at connect time (that's the entire point of the join gate), so
@@ -3518,89 +3511,15 @@ function RoomEditor() {
     // see lib/queryClient.ts), so listing it here can never tear the socket
     // down and rebuild it.
     queryClient,
+    // (#493) From useJoinGate now, so the lint rule asks for them: a useState
+    // setter and a useRef object, both stable for the component's life —
+    // naming them can never tear the socket down.
+    setJoinState, retryJoinRef,
     // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
     // read through refs), `navigate` (changes with the URL this effect itself
     // rewrites) and `boardId` (a page turn is not a new socket).
   ])
 
-  // Submits the join gate (joiner path only): connects/join_room's with the
-  // entered name + optional password. Kept separate from the socket-wiring
-  // effect above so it can run any time after the socket exists, in response
-  // to a user action rather than a connection lifecycle event.
-  const attemptJoin = useCallback((name: string, password: string | undefined) => {
-    if (!id) return
-
-    setJoinError(null)
-    setJoinSubmitting(true)
-    // (#487) Отсюда, а не с отправки в сокет: замеряем ожидание человека.
-    startOpenTimer()
-    lastJoinAttemptRef.current = { name, password }
-    socketRef.current?.emit(
-      'join_room',
-      { roomId: id, name, password, lastKnownSeq: latestKnownSeqRef.current || undefined },
-      result => {
-        setJoinSubmitting(false)
-        if (!result.ok) {
-          // (#513) A `wrong_password` for an attempt that carried no password
-          // is not a wrong guess — it is the only way this client can learn
-          // the room has a password at all, since nothing about a room is
-          // readable before joining it. So it opens the field instead of
-          // accusing the reader of mistyping something they never typed.
-          // `joinError` was cleared at the top of this call, so what they see
-          // is the field and the note explaining it, and nothing red.
-          if (result.error === 'wrong_password' && password === undefined) {
-            setJoinPasswordAsked(true)
-            setJoinState('form')
-            return
-          }
-          // (#231) Some refusals are screens, not errors under the form —
-          // see joinGateStateFor for which and why.
-          const state = joinGateStateFor(result.error)
-          if (state) { setJoinState(state); return }
-          setJoinState('form')
-          setJoinError(describeJoinError(result.error, t))
-          return
-        }
-        hasJoinedRef.current = true
-        applyIdentity(result.userId)
-        // (#298) Only now may the outbox drain — see its canSend gate.
-        void outbox.resendAll()
-        // room_state (already wired above) populates `config` from here, which
-        // unmounts the gate in favor of the editor.
-      },
-    )
-  }, [id, applyIdentity, outbox, t, startOpenTimer])
-
-  // Submits the join gate's form. The name is validated here rather than in
-  // `attemptJoin`, which is also called with credentials already known good
-  // (a retry after approval — see joinRequestResolvedRef).
-  const handleJoinSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = joinName.trim()
-    if (!trimmed) { setJoinError(t('join.error.nameRequired')); return }
-    // (#513) Only once the field is up. Before that an empty password is the
-    // normal case and submitting without one is precisely how we ask; after
-    // it, sending nothing again would come back as the same silent refusal
-    // and look like the button did nothing.
-    if (joinPasswordAsked && !joinPassword) { setJoinError(t('join.error.passwordRequired')); return }
-    attemptJoin(trimmed, joinPassword || undefined)
-  }, [joinName, joinPassword, joinPasswordAsked, attemptJoin, t])
-
-  /** (#231) Asks again with whatever was entered last — from the "ask again"
-   *  button after a denial, from "try again" once signed in elsewhere, and
-   *  automatically when the owner approves. */
-  const retryJoin = useCallback(() => {
-    const last = lastJoinAttemptRef.current
-    const name = last?.name ?? joinName.trim()
-    if (!name) { setJoinState('form'); return }
-    attemptJoin(name, last?.password)
-  }, [joinName, attemptJoin])
-
-  // Read by the socket effect's `join_request_resolved` listener, which is
-  // registered once per connection and must not re-subscribe every time this
-  // callback's identity changes (its effect rebuilds the whole socket).
-  const retryJoinRef = useRef(retryJoin)
-  retryJoinRef.current = retryJoin
 
   // Same reason as `retryJoinRef`: `t` changes identity when the reader
   // switches language, and listing it as a dependency of the socket effect
