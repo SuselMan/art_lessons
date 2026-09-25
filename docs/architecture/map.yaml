@@ -1034,15 +1034,18 @@ modules:
     title: Операционный лог и снапшоты
     layer: engine-internals
     owns: >-
-      Лог операций внутри движка, кодек снапшотов, аудит покрытия снапшота, gzip. То, из чего
-      комната собирается заново после перезахода.
+      Лог операций внутри движка, кодек снапшотов, аудит покрытия снапшота, gzip, хранилище
+      чекпойнтов (бюджет, вытеснение, закреплённый снапшотный чекпойнт, поиск по префиксу —
+      первый шов декомпозиции движка, #494). То, из чего комната собирается заново после
+      перезахода и с чего начинается пересборка слоя при отмене.
     files:
       - apps/web/src/engine/src/OperationLog*.ts
+      - apps/web/src/engine/src/checkpointStore*.ts
       - apps/web/src/engine/src/snapshotCodec*.ts
       - apps/web/src/engine/src/snapshotAudit.ts
       - apps/web/src/engine/src/gzip*.ts
     adr: [002-collaborative-undo]
-    issues: [375]
+    issues: [375, 494]
     notes:
       - >-
         Полные логи операций хранятся сознательно, как актив для обучения моделей (#375).
