@@ -58,12 +58,16 @@ export const WET_DRY_MS = 60000
  *  (raster) never parses its key. */
 interface WetCell { w: number; at: number; cx: number; cy: number }
 
-function key(cx: number, cy: number): string {
-  return `${cx},${cy}`
+/** (#536, §17.44) A NUMBER, not the "cx,cy" string it was: a 400 px nib
+ *  visits a few thousand cells per dab (sampleUnderNib, deposit), and a
+ *  string per visit was most of the tablet's CPU time on a big stroke.
+ *  Exact for |cx|, |cy| < 2^25 (a 268-million-pixel world). */
+function key(cx: number, cy: number): number {
+  return (cx + 33554432) * 67108864 + (cy + 33554432)
 }
 
 export class PaperWetness {
-  private readonly _layers = new Map<string, Map<string, WetCell>>()
+  private readonly _layers = new Map<string, Map<number, WetCell>>()
   /** (#536) Water the gesture in progress has laid but not yet committed.
    *
    *  Two maps rather than one because the two readers want different answers.
@@ -73,7 +77,7 @@ export class PaperWetness {
    *  only when the pen lifts is not what wetting paper looks like.
    *
    *  Merged into the committed map at pen-up (commitPending). */
-  private readonly _pending = new Map<string, Map<string, WetCell>>()
+  private readonly _pending = new Map<string, Map<number, WetCell>>()
   /** (#536) Cells the gesture in progress has already drunk from, so a stroke
    *  drinks from each patch of paper once. See drain() for why once matters. */
   private readonly _drained = new Set<string>()
@@ -139,6 +143,7 @@ export class PaperWetness {
         const prev = cells.get(k)
         const held = prev ? PaperWetness._decayed(prev, now) : 0
         cells.set(k, { w: Math.max(held, amount), at: now, cx, cy })
+        this._grow(cx, cy)
       }
     }
     this._notePeak(amount, now)
@@ -337,6 +342,25 @@ export class PaperWetness {
   /** Drops cells that have finished drying. Called opportunistically — the map
    *  is small, but a long session over a large sheet would otherwise keep every
    *  cell it ever touched. */
+  /** (#536, §17.44) The cell rect of everything deposited since the last
+   *  prune or clear - a superset of the live cells (dried ones stay inside it
+   *  until pruned), grown per deposit. bounds() read the whole field every
+   *  120 ms to find it: ~180 ms of CPU per big stroke on the tablet. */
+  private _box: { minCx: number; minCy: number; maxCx: number; maxCy: number } | null = null
+  private _grow(cx: number, cy: number): void {
+    const b = this._box
+    if (!b) { this._box = { minCx: cx, minCy: cy, maxCx: cx, maxCy: cy }; return }
+    if (cx < b.minCx) b.minCx = cx
+    if (cx > b.maxCx) b.maxCx = cx
+    if (cy < b.minCy) b.minCy = cy
+    if (cy > b.maxCy) b.maxCy = cy
+  }
+  private _recomputeBox(): void {
+    this._box = null
+    for (const cells of this._layers.values()) for (const c of cells.values()) this._grow(c.cx, c.cy)
+    for (const cells of this._pending.values()) for (const c of cells.values()) this._grow(c.cx, c.cy)
+  }
+
   prune(now: number): void {
     for (const [layerId, cells] of this._layers) {
       for (const [k, cell] of cells) {
@@ -344,6 +368,7 @@ export class PaperWetness {
       }
       if (!cells.size) this._layers.delete(layerId)
     }
+    this._recomputeBox()
   }
 
   /** (#536) Drops a layer's water outright. Undo and "clear layer" call it:
@@ -355,12 +380,14 @@ export class PaperWetness {
   forgetLayer(layerId: string): void {
     this._layers.delete(layerId)
     this._pending.delete(layerId)
+    this._recomputeBox()
   }
 
   clear(): void {
     this._layers.clear()
     this._pending.clear()
     this._drained.clear()
+    this._box = null
     this._peak = 0
     this._peakAt = 0
   }
@@ -372,20 +399,12 @@ export class PaperWetness {
    *  which is the overwhelmingly common case and switches the whole overlay
    *  off rather than uploading a texture of zeroes. */
   bounds(now: number): { minCx: number; minCy: number; maxCx: number; maxCy: number } | null {
-    let minCx = Infinity, minCy = Infinity, maxCx = -Infinity, maxCy = -Infinity
-    for (const [, cells] of [...this._layers, ...this._pending]) {
-      for (const [k, cell] of cells) {
-        if (PaperWetness._decayed(cell, now) <= 0.01) continue
-        void k
-        const { cx, cy } = cell
-        if (cx < minCx) minCx = cx
-        if (cy < minCy) minCy = cy
-        if (cx > maxCx) maxCx = cx
-        if (cy > maxCy) maxCy = cy
-      }
-    }
-    return minCx === Infinity ? null : { minCx, minCy, maxCx, maxCy }
+    // (§17.44) The grown rect, not a pass over every cell; the caller asks
+    // only when the peak says something is still wet.
+    void now
+    return this._box ? { ...this._box } : null
   }
+
 
   /** (#536, §17.44) The whole field, every layer unioned, as a grid of
    *  inW x inH samples, each the wettest cell of its step x step block from
@@ -395,7 +414,7 @@ export class PaperWetness {
    *  50 ms a frame on the tablet. */
   raster(minCx: number, minCy: number, step: number, inW: number, inH: number, now: number): Float32Array {
     const out = new Float32Array(inW * inH)
-    const pass = (cells: Map<string, WetCell>): void => {
+    const pass = (cells: Map<number, WetCell>): void => {
       for (const cell of cells.values()) {
         const tx = Math.floor((cell.cx - minCx) / step), ty = Math.floor((cell.cy - minCy) / step)
         if (tx < 0 || ty < 0 || tx >= inW || ty >= inH) continue
@@ -424,6 +443,16 @@ export class PaperWetness {
   }
 
   /** Live cells of one layer, for the display pass. World-space cell indices. */
+  /** (#536, §17.44) How many of a layer's cells are wetter than `min` - the
+   *  dev readout's number, without building cellsOf's array for it. */
+  countWet(layerId: string, now: number, min: number): number {
+    const cells = this._layers.get(layerId)
+    if (!cells) return 0
+    let n = 0
+    for (const cell of cells.values()) if (PaperWetness._decayed(cell, now) > min) n++
+    return n
+  }
+
   cellsOf(layerId: string, now: number): Array<{ cx: number; cy: number; w: number }> {
     const cells = this._layers.get(layerId)
     if (!cells) return []
@@ -431,8 +460,8 @@ export class PaperWetness {
     for (const [k, cell] of cells) {
       const w = PaperWetness._decayed(cell, now)
       if (w <= 0.01) continue
-      const comma = k.indexOf(',')
-      out.push({ cx: Number(k.slice(0, comma)), cy: Number(k.slice(comma + 1)), w })
+      void k
+      out.push({ cx: cell.cx, cy: cell.cy, w })
     }
     return out
   }
