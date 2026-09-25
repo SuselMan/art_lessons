@@ -3293,7 +3293,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  while a suspendDisplay() span is active (see its own doc comment),
    *  otherwise identical to calling _display() right there. */
   private _displayIfNotSuspended(): void {
-    if (this._displaySuspendDepth === 0) this._display()
+    // (#536, §17.44) Coalesced onto the next animation frame rather than drawn
+    // here and now: during a watercolour stroke this fired from the settle
+    // ticks and the reveal timer on top of the move-driven frame, and the
+    // GPU profile showed the paper composite - the dearest pass there is,
+    // 3.5 ms a call on a desktop - running twice per frame. Nothing that
+    // calls this needs the pixels before the frame; export draws for itself.
+    if (this._displaySuspendDepth === 0) this._scheduleDisplay()
   }
 
   /** Appends any externally built operation — from the layer panel, or from
@@ -7453,8 +7459,13 @@ export class PencilEngine implements PencilEngineAPI {
     // never landed at all. Which of the two happened was frame timing, and
     // the replay (always synchronous) matched neither. Then a fresh film:
     // see newFilm.
+    // (§17.44) ...spread over the frames again, now that a settle landing
+    // under a running gesture merges rather than overwrites (the coverage by
+    // max, the film's base refreshed - see _diffuseWashOps' finish): the
+    // synchronous form was a hitch of tens to hundreds of milliseconds every
+    // chunk on a big brush ("слишком сильно тормозит при больших штрихах").
     if (this._ribbonStrokeScratch) {
-      this._finishRibbonStroke(this._ribbonStrokeScratch, false)
+      this._finishRibbonStroke(this._ribbonStrokeScratch, true)
       this._ribbonStrokeScratch.newFilm()
     }
   }
@@ -10041,7 +10052,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
-    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19, k: number,
+    out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number] } = {},
   ): void {
     const { gl } = this
@@ -10733,8 +10744,21 @@ export class PencilEngine implements PencilEngineAPI {
         const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
         dep.out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
         dep.out.copyRegionInto(entry.inkSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
-        // (§17.24) …and the coverage the water front extended.
-        field.coverage.copyRegionInto(entry.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        // (§17.24) …and the coverage the water front extended - MERGED by
+        // max (§17.44): the settle may have run over the frames while the
+        // gesture went on stamping the next chunk's coverage, and a copy
+        // threw those stamps away. The tile's region is brought into the
+        // field's free `mask`, maxed with the extended coverage into `band`,
+        // and that goes home.
+        entry.coverage.copyRegionInto(field.mask, dx, dy, sx, sy, ox1 - ox0, oy1 - oy0)
+        this._fieldOp(field.band, field.coverage, field.mask, 20, 0)
+        field.band.copyRegionInto(entry.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        // (§17.44) ...and a film that began while the settle ran (the next
+        // chunk's, see newFilm) sits on a base copied before it landed: the
+        // base catches up, and the next batch's rebuild of inkLoad as base +
+        // film shows the settled chunk under the paint laid since.
+        if (entry.inkBase) dep.out.copyRegionInto(entry.inkBase, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        if (entry.colorBase && entry.inkColor) col.out.copyRegionInto(entry.colorBase, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
         if (entry.inkColor && entry.colorSettled) {
           col.out.copyRegionInto(entry.inkColor, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
           col.out.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)

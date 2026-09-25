@@ -3120,6 +3120,13 @@ export const WC_FIELD_OP_FRAG = `
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 19.5) {
+      // (s17.44) max(a, b) per channel: the settle's extended coverage merged
+      // into a tile's coverage that the gesture may have gone on stamping
+      // while the settle ran, instead of overwriting it.
+      gl_FragColor = max(a, b);
+      return;
+    }
     if (u_mode > 18.5) {
       // (s17.42) The group tide's seeds, from the wash's COVERAGE (a.a, the
       // union of every operation's domain) instead of one operation's cost:

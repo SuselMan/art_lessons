@@ -923,8 +923,15 @@ export const WC_FRONT_FLOOR_IN = 0.5
 export const WC_FRONT_MAX_STEPS = 56
 export const WC_FRONT_WET_STEPS = 160
 export function watercolorFrontSteps(budget: number, radiusPx: number, landedWet: number): number {
-  const cap = WC_FRONT_MAX_STEPS + Math.round(WC_FRONT_WET_STEPS * clamp01(landedWet))
-  return Math.min(cap, Math.ceil(1.4 * budget + radiusPx))
+  const l = clamp01(landedWet)
+  const cap = WC_FRONT_MAX_STEPS + Math.round(WC_FRONT_WET_STEPS * l)
+  // (s17.44) The radius is what a landing puddle's front has to cross to
+  // reach the film (s17.27) - on a DRY landing. A wet landing seeds the
+  // whole footprint as the puddle (s17.41), so its front starts at the
+  // footprint's edge and only the budget is left to run: on a 120 px brush
+  // into a wash that was 216 passes over a 1536-px field for a run of 100,
+  // the settle's largest single cost.
+  return Math.min(cap, Math.ceil(1.4 * budget + radiusPx * (1 - l)))
 }
 /** (s17.29) The front CARRIES the mark's mobile paint: per carry step a
  *  texel hands this share of its paint to its in-domain neighbours that lie

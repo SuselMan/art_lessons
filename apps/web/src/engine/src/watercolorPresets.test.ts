@@ -123,8 +123,11 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     expect(watercolorSpreadBudget(20, 1, 1)).toBeGreaterThan(watercolorSpreadBudget(20, 1, 0.7) + 40)
     // The front's steps: capped low on dry paper, higher on wet.
     expect(watercolorFrontSteps(100, 200, 0)).toBe(56)
-    expect(watercolorFrontSteps(100, 200, 1)).toBe(216)
-    expect(watercolorFrontSteps(10, 20, 1)).toBe(34)
+    // (s17.44) A wet landing seeds the whole footprint: the radius is not
+    // crossed, only the budget runs - 140 passes where the cap alone allowed 216.
+    expect(watercolorFrontSteps(100, 200, 1)).toBe(140)
+    expect(watercolorFrontSteps(10, 20, 1)).toBe(14)
+    expect(watercolorFrontSteps(10, 20, 0.5)).toBe(24)
   })
 
   it('carries the paint the whole budget in a few strided steps (§17.29)', () => {
