@@ -115,10 +115,12 @@ describe('standing water (#536, ADR 011 §17.21)', () => {
     expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeLessThan(0.95)
     expect(watercolorSpreadBudget(30, 1, 1) / 30).toBeGreaterThan(1)
     expect(watercolorSpreadBudget(30, 1, 0) / 30).toBeLessThan(0.65)
-    expect(watercolorSpreadBudget(300, 1, 1)).toBe(100)
+    expect(watercolorSpreadBudget(300, 1, 1)).toBe(160)
+    // (s17.34) A flooded landing runs further than a merely wet one.
+    expect(watercolorSpreadBudget(20, 1, 1)).toBeGreaterThan(watercolorSpreadBudget(20, 1, 0.7) + 40)
     // The front's steps: capped low on dry paper, higher on wet.
     expect(watercolorFrontSteps(100, 200, 0)).toBe(56)
-    expect(watercolorFrontSteps(100, 200, 1)).toBe(156)
+    expect(watercolorFrontSteps(100, 200, 1)).toBe(216)
     expect(watercolorFrontSteps(10, 20, 1)).toBe(34)
   })
 

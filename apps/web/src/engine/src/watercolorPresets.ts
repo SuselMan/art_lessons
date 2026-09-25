@@ -877,7 +877,7 @@ export const WC_FRONT_FLOOR_IN = 0.5
  *  the landing wetness - a big brush on dry paper never pays for a run
  *  its dry-paper cost would stop at a pixel anyway. */
 export const WC_FRONT_MAX_STEPS = 56
-export const WC_FRONT_WET_STEPS = 100
+export const WC_FRONT_WET_STEPS = 160
 export function watercolorFrontSteps(budget: number, radiusPx: number, landedWet: number): number {
   const cap = WC_FRONT_MAX_STEPS + Math.round(WC_FRONT_WET_STEPS * clamp01(landedWet))
   return Math.min(cap, Math.ceil(1.4 * budget + radiusPx))
@@ -953,12 +953,23 @@ export function watercolorSpreadBudget(radiusPx: number, water: number, landedWe
   // series 5: the fingers reach ~0.65 R), which is ~1.05 R of cost; 0.6 R
   // gave 15 px on a 160 px stroke and the fingers vanished at the room's
   // scale. On dry paper the term is a tenth of that, as before.
-  return Math.max(2, Math.min(WC_SPREAD_BUDGET_MAX, radiusPx * (0.5 + WC_SPREAD_WET * w * (0.15 + 0.85 * l))))
+  // (s17.34) ...and a mark landing in DEEP water - a clean puddle, a wash
+  // still flooded - has the puddle's own water to travel in: its pigment
+  // runs across the puddle, not a radius past its own footprint (Ilya's
+  // series 4, paint into clean water: feathery tracks over half the
+  // puddle; ours stopped at 15 px). An absolute run on top, in cost units,
+  // that only a flooded landing earns. The design thread would keep the
+  // water front's budget and give the pigment its own horizon; here the
+  // carry can only move within the front's domain, so the domain grows.
+  const puddle = WC_SPREAD_PUDDLE * smoothstepJs(WC_SPREAD_PUDDLE_LO, 1, l)
+  return Math.max(2, Math.min(WC_SPREAD_BUDGET_MAX, radiusPx * (0.5 + WC_SPREAD_WET * w * (0.15 + 0.85 * l)) + puddle))
 }
 export const WC_SPREAD_WET = 0.55
-/** The cap, cost units: 8 bits resolve 0.4 of a unit at this costMax, which
- *  still places a front to half a cell. */
-export const WC_SPREAD_BUDGET_MAX = 100
+export const WC_SPREAD_PUDDLE = 60
+export const WC_SPREAD_PUDDLE_LO = 0.75
+/** The cap, cost units: 8 bits resolve 0.6 of a unit at this costMax, which
+ *  still places a front to a cell. */
+export const WC_SPREAD_BUDGET_MAX = 160
 
 /** The share of the wash's settled paint that a drop of water lifts and
  *  carries to its front, at full bloom strength (watercolorBloomStrength):
@@ -986,7 +997,7 @@ export const WC_TIDE_RIM = 1.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r10 (§17.33)'
+export const WATERCOLOR_ROUND = 'акварель r11 (§17.34)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */
