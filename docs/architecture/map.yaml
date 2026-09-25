@@ -440,6 +440,7 @@ modules:
       - apps/web/src/pages/Room/pressureResponseCurves.ts
       - apps/web/src/pages/Room/tiltResponseCurves.ts
       - apps/web/src/pages/Room/editorKeys.ts
+      - apps/web/src/pages/Room/editorHotkeys.ts
     adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 010-fill-tool, 011-watercolor, 013-digital-brush]
     notes:
       - >-
@@ -1259,7 +1260,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 6733
+    maxLines: 6533
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича

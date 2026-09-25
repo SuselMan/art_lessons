@@ -32,8 +32,6 @@ import { createPreviewSchedule } from './previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
-import { isModalOpen } from '../../components/Modal/modalSlot'
-import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
@@ -51,7 +49,7 @@ import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { holdReload } from '../../lib/reloadSafety'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
-import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/hotkeys'
+import { formatHotkeyLabel } from '../../lib/hotkeys'
 import { addRoomInvite, createBoard, deleteBoard, forkRoom, moveRoomToFolder, renameBoard, renameRoom, reorderBoard, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { BANNED_ERROR_CODE, noteBanned } from '../../lib/banned'
@@ -66,6 +64,7 @@ import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCommittableSession } from './useCommittableSession'
 import { useShapeTool } from './useShapeTool'
+import { useEditorHotkeys } from './editorHotkeys'
 import { useTransformGizmoGestures } from './useTransformGizmoGestures'
 import { createBoardEventHandlers } from './boardEvents'
 import { createPeerEventHandlers } from './peerEvents'
@@ -93,7 +92,7 @@ import { ConnectionBanner } from './ConnectionBanner'
 import { SyncIndicator } from './SyncIndicator'
 import { resolveDisplayName } from './displayName'
 import { clientToCanvas } from './pointerTransform'
-import { ZOOM_MAX, ZOOM_KEY_STEP, clientToRoomPoint, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
+import { ZOOM_MAX, clientToRoomPoint, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
 import {
   groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
@@ -106,7 +105,6 @@ import { BrushCursor } from './BrushCursor'
 import { useCursor, RULER_GESTURE_CURSOR, type ViewportCursor } from './cursorController'
 import { RulerOverlay, type RulerPoint } from './RulerOverlay'
 import { rulerGestureAt, RULER_BODY_GRAB_PX, RULER_ENDPOINT_GRAB_PX } from './rulerGesture'
-import { editorOwnsKey, isTypingTarget } from './editorKeys'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
@@ -120,8 +118,8 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import { NoWebGL } from './NoWebGL'
 import { probeWebGL } from '../../lib/webgl'
 import {
-  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
-  getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
+  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx,
+  getToolColor, isColorCapableTool, type ColorCapableTool, type UiToolId,
   isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
 } from './toolSchemas'
 import { colorWellState, effectiveSwatch } from './colorWell'
@@ -4600,226 +4598,28 @@ function RoomEditor() {
 
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
   // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // (#310/#405) Who owns this keypress — see editorKeys.ts for the whole
-      // precedence and why each layer outranks the canvas. This listener is on
-      // `window` in the bubble phase, so a key pressed inside a dialog or a
-      // dropdown reaches it too; without the check, typing in a dialog would
-      // still be switching tools behind it.
-      if (!editorOwnsKey({
-        defaultPrevented: e.defaultPrevented,
-        modalOpen: isModalOpen(),
-        typing: isTypingTarget(e.target),
-        popoverOpen: isDismissLayerOpen(),
-      })) return
-      // (#405) Enter and Esc end an open transform session — apply and cancel.
-      // Handled here rather than in the registry above because they are not
-      // rebindable (see lib/hotkeys.ts on why), and checked before the bindings
-      // so a rebind can never shadow the only two keys that close a session.
-      //
-      // Cancel throws the accumulated matrix away whole. Nothing was committed
-      // while the session was open, so this leaves no trace on the undo stack
-      // either — there is nothing to take back, which is the same reason
-      // Ctrl+Z behaves as Esc here (see handleUndo).
-      if (transformSessionRef.current) {
-        if (e.key === 'Enter') { commitTransformSessionRef.current(true); e.preventDefault(); return }
-        if (e.key === 'Escape') { resetTransformSessionRef.current(); e.preventDefault(); return }
-      }
-      // (#530) An open shape answers the same two keys the same way, and for
-      // the same reason it is unbindable: Enter and Esc are the platform's
-      // confirm and cancel, and an unconfirmed shape must always have a way to
-      // be finished or abandoned. Esc leaves no trace on the undo stack —
-      // nothing was ever committed.
-      if (useRoomStore.getState().shapeFrame) {
-        if (e.key === 'Enter') { shapeRef.current.commit(); e.preventDefault(); return }
-        if (e.key === 'Escape') { shapeRef.current.cancel(); e.preventDefault(); return }
-      }
-      // (#446) The selection's own three unbindable keys, in the same place
-      // and for the same reason as the two above: Enter and Esc are the
-      // platform's confirm and cancel, and a rebind able to move them could
-      // leave a half-drawn lasso with no way to finish or abandon it.
-      //
-      // Ordered before the clipboard keys below because an open lasso is a
-      // gesture in progress, and a gesture in progress owns Enter and Esc
-      // outright.
-      const openLasso = useRoomStore.getState().pendingSelection
-      if (openLasso) {
-        if (e.key === 'Enter') { finishSelection(openLasso); e.preventDefault(); return }
-        if (e.key === 'Escape') {
-          setPendingSelection(null)
-          setSelectionCursor(null)
-          e.preventDefault()
-          return
-        }
-      }
-      if (e.key === 'Escape' && useRoomStore.getState().selection) {
-        setSelection(null)
-        e.preventDefault()
-        return
-      }
-      // Cut/copy/paste and Delete. Not in the hotkey registry either: these
-      // are the platform's own clipboard keys, the same ones every text field
-      // in this app already answers to, and rebinding Ctrl+C to something else
-      // is not a thing a drawing app should offer.
-      //
-      // The clipboard keys act only when there is something for them to act on
-      // — no selection, no interception — so a page-level copy of, say, a room
-      // link is never swallowed by the canvas.
-      const modKey = e.ctrlKey || e.metaKey
-      if (modKey && !e.shiftKey && !e.altKey) {
-        const key = e.key.toLowerCase()
-        if ((key === 'c' || key === 'x') && useRoomStore.getState().selection) {
-          e.preventDefault()
-          if (key === 'c') void copySelection()
-          else void cutSelection()
-          return
-        }
-        // (#521) The meta, not the raster — the same synchronous "is there
-        // anything to paste" the button reads, so Ctrl+V is decided without
-        // touching IndexedDB and a page-level paste is swallowed on exactly
-        // the same condition the UI shows.
-        if (key === 'v' && useClipboardStore.getState().meta) {
-          e.preventDefault()
-          void pasteClipboard()
-          return
-        }
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && useRoomStore.getState().selection) {
-        e.preventDefault()
-        deleteSelectionContents()
-        return
-      }
-      const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
-      if (is('undo')) { void handleUndo(); e.preventDefault(); return }
-      if (is('redo')) { void handleRedo(); e.preventDefault(); return }
-      // (#440) Zoom is settled here, ahead of every other action, because two
-      // things have to happen on the same press: our camera moves, and the
-      // browser's own page zoom does not. Missing the preventDefault doesn't
-      // merely lose a shortcut — it scales the whole editor, canvas and UI
-      // together, which is the one thing a drawing app must not do by accident.
-      if (is('zoomIn'))  { e.preventDefault(); zoomBy(ZOOM_KEY_STEP); return }
-      if (is('zoomOut')) { e.preventDefault(); zoomBy(1 / ZOOM_KEY_STEP); return }
-      if (is('zoomReset')) { resetZoom(); return }
-      // The same press spelled any of the other ways the browser accepts it —
-      // Shift+'=', the numpad, or the '+'/'-' keys of a non-US layout, which
-      // sit at physical positions our `code`-based bindings never name (see
-      // browserZoomIntent). Not rebindable and not in the registry on purpose:
-      // unbinding these would not free the keys, it would hand them back to
-      // the browser, which is exactly what this is here to stop.
-      const zoomIntent = browserZoomIntent(e)
-      if (zoomIntent) {
-        e.preventDefault()
-        zoomBy(zoomIntent === 'in' ? ZOOM_KEY_STEP : 1 / ZOOM_KEY_STEP)
-        return
-      }
-      // (#520) Ahead of `toggleEraser` because it is the more specific press on
-      // the same key — the two can't actually collide (matchesHotkey compares
-      // `shiftKey` exactly, so E and Shift+E are different bindings, and both
-      // stay different after a rebind or this would be reachable only by
-      // accident), but reading the specific one first is how the rest of this
-      // handler is ordered and the one that survives someone rebinding these
-      // two onto the same combo.
-      //
-      // Not a plain flip of the setting: with a pencil in hand that would be a
-      // key that appears to do nothing, since the switch it moves only exists
-      // in the quick column while the eraser is selected. So a press from
-      // another tool means "give me the eraser that goes through layers" — it
-      // takes the eraser and turns the mode on — and once the eraser is in
-      // hand the same key flips the mode, which is the toggle it says it is.
-      // Turning it *off* is therefore always one press, never two.
-      if (is('eraseThroughLayers')) {
-        if (tool === 'eraser') setToolSetting('eraser', 'throughLayers', prev => !prev)
-        else { setTool('eraser'); setToolSetting('eraser', 'throughLayers', true) }
-        return
-      }
-      if (is('toggleEraser')) { toggleTool('eraser'); return }
-      if (is('toggleSmudge')) { toggleTool('smudge'); return }
-      if (is('toggleCharcoal')) { toggleTool('charcoal'); return }
-      if (is('toggleLiner')) { toggleTool('liner'); return }
-      if (is('toggleMarker')) { toggleTool('marker'); return }
-      if (is('toggleBrushPen')) { toggleTool('brushPen'); return }
-      if (is('toggleWatercolor')) { toggleTool('watercolor'); return }
-      if (is('toggleDigitalBrush')) { toggleTool('digitalBrush'); return }
-      // (#405) The four that used to be modes, selected through the same
-      // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
-      if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
-      if (is('toggleRuler')) { toggleTool('ruler'); return }
-      // Selectable only with something to transform (the toolbar button is
-      // `disabled` on the same condition), but always *de*selectable: making
-      // the active layer the background empties the selection, and a key that
-      // refused to let go there would leave the canvas locked with no gizmo on
-      // it and no obvious way out.
-      if (is('toggleTransform')) {
-        if (transformActive || transformTargetIds.length > 0) toggleTool('transform')
-        return
-      }
-      // (#446) Selectable with nothing selected — unlike transform, the whole
-      // point of this tool is to *make* a selection, so there is no
-      // precondition to check.
-      if (is('toggleSelection')) { toggleTool('selection'); return }
-      if (is('toggleGrid')) { toggleTool('grid'); return }
-      if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
-      // (#443) The same toggle-off-to-your-drawing-tool rule as every other
-      // tool key, replacing a boolean of its own. `H` used to flip a modifier;
-      // now pressing it twice puts back what you were drawing with, which is
-      // what the other eight keys here already do.
-      if (is('toggleHand')) { toggleTool('hand'); return }
-      // Both size hotkeys clamp to the tool's own schema range (toolSizeRange)
-      // rather than to literals — see its comment for why (#336).
-      // (#405) `drawingTool`, not the selection: with the ruler in hand there
-      // is no size to step, and silently resizing the pencil behind it would
-      // be a key that appears to do nothing. Sizing the tool you will go back
-      // to is the useful reading of the same press.
-      if (is('decreaseSize')) {
-        // Liner's own 'size' field is a fixed-label enum (ADR 003), not the
-        // plain px number every other tool's 'size' field holds (marker
-        // included) — step through the ladder instead of subtracting 1.
-        if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
-        else {
-          const range = toolSizeRange(drawingTool)
-          if (range) setToolSetting(drawingTool, 'size', prev => Math.max(range.min, (prev as number) - 1))
-        }
-        return
-      }
-      if (is('increaseSize')) {
-        if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
-        else {
-          const range = toolSizeRange(drawingTool)
-          if (range) setToolSetting(drawingTool, 'size', prev => Math.min(range.max, (prev as number) + 1))
-        }
-        return
-      }
-      if (is('rotateCCW')) { setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 })); return }
-      if (is('rotateCW')) { setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 })); return }
-      // (#440) One notch along the 6H..6B ladder, replacing the five keys that
-      // jumped to five hand-picked grades. `drawingTool` and no `setTool`, for
-      // the same reason the size keys above use it: with the ruler or the
-      // eraser in hand this prepares the pencil you are about to go back to
-      // rather than yanking it out mid-gesture. Silently does nothing for a
-      // tool with no hardness at all (charcoal picks a stick, not a grade —
-      // see toolGradeOptions), which is the honest answer to "harder" there.
-      if (is('gradeHarder') || is('gradeSofter')) {
-        const grades = toolGradeOptions(drawingTool)
-        if (grades) {
-          const direction = is('gradeSofter') ? 1 : -1
-          setToolSetting(drawingTool, 'grade', prev => stepEnumOption(grades, String(prev), direction))
-        }
-        return
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [
-    drawingTool, tool, toggleTool, setTool, transformActive, transformTargetIds.length,
-    setToolSetting, setVp, handleUndo, handleRedo, hotkeys,
-    // (#493) Returned by useTransformSession now, which is why the lint rule
-    // asks for it; a ref object, stable for the component's life.
-    commitTransformSessionRef,
+  // (#493) The routing, and the precedence it encodes, is editorHotkeys.ts.
+  useEditorHotkeys({
+    tool, drawingTool, hotkeys,
+    isTransformOpen: () => transformSessionRef.current !== null,
+    transformAvailable: transformActive || transformTargetIds.length > 0,
+    commitTransform: () => commitTransformSessionRef.current(true),
+    resetTransform: () => resetTransformSessionRef.current(),
+    commitShape: () => shapeRef.current.commit(),
+    cancelShape: () => shapeRef.current.cancel(),
+    finishSelection,
+    cancelLasso: () => { setPendingSelection(null); setSelectionCursor(null) },
+    clearSelection: () => setSelection(null),
+    copySelection: () => { void copySelection() },
+    cutSelection: () => { void cutSelection() },
+    pasteClipboard: () => { void pasteClipboard() },
+    deleteSelectionContents,
+    undo: () => { void handleUndo() },
+    redo: () => { void handleRedo() },
     zoomBy, resetZoom,
-    finishSelection, setPendingSelection, setSelection, copySelection, cutSelection,
-    pasteClipboard, deleteSelectionContents, setSelectionCursor,
-  ])
+    rotateView: radians => setVp(v => ({ ...v, angle: radians === null ? 0 : v.angle + radians })),
+    toggleTool, setTool, setToolSetting,
+  })
 
   // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
   useSpaceToPan()
