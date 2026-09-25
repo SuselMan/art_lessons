@@ -3854,6 +3854,10 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_WET_RIM_GAIN = 6.0;
   const float WC_WET_GLOSS = 0.34;
   const float WC_WET_SHADE = 0.11;
+  /** (s17.33) The fresh-water shade: how much darker the wettest paper reads
+   *  than merely damp paper, and the wetness it starts rising from. */
+  const float WC_FRESH_SHADE = 0.07;
+  const float WC_FRESH_LO = 0.45;
   /** The cast shadow on the far side. Softer than the meniscus: it is the drop
    *  sitting on the paper, not the surface of the drop.
    *
@@ -4170,6 +4174,7 @@ export const PAPER_COMPOSE_FRAG = `
     float held = 0.0;
     // (#536) The faint all-over tint of damp paper — see its use below.
     float damp = 0.0;
+    float fresh = 0.0;
     if (u_wetRect.z > u_wetRect.x) {
       vec2 wetSpan = max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
       vec2 wetUV = (worldPos - u_wetRect.xy) / wetSpan;
@@ -4221,6 +4226,7 @@ export const PAPER_COMPOSE_FRAG = `
         wet = inWater * smoothstep(0.35, 0.95, raw);
         held = WC_WET_RELAX * pow(clamp(raw / WC_RELAX_REF, 0.0, 1.0), WC_RELAX_EASE);
         damp = inWater * smoothstep(WC_EDGE_OUT, 0.42, t) * smoothstep(0.04, 0.30, raw);
+        fresh = inWater * smoothstep(WC_FRESH_LO, 1.0, raw);
         // The rim, as a *window on the wetness value* rather than as a
         // derivative of it.
         //
@@ -4340,6 +4346,15 @@ export const PAPER_COMPOSE_FRAG = `
     // 1.2 per cent: "она должна быть едва заметная". Twice this read as a grey
     // patch rather than as damp paper.
     color *= mix(1.0, 0.988, damp);
+    // (s17.33) ...and FRESH water on top of that: the tint above saturates at
+    // 0.3 of wetness, so a drop of clean water into a wash that is still wet
+    // showed nothing at all ("рисование водой ничего не рисует, пятно
+    // проявляется потом") - the wash and the drop were both past the gate.
+    // A second, deeper shade that keeps rising to full wetness reads a
+    // fresh mark darker than the older wet around it and fades with the
+    // same clock; it is a picture of the water, not of any paint (the
+    // design thread: show the water, never a bloom the model has not made).
+    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh);
     color += vec3(gloss);
     color *= 1.0 - shade;
 
