@@ -8,10 +8,10 @@ import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
   LayerState, Operation, Participant, Room as RoomEntity, RoomAccessMode,
-  SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, FillSourceMode,
+  SendResult, ClientToServerEvents, ServerToClientEvents, FillSourceMode,
   JoinDenial, BoardSummary, ClassVisibility, LessonState,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, unpackDabs, type ToggleableTool } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, type ToggleableTool } from '@grafetto/shared'
 import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
@@ -67,6 +67,7 @@ import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCommittableSession } from './useCommittableSession'
 import { useShapeTool } from './useShapeTool'
 import { createBoardEventHandlers } from './boardEvents'
+import { createPeerEventHandlers } from './peerEvents'
 import { createRoomControlEventHandlers } from './roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useSelection } from './useSelection'
@@ -319,18 +320,7 @@ const TRANSFORM_PIVOT: Record<'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r',
 // exactly 1 whatever the amount), so the clamp is purely about what a slip of
 // the pen near the anchor edge can do: the shear is a ratio whose denominator
 // is the distance to that edge, and 20 already lays the layer almost flat.
-
-
-
-
-
 const MAX_TRANSFORM_SHEAR = 20
-
-// (#429) How many recently-streamed gesture ids to remember — see
-// streamedStrokeIdsRef. Generous on purpose: the cost of one forgotten id is a
-// stroke briefly drawn twice on screen, the cost of a large set is a few
-// hundred bytes, and only one of those is visible to a teacher.
-const STREAMED_STROKE_MEMORY = 256
 
 // (#289 epic, reliable history spec v0.2 §9) A bare socket.io ack has no
 // timeout of its own — a dropped packet (either leg) would otherwise leave
@@ -4909,78 +4899,6 @@ function RoomEditor() {
       checkSnapshotBoundary()
     }
 
-    const handlePeerJoined = (participant: Participant) => {
-      dispatchParticipants({ type: 'peer_joined', participant })
-    }
-
-    // (#429) A peer's stroke, arriving while their pen is still down. Handed
-    // straight to the engine, which paints it into the real layer — see
-    // appendPeerLiveDabs for why that rather than a preview buffer.
-    //
-    // The strokeId is remembered so handleOperationConfirmed knows not to
-    // hand this gesture's operation to previewOperation when it lands: that
-    // path animates a stroke into a buffer composited on top, and the ink is
-    // already on the layer, so it would show the mark twice — once solid,
-    // once being redrawn over it.
-    const handlePeerStrokeLive = (data: StrokeLiveData & { userId: string }) => {
-      // Same gate the canvas itself is under until the initial restore
-      // finishes (see roomContentReady's own doc comment): painting into a
-      // layer whose buffer restoreLayerFromSnapshot is about to overwrite
-      // wholesale loses the ink and, worse here, leaves a claim behind saying
-      // it was painted — so the operation would skip repainting it too.
-      if (!roomContentReadyRef.current) return
-      engineRef.current?.appendPeerLiveDabs(data.userId, {
-        strokeId: data.strokeId, layerId: data.layerId, tool: data.tool,
-        preset: data.preset, color: data.color, packetSeq: data.packetSeq,
-        dabs: unpackDabs(data.dabsPacked),
-        washId: data.washId,
-      })
-      const seen = streamedStrokeIdsRef.current
-      seen.add(data.strokeId)
-      while (seen.size > STREAMED_STROKE_MEMORY) seen.delete(seen.values().next().value as string)
-      markActive(data.userId)
-      markLayerActive(data.userId, data.layerId)
-    }
-
-    const handlePeerStrokeLiveEnd = ({ userId: authorId, strokeId }: { userId: string; strokeId: string }) => {
-      // Only marks the gesture ended. Dabs still unaccounted for at this point
-      // are the normal case, not a fault: the operation recording the end of
-      // the gesture is dispatched at pen-up and arrives a moment after this
-      // does. Treating that as orphaned ink (which an earlier version of this
-      // handler did) forced a resync that wiped the live bookkeeping, so the
-      // operation then repainted the streamed tail on top of itself — a
-      // visibly darker last stretch of every long stroke.
-      engineRef.current?.endPeerLiveStroke(authorId, strokeId)
-    }
-
-    const handlePeerLeft = (leftUserId: string) => {
-      dispatchParticipants({ type: 'peer_left', userId: leftUserId })
-      // (#429) A peer leaving mid-gesture is the one case where unaccounted
-      // live ink really can be orphaned: if they dropped before their
-      // operation reached the server, nothing in the log describes a mark that
-      // is nonetheless on this canvas. Unlike pen-up, no operation is owed
-      // here, so a non-zero remainder means repair rather than "wait a moment".
-      const orphaned = engineRef.current?.endPeerLiveStroke(leftUserId) ?? 0
-      if (orphaned) {
-        reportInvariant('peer left with unrecorded live dabs — resyncing', { orphaned })
-        requestFullResync()
-      }
-      // (#152) Cursor-position cleanup for this peer now lives inside
-      // PeerCursors' own 'peer_left' subscription — nothing to do here.
-      forgetDrawingActivity(leftUserId)
-      // They left mid-reveal — commit whatever of their last stroke(s) had
-      // already arrived rather than losing it, just without the animation.
-      const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
-      for (const op of stranded) {
-        pendingPreviewsRef.current.remove(op.id)
-        applyRemoteOp(op)
-      }
-      if (stranded.length) {
-        syncFromLog()
-        checkSnapshotBoundary()
-      }
-    }
-
     // (#152) peer_cursor itself is no longer handled here at all — Room had
     // nothing to do with it beyond forwarding into Room-level state (which
     // is exactly what re-rendered this whole ~1600-line component up to
@@ -5007,9 +4925,14 @@ function RoomEditor() {
       revival.noteConnectError()
     }
 
-    // (#493) Two domains out of line, as handler factories — see
-    // boardEvents.ts and roomControlEvents.ts. The `socket.on` table below
+    // (#493) Three domains out of line, as handler factories — see
+    // peerEvents.ts, boardEvents.ts and roomControlEvents.ts. The `socket.on` table below
     // still lists every event this page answers.
+    const peer = createPeerEventHandlers({
+      engineRef, roomContentReadyRef, streamedStrokeIdsRef, pendingPreviewsRef,
+      markActive, markLayerActive, forgetDrawingActivity,
+      applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+    })
     const board = createBoardEventHandlers({
       maybeFollow, wantedBoardRef, socketBoardRef, boardIdRef, setRoomContentReady, isOwnerRef,
     })
@@ -5029,10 +4952,10 @@ function RoomEditor() {
     socket.on('connect',                    handleConnect)
     socket.on('room_state',                 handleRoomState)
     socket.on('operation_confirmed',        handleOperationConfirmed)
-    socket.on('peer_joined',                handlePeerJoined)
-    socket.on('peer_left',                  handlePeerLeft)
-    socket.on('peer_stroke_live',           handlePeerStrokeLive)
-    socket.on('peer_stroke_live_end',       handlePeerStrokeLiveEnd)
+    socket.on('peer_joined',                peer.peer_joined)
+    socket.on('peer_left',                  peer.peer_left)
+    socket.on('peer_stroke_live',           peer.peer_stroke_live)
+    socket.on('peer_stroke_live_end',       peer.peer_stroke_live_end)
     socket.on('palette_updated',            control.palette_updated)
     socket.on('room_frozen_changed',        control.room_frozen_changed)
     socket.on('room_tools_changed',         control.room_tools_changed)
