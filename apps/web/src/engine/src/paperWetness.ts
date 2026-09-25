@@ -48,7 +48,11 @@ export const WET_CELL_PX = 8
 //  about twice as fast. The 60 s was reached from the other side, when the
 //  window kept expiring before he could swap brushes, and that problem is now
 //  solved by the field being right rather than by it being slow.
-export const WET_DRY_MS = 30000
+//  (s17.43) 60 s again, from 30: with the wash now one wet material across
+//  its strokes (s17.42) Ilya paints INTO the puddle for longer, and 30 s ran
+//  out before he was done - "не успеваю в луже порисовать". Twice as long, by
+//  his estimate.
+export const WET_DRY_MS = 60000
 
 interface WetCell { w: number; at: number }
 

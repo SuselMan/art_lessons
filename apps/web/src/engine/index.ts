@@ -1560,7 +1560,9 @@ const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, siz
  *  actually wetted starts its own wash however recent it is (see
  *  `_washOverlapsWet`), so a long horizon does not glue unrelated marks
  *  together across the sheet. */
-const WASH_JOIN_MS = 25000
+// (s17.43) 50 s, from 25: a ceiling has to sit above the paper's own drying
+// (WET_DRY_MS, 60 s now), or the wash closes while its puddle is still wet.
+const WASH_JOIN_MS = 50000
 
 /** Under this, a stroke rejoins the open wash whatever the paper says. Covers
  *  the brush that was too dry to leave a readable trace of water and the pen
