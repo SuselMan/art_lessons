@@ -8,7 +8,7 @@ import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
   LayerState, Operation, Participant, Room as RoomEntity, RoomAccessMode,
-  SendResult, ClientToServerEvents, ServerToClientEvents, FillSourceMode,
+  SendResult, ClientToServerEvents, ServerToClientEvents,
   JoinDenial, BoardSummary, ClassVisibility, LessonState,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, type ToggleableTool } from '@grafetto/shared'
@@ -36,7 +36,7 @@ import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import {
   computeCompositeOrder, eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers'
-import { hexToRgb, rgbToHex } from '../../lib/color'
+import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
@@ -54,6 +54,9 @@ import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCommittableSession } from './useCommittableSession'
 import { useShapeTool } from './useShapeTool'
+import { useRulerTool } from './useRulerTool'
+import { useFillTool } from './useFillTool'
+import { useEyedropper } from './useEyedropper'
 import { useEditorHotkeys } from './editorHotkeys'
 import { useTransformGizmoGestures } from './useTransformGizmoGestures'
 import { createBoardEventHandlers } from './boardEvents'
@@ -83,8 +86,7 @@ import { RoomHeader } from './RoomHeader'
 import { ToolRail } from './ToolRail'
 import { QuickSettingsBar } from './QuickSettingsBar'
 import { resolveDisplayName } from './displayName'
-import { clientToCanvas } from './pointerTransform'
-import { ZOOM_MAX, clientToRoomPoint, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
+import { ZOOM_MAX, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
 import {
   groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
@@ -94,9 +96,8 @@ import { createSocketRevival } from './socketRevival'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
-import { useCursor, RULER_GESTURE_CURSOR, type ViewportCursor } from './cursorController'
-import { RulerOverlay, type RulerPoint } from './RulerOverlay'
-import { rulerGestureAt, RULER_BODY_GRAB_PX, RULER_ENDPOINT_GRAB_PX } from './rulerGesture'
+import { useCursor, type ViewportCursor } from './cursorController'
+import { RulerOverlay } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
@@ -791,7 +792,6 @@ function RoomEditor() {
   // rather than having to be laid a second time. Whether it is *on screen*
   // meanwhile is `rulerVisible` below.
   const rulerLine = useRoomStore(s => s.rulerLine)
-  const setRulerLine = useRoomStore(s => s.setRulerLine)
   // (#508/#511) The annotation projection and the two pieces of local view
   // state around it. `annotationsHidden` is deliberately not an operation —
   // see the slice's own comment for why hiding is private.
@@ -804,35 +804,6 @@ function RoomEditor() {
   const annotationDraft = useRoomStore(s => s.annotationDraft)
   const collapsedAnnotationIds = useRoomStore(s => s.collapsedAnnotationIds)
   const setAnnotationDraftText = useRoomStore(s => s.setAnnotationDraftText)
-  // (#405) The ruler's two settings, from the same TOOL_SCHEMAS store every
-  // other tool's live in.
-  const rulerLock = toolSettings.ruler.lock as boolean
-  const rulerSnap = toolSettings.ruler.snap as boolean
-  // (#445) Visibility is the selection first, the setting second: the ruler is
-  // on screen while it is in hand, and `lock` only decides whether it stays
-  // there under every other tool. Unlocked (the default) it behaves like a
-  // straight edge laid on the paper to measure with and taken off again —
-  // which is what the toggle used to get backwards, leaving the line lying
-  // across the drawing until the user went back to the ruler to switch it off.
-  //
-  // This one boolean is the master switch the old `show` was: what is not
-  // visible neither snaps (the engine sync below) nor can be grabbed (the
-  // catcher), because an invisible line bending strokes is a trap.
-  const rulerVisible = rulerActive || rulerLock
-  // (#448) Is a ruler gesture running right now? Only the distance bubble
-  // reads it: a measurement is worth showing while it is being taken and
-  // nothing but clutter over the drawing afterwards. Local state rather than
-  // the store because it is born and dies inside handleRulerDown's own drag —
-  // nothing outside this component can observe it, and the store deliberately
-  // holds no per-gesture scratch (see rulerLine's comment above for what does
-  // belong there). Set twice per drag, not per move, so it costs no renders on
-  // top of the ones setRulerLine already causes.
-  const [rulerDragging, setRulerDragging] = useState(false)
-  // Gated on the selection as well, so a flag stranded by a drag whose catcher
-  // was unmounted under it (the tool switched by hotkey mid-gesture, with the
-  // pen still down) cannot leave the bubble standing over a locked ruler: a
-  // gesture can only run while the ruler is in hand in the first place.
-  const rulerMeasuring = rulerDragging && rulerActive
   // Construction grid (#89, #405) — visibility is a setting on the grid tool
   // now rather than a store flag toggled by the toolbar button, which is what
   // lets it stay on screen under every other tool while its button selects it
@@ -3316,93 +3287,10 @@ function RoomEditor() {
     return () => setBackNavigationGuard(null)
   }, [editorOnScreen, location.pathname, location.search, location.hash])
 
-  // Eyedropper (#82): consumes the next pointerdown on the canvas catcher
-  // (armed only while eyedropperActive) instead of letting it reach the
-  // canvas as a stroke. Deliberately NOT switched to clientToRoomPoint/
-  // world-space for infinite rooms like the #143 overlays below —
-  // engine.pickColor reads whatever's currently on *screen* (a
-  // gl.readPixels off the real, already-camera-composited framebuffer, see
-  // its own doc comment), not a layer's world-space content, so it needs
-  // plain canvas-backing-pixel coordinates in both modes, not world ones.
-  // For infinite rooms that's just the pointer's viewport offset scaled to
-  // the DPR-sized backing store (the canvas fills the viewport with no CSS
-  // pan transform of its own) — this used to go through clientToCanvas with
-  // the PLACEHOLDER_INFINITE_CANVAS_SIZE placeholder config, a pre-existing
-  // inaccuracy #143 explicitly left alone.
-  const handleEyedropperPick = useCallback((e: React.PointerEvent) => {
-    // (#405) The hand outranks the tool underneath it — the same precedence
-    // resolveCursor states (rule 1) and the gizmo handles follow. With it up, a
-    // press on the canvas moves the view; picking a colour instead would both
-    // pan and switch tools out from under the drag.
-    if (handActive) return
-    e.preventDefault()
-    const el = vpRef.current
-    if (!el || !config) return
-    const rect = el.getBoundingClientRect()
-    const nz = deviceNativeZoom()
-    const { x, y } = config.infinite
-      ? { x: (e.clientX - rect.left) / nz, y: (e.clientY - rect.top) / nz }
-      : clientToCanvas(
-          e.clientX, e.clientY,
-          { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle },
-          config,
-        )
-    const picked = engineRef.current?.pickColor(x, y)
-    if (picked) {
-      // Writes the slot of the tool the canvas is being handed back to, not a
-      // hardcoded 'pencil' — picking a color while the liner or marker was
-      // selected used to silently repaint the pencil's swatch instead, so the
-      // picked color never showed up in the stroke that followed. See
-      // pickedColorTool for the eraser/smudge case, which owns no color.
-      applyToolColor(pickedColorTool, picked)
-      // (#405) The eyedropper's one schema field, wired at last. It has been
-      // in TOOL_SCHEMAS since #196 with nothing behind it, which was tolerable
-      // only because the eyedropper was a mode and its settings never reached
-      // a panel — now that it is a tool, selecting it puts this toggle on
-      // screen, and a control that provably does nothing is worse than no
-      // control (the same rule keepProportions is hidden under in Distort).
-      if (toolSettings.eyedropper.addToPalette) addPaletteColor(rgbToHex(picked))
-      // (#405) The eyedropper is the one tool with a one-shot gesture: taking
-      // a colour is the whole of it, so it hands the canvas straight back to
-      // the drawing tool that was in hand rather than staying armed and making
-      // the next stroke a second pick. `drawingTool` and not `lastDrawingTool`
-      // deliberately — if the eraser was what you were using, the eraser is
-      // what you get back.
-      setTool(drawingTool)
-      // (#542) No longer opens the full picker on top of the drawing. It used
-      // to switch the side panel to its Color tab, which was passive — the tab
-      // either was already in view or was not. The flyout that replaced that
-      // tab is a popover over the canvas, and throwing one up after every pick
-      // is a different thing entirely. It costs nothing to drop: the colour is
-      // already in the well, and the well is one press away from anywhere,
-      // which is exactly what giving it a fixed home bought.
-    }
-    // `applyToolColor`, not `setToolSetting`: the former is what this actually
-    // calls, and it closes over `shapeSwatch`. Listing the setter instead left
-    // a stale copy here — with a shape in hand and the fill selected, a pick
-    // taken after the swatch was switched wrote the field the swatch used to
-    // point at.
-  }, [vpRef, vp, config, handActive, applyToolColor, pickedColorTool, setTool, drawingTool, toolSettings.eyedropper, addPaletteColor])
-
-  // Ruler tool (#89, #405): the engine only ever knows about the ruler as a
-  // *snapping* guide, so this is where "is there a line to snap to right now"
-  // is answered, once, for every way the answer can change.
-  //
-  // Off screen means genuinely inert, not merely invisible: the engine is
-  // handed null and nothing bends. (#445) That is what makes an unlocked ruler
-  // safe to leave lying in the store — pick up the pencil and the line is gone
-  // from both the canvas and the snapping, so measuring costs nothing to undo.
-  // Snapping off keeps the line on screen and draggable, and simply stops it
-  // pulling on strokes: a straight edge to measure and align against is half
-  // of what a ruler on a drawing is for.
-  //
-  // Deliberately an effect on the state rather than an engine call inside each
-  // drag handler (which is what this replaced): "the engine's ruler is exactly
-  // the visible, snapping line" is an invariant, and hand-written call sites
-  // are how an invariant becomes a bug.
-  useEffect(() => {
-    engineRef.current?.setRuler(rulerVisible && rulerSnap ? rulerLine : null)
-  }, [rulerLine, rulerVisible, rulerSnap])
+  // (#493) The eyedropper's pick — see useEyedropper.
+  const handleEyedropperPick = useEyedropper({
+    engineRef, vpRef, vp, handActive, applyToolColor, pickedColorTool, addPaletteColor,
+  })
 
   // (#405) Selecting a tool selects it. Pressing a toolbar button never hands
   // the canvas back to something else, however many times it is pressed: a
@@ -3493,130 +3381,10 @@ function RoomEditor() {
     transformTargetIds, dispatchOp, vpEl,
   })
 
-  const rulerRectRef = useRef<DOMRect | null>(null)
-
-  // Ruler tool (#89, #405): one gesture handler for the whole tool.
-  //
-  // Down/move/up tracked manually via setPointerCapture + direct DOM
-  // listeners, the same pattern ColorPicker's onSvDown/onHueDown use for their
-  // own drag handling. Pen-only, same as the pencil itself ignores touch (see
-  // PointerInput.ts) — a finger on the catcher falls straight through to
-  // useViewport's own panning untouched, instead of trying to arbitrate whose
-  // gesture a given touch belongs to.
-  //
-  // What a press means is decided by hit-testing it against the line
-  // (rulerGestureAt): on an endpoint it swings that end, on the body it slides
-  // the whole ruler, anywhere else it lays a brand-new one over whatever was
-  // there. That is what reconciles the tool's two rules — "dragging always
-  // makes a new line" and "an existing line can only be moved while the ruler
-  // is selected" — and it is why this replaced a two-surface arrangement (a
-  // catcher div for the first placement, then RulerOverlay's own SVG shapes
-  // forever after) that could express neither: the catcher was gone by the
-  // time a second line was wanted, and the SVG handles stayed draggable under
-  // every other tool.
-  //
-  // The tolerances are screen px, divided by the zoom here so a ruler is no
-  // harder to grab zoomed out than zoomed in (#394's rule for the gizmo's own
-  // handles).
-  //
-  // Only mounted while the ruler is the selected tool — which (#445) is also
-  // exactly when it is guaranteed to be on screen. A locked ruler stays
-  // visible under the pencil but is not draggable there, and an unlocked one
-  // is not on screen at all: nothing off screen can be grabbed any more than
-  // it can snap, see the engine sync above.
-  const handleRulerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'touch') return
-    // Same precedence as everywhere else (#405): while the hand is up, a drag
-    // moves the view. useViewport's own listener is on `.viewport`, an ancestor
-    // of this catcher, and native listeners on an ancestor run *before* React
-    // dispatches here — so without this the same drag would pan and lay a
-    // ruler line at once.
-    if (handActive) return
-    const el = vpRef.current
-    if (!el || !config) return
-    e.stopPropagation()
-    const overlay = e.currentTarget
-    const penPointerId = e.pointerId
-    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
-
-    const rect = rulerRectRef.current = el.getBoundingClientRect()
-    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
-    // what engine.setRuler's snapping (rulerSnap.ts) compares against real
-    // stroke dabs there (genuine world coordinates, see setInfiniteCamera's
-    // pointer transform), and what RulerOverlay's a/b props expect for
-    // infinite rooms (see the render section below).
-    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
-
-    const startPoint = toPoint(e.clientX, e.clientY)
-    const startLine = rulerLine // frozen for the duration of this drag
-    const gesture = rulerGestureAt(
-      startPoint, startLine,
-      RULER_ENDPOINT_GRAB_PX / vp.zoom, RULER_BODY_GRAB_PX / vp.zoom,
-    )
-
-    const computeLine = (clientX: number, clientY: number): { a: RulerPoint; b: RulerPoint } => {
-      const p = toPoint(clientX, clientY)
-      // A new line is anchored where the press landed and follows the pointer
-      // with its far end — the same A→B drag the tool has always opened with.
-      if (gesture === 'new' || !startLine) return { a: startPoint, b: p }
-      if (gesture === 'a') return { a: p, b: startLine.b }
-      if (gesture === 'b') return { a: startLine.a, b: p }
-      const dx = p.x - startPoint.x
-      const dy = p.y - startPoint.y
-      return {
-        a: { x: startLine.a.x + dx, y: startLine.a.y + dy },
-        b: { x: startLine.b.x + dx, y: startLine.b.y + dy },
-      }
-    }
-
-    // Committed on the press, not on the first move: a tap that lays a
-    // zero-length line and a drag that lays a real one are the same gesture at
-    // this point, and rulerSnap.ts already refuses a degenerate line rather
-    // than dividing by zero (MIN_RULER_LENGTH_SQ).
-    setRulerLine(computeLine(e.clientX, e.clientY))
-    setRulerDragging(true)
-
-    const onMove = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      setRulerLine(computeLine(ev.clientX, ev.clientY))
-    }
-    // (#448) `end`, not `up`: a pointercancel (the browser taking the gesture
-    // over) never sends pointerup, and a distance bubble left standing after
-    // one would be exactly the permanent label this issue removed.
-    const onEnd = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      setRulerDragging(false)
-      overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onEnd)
-      overlay.removeEventListener('pointercancel', onEnd)
-    }
-    overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onEnd)
-    overlay.addEventListener('pointercancel', onEnd)
-  }, [vpRef, vp, config, handActive, rulerLine, setRulerLine])
-
-  // (#405) The catcher's own cursor, per pointer position — the one cursor in
-  // the editor that cannot come from a CSS class, because which gesture is on
-  // offer depends on where the pointer is relative to the line rather than on
-  // any state. Written straight to the element rather than through React state
-  // so a hover costs no render; the *decision* is still cursorController's
-  // (RULER_GESTURE_CURSOR), which is the rule #393 exists to keep.
-  const handleRulerHover = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const el = vpRef.current
-    if (!el || !config) return
-    // Cached rect, same forced-reflow reasoning as the cursor broadcast's own
-    // (see its comment): getBoundingClientRect is a synchronous layout read and
-    // this runs on every pointermove over the canvas. Re-read on entry and on
-    // every press, which is every moment it could matter; a window resize while
-    // the pointer sits still leaves the *cursor* a frame stale and nothing else,
-    // since the press that follows reads the rect afresh.
-    const rect = rulerRectRef.current ??= el.getBoundingClientRect()
-    const gesture = rulerGestureAt(
-      clientToRoomPoint(e.clientX, e.clientY, rect, vp, config), rulerLine,
-      RULER_ENDPOINT_GRAB_PX / vp.zoom, RULER_BODY_GRAB_PX / vp.zoom,
-    )
-    e.currentTarget.style.cursor = RULER_GESTURE_CURSOR[gesture]
-  }, [vpRef, vp, config, rulerLine])
+  // (#493) The ruler — whether it shows, the engine sync, its gesture and
+  // cursor — lives in useRulerTool.
+  const { rulerVisible, rulerMeasuring, handleRulerDown, handleRulerHover, handleRulerEnter } =
+    useRulerTool({ engineRef, vpRef, vp, handActive })
 
   // Which layer a pixel *action* would touch: the active one, refusing the
   // background (never a legal target for anything that paints, same rule as
@@ -3696,90 +3464,10 @@ function RoomEditor() {
   })
 
 
-  // (#453) The fill's one gesture: a tap works out the region and emits an
-  // `area_fill`. Two pieces of state around it, both for the same reason —
-  // the work happens on the main thread and is not instant (a readback of the
-  // fill's domain plus a scan of it), so the tool has to say it is thinking
-  // and has to refuse a second tap while it is.
-  const [fillBusy, setFillBusy] = useState(false)
-  const fillBusyRef = useRef(false)
-
-  const handleFillTap = useCallback(async (e: React.PointerEvent<HTMLDivElement>) => {
-    // Pen (and mouse) only, same as the selection tool. On a tablet a finger is
-    // how the canvas is panned and zoomed, so a touch that reaches here is
-    // almost always the start of a two-finger gesture — and unlike a stray
-    // stroke, a stray fill repaints a whole region.
-    if (e.pointerType === 'touch') return
-    // Same precedence as every other canvas tool: the hand outranks what is
-    // under it, and a press with it up pans instead.
-    if (handActive) return
-    e.preventDefault()
-    e.stopPropagation()
-    const engine = engineRef.current
-    const el = vpRef.current
-    const layerId = paintTargetIdRef.current
-    if (!engine || !el || !config || !layerId || fillBusyRef.current) return
-    // (#518) Refused before the work, not after: the fill's own readback and
-    // scan take long enough to show a busy state, and spending them on a tap
-    // `dispatchOp` will throw away would look like the tool hanging on a
-    // locked layer rather than declining.
-    if (paintTargetLockedRef.current) return
-
-    const rect = el.getBoundingClientRect()
-    // Layer space, not screen space — #143's rule for everything that reaches
-    // an operation: the viewport is this user's own, so a seed recorded in
-    // screen pixels would be somewhere else on every other participant's
-    // canvas (and, here, somewhere else in this user's own layer one zoom
-    // later).
-    const seed = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
-    const values = useRoomStore.getState().toolSettings.fill
-    const color = getToolColor(useRoomStore.getState().toolSettings, 'fill')
-    // The one place the on-screen toggle becomes the operation's named mode —
-    // see the schema's own comment for why the two are shaped differently.
-    const source: FillSourceMode = values.allLayers ? 'visible' : 'layer'
-
-    fillBusyRef.current = true
-    setFillBusy(true)
-    try {
-      // Yields one frame before the blocking work so the busy state is on
-      // screen while it runs, rather than painting after it is over.
-      await new Promise(resolve => requestAnimationFrame(resolve))
-      const filled = await engine.computeAreaFill({
-        layerId,
-        seedX: seed.x,
-        seedY: seed.y,
-        color,
-        tolerance: values.tolerance as number,
-        gapClose: values.gapClose as number,
-        expand: values.expand as number,
-        source,
-      })
-      // Null means the tap produced no region at all (an empty result, not a
-      // failure) — nothing to record and nothing to say.
-      if (!filled) return
-      dispatchOp({
-        type: 'area_fill',
-        layerId,
-        image: filled.image,
-        x: filled.x,
-        y: filled.y,
-        width: filled.width,
-        height: filled.height,
-        seedX: seed.x,
-        seedY: seed.y,
-        color,
-        tolerance: values.tolerance as number,
-        gapClose: values.gapClose as number,
-        expand: values.expand as number,
-        source,
-      })
-    } catch (err) {
-      console.error('fill failed', err)
-    } finally {
-      fillBusyRef.current = false
-      setFillBusy(false)
-    }
-  }, [vpRef, config, dispatchOp, handActive])
+  // (#493) The fill's tap and its busy state — see useFillTool.
+  const { fillBusy, handleFillTap } = useFillTool({
+    engineRef, vpRef, handActive, paintTargetIdRef, paintTargetLockedRef, dispatchOp,
+  })
 
   // ── Annotations (#509/#510, эпик #87) ───────────────────────────────────
   // (#493) Out of line in useAnnotations; what comes back is what the page's
@@ -5027,7 +4715,7 @@ function RoomEditor() {
               className={styles.canvasCatcher}
               onPointerDown={handleRulerDown}
               onPointerMove={handleRulerHover}
-              onPointerEnter={() => { rulerRectRef.current = null }}
+              onPointerEnter={handleRulerEnter}
             />
           )}
           {/* (#446) Same pattern: mounted only while the selection tool is in
