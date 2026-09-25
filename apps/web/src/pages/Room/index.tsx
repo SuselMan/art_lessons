@@ -74,6 +74,7 @@ import { useCanvasViewport } from './useCanvasViewport'
 import { useAnnotations } from './useAnnotations'
 import { useCursorBroadcast } from './useCursorBroadcast'
 import { useLayerStateSync } from './useLayerStateSync'
+import { useLayerPanelBridge } from './useLayerPanelBridge'
 import { useSpaceToPan } from './useSpaceToPan'
 import { useDrawingActivity } from './useDrawingActivity'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
@@ -3451,13 +3452,9 @@ function RoomEditor() {
     if (ids.length) dispatchOp({ type: 'layer_delete', layerIds: ids })
   }, [lostWork, dispatchOp])
 
-  // (#263) LayerPanel has no direct engine access — this is the same
-  // engineRef-backed-callback shape as dispatchOp above, threaded down as a
-  // prop so its own delete confirm can ask "does this layer have content"
-  // without the panel needing to know the engine exists at all.
-  const hasLayerContent = useCallback((layerId: string): boolean =>
-    engineRef.current?.hasLayerContent(layerId) ?? false
-  , [])
+  // (#263/#608) LayerPanel has no direct engine access — the callbacks it
+  // needs from the engine and the editor come through this bridge instead.
+  const layerPanelBridge = useLayerPanelBridge(engineRef)
 
   // (#263) A structural undo/redo (layer_add/layer_delete/layer_merge) can
   // silently wipe a layer's content on the canvas even though nothing is
@@ -7095,7 +7092,7 @@ function RoomEditor() {
                 content: (
                   <LayerPanel
                     layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp}
-                    isOwner={isOwner} hasLayerContent={hasLayerContent}
+                    isOwner={isOwner} {...layerPanelBridge}
                     soloIds={soloIds} onSoloChange={setSoloIds}
                     drawerColors={layerDrawerColors}
                     onOpenFilters={setFilterLayerId}
