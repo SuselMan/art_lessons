@@ -7,7 +7,7 @@ import clsx from 'clsx'
 import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
-  LayerState, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
+  LayerState, Operation, Participant, Room as RoomEntity, RoomAccessMode,
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, FillSourceMode,
   JoinDenial, BoardSummary, ClassVisibility, LessonState,
 } from '@grafetto/shared'
@@ -66,6 +66,8 @@ import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCommittableSession } from './useCommittableSession'
 import { useShapeTool } from './useShapeTool'
+import { createBoardEventHandlers } from './boardEvents'
+import { createRoomControlEventHandlers } from './roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useSelection } from './useSelection'
 import { ShapeFrameFields, ShapeRatioPresets } from './ShapeFrameFields'
@@ -116,7 +118,7 @@ import {
   type TransformBounds, type TransformMatrix, type TransformHandleKind, type TransformMode,
 } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
-import { applyJoinRequestCreated, applyJoinRequestResolved, useJoinQueue } from './joinQueue'
+import { useJoinQueue } from './joinQueue'
 import { JoinGate, type JoinGateState } from './JoinGate'
 import { NoWebGL } from './NoWebGL'
 import { probeWebGL } from '../../lib/webgl'
@@ -137,7 +139,7 @@ import {
   activeBoardPayload, entryBoard, followDestination, followTarget, followingAfterPick, movedOrder, teacherBoardId,
 } from '../../lib/boards'
 import {
-  classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, neighbourInGrid, ownBoardIn,
+  classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, isTeacherIn, neighbourInGrid, ownBoardIn,
   stripBoards,
 } from '../../lib/classMode'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
@@ -243,13 +245,6 @@ function toRoomConfig(
 function toLessonConfig(room: RoomEntity, lesson: LessonState): RoomInfo {
   const own = lesson.boards.find(b => b.id === lesson.id)
   return toRoomConfig({ ...room, id: lesson.id, name: own?.name ?? room.name })
-}
-
-/** (#595) Whether the store's own roster names this client the lesson's
- *  teacher. For the socket handlers, which can run between the roster
- *  arriving and the render that refreshes `isOwnerRef`. */
-function isTeacherIn(s: { participants: readonly Participant[]; userId: string }): boolean {
-  return s.participants.some(p => p.userId === s.userId && p.role === 'owner')
 }
 
 /** (#595) Where following leads a student right now, from the store — for
@@ -5012,176 +5007,25 @@ function RoomEditor() {
       revival.noteConnectError()
     }
 
-    const handlePaletteUpdated = ({ palette }: { palette: string[] }) => {
-      useRoomStore.getState().setPalette(palette)
-    }
+    // (#493) Two domains out of line, as handler factories — see
+    // boardEvents.ts and roomControlEvents.ts. The `socket.on` table below
+    // still lists every event this page answers.
+    const board = createBoardEventHandlers({
+      maybeFollow, wantedBoardRef, socketBoardRef, boardIdRef, setRoomContentReady, isOwnerRef,
+    })
+    const control = createRoomControlEventHandlers({
+      sessionId: id, queryClient, hasJoinedRef, retryJoinRef, setJoinState, tRef,
+    })
 
-    // (#254/#256/#259) Room-wide freeze toggled by the owner — broadcast to
-    // everyone including the owner themselves (io.to, see socketHandlers.ts),
-    // so this fires for the owner's own toggle too, same as palette_updated
-    // above.
-    const handleRoomFrozenChanged = ({ frozen }: { frozen: boolean }) => {
-      useRoomStore.getState().setRoomFrozen(frozen)
-    }
-
-    // (#548) The owner changed which tools this room offers. Broadcast to
-    // everyone including them, because the effect is local and immediate on
-    // every screen: the buttons go, and a hand holding one of the withdrawn
-    // tools has to be given something else (see the effect near selectTool).
-    const handleRoomToolsChanged = ({ enabledTools: next }: { enabledTools?: ToggleableTool[] }) => {
-      useRoomStore.getState().setRoomEnabledTools(next)
-    }
-
-    // (#222) Closed-for-editing toggled by the owner, from here or from the
-    // lesson list. The point of the event is that someone mid-lesson finds
-    // out when it happens rather than on the rejection of their next stroke.
-    const handleRoomClosedChanged = ({ closedAt }: { closedAt: string | null }) => {
-      useRoomStore.getState().setRoomClosedAt(closedAt)
-    }
-
-    // (#254/#257/#259) One participant's freeze toggled — broadcast to the
-    // whole room so ParticipantsPanel can show the indicator for everyone,
-    // not just the target themselves.
-    const handleParticipantFrozenChanged = ({ userId, frozen }: { userId: string; frozen: boolean }) => {
-      dispatchParticipants({ type: 'participant_frozen_changed', userId, frozen })
-    }
-
-    // (#227/#231) The owner answered someone waiting on the join screen. On
-    // approval the gate finishes the join it was refused — the person is
-    // already sitting in front of the screen, and making them press a button
-    // to accept being let in would be asking them to confirm the thing they
-    // asked for. A denial just changes what the screen says; the server lets
-    // them ask again, and the screen offers exactly that.
-    //
-    // Never restarts the join once we're in: the room is already open, and a
-    // stale resolution arriving after a reconnect must not re-enter it.
-    const handleJoinRequestResolved = (
-      { roomId, requestId, approved }: { roomId: string; requestId: string; approved: boolean },
-    ) => {
-      // Already inside: this is not about us being let in — it is either the
-      // owner hearing a decision made elsewhere (#387: a second tab, the
-      // lesson list, an invite that approved someone already queued), or a
-      // stale resolution arriving after a reconnect. Neither may restart the
-      // join; the owner's queue just loses that one row.
-      if (hasJoinedRef.current) {
-        // (#176) Addressed by the lesson (the queue is the lesson's), which the
-        // URL id may not be until the first room_state corrected it.
-        if (roomId === (useRoomStore.getState().lessonId ?? id)) applyJoinRequestResolved(queryClient, roomId, requestId)
-        return
-      }
-      if (approved) retryJoinRef.current()
-      else setJoinState('denied')
-    }
-
-    // (#380/#227) Someone is asking to be let in. Addressed to the owner
-    // personally, so this only ever fires for them — and it is what makes the
-    // waiting section (and the participants tab's badge) appear mid-lesson
-    // without anyone having gone looking for it.
-    const handleJoinRequestCreated = (
-      { roomId, request }: { roomId: string; request: RoomJoinRequest },
-    ) => {
-      applyJoinRequestCreated(queryClient, roomId, request)
-    }
-
-    // (#227) Removed from this room while sitting in it. The server has
-    // already taken this socket out of the room, so nothing sent from here
-    // will be accepted from now on — say so, rather than letting the next
-    // stroke fail as an unexplained sync error.
-    //
-    // Deliberately does not close the editor or navigate: what should happen
-    // to the canvas someone is looking at when they lose access to it — and
-    // to whatever they had not finished sending — is its own decision, not
-    // one to make silently inside an event handler. The notice is the part
-    // that is unambiguous.
-    const handleKicked = () => {
-      hasJoinedRef.current = false
-      notifyError(tRef.current('room.kicked'), { key: 'kicked', durationMs: null })
-    }
-
-    // (#176, ADR 014 §3) Boards. All of these travel on the lesson channel,
-    // so they arrive whichever board this client is on.
-
-    // Someone else turned a page. Their cursor and live ink stop arriving on
-    // their own (content is per board channel); the roster is what has to be
-    // told, so the strip and the participants list can say who is where.
-    const handlePeerBoardChanged = ({ userId, boardId: peerBoard }: { userId: string; boardId: string }) => {
-      dispatchParticipants({ type: 'peer_board_changed', userId, boardId: peerBoard })
-    }
-
-    // The teacher moved (or their board was deleted — null means the
-    // lesson's first board). A following student goes with them; everyone
-    // else just sees the marker move in the strip.
-    const handleActiveBoardChanged = ({ boardId: active }: { boardId: string | null }) => {
-      useRoomStore.getState().setActiveBoardId(active)
-      maybeFollow()
-    }
-
-    const handleBoardCreated = ({ board }: { board: BoardSummary }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_created', board })
-    }
-    const handleBoardRenamed = ({ boardId: renamed, name }: { boardId: string; name: string }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_renamed', boardId: renamed, name })
-      // The lesson's own name is also its first board's — keep the header in
-      // step with the strip.
-      if (renamed === useRoomStore.getState().lessonId) useRoomStore.getState().setRoomName(name)
-    }
-    const handleBoardsReordered = ({ order }: { order: string[] }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'boards_reordered', order })
-    }
-    // Hard delete. If this client was on it, the server has already moved the
-    // socket to the lesson's first board and sent that board's room_state
-    // ahead of this event — enterBoard ran from there, and the only thing
-    // left is to stop showing a page that no longer exists. A turn still in
-    // flight towards it is dropped for the same reason.
-    const handleBoardDeleted = ({ boardId: deleted }: { boardId: string }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_deleted', boardId: deleted })
-      if (wantedBoardRef.current === deleted) {
-        wantedBoardRef.current = null
-        socketBoardRef.current = boardIdRef.current
-        setRoomContentReady(true)
-      }
-      maybeFollow()
-    }
-
-    // (#595, ADR 015 §4) Class mode. `lesson_state` is the lesson half of
-    // room_state, alone and rebuilt for this client, sent whenever the set of
-    // boards it may see can have changed.
-    const handleLessonState = ({ lesson }: { lesson: LessonState }) => {
-      const s = useRoomStore.getState()
-      const teacher = isOwnerRef.current || isTeacherIn(s)
-      // The teacher calling the class somewhere — handing out a round,
-      // calling everyone back, showing one work to all — is a call to
-      // *everyone*, including a student who had wandered off to another
-      // page: following comes back on. Anything else (a latecomer's board
-      // appearing, the visibility setting) leaves a hand-picked board alone.
-      const called = lesson.activeAssignmentId !== s.activeAssignmentId
-        || (lesson.spotlightBoardId !== s.spotlightBoardId && lesson.spotlightBoardId !== null)
-      // A board this client is on, or on its way to, that it may no longer
-      // see (the spotlight went dark on a classmate's work): nothing to stay
-      // for, so it goes where following leads.
-      const here = wantedBoardRef.current ?? s.boardId
-      const lost = here !== null && !lesson.boards.some(b => b.id === here)
-      s.setLesson(lesson)
-      if (!teacher && (called || lost)) s.setFollowing(true)
-      maybeFollow()
-    }
-    const handleHandChanged = ({ userId: whose, raised }: { userId: string; raised: boolean }) => {
-      useRoomStore.getState().setHandRaised(whose, raised)
-    }
-    // Somebody's board has a new picture — the strip and the grid re-fetch it.
-    const handleBoardThumbnailUpdated = ({ boardId: baked, updatedAt }: { boardId: string; updatedAt: string }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'thumbnail_baked', boardId: baked, at: updatedAt })
-    }
-
-    socket.on('lesson_state',               handleLessonState)
-    socket.on('participant_hand_changed',   handleHandChanged)
-    socket.on('board_thumbnail_updated',    handleBoardThumbnailUpdated)
-    socket.on('peer_board_changed',         handlePeerBoardChanged)
-    socket.on('active_board_changed',       handleActiveBoardChanged)
-    socket.on('board_created',              handleBoardCreated)
-    socket.on('board_renamed',              handleBoardRenamed)
-    socket.on('boards_reordered',           handleBoardsReordered)
-    socket.on('board_deleted',              handleBoardDeleted)
+    socket.on('lesson_state',               board.lesson_state)
+    socket.on('participant_hand_changed',   board.participant_hand_changed)
+    socket.on('board_thumbnail_updated',    board.board_thumbnail_updated)
+    socket.on('peer_board_changed',         board.peer_board_changed)
+    socket.on('active_board_changed',       board.active_board_changed)
+    socket.on('board_created',              board.board_created)
+    socket.on('board_renamed',              board.board_renamed)
+    socket.on('boards_reordered',           board.boards_reordered)
+    socket.on('board_deleted',              board.board_deleted)
     socket.on('connect',                    handleConnect)
     socket.on('room_state',                 handleRoomState)
     socket.on('operation_confirmed',        handleOperationConfirmed)
@@ -5189,14 +5033,14 @@ function RoomEditor() {
     socket.on('peer_left',                  handlePeerLeft)
     socket.on('peer_stroke_live',           handlePeerStrokeLive)
     socket.on('peer_stroke_live_end',       handlePeerStrokeLiveEnd)
-    socket.on('palette_updated',            handlePaletteUpdated)
-    socket.on('room_frozen_changed',        handleRoomFrozenChanged)
-    socket.on('room_tools_changed',         handleRoomToolsChanged)
-    socket.on('room_closed_changed',        handleRoomClosedChanged)
-    socket.on('participant_frozen_changed', handleParticipantFrozenChanged)
-    socket.on('join_request_created',       handleJoinRequestCreated)
-    socket.on('join_request_resolved',      handleJoinRequestResolved)
-    socket.on('kicked',                     handleKicked)
+    socket.on('palette_updated',            control.palette_updated)
+    socket.on('room_frozen_changed',        control.room_frozen_changed)
+    socket.on('room_tools_changed',         control.room_tools_changed)
+    socket.on('room_closed_changed',        control.room_closed_changed)
+    socket.on('participant_frozen_changed', control.participant_frozen_changed)
+    socket.on('join_request_created',       control.join_request_created)
+    socket.on('join_request_resolved',      control.join_request_resolved)
+    socket.on('kicked',                     control.kicked)
     socket.on('disconnect',                 handleDisconnect)
     socket.on('connect_error',              handleConnectError)
 
