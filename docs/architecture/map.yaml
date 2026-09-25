@@ -365,14 +365,15 @@ modules:
     title: Панели комнаты
     layer: editor-ui
     owns: >-
-      Список участников с управлением доступом, лента досок урока (#176) и dev-панель
-      тюнинга звука карандаша.
+      Список участников с управлением доступом, лента досок урока (#176), dev-панель
+      тюнинга звука карандаша и dev-оверлеи в углу комнаты (задержки, тюнинг зерна и наклона).
     files:
       - apps/web/src/pages/Room/ParticipantsPanel.*
       - apps/web/src/pages/Room/BoardStrip.*
       - apps/web/src/pages/Room/ClassGrid.*
       - apps/web/src/pages/Room/ClassPlaces.*
       - apps/web/src/pages/Room/PencilSoundTuningPanel.*
+      - apps/web/src/pages/Room/DebugStack.tsx
     tags: [панели]
 
   # ------------------------------------------------------------------ редактор: логика
@@ -1260,7 +1261,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 6533
+    maxLines: 6262
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича
