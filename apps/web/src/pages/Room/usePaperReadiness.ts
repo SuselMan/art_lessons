@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import * as Sentry from '@sentry/react'
 
-import type { PencilEngineAPI } from '../../engine'
-import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
+import { subscribePaperLoadProgress, type PaperLoadProgress, type PencilEngineAPI } from '../../engine'
 
 export interface PaperReadinessDeps {
   engineRef: RefObject<PencilEngineAPI | null>

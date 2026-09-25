@@ -114,6 +114,8 @@ export type { HapticGrainStats }
 // from a real change — the same functions the engine applies, so the dialog's
 // graph is the curve that will actually be used.
 export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/layerFilters'
+// (#345, #493) The paper download's progress, for the room's loading overlay.
+export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paperLoader'
 export type { Matrix3 }
 export type { RulerLine }
 
