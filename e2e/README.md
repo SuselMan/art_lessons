@@ -28,6 +28,12 @@ Two preconditions, both one-time:
 `E2E_KEEP_DB=1` leaves the container standing after a run, so a failing
 scenario's state can be opened in psql.
 
+`E2E_PORT_OFFSET=1` shifts every port and the database container name, which is
+what you want when a second worktree is already running the suite — this repo
+routinely has several open. Without it the second run fails immediately and
+clearly (`4491 is already used`), which is the intended behaviour of
+`--strictPort` and not a reason to go hunting for a stray process.
+
 ## What is covered
 
 | Scenario | File |

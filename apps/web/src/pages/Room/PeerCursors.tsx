@@ -152,6 +152,14 @@ export function PeerCursors({ socket, participants, zoom, angle }: PeerCursorsPr
         return (
           <div
             key={userId}
+            // (#493) The one thing in here a test can hold on to. Peer cursors
+            // live in this component's own state rather than the store (see
+            // above, #152), so there is nothing to read from outside; the class
+            // names are CSS-Module hashes, and the label text also appears in
+            // the participants panel. Without this the whole cursor path — a
+            // pointermove in one browser becoming a dot in another — is
+            // unobservable, which is how it stayed untested until now.
+            data-testid="peer-cursor"
             className={idle.has(userId) ? `${styles.cursorMarker} ${styles.cursorMarkerIdle}` : styles.cursorMarker}
             style={{ transform: `translate(${x}px, ${y}px) scale(${counterScale}) rotate(${-angle}rad)` }}
           >
