@@ -68,6 +68,7 @@ import { createRoomControlEventHandlers } from './roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useJoinGate } from './useJoinGate'
 import { usePaperReadiness } from './usePaperReadiness'
+import { useOpenTimer } from './useOpenTimer'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
 import { usePencilSound } from './usePencilSound'
@@ -133,8 +134,6 @@ import {
 } from '../../lib/classMode'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
-import { reportRoomOpen } from './reportOpen'
-import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
 import { restoreRoomState } from './restoreRoomState'
 import { useTransformSession, type TransformSession } from './useTransformSession'
@@ -1362,22 +1361,9 @@ function RoomEditor() {
    *  Never cleared for the life of this mount: nothing that happens after a
    *  half-applied replay can make the buffer whole again short of a reload,
    *  which is a fresh mount and a fresh attempt anyway. */
-  // (#487) Замер входа: от нажатия «войти» до момента, когда преклоадер ушёл.
-  // Ref, а не состояние: между стартом и финишем комната перерисовывается
-  // (гейт сменяется редактором, движок монтируется), и замер обязан это
-  // пережить, ничего при этом не перерисовывая сам.
-  const openTimerRef = useRef<OpenTimer | null>(null)
-  // Будильник: снимает состояние, **не дожидаясь конца**. Половина, ради
-  // которой всё и делается — вход, который не заканчивается, не сообщает о
-  // себе ничем, см. openTiming.ts.
-  const openAlarmRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Будильник переживает смену экрана внутри комнаты, но не сам уход из неё:
-  // отчёт «вход не закончился» от размонтированной страницы — это отчёт о
-  // человеке, который просто ушёл, и он был бы неотличим от настоящего.
-  useEffect(() => () => {
-    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
-  }, [])
+  // (#487) The open's own measurement and its slow-open alarm — see
+  // useOpenTimer.
+  const { openTimerRef, startOpenTimer, finishOpenTimer } = useOpenTimer({ id, engineRef })
 
   const replayIncompleteRef = useRef(false)
   const checkSnapshotBoundary = useCallback(() => {
@@ -2007,46 +1993,6 @@ function RoomEditor() {
     return 'restored'
   }, [initLayersFromLayerState])
 
-  /** (#487) Гасит будильник и отчитывается о завершившемся входе.
-   *
-   *  Число слоёв и `gpuInfo()` берутся здесь, а не на старте: на старте их
-   *  ещё нет, а объясняют они ровно то, из-за чего вход бывает долгим — все
-   *  слои поднимаются разом (#467), и упирается это в GPU устройства (#469). */
-  // (#176) Both timers read the URL id through a ref rather than closing over
-  // it. They are dependencies of the engine effect, and handleRoomState
-  // rewrites the URL (a board id becomes its lesson's) in the same breath as
-  // it seats the engine on the board — a callback keyed on `id` rebuilt the
-  // engine right after its first mount had consumed the board's content, and
-  // the second engine opened empty. The report is per open, not per URL, so
-  // whatever the id is at finish time is the right one to file it under.
-  const urlIdRef = useRef(id)
-  urlIdRef.current = id
-  const finishOpenTimer = useCallback((engine: PencilEngineAPI | null) => {
-    const timer = openTimerRef.current
-    if (!timer || timer.done) return
-    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
-    if (engine) timer.note({ layers: engine.liveLayerIds().length })
-    const reportId = urlIdRef.current
-    if (reportId) reportRoomOpen(reportId, timer.finish(), engine?.gpuInfo())
-  }, [])
-
-  /** (#487) Пускает замер входа и заводит будильник. Вызывается там, где
-   *  человек нажал «войти», а не там, где сокет что-то отправил: меряем то,
-   *  что он ждёт, а не то, что делает клиент. */
-  const startOpenTimer = useCallback(() => {
-    if (openAlarmRef.current !== null) clearTimeout(openAlarmRef.current)
-    const timer = createOpenTimer(() => performance.now())
-    openTimerRef.current = timer
-    openAlarmRef.current = setTimeout(() => {
-      openAlarmRef.current = null
-      // Не гасит замер: вход продолжается, и если он всё-таки дойдёт до конца,
-      // финиш об этом скажет. Дедуп по комнате в reportOpen следит, чтобы из
-      // двух отчётов об одном входе уехал только первый.
-      const reportId = urlIdRef.current
-      if (!timer.done && reportId) reportRoomOpen(reportId, timer.stalled(), engineRef.current?.gpuInfo())
-    }, SLOW_OPEN_MS)
-  }, [])
-
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely
   // for undo/redo purposes (see absorbHistoricalOperations's own doc
@@ -2322,8 +2268,8 @@ function RoomEditor() {
     awaitPaper,
     // (#493) The ref *object* — stable for the component's life, so naming it
     // costs nothing. Never `.current`: that would rebuild the engine every
-    // time the sound instance changed.
-    pencilSoundRef,
+    // time the sound instance changed. openTimerRef likewise (useOpenTimer).
+    pencilSoundRef, openTimerRef,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -3388,7 +3334,7 @@ function RoomEditor() {
     // (#493) From useJoinGate now, so the lint rule asks for them: a useState
     // setter and a useRef object, both stable for the component's life —
     // naming them can never tear the socket down.
-    setJoinState, retryJoinRef,
+    setJoinState, retryJoinRef, openTimerRef,
     // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
     // read through refs), `navigate` (changes with the URL this effect itself
     // rewrites) and `boardId` (a page turn is not a new socket).
