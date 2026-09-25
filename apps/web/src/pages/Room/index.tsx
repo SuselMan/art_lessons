@@ -62,6 +62,7 @@ import { useTransformGizmoGestures } from './useTransformGizmoGestures'
 import { createBoardEventHandlers } from './boardEvents'
 import { createPeerEventHandlers } from './peerEvents'
 import { createConfirmedStreamHandler } from './confirmedStream'
+import { createOutboxVerdicts } from './outboxVerdict'
 import { createRoomControlEventHandlers } from './roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useSelection } from './useSelection'
@@ -89,7 +90,7 @@ import { resolveDisplayName } from './displayName'
 import { ZOOM_MAX, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
 import {
-  groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
+  groupLostOpsByLayer, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
 } from './lostWork'
 import { Outbox } from './outbox'
 import { createSocketRevival } from './socketRevival'
@@ -1602,56 +1603,16 @@ function RoomEditor() {
     // the teacher's board, and a `resendAll` at that moment would put the
     // first board's leftovers on the second.
     canSend: () => hasJoinedRef.current && socketBoardRef.current === outboxBoardId,
-    onStalled: op => {
-      console.error('operation stopped retrying after repeated failures', op.type, op.id)
-      // (#395) Stop holding a transform preview for an operation that has
-      // stopped trying to arrive. Showing the layer where it actually is
-      // beats showing where it was meant to go with nothing indicating that
-      // it never got there — the entry stays queued either way, so a later
-      // resendAll can still land it.
-      resolveTransformCommit(op.id)
-    },
+    // (#493) What a stalled or settled operation means for this client —
+    // see outboxVerdict.ts.
+    ...createOutboxVerdicts({
+      pendingIdsRef, latestKnownSeqRef, noteLayerSeq, checkSnapshotBoundary,
+      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+    }),
     // (#201) The counter the ConnectionBanner reports. Passing a plain
     // setState is safe from any callsite: React batches, and the Outbox
     // only ever calls this after a real size change.
     onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
-    onSettled: (op, result) => {
-      if (!result.ok) {
-        console.error('operation rejected by server', op.type, op.id, result.reason)
-        // (#395) It will never be applied, so nothing is coming to replace
-        // the held gizmo preview — drop it and put the bounds back on what
-        // the layer really contains.
-        resolveTransformCommit(op.id)
-        // Never became real — drop it back out of the local island so a
-        // later delete/merge targeting it isn't wrongly treated as safe.
-        if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
-        // (#289 §17, #312) `target_gone` on a content-bearing op is the one
-        // rejection a user can actually perceive as lost work — typically
-        // drawn offline (or during a drop) onto a layer someone deleted in
-        // the meantime. Since #311 the server hands those operations back
-        // intact instead of swallowing them, so they can be recovered onto
-        // a fresh layer rather than merely reported.
-        //
-        // Deliberately still not an automatic room fork: forking on every
-        // conflict was considered and rejected as worse than the problem (a
-        // pile of near-duplicate rooms after any flaky wifi). A replacement
-        // layer is the far smaller intervention — and it doesn't undo the
-        // deletion either, since whoever deleted the layer deleted what they
-        // could see; this only brings back what they couldn't.
-        if (result.reason === 'target_gone') {
-          if (isRecoverableContentOp(op)) scheduleLostWorkRecovery(op)
-          else setLostWork({ layerNames: [], restoredLayerIds: [] })
-        }
-        return
-      }
-      latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, result.seq)
-      if (op.type === 'stroke') noteLayerSeq(op.layerId, result.seq)
-      // Confirmed — a peer could plausibly reference this id from now on, so
-      // it no longer qualifies as this client's own private local island
-      // (see isLocalIslandSafe/dispatchOp).
-      if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
-      checkSnapshotBoundary()
-    },
   }), [outboxBoardId, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery, resolveTransformCommit])
   // (#176) For the socket effect, which must not list `outbox` as a
   // dependency — see snapshotUploaderRef.

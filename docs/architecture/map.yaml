@@ -415,6 +415,7 @@ modules:
       штрихи, доски и класс, решения владельца и очередь входа.
     files:
       - apps/web/src/pages/Room/outbox.ts
+      - apps/web/src/pages/Room/outboxVerdict.ts
       - apps/web/src/pages/Room/outboxStorage.ts
       - apps/web/src/pages/Room/optimism.ts
       - apps/web/src/pages/Room/pendingPreviews.ts
@@ -1269,7 +1270,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 5145
+    maxLines: 5106
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича
