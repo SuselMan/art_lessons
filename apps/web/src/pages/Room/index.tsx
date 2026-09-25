@@ -37,8 +37,6 @@ import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
-import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
-import { holdReload } from '../../lib/reloadSafety'
 import { diagLog } from '../../lib/diagLog'
 import { formatHotkeyLabel } from '../../lib/hotkeys'
 import { createBoard, deleteBoard, forkRoom, renameBoard, reorderBoard, setRoomClosed } from '../../lib/api'
@@ -69,6 +67,7 @@ import { useOperationDispatch } from './useOperationDispatch'
 import { useJoinGate } from './useJoinGate'
 import { usePaperReadiness } from './usePaperReadiness'
 import { useOpenTimer } from './useOpenTimer'
+import { useLeaveGuard } from './useLeaveGuard'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
 import { usePencilSound } from './usePencilSound'
@@ -149,7 +148,6 @@ import {
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import styles from './Room.module.css'
 
-
 // (#393) The one place a ViewportCursor becomes a class name. The decision
 // itself is cursorController's; this is only the CSS-Modules lookup, kept
 // exhaustive by the Record so a new cursor value cannot ship without one.
@@ -158,7 +156,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
   grab: styles.viewportCursorGrab,
   default: styles.viewportCursorDefault,
 }
-
 
 /** (#595) Where following leads a student right now, from the store — for
  *  the callbacks that decide it at the moment of the tap. */
@@ -342,8 +339,6 @@ function RoomEditor() {
     diagLog('roomContentReady changed to', roomContentReady)
   }, [roomContentReady])
 
-
-
   /** (#533) The room's stored pixels did not arrive, so this catch-up restored
    *  nothing. Same conclusion as `paperFailed` and for a stricter reason: the
    *  server withholds the history a snapshot claims to cover, so there is no
@@ -358,7 +353,6 @@ function RoomEditor() {
    *  of state, not a flag plus a variant beside it — those can disagree, and
    *  the disagreement would be a screen explaining the wrong failure. */
   const [restoreFailure, setRestoreFailure] = useState<RestoreFailureReason | null>(null)
-
 
   // Device performance investigation (#91) — shows a live per-stroke input/
   // render timing readout. Controlled by the "Debug overlay" feature flag
@@ -1575,7 +1569,6 @@ function RoomEditor() {
     { min: 0, max: 360, sensitivity: ROTATE_DEG_PER_PX, wrap: true },
   )
 
-
   // #99: layered independently on top of useViewport's own touch pan/pinch
   // handling on the same `.viewport` element — see useTapToggle's docstring
   // for why the two never conflict, and why it takes the element (`vpEl`)
@@ -1614,7 +1607,6 @@ function RoomEditor() {
 
   // Marks a user as "currently drawing" (#38) — a timestamp refreshed by local
   // stroke start/move and by incoming remote stroke ops; a separate interval
-
 
   // ── operation log bridge ──────────────────────────────────────────────────────
   // LayerState is derived: base room state + replay of done operations, with
@@ -1814,48 +1806,6 @@ function RoomEditor() {
     setRestoreFailure(null)
     requestFullResyncRef.current?.()
   }, [])
-
-
-  // The unload half of "confirm before leaving a room": closing the tab or
-  // reloading can't be intercepted by the app's own dialog (see leaveRoom),
-  // only by the browser's, so this is what covers those paths. Armed for the
-  // whole life of the room rather than only when work is unsent — the two
-  // reasons to ask are different in weight but the prompt is the same one:
-  //
-  //  - ordinary case: an accidental close mid-lesson drops the user out of a
-  //    live session, and the way back in is a room link they may not have.
-  //  - (#313) unconfirmed work lives in IndexedDB and survives a reload, but
-  //    it only leaves this device if the tab eventually gets back online.
-  //    Closing it while the queue is full turns a recoverable situation into a
-  //    permanent loss — and it's usually done by someone who has already
-  //    concluded the work is gone.
-  //
-  // Same `config` gate as the back guard below: at the join gate there is no
-  // session and nothing unsent, so a prompt would be pure friction.
-  //
-  // (#400) The same gate now also states the fact out loud, via holdReload():
-  // "a reload right now would cost something". The service worker updater
-  // reads it to decide whether a new build may be applied without asking, and
-  // it has to be the *same* condition — a second one derived from the route
-  // would be a copy free to drift from this one. Note that the hold is the
-  // half that actually protects a room from an automatic reload: a
-  // programmatic reload carries no user activation, and browsers do not raise
-  // the beforeunload dialog for those at all.
-  useEffect(() => {
-    if (!config) return
-    const releaseHold = holdReload()
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Browsers ignore custom text here and show their own wording; the
-      // preventDefault is what actually triggers the prompt.
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload)
-      releaseHold()
-    }
-  }, [config])
 
   // Any pending batch dies with the room — a timer firing after unmount would
   // append to an engine that no longer exists.
@@ -2856,32 +2806,9 @@ function RoomEditor() {
     engineRef.current?.hasLayerContent(layerId) ?? false
   , [])
 
-
-
-  // Every way out of the editor asks first. Leaving a room is not destructive
-  // — the drawing is in the room, not in this tab — but it is disorienting
-  // mid-lesson, and the exit sits in the same header strip as controls that
-  // get tapped constantly, so an accidental one is easy.
-  const leavePendingRef = useRef(false)
-  const leaveRoom = useCallback(async () => {
-    // A second tap while the dialog is already up would otherwise pre-empt the
-    // first dialog, which resolves it as `false` — a cancel the user never
-    // asked for. (Back can no longer be one of those callers — see the guard
-    // effect below — but the header wordmark and the menu item still can.)
-    if (leavePendingRef.current) return
-    leavePendingRef.current = true
-    try {
-      const leaving = await confirm({
-        title: t('room.confirmLeaveTitle'),
-        message: t('room.confirmLeaveMessage'),
-        confirmLabel: t('room.confirmLeave'),
-        cancelLabel: t('room.confirmLeaveStay'),
-      })
-      if (leaving) navigate('/')
-    } finally {
-      leavePendingRef.current = false
-    }
-  }, [confirm, navigate, t])
+  // (#313, #377, #400) Every way out of the room — confirmed, guarded
+  // against a reload with work unsent, and Back disarmed — see useLeaveGuard.
+  const leaveRoom = useLeaveGuard()
 
   // (#309) The only place `strokeActive` reaches this component's own DOM:
   // one attribute on the editor root, from which CSS blocks pointer events on
@@ -2899,30 +2826,6 @@ function RoomEditor() {
     if (state.strokeActive === prev.strokeActive) return
     editorRef.current?.toggleAttribute('data-stroke-active', state.strokeActive)
   }), [])
-
-  // (#377) Back does nothing while the editor is on screen — Chrome's
-  // edge-swipe-back gesture fires by accident often enough while drawing that
-  // even asking about it is an interruption. The whole mechanism (reverting
-  // the URL, and keeping a spare history entry so there is something to
-  // revert) lives in backNavigationGuard; see its comment. Armed only while
-  // this room is actually mounted, so back navigation elsewhere in the app
-  // (/create, /my-lessons) is unaffected, and leaving stays available through
-  // the header wordmark and the room menu's "Leave".
-  //
-  // `config` is what says the editor itself is on screen rather than the join
-  // gate. Nothing at the gate can trigger the accidental edge-swipe this guard
-  // exists for (the draggable controls are all in the editor), and there is no
-  // room to be kept in yet — trapping back there would only strand someone who
-  // opened a link they've decided not to follow. Depended on as a boolean, not
-  // as the room object: the object's identity changes on every rename and
-  // room_state, and re-running this effect is not free now that arming pushes
-  // a history entry.
-  const editorOnScreen = !!config
-  useEffect(() => {
-    if (!editorOnScreen) return
-    setBackNavigationGuard(location.pathname + location.search + location.hash)
-    return () => setBackNavigationGuard(null)
-  }, [editorOnScreen, location.pathname, location.search, location.hash])
 
   // (#493) The eyedropper's pick — see useEyedropper.
   const handleEyedropperPick = useEyedropper({
@@ -3099,7 +3002,6 @@ function RoomEditor() {
     ownControlsSelector: '[data-transform-gizmo]',
     onClickPast: shape.commit,
   })
-
 
   // (#493) The fill's tap and its busy state — see useFillTool.
   const { fillBusy, handleFillTap } = useFillTool({
@@ -3340,7 +3242,6 @@ function RoomEditor() {
     // rewrites) and `boardId` (a page turn is not a new socket).
   ])
 
-
   // Same reason as `retryJoinRef`: `t` changes identity when the reader
   // switches language, and listing it as a dependency of the socket effect
   // would tear the connection down and rebuild it on a language switch.
@@ -3404,7 +3305,6 @@ function RoomEditor() {
       />
     )
   }
-
 
   // (#493) The overlays over the canvas — cursors, brush ring, grid, ruler,
   // gizmos, selection, annotations — written once. They ride the canvas-

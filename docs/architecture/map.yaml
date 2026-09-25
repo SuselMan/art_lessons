@@ -296,6 +296,7 @@ modules:
       - apps/web/src/pages/Room/useJoinGate.ts
       - apps/web/src/pages/Room/usePaperReadiness.ts
       - apps/web/src/pages/Room/useOpenTimer.ts
+      - apps/web/src/pages/Room/useLeaveGuard.ts
     issues: [25, 493]
     notes:
       - >-
@@ -1278,7 +1279,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 4204
+    maxLines: 4104
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича
