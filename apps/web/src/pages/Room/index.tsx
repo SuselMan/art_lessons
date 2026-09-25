@@ -20,7 +20,6 @@ import { SidePanel } from '../../components/SidePanel'
 import {
   ColorFlyout, ColorFlyoutBody, type ColorFlyoutContent, type ColorPairControls,
 } from '../../components/ColorFlyout'
-import { Icon } from '../../components/Icon'
 import { Notice } from '../../components/Notice'
 import { BoardStrip, TeacherChip } from './BoardStrip'
 import { ClassBar, ClassGrid } from './ClassGrid'
@@ -63,7 +62,7 @@ import { createConfirmedStreamHandler } from './confirmedStream'
 import { createRoomControlEventHandlers } from './roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useSelection } from './useSelection'
-import { ShapeFrameFields, ShapeRatioPresets } from './ShapeFrameFields'
+import { ShapeRatioPresets } from './ShapeFrameFields'
 import { DebugStack } from './DebugStack'
 import { usePencilSound } from './usePencilSound'
 import { useCanvasViewport } from './useCanvasViewport'
@@ -82,6 +81,7 @@ import { LostWorkBanner } from './LostWorkBanner'
 import { ConnectionBanner } from './ConnectionBanner'
 import { RoomHeader } from './RoomHeader'
 import { ToolRail } from './ToolRail'
+import { QuickSettingsBar } from './QuickSettingsBar'
 import { resolveDisplayName } from './displayName'
 import { clientToCanvas } from './pointerTransform'
 import { ZOOM_MAX, clientToRoomPoint, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
@@ -147,7 +147,6 @@ import {
 } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
-import { useClipboardStore } from '../../stores/clipboardStore'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -882,12 +881,6 @@ function RoomEditor() {
   const setSelection = useRoomStore(s => s.setSelection)
   const pendingSelection = useRoomStore(s => s.pendingSelection)
   const setPendingSelection = useRoomStore(s => s.setPendingSelection)
-  // (#521) The clipboard is local too, but it is not room state: it outlives
-  // this room and is shared with every other tab of this browser
-  // (clipboardStore.ts). Only the meta is subscribed to — enough to answer
-  // "is there anything to paste", which is all any of this component needs
-  // until a paste actually happens.
-  const clipboardMeta = useClipboardStore(s => s.meta)
   // (#399) Throws the open session's uncommitted gestures away and re-opens an
   // empty one on whatever the layer holds now. Assigned further down, where
   // the pieces it needs exist; declared here because undo/redo — defined well
@@ -4697,109 +4690,13 @@ function RoomEditor() {
           clearAllAnnotations={clearAllAnnotations}
         />
 
-        {/* ── Quick-settings panel — the active tool's quick-access fields
-            (#196), driven entirely by TOOL_SCHEMAS. Kept as its own
-            same-width column next to the toolbar rather than interleaved
-            with the tool-select buttons above: interleaving made the
-            buttons visually jump every time the field count changed
-            switching tools (pencil: grade+size+opacity+color, eraser:
-            size+opacity only) — a fixed button column plus a separately
-            reflowing settings column reads far more stable.
-
-            (#471) Alone among the chrome, this column survives minimal UI:
-            .quickSettingsBarMinimal moves it into the corner the header and
-            toolbar just vacated instead of .uiHidden fading it out. The
-            reasoning lives on that CSS rule. */}
-        {/* (#512) In the compact shell minimal UI hides this too, where
-            everywhere else it *moves* it into the corner the chrome vacated
-            (#471). The exception earned its keep on a tablet, where the quick
-            settings are the one thing worth keeping within reach while drawing.
-            On a phone the whole point of minimal UI is the screen, and a rail
-            that stays is the largest thing still on it. */}
-        <aside className={clsx(
-          styles.quickSettingsBar,
-          uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
-          styles.strokeBlockable,
-        )}>
-          {Object.entries(TOOL_SCHEMAS[settingsToolId])
-            .filter(([, descriptor]) => descriptor.quickAccess)
-            // (#542) No colour in this column at all any more — every colour a
-            // tool carries is drawn by the pinned well in the rail to the left.
-            // Filtered here rather than by clearing `quickAccess` in ten
-            // schemas: the flag says "this is a field a hand reaches for
-            // mid-gesture", which is still true of colour, and a schema that
-            // denied it to make one layout come out right would be lying to
-            // every other reader of it.
-            .filter(([, descriptor]) => descriptor.valueType.kind !== 'color')
-            .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
-            .map(([key, descriptor]) => (
-              <SettingField
-                key={key}
-                descriptor={descriptor}
-                value={toolSettings[settingsToolId][key]}
-                onChange={v => setToolSetting(settingsToolId, key, v)}
-                layout="toolbar"
-              />
-            ))}
-          {/* (#530) The numbers behind the drag, and only while a shape is
-              open: they edit *this* shape, not the tool. For a frame around a
-              thumbnail sketch this is arguably more of the tool than the drag
-              is — an exact size cannot be set with a pen. The ratio presets
-              live in the full settings panel instead (Ilya, 05.09): the rail is
-              for what a hand reaches for mid-gesture. */}
-          {shapeFrame && <ShapeFrameFields frame={shapeFrame} onChange={shape.setFrame} />}
-          {/* (#446) What can be done with a selection, as buttons rather than
-              only as Ctrl+C/X/V. A tablet is a first-class target here and has
-              no modifier keys at all: without these, cut/copy/paste — the half
-              of this feature Ilya actually asked for — would exist only for
-              people with a keyboard.
-
-              In the quick column rather than floating over the canvas: it is
-              already the place the selected tool's own controls appear, it
-              never covers the drawing, and it needs no placement logic of its
-              own. Each button is disabled exactly when its action would do
-              nothing, so the row also answers "is anything selected" and "is
-              there anything to paste" without a word of text. */}
-          {selectionActive && (
-            <div className={styles.selectionActions}>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.copy')}
-                aria-label={t('selection.copy')}
-                disabled={!selection || !paintTargetId}
-                onClick={() => { void copySelection() }}
-              ><Icon name="content_copy" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.cut')}
-                aria-label={t('selection.cut')}
-                disabled={!selection || !paintTargetId || paintTargetLocked}
-                onClick={() => { void cutSelection() }}
-              ><Icon name="content_cut" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.paste')}
-                aria-label={t('selection.paste')}
-                disabled={!clipboardMeta || !paintTargetId || paintTargetLocked}
-                onClick={() => { void pasteClipboard() }}
-              ><Icon name="content_paste" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.delete')}
-                aria-label={t('selection.delete')}
-                disabled={!selection || !paintTargetId || paintTargetLocked}
-                onClick={deleteSelectionContents}
-              ><Icon name="delete" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.clear')}
-                aria-label={t('selection.clear')}
-                disabled={!selection}
-                onClick={() => setSelection(null)}
-              ><Icon name="deselect" /></button>
-            </div>
-          )}
-        </aside>
+        {/* (#493) The quick-settings column — see QuickSettingsBar. */}
+        <QuickSettingsBar
+          uiHidden={uiHidden} compact={compact} onShapeFrameChange={shape.setFrame}
+          paintTargetId={paintTargetId} paintTargetLocked={paintTargetLocked}
+          copySelection={() => { void copySelection() }} cutSelection={() => { void cutSelection() }}
+          pasteClipboard={() => { void pasteClipboard() }} deleteSelectionContents={deleteSelectionContents}
+        />
         </div>
 
         {/* ── Viewport ── */}
