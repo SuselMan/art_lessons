@@ -383,6 +383,7 @@ modules:
       - apps/web/src/pages/Room/RoomHeader.tsx
       - apps/web/src/pages/Room/ToolRail.tsx
       - apps/web/src/pages/Room/QuickSettingsBar.tsx
+      - apps/web/src/pages/Room/ToolSettingsTab.tsx
     tags: [панели]
 
   # ------------------------------------------------------------------ редактор: логика
@@ -1274,7 +1275,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 4592
+    maxLines: 4547
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича

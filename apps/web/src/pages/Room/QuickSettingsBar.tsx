@@ -46,7 +46,7 @@ export function QuickSettingsBar({
 }: QuickSettingsBarProps): React.JSX.Element {
   const t = useT()
   // Every `EditorTool` is a `UiToolId` by construction — see settingsToolId
-  // in Room for why the selected tool's schema is always the one shown.
+  // in ToolSettingsTab for why the selected tool's schema is always the one shown.
   const settingsToolId: UiToolId = useRoomStore(s => s.tool)
   const toolSettings = useRoomStore(s => s.toolSettings)
   const setToolSetting = useRoomStore(s => s.setToolSetting)

@@ -26,7 +26,6 @@ import { ClassBar, ClassGrid } from './ClassGrid'
 import { ClassPlaces } from './ClassPlaces'
 import { createPreviewSchedule } from './previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
-import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
@@ -70,7 +69,6 @@ import { createRoomStateHandler } from './roomStateHandler'
 import { createRoomControlEventHandlers } from './roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useSelection } from './useSelection'
-import { ShapeRatioPresets } from './ShapeFrameFields'
 import { DebugStack } from './DebugStack'
 import { usePencilSound } from './usePencilSound'
 import { useCanvasViewport } from './useCanvasViewport'
@@ -90,6 +88,7 @@ import { ConnectionBanner } from './ConnectionBanner'
 import { RoomHeader } from './RoomHeader'
 import { ToolRail } from './ToolRail'
 import { QuickSettingsBar } from './QuickSettingsBar'
+import { ToolSettingsTab } from './ToolSettingsTab'
 import { resolveDisplayName } from './displayName'
 import { ZOOM_MAX, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { describeJoinError, joinGateStateFor } from './joinError'
@@ -116,8 +115,8 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import { NoWebGL } from './NoWebGL'
 import { probeWebGL } from '../../lib/webgl'
 import {
-  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx,
-  getToolColor, isColorCapableTool, type ColorCapableTool, type UiToolId,
+  loadToolSettings, saveToolSettings, linerSizeToPx,
+  getToolColor, isColorCapableTool, type ColorCapableTool,
   isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
 } from './toolSchemas'
 import { colorWellState, effectiveSwatch } from './colorWell'
@@ -3322,20 +3321,6 @@ function RoomEditor() {
   // themselves; see useTransformGizmoGestures.
   const transformMode = toolSettings.transform.mode as TransformMode
 
-  // (#391/#405) Whose settings the quick-access column and the "Tool settings"
-  // tab are showing: the selected tool, full stop. This used to be
-  // `transformActive ? 'transform' : tool` — a special case, because transform
-  // was a mode rather than a tool and only that one mode had settings worth
-  // surfacing. With one exclusive selection there is no special case left to
-  // write: the ruler's show/snap and the grid's visibility are its settings
-  // exactly the way the pencil's grade is, and selecting a drawing tool again
-  // hands both surfaces back with its own settings where they were.
-  //
-  // Every `EditorTool` is a `UiToolId` by construction (toolSlice's two lists
-  // are `satisfies readonly UiToolId[]`), so this needs no widening or
-  // fallback: there is always a schema to show.
-  const settingsToolId: UiToolId = tool
-
   // (#493) The gizmo's pointer gestures — see useTransformGizmoGestures.
   const { handleTransformHandleDown, handleTransformCenterDown, handleTransformCenterReset } =
     useTransformGizmoGestures({ vpRef, vp, handActive, engineRef, transformSessionRef, pendingTransformCommitRef })
@@ -4438,37 +4423,7 @@ function RoomEditor() {
                 // quick-access row uses (#196) — this tab just renders every
                 // field, not only the quickAccess-flagged ones.
                 id: 'toolSettings', icon: 'tune', title: t('room.panel.toolSettings'),
-                content: Object.keys(TOOL_SCHEMAS[settingsToolId]).length === 0 ? (
-                  <p className={styles.noToolSettings}>{t('room.noToolSettings')}</p>
-                ) : (
-                  <div className={styles.toolSettingsPanel}>
-                    {Object.entries(TOOL_SCHEMAS[settingsToolId])
-                      .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
-                      .map(([key, descriptor]) => (
-                      <SettingField
-                        key={key}
-                        descriptor={descriptor}
-                        value={toolSettings[settingsToolId][key]}
-                        onChange={v => setToolSetting(settingsToolId, key, v)}
-                        layout="panel"
-                        // (#542) Every colour field, not just the one named
-                        // `color` — a shape's two are `strokeColor`/`fillColor`
-                        // and were left without a way to expand at all. They
-                        // all open the same flyout, on the well in the rail:
-                        // this tab is only ever on screen next to it, and one
-                        // surface in one place beats a popover that chases
-                        // whichever copy of a swatch was pressed.
-                        onExpand={descriptor.valueType.kind === 'color' ? () => expandColorField(key) : undefined}
-                      />
-                    ))}
-                    {/* (#530) The ratio presets, here rather than in the quick
-                        column (Ilya, 05.09): picking 3:4 is a decision made
-                        once, and the rail is for what a hand reaches for
-                        mid-gesture. Only while a shape is open — they resize
-                        that shape, not the tool. */}
-                    {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={shape.setFrame} />}
-                  </div>
-                ),
+                content: <ToolSettingsTab onExpandColor={expandColorField} onShapeFrameChange={shape.setFrame} />,
               },
             ]}
           />
