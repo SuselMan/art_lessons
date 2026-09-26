@@ -74,7 +74,18 @@ export default defineConfig({
         // here — `--use-gl=angle` keeps headless Chromium on a real backend
         // instead of quietly falling back to SwiftShader, where "the stroke is
         // there" would be measuring something else entirely.
-        launchOptions: { args: ['--use-gl=angle', '--use-angle=default', '--ignore-gpu-blocklist'] },
+        //
+        // (#616) The exception is a machine with no GPU at all — a CI runner —
+        // where `default` has nothing to reach. There `E2E_GL=swiftshader` asks
+        // for the software rasteriser *explicitly*: the same shaders still run
+        // and the same pixels are read back, but a GPU's own precision quirks
+        // (the class of bug a tablet finds) are out of its reach. So CI proves
+        // the app works; it does not replace the device passes in §9.
+        launchOptions: {
+          args: process.env.E2E_GL === 'swiftshader'
+            ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+            : ['--use-gl=angle', '--use-angle=default', '--ignore-gpu-blocklist'],
+        },
       },
     },
   ],

@@ -43,3 +43,47 @@ jobs:
         run: |
           npm run map:check
           npm run map:rules
+
+  # (#616, трек #314 §12) The browser harness (#491) on every PR. A separate job
+  # so a red e2e run never hides a red unit run, and so the two run side by side.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The rooms in these tests draw on real paper; without the bake every
+      # paper fetch 404s and the canvas never opens.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # No GPU on the runner: the software rasteriser, asked for by name — see
+      # the launchOptions comment in playwright.config.ts. Postgres is the
+      # harness's own throwaway container (docker is on the runner).
+      - name: End-to-end tests
+        env:
+          E2E_GL: swiftshader
+        run: npx playwright test --project=chromium
+
+      - name: Upload report and failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
