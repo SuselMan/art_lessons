@@ -7,6 +7,8 @@ import type { PencilEngineAPI } from '../../engine'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
 import type { OpenTimer } from './openTiming'
+import { type ReplayGate, yieldToEventLoop } from './replayGate'
+import { undoneInBatch } from './undoneInBatch'
 import type { createPendingPreviews } from './pendingPreviews'
 import type { RestoreFailureReason } from './RestoreFailedOverlay'
 import type { createSnapshotUploader } from './snapshotSync'
@@ -52,7 +54,13 @@ export interface RestoreRoomStateDeps {
   replayIncompleteRef: RefObject<boolean>
   pendingPreviewsRef: RefObject<ReturnType<typeof createPendingPreviews>>
   openTimerRef: RefObject<OpenTimer | null>
+  /** (#536, §17.49) Holds live confirmations while the tail replay yields. */
+  replayGate: ReplayGate<unknown>
 }
+
+/** (#536, §17.49) How long the tail replay may hold the main thread before it
+ *  yields: short enough for the socket's ping and a pinch to get through. */
+const REPLAY_YIELD_MS = 100
 
 /** (#493) Snapshot, then tail, then history backfill — the whole of how a
  *  `room_state` becomes pixels.
@@ -186,7 +194,23 @@ export async function restoreRoomState(
       if (restoredFromSnapshot && latestSnapshotSeq !== null && seq <= latestSnapshotSeq) continue
       applyOne(stranded)
     }
-    for (const op of tailOperations) applyOne(op)
+    // (#536, §17.49) In slices, yielding between them, behind the gate - see
+    // replayGate.ts on why it is not one piece any more, and why the gate.
+    deps.replayGate.begin()
+    engine?.setUnpaintedInBatch(undoneInBatch(tailOperations))
+    try {
+      let sliceStart = performance.now()
+      for (const op of tailOperations) {
+        applyOne(op)
+        if (performance.now() - sliceStart > REPLAY_YIELD_MS) {
+          await yieldToEventLoop()
+          sliceStart = performance.now()
+        }
+      }
+    } finally {
+      engine?.setUnpaintedInBatch(null)
+      deps.replayGate.end()
+    }
 
     if (failed > 0) {
       // (#480) The exception already went to Sentry, but not its consequence:

@@ -1046,3 +1046,44 @@ describe('water laid by someone else wets this paper too (#536)', () => {
     expect(doubled).toBeGreaterThan(6)
   })
 })
+
+describe('a history batch that undoes its own stroke (#536 §17.49)', () => {
+  const undoOf = (id: string, target: string) =>
+    ({ id, type: 'operation_undo' as const, userId: 'user-a', timestamp: 0, targetOpId: target })
+
+  it('logs the stroke without painting it, and needs no rebuild to take it out', () => {
+    const engine = setupLayer()
+    const a = makeStroke('user-a', 'L', wcStroke(), { tool: 'watercolor', strokeId: 'g1' })
+    const b = makeStroke('user-a', 'L', wcStroke(16, 40, 48, 40), { tool: 'watercolor', strokeId: 'g2' })
+    const rebuild = vi.spyOn(engine as unknown as { _rebuildLayer: (id: string) => void }, '_rebuildLayer')
+    engine.setUnpaintedInBatch(new Set([b.id]))
+    engine.appendOperation(a, 'remote')
+    engine.appendOperation(b, 'remote')
+    engine.appendOperation(undoOf('u1', b.id), 'remote')
+    engine.setUnpaintedInBatch(null)
+    expect(rebuild).not.toHaveBeenCalled()
+    expect(engine.getOperations().filter(o => o.type === 'stroke').map(o => o.id)).toEqual([a.id])
+  })
+
+  it('still rebuilds for a stroke painted before the batch (a reconnect\'s repeat)', () => {
+    const engine = setupLayer()
+    const b = makeStroke('user-a', 'L', wcStroke(), { tool: 'watercolor', strokeId: 'g2' })
+    engine.appendOperation(b, 'remote')
+    const rebuild = vi.spyOn(engine as unknown as { _rebuildLayer: (id: string) => void }, '_rebuildLayer')
+    // The batch names it, but the page never hands it over again (deduped).
+    engine.setUnpaintedInBatch(new Set([b.id]))
+    engine.appendOperation(undoOf('u1', b.id), 'remote')
+    engine.setUnpaintedInBatch(null)
+    expect(rebuild).toHaveBeenCalled()
+  })
+})
+
+describe('the settle field is sized by this settle alone (#536 §17.49)', () => {
+  it('does not hand a small settle the big field an earlier one left', () => {
+    const engine = setupLayer()
+    const e = engine as unknown as { _diffuseFieldFor: (w: number, h: number) => { w: number; h: number } }
+    expect(e._diffuseFieldFor(1500, 1500).w).toBe(1536)
+    const small = e._diffuseFieldFor(300, 200)
+    expect([small.w, small.h]).toEqual([512, 256])
+  })
+})

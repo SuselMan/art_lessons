@@ -290,6 +290,8 @@ modules:
       - apps/web/src/pages/Room/useWatercolorDevFlags.ts
       - apps/web/src/pages/Room/WatercolorPerfHud.tsx
       - apps/web/src/pages/Room/WatercolorDryButton.tsx
+      - apps/web/src/pages/Room/replayGate.ts
+      - apps/web/src/pages/Room/undoneInBatch.ts
     issues: [25, 493]
     notes:
       - >-

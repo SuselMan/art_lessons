@@ -1022,6 +1022,10 @@ export interface PencilEngineAPI {
    *  (appendOperation), which is how the button reaches everyone; calling it
    *  directly dries this client alone. */
   watercolorDryAll(): void
+  /** (#536, §17.49) Strokes of the history batch about to be appended that
+   *  the same batch leaves undone: logged as they arrive but not painted, and
+   *  their undo then needs no rebuild. `null` ends the batch. */
+  setUnpaintedInBatch(ids: ReadonlySet<string> | null): void
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
@@ -1394,6 +1398,37 @@ export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.1
 const CHECKPOINT_INTERVAL = 20
 /** (#536, §17.43) ...and every fifth while painting watercolour: see _maybeCheckpoint. */
 const CHECKPOINT_INTERVAL_WATERCOLOR = 5
+
+/** (#536) The settle's working textures - see PencilEngine._diffuseFieldFor. */
+type SettleField = {
+  w: number; h: number
+  a: AccumulationBuffer; b: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer
+  /** (#536, §17.19) The colour record's own trio, moved by the same gate. */
+  ca: AccumulationBuffer; cb: AccumulationBuffer; cc: AccumulationBuffer
+    mask: AccumulationBuffer; pressure: AccumulationBuffer
+    band: AccumulationBuffer
+}
+
+
+function destroyField(f: SettleField): void {
+  for (const b of [f.a, f.b, f.c, f.coverage, f.ca, f.cb, f.cc, f.mask, f.pressure, f.band]) b.destroy()
+}
+
+/** (#536, §17.49) Where a checkpoint's operations end in `ops`, or -1 when
+ *  they are not the log up to some point. An operation in `inSnapshot` may
+ *  stand between them (history backfilled in front of a checkpoint taken over
+ *  the snapshot that holds it) - see PencilEngine._bestCheckpoint. */
+export function checkpointPrefixEnd(
+  opIds: readonly string[], ops: readonly { id: string }[], inSnapshot: ReadonlySet<string> | null,
+): number {
+  let j = 0, end = 0
+  for (let i = 0; i < ops.length && j < opIds.length; i++) {
+    if (ops[i].id === opIds[j]) { j++; end = i + 1; continue }
+    if (inSnapshot?.has(ops[i].id)) continue
+    return -1
+  }
+  return j === opIds.length ? end : -1
+}
 const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 /** (#480) Сколько отказов _takeCheckpoint подряд по одному слою считаем не
  *  штатным «перо ещё внизу», а залипанием. Двадцать границ чекпойнта — это
@@ -2577,14 +2612,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  tiles stitched into a rect, so paint crosses tile seams as freely as any
    *  other texel. Four buffers of one size, grown to the largest wash seen and
    *  kept — see _diffuseField. */
-  private _diffuseField: {
-    w: number; h: number
-    a: AccumulationBuffer; b: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer
-    /** (#536, §17.19) The colour record's own trio, moved by the same gate. */
-    ca: AccumulationBuffer; cb: AccumulationBuffer; cc: AccumulationBuffer
-      mask: AccumulationBuffer; pressure: AccumulationBuffer
-      band: AccumulationBuffer
-  } | null = null
+  /** (§17.49) The settle's field: one entry, at exactly the size of the
+   *  settle that asked for it last - see _diffuseFieldFor. */
+  private _fieldCache: Array<SettleField> = []
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
   // Selection (#446) — the masked transform blit and the one-shader-two-blend-
@@ -3453,6 +3483,9 @@ export class PencilEngine implements PencilEngineAPI {
         else this._execDuplicateLive(op)
         break
       case 'stroke': {
+        // (#536, §17.49) Undone later in this same history batch: logged
+        // (above), not painted - see setUnpaintedInBatch.
+        if (this._unpaintedInBatch?.has(op.id)) { this._skippedInBatch.add(op.id); break }
         const buf = this._layers.get(op.layerId)
         // (#374) Already in the restored pixels. The server withholds these,
         // so arriving at all means the two disagreed — a snapshot landing
@@ -3642,7 +3675,10 @@ export class PencilEngine implements PencilEngineAPI {
       // applyRedo for the per-author guard.
       case 'operation_undo': {
         const target = this._log.applyUndo(op.targetOpId, op.userId)
-        if (target) this._applyHistoryChange(target)
+        // (§17.49) A target this batch never painted has nothing to take out.
+        // Only one it actually skipped: on a reconnect the tail can repeat a
+        // stroke this engine painted before the drop, and that one must go.
+        if (target && !this._skippedInBatch.has(target.id)) this._applyHistoryChange(target)
         break
       }
       case 'operation_redo': {
@@ -3861,7 +3897,6 @@ export class PencilEngine implements PencilEngineAPI {
     const span = p.batchAt.length > 1 ? Math.max(WINDOW, now - p.batchAt[0]) : WINDOW
     const MB = 1 / (1024 * 1024)
     const pool = this._ribbonScratchPool.bytes
-    const field = this._diffuseField
     let revealBytes = 0
     for (const r of this._washReveals.values()) revealBytes += r.before.width * r.before.height * 4 * 4 / 3
     return {
@@ -3870,7 +3905,7 @@ export class PencilEngine implements PencilEngineAPI {
       batchesPerSec: p.batchAt.length * 1000 / span, batchP50: pct(p.batchMs, 0.5), batchMax: pct(p.batchMs, 1),
       settleMs: p.settleMs, settleOps: p.settleOps,
       scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,
-      fieldMB: field ? field.w * field.h * 4 * 10 * MB : 0,
+      fieldMB: this._fieldCache.reduce((n, f) => n + f.w * f.h * 4 * 10, 0) * MB,
       revealMB: revealBytes * MB,
       wetCells: this._paperWet.peak(now) > 0.01 ? this._paperWet.countWet(this._activeId ?? '', now, 0.1) : 0,
     }
@@ -4960,8 +4995,9 @@ export class PencilEngine implements PencilEngineAPI {
     tiled?.suspendEviction()
     try {
       let start = 0
-      const cp = this._bestCheckpoint(layerId, ops)
-      if (cp) {
+      const best = this._bestCheckpoint(layerId, ops)
+      const cp = best?.cp
+      if (best && cp) {
         buf.clear()
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
@@ -4979,7 +5015,7 @@ export class PencilEngine implements PencilEngineAPI {
           // union (which would wrongly claim the whole tile as content).
           buf.restoreTileContent(rect, pixels)
         }
-        start = cp.opIds.length
+        start = best.start
       } else {
         buf.clear()
       }
@@ -5433,7 +5469,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._washReveals.clear() // same — and the pool they came from is forgotten below
     this._cancelSettle()
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
-    this._diffuseField = null
+    this._fieldCache = []
     this._previewBuf = null
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
@@ -5458,7 +5494,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperCacheKey = ''
     this._cancelSettle()
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
-    this._diffuseField = null // handles dead too
+    this._fieldCache = []
     this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeReplayChunks.clear()
     for (const { timer } of this._peerPreviews.values()) {
@@ -6004,13 +6040,34 @@ export class PencilEngine implements PencilEngineAPI {
   /** Deepest checkpoint whose baked operations are exactly the current done
    *  prefix of `ops` (compared by id — undone/redone/revoked ops shift the
    *  prefix and silently disqualify stale snapshots). */
-  private _bestCheckpoint(layerId: string, ops: PixelOperation[]): Checkpoint | null {
-    let best: Checkpoint | null = null
+  /** The checkpoint to rebuild `layerId` from, and the index in `ops` its
+   *  pixels reach to. A checkpoint is usable when its operations are exactly
+   *  what the log holds up to some point...
+   *
+   *  (#536, §17.49) ...not counting operations a restored SNAPSHOT of this
+   *  layer already holds. A room opens by replaying its tail over the
+   *  snapshot, and the history below the snapshot arrives afterwards (the
+   *  backfill) and goes into the log IN FRONT of the tail. Every checkpoint
+   *  taken before it - the one right after the tail, above all - then no
+   *  longer matched the log's prefix, so an undo fell back to the snapshot
+   *  and replayed the whole tail: 63 watercolour operations, each with its
+   *  whole settle, 50 s frozen on the tablet ("после undo зависла комната").
+   *  Those operations are in the checkpoint's pixels already (they are in
+   *  the snapshot it was built on), so they are stepped over, not required. */
+  private _bestCheckpoint(layerId: string, ops: PixelOperation[]): { cp: Checkpoint; start: number } | null {
+    let inSnapshot: Set<string> | null = null
+    for (const cp of this._checkpoints) {
+      if (cp.layerId !== layerId || !cp.fromSnapshot || !cp.covered) continue
+      inSnapshot ??= new Set()
+      for (const id of cp.covered) inSnapshot.add(id)
+    }
+    let best: { cp: Checkpoint; start: number } | null = null
     for (const cp of this._checkpoints) {
       if (cp.layerId !== layerId) continue
-      if (best && cp.opIds.length <= best.opIds.length) continue
+      if (best && cp.opIds.length <= best.cp.opIds.length) continue
       if (cp.opIds.length > ops.length) continue
-      if (cp.opIds.every((id, i) => ops[i].id === id)) best = cp
+      const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
+      if (start >= 0) best = { cp, start }
     }
     return best
   }
@@ -10200,7 +10257,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  over a settle field whose top-left is at world (x0, y0): src → dst. Shared by
    *  the settle's outward and inward passes and the group tide's inward one. */
   private _waterFrontStep(
-    field: NonNullable<PencilEngine['_diffuseField']>, x0: number, y0: number, dryCost: number,
+    field: SettleField, x0: number, y0: number, dryCost: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
     /** (§17.44) World px per field cell. */
     scale = 1,
@@ -11078,7 +11135,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  coverage (mode 19) - no backrun, no "earlier mark", the whole union one
    *  domain with the dome full throughout. */
   private _groupTideOps(
-    ops: Array<() => void>, field: NonNullable<PencilEngine['_diffuseField']>, x0: number, y0: number,
+    ops: Array<() => void>, field: SettleField, x0: number, y0: number,
     radiusPx: number, standing: number, paints: ReadonlySet<string>,
     dep: AccumulationBuffer, col: AccumulationBuffer | null, outDep: AccumulationBuffer, outCol: AccumulationBuffer,
     free: [AccumulationBuffer, AccumulationBuffer, AccumulationBuffer],
@@ -11176,6 +11233,11 @@ export class PencilEngine implements PencilEngineAPI {
       this._displayIfNotSuspended()
     }
     return dried
+  }
+
+  setUnpaintedInBatch(ids: ReadonlySet<string> | null): void {
+    this._unpaintedInBatch = ids && ids.size ? ids : null
+    if (!ids) this._skippedInBatch.clear()
   }
 
   watercolorDryAll(): void {
@@ -11305,6 +11367,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  of 1.07 s instead of 0.76 s - still inside the reveal. */
   private static readonly WET_SETTLE_OPS_PER_TICK = 1
   /** (§17.46) The adaptive settle tick's clock - see _tickSettle. */
+  /** (§17.49) See setUnpaintedInBatch. */
+  private _unpaintedInBatch: ReadonlySet<string> | null = null
+  private _skippedInBatch = new Set<string>()
   /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
   private _dryAtPenUp = false
   private _settleTickAt = 0
@@ -11392,12 +11457,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._fieldReleaseTimer = setTimeout(() => {
       this._fieldReleaseTimer = 0
       if (this._settle) return
-      const cur = this._diffuseField
-      if (!cur) return
-      cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
-      cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
-      cur.mask.destroy(); cur.pressure.destroy(); cur.band.destroy()
-      this._diffuseField = null
+      for (const f of this._fieldCache) destroyField(f)
+      this._fieldCache = []
     }, WET_FIELD_RELEASE_MS) as unknown as number
   }
 
@@ -11412,16 +11473,27 @@ export class PencilEngine implements PencilEngineAPI {
   /** The diffusion's stitched field, at least `w` × `h`, grown in steps of
    *  256 so a wash a few pixels larger than the last does not reallocate
    *  four textures. Kept for the engine's life; freed with the context. */
-  private _diffuseFieldFor(w: number, h: number): NonNullable<PencilEngine['_diffuseField']> {
+  private _diffuseFieldFor(w: number, h: number): SettleField {
+    // A settle still spread over frames works in the field it was handed:
+    // it lands first, before the field is cleared or replaced under it.
+    if (this._settle) this._completeSettle()
     const need = (n: number): number => Math.ceil(n / 256) * 256
-    const cur = this._diffuseField
-    if (cur && cur.w >= w && cur.h >= h) return cur
-    if (cur) {
-      cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
-      cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
-      cur.mask.destroy(); cur.pressure.destroy(); cur.band.destroy()
+    const W = need(w), H = need(h)
+    // (#536, ADR 011 §17.49) EXACTLY this settle's size, never a larger field
+    // left by an earlier one. The passes step by the texture's own texel and
+    // spread up to its edge, so the same operation settled differently in a
+    // fresh field (a load) and in a big used one (an undo's rebuild, the
+    // author's own session): on Ilya's H_mYrMTv an undo changed the whole
+    // sky. Same size and handed out clean, a settle depends on its own
+    // inputs alone. (Scissoring one big field to the settle's extent was
+    // tried and still differed - the dependence is not only at the edge.)
+    const cur = this._fieldCache[0]
+    if (cur && cur.w === W && cur.h === H) {
+      for (const b of [cur.a, cur.b, cur.c, cur.coverage, cur.ca, cur.cb, cur.cc, cur.mask, cur.pressure, cur.band]) b.clear()
+      return cur
     }
-    const W = Math.max(need(w), cur?.w ?? 0), H = Math.max(need(h), cur?.h ?? 0)
+    if (cur) destroyField(cur)
+    this._fieldCache = []
     const { gl } = this
     const field = {
       w: W, h: H,
@@ -11439,7 +11511,7 @@ export class PencilEngine implements PencilEngineAPI {
       pressure: new AccumulationBuffer(gl, W, H, 'linear'),
       band: new AccumulationBuffer(gl, W, H, 'nearest'),
     }
-    this._diffuseField = field
+    this._fieldCache.push(field)
     return field
   }
 

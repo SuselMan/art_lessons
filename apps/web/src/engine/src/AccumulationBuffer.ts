@@ -5,6 +5,9 @@ function isPowerOfTwo(n: number): boolean {
   return n > 0 && (n & (n - 1)) === 0
 }
 
+/** Contexts whose RGBA8 framebuffer completeness has been checked once. */
+const checkedContexts = new WeakSet<WebGLRenderingContext>()
+
 export class AccumulationBuffer {
   readonly gl: WebGLRenderingContext
   readonly width: number
@@ -55,8 +58,18 @@ export class AccumulationBuffer {
     const fbo = gl.createFramebuffer()!
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
-      throw new Error('Framebuffer incomplete')
+    // (#536, ADR 011 §17.49) Once per context, not per buffer: the status
+    // query is a pipeline sync - the CPU waits for every draw queued so far -
+    // and the watercolour now makes buffers mid-stroke (the settle field is
+    // sized to each settle), where a sync per texture was a dropped frame.
+    // The attachment is always this same RGBA/UNSIGNED_BYTE texture, which
+    // WebGL1 guarantees renderable; the first check still catches a context
+    // that breaks the promise.
+    if (!checkedContexts.has(gl)) {
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+        throw new Error('Framebuffer incomplete')
+      checkedContexts.add(gl)
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     return fbo
   }

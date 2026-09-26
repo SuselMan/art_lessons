@@ -154,6 +154,7 @@ import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/room
 import { notifyError, notifyWarning } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { WatercolorDryButton } from './WatercolorDryButton'
+import { createReplayGate } from './replayGate'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import {
   isPrimaryDrawingTool, PRIMARY_DRAWING_TOOLS,
@@ -481,6 +482,7 @@ function RoomEditor() {
   // (#429) Mirrored for the socket effect's live-stroke handler, which is
   // wired once per connection and must see the current value rather than
   // whatever it was when the listener was attached.
+  const replayGateRef = useRef(createReplayGate<{ seq: number; operation: Operation }>())
   const roomContentReadyRef = useRef(roomContentReady)
   roomContentReadyRef.current = roomContentReady
   useEffect(() => {
@@ -2739,7 +2741,7 @@ function RoomEditor() {
             key: 'replay-incomplete', durationMs: null,
           }),
           getSnapshotUploader: () => snapshotUploader,
-          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
+          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
         })
       })()
     } else if (!isCreator) {
@@ -4931,7 +4933,7 @@ function RoomEditor() {
         // Through the ref, and read when the bootstrap needs it: the uploader
         // is per board, and this effect does not re-run when the board does.
         getSnapshotUploader: () => snapshotUploaderRef.current,
-        latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
+        latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
       })
     }
 
@@ -4944,6 +4946,7 @@ function RoomEditor() {
     // from the envelope, not `operation.seq` (optional until stamped) —
     // simpler for logging/diagnostics, per the same spec.
     const handleOperationConfirmed = ({ seq, operation: op }: { seq: number; operation: Operation }) => {
+      if (replayGateRef.current.hold({ seq, operation: op })) return // §17.49, replayGate.ts
       // (#289 §12) A gap in this stream is impossible on an unbroken
       // connection (TCP never silently drops or reorders within one), so
       // seeing one means the connection was interrupted without this client
@@ -5326,6 +5329,7 @@ function RoomEditor() {
     socket.on('board_deleted',              handleBoardDeleted)
     socket.on('connect',                    handleConnect)
     socket.on('room_state',                 handleRoomState)
+    replayGateRef.current.setHandler(handleOperationConfirmed)
     socket.on('operation_confirmed',        handleOperationConfirmed)
     socket.on('peer_joined',                handlePeerJoined)
     socket.on('peer_left',                  handlePeerLeft)
