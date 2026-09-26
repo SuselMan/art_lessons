@@ -585,12 +585,21 @@ describe('a wash reaches every path that paints (#468)', () => {
     await paperReady(engine)
     simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
     expect(settleOf(engine)).toBeTruthy()
+    // (§17.46) A stroke that JOINS the wash no longer lands it at pen-down:
+    // the settle goes on under the new stroke's film and merges into it (the
+    // chunk settle's path, §17.44) - finishing it synchronously was a hitch at
+    // the pen's touch on every quick second stroke.
+    const first = settleOf(engine)
     simulateStrokeStart(engine, 40, 32)
-    expect(settleOf(engine)).toBeNull()
+    expect(settleOf(engine)).toBe(first)
     simulateStrokeMove(engine, 56, 32)
     simulateStrokeEnd(engine, 56, 32)
+    // Its own pen-up lands the one in flight before starting the next.
     expect(settleOf(engine)).toBeTruthy()
+    expect(settleOf(engine)).not.toBe(first)
     await vi.waitFor(() => expect(settleOf(engine)).toBeNull())
+    // Both strokes are in the wash's log, nothing was dropped on the way.
+    expect(engine.getOperations().filter(o => o.type === 'stroke').length).toBe(2)
     // A replay never spreads: it is building the dry target, unwatched.
     const other = wetEngine()
     await paperReady(other)

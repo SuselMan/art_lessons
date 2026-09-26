@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -95,7 +95,7 @@ import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -2494,6 +2494,19 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldOpProg!: WebGLProgram
   private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
   private _fieldOpPosLoc = -1
+  /** (#536, §17.46) The paper composite's own copy of the screen, so a frame
+   *  that changed only the brush's rect recomposes that rect alone. */
+  private _screenCache: AccumulationBuffer | null = null
+  private _screenBlitProg!: WebGLProgram
+  private _screenBlitTexLoc: WebGLUniformLocation | null = null
+  private _screenBlitPosLoc = -1
+  /** World rect the live stroke changed since the last frame, and whether
+   *  the next frame may recompose only it: set by the live batch path, and
+   *  cleared by every other reason to draw (_displayIfNotSuspended, a
+   *  camera move, a resize). */
+  private _paperDamage: { minX: number; minY: number; maxX: number; maxY: number } | null = null
+  private _paperPartialOK = false
+  private _paperCacheKey = ''
   /** (#536, §17.44) WC_RESAMPLE_FRAG - tile <-> half-resolution settle field. */
   private _resampleProg!: WebGLProgram
   private _resampleUni!: Record<string, WebGLUniformLocation | null>
@@ -3328,6 +3341,9 @@ export class PencilEngine implements PencilEngineAPI {
     // GPU profile showed the paper composite - the dearest pass there is,
     // 3.5 ms a call on a desktop - running twice per frame. Nothing that
     // calls this needs the pixels before the frame; export draws for itself.
+    // (§17.46) Anything that asks through here may have changed any pixel.
+    this._paperPartialOK = false
+    this._paperDamage = null
     if (this._displaySuspendDepth === 0) this._scheduleDisplay()
   }
 
@@ -5418,6 +5434,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonScratchPool.forget()
     this._washReveals.clear() // same reasoning — its pooled copies are dead with the pool
     this._revealPool = [] // (§17.44) dead GL objects too
+    this._screenCache = null // (§17.46) same
+    this._paperCacheKey = ''
     this._cancelSettle()
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     this._diffuseField = null // handles dead too
@@ -6030,6 +6048,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
+    this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
@@ -6167,6 +6186,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
     this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
+    this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
+    this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
@@ -6415,9 +6436,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._liveWetQueue = ''
     this._paperWet.dropPending()
     if (profile.normalizeDeposit) {
-      // (#536, §17.22) A settle still in flight lands first: its copy-back
-      // would otherwise overwrite whatever this stroke lays meanwhile.
-      if (this._settle) this._completeSettle()
       const now = performance.now()
       const open = this._wash
       // (#536) Joining is a physical question, not a bookkeeping one: did the
@@ -6449,6 +6467,13 @@ export class PencilEngine implements PencilEngineAPI {
         && open.signature === washSignature
         && now - open.endedAt <= WASH_JOIN_MS
         && (landedWet || washStillWet || now - open.endedAt <= WASH_RECENT_MS)
+      // (#536, §17.22) A settle still in flight lands first: its copy-back
+      // would otherwise overwrite whatever this stroke lays meanwhile.
+      // (§17.46) ...unless this stroke joins the same wash: a settle landing
+      // under a running film merges into it (the chunk settle's path), and
+      // finishing it here, synchronously, was a hitch of the settle's whole
+      // remaining length at the pen's touch on every quick second stroke.
+      if (this._settle && !(joins && open && this._settle.scratch === open.scratch)) this._completeSettle()
       if (joins && open) {
         this._washId = open.id
         this._ribbonStrokeScratch = open.scratch
@@ -9052,15 +9077,32 @@ export class PencilEngine implements PencilEngineAPI {
     const haloPast = (i: number): number =>
       profile.normalizeDeposit && wetAt(wetProfile, i) > 0
         ? WATERCOLOR_HALO_PAST_BLOOM * WATERCOLOR_SPREAD.cap : 0
+    // (§17.46) Two rects. The REACH (halo bound included) is what the gesture
+    // hands its settle as the window the wet-in-wet may move paint in - cut
+    // to the dabs, the settle's field ended at the brush's own footprint and
+    // left hard straight edges through the wash (replay of HcpkzwNX). The
+    // PAINT rect - tiles, film rebuild, live composite - only needs what is
+    // actually laid, and with the halo stamp off (WATERCOLOR_HALO_DRAWN) that
+    // is the dabs: the reach made a big brush in its own wet wash repaint and
+    // recomposite three to four times the area every frame, the tablet's one
+    // dropped frame in six.
+    let rMinX = Infinity, rMinY = Infinity, rMaxX = -Infinity, rMaxY = -Infinity
     for (const [i, d] of (prevDab ? [prevDab, ...drawable] : drawable).entries()) {
       const { hx, hy } = this._dabWorldHalfExtents(d, false, preset)
       const k = prevDab ? i - 1 : i
       const g = haloBound(k), past = haloPast(k)
-      minX = Math.min(minX, d.x - hx * g - past); maxX = Math.max(maxX, d.x + hx * g + past)
-      minY = Math.min(minY, d.y - hy * g - past); maxY = Math.max(maxY, d.y + hy * g + past)
+      rMinX = Math.min(rMinX, d.x - hx * g - past); rMaxX = Math.max(rMaxX, d.x + hx * g + past)
+      rMinY = Math.min(rMinY, d.y - hy * g - past); rMaxY = Math.max(rMaxY, d.y + hy * g + past)
+      const pg = WATERCOLOR_HALO_DRAWN ? g : 1, pp = WATERCOLOR_HALO_DRAWN ? past : 0
+      minX = Math.min(minX, d.x - hx * pg - pp); maxX = Math.max(maxX, d.x + hx * pg + pp)
+      minY = Math.min(minY, d.y - hy * pg - pp); maxY = Math.max(maxY, d.y + hy * pg + pp)
     }
     const bounds = { minX, minY, maxX, maxY }
-    const targets = target.resolveForPaint(bounds)
+    // The tiles over the REACH, as before: a tile the settle is to spread
+    // into needs its wash entry, and the paint rect alone left a drop across
+    // the bounded room's x=1024 seam unable to run into the next tile. Per
+    // tile, the film rebuild and composite are cut to the paint rect.
+    const targets = target.resolveForPaint({ minX: rMinX, minY: rMinY, maxX: rMaxX, maxY: rMaxY })
     if (!targets.length) return
 
     // (#468 v2/v4, ADR 011 §3.5) The stroke's typical radius decides how far its
@@ -9249,6 +9291,10 @@ export class PencilEngine implements PencilEngineAPI {
         maxX: bounds.maxX + compositePad, maxY: bounds.maxY + compositePad,
       }
       : bounds
+    const reachBounds = {
+      minX: rMinX - compositePad, minY: rMinY - compositePad,
+      maxX: rMaxX + compositePad, maxY: rMaxY + compositePad,
+    }
 
     // (#468 v3, ADR 011 §3.8) Every dab's ink deposit, resolved once for the
     // batch — *before* the tile loop, because the depletion clock must advance
@@ -9669,6 +9715,7 @@ export class PencilEngine implements PencilEngineAPI {
           pending.bounds.maxY = Math.max(pending.bounds.maxY, compositeBounds.maxY)
         } else {
           scratch.pendingComposite.set(tile.buffer, { tile, bounds: { ...compositeBounds } })
+          this._markPaperDamage(compositeBounds)
         }
         this._liveComposite = {
           scratch, preset, profile, color, opacity: drawable[0].opacity, fieldSeed, spreadPx, fringeWater, migratePx,
@@ -9687,7 +9734,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     scratch.noteFinish({
       target, preset, profile, color, opacity: drawable[0].opacity,
-      bounds: compositeBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius, dwellMs: scratch.dwellMs,
+      bounds: reachBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius, dwellMs: scratch.dwellMs,
     })
 
     target.markContentPainted(compositeBounds)
@@ -11211,8 +11258,14 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.22) How many of a settle's GPU steps run per animation frame
    *  when it is spread out. Two: a step is one full-field pass, ~8 ms for a
    *  400 px brush on a desktop GPU, and the whole list is 15–27 entries, so
-   *  the settle lands within the first quarter of the reveal. */
-  private static readonly WET_SETTLE_OPS_PER_TICK = 2
+   *  the settle lands within the first quarter of the reveal.
+   *  (§17.46) One: on the tablet two entries a frame made four to six frames
+   *  of 50-67 ms after every big stroke's pen-up, one made none, for a settle
+   *  of 1.07 s instead of 0.76 s - still inside the reveal. */
+  private static readonly WET_SETTLE_OPS_PER_TICK = 1
+  /** (§17.46) The adaptive settle tick's clock - see _tickSettle. */
+  private _settleTickAt = 0
+  private _settleSkipped = 0
 
   /** Begins running `ops` a few per frame, then `complete`. Drains a settle
    *  already in flight first: both use the one _diffuseField. */
@@ -11247,6 +11300,19 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.44) One entry a frame while the pen is still down (a chunk's
     // settle under a running gesture): the frame also has the brush's own
     // batches to draw, and two entries made the tablet's P95 frame 110-150 ms.
+    // (§17.46) ...and only in a frame that follows an on-time one: a wet-on-
+    // wet chunk's entries (the puddle's coarse diffusion, the re-mobilisation)
+    // on top of the brush's own work dropped a frame in eight on the tablet.
+    // Never more than three frames without one, or the settle stalls.
+    const nowT = performance.now()
+    const late = this._settleTickAt > 0 && nowT - this._settleTickAt > 20
+    this._settleTickAt = nowT
+    if (this._strokeLayerId && late && this._settleSkipped < 3) {
+      this._settleSkipped++
+      this._scheduleSettleTick()
+      return
+    }
+    this._settleSkipped = 0
     const perTick = this._strokeLayerId ? 1 : PencilEngine.WET_SETTLE_OPS_PER_TICK
     const end = Math.min(s.ops.length, s.next + perTick)
     for (; s.next < end; s.next++) s.ops[s.next]()
@@ -11437,7 +11503,7 @@ export class PencilEngine implements PencilEngineAPI {
           // them to the pool made it destroy the overflow and remake it on
           // the next gesture - a GPU-stalling FBO check per buffer.
           if (scratch !== this._wash?.scratch) scratch.releaseFilm(settledGesture)
-          if (reveal) {
+          if (reveal && fade) {
             // The settle lands now, so the reveal eases in from now — not
             // from the pen-up a few frames ago, which would show a slice of
             // the change at once.
@@ -12417,7 +12483,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  leaves populated, so _composeToFBO now owns the single call to
    *  _finishInfiniteComposite once everything (real content + previews) is
    *  in place. */
-  private _runComposite(items: CompositeItem[]): void {
+  private _runComposite(items: CompositeItem[], partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null): void {
     const viewRect = this._visibleWorldRect()
     const buildFbo = this._assemblyFBO.fbo
     const targetW  = this._assemblyFBO.width
@@ -12426,12 +12492,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeCenterX = this.canvas.width / 2 + padX
     this._compositeCenterY = this.canvas.height / 2 + padY
     this._compositeScale = this._infiniteCompositeScale()
-    this._assemblyFBO.clear()
-
-    if (this._transformPreview.size > 0) {
-      for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, buildFbo, viewRect, targetW, targetH)
-      return
-    }
 
     const idx = this._activeId !== null ? items.findIndex(it => it.id === this._activeId) : -1
     // idx === -1 (no active layer, or it's not currently composited — e.g.
@@ -12442,8 +12502,32 @@ export class PencilEngine implements PencilEngineAPI {
     const belowItems  = idx === -1 ? items : items.slice(0, idx)
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
+    // (§17.46) The split caches are rebuilt (in full) before any scissor.
+    if (this._transformPreview.size === 0) this._rebuildSplitCacheIfDirty(belowItems, aboveItems, viewRect, targetW, targetH)
+    // (§17.46) A frame whose only change is the live stroke reassembles only
+    // its rect (unrotated camera: the assembly is then the screen, padded):
+    // clearing and redrawing the whole assembly - the caches and every
+    // resident tile of the active layer - was the second-dearest thing in a
+    // big stroke's frame on the tablet.
+    let scissored = false
+    if (partialWorld && this._infiniteCamera.angle === 0 && this._transformPreview.size === 0) {
+      const pad = 8
+      const x0 = Math.max(0, this._worldToScreenEdgeX(partialWorld.minX) - pad)
+      const x1 = Math.min(targetW, this._worldToScreenEdgeX(partialWorld.maxX) + pad)
+      const top = Math.max(0, this._worldToScreenEdgeY(partialWorld.minY) - pad)
+      const bottom = Math.min(targetH, this._worldToScreenEdgeY(partialWorld.maxY) + pad)
+      if (x1 > x0 && bottom > top) {
+        this.gl.enable(this.gl.SCISSOR_TEST)
+        this.gl.scissor(x0, targetH - bottom, x1 - x0, bottom - top)
+        scissored = true
+      }
+    }
+    this._assemblyFBO.clear()
 
-    this._rebuildSplitCacheIfDirty(belowItems, aboveItems, viewRect, targetW, targetH)
+    if (this._transformPreview.size > 0) {
+      for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, buildFbo, viewRect, targetW, targetH)
+      return
+    }
 
     if (belowItems.length) {
       this._compositeTextures([{ texture: this._belowCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
@@ -12454,6 +12538,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (aboveItems.length) {
       this._compositeTextures([{ texture: this._aboveCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
     }
+    if (scissored) this.gl.disable(this.gl.SCISSOR_TEST)
   }
 
   /** (#134) The one place camera rotation actually applies for infinite
@@ -12709,7 +12794,11 @@ export class PencilEngine implements PencilEngineAPI {
       // timer's own 250 ms tick can deliver anyway — past this the tick is the
       // limit, not the quantisation.
       const step = Math.round(peak * 128)
-      if (step !== this._wetShown) {
+      // (§17.46) Not while the pen is down: the brush's own frames redraw
+      // what it touches, and a full repaint for the sheen fading elsewhere
+      // cost a frame every quarter second of a big stroke on the tablet.
+      // The step is left unrecorded, so the first tick after pen-up draws it.
+      if (step !== this._wetShown && !this._strokeLayerId) {
         this._wetShown = step
         this._wetTexAt = 0 // the field decayed although nothing was drawn
         this._displayIfNotSuspended()
@@ -12801,12 +12890,64 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
   }
 
-  private _composePaperToScreen(): void {
+  /** (#536, §17.46) Adds a world rect to what the next frame must recompose. */
+  private _markPaperDamage(b: { minX: number; minY: number; maxX: number; maxY: number }): void {
+    const d = this._paperDamage
+    if (!d) { this._paperDamage = { ...b }; this._paperPartialOK = true; return }
+    d.minX = Math.min(d.minX, b.minX); d.minY = Math.min(d.minY, b.minY)
+    d.maxX = Math.max(d.maxX, b.maxX); d.maxY = Math.max(d.maxY, b.maxY)
+  }
+
+  /** (#536, §17.46) The screen rect (GL, bottom-up) a world rect covers, padded. */
+  private _damageScreenRect(b: { minX: number; minY: number; maxX: number; maxY: number }): [number, number, number, number] | null {
+    const { canvas } = this
+    const m = invertMatrix(this._screenToWorldMatrix())
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    for (const [wx, wy] of [[b.minX, b.minY], [b.maxX, b.minY], [b.minX, b.maxY], [b.maxX, b.maxY]] as const) {
+      const [sx, sy] = applyMatrix(m, wx, wy)
+      x0 = Math.min(x0, sx); y0 = Math.min(y0, sy); x1 = Math.max(x1, sx); y1 = Math.max(y1, sy)
+    }
+    const pad = 6
+    const gx0 = Math.max(0, Math.floor(x0) - pad), gx1 = Math.min(canvas.width, Math.ceil(x1) + pad)
+    const top = Math.max(0, Math.floor(y0) - pad), bottom = Math.min(canvas.height, Math.ceil(y1) + pad)
+    if (gx1 <= gx0 || bottom <= top) return null
+    return [gx0, canvas.height - bottom, gx1 - gx0, bottom - top]
+  }
+
+  /** (§17.46) Whether this frame may recompose only the live stroke's rect,
+   *  and which: the world rect when the only change since the last frame is
+   *  the stroke's (and the camera and canvas are where they were), else null.
+   *  Consumes the damage either way, and keeps the screen cache sized. */
+  private _takePaperPartial(): { minX: number; minY: number; maxX: number; maxY: number } | null {
+    const { gl, canvas } = this
+    if (!this._screenCache || this._screenCache.width !== canvas.width || this._screenCache.height !== canvas.height) {
+      this._screenCache?.destroy()
+      this._screenCache = new AccumulationBuffer(gl, canvas.width, canvas.height, 'nearest')
+      this._paperCacheKey = ''
+    }
+    const cam = this._infiniteCamera
+    const key = `${cam.wx},${cam.wy},${cam.zoom},${cam.angle},${canvas.width},${canvas.height}`
+    const partial = this._paperPartialOK && this._paperDamage && key === this._paperCacheKey ? this._paperDamage : null
+    this._paperPartialOK = false
+    this._paperDamage = null
+    this._paperCacheKey = key
+    return partial
+  }
+
+  private _composePaperToScreen(partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null): void {
     const { gl, canvas } = this
     const ext = this._assemblyFBO.width // square: width === height
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    gl.viewport(0, 0, canvas.width, canvas.height)
+    // (#536, §17.46) Composed into the screen cache, and then copied to the
+    // canvas. A frame whose only change is the live stroke's rect (and the
+    // camera is where it was) recomposes that rect alone: the paper pass is
+    // the dearest in the frame, and on the tablet paper + the live
+    // composite together overran the frame budget on every third frame of
+    // a big stroke, while either alone fitted.
+    if (!this._screenCache) this._takePaperPartial()
+    const partial = partialWorld ? this._damageScreenRect(partialWorld) : null
+    this._screenCache!.beginReplaceDraw()
+    if (partial) { gl.enable(gl.SCISSOR_TEST); gl.scissor(partial[0], partial[1], partial[2], partial[3]) }
     gl.disable(gl.BLEND)
     gl.useProgram(this._paperComposeProg)
     const u = this._paperComposeUni
@@ -12854,6 +12995,20 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     this._releasePaperFromCompose()
+    if (partial) gl.disable(gl.SCISSOR_TEST)
+    this._screenCache!.endDraw()
+    // The copy to the canvas.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.viewport(0, 0, canvas.width, canvas.height)
+    gl.disable(gl.BLEND)
+    gl.useProgram(this._screenBlitProg)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, this._screenCache!.texture)
+    gl.uniform1i(this._screenBlitTexLoc, 0)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._screenBlitPosLoc)
+    gl.vertexAttribPointer(this._screenBlitPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
   }
 
   /** Low-level transform-blit draw call — renders `source` through
@@ -13852,7 +14007,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  _runComposite above just populated, *before* _finishInfiniteComposite's
    *  single rotate blit at the bottom applies the camera's actual rotation
    *  to everything (real content and previews alike) at once. */
-  private _composeToFBO(needCompositeFBO = true): void {
+  private _composeToFBO(needCompositeFBO = true, partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null): void {
     const { gl, canvas } = this
     const w = canvas.width, h = canvas.height
     // (#301) An infinite room's on-screen path never reads _compositeFBO —
@@ -13880,7 +14035,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     // (#557) The on-screen composite is the one place the display filter
     // applies; _buildContentComposite (export) walks _compositeOrder itself.
-    this._runComposite(this._displayOrder())
+    this._runComposite(this._displayOrder(), needCompositeFBO ? null : partialWorld)
 
     const buildFbo = this._assemblyFBO.fbo
     const buildW   = this._assemblyFBO.width
@@ -13970,11 +14125,13 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536, §17.22) The live watercolor gesture's composite, once per frame.
     this._flushLiveComposite()
     if (this._washReveals.size) this._sweepReveals(perfT0)
-    this._composeToFBO(false)
+    // (§17.46) One decision per frame: the live stroke's rect alone, or all.
+    const partialWorld = this._takePaperPartial()
+    this._composeToFBO(false, partialWorld)
     // _composePaperToScreen manages its own framebuffer/viewport/blend state,
     // mirroring _runComposite/_finishInfiniteComposite's division of labor, so
     // nothing needs setting up here first.
-    this._composePaperToScreen()
+    this._composePaperToScreen(partialWorld)
     this._wcPerf.frameAt.push(perfT0)
     this._wcPerf.frameMs.push(performance.now() - perfT0)
     if (this._wcPerf.frameAt.length > 600) { this._wcPerf.frameAt.splice(0, 300); this._wcPerf.frameMs.splice(0, 300) }
@@ -13986,6 +14143,11 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._washReveals.size && !this._revealTimer) {
       this._revealTimer = setTimeout(() => {
         this._revealTimer = 0
+        // (§17.46) While the pen is down the reveal of an earlier mark keeps
+        // its clock but not its frames: thirty full repaints a second on top
+        // of the brush's own. It is drawn wherever the brush draws, and in
+        // full again from the first frame after pen-up.
+        if (this._strokeLayerId) { this._revealTimer = setTimeout(() => { this._revealTimer = 0; this._displayIfNotSuspended() }, 33) as unknown as number; return }
         this._displayIfNotSuspended()
       }, 33) as unknown as number
     }

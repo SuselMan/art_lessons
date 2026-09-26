@@ -1080,7 +1080,7 @@ export const WC_REMOB_DOME = 0.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r20 (§17.45)'
+export const WATERCOLOR_ROUND = 'акварель r21 (§17.46)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */
@@ -1324,6 +1324,14 @@ const WATERCOLOR_HALO_GROWTH = 0.9
 // (s17.29) existed to move the paint for real. With those two doing the
 // spreading it only added a second, cruder edge; off, kept for an A/B.
 const WATERCOLOR_HALO_SHED = 0
+
+/** (§17.46) Whether the halo stamp is laid at all. Its BOUND - the dab grown
+ *  by up to 1.9x plus three bloom reaches on wet paper - sized every batch's
+ *  tiles, film rebuild and composite rect even with the stamp off, so a big
+ *  brush crossing its own wet wash repainted and recomposited three to four
+ *  times the area it touched, every frame: the tablet dropped one frame in
+ *  six into a wet wash against one in thirty on dry paper. */
+export const WATERCOLOR_HALO_DRAWN = WATERCOLOR_HALO_SHED > 0
 
 /** A nearly dry brush still bleeds into standing water — plainly, in Ilya's
  *  words, only much less than a wet one. The floor on the brush's own share of

@@ -2947,6 +2947,14 @@ export const DISPLAY_VERT = `
   }
 `;
 
+/** (#536, §17.46) The screen cache onto the canvas, texel for texel. */
+export const SCREEN_BLIT_FRAG = `
+  precision mediump float;
+  uniform sampler2D u_tex;
+  varying vec2 v_uv;
+  void main() { gl_FragColor = texture2D(u_tex, v_uv); }
+`;
+
 // Composites one layer onto the composite FBO with opacity.
 // Blend mode: ONE, ONE_MINUS_SRC_ALPHA  →  Porter-Duff "over"
 // Passes the layer's own premultiplied color through (scaled by opacity)
