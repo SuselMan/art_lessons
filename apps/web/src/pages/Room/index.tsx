@@ -10,7 +10,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents,
   BoardSummary, ClassVisibility,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, type ToggleableTool } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS } from '@grafetto/shared'
 import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
@@ -37,7 +37,7 @@ import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '..
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { diagLog } from '../../lib/diagLog'
 import { formatHotkeyLabel } from '../../lib/hotkeys'
-import { createBoard, deleteBoard, forkRoom, renameBoard, reorderBoard, setRoomClosed } from '../../lib/api'
+import { createBoard, deleteBoard, renameBoard, reorderBoard } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { BANNED_ERROR_CODE, noteBanned } from '../../lib/banned'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -68,6 +68,7 @@ import { useOpenTimer } from './useOpenTimer'
 import { useLeaveGuard } from './useLeaveGuard'
 import { useToolSync } from './useToolSync'
 import { useToolColor } from './useToolColor'
+import { useLessonActions } from './useLessonActions'
 import { useLogDerivedState } from './useLogDerivedState'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
@@ -244,7 +245,7 @@ function RoomEditor() {
   // (#310) In-app replacements for the window.confirm/window.alert this
   // editor used to reach for. `alert` is renamed on the way in so a reader
   // can't mistake it for the global it replaces.
-  const { confirm, alert: showAlert } = useConfirmDialog()
+  const { confirm } = useConfirmDialog()
 
   // (#24) The store is a module-level singleton — reset it before anything
   // below reads a selector, so a genuine unmount+remount (e.g. via an
@@ -2243,64 +2244,12 @@ function RoomEditor() {
   // layout and the panel's position part company on that.
   const floatingPanelLayout = useSettingsStore(s => s.floatingPanelLayout)
   const setFloatingPanelLayout = useSettingsStore(s => s.setFloatingPanelLayout)
-  // (#254/#256/#259) Optimistic-free, same as palette add/remove above — the
-  // server is the only writer of `roomFrozen` (via room_frozen_changed);
-  // this just requests the change. socketHandlers.ts rejects the request
-  // outright for a non-owner, so wiring the button to always be callable
-  // here is safe (the header button itself is also only rendered for the
-  // owner — see the render section below — this stays defensive either way).
-  const toggleRoomFrozen = useCallback(() => {
-    socketRef.current?.emit('set_room_frozen', !useRoomStore.getState().roomFrozen)
-  }, [])
-  // (#548) Same shape as the freeze toggle above and for the same reason: the
-  // server is the only writer, and it broadcasts the result back to everyone
-  // (`room_tools_changed`) including this tab. So nothing is patched locally
-  // here — an optimistic update would only be a second opinion about a value
-  // the server sanitizes anyway.
-  const setRoomTools = useCallback((next: ToggleableTool[] | undefined) => {
-    socketRef.current?.emit('set_room_tools', next)
-  }, [])
-  // (#222) Reopening from inside the room. Unlike the freeze toggles around
-  // it this goes over REST, because closing is persisted and the same call
-  // has to work from the lesson list where there is no socket for the room
-  // (see roomRoutes.ts). The store is patched from the answer rather than
-  // waiting for the server's own `room_closed_changed` broadcast to come
-  // back: the broadcast is what tells *everyone else*, and relying on it
-  // here would leave the person who pressed the button looking at a room
-  // that is still closed if their socket happens to be down.
-  const [closedBusy, setClosedBusy] = useState(false)
-  const reopenRoom = useCallback(async () => {
-    if (!lessonId) return
-    setClosedBusy(true)
-    try {
-      const updated = await setRoomClosed(lessonId, false)
-      useRoomStore.getState().setRoomClosedAt(updated.closedAt ?? null)
-    } catch {
-      void showAlert({ message: t('room.error.reopen') })
-    } finally {
-      setClosedBusy(false)
-    }
-  }, [lessonId, showAlert, t])
-  // (#222/#317) The student half: a closed lesson is homework, and this is
-  // how it gets taken. Navigates *into* the copy — the opposite of the same
-  // action in the lesson list (#317), and for the opposite reason: there the
-  // point is to hand copies out, here the point is to start working.
-  const takeRoomCopy = useCallback(async () => {
-    if (!id) return
-    setClosedBusy(true)
-    try {
-      const { room: copy } = await forkRoom(id, { name: t('lessons.forkedName', { name: config?.name ?? '' }), scope: 'board' })
-      navigate(`/room/${copy.id}`)
-    } catch {
-      void showAlert({ message: t('room.error.takeCopy') })
-      setClosedBusy(false)
-    }
-  }, [id, navigate, config?.name, showAlert, t])
-  // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
-  // one participant — passed to ParticipantsPanel's onToggleFreeze.
-  const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
-    socketRef.current?.emit('set_participant_frozen', { userId, frozen })
-  }, [])
+  // (#493) The owner's live switches and the two ways out of a closed lesson
+  // — see useLessonActions.
+  const {
+    toggleRoomFrozen, setRoomTools, closedBusy, reopenRoom, takeRoomCopy, toggleParticipantFrozen,
+  } = useLessonActions({ socketRef, roomId: id, lessonId })
+
   // Persist last-used settings per room (#156/#196) — mirrors the pattern
   // above (derived state -> engine), just targeting storage instead.
   useEffect(() => {
