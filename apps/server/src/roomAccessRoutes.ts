@@ -3,7 +3,8 @@ import type { RoomAccessInfo, RoomAccessMode } from '@grafetto/shared'
 import { isRoomAccessMode } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
-import { hashRoomPassword, setRoomAccessMode, setRoomPassword } from './rooms.js'
+import { hashRoomPassword } from './rooms.js'
+import { setRoomAccessMode, setRoomPassword } from './ownerControls.js'
 import { isLesson } from './lessons.js'
 
 /** Access control's own endpoints (#226, release track #314 §6) — the surface

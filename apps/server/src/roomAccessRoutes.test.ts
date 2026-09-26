@@ -25,6 +25,7 @@ const mockRooms = vi.hoisted(() => ({
   setRoomPassword: vi.fn(),
 }))
 vi.mock('./rooms.js', () => mockRooms)
+vi.mock('./ownerControls.js', () => mockRooms)
 
 const OWNER = 'teacher'
 const ROOM = { id: 'room-1', ownerId: OWNER, accessMode: 'anyone_with_link' as const, passwordHash: null }

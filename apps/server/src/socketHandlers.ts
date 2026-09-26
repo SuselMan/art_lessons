@@ -4,13 +4,20 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 import { isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
-  abortAssignmentStart, addPaletteColor, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, createRoom,
-  ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getClassroom, getLessonStateFor,
-  getOperationRejectReason, getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
-  leaveRoom, noteAssignmentStarted, noteBoardCreated, personalBoardIn, recordOperation, releaseLockOnUndo,
-  releaseRoomIfUnused, removePaletteColor, setActiveBoard, setClassLocation, setClassVisibility, setHandRaised, setLayerLocked,
-  setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, setRoomTools, setSpotlight, updateAliveIds,
+  abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
+  noteAssignmentStarted, noteBoardCreated, personalBoardIn, setActiveBoard, setClassLocation, setClassVisibility,
+  setHandRaised, setSpotlight,
+} from './classroom.js'
+import {
+  addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
+  leaveRoom, releaseRoomIfUnused, removePaletteColor,
 } from './rooms.js'
+import { getRoomBacklog } from './roomStats.js'
+import { findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
+import { ensureRoomLoaded } from './roomLoader.js'
+import {
+  releaseLockOnUndo, setLayerLocked, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, setRoomTools,
+} from './ownerControls.js'
 import { createAssignment, createPersonalBoard } from './classMode.js'
 import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'

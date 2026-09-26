@@ -1135,10 +1135,35 @@ modules:
     owns: >-
       Сердце сервера: комнаты в памяти, подкреплённые Postgres, ретрансляция операций всем
       участникам, живые штрихи и курсоры, undo/redo, заморозка. Сервер никогда не рендерит —
-      он пересылает операции.
+      он пересылает операции. rooms.ts разбирается по доменам (#612). Внизу реестр
+      (roomRegistry.ts): запись комнаты, Map, правило урок/доска, очередь записи в Postgres;
+      над ним — какие строки комната пишет по ходу (roomPersistence.ts).
+      Поверх него отдельно: структурный лог, проверка операций, правило покрытия снапшотом
+      (snapshotCoverage.ts), хранилище снапшотов (snapshotStore.ts), рычаги владельца —
+      заморозка, инструменты, закрытие, доступ, блокировки слоёв (ownerControls.ts) — и живой
+      класс: доски, задания, подсветка, руки (classroom.ts). Холодная загрузка из Postgres —
+      roomLoader.ts; журнал операций — operationLog.ts; взгляды для здоровья, сторожа и админки — roomStats.ts.
+      В rooms.ts остаются создание, вход и
+      выход, выселение и room_state.
     files:
       - apps/server/src/rooms.ts
       - apps/server/src/rooms.test.ts
+      - apps/server/src/roomRegistry.ts
+      - apps/server/src/roomRegistry.test.ts
+      - apps/server/src/roomPersistence.ts
+      - apps/server/src/roomPersistence.test.ts
+      - apps/server/src/roomLoader.ts
+      - apps/server/src/roomLoader.test.ts
+      - apps/server/src/roomStats.ts
+      - apps/server/src/structuralLog.ts
+      - apps/server/src/structuralLog.test.ts
+      - apps/server/src/operationGate.ts
+      - apps/server/src/operationGate.test.ts
+      - apps/server/src/operationLog.ts
+      - apps/server/src/snapshotCoverage.ts
+      - apps/server/src/snapshotCoverage.test.ts
+      - apps/server/src/snapshotStore.ts
+      - apps/server/src/ownerControls.ts
       - apps/server/src/roomSnapshots.test.ts
       - apps/server/src/socketHandlers.ts
       - apps/server/src/socketHandlers.test.ts
@@ -1146,6 +1171,7 @@ modules:
       - apps/server/src/boards.test.ts
       - apps/server/src/classMode.ts
       - apps/server/src/classMode.test.ts
+      - apps/server/src/classroom.ts
     adr: [002-collaborative-undo, 014-boards, 015-class-mode]
     notes:
       - >-
