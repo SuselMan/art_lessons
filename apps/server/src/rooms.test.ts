@@ -11,12 +11,13 @@ import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation,
   flushAllRoomWrites, pendingWriteCount,
   getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot,
-  isCoveredBySnapshot, isLayerLocked, isLayerOwnerLocked,
+  isLayerLocked, isLayerOwnerLocked,
   isOperationAllowed, isRoomClosed, isRoomFrozen, isRoomResident, joinRoom,
-  leaveRoom, recordOperation, releaseLockOnUndo, releaseRoomIfUnused, RESIDENT_OP_TYPES,
+  leaveRoom, recordOperation, releaseLockOnUndo, releaseRoomIfUnused,
   setLayerLocked, setLayerOwnerLocked, setParticipantFrozen,
   setRoomClosed, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
+import { isCoveredBySnapshot, RESIDENT_OP_TYPES } from './snapshotCoverage.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
 // reset hook, so isolation comes from never reusing a room id across tests.

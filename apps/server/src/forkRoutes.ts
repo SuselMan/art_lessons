@@ -6,7 +6,8 @@ import { forkSeedUserId, type Operation } from '@grafetto/shared'
 import { prisma } from './prisma.js'
 import { canSeeBoard, isLesson, lessonOf } from './lessons.js'
 import { toWireRoom } from './roomMapper.js'
-import { flushRoomWrites, residentOperationWhere } from './rooms.js'
+import { flushRoomWrites } from './rooms.js'
+import { residentOperationWhere } from './snapshotCoverage.js'
 
 /** Forking a room (#317) — the mechanism the homework model runs on (release
  *  track #314 §4: a lesson is closed for editing, and each student works in
