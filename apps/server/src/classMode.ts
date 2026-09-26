@@ -4,7 +4,8 @@ import type { AssignmentSummary, BoardSummary } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
 import { inheritedBoardFields } from './lessons.js'
-import { flushRoomWrites, toAssignmentSummary } from './rooms.js'
+import { flushRoomWrites } from './rooms.js'
+import { toAssignmentSummary } from './roomLoader.js'
 
 /** (#595, ADR 015 §4) The rows class mode creates: an assignment round and
  *  the personal boards in it. The in-memory side (rooms.ts's class-mode

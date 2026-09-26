@@ -31,7 +31,8 @@ import { readFileSync } from 'node:fs'
 import v8 from 'node:v8'
 
 import { prisma } from '../prisma.js'
-import { ensureRoomLoaded, getResidentRoomStats } from '../rooms.js'
+import { getResidentRoomStats } from '../rooms.js'
+import { ensureRoomLoaded } from '../roomLoader.js'
 
 const MB = 1024 * 1024
 const OWNER_ID = 'measure-owner'

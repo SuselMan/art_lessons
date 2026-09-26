@@ -22,7 +22,8 @@ const mockPrisma = vi.hoisted(() => ({
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
-const { _flushPendingWrites, createRoom, ensureRoomLoaded } = await import('./rooms.js')
+const { _flushPendingWrites, createRoom } = await import('./rooms.js')
+const { ensureRoomLoaded } = await import('./roomLoader.js')
 const { setRoomAccessMode } = await import('./ownerControls.js')
 
 let nextRoomId = 0
