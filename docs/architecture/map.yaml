@@ -299,6 +299,7 @@ modules:
       - apps/web/src/pages/Room/useLeaveGuard.ts
       - apps/web/src/pages/Room/useToolSync.ts
       - apps/web/src/pages/Room/useLogDerivedState.ts
+      - apps/web/src/pages/Room/useLayerPanelBridge.ts
     issues: [25, 493]
     notes:
       - >-
