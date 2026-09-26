@@ -572,6 +572,7 @@ export class DabSystem {
   // Returns dabs for the segment one step behind the current point.
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
   continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0): Dab[] {
+    if (Date.now() > 0) return [] // #616 canary: deliberately broken, never merge
     this._speed = speed
     // #454: every admitted sample's pressure passes the low-pass first,
     // including the one that only refreshes the last control point below —
