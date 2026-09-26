@@ -284,10 +284,21 @@ modules:
       - apps/web/src/pages/Room/useDrawingActivity.ts
       - apps/web/src/pages/Room/restoreRoomState.ts
       - apps/web/src/pages/Room/engineWiring.ts
+      - apps/web/src/pages/Room/engineNetwork.ts
       - apps/web/src/pages/Room/useTransformSession.ts
       - apps/web/src/pages/Room/useAnnotations.tsx
       - apps/web/src/pages/Room/useSelection.ts
       - apps/web/src/pages/Room/useOperationDispatch.ts
+      - apps/web/src/pages/Room/useTransformGizmoGestures.ts
+      - apps/web/src/pages/Room/useRulerTool.ts
+      - apps/web/src/pages/Room/useFillTool.ts
+      - apps/web/src/pages/Room/useEyedropper.ts
+      - apps/web/src/pages/Room/useJoinGate.ts
+      - apps/web/src/pages/Room/usePaperReadiness.ts
+      - apps/web/src/pages/Room/useOpenTimer.ts
+      - apps/web/src/pages/Room/useLeaveGuard.ts
+      - apps/web/src/pages/Room/useToolSync.ts
+      - apps/web/src/pages/Room/useLogDerivedState.ts
       - apps/web/src/pages/Room/useLayerPanelBridge.ts
     issues: [25, 493]
     notes:
@@ -365,14 +376,21 @@ modules:
     title: Панели комнаты
     layer: editor-ui
     owns: >-
-      Список участников с управлением доступом, лента досок урока (#176) и dev-панель
-      тюнинга звука карандаша.
+      Список участников с управлением доступом, лента досок урока (#176), dev-панель
+      тюнинга звука карандаша, dev-оверлеи в углу комнаты (задержки, тюнинг зерна и наклона) и
+      шапка редактора (имя урока, поворот, масштаб, история, режимы, меню), рейка инструментов
+      слева и колонка быстрых настроек рядом с ней.
     files:
       - apps/web/src/pages/Room/ParticipantsPanel.*
       - apps/web/src/pages/Room/BoardStrip.*
       - apps/web/src/pages/Room/ClassGrid.*
       - apps/web/src/pages/Room/ClassPlaces.*
       - apps/web/src/pages/Room/PencilSoundTuningPanel.*
+      - apps/web/src/pages/Room/DebugStack.tsx
+      - apps/web/src/pages/Room/RoomHeader.tsx
+      - apps/web/src/pages/Room/ToolRail.tsx
+      - apps/web/src/pages/Room/QuickSettingsBar.tsx
+      - apps/web/src/pages/Room/ToolSettingsTab.tsx
     tags: [панели]
 
   # ------------------------------------------------------------------ редактор: логика
@@ -401,9 +419,15 @@ modules:
     owns: >-
       Всё между движком и сокетом: исходящая очередь операций и её сохранение на диск, оптимизм
       до подтверждения, догон пропущенного, очередь входа, ворота и восстановление снапшота,
-      оживление сокета, статус синхронизации, троттлинг курсора.
+      оживление сокета, статус синхронизации, троттлинг курсора. И обработчики событий сокета,
+      вынесенные из эффекта Room по доменам (#493): вход и повторный вход, маршрутизация room_state, поток подтверждённых
+      операций, пиры и живые штрихи, доски и класс, решения владельца и очередь входа.
     files:
       - apps/web/src/pages/Room/outbox.ts
+      - apps/web/src/pages/Room/outboxVerdict.ts
+      - apps/web/src/pages/Room/joinFlow.ts
+      - apps/web/src/pages/Room/roomConfig.ts
+      - apps/web/src/pages/Room/roomStateHandler.ts
       - apps/web/src/pages/Room/outboxStorage.ts
       - apps/web/src/pages/Room/optimism.ts
       - apps/web/src/pages/Room/pendingPreviews.ts
@@ -415,6 +439,10 @@ modules:
       - apps/web/src/pages/Room/snapshotSync.ts
       - apps/web/src/pages/Room/previewSchedule.ts
       - apps/web/src/pages/Room/socketRevival.ts
+      - apps/web/src/pages/Room/confirmedStream.ts
+      - apps/web/src/pages/Room/peerEvents.ts
+      - apps/web/src/pages/Room/boardEvents.ts
+      - apps/web/src/pages/Room/roomControlEvents.ts
       - apps/web/src/pages/Room/syncStatus.ts
       - apps/web/src/pages/Room/connectionNotice.ts
       - apps/web/src/pages/Room/cursorThrottle.ts
@@ -434,6 +462,7 @@ modules:
       - apps/web/src/pages/Room/pressureResponseCurves.ts
       - apps/web/src/pages/Room/tiltResponseCurves.ts
       - apps/web/src/pages/Room/editorKeys.ts
+      - apps/web/src/pages/Room/editorHotkeys.ts
     adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 010-fill-tool, 011-watercolor, 013-digital-brush]
     notes:
       - >-
@@ -1253,7 +1282,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 7451
+    maxLines: 3843
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { LayerState, Operation, StrokeOperation } from '@grafetto/shared'
 
-import { groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer } from './lostWork'
+import {
+  createLostWorkBatcher, groupLostOpsByLayer, isRecoverableContentOp, recoveryOperations, resolveDeletedLayerName,
+  retargetToLayer, type Timers,
+} from './lostWork'
 
 function stroke(overrides: Partial<StrokeOperation> = {}): StrokeOperation {
   return {
@@ -143,5 +146,96 @@ describe('retargetToLayer', () => {
 
     expect(original.id).toBe('old-id')
     expect(original.layerId).toBe('dead')
+  })
+})
+
+// (#493) Out of Room's recoverLostWork.
+describe('recoveryOperations', () => {
+  function run(lost: StrokeOperation[], live = EMPTY) {
+    let n = 0
+    return recoveryOperations({
+      lost, live, log: [], restored: null, userId: 'me',
+      unnamedLayer: 'Unnamed', restoredName: name => `Recovered: ${name}`,
+      newId: () => `id${++n}`, now: () => 1000,
+    })
+  }
+
+  it('gives each dead layer one fresh layer and moves its strokes onto it', () => {
+    const r = run([stroke({ id: 'a', layerId: 'dead-1' }), stroke({ id: 'b', layerId: 'dead-1' }), stroke({ id: 'c', layerId: 'dead-2' })])
+    const adds = r.operations.filter(op => op.type === 'layer_add')
+    expect(adds).toHaveLength(2)
+    expect(r.restoredLayerIds).toHaveLength(2)
+    const moved = r.operations.filter((op): op is StrokeOperation => op.type === 'stroke')
+    expect(moved).toHaveLength(3)
+    // Every stroke lands on a layer that is in this batch, never the dead one.
+    for (const op of moved) {
+      expect(r.restoredLayerIds).toContain(op.layerId)
+      expect(['a', 'b', 'c']).not.toContain(op.id)
+    }
+  })
+
+  it('names the new layer after the deleted one, or says it could not', () => {
+    const named = run([stroke({ layerId: 'dead-1' })], layerState({ 'dead-1': { name: 'Sketch' } }))
+    expect(named.layerNames).toEqual(['Sketch'])
+    const add = named.operations.find(op => op.type === 'layer_add')
+    expect(add && 'name' in add ? add.name : null).toBe('Recovered: Sketch')
+
+    expect(run([stroke({ layerId: 'dead-1' })]).layerNames).toEqual(['Unnamed'])
+  })
+
+  it('adds the layer before the strokes that go onto it', () => {
+    const r = run([stroke({ layerId: 'dead-1' })])
+    expect(r.operations.map(op => op.type)).toEqual(['layer_add', 'stroke'])
+  })
+})
+
+describe('createLostWorkBatcher', () => {
+  function setup() {
+    let clock = 0
+    const queued = new Map<number, { fn: () => void; at: number }>()
+    let nextId = 1
+    const timers: Timers = {
+      set: (fn, ms) => { const id = nextId++; queued.set(id, { fn, at: clock + ms }); return id },
+      clear: id => { queued.delete(id) },
+    }
+    const flushes: string[][] = []
+    const batcher = createLostWorkBatcher({
+      onFlush: ops => flushes.push(ops.map(op => op.id)),
+      quietMs: 800, maxWaitMs: 5000, timers, now: () => clock,
+    })
+    const advance = (ms: number) => {
+      clock += ms
+      for (const [id, t] of [...queued]) if (t.at <= clock) { queued.delete(id); t.fn() }
+    }
+    return { batcher, flushes, advance }
+  }
+
+  // Rejections arrive one ack at a time as the outbox drains: one batch, not
+  // one replacement layer per lost stroke.
+  it('waits for a quiet spell and hands the whole batch over at once', () => {
+    const { batcher, flushes, advance } = setup()
+    batcher.add(stroke({ id: 'a' }))
+    advance(500)
+    batcher.add(stroke({ id: 'b' }))
+    advance(500)
+    expect(flushes).toEqual([])
+    advance(300)
+    expect(flushes).toEqual([['a', 'b']])
+  })
+
+  it('goes through at the cap even if rejections never stop', () => {
+    const { batcher, flushes, advance } = setup()
+    for (let t = 0; t < 5000; t += 500) { batcher.add(stroke({ id: `s${t}` })); advance(500) }
+    batcher.add(stroke({ id: 'last' }))
+    expect(flushes).toHaveLength(1)
+    expect(flushes[0]).toContain('last')
+  })
+
+  it('drops what is waiting on reset', () => {
+    const { batcher, flushes, advance } = setup()
+    batcher.add(stroke({ id: 'a' }))
+    batcher.reset()
+    advance(2000)
+    expect(flushes).toEqual([])
   })
 })
