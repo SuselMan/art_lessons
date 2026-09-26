@@ -42,7 +42,8 @@ vi.mock('./memory.js', () => ({
 vi.mock('./instrument.js', () => ({ reportException: () => {}, reportIssue: () => {} }))
 
 const { registerRoomHandlers } = await import('./socketHandlers.js')
-const { _flushPendingWrites, isRoomResident, noteBoardCreated } = await import('./rooms.js')
+const { _flushPendingWrites, isRoomResident } = await import('./rooms.js')
+const { noteBoardCreated } = await import('./classroom.js')
 
 type Row = {
   id: string; name: string; paper: string; paperColor: null; infinite: boolean; canvasWidth: number

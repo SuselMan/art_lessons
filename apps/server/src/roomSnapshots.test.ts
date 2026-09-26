@@ -6,10 +6,12 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import type { Operation, StrokeOperation } from '@grafetto/shared'
 
+import { _flushPendingWrites, createRoom, getRoomSnapshot, joinRoom, leaveRoom } from './rooms.js'
+import { recordOperation, updateAliveIds } from './operationLog.js'
 import {
-  _flushPendingWrites, createRoom, deletableOperations, getCoveredSeq, getLayerSnapshot, getOperationsBefore,
-  getRoomSnapshot, getSnapshotIndex, joinRoom, leaveRoom, recordOperation, saveSnapshot, updateAliveIds,
-} from './rooms.js'
+  getCoveredSeq, getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot,
+} from './snapshotStore.js'
+import { deletableOperations } from './snapshotCoverage.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
 // touches (createRoom/recordOperation/etc.) is fire-and-forget, so a

@@ -97,3 +97,92 @@ export function resolveDeletedLayerName(
 export function retargetToLayer<T extends ContentOp>(op: T, newLayerId: string, newId: string, now: number): T {
   return { ...op, id: newId, layerId: newLayerId, timestamp: now }
 }
+
+/** (#312, #493) The operations that bring lost work back: per dead layer, one
+ *  `layer_add` for a fresh layer named after the one that was deleted, and
+ *  this client's rejected operations retargeted onto it. Pure — the caller
+ *  appends them and shows the banner.
+ *
+ *  A *new* layer rather than resurrecting the deleted one: `aliveIds` on the
+ *  server is a monotonic fold over the log, and un-deleting an id would break
+ *  it. The content comes from this client's own rejected operations, never
+ *  from a pixel bake of the dead layer. */
+export function recoveryOperations(input: {
+  lost: readonly ContentOp[]
+  live: LayerState
+  log: readonly Operation[]
+  restored: LayerState | null
+  userId: string
+  /** The name when nothing anywhere remembers the deleted layer's. */
+  unnamedLayer: string
+  /** "Recovered: <name>" — the new layer's name. */
+  restoredName: (originalName: string) => string
+  newId: () => string
+  now: () => number
+}): { operations: Operation[]; layerNames: string[]; restoredLayerIds: string[] } {
+  const operations: Operation[] = []
+  const layerNames: string[] = []
+  const restoredLayerIds: string[] = []
+  for (const [deadLayerId, ops] of groupLostOpsByLayer(input.lost)) {
+    const originalName = resolveDeletedLayerName(deadLayerId, input.live, input.log, input.restored)
+      ?? input.unnamedLayer
+    const newLayerId = input.newId()
+    operations.push({
+      id: input.newId(), type: 'layer_add', userId: input.userId, timestamp: input.now(),
+      layerId: newLayerId, name: input.restoredName(originalName),
+    })
+    for (const op of ops) operations.push(retargetToLayer(op, newLayerId, input.newId(), input.now()))
+    layerNames.push(originalName)
+    restoredLayerIds.push(newLayerId)
+  }
+  return { operations, layerNames, restoredLayerIds }
+}
+
+export interface Timers {
+  set: (fn: () => void, ms: number) => number
+  clear: (id: number) => void
+}
+
+/** (#312, #493) Collects rejected content operations and hands them over as
+ *  one batch.
+ *
+ *  Debounced because they arrive one ack at a time as the outbox drains:
+ *  reacting per operation would mint one replacement layer per lost stroke.
+ *  Debounce alone would never fire on a long enough backlog, so it is capped
+ *  — `maxWaitMs` after the first rejection the batch goes through regardless,
+ *  and anything still arriving forms the next one. */
+export function createLostWorkBatcher({ onFlush, quietMs, maxWaitMs, timers, now }: {
+  onFlush: (ops: ContentOp[]) => void
+  quietMs: number
+  maxWaitMs: number
+  timers: Timers
+  now: () => number
+}) {
+  let queued: ContentOp[] = []
+  let timer: number | null = null
+  let firstAt: number | null = null
+  const stopTimer = () => { if (timer !== null) { timers.clear(timer); timer = null } }
+  const flush = () => {
+    timer = null
+    firstAt = null
+    const batch = queued
+    queued = []
+    onFlush(batch)
+  }
+  return {
+    add(op: ContentOp) {
+      queued.push(op)
+      const t = now()
+      firstAt ??= t
+      stopTimer()
+      if (t - firstAt >= maxWaitMs) { flush(); return }
+      timer = timers.set(flush, quietMs)
+    },
+    /** Drops whatever is waiting — a page turn, a room left. */
+    reset() {
+      stopTimer()
+      firstAt = null
+      queued = []
+    },
+  }
+}

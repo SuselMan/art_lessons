@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 
-import {
-  canSeeResidentBoard, getLayerSnapshot, getOperationsBefore, getParticipant, getSnapshotIndex, saveSnapshot,
-} from './rooms.js'
+import { canSeeResidentBoard } from './classroom.js'
+import { getParticipant } from './rooms.js'
+import { getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot } from './snapshotStore.js'
 
 const MAX_BACKFILL_PAGE_SIZE = 500
 // Fastify's default bodyLimit is 1MB — comfortably too small for a gzipped,

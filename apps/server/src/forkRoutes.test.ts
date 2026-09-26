@@ -6,7 +6,7 @@ import { forkSeedUserId, isForkSeedUser } from '@grafetto/shared'
 import type { Operation } from '@grafetto/shared'
 
 import { copiedOperationId, registerForkRoutes } from './forkRoutes.js'
-import { residentOperationWhere } from './rooms.js'
+import { residentOperationWhere } from './snapshotCoverage.js'
 
 // Route-level test, Prisma mocked — same shape as roomFolderRoutes.test.ts.
 // `$transaction(fn)` hands the callback the same mock client, so every write

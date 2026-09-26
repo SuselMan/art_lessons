@@ -86,11 +86,12 @@ describe('слой, воскрешённый отменой структурно
   })
 })
 
-/** Белый ящик: выбрасывает все чекпойнты слоя, чтобы воспроизвести
- *  вытеснение по бюджету без наполнения его настоящими мегабайтами. */
+/** Белый ящик: вытеснение по бюджету, без наполнения его настоящими
+ *  мегабайтами — бюджет опускается до нуля, и стор вытесняет всё
+ *  незакреплённое тем же кодом, что в проде. Снапшотный чекпойнт удалённого
+ *  слоя к этому моменту уже откреплён (#522), поэтому уходит и он. */
 function dropCheckpointsFor(engine: unknown, layerId: string): void {
-  const checkpoints = (engine as { _checkpoints: { layerId: string }[] })._checkpoints
-  for (let i = checkpoints.length - 1; i >= 0; i--) {
-    if (checkpoints[i].layerId === layerId) checkpoints.splice(i, 1)
-  }
+  const store = (engine as { _checkpoints: { setBudget(bytes: number): void; hasSnapshotFor(id: string): boolean } })._checkpoints
+  store.setBudget(0)
+  expect(store.hasSnapshotFor(layerId)).toBe(false)
 }

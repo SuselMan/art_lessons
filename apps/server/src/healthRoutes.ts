@@ -6,7 +6,7 @@ import {
 } from './eventLoop.js'
 import { type MemoryPressure, type MemorySnapshot, pressureOf, readMemory } from './memory.js'
 import { prisma } from './prisma.js'
-import { getResidentRoomStats } from './rooms.js'
+import { getResidentRoomStats } from './roomStats.js'
 
 /** A health check that only proves "the Node process accepted a TCP
  *  connection" is worse than none — it goes green while Postgres is gone and
