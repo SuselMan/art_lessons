@@ -131,4 +131,33 @@ test.describe('what a selection does', () => {
     await expect.poll(() => selection(page), { message: 'the lasso to close' }).not.toBeNull()
     expect(await page.evaluate(() => window.__roomStore!.getState().pendingSelection)).toBeNull()
   })
+
+  // (#446) The same actions as buttons in the quick column — a tablet has no
+  // Ctrl, so without them cut/copy/paste exist only for a keyboard. Each is
+  // disabled exactly when it would do nothing.
+  test('the quick column’s buttons copy, delete and deselect, and wait for something to act on', async ({ page }) => {
+    await inEnglish(page)
+    await createRoom(page)
+    await waitForRoomReady(page)
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
+    const button = (name: string) => page.getByRole('button', { name, exact: true })
+
+    // Nothing selected yet, nothing on the clipboard: nothing to press.
+    await expect(button('Copy')).toBeDisabled()
+    await expect(button('Paste')).toBeDisabled()
+    await expect(button('Deselect')).toBeDisabled()
+
+    // Back to the pencil for the stroke; drawAndMark picks the tool up again.
+    await page.evaluate(() => window.__roomStore!.getState().setTool('pencil'))
+    await drawAndMark(page)
+    await button('Copy').click()
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('al_clipboard'))).not.toBeNull()
+    await expect(button('Paste')).toBeEnabled()
+
+    await button('Delete contents').click()
+    await waitForOperations(page, 'area_clear', 1)
+
+    await button('Deselect').click()
+    await expect.poll(() => selection(page)).toBeNull()
+  })
 })
