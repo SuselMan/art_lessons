@@ -112,8 +112,20 @@ export async function drawStroke(
   await page.mouse.up()
 }
 
+/** (#616) Into the store as well as the engine. The store is the source the
+ *  engine is synced *from* (useToolSync), so a size written only into the
+ *  engine lasts until the next time that sync runs — locally that was always
+ *  after the stroke, and on a slow CI runner it came first: the teacher's
+ *  48 px stroke went down at the room's default 4 px and read too faint to
+ *  assert on. With both holding the same value, a late re-sync changes
+ *  nothing. */
 export async function setBrushSize(page: Page, size: number): Promise<void> {
-  await page.evaluate(px => window.__engine!.setSize(px), size)
+  await page.evaluate(px => {
+    const state = window.__roomStore!.getState()
+    const tool = state.drawingTool
+    if (typeof state.toolSettings[tool].size === 'number') state.setToolSetting(tool, 'size', px)
+    window.__engine!.setSize(px)
+  }, size)
 }
 
 /** The operation log as the engine holds it. */
