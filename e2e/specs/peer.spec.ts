@@ -4,6 +4,7 @@ import {
   activeLayerId, createRoom, drawStroke, hasLayerContent, INK, joinRoom,
   maxDarknessOverContent, waitForOperations, waitForRoomReady,
 } from '../support/room'
+import { slow } from '../support/pace'
 
 /** (#491) Two people in one room — the reason this product exists.
  *
@@ -122,7 +123,7 @@ test.describe('a second participant', () => {
       await studentPage.locator('form button[type="submit"]').click()
 
       const alert = studentPage.getByRole('alert')
-      await expect(alert, 'a room that did not come together has to say so').toBeVisible({ timeout: 60_000 })
+      await expect(alert, 'a room that did not come together has to say so').toBeVisible({ timeout: slow(60_000) })
       // The canvas stays gated for the same reason as #533: an editor that
       // accepts strokes is a claim that what it shows is the room, and the
       // layer state behind this one is not this room's.

@@ -5,6 +5,7 @@ import {
   loseAndRestoreContext, maxDarknessOverContent, operations, setBrushSize,
   waitForOperations, waitForRoomReady,
 } from '../support/room'
+import { slow } from '../support/pace'
 
 /** (#492) Losing the GPU context and getting it back.
  *
@@ -41,7 +42,7 @@ test.describe('losing the WebGL context', () => {
     // Polled, not read once: the restore re-uploads the paper texture from its
     // byte cache, and until that lands the composite is drawn over a
     // placeholder. The claim is that it gets there, not that it is instant.
-    await expect.poll(() => maxDarknessOverContent(page, layer), { timeout: 20_000 })
+    await expect.poll(() => maxDarknessOverContent(page, layer), { timeout: slow(20_000) })
       .toBeGreaterThan(INK)
 
     expect(await hasLayerContent(page, layer)).toBe(true)
@@ -73,7 +74,7 @@ test.describe('losing the WebGL context', () => {
     const bothStrokes = await contentBounds(page, layer)
 
     await loseAndRestoreContext(page)
-    await expect.poll(() => maxDarknessOverContent(page, layer), { timeout: 20_000 })
+    await expect.poll(() => maxDarknessOverContent(page, layer), { timeout: slow(20_000) })
       .toBeGreaterThan(INK)
 
     // The undo stack lives in plain JavaScript and was never the context's to
@@ -81,7 +82,7 @@ test.describe('losing the WebGL context', () => {
     // GL buffers that died. This is the assertion that says the two still
     // agree with each other after a rebuild.
     await page.keyboard.press('Control+z')
-    await expect.poll(() => contentBounds(page, layer).then(b => b?.height ?? 0), { timeout: 20_000 })
+    await expect.poll(() => contentBounds(page, layer).then(b => b?.height ?? 0), { timeout: slow(20_000) })
       .toBeLessThan(bothStrokes!.height)
     expect(await hasLayerContent(page, layer)).toBe(true)
 
@@ -90,7 +91,7 @@ test.describe('losing the WebGL context', () => {
 
     await page.keyboard.press('Control+Shift+z')
     await page.keyboard.press('Control+Shift+z')
-    await expect.poll(() => contentBounds(page, layer).then(b => b?.height ?? 0), { timeout: 20_000 })
+    await expect.poll(() => contentBounds(page, layer).then(b => b?.height ?? 0), { timeout: slow(20_000) })
       .toBeCloseTo(bothStrokes!.height, -1)
     // Back to two, not four: an undo/redo that replayed over paint it had
     // failed to account for is #479's shape, and a context restore is a
@@ -124,7 +125,7 @@ test.describe('losing the WebGL context', () => {
     await loseAndRestoreContext(page)
     await page.mouse.up()
 
-    await expect.poll(() => maxDarknessOverContent(page, layer), { timeout: 20_000 })
+    await expect.poll(() => maxDarknessOverContent(page, layer), { timeout: slow(20_000) })
       .toBeGreaterThan(INK)
 
     // What was already committed is still exactly where it was. Whether the
@@ -174,7 +175,7 @@ test.describe('losing the WebGL context', () => {
       await waitForOperations(studentPage, 'stroke', 1)
 
       const layer = await activeLayerId(studentPage)
-      await expect.poll(() => maxDarknessOverContent(studentPage, layer), { timeout: 20_000 })
+      await expect.poll(() => maxDarknessOverContent(studentPage, layer), { timeout: slow(20_000) })
         .toBeGreaterThan(INK)
 
       // The whole stroke, once. Both browsers arrived here by replaying the

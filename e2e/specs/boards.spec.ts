@@ -5,6 +5,7 @@ import {
   activeLayerId, contentBounds, createRoom, drawStroke, INK, joinRoom, maxDarknessOverContent,
   maxDarknessOverRect, operations, type Rect, waitForOperations, waitForRoomReady,
 } from '../support/room'
+import { slow } from '../support/pace'
 
 /** What the store says about where this client is in the lesson — the
  *  fields ADR 014 §4 puts there, read together so an assertion can quote
@@ -35,7 +36,7 @@ function boardState(page: Page): Promise<BoardState> {
  *  that state has been folded into a fresh engine. A stroke drawn between
  *  the two would land on nothing. */
 async function waitForBoard(page: Page, boardId: string): Promise<void> {
-  await page.waitForFunction(id => window.__roomStore!.getState().boardId === id, boardId, { timeout: 30_000 })
+  await page.waitForFunction(id => window.__roomStore!.getState().boardId === id, boardId, { timeout: slow(30_000) })
   await waitForRoomReady(page)
 }
 
@@ -46,7 +47,7 @@ async function waitForPeerOnBoard(page: Page, name: string, boardId: string): Pr
   await page.waitForFunction(
     ([who, id]) => window.__roomStore!.getState().participants.some(p => p.name === who && p.boardId === id),
     [name, boardId] as const,
-    { timeout: 15_000 },
+    { timeout: slow(15_000) },
   )
 }
 
@@ -115,7 +116,7 @@ test.describe('boards', () => {
   test('the teacher turns pages, the student follows, and both boards keep their ink', async ({ page: teacher, browser }) => {
     // Eight round trips of switching boards, each a fresh engine restore, plus
     // a reload — well over the single-scenario default.
-    test.setTimeout(240_000)
+    test.setTimeout(slow(240_000))
 
     const lessonId = await createRoom(teacher, 'E2E boards')
     await waitForRoomReady(teacher)
@@ -138,7 +139,7 @@ test.describe('boards', () => {
 
         await openStrip(teacher)
         await teacher.getByRole('button', { name: 'New board' }).click()
-        await teacher.waitForFunction(id => window.__roomStore!.getState().boardId !== id, lessonId, { timeout: 30_000 })
+        await teacher.waitForFunction(id => window.__roomStore!.getState().boardId !== id, lessonId, { timeout: slow(30_000) })
         await waitForRoomReady(teacher)
 
         const after = await boardState(teacher)
@@ -289,7 +290,7 @@ test.describe('boards', () => {
         await input.press('Enter')
 
         await studentPage.waitForFunction(
-          () => window.__roomStore!.getState().boards.some(b => b.name === 'Cube'), undefined, { timeout: 15_000 },
+          () => window.__roomStore!.getState().boards.some(b => b.name === 'Cube'), undefined, { timeout: slow(15_000) },
         )
         await openStrip(studentPage)
         await expect(tiles(studentPage).nth(1)).toHaveAttribute('aria-label', 'Cube')

@@ -3,6 +3,7 @@ import { expect, type Page } from '@playwright/test'
 import type { PencilEngineAPI } from '../../apps/web/src/engine'
 import type { useRoomStore } from '../../apps/web/src/stores/roomStore'
 import type { Operation } from '../../packages/shared/src/index'
+import { slow } from './pace'
 
 /** (#491) The two handles lib/devEngineHandle.ts publishes in dev builds.
  *  Typed against the app's own types rather than re-declared loosely, so a
@@ -71,7 +72,7 @@ export async function waitForRoomReady(page: Page): Promise<void> {
     if (!window.__engine) return false
     const canvas = document.querySelector('canvas')
     return !!canvas && getComputedStyle(canvas).pointerEvents !== 'none'
-  }, undefined, { timeout: 45_000 })
+  }, undefined, { timeout: slow(45_000) })
 }
 
 async function canvasBox(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
@@ -275,14 +276,14 @@ export async function loseAndRestoreContext(page: Page): Promise<void> {
     ext.loseContext()
   })
 
-  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === true, undefined, { timeout: 15_000 })
+  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === true, undefined, { timeout: slow(15_000) })
 
   await page.evaluate(() => {
     const ext = (window as unknown as { __loseCtx?: { restoreContext(): void } }).__loseCtx
     ext!.restoreContext()
   })
 
-  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === false, undefined, { timeout: 30_000 })
+  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === false, undefined, { timeout: slow(30_000) })
 }
 
 /** Joins an existing room as a second participant, through the gate.

@@ -2,6 +2,7 @@ import type { BrowserContext, Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
 import { createRoom, drawStroke, joinRoom, operations, waitForOperations, waitForRoomReady } from '../support/room'
+import { slow } from '../support/pace'
 
 /** What the store says about class mode on one page — read together so a
  *  failing assertion can quote the whole picture. */
@@ -28,7 +29,7 @@ function classState(page: Page): Promise<ClassState> {
 }
 
 async function waitForBoard(page: Page, boardId: string): Promise<void> {
-  await page.waitForFunction(id => window.__roomStore!.getState().boardId === id, boardId, { timeout: 30_000 })
+  await page.waitForFunction(id => window.__roomStore!.getState().boardId === id, boardId, { timeout: slow(30_000) })
   await waitForRoomReady(page)
 }
 
@@ -37,7 +38,7 @@ async function waitForBoard(page: Page, boardId: string): Promise<void> {
  *  `pointer-events: none` a frozen room gets, so a stroke is never drawn into
  *  the void. `waitForRoomReady` would wait for it to open forever. */
 async function waitForReadOnlyBoard(page: Page, boardId: string): Promise<void> {
-  await page.waitForFunction(id => window.__roomStore!.getState().boardId === id, boardId, { timeout: 30_000 })
+  await page.waitForFunction(id => window.__roomStore!.getState().boardId === id, boardId, { timeout: slow(30_000) })
   await expect(page.getByText(/work — you can look, not draw/)).toBeVisible()
   await expect.poll(() => page.evaluate(() => {
     const canvas = document.querySelector('canvas')
@@ -54,7 +55,7 @@ async function ownBoard(page: Page): Promise<string> {
     const s = window.__roomStore?.getState()
     if (!s) return null
     return s.boards.find(b => b.assignmentId === s.activeAssignmentId && b.ownerId === s.userId)?.id ?? null
-  }, undefined, { timeout: 30_000 })
+  }, undefined, { timeout: slow(30_000) })
   return (await handle.jsonValue())!
 }
 
@@ -94,7 +95,7 @@ async function openGrid(page: Page, assignment: string): Promise<Locator> {
  *  setup. */
 test.describe('class mode', () => {
   test('hand out, draw, walk the class, show one to all, call everyone back and send them back', async ({ page: teacher, browser }) => {
-    test.setTimeout(300_000)
+    test.setTimeout(slow(300_000))
 
     const lessonId = await createRoom(teacher, 'E2E class')
     await waitForRoomReady(teacher)
@@ -163,7 +164,7 @@ test.describe('class mode', () => {
         await teacher.waitForFunction(ids => {
           const boards = window.__roomStore!.getState().boards
           return ids.every(id => boards.find(b => b.id === id)?.thumbnailUpdatedAt)
-        }, [aliceBoard, bobBoard], { timeout: 30_000 })
+        }, [aliceBoard, bobBoard], { timeout: slow(30_000) })
       })
 
       await test.step('the teacher opens Alice\'s board: remarks by default, corrections in the work on request', async () => {
