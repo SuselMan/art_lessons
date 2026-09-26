@@ -290,6 +290,17 @@ describe('handing out a round (#595)', () => {
     await silent(bob, 'lesson_state')
   })
 
+  // (#612) A move to where the class already is changes nothing — above all it
+  // does not take down the spotlight, which every real move does.
+  it('a move to where the class already is keeps the spotlight and tells nobody', async () => {
+    const { teacher, alice, bob, aliceBoard, aliceState } = await classInSession()
+    teacher.emit('set_spotlight', { boardId: aliceBoard })
+    expect((await next(bob, 'lesson_state')).lesson.spotlightBoardId).toBe(aliceBoard)
+
+    teacher.emit('set_class_location', { assignmentId: aliceState.activeAssignmentId! })
+    await silent(alice, 'lesson_state')
+  })
+
   it('gives a latecomer a board of their own, and tells nobody else it exists', async () => {
     const { lessonId, teacher, alice } = await classInSession()
     const carol = client('carol')

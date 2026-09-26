@@ -21,11 +21,13 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
 const {
-  _flushPendingWrites, addPaletteColor, createRoom, ensureRoomLoaded, getLessonBoards, getOperationRejectReason,
+  _flushPendingWrites, addPaletteColor, createRoom, ensureRoomLoaded, getOperationRejectReason,
   getParticipant, getResidentRoomStats, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomFrozen, isRoomResident,
-  joinRoom, leaveRoom, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, releaseRoomIfUnused,
-  setActiveBoard, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
+  joinRoom, leaveRoom, releaseRoomIfUnused, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
 } = await import('./rooms.js')
+const {
+  getLessonBoards, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, setActiveBoard,
+} = await import('./classroom.js')
 
 /** What `prisma.room.findUnique` hands back for a row this test seeded. Shaped
  *  as the Prisma row `ensureRoomLoaded` reads, thumbnail relation included. */

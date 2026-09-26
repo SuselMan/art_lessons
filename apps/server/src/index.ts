@@ -15,7 +15,8 @@ import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/share
 import {
   announceBoardThumbnail, evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData,
 } from './socketHandlers.js'
-import { flushAllRoomWrites, noteBoardThumbnail, pendingWriteCount } from './rooms.js'
+import { noteBoardThumbnail } from './classroom.js'
+import { flushAllRoomWrites, pendingWriteCount } from './rooms.js'
 import { disconnectAllClients } from './shutdown.js'
 import { prisma } from './prisma.js'
 import { identityHook } from './identity.js'

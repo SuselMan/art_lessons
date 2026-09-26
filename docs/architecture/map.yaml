@@ -1101,7 +1101,8 @@ modules:
       участникам, живые штрихи и курсоры, undo/redo, заморозка. Сервер никогда не рендерит —
       он пересылает операции. rooms.ts разбирается по доменам (#612): реестр (запись комнаты,
       Map, правило урок/доска, очередь записи в Postgres) лежит внизу, структурный лог, проверка
-      операций и правило покрытия снапшотом — отдельно.
+      операций, правило покрытия снапшотом и живой класс (доски, задания, подсветка, руки —
+      classroom.ts) — отдельно.
     files:
       - apps/server/src/rooms.ts
       - apps/server/src/rooms.test.ts
@@ -1120,6 +1121,7 @@ modules:
       - apps/server/src/boards.test.ts
       - apps/server/src/classMode.ts
       - apps/server/src/classMode.test.ts
+      - apps/server/src/classroom.ts
     adr: [002-collaborative-undo, 014-boards, 015-class-mode]
     notes:
       - >-

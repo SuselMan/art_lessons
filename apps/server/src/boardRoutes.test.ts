@@ -21,6 +21,7 @@ const mockRooms = vi.hoisted(() => ({
   noteBoardDeleted: vi.fn(() => ({ wasActive: false })),
 }))
 vi.mock('./rooms.js', () => mockRooms)
+vi.mock('./classroom.js', () => mockRooms)
 
 const OWNER = 'teacher'
 const LESSON = {

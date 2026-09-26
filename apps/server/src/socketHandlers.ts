@@ -4,12 +4,15 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 import { isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
-  abortAssignmentStart, addPaletteColor, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, createRoom,
-  ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getClassroom, getLessonStateFor,
-  getOperationRejectReason, getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
-  leaveRoom, noteAssignmentStarted, noteBoardCreated, personalBoardIn, recordOperation, releaseLockOnUndo,
-  releaseRoomIfUnused, removePaletteColor, setActiveBoard, setClassLocation, setClassVisibility, setHandRaised, setLayerLocked,
-  setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, setRoomTools, setSpotlight, updateAliveIds,
+  abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
+  noteAssignmentStarted, noteBoardCreated, personalBoardIn, setActiveBoard, setClassLocation, setClassVisibility,
+  setHandRaised, setSpotlight,
+} from './classroom.js'
+import {
+  addPaletteColor, createRoom, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getOperationRejectReason,
+  getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
+  releaseLockOnUndo, releaseRoomIfUnused, removePaletteColor, setLayerLocked, setLayerOwnerLocked,
+  setParticipantFrozen, setRoomFrozen, setRoomTools, updateAliveIds,
 } from './rooms.js'
 import { createAssignment, createPersonalBoard } from './classMode.js'
 import { checkJoinAccess } from './roomAccess.js'
