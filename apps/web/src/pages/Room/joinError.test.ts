@@ -5,7 +5,7 @@ import type { TranslationKey } from '../../i18n/en'
 // exports the React hooks, which pull in the settings store's localStorage
 // read — this test needs only the pure lookup.
 import { translate } from '../../i18n/translate'
-import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
+import { canRetryJoinLater, describeJoinError, joinAttemptOutcome, joinGateStateFor } from './joinError'
 
 // (#208) The mapping is reason-code → translation key → text now, so it's
 // exercised through a real locale rather than against hardcoded English.
@@ -78,5 +78,33 @@ describe('canRetryJoinLater (#496)', () => {
     // on every reconnect would be a loop against a decision nobody has made
     // yet.
     expect(canRetryJoinLater('pending_approval')).toBe(false)
+  })
+})
+
+// (#493) What the gate does with an answer — out of Room's attemptJoin.
+describe('joinAttemptOutcome', () => {
+  it('lets the person in', () => {
+    expect(joinAttemptOutcome({ ok: true, userId: 'u1' }, false)).toEqual({ kind: 'joined', userId: 'u1' })
+  })
+
+  // (#513) The only way to learn a room has a password is to be refused
+  // without one: that opens the field, it is not a wrong guess.
+  it('asks for a password when the attempt carried none', () => {
+    expect(joinAttemptOutcome({ ok: false, error: 'wrong_password' }, false)).toEqual({ kind: 'askPassword' })
+  })
+
+  it('reports a wrong password when one was sent', () => {
+    expect(joinAttemptOutcome({ ok: false, error: 'wrong_password' }, true)).toEqual({ kind: 'error', reason: 'wrong_password' })
+  })
+
+  it('puts the person-level refusals on a screen of their own', () => {
+    expect(joinAttemptOutcome({ ok: false, error: 'pending_approval' }, false)).toEqual({ kind: 'screen', state: 'pending' })
+    expect(joinAttemptOutcome({ ok: false, error: 'access_revoked' }, true)).toEqual({ kind: 'screen', state: 'revoked' })
+    expect(joinAttemptOutcome({ ok: false, error: 'login_required' }, false)).toEqual({ kind: 'screen', state: 'login' })
+  })
+
+  it('keeps the rest under the form', () => {
+    expect(joinAttemptOutcome({ ok: false, error: 'not_found' }, false)).toEqual({ kind: 'error', reason: 'not_found' })
+    expect(joinAttemptOutcome({ ok: false, error: 'server_busy' }, true)).toEqual({ kind: 'error', reason: 'server_busy' })
   })
 })

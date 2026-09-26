@@ -114,20 +114,6 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/index.tsx",
-    "to": "apps/web/src/engine/src/paperLoader.ts",
-    "unresolvedTo": "../../engine/src/paperLoader",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "engine-public-api-only"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "apps/web/src/pages/Room/reportRestore.ts",
     "to": "apps/web/src/engine/src/snapshotAudit.ts",
     "unresolvedTo": "../../engine/src/snapshotAudit",

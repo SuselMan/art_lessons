@@ -103,4 +103,40 @@ test.describe('a connection that drops mid-lesson', () => {
       await student.close()
     }
   })
+
+  // (#289 §17, #493) The one thing a dropped connection is allowed to refuse.
+  // A structural change to a layer that is already shared — deleting it here —
+  // can only be settled by the server, so offline it is refused up front and
+  // said so, rather than queued to land minutes later against a room that has
+  // moved on. The branch lives in dispatchOp and nothing reached it until the
+  // dispatch code was about to move out of Room.
+  test('deleting a shared layer offline is refused, visibly, and nothing is queued', async ({ page, context }) => {
+    await createRoom(page)
+    await waitForRoomReady(page)
+    await page.getByRole('button', { name: 'Add layer' }).click()
+    await waitForOperations(page, 'layer_add', 1)
+    const upper = await activeLayerId(page)
+    // Confirmed by the server first — a layer still waiting on its own
+    // layer_add is this client's local island, and deleting that works offline
+    // on purpose.
+    await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
+
+    await context.setOffline(true)
+    await expect(page.getByRole('status').filter({ hasText: 'No connection' })).toBeVisible({ timeout: 20_000 })
+
+    const name = await page.evaluate(id => window.__roomStore!.getState().layerState.items[id]?.name, upper)
+    if (!name) throw new Error('e2e: the new layer is not in the store')
+    const row = page
+      .locator('div', { has: page.getByText(name, { exact: true }) })
+      .filter({ has: page.getByRole('button', { name: 'More' }) })
+      .last()
+    await row.getByRole('button', { name: 'More' }).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+
+    await expect(page.getByText(/No connection to the project/)).toBeVisible()
+    expect((await operations(page)).filter(op => op.type === 'layer_delete')).toHaveLength(0)
+    expect(await page.evaluate(id => !!window.__roomStore!.getState().layerState.items[id], upper)).toBe(true)
+
+    await context.setOffline(false)
+  })
 })
