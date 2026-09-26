@@ -761,38 +761,6 @@
     ]
   },
   {
-    "type": "cycle",
-    "from": "packages/shared/src/dabCodec.ts",
-    "to": "packages/shared/src/index.ts",
-    "unresolvedTo": "./index.js",
-    "dependencyTypes": [
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "warn",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "packages/shared/src/index.ts",
-        "dependencyTypes": [
-          "local",
-          "type-only",
-          "import"
-        ]
-      },
-      {
-        "name": "packages/shared/src/dabCodec.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
     "type": "module",
     "from": "apps/server/src/scripts/loadTest.ts",
     "to": "apps/server/src/scripts/loadTest.ts",
