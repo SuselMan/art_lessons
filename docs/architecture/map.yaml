@@ -287,6 +287,7 @@ modules:
       - apps/web/src/pages/Room/useTransformSession.ts
       - apps/web/src/pages/Room/useAnnotations.tsx
       - apps/web/src/pages/Room/useSelection.ts
+      - apps/web/src/pages/Room/useOperationDispatch.ts
       - apps/web/src/pages/Room/useLayerPanelBridge.ts
     issues: [25, 493]
     notes:
@@ -1252,7 +1253,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 7587
+    maxLines: 7451
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича

@@ -41,7 +41,7 @@ export interface TransformSession {
   paste: AreaImage | null
 }
 
-/** What `dispatchOp` hands back — see its own comment in Room. */
+/** What `dispatchOp` hands back — see useOperationDispatch. */
 export interface DispatchedOp { op: { id: string }; applied: boolean }
 
 export interface TransformSessionInput {
