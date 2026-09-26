@@ -13,8 +13,9 @@ import {
 import { isCoveredBySnapshot, layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
 import { loadCoveredSeqByLayer } from './snapshotStore.js'
 import { lessonStateFor } from './classroom.js'
+import { persistOperation, persistPalette, persistParticipant, persistRoomCreate } from './roomPersistence.js'
 import {
-  enqueueWrite, isIdle, lessonRecordOf, pendingWriteOf, rooms, socialRecord, type RoomRecord,
+  isIdle, lessonRecordOf, pendingWriteOf, rooms, socialRecord, type RoomRecord,
 } from './roomRegistry.js'
 
 // The write queue lives with the Map it serves; these are part of this
@@ -106,50 +107,6 @@ export type JoinRoomOutcome =
       previousBoardId?: string
     }
   | { ok: false; error: 'not_found' }
-
-function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
-  enqueueWrite(room.id, () => prisma.room.create({
-    data: {
-      id: room.id, name: room.name, paper: room.paper, paperColor: room.paperColor ?? null,
-      infinite: room.infinite,
-      canvasWidth: room.canvasWidth ?? null, canvasHeight: room.canvasHeight ?? null,
-      passwordHash, accessMode: room.accessMode, ownerId: room.ownerId,
-      // (#548) `[]` is the column's own "no restriction" — see schema.prisma.
-      enabledTools: room.enabledTools ?? [],
-      classVisibility: room.classVisibility ?? 'teacher_only',
-    },
-  }))
-}
-
-/** (#226) `name` is refreshed on every join, not just written once: it is what
- *  this person calls themselves *now*, and the access panel showing a name
- *  they abandoned three lessons ago would be worse than showing none. */
-function persistParticipant(roomId: string, userId: string, name: string): void {
-  enqueueWrite(roomId, () => prisma.roomParticipant.upsert({
-    where: { roomId_userId: { roomId, userId } },
-    create: { roomId, userId, name },
-    update: { lastActiveAt: new Date(), name },
-  }))
-}
-
-function persistPalette(roomId: string, colors: string[]): void {
-  enqueueWrite(roomId, () => prisma.roomPalette.upsert({
-    where: { roomId },
-    create: { roomId, colors },
-    update: { colors },
-  }))
-}
-
-function persistOperation(roomId: string, op: Operation): void {
-  const layerId = 'layerId' in op ? op.layerId : null
-  enqueueWrite(roomId, () => prisma.operation.create({
-    data: {
-      id: op.id, seq: op.seq ?? 0, type: op.type, roomId, userId: op.userId,
-      layerId, tool: op.type === 'stroke' ? op.tool : null,
-      data: op,
-    },
-  }))
-}
 
 /** Deletes every Operation row at or before `latestSnapshotSeq` (2026-07-19:
  *  replay was dropped from the roadmap — see #207/#206 — so full history no

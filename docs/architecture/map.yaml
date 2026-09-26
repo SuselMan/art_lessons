@@ -1100,7 +1100,8 @@ modules:
       Сердце сервера: комнаты в памяти, подкреплённые Postgres, ретрансляция операций всем
       участникам, живые штрихи и курсоры, undo/redo, заморозка. Сервер никогда не рендерит —
       он пересылает операции. rooms.ts разбирается по доменам (#612). Внизу реестр
-      (roomRegistry.ts): запись комнаты, Map, правило урок/доска, очередь записи в Postgres.
+      (roomRegistry.ts): запись комнаты, Map, правило урок/доска, очередь записи в Postgres;
+      над ним — какие строки комната пишет по ходу (roomPersistence.ts).
       Поверх него отдельно: структурный лог, проверка операций, правило покрытия снапшотом
       (snapshotCoverage.ts), хранилище снапшотов (snapshotStore.ts), рычаги владельца —
       заморозка, инструменты, закрытие, доступ, блокировки слоёв (ownerControls.ts) — и живой
@@ -1111,6 +1112,8 @@ modules:
       - apps/server/src/rooms.test.ts
       - apps/server/src/roomRegistry.ts
       - apps/server/src/roomRegistry.test.ts
+      - apps/server/src/roomPersistence.ts
+      - apps/server/src/roomPersistence.test.ts
       - apps/server/src/structuralLog.ts
       - apps/server/src/structuralLog.test.ts
       - apps/server/src/operationGate.ts
