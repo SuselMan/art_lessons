@@ -51,11 +51,10 @@ function compile(code: string): () => Promise<unknown> {
   try { return new AsyncFunction(`return (${code}\n)`) } catch { return new AsyncFunction(code) }
 }
 
-/** Moves this page to `url` without the room's leave prompt (useLeaveGuard
- *  lets a navigation flagged this way through). For test devices nobody is
- *  standing at. Callable from an eval: `__devNavigate('/room/abc')`. */
+/** Moves this page to `url` - a test device nobody is standing at. The room's
+ *  leave prompt is production-only (useLeaveGuard), so nothing stops it.
+ *  Callable from an eval: `__devNavigate('/room/abc')`. */
 function devNavigate(url: string): void {
-  (globalThis as { __devbridgeLeaving?: boolean }).__devbridgeLeaving = true
   location.href = url
 }
 
@@ -70,10 +69,6 @@ export function startDevBridge(): void {
   })
   hello()
   hot.on('vite:ws:connect', hello)
-  // A dev-server reload of a room page must not stop at the room's leave
-  // prompt: on a device someone has touched, the browser shows it, and a
-  // tablet across the room then sits on "Reload site?" with its page frozen.
-  hot.on('vite:beforeFullReload', () => { (globalThis as { __devbridgeLeaving?: boolean }).__devbridgeLeaving = true })
   // Again every few seconds: a hello can be lost to a dev-server restart
   // racing the page's reconnect, and the roster should not depend on luck.
   setInterval(hello, 10_000)
