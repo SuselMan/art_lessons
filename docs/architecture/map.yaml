@@ -1217,9 +1217,26 @@ modules:
     owns: >-
       Единственный контракт между клиентом и сервером: тип `Operation` и все его варианты,
       сущности комнаты и участника, события сокета в обе стороны, общие константы. Каждое
-      действие рисования сериализуемо с первого дня.
+      действие рисования сериализуемо с первого дня. С #613 — по модулю на домен (слои,
+      бумага, комната, набор инструментов, штрих, слоевые и областные операции, фигуры,
+      фильтры, аннотации, объединение операций, протокол, хоткеи); index.ts — только
+      оглавление, и все по-прежнему импортируют `@grafetto/shared`.
     files:
       - packages/shared/src/index.ts
+      - packages/shared/src/layers.ts
+      - packages/shared/src/paper.ts
+      - packages/shared/src/room.ts
+      - packages/shared/src/toolset.ts
+      - packages/shared/src/operationBase.ts
+      - packages/shared/src/stroke.ts
+      - packages/shared/src/layerOperations.ts
+      - packages/shared/src/areaOperations.ts
+      - packages/shared/src/shapes.ts
+      - packages/shared/src/layerFilters.ts
+      - packages/shared/src/annotations.ts
+      - packages/shared/src/operations.ts
+      - packages/shared/src/protocol.ts
+      - packages/shared/src/hotkeys.ts
       - packages/shared/src/admin.ts
       - packages/shared/src/admin.test.ts
       - packages/shared/src/rejectReason.test.ts

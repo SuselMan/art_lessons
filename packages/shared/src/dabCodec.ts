@@ -1,4 +1,4 @@
-import type { Dab } from './index.js'
+import type { Dab, StrokeOperation } from './stroke.js'
 
 // (#366) Compact encoding for a stroke operation's dab array.
 //
@@ -111,4 +111,18 @@ export function unpackDabs(packed: string): Dab[] {
     dabs.push(dab)
   }
   return dabs
+}
+
+/** The dabs of a stroke operation, whichever way it happens to carry them.
+ *  Every consumer must go through this rather than reading `dabs` or
+ *  `dabsPacked` — an operation from before #366 has only the former and one
+ *  recorded since has only the latter, and both replay forever.
+ *
+ *  Decodes on each call rather than caching: replay paints an operation's
+ *  dabs once and moves on, and the one caller that reads the same operation
+ *  repeatedly (a peer's live-stroke reveal, which walks the array as time
+ *  passes) holds its own reference to the result. */
+export function strokeDabs(op: StrokeOperation): Dab[] {
+  if (op.dabs) return op.dabs
+  return op.dabsPacked ? unpackDabs(op.dabsPacked) : []
 }
