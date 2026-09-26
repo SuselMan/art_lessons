@@ -7,9 +7,11 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { Operation, StrokeOperation } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, createRoom, getCoveredSeq, getLayerSnapshot, getOperationsBefore,
-  getRoomSnapshot, getSnapshotIndex, joinRoom, leaveRoom, recordOperation, saveSnapshot, updateAliveIds,
+  _flushPendingWrites, createRoom, getRoomSnapshot, joinRoom, leaveRoom, recordOperation, updateAliveIds,
 } from './rooms.js'
+import {
+  getCoveredSeq, getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot,
+} from './snapshotStore.js'
 import { deletableOperations } from './snapshotCoverage.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it

@@ -1101,7 +1101,7 @@ modules:
       участникам, живые штрихи и курсоры, undo/redo, заморозка. Сервер никогда не рендерит —
       он пересылает операции. rooms.ts разбирается по доменам (#612): реестр (запись комнаты,
       Map, правило урок/доска, очередь записи в Postgres) лежит внизу, структурный лог, проверка
-      операций, правило покрытия снапшотом и живой класс (доски, задания, подсветка, руки —
+      операций, правило покрытия снапшотом, хранилище снапшотов (snapshotStore.ts) и живой класс (доски, задания, подсветка, руки —
       classroom.ts) — отдельно.
     files:
       - apps/server/src/rooms.ts
@@ -1114,6 +1114,7 @@ modules:
       - apps/server/src/operationGate.test.ts
       - apps/server/src/snapshotCoverage.ts
       - apps/server/src/snapshotCoverage.test.ts
+      - apps/server/src/snapshotStore.ts
       - apps/server/src/roomSnapshots.test.ts
       - apps/server/src/socketHandlers.ts
       - apps/server/src/socketHandlers.test.ts

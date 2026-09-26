@@ -19,6 +19,7 @@ const mockRooms = vi.hoisted(() => ({
 }))
 vi.mock('./rooms.js', () => mockRooms)
 vi.mock('./classroom.js', () => mockRooms)
+vi.mock('./snapshotStore.js', () => mockRooms)
 
 const HASH = 'sha256-of-decompressed-pixels'
 const BLOB = Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0xde, 0xad, 0xbe, 0xef])
