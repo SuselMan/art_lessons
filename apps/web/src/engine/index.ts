@@ -1738,6 +1738,8 @@ function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: n
 // made them again - a texture, an FBO and a framebuffer-status check that
 // stalls the tablet's GPU, 430 ms of a zigzag's CPU time.
 const MARKER_SCRATCH_POOL_PER_SIZE = 24
+/** (#536, §17.50) Ceiling on idle pooled scratch, all sizes. */
+const SCRATCH_POOL_FREE_BYTES = 64 * 1024 * 1024
 /** (#536, §17.22) How long after a settle the diffusion field is kept. */
 // (§17.44) 45 s, from 8: remaking ten field buffers - a texture, an FBO
 // and a GPU-stalling status check each - was a 100 ms hitch on the first
@@ -1777,8 +1779,13 @@ class RibbonScratchPool {
     const key = `${buf.width}x${buf.height}`
     const bytes = buf.width * buf.height * 4
     const list = this._free.get(key)
+    if (!list && this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
     if (!list) { this._free.set(key, [buf]); this._freeBytes += bytes; return }
-    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE) { buf.destroy(); this._allocatedBytes -= bytes; return }
+    // (#536, ADR 011 §17.50) ...and never more than SCRATCH_POOL_FREE_BYTES
+    // held idle in all: on the iPad (Safari, 3 GB) 151 MB of idle buffers on
+    // top of the live wash was enough for the tab to be killed and reloaded
+    // at the next stroke.
+    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE || this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
     list.push(buf)
     this._freeBytes += bytes
   }
