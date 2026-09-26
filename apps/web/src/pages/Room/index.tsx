@@ -8,7 +8,6 @@ import { nanoid } from 'nanoid'
 import type {
   LayerState, Operation, Participant,
   SendResult, ClientToServerEvents, ServerToClientEvents,
-  BoardSummary, ClassVisibility,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS } from '@grafetto/shared'
 import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
@@ -22,7 +21,6 @@ import { ClassBar, ClassGrid } from './ClassGrid'
 import { ClassPlaces } from './ClassPlaces'
 import { createPreviewSchedule } from './previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
-import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
@@ -37,7 +35,6 @@ import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '..
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { diagLog } from '../../lib/diagLog'
 import { formatHotkeyLabel } from '../../lib/hotkeys'
-import { createBoard, deleteBoard, renameBoard, reorderBoard } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { BANNED_ERROR_CODE, noteBanned } from '../../lib/banned'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -69,6 +66,8 @@ import { useLeaveGuard } from './useLeaveGuard'
 import { useToolSync } from './useToolSync'
 import { useToolColor } from './useToolColor'
 import { useLessonActions } from './useLessonActions'
+import { useBoardActions } from './useBoardActions'
+import { useClassView } from './useClassView'
 import { useLogDerivedState } from './useLogDerivedState'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
@@ -125,13 +124,6 @@ import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
-import {
-  activeBoardPayload, followDestination, followingAfterPick, movedOrder, teacherBoardId,
-} from '../../lib/boards'
-import {
-  classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, neighbourInGrid, ownBoardIn,
-  stripBoards,
-} from '../../lib/classMode'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
@@ -155,19 +147,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
   crosshair: styles.viewportCursorCrosshair,
   grab: styles.viewportCursorGrab,
   default: styles.viewportCursorDefault,
-}
-
-/** (#595) Where following leads a student right now, from the store — for
- *  the callbacks that decide it at the moment of the tap. */
-function destinationOf(s: {
-  lessonId: string | null; activeBoardId: string | null; spotlightBoardId: string | null
-  activeAssignmentId: string | null; boards: BoardSummary[]; userId: string
-}): string | null {
-  if (!s.lessonId) return null
-  return followDestination({
-    lessonId: s.lessonId, activeBoardId: s.activeBoardId, spotlightBoardId: s.spotlightBoardId,
-    ownAssignmentBoardId: ownBoardIn(s.boards, s.activeAssignmentId, s.userId)?.id ?? null,
-  })
 }
 
 // LAN dev server port (apps/server); derived from window.location.hostname
@@ -245,7 +224,6 @@ function RoomEditor() {
   // (#310) In-app replacements for the window.confirm/window.alert this
   // editor used to reach for. `alert` is renamed on the way in so a reader
   // can't mistake it for the global it replaces.
-  const { confirm } = useConfirmDialog()
 
   // (#24) The store is a module-level singleton — reset it before anything
   // below reads a selector, so a genuine unmount+remount (e.g. via an
@@ -880,224 +858,34 @@ function RoomEditor() {
   const roomFrozen = useRoomStore(s => s.roomFrozen)
   const isBlockedByFreeze = !isOwner && (roomFrozen || !!myParticipant?.frozen)
 
-  // ── boards (#176, ADR 014 §7 step 4) ─────────────────────────────────────
+  // ── boards and class mode (#176, #595) ─────────────────────────────────
+  // Hoisted from the engine refs below: both hooks send over it, and a ref
+  // named in a hook's arguments has to exist before the hook is called.
+  const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
+  // The store's own facts about the lesson, read where the markup uses them.
   const boards = useRoomStore(s => s.boards)
-  const activeBoardId = useRoomStore(s => s.activeBoardId)
-  const following = useRoomStore(s => s.following)
-  const [boardsOpen, setBoardsOpen] = useState(false)
-  // One request at a time from the "+": the board lands over REST *and* over
-  // the socket, and a second tap during the round trip would make two pages.
-  const [boardBusy, setBoardBusy] = useState(false)
-  /** The board the teacher is on — the lesson's own when `activeBoardId` is
-   *  null. Undefined until the lesson is known: computed from the store's
-   *  lesson id, not the URL-backed `lessonId` above, which before the first
-   *  room_state may still be a board's id. */
   const knownLessonId = useRoomStore(s => s.lessonId)
-  const teacherBoard = knownLessonId ? teacherBoardId({ id: knownLessonId, activeBoardId }) : undefined
-  // ── class mode (#595, ADR 015 §6, §11) ──────────────────────────────────
-  // What the server put in `boards` is already what this person may see; the
-  // split below is only about where each board goes on screen.
   const assignments = useRoomStore(s => s.assignments)
   const activeAssignmentId = useRoomStore(s => s.activeAssignmentId)
   const spotlightBoardId = useRoomStore(s => s.spotlightBoardId)
   const classVisibility = useRoomStore(s => s.classVisibility)
   const handsRaised = useRoomStore(s => s.handsRaised)
-  /** The assignment whose works the big grid is showing; null — closed. */
-  const [gridAssignmentId, setGridAssignmentId] = useState<string | null>(null)
-  const [assignmentBusy, setAssignmentBusy] = useState(false)
-  const presentUserIds = useMemo(() => new Set(participants.map(p => p.userId)), [participants])
-  const currentBoardSummary = boards.find(b => b.id === boardId)
-  const onPersonalBoard = currentBoardSummary !== undefined && isPersonalBoard(currentBoardSummary)
-  const ownAssignmentBoardId = ownBoardIn(boards, activeAssignmentId, myUserId)?.id ?? null
-  /** The grid, and the teacher's ‹ › on a student's board, both walk the works
-   *  of one assignment: the grid's own, the board's own. */
-  const gridAssignment = assignments.find(a => a.id === gridAssignmentId) ?? null
-  const gridTiles = useMemo(
-    () => classGrid(boards, gridAssignmentId, presentUserIds, handsRaised),
-    [boards, gridAssignmentId, presentUserIds, handsRaised],
-  )
-  const barTiles = useMemo(
-    () => classGrid(boards, currentBoardSummary?.assignmentId ?? null, presentUserIds, handsRaised),
-    [boards, currentBoardSummary?.assignmentId, presentUserIds, handsRaised],
-  )
-  /** A student's own board in each assignment they have one in — the Class
-   *  tab's "my boards". */
-  const ownBoards = useMemo(() => {
-    const own = new Map<string, string>()
-    for (const b of boards) if (b.ownerId === myUserId && b.assignmentId) own.set(b.assignmentId, b.id)
-    return own
-  }, [boards, myUserId])
-  /** The teacher's way to a student's work from the participants list: their
-   *  board where the class is, else in the latest assignment they have one in. */
-  const workOf = useCallback((userId: string) => {
-    const s = useRoomStore.getState()
-    const byOrder = [...s.assignments].sort((a, b) => b.order - a.order).map(a => a.id)
-    for (const assignmentId of [s.activeAssignmentId, ...byOrder]) {
-      const own = ownBoardIn(s.boards, assignmentId, userId)
-      if (own) return own.id
-    }
-    return undefined
-  }, [])
-  /** A classmate's work this client was let in to look at: drawing on it is
-   *  refused server-side (`board_not_yours`), so it is shown closed. */
-  const readOnlyBoard = isForeignPersonalBoard(currentBoardSummary, myUserId, isOwner)
-  const myHandRaised = handsRaised.includes(myUserId)
-  /** Raised hands of people present — the Class tab's badge counts them. */
-  const handsUp = handsRaised.filter(id => presentUserIds.has(id)).length
-  const followDest = knownLessonId
-    ? followDestination({ lessonId: knownLessonId, activeBoardId, spotlightBoardId, ownAssignmentBoardId })
-    : undefined
-  /** "All works" is the teacher's always; a student's only when the lesson
-   *  shows work to the class. Not in the phone shell, which only watches. */
-  const canOpenGrid = !compact && (isOwner || classVisibility === 'class')
-  /** "Учитель смотрит вашу работу": the teacher is on this student's own board. */
-  const teacherOnMyBoard = !isOwner && onPersonalBoard && currentBoardSummary?.ownerId === myUserId
-    && participants.some(p => p.role === 'owner' && p.boardId === boardId)
-  /** The strip is the lesson's pages only — personal boards live in the Class tab. */
-  const stripList = useMemo(() => stripBoards(boards), [boards])
-
-  /** (#176) The strip is offered when there is something to turn to, or to
-   *  the owner who can make it so. The phone shell (#512) only turns pages —
-   *  for the owner too, so there it needs a second board to be worth opening. */
-  const stripAvailable = compact ? stripList.length > 1 : (isOwner || stripList.length > 1)
-  const showTeacherChip = !isOwner && !following && followDest !== undefined && followDest !== boardId
-  const chip = followDest === undefined ? null : followChip({
-    destination: followDest, spotlightBoardId, ownAssignmentBoardId, boards,
+  // (#493) The strip's page turns and edits — see useBoardActions.
+  const {
+    boardsOpen, setBoardsOpen, boardBusy, selectBoard, returnToTeacher, addBoard, renameBoardAction, moveBoard,
+    removeBoard,
+  } = useBoardActions({ socketRef, switchBoardRef, isOwnerRef })
+  // (#493) Where each board goes on screen, and the class-mode requests — see
+  // useClassView.
+  const {
+    teacherBoard, gridAssignmentId, setGridAssignmentId, assignmentBusy, currentBoardSummary, onPersonalBoard,
+    ownAssignmentBoardId, gridAssignment, gridTiles, barTiles, ownBoards, workOf, readOnlyBoard, myHandRaised,
+    handsUp, canOpenGrid, teacherOnMyBoard, stripList, stripAvailable, showTeacherChip, chipText,
+    openClassBoard, startAssignment, setClassLocation, setSpotlight, setHandRaised, setClassVisibility,
+    stepInGrid,
+  } = useClassView({
+    socketRef, switchBoardRef, isOwnerRef, selectBoard, boardId, participants, myUserId, isOwner, compact,
   })
-  const chipText = chip === null ? null
-    : chip.kind === 'spotlight' ? t('class.chipSpotlight', { name: chip.name })
-      : chip.kind === 'ownWork' ? t('class.chipOwnWork')
-        : t('boards.teacherOn', { name: chip.name })
-  /** A page turn by hand. The owner's turn is also the class's: their board
-   *  becomes the active one (persisted server-side, broadcast as
-   *  `active_board_changed`). A student's turn decides whether they are still
-   *  following — see followingAfterPick. */
-  const selectBoard = useCallback((next: string) => {
-    const s = useRoomStore.getState()
-    if (!s.lessonId) return
-    if (isOwnerRef.current) {
-      const payload = activeBoardPayload(next, s.lessonId)
-      s.setActiveBoardId(payload)
-      socketRef.current?.emit('set_active_board', { boardId: payload })
-    } else {
-      // (#595) "Where following leads" is not always the teacher's board any
-      // more — during a round it is the student's own.
-      s.setFollowing(followingAfterPick(next, destinationOf(s) ?? s.lessonId))
-    }
-    switchBoardRef.current?.(next)
-  }, [])
-  /** The chip: back to the teacher, following on again. */
-  const returnToTeacher = useCallback(() => {
-    const s = useRoomStore.getState()
-    if (!s.lessonId) return
-    s.setFollowing(true)
-    switchBoardRef.current?.(destinationOf(s) ?? s.lessonId)
-  }, [])
-  /** (#595) A board opened from the class grid, the Class tab or the
-   *  teacher's ‹ ›. For the teacher it is a visit, not a page turn: an ordinary
-   *  join, never `set_active_board` — the class must not be sent to a
-   *  student's work because the teacher went to look at it (ADR 015 §4). A
-   *  student going to a board by hand is stepping away, like any pick. */
-  const openClassBoard = useCallback((next: string) => {
-    setGridAssignmentId(null)
-    if (isOwnerRef.current) switchBoardRef.current?.(next)
-    else selectBoard(next)
-  }, [selectBoard])
-  const startAssignment = useCallback((name: string) => {
-    const socket = socketRef.current
-    if (!socket || assignmentBusy) return
-    setAssignmentBusy(true)
-    socket.emit('assignment_start', { name }, result => {
-      setAssignmentBusy(false)
-      if (!result.ok) notifyError(t('class.error.start'), { key: 'assignment-start' })
-    })
-  }, [assignmentBusy, t])
-  /** (ADR 015 §11) Moves the class: to an assignment, or (null) "Все ко мне". */
-  const setClassLocation = useCallback((assignmentId: string | null) => {
-    socketRef.current?.emit('set_class_location', { assignmentId })
-    setGridAssignmentId(null)
-  }, [])
-  const setSpotlight = useCallback((target: string | null) => {
-    socketRef.current?.emit('set_spotlight', { boardId: target })
-  }, [])
-  const setHandRaised = useCallback((raised: boolean, whose?: string) => {
-    socketRef.current?.emit('set_hand_raised', whose ? { raised, userId: whose } : { raised })
-  }, [])
-  const setClassVisibility = useCallback((value: ClassVisibility) => {
-    socketRef.current?.emit('set_class_visibility', { value })
-  }, [])
-  const stepInGrid = useCallback((step: -1 | 1) => {
-    if (!boardId) return
-    const next = neighbourInGrid(barTiles, boardId, step)
-    if (next) switchBoardRef.current?.(next)
-  }, [boardId, barTiles])
-  const addBoard = useCallback(async () => {
-    const lesson = useRoomStore.getState().lessonId
-    if (!lesson || boardBusy) return
-    setBoardBusy(true)
-    try {
-      const board = await createBoard(lesson)
-      // The broadcast delivers it too; the reducer merges by id.
-      useRoomStore.getState().applyBoardsAction({ type: 'board_created', board })
-      selectBoard(board.id)
-    } catch {
-      notifyError(t('boards.error.create'), { key: 'board-create' })
-    } finally {
-      setBoardBusy(false)
-    }
-  }, [boardBusy, selectBoard, t])
-  const renameBoardAction = useCallback(async (target: string, name: string) => {
-    const s = useRoomStore.getState()
-    const lesson = s.lessonId
-    const previous = s.boards.find(b => b.id === target)?.name
-    if (!lesson || previous === undefined) return
-    // Optimistic, like the header's own rename: the field is already gone.
-    s.applyBoardsAction({ type: 'board_renamed', boardId: target, name })
-    if (target === lesson) s.setRoomName(name)
-    try {
-      await renameBoard(lesson, target, name)
-    } catch {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_renamed', boardId: target, name: previous })
-      if (target === lesson) useRoomStore.getState().setRoomName(previous)
-      notifyError(t('boards.error.rename'), { key: 'board-rename' })
-    }
-  }, [t])
-  const moveBoard = useCallback(async (target: string, direction: -1 | 1) => {
-    const s = useRoomStore.getState()
-    const lesson = s.lessonId
-    if (!lesson) return
-    const before = s.boards.map(b => b.id)
-    const order = movedOrder(s.boards, target, direction, lesson)
-    if (!order) return
-    s.applyBoardsAction({ type: 'boards_reordered', order })
-    try {
-      await reorderBoard(lesson, target, order.indexOf(target))
-    } catch {
-      useRoomStore.getState().applyBoardsAction({ type: 'boards_reordered', order: before })
-      notifyError(t('boards.error.reorder'), { key: 'board-reorder' })
-    }
-  }, [t])
-  /** Hard delete, so it asks first — the same dialog shape as clearing a
-   *  layer (#171). The strip updates from the `board_deleted` broadcast, and
-   *  anyone on the board is moved by the server before it arrives. */
-  const removeBoard = useCallback(async (target: string) => {
-    const s = useRoomStore.getState()
-    const lesson = s.lessonId
-    const board = s.boards.find(b => b.id === target)
-    if (!lesson || !board || target === lesson) return
-    const ok = await confirm({
-      title: t('boards.deleteTitle', { name: board.name }),
-      message: t('boards.deleteMessage'),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    })
-    if (!ok) return
-    try {
-      await deleteBoard(lesson, target)
-    } catch {
-      notifyError(t('boards.error.delete'), { key: 'board-delete' })
-    }
-  }, [confirm, t])
   // (#222) Closed for editing — the lesson has been handed out and stopped
   // changing. Deliberately *not* `!isOwner`: the server binds the owner too
   // (see getOperationRejectReason in rooms.ts), and a client gate that let
@@ -1154,7 +942,6 @@ function RoomEditor() {
     tool,
   })
 
-  const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   // (#24) userId lives in the store now (roomSlice) but is deliberately
   // never read reactively — it's only ever needed at "moment of action"
   // (e.g. stamping an operation), same non-reactive-ref-like usage as
