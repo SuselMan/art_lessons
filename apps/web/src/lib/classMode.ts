@@ -1,4 +1,4 @@
-import type { BoardSummary } from '@grafetto/shared'
+import type { BoardSummary, Participant } from '@grafetto/shared'
 
 // (#595, ADR 015 §6) Class mode's reading of the lesson's board list, as pure
 // functions — the same reason lib/boards.ts exists. The server has already
@@ -90,4 +90,11 @@ export function isForeignPersonalBoard(
   board: Pick<BoardSummary, 'ownerId'> | undefined, userId: string, isTeacher: boolean,
 ): boolean {
   return !!board?.ownerId && board.ownerId !== userId && !isTeacher
+}
+
+/** (#595) Whether the store's own roster names this client the lesson's
+ *  teacher. For the socket handlers, which can run between the roster
+ *  arriving and the render that refreshes `isOwnerRef`. */
+export function isTeacherIn(s: { participants: readonly Participant[]; userId: string }): boolean {
+  return s.participants.some(p => p.userId === s.userId && p.role === 'owner')
 }

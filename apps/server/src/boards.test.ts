@@ -21,11 +21,18 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
 const {
-  _flushPendingWrites, addPaletteColor, createRoom, ensureRoomLoaded, getLessonBoards, getOperationRejectReason,
-  getParticipant, getResidentRoomStats, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomFrozen, isRoomResident,
-  joinRoom, leaveRoom, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, releaseRoomIfUnused,
-  setActiveBoard, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
+  _flushPendingWrites, addPaletteColor, createRoom, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident,
+  joinRoom, leaveRoom, releaseRoomIfUnused,
 } = await import('./rooms.js')
+const { getResidentRoomStats, getRoomBacklog, listLiveLessons } = await import('./roomStats.js')
+const { getOperationRejectReason } = await import('./operationLog.js')
+const { ensureRoomLoaded } = await import('./roomLoader.js')
+const {
+  isRoomFrozen, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
+} = await import('./ownerControls.js')
+const {
+  getLessonBoards, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered, setActiveBoard,
+} = await import('./classroom.js')
 
 /** What `prisma.room.findUnique` hands back for a row this test seeded. Shaped
  *  as the Prisma row `ensureRoomLoaded` reads, thumbnail relation included. */
@@ -160,7 +167,7 @@ describe('loading a board', () => {
     joinRoom(boardId, 'student', 'Alice', sock('student'))
     // Something recorded on the board keeps its own eviction deferred behind
     // that write; the lesson has nothing pending and goes at once.
-    const { recordOperation } = await import('./rooms.js')
+    const { recordOperation } = await import('./operationLog.js')
     recordOperation(boardId, stroke('student'))
     leaveRoom(lessonId, 'teacher', sock('teacher'))
     leaveRoom(boardId, 'student', sock('student'))
@@ -285,6 +292,23 @@ describe('gates resolve against the lesson', () => {
     await _flushPendingWrites(lessonId)
     expect(mockPrisma.roomPalette.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { roomId: lessonId } }))
     expect(mockPrisma.roomPalette.upsert).not.toHaveBeenCalledWith(expect.objectContaining({ where: { roomId: boardId } }))
+  })
+})
+
+// (#586) The admin panel's list. Presence is the lesson's, so a board with
+// someone on it is not a second live lesson — it is where that person is.
+describe('live lessons', () => {
+  it('lists the lesson once, whoever is on which board, and never a board on its own', async () => {
+    const lessonId = makeLesson()
+    const boardId = await makeBoard(lessonId)
+    joinRoom(boardId, 'student', 'Alice', sock('student'))
+
+    const live = listLiveLessons().filter(l => l.lessonId === lessonId || l.lessonId === boardId)
+    expect(live).toHaveLength(1)
+    expect(live[0].lessonId).toBe(lessonId)
+    expect(live[0].participants.map(p => [p.userId, p.boardId]).sort()).toEqual([
+      ['student', boardId], ['teacher', lessonId],
+    ])
   })
 })
 

@@ -4,9 +4,8 @@ import type { BoardSummary } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
 import { isLesson } from './lessons.js'
-import {
-  flushRoomWrites, noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered,
-} from './rooms.js'
+import { noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered } from './classroom.js'
+import { flushRoomWrites } from './rooms.js'
 
 /** Board CRUD (#176, ADR 014 §3 — "Права"). Creating, renaming, reordering
  *  and deleting the pages of a lesson; all owner-only, all on the *lesson's*

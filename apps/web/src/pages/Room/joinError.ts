@@ -96,3 +96,26 @@ export function describeJoinError(reason: JoinFailureReason, t: TFunction): stri
       return t('join.error.boardNotVisible')
   }
 }
+
+/** (#513, #231, #493) What the join gate does with the answer to an attempt:
+ *  ask for a password it did not know was needed, replace the form with a
+ *  screen, show an error under the form, or let the person in.
+ *
+ *  A `wrong_password` for an attempt that carried no password is not a wrong
+ *  guess — it is the only way this client can learn the room has a password
+ *  at all, since nothing about a room is readable before joining it. So it
+ *  opens the field instead of accusing the reader of mistyping something they
+ *  never typed. */
+export type JoinAttemptOutcome =
+  | { kind: 'joined'; userId: string }
+  | { kind: 'askPassword' }
+  | { kind: 'screen'; state: 'login' | 'pending' | 'revoked' }
+  | { kind: 'error'; reason: JoinFailureReason }
+
+export function joinAttemptOutcome(result: JoinResult, passwordSent: boolean): JoinAttemptOutcome {
+  if (result.ok) return { kind: 'joined', userId: result.userId }
+  if (result.error === 'wrong_password' && !passwordSent) return { kind: 'askPassword' }
+  const state = joinGateStateFor(result.error)
+  if (state) return { kind: 'screen', state }
+  return { kind: 'error', reason: result.error }
+}

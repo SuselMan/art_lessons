@@ -16,6 +16,7 @@ import type {
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { Matrix3 } from '../src/matrix'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
+import type { CheckpointStore } from '../src/checkpointStore'
 import type { ILayerBuffer } from '../src/ILayerBuffer'
 import { __setPaperLoaderForTesting } from '../src/paperLoader'
 import { PAPER_BAKE_RESOLUTION } from '../src/paperConstants'
@@ -149,8 +150,7 @@ export function createTestEngine(
 
 interface EngineInternals {
   _layers: Map<string, ILayerBuffer>
-  _checkpoints: Array<{ layerId: string; opIds: string[] }>
-  _checkpointBytes: number
+  _checkpoints: CheckpointStore
   _onStart: (e: PointerData) => void
   _onMove: (e: PointerData) => void
   _onEnd: (e: PointerData) => void
@@ -373,14 +373,14 @@ export function readTransformPreviewTextureIds(engine: PencilEngine, layerId: st
 }
 
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
-  return internals(engine)._checkpoints.filter(cp => cp.layerId === layerId).length
+  return internals(engine)._checkpoints.all().filter(cp => cp.layerId === layerId).length
 }
 
 /** (#467) How many bytes this engine's checkpoints actually hold. The pinned
  *  ones are exempt from the byte budget and are held for the life of the room,
  *  so "how big is this" is the whole question that file answers. */
 export function checkpointBytes(engine: PencilEngine): number {
-  return internals(engine)._checkpointBytes
+  return internals(engine)._checkpoints.totalBytes()
 }
 
 /** #134-follow-up white-box access: how much bigger the assembly buffer is
@@ -587,7 +587,7 @@ export function peerLiveGestures(engine: PencilEngine): Array<{
 }
 
 export function clearCheckpoints(engine: PencilEngine): void {
-  internals(engine)._checkpoints.length = 0
+  internals(engine)._checkpoints.clear()
 }
 
 /** (#479) Fires the checkpoint bake *now*, standing in for the idle callback

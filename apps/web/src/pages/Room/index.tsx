@@ -2,65 +2,46 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { io, type Socket } from 'socket.io-client'
-import * as Sentry from '@sentry/react'
 import clsx from 'clsx'
 import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
-  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
-  SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, FillSourceMode,
-  JoinDenial, BoardSummary, ClassVisibility, LessonState,
+  LayerState, Operation, Participant,
+  SendResult, ClientToServerEvents, ServerToClientEvents,
+  BoardSummary, ClassVisibility,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, unpackDabs, type ToggleableTool } from '@grafetto/shared'
-import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
-import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
+import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, type ToggleableTool } from '@grafetto/shared'
+import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
 import { SidePanel } from '../../components/SidePanel'
 import {
   ColorFlyout, ColorFlyoutBody, type ColorFlyoutContent, type ColorPairControls,
 } from '../../components/ColorFlyout'
-import { ColorWell } from '../../components/ColorWell'
-import { Icon } from '../../components/Icon'
-import { Logo } from '../../components/Logo'
-import { Menu, type MenuAction } from '../../components/Menu'
 import { Notice } from '../../components/Notice'
 import { BoardStrip, TeacherChip } from './BoardStrip'
 import { ClassBar, ClassGrid } from './ClassGrid'
 import { ClassPlaces } from './ClassPlaces'
 import { createPreviewSchedule } from './previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
-import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
-import { isModalOpen } from '../../components/Modal/modalSlot'
-import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
-import { ToolGroupButton } from '../../components/ToolGroupButton'
 import type { PickerOption } from '../../components/OptionPicker/types'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import {
-  computeCompositeOrder, eraseThroughTargets, isLayerLocked, isLockedAgainst,
+  computeCompositeOrder, eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers'
-import { hexToRgb, rgbToHex } from '../../lib/color'
+import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
-import { WatercolorPerfHud } from './WatercolorPerfHud'
-import { useWatercolorDevFlags } from './useWatercolorDevFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
-import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
-import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
-import { holdReload } from '../../lib/reloadSafety'
-import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
-import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/hotkeys'
-import { addRoomInvite, createBoard, deleteBoard, forkRoom, moveRoomToFolder, renameBoard, renameRoom, reorderBoard, setRoomClosed } from '../../lib/api'
+import { diagLog } from '../../lib/diagLog'
+import { formatHotkeyLabel } from '../../lib/hotkeys'
+import { createBoard, deleteBoard, forkRoom, renameBoard, reorderBoard, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { BANNED_ERROR_CODE, noteBanned } from '../../lib/banned'
-import { useShareRoom } from '../../lib/useShareRoom'
-import {
-  isFullscreenSupported, subscribeFullscreenChange, toggleFullscreen as toggleFullscreenOn,
-} from '../../lib/fullscreen'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
 import { useViewportToast } from './useViewportToast'
@@ -68,14 +49,35 @@ import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCommittableSession } from './useCommittableSession'
 import { useShapeTool } from './useShapeTool'
+import { useRulerTool } from './useRulerTool'
+import { useFillTool } from './useFillTool'
+import { useEyedropper } from './useEyedropper'
+import { useEditorHotkeys } from './editorHotkeys'
+import { useTransformGizmoGestures } from './useTransformGizmoGestures'
+import { createBoardEventHandlers } from './boardEvents'
+import { createPeerEventHandlers } from './peerEvents'
+import { createConfirmedStreamHandler } from './confirmedStream'
+import { createOutboxVerdicts } from './outboxVerdict'
+import { createEngineNetworkCallbacks } from './engineNetwork'
+import { createJoinFlow, type CreatorNavState } from './joinFlow'
+import { toRoomConfig } from './roomConfig'
+import { createRoomStateHandler } from './roomStateHandler'
+import { createRoomControlEventHandlers } from './roomControlEvents'
+import { useOperationDispatch } from './useOperationDispatch'
+import { useJoinGate } from './useJoinGate'
+import { usePaperReadiness } from './usePaperReadiness'
+import { useOpenTimer } from './useOpenTimer'
+import { useLeaveGuard } from './useLeaveGuard'
+import { useToolSync } from './useToolSync'
+import { useLogDerivedState } from './useLogDerivedState'
 import { useSelection } from './useSelection'
-import { ShapeFrameFields, ShapeRatioPresets } from './ShapeFrameFields'
-import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
+import { DebugStack } from './DebugStack'
 import { usePencilSound } from './usePencilSound'
 import { useCanvasViewport } from './useCanvasViewport'
 import { useAnnotations } from './useAnnotations'
 import { useCursorBroadcast } from './useCursorBroadcast'
 import { useLayerStateSync } from './useLayerStateSync'
+import { useLayerPanelBridge } from './useLayerPanelBridge'
 import { useSpaceToPan } from './useSpaceToPan'
 import { useDrawingActivity } from './useDrawingActivity'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
@@ -86,45 +88,35 @@ import { FrozenBanner } from './FrozenBanner'
 import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
 import { ConnectionBanner } from './ConnectionBanner'
-import { SyncIndicator } from './SyncIndicator'
+import { RoomHeader } from './RoomHeader'
+import { ToolRail } from './ToolRail'
+import { QuickSettingsBar } from './QuickSettingsBar'
+import { ToolSettingsTab } from './ToolSettingsTab'
 import { resolveDisplayName } from './displayName'
-import { clientToCanvas } from './pointerTransform'
-import { ZOOM_MAX, ZOOM_KEY_STEP, clientToRoomPoint, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
-import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
-import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
-import { isLocalIslandSafe } from './optimism'
-import {
-  groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
-} from './lostWork'
+import { ZOOM_MAX, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
+import { createLostWorkBatcher, recoveryOperations, type LostContentOp } from './lostWork'
 import { Outbox } from './outbox'
 import { createSocketRevival } from './socketRevival'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
-import { useCursor, RULER_GESTURE_CURSOR, type ViewportCursor } from './cursorController'
-import { RulerOverlay, type RulerPoint } from './RulerOverlay'
-import { rulerGestureAt, RULER_BODY_GRAB_PX, RULER_ENDPOINT_GRAB_PX } from './rulerGesture'
-import { editorOwnsKey, isTypingTarget } from './editorKeys'
+import { useCursor, type ViewportCursor } from './cursorController'
+import { RulerOverlay } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
 import { AnnotationOverlay } from './AnnotationOverlay'
 import { useCompactLayout } from '../../lib/useCompactLayout'
 import { useNarrowHeader } from '../../lib/useNarrowHeader'
-import {
-  translateMatrix, scaleAxisMatrix, skewAxisMatrix, rotateAboutMatrix,
-  composeMatrix, invertMatrix, applyMatrix, isIdentityMatrix, IDENTITY_MATRIX,
-  transformGestureKind, isNegligibleTransform, distortQuad, solveQuadMatrix, isFrameInFront,
-  type TransformBounds, type TransformMatrix, type TransformHandleKind, type TransformMode,
-} from './transformMath'
+import { rotateAboutMatrix, type TransformMode } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
-import { applyJoinRequestCreated, applyJoinRequestResolved, useJoinQueue } from './joinQueue'
-import { JoinGate, type JoinGateState } from './JoinGate'
+import { useJoinQueue } from './joinQueue'
+import { JoinGate } from './JoinGate'
 import { NoWebGL } from './NoWebGL'
 import { probeWebGL } from '../../lib/webgl'
 import {
-  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
-  getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
+  loadToolSettings, saveToolSettings,
+  getToolColor, isColorCapableTool, type ColorCapableTool,
   isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
 } from './toolSchemas'
 import { colorWellState, effectiveSwatch } from './colorWell'
@@ -136,7 +128,7 @@ import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
 import {
-  activeBoardPayload, entryBoard, followDestination, followTarget, followingAfterPick, movedOrder, teacherBoardId,
+  activeBoardPayload, followDestination, followingAfterPick, movedOrder, teacherBoardId,
 } from '../../lib/boards'
 import {
   classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, neighbourInGrid, ownBoardIn,
@@ -144,8 +136,6 @@ import {
 } from '../../lib/classMode'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
-import { reportRoomOpen } from './reportOpen'
-import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
 import { restoreRoomState } from './restoreRoomState'
 import { useTransformSession, type TransformSession } from './useTransformSession'
@@ -153,27 +143,14 @@ import { initLayersFromStore, retireEngine, wireLocalStrokeEvents } from './engi
 import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
 import { notifyError, notifyWarning } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
-import { WatercolorDryButton } from './WatercolorDryButton'
-import { createReplayGate } from './replayGate'
-import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import {
   isPrimaryDrawingTool, PRIMARY_DRAWING_TOOLS,
   type EditorTool, type PrimaryDrawingTool,
 } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
-import type { RoomInfo } from '../../stores/slices/roomSlice'
-import { useClipboardStore } from '../../stores/clipboardStore'
+import { createReplayGate } from './replayGate'
+import { useWatercolorDevFlags } from './useWatercolorDevFlags'
 import styles from './Room.module.css'
-
-// Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
-// — camera-relative tile rendering (a separate follow-up) is what actually
-// makes the canvas element's own size independent of "room size". Until
-// that lands, an infinite room's RoomInfo gets this placeholder finite
-// size so the existing fixed-canvas-shaped rendering/viewport/pointer
-// pipeline below (all written in terms of one fixed-size canvas) keeps
-// working unmodified rather than needing every call site touched twice.
-// Large enough that "infinite" still feels roomy for this interim state.
-const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
 
 // (#393) The one place a ViewportCursor becomes a class name. The decision
 // itself is cursorController's; this is only the CSS-Modules lookup, kept
@@ -182,78 +159,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
   crosshair: styles.viewportCursorCrosshair,
   grab: styles.viewportCursorGrab,
   default: styles.viewportCursorDefault,
-}
-
-/** Navigation state CreateRoom hands off to a freshly created room (see
- *  CreateRoom/index.tsx) — its presence is how this component tells "I am
- *  the creator, opening my own room" apart from "I opened someone else's
- *  room link" (no state at all, e.g. a second device). */
-interface CreatorNavState {
-  room: Pick<RoomEntity,
-    'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'
-    | 'classVisibility'>
-  password?: string
-  // (#232) Picked on the create form. The mode rides along on `create_room`
-  // itself so the room is never briefly open; the invites are sent afterwards
-  // over REST, which is where address normalization and dedup live.
-  accessMode?: RoomAccessMode
-  invites?: string[]
-  // (#211 epic, #215) Set when CreateRoom was opened via "New room" while a
-  // folder was open on MyLessons — files the freshly created room into it
-  // right after create_room succeeds (see the ack handler below).
-  folderId?: string
-}
-
-function toRoomConfig(
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
-    & Partial<Pick<RoomEntity, 'closedAt' | 'accessMode' | 'enabledTools'>>,
-): RoomInfo {
-  return {
-    id: room.id, name: room.name,
-    // (#300) The wire carries whatever the database holds — including the
-    // three pre-grid names. Normalising here, at the single point a room
-    // enters the client, keeps every downstream consumer (engine, sound,
-    // picker) free of legacy handling.
-    paper: normalizePaperType(room.paper), paperColor: room.paperColor, infinite: room.infinite,
-    width: room.canvasWidth ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
-    height: room.canvasHeight ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
-    // (#222) Optional in the Pick because the creator's own branch builds a
-    // RoomInfo from navigation state, where the field cannot exist yet — a
-    // room is never born closed. Every other entry point comes from
-    // `room_state`, which carries it.
-    closedAt: room.closedAt,
-    // (#460) Optional in the Pick for the same reason `closedAt` is: on the
-    // creator's branch nothing has come back from the server yet, and what
-    // they picked on the create form rides in on navigation state instead.
-    // The fallback is the server's own — `create_room` stores
-    // 'anyone_with_link' for anything it doesn't recognise (socketHandlers.ts)
-    // — so this mirrors the row that is about to exist rather than inventing
-    // a second default. Every other entry point comes from `room_state`,
-    // which carries the real one.
-    accessMode: room.accessMode ?? 'anyone_with_link',
-    // (#548) No fallback and none wanted: absent *is* the unrestricted room,
-    // on the creator's branch and on every other one alike.
-    enabledTools: room.enabledTools,
-  }
-}
-
-/** (#176, ADR 014) The lesson's `RoomInfo`, built from whichever board's
- *  `room_state` arrived first. `config` describes the *lesson* for the whole
- *  session — its id is what the share link and every lesson-level call use,
- *  its name is the header label — and a board's row differs from the lesson's
- *  only in those two fields: paper, colour, size and the social overlay are
- *  the lesson's already (see the shared `Room.lessonId`). The lesson's own
- *  name is in the strip, under the lesson's id, at order 0. */
-function toLessonConfig(room: RoomEntity, lesson: LessonState): RoomInfo {
-  const own = lesson.boards.find(b => b.id === lesson.id)
-  return toRoomConfig({ ...room, id: lesson.id, name: own?.name ?? room.name })
-}
-
-/** (#595) Whether the store's own roster names this client the lesson's
- *  teacher. For the socket handlers, which can run between the roster
- *  arriving and the render that refreshes `isOwnerRef`. */
-function isTeacherIn(s: { participants: readonly Participant[]; userId: string }): boolean {
-  return s.participants.some(p => p.userId === s.userId && p.role === 'owner')
 }
 
 /** (#595) Where following leads a student right now, from the store — for
@@ -268,12 +173,6 @@ function destinationOf(s: {
     ownAssignmentBoardId: ownBoardIn(s.boards, s.activeAssignmentId, s.userId)?.id ?? null,
   })
 }
-
-/** (#176) How long a page turn waits for unconfirmed operations before moving
- *  the socket anyway — see Outbox.whenIdle for why it is bounded at all. Long
- *  enough for a burst of strokes to be acknowledged on an ordinary
- *  connection; short enough that a dead one does not hold the page. */
-const BOARD_SWITCH_DRAIN_MS = 4000
 
 // LAN dev server port (apps/server); derived from window.location.hostname
 // How long a stroke's "drawing" activity (local or peer) stays visible before
@@ -307,48 +206,6 @@ const OFFLINE_OVERLAY_GRACE_MS = 6000
 // never be undone anyway. See backfillHistory for why an unbounded walk is
 // not an option.
 const HISTORY_BACKFILL_DEPTH = SNAPSHOT_SEQ_INTERVAL
-
-// Layer transform tool (#120): canvas-space pivot for a scale handle is
-// always the *opposite* corner/edge of the content bounding box (see
-// engine.getContentBounds) — a real resize anchor, unlike the old
-// whole-canvas-rect version this replaced.
-const TRANSFORM_PIVOT: Record<'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r', (b: TransformBounds) => { x: number; y: number }> = {
-  tl: b => ({ x: b.x + b.width, y: b.y + b.height }),
-  tr: b => ({ x: b.x,           y: b.y + b.height }),
-  bl: b => ({ x: b.x + b.width, y: b.y }),
-  br: b => ({ x: b.x,           y: b.y }),
-  t:  b => ({ x: b.x,           y: b.y + b.height }),
-  b:  b => ({ x: b.x,           y: b.y }),
-  l:  b => ({ x: b.x + b.width, y: b.y }),
-  r:  b => ({ x: b.x,           y: b.y }),
-}
-
-// (#391) How far a shear may be pushed in one gesture. Unlike a scale this
-// has no singularity to protect against (a single-axis shear's determinant is
-// exactly 1 whatever the amount), so the clamp is purely about what a slip of
-// the pen near the anchor edge can do: the shear is a ratio whose denominator
-// is the distance to that edge, and 20 already lays the layer almost flat.
-
-
-
-
-
-const MAX_TRANSFORM_SHEAR = 20
-
-// (#429) How many recently-streamed gesture ids to remember — see
-// streamedStrokeIdsRef. Generous on purpose: the cost of one forgotten id is a
-// stroke briefly drawn twice on screen, the cost of a large set is a few
-// hundred bytes, and only one of those is visible to a teacher.
-const STREAMED_STROKE_MEMORY = 256
-
-/** What dispatchOp did with an operation (#395). `applied: true` means the
- *  engine already carries it (the optimistic local-island path); `false`
- *  means it is queued in the Outbox and only becomes real when the server
- *  confirms it. A null return means it was refused outright and nothing will
- *  ever land. Only the transform gizmo reads this — it has to keep its
- *  preview on screen until the operation is genuinely applied; every other
- *  call site ignores the result. */
-interface DispatchedOp { op: Operation; applied: boolean }
 
 // (#289 epic, reliable history spec v0.2 §9) A bare socket.io ack has no
 // timeout of its own — a dropped packet (either leg) would otherwise leave
@@ -387,8 +244,6 @@ function RoomEditor() {
   const navigate = useNavigate()
   const location = useLocation()
   const t        = useT()
-  // (#460) The header menu's "Share" — same helper the lesson list's ⋮ uses.
-  const shareRoom = useShareRoom()
   // (#380) Only for the access cache the join queue lives in — see joinQueue.ts.
   const queryClient = useQueryClient()
   // (#310) In-app replacements for the window.confirm/window.alert this
@@ -489,25 +344,6 @@ function RoomEditor() {
     diagLog('roomContentReady changed to', roomContentReady)
   }, [roomContentReady])
 
-  // (#345) Paper-download progress for the loading overlay. Local state next
-  // to roomContentReady rather than in roomStore, for the same reason that one
-  // is local: it describes this mount's own loading sequence and dies with it.
-  //
-  // Null means "no texture download is happening" — which covers both `flat`
-  // paper (synthesised, never fetched) and, importantly, the case the prefetch
-  // makes common: the bytes were already in hand before the room opened, so no
-  // progress is ever emitted and the overlay should not flash an empty bar.
-  const [paperProgress, setPaperProgress] = useState<PaperLoadProgress | null>(null)
-  useEffect(() => subscribePaperLoadProgress(setPaperProgress), [])
-
-  // (#346) The paper texture failed to load, and with it this mount's whole
-  // catch-up: every replay site below awaits `paperReady()` first, so a
-  // rejection there means nothing was restored either. Both facts point the
-  // same way — the room is not open, and saying otherwise is the bug this
-  // closes. `paperRetrying` is the retry's own in-flight flag.
-  const [paperFailed,   setPaperFailed]   = useState(false)
-  const [paperRetrying, setPaperRetrying] = useState(false)
-
   /** (#533) The room's stored pixels did not arrive, so this catch-up restored
    *  nothing. Same conclusion as `paperFailed` and for a stricter reason: the
    *  server withholds the history a snapshot claims to cover, so there is no
@@ -523,45 +359,6 @@ function RoomEditor() {
    *  the disagreement would be a screen explaining the wrong failure. */
   const [restoreFailure, setRestoreFailure] = useState<RestoreFailureReason | null>(null)
 
-  /** (#464) Whether this failure has already been reported to Sentry. Every
-   *  replay site calls awaitPaper, so one broken load rejects at several of
-   *  them and would otherwise send the same event three or four times.
-   *
-   *  Reset by a retry, deliberately: a second failure after the user asked
-   *  again is a different fact from the first — it says the cause is not the
-   *  transient blip the retry button exists for. */
-  const paperReportedRef = useRef(false)
-
-  /** Awaits the paper texture at a replay site, reporting a failure instead of
-   *  letting it through. Returns whether the caller may proceed — `false`
-   *  means it must leave `roomContentReady` alone (i.e. false) so the failure
-   *  overlay stands, rather than run its restore against a placeholder
-   *  texture and an engine that will refuse every stroke.
-   *
-   *  This is the `catch` the old `try/finally` sites were missing: the error
-   *  itself is worth reading (paperLoader names the file, the HTTP status and
-   *  the command to run), and it used to reach nothing but an unhandled
-   *  rejection. */
-  const awaitPaper = useCallback(async (engine: PencilEngineAPI | null): Promise<boolean> => {
-    try {
-      await engine?.paperReady()
-      return true
-    } catch (err) {
-      console.error('paper texture failed to load — room cannot draw', err)
-      // (#464) Reported, not just logged. This is a room that did not open,
-      // and until an iPad on iPadOS 16.3 was picked up by hand we had no way
-      // of knowing it ever happened: the console is on a device we don't have,
-      // and the catch above is what stopped it reaching Sentry's unhandled
-      // handler. A failure this total has to be something we see first.
-      if (!paperReportedRef.current) {
-        paperReportedRef.current = true
-        Sentry.captureException(err)
-      }
-      setPaperFailed(true)
-      return false
-    }
-  }, [])
-
   // Device performance investigation (#91) — shows a live per-stroke input/
   // render timing readout. Controlled by the "Debug overlay" feature flag
   // (#100) — VITE_DEBUG_OVERLAY in apps/web/.env.local as the default, or the
@@ -569,50 +366,16 @@ function RoomEditor() {
   const debugEnabled = getFeatureFlag('debugOverlay')
   const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
-  // Dev-only live tuning (see PencilEngineAPI.setPaperFillThreshold) — a
-  // debug-overlay slider that calls straight through to the engine on every
-  // drag, no Save/reload round-trip: this one's meant to be dragged and
-  // felt out in real time while actually drawing, not toggled once and
-  // reloaded like every other Settings-panel control. Not persisted —
-  // purely a session tuning aid; once a value's picked, it becomes the
-  // engine's own hardcoded default instead of staying a runtime knob.
-  const [paperFillThreshold, setPaperFillThresholdState] = useState(0)
-  // Companion slider (see PencilEngineAPI.setPaperFillCap) — hard ceiling
-  // on how far a single dab's own fill can push paperCatch toward 1.0.
-  // Threshold alone couldn't express "impossible to fully flatten in one
-  // pass, only through repeated passes" — some pressure always fully
-  // triggered it eventually, no matter how close the threshold sat to 1.0.
-  const [paperFillCap, setPaperFillCapState] = useState(0.35)
-  // #305: charcoal's tilt ladder, seeded from the engine module's own current
-  // values rather than a second hardcoded copy here — CHARCOAL_FEEL is the one
-  // source of truth, and these sliders only ever push deltas back into it.
-  const [charcoalFeel, setCharcoalFeelState] = useState<CharcoalFeelConfig>(() => ({ ...CHARCOAL_FEEL }))
-  // #389: graphite's tilt curve, seeded and pushed the same way charcoal's
-  // ladder above is.
-  const [pencilTilt, setPencilTiltState] = useState<PencilTiltConfig>(() => ({ ...PENCIL_TILT }))
-  // Smudge's own grain knobs (smudgeGrain.ts). Unlike the two above these are
-  // read at paint time, so they land on the next *dab*, not the next stroke.
-  const [smudgeGrain, setSmudgeGrainState] = useState<SmudgeGrainConfig>(() => ({ ...SMUDGE_GRAIN }))
-
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
   // before deciding whether to keep it.
   const predictEnabled = getFeatureFlag('predictPointer')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // #93: fullscreen toggle for the whole page — removes tablet browser chrome
-  // (address bar/nav), which eats real estate especially in landscape. iOS
-  // Safari doesn't support the Fullscreen API for arbitrary elements, hence the
-  // fullscreenEnabled gate below (hide rather than show a button that would
-  // throw). What goes fullscreen is `document.documentElement`, not `editorRef`
-  // — see toggleFullscreen for why that distinction is load-bearing (#357).
+  // The editor root — the stroke-active attribute goes on it, and the panels
+  // measure against it. What goes fullscreen is `document.documentElement`,
+  // not this — see RoomHeader's toggleFullscreen for why (#357).
   const editorRef = useRef<HTMLDivElement>(null)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  // (#466) Asked through lib/fullscreen rather than read off
-  // `document.fullscreenEnabled` directly: on Safari below 16.4 that property
-  // does not exist, so this was false and the button was never rendered — on
-  // a browser that can do fullscreen perfectly well under the prefixed name.
-  const fullscreenSupported = isFullscreenSupported()
 
   // Minimal UI (#99): a short single-finger tap on the canvas hides the
   // header/toolbar/layer panel via a CSS class (never unmounted — no lost
@@ -723,8 +486,6 @@ function RoomEditor() {
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
   const hapticGrainEnabled = getFeatureFlag('hapticGrain')
-  // (#536, §17.22) Watercolor performance readout — numbers off a tablet.
-  const wcPerfHudEnabled = getFeatureFlag('wcPerfHud')
   const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
 
   // Dev-only grain A/B (see SettingsPanel / DAB_FRAG's computeGrain) — live
@@ -895,7 +656,6 @@ function RoomEditor() {
   // rather than having to be laid a second time. Whether it is *on screen*
   // meanwhile is `rulerVisible` below.
   const rulerLine = useRoomStore(s => s.rulerLine)
-  const setRulerLine = useRoomStore(s => s.setRulerLine)
   // (#508/#511) The annotation projection and the two pieces of local view
   // state around it. `annotationsHidden` is deliberately not an operation —
   // see the slice's own comment for why hiding is private.
@@ -905,39 +665,9 @@ function RoomEditor() {
   // `annotationsHidden`, applied to the engine as a display filter below.
   const soloIds = useRoomStore(s => s.soloIds)
   const setSoloIds = useRoomStore(s => s.setSoloIds)
-  const setAnnotationsHidden = useRoomStore(s => s.setAnnotationsHidden)
   const annotationDraft = useRoomStore(s => s.annotationDraft)
   const collapsedAnnotationIds = useRoomStore(s => s.collapsedAnnotationIds)
   const setAnnotationDraftText = useRoomStore(s => s.setAnnotationDraftText)
-  // (#405) The ruler's two settings, from the same TOOL_SCHEMAS store every
-  // other tool's live in.
-  const rulerLock = toolSettings.ruler.lock as boolean
-  const rulerSnap = toolSettings.ruler.snap as boolean
-  // (#445) Visibility is the selection first, the setting second: the ruler is
-  // on screen while it is in hand, and `lock` only decides whether it stays
-  // there under every other tool. Unlocked (the default) it behaves like a
-  // straight edge laid on the paper to measure with and taken off again —
-  // which is what the toggle used to get backwards, leaving the line lying
-  // across the drawing until the user went back to the ruler to switch it off.
-  //
-  // This one boolean is the master switch the old `show` was: what is not
-  // visible neither snaps (the engine sync below) nor can be grabbed (the
-  // catcher), because an invisible line bending strokes is a trap.
-  const rulerVisible = rulerActive || rulerLock
-  // (#448) Is a ruler gesture running right now? Only the distance bubble
-  // reads it: a measurement is worth showing while it is being taken and
-  // nothing but clutter over the drawing afterwards. Local state rather than
-  // the store because it is born and dies inside handleRulerDown's own drag —
-  // nothing outside this component can observe it, and the store deliberately
-  // holds no per-gesture scratch (see rulerLine's comment above for what does
-  // belong there). Set twice per drag, not per move, so it costs no renders on
-  // top of the ones setRulerLine already causes.
-  const [rulerDragging, setRulerDragging] = useState(false)
-  // Gated on the selection as well, so a flag stranded by a drag whose catcher
-  // was unmounted under it (the tool switched by hotkey mid-gesture, with the
-  // pen still down) cannot leave the bubble standing over a locked ruler: a
-  // gesture can only run while the ruler is in hand in the first place.
-  const rulerMeasuring = rulerDragging && rulerActive
   // Construction grid (#89, #405) — visibility is a setting on the grid tool
   // now rather than a store flag toggled by the toolbar button, which is what
   // lets it stay on screen under every other tool while its button selects it
@@ -959,7 +689,6 @@ function RoomEditor() {
   // where the content actually is keeps this from silently pointing
   // somewhere stale.
   const transformCenterOverride = useRoomStore(s => s.transformCenterOverride)
-  const setTransformCenterOverride = useRoomStore(s => s.setTransformCenterOverride)
   // (#399) Every gesture of the open transform session, composed — fed to
   // TransformGizmo so its handles ride along with the content, and to the
   // engine's preview so the canvas shows the same thing. Null between
@@ -968,7 +697,6 @@ function RoomEditor() {
   // a rotation: the bounds behind it are axis-aligned, so re-deriving them
   // from pixels threw the rotation away (a 30° turn grew the box 32%x42%).
   const transformSessionMatrix = useRoomStore(s => s.transformSessionMatrix)
-  const setTransformSessionMatrix = useRoomStore(s => s.setTransformSessionMatrix)
   // The session itself. Authoritative (the store copy exists to drive
   // rendering), and a ref rather than state so the drag handlers don't have to
   // list a value that changes on every animation frame among their deps.
@@ -988,12 +716,6 @@ function RoomEditor() {
   const setSelection = useRoomStore(s => s.setSelection)
   const pendingSelection = useRoomStore(s => s.pendingSelection)
   const setPendingSelection = useRoomStore(s => s.setPendingSelection)
-  // (#521) The clipboard is local too, but it is not room state: it outlives
-  // this room and is shared with every other tab of this browser
-  // (clipboardStore.ts). Only the meta is subscribed to — enough to answer
-  // "is there anything to paste", which is all any of this component needs
-  // until a paste actually happens.
-  const clipboardMeta = useClipboardStore(s => s.meta)
   // (#399) Throws the open session's uncommitted gestures away and re-opens an
   // empty one on whatever the layer holds now. Assigned further down, where
   // the pieces it needs exist; declared here because undo/redo — defined well
@@ -1078,15 +800,17 @@ function RoomEditor() {
   // merge/transform — and it stays the plain notice it has always been.
   // Deliberately not an automatic room fork (see Outbox's onSettled).
   const [lostWork, setLostWork] = useState<{ layerNames: string[]; restoredLayerIds: string[] } | null>(null)
-  // Rejected content operations waiting to be recovered as a batch. They
-  // arrive one ack at a time as the outbox drains, so recovery debounces
-  // rather than reacting to each — see scheduleLostWorkRecovery.
-  const lostContentOpsRef = useRef<LostContentOp[]>([])
-  const lostWorkTimerRef = useRef<number | null>(null)
-  const lostWorkFirstAtRef = useRef<number | null>(null)
   // Assigned once recoverLostWork exists (it needs the engine and
   // syncFromLog, both defined well below the Outbox this is called from).
-  const recoverLostWorkRef = useRef<(() => void) | null>(null)
+  const recoverLostWorkRef = useRef<((ops: LostContentOp[]) => void) | null>(null)
+  // (#312) Rejected content operations waiting to be recovered as a batch —
+  // see createLostWorkBatcher for the debounce and its cap.
+  const lostWorkBatchRef = useRef(createLostWorkBatcher({
+    onFlush: ops => recoverLostWorkRef.current?.(ops),
+    quietMs: LOST_WORK_QUIET_MS, maxWaitMs: LOST_WORK_MAX_WAIT_MS,
+    timers: { set: (fn, ms) => window.setTimeout(fn, ms), clear: id => window.clearTimeout(id) },
+    now: () => Date.now(),
+  }))
   // (#346) Same shape, same reason: `requestFullResync` is defined inside the
   // socket-wiring effect (it needs that effect's own `socket`), and the paper
   // retry below — a UI callback with no socket of its own — is what has to
@@ -1636,22 +1360,9 @@ function RoomEditor() {
    *  Never cleared for the life of this mount: nothing that happens after a
    *  half-applied replay can make the buffer whole again short of a reload,
    *  which is a fresh mount and a fresh attempt anyway. */
-  // (#487) Замер входа: от нажатия «войти» до момента, когда преклоадер ушёл.
-  // Ref, а не состояние: между стартом и финишем комната перерисовывается
-  // (гейт сменяется редактором, движок монтируется), и замер обязан это
-  // пережить, ничего при этом не перерисовывая сам.
-  const openTimerRef = useRef<OpenTimer | null>(null)
-  // Будильник: снимает состояние, **не дожидаясь конца**. Половина, ради
-  // которой всё и делается — вход, который не заканчивается, не сообщает о
-  // себе ничем, см. openTiming.ts.
-  const openAlarmRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Будильник переживает смену экрана внутри комнаты, но не сам уход из неё:
-  // отчёт «вход не закончился» от размонтированной страницы — это отчёт о
-  // человеке, который просто ушёл, и он был бы неотличим от настоящего.
-  useEffect(() => () => {
-    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
-  }, [])
+  // (#487) The open's own measurement and its slow-open alarm — see
+  // useOpenTimer.
+  const { openTimerRef, startOpenTimer, finishOpenTimer } = useOpenTimer({ id, engineRef })
 
   const replayIncompleteRef = useRef(false)
   const checkSnapshotBoundary = useCallback(() => {
@@ -1675,32 +1386,10 @@ function RoomEditor() {
     snapshotGateRef.current.restoreCompleted(latestKnownSeqRef.current)
   }, [])
 
-  // (#312) Queues one rejected content operation for recovery and (re)arms
-  // the batch timer.
-  //
-  // Debounced rather than immediate because these arrive one ack at a time
-  // as the outbox drains (MAX_CONCURRENT_SENDS at once, #298): reacting per
-  // operation would mint one replacement layer per lost stroke. Debounce
-  // alone would never fire on a long enough backlog, so it's capped — after
-  // LOST_WORK_MAX_WAIT_MS from the first rejection the batch goes through
-  // regardless, and anything still arriving simply forms the next batch.
+  // (#312) Queues one rejected content operation for recovery — see
+  // createLostWorkBatcher.
   const scheduleLostWorkRecovery = useCallback((op: LostContentOp) => {
-    lostContentOpsRef.current.push(op)
-    const now = Date.now()
-    lostWorkFirstAtRef.current ??= now
-
-    const run = () => {
-      lostWorkTimerRef.current = null
-      lostWorkFirstAtRef.current = null
-      recoverLostWorkRef.current?.()
-    }
-    if (now - lostWorkFirstAtRef.current >= LOST_WORK_MAX_WAIT_MS) {
-      if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
-      run()
-      return
-    }
-    if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
-    lostWorkTimerRef.current = window.setTimeout(run, LOST_WORK_QUIET_MS)
+    lostWorkBatchRef.current.add(op)
   }, [])
 
   // (#289 epic, reliable history spec v0.2 §9) Every outgoing operation goes
@@ -1744,56 +1433,16 @@ function RoomEditor() {
     // the teacher's board, and a `resendAll` at that moment would put the
     // first board's leftovers on the second.
     canSend: () => hasJoinedRef.current && socketBoardRef.current === outboxBoardId,
-    onStalled: op => {
-      console.error('operation stopped retrying after repeated failures', op.type, op.id)
-      // (#395) Stop holding a transform preview for an operation that has
-      // stopped trying to arrive. Showing the layer where it actually is
-      // beats showing where it was meant to go with nothing indicating that
-      // it never got there — the entry stays queued either way, so a later
-      // resendAll can still land it.
-      resolveTransformCommit(op.id)
-    },
+    // (#493) What a stalled or settled operation means for this client —
+    // see outboxVerdict.ts.
+    ...createOutboxVerdicts({
+      pendingIdsRef, latestKnownSeqRef, noteLayerSeq, checkSnapshotBoundary,
+      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+    }),
     // (#201) The counter the ConnectionBanner reports. Passing a plain
     // setState is safe from any callsite: React batches, and the Outbox
     // only ever calls this after a real size change.
     onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
-    onSettled: (op, result) => {
-      if (!result.ok) {
-        console.error('operation rejected by server', op.type, op.id, result.reason)
-        // (#395) It will never be applied, so nothing is coming to replace
-        // the held gizmo preview — drop it and put the bounds back on what
-        // the layer really contains.
-        resolveTransformCommit(op.id)
-        // Never became real — drop it back out of the local island so a
-        // later delete/merge targeting it isn't wrongly treated as safe.
-        if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
-        // (#289 §17, #312) `target_gone` on a content-bearing op is the one
-        // rejection a user can actually perceive as lost work — typically
-        // drawn offline (or during a drop) onto a layer someone deleted in
-        // the meantime. Since #311 the server hands those operations back
-        // intact instead of swallowing them, so they can be recovered onto
-        // a fresh layer rather than merely reported.
-        //
-        // Deliberately still not an automatic room fork: forking on every
-        // conflict was considered and rejected as worse than the problem (a
-        // pile of near-duplicate rooms after any flaky wifi). A replacement
-        // layer is the far smaller intervention — and it doesn't undo the
-        // deletion either, since whoever deleted the layer deleted what they
-        // could see; this only brings back what they couldn't.
-        if (result.reason === 'target_gone') {
-          if (isRecoverableContentOp(op)) scheduleLostWorkRecovery(op)
-          else setLostWork({ layerNames: [], restoredLayerIds: [] })
-        }
-        return
-      }
-      latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, result.seq)
-      if (op.type === 'stroke') noteLayerSeq(op.layerId, result.seq)
-      // Confirmed — a peer could plausibly reference this id from now on, so
-      // it no longer qualifies as this client's own private local island
-      // (see isLocalIslandSafe/dispatchOp).
-      if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
-      checkSnapshotBoundary()
-    },
   }), [outboxBoardId, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery, resolveTransformCommit])
   // (#176) For the socket effect, which must not list `outbox` as a
   // dependency — see snapshotUploaderRef.
@@ -1809,27 +1458,6 @@ function RoomEditor() {
   // handleConnect reconnect branch below).
   const lastJoinAttemptRef = useRef<{ name: string; password?: string } | null>(null)
 
-  // ── join gate state (joiner path only) ──────────────────────────────────────
-  // Prefilled, not fixed: the joiner can overwrite it in the gate, and what
-  // they type is what the room sees.
-  const [joinName,       setJoinName]       = useState(myDisplayName)
-  const [joinPassword,   setJoinPassword]   = useState('')
-  const [joinError,      setJoinError]      = useState<string | null>(null)
-  const [joinSubmitting, setJoinSubmitting] = useState(false)
-  // (#231) Which screen the gate is showing. Three of the server's refusals
-  // are states of the person rather than problems with the form — there is
-  // nothing to re-type when the answer is "you were blocked" or "the owner
-  // hasn't answered yet" — so they replace the form instead of appearing as
-  // an error under it. See JoinGateState.
-  const [joinState,      setJoinState]      = useState<JoinGateState>('form')
-  // (#513) Whether the gate is asking for a password yet. False until a join
-  // attempt that carried none comes back refused — see attemptJoin.
-  const [joinPasswordAsked, setJoinPasswordAsked] = useState(false)
-
-  // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
-  // engine is configured with, and while the ruler or the gizmo is selected
-  // `tool` names something that has no such fields at all.
-  const activeCfg = toolSettings[drawingTool]
   // #468 v4 — the named mix is a *shortcut* for the two sliders, not a fourth
   // independent setting: choosing one writes water and pigment, and moving
   // either slider afterwards simply leaves the named value stale rather than
@@ -1942,14 +1570,6 @@ function RoomEditor() {
     { min: 0, max: 360, sensitivity: ROTATE_DEG_PER_PX, wrap: true },
   )
 
-  // (#458) The lock beside that readout. What it actually *enforces* lives in
-  // useViewport (see holdAngleIfLocked) — a viewport that refuses to change its
-  // angle, whoever asks. Here it only decides what the header offers: a locked
-  // readout stops being a control and goes back to being a number, so the drag
-  // and the quarter-turn click aren't handed a gesture that would do nothing.
-  const rotationLocked = useRoomStore(s => s.rotationLocked)
-  const setRotationLocked = useRoomStore(s => s.setRotationLocked)
-
   // #99: layered independently on top of useViewport's own touch pan/pinch
   // handling on the same `.viewport` element — see useTapToggle's docstring
   // for why the two never conflict, and why it takes the element (`vpEl`)
@@ -1986,91 +1606,11 @@ function RoomEditor() {
     if (!id) navigate('/create')
   }, [id, navigate])
 
-  // Marks a user as "currently drawing" (#38) — a timestamp refreshed by local
-  // stroke start/move and by incoming remote stroke ops; a separate interval
-
-
   // ── operation log bridge ──────────────────────────────────────────────────────
-  // LayerState is derived: base room state + replay of done operations, with
-  // per-user view fields (selection, collapse, local lock) carried over.
-  // Defined here (rather than further down, closer to dispatchOp/handleUndo)
-  // because the mount-engine effect below needs it for pending-snapshot replay.
-  //
-  // (#148) replayLayerState walks the *entire* done-operations array from
-  // scratch on every call — cost scaling with total session length, not the
-  // current canvas — and syncFromLog is called once per incoming
-  // operation_confirmed, undo/redo, and finished stroke-reveal (onPreviewApplied).
-  // Several peers drawing at once easily produces a burst of these calls
-  // within the same tick/microtask turn (a socket 'message' handler firing
-  // several times before the event loop yields), each currently paying its
-  // own full O(log length) scan back to back for what ends up being the same
-  // final state. Coalesced here via a microtask (same "collapse a same-tick
-  // burst" idea as useViewport's own rAF-throttled updateVp, just finer-
-  // grained — a microtask runs before the next paint regardless, so this
-  // adds no perceptible delay): repeated calls before the microtask fires are
-  // free, and the one real scan that does happen reads getOperations() fresh
-  // at that point, reflecting every op appended by then either way, so this
-  // is purely a *when* change — never a stale or partial replay.
-  const syncFromLogScheduledRef = useRef(false)
-  // (#169) Once a network-snapshot restore has happened, LayerState must be
-  // derived on top of the snapshot's own `layerState` — not
-  // makeInitialLayerState() — since the client's OperationLog only has the
-  // live tail at that point (full pre-snapshot history arrives later, via
-  // background backfill, purely for undo/redo; see
-  // engine.getOperationsSinceRestore's own doc comment for why replaying it
-  // again here would double-apply structure the restored base already
-  // reflects). Sticky for the rest of the session once set — never reset
-  // back to null, even after backfill completes.
-  const restoredLayerStateRef = useRef<LayerState | null>(null)
-  const deriveLayerStateFromLog = useCallback(() => {
-    const base = restoredLayerStateRef.current
-    const ops = base
-      ? (engineRef.current?.getOperationsSinceRestore() ?? [])
-      : (engineRef.current?.getOperations() ?? [])
-    useRoomStore.getState().syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
-    // (#508) Annotations fold from the *whole* done log, not from the
-    // since-restore tail LayerState uses, and with no base to sit on. The
-    // asymmetry is the point: a snapshot restores pixels and the stored
-    // layerState restores structure, so replaying either again would
-    // double-apply it — but nothing anywhere stores annotations, which is
-    // exactly why the server never withholds one (see isCoveredBySnapshot).
-    // Every annotation operation the room ever had is therefore present here,
-    // and folding all of them from empty is both correct and, because the fold
-    // is keyed by annotation id, immune to being run twice.
-    useRoomStore.getState().syncAnnotationsFromLog(engineRef.current?.getOperations() ?? [])
-  }, [])
-  const syncFromLog = useCallback(() => {
-    if (syncFromLogScheduledRef.current) return
-    syncFromLogScheduledRef.current = true
-    queueMicrotask(() => {
-      syncFromLogScheduledRef.current = false
-      deriveLayerStateFromLog()
-    })
-  }, [deriveLayerStateFromLog])
-  /** (#386) The same derivation, run now instead of on the next microtask.
-   *
-   *  Deferring is right for the ordinary case: operations arrive in bursts and
-   *  one derivation per burst beats one per operation. It is wrong for any
-   *  caller that goes on to *read* the store in the same task, because the
-   *  microtask has not run yet and the store still holds whatever was there
-   *  before — for a fresh join, `makeInitialLayerState()`.
-   *
-   *  That is not hypothetical. The snapshot bootstrap below used to call
-   *  `syncFromLog()` and then read `useRoomStore.getState().layerState`
-   *  synchronously a few lines later, so it uploaded the *empty room's*
-   *  structure as the room's authoritative one. On a real 2001-operation
-   *  lesson that stored `{layer-1, background}` at seq 2000 over a room with
-   *  six layers and a folder, and the next join restored from it: two empty
-   *  layers, with the server then withholding the operations it believed that
-   *  snapshot covered. The pixels were never in danger — every operation was
-   *  still in Postgres — but the room read as wiped.
-   *
-   *  Leaves any already-queued microtask alone rather than trying to cancel
-   *  it: this derivation is a pure function of the log, so running it twice
-   *  costs a little work and changes nothing. */
-  const syncFromLogNow = useCallback(() => {
-    deriveLayerStateFromLog()
-  }, [deriveLayerStateFromLog])
+  // (#148, #169, #386, #508) The store's layer state and annotations, derived
+  // from the engine's log — coalesced per burst, or now — see
+  // useLogDerivedState.
+  const { restoredLayerStateRef, syncFromLog, syncFromLogNow } = useLogDerivedState({ engineRef })
 
   // (#312) Mints one replacement layer per dead target and replays the
   // rejected operations onto it, in their original draw order.
@@ -2092,36 +1632,24 @@ function RoomEditor() {
   // returns (#207): a snapshot taken after the deletion no longer contains
   // the layer, and the strokes below it get pruned, so the author's own
   // device is the last place this work exists.
-  const recoverLostWork = useCallback(() => {
-    const collected = lostContentOpsRef.current
-    lostContentOpsRef.current = []
+  const recoverLostWork = useCallback((lost: LostContentOp[]) => {
     const engine = engineRef.current
-    if (!collected.length || !engine) return
-
-    const { layerState: liveLayerState, userId } = useRoomStore.getState()
-    const log = engine.getOperations()
-    const layerNames: string[] = []
-    const restoredLayerIds: string[] = []
-
-    for (const [deadLayerId, ops] of groupLostOpsByLayer(collected)) {
-      const originalName = resolveDeletedLayerName(deadLayerId, liveLayerState, log, restoredLayerStateRef.current)
-        ?? t('room.lostWork.unnamedLayer')
-      const newLayerId = nanoid(10)
-      // Same optimistic path dispatchOp takes for local-island work: a
-      // brand-new layer and strokes onto it can't conflict with anything,
-      // since nobody else has heard of the id yet.
-      engine.appendOperation({
-        id: nanoid(10), type: 'layer_add', userId, timestamp: Date.now(),
-        layerId: newLayerId, name: t('room.lostWork.restoredLayerName', { name: originalName }),
-      })
-      for (const op of ops) engine.appendOperation(retargetToLayer(op, newLayerId, nanoid(10), Date.now()))
-      layerNames.push(originalName)
-      restoredLayerIds.push(newLayerId)
-    }
-
+    if (!lost.length || !engine) return
+    const { layerState: live, userId } = useRoomStore.getState()
+    // (#493) Which operations bring it back — see recoveryOperations. Same
+    // optimistic path dispatchOp takes for local-island work: a brand-new
+    // layer and strokes onto it can't conflict with anything, since nobody
+    // else has heard of the id yet.
+    const { operations, layerNames, restoredLayerIds } = recoveryOperations({
+      lost, live, log: engine.getOperations(), restored: restoredLayerStateRef.current, userId,
+      unnamedLayer: t('room.lostWork.unnamedLayer'),
+      restoredName: name => t('room.lostWork.restoredLayerName', { name }),
+      newId: () => nanoid(10), now: () => Date.now(),
+    })
+    for (const op of operations) engine.appendOperation(op)
     syncFromLog()
     setLostWork({ layerNames, restoredLayerIds })
-  }, [syncFromLog, t])
+  }, [syncFromLog, t, restoredLayerStateRef])
 
   useEffect(() => {
     recoverLostWorkRef.current = recoverLostWork
@@ -2154,6 +1682,11 @@ function RoomEditor() {
     }
     void outbox.hydrate()
   }, [outbox])
+
+  // (#346, #464) Whether the paper texture arrived, the retry when it did not,
+  // and the download's progress — see usePaperReadiness.
+  const { paperProgress, paperFailed, paperRetrying, awaitPaper, retryPaper } =
+    usePaperReadiness({ engineRef, requestFullResyncRef })
 
   // (#313) A disconnected socket alone isn't enough to give up on loading —
   // socket.io reconnects on its own, and a slow network looks identical for
@@ -2196,90 +1729,9 @@ function RoomEditor() {
     requestFullResyncRef.current?.()
   }, [])
 
-  /** (#346) Load the paper texture again, without reloading the page — which
-   *  for a room is never a neutral act: it throws away whatever the reload
-   *  catches mid-flight, and #313 cares enough about that to put a
-   *  beforeunload prompt in the way.
-   *
-   *  The retry is two steps because the failure cost two things. The texture
-   *  comes back via the engine (the byte and manifest caches evict rejections
-   *  rather than memoize them — see paperLoader — so this genuinely re-fetches).
-   *  The room's *content* has to be asked for again separately: the room_state
-   *  that would have restored it was consumed by the attempt that failed, so
-   *  this re-runs the same full catch-up a seq gap does, and the ordinary
-   *  handleRoomState path takes it from there. */
-  const retryPaper = useCallback(async () => {
-    const engine = engineRef.current
-    if (!engine) return
-    setPaperRetrying(true)
-    paperReportedRef.current = false
-    try {
-      await engine.retryPaper()
-      setPaperFailed(false)
-      requestFullResyncRef.current?.()
-    } catch (err) {
-      // Stays on this screen with the button live again — a second attempt is
-      // exactly as reasonable as the first was, and there is nothing else to
-      // offer that reloading would not do worse.
-      console.error('paper texture retry failed', err)
-      // (#464) Reported here rather than left to awaitPaper: a rejected retry
-      // never reaches a replay site, so this branch is the only one that knows
-      // the user asked again and got the same answer.
-      if (!paperReportedRef.current) {
-        paperReportedRef.current = true
-        Sentry.captureException(err)
-      }
-    } finally {
-      setPaperRetrying(false)
-    }
-  }, [])
-
-  // The unload half of "confirm before leaving a room": closing the tab or
-  // reloading can't be intercepted by the app's own dialog (see leaveRoom),
-  // only by the browser's, so this is what covers those paths. Armed for the
-  // whole life of the room rather than only when work is unsent — the two
-  // reasons to ask are different in weight but the prompt is the same one:
-  //
-  //  - ordinary case: an accidental close mid-lesson drops the user out of a
-  //    live session, and the way back in is a room link they may not have.
-  //  - (#313) unconfirmed work lives in IndexedDB and survives a reload, but
-  //    it only leaves this device if the tab eventually gets back online.
-  //    Closing it while the queue is full turns a recoverable situation into a
-  //    permanent loss — and it's usually done by someone who has already
-  //    concluded the work is gone.
-  //
-  // Same `config` gate as the back guard below: at the join gate there is no
-  // session and nothing unsent, so a prompt would be pure friction.
-  //
-  // (#400) The same gate now also states the fact out loud, via holdReload():
-  // "a reload right now would cost something". The service worker updater
-  // reads it to decide whether a new build may be applied without asking, and
-  // it has to be the *same* condition — a second one derived from the route
-  // would be a copy free to drift from this one. Note that the hold is the
-  // half that actually protects a room from an automatic reload: a
-  // programmatic reload carries no user activation, and browsers do not raise
-  // the beforeunload dialog for those at all.
-  useEffect(() => {
-    if (!config) return
-    const releaseHold = holdReload()
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Browsers ignore custom text here and show their own wording; the
-      // preventDefault is what actually triggers the prompt.
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload)
-      releaseHold()
-    }
-  }, [config])
-
   // Any pending batch dies with the room — a timer firing after unmount would
   // append to an engine that no longer exists.
-  useEffect(() => () => {
-    if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
-  }, [])
+  useEffect(() => () => { lostWorkBatchRef.current.reset() }, [])
 
   // Applies an operation that arrived from the network (room_state replay or
   // operation_confirmed) exactly once. The guard isn't full reconnect/catch-up
@@ -2411,47 +1863,7 @@ function RoomEditor() {
     engine.setCompositeOrder(computeCompositeOrder(head.layerState))
     restoredLayerStateRef.current = head.layerState
     return 'restored'
-  }, [initLayersFromLayerState])
-
-  /** (#487) Гасит будильник и отчитывается о завершившемся входе.
-   *
-   *  Число слоёв и `gpuInfo()` берутся здесь, а не на старте: на старте их
-   *  ещё нет, а объясняют они ровно то, из-за чего вход бывает долгим — все
-   *  слои поднимаются разом (#467), и упирается это в GPU устройства (#469). */
-  // (#176) Both timers read the URL id through a ref rather than closing over
-  // it. They are dependencies of the engine effect, and handleRoomState
-  // rewrites the URL (a board id becomes its lesson's) in the same breath as
-  // it seats the engine on the board — a callback keyed on `id` rebuilt the
-  // engine right after its first mount had consumed the board's content, and
-  // the second engine opened empty. The report is per open, not per URL, so
-  // whatever the id is at finish time is the right one to file it under.
-  const urlIdRef = useRef(id)
-  urlIdRef.current = id
-  const finishOpenTimer = useCallback((engine: PencilEngineAPI | null) => {
-    const timer = openTimerRef.current
-    if (!timer || timer.done) return
-    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
-    if (engine) timer.note({ layers: engine.liveLayerIds().length })
-    const reportId = urlIdRef.current
-    if (reportId) reportRoomOpen(reportId, timer.finish(), engine?.gpuInfo())
-  }, [])
-
-  /** (#487) Пускает замер входа и заводит будильник. Вызывается там, где
-   *  человек нажал «войти», а не там, где сокет что-то отправил: меряем то,
-   *  что он ждёт, а не то, что делает клиент. */
-  const startOpenTimer = useCallback(() => {
-    if (openAlarmRef.current !== null) clearTimeout(openAlarmRef.current)
-    const timer = createOpenTimer(() => performance.now())
-    openTimerRef.current = timer
-    openAlarmRef.current = setTimeout(() => {
-      openAlarmRef.current = null
-      // Не гасит замер: вход продолжается, и если он всё-таки дойдёт до конца,
-      // финиш об этом скажет. Дедуп по комнате в reportOpen следит, чтобы из
-      // двух отчётов об одном входе уехал только первый.
-      const reportId = urlIdRef.current
-      if (!timer.done && reportId) reportRoomOpen(reportId, timer.stalled(), engineRef.current?.gpuInfo())
-    }, SLOW_OPEN_MS)
-  }, [])
+  }, [initLayersFromLayerState, restoredLayerStateRef])
 
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely
@@ -2563,9 +1975,7 @@ function RoomEditor() {
     pendingPreviewsRef.current = createPendingPreviews()
     streamedStrokeIdsRef.current = new Set()
     restoredLayerStateRef.current = null
-    lostContentOpsRef.current = []
-    if (lostWorkTimerRef.current !== null) { window.clearTimeout(lostWorkTimerRef.current); lostWorkTimerRef.current = null }
-    lostWorkFirstAtRef.current = null
+    lostWorkBatchRef.current.reset()
     setLostWork(null)
     setRestoreFailure(null)
     // Blocked until the new engine's replay says otherwise — the same gate a
@@ -2584,7 +1994,7 @@ function RoomEditor() {
   // (#493) Stable: a `useCallback` with no dependencies inside useDrawingActivity,
   // so naming it keeps this callback exactly as stable as it was with the
   // bare state setter it replaces.
-  }, [resetDrawingActivity])
+  }, [resetDrawingActivity, restoredLayerStateRef])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2607,70 +2017,16 @@ function RoomEditor() {
       size: initialToolRef.current.size,
       opacity: initialToolRef.current.opacity,
       userId: useRoomStore.getState().userId,
-      // Broadcast-loop fix (#84): only genuinely local appends (layer-panel
-      // ops via dispatchOp, and the stroke this engine records internally on
-      // pointer up) reach this callback — see PencilEngineOptions.onLocalOperation.
-      // Remote ops are applied via appendOperation(op, 'remote') below, which
-      // skips it, so they're never echoed back to the server.
-      //
-      // (#289 §7/§11) `operation_confirmed` now reaches the author too (see
-      // handleOperationConfirmed below) — mark this id as already-applied
-      // *before* it's even sent, so that later arrival doesn't repaint it a
-      // second time.
-      //
-      // (#289 §9) Sending goes through the Outbox rather than a bare emit:
-      // persisted first, retried with backoff, replayed on reconnect. Its
-      // `onSettled` (see the Outbox construction above) owns everything the
-      // old inline ack callback did — watermark, pendingIds, noteLayerSeq.
-      onLocalOperation: op => {
-        appliedOpIdsRef.current.add(op.id)
-        // (#289 §2/§4) A fresh layer/folder is a "local island" member from
-        // the instant it's created — nobody else could possibly reference
-        // it yet — until its own SendResult settles one way or the other.
-        if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.add(op.layerId)
-        void outbox.enqueue(op)
-        if (op.type === 'stroke') markActive(useRoomStore.getState().userId)
-      },
-      // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
-      // commit it for real now, matching what's already visible on screen.
+      // (#493) Local operations out, peer reveals committed, the live stroke
+      // channel — see engineNetwork.ts.
+      ...createEngineNetworkCallbacks({
+        appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
+        applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,
+        sendLive: data => { socketRef.current?.emit('stroke_live', data) },
+        sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
+      }),
       // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
       onInvariant: reportInvariant,
-      onPreviewApplied: op => {
-        pendingPreviewsRef.current.remove(op.id)
-        applyRemoteOp(op)
-        syncFromLog()
-        checkSnapshotBoundary()
-      },
-      // (#429) Sending half of the live stroke channel. A bare emit, not the
-      // Outbox: these are not operations and there is nothing to persist,
-      // retry or reconcile — the gesture's real record goes through
-      // onLocalOperation above, and a packet that misses its moment is worth
-      // nothing later. `editingBlocked` is checked for the same reason
-      // dispatchOp checks it: with the room frozen or closed the operation
-      // will be refused, and streaming ink that is going to be refused is
-      // exactly the "drawing into the void" this codebase already decided
-      // against — the server rejects these too, but not sending beats
-      // sending and being dropped.
-      onLiveStrokeDabs: packet => {
-        if (editingBlockedRef.current) return
-        socketRef.current?.emit('stroke_live', {
-          strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
-          preset: packet.preset, color: packet.color, packetSeq: packet.packetSeq,
-          dabsPacked: packDabs(packet.dabs),
-          // (#468) Watercolor only. Without it a peer groups this gesture by
-          // its stroke id alone and paints a wash the author never made — see
-          // StrokeLiveData.washId.
-          ...(packet.washId ? { washId: packet.washId } : {}),
-          // (#536) Same reason, one level down: a peer's own wetness field is
-          // its own, so what the author's brush landed in has to travel with
-          // the dabs it belongs to.
-          ...(packet.wet ? { wet: packet.wet } : {}),
-        })
-      },
-      onLiveStrokeEnd: strokeId => {
-        if (editingBlockedRef.current) return
-        socketRef.current?.emit('stroke_live_end', { strokeId })
-      },
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? stats => {
         setStrokeStats(stats)
@@ -2784,189 +2140,15 @@ function RoomEditor() {
     awaitPaper,
     // (#493) The ref *object* — stable for the component's life, so naming it
     // costs nothing. Never `.current`: that would rebuild the engine every
-    // time the sound instance changed.
-    pencilSoundRef,
+    // time the sound instance changed. openTimerRef likewise (useOpenTimer).
+    pencilSoundRef, openTimerRef,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
-  const pencilGrade = toolSettings.pencil.grade as PencilGradeName
-  const linerSize = toolSettings.liner.size as string
-  const markerNib = toolSettings.marker.nib as string
-  const markerSize = toolSettings.marker.size as number
-  const charcoalType = toolSettings.charcoal.type as string
-  // #501 — the stick's own preset slot carries which nib it is cut to, after
-  // the type it is made of (`willow:chisel`). Same trick the marker plays with
-  // `${nib}:${size}` and watercolor with its five fields, for the reason given
-  // just below: a slot that already exists costs no bytes per operation.
-  const charcoalNib = toolSettings.charcoal.nib as string
-  const charcoalPreset = charcoalPresetString(
-    isCharcoalType(charcoalType) ? charcoalType : DEFAULT_CHARCOAL_TYPE,
-    isCharcoalNib(charcoalNib) ? charcoalNib : undefined,
-  )
-  // #454: the brush pen's preset slot carries its pressure response, since the
-  // tool has no nib list or size ladder to spend that slot on — see
-  // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
-  // the existing per-stroke string rather than a new Operation field.
-  const brushPenResponse = toolSettings.brushPen.pressureResponse as string
-  // #547, ADR 013 §7 — the brush's id *and* its version, assembled here rather
-  // than stored: the settings layer remembers which brush is selected and has no
-  // business knowing about versions, while the recorded stroke must carry the
-  // one it was actually drawn with so a later retune of that brush cannot
-  // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
-  // hand-off.
-  const digitalBrushId = toolSettings.digitalBrush.brush as string
-  // #547, #573 — the two pressure switches ride the same token as modifiers.
-  // They change the mark, so they have to be recorded: a peer replaying the
-  // stroke has their own switches in whatever position they left them.
-  const digitalBrushSizeFromPressure = toolSettings.digitalBrush.sizeFromPressure as boolean
-  const digitalBrushOpacityFromPressure = toolSettings.digitalBrush.opacityFromPressure as boolean
-  const digitalBrushPresetName = (() => {
-    const brush = digitalBrushFromPreset(digitalBrushId)
-    return digitalBrushPreset(brush.id, brush.version, {
-      size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
-    })
-  })()
-  // #468 v4 — the whole watercolor mix rides the one preset slot as
-  // `response:water:pigment` (watercolorPresetString). Same trick the marker
-  // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink
-  // operation payloads, so a new Operation field is paid for by every operation
-  // in every room forever, while a slot that already exists is free.
-  const watercolorResponse = toolSettings.watercolor.pressureResponse as string
-  const watercolorWater = toolSettings.watercolor.water as number
-  const watercolorPigment = toolSettings.watercolor.pigment as number
-  // (#536) The paint code rides the preset string as its fourth field, but the
-  // choice of a tube is gone from the UI: the colour comes from the ordinary
-  // picker like every other tool's, and every stroke records the default
-  // paint's behavioural numbers. A stroke recorded with another code still
-  // replays with it.
-  // #489 — and which brush, as a fifth field. Absent from every stroke recorded
-  // before it, which is why they replay as the round nib they were drawn with.
-  const watercolorNib = toolSettings.watercolor.nib as string
-  const watercolorPreset = watercolorPresetString(
-    isPressureResponse(watercolorResponse) ? watercolorResponse : 'normal',
-    { water: watercolorWater, pigment: watercolorPigment },
-    undefined,
-    isWatercolorNib(watercolorNib) ? watercolorNib : undefined,
-  )
-
-  // Same preset string engine.setPencil below records (`${nib}:${size}` for
-  // marker, the size label for liner, the charcoal type for charcoal, the
-  // grade name otherwise) — only marker's own dispatch (bullet/chisel)
-  // actually reads it (shapingForTool -> shapingForMarkerPreset), but
-  // BrushCursor takes the same shape every tool's real stroke would, not a
-  // marker-only special case.
-  const cursorPresetName = drawingTool === 'marker' ? `${markerNib}:${markerSize}`
-    : drawingTool === 'liner' ? linerSize
-    : drawingTool === 'charcoal' ? charcoalPreset
-    : drawingTool === 'brushPen' ? brushPenResponse
-    : drawingTool === 'watercolor' ? watercolorPreset
-    : drawingTool === 'digitalBrush' ? digitalBrushPresetName
-    : pencilGrade
-  // #278/#279 → #482, ADR 012 §3. The frame the chisel's angle is measured in
-  // is now named and lives on the tool, so the engine resolves it (dabShaping's
-  // anchoredAngleShaping) instead of the UI pre-baking it.
-  //
-  // What this replaced: the angle was always converted to canvas space up here,
-  // which for the "stay visually fixed on screen" mode meant continuously
-  // subtracting the live `vp.angle` — a per-rotate-frame effect re-pushing a
-  // derived number into the engine, to express something the engine could not
-  // say. It can now: `screen` is one subtraction inside the shaping function,
-  // where the camera angle already is.
-  //
-  // #489: read off whichever tool is in hand rather than off the marker, now
-  // that two tools wear a chisel. Same boundary as the tilt response just
-  // below, and the same care about it: a tool with no angle field at all must
-  // land on the defaults instead of pushing `undefined` into the engine, so
-  // both values go through a guard rather than a cast.
-  const nibAngleDeg = typeof toolSettings[drawingTool]?.angle === 'number'
-    ? toolSettings[drawingTool].angle as number
-    : 45
-  const storedAnchor = toolSettings[drawingTool]?.anchor
-  const nibAnchor = typeof storedAnchor === 'string' && isNibAnchor(storedAnchor)
-    ? storedAnchor
-    : DEFAULT_NIB_ANCHOR
-  const nibCanvasAngleRadians = (nibAngleDeg * Math.PI) / 180
-  useEffect(() => {
-    engineRef.current?.setNibAngle(nibCanvasAngleRadians, nibAnchor)
-  }, [nibCanvasAngleRadians, nibAnchor, engineEpoch])
-  // (#536) The watercolor's dev views and A/B switches — see the hook.
-  useWatercolorDevFlags(engineRef, engineEpoch)
-  // #409: the tilt-response setting of whichever tool is in hand. The engine
-  // holds one active response rather than a table (see setTiltResponse), so the
-  // lookup is here — and it goes through `isTiltResponse` rather than a cast:
-  // the value is a schema-validated string on the way out of localStorage, but
-  // the schemas are what decides which tools even have the field, and a tool
-  // without one (liner, marker) must land on the default instead of pushing
-  // `undefined` into the engine.
-  const tiltResponse = useMemo(() => {
-    const stored = toolSettings[drawingTool]?.tiltResponse
-    return typeof stored === 'string' && isTiltResponse(stored) ? stored : DEFAULT_TILT_RESPONSE
-  }, [toolSettings, drawingTool])
-  useEffect(() => { engineRef.current?.setTiltResponse(tiltResponse) }, [tiltResponse, engineEpoch])
-  // #475: this device's pen calibration. Unlike the tilt response above it is
-  // not per tool and not read from the room's tool settings — it describes the
-  // stylus and driver in front of this person, so it lives in settingsStore
-  // (per browser) and applies to every tool at once. Re-pushed on change so the
-  // settings panel's curve can be dragged and felt without leaving the room.
-  const pressureCalibration = useSettingsStore(s => s.pressureCalibration)
-  useEffect(() => {
-    engineRef.current?.setPressureCalibration(pressureCalibration)
-  }, [pressureCalibration])
-  useEffect(() => {
-    // engine.setPencil's argument is a generic preset-name string
-    // (StrokeOperation.preset) — pencil's own grade normally, but the
-    // liner's own size label while it's the active tool. _resolvePreset in
-    // engine/index.ts ignores this string for 'liner' rendering (liner has
-    // one flat preset regardless of size, see LINER_PRESET's own comment),
-    // but the recorded Operation should still reflect what was actually
-    // selected, not silently keep whatever pencil's grade happened to be.
-    // Marker (#252) piggybacks on this same free-form string rather than
-    // needing a new Operation field: `_resolvePreset` has no 'marker' branch
-    // yet (that's #249-251, the actual dab-shaping/compositing work), so an
-    // unrecognized presetName like this just falls back to PENCIL_PRESETS
-    // ['HB'] — the intended, explicitly-fine placeholder rendering until
-    // then — while nib+size are still faithfully recorded/replicated on the
-    // wire via the existing preset string for whenever the engine side is
-    // ready to actually read them back out of it.
-    // Charcoal's string was the type name alone until #501 ('vine'/'willow'/
-    // 'compressed'), because all three types shared one dab geometry (ADR 005
-    // §2) — they still do, but the nib no longer does, so the same slot now
-    // carries both halves and _resolvePreset reads the type out of field 0.
-    const markerPreset = `${markerNib}:${markerSize}`
-    engineRef.current?.setPencil(
-      drawingTool === 'liner' ? linerSize
-        : drawingTool === 'marker' ? markerPreset
-        : drawingTool === 'charcoal' ? charcoalPreset
-        : drawingTool === 'brushPen' ? brushPenResponse
-        : drawingTool === 'watercolor' ? watercolorPreset
-        : drawingTool === 'digitalBrush' ? digitalBrushPresetName
-        : pencilGrade,
-    )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch])
-  // (#405) Every line in this block reads `drawingTool` rather than the
-  // selection: `setTool` takes a `ToolType`, and the four non-painting tools
-  // are deliberately not one (toolSlice). Leaving the engine configured with
-  // the last real drawing tool is also what makes switching back to it
-  // instant — nothing to re-push, since nothing was ever unset. What actually
-  // stops paint while the ruler or the gizmo is selected is `engine.setLocked`
-  // (see the layer-state sync effect), one gate rather than a second copy of
-  // "which tools can draw" living in here.
-  useEffect(() => { engineRef.current?.setTool(drawingTool) }, [drawingTool, engineEpoch])
-  // Liner's own 'size' field is a fixed-label enum (ADR 003), not a plain px
-  // number like every other tool's (marker included, since it dropped its
-  // own ladder for a plain px slider) — see linerSizeToPx's own comment for
-  // why the mm→px mapping lives in the UI layer. Hoisted out of the
-  // engine-sync effect below (not effect-local) so BrushCursor can read the
-  // same physical-px value for its hover preview without recomputing it.
-  const sizePx = drawingTool === 'liner' ? linerSizeToPx(activeCfg.size as string)
-    : (activeCfg.size as number)
-  useEffect(() => {
-    engineRef.current?.setSize(sizePx)
-    // (#468 v4) Watercolor has no opacity field: its Pigment slider *is* that
-    // axis, and a second control for it would be two knobs over one quantity.
-    // Falls back to 1 rather than passing undefined through to the engine.
-    engineRef.current?.setOpacity((activeCfg.opacity as number | undefined) ?? 1)
-  }, [sizePx, activeCfg, engineEpoch])
+  // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
+  const { cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
+    useToolSync({ engineRef, engineEpoch })
+  useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // Which tool's own color field the "Color" SidePanel tab, the palette
   // swatches, FloatingToolPanel's color dot and the eyedropper all read and
   // write — lastDrawingTool rather than `tool` directly, so it still reflects
@@ -3245,33 +2427,6 @@ function RoomEditor() {
       setClosedBusy(false)
     }
   }, [id, navigate, config?.name, showAlert, t])
-  // (#211 epic, #216) The same owner-only rename the lesson list offers, in
-  // the one place the name is already on screen: click the header label and
-  // it becomes the field. Non-null draft *is* the editing state — there is no
-  // separate boolean, so the two can't disagree. REST rather than a socket
-  // event, same reasoning as reopenRoom above: the name is persisted room
-  // metadata, not canvas content, and PATCH /api/rooms/:id is where it lives
-  // (roomRoutes.ts, which re-checks ownership — the owner gate here is UI,
-  // not a boundary). Deliberately not broadcast: everyone else keeps the name
-  // they joined with until their next join, and nothing but this label and
-  // the export filename reads it.
-  const [renameDraft, setRenameDraft] = useState<string | null>(null)
-  const submitRename = useCallback(async () => {
-    const draft = renameDraft
-    setRenameDraft(null)
-    const name = draft?.trim()
-    const previous = useRoomStore.getState().room?.name
-    if (!lessonId || !name || name === previous) return
-    // Optimistic: the field is already gone by now, so the label has to be
-    // carrying the new name or the edit reads as having been dropped.
-    useRoomStore.getState().setRoomName(name)
-    try {
-      await renameRoom(lessonId, name)
-    } catch {
-      if (previous !== undefined) useRoomStore.getState().setRoomName(previous)
-      void showAlert({ message: t('room.error.rename') })
-    }
-  }, [lessonId, renameDraft, showAlert, t])
   // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
   // one participant — passed to ParticipantsPanel's onToggleFreeze.
   const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
@@ -3369,83 +2524,12 @@ function RoomEditor() {
   useCursorBroadcast({ vpRef, socketRef, strokeActiveRef })
 
   // ── operation log bridge ──────────────────────────────────────────────────────
-  // (syncFromLog is defined above, alongside markActive, since the mount-engine
-  // effect needs it too — see the pending-snapshot replay there.)
-  // #185's audit: LayerPanel's onOp and TransformGizmo's commit both go
-  // through dispatchOp, and undo/redo has both header buttons and hotkeys —
-  // all four paths are safe no-ops while roomContentReady is false, the same
-  // window the canvas itself is already pointer-events:none for (see
-  // roomContentReady's own doc comment). A single guard here rather than
-  // disabling each control individually — the visible preloader already
-  // covers the canvas, and this window is a couple of seconds at most.
-  //
-  // (#254 epic, #222) editingBlocked added to the same guard: the server
-  // rejects these operations outright once the room is frozen (#256/#257) or
-  // closed for editing (#222), so without this the sender could still see
-  // their own stroke/undo/redo apply locally before silently failing to ever
-  // reach anyone else — "drawing into the void" (see its own doc comment).
-  const dispatchOp = useCallback((draft: OperationDraft): DispatchedOp | null => {
-    if (!roomContentReady || editingBlocked) return null
-    // (#518) The one gate on the lock, for every operation that paints.
-    //
-    // Before this there was exactly one, and it sat on the *pointer* path
-    // (engine.setLocked, see the layer-sync effect above): it stopped a
-    // stroke and nothing else. The transform gizmo, the bucket, and
-    // delete/cut/paste of a selection all reach the canvas without ever
-    // touching that path, so all four rewrote locked layers — which is how a
-    // locked layer could be dragged across the sheet.
-    //
-    // Here rather than at those four call sites because a fifth is always
-    // coming: `isLockedAgainst` refuses whatever `paintedLayerIds` names, so
-    // a new painting operation is covered by being listed in the shared
-    // package, not by whoever adds the tool remembering this rule exists.
-    //
-    // Silent, like the stroke gate it generalizes: the closed padlock in the
-    // layer panel is the explanation, and every route that can reach this in
-    // normal use is already visibly refused before it is taken (the gizmo
-    // does not open on a locked layer, the bucket ignores the tap, the
-    // selection buttons are disabled). Anything that still arrives here is a
-    // path we missed or a stale one — refusing it is the point.
-    //
-    // Emission only. Nothing on the *replay* side asks this: operations
-    // arriving from a peer, from a rejoin, or from redo must apply whatever
-    // the log says, or a layer locked today would lose every stroke drawn on
-    // it yesterday, once, permanently, on every client at the same moment.
-    if (isLockedAgainst(useRoomStore.getState().layerState, draft, isOwnerRef.current)) return null
-    const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
-
-    if (isLocalIslandSafe(op, pendingIdsRef.current)) {
-      engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
-      syncFromLog()
-      return { op, applied: true }
-    }
-
-    // (#289 §17) The same operation offline: it can only be resolved by the
-    // server (that's what made it non-optimistic in the first place), and
-    // queueing it would let it land minutes later against a room that has
-    // since moved on. Refuse it up front, visibly, rather than appearing to
-    // accept it. Operations confined to this client's own local island are
-    // unaffected — they took the optimistic branch above and work offline.
-    if (!connected) {
-      // Fire-and-forget (#310): nothing here waits on the dismissal, the
-      // operation is refused either way.
-      void showAlert({ message: t('room.offlineSharedAction') })
-      return null
-    }
-
-    // (#289 §2/§4) References at least one id this client didn't itself
-    // just create — a concurrent delete/merge/transform race is possible
-    // (the server checks aliveIds, see rooms.ts), so this must not become
-    // visible locally until confirmed. Sent directly, bypassing
-    // appendOperation/onLocalOperation (which would paint it immediately) —
-    // handleOperationConfirmed's ordinary applyRemoteOp fallback applies it
-    // for real if/when operation_confirmed for this id actually arrives,
-    // exactly like a peer's own op. Still goes through the Outbox (#289 §9)
-    // so a dropped packet is retried rather than silently swallowed — its
-    // `onSettled` handles the verdict either way.
-    void outbox.enqueue(op)
-    return { op, applied: false }
-  }, [syncFromLog, roomContentReady, editingBlocked, outbox, connected, t, showAlert])
+  // (#493) How an operation leaves this client — optimistic, through the
+  // outbox, or refused — and undo/redo, in useOperationDispatch.
+  const { dispatchOp, handleUndo, handleRedo } = useOperationDispatch({
+    roomContentReady, editingBlocked, connected, outbox, engineRef, pendingIdsRef, isOwnerRef,
+    syncFromLog, transformSessionRef, resetTransformSessionRef,
+  })
 
   // (#312) The banner's "undo" — drops the replacement layers again, for
   // when the deletion was right and the recovered strokes aren't wanted.
@@ -3458,118 +2542,13 @@ function RoomEditor() {
     if (ids.length) dispatchOp({ type: 'layer_delete', layerIds: ids })
   }, [lostWork, dispatchOp])
 
-  // (#263) LayerPanel has no direct engine access — this is the same
-  // engineRef-backed-callback shape as dispatchOp above, threaded down as a
-  // prop so its own delete confirm can ask "does this layer have content"
-  // without the panel needing to know the engine exists at all.
-  const hasLayerContent = useCallback((layerId: string): boolean =>
-    engineRef.current?.hasLayerContent(layerId) ?? false
-  , [])
+  // (#263/#608) LayerPanel has no direct engine access — the callbacks it
+  // needs from the engine and the editor come through this bridge instead.
+  const layerPanelBridge = useLayerPanelBridge(engineRef)
 
-  // (#263) A structural undo/redo (layer_add/layer_delete/layer_merge) can
-  // silently wipe a layer's content on the canvas even though nothing is
-  // actually lost from the log (see docs/adr/002-collaborative-undo.md and
-  // this issue's own repro) — peekUndo/peekRedo is a read-only look at what
-  // the pending call would act on, so a decline here leaves state exactly
-  // as if the button/hotkey was never pressed.
-  //
-  // (#310) These two now await an in-app dialog instead of blocking on
-  // window.confirm. One real difference: window.confirm froze all JS, so the
-  // peek below could not go stale while it was up — an awaited dialog lets
-  // peers' operations keep arriving. That's acceptable here because the peek
-  // only decides whether to *ask*: undo()/redo() re-resolve their own target
-  // when they actually run, so a confirmed undo still acts on current state.
-  const handleUndo = useCallback(async () => {
-    if (!roomContentReady || editingBlocked) return
-    // (#405) An open session with gestures in it is what "undo" means right
-    // now, and it is undone by throwing it away — nothing was committed, so
-    // there is no entry on the stack to take back and nothing to confirm.
-    // Reaching past it into the log would take back some *earlier* operation
-    // while the preview carried on showing gestures the layer never received,
-    // i.e. appear to do nothing at all. Same answer as Esc, deliberately:
-    // both mean "not that", and a session is the innermost thing open.
-    if (transformSessionRef.current && !isIdentityMatrix(transformSessionRef.current.matrix)) {
-      resetTransformSessionRef.current()
-      return
-    }
-    const peek = engineRef.current?.peekUndo()
-    if (peek?.hasOtherContent && !await confirm({
-      title: t('room.undo'),
-      message: t('room.confirmUndo'),
-      confirmLabel: t('room.undo'),
-      danger: true,
-    })) return
-    // Reset *after* the undo, not before: re-opening the session re-derives
-    // the gizmo bounds from the layer, and doing that first would read the
-    // pixels the undo is about to change. Both happen in this one task, so
-    // nothing is painted in between.
-    const undone = engineRef.current?.undo()
-    resetTransformSessionRef.current()
-    if (undone) syncFromLog()
-  }, [syncFromLog, roomContentReady, editingBlocked, t, confirm])
-
-  const handleRedo = useCallback(async () => {
-    if (!roomContentReady || editingBlocked) return
-    const peek = engineRef.current?.peekRedo()
-    if (peek?.hasOtherContent && !await confirm({
-      title: t('room.redo'),
-      message: t('room.confirmRedo'),
-      confirmLabel: t('room.redo'),
-      danger: true,
-    })) return
-    // Same ordering as handleUndo above.
-    const redone = engineRef.current?.redo()
-    resetTransformSessionRef.current()
-    if (redone) syncFromLog()
-  }, [syncFromLog, roomContentReady, editingBlocked, t, confirm])
-
-  // (#357) The document root goes fullscreen, not the editor element.
-  //
-  // A fullscreen element is rendered in the browser's *top layer*, above every
-  // z-index in the page, and nothing outside it is painted at all. Everything
-  // this app portals into `<body>` — the layer row's "⋮" menu, every Modal and
-  // ConfirmDialog, the notice stack, the tool pickers — is a sibling of the
-  // editor rather than a descendant, so with the editor fullscreened all of it
-  // silently stopped existing on screen: the menu opened, held state, passed
-  // `checkVisibility()`, and was neither visible nor clickable. On a tablet,
-  // where fullscreen is the normal way to work, that was half the interface.
-  // Fullscreening `documentElement` keeps every portal inside the fullscreen
-  // element, including ones added later, and changes nothing about layout —
-  // the editor already fills the page.
-  //
-  // (#466) Both calls go through lib/fullscreen, which fills in the
-  // `webkit`-prefixed spelling Safari below 16.4 is limited to.
-  const toggleFullscreen = useCallback(() => { void toggleFullscreenOn() }, [])
-
-  // Fullscreen can also be exited by the browser/OS itself (Esc, system
-  // gesture) without going through toggleFullscreen — listen rather than
-  // trust the button's own click to keep the icon in sync.
-  useEffect(() => subscribeFullscreenChange(setIsFullscreen), [])
-
-  // Every way out of the editor asks first. Leaving a room is not destructive
-  // — the drawing is in the room, not in this tab — but it is disorienting
-  // mid-lesson, and the exit sits in the same header strip as controls that
-  // get tapped constantly, so an accidental one is easy.
-  const leavePendingRef = useRef(false)
-  const leaveRoom = useCallback(async () => {
-    // A second tap while the dialog is already up would otherwise pre-empt the
-    // first dialog, which resolves it as `false` — a cancel the user never
-    // asked for. (Back can no longer be one of those callers — see the guard
-    // effect below — but the header wordmark and the menu item still can.)
-    if (leavePendingRef.current) return
-    leavePendingRef.current = true
-    try {
-      const leaving = await confirm({
-        title: t('room.confirmLeaveTitle'),
-        message: t('room.confirmLeaveMessage'),
-        confirmLabel: t('room.confirmLeave'),
-        cancelLabel: t('room.confirmLeaveStay'),
-      })
-      if (leaving) navigate('/')
-    } finally {
-      leavePendingRef.current = false
-    }
-  }, [confirm, navigate, t])
+  // (#313, #377, #400) Every way out of the room — confirmed, guarded
+  // against a reload with work unsent, and Back disarmed — see useLeaveGuard.
+  const leaveRoom = useLeaveGuard()
 
   // (#309) The only place `strokeActive` reaches this component's own DOM:
   // one attribute on the editor root, from which CSS blocks pointer events on
@@ -3588,117 +2567,10 @@ function RoomEditor() {
     editorRef.current?.toggleAttribute('data-stroke-active', state.strokeActive)
   }), [])
 
-  // (#377) Back does nothing while the editor is on screen — Chrome's
-  // edge-swipe-back gesture fires by accident often enough while drawing that
-  // even asking about it is an interruption. The whole mechanism (reverting
-  // the URL, and keeping a spare history entry so there is something to
-  // revert) lives in backNavigationGuard; see its comment. Armed only while
-  // this room is actually mounted, so back navigation elsewhere in the app
-  // (/create, /my-lessons) is unaffected, and leaving stays available through
-  // the header wordmark and the room menu's "Leave".
-  //
-  // `config` is what says the editor itself is on screen rather than the join
-  // gate. Nothing at the gate can trigger the accidental edge-swipe this guard
-  // exists for (the draggable controls are all in the editor), and there is no
-  // room to be kept in yet — trapping back there would only strand someone who
-  // opened a link they've decided not to follow. Depended on as a boolean, not
-  // as the room object: the object's identity changes on every rename and
-  // room_state, and re-running this effect is not free now that arming pushes
-  // a history entry.
-  const editorOnScreen = !!config
-  useEffect(() => {
-    if (!editorOnScreen) return
-    setBackNavigationGuard(location.pathname + location.search + location.hash)
-    return () => setBackNavigationGuard(null)
-  }, [editorOnScreen, location.pathname, location.search, location.hash])
-
-  // Eyedropper (#82): consumes the next pointerdown on the canvas catcher
-  // (armed only while eyedropperActive) instead of letting it reach the
-  // canvas as a stroke. Deliberately NOT switched to clientToRoomPoint/
-  // world-space for infinite rooms like the #143 overlays below —
-  // engine.pickColor reads whatever's currently on *screen* (a
-  // gl.readPixels off the real, already-camera-composited framebuffer, see
-  // its own doc comment), not a layer's world-space content, so it needs
-  // plain canvas-backing-pixel coordinates in both modes, not world ones.
-  // For infinite rooms that's just the pointer's viewport offset scaled to
-  // the DPR-sized backing store (the canvas fills the viewport with no CSS
-  // pan transform of its own) — this used to go through clientToCanvas with
-  // the PLACEHOLDER_INFINITE_CANVAS_SIZE placeholder config, a pre-existing
-  // inaccuracy #143 explicitly left alone.
-  const handleEyedropperPick = useCallback((e: React.PointerEvent) => {
-    // (#405) The hand outranks the tool underneath it — the same precedence
-    // resolveCursor states (rule 1) and the gizmo handles follow. With it up, a
-    // press on the canvas moves the view; picking a colour instead would both
-    // pan and switch tools out from under the drag.
-    if (handActive) return
-    e.preventDefault()
-    const el = vpRef.current
-    if (!el || !config) return
-    const rect = el.getBoundingClientRect()
-    const nz = deviceNativeZoom()
-    const { x, y } = config.infinite
-      ? { x: (e.clientX - rect.left) / nz, y: (e.clientY - rect.top) / nz }
-      : clientToCanvas(
-          e.clientX, e.clientY,
-          { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle },
-          config,
-        )
-    const picked = engineRef.current?.pickColor(x, y)
-    if (picked) {
-      // Writes the slot of the tool the canvas is being handed back to, not a
-      // hardcoded 'pencil' — picking a color while the liner or marker was
-      // selected used to silently repaint the pencil's swatch instead, so the
-      // picked color never showed up in the stroke that followed. See
-      // pickedColorTool for the eraser/smudge case, which owns no color.
-      applyToolColor(pickedColorTool, picked)
-      // (#405) The eyedropper's one schema field, wired at last. It has been
-      // in TOOL_SCHEMAS since #196 with nothing behind it, which was tolerable
-      // only because the eyedropper was a mode and its settings never reached
-      // a panel — now that it is a tool, selecting it puts this toggle on
-      // screen, and a control that provably does nothing is worse than no
-      // control (the same rule keepProportions is hidden under in Distort).
-      if (toolSettings.eyedropper.addToPalette) addPaletteColor(rgbToHex(picked))
-      // (#405) The eyedropper is the one tool with a one-shot gesture: taking
-      // a colour is the whole of it, so it hands the canvas straight back to
-      // the drawing tool that was in hand rather than staying armed and making
-      // the next stroke a second pick. `drawingTool` and not `lastDrawingTool`
-      // deliberately — if the eraser was what you were using, the eraser is
-      // what you get back.
-      setTool(drawingTool)
-      // (#542) No longer opens the full picker on top of the drawing. It used
-      // to switch the side panel to its Color tab, which was passive — the tab
-      // either was already in view or was not. The flyout that replaced that
-      // tab is a popover over the canvas, and throwing one up after every pick
-      // is a different thing entirely. It costs nothing to drop: the colour is
-      // already in the well, and the well is one press away from anywhere,
-      // which is exactly what giving it a fixed home bought.
-    }
-    // `applyToolColor`, not `setToolSetting`: the former is what this actually
-    // calls, and it closes over `shapeSwatch`. Listing the setter instead left
-    // a stale copy here — with a shape in hand and the fill selected, a pick
-    // taken after the swatch was switched wrote the field the swatch used to
-    // point at.
-  }, [vpRef, vp, config, handActive, applyToolColor, pickedColorTool, setTool, drawingTool, toolSettings.eyedropper, addPaletteColor])
-
-  // Ruler tool (#89, #405): the engine only ever knows about the ruler as a
-  // *snapping* guide, so this is where "is there a line to snap to right now"
-  // is answered, once, for every way the answer can change.
-  //
-  // Off screen means genuinely inert, not merely invisible: the engine is
-  // handed null and nothing bends. (#445) That is what makes an unlocked ruler
-  // safe to leave lying in the store — pick up the pencil and the line is gone
-  // from both the canvas and the snapping, so measuring costs nothing to undo.
-  // Snapping off keeps the line on screen and draggable, and simply stops it
-  // pulling on strokes: a straight edge to measure and align against is half
-  // of what a ruler on a drawing is for.
-  //
-  // Deliberately an effect on the state rather than an engine call inside each
-  // drag handler (which is what this replaced): "the engine's ruler is exactly
-  // the visible, snapping line" is an invariant, and hand-written call sites
-  // are how an invariant becomes a bug.
-  useEffect(() => {
-    engineRef.current?.setRuler(rulerVisible && rulerSnap ? rulerLine : null)
-  }, [rulerLine, rulerVisible, rulerSnap])
+  // (#493) The eyedropper's pick — see useEyedropper.
+  const handleEyedropperPick = useEyedropper({
+    engineRef, vpRef, vp, handActive, applyToolColor, pickedColorTool, addPaletteColor,
+  })
 
   // (#405) Selecting a tool selects it. Pressing a toolbar button never hands
   // the canvas back to something else, however many times it is pressed: a
@@ -3789,130 +2661,10 @@ function RoomEditor() {
     transformTargetIds, dispatchOp, vpEl,
   })
 
-  const rulerRectRef = useRef<DOMRect | null>(null)
-
-  // Ruler tool (#89, #405): one gesture handler for the whole tool.
-  //
-  // Down/move/up tracked manually via setPointerCapture + direct DOM
-  // listeners, the same pattern ColorPicker's onSvDown/onHueDown use for their
-  // own drag handling. Pen-only, same as the pencil itself ignores touch (see
-  // PointerInput.ts) — a finger on the catcher falls straight through to
-  // useViewport's own panning untouched, instead of trying to arbitrate whose
-  // gesture a given touch belongs to.
-  //
-  // What a press means is decided by hit-testing it against the line
-  // (rulerGestureAt): on an endpoint it swings that end, on the body it slides
-  // the whole ruler, anywhere else it lays a brand-new one over whatever was
-  // there. That is what reconciles the tool's two rules — "dragging always
-  // makes a new line" and "an existing line can only be moved while the ruler
-  // is selected" — and it is why this replaced a two-surface arrangement (a
-  // catcher div for the first placement, then RulerOverlay's own SVG shapes
-  // forever after) that could express neither: the catcher was gone by the
-  // time a second line was wanted, and the SVG handles stayed draggable under
-  // every other tool.
-  //
-  // The tolerances are screen px, divided by the zoom here so a ruler is no
-  // harder to grab zoomed out than zoomed in (#394's rule for the gizmo's own
-  // handles).
-  //
-  // Only mounted while the ruler is the selected tool — which (#445) is also
-  // exactly when it is guaranteed to be on screen. A locked ruler stays
-  // visible under the pencil but is not draggable there, and an unlocked one
-  // is not on screen at all: nothing off screen can be grabbed any more than
-  // it can snap, see the engine sync above.
-  const handleRulerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'touch') return
-    // Same precedence as everywhere else (#405): while the hand is up, a drag
-    // moves the view. useViewport's own listener is on `.viewport`, an ancestor
-    // of this catcher, and native listeners on an ancestor run *before* React
-    // dispatches here — so without this the same drag would pan and lay a
-    // ruler line at once.
-    if (handActive) return
-    const el = vpRef.current
-    if (!el || !config) return
-    e.stopPropagation()
-    const overlay = e.currentTarget
-    const penPointerId = e.pointerId
-    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
-
-    const rect = rulerRectRef.current = el.getBoundingClientRect()
-    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
-    // what engine.setRuler's snapping (rulerSnap.ts) compares against real
-    // stroke dabs there (genuine world coordinates, see setInfiniteCamera's
-    // pointer transform), and what RulerOverlay's a/b props expect for
-    // infinite rooms (see the render section below).
-    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
-
-    const startPoint = toPoint(e.clientX, e.clientY)
-    const startLine = rulerLine // frozen for the duration of this drag
-    const gesture = rulerGestureAt(
-      startPoint, startLine,
-      RULER_ENDPOINT_GRAB_PX / vp.zoom, RULER_BODY_GRAB_PX / vp.zoom,
-    )
-
-    const computeLine = (clientX: number, clientY: number): { a: RulerPoint; b: RulerPoint } => {
-      const p = toPoint(clientX, clientY)
-      // A new line is anchored where the press landed and follows the pointer
-      // with its far end — the same A→B drag the tool has always opened with.
-      if (gesture === 'new' || !startLine) return { a: startPoint, b: p }
-      if (gesture === 'a') return { a: p, b: startLine.b }
-      if (gesture === 'b') return { a: startLine.a, b: p }
-      const dx = p.x - startPoint.x
-      const dy = p.y - startPoint.y
-      return {
-        a: { x: startLine.a.x + dx, y: startLine.a.y + dy },
-        b: { x: startLine.b.x + dx, y: startLine.b.y + dy },
-      }
-    }
-
-    // Committed on the press, not on the first move: a tap that lays a
-    // zero-length line and a drag that lays a real one are the same gesture at
-    // this point, and rulerSnap.ts already refuses a degenerate line rather
-    // than dividing by zero (MIN_RULER_LENGTH_SQ).
-    setRulerLine(computeLine(e.clientX, e.clientY))
-    setRulerDragging(true)
-
-    const onMove = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      setRulerLine(computeLine(ev.clientX, ev.clientY))
-    }
-    // (#448) `end`, not `up`: a pointercancel (the browser taking the gesture
-    // over) never sends pointerup, and a distance bubble left standing after
-    // one would be exactly the permanent label this issue removed.
-    const onEnd = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      setRulerDragging(false)
-      overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onEnd)
-      overlay.removeEventListener('pointercancel', onEnd)
-    }
-    overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onEnd)
-    overlay.addEventListener('pointercancel', onEnd)
-  }, [vpRef, vp, config, handActive, rulerLine, setRulerLine])
-
-  // (#405) The catcher's own cursor, per pointer position — the one cursor in
-  // the editor that cannot come from a CSS class, because which gesture is on
-  // offer depends on where the pointer is relative to the line rather than on
-  // any state. Written straight to the element rather than through React state
-  // so a hover costs no render; the *decision* is still cursorController's
-  // (RULER_GESTURE_CURSOR), which is the rule #393 exists to keep.
-  const handleRulerHover = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const el = vpRef.current
-    if (!el || !config) return
-    // Cached rect, same forced-reflow reasoning as the cursor broadcast's own
-    // (see its comment): getBoundingClientRect is a synchronous layout read and
-    // this runs on every pointermove over the canvas. Re-read on entry and on
-    // every press, which is every moment it could matter; a window resize while
-    // the pointer sits still leaves the *cursor* a frame stale and nothing else,
-    // since the press that follows reads the rect afresh.
-    const rect = rulerRectRef.current ??= el.getBoundingClientRect()
-    const gesture = rulerGestureAt(
-      clientToRoomPoint(e.clientX, e.clientY, rect, vp, config), rulerLine,
-      RULER_ENDPOINT_GRAB_PX / vp.zoom, RULER_BODY_GRAB_PX / vp.zoom,
-    )
-    e.currentTarget.style.cursor = RULER_GESTURE_CURSOR[gesture]
-  }, [vpRef, vp, config, rulerLine])
+  // (#493) The ruler — whether it shows, the engine sync, its gesture and
+  // cursor — lives in useRulerTool.
+  const { rulerVisible, rulerMeasuring, handleRulerDown, handleRulerHover, handleRulerEnter } =
+    useRulerTool({ engineRef, vpRef, vp, handActive })
 
   // Which layer a pixel *action* would touch: the active one, refusing the
   // background (never a legal target for anything that paints, same rule as
@@ -3991,91 +2743,10 @@ function RoomEditor() {
     onClickPast: shape.commit,
   })
 
-
-  // (#453) The fill's one gesture: a tap works out the region and emits an
-  // `area_fill`. Two pieces of state around it, both for the same reason —
-  // the work happens on the main thread and is not instant (a readback of the
-  // fill's domain plus a scan of it), so the tool has to say it is thinking
-  // and has to refuse a second tap while it is.
-  const [fillBusy, setFillBusy] = useState(false)
-  const fillBusyRef = useRef(false)
-
-  const handleFillTap = useCallback(async (e: React.PointerEvent<HTMLDivElement>) => {
-    // Pen (and mouse) only, same as the selection tool. On a tablet a finger is
-    // how the canvas is panned and zoomed, so a touch that reaches here is
-    // almost always the start of a two-finger gesture — and unlike a stray
-    // stroke, a stray fill repaints a whole region.
-    if (e.pointerType === 'touch') return
-    // Same precedence as every other canvas tool: the hand outranks what is
-    // under it, and a press with it up pans instead.
-    if (handActive) return
-    e.preventDefault()
-    e.stopPropagation()
-    const engine = engineRef.current
-    const el = vpRef.current
-    const layerId = paintTargetIdRef.current
-    if (!engine || !el || !config || !layerId || fillBusyRef.current) return
-    // (#518) Refused before the work, not after: the fill's own readback and
-    // scan take long enough to show a busy state, and spending them on a tap
-    // `dispatchOp` will throw away would look like the tool hanging on a
-    // locked layer rather than declining.
-    if (paintTargetLockedRef.current) return
-
-    const rect = el.getBoundingClientRect()
-    // Layer space, not screen space — #143's rule for everything that reaches
-    // an operation: the viewport is this user's own, so a seed recorded in
-    // screen pixels would be somewhere else on every other participant's
-    // canvas (and, here, somewhere else in this user's own layer one zoom
-    // later).
-    const seed = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
-    const values = useRoomStore.getState().toolSettings.fill
-    const color = getToolColor(useRoomStore.getState().toolSettings, 'fill')
-    // The one place the on-screen toggle becomes the operation's named mode —
-    // see the schema's own comment for why the two are shaped differently.
-    const source: FillSourceMode = values.allLayers ? 'visible' : 'layer'
-
-    fillBusyRef.current = true
-    setFillBusy(true)
-    try {
-      // Yields one frame before the blocking work so the busy state is on
-      // screen while it runs, rather than painting after it is over.
-      await new Promise(resolve => requestAnimationFrame(resolve))
-      const filled = await engine.computeAreaFill({
-        layerId,
-        seedX: seed.x,
-        seedY: seed.y,
-        color,
-        tolerance: values.tolerance as number,
-        gapClose: values.gapClose as number,
-        expand: values.expand as number,
-        source,
-      })
-      // Null means the tap produced no region at all (an empty result, not a
-      // failure) — nothing to record and nothing to say.
-      if (!filled) return
-      dispatchOp({
-        type: 'area_fill',
-        layerId,
-        image: filled.image,
-        x: filled.x,
-        y: filled.y,
-        width: filled.width,
-        height: filled.height,
-        seedX: seed.x,
-        seedY: seed.y,
-        color,
-        tolerance: values.tolerance as number,
-        gapClose: values.gapClose as number,
-        expand: values.expand as number,
-        source,
-      })
-    } catch (err) {
-      console.error('fill failed', err)
-    } finally {
-      fillBusyRef.current = false
-      setFillBusy(false)
-    }
-  }, [vpRef, config, dispatchOp, handActive])
+  // (#493) The fill's tap and its busy state — see useFillTool.
+  const { fillBusy, handleFillTap } = useFillTool({
+    engineRef, vpRef, handActive, paintTargetIdRef, paintTargetLockedRef, dispatchOp,
+  })
 
   // ── Annotations (#509/#510, эпик #87) ───────────────────────────────────
   // (#493) Out of line in useAnnotations; what comes back is what the page's
@@ -4087,375 +2758,27 @@ function RoomEditor() {
     onPersonalBoard, isOwner, doubleTapArmedRef, pendingNoteRef,
   })
 
-
-  // (#391) The transform tool's own two settings, from the same TOOL_SCHEMAS
-  // store every other tool's settings live in (see settingsToolId below for
-  // how they reach the UI). Both are `transient` there — a transform mode
-  // remembered from half an hour ago is a gizmo whose edge handles no longer
-  // do what the last person to touch them expects.
+  // (#391) The transform tool's mode, from the same TOOL_SCHEMAS store every
+  // other tool's settings live in (see settingsToolId below for how they reach
+  // the UI). `transient` there — a transform mode remembered from half an
+  // hour ago is a gizmo whose edge handles no longer do what the last person
+  // to touch them expects. The gestures read it (and the proportions toggle)
+  // themselves; see useTransformGizmoGestures.
   const transformMode = toolSettings.transform.mode as TransformMode
-  const transformKeepProportions = toolSettings.transform.keepProportions as boolean
 
-  // (#391/#405) Whose settings the quick-access column and the "Tool settings"
-  // tab are showing: the selected tool, full stop. This used to be
-  // `transformActive ? 'transform' : tool` — a special case, because transform
-  // was a mode rather than a tool and only that one mode had settings worth
-  // surfacing. With one exclusive selection there is no special case left to
-  // write: the ruler's show/snap and the grid's visibility are its settings
-  // exactly the way the pencil's grade is, and selecting a drawing tool again
-  // hands both surfaces back with its own settings where they were.
-  //
-  // Every `EditorTool` is a `UiToolId` by construction (toolSlice's two lists
-  // are `satisfies readonly UiToolId[]`), so this needs no widening or
-  // fallback: there is always a schema to show.
-  const settingsToolId: UiToolId = tool
+  // (#493) The gizmo's pointer gestures — see useTransformGizmoGestures.
+  const { handleTransformHandleDown, handleTransformCenterDown, handleTransformCenterReset } =
+    useTransformGizmoGestures({ vpRef, vp, handActive, engineRef, transformSessionRef, pendingTransformCommitRef })
 
-  // Layer transform tool (#120): mirrors handleRulerDown's drag-capture
-  // pattern exactly, but per-handle (body/corner/rotate) rather than a
-  // single A→B drag. Since #399 a gesture no longer commits anything — it
-  // folds into the open session's matrix and stays a preview until the
-  // session ends.
-  const handleTransformHandleDown = useCallback((handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => {
-    if (e.pointerType === 'touch') return
-    // (#405) The hand outranks the gizmo, the same way it outranks every tool
-    // in the cursor decision (resolveCursor's rule 1) and for the same reason:
-    // while it is up, a drag anywhere moves the view. Without this the handles
-    // would still swallow a mouse drag that started on one, so panning to see
-    // where a layer is going — the whole reason to reach for the hand mid-
-    // transform — would fail exactly over the thing being dragged. (#443: with
-    // the hand a tool, only held Space can reach here, and it is exactly the
-    // route that still needs this.)
-    if (handActive) return
-    // (#395) The previous session's commit is still in flight, so the layer
-    // doesn't carry it yet and transformBounds still describes where the
-    // content was before it. A gesture started here would build on a
-    // transform that may yet be refused. The wait is one round trip.
-    if (pendingTransformCommitRef.current) return
-    const session = transformSessionRef.current
-    const el = vpRef.current
-    if (!session || !el || !config || !transformBounds) return
-    e.stopPropagation()
-    const overlay = e.currentTarget
-    const penPointerId = e.pointerId
-    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
-
-    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
-    // transformBounds/pivot/center (engine.getContentBounds, real world
-    // coordinates for infinite rooms) so drag deltas/pivots are computed in
-    // one consistent space instead of mixing world-space bounds with a
-    // placeholder-canvas-space pointer position.
-    const rect = el.getBoundingClientRect()
-
-    // (#399) Which side of the accumulated matrix a gesture composes on is not
-    // a style choice — it decides whether the frame stays a rectangle.
-    //
-    // Scaling has to go *inside* (session ∘ gesture): the handles pull along
-    // the frame's own axes, so the squash is stated in the frame's local
-    // space, before whatever rotation the session already holds.
-    //
-    // Rotation has to go *outside* (gesture ∘ session): turning the frame is a
-    // rigid move of whatever shape it currently is. Composed inside, a
-    // rotation lands *under* an existing non-uniform scale — squash-then-turn
-    // becomes turn-then-squash, which is a shear, and the corners stop being
-    // 90°. That is the bug Ilya hit by squashing one axis and then rotating.
-    // Keeping rotation outside holds the session in the form
-    // rotation ∘ scale, which is angle-preserving on a rectangle no matter how
-    // the two are interleaved.
-    //
-    // Translation *does* care, and used to be filed here as the one that
-    // doesn't (#407). The claim was that for a drag of `d` canvas px,
-    // session ∘ translate(A⁻¹d) and translate(d) ∘ session are the same
-    // matrix — true, but only while the session has a linear part `A` to
-    // invert, i.e. while it is affine. Once Distort (#392) put a projective
-    // row in it, composing a move inside means sliding the source rectangle
-    // *through* the perspective field before it is applied, so the layer comes
-    // out re-foreshortened: measured on a distorted frame, a plain 150x40 drag
-    // took the sides from 626.5/447.8/400/300 to 688.6/484.8/428.4/294.7 —
-    // every one of them changed, and one got shorter. Dragging a picture
-    // across the page is not supposed to reshape it.
-    //
-    // So translation goes outside, with rotation, for the same reason rotation
-    // is there: it is a rigid move of whatever shape the session currently
-    // holds. For an affine session this is exactly the old behaviour (the
-    // identity above still holds), so nothing that worked before changes.
-    const sessionBase = session.matrix
-    const toLocalSpace = invertMatrix(sessionBase)
-    if (!toLocalSpace) return
-    const toCanvasPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vp, config)
-    const toPoint = (clientX: number, clientY: number) => {
-      const p = toCanvasPoint(clientX, clientY)
-      return applyMatrix(toLocalSpace, p.x, p.y)
-    }
-
-    const bounds = transformBounds
-    const center = transformCenterOverride ?? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
-    // (#391/#392) What this handle means under the current mode — every mode
-    // redefines exactly one family of handles (Rotate & Skew the edges,
-    // Distort the corners) and borrows the rest from Free transform.
-    const gestureKind = transformGestureKind(handle, transformMode)
-    const isRotate = gestureKind === 'rotate'
-    const isDistort = gestureKind === 'distort'
-    const pivot = handle === 'body' || isRotate ? center : TRANSFORM_PIVOT[handle as keyof typeof TRANSFORM_PIVOT](bounds)
-    const start = toPoint(e.clientX, e.clientY)
-    // Rotation works entirely in canvas space, so its centre and start angle
-    // are the local ones pushed back out through the session matrix.
-    const centerCanvas = applyMatrix(sessionBase, center.x, center.y)
-    const startCanvas = toCanvasPoint(e.clientX, e.clientY)
-    const startAngle = Math.atan2(startCanvas.y - centerCanvas.y, startCanvas.x - centerCanvas.x)
-    const startDist  = Math.max(Math.hypot(start.x - pivot.x, start.y - pivot.y), 1e-6)
-    const startDistX = Math.max(Math.abs(start.x - pivot.x), 1e-6)
-    const startDistY = Math.max(Math.abs(start.y - pivot.y), 1e-6)
-    // Signed, unlike the two above: a shear is "how far the grabbed edge slid,
-    // per unit of distance from the anchor edge", and which side of the anchor
-    // the edge sits on decides the sign of the resulting matrix (see
-    // skewAxisMatrix). Guarded away from zero the same way — an edge dragged
-    // while the frame is degenerate would otherwise divide by nothing.
-    const startOffsetX = Math.sign(start.x - pivot.x || 1) * startDistX
-    const startOffsetY = Math.sign(start.y - pivot.y || 1) * startDistY
-    // Null means "this pointer position has no usable matrix" — only Distort
-    // can produce one (drag a corner onto the line through its two neighbours
-    // and there is no homography at all), and the answer is to leave the frame
-    // where it was rather than to throw or to snap it somewhere arbitrary.
-    const computeMatrix = (clientX: number, clientY: number): TransformMatrix | null => {
-      if (isRotate) {
-        const w = toCanvasPoint(clientX, clientY)
-        const angle = Math.atan2(w.y - centerCanvas.y, w.x - centerCanvas.x) - startAngle
-        return rotateAboutMatrix(angle, centerCanvas.x, centerCanvas.y)
-      }
-      const p = toPoint(clientX, clientY)
-      // (#407) In *canvas* px, unlike every gesture below it: a move composes
-      // outside the session, so it has to be stated in the space the session's
-      // output already lives in. Reading the local-space delta here instead
-      // would re-introduce the same mixing the outside composition exists to
-      // avoid, just from the other end.
-      if (gestureKind === 'move') {
-        const pc = toCanvasPoint(clientX, clientY)
-        return translateMatrix(pc.x - startCanvas.x, pc.y - startCanvas.y)
-      }
-      // Distort (#392): the grabbed corner goes exactly where the pointer is
-      // and the other three hold still, so the gesture *is* the four-point
-      // correspondence the solver takes. No clamp on how far it can be
-      // dragged, unlike a scale — a corner pulled past its neighbours is a
-      // fold, which is a shape, not a singularity; the two ways this genuinely
-      // has no answer (three corners collinear, and a quad whose vanishing
-      // line crosses the frame) are refused below instead.
-      if (isDistort) {
-        const quad = distortQuad(bounds, handle, p)
-        return quad && solveQuadMatrix(bounds, quad)
-      }
-      // Rotate & Skew's edge handles (#391): the edge slides along itself and
-      // the opposite edge stays pinned, so only the travel *along* the edge is
-      // read — pushing the top edge up or down does nothing, exactly as in
-      // Adobe's own skew. Proportions have no meaning for a shear, so the
-      // keep-proportions toggle is deliberately not consulted here; it still
-      // governs this mode's corner handles below.
-      if (gestureKind === 'skewX') {
-        const shear = clamp((p.x - start.x) / startOffsetY, -MAX_TRANSFORM_SHEAR, MAX_TRANSFORM_SHEAR)
-        return skewAxisMatrix(shear, 0, pivot.x, pivot.y)
-      }
-      if (gestureKind === 'skewY') {
-        const shear = clamp((p.y - start.y) / startOffsetX, -MAX_TRANSFORM_SHEAR, MAX_TRANSFORM_SHEAR)
-        return skewAxisMatrix(0, shear, pivot.x, pivot.y)
-      }
-      // Edge handles in Free transform: always exactly one axis, about the
-      // opposite edge. The proportions toggle deliberately does not reach them
-      // (#391) — an edge that keeps the aspect ratio is an edge that cannot
-      // stretch, and stretching one axis is the only thing an edge handle has
-      // ever been for. Briefly they scaled both axes while the lock was on,
-      // which, since the lock is on by default, meant single-axis stretch was
-      // unreachable out of the box: a regression of the default dressed up as
-      // a feature. The toggle now governs the corners and nothing else.
-      if (handle === 't' || handle === 'b') {
-        const scaleY = clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20)
-        return scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
-      }
-      if (handle === 'l' || handle === 'r') {
-        const scaleX = clamp(Math.abs(p.x - pivot.x) / startDistX, 0.05, 20)
-        return scaleAxisMatrix(scaleX, 1, pivot.x, pivot.y)
-      }
-      // Corner handles — the only place the proportions toggle is read. Locked
-      // (the default, and what they always did before #391) the two axes share
-      // one factor taken from the pointer's distance to the anchor corner;
-      // unlocked, each axis is measured on its own — Free transform's whole
-      // point, and the reason #132 asked for a toggle rather than a Shift key
-      // nobody can press on a tablet.
-      if (transformKeepProportions) {
-        const scale = clamp(Math.hypot(p.x - pivot.x, p.y - pivot.y) / startDist, 0.05, 20)
-        return scaleAxisMatrix(scale, scale, pivot.x, pivot.y)
-      }
-      return scaleAxisMatrix(
-        clamp(Math.abs(p.x - pivot.x) / startDistX, 0.05, 20),
-        clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20),
-        pivot.x, pivot.y,
-      )
-    }
-
-    // Coalesce to one previewLayerTransform call per animation frame rather
-    // than one per raw pointermove — a pen digitizer fires well past 60/s,
-    // and previewLayerTransform's own GPU cost scales with how much of the
-    // page the dragged content currently covers (a bounded room's own tile
-    // size is its whole canvas, see engine/index.ts's _makeLayerBuffer —
-    // content spanning two such tiles means transform-blitting two full-
-    // page-sized buffers on every call). Rendering more previews than the
-    // display can even show is pure wasted GPU work; this was a real,
-    // reported stutter/hang testing on an underpowered device once content
-    // was dragged past the page edge. Only the *latest* pointer position
-    // within a frame is ever previewed — nothing else about the preview's
-    // correctness changes, this only throttles how often it's recomputed.
-    let rafId: number | null = null
-    let latestMatrix: TransformMatrix | null = null
-    // What the canvas and the gizmo should show: everything the session had
-    // already accumulated, with this gesture composed on the side its own
-    // meaning demands (see computeMatrix's comment above). A Distort composes
-    // *inside*, with the scales and for the same reason: its four target
-    // corners are stated in the frame's own local space, before whatever
-    // rotation the session is already carrying.
-    //
-    // Null when the result is not something to show: either the gesture had no
-    // matrix at all, or the accumulated one folds the frame through the
-    // vanishing line, where half the layer would render as a mirrored ghost
-    // (isFrameInFront). Refusing beats clamping — a clamp would have to invent
-    // some nearest legal quad, and the honest behaviour is that the corner
-    // simply stops following the pointer once it has gone somewhere there is
-    // no picture for.
-    // (#407) Rotation and translation are the two rigid moves — they act on
-    // the shape the session already produced, so they compose outside. Every
-    // other gesture is stated in the frame's own axes and composes inside.
-    const composesOutside = isRotate || gestureKind === 'move'
-    const accumulated = (gesture: TransformMatrix | null): TransformMatrix | null => {
-      if (!gesture) return null
-      const next = composesOutside ? composeMatrix(gesture, sessionBase) : composeMatrix(sessionBase, gesture)
-      return isFrameInFront(next, bounds) ? next : null
-    }
-    const showPreview = (matrix: TransformMatrix) => {
-      setTransformSessionMatrix(matrix)
-      // (#446) The masked preview when the session is scoped to a selection —
-      // same lifecycle, same clearLayerTransformPreview, and (by construction,
-      // see the engine's _composeAreaTiles) the same pixels the commit will
-      // bake.
-      // (#446) A floating paste draws its own raster above the layer; a lift
-      // draws the layer with the region taken out of it and put back moved.
-      if (session.paste && session.targetIds.length === 1) {
-        engineRef.current?.previewAreaPaste(
-          session.targetIds[0], session.paste.image,
-          { x: session.paste.x, y: session.paste.y, width: session.paste.width, height: session.paste.height },
-          matrix,
-        )
-        return
-      }
-      if (session.selection && session.targetIds.length === 1) {
-        engineRef.current?.previewAreaTransform(session.targetIds[0], session.selection, matrix)
-        return
-      }
-      engineRef.current?.previewLayerTransform(session.targetIds.map(layerId => ({ layerId, matrix })))
-    }
-    const flushPreview = () => {
-      rafId = null
-      if (!latestMatrix) return
-      const next = accumulated(latestMatrix)
-      if (next) showPreview(next)
-    }
-
-    const onMove = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      latestMatrix = computeMatrix(ev.clientX, ev.clientY)
-      if (rafId === null) rafId = requestAnimationFrame(flushPreview)
-    }
-    const onUp = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onUp)
-      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
-      // (#399) Release commits nothing. The gesture folds into the session's
-      // matrix and the preview stays exactly as it is — which is the whole
-      // point: the frame keeps the orientation the gesture just gave it
-      // instead of being re-derived from an axis-aligned box of pixels.
-      // (#405) And it keeps it until the session actually ends — Enter, Esc, a
-      // click past the gizmo, another tool, another layer. Nothing bakes it on
-      // a timer any more; that timer is what made the frame appear to reset
-      // itself a couple of seconds after every gesture.
-      const gesture = computeMatrix(ev.clientX, ev.clientY)
-      // A click, or pen jitter below the threshold — and, since #392, a
-      // release on a pointer position that has no usable matrix at all: roll
-      // the session's display back to where it was rather than folding in a
-      // no-op that would drift the accumulated matrix by a fraction of a pixel
-      // per tap.
-      const next = gesture && accumulated(gesture)
-      if (!gesture || !next || isNegligibleTransform(gestureKind, gesture, bounds)) {
-        if (isIdentityMatrix(sessionBase)) {
-          setTransformSessionMatrix(sessionBase)
-          engineRef.current?.clearLayerTransformPreview()
-        } else {
-          showPreview(sessionBase)
-        }
-        return
-      }
-      // The session may have been closed under us mid-gesture (tool switched
-      // off, selection changed) — in that case its commit already went out
-      // with the matrix as of then, and this gesture has nowhere to land.
-      if (transformSessionRef.current) transformSessionRef.current.matrix = next
-      showPreview(next)
-    }
-    overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onUp)
-  }, [
-    vpRef, vp, config, handActive, transformBounds, transformCenterOverride, transformMode,
-    transformKeepProportions, setTransformSessionMatrix,
-  ])
-
-  // Adobe Animate-style draggable rotation pivot — a separate gesture from
-  // the scale/rotate/translate handles above: it only ever updates
-  // transformCenterOverride (local UI state), never previews or dispatches
-  // a transform of its own. Double-click resets it back to the content
-  // bounds' own center (see TransformGizmo's onCenterDoubleClick).
-  const handleTransformCenterDown = useCallback((e: React.PointerEvent<SVGElement>) => {
-    if (e.pointerType === 'touch') return
-    // Same reason as the handles above (#405): the hand owns every drag.
-    if (handActive) return
-    const el = vpRef.current
-    if (!el || !config) return
-    e.stopPropagation()
-    const overlay = e.currentTarget
-    const penPointerId = e.pointerId
-    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
-
-    const rect = el.getBoundingClientRect()
-    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
-    // transformBounds/pivot/center (engine.getContentBounds, real world
-    // coordinates for infinite rooms) so drag deltas/pivots are computed in
-    // one consistent space instead of mixing world-space bounds with a
-    // placeholder-canvas-space pointer position.
-    //
-    // (#399) Stored in the session's local space, like transformBounds and
-    // unlike the raw pointer: the handle is rendered inside the gizmo's own
-    // `<g transform>`, so a canvas-space point would be pushed through the
-    // session matrix a second time and slide away from the finger. Local
-    // space also means the pivot rides along with the content through later
-    // gestures instead of staying pinned to a canvas coordinate.
-    const toLocalSpace = invertMatrix(transformSessionRef.current?.matrix ?? IDENTITY_MATRIX)
-    if (!toLocalSpace) return
-    const toPoint = (clientX: number, clientY: number) => {
-      const p = clientToRoomPoint(clientX, clientY, rect, vp, config)
-      return applyMatrix(toLocalSpace, p.x, p.y)
-    }
-
-    const onMove = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      setTransformCenterOverride(toPoint(ev.clientX, ev.clientY))
-    }
-    const onUp = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onUp)
-    }
-    overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, handActive, setTransformCenterOverride])
-
-  const handleTransformCenterReset = useCallback(
-    () => setTransformCenterOverride(null),
-    [setTransformCenterOverride],
-  )
+  // ── join gate (joiner path only) ──────────────────────────────────────────
+  // (#493) The form, its screens and the attempt — see useJoinGate.
+  const {
+    joinName, setJoinName, joinPassword, setJoinPassword, joinError, joinSubmitting,
+    joinState, setJoinState, joinPasswordAsked, handleJoinSubmit, retryJoin, retryJoinRef,
+  } = useJoinGate({
+    id, myDisplayName, socketRef, latestKnownSeqRef, lastJoinAttemptRef, hasJoinedRef,
+    applyIdentity, outbox, startOpenTimer,
+  })
 
   // ── socket wiring (#84/#37/#38/join-gate) ──────────────────────────────────────
   // Runs once per room id, independent of `config` — a joiner doesn't have a
@@ -4486,12 +2809,6 @@ function RoomEditor() {
       io({ withCredentials: true })
     socketRef.current = socket
 
-    /** The board a reconnect or a resync re-joins: the one this client is on
-     *  (or heading to), falling back to the URL for the very first join. */
-    const currentBoard = () => wantedBoardRef.current ?? boardIdRef.current ?? id
-    const joinCredentials = () => lastJoinAttemptRef.current
-      ?? { name: myDisplayNameRef.current, password: creatorDraft?.password }
-
     // (#504) socket.io переподключается само — кроме двух случаев, в которых
     // оно объявляет, что больше не пытается, и тогда открытая комната висит на
     // «Нет связи» до перезагрузки страницы. См. socketRevival.ts: там и
@@ -4499,637 +2816,69 @@ function RoomEditor() {
     // принять такой ответ.
     const revival = createSocketRevival(socket)
 
-    // Fires on the initial connect *and* on every auto-reconnect (socket.io-
-    // client's default behavior). Rejoining after a drop is what gives us the
-    // "reasonable MVP" reconnect behavior called for by #84 (full catch-up/
-    // session-continuity is #74): the client resyncs from a fresh room_state
-    // rather than getting stuck. Identity (#41) comes from the server-
-    // resolved cookie identity via each create_room/join_room ack below
-    // (applyIdentity), not from socket.id — a fresh socket id churns on every
-    // reconnect, which used to mean a reconnecting creator was misjudged as a
-    // `student` and operations kept a stale userId; both are fixed now that
-    // ownership/authorship key off the same stable id every time.
-    /** (#496) A join that came back refused somewhere the join gate cannot
-     *  see it — the creator's own `create_room`, a reconnect's silent rejoin,
-     *  a gap resync. All three used to end in `console.error` and nothing
-     *  else.
-     *
-     *  The gate is not an option here, and that is the whole difficulty:
-     *  `JoinGate` only renders while `config` is null (see the render below),
-     *  and on every path this covers the room is already open on screen. So
-     *  the refusal has to be told, not shown — the same shape `handleKicked`
-     *  settled on for the same reason.
-     *
-     *  Why it matters more than "an error was swallowed": the failure is
-     *  invisible in exactly the way that looks like success. The editor keeps
-     *  working, the canvas keeps painting, and the operations pile up in a
-     *  queue against a socket that has joined nothing. The user does learn
-     *  eventually — the outbox stalls and ConnectionBanner says so — but
-     *  minutes later, and phrased as "your work isn't saving" rather than
-     *  "you are not in this room". On the creator's path they will have been
-     *  drawing into a room the server never created.
-     *
-     *  `durationMs: null` and a fixed key, like every other notice about a
-     *  state rather than an event: it stays until the state changes, and a
-     *  reconnect that fails the same way again replaces it instead of
-     *  stacking. */
-    const reportJoinFailure = (error: JoinDenial, where: string) => {
-      console.error(`${where} failed`, error)
-      // Clearing the flag is what stops the auto-rejoin from re-asking a
-      // settled question on every reconnect — the same thing `handleKicked`
-      // does, with the same intent. Which refusals are worth re-asking lives
-      // in joinError.ts, next to the other two readings of a reason.
-      if (!canRetryJoinLater(error)) hasJoinedRef.current = false
-      notifyError(describeJoinError(error, tRef.current), { key: 'join-failed', durationMs: null })
-    }
-
-    const handleConnect = () => {
-      setConnected(true)
-      setEverConnected(true)
-      revival.noteConnect()
-      // (#298) resendAll deliberately does NOT happen here any more. It used
-      // to, and a fresh connection is precisely the moment the socket has
-      // joined nothing — so the whole backlog went out against a socket the
-      // server would answer `not_joined` for (or, before that reason
-      // existed, not answer at all). Each of the join paths below calls it
-      // once its own join has actually succeeded.
-      if (isCreator && creatorDraft) {
-        if (!hasJoinedRef.current) {
-          socket.emit(
-            'create_room',
-            {
-              room: creatorDraft.room, password: creatorDraft.password,
-              // (#232) On the creation itself, so the room is never open for
-              // the length of a second request — see the shared contract.
-              accessMode: creatorDraft.accessMode,
-              name: myDisplayNameRef.current,
-              lastKnownSeq: latestKnownSeqRef.current || undefined,
-            },
-            result => {
-              if (result.ok) {
-                hasJoinedRef.current = true
-                applyIdentity(result.userId)
-                void outboxRef.current.resendAll()
-                // Best-effort: room creation already succeeded either way, so
-                // a failure here just leaves the room at root level (still
-                // visible on MyLessons) rather than blocking anything.
-                if (creatorDraft.folderId) {
-                  moveRoomToFolder(id, creatorDraft.folderId).catch(err =>
-                    console.error('failed to file newly created room into its folder', err))
-                }
-                // (#232) The allow-list the creator typed on the create form.
-                // Sent one at a time through the same endpoint the access
-                // panel uses, so normalization, dedup and validation happen in
-                // exactly one place. Failing loudly matters here: the room is
-                // already `invite_only`, so an invite that didn't land is a
-                // student who will be stuck asking to be let in.
-                const invites = creatorDraft.invites ?? []
-                if (invites.length > 0) {
-                  void Promise.allSettled(invites.map(email => addRoomInvite(id, email)))
-                    .then(results => {
-                      const failed = results.filter(r => r.status === 'rejected').length
-                      if (failed > 0) {
-                        notifyError(tRef.current('room.invitesFailed', { count: failed }), {
-                          key: 'invites-failed', durationMs: null,
-                        })
-                      }
-                    })
-                }
-              }
-              // (#496) The one refusal the server can actually answer here is
-              // `server_busy` (#415) — the comment that used to sit here called
-              // this practically unreachable and blamed a nanoid collision,
-              // which is not something socketHandlers.ts's create_room can
-              // return. It is reachable, and it is the worst of the three
-              // paths this reports: the creator's `config` comes from
-              // navigation state, so the editor renders and paints normally
-              // for a room the server declined to create.
-              else reportJoinFailure(result.error, 'create_room')
-            },
-          )
-        } else {
-          // (#176) Back onto the board this client was on, not the lesson's
-          // first: a reconnect must not turn the page.
-          socket.emit(
-            'join_room',
-            {
-              roomId: currentBoard(), name: myDisplayNameRef.current, password: creatorDraft.password,
-              lastKnownSeq: latestKnownSeqRef.current || undefined,
-            },
-            result => {
-              if (result.ok) { applyIdentity(result.userId); void outboxRef.current.resendAll() }
-              else reportJoinFailure(result.error, 'join_room on reconnect')
-            },
-          )
-        }
-        return
-      }
-
-      // Joiner path: the first connect waits for the join-gate form to submit
-      // (see handleJoinSubmit). A later reconnect replays the same
-      // credentials automatically so an already-joined user isn't dropped
-      // back to the gate.
-      if (hasJoinedRef.current && lastJoinAttemptRef.current) {
-        socket.emit(
-          'join_room',
-          { roomId: currentBoard(), ...lastJoinAttemptRef.current, lastKnownSeq: latestKnownSeqRef.current || undefined },
-          result => {
-            if (result.ok) { applyIdentity(result.userId); void outboxRef.current.resendAll() }
-            else reportJoinFailure(result.error, 'join_room on reconnect')
-          },
-        )
-      }
-    }
-
-    /** (#176, ADR 014 §4) Turns the page: asks the server to move this socket
-     *  onto `next`. The board's `room_state` comes back through
-     *  handleRoomState, which is where the engine is actually swapped (see
-     *  enterBoard) — nothing here touches content.
-     *
-     *  Waits for the outbox first, bounded (see Outbox.whenIdle): an operation
-     *  on the wire while the socket moves would be recorded against the next
-     *  board. The canvas is blocked for the wait — a stroke drawn *during* it
-     *  would go out after the move for the same reason.
-     *
-     *  Idempotent against the board already shown or already asked for, so the
-     *  follow logic can call it on every event that could mean "the teacher
-     *  moved" without checking first. */
-    const switchBoard = async (next: string) => {
-      if (!hasJoinedRef.current) return
-      if (next === (wantedBoardRef.current ?? boardIdRef.current)) return
-      wantedBoardRef.current = next
-      setRoomContentReady(false)
-      await outboxRef.current.whenIdle(BOARD_SWITCH_DRAIN_MS)
-      // Superseded while waiting — by a later turn, or by the server moving
-      // us (a deleted board). The later call owns the emit.
-      if (wantedBoardRef.current !== next || socket !== socketRef.current) return
-      socketBoardRef.current = null
-      socket.emit(
-        'join_room',
-        { roomId: next, ...joinCredentials() },
-        result => {
-          if (result.ok) { applyIdentity(result.userId); return }
-          // Still on the previous board server-side; say so and unblock it.
-          if (wantedBoardRef.current === next) {
-            wantedBoardRef.current = null
-            socketBoardRef.current = boardIdRef.current
-            setRoomContentReady(true)
-          }
-          reportJoinFailure(result.error, 'join_room for a board')
-        },
-      )
-    }
+    // (#493) Joining and staying joined — create/rejoin, page turns,
+    // following, gap resync — see joinFlow.ts. Handed the two joining emits
+    // rather than the socket.
+    const {
+      joinCredentials, reportJoinFailure, handleConnect, switchBoard, maybeFollow, requestFullResync,
+    } = createJoinFlow({
+      id, isCreator, creatorDraft,
+      joinRoom: (data, ack) => { socket.emit('join_room', data, ack) },
+      createRoom: (data, ack) => { socket.emit('create_room', data, ack) },
+      isCurrentSocket: () => socket === socketRef.current,
+      noteConnected: () => {
+        setConnected(true)
+        setEverConnected(true)
+        revival.noteConnect()
+      },
+      applyIdentity, setRoomContentReady,
+      hasJoinedRef, lastJoinAttemptRef, myDisplayNameRef, latestKnownSeqRef, lastConfirmedSeqRef, outboxRef,
+      wantedBoardRef, boardIdRef, socketBoardRef, isOwnerRef, engineRef, streamedStrokeIdsRef, tRef,
+    })
     switchBoardRef.current = next => { void switchBoard(next) }
-
-    /** Turns the page to the teacher's board when this client is following
-     *  and not already there — see followTarget. Called after every event
-     *  that can move the teacher or change what "following" means. */
-    const maybeFollow = () => {
-      const s = useRoomStore.getState()
-      const target = followTarget({
-        // (#595) Also read off the roster, not only the ref: this runs from
-        // inside the handler that has just delivered the roster, before any
-        // render has refreshed the ref, and a teacher who "followed" would now
-        // be sent into the spotlight or a student's board.
-        following: s.following, isOwner: isOwnerRef.current || isTeacherIn(s), lessonId: s.lessonId,
-        activeBoardId: s.activeBoardId, boardId: s.boardId, wantedBoardId: wantedBoardRef.current,
-        spotlightBoardId: s.spotlightBoardId,
-        ownAssignmentBoardId: ownBoardIn(s.boards, s.activeAssignmentId, s.userId)?.id ?? null,
-      })
-      if (target) void switchBoard(target)
-    }
-
-    // (#289 §12) Re-requests the room's state from scratch-as-of-what-we-
-    // have, the same way a reconnect does, without waiting for (or needing)
-    // an actual socket drop — the response arrives as an ordinary
-    // `room_state`, which handleRoomState already knows how to fold in.
-    // Used when the live confirmed stream turns out to have a gap, i.e. the
-    // connection was interrupted at some point without this client noticing.
-    const requestFullResync = () => {
-      lastConfirmedSeqRef.current = 0 // the stream restarts from this room_state
-      // (#429) Everything about the live channel describes what this client
-      // painted from a stream it is about to stop trusting: the layers get
-      // rebuilt from the log, so any pre-painted ink is gone and any claim
-      // against it would make the replayed operations skip dabs that are no
-      // longer there. Both sides of the bookkeeping reset together.
-      engineRef.current?.resetPeerLiveStrokes()
-      streamedStrokeIdsRef.current.clear()
-      socket.emit(
-        'join_room',
-        { roomId: currentBoard(), ...joinCredentials(), lastKnownSeq: latestKnownSeqRef.current || undefined },
-        result => {
-          if (result.ok) applyIdentity(result.userId)
-          else reportJoinFailure(result.error, 'join_room during gap resync')
-        },
-      )
-    }
     // (#346) Published for the paper retry, which lives outside this effect —
     // see requestFullResyncRef's own comment.
     requestFullResyncRef.current = requestFullResync
 
-    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen, lesson }: {
-      room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
-      palette: string[]; frozen: boolean; lesson: LessonState
-    }) => {
-      const store = useRoomStore.getState()
-      // (#176) The social half first, whichever board this is for: the
-      // strip, the teacher's board and the lesson's roster (everyone in the
-      // lesson, each with their board) are the lesson's and always current.
-      store.setLesson(lesson)
-      dispatchParticipants({ type: 'room_state', participants: roomParticipants })
-      store.setPalette(palette)
-      store.setRoomFrozen(frozen)
-      const arrivedBoard = room.id
-      socketBoardRef.current = arrivedBoard
+    // (#493) Where a room_state takes this client, and what it does with the
+    // content — see roomStateHandler.ts.
+    const handleRoomState = createRoomStateHandler({
+      id, isCreator,
+      replaceUrl: path => navigateRef.current(path, { replace: true }),
+      joinRoom: (data, ack) => { socket.emit('join_room', data, ack) },
+      joinCredentials, applyIdentity, reportJoinFailure, requestFullResync, maybeFollow,
+      enterBoard, awaitPaper, markJoinRestoreDone, setRoomContentReady,
+      clearRestoreFailure: () => setRestoreFailure(null),
+      // Shared with the engine's mount effect — see restoreRoomState. The open
+      // is not being timed any more, hence the no-op finisher: a real one here
+      // would also be a new dependency of this effect, and this effect's
+      // dependencies are what tear the socket down.
+      restoreCatchup: async (engine, state, alreadyHadSeq, boardId) => {
+        await restoreRoomState(engine, state, { mode: 'catchup', alreadyHadSeq }, {
+          boardId,
+          restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone,
+          dispatchParticipants, setRestoreFailure, setRoomContentReady,
+          finishOpenTimer: () => {},
+          notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
+            key: 'replay-incomplete', durationMs: null,
+          }),
+          // Through the ref, and read when the bootstrap needs it: the uploader
+          // is per board, and this effect does not re-run when the board does.
+          getSnapshotUploader: () => snapshotUploaderRef.current,
+          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
+        })
+      },
+      socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
+      pendingSnapshotRef, latestKnownSeqRef, isOwnerRef, engineRef, snapshotGateRef,
+    })
 
-      if (!firstRoomStateReceivedRef.current) {
-        firstRoomStateReceivedRef.current = true
-        // (#176) A board id in the URL — a link copied out of a preview
-        // request. The lesson is what the address bar should carry (ADR 014
-        // §4); `sessionId` deliberately does not follow this replace, so the
-        // socket stays. The board itself is kept: it is the one the link
-        // meant.
-        const enteredByBoardUrl = room.lessonId !== undefined
-        if (enteredByBoardUrl && id !== lesson.id) navigateRef.current(`/room/${lesson.id}`, { replace: true })
-        // Only a joiner needs this: a creator's config is already known
-        // synchronously from navigation state (see creatorDraft/toRoomConfig
-        // above) with the exact same fields toLessonConfig would produce
-        // here, so writing it a second time says nothing new.
-        //
-        // It used to be worse than redundant. `config` itself was a dependency
-        // of the mount-engine effect, and setRoomInfo always writes a *new*
-        // object even when every field is identical (toRoomConfig has no
-        // memoization) — which that effect read as "the room changed" and
-        // answered by destroying whatever this handler had just restored into
-        // the engine, rebuilding it empty. That is why this line is gated
-        // rather than unconditional. The gate is no longer what protects the
-        // canvas: the effect now depends on the three fields it actually builds
-        // from, not on the object (#461, which fixed the same wipe reaching the
-        // canvas through setRoomName instead).
-        if (!isCreator) store.setRoomInfo(toLessonConfig(room, lesson))
-        // (#176) Where to land. The server seats a join on the board it was
-        // asked for; the lesson URL asks for the lesson's own first board, and
-        // the teacher may well be on another. Ask for that one now and let
-        // *its* room_state be the one that builds the engine — this one's
-        // content is for a page we are not going to look at.
-        const entry = entryBoard({ arrivedBoardId: arrivedBoard, enteredByBoardUrl, lesson })
-        store.setFollowing(entry.following)
-        if (entry.target !== arrivedBoard && store.boardId === null) {
-          wantedBoardRef.current = entry.target
-          socketBoardRef.current = null
-          socket.emit('join_room', { roomId: entry.target, ...joinCredentials() }, result => {
-            if (result.ok) { applyIdentity(result.userId); return }
-            // Fall back to the board we were seated on: ask for it again so
-            // its content arrives through the ordinary path below.
-            reportJoinFailure(result.error, 'join_room for the teacher\'s board')
-            wantedBoardRef.current = null
-            requestFullResync()
-          })
-          return
-        }
-      }
-
-      // (#176) A room_state for a board other than the one the engine holds:
-      // the first entry (no board yet), a page turn this client asked for,
-      // the server moving us off a deleted board, or a new lesson after an
-      // in-place navigation. All of them mean a fresh engine — see enterBoard.
-      // One that is neither the board we hold nor the one we asked for is a
-      // turn already superseded (two quick turns), and is dropped: the state
-      // for the board actually wanted is on its way.
-      if (arrivedBoard !== store.boardId) {
-        if (wantedBoardRef.current !== null && wantedBoardRef.current !== arrivedBoard) return
-        // A board we held but never asked to leave: the server evacuated us
-        // off a deleted board. The page the student picked by hand is gone
-        // with it, so the pick is void and they follow the teacher again —
-        // otherwise they would sit on board one chip-less (the teacher
-        // happens to be there too) and silently stay behind on the teacher's
-        // next turn.
-        const evacuated = wantedBoardRef.current === null && store.boardId !== null
-        if (evacuated && !isOwnerRef.current) store.setFollowing(true)
-        enterBoard(arrivedBoard, { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen })
-        maybeFollow()
-        return
-      }
-      wantedBoardRef.current = null
-
-      // What this socket already had *before* this room_state's own tail —
-      // the reconnect fast-path check below needs this, not the value after
-      // folding tailOperations' seqs in just below.
-      const alreadyHadSeq = latestKnownSeqRef.current
-      // Bulk catch-up (join/reconnect), not a live single operation — doesn't
-      // trigger snapshotUploader here even if it spans a checkpoint
-      // boundary. Any client live at the moment a boundary was actually
-      // crossed already baked it (see onLocalOperation/handleOperationConfirmed
-      // below); this client wasn't present for it, and doesn't need to
-      // retroactively contribute a bake for history it's only now replaying.
-      for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
-      // A reconnect while following: the teacher may have moved meanwhile.
-      maybeFollow()
-
-      // (#176) The one board whose room_state can arrive with its engine
-      // already standing: the creator's own, seated synchronously from
-      // navigation state. Every other board is entered through enterBoard
-      // above, so past this point a same-board room_state is a reconnect.
-      if (awaitingSeededBoardStateRef.current) {
-        awaitingSeededBoardStateRef.current = false
-        if (!engineRef.current) {
-          // Real first join: this is how we learn paper/canvas size — the
-          // engine doesn't exist yet to apply `tailOperations` to, so stash
-          // them for the mount-engine effect to replay once it does.
-          pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }
-          return
-        }
-        // The creator's one legitimate first room_state — arrives *after*
-        // the mount-engine effect already ran, since a creator's `config` is
-        // known synchronously from navigation state (see the `useState`
-        // seeding `room` near this component's top), well before any socket
-        // round-trip. Used to be misclassified as a reconnect here (the old
-        // check was `!useRoomStore.getState().room`, which that same
-        // synchronous seeding already makes truthy for the creator) —
-        // needlessly re-locked roomContentReady (setRoomContentReady(false)
-        // below) right after the mount effect had already marked it ready,
-        // producing a visible "loads fine, then the preloader flashes on
-        // for no reason" — reported after #185 made this window visible for
-        // the first time (previously silent, just pointer-events:none).
-        //
-        // That "nothing to restore" assumption only holds for a genuinely
-        // brand-new room, though — this exact same branch (fresh refs +
-        // engine already mounted) is also what the *creator's own tab
-        // reloading an already-drawn-on room* looks like, and there
-        // `tailOperations`/`latestSnapshotSeq` are not empty at all. The old
-        // code never checked, so a creator's reload silently produced a
-        // blank canvas with no restore and no preloader — as if a brand-new
-        // room had just been created — dropping whatever was drawn before
-        // the reload (still safe on the server/Postgres side, just never
-        // fetched back). Tell the two apart by the payload itself: only
-        // take the early-return shortcut when there's truly nothing to
-        // restore; otherwise fall through into the exact same restore-from-
-        // snapshot/replay-tail logic below a real reconnect uses — this
-        // engine instance is just as freshly empty as a reconnecting
-        // client's would be.
-        if (tailOperations.length === 0 && latestSnapshotSeq === null) {
-          dispatchParticipants({ type: 'room_state', participants: roomParticipants })
-          useRoomStore.getState().setPalette(palette)
-          useRoomStore.getState().setRoomFrozen(frozen)
-          // The genuinely-new-room case: roomContentReady now starts
-          // `false` for every creator (see its own doc comment), and
-          // nothing else sets it for this branch — a real new room has
-          // nothing to restore, so it's ready the instant that's confirmed.
-          //
-          // "Nothing to restore" is not the same as "nothing to wait for",
-          // though: the paper texture is a hard prerequisite for drawing at
-          // all (the engine drops any stroke that starts before it has
-          // loaded — see _paperTexLoaded), so this awaits it exactly like
-          // every other exit from this handler does. Without the await, a
-          // freshly created room dismissed its own preloader mid-download —
-          // visibly, since #345 put a real progress bar on it — and opened
-          // onto a canvas with no paper on it that quietly ignored the
-          // pencil until the remaining ~4 MB landed.
-          if (!(await awaitPaper(engineRef.current))) return
-          // (#462) A room with no history to replay is caught up the moment
-          // that is confirmed — this is the one branch where an empty store is
-          // the room rather than a stand-in for it, so the creator's own first
-          // checkpoint still bakes normally.
-          markJoinRestoreDone()
-          setRoomContentReady(true)
-          return
-        }
-      }
-      // See the mount-engine effect's own comment on engine.paperReady() —
-      // same reasoning applies to a reconnect's full-history replay. A
-      // no-op await in the overwhelmingly common case (paper long since
-      // loaded by the time a reconnect happens).
-      const engine = engineRef.current
-      setRoomContentReady(false)
-      // (#462) Re-closed for the length of this catch-up, not just on a first
-      // join — see snapshotGate.ts's restoreStarted.
-      snapshotGateRef.current.restoreStarted()
-      // (#533) A previous catch-up's verdict says nothing about this one, and
-      // a stale `true` would put the failure screen over the next reconnect
-      // blip of a room that is fine. Cleared here rather than only in
-      // retryRestore, because an ordinary reconnect is just as much a second
-      // attempt as a pressed button is.
-      setRestoreFailure(null)
-      // (#346) Outside the try/finally below, for the same reason as the mount
-      // effect's own site: a paper failure must leave the room closed and
-      // explained, not opened and mute.
-      if (!(await awaitPaper(engine))) return
-      // (#533) Read by this catch-up's own `finally` — see the first-join
-      // path's flag of the same name.
-      // (#493) Shared with the engine's mount effect — see restoreRoomState.
-      // The open is not being timed any more, hence the no-op finisher: a
-      // real one here would also be a new dependency of this effect, and
-      // this effect's dependencies are what tear the socket down.
-      await restoreRoomState(engine, {
-        latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen,
-      }, { mode: 'catchup', alreadyHadSeq }, {
-        boardId: arrivedBoard,
-        restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone,
-        dispatchParticipants, setRestoreFailure, setRoomContentReady,
-        finishOpenTimer: () => {},
-        notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
-          key: 'replay-incomplete', durationMs: null,
-        }),
-        // Through the ref, and read when the bootstrap needs it: the uploader
-        // is per board, and this effect does not re-run when the board does.
-        getSnapshotUploader: () => snapshotUploaderRef.current,
-        latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
-      })
-    }
-
-    // (#289 §7/§11 — reliable history spec v0.2) Renamed from
-    // handlePeerOperation: this now fires for *every* confirmed operation,
-    // including this client's own — `operation_confirmed` is broadcast via
-    // `io.to`, not `socket.to`, specifically so every client (author
-    // included) paints strictly through this one WebSocket-ordered stream
-    // rather than racing it against a separate, faster ack. `seq` comes
-    // from the envelope, not `operation.seq` (optional until stamped) —
-    // simpler for logging/diagnostics, per the same spec.
-    const handleOperationConfirmed = ({ seq, operation: op }: { seq: number; operation: Operation }) => {
-      if (replayGateRef.current.hold({ seq, operation: op })) return // §17.49, replayGate.ts
-      // (#289 §12) A gap in this stream is impossible on an unbroken
-      // connection (TCP never silently drops or reorders within one), so
-      // seeing one means the connection was interrupted without this client
-      // noticing — a backgrounded tab, a sleeping device, a proxy recycling
-      // the socket. Don't try to patch the hole; distrust the live stream
-      // and redo the same full catch-up a normal reconnect does.
-      if (hasSeqGap(lastConfirmedSeqRef.current, seq)) {
-        reportInvariant('seq gap in confirmed stream — resyncing', { expected: lastConfirmedSeqRef.current + 1, got: seq })
-        requestFullResync()
-        return
-      }
-      lastConfirmedSeqRef.current = Math.max(lastConfirmedSeqRef.current, seq)
-      latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, seq)
-      // (#595) Anyone's operation — the student's own or the teacher's
-      // correction — means the grid's picture of this board is stale.
-      previewScheduleRef.current?.noteOperation(Date.now())
-      if (appliedOpIdsRef.current.has(op.id)) {
-        // This client's own operation, looping back through the same
-        // ordered stream every peer gets — onLocalOperation already applied
-        // it optimistically at dispatch time, so there is nothing left to
-        // paint here. Advancing the watermark above is the only thing this
-        // arrival still needs to do (noteLayerSeq is also called from
-        // onLocalOperation's own ack — calling it again here is redundant
-        // but harmless, and covers the rare case this arrives first).
-        if (op.type === 'stroke') noteLayerSeq(op.layerId, seq)
-        checkSnapshotBoundary()
-        return
-      }
-      // Stroke ops are revealed progressively (#37 follow-up v2) rather than
-      // committed on arrival — see the engine's onPreviewApplied option
-      // above, which does the actual applyRemoteOp/syncFromLog once the
-      // reveal finishes playing every dab back.
-      if (op.type === 'stroke') {
-        noteLayerSeq(op.layerId, seq)
-        // A peer whose client predates live streaming (#429) only ever shows
-        // up here, whole and after the fact — still enough to light the row.
-        markLayerActive(op.userId, op.layerId)
-        // (#289 §16) A live client that simply can't keep up (weak device,
-        // several peers drawing at once) used to accumulate an unbounded
-        // reveal backlog with nothing watching it. Past the threshold, drop
-        // the animation and apply immediately — the same "correct content
-        // now, no animation" tradeoff join/reconnect catch-up already
-        // makes — until the backlog is comfortably small again.
-        const backlog = pendingPreviewsRef.current.size
-        if (catchingUpRef.current ? !shouldLeaveCatchUp(backlog) : shouldEnterCatchUp(backlog)) {
-          if (!catchingUpRef.current) {
-            catchingUpRef.current = true
-            reportInvariant('reveal backlog — applying peer strokes without animation', { backlog })
-          }
-          applyRemoteOp(op)
-          syncFromLog()
-          checkSnapshotBoundary()
-          return
-        }
-        // (#429) Already on the layer, streamed live while the author drew it
-        // — the engine's own claim skipped the dabs it had pre-painted when
-        // applyRemoteOp ran below. Animating it as well would redraw the mark
-        // on top of itself in a preview buffer. This is the same "correct
-        // content now, no animation" branch the catch-up path above takes, and
-        // for a stronger reason: here the content is not merely correct, it is
-        // already visible, and has been since the author drew it.
-        if (op.strokeId && streamedStrokeIdsRef.current.has(op.strokeId)) {
-          applyRemoteOp(op)
-          syncFromLog()
-          checkSnapshotBoundary()
-          return
-        }
-        catchingUpRef.current = false
-        // Arrived, not yet committed (#149) — held out of the snapshot
-        // watermark until onPreviewApplied's reveal-complete commit retires
-        // it. See pendingPreviews.ts's own doc comment.
-        pendingPreviewsRef.current.add(op.id, seq)
-        engineRef.current?.previewOperation(op)
-        return
-      }
-      // An undo/revoke racing a still-revealing stroke of its own: skip the
-      // animation, but still commit the stroke to the log immediately right
-      // before the undo/revoke that targets it — both applied synchronously
-      // here, so nothing is ever actually painted to screen, but the log
-      // still has a 'done'-then-'undone' entry a later redo can restore.
-      // Dropping the operation outright (rather than just its animation)
-      // would leave OperationLog.applyUndo/Redo with no entry to flip.
-      if (
-        (op.type === 'operation_undo' || op.type === 'operation_revoke') &&
-        pendingPreviewsRef.current.has(op.targetOpId)
-      ) {
-        const target = engineRef.current?.dropPendingPreview(op.targetOpId)
-        pendingPreviewsRef.current.remove(op.targetOpId)
-        if (target) applyRemoteOp(target)
-        applyRemoteOp(op)
-        syncFromLog()
-        checkSnapshotBoundary()
-        return
-      }
-      // (#169) Target isn't in the log yet — background backfill hasn't
-      // reached it (or, very rarely, a real gap). Defer rather than apply
-      // now: applying now would silently no-op and lose it permanently. See
-      // deferredOpsQueueRef's own doc comment; drainDeferredQueue re-checks
-      // this after every backfill page.
-      if (
-        (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') &&
-        !appliedOpIdsRef.current.has(op.targetOpId)
-      ) {
-        deferredOpsQueueRef.current.push(op)
-        return
-      }
-      applyRemoteOp(op)
-      syncFromLog()
-      checkSnapshotBoundary()
-    }
-
-    const handlePeerJoined = (participant: Participant) => {
-      dispatchParticipants({ type: 'peer_joined', participant })
-    }
-
-    // (#429) A peer's stroke, arriving while their pen is still down. Handed
-    // straight to the engine, which paints it into the real layer — see
-    // appendPeerLiveDabs for why that rather than a preview buffer.
-    //
-    // The strokeId is remembered so handleOperationConfirmed knows not to
-    // hand this gesture's operation to previewOperation when it lands: that
-    // path animates a stroke into a buffer composited on top, and the ink is
-    // already on the layer, so it would show the mark twice — once solid,
-    // once being redrawn over it.
-    const handlePeerStrokeLive = (data: StrokeLiveData & { userId: string }) => {
-      // Same gate the canvas itself is under until the initial restore
-      // finishes (see roomContentReady's own doc comment): painting into a
-      // layer whose buffer restoreLayerFromSnapshot is about to overwrite
-      // wholesale loses the ink and, worse here, leaves a claim behind saying
-      // it was painted — so the operation would skip repainting it too.
-      if (!roomContentReadyRef.current) return
-      engineRef.current?.appendPeerLiveDabs(data.userId, {
-        strokeId: data.strokeId, layerId: data.layerId, tool: data.tool,
-        preset: data.preset, color: data.color, packetSeq: data.packetSeq,
-        dabs: unpackDabs(data.dabsPacked),
-        washId: data.washId,
-        wet: data.wet,
-      })
-      const seen = streamedStrokeIdsRef.current
-      seen.add(data.strokeId)
-      while (seen.size > STREAMED_STROKE_MEMORY) seen.delete(seen.values().next().value as string)
-      markActive(data.userId)
-      markLayerActive(data.userId, data.layerId)
-    }
-
-    const handlePeerStrokeLiveEnd = ({ userId: authorId, strokeId }: { userId: string; strokeId: string }) => {
-      // Only marks the gesture ended. Dabs still unaccounted for at this point
-      // are the normal case, not a fault: the operation recording the end of
-      // the gesture is dispatched at pen-up and arrives a moment after this
-      // does. Treating that as orphaned ink (which an earlier version of this
-      // handler did) forced a resync that wiped the live bookkeeping, so the
-      // operation then repainted the streamed tail on top of itself — a
-      // visibly darker last stretch of every long stroke.
-      engineRef.current?.endPeerLiveStroke(authorId, strokeId)
-    }
-
-    const handlePeerLeft = (leftUserId: string) => {
-      dispatchParticipants({ type: 'peer_left', userId: leftUserId })
-      // (#429) A peer leaving mid-gesture is the one case where unaccounted
-      // live ink really can be orphaned: if they dropped before their
-      // operation reached the server, nothing in the log describes a mark that
-      // is nonetheless on this canvas. Unlike pen-up, no operation is owed
-      // here, so a non-zero remainder means repair rather than "wait a moment".
-      const orphaned = engineRef.current?.endPeerLiveStroke(leftUserId) ?? 0
-      if (orphaned) {
-        reportInvariant('peer left with unrecorded live dabs — resyncing', { orphaned })
-        requestFullResync()
-      }
-      // (#152) Cursor-position cleanup for this peer now lives inside
-      // PeerCursors' own 'peer_left' subscription — nothing to do here.
-      forgetDrawingActivity(leftUserId)
-      // They left mid-reveal — commit whatever of their last stroke(s) had
-      // already arrived rather than losing it, just without the animation.
-      const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
-      for (const op of stranded) {
-        pendingPreviewsRef.current.remove(op.id)
-        applyRemoteOp(op)
-      }
-      if (stranded.length) {
-        syncFromLog()
-        checkSnapshotBoundary()
-      }
-    }
+    // (#493) Out of line — see confirmedStream.ts.
+    const handleOperationConfirmed = createConfirmedStreamHandler({
+      engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
+      catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
+      noteLayerSeq, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+      replayGate: replayGateRef.current,
+    })
 
     // (#152) peer_cursor itself is no longer handled here at all — Room had
     // nothing to do with it beyond forwarding into Room-level state (which
@@ -5157,192 +2906,45 @@ function RoomEditor() {
       revival.noteConnectError()
     }
 
-    const handlePaletteUpdated = ({ palette }: { palette: string[] }) => {
-      useRoomStore.getState().setPalette(palette)
-    }
+    // (#493) Three domains out of line, as handler factories — see
+    // peerEvents.ts, boardEvents.ts and roomControlEvents.ts. The `socket.on` table below
+    // still lists every event this page answers.
+    const peer = createPeerEventHandlers({
+      engineRef, roomContentReadyRef, streamedStrokeIdsRef, pendingPreviewsRef,
+      markActive, markLayerActive, forgetDrawingActivity,
+      applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+    })
+    const board = createBoardEventHandlers({
+      maybeFollow, wantedBoardRef, socketBoardRef, boardIdRef, setRoomContentReady, isOwnerRef,
+    })
+    const control = createRoomControlEventHandlers({
+      sessionId: id, queryClient, hasJoinedRef, retryJoinRef, setJoinState, tRef,
+    })
 
-    // (#254/#256/#259) Room-wide freeze toggled by the owner — broadcast to
-    // everyone including the owner themselves (io.to, see socketHandlers.ts),
-    // so this fires for the owner's own toggle too, same as palette_updated
-    // above.
-    const handleRoomFrozenChanged = ({ frozen }: { frozen: boolean }) => {
-      useRoomStore.getState().setRoomFrozen(frozen)
-    }
-
-    // (#548) The owner changed which tools this room offers. Broadcast to
-    // everyone including them, because the effect is local and immediate on
-    // every screen: the buttons go, and a hand holding one of the withdrawn
-    // tools has to be given something else (see the effect near selectTool).
-    const handleRoomToolsChanged = ({ enabledTools: next }: { enabledTools?: ToggleableTool[] }) => {
-      useRoomStore.getState().setRoomEnabledTools(next)
-    }
-
-    // (#222) Closed-for-editing toggled by the owner, from here or from the
-    // lesson list. The point of the event is that someone mid-lesson finds
-    // out when it happens rather than on the rejection of their next stroke.
-    const handleRoomClosedChanged = ({ closedAt }: { closedAt: string | null }) => {
-      useRoomStore.getState().setRoomClosedAt(closedAt)
-    }
-
-    // (#254/#257/#259) One participant's freeze toggled — broadcast to the
-    // whole room so ParticipantsPanel can show the indicator for everyone,
-    // not just the target themselves.
-    const handleParticipantFrozenChanged = ({ userId, frozen }: { userId: string; frozen: boolean }) => {
-      dispatchParticipants({ type: 'participant_frozen_changed', userId, frozen })
-    }
-
-    // (#227/#231) The owner answered someone waiting on the join screen. On
-    // approval the gate finishes the join it was refused — the person is
-    // already sitting in front of the screen, and making them press a button
-    // to accept being let in would be asking them to confirm the thing they
-    // asked for. A denial just changes what the screen says; the server lets
-    // them ask again, and the screen offers exactly that.
-    //
-    // Never restarts the join once we're in: the room is already open, and a
-    // stale resolution arriving after a reconnect must not re-enter it.
-    const handleJoinRequestResolved = (
-      { roomId, requestId, approved }: { roomId: string; requestId: string; approved: boolean },
-    ) => {
-      // Already inside: this is not about us being let in — it is either the
-      // owner hearing a decision made elsewhere (#387: a second tab, the
-      // lesson list, an invite that approved someone already queued), or a
-      // stale resolution arriving after a reconnect. Neither may restart the
-      // join; the owner's queue just loses that one row.
-      if (hasJoinedRef.current) {
-        // (#176) Addressed by the lesson (the queue is the lesson's), which the
-        // URL id may not be until the first room_state corrected it.
-        if (roomId === (useRoomStore.getState().lessonId ?? id)) applyJoinRequestResolved(queryClient, roomId, requestId)
-        return
-      }
-      if (approved) retryJoinRef.current()
-      else setJoinState('denied')
-    }
-
-    // (#380/#227) Someone is asking to be let in. Addressed to the owner
-    // personally, so this only ever fires for them — and it is what makes the
-    // waiting section (and the participants tab's badge) appear mid-lesson
-    // without anyone having gone looking for it.
-    const handleJoinRequestCreated = (
-      { roomId, request }: { roomId: string; request: RoomJoinRequest },
-    ) => {
-      applyJoinRequestCreated(queryClient, roomId, request)
-    }
-
-    // (#227) Removed from this room while sitting in it. The server has
-    // already taken this socket out of the room, so nothing sent from here
-    // will be accepted from now on — say so, rather than letting the next
-    // stroke fail as an unexplained sync error.
-    //
-    // Deliberately does not close the editor or navigate: what should happen
-    // to the canvas someone is looking at when they lose access to it — and
-    // to whatever they had not finished sending — is its own decision, not
-    // one to make silently inside an event handler. The notice is the part
-    // that is unambiguous.
-    const handleKicked = () => {
-      hasJoinedRef.current = false
-      notifyError(tRef.current('room.kicked'), { key: 'kicked', durationMs: null })
-    }
-
-    // (#176, ADR 014 §3) Boards. All of these travel on the lesson channel,
-    // so they arrive whichever board this client is on.
-
-    // Someone else turned a page. Their cursor and live ink stop arriving on
-    // their own (content is per board channel); the roster is what has to be
-    // told, so the strip and the participants list can say who is where.
-    const handlePeerBoardChanged = ({ userId, boardId: peerBoard }: { userId: string; boardId: string }) => {
-      dispatchParticipants({ type: 'peer_board_changed', userId, boardId: peerBoard })
-    }
-
-    // The teacher moved (or their board was deleted — null means the
-    // lesson's first board). A following student goes with them; everyone
-    // else just sees the marker move in the strip.
-    const handleActiveBoardChanged = ({ boardId: active }: { boardId: string | null }) => {
-      useRoomStore.getState().setActiveBoardId(active)
-      maybeFollow()
-    }
-
-    const handleBoardCreated = ({ board }: { board: BoardSummary }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_created', board })
-    }
-    const handleBoardRenamed = ({ boardId: renamed, name }: { boardId: string; name: string }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_renamed', boardId: renamed, name })
-      // The lesson's own name is also its first board's — keep the header in
-      // step with the strip.
-      if (renamed === useRoomStore.getState().lessonId) useRoomStore.getState().setRoomName(name)
-    }
-    const handleBoardsReordered = ({ order }: { order: string[] }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'boards_reordered', order })
-    }
-    // Hard delete. If this client was on it, the server has already moved the
-    // socket to the lesson's first board and sent that board's room_state
-    // ahead of this event — enterBoard ran from there, and the only thing
-    // left is to stop showing a page that no longer exists. A turn still in
-    // flight towards it is dropped for the same reason.
-    const handleBoardDeleted = ({ boardId: deleted }: { boardId: string }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_deleted', boardId: deleted })
-      if (wantedBoardRef.current === deleted) {
-        wantedBoardRef.current = null
-        socketBoardRef.current = boardIdRef.current
-        setRoomContentReady(true)
-      }
-      maybeFollow()
-    }
-
-    // (#595, ADR 015 §4) Class mode. `lesson_state` is the lesson half of
-    // room_state, alone and rebuilt for this client, sent whenever the set of
-    // boards it may see can have changed.
-    const handleLessonState = ({ lesson }: { lesson: LessonState }) => {
-      const s = useRoomStore.getState()
-      const teacher = isOwnerRef.current || isTeacherIn(s)
-      // The teacher calling the class somewhere — handing out a round,
-      // calling everyone back, showing one work to all — is a call to
-      // *everyone*, including a student who had wandered off to another
-      // page: following comes back on. Anything else (a latecomer's board
-      // appearing, the visibility setting) leaves a hand-picked board alone.
-      const called = lesson.activeAssignmentId !== s.activeAssignmentId
-        || (lesson.spotlightBoardId !== s.spotlightBoardId && lesson.spotlightBoardId !== null)
-      // A board this client is on, or on its way to, that it may no longer
-      // see (the spotlight went dark on a classmate's work): nothing to stay
-      // for, so it goes where following leads.
-      const here = wantedBoardRef.current ?? s.boardId
-      const lost = here !== null && !lesson.boards.some(b => b.id === here)
-      s.setLesson(lesson)
-      if (!teacher && (called || lost)) s.setFollowing(true)
-      maybeFollow()
-    }
-    const handleHandChanged = ({ userId: whose, raised }: { userId: string; raised: boolean }) => {
-      useRoomStore.getState().setHandRaised(whose, raised)
-    }
-    // Somebody's board has a new picture — the strip and the grid re-fetch it.
-    const handleBoardThumbnailUpdated = ({ boardId: baked, updatedAt }: { boardId: string; updatedAt: string }) => {
-      useRoomStore.getState().applyBoardsAction({ type: 'thumbnail_baked', boardId: baked, at: updatedAt })
-    }
-
-    socket.on('lesson_state',               handleLessonState)
-    socket.on('participant_hand_changed',   handleHandChanged)
-    socket.on('board_thumbnail_updated',    handleBoardThumbnailUpdated)
-    socket.on('peer_board_changed',         handlePeerBoardChanged)
-    socket.on('active_board_changed',       handleActiveBoardChanged)
-    socket.on('board_created',              handleBoardCreated)
-    socket.on('board_renamed',              handleBoardRenamed)
-    socket.on('boards_reordered',           handleBoardsReordered)
-    socket.on('board_deleted',              handleBoardDeleted)
+    socket.on('lesson_state',               board.lesson_state)
+    socket.on('participant_hand_changed',   board.participant_hand_changed)
+    socket.on('board_thumbnail_updated',    board.board_thumbnail_updated)
+    socket.on('peer_board_changed',         board.peer_board_changed)
+    socket.on('active_board_changed',       board.active_board_changed)
+    socket.on('board_created',              board.board_created)
+    socket.on('board_renamed',              board.board_renamed)
+    socket.on('boards_reordered',           board.boards_reordered)
+    socket.on('board_deleted',              board.board_deleted)
     socket.on('connect',                    handleConnect)
     socket.on('room_state',                 handleRoomState)
-    replayGateRef.current.setHandler(handleOperationConfirmed)
     socket.on('operation_confirmed',        handleOperationConfirmed)
-    socket.on('peer_joined',                handlePeerJoined)
-    socket.on('peer_left',                  handlePeerLeft)
-    socket.on('peer_stroke_live',           handlePeerStrokeLive)
-    socket.on('peer_stroke_live_end',       handlePeerStrokeLiveEnd)
-    socket.on('palette_updated',            handlePaletteUpdated)
-    socket.on('room_frozen_changed',        handleRoomFrozenChanged)
-    socket.on('room_tools_changed',         handleRoomToolsChanged)
-    socket.on('room_closed_changed',        handleRoomClosedChanged)
-    socket.on('participant_frozen_changed', handleParticipantFrozenChanged)
-    socket.on('join_request_created',       handleJoinRequestCreated)
-    socket.on('join_request_resolved',      handleJoinRequestResolved)
-    socket.on('kicked',                     handleKicked)
+    socket.on('peer_joined',                peer.peer_joined)
+    socket.on('peer_left',                  peer.peer_left)
+    socket.on('peer_stroke_live',           peer.peer_stroke_live)
+    socket.on('peer_stroke_live_end',       peer.peer_stroke_live_end)
+    socket.on('palette_updated',            control.palette_updated)
+    socket.on('room_frozen_changed',        control.room_frozen_changed)
+    socket.on('room_tools_changed',         control.room_tools_changed)
+    socket.on('room_closed_changed',        control.room_closed_changed)
+    socket.on('participant_frozen_changed', control.participant_frozen_changed)
+    socket.on('join_request_created',       control.join_request_created)
+    socket.on('join_request_resolved',      control.join_request_resolved)
+    socket.on('kicked',                     control.kicked)
     socket.on('disconnect',                 handleDisconnect)
     socket.on('connect_error',              handleConnectError)
 
@@ -5372,89 +2974,14 @@ function RoomEditor() {
     // see lib/queryClient.ts), so listing it here can never tear the socket
     // down and rebuild it.
     queryClient,
+    // (#493) From useJoinGate now, so the lint rule asks for them: a useState
+    // setter and a useRef object, both stable for the component's life —
+    // naming them can never tear the socket down.
+    setJoinState, retryJoinRef, openTimerRef,
     // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
     // read through refs), `navigate` (changes with the URL this effect itself
     // rewrites) and `boardId` (a page turn is not a new socket).
   ])
-
-  // Submits the join gate (joiner path only): connects/join_room's with the
-  // entered name + optional password. Kept separate from the socket-wiring
-  // effect above so it can run any time after the socket exists, in response
-  // to a user action rather than a connection lifecycle event.
-  const attemptJoin = useCallback((name: string, password: string | undefined) => {
-    if (!id) return
-
-    setJoinError(null)
-    setJoinSubmitting(true)
-    // (#487) Отсюда, а не с отправки в сокет: замеряем ожидание человека.
-    startOpenTimer()
-    lastJoinAttemptRef.current = { name, password }
-    socketRef.current?.emit(
-      'join_room',
-      { roomId: id, name, password, lastKnownSeq: latestKnownSeqRef.current || undefined },
-      result => {
-        setJoinSubmitting(false)
-        if (!result.ok) {
-          // (#513) A `wrong_password` for an attempt that carried no password
-          // is not a wrong guess — it is the only way this client can learn
-          // the room has a password at all, since nothing about a room is
-          // readable before joining it. So it opens the field instead of
-          // accusing the reader of mistyping something they never typed.
-          // `joinError` was cleared at the top of this call, so what they see
-          // is the field and the note explaining it, and nothing red.
-          if (result.error === 'wrong_password' && password === undefined) {
-            setJoinPasswordAsked(true)
-            setJoinState('form')
-            return
-          }
-          // (#231) Some refusals are screens, not errors under the form —
-          // see joinGateStateFor for which and why.
-          const state = joinGateStateFor(result.error)
-          if (state) { setJoinState(state); return }
-          setJoinState('form')
-          setJoinError(describeJoinError(result.error, t))
-          return
-        }
-        hasJoinedRef.current = true
-        applyIdentity(result.userId)
-        // (#298) Only now may the outbox drain — see its canSend gate.
-        void outbox.resendAll()
-        // room_state (already wired above) populates `config` from here, which
-        // unmounts the gate in favor of the editor.
-      },
-    )
-  }, [id, applyIdentity, outbox, t, startOpenTimer])
-
-  // Submits the join gate's form. The name is validated here rather than in
-  // `attemptJoin`, which is also called with credentials already known good
-  // (a retry after approval — see joinRequestResolvedRef).
-  const handleJoinSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = joinName.trim()
-    if (!trimmed) { setJoinError(t('join.error.nameRequired')); return }
-    // (#513) Only once the field is up. Before that an empty password is the
-    // normal case and submitting without one is precisely how we ask; after
-    // it, sending nothing again would come back as the same silent refusal
-    // and look like the button did nothing.
-    if (joinPasswordAsked && !joinPassword) { setJoinError(t('join.error.passwordRequired')); return }
-    attemptJoin(trimmed, joinPassword || undefined)
-  }, [joinName, joinPassword, joinPasswordAsked, attemptJoin, t])
-
-  /** (#231) Asks again with whatever was entered last — from the "ask again"
-   *  button after a denial, from "try again" once signed in elsewhere, and
-   *  automatically when the owner approves. */
-  const retryJoin = useCallback(() => {
-    const last = lastJoinAttemptRef.current
-    const name = last?.name ?? joinName.trim()
-    if (!name) { setJoinState('form'); return }
-    attemptJoin(name, last?.password)
-  }, [joinName, attemptJoin])
-
-  // Read by the socket effect's `join_request_resolved` listener, which is
-  // registered once per connection and must not re-subscribe every time this
-  // callback's identity changes (its effect rebuilds the whole socket).
-  const retryJoinRef = useRef(retryJoin)
-  retryJoinRef.current = retryJoin
 
   // Same reason as `retryJoinRef`: `t` changes identity when the reader
   // switches language, and listing it as a dependency of the socket effect
@@ -5464,256 +2991,33 @@ function RoomEditor() {
 
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
   // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // (#310/#405) Who owns this keypress — see editorKeys.ts for the whole
-      // precedence and why each layer outranks the canvas. This listener is on
-      // `window` in the bubble phase, so a key pressed inside a dialog or a
-      // dropdown reaches it too; without the check, typing in a dialog would
-      // still be switching tools behind it.
-      if (!editorOwnsKey({
-        defaultPrevented: e.defaultPrevented,
-        modalOpen: isModalOpen(),
-        typing: isTypingTarget(e.target),
-        popoverOpen: isDismissLayerOpen(),
-      })) return
-      // (#405) Enter and Esc end an open transform session — apply and cancel.
-      // Handled here rather than in the registry above because they are not
-      // rebindable (see lib/hotkeys.ts on why), and checked before the bindings
-      // so a rebind can never shadow the only two keys that close a session.
-      //
-      // Cancel throws the accumulated matrix away whole. Nothing was committed
-      // while the session was open, so this leaves no trace on the undo stack
-      // either — there is nothing to take back, which is the same reason
-      // Ctrl+Z behaves as Esc here (see handleUndo).
-      if (transformSessionRef.current) {
-        if (e.key === 'Enter') { commitTransformSessionRef.current(true); e.preventDefault(); return }
-        if (e.key === 'Escape') { resetTransformSessionRef.current(); e.preventDefault(); return }
-      }
-      // (#530) An open shape answers the same two keys the same way, and for
-      // the same reason it is unbindable: Enter and Esc are the platform's
-      // confirm and cancel, and an unconfirmed shape must always have a way to
-      // be finished or abandoned. Esc leaves no trace on the undo stack —
-      // nothing was ever committed.
-      if (useRoomStore.getState().shapeFrame) {
-        if (e.key === 'Enter') { shapeRef.current.commit(); e.preventDefault(); return }
-        if (e.key === 'Escape') { shapeRef.current.cancel(); e.preventDefault(); return }
-      }
-      // (#446) The selection's own three unbindable keys, in the same place
-      // and for the same reason as the two above: Enter and Esc are the
-      // platform's confirm and cancel, and a rebind able to move them could
-      // leave a half-drawn lasso with no way to finish or abandon it.
-      //
-      // Ordered before the clipboard keys below because an open lasso is a
-      // gesture in progress, and a gesture in progress owns Enter and Esc
-      // outright.
-      const openLasso = useRoomStore.getState().pendingSelection
-      if (openLasso) {
-        if (e.key === 'Enter') { finishSelection(openLasso); e.preventDefault(); return }
-        if (e.key === 'Escape') {
-          setPendingSelection(null)
-          setSelectionCursor(null)
-          e.preventDefault()
-          return
-        }
-      }
-      if (e.key === 'Escape' && useRoomStore.getState().selection) {
-        setSelection(null)
-        e.preventDefault()
-        return
-      }
-      // Cut/copy/paste and Delete. Not in the hotkey registry either: these
-      // are the platform's own clipboard keys, the same ones every text field
-      // in this app already answers to, and rebinding Ctrl+C to something else
-      // is not a thing a drawing app should offer.
-      //
-      // The clipboard keys act only when there is something for them to act on
-      // — no selection, no interception — so a page-level copy of, say, a room
-      // link is never swallowed by the canvas.
-      const modKey = e.ctrlKey || e.metaKey
-      if (modKey && !e.shiftKey && !e.altKey) {
-        const key = e.key.toLowerCase()
-        if ((key === 'c' || key === 'x') && useRoomStore.getState().selection) {
-          e.preventDefault()
-          if (key === 'c') void copySelection()
-          else void cutSelection()
-          return
-        }
-        // (#521) The meta, not the raster — the same synchronous "is there
-        // anything to paste" the button reads, so Ctrl+V is decided without
-        // touching IndexedDB and a page-level paste is swallowed on exactly
-        // the same condition the UI shows.
-        if (key === 'v' && useClipboardStore.getState().meta) {
-          e.preventDefault()
-          void pasteClipboard()
-          return
-        }
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && useRoomStore.getState().selection) {
-        e.preventDefault()
-        deleteSelectionContents()
-        return
-      }
-      const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
-      if (is('undo')) { void handleUndo(); e.preventDefault(); return }
-      if (is('redo')) { void handleRedo(); e.preventDefault(); return }
-      // (#440) Zoom is settled here, ahead of every other action, because two
-      // things have to happen on the same press: our camera moves, and the
-      // browser's own page zoom does not. Missing the preventDefault doesn't
-      // merely lose a shortcut — it scales the whole editor, canvas and UI
-      // together, which is the one thing a drawing app must not do by accident.
-      if (is('zoomIn'))  { e.preventDefault(); zoomBy(ZOOM_KEY_STEP); return }
-      if (is('zoomOut')) { e.preventDefault(); zoomBy(1 / ZOOM_KEY_STEP); return }
-      if (is('zoomReset')) { resetZoom(); return }
-      // The same press spelled any of the other ways the browser accepts it —
-      // Shift+'=', the numpad, or the '+'/'-' keys of a non-US layout, which
-      // sit at physical positions our `code`-based bindings never name (see
-      // browserZoomIntent). Not rebindable and not in the registry on purpose:
-      // unbinding these would not free the keys, it would hand them back to
-      // the browser, which is exactly what this is here to stop.
-      const zoomIntent = browserZoomIntent(e)
-      if (zoomIntent) {
-        e.preventDefault()
-        zoomBy(zoomIntent === 'in' ? ZOOM_KEY_STEP : 1 / ZOOM_KEY_STEP)
-        return
-      }
-      // (#520) Ahead of `toggleEraser` because it is the more specific press on
-      // the same key — the two can't actually collide (matchesHotkey compares
-      // `shiftKey` exactly, so E and Shift+E are different bindings, and both
-      // stay different after a rebind or this would be reachable only by
-      // accident), but reading the specific one first is how the rest of this
-      // handler is ordered and the one that survives someone rebinding these
-      // two onto the same combo.
-      //
-      // Not a plain flip of the setting: with a pencil in hand that would be a
-      // key that appears to do nothing, since the switch it moves only exists
-      // in the quick column while the eraser is selected. So a press from
-      // another tool means "give me the eraser that goes through layers" — it
-      // takes the eraser and turns the mode on — and once the eraser is in
-      // hand the same key flips the mode, which is the toggle it says it is.
-      // Turning it *off* is therefore always one press, never two.
-      if (is('eraseThroughLayers')) {
-        if (tool === 'eraser') setToolSetting('eraser', 'throughLayers', prev => !prev)
-        else { setTool('eraser'); setToolSetting('eraser', 'throughLayers', true) }
-        return
-      }
-      if (is('toggleEraser')) { toggleTool('eraser'); return }
-      if (is('toggleSmudge')) { toggleTool('smudge'); return }
-      if (is('toggleCharcoal')) { toggleTool('charcoal'); return }
-      if (is('toggleLiner')) { toggleTool('liner'); return }
-      if (is('toggleMarker')) { toggleTool('marker'); return }
-      if (is('toggleBrushPen')) { toggleTool('brushPen'); return }
-      if (is('toggleWatercolor')) { toggleTool('watercolor'); return }
-      if (is('toggleDigitalBrush')) { toggleTool('digitalBrush'); return }
-      // (#405) The four that used to be modes, selected through the same
-      // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
-      if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
-      if (is('toggleRuler')) { toggleTool('ruler'); return }
-      // Selectable only with something to transform (the toolbar button is
-      // `disabled` on the same condition), but always *de*selectable: making
-      // the active layer the background empties the selection, and a key that
-      // refused to let go there would leave the canvas locked with no gizmo on
-      // it and no obvious way out.
-      if (is('toggleTransform')) {
-        if (transformActive || transformTargetIds.length > 0) toggleTool('transform')
-        return
-      }
-      // (#446) Selectable with nothing selected — unlike transform, the whole
-      // point of this tool is to *make* a selection, so there is no
-      // precondition to check.
-      if (is('toggleSelection')) { toggleTool('selection'); return }
-      if (is('toggleGrid')) { toggleTool('grid'); return }
-      if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
-      // (#443) The same toggle-off-to-your-drawing-tool rule as every other
-      // tool key, replacing a boolean of its own. `H` used to flip a modifier;
-      // now pressing it twice puts back what you were drawing with, which is
-      // what the other eight keys here already do.
-      if (is('toggleHand')) { toggleTool('hand'); return }
-      // Both size hotkeys clamp to the tool's own schema range (toolSizeRange)
-      // rather than to literals — see its comment for why (#336).
-      // (#405) `drawingTool`, not the selection: with the ruler in hand there
-      // is no size to step, and silently resizing the pencil behind it would
-      // be a key that appears to do nothing. Sizing the tool you will go back
-      // to is the useful reading of the same press.
-      if (is('decreaseSize')) {
-        // Liner's own 'size' field is a fixed-label enum (ADR 003), not the
-        // plain px number every other tool's 'size' field holds (marker
-        // included) — step through the ladder instead of subtracting 1.
-        if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
-        else {
-          const range = toolSizeRange(drawingTool)
-          if (range) setToolSetting(drawingTool, 'size', prev => Math.max(range.min, (prev as number) - 1))
-        }
-        return
-      }
-      if (is('increaseSize')) {
-        if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
-        else {
-          const range = toolSizeRange(drawingTool)
-          if (range) setToolSetting(drawingTool, 'size', prev => Math.min(range.max, (prev as number) + 1))
-        }
-        return
-      }
-      if (is('rotateCCW')) { setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 })); return }
-      if (is('rotateCW')) { setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 })); return }
-      // (#440) One notch along the 6H..6B ladder, replacing the five keys that
-      // jumped to five hand-picked grades. `drawingTool` and no `setTool`, for
-      // the same reason the size keys above use it: with the ruler or the
-      // eraser in hand this prepares the pencil you are about to go back to
-      // rather than yanking it out mid-gesture. Silently does nothing for a
-      // tool with no hardness at all (charcoal picks a stick, not a grade —
-      // see toolGradeOptions), which is the honest answer to "harder" there.
-      if (is('gradeHarder') || is('gradeSofter')) {
-        const grades = toolGradeOptions(drawingTool)
-        if (grades) {
-          const direction = is('gradeSofter') ? 1 : -1
-          setToolSetting(drawingTool, 'grade', prev => stepEnumOption(grades, String(prev), direction))
-        }
-        return
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [
-    drawingTool, tool, toggleTool, setTool, transformActive, transformTargetIds.length,
-    setToolSetting, setVp, handleUndo, handleRedo, hotkeys,
-    // (#493) Returned by useTransformSession now, which is why the lint rule
-    // asks for it; a ref object, stable for the component's life.
-    commitTransformSessionRef,
+  // (#493) The routing, and the precedence it encodes, is editorHotkeys.ts.
+  useEditorHotkeys({
+    tool, drawingTool, hotkeys,
+    isTransformOpen: () => transformSessionRef.current !== null,
+    transformAvailable: transformActive || transformTargetIds.length > 0,
+    commitTransform: () => commitTransformSessionRef.current(true),
+    resetTransform: () => resetTransformSessionRef.current(),
+    commitShape: () => shapeRef.current.commit(),
+    cancelShape: () => shapeRef.current.cancel(),
+    finishSelection,
+    cancelLasso: () => { setPendingSelection(null); setSelectionCursor(null) },
+    clearSelection: () => setSelection(null),
+    copySelection: () => { void copySelection() },
+    cutSelection: () => { void cutSelection() },
+    pasteClipboard: () => { void pasteClipboard() },
+    deleteSelectionContents,
+    undo: () => { void handleUndo() },
+    redo: () => { void handleRedo() },
     zoomBy, resetZoom,
-    finishSelection, setPendingSelection, setSelection, copySelection, cutSelection,
-    pasteClipboard, deleteSelectionContents, setSelectionCursor,
-  ])
+    rotateView: radians => setVp(v => ({ ...v, angle: radians === null ? 0 : v.angle + radians })),
+    toggleTool, setTool, setToolSetting,
+  })
 
   // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
   useSpaceToPan()
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
-  const handleExport = useCallback(async () => {
-    const blob = await engineRef.current?.exportPNG(); if (!blob) return
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `${config?.name ?? 'drawing'}.png`; a.click()
-    URL.revokeObjectURL(url)
-  }, [config])
-
-  // (#329) The transparent-PNG variant (#15) is gone along with its header
-  // button: a second export button for a rarely-wanted variant, sitting
-  // permanently in the panel #320 is trying to empty. `exportPNG` still takes
-  // the flag, so it can come back as an option inside a real export dialog if
-  // it's ever actually missed.
-
-  // #15: serializes the operation log as-is (same shape appendOperation/
-  // getOperations already deal in) so the exact same JSON could later be
-  // replayed back through appendOperation('remote') to restore the session.
-  const handleSaveSession = useCallback(() => {
-    const ops = engineRef.current?.getOperations(); if (!ops) return
-    const blob = new Blob([JSON.stringify(ops, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `${config?.name ?? 'drawing'}-session.json`; a.click()
-    URL.revokeObjectURL(url)
-  }, [config])
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -5743,43 +3047,140 @@ function RoomEditor() {
     )
   }
 
-  // (#575) The header's mode toggles, when it is too narrow to hold them —
-  // the same conditions as their buttons, the same order, and a tick for the
-  // pressed state the buttons showed. The notes button's peek-on-hold stays
-  // with the button: a menu item is gone the moment it is pressed, so there is
-  // nothing to hold, and a plain toggle is what's left.
-  const foldedHeaderToggles: MenuAction[] = !narrowHeader ? [] : [
-    ...(!compact ? [{
-      label: t('room.annotationMode'),
-      icon: 'edit_note' as const,
-      checked: annotationMode,
-      onClick: () => toggleAnnotationMode(!annotationMode),
-    }] : []),
-    ...(annotations.order.length > 0 ? [{
-      label: t('room.annotationsHide'),
-      icon: 'visibility_off' as const,
-      checked: annotationsHidden,
-      onClick: () => setAnnotationsHidden(!annotationsHidden),
-    }] : []),
-    ...(stripAvailable ? [{
-      label: t('boards.open'),
-      icon: 'auto_stories' as const,
-      checked: boardsOpen,
-      onClick: () => setBoardsOpen(o => !o),
-    }] : []),
-    ...(!isOwner && knownLessonId ? [{
-      label: t(myHandRaised ? 'class.lowerHand' : 'class.raiseHand'),
-      icon: 'pan_tool' as const,
-      checked: myHandRaised,
-      onClick: () => setHandRaised(!myHandRaised),
-    }] : []),
-    ...(fullscreenSupported ? [{
-      label: t('room.fullscreen'),
-      icon: 'fullscreen' as const,
-      checked: isFullscreen,
-      onClick: toggleFullscreen,
-    }] : []),
-  ]
+  // (#493) The overlays over the canvas — cursors, brush ring, grid, ruler,
+  // gizmos, selection, annotations — written once. They ride the canvas-
+  // space wrapper in a bounded room and the camera-transformed world wrapper
+  // in an infinite one (#143); the two used to be the same hundred lines
+  // twice, told apart only by a `config.infinite` guard on every element.
+  const canvasOverlays = (
+    <>
+      <PeerCursors
+        key={boardId ?? ''}
+        socket={socketRef.current}
+        participants={participants}
+        zoom={vp.zoom}
+        angle={vp.angle}
+      />
+      {/* (#393) Mounted exactly while the cursor controller says a dab
+          preview belongs on screen — with the hand on, or with any of
+          the four non-painting tools selected, nothing is going to be
+          painted, and a ring that keeps following the pointer reads as
+          if it still would. (#405) `drawingTool` is what it draws: the
+          controller has already established that this is the tool in
+          hand, and `tool` is not narrowed to a ToolType. */}
+      {cursor.dabPreview && (
+        <BrushCursor
+          vpRef={vpRef}
+          tool={drawingTool}
+          presetName={cursorPresetName}
+          baseSize={sizePx}
+          vp={vp}
+          config={config}
+          nibAngleRadians={nibCanvasAngleRadians}
+          nibAnchor={nibAnchor}
+          tiltResponse={tiltResponse}
+        />
+      )}
+      {gridVisible && (config.infinite
+        ? (
+          <InfiniteGridOverlay
+            vp={vp}
+            viewportWidth={vpRef.current?.clientWidth ?? 0}
+            viewportHeight={vpRef.current?.clientHeight ?? 0}
+          />
+        )
+        : <GridOverlay width={config.width} height={config.height} />)}
+      {/* (#405, #445) On screen while the ruler is in hand, and under
+          every other tool too once it is locked — a straight edge you
+          can draw against is the point of one, but only while you asked
+          for it. It carries no pointer handlers at all; dragging it is
+          the catcher's job, and the catcher only exists while the ruler
+          is the selected tool. */}
+      {rulerVisible && rulerLine && (
+        <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
+      )}
+      {/* (#530) The shape's own handles are the transform gizmo's: same
+          component, same hit areas, same rotate zones. Only what a drag
+          *means* differs — a shape has no pixels yet, so a handle edits
+          the frame it will be drawn from (see shapeTool.ts). */}
+      {shapeFrame && (
+        <div className={styles.shapeGizmoLayer}>
+        <TransformGizmo
+          bounds={{
+            x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
+            y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
+            width: Math.abs(shapeFrame.width),
+            height: Math.abs(shapeFrame.height),
+          }}
+          center={{
+            x: shapeFrame.x + shapeFrame.width / 2,
+            y: shapeFrame.y + shapeFrame.height / 2,
+          }}
+          matrix={rotateAboutMatrix(
+            shapeFrame.angle,
+            shapeFrame.x + shapeFrame.width / 2,
+            shapeFrame.y + shapeFrame.height / 2,
+          )}
+          zoom={vp.zoom}
+          angleRad={vp.angle}
+          mode="free"
+          onHandleDown={shape.onHandleDown}
+          onCenterDown={e => shape.onHandleDown('body', e)}
+          onCenterDoubleClick={() => {}}
+        />
+        </div>
+      )}
+      {transformActive && transformBounds && (
+        <TransformGizmo
+          bounds={transformBounds}
+          center={transformCenterOverride ?? {
+            x: transformBounds.x + transformBounds.width / 2,
+            y: transformBounds.y + transformBounds.height / 2,
+          }}
+          matrix={transformSessionMatrix ?? undefined}
+          zoom={vp.zoom}
+          angleRad={vp.angle}
+          mode={transformMode}
+          onHandleDown={handleTransformHandleDown}
+          onCenterDown={handleTransformCenterDown}
+          onCenterDoubleClick={handleTransformCenterReset}
+        />
+      )}
+      {/* (#446) Drawn under every tool, not only the selection tool: a
+          selection persists until it is replaced or cleared, and the
+          transform tool needs to show what it is about to move. It takes
+          no pointer events in either case — see SelectionOverlay. */}
+      <SelectionOverlay
+        selection={selection}
+        pending={pendingSelection}
+        pendingClosed={selectionShapeKind === 'rectangle'}
+        cursor={selectionCursor}
+        zoom={vp.zoom}
+        matrix={areaSelection ? transformSessionMatrix : null}
+      />
+      {/* (#508, эпик #87) Above every other overlay, because an
+          annotation is above every other thing on screen — it is a
+          remark *about* the picture, including about the grid or the
+          selection someone left on it. */}
+      <AnnotationOverlay
+        annotations={annotations}
+        hidden={annotationsHidden}
+        draft={annotationDraft}
+        onDraftChange={setAnnotationDraftText}
+        onDraftCommit={commitAnnotationDraft}
+        onDraftCancel={cancelAnnotationDraft}
+        liveInk={liveInk}
+        collapsedIds={collapsedAnnotationIds}
+        erasingIds={erasingIds}
+        dragPreview={pinDrag}
+        zoom={vp.zoom}
+        angle={vp.angle}
+        hitTargets={annotationHitTargets}
+        layerRef={annotationLayerRef}
+        draftInputRef={annotationDraftInputRef}
+      />
+    </>
+  )
 
   return (
     <div
@@ -5796,300 +3197,21 @@ function RoomEditor() {
       onContextMenu={e => e.preventDefault()}
     >
 
-      {/* ── Header ── */}
-      <header className={clsx(styles.header, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
-        {/* The wordmark is the way out of the editor, same as on every other
-            page — it replaced an arrow_back that went to /create rather than
-            anywhere back, and left without asking. */}
-        <button
-          className={clsx(styles.headerLogoBtn, narrowHeader && styles.headerLogoBtnMark)}
-          onClick={() => void leaveRoom()}
-          title={t('room.home')}
-          aria-label={t('room.home')}
-        >
-          <Logo variant={narrowHeader ? 'mark' : 'full'} />
-        </button>
-        {/* Same divider the control clusters use on the right (#329) — the
-            wordmark is a button that leaves the room, and without a break
-            between them it and the name beside it read as one label. */}
-        <div className={styles.headerDivider} />
-        {renameDraft !== null ? (
-          <input
-            className={clsx(styles.roomName, styles.roomNameInput)}
-            autoFocus
-            value={renameDraft}
-            aria-label={t('room.rename')}
-            onFocus={e => e.currentTarget.select()}
-            onChange={e => setRenameDraft(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter')  { e.preventDefault(); void submitRename() }
-              if (e.key === 'Escape') { e.preventDefault(); setRenameDraft(null) }
-            }}
-            onBlur={() => void submitRename()}
-          />
-        ) : isOwner ? (
-          <button
-            className={clsx(styles.roomName, styles.roomNameBtn)}
-            onClick={() => setRenameDraft(config.name)}
-            title={t('room.rename')}
-          >
-            {config.name}
-          </button>
-        ) : (
-          <span className={styles.roomName}>{config.name}</span>
-        )}
-        {/* (#376) Beside the name, because what it reports is the state of
-            the thing the name refers to. Took over from the connection
-            banner's "Saving N strokes…", which flashed on and off with every
-            stroke. */}
-        <SyncIndicator connected={connected} pending={outboxState.pending} dotOnly={narrowHeader} />
-
-        {/* (#329) Four sections, divider-separated, in the order they're
-            reached for: rotation | zoom + fit | undo/redo | fullscreen | ≡.
-            Everything that isn't a per-second viewport or history action moved
-            out — export/save/settings into the ≡ menu, Clear into the layer's
-            own "⋮" (it always cleared *a layer*, never the canvas), the
-            participants list and room freeze into the side panel (#328), and
-            the transparent-PNG export and the two rotate-by-15° buttons are
-            gone: the first was a second export button for a rarely-wanted
-            variant, the second is what dragging the rotation readout does now.
-            The rule this panel is held to from here on (#320): a control earns
-            a place here by being needed *while drawing*. */}
-        <div className={styles.headerRight}>
-          {/* Rotation: drag up/down to turn the canvas by fine degrees, click
-              to snap to the next quarter turn. (#106) If the angle is already
-              exactly one of 0/90/180/270, a click advances to the next one,
-              wrapping 270 back to 0; from any other angle (a free rotation
-              gesture, or a drag) it resets straight to 0 rather than rounding
-              up to the next multiple. */}
-          <button
-            className={clsx(
-              styles.angleLabel,
-              angleDeg !== 0 && styles.angleLabelActive,
-              rotationLocked && styles.angleLabelLocked,
-            )}
-            onPointerDown={rotationLocked ? undefined : onAngleDragDown}
-            // `aria-disabled`, not `disabled`: a disabled button shows no
-            // tooltip in any browser, and the tooltip is the only place the
-            // readout gets to say *why* it stopped responding.
-            aria-disabled={rotationLocked}
-            onClick={() => {
-              if (rotationLocked) return
-              setVp(v => {
-                const deg = Math.round(v.angle * 180 / Math.PI)
-                const normalizedDeg = ((deg % 360) + 360) % 360
-                const isAtCanonicalAngle = normalizedDeg % 90 === 0
-                const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
-                return { ...v, angle: nextDeg * Math.PI / 180 }
-              })
-            }}
-            title={rotationLocked
-              ? t('room.rotationLockedHint', { angle: String(angleDeg) })
-              : t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
-          >
-            <Icon name="screen_rotation_alt" />
-            {angleDeg}°
-          </button>
-          {/* (#458) Beside the number it pins, not in the ⋮ menu: on a tablet
-              the canvas gets turned by accident — a two-finger pan almost
-              always carries a little twist with it — so the way to stop that
-              has to be reachable in the moment it happens, which is the same
-              "needed while drawing" test the rest of this panel is held to
-              (#320). It is also where the person is already looking, because
-              the angle they didn't ask for is displayed right there. */}
-          <button
-            className={clsx(styles.rotationLockBtn, rotationLocked && styles.rotationLockBtnOn)}
-            onClick={() => setRotationLocked(!rotationLocked)}
-            aria-pressed={rotationLocked}
-            title={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
-            aria-label={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
-          >
-            <Icon name={rotationLocked ? 'lock' : 'lock_open'} />
-          </button>
-
-          <div className={styles.headerDivider} />
-
-          {/* Infinite rooms display (and reset to) zoom relative to the
-              device-native 1-world-unit-per-physical-pixel scale, so "100%"
-              means the drawing's actual 1:1 resolution on every screen —
-              see deviceNativeZoom's doc comment. Bounded rooms keep vp.zoom
-              as-is (their canvas backing is the fixed document size, so
-              vp.zoom already is the document scale). Both the number and the
-              reset come from `zoomPercent`/`resetZoom` above, shared with
-              #362's toast — this readout used to compute the same expression
-              twice inline, and a third copy in the toast is how the four
-              notice banners ended up needing #343. */}
-          <button
-            className={styles.zoomLabel}
-            onPointerDown={onZoomDragDown}
-            onClick={resetZoom}
-            title={t('room.zoom')}
-          >
-            {zoomPercent}%
-          </button>
-          <button className={styles.headerIconBtn} title={t('room.fitCanvas')} aria-label={t('room.fitCanvas')} onClick={fitCanvas}>
-            <Icon name="fit_screen" />
-          </button>
-
-          <div className={styles.headerDivider} />
-
-          <button
-            className={styles.headerIconBtn}
-            onClick={handleUndo}
-            title={t('room.undoTitle', { hotkey: formatHotkeyLabel(hotkeys.undo) })}
-            aria-label={t('room.undo')}
-          >
-            <Icon name="undo" />
-          </button>
-          <button
-            className={styles.headerIconBtn}
-            onClick={handleRedo}
-            title={t('room.redoTitle', { hotkey: formatHotkeyLabel(hotkeys.redo) })}
-            aria-label={t('room.redo')}
-          >
-            <Icon name="redo" />
-          </button>
-
-          {/* (#509 v4) Annotations, as a pair: the mode toggle and the local
-              hide. Up here rather than in the rail because neither is a tool —
-              one decides *which* tools the rail offers, the other decides
-              whether anyone's remarks are on screen at all — and because this
-              panel is where the editor's modes already live.
-
-              The toggle is absent in the compact shell: there the whole
-              interface is annotation mode and there is nothing to switch to.
-
-              (#575) In a narrow header both live in the ≡ menu instead — as do
-              the boards and fullscreen toggles below. */}
-          {!narrowHeader && (!compact || annotations.order.length > 0) && <div className={styles.headerDivider} />}
-          {!narrowHeader && !compact && (
-            <button
-              className={clsx(styles.headerIconBtn, annotationMode && styles.headerIconBtnActive)}
-              onClick={() => toggleAnnotationMode(!annotationMode)}
-              title={t('room.annotationModeTitle')}
-              aria-label={t('room.annotationMode')}
-              aria-pressed={annotationMode}
-            >
-              <Icon name="edit_note" />
-            </button>
-          )}
-          {/* Shown only once there is something to hide — a control that
-              provably does nothing is worse than no control. */}
-          {!narrowHeader && annotations.order.length > 0 && (
-            <button
-              className={clsx(styles.headerIconBtn, annotationsHidden && styles.headerIconBtnActive)}
-              title={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
-              aria-label={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
-              aria-pressed={annotationsHidden}
-              onPointerDown={handleAnnotationPeekDown}
-              onPointerUp={handleAnnotationPeekUp}
-              onPointerCancel={handleAnnotationPeekUp}
-              onClick={handleAnnotationsToggle}
-            ><Icon name={annotationsHidden ? 'visibility_off' : 'visibility'} /></button>
-          )}
-
-          {/* (#321) A second way into minimal UI, next to the tap that is
-              otherwise its only entrance — a tap on the canvas is easy to
-              discover by accident and hard to discover on purpose. Only shown
-              while the setting is on: it hides the chrome, so it cannot be
-              the thing that brings it back (that is still the tap), and
-              offering it to someone who hasn't asked for the mode would be a
-              button that makes the interface vanish with no visible way to
-              return. */}
-          {/* (#176) The board strip's toggle. Here by the same rule as the
-              rest of this panel: turning the page is something a teacher does
-              mid-explanation, between one stroke and the next. */}
-          {!narrowHeader && stripAvailable && (
-            <>
-              <div className={styles.headerDivider} />
-              <button
-                className={clsx(styles.headerIconBtn, boardsOpen && styles.headerIconBtnActive)}
-                onClick={() => setBoardsOpen(o => !o)}
-                title={t('boards.open')}
-                aria-label={t('boards.open')}
-                aria-pressed={boardsOpen}
-              >
-                <Icon name="auto_stories" />
-              </button>
-            </>
-          )}
-          {/* (#595) A student's raised hand — done *during* a lesson, between
-              strokes, the test this panel holds every control to (#320). There
-              for the whole lesson, not only an assignment: a question is not an
-              assignment-only thing. The teacher sees it in the Class tab. */}
-          {!narrowHeader && !isOwner && knownLessonId && (
-            <button
-              className={clsx(styles.headerIconBtn, myHandRaised && styles.headerIconBtnActive)}
-              onClick={() => setHandRaised(!myHandRaised)}
-              title={t(myHandRaised ? 'class.lowerHand' : 'class.raiseHand')}
-              aria-label={t(myHandRaised ? 'class.lowerHand' : 'class.raiseHand')}
-              aria-pressed={myHandRaised}
-            >
-              <Icon name="pan_tool" />
-            </button>
-          )}
-
-          {tapToHideEnabled && (
-            <>
-              <div className={styles.headerDivider} />
-              <button
-                className={styles.headerIconBtn}
-                onClick={toggleUI}
-                title={t('room.minimalUi')}
-                aria-label={t('room.minimalUi')}
-              >
-                <Icon name="visibility_off" />
-              </button>
-            </>
-          )}
-
-          {!narrowHeader && fullscreenSupported && (
-            <>
-              <div className={styles.headerDivider} />
-              <button
-                className={styles.headerIconBtn}
-                onClick={toggleFullscreen}
-                title={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
-                aria-label={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
-              >
-                <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
-              </button>
-            </>
-          )}
-
-          <div className={styles.headerDivider} />
-
-          {/* Everything you reach for between strokes rather than during
-              one. Same shared Menu as every other dropdown in the app
-              (#328), with icons (#329). */}
-          <Menu
-            triggerClassName={styles.headerIconBtn}
-            triggerLabel={t('room.menu')}
-            trigger={<Icon name="menu" />}
-            actions={[
-              ...foldedHeaderToggles,
-              // (#460) First of the menu's own items: inviting someone into
-              // the project you already have open is the one thing here that
-              // is about other people. Disabled until the room itself has
-              // arrived — there is no link to hand out before we know which
-              // room this is.
-              {
-                label: t('share.action'),
-                icon: 'share',
-                onClick: () => { if (config) shareRoom(config) },
-                disabled: config === null,
-                separatorBefore: foldedHeaderToggles.length > 0,
-              },
-              { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
-              { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },
-              { label: t('room.settings'), icon: 'settings', onClick: () => setSettingsOpen(true) },
-              // The same exit as the wordmark, confirmation dialog included —
-              // the logo only reads as "leave" once you already know it does.
-              { label: t('room.leave'), icon: 'logout', onClick: () => void leaveRoom() },
-            ]}
-          />
-        </div>
-      </header>
+      {/* ── Header ── (#493: RoomHeader) */}
+      <RoomHeader
+        engineRef={engineRef} lessonId={lessonId} isOwner={isOwner}
+        uiHidden={uiHidden} narrowHeader={narrowHeader} compact={compact}
+        leaveRoom={leaveRoom} connected={connected} pending={outboxState.pending}
+        angleDeg={angleDeg} onAngleDragDown={onAngleDragDown} setVp={setVp}
+        zoomPercent={zoomPercent} onZoomDragDown={onZoomDragDown} resetZoom={resetZoom} fitCanvas={fitCanvas}
+        handleUndo={() => { void handleUndo() }} handleRedo={() => { void handleRedo() }}
+        toggleAnnotationMode={toggleAnnotationMode}
+        handleAnnotationPeekDown={handleAnnotationPeekDown} handleAnnotationPeekUp={handleAnnotationPeekUp}
+        handleAnnotationsToggle={handleAnnotationsToggle}
+        stripAvailable={stripAvailable} boardsOpen={boardsOpen} setBoardsOpen={setBoardsOpen}
+        knownLessonId={knownLessonId} myHandRaised={myHandRaised} setHandRaised={setHandRaised}
+        tapToHideEnabled={tapToHideEnabled} toggleUI={toggleUI} setSettingsOpen={setSettingsOpen}
+      />
 
       {/* (#176) The board strip and the "teacher is on …" chip. Both live
           under the header and go with it in minimal UI — the same wrapper
@@ -6190,409 +3312,27 @@ function RoomEditor() {
           // left their background behind as a blank column over the drawing.
           compact && uiHidden && styles.uiHidden,
         )}>
-        <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+        {/* (#493) The rail itself — see ToolRail. */}
+        <ToolRail
+          uiHidden={uiHidden} annotationRail={annotationRail} compact={compact}
+          toolOffered={toolOffered} selectTool={selectTool}
+          railWellRef={railWellRef} well={well} wellLabel={wellLabel}
+          colorExpanded={colorFlyoutAt === 'rail'} openRailColorSurface={openRailColorSurface}
+          drawingGroupTool={drawingGroupTool} drawingGroupOptions={drawingGroupOptions}
+          drawingGroupActive={drawingGroupActive} gradeHotkeyLabels={gradeHotkeyLabels}
+          shapeKind={shapeKind} shapeKindOptions={shapeKindOptions}
+          hasTransformTargets={transformTargetIds.length > 0}
+          clearAllAnnotations={clearAllAnnotations}
+        />
 
-          {/* (#542) The colour, pinned. It sits above the tool buttons and
-              outside the schema-driven column to the right, which is the whole
-              change: as an ordinary quickAccess field its place in that column
-              was wherever the active tool's schema happened to list it — fourth
-              for the pencil, third for the liner, eighth for the watercolour,
-              absent for the eraser — so the one control a person reaches for
-              most moved every time they changed tools.
-
-              Above the buttons rather than below them because which buttons are
-              there depends on the room's toolset (#548) and the column grows
-              downwards: only the top edge is fixed.
-
-              Present for every tool, including the ones that own no colour —
-              `colorTool` falls back to the last drawing tool, so with a rubber
-              in hand this still shows and edits the colour the next stroke will
-              use, which is what the picker has always done in that state. */}
-          <ColorWell
-            ref={railWellRef}
-            fill={well.fill}
-            stroke={well.stroke}
-            highlight={well.highlight}
-            size={40}
-            className={styles.railColorWell}
-            label={wellLabel}
-            expanded={colorFlyoutAt === 'rail'}
-            onClick={openRailColorSurface}
-          />
-          <div className={styles.railColorWellDivider} aria-hidden="true" />
-
-          {/* (#512) Everything that draws *on* the picture is absent from the
-              compact shell. Not disabled — absent: a phone is here to react to
-              someone else's work, and a column of tools that cannot be used on
-              a screen this size is worse than no column. Undo/redo, the view
-              controls and the annotation tools below stay. */}
-          {!annotationRail && (<>
-          {/* (#544) One button for every drawing material, with the chooser
-              behind it — see components/ToolGroupButton. There used to be
-              seven buttons here, one per material, and the rail grew by one
-              with every material this app learned; the research in #544 found
-              that none of the seven editors surveyed does that. A rail is
-              verbs. What you draw *with* is a choice inside the verb.
-
-              The button wears the current material's own icon rather than a
-              fixed brush, so the rail still answers "what is in my hand"; the
-              corner mark is what says there is a choice behind it.
-
-              gradeHotkeyLabels and the per-material hotkeys are untouched by
-              this: `,`/`.` still step the pencil's grade, and C/L/M/B/W/D
-              still take their material directly, which is what keeps the
-              chooser optional rather than a toll on every switch. */}
-          <ToolGroupButton
-            className={styles.toolIconBtn}
-            activeClassName={styles.toolIconBtnActive}
-            active={drawingGroupActive}
-            icon={TOOL_DISPLAY[drawingGroupTool].icon}
-            title={t(
-              // The pencil's grade keys have nowhere else to be announced, so
-              // its own variant of the sentence carries them; every other
-              // material reads the plain one.
-              drawingGroupTool === 'pencil' ? 'tool.drawingTitlePencil' : 'tool.drawingTitle',
-              { tool: t(TOOL_DISPLAY[drawingGroupTool].labelKey), hotkeys: gradeHotkeyLabels },
-            )}
-            label={t('tool.drawing')}
-            options={drawingGroupOptions}
-            value={drawingGroupTool}
-            onSelect={value => selectTool(value as EditorTool)}
-            onActivate={() => selectTool(drawingGroupTool)}
-          />
-
-          {toolOffered('eraser') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
-              title={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
-              aria-label={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
-              onClick={() => selectTool('eraser')}
-            ><Icon name="ink_eraser" /></button>
-          )}
-          {toolOffered('smudge') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
-              title={t('tool.smudgeTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSmudge) })}
-              aria-label={t('tool.smudge')}
-              onClick={() => selectTool('smudge')}
-            ><Icon name="smudge" /></button>
-          )}
-
-          <div className={styles.toolDivider} />
-
-          {/* Hand (#319, ADR 007) — the only way to move the canvas with
-              nothing in hand but a stylus: a pen has no middle button, and
-              Space needs a free second hand.
-              (#443) Selected like every other button here, with the same fill.
-              It used to be a modifier with an outline of its own, lit *beside*
-              whichever tool was selected — the one button on the panel that
-              needed a paragraph to explain, and the reason it looked wrong is
-              that two things were on at once, which is precisely what #405
-              set out to remove everywhere else. */}
-          {toolOffered('hand') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'hand' && styles.toolIconBtnActive)}
-              title={t('tool.handTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleHand) })}
-              aria-label={t('tool.hand')}
-              aria-pressed={tool === 'hand'}
-              onClick={() => selectTool('hand')}
-            ><Icon name="pan_tool" /></button>
-          )}
-
-          {/* (#405) The four tools below the divider select like every button
-              above it — one tool is in hand at a time, and pressing the same
-              one again hands the canvas back to the drawing tool. They used to
-              be mode toggles laid over whichever pencil was current, which is
-              what let a transform session and a pencil both be "selected".
-
-              Eyedropper (#82) picks a color from the canvas, writes it into
-              the tool it hands back to, and opens the ColorPicker tab of the
-              unified right-side SidePanel (see .layerPanelWrap below) to
-              refine it. */}
-          {toolOffered('eyedropper') && (
-            <button
-              className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
-              title={t('tool.eyedropperTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEyedropper) })}
-              aria-label={t('tool.eyedropper')}
-              aria-pressed={eyedropperActive}
-              onClick={() => selectTool('eyedropper')}
-            ><Icon name="colorize" /></button>
-          )}
-          {toolOffered('ruler') && (
-            <button
-              className={clsx(styles.toolIconBtn, rulerActive && styles.toolIconBtnActive)}
-              title={t('tool.rulerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleRuler) })}
-              aria-label={t('tool.ruler')}
-              aria-pressed={rulerActive}
-              onClick={() => selectTool('ruler')}
-            ><Icon name="square_foot" /></button>
-          )}
-          {toolOffered('transform') && (
-            <button
-              className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
-              title={t('tool.transformTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleTransform) })}
-              aria-label={t('tool.transform')}
-              aria-pressed={transformActive}
-              // (#405) Stays clickable while it is the selected tool even with
-              // nothing to transform — see the hotkey's own note: disabling the
-              // only way out of a tool is how you get stuck in it.
-              disabled={!transformActive && transformTargetIds.length === 0}
-              onClick={() => selectTool('transform')}
-            ><Icon name="free-transform" /></button>
-          )}
-          {/* (#446) Next to transform because that is what it is for: mark a
-              region, then move it with the gizmo. Never disabled — with
-              nothing selectable the gestures simply do not start, and a
-              disabled tool button is a dead end rather than an explanation. */}
-          {toolOffered('selection') && (
-            <button
-              className={clsx(styles.toolIconBtn, selectionActive && styles.toolIconBtnActive)}
-              title={t('tool.selectionTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSelection) })}
-              aria-label={t('tool.selection')}
-              aria-pressed={selectionActive}
-              onClick={() => selectTool('selection')}
-            ><Icon name="highlight_alt" /></button>
-          )}
-          {/* (#453) Next to the selection rather than among the brushes: it
-              addresses a region and stamps pixels into it, which is what the
-              two tools beside it do. It is not a brush and does not emit a
-              stroke (see NON_DRAWING_TOOLS). */}
-          {toolOffered('fill') && (
-            <button
-              className={clsx(styles.toolIconBtn, fillActive && styles.toolIconBtnActive)}
-              title={t('tool.fill')}
-              aria-label={t('tool.fill')}
-              aria-pressed={fillActive}
-              onClick={() => selectTool('fill')}
-            ><Icon name="format_color_fill" /></button>
-          )}
-
-          {/* (#525) The shape tool, next to the fill for the same reason the
-              fill sits next to the selection: it is not a brush, and it puts a
-              region of pixels down in one gesture rather than laying a stroke.
-
-              One button rather than four (Ilya, 05.09). The four shapes are
-              four ways of doing one thing, so which one it draws is a modifier
-              in the quick column — the same call the selection tool makes about
-              its three ways of marking a region.
-
-              (#541, revised in #544) It wore a composite glyph for a while,
-              and the reason was sound at the time: wearing the current shape
-              read as "this is the rectangle tool" and hid the fact that there
-              are four. What answers that now is the corner mark, which says
-              "there is a choice here" without spending the icon on it — so the
-              icon goes back to doing the job every other button in this rail
-              does, naming what is in hand.
-
-              The one way this button differs from the drawing group above:
-              choosing here changes a *setting* of one tool rather than which
-              tool is in hand. So the chooser also takes the tool — picking a
-              star from the rail while the ruler is in hand means "draw a
-              star", not "remember that I like stars".
-
-              (#548) Behind the room's toolset like every other button here.
-              It was the one that wasn't, because the toolset and this tool were
-              built in parallel branches and neither knew about the other. */}
-          {toolOffered('shape') && (
-            <ToolGroupButton
-              className={styles.toolIconBtn}
-              activeClassName={styles.toolIconBtnActive}
-              active={shapeActive}
-              icon={SHAPE_KIND_ICONS[shapeKind]}
-              title={t('tool.shapeTitle', { shape: t(SHAPE_KIND_LABEL_KEYS[shapeKind]) })}
-              label={t('tool.shape')}
-              options={shapeKindOptions}
-              value={shapeKind}
-              onSelect={value => {
-                setToolSetting('shape', 'kind', value)
-                selectTool('shape')
-              }}
-              onActivate={() => selectTool('shape')}
-            />
-          )}
-
-          <div className={styles.toolDivider} />
-
-          {/* (#405) Selects the grid tool; whether the grid is *drawn* is its
-              own `show` setting in the column to the right, which is what lets
-              it stay up under every other tool. Selecting it currently does
-              nothing but put those settings on screen — the grid has no canvas
-              gesture of its own until #406 gives it move and rotate. */}
-          {toolOffered('grid') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'grid' && styles.toolIconBtnActive)}
-              title={t('tool.gridTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleGrid) })}
-              aria-label={t('tool.grid')}
-              aria-pressed={tool === 'grid'}
-              onClick={() => selectTool('grid')}
-            ><Icon name="grid_on" /></button>
-          )}
-          </>)}
-          {/* (#512) The hand, in the compact shell only — its full-layout twin
-              is inside the block above. Here it is not a convenience but the
-              answer to a gesture the shell took away: while an annotation tool
-              is in hand the first finger draws, so one-finger panning is gone,
-              and two fingers is a lot to ask for "move the page a bit". Picking
-              up the hand gives the finger back to the canvas, because with no
-              annotation tool selected nothing reserves it. */}
-          {compact && toolOffered('hand') && (
-            <button
-              className={clsx(styles.toolIconBtn, tool === 'hand' && styles.toolIconBtnActive)}
-              title={t('tool.hand')}
-              aria-label={t('tool.hand')}
-              aria-pressed={tool === 'hand'}
-              onClick={() => selectTool('hand')}
-            ><Icon name="pan_tool" /></button>
-          )}
-          {/* (#509/#510, эпик #87) The annotation tools. They used to sit at
-              the bottom of the full toolbar, under the drawing tools, and read
-              as three more brushes — which is the opposite of what they are.
-              Now they are a mode: the rail shows these *or* the drawing tools,
-              never both, and the header says which. */}
-          {annotationRail && (<>
-          <button
-            className={clsx(styles.toolIconBtn, annotateTextActive && styles.toolIconBtnActive)}
-            title={t('tool.annotateTitle')}
-            aria-label={t('tool.annotateText')}
-            aria-pressed={annotateTextActive}
-            onClick={() => selectTool('annotateText')}
-          ><Icon name="text_fields" /></button>
-          <button
-            className={clsx(styles.toolIconBtn, annotatePenActive && styles.toolIconBtnActive)}
-            title={t('tool.annotatePenTitle')}
-            aria-label={t('tool.annotatePen')}
-            aria-pressed={annotatePenActive}
-            onClick={() => selectTool('annotatePen')}
-          ><Icon name="draw" /></button>
-          <button
-            className={clsx(styles.toolIconBtn, annotateEraserActive && styles.toolIconBtnActive)}
-            title={t('tool.annotateEraserTitle')}
-            aria-label={t('tool.annotateEraser')}
-            aria-pressed={annotateEraserActive}
-            onClick={() => selectTool('annotateEraser')}
-          ><Icon name="ink_eraser" /></button>
-          {/* Not a tool, so it sits below a divider and selects nothing. One
-              operation for the whole set, so a single undo brings every remark
-              back — which is also why it asks no confirmation. Absent while
-              there is nothing to remove, like the header's hide toggle. */}
-          {annotations.order.length > 0 && (<>
-            <div className={styles.toolDivider} />
-            <button
-              className={styles.toolIconBtn}
-              title={t('tool.annotationsClearTitle')}
-              aria-label={t('tool.annotationsClear')}
-              onClick={clearAllAnnotations}
-            ><Icon name="delete_sweep" /></button>
-          </>)}
-          </>)}
-
-
-        </aside>
-
-        {/* ── Quick-settings panel — the active tool's quick-access fields
-            (#196), driven entirely by TOOL_SCHEMAS. Kept as its own
-            same-width column next to the toolbar rather than interleaved
-            with the tool-select buttons above: interleaving made the
-            buttons visually jump every time the field count changed
-            switching tools (pencil: grade+size+opacity+color, eraser:
-            size+opacity only) — a fixed button column plus a separately
-            reflowing settings column reads far more stable.
-
-            (#471) Alone among the chrome, this column survives minimal UI:
-            .quickSettingsBarMinimal moves it into the corner the header and
-            toolbar just vacated instead of .uiHidden fading it out. The
-            reasoning lives on that CSS rule. */}
-        {/* (#512) In the compact shell minimal UI hides this too, where
-            everywhere else it *moves* it into the corner the chrome vacated
-            (#471). The exception earned its keep on a tablet, where the quick
-            settings are the one thing worth keeping within reach while drawing.
-            On a phone the whole point of minimal UI is the screen, and a rail
-            that stays is the largest thing still on it. */}
-        <aside className={clsx(
-          styles.quickSettingsBar,
-          uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
-          styles.strokeBlockable,
-        )}>
-          {Object.entries(TOOL_SCHEMAS[settingsToolId])
-            .filter(([, descriptor]) => descriptor.quickAccess)
-            // (#542) No colour in this column at all any more — every colour a
-            // tool carries is drawn by the pinned well in the rail to the left.
-            // Filtered here rather than by clearing `quickAccess` in ten
-            // schemas: the flag says "this is a field a hand reaches for
-            // mid-gesture", which is still true of colour, and a schema that
-            // denied it to make one layout come out right would be lying to
-            // every other reader of it.
-            .filter(([, descriptor]) => descriptor.valueType.kind !== 'color')
-            .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
-            .map(([key, descriptor]) => (
-              <SettingField
-                key={key}
-                descriptor={descriptor}
-                value={toolSettings[settingsToolId][key]}
-                onChange={v => setToolSetting(settingsToolId, key, v)}
-                layout="toolbar"
-              />
-            ))}
-          {/* (#530) The numbers behind the drag, and only while a shape is
-              open: they edit *this* shape, not the tool. For a frame around a
-              thumbnail sketch this is arguably more of the tool than the drag
-              is — an exact size cannot be set with a pen. The ratio presets
-              live in the full settings panel instead (Ilya, 05.09): the rail is
-              for what a hand reaches for mid-gesture. */}
-          {shapeFrame && <ShapeFrameFields frame={shapeFrame} onChange={shape.setFrame} />}
-          {settingsToolId === 'watercolor' && <WatercolorDryButton onDry={() => { dispatchOp({ type: 'paper_dry' }) }} />}
-          {/* (#446) What can be done with a selection, as buttons rather than
-              only as Ctrl+C/X/V. A tablet is a first-class target here and has
-              no modifier keys at all: without these, cut/copy/paste — the half
-              of this feature Ilya actually asked for — would exist only for
-              people with a keyboard.
-
-              In the quick column rather than floating over the canvas: it is
-              already the place the selected tool's own controls appear, it
-              never covers the drawing, and it needs no placement logic of its
-              own. Each button is disabled exactly when its action would do
-              nothing, so the row also answers "is anything selected" and "is
-              there anything to paste" without a word of text. */}
-          {selectionActive && (
-            <div className={styles.selectionActions}>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.copy')}
-                aria-label={t('selection.copy')}
-                disabled={!selection || !paintTargetId}
-                onClick={() => { void copySelection() }}
-              ><Icon name="content_copy" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.cut')}
-                aria-label={t('selection.cut')}
-                disabled={!selection || !paintTargetId || paintTargetLocked}
-                onClick={() => { void cutSelection() }}
-              ><Icon name="content_cut" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.paste')}
-                aria-label={t('selection.paste')}
-                disabled={!clipboardMeta || !paintTargetId || paintTargetLocked}
-                onClick={() => { void pasteClipboard() }}
-              ><Icon name="content_paste" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.delete')}
-                aria-label={t('selection.delete')}
-                disabled={!selection || !paintTargetId || paintTargetLocked}
-                onClick={deleteSelectionContents}
-              ><Icon name="delete" /></button>
-              <button
-                className={styles.toolIconBtn}
-                title={t('selection.clear')}
-                aria-label={t('selection.clear')}
-                disabled={!selection}
-                onClick={() => setSelection(null)}
-              ><Icon name="deselect" /></button>
-            </div>
-          )}
-        </aside>
+        {/* (#493) The quick-settings column — see QuickSettingsBar. */}
+        <QuickSettingsBar
+          uiHidden={uiHidden} compact={compact} onShapeFrameChange={shape.setFrame}
+          paintTargetId={paintTargetId} paintTargetLocked={paintTargetLocked}
+          copySelection={() => { void copySelection() }} cutSelection={() => { void cutSelection() }}
+          pasteClipboard={() => { void pasteClipboard() }} deleteSelectionContents={deleteSelectionContents}
+          onWatercolorDry={() => { dispatchOp({ type: 'paper_dry' }) }}
+        />
         </div>
 
         {/* ── Viewport ── */}
@@ -6655,127 +3395,7 @@ function RoomEditor() {
               className={styles.worldOverlayWrap}
               style={{ transform: canvasTransform }}
             >
-            {!config.infinite && (
-              <PeerCursors
-                key={boardId ?? ''}
-                socket={socketRef.current}
-                participants={participants}
-                zoom={vp.zoom}
-                angle={vp.angle}
-              />
-            )}
-            {/* (#393) Mounted exactly while the cursor controller says a dab
-                preview belongs on screen — with the hand on, or with any of
-                the four non-painting tools selected, nothing is going to be
-                painted, and a ring that keeps following the pointer reads as
-                if it still would. (#405) `drawingTool` is what it draws: the
-                controller has already established that this is the tool in
-                hand, and `tool` is not narrowed to a ToolType. */}
-            {!config.infinite && cursor.dabPreview && (
-              <BrushCursor
-                vpRef={vpRef}
-                tool={drawingTool}
-                presetName={cursorPresetName}
-                baseSize={sizePx}
-                vp={vp}
-                config={config}
-                nibAngleRadians={nibCanvasAngleRadians}
-                nibAnchor={nibAnchor}
-                tiltResponse={tiltResponse}
-              />
-            )}
-            {!config.infinite && gridVisible && <GridOverlay width={config.width} height={config.height} />}
-            {/* (#405, #445) On screen while the ruler is in hand, and under
-                every other tool too once it is locked — a straight edge you
-                can draw against is the point of one, but only while you asked
-                for it. It carries no pointer handlers at all; dragging it is
-                the catcher's job, and the catcher only exists while the ruler
-                is the selected tool. */}
-            {!config.infinite && rulerVisible && rulerLine && (
-              <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
-            )}
-            {/* (#530) The shape's own handles are the transform gizmo's: same
-                component, same hit areas, same rotate zones. Only what a drag
-                *means* differs — a shape has no pixels yet, so a handle edits
-                the frame it will be drawn from (see shapeTool.ts). */}
-            {!config.infinite && shapeFrame && (
-              <div className={styles.shapeGizmoLayer}>
-              <TransformGizmo
-                bounds={{
-                  x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
-                  y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
-                  width: Math.abs(shapeFrame.width),
-                  height: Math.abs(shapeFrame.height),
-                }}
-                center={{
-                  x: shapeFrame.x + shapeFrame.width / 2,
-                  y: shapeFrame.y + shapeFrame.height / 2,
-                }}
-                matrix={rotateAboutMatrix(
-                  shapeFrame.angle,
-                  shapeFrame.x + shapeFrame.width / 2,
-                  shapeFrame.y + shapeFrame.height / 2,
-                )}
-                zoom={vp.zoom}
-                angleRad={vp.angle}
-                mode="free"
-                onHandleDown={shape.onHandleDown}
-                onCenterDown={e => shape.onHandleDown('body', e)}
-                onCenterDoubleClick={() => {}}
-              />
-              </div>
-            )}
-            {!config.infinite && transformActive && transformBounds && (
-              <TransformGizmo
-                bounds={transformBounds}
-                center={transformCenterOverride ?? {
-                  x: transformBounds.x + transformBounds.width / 2,
-                  y: transformBounds.y + transformBounds.height / 2,
-                }}
-                matrix={transformSessionMatrix ?? undefined}
-                zoom={vp.zoom}
-                angleRad={vp.angle}
-                mode={transformMode}
-                onHandleDown={handleTransformHandleDown}
-                onCenterDown={handleTransformCenterDown}
-                onCenterDoubleClick={handleTransformCenterReset}
-              />
-            )}
-            {/* (#446) Drawn under every tool, not only the selection tool: a
-                selection persists until it is replaced or cleared, and the
-                transform tool needs to show what it is about to move. It takes
-                no pointer events in either case — see SelectionOverlay. */}
-            <SelectionOverlay
-              selection={selection}
-              pending={pendingSelection}
-              pendingClosed={selectionShapeKind === 'rectangle'}
-              cursor={selectionCursor}
-              zoom={vp.zoom}
-              matrix={areaSelection ? transformSessionMatrix : null}
-            />
-            {/* (#508, эпик #87) Above every other overlay, because an
-                annotation is above every other thing on screen — it is a
-                remark *about* the picture, including about the grid or the
-                selection someone left on it. */}
-            {!config.infinite && (
-              <AnnotationOverlay
-                annotations={annotations}
-                hidden={annotationsHidden}
-                draft={annotationDraft}
-                onDraftChange={setAnnotationDraftText}
-                onDraftCommit={commitAnnotationDraft}
-                onDraftCancel={cancelAnnotationDraft}
-                liveInk={liveInk}
-                collapsedIds={collapsedAnnotationIds}
-                erasingIds={erasingIds}
-                dragPreview={pinDrag}
-                zoom={vp.zoom}
-                angle={vp.angle}
-                hitTargets={annotationHitTargets}
-                layerRef={annotationLayerRef}
-                draftInputRef={annotationDraftInputRef}
-              />
-            )}
+              {!config.infinite && canvasOverlays}
             </div>
           </div>
           {/* Infinite rooms (#143): the same five overlays, camera-aware —
@@ -6796,104 +3416,7 @@ function RoomEditor() {
               above), so nesting wouldn't change anything either way. */}
           {config.infinite && (
             <div className={styles.worldOverlayWrap} style={{ transform: cameraTransformCss(vp) }}>
-              <PeerCursors
-                key={boardId ?? ''}
-                socket={socketRef.current}
-                participants={participants}
-                zoom={vp.zoom}
-                angle={vp.angle}
-              />
-              {cursor.dabPreview && (
-                <BrushCursor
-                  vpRef={vpRef}
-                  tool={drawingTool}
-                  presetName={cursorPresetName}
-                  baseSize={sizePx}
-                  vp={vp}
-                  config={config}
-                  nibAngleRadians={nibCanvasAngleRadians}
-                  nibAnchor={nibAnchor}
-                  tiltResponse={tiltResponse}
-                />
-              )}
-              {gridVisible && (
-                <InfiniteGridOverlay
-                  vp={vp}
-                  viewportWidth={vpRef.current?.clientWidth ?? 0}
-                  viewportHeight={vpRef.current?.clientHeight ?? 0}
-                />
-              )}
-              {rulerVisible && rulerLine && (
-                <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
-              )}
-              {shapeFrame && (
-                <div className={styles.shapeGizmoLayer}>
-                <TransformGizmo
-                  bounds={{
-                    x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
-                    y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
-                    width: Math.abs(shapeFrame.width),
-                    height: Math.abs(shapeFrame.height),
-                  }}
-                  center={{
-                    x: shapeFrame.x + shapeFrame.width / 2,
-                    y: shapeFrame.y + shapeFrame.height / 2,
-                  }}
-                  matrix={rotateAboutMatrix(
-                    shapeFrame.angle,
-                    shapeFrame.x + shapeFrame.width / 2,
-                    shapeFrame.y + shapeFrame.height / 2,
-                  )}
-                  zoom={vp.zoom}
-                  angleRad={vp.angle}
-                  mode="free"
-                  onHandleDown={shape.onHandleDown}
-                  onCenterDown={e => shape.onHandleDown('body', e)}
-                  onCenterDoubleClick={() => {}}
-                />
-                </div>
-              )}
-              {transformActive && transformBounds && (
-                <TransformGizmo
-                  bounds={transformBounds}
-                  center={transformCenterOverride ?? {
-                    x: transformBounds.x + transformBounds.width / 2,
-                    y: transformBounds.y + transformBounds.height / 2,
-                  }}
-                  matrix={transformSessionMatrix ?? undefined}
-                  zoom={vp.zoom}
-                  angleRad={vp.angle}
-                  mode={transformMode}
-                  onHandleDown={handleTransformHandleDown}
-                  onCenterDown={handleTransformCenterDown}
-                  onCenterDoubleClick={handleTransformCenterReset}
-                />
-              )}
-              <SelectionOverlay
-                selection={selection}
-                pending={pendingSelection}
-                pendingClosed={selectionShapeKind === 'rectangle'}
-                cursor={selectionCursor}
-                zoom={vp.zoom}
-                matrix={areaSelection ? transformSessionMatrix : null}
-              />
-              <AnnotationOverlay
-                annotations={annotations}
-                hidden={annotationsHidden}
-                draft={annotationDraft}
-                onDraftChange={setAnnotationDraftText}
-                onDraftCommit={commitAnnotationDraft}
-                onDraftCancel={cancelAnnotationDraft}
-                liveInk={liveInk}
-                collapsedIds={collapsedAnnotationIds}
-                erasingIds={erasingIds}
-                dragPreview={pinDrag}
-                zoom={vp.zoom}
-                angle={vp.angle}
-                hitTargets={annotationHitTargets}
-                layerRef={annotationLayerRef}
-                draftInputRef={annotationDraftInputRef}
-              />
+              {canvasOverlays}
             </div>
           )}
           {/* (#405) One catcher for the two tools whose gesture is a press on
@@ -6923,7 +3446,7 @@ function RoomEditor() {
               className={styles.canvasCatcher}
               onPointerDown={handleRulerDown}
               onPointerMove={handleRulerHover}
-              onPointerEnter={() => { rulerRectRef.current = null }}
+              onPointerEnter={handleRulerEnter}
             />
           )}
           {/* (#446) Same pattern: mounted only while the selection tool is in
@@ -7106,7 +3629,7 @@ function RoomEditor() {
                 content: (
                   <LayerPanel
                     layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp}
-                    isOwner={isOwner} hasLayerContent={hasLayerContent}
+                    isOwner={isOwner} {...layerPanelBridge}
                     soloIds={soloIds} onSoloChange={setSoloIds}
                     drawerColors={layerDrawerColors}
                     onOpenFilters={setFilterLayerId}
@@ -7199,37 +3722,7 @@ function RoomEditor() {
                 // quick-access row uses (#196) — this tab just renders every
                 // field, not only the quickAccess-flagged ones.
                 id: 'toolSettings', icon: 'tune', title: t('room.panel.toolSettings'),
-                content: Object.keys(TOOL_SCHEMAS[settingsToolId]).length === 0 ? (
-                  <p className={styles.noToolSettings}>{t('room.noToolSettings')}</p>
-                ) : (
-                  <div className={styles.toolSettingsPanel}>
-                    {Object.entries(TOOL_SCHEMAS[settingsToolId])
-                      .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
-                      .map(([key, descriptor]) => (
-                      <SettingField
-                        key={key}
-                        descriptor={descriptor}
-                        value={toolSettings[settingsToolId][key]}
-                        onChange={v => setToolSetting(settingsToolId, key, v)}
-                        layout="panel"
-                        // (#542) Every colour field, not just the one named
-                        // `color` — a shape's two are `strokeColor`/`fillColor`
-                        // and were left without a way to expand at all. They
-                        // all open the same flyout, on the well in the rail:
-                        // this tab is only ever on screen next to it, and one
-                        // surface in one place beats a popover that chases
-                        // whichever copy of a swatch was pressed.
-                        onExpand={descriptor.valueType.kind === 'color' ? () => expandColorField(key) : undefined}
-                      />
-                    ))}
-                    {/* (#530) The ratio presets, here rather than in the quick
-                        column (Ilya, 05.09): picking 3:4 is a decision made
-                        once, and the rail is for what a hand reaches for
-                        mid-gesture. Only while a shape is open — they resize
-                        that shape, not the tool. */}
-                    {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={shape.setFrame} />}
-                  </div>
-                ),
+                content: <ToolSettingsTab onExpandColor={expandColorField} onShapeFrameChange={shape.setFrame} />,
               },
             ]}
           />
@@ -7340,259 +3833,13 @@ function RoomEditor() {
         )}
       </div>
 
-      {/* Debug overlays share one positioning stack (.debugStack) so having
-          more than one flag on at once (debugOverlay/hapticGrain/
-          tap stats) doesn't render them fully on top of each other at the
-          same fixed corner — see chat, this is exactly what happened while
-          chasing #154's latency regression with hapticGrain still on from
-          earlier testing. */}
-      {(debugEnabled || hapticGrainEnabled || tapDebugEnabled || pencilSoundTuningEnabled || wcPerfHudEnabled) && (
-        <div className={styles.debugStack}>
-          {wcPerfHudEnabled && <WatercolorPerfHud engineRef={engineRef} className={styles.debugOverlay} />}
-          {/* On-device log capture (see lib/diagLog.ts) — for field reports
-              from a device with no attached inspector (Android tablets,
-              mainly): diagLog() calls throughout the tap-toggle/viewport
-              gesture code (and roomContentReady transitions) feed an
-              in-memory ring buffer; this copies it to the clipboard so it
-              can be pasted back in chat instead of needing devtools. */}
-          <div className={styles.debugOverlay} style={{ pointerEvents: 'auto' }}>
-            <button
-              type="button"
-              onClick={() => { void navigator.clipboard.writeText(getDiagLogs()) }}
-              style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer', marginRight: 6 }}
-            >
-              copy logs
-            </button>
-            <button
-              type="button"
-              onClick={() => clearDiagLogs()}
-              style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}
-            >
-              clear logs
-            </button>
-          </div>
-          {/* Device performance readout (#91, extended #104) — ?debug=1
-              only. Shows the last completed stroke's real input-sample
-              rate, paint cost, and end-to-end (PointerEvent.timeStamp →
-              _display()) input latency, so a tablet with no attached
-              devtools can still report hard numbers. */}
-          {debugEnabled && (
-            <div className={styles.debugOverlay}>
-              {strokeStats ? (
-                <>
-                  {/* Trimmed to just the two latency lines while chasing
-                      #154's DPR regression (see chat) — events/gap/dabs/
-                      render were crowding out the numbers that actually
-                      matter right now. Full stats are still in
-                      StrokeDebugStats if needed again. */}
-                  <div>e2e latency: avg {strokeStats.avgE2eLatencyMs.toFixed(1)}ms / max {strokeStats.maxE2eLatencyMs.toFixed(1)}ms</div>
-                  <div>tip latency: avg {strokeStats.avgTipLatencyMs.toFixed(1)}ms / max {strokeStats.maxTipLatencyMs.toFixed(1)}ms</div>
-                  {/* rAF-anchored real display latency (replaces a prior
-                      attempt at this via the browser's Event Timing API —
-                      PerformanceObserver({type:'event'}) — which never
-                      populated: the spec excludes exactly the continuous
-                      event types we cared about, pointermove/touchmove/etc,
-                      from ever generating an 'event' entry at all, so it
-                      silently reported zero samples for the entire life of
-                      that approach. See StrokeDebugStats.avgFrameLatencyMs
-                      for what this actually measures and why it's a better
-                      proxy for "did it hit the screen yet" than the two
-                      JS-only lines above. */}
-                  <div>frame latency: avg {strokeStats.avgFrameLatencyMs.toFixed(1)}ms / max {strokeStats.maxFrameLatencyMs.toFixed(1)}ms</div>
-                </>
-              ) : (
-                <div>draw a stroke to see stats</div>
-              )}
-              {/* Live paper-fill-threshold tuning (see chat) — applies to
-                  the very next dab painted, no Save/reload. */}
-              {/* pointerEvents: 'auto' overrides .debugStack's own
-                  pointer-events: none (deliberate there — an informational
-                  overlay must never block drawing/touch on the canvas
-                  beneath it) — this is the one real control in that stack,
-                  so it alone needs to opt back in or no pointer/touch input
-                  ever reaches it at all. */}
-              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
-                <span>fill @</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={0.999}
-                  step={0.001}
-                  value={paperFillThreshold}
-                  onChange={e => {
-                    const v = Number(e.target.value)
-                    setPaperFillThresholdState(v)
-                    engineRef.current?.setPaperFillThreshold(v)
-                  }}
-                  style={{ width: 90 }}
-                />
-                <span>{paperFillThreshold.toFixed(3)}</span>
-              </div>
-              <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
-                <span>fill cap</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={paperFillCap}
-                  onChange={e => {
-                    const v = Number(e.target.value)
-                    setPaperFillCapState(v)
-                    engineRef.current?.setPaperFillCap(v)
-                  }}
-                  style={{ width: 90 }}
-                />
-                <span>{paperFillCap.toFixed(2)}</span>
-              </div>
-
-              {/* #305: charcoal's tilt ladder. Only shown while charcoal is the
-                  active tool — these knobs do nothing for anything else, and
-                  the overlay is already crowded. Takes effect on the next
-                  stroke (shape is baked per dab at record time), so tuning is
-                  "draw, nudge, draw again" rather than live-morphing what's
-                  already on the page. */}
-              {tool === 'charcoal' && (
-                <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
-                  <div style={{ opacity: 0.7 }}>charcoal tilt (next stroke)</div>
-                  {CHARCOAL_FEEL_SLIDERS.map(s => (
-                    <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
-                      <span style={{ width: 78 }}>{s.label}</span>
-                      <input
-                        type="range"
-                        min={s.min}
-                        max={s.max}
-                        step={s.step}
-                        value={charcoalFeel[s.key]}
-                        onChange={e => {
-                          const v = Number(e.target.value)
-                          setCharcoalFeelState(prev => ({ ...prev, [s.key]: v }))
-                          engineRef.current?.setCharcoalFeel({ [s.key]: v })
-                        }}
-                        style={{ width: 90 }}
-                      />
-                      <span>{charcoalFeel[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* How the smudge imprint settles into the paper's tooth
-                  (smudgeGrain.ts). Smudge only — the term exists nowhere
-                  else. `bite` at 0 is exactly the flat deposit this had
-                  before, which is what makes the pair an A/B rather than a
-                  one-way change; takes effect on the next dab, so it can be
-                  slid mid-drawing and compared on the same page. */}
-              {tool === 'smudge' && (
-                <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
-                  <div style={{ opacity: 0.7 }}>smudge grain (next dab)</div>
-                  {SMUDGE_GRAIN_SLIDERS.map(s => (
-                    <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
-                      <span style={{ width: 78 }}>{s.label}</span>
-                      <input
-                        type="range"
-                        min={s.min}
-                        max={s.max}
-                        step={s.step}
-                        value={smudgeGrain[s.key]}
-                        onChange={e => {
-                          const v = Number(e.target.value)
-                          setSmudgeGrainState(prev => ({ ...prev, [s.key]: v }))
-                          engineRef.current?.setSmudgeGrain({ [s.key]: v })
-                        }}
-                        style={{ width: 90 }}
-                      />
-                      <span>{smudgeGrain[s.key].toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* #389: graphite's tilt curve. Shown for every tool that rides
-                  PENCIL_DAB_SHAPING — eraser and smudge share the geometry, so
-                  the knobs are live for them too even though the lightening
-                  one only reaches graphite's own deposit. Same "next stroke"
-                  semantics as charcoal's block above. */}
-              {(tool === 'pencil' || tool === 'eraser' || tool === 'smudge') && (
-                <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
-                  <div style={{ opacity: 0.7 }}>pencil tilt (next stroke)</div>
-                  {PENCIL_TILT_SLIDERS.map(s => (
-                    <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
-                      <span style={{ width: 78 }}>{s.label}</span>
-                      <input
-                        type="range"
-                        min={s.min}
-                        max={s.max}
-                        step={s.step}
-                        value={pencilTilt[s.key]}
-                        onChange={e => {
-                          const v = Number(e.target.value)
-                          setPencilTiltState(prev => ({ ...prev, [s.key]: v }))
-                          engineRef.current?.setPencilTilt({ [s.key]: v })
-                        }}
-                        style={{ width: 90 }}
-                      />
-                      <span>{pencilTilt[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Haptic-grain experiment diagnostic — always shown while the flag
-              is on (not gated behind ?debug=1) so it's visible on a tablet
-              with no attached devtools while chasing "vibrates from the test
-              button but not while drawing" (see chat). cellsEntered=0 after
-              drawing means the stroke never reached HapticGrain.sample() at
-              all; bumpsHit=0 means it's reaching it but the density
-              threshold never trips; vibrateOk < bumpsHit is now expected
-              (see HapticGrain's minIntervalMs) — most grid hits during a
-              real stroke land inside the same throttle window, so only some
-              of them reach an actual navigator.vibrate() call; a call that
-              browser-rejects instead of being throttled is indistinguishable
-              here, but that was never observed while diagnosing this. */}
-          {hapticGrainEnabled && (
-            <div className={styles.debugOverlay}>
-              {hapticStats ? (
-                <>
-                  <div>cells entered: {hapticStats.cellsEntered}</div>
-                  <div>bumps hit: {hapticStats.bumpsHit}</div>
-                  <div>vibrate() ok: {hapticStats.vibrateOk}</div>
-                </>
-              ) : (
-                <div>draw a stroke to see haptic stats</div>
-              )}
-            </div>
-          )}
-
-          {/* Minimal-UI tap diagnostic — see TapDebugInfo's docstring (chat:
-              "works on Samsung, not on a Surface"). maxDistPx close to or
-              over the threshold means that device's digitizer reports
-              enough jitter on a stationary tap to read as a drag;
-              concurrentTouches > 1 means a second touch (real or a stray
-              palm contact) was down at the same time, disqualifying it as a
-              single-finger tap. */}
-          {tapDebugEnabled && (
-            <div className={styles.debugOverlay}>
-              {tapDebug ? (
-                <>
-                  <div>pointerType: {tapDebug.pointerType}</div>
-                  <div>max move: {tapDebug.maxDistPx.toFixed(1)}px (threshold {TAP_MOVE_THRESHOLD_PX}px)</div>
-                  <div>concurrent touches: {tapDebug.concurrentTouches}</div>
-                  <div>was tap: {String(tapDebug.wasTap)}</div>
-                  <div>on control: {String(tapDebug.onControl)}</div>
-                  <div>taps: {tapDebug.tapsSoFar}/{tapDebug.tapsRequired}</div>
-                </>
-              ) : (
-                <div>tap the canvas to see tap stats</div>
-              )}
-            </div>
-          )}
-
-          {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} tool={drawingTool} />}
-        </div>
-      )}
+      {/* (#493) The developer overlays — see DebugStack. */}
+      <DebugStack
+        debugEnabled={debugEnabled} hapticGrainEnabled={hapticGrainEnabled}
+        tapDebugEnabled={tapDebugEnabled} pencilSoundTuningEnabled={pencilSoundTuningEnabled}
+        strokeStats={strokeStats} hapticStats={hapticStats} tapDebug={tapDebug}
+        engineRef={engineRef} pencilSoundRef={pencilSoundRef} tool={tool} drawingTool={drawingTool}
+      />
     </div>
   )
 }

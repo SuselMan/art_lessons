@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
-import { setRoomClosed } from './rooms.js'
+import { setRoomClosed } from './ownerControls.js'
 import { isLesson } from './lessons.js'
 
 /** (#222) Told when a room's closed-for-editing state changes, so whoever is

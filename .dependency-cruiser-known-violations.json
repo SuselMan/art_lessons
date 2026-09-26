@@ -114,20 +114,6 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/index.tsx",
-    "to": "apps/web/src/engine/src/paperLoader.ts",
-    "unresolvedTo": "../../engine/src/paperLoader",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "engine-public-api-only"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "apps/web/src/pages/Room/reportRestore.ts",
     "to": "apps/web/src/engine/src/snapshotAudit.ts",
     "unresolvedTo": "../../engine/src/snapshotAudit",
@@ -769,38 +755,6 @@
         "dependencyTypes": [
           "local",
           "type-only",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "packages/shared/src/dabCodec.ts",
-    "to": "packages/shared/src/index.ts",
-    "unresolvedTo": "./index.js",
-    "dependencyTypes": [
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "warn",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "packages/shared/src/index.ts",
-        "dependencyTypes": [
-          "local",
-          "type-only",
-          "import"
-        ]
-      },
-      {
-        "name": "packages/shared/src/dabCodec.ts",
-        "dependencyTypes": [
-          "local",
           "import"
         ]
       }

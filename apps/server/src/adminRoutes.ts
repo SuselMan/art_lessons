@@ -13,7 +13,7 @@ import { normalizeIp } from './sessions.js'
 import { readDisk } from './disk.js'
 import { readMemory } from './memory.js'
 import { prisma } from './prisma.js'
-import { getResidentRoomStats, listLiveLessons } from './rooms.js'
+import { getResidentRoomStats, listLiveLessons } from './roomStats.js'
 
 /** What the admin routes need from the live socket server. Passed in rather
  *  than imported for the same reason the room routes take their notifiers:

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
-import { canSeeResidentBoard, getParticipant } from './rooms.js'
+import { canSeeResidentBoard } from './classroom.js'
+import { getParticipant } from './rooms.js'
 import { canSeeBoard, lessonOf } from './lessons.js'
 
 /** (#176) The two persisted checks below are about *membership*, and

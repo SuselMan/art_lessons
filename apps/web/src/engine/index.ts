@@ -8,6 +8,9 @@ import {
   createPlaceholderPaperTexture, generatePaperMipmaps, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
+import { CheckpointStore } from './src/checkpointStore'
+import { ScratchFreeList, ScratchSlot } from './src/scratchPools'
+import { SnapshotLedger } from './src/snapshotLedger'
 import { previewDownscaleChain } from './src/previewChain'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
@@ -121,6 +124,8 @@ export type { HapticGrainStats }
 // from a real change — the same functions the engine applies, so the dialog's
 // graph is the curve that will actually be used.
 export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/layerFilters'
+// (#345, #493) The paper download's progress, for the room's loading overlay.
+export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paperLoader'
 export type { Matrix3 }
 export type { RulerLine }
 
@@ -1293,61 +1298,6 @@ interface PreviewTile {
 }
 
 // Pixel snapshot of a layer after its first `opIds.length` pixel operations.
-// Valid only while those exact operations are still the layer's done prefix —
-// checked at lookup time, so undo/redo never has to invalidate anything.
-// One entry per buffer the layer held at snapshot time (#137: bounded layers
-// always have exactly one, at origin (0,0); tiled layers have one per tile
-// resident then — a tile not yet resident at snapshot time simply has no
-// entry, same as it has no content, and restore leaves it absent rather than
-// materializing an empty tile).
-interface CheckpointTile {
-  originX: number
-  originY: number
-  width: number
-  height: number
-  /** (#467) Run-length packed, not raw RGBA — see pinnedTiles.ts for the
-   *  format and for the 235 MB of production room this saves. Unpacked in
-   *  `_replayInto`, one tile at a time, and dropped again with the iteration
-   *  that read it. `width * height * 4` is the size to unpack back to. */
-  packed: Uint8Array
-}
-interface Checkpoint {
-  layerId: string
-  opIds: string[]
-  tiles: CheckpointTile[]
-  // (#287) Set only for the synthetic checkpoint restoreLayerFromSnapshot
-  // seeds — the pixels a network snapshot brought in, for which this
-  // checkpoint is the only local record: the operations that painted them are
-  // below the log window and will never arrive.
-  //
-  // (#522) Split from `pinned`, which used to mean both "came from a snapshot"
-  // and "exempt from eviction". Those two stop coinciding the moment the
-  // layer's buffer is destroyed — see _destroyBuffer.
-  fromSnapshot?: boolean
-  // Exempt from the byte-budget eviction an ordinary checkpoint is subject to,
-  // because losing this one loses content rather than just speed. Held only
-  // while the layer is alive; a destroyed layer's checkpoint stays but becomes
-  // evictable (#522).
-  pinned?: boolean
-  // (#479) Pinned checkpoints only. The room seq the restored pixels were
-  // baked at, and the ids of log operations those pixels already contain.
-  //
-  // A pinned checkpoint carries `opIds: []` because at restore time the log
-  // holds nothing for this layer — which is true then and stops being true
-  // the moment background backfill *prepends* the pre-snapshot history
-  // (`absorbHistoricalOperations`). From then on the checkpoint's pixels are
-  // a superset of what its opIds claim, and a rebuild replays operations the
-  // snapshot already contains on top of it. `opIds` cannot simply absorb
-  // them: a prefix mismatch (one of those operations later undone) would
-  // disqualify the checkpoint entirely and fall back to a replay from empty,
-  // which for a restored layer means losing everything below the backfill
-  // window. So the covered set is consulted as a filter instead — the
-  // checkpoint always applies, and the operations it already holds are
-  // skipped rather than repainted.
-  coveredSeq?: number
-  covered?: Set<string>
-}
-
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 // Default per-texture background, used when a room has no explicit
@@ -1414,21 +1364,6 @@ function destroyField(f: SettleField): void {
   for (const b of [f.a, f.b, f.c, f.coverage, f.ca, f.cb, f.cc, f.mask, f.pressure, f.band]) b.destroy()
 }
 
-/** (#536, §17.49) Where a checkpoint's operations end in `ops`, or -1 when
- *  they are not the log up to some point. An operation in `inSnapshot` may
- *  stand between them (history backfilled in front of a checkpoint taken over
- *  the snapshot that holds it) - see PencilEngine._bestCheckpoint. */
-export function checkpointPrefixEnd(
-  opIds: readonly string[], ops: readonly { id: string }[], inSnapshot: ReadonlySet<string> | null,
-): number {
-  let j = 0, end = 0
-  for (let i = 0; i < ops.length && j < opIds.length; i++) {
-    if (ops[i].id === opIds[j]) { j++; end = i + 1; continue }
-    if (inSnapshot?.has(ops[i].id)) continue
-    return -1
-  }
-  return j === opIds.length ? end : -1
-}
 const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 /** (#480) Сколько отказов _takeCheckpoint подряд по одному слою считаем не
  *  штатным «перо ещё внизу», а залипанием. Двадцать границ чекпойнта — это
@@ -2331,7 +2266,7 @@ export class PencilEngine implements PencilEngineAPI {
   // _previewBuf has never been created yet or was invalidated by context
   // loss; _previewBuf itself is still nulled every stroke end (see _onEnd)
   // so _display()'s `if (this._previewBuf)` blend-skip is unaffected.
-  private _previewBufPool: AccumulationBuffer | null = null
+  private _previewBufPool: ScratchSlot<AccumulationBuffer>
 
   // Live-tip segment preview (#104) — all no-ops unless _liveTip is true.
   // _tipBuf is a dedicated, stroke-scoped AccumulationBuffer, same lifecycle
@@ -2345,7 +2280,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _tipBuf: AccumulationBuffer | null = null
   private _tipBufOrigin = { x: 0, y: 0 }
   // (#155) Same pooling as _previewBufPool above, see _acquireTipBuf.
-  private _tipBufPool: AccumulationBuffer | null = null
+  private _tipBufPool: ScratchSlot<AccumulationBuffer>
 
   // (#155) Scratch buffers for _bakeTransform's per-destination-tile pass —
   // unlike _tipBufPool/_previewBufPool (always exactly one buffer, canvas-
@@ -2357,7 +2292,7 @@ export class PencilEngine implements PencilEngineAPI {
   // Every tile a single bake touches is the same size (a room's tile grid
   // never changes shape after construction — see _tileSize), so in practice
   // this settles into a pool of uniformly-sized buffers after the first bake.
-  private _transformScratchPool: AccumulationBuffer[] = []
+  private _transformScratchPool: ScratchFreeList<AccumulationBuffer>
 
   // Smudge scratch patches (#14) — a small size-keyed free list, same
   // pooling shape as _transformScratchPool above (see
@@ -2367,7 +2302,7 @@ export class PencilEngine implements PencilEngineAPI {
   // always NEAREST (see AccumulationBuffer's own 'nearest' filter comment
   // for why) — sharing one pool would risk handing either caller a buffer
   // filtered the wrong way for what it's about to do with it.
-  private _smudgeScratchPool: AccumulationBuffer[] = []
+  private _smudgeScratchPool: ScratchFreeList<AccumulationBuffer>
 
   // Marker's own per-stroke, per-tile scratch (original content + this
   // stroke's accumulated coverage — see RibbonStrokeScratch's own doc
@@ -2934,35 +2869,15 @@ export class PencilEngine implements PencilEngineAPI {
   // Layer management
   private _layers: Map<string, ILayerBuffer>
   private _baseLayerIds: Set<string> // pre-log layers (background, initial layer)
-  // (#374) layerId -> the room seq this layer's restored pixels reach. Written
-  // only by restoreLayerFromSnapshot, read only by _isCoveredByRestore.
-  private readonly _snapshotCoverage = new Map<string, number>()
-  // (#522) Layers this engine knows it cannot describe truthfully any more: a
-  // rebuild replayed one whose pixels reach below the log window, without the
-  // snapshot checkpoint that held them. The canvas is already wrong here and
-  // only a reload fixes that — but a *stored* snapshot of it is worse than
-  // none, because the server then withholds the operations it claims to cover
-  // (rooms.ts's isCoveredBySnapshot) and the loss becomes everyone's, forever.
-  // So the bake refuses instead. Cleared by a restore, which makes the layer
-  // authoritative again.
-  private readonly _unbakeableLayers = new Set<string>()
+  // (#373, #374, #522) Each layer's standing with the room's stored snapshot —
+  // anything new to publish, what its restored pixels already contain, whether
+  // it may be published at all. See snapshotLedger.ts.
+  private readonly _snapshots = new SnapshotLedger()
   // (#474) One record per restoreLayerFromSnapshot call since the last drain —
   // see takeSnapshotRestoreAudit. Bounded by the number of layers in a room's
   // snapshot index and emptied by every read, so it cannot grow with session
   // length the way an event log would.
   private _restoreAudit: SnapshotRestoreAudit[] = []
-  // (#373) Monotonic per-layer "the pixels changed" counter, and the value it
-  // held when this layer's current pixels last became known to the server.
-  // Equal means there is nothing new to send.
-  //
-  // A counter rather than a comparison of the log: undo changes pixels without
-  // adding an operation, and "undid one, drew one" leaves every count in the
-  // log exactly where it was. Bumped by `_markLayerDirty` from every path that
-  // can change a layer's pixels — `index.snapshotDirty.test.ts` exists to hold
-  // that list complete, since a path that forgets to bump produces a snapshot
-  // that is silently stale rather than one that is obviously missing.
-  private readonly _layerRevision = new Map<string, number>()
-  private readonly _bakedRevision = new Map<string, number>()
   private _compositeOrder: CompositeItem[]
   /** (#557) See setDisplayFilter. `null` means the screen shows the whole of
    *  `_compositeOrder`. Never consulted by the export path. */
@@ -2982,8 +2897,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   // Operation log — source of truth; buffers and checkpoints are derived caches
   private _log: OperationLog
-  private _checkpoints: Checkpoint[]
-  private _checkpointBytes: number
+  private _checkpoints: CheckpointStore
   // (#169) Running total of entries absorbHistoricalOperations has ever
   // prepended — see getOperationsSinceRestore's own doc comment. Entries at
   // local seq < this value are the historical prefix; renumbering on every
@@ -3122,6 +3036,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!gl) throw new Error('WebGL not supported')
     this.gl = gl
     this._ribbonScratchPool = new RibbonScratchPool(gl)
+    // (#494) See scratchPools.ts. What each buffer is set up for — transform's
+    // resample and smudge's patches sample differently — stays here.
+    this._previewBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
+    this._tipBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
+    this._transformScratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h))
+    this._smudgeScratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'))
 
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
@@ -3175,8 +3095,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._activeId        = null
     this._locked          = false
     this._log             = new OperationLog()
-    this._checkpoints     = []
-    this._checkpointBytes = 0
+    this._checkpoints     = new CheckpointStore(CHECKPOINT_BUDGET_BYTES)
     this._strokeLayerId   = null
     this._strokeTool      = 'pencil'
     this._strokePreset    = this._opts.pencilType
@@ -3445,13 +3364,13 @@ export class PencilEngine implements PencilEngineAPI {
         // (#374) See the stroke branch: already in the restored pixels, so
         // re-applying it would wipe content the snapshot took *after* this
         // clear happened.
-        if (clearBuf && this._isCoveredByRestore(op.layerId, op.seq)) {
+        if (clearBuf && this._snapshots.isCovered(op.layerId, op.seq)) {
           this._log.revoke(op.id)
           break
         }
         if (clearBuf) {
           clearBuf.clear()
-          this._markLayerDirty(op.layerId)
+          this._snapshots.markDirty(op.layerId)
           // #122: a remote layer_clear (or this client's own, via clear())
           // can target any layer, not necessarily this client's active one —
           // only invalidate when it lands on a layer the cache actually
@@ -3477,7 +3396,7 @@ export class PencilEngine implements PencilEngineAPI {
         // do not — but must not composite anything: the result's pixels came
         // back from the snapshot, and `_execMergeLive` would replace that
         // buffer with a freshly composited one, discarding them.
-        if (this._isCoveredByRestore(op.layerId, op.seq)) this._execMergeStructuralOnly(op)
+        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execMergeStructuralOnly(op)
         else this._execMergeLive(op)
         break
       case 'layer_duplicate':
@@ -3486,7 +3405,7 @@ export class PencilEngine implements PencilEngineAPI {
         // snapshot, and re-copying the source over them would be wrong twice —
         // it discards whatever was painted on the copy after the duplicate, and
         // the source itself has moved on since.
-        if (this._isCoveredByRestore(op.layerId, op.seq)) this._execDuplicateStructuralOnly(op)
+        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execDuplicateStructuralOnly(op)
         else this._execDuplicateLive(op)
         break
       case 'stroke': {
@@ -3502,7 +3421,7 @@ export class PencilEngine implements PencilEngineAPI {
         // the next time this layer rebuilds, which is the same double-paint
         // one step later. Same treatment, and same reasoning, as a pixel op
         // whose target no longer exists.
-        if (buf && this._isCoveredByRestore(op.layerId, op.seq)) {
+        if (buf && this._snapshots.isCovered(op.layerId, op.seq)) {
           this._log.revoke(op.id)
           break
         }
@@ -3529,7 +3448,7 @@ export class PencilEngine implements PencilEngineAPI {
           // (#536) The same dabs, and the same slice: whatever the live stream
           // already delivered has already wet the paper here.
           this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing)
-          this._markLayerDirty(op.layerId)
+          this._snapshots.markDirty(op.layerId)
           // (#468) Never mid-wash, the same rule the local path follows one
           // stroke over. A checkpoint bakes the layer's pixels, and the strokes
           // of a wash share an accumulation whose frozen base is the canvas as
@@ -3561,12 +3480,12 @@ export class PencilEngine implements PencilEngineAPI {
       case 'image_import': {
         const buf = this._layers.get(op.layerId)
         // (#374) See the stroke branch.
-        if (buf && this._isCoveredByRestore(op.layerId, op.seq)) {
+        if (buf && this._snapshots.isCovered(op.layerId, op.seq)) {
           this._log.revoke(op.id)
           break
         }
         if (buf) {
-          this._markLayerDirty(op.layerId)
+          this._snapshots.markDirty(op.layerId)
           // (#398) The image is already decoded on every replay path (see
           // preloadImages) — paint it here and now, so the operations after
           // it in this same loop see the pixels they were recorded against.
@@ -3597,12 +3516,12 @@ export class PencilEngine implements PencilEngineAPI {
       case 'area_clear': {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
-        if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
+        if (this._snapshots.isCovered(op.layerId, op.seq)) { this._log.revoke(op.id); break }
         if (op.type === 'layer_filter') this._applyFilter(buf, op.filter)
         else if (op.type === 'shape') this._drawShape(buf, op)
         else if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
         else this._clearArea(buf, op.selection)
-        this._markLayerDirty(op.layerId)
+        this._snapshots.markDirty(op.layerId)
         this._maybeCheckpoint(op.layerId)
         if (op.layerId !== this._activeId) this._invalidateSplitCache()
         this._displayIfNotSuspended()
@@ -3617,8 +3536,8 @@ export class PencilEngine implements PencilEngineAPI {
       case 'area_fill': {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
-        if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
-        this._markLayerDirty(op.layerId)
+        if (this._snapshots.isCovered(op.layerId, op.seq)) { this._log.revoke(op.id); break }
+        this._snapshots.markDirty(op.layerId)
         const record = this._asImportRecord(op)
         const matrix = op.type === 'area_paste' ? op.matrix : undefined
         // Same decoded/late split as image_import above — see #398. A local
@@ -3652,9 +3571,9 @@ export class PencilEngine implements PencilEngineAPI {
           // effect on this layer, just earlier, and revoking it here would
           // make a later undo unable to take it back off the layers it
           // genuinely still applies to.
-          if (this._isCoveredByRestore(t.layerId, op.seq)) { appliedAny = true; continue }
+          if (this._snapshots.isCovered(t.layerId, op.seq)) { appliedAny = true; continue }
           this._bakeTransform(buf, t.matrix)
-          this._markLayerDirty(t.layerId)
+          this._snapshots.markDirty(t.layerId)
           this._maybeCheckpoint(t.layerId)
           // #122: layer_transform is pixel-only — it never changes
           // LayerState/_compositeOrder, so (unlike stroke/clear/merge) Room
@@ -4537,7 +4456,7 @@ export class PencilEngine implements PencilEngineAPI {
     // when their operation lands — the point of the live stream is that the
     // other person's mark is there to work into while they are still drawing.
     this._wetFromForeignStroke(packet.layerId, packet.tool, packet.preset, dabs, null, standing)
-    this._markLayerDirty(packet.layerId)
+    this._snapshots.markDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
     this._displayIfNotSuspended()
   }
@@ -4770,18 +4689,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._assemblyFBO.destroy()
     // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
     // are just a possibly-mid-stroke alias of the same object (see
-    // _acquirePooledBuf), so destroying via the pool alone avoids a
+    // ScratchSlot), so destroying via the pool alone avoids a
     // double-destroy of the same GL object.
-    this._previewBufPool?.destroy()
-    this._previewBufPool = null
+    this._previewBufPool.destroy()
     this._previewBuf = null
-    this._tipBufPool?.destroy()
-    this._tipBufPool = null
+    this._tipBufPool.destroy()
     this._tipBuf = null
-    for (const b of this._transformScratchPool) b.destroy()
-    this._transformScratchPool = []
-    for (const b of this._smudgeScratchPool) b.destroy()
-    this._smudgeScratchPool = []
+    this._transformScratchPool.destroy()
+    this._smudgeScratchPool.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
@@ -4811,13 +4726,12 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._transformPreview.clear()
     this._areaPreviewLayers.clear()
-    this._checkpoints = []
-    this._checkpointBytes = 0
+    this._checkpoints.clear()
     // (#381) Nothing left to rebuild into — the buffers are gone.
     this._pendingRebuilds.clear()
     // (#522) Nor is there a layer left to refuse to publish; whatever restores
     // into this engine next is what it will have to answer for.
-    this._unbakeableLayers.clear()
+    this._snapshots.clearRefusals()
   }
 
   // ─── History / replay ────────────────────────────────────────────────────────
@@ -4963,14 +4877,14 @@ export class PencilEngine implements PencilEngineAPI {
     // knowingly incomplete layer, and this is the one place that can tell:
     // afterwards nothing distinguishes it from a layer that is simply emptier
     // than it used to be.
-    if (this._snapshotCoverage.has(layerId)
-      && !this._checkpoints.some(cp => cp.fromSnapshot && cp.layerId === layerId)) {
-      this._unbakeableLayers.add(layerId)
+    if (this._snapshots.hasCoverage(layerId)
+      && !this._checkpoints.hasSnapshotFor(layerId)) {
+      this._snapshots.refusePublishing(layerId)
     }
     // (#373) The single choke point for undo/redo/revoke reaching pixels —
     // the case a comparison of log counts cannot see, since undoing one
     // operation and drawing another leaves every count where it was.
-    this._markLayerDirty(layerId)
+    this._snapshots.markDirty(layerId)
     // #122: single choke point for all three callers (undo/redo/revoke of a
     // stroke/layer_clear/layer_transform, and _syncBuffersToLog's own replay
     // of a freshly-recreated layer) — whichever layer this rebuild just
@@ -5002,7 +4916,7 @@ export class PencilEngine implements PencilEngineAPI {
     tiled?.suspendEviction()
     try {
       let start = 0
-      const best = this._bestCheckpoint(layerId, ops)
+      const best = this._checkpoints.best(layerId, ops)
       const cp = best?.cp
       if (best && cp) {
         buf.clear()
@@ -5394,7 +5308,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (buf) this._compositeLayerInto(buf, target, s.opacity)
     }
     this._layers.set(op.layerId, target)
-    this._markLayerDirty(op.layerId)
+    this._snapshots.markDirty(op.layerId)
     for (const s of op.sources) this._destroyBuffer(s.id)
     this._takeCheckpoint(op.layerId)
     this._displayIfNotSuspended()
@@ -5436,7 +5350,7 @@ export class PencilEngine implements PencilEngineAPI {
     // must not be baked into the pixels here.
     if (source) this._compositeLayerInto(source, target, 1)
     this._layers.set(op.layerId, target)
-    this._markLayerDirty(op.layerId)
+    this._snapshots.markDirty(op.layerId)
     this._takeCheckpoint(op.layerId)
     this._displayIfNotSuspended()
   }
@@ -5478,11 +5392,11 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     this._fieldCache = []
     this._previewBuf = null
-    this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
+    this._previewBufPool.forget() // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
-    this._tipBufPool = null
-    this._transformScratchPool = [] // (#155) pooled GL objects are dead too, not worth destroy()ing
-    this._smudgeScratchPool = [] // same reasoning, see #14
+    this._tipBufPool.forget()
+    this._transformScratchPool.forget() // (#155) pooled GL objects are dead too, not worth destroy()ing
+    this._smudgeScratchPool.forget() // same reasoning, see #14
     this._ribbonStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
     this._ribbonStrokeScratch = null
     // Context loss took the wash's buffers too; drop the handles without
@@ -5596,7 +5510,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  (#137) One tile snapshot per currently-resident buffer (allResident()
    *  — a bounded layer always has exactly one; a tiled layer has one per
    *  tile touched so far). A tile created *after* this checkpoint isn't
-   *  retroactively added to it — _bestCheckpoint only ever picks a
+   *  retroactively added to it — CheckpointStore.best only ever picks a
    *  checkpoint whose opIds are an exact prefix of the current done ops, so
    *  replaying that checkpoint's excluded tail is exactly what brings a
    *  later tile into existence again, the same as it did the first time. */
@@ -5653,29 +5567,7 @@ export class PencilEngine implements PencilEngineAPI {
       packed: packTilePixels(buffer.readPixels()),
     }))
     if (!tiles.length) return
-    this._checkpoints.push({ layerId, opIds: ops.map(o => o.id), tiles })
-    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
-    this._evictCheckpointsOverBudget()
-  }
-
-  /** Evicts the oldest *unpinned* checkpoints (in insertion order) until
-   *  either the byte budget is satisfied or nothing evictable is left.
-   *  Pinned checkpoints (#287 — see restoreLayerFromSnapshot) are never
-   *  touched: unlike an ordinary checkpoint, whose eviction only makes the
-   *  next undo/redo/revoke replay fall back to a slower-but-still-correct
-   *  full from-log replay, a pinned one is the *only* record of a layer's
-   *  pre-snapshot content — evicting it would silently wipe real content on
-   *  the next replay instead. If every remaining checkpoint is pinned, this
-   *  simply stops rather than exceeding the budget, same "never impossible,
-   *  just slower/bigger" philosophy CHECKPOINT_BUDGET_BYTES's own doc
-   *  comment already commits to for the unpinned case. */
-  private _evictCheckpointsOverBudget(): void {
-    while (this._checkpointBytes > CHECKPOINT_BUDGET_BYTES) {
-      const index = this._checkpoints.findIndex(cp => !cp.pinned)
-      if (index === -1) break
-      const [evicted] = this._checkpoints.splice(index, 1)
-      this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
-    }
+    this._checkpoints.add({ layerId, opIds: ops.map(o => o.id), tiles })
   }
 
   /** See the PencilEngineAPI doc comment. Same allResident() gather as
@@ -5721,9 +5613,9 @@ export class PencilEngine implements PencilEngineAPI {
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
     const buf = this._layers.get(layerId)
     if (!buf) return null
-    // (#522) See _unbakeableLayers: publishing what this client holds would
+    // (#522) See SnapshotLedger's refusals: publishing what this client holds would
     // overwrite the room's own record of the layer with less than it has.
-    if (this._unbakeableLayers.has(layerId)) return null
+    if (!this._snapshots.mayPublish(layerId)) return null
     // (#373) Content is judged from the buffer, never from the log. It used to
     // bail on `layerPixelOps(layerId).length === 0`, reading "no operations of
     // mine mention this layer" as "this layer is empty" — but the log is a
@@ -5746,7 +5638,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#373) Whatever the caller does with these bytes, this layer's current
     // pixels have now left the engine — anything that changes them after this
     // point is what makes it dirty again.
-    this._bakedRevision.set(layerId, this._layerRevision.get(layerId) ?? 0)
+    this._snapshots.markPublished(layerId)
     return encodeLayerTiles(tiles)
   }
 
@@ -5754,7 +5646,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  exists alongside bakeNetworkSnapshot rather than sharing its code.
    *
    *  The independence is the entire point, so this deliberately does NOT
-   *  route through `_replayInto` (which consults `_bestCheckpoint` and would
+   *  route through `_replayInto` (which consults `CheckpointStore.best` and would
    *  reintroduce exactly the shared machinery being checked) — it walks the
    *  done pixel ops itself, from an empty scratch buffer, applying each via
    *  the same `_applyPixelOp` primitive a first-ever paint would. Any future
@@ -5789,7 +5681,7 @@ export class PencilEngine implements PencilEngineAPI {
    *
    *  (#287) Also seeds a *pinned* local checkpoint from these same tiles —
    *  without it, this layer's pre-snapshot content exists only in the buffer
-   *  itself, invisible to `_bestCheckpoint`/`_rebuildLayer`. The very next
+   *  itself, invisible to `CheckpointStore.best`/`_rebuildLayer`. The very next
    *  undo/redo/revoke of a stroke/layer_clear/layer_transform on this layer
    *  (this client's own, or any peer's — every replica applies the same
    *  meta-op) would then find no matching checkpoint, `buf.clear()`, and
@@ -5799,7 +5691,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  pruneOperationsBeforeSnapshot) can permanently exclude everything this
    *  snapshot was restoring in the first place. Pinning this exact state as
    *  a checkpoint with an empty `opIds` prefix makes it the correct fallback
-   *  instead: `_bestCheckpoint` matches it trivially against any current
+   *  instead: `CheckpointStore.best` matches it trivially against any current
    *  `ops` (an empty array prefixes anything), so replay restores these
    *  tiles and then re-applies only the pixel ops this client actually
    *  knows happened since — exactly what already happens for an ordinary
@@ -5807,7 +5699,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  paint. Naturally superseded (never has to be invalidated by hand) once
    *  real historical ops eventually get backfilled in front of it: their
    *  presence shifts the current `ops` prefix, and the id-based prefix
-   *  match in `_bestCheckpoint` stops matching this checkpoint on its own. */
+   *  match in `CheckpointStore.best` stops matching this checkpoint on its own. */
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     // (#474) Counted before anything can return early, so a dropped restore
     // still reports the size of what it dropped.
@@ -5877,13 +5769,13 @@ export class PencilEngine implements PencilEngineAPI {
       residentAfter: resident.length,
       withContentAfter: resident.filter(t => t.contentRect !== null).length,
     })
-    if (coveredSeq !== undefined) this._snapshotCoverage.set(layerId, coveredSeq)
+    if (coveredSeq !== undefined) this._snapshots.setCoverage(layerId, coveredSeq)
     // (#373) These pixels *are* what the server already stores, so the layer
     // is marked changed (it is — the buffer was empty a moment ago) and
     // immediately marked as known to the server. Otherwise every joining
     // client would re-bake and re-upload the whole room it just downloaded.
-    this._markLayerDirty(layerId)
-    this._bakedRevision.set(layerId, this._layerRevision.get(layerId)!)
+    this._snapshots.markDirty(layerId)
+    this._snapshots.markPublished(layerId)
     // The *painted* set, not what arrived: a checkpoint restore clears the
     // buffer before replaying its tiles (see _rebuildLayerFromLog), so a blank
     // tile there can only ever cost memory, never carry meaning.
@@ -5927,22 +5819,12 @@ export class PencilEngine implements PencilEngineAPI {
     for (let i = 0; i < 16; i++) if (this.gl.getError() === this.gl.NO_ERROR) return
   }
 
-  /** (#373) Records that this layer's pixels changed. Cheap enough to call
-   *  from anywhere that might have changed them, and that is how it should be
-   *  called — the cost of an unnecessary bump is one redundant bake, the cost
-   *  of a missing one is a stored snapshot that quietly no longer matches the
-   *  layer it claims to be. */
-  private _markLayerDirty(layerId: string): void {
-    this._layerRevision.set(layerId, (this._layerRevision.get(layerId) ?? 0) + 1)
-  }
-
   /** (#373) Whether this layer holds pixels the server does not have.
    *
    *  A layer nobody has ever painted is not dirty, which is why a room's
    *  untouched `background` never costs a bake. */
   isLayerDirty(layerId: string): boolean {
-    const revision = this._layerRevision.get(layerId) ?? 0
-    return revision !== 0 && revision !== this._bakedRevision.get(layerId)
+    return this._snapshots.isDirty(layerId)
   }
 
   /** See the PencilEngineAPI doc comment. */
@@ -5950,44 +5832,19 @@ export class PencilEngine implements PencilEngineAPI {
     return [...this._layers.keys()]
   }
 
-  /** (#374) Whether this layer's restored pixels already account for an
-   *  operation at `seq`.
-   *
-   *  Compared against the *room* seq the operation arrived with, not the log's
-   *  own numbering — `OperationLog.append` renumbers entries to their array
-   *  index, so only the copy the caller still holds carries the server's. Every
-   *  caller therefore has to ask this before appending, which is why the checks
-   *  sit in `appendOperation` rather than deeper down. */
-  private _isCoveredByRestore(layerId: string, seq: number | undefined): boolean {
-    const covered = this._snapshotCoverage.get(layerId)
-    return covered !== undefined && seq !== undefined && seq <= covered
-  }
-
   /** See restoreLayerFromSnapshot's own doc comment for why this exists.
    *  Replaces (rather than adds to) any pinned checkpoint this layer already
    *  had — only relevant if restoreLayerFromSnapshot is ever called twice
    *  for the same layer in one engine lifetime (e.g. a reconnect re-restoring
    *  a still-mounted engine); the newer restore is always a superset, and
-   *  `_bestCheckpoint`'s "first checkpoint of the longest matching length
+   *  `CheckpointStore.best`'s "first checkpoint of the longest matching length
    *  wins" tie-break would otherwise let a stale one linger and win ties
    *  against the newer, more complete one at the same (empty) opIds length. */
   private _pinSnapshotCheckpoint(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     if (!tiles.length) return
-    // (#522) Matched on `fromSnapshot`, not on `pinned`: a layer that was
-    // destroyed and restored again has an unpinned snapshot checkpoint of its
-    // own, and leaving it behind would put two of them in the list for one
-    // layer — _bestCheckpoint prefers neither (both claim `opIds: []`), so the
-    // stale one could win and repaint the layer as it was two restores ago.
-    for (let i = this._checkpoints.length - 1; i >= 0; i--) {
-      const cp = this._checkpoints[i]
-      if (cp.fromSnapshot && cp.layerId === layerId) {
-        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
-        this._checkpoints.splice(i, 1)
-      }
-    }
     // These pixels are authoritative again, so whatever made this layer
     // unpublishable no longer holds (#522).
-    this._unbakeableLayers.delete(layerId)
+    this._snapshots.allowPublishing(layerId)
     // (#467) Packed here rather than by the caller: this is the only place
     // that knows these tiles are about to be held for the life of the room
     // instead of read and dropped. See pinnedTiles.ts.
@@ -5995,11 +5852,9 @@ export class PencilEngine implements PencilEngineAPI {
       originX: t.originX, originY: t.originY, width: t.width, height: t.height,
       packed: packTilePixels(t.pixels),
     }))
-    this._checkpoints.push({
-      layerId, opIds: [], tiles: held, fromSnapshot: true, pinned: true, coveredSeq, covered: new Set(),
-    })
-    this._checkpointBytes += held.reduce((sum, t) => sum + t.packed.byteLength, 0)
-    this._evictCheckpointsOverBudget()
+    // Replaces any snapshot checkpoint this layer already had — see
+    // CheckpointStore.pinSnapshot for why it is matched on `fromSnapshot`.
+    this._checkpoints.pinSnapshot(layerId, held, coveredSeq)
   }
 
   /** See the PencilEngineAPI doc comment and OperationLog.prependHistorical's
@@ -6025,13 +5880,9 @@ export class PencilEngine implements PencilEngineAPI {
     // its snapshot — record them so a later rebuild skips rather than repaints
     // them. Read from `ops` rather than the log because only these copies
     // still carry the server's seq: `OperationLog.append` renumbers entries to
-    // their array index (see _isCoveredByRestore's own comment), so once they
+    // their array index (see SnapshotLedger.isCovered's own comment), so once they
     // are in, "is this older than the snapshot?" is no longer answerable.
-    for (const cp of this._checkpoints) {
-      const { coveredSeq, covered } = cp
-      if (coveredSeq === undefined || !covered) continue
-      for (const op of ops) if ((op.seq ?? 0) <= coveredSeq) covered.add(op.id)
-    }
+    this._checkpoints.markCovered(ops)
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
     // Decoding in the background now is what lets it find the image ready;
@@ -6042,41 +5893,6 @@ export class PencilEngine implements PencilEngineAPI {
   /** See the PencilEngineAPI doc comment. */
   getOperationsSinceRestore(): Operation[] {
     return this._log.doneOperations().filter(op => (op.seq ?? 0) >= this._historicalEntryCount)
-  }
-
-  /** Deepest checkpoint whose baked operations are exactly the current done
-   *  prefix of `ops` (compared by id — undone/redone/revoked ops shift the
-   *  prefix and silently disqualify stale snapshots). */
-  /** The checkpoint to rebuild `layerId` from, and the index in `ops` its
-   *  pixels reach to. A checkpoint is usable when its operations are exactly
-   *  what the log holds up to some point...
-   *
-   *  (#536, §17.49) ...not counting operations a restored SNAPSHOT of this
-   *  layer already holds. A room opens by replaying its tail over the
-   *  snapshot, and the history below the snapshot arrives afterwards (the
-   *  backfill) and goes into the log IN FRONT of the tail. Every checkpoint
-   *  taken before it - the one right after the tail, above all - then no
-   *  longer matched the log's prefix, so an undo fell back to the snapshot
-   *  and replayed the whole tail: 63 watercolour operations, each with its
-   *  whole settle, 50 s frozen on the tablet ("после undo зависла комната").
-   *  Those operations are in the checkpoint's pixels already (they are in
-   *  the snapshot it was built on), so they are stepped over, not required. */
-  private _bestCheckpoint(layerId: string, ops: PixelOperation[]): { cp: Checkpoint; start: number } | null {
-    let inSnapshot: Set<string> | null = null
-    for (const cp of this._checkpoints) {
-      if (cp.layerId !== layerId || !cp.fromSnapshot || !cp.covered) continue
-      inSnapshot ??= new Set()
-      for (const id of cp.covered) inSnapshot.add(id)
-    }
-    let best: { cp: Checkpoint; start: number } | null = null
-    for (const cp of this._checkpoints) {
-      if (cp.layerId !== layerId) continue
-      if (best && cp.opIds.length <= best.cp.opIds.length) continue
-      if (cp.opIds.length > ops.length) continue
-      const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
-      if (start >= 0) best = { cp, start }
-    }
-    return best
   }
 
   // ─── Internal ────────────────────────────────────────────────────────────────
@@ -6116,10 +5932,7 @@ export class PencilEngine implements PencilEngineAPI {
     // instead of lingering. The sweep is immediate, so a room that deletes
     // many restored layers does not sit above budget until the next
     // checkpoint is taken.
-    for (const cp of this._checkpoints) {
-      if (cp.fromSnapshot && cp.layerId === id) cp.pinned = false
-    }
-    this._evictCheckpointsOverBudget()
+    this._checkpoints.unpinSnapshot(id)
   }
 
   private _initGL(): void {
@@ -6699,12 +6512,12 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgMaxFrame = 0
     }
     if (this._predictPointer) {
-      this._previewBuf = this._acquirePooledBuf('_previewBufPool')
+      this._previewBuf = this._previewBufPool.acquire(this.canvas.width, this.canvas.height)
       this._previewBuf.clear()
       this._previewBufOrigin = this._cameraCenteredOrigin()
     }
     if (this._liveTip) {
-      this._tipBuf = this._acquirePooledBuf('_tipBufPool')
+      this._tipBuf = this._tipBufPool.acquire(this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
       this._tipBufOrigin = this._cameraCenteredOrigin()
     }
@@ -6920,7 +6733,7 @@ export class PencilEngine implements PencilEngineAPI {
     // ended — the final _display() below must show only real content.
     // (#155) Only drops the *active* reference now, not the underlying GL
     // object — that stays alive in _previewBufPool for the next stroke to
-    // reuse (see _acquirePooledBuf). _display()'s `if (this._previewBuf)`
+    // reuse (see ScratchSlot). _display()'s `if (this._previewBuf)`
     // blend-skip is keyed on this reference, not the pool, so behavior here
     // is identical to the old destroy(); only the GL object's lifetime
     // changed.
@@ -7266,7 +7079,7 @@ export class PencilEngine implements PencilEngineAPI {
     const layerId = this._strokeLayerId
     const buf = this._layers.get(layerId)
     if (!buf) return
-    this._markLayerDirty(layerId)
+    this._snapshots.markDirty(this._strokeLayerId)
 
     this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
     // #454, ADR 009 §4. Before painting *and* before _strokeDabs.push below,
@@ -7400,7 +7213,7 @@ export class PencilEngine implements PencilEngineAPI {
       const buf = this._layers.get(id)
       if (!buf) continue
       this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId)
-      this._markLayerDirty(id)
+      this._snapshots.markDirty(id)
     }
     // #122: on every batch, not once when the gesture starts. The composite
     // keeps everything below the active layer baked into one cached texture and
@@ -8915,14 +8728,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  three of them per dab). Kept separate from _transformScratchPool so
    *  neither caller can be handed a buffer set up for the other's sampling. */
   private _acquireSmudgeScratchBuf(size: number): AccumulationBuffer {
-    const pool = this._smudgeScratchPool
-    const idx = pool.findIndex(b => b.width === size && b.height === size)
-    if (idx !== -1) return pool.splice(idx, 1)[0]
-    return new AccumulationBuffer(this.gl, size, size, 'linear')
+    return this._smudgeScratchPool.acquire(size, size)
   }
 
   private _releaseSmudgeScratchBuf(buf: AccumulationBuffer): void {
-    this._smudgeScratchPool.push(buf)
+    this._smudgeScratchPool.release(buf)
   }
 
   // ─── Marker (#250, ADR 004 §3; compositing redesigned in a follow-up —
@@ -12347,52 +12157,14 @@ export class PencilEngine implements PencilEngineAPI {
     return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
   }
 
-  /** (#155) Returns this[poolField], creating or recreating it first if it's
-   *  missing or the wrong size (canvas.width x canvas.height, which changes
-   *  on infinite-room resizeCanvas). Fixes a real stall: _onStart used to
-   *  `new AccumulationBuffer(...)` a fresh _tipBuf/_previewBuf on *every*
-   *  single stroke — a full GL texture + framebuffer allocation, capped off
-   *  by AccumulationBuffer's own checkFramebufferStatus call (a known
-   *  GPU-sync point on some drivers) — then destroy it again at stroke end.
-   *  Harmless for a bounded room (buffer size = the room's fixed page size),
-   *  but for an infinite room this is sized to the DPR-scaled *viewport*
-   *  (see #154) — multi-megapixel on a real tablet — so every single
-   *  pointerdown paid a real allocation + sync stall. Measured on-device via
-   *  Chrome's own Interaction-to-Next-Paint breakdown: ~1s presentation
-   *  delay on a `pointerdown`, with JS-side processing under 20ms — exactly
-   *  a GPU-side stall the engine's own JS-timing stats (StrokeDebugStats)
-   *  can't see, since they only time the per-move paint path, not stroke
-   *  start. Fastest to notice writing short strokes quickly (many
-   *  pointerdowns in a row), which is exactly what surfaced this.
-   *
-   *  Reusing the same GL object across strokes (only reallocating on an
-   *  actual size change) turns that into a no-op after the first stroke.
-   *  The pool field stays alive across strokes; the *active* _tipBuf/
-   *  _previewBuf reference is still nulled at stroke end (see _onEnd) so
-   *  _display()'s `if (this._tipBuf)` blend-skip when idle is unaffected —
-   *  only the underlying GL object's lifetime changed, not the preview's own
-   *  visibility semantics. */
-  private _acquirePooledBuf(poolField: '_tipBufPool' | '_previewBufPool'): AccumulationBuffer {
-    const { canvas } = this
-    const existing = this[poolField]
-    if (existing && existing.width === canvas.width && existing.height === canvas.height) return existing
-    existing?.destroy()
-    const fresh = new AccumulationBuffer(this.gl, canvas.width, canvas.height)
-    this[poolField] = fresh
-    return fresh
-  }
-
   // (#155) _transformScratchPool's acquire/release pair — see the field's
   // own comment for why this is a free list rather than a single slot.
   private _acquireScratchBuf(width: number, height: number): AccumulationBuffer {
-    const pool = this._transformScratchPool
-    const idx = pool.findIndex(b => b.width === width && b.height === height)
-    if (idx !== -1) return pool.splice(idx, 1)[0]
-    return new AccumulationBuffer(this.gl, width, height)
+    return this._transformScratchPool.acquire(width, height)
   }
 
   private _releaseScratchBuf(buf: AccumulationBuffer): void {
-    this._transformScratchPool.push(buf)
+    this._transformScratchPool.release(buf)
   }
 
   /** (#138) World point that a live-tip/predicted/peer-reveal preview
@@ -13958,8 +13730,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  A flood fill needs an edge to stop at, and on this canvas that is not a
    *  given: layer storage is a sparse map of tiles that come into existence
    *  when something is painted on them, so "outward from an untouched pixel"
-   *  has no end. A room with a canvas has the obvious answer and uses it — the
-   *  canvas, exactly as a bucket behaves in every editor with a page. An
+   *  has no end. A room with a sheet has the obvious answer and uses it — the
+   *  sheet, exactly as a bucket behaves in every editor with a page. An
    *  infinite room (#436 took those off the create screen, but rooms made
    *  before it are still in production) has no page, so the drawing itself
    *  stands in for one: the content bounds of whatever the fill is reading,
@@ -13980,7 +13752,13 @@ export class PencilEngine implements PencilEngineAPI {
     }
     let rect: WorldRect
     if (!this._infinite) {
-      rect = { minX: 0, minY: 0, maxX: this.canvas.width, maxY: this.canvas.height }
+      // (#607) The sheet, not the canvas element. Until #470 those were the
+      // same size; since then the canvas is the on-screen surface (the size
+      // of the window), and a domain read off it left every tap below or
+      // right of that rectangle with no region at all — the fill silently did
+      // nothing on most of an A4 page.
+      const page = this._pageSize()
+      rect = { minX: 0, minY: 0, maxX: page.w, maxY: page.h }
     } else {
       // Union of what the source layers actually hold. Tracked per tile and
       // never read back from the GPU (see ILayerBuffer.getContentBoundsWorld),
