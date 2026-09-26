@@ -11,9 +11,11 @@ import {
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getOperationRejectReason,
   getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
-  releaseLockOnUndo, releaseRoomIfUnused, removePaletteColor, setLayerLocked, setLayerOwnerLocked,
-  setParticipantFrozen, setRoomFrozen, setRoomTools, updateAliveIds,
+  releaseRoomIfUnused, removePaletteColor, updateAliveIds,
 } from './rooms.js'
+import {
+  releaseLockOnUndo, setLayerLocked, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, setRoomTools,
+} from './ownerControls.js'
 import { createAssignment, createPersonalBoard } from './classMode.js'
 import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'

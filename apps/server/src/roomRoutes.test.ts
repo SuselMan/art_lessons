@@ -23,7 +23,7 @@ vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 // stubbed here so this stays a route test — rooms.ts's own half of the
 // behavior is covered in rooms.test.ts.
 const mockSetRoomClosed = vi.hoisted(() => vi.fn())
-vi.mock('./rooms.js', () => ({ setRoomClosed: mockSetRoomClosed }))
+vi.mock('./ownerControls.js', () => ({ setRoomClosed: mockSetRoomClosed }))
 
 function buildApp(userId = 'user-1', notifyRoomClosed?: (roomId: string, closedAt: string | null) => void)
 : FastifyInstance {

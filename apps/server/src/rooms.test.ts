@@ -8,15 +8,15 @@ import type {
 import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation,
-  flushAllRoomWrites, pendingWriteCount,
-  getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot,
-  isLayerLocked, isLayerOwnerLocked,
-  isOperationAllowed, isRoomClosed, isRoomFrozen, isRoomResident, joinRoom,
-  leaveRoom, recordOperation, releaseLockOnUndo, releaseRoomIfUnused,
-  setLayerLocked, setLayerOwnerLocked, setParticipantFrozen,
-  setRoomClosed, setRoomFrozen, updateAliveIds,
+  _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation, flushAllRoomWrites,
+  pendingWriteCount, getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot,
+  hashRoomPassword,
+  isOperationAllowed, isRoomResident, joinRoom, leaveRoom, recordOperation, releaseRoomIfUnused, updateAliveIds,
 } from './rooms.js'
+import {
+  isLayerLocked, isLayerOwnerLocked, isRoomClosed, isRoomFrozen, releaseLockOnUndo, setLayerLocked,
+  setLayerOwnerLocked, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomPassword, setRoomTools,
+} from './ownerControls.js'
 import { isCoveredBySnapshot, RESIDENT_OP_TYPES } from './snapshotCoverage.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
@@ -277,6 +277,36 @@ describe('joinRoom', () => {
     expect(checkRoomPassword(guarded, 'secret')).toBe(true)
     expect(checkRoomPassword(guarded, 'nope')).toBe(false)
     expect(checkRoomPassword(guarded, undefined)).toBe(false)
+  })
+
+  // (#226) Both halves move together: the gate compares the hash, clients are
+  // told `hasPassword`. A room still saying `true` after its password was
+  // removed has every joiner send one nobody checks.
+  it('setRoomPassword changes what the gate checks and what clients are told, at once', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    setRoomPassword(roomId, hashRoomPassword('chalk'))
+    expect(checkRoomPassword(roomId, 'chalk')).toBe(true)
+    expect(checkRoomPassword(roomId, undefined)).toBe(false)
+    expect(getRoomSnapshot(roomId)?.room.hasPassword).toBe(true)
+
+    setRoomPassword(roomId, null)
+    expect(checkRoomPassword(roomId, undefined)).toBe(true)
+    expect(getRoomSnapshot(roomId)?.room.hasPassword).toBe(false)
+  })
+
+  // (#548) The one door a toolset comes through, so what the room holds is
+  // the normalized list, never a client's raw claim.
+  it('setRoomTools stores the sanitized toolset, not what it was handed', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(setRoomTools(roomId, ['eraser', 'pencil', 'not-a-tool'])).toEqual(['pencil', 'eraser'])
+    expect(getRoomSnapshot(roomId)?.room.enabledTools).toEqual(['pencil', 'eraser'])
+    expect(setRoomTools(roomId, 'junk')).toBeUndefined()
+    expect(getRoomSnapshot(roomId)?.room.enabledTools).toBeUndefined()
+    expect(setRoomTools('never-loaded', ['pencil'])).toBe(false)
   })
 
   it('getRoomGate reports the owner and mode, and nothing for an unloaded room', () => {
