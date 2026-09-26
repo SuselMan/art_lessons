@@ -569,6 +569,9 @@ export const en = {
   // naming the wrong one is the same mistake as saying nothing.
   'room.restoreFailed.bodyDevice': 'Something went wrong while the project was being put together on this device, so it stays closed rather than showing you a blank sheet. Nothing has been lost — everything is on the server, and the failure has been reported.',
   'room.restoreFailed.retry': 'Try again',
+  'room.glLost.title': 'The graphics stopped working',
+  'room.glLost.body': "This device's browser reset its graphics and did not bring them back, so what you see here is no longer the drawing. Nothing has been lost — everything is on the server. Reloading the page brings the drawing back.",
+  'room.glLost.retry': 'Reload',
   'room.connection.offline': 'No connection — reconnecting…',
   'room.connection.offlineWithPending': {
     one: 'No connection. {n} stroke is saved on this device and will be sent once you reconnect.',

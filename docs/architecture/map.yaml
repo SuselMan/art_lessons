@@ -90,6 +90,8 @@ modules:
       - apps/web/scripts/devices/penbench.mjs
       - apps/web/scripts/devices/multitest.mjs
       - apps/web/scripts/devices/laptoppeer.mjs
+      - apps/web/scripts/devices/comparenow.mjs
+      - apps/web/scripts/devices/snapgrid.mjs
     notes:
       - >-
         Порядок работы с айпадом — в .claude/tablet-debugging.md, раздел «iPad».
@@ -319,6 +321,7 @@ modules:
       - apps/web/src/pages/Room/WatercolorPerfHud.tsx
       - apps/web/src/pages/Room/WatercolorDryButton.tsx
       - apps/web/src/pages/Room/replayGate.ts
+      - apps/web/src/pages/Room/GlLostOverlay.tsx
       - apps/web/src/pages/Room/undoneInBatch.ts
       - apps/web/src/pages/Room/useOperationDispatch.ts
       - apps/web/src/pages/Room/useTransformGizmoGestures.ts
@@ -1380,7 +1383,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 3846
+    maxLines: 3849
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича
@@ -1390,6 +1393,8 @@ budgets:
       HUD живут рядом (useWatercolorDevFlags.ts, WatercolorPerfHud.tsx).
       +3 (#536, §17.49): шлюз подтверждений на время кусочной загрузки хвоста
       (создаётся в Room, раздаётся восстановлению и потоку подтверждений).
+      +3 (#536, §17.50): экран «графика перестала работать» — хук и оверлей
+      живут в GlLostOverlay.tsx, в Room только их вызов.
 
 flows:
   - id: stroke

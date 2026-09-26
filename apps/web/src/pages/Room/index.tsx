@@ -149,6 +149,7 @@ import {
 } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import { createReplayGate } from './replayGate'
+import { GlLostOverlay, useGlContextLost } from './GlLostOverlay'
 import { useWatercolorDevFlags } from './useWatercolorDevFlags'
 import styles from './Room.module.css'
 
@@ -1155,6 +1156,7 @@ function RoomEditor() {
   // the same fix, so the next setting added here inherits it instead of
   // rediscovering it.
   const [engineEpoch, setEngineEpoch] = useState(0)
+  const glLost = useGlContextLost(canvasRef, engineEpoch) // (#536, §17.50) see GlLostOverlay
   const initialToolRef = useRef({
     pencil: toolSettings.pencil.grade as PencilGradeName,
     size: toolSettings.pencil.size as number,
@@ -3833,6 +3835,7 @@ function RoomEditor() {
         )}
       </div>
 
+      {glLost && <GlLostOverlay />}
       {/* (#493) The developer overlays — see DebugStack. */}
       <DebugStack
         debugEnabled={debugEnabled} hapticGrainEnabled={hapticGrainEnabled}

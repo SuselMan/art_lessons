@@ -70,6 +70,10 @@ export function startDevBridge(): void {
   })
   hello()
   hot.on('vite:ws:connect', hello)
+  // A dev-server reload of a room page must not stop at the room's leave
+  // prompt: on a device someone has touched, the browser shows it, and a
+  // tablet across the room then sits on "Reload site?" with its page frozen.
+  hot.on('vite:beforeFullReload', () => { (globalThis as { __devbridgeLeaving?: boolean }).__devbridgeLeaving = true })
   // Again every few seconds: a hello can be lost to a dev-server restart
   // racing the page's reconnect, and the roster should not depend on luck.
   setInterval(hello, 10_000)

@@ -52,14 +52,20 @@
     if (!buf) return JSON.stringify({ missing: true })
     const tiles = buf.allResident()
     if (!tiles.length) return JSON.stringify({ empty: true })
+    // The same world rect on every device: the page, when the room has one.
+    // (The resident tiles differ between devices, and a grid over their
+    // union compared nothing with nothing.)
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const t of tiles) { minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY); maxX = Math.max(maxX, t.originX + t.buffer.width); maxY = Math.max(maxY, t.originY + t.buffer.height) }
+    const pw = E._opts.pageWidth, ph = E._opts.pageHeight
+    if (pw && ph) { minX = 0; minY = 0; maxX = pw; maxY = ph }
+    else for (const t of tiles) { minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY); maxX = Math.max(maxX, t.originX + t.buffer.width); maxY = Math.max(maxY, t.originY + t.buffer.height) }
     const cw = (maxX - minX) / grid, ch = (maxY - minY) / grid
     const sum = new Float64Array(grid * grid * 4), cnt = new Float64Array(grid * grid)
     for (const t of tiles) {
       const w = t.buffer.width, h = t.buffer.height, px = t.buffer.readPixels()
       for (let y = 0; y < h; y += 4) for (let x = 0; x < w; x += 4) {
         const wx = t.originX + x, wy = t.originY + (h - 1 - y)
+        if (wx < minX || wy < minY || wx >= maxX || wy >= maxY) continue
         const gx = Math.min(grid - 1, Math.floor((wx - minX) / cw)), gy = Math.min(grid - 1, Math.floor((wy - minY) / ch))
         const i = (y * w + x) * 4, g = gy * grid + gx
         sum[g * 4] += px[i]; sum[g * 4 + 1] += px[i + 1]; sum[g * 4 + 2] += px[i + 2]; sum[g * 4 + 3] += px[i + 3]; cnt[g]++
@@ -67,7 +73,7 @@
     }
     const cells = []
     for (let g = 0; g < grid * grid; g++) for (let c = 0; c < 4; c++) cells.push(cnt[g] ? Math.round(sum[g * 4 + c] / cnt[g]) : 0)
-    return JSON.stringify({ extent: [minX, minY, maxX, maxY], grid, ops: E._log.layerPixelOps(layerId).length, cells })
+    return JSON.stringify({ extent: [minX, minY, maxX, maxY], tiles: tiles.map(t => t.originX + ',' + t.originY).sort().join(' '), grid, ops: E._log.layerPixelOps(layerId).length, cells })
   }
   window.__mt = mt
   return 'installed'

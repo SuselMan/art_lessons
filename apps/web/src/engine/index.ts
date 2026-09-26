@@ -1031,6 +1031,11 @@ export interface PencilEngineAPI {
    *  the same batch leaves undone: logged as they arrive but not painted, and
    *  their undo then needs no rebuild. `null` ends the batch. */
   setUnpaintedInBatch(ids: ReadonlySet<string> | null): void
+  /** (#536, §17.50) The operations of the history batch about to be appended
+   *  after which their wash (or gesture) gets no more operations in the
+   *  batch: its replay scratch is released there instead of at the batch's
+   *  end. `null` ends the batch. */
+  setBatchGroupEnds(ids: ReadonlySet<string> | null): void
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
@@ -3449,6 +3454,16 @@ export class PencilEngine implements PencilEngineAPI {
           // already delivered has already wet the paper here.
           this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing)
           this._snapshots.markDirty(op.layerId)
+          // (§17.50) The wash's last operation in this history batch: its
+          // replay scratch - up to nine tile-sized textures per tile it
+          // covers - goes now rather than at the batch's end (resumeDisplay).
+          // Several page-wide washes held at once during a room's load were
+          // what got the iPad's tab killed for memory as it joined.
+          if (this._batchGroupEnds?.has(op.id)) {
+            const key = op.washId ?? op.strokeId
+            const held = key ? this._replayRibbonChunks.get(key) : undefined
+            if (key && held) { held.scratch.destroy(); this._replayRibbonChunks.delete(key) }
+          }
           // (#468) Never mid-wash, the same rule the local path follows one
           // stroke over. A checkpoint bakes the layer's pixels, and the strokes
           // of a wash share an accumulation whose frozen base is the canvas as
@@ -11058,6 +11073,10 @@ export class PencilEngine implements PencilEngineAPI {
     return dried
   }
 
+  setBatchGroupEnds(ids: ReadonlySet<string> | null): void {
+    this._batchGroupEnds = ids && ids.size ? ids : null
+  }
+
   setUnpaintedInBatch(ids: ReadonlySet<string> | null): void {
     this._unpaintedInBatch = ids && ids.size ? ids : null
     if (!ids) this._skippedInBatch.clear()
@@ -11193,6 +11212,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** (§17.49) See setUnpaintedInBatch. */
   private _unpaintedInBatch: ReadonlySet<string> | null = null
   private _skippedInBatch = new Set<string>()
+  /** (§17.50) See setBatchGroupEnds. */
+  private _batchGroupEnds: ReadonlySet<string> | null = null
   /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
   private _dryAtPenUp = false
   private _settleTickAt = 0
@@ -11440,7 +11461,13 @@ export class PencilEngine implements PencilEngineAPI {
           // film buffers straight back (filmBuffers reuses them), and giving
           // them to the pool made it destroy the overflow and remake it on
           // the next gesture - a GPU-stalling FBO check per buffer.
-          if (scratch !== this._wash?.scratch) scratch.releaseFilm(settledGesture)
+          // (§17.50) The author's too, now that the FBO check is once per
+          // context: four tile-sized textures per tile the wash covers, held
+          // for its whole life (up to 100 s) - 16 MB a tile, 160 MB on a
+          // page-wide wash, and the iPad's tab was killed for memory with
+          // four people painting. The film is only read between a gesture's
+          // first batch and its settle; the next gesture acquires a new one.
+          scratch.releaseFilm(settledGesture)
           if (reveal && fade) {
             // The settle lands now, so the reveal eases in from now — not
             // from the pen-up a few frames ago, which would show a slice of
