@@ -9,9 +9,10 @@ import {
   setHandRaised, setSpotlight,
 } from './classroom.js'
 import {
-  addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot,
-  isRoomResident, joinRoom, leaveRoom, releaseRoomIfUnused, removePaletteColor,
+  addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
+  leaveRoom, releaseRoomIfUnused, removePaletteColor,
 } from './rooms.js'
+import { getRoomBacklog } from './roomStats.js'
 import { findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
 import { ensureRoomLoaded } from './roomLoader.js'
 import {

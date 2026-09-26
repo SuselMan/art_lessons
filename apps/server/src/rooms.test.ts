@@ -9,9 +9,10 @@ import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, flushAllRoomWrites, pendingWriteCount,
-  getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot, hashRoomPassword, isRoomResident, joinRoom,
-  leaveRoom, releaseRoomIfUnused,
+  getParticipant, getRoomGate, getRoomSnapshot, hashRoomPassword, isRoomResident, joinRoom, leaveRoom,
+  releaseRoomIfUnused,
 } from './rooms.js'
+import { getResidentRoomStats } from './roomStats.js'
 import {
   findDuplicateOperation, getOperationRejectReason, isOperationAllowed, recordOperation, updateAliveIds,
 } from './operationLog.js'

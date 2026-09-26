@@ -1106,7 +1106,8 @@ modules:
       (snapshotCoverage.ts), хранилище снапшотов (snapshotStore.ts), рычаги владельца —
       заморозка, инструменты, закрытие, доступ, блокировки слоёв (ownerControls.ts) — и живой
       класс: доски, задания, подсветка, руки (classroom.ts). Холодная загрузка из Postgres —
-      roomLoader.ts; журнал операций — operationLog.ts. В rooms.ts остаются создание, вход и
+      roomLoader.ts; журнал операций — operationLog.ts; взгляды для здоровья, сторожа и админки — roomStats.ts.
+      В rooms.ts остаются создание, вход и
       выход, выселение и room_state.
     files:
       - apps/server/src/rooms.ts
@@ -1117,6 +1118,7 @@ modules:
       - apps/server/src/roomPersistence.test.ts
       - apps/server/src/roomLoader.ts
       - apps/server/src/roomLoader.test.ts
+      - apps/server/src/roomStats.ts
       - apps/server/src/structuralLog.ts
       - apps/server/src/structuralLog.test.ts
       - apps/server/src/operationGate.ts
