@@ -51,7 +51,16 @@ function compile(code: string): () => Promise<unknown> {
   try { return new AsyncFunction(`return (${code}\n)`) } catch { return new AsyncFunction(code) }
 }
 
+/** Moves this page to `url` without the room's leave prompt (useLeaveGuard
+ *  lets a navigation flagged this way through). For test devices nobody is
+ *  standing at. Callable from an eval: `__devNavigate('/room/abc')`. */
+function devNavigate(url: string): void {
+  (globalThis as { __devbridgeLeaving?: boolean }).__devbridgeLeaving = true
+  location.href = url
+}
+
 export function startDevBridge(): void {
+  (globalThis as { __devNavigate?: (url: string) => void }).__devNavigate = devNavigate
   const hot: Hot | undefined = import.meta.hot
   if (!hot) return
   const id = pageId()

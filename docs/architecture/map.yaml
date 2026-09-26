@@ -85,9 +85,19 @@ modules:
       - apps/web/scripts/devBridgePlugin.ts
       - apps/web/scripts/devbridge.ts
       - apps/web/src/dev/devBridge.ts
+      - apps/web/scripts/devices/bridge.mjs
+      - apps/web/scripts/devices/pageLib.js
+      - apps/web/scripts/devices/penbench.mjs
+      - apps/web/scripts/devices/multitest.mjs
+      - apps/web/scripts/devices/laptoppeer.mjs
     notes:
       - >-
         Порядок работы с айпадом — в .claude/tablet-debugging.md, раздел «iPad».
+      - >-
+        scripts/devices — стенд тестирования на устройствах через мост: замер пером
+        (penbench), совместный тест всех устройств в одной комнате со сравнением
+        слоёв (multitest), ноутбук участником (laptoppeer). Как пользоваться —
+        скилл device-testing.
 
   - id: build-assets
     title: Запекание ассетов

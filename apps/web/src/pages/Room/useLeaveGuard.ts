@@ -53,6 +53,10 @@ export function useLeaveGuard(): () => Promise<void> {
     if (!editorOnScreen) return
     const releaseHold = holdReload()
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // (#536) Dev builds only: the dev bridge moving a test device to another
+      // room on purpose (see dev/devBridge.ts navigate) — nobody is at an iPad
+      // across the room to answer the prompt.
+      if (import.meta.env.DEV && (globalThis as { __devbridgeLeaving?: boolean }).__devbridgeLeaving) return
       // Browsers ignore custom text here and show their own wording; the
       // preventDefault is what actually triggers the prompt.
       e.preventDefault()
