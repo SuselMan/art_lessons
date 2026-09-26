@@ -8,11 +8,13 @@ import type {
 import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation, flushAllRoomWrites,
-  pendingWriteCount, getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot,
-  hashRoomPassword,
-  isOperationAllowed, isRoomResident, joinRoom, leaveRoom, recordOperation, releaseRoomIfUnused, updateAliveIds,
+  _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, flushAllRoomWrites, pendingWriteCount,
+  getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot, hashRoomPassword, isRoomResident, joinRoom,
+  leaveRoom, releaseRoomIfUnused,
 } from './rooms.js'
+import {
+  findDuplicateOperation, getOperationRejectReason, isOperationAllowed, recordOperation, updateAliveIds,
+} from './operationLog.js'
 import {
   isLayerLocked, isLayerOwnerLocked, isRoomClosed, isRoomFrozen, releaseLockOnUndo, setLayerLocked,
   setLayerOwnerLocked, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomPassword, setRoomTools,

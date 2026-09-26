@@ -6,9 +6,8 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import type { Operation, StrokeOperation } from '@grafetto/shared'
 
-import {
-  _flushPendingWrites, createRoom, getRoomSnapshot, joinRoom, leaveRoom, recordOperation, updateAliveIds,
-} from './rooms.js'
+import { _flushPendingWrites, createRoom, getRoomSnapshot, joinRoom, leaveRoom } from './rooms.js'
+import { recordOperation, updateAliveIds } from './operationLog.js'
 import {
   getCoveredSeq, getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot,
 } from './snapshotStore.js'

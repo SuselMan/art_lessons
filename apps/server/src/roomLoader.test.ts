@@ -19,8 +19,8 @@ const mockPrisma = vi.hoisted(() => ({
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
-const { _flushPendingWrites, getOperationRejectReason, getRoomSnapshot, joinRoom, recordOperation, updateAliveIds } =
-  await import('./rooms.js')
+const { _flushPendingWrites, getRoomSnapshot, joinRoom } = await import('./rooms.js')
+const { getOperationRejectReason, recordOperation, updateAliveIds } = await import('./operationLog.js')
 const { ensureRoomLoaded } = await import('./roomLoader.js')
 const { isLayerLocked, isLayerOwnerLocked } = await import('./ownerControls.js')
 const { rooms } = await import('./roomRegistry.js')

@@ -21,9 +21,10 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
 const {
-  _flushPendingWrites, addPaletteColor, createRoom, getOperationRejectReason, getParticipant, getResidentRoomStats,
-  getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, releaseRoomIfUnused,
+  _flushPendingWrites, addPaletteColor, createRoom, getParticipant, getResidentRoomStats, getRoomBacklog, getRoomGate,
+  getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, releaseRoomIfUnused,
 } = await import('./rooms.js')
+const { getOperationRejectReason } = await import('./operationLog.js')
 const { ensureRoomLoaded } = await import('./roomLoader.js')
 const {
   isRoomFrozen, setParticipantFrozen, setRoomClosed, setRoomFrozen, setRoomTools,
@@ -165,7 +166,7 @@ describe('loading a board', () => {
     joinRoom(boardId, 'student', 'Alice', sock('student'))
     // Something recorded on the board keeps its own eviction deferred behind
     // that write; the lesson has nothing pending and goes at once.
-    const { recordOperation } = await import('./rooms.js')
+    const { recordOperation } = await import('./operationLog.js')
     recordOperation(boardId, stroke('student'))
     leaveRoom(lessonId, 'teacher', sock('teacher'))
     leaveRoom(boardId, 'student', sock('student'))
