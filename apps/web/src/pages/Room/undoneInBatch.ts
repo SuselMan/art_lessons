@@ -34,17 +34,3 @@ export function undoneInBatch(ops: readonly Operation[]): Set<string> {
   return undone
 }
 
-/** (#536, ADR 011 §17.50) The strokes of a history batch after which their
- *  wash (or, without one, their gesture) has no more operations in the batch,
- *  skipping the ones the batch leaves undone - see
- *  PencilEngineAPI.setBatchGroupEnds. Keyed as the engine keys its replay
- *  cache: the wash id, else the stroke id. */
-export function groupEndsInBatch(ops: readonly Operation[], unpainted: ReadonlySet<string>): Set<string> {
-  const last = new Map<string, string>()
-  for (const op of ops) {
-    if (op.type !== 'stroke' || unpainted.has(op.id)) continue
-    const key = op.washId ?? op.strokeId
-    if (key) last.set(key, op.id)
-  }
-  return new Set(last.values())
-}

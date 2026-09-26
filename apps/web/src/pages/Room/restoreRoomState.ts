@@ -8,7 +8,7 @@ import { reportInvariant } from '../../lib/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
 import type { OpenTimer } from './openTiming'
 import { type ReplayGate, yieldToEventLoop } from './replayGate'
-import { groupEndsInBatch, undoneInBatch } from './undoneInBatch'
+import { undoneInBatch } from './undoneInBatch'
 import type { createPendingPreviews } from './pendingPreviews'
 import type { RestoreFailureReason } from './RestoreFailedOverlay'
 import type { createSnapshotUploader } from './snapshotSync'
@@ -197,9 +197,7 @@ export async function restoreRoomState(
     // (#536, §17.49) In slices, yielding between them, behind the gate - see
     // replayGate.ts on why it is not one piece any more, and why the gate.
     deps.replayGate.begin()
-    const unpainted = undoneInBatch(tailOperations)
-    engine?.setUnpaintedInBatch(unpainted)
-    engine?.setBatchGroupEnds(groupEndsInBatch(tailOperations, unpainted))
+    engine?.setUnpaintedInBatch(undoneInBatch(tailOperations))
     try {
       let sliceStart = performance.now()
       for (const op of tailOperations) {
@@ -211,7 +209,6 @@ export async function restoreRoomState(
       }
     } finally {
       engine?.setUnpaintedInBatch(null)
-      engine?.setBatchGroupEnds(null)
       deps.replayGate.end()
     }
 

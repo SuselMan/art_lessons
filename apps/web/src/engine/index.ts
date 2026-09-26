@@ -1031,11 +1031,6 @@ export interface PencilEngineAPI {
    *  the same batch leaves undone: logged as they arrive but not painted, and
    *  their undo then needs no rebuild. `null` ends the batch. */
   setUnpaintedInBatch(ids: ReadonlySet<string> | null): void
-  /** (#536, §17.50) The operations of the history batch about to be appended
-   *  after which their wash (or gesture) gets no more operations in the
-   *  batch: its replay scratch is released there instead of at the batch's
-   *  end. `null` ends the batch. */
-  setBatchGroupEnds(ids: ReadonlySet<string> | null): void
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
@@ -3454,16 +3449,6 @@ export class PencilEngine implements PencilEngineAPI {
           // already delivered has already wet the paper here.
           this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing)
           this._snapshots.markDirty(op.layerId)
-          // (§17.50) The wash's last operation in this history batch: its
-          // replay scratch - up to nine tile-sized textures per tile it
-          // covers - goes now rather than at the batch's end (resumeDisplay).
-          // Several page-wide washes held at once during a room's load were
-          // what got the iPad's tab killed for memory as it joined.
-          if (this._batchGroupEnds?.has(op.id)) {
-            const key = op.washId ?? op.strokeId
-            const held = key ? this._replayRibbonChunks.get(key) : undefined
-            if (key && held) { held.scratch.destroy(); this._replayRibbonChunks.delete(key) }
-          }
           // (#468) Never mid-wash, the same rule the local path follows one
           // stroke over. A checkpoint bakes the layer's pixels, and the strokes
           // of a wash share an accumulation whose frozen base is the canvas as
@@ -6212,6 +6197,24 @@ export class PencilEngine implements PencilEngineAPI {
    *  edge to edge. The shader reads the degenerate case as "paper everywhere",
    *  which is exactly what an infinite room did before there was a rect at
    *  all. */
+  /** (#536, ADR 011 §17.50) A watercolour rect cut to the sheet in a bounded
+   *  room. The wash's reach (halo bound, pads) ran past the page edge, and the
+   *  layer created tiles out there - with a wash's six to ten tile-sized
+   *  textures on each: a room of 2x3 tiles had 37 wash tiles alive on the
+   *  Android after an eight-round lesson soak, 888 MB, all for paint nobody
+   *  sees. The same clamp live and on replay, so both stay one function of
+   *  the log. Infinite rooms have no sheet and pass through. */
+  private _wcSheetClamp(r: { minX: number; minY: number; maxX: number; maxY: number }): { minX: number; minY: number; maxX: number; maxY: number } {
+    if (this._infinite) return r
+    const { w, h } = this._pageSize()
+    return { minX: Math.max(0, r.minX), minY: Math.max(0, r.minY), maxX: Math.min(w, r.maxX), maxY: Math.min(h, r.maxY) }
+  }
+
+  /** resolveForPaint, but nothing at all for an empty rect (a clamp can leave one). */
+  private _resolveWithinSheet(target: ILayerBuffer, r: { minX: number; minY: number; maxX: number; maxY: number }): PaintTarget[] {
+    return r.maxX > r.minX && r.maxY > r.minY ? target.resolveForPaint(r) : []
+  }
+
   private _pageRect(): [number, number, number, number] {
     if (this._infinite) return [0, 0, -1, -1]
     const { w, h } = this._pageSize()
@@ -9015,7 +9018,8 @@ export class PencilEngine implements PencilEngineAPI {
     // into needs its wash entry, and the paint rect alone left a drop across
     // the bounded room's x=1024 seam unable to run into the next tile. Per
     // tile, the film rebuild and composite are cut to the paint rect.
-    const targets = target.resolveForPaint({ minX: rMinX, minY: rMinY, maxX: rMaxX, maxY: rMaxY })
+    const reachRect = { minX: rMinX, minY: rMinY, maxX: rMaxX, maxY: rMaxY }
+    const targets = this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(reachRect) : reachRect)
     if (!targets.length) return
 
     // (#468 v2/v4, ADR 011 §3.5) The stroke's typical radius decides how far its
@@ -11073,10 +11077,6 @@ export class PencilEngine implements PencilEngineAPI {
     return dried
   }
 
-  setBatchGroupEnds(ids: ReadonlySet<string> | null): void {
-    this._batchGroupEnds = ids && ids.size ? ids : null
-  }
-
   setUnpaintedInBatch(ids: ReadonlySet<string> | null): void {
     this._unpaintedInBatch = ids && ids.size ? ids : null
     if (!ids) this._skippedInBatch.clear()
@@ -11108,7 +11108,7 @@ export class PencilEngine implements PencilEngineAPI {
     const width = Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5)))
     const pad = Math.ceil(radiusPx) + width + 2 + 4
     const bounds = { minX: ctx.bounds.minX - pad, minY: ctx.bounds.minY - pad, maxX: ctx.bounds.maxX + pad, maxY: ctx.bounds.maxY + pad }
-    const targets = target.resolveForPaint(bounds)
+    const targets = this._resolveWithinSheet(target, this._wcSheetClamp(bounds))
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return false
     const CAP = 1536
@@ -11212,8 +11212,6 @@ export class PencilEngine implements PencilEngineAPI {
   /** (§17.49) See setUnpaintedInBatch. */
   private _unpaintedInBatch: ReadonlySet<string> | null = null
   private _skippedInBatch = new Set<string>()
-  /** (§17.50) See setBatchGroupEnds. */
-  private _batchGroupEnds: ReadonlySet<string> | null = null
   /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
   private _dryAtPenUp = false
   private _settleTickAt = 0
@@ -11383,7 +11381,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.44) Which film this settle consumes - see releaseFilm.
     const settledGesture = scratch.gesture
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
-    const targets = target.resolveForPaint(bounds)
+    const targets = this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(bounds) : bounds)
     if (!targets.length) return
     if (reveal && fade) for (const tile of targets) this._revealWash(tile, target)
     const { spreadPx, water, migratePx, bristleRadiusPx } = scratch.compositeScalars(

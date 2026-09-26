@@ -94,6 +94,7 @@ modules:
       - apps/web/scripts/devices/laptoppeer.mjs
       - apps/web/scripts/devices/comparenow.mjs
       - apps/web/scripts/devices/snapgrid.mjs
+      - apps/web/scripts/devices/soak.mjs
     notes:
       - >-
         Порядок работы с айпадом — в .claude/tablet-debugging.md, раздел «iPad».
