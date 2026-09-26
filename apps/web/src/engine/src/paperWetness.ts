@@ -52,7 +52,10 @@ export const WET_CELL_PX = 8
 //  its strokes (s17.42) Ilya paints INTO the puddle for longer, and 30 s ran
 //  out before he was done - "не успеваю в луже порисовать". Twice as long, by
 //  his estimate.
-export const WET_DRY_MS = 60000
+//  (s17.47) 120 s, from 60: Ilya still ran out of wet paper mid-puddle.
+//  Twice as long again, and a "dry everything" button beside it for when
+//  the wait is the problem instead (watercolorDryAll).
+export const WET_DRY_MS = 120000
 
 /** (#536, §17.44) cx, cy: the cell's own indices, so a pass over the field
  *  (raster) never parses its key. */

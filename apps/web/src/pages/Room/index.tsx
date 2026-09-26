@@ -6535,6 +6535,19 @@ function RoomEditor() {
               live in the full settings panel instead (Ilya, 05.09): the rail is
               for what a hand reaches for mid-gesture. */}
           {shapeFrame && <ShapeFrameFields frame={shapeFrame} onChange={shape.setFrame} />}
+          {/* (#536, §17.47) The paper dries on its own in two minutes; this is
+              for when the wait is the problem - glazing over a wash that is
+              only still wet on the clock. Local and not an operation: every
+              stroke records the wetness it met, so the log needs nothing
+              more (see watercolorDryAll). */}
+          {settingsToolId === 'watercolor' && (
+            <button
+              className={styles.toolIconBtn}
+              title={t('tool.watercolor.dryAll')}
+              aria-label={t('tool.watercolor.dryAll')}
+              onClick={() => engineRef.current?.watercolorDryAll()}
+            ><Icon name="sunny" /></button>
+          )}
           {/* (#446) What can be done with a selection, as buttons rather than
               only as Ctrl+C/X/V. A tablet is a first-class target here and has
               no modifier keys at all: without these, cut/copy/paste — the half

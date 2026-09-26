@@ -643,6 +643,7 @@ export const en = {
   'tool.watercolorMix.dry': 'Dry',
   'tool.watercolorMix.damp': 'Damp',
   'tool.watercolorMix.wet': 'Wet',
+  'tool.watercolor.dryAll': 'Dry everything',
   'tool.watercolor': 'Watercolor',
   'tool.watercolorTitle': 'Watercolor \u2014 transparent wash; glaze a second pass over a dry one to deepen it  {hotkey}',
   'tool.digitalBrush': 'Digital brush',

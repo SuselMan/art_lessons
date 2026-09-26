@@ -1016,6 +1016,13 @@ export interface PencilEngineAPI {
    *  the next mark finds the wash dry. Returns how many washes it dried. Dev
    *  probe for the rig today; the "dry now" command's engine half later. */
   watercolorDryWash(): number
+  /** (#536, §17.47) "Высушить всё": the paper under every wash, the author's
+   *  and everyone else's, is dry from now on, and the open wash is closed - the
+   *  next stroke lands on dry paper and glazes over what is there. Local and
+   *  not an operation: each stroke records the wetness it met (the `wet`
+   *  profile) and its wash, so a replay reproduces the effect without ever
+   *  knowing a button was pressed. Ignored while a stroke is being drawn. */
+  watercolorDryAll(): void
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
@@ -1576,7 +1583,9 @@ const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, siz
  *  together across the sheet. */
 // (s17.43) 50 s, from 25: a ceiling has to sit above the paper's own drying
 // (WET_DRY_MS, 60 s now), or the wash closes while its puddle is still wet.
-const WASH_JOIN_MS = 50000
+// (s17.47) 100 s, from 50: kept in the same proportion to the paper's
+// drying, now 120 s.
+const WASH_JOIN_MS = 100000
 
 /** Under this, a stroke rejoins the open wash whatever the paper says. Covers
  *  the brush that was too dry to leave a readable trace of water and the pen
@@ -3799,7 +3808,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  the same paint on the same layer, laid before the last one dried" — so
    *  anything that changes what is in the brush, or what it is being laid on,
    *  ends it at once regardless of timing. */
-  private _clearWash(): void {
+  private _clearWash(land = true): void {
+    // (#536, §17.47) A settle still in flight lands first. Tearing the scratch
+    // down under it dropped it (_tickSettle: "nothing to land"), so switching
+    // tool or layer within a second of a pen-up left the author looking at an
+    // unsettled mark that every replay settles - the stroke "changed after a
+    // reload". Not on engine teardown, where nothing will look again.
+    if (land && this._settle) this._completeSettle()
     this._wash?.scratch.destroy()
     this._wash = null
     this._washId = null
@@ -4725,7 +4740,7 @@ export class PencilEngine implements PencilEngineAPI {
     // would leave exactly the buffers they are still holding behind.
     this._ribbonStrokeScratch?.destroy()
     this._ribbonStrokeScratch = null
-    this._clearWash()
+    this._clearWash(false)
     this._strokeId = null
     for (const c of this._replayRibbonChunks.values()) c.scratch.destroy()
     this._replayRibbonChunks.clear()
@@ -6469,11 +6484,14 @@ export class PencilEngine implements PencilEngineAPI {
         && (landedWet || washStillWet || now - open.endedAt <= WASH_RECENT_MS)
       // (#536, §17.22) A settle still in flight lands first: its copy-back
       // would otherwise overwrite whatever this stroke lays meanwhile.
-      // (§17.46) ...unless this stroke joins the same wash: a settle landing
-      // under a running film merges into it (the chunk settle's path), and
-      // finishing it here, synchronously, was a hitch of the settle's whole
-      // remaining length at the pen's touch on every quick second stroke.
-      if (this._settle && !(joins && open && this._settle.scratch === open.scratch)) this._completeSettle()
+      // (§17.47) Also for a stroke that joins the same wash. §17.46 let the
+      // settle land under the joining stroke's film instead, to spare the
+      // pen-down hitch - and the live mark stopped matching its replay: a
+      // zigzag with a stroke laid straight into it differed from the reload
+      // in 5% of the tile against 0.35% with the settle landed here (rig
+      // parityzz). The replay settles each operation before the next one
+      // paints; the author has to as well.
+      if (this._settle) this._completeSettle()
       if (joins && open) {
         this._washId = open.id
         this._ribbonStrokeScratch = open.scratch
@@ -11152,6 +11170,19 @@ export class PencilEngine implements PencilEngineAPI {
       this._displayIfNotSuspended()
     }
     return dried
+  }
+
+  watercolorDryAll(): void {
+    if (this._strokeLayerId) return
+    // The settle lands (it is part of the mark every replay will show), and
+    // then the wash closes exactly as it does when it simply times out.
+    this._clearWash()
+    this._paperWet.clear()
+    // The sheen goes with it: the wet map is rebuilt on the next frame, not
+    // after the overlay's own throttle, and the whole paper recomposes.
+    this._wetTexAt = 0
+    this._paperPartialOK = false
+    this._displayIfNotSuspended()
   }
 
   private _dryWashScratch(scratch: RibbonStrokeScratch): boolean {

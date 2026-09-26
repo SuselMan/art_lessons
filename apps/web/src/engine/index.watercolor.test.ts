@@ -585,18 +585,13 @@ describe('a wash reaches every path that paints (#468)', () => {
     await paperReady(engine)
     simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
     expect(settleOf(engine)).toBeTruthy()
-    // (§17.46) A stroke that JOINS the wash no longer lands it at pen-down:
-    // the settle goes on under the new stroke's film and merges into it (the
-    // chunk settle's path, §17.44) - finishing it synchronously was a hitch at
-    // the pen's touch on every quick second stroke.
-    const first = settleOf(engine)
+    // (§17.47) Also when the stroke joins the same wash: letting the settle
+    // land under the joining stroke's film (§17.46) broke live/replay parity.
     simulateStrokeStart(engine, 40, 32)
-    expect(settleOf(engine)).toBe(first)
+    expect(settleOf(engine)).toBeNull()
     simulateStrokeMove(engine, 56, 32)
     simulateStrokeEnd(engine, 56, 32)
-    // Its own pen-up lands the one in flight before starting the next.
     expect(settleOf(engine)).toBeTruthy()
-    expect(settleOf(engine)).not.toBe(first)
     await vi.waitFor(() => expect(settleOf(engine)).toBeNull())
     // Both strokes are in the wash's log, nothing was dropped on the way.
     expect(engine.getOperations().filter(o => o.type === 'stroke').length).toBe(2)
@@ -930,6 +925,41 @@ describe('water laid by someone else wets this paper too (#536)', () => {
     const painted = lastStroke(engine)
     expect(painted.wet).toBeDefined()
     expect(Math.max(...(painted.wet ?? '0').split('').map(d => parseInt(d, 16)))).toBeGreaterThan(6)
+  })
+
+  it('dries everything at the button: the next stroke lands dry, in a new wash (§17.47)', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    peerWater(engine, 48)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(PAINT)
+    engine.setSize(24)
+    simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
+    const first = lastStroke(engine)
+    engine.watercolorDryAll()
+    // Right away, well inside the join window and on the same water.
+    simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
+    const second = lastStroke(engine)
+    expect(second.washId).toBeDefined()
+    expect(second.washId).not.toBe(first.washId)
+    // The recorded wetness is what a replay reads: all dry.
+    expect((second.wet ?? '0').split('').every(d => d === '0')).toBe(true)
+  })
+
+  it('lands the settle in flight when the tool changes, instead of dropping it (§17.47)', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(PAINT)
+    engine.setSize(24)
+    simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
+    const s = (engine as unknown as { _settle: { ops: unknown[]; next: number } | null })._settle
+    expect(s).toBeTruthy()
+    engine.setTool('pencil')
+    // Ran to its end rather than being abandoned with steps left.
+    expect(s!.next).toBe(s!.ops.length)
   })
 
   it('ignores water old enough to have dried before this client ever saw it', async () => {
