@@ -599,6 +599,8 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'annotation_add':
     case 'annotation_update':
     case 'annotation_delete':
+    // (#536) Drying the paper changes no layer and no pixel.
+    case 'paper_dry':
       return state
   }
 }

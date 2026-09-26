@@ -20,6 +20,8 @@
 // live water model this whole design exists to avoid, and the frozen backdrop
 // under a glaze already has exactly this shape.
 
+import { WATERCOLOR_WET_DRY_MS } from '@grafetto/shared'
+
 /** Cell size of the grid, world px. Wetness has no fine structure — it is a
  *  region of paper, not a texture — so the grid only has to be finer than the
  *  smallest puddle anyone would lay, and coarse enough that a long stroke does
@@ -55,7 +57,8 @@ export const WET_CELL_PX = 8
 //  (s17.47) 120 s, from 60: Ilya still ran out of wet paper mid-puddle.
 //  Twice as long again, and a "dry everything" button beside it for when
 //  the wait is the problem instead (watercolorDryAll).
-export const WET_DRY_MS = 120000
+//  Defined in @grafetto/shared since s17.48: the server ages paper_dry by it.
+export const WET_DRY_MS = WATERCOLOR_WET_DRY_MS
 
 /** (#536, §17.44) cx, cy: the cell's own indices, so a pass over the field
  *  (raster) never parses its key. */

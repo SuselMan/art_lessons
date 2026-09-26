@@ -1016,12 +1016,11 @@ export interface PencilEngineAPI {
    *  the next mark finds the wash dry. Returns how many washes it dried. Dev
    *  probe for the rig today; the "dry now" command's engine half later. */
   watercolorDryWash(): number
-  /** (#536, §17.47) "Высушить всё": the paper under every wash, the author's
-   *  and everyone else's, is dry from now on, and the open wash is closed - the
-   *  next stroke lands on dry paper and glazes over what is there. Local and
-   *  not an operation: each stroke records the wetness it met (the `wet`
-   *  profile) and its wash, so a replay reproduces the effect without ever
-   *  knowing a button was pressed. Ignored while a stroke is being drawn. */
+  /** (#536, §17.47/48) "Высушить всё", this client's half: the paper is dry
+   *  from now on and the open wash is closed - the next stroke lands on dry
+   *  paper and glazes over what is there. Run by the `paper_dry` operation
+   *  (appendOperation), which is how the button reaches everyone; calling it
+   *  directly dries this client alone. */
   watercolorDryAll(): void
   /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
@@ -3387,6 +3386,12 @@ export class PencilEngine implements PencilEngineAPI {
     switch (op.type) {
       case 'layer_add':
         this._createBuffer(op.layerId)
+        break
+      // (#536, §17.48) Everyone's paper dries at once - live, from a peer, and
+      // on replay alike, at this point in the log order: the water of every
+      // stroke before it goes, the strokes after it wet the paper again.
+      case 'paper_dry':
+        this.watercolorDryAll()
         break
       case 'layer_delete':
         for (const id of op.layerIds) this._destroyBuffer(id)
@@ -6841,11 +6846,12 @@ export class PencilEngine implements PencilEngineAPI {
       // and still wet, so the buffers stay open for the next band to pool into.
       // Torn down in _onStart when something makes the next stroke a different
       // wash, and by _clearWash on tool/layer changes and teardown.
-      this._wash.endedAt = performance.now()
+      this._wash.endedAt = this._dryAtPenUp ? -Infinity : performance.now()
     } else {
       this._ribbonStrokeScratch?.destroy()
     }
     this._ribbonStrokeScratch = null
+    this._dryAtPenUp = false
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
     // (#155) Only drops the *active* reference now, not the underlying GL
@@ -11173,10 +11179,14 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   watercolorDryAll(): void {
-    if (this._strokeLayerId) return
-    // The settle lands (it is part of the mark every replay will show), and
-    // then the wash closes exactly as it does when it simply times out.
-    this._clearWash()
+    // (§17.48) The open wash closes exactly as it does when it times out: the
+    // next stroke cannot join it and starts its own. Its buffers stay until
+    // then, so a settle still in flight lands as it would have. Mid-stroke (a
+    // peer's paper_dry arriving while this user draws) the stroke in hand
+    // keeps its wash; the wash closes at its pen-up. Its later batches read
+    // the paper dry and record it so - which is what a replay reads too.
+    if (this._strokeLayerId) this._dryAtPenUp = true
+    else if (this._wash) this._wash.endedAt = -Infinity
     this._paperWet.clear()
     // The sheen goes with it: the wet map is rebuilt on the next frame, not
     // after the overlay's own throttle, and the whole paper recomposes.
@@ -11295,6 +11305,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  of 1.07 s instead of 0.76 s - still inside the reveal. */
   private static readonly WET_SETTLE_OPS_PER_TICK = 1
   /** (§17.46) The adaptive settle tick's clock - see _tickSettle. */
+  /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
+  private _dryAtPenUp = false
   private _settleTickAt = 0
   private _settleSkipped = 0
 

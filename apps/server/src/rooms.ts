@@ -9,7 +9,7 @@ import type {
   RoomAccessMode, ToggleableTool,
 } from '@grafetto/shared'
 import {
-  ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
+  ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, WATERCOLOR_WET_DRY_MS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
   isAnnotationOperation, operationLayerIds, paintedLayerIds, sanitizeEnabledTools,
 } from '@grafetto/shared'
 
@@ -622,6 +622,7 @@ function isCoverableOp(op: Operation): op is CoverableOperation {
 export function isCoveredBySnapshot(
   coveredSeqByLayer: ReadonlyMap<string, number>, op: Operation,
   layerStateSeq: number | null = null, layerStateIds: ReadonlySet<string> | null = null,
+  now: number = Date.now(),
 ): boolean {
   const seq = op.seq ?? 0
   const structureCovered = layerStateSeq !== null && seq <= layerStateSeq
@@ -651,6 +652,13 @@ export function isCoveredBySnapshot(
   // the room while its row sat in Postgres, which is the exact shape of the
   // 2026-07-31 duplicate-layer bug described above, with the sign flipped.
   if (isAnnotationOperation(op)) return false
+  // (#536, §17.48) Drying the paper is covered by no snapshot either - it
+  // leaves nothing in pixels or structure - but unlike a remark it expires:
+  // once the paper would have dried by itself it can change nothing, so it
+  // stops being kept and sent. Before that it must reach a joining client
+  // whatever the snapshots say, or the strokes before it that are still in
+  // the tail come back wet on that client's paper.
+  if (op.type === 'paper_dry') return now - op.timestamp > WATERCOLOR_WET_DRY_MS
   // Everything else leaves structure and nothing else behind: layer_add,
   // folder_add, layer_delete, layer_move, layer_rename, layer_opacity,
   // layer_visibility, layer_owner_lock — and the meta operations, whose whole

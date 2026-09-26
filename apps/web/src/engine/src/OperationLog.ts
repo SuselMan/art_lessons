@@ -83,7 +83,10 @@ function coalesces(prev: Operation, next: Operation): boolean {
  *  undo/redo candidate scans (#103): without this, a second Ctrl+Z would
  *  find the operation_undo entry the first Ctrl+Z just appended and try to
  *  "undo the undo" instead of reaching further back into real content. */
-const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation_undo', 'operation_redo'])
+//  (#536, §17.48) `paper_dry` rides along: it is not undoable (there is no
+//  "wet it again"), so a Ctrl+Z must reach past it to the stroke before, and
+//  pressing it is not "doing something new" that should cost the redo stack.
+const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation_undo', 'operation_redo', 'paper_dry'])
 
 export class OperationLog {
   private _entries: LogEntry[] = []

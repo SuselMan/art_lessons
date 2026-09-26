@@ -937,7 +937,9 @@ describe('water laid by someone else wets this paper too (#536)', () => {
     engine.setSize(24)
     simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
     const first = lastStroke(engine)
-    engine.watercolorDryAll()
+    // (§17.48) Pressed by SOMEONE ELSE - the teacher - and arriving as an
+    // operation: this client's paper dries with theirs.
+    engine.appendOperation({ id: 'dry-1', type: 'paper_dry', userId: 'user-b', timestamp: Date.now() }, 'remote')
     // Right away, well inside the join window and on the same water.
     simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
     const second = lastStroke(engine)
@@ -945,6 +947,40 @@ describe('water laid by someone else wets this paper too (#536)', () => {
     expect(second.washId).not.toBe(first.washId)
     // The recorded wetness is what a replay reads: all dry.
     expect((second.wet ?? '0').split('').every(d => d === '0')).toBe(true)
+  })
+
+  it('a paper_dry arriving mid-stroke keeps the stroke, and closes its wash at pen-up (§17.48)', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    peerWater(engine, 48)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(PAINT)
+    engine.setSize(24)
+    simulateStrokeStart(engine, 8, 48)
+    simulateStrokeMove(engine, 28, 48)
+    engine.appendOperation({ id: 'dry-2', type: 'paper_dry', userId: 'user-b', timestamp: Date.now() }, 'remote')
+    simulateStrokeMove(engine, 56, 48)
+    simulateStrokeEnd(engine, 56, 48)
+    const first = lastStroke(engine)
+    // Landed wet, and the rest of it met the dried paper.
+    expect(parseInt((first.wet ?? '0')[0], 16)).toBeGreaterThan(0)
+    expect((first.wet ?? '').endsWith('0')).toBe(true)
+    simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }])
+    expect(lastStroke(engine).washId).not.toBe(first.washId)
+  })
+
+  it('undo reaches past a paper_dry to the stroke before it (§17.48)', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(PAINT)
+    engine.setSize(24)
+    simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
+    const stroke = lastStroke(engine)
+    engine.appendOperation({ id: 'dry-3', type: 'paper_dry', userId: 'user-a', timestamp: Date.now() })
+    expect(engine.undo()?.id).toBe(stroke.id)
   })
 
   it('lands the settle in flight when the tool changes, instead of dropping it (§17.47)', async () => {
