@@ -5,8 +5,9 @@ import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { fileURLToPath } from 'node:url'
 
-const SESSION = fileURLToPath(new URL('../../node_modules/.devbridge/session.json', import.meta.url))
-export const session = JSON.parse(readFileSync(SESSION, 'utf8'))
+import { readDevBridgeSession } from '../devBridgeSession.mjs'
+
+export const session = readDevBridgeSession(fileURLToPath(new URL('../../node_modules/.devbridge/', import.meta.url)))
 export const base = new URL(process.env.DEVBRIDGE_URL ?? session.url ?? 'https://localhost:5173/')
 
 export function call(path, body) {

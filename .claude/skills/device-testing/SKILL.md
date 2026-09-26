@@ -27,7 +27,7 @@ description: Тестировать изменение на настоящих �
 ## Перед началом
 
 1. Дев-сервер из **этой** ветки, с `--host`: мост и сессия (токен, адрес) —
-   `apps/web/node_modules/.devbridge/session.json`. Своя ветка → свой
+   `apps/web/node_modules/.devbridge/session-<port>.json`. Своя ветка → свой
    изолированный стенд (см. память про изолированный стенд QA), не дев-сервер
    Ильи.
 2. Экран ноутбука включён: `DISPLAY=:0 xset dpms force on; xset -dpms; xset s off`.

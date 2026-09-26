@@ -245,7 +245,7 @@ over Vite's HMR socket, and `apps/web/scripts/devbridge.ts` runs code in it
 from this machine and reads the answer, console warnings/errors and uncaught
 exceptions back. Production builds contain none of it (plugin `apply:
 'serve'`, client behind `import.meta.env.DEV`); the HTTP side needs a token
-the dev server writes to `apps/web/node_modules/.devbridge/session.json`
+the dev server writes to `apps/web/node_modules/.devbridge/session-<port>.json`
 (0600) on every start.
 
 ## One-time on the iPad: trust the dev server's https

@@ -18,8 +18,10 @@ import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { join } from 'node:path'
 
+import { readDevBridgeSession } from './devBridgeSession.mjs'
+
 const dir = process.env.DEVBRIDGE_DIR ?? join(import.meta.dirname, '..', 'node_modules', '.devbridge')
-const session = JSON.parse(readFileSync(join(dir, 'session.json'), 'utf8')) as { token: string; url: string | null }
+const session = readDevBridgeSession(dir) as { token: string; url: string | null }
 const base = new URL(process.env.DEVBRIDGE_URL ?? session.url ?? 'https://localhost:5173/')
 
 function call(path: string, body?: unknown): Promise<unknown> {

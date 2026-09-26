@@ -6,6 +6,7 @@
 // Usage: node multitest.mjs <room> name=page [name=page ...]
 //   names android / ipad / surface / laptop pick colours and roles; any others
 //   work too. The first device is the reference for comparisons.
+//   SIZE_SCALE scales every brush size (default 1).
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { call, ev as evSel, joinAndInstall } from './bridge.mjs'
@@ -19,6 +20,9 @@ const OUT = OUTDIR + `multitest-${Date.now()}.json`
 const report = { room, devices: devices.map(d => d.name), rounds: [], checks: [] }
 const log = (...a) => { console.log(...a) }
 const ev = (dev, code, timeoutMs) => evSel(dev.sel, code, timeoutMs)
+// SIZE_SCALE=0.4: the brush sizes of a lesson rather than of a stress test
+// (the scenario's own sizes run to 400 px, the tool's maximum).
+const SIZE_SCALE = Number(process.env.SIZE_SCALE ?? 1)
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 // Deterministic randomness per device and round.
@@ -36,7 +40,7 @@ async function round(name, plan) {
     const p = plan(dev)
     const out = []
     for (const s of p.strokes) {
-      await ev(dev, `return window.__mt.setup(${JSON.stringify({ preset: s.preset, color: COLORS[dev.name] ?? [0.4, 0.4, 0.4], size: s.size, layerId: p.layerId })})`)
+      await ev(dev, `return window.__mt.setup(${JSON.stringify({ preset: s.preset, color: COLORS[dev.name] ?? [0.4, 0.4, 0.4], size: Math.max(8, Math.round(s.size * SIZE_SCALE)), layerId: p.layerId })})`)
       const r = await ev(dev, `return await window.__mt.stroke(${JSON.stringify({ pts: s.pts, ms: s.ms })})`, 60000)
       out.push(r)
       await sleep(p.gapMs ?? 300)

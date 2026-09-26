@@ -55,7 +55,13 @@ export function devBridge(): Plugin {
       server.httpServer?.once('listening', () => {
         mkdirSync(DEVBRIDGE_DIR, { recursive: true })
         const urls = server.resolvedUrls?.local ?? []
-        writeFileSync(join(DEVBRIDGE_DIR, 'session.json'), JSON.stringify({ token, url: urls[0] ?? null, pid: process.pid }), { mode: 0o600 })
+        const url = urls[0] ?? null
+        // One file per server: an e2e run starts a second dev server from the
+        // same checkout, and a single session.json was overwritten by it -
+        // the terminal then talked to a server that was gone. The readers
+        // pick the newest file whose process is still alive (sessionFile.ts).
+        const port = url ? new URL(url).port : String(process.pid)
+        writeFileSync(join(DEVBRIDGE_DIR, `session-${port}.json`), JSON.stringify({ token, url, pid: process.pid }), { mode: 0o600 })
       })
 
       server.ws.on('devbridge:hello', (data: { id: string; ua: string; href: string; screen: string }, client) => {

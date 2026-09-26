@@ -84,6 +84,8 @@ modules:
     files:
       - apps/web/scripts/devBridgePlugin.ts
       - apps/web/scripts/devbridge.ts
+      - apps/web/scripts/devBridgeSession.mjs
+      - apps/web/scripts/devBridgeSession.d.mts
       - apps/web/src/dev/devBridge.ts
       - apps/web/scripts/devices/bridge.mjs
       - apps/web/scripts/devices/pageLib.js
