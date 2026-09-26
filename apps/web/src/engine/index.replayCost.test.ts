@@ -114,18 +114,18 @@ describe('#381 a batch rebuilds each layer once, not once per undo', () => {
     const kept = fillStroke('user-a', 'A', 4, 4, 2)
     const stroke = fillStroke('user-a', 'A', 9, 9, 2)
 
-    const internals = engine as unknown as { _takeCheckpoint: (id: string) => void; _checkpoints: unknown[] }
+    const internals = engine as unknown as { _takeCheckpoint: (id: string) => void; _checkpoints: { all(): readonly unknown[] } }
     engine.suspendDisplay()
     engine.appendOperation(kept, 'remote')
     engine.appendOperation(stroke, 'remote')
     engine.appendOperation(undoOf('user-a', stroke), 'remote')
-    const before = internals._checkpoints.length
+    const before = internals._checkpoints.all().length
     internals._takeCheckpoint('A')
-    expect(internals._checkpoints.length, 'checkpointed a layer with a rebuild pending').toBe(before)
+    expect(internals._checkpoints.all().length, 'checkpointed a layer with a rebuild pending').toBe(before)
 
     engine.resumeDisplay()
     internals._takeCheckpoint('A')
-    expect(internals._checkpoints.length, 'refused to checkpoint after the flush too').toBeGreaterThan(before)
+    expect(internals._checkpoints.all().length, 'refused to checkpoint after the flush too').toBeGreaterThan(before)
     engine.destroy()
   })
 })
