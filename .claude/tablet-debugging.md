@@ -236,3 +236,63 @@ tab — if unrelated apps are dying too, stop looking at V8 heap numbers.
   for the gesture, then read the array. One exchange instead of one per
   question, and it captures menus and toasts that are gone by the time you
   look.
+
+# iPad (no Mac, so no Web Inspector): the dev bridge
+
+Safari's remote inspector needs a Mac. Instead the dev build carries its own
+bridge (#536, ADR 011 §17.49 era): every page of the **dev** server says hello
+over Vite's HMR socket, and `apps/web/scripts/devbridge.ts` runs code in it
+from this machine and reads the answer, console warnings/errors and uncaught
+exceptions back. Production builds contain none of it (plugin `apply:
+'serve'`, client behind `import.meta.env.DEV`); the HTTP side needs a token
+the dev server writes to `apps/web/node_modules/.devbridge/session.json`
+(0600) on every start.
+
+## One-time on the iPad: trust the dev server's https
+
+1. Same Wi-Fi as this machine. In Safari open
+   `https://<this machine's LAN IP>:<port>/__devbridge/rootCA.pem`
+   (e.g. `https://192.168.1.70:5173/...`; 5277 is the watercolour stack).
+   The first time Safari warns about the certificate — "visit this website"
+   is fine, it is exactly the certificate being fixed. It offers to download
+   a profile: allow.
+2. Settings → "Profile Downloaded" → Install.
+3. Settings → General → About → Certificate Trust Settings → turn on full
+   trust for the mkcert root. Without this step the profile is installed but
+   Safari still refuses the page.
+4. Settings → Display & Brightness → Auto-Lock → Never, for measuring: a
+   locked iPad freezes the page exactly like a sleeping Android tablet.
+
+## Every session
+
+```sh
+# the iPad opens a room on the dev server; then, from the repo root:
+npx tsx apps/web/scripts/devbridge.ts clients            # who is connected
+npx tsx apps/web/scripts/devbridge.ts wait <roomId>       # block until it is
+npx tsx apps/web/scripts/devbridge.ts eval <roomId> '__engine.getWatercolorPerf()'
+npx tsx apps/web/scripts/devbridge.ts eval <roomId> @some.js --timeout 180000
+npx tsx apps/web/scripts/devbridge.ts logs <roomId> --follow
+```
+
+A page is picked by its id (from `clients`), any part of its address (a room
+id — the most reliable), or any part of its user agent. **iPadOS Safari
+reports itself as a Mac** ("Macintosh; Intel Mac OS X"), so `ipad` does not
+match; use the room id, or `macintosh` when no real Mac is connected. The
+code is an async function body or a bare expression; the answer is JSON.
+
+Pen-load measurement (same numbers as `tabletpen.mjs`, no CDP): the stroke
+is generated inside the page and fed to the engine's PointerInput handlers,
+rAF intervals counted during and 2.5 s after it —
+`node temp/wc-rig/bridgepen.mjs <roomId> 400 8 300 2`. Measure in a room
+created for the purpose (a big wash in an old test room makes every settle
+maximal and the numbers incomparable), landscape, camera angle 0: a rotated
+view turns the partial recompose off and costs whole frames.
+
+Traps:
+- A dev-server restart (a config or plugin edit) drops the page's socket;
+  the page re-hellos by itself within ~10 s. A page that stays missing is
+  hung or suspended — reopen the room.
+- Safari has no `scheduler.yield`: the room load's slices yield through a
+  MessageChannel instead (restoreRoomState / replayGate.ts).
+- Safari kills a tab's WebGL context under memory pressure with little
+  warning; forwarded `webglcontextlost` / console errors show up in `logs`.

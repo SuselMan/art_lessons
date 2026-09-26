@@ -10505,6 +10505,12 @@ export class PencilEngine implements PencilEngineAPI {
       // coordinates maps every tile overlap onto whole cells.
       x0 = Math.max(minX, Math.floor(x0 / S) * S); y0 = Math.max(minY, Math.floor(y0 / S) * S)
       x1 = Math.min(maxX, Math.ceil(x1 / S) * S); y1 = Math.min(maxY, Math.ceil(y1 / S) * S)
+      // (§17.49) ...and back under the cap: the alignment could push a capped
+      // window one field texel past it - 1537, which the field rounds up to
+      // the next size, so a big wash's chunk settle (1536) and its pen-up
+      // settle (1537) re-made the whole field in turn, every stroke.
+      if (x1 - x0 > CAP) x1 = x0 + CAP
+      if (y1 - y0 > CAP) y1 = y0 + CAP
     }
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null

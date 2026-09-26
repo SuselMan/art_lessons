@@ -11,6 +11,7 @@ import { sentryVitePlugin } from '@sentry/vite-plugin'
 // its imports out. `npm run typecheck` covers only the app project, so this
 // one is caught by `tsc -b` in the build.
 import { precacheConfig } from './src/pwa/swConfig.ts'
+import { devBridge } from './scripts/devBridgePlugin.ts'
 
 // Dev-server HTTPS (mkcert-signed, LAN-trusted once its CA is installed on a
 // tablet — see apps/web's README/CLAUDE.md) — needed for AudioWorklet (pencil
@@ -137,6 +138,9 @@ export default defineConfig(({ mode }) => {
       react(),
       pwa,
       ...(useHttps ? [mkcert()] : []),
+      // (#536) Remote eval + console for devices without a debugger (an iPad
+      // without a Mac). Dev server only - see the plugin's header.
+      devBridge(),
       ...(sentryAuthToken
         ? [sentryVitePlugin({
           authToken: sentryAuthToken,

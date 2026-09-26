@@ -72,6 +72,23 @@ layers:
 modules:
   # ------------------------------------------------------------------ сборка
 
+  - id: dev-bridge
+    title: Мост отладки для устройств без отладчика
+    layer: tooling
+    owns: >-
+      Удалённый eval и консоль для страниц дев-сборки на устройствах, к которым не подключить
+      отладчик (айпад без мака). Страница здоровается через HMR-сокет Vite, плагин держит
+      список страниц и по токену выполняет в них код с терминала. В прод-сборку не попадает:
+      плагин `apply: 'serve'`, клиент за `import.meta.env.DEV`. Ещё отдаёт корневой сертификат
+      mkcert, чтобы айпад доверял https дев-сервера.
+    files:
+      - apps/web/scripts/devBridgePlugin.ts
+      - apps/web/scripts/devbridge.ts
+      - apps/web/src/dev/devBridge.ts
+    notes:
+      - >-
+        Порядок работы с айпадом — в .claude/tablet-debugging.md, раздел «iPad».
+
   - id: build-assets
     title: Запекание ассетов
     layer: tooling
