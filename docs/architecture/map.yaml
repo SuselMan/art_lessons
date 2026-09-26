@@ -1099,10 +1099,13 @@ modules:
     owns: >-
       Сердце сервера: комнаты в памяти, подкреплённые Postgres, ретрансляция операций всем
       участникам, живые штрихи и курсоры, undo/redo, заморозка. Сервер никогда не рендерит —
-      он пересылает операции.
+      он пересылает операции. rooms.ts разбирается по доменам (#612): структурный лог уже
+      отдельно.
     files:
       - apps/server/src/rooms.ts
       - apps/server/src/rooms.test.ts
+      - apps/server/src/structuralLog.ts
+      - apps/server/src/structuralLog.test.ts
       - apps/server/src/roomSnapshots.test.ts
       - apps/server/src/socketHandlers.ts
       - apps/server/src/socketHandlers.test.ts
