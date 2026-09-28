@@ -1,6 +1,6 @@
 import type { ClientEnvironment } from '@grafetto/shared'
 
-import { apiFetch } from './api'
+import { api } from './api'
 import { APP_VERSION } from './appVersion'
 import { DEVICE_TYPE_STORAGE_KEY, useSettingsStore } from '../stores/settingsStore'
 
@@ -86,7 +86,7 @@ export function collectEnvironment(): ClientEnvironment {
 }
 
 function send(): void {
-  apiFetch('/api/me/environment', { method: 'POST', body: JSON.stringify(collectEnvironment()) })
+  api('POST /api/me/environment', { body: collectEnvironment() })
     .catch(() => {
       // Diagnostics only. A failure here must never surface to the person.
     })

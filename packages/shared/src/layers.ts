@@ -41,6 +41,22 @@ export interface LayerState {
   selectedIds: string[]
 }
 
+/** (#623) Whether stored JSON is shaped like a LayerState, at the top level.
+ *  The snapshot index hands back what some client once uploaded, typed
+ *  `unknown` on the wire (see SnapshotIndex); this is the check that turns it
+ *  into a LayerState, instead of a cast that would let a malformed row through
+ *  to the engine. It does not walk the items — a bad item is the restore's to
+ *  survive, the same as it always was. */
+export function isLayerStateShape(value: unknown): value is LayerState {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('items' in value) || !('rootOrder' in value) || !('activeId' in value) || !('selectedIds' in value)) return false
+  const { items, rootOrder, activeId, selectedIds } = value
+  return typeof items === 'object' && items !== null && !Array.isArray(items)
+    && Array.isArray(rootOrder) && rootOrder.every(id => typeof id === 'string')
+    && typeof activeId === 'string'
+    && Array.isArray(selectedIds)
+}
+
 export const BACKGROUND_LAYER_ID = 'background'
 
 /**

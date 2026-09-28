@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify'
+import type { ApiOk } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
+import { asString } from './input.js'
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
 import { setRoomClosed } from './ownerControls.js'
@@ -32,7 +35,7 @@ function isBoard(room: { lessonId?: string | null }): boolean {
  *  row is ever written for a board (rooms.ts's joinRoom seats people in the
  *  lesson), so it could not match anyway. */
 export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: RoomClosedNotifier): void {
-  app.get('/api/rooms/mine', async (request) => {
+  apiRoute(app, 'GET /api/rooms/mine', async (request) => {
     // (#209) `include` the thumbnail relation `select`-narrowed to just
     // `updatedAt` — this list can be long, and pulling every room's full PNG
     // `data` blob in just to build a card list would be wasteful; the actual
@@ -60,8 +63,8 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
   // caller's current folder — folder browsing (#212) is scoped to one level
   // at a time for perf, so the client has nothing to filter locally across
   // the whole tree. Same "owned OR participated" universe as `/mine`.
-  app.get<{ Querystring: { q?: string } }>('/api/rooms/search', async (request) => {
-    const q = request.query.q?.trim()
+  apiRoute(app, 'GET /api/rooms/search', async (request) => {
+    const q = asString(request.query.q)?.trim()
     // Empty/missing q -> empty result rather than 400: keeps a debounced
     // search box simple (clearing the input just clears results, no error).
     if (!q) return { rooms: [] }
@@ -86,12 +89,13 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
   // below, since renaming is a structural change to shared room metadata,
   // not per-user organization (contrast with folder placement, which is the
   // caller's own and needs no ownership check).
-  app.patch<{ Params: { id: string }; Body: { name: string } }>('/api/rooms/:id', async (request, reply) => {
+  apiRoute(app, 'PATCH /api/rooms/:id', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
     if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
     if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
 
-    const name = request.body.name?.trim()
+    // (#623) Read, not assumed: a missing body used to throw here and answer 500.
+    const name = asString(request.body?.name)?.trim()
     if (!name) return reply.code(400).send({ error: 'invalid_name' })
 
     const updated = await prisma.room.update({
@@ -113,8 +117,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
   // Idempotent by design: closing an already-closed room keeps the original
   // timestamp rather than restamping it, so "when was this handed out"
   // survives a double click on the toggle.
-  app.patch<{ Params: { id: string }; Body: { closed: boolean } }>(
-    '/api/rooms/:id/closed',
+  apiRoute(app, 'PATCH /api/rooms/:id/closed',
     async (request, reply) => {
       const room = await prisma.room.findUnique({ where: { id: request.params.id } })
       if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
@@ -141,7 +144,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
     },
   )
 
-  app.delete<{ Params: { id: string } }>('/api/rooms/:id', async (request, reply) => {
+  apiRoute(app, 'DELETE /api/rooms/:id', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
     if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
     if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
@@ -149,14 +152,14 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
     // Operation/RoomParticipant rows cascade (onDelete: Cascade in schema),
     // and so do the lesson's boards (#176) with everything under them.
     await prisma.room.delete({ where: { id: room.id } })
-    return { ok: true }
+    return { ok: true } satisfies ApiOk
   })
 
   // (#213) Lets a non-owner participant remove themselves from a room —
   // unlike the owner-only DELETE above, this only drops the caller's own
   // `RoomParticipant` row. `Room` and every other participant's data (and
   // that participant's own Operations) are untouched.
-  app.delete<{ Params: { id: string } }>('/api/rooms/:id/participation', async (request, reply) => {
+  apiRoute(app, 'DELETE /api/rooms/:id/participation', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
     if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
     if (room.ownerId === request.userId) return reply.code(403).send({ error: 'owner_cannot_leave' })
@@ -167,6 +170,6 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
     if (!participant) return reply.code(404).send({ error: 'not_found' })
 
     await prisma.roomParticipant.delete({ where: { id: participant.id } })
-    return { ok: true }
+    return { ok: true } satisfies ApiOk
   })
 }

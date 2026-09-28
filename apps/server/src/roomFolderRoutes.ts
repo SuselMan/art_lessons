@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify'
+import type { ApiOk } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
+import { asString, readNullableString } from './input.js'
 import { prisma } from './prisma.js'
 import { toWireRoom, toWireRoomFolder } from './roomMapper.js'
 
@@ -30,7 +33,7 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
   // not the whole tree — a large room/folder collection must not force
   // fetching everything at once (#211 epic perf discussion). Omitted
   // `folderId` means the root level.
-  app.get<{ Querystring: { folderId?: string } }>('/api/rooms', async (request) => {
+  apiRoute(app, 'GET /api/rooms', async (request) => {
     const folderId = request.query.folderId ?? null
 
     const [folders, participantRows] = await Promise.all([
@@ -58,9 +61,12 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
     }
   })
 
-  app.post<{ Body: { name: string; parentFolderId?: string } }>('/api/rooms/folders', async (request, reply) => {
-    const { name, parentFolderId } = request.body
-    if (!name.trim()) return reply.code(400).send({ error: 'invalid_name' })
+  apiRoute(app, 'POST /api/rooms/folders', async (request, reply) => {
+    // (#623) Read, not assumed: a missing name used to throw on `.trim()`
+    // and answer 500.
+    const name = asString(request.body?.name)?.trim()
+    const parentFolderId = asString(request.body?.parentFolderId)
+    if (!name) return reply.code(400).send({ error: 'invalid_name' })
 
     if (parentFolderId) {
       const parent = await prisma.roomFolder.findUnique({ where: { id: parentFolderId } })
@@ -68,19 +74,25 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
     }
 
     const folder = await prisma.roomFolder.create({
-      data: { userId: request.userId, name: name.trim(), parentFolderId: parentFolderId ?? null },
+      data: { userId: request.userId, name, parentFolderId: parentFolderId ?? null },
     })
     return toWireRoomFolder(folder)
   })
 
-  app.patch<{ Params: { id: string }; Body: { name?: string; parentFolderId?: string | null } }>(
-    '/api/rooms/folders/:id',
+  apiRoute(app, 'PATCH /api/rooms/folders/:id',
     async (request, reply) => {
       const folder = await prisma.roomFolder.findUnique({ where: { id: request.params.id } })
       if (!folder || folder.userId !== request.userId) return reply.code(404).send({ error: 'not_found' })
 
-      const { name, parentFolderId } = request.body
-      if (name !== undefined && !name.trim()) return reply.code(400).send({ error: 'invalid_name' })
+      // Absent: leave the name alone. Present: it has to be a non-empty string.
+      let name: string | undefined
+      if (request.body?.name !== undefined) {
+        name = asString(request.body.name)?.trim()
+        if (!name) return reply.code(400).send({ error: 'invalid_name' })
+      }
+      const parent = readNullableString(request.body?.parentFolderId)
+      if (!parent) return reply.code(400).send({ error: 'invalid_parent' })
+      const parentFolderId = parent.value
 
       if (parentFolderId !== undefined && parentFolderId !== null) {
         if (parentFolderId === folder.id) return reply.code(400).send({ error: 'cycle' })
@@ -92,7 +104,7 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
       const updated = await prisma.roomFolder.update({
         where: { id: folder.id },
         data: {
-          ...(name !== undefined ? { name: name.trim() } : {}),
+          ...(name !== undefined ? { name } : {}),
           ...(parentFolderId !== undefined ? { parentFolderId } : {}),
         },
       })
@@ -105,10 +117,11 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
   // to..." menu action, and "create room inside this folder", all issues
   // downstream of #212). Only ever touches the caller's own RoomParticipant
   // row, same per-user-organization model as everything else here.
-  app.patch<{ Params: { id: string }; Body: { folderId: string | null } }>(
-    '/api/rooms/:id/folder',
+  apiRoute(app, 'PATCH /api/rooms/:id/folder',
     async (request, reply) => {
-      const { folderId } = request.body
+      const target = readNullableString(request.body?.folderId)
+      if (!target || target.value === undefined) return reply.code(400).send({ error: 'invalid_folder' })
+      const folderId = target.value
       if (folderId !== null) {
         const folder = await prisma.roomFolder.findUnique({ where: { id: folderId } })
         if (!folder || folder.userId !== request.userId) return reply.code(404).send({ error: 'not_found' })
@@ -120,11 +133,11 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
       if (!participant) return reply.code(404).send({ error: 'not_found' })
 
       await prisma.roomParticipant.update({ where: { id: participant.id }, data: { folderId } })
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
-  app.delete<{ Params: { id: string } }>('/api/rooms/folders/:id', async (request, reply) => {
+  apiRoute(app, 'DELETE /api/rooms/folders/:id', async (request, reply) => {
     const folder = await prisma.roomFolder.findUnique({ where: { id: request.params.id } })
     if (!folder || folder.userId !== request.userId) return reply.code(404).send({ error: 'not_found' })
 
@@ -135,6 +148,6 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
     if (childRoomCount > 0 || childFolderCount > 0) return reply.code(409).send({ error: 'not_empty' })
 
     await prisma.roomFolder.delete({ where: { id: folder.id } })
-    return { ok: true }
+    return { ok: true } satisfies ApiOk
   })
 }

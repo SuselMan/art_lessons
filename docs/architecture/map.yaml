@@ -795,6 +795,7 @@ modules:
       хранение комнат и чанков.
     files:
       - apps/web/src/lib/api.ts
+      - apps/web/src/lib/api.test.ts
       - apps/web/src/lib/queryClient.ts
       - apps/web/src/lib/authState.ts
       - apps/web/src/lib/banned.ts
@@ -1210,6 +1211,8 @@ modules:
       - apps/server/src/thumbnailRoutes*.ts
       - apps/server/src/snapshotRoutes*.ts
       - apps/server/src/roomMapper.ts
+      - apps/server/src/apiRoute.ts
+      - apps/server/src/input.ts
     tags: [rest]
 
   - id: server-auth
@@ -1291,6 +1294,8 @@ modules:
       бумага, комната, набор инструментов, штрих, слоевые и областные операции, фигуры,
       фильтры, аннотации, объединение операций, протокол, хоткеи); index.ts — только
       оглавление, и все по-прежнему импортируют `@grafetto/shared`.
+      С #623 тот же контракт и у REST: таблица маршрутов rest.ts, через которую сервер
+      регистрирует роуты (apiRoute.ts), а клиент их зовёт (lib/api.ts).
     files:
       - packages/shared/src/index.ts
       - packages/shared/src/layers.ts
@@ -1307,6 +1312,8 @@ modules:
       - packages/shared/src/operations.ts
       - packages/shared/src/protocol.ts
       - packages/shared/src/hotkeys.ts
+      - packages/shared/src/rest.ts
+      - packages/shared/src/rest.test.ts
       - packages/shared/src/admin.ts
       - packages/shared/src/admin.test.ts
       - packages/shared/src/rejectReason.test.ts
