@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
+import { slow } from './e2e/support/pace'
 import { E2E_APP_VERSION, SERVER_HEALTH_URL, SERVER_PORT, WEB_PORT, WEB_URL } from './e2e/support/stack'
 
 /** (#491, трек #314 §12) End-to-end tests in a real browser.
@@ -45,8 +46,12 @@ export default defineConfig({
   // A stroke has to be drawn, acknowledged by the server and painted; the
   // default 30s is enough for all of it, but not for the *first* test, which
   // also waits out Vite's cold dependency optimisation.
-  timeout: 60_000,
-  expect: { timeout: 15_000 },
+  timeout: slow(60_000),
+  expect: { timeout: slow(15_000) },
+  // (#616) One retry in CI, none locally. A retried pass is reported as
+  // *flaky* in the run summary rather than hidden, so a scenario that starts
+  // needing it shows up instead of turning the job red at random.
+  retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   globalTeardown: './e2e/globalTeardown.ts',
 
@@ -74,7 +79,18 @@ export default defineConfig({
         // here — `--use-gl=angle` keeps headless Chromium on a real backend
         // instead of quietly falling back to SwiftShader, where "the stroke is
         // there" would be measuring something else entirely.
-        launchOptions: { args: ['--use-gl=angle', '--use-angle=default', '--ignore-gpu-blocklist'] },
+        //
+        // (#616) The exception is a machine with no GPU at all — a CI runner —
+        // where `default` has nothing to reach. There `E2E_GL=swiftshader` asks
+        // for the software rasteriser *explicitly*: the same shaders still run
+        // and the same pixels are read back, but a GPU's own precision quirks
+        // (the class of bug a tablet finds) are out of its reach. So CI proves
+        // the app works; it does not replace the device passes in §9.
+        launchOptions: {
+          args: process.env.E2E_GL === 'swiftshader'
+            ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+            : ['--use-gl=angle', '--use-angle=default', '--ignore-gpu-blocklist'],
+        },
       },
     },
   ],

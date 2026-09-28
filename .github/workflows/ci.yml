@@ -43,3 +43,72 @@ jobs:
         run: |
           npm run map:check
           npm run map:rules
+
+  # (#616, трек #314 §12) The browser harness (#491) on every PR. A separate job
+  # so a red e2e run never hides a red unit run, and so they run side by side.
+  #
+  # Split in two, and the split is about the runner, not the tests. This repo
+  # is private, so the free runner has two cores and no GPU; a scenario with a
+  # second browser renders two canvases in software at once, and there the
+  # runner's speed varied threefold between runs — the same boards scenario
+  # took 4 minutes on one run and 12 on the next, and the two-browser specs
+  # timed out doing nothing wrong. So:
+  #   - `single` — everything with one browser. Blocking: it has to pass.
+  #   - `two-browsers` — the scenarios tagged @two-browsers. Runs on every PR
+  #     and reports, but does not fail the workflow (continue-on-error). Its
+  #     red is a prompt to run the spec locally on a GPU, not a verdict.
+  # A paid runner would make both blocking; that waits until the project pays
+  # for it (Ilya, 28.09).
+  e2e:
+    name: e2e (${{ matrix.part }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.optional }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: single
+            grep: --grep-invert @two-browsers
+            optional: false
+          - part: two-browsers
+            grep: --grep @two-browsers
+            optional: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The rooms in these tests draw on real paper; without the bake every
+      # paper fetch 404s and the canvas never opens.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # No GPU on the runner: the software rasteriser, asked for by name — see
+      # the launchOptions comment in playwright.config.ts. Postgres is the
+      # harness's own throwaway container (docker is on the runner).
+      - name: End-to-end tests
+        env:
+          E2E_GL: swiftshader
+        run: npx playwright test --project=chromium ${{ matrix.grep }}
+
+      - name: Upload report and failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.part }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

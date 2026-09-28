@@ -4,6 +4,7 @@ import {
   activeLayerId, createRoom, drawStroke, INK, joinRoom, maxDarknessOverContent,
   operations, waitForOperations, waitForRoomReady,
 } from '../support/room'
+import { slow } from '../support/pace'
 
 /** (#491) Drawing through a dropped connection, and what happens to it after.
  *
@@ -19,7 +20,7 @@ import {
  *  because it was painted optimistically the moment it was drawn. Whether it
  *  reached the server is a question only somebody else can answer. */
 test.describe('a connection that drops mid-lesson', () => {
-  test('work drawn offline reaches the server once the connection returns', async ({ page, browser, context }) => {
+  test('work drawn offline reaches the server once the connection returns', { tag: '@two-browsers' }, async ({ page, browser, context }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -49,7 +50,7 @@ test.describe('a connection that drops mid-lesson', () => {
       // is that it gets there, not how fast.
       await expect.poll(
         async () => (await operations(witnessPage)).filter(op => op.type === 'stroke').length,
-        { timeout: 45_000, message: 'the offline stroke should reach the server after reconnecting' },
+        { timeout: slow(45_000), message: 'the offline stroke should reach the server after reconnecting' },
       ).toBe(2)
 
       const witnessLayer = await activeLayerId(witnessPage)
@@ -69,7 +70,7 @@ test.describe('a connection that drops mid-lesson', () => {
   // path is covered many times over, because every test opens a room; the
   // catch-up path is only reached by a reconnect *while someone else draws*,
   // and nothing did that.
-  test('what was drawn while a student was offline reaches them when they return', async ({ page, browser }) => {
+  test('what was drawn while a student was offline reaches them when they return', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -95,7 +96,7 @@ test.describe('a connection that drops mid-lesson', () => {
       await student.setOffline(false)
       await expect.poll(
         async () => (await operations(studentPage)).filter(op => op.type === 'stroke').length,
-        { timeout: 45_000, message: 'the stroke drawn while offline should arrive with the rejoin' },
+        { timeout: slow(45_000), message: 'the stroke drawn while offline should arrive with the rejoin' },
       ).toBe(2)
       const layer = await activeLayerId(studentPage)
       expect(await maxDarknessOverContent(studentPage, layer)).toBeGreaterThan(INK)
@@ -122,7 +123,7 @@ test.describe('a connection that drops mid-lesson', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
 
     await context.setOffline(true)
-    await expect(page.getByRole('status').filter({ hasText: 'No connection' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('status').filter({ hasText: 'No connection' })).toBeVisible({ timeout: slow(20_000) })
 
     const name = await page.evaluate(id => window.__roomStore!.getState().layerState.items[id]?.name, upper)
     if (!name) throw new Error('e2e: the new layer is not in the store')

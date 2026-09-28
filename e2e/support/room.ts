@@ -3,6 +3,7 @@ import { expect, type Page } from '@playwright/test'
 import type { PencilEngineAPI } from '../../apps/web/src/engine'
 import type { useRoomStore } from '../../apps/web/src/stores/roomStore'
 import type { Operation } from '../../packages/shared/src/index'
+import { slow } from './pace'
 
 /** (#491) The two handles lib/devEngineHandle.ts publishes in dev builds.
  *  Typed against the app's own types rather than re-declared loosely, so a
@@ -71,7 +72,7 @@ export async function waitForRoomReady(page: Page): Promise<void> {
     if (!window.__engine) return false
     const canvas = document.querySelector('canvas')
     return !!canvas && getComputedStyle(canvas).pointerEvents !== 'none'
-  }, undefined, { timeout: 45_000 })
+  }, undefined, { timeout: slow(45_000) })
 }
 
 async function canvasBox(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
@@ -111,8 +112,20 @@ export async function drawStroke(
   await page.mouse.up()
 }
 
+/** (#616) Into the store as well as the engine. The store is the source the
+ *  engine is synced *from* (useToolSync), so a size written only into the
+ *  engine lasts until the next time that sync runs — locally that was always
+ *  after the stroke, and on a slow CI runner it came first: the teacher's
+ *  48 px stroke went down at the room's default 4 px and read too faint to
+ *  assert on. With both holding the same value, a late re-sync changes
+ *  nothing. */
 export async function setBrushSize(page: Page, size: number): Promise<void> {
-  await page.evaluate(px => window.__engine!.setSize(px), size)
+  await page.evaluate(px => {
+    const state = window.__roomStore!.getState()
+    const tool = state.drawingTool
+    if (typeof state.toolSettings[tool].size === 'number') state.setToolSetting(tool, 'size', px)
+    window.__engine!.setSize(px)
+  }, size)
 }
 
 /** The operation log as the engine holds it. */
@@ -275,14 +288,14 @@ export async function loseAndRestoreContext(page: Page): Promise<void> {
     ext.loseContext()
   })
 
-  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === true, undefined, { timeout: 15_000 })
+  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === true, undefined, { timeout: slow(15_000) })
 
   await page.evaluate(() => {
     const ext = (window as unknown as { __loseCtx?: { restoreContext(): void } }).__loseCtx
     ext!.restoreContext()
   })
 
-  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === false, undefined, { timeout: 30_000 })
+  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === false, undefined, { timeout: slow(30_000) })
 }
 
 /** Joins an existing room as a second participant, through the gate.
