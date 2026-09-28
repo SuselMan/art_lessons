@@ -81,6 +81,11 @@ adding a paragraph to `map.yaml`**; `npm run map:rules` fails on a new crossing 
 architectural boundary. Both run in CI. Details and the "CI is red, now what" guide:
 `docs/architecture/README.md`.
 
+Next to it, `docs/architecture/understanding.yaml` tracks which parts of the architecture Ilya
+can explain himself — agents write most of the code, so "the code exists" and "the owner
+understands it" are tracked separately. Before an architectural decision, check it and ask
+(rule: `.claude/rules.md` → «Понимание архитектуры»).
+
 ## Rules for Claude
 
 Operational rules for Claude — coding conventions, quality gates, Git workflow, and issue tracking — live in `.claude/rules.md`.

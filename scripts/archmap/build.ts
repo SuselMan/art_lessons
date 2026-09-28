@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { build } from './collect';
 import { assign, listSourceFiles, loadMap, REPO_ROOT } from './model';
 import { render } from './render';
+import { loadRuntime } from './runtime';
 
 const OUT = join(REPO_ROOT, 'docs', 'architecture', 'map.html');
 
@@ -22,7 +23,7 @@ function main(): void {
   }
 
   console.log('· снимаю граф импортов, дубли и историю правок…');
-  const data = build(map, assignment);
+  const data = { ...build(map, assignment), runtime: loadRuntime(new Set(map.modules.map((m) => m.id))) };
 
   let remote = '';
   try {

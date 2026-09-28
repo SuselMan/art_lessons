@@ -1,0 +1,472 @@
+# Карта архитектуры — разрез «Исполнение» (#624).
+#
+# Что живёт, когда программа запущена, и что эти части шлют друг другу. Вкладка «Структура»
+# отвечает на вопрос «кто кого импортирует» — здесь вопрос другой: клиент и сервер друг друга
+# не импортируют вовсе, но разговаривают весь урок.
+#
+#   nodes  — процессы и хранилища. `zone` — где физически живёт, `at: [колонка, строка]` —
+#            место в сетке своей зоны (зоны с одинаковым `col` стоят столбиком), `modules` — модули со вкладки «Структура», из которых он
+#            собран.
+#   links  — каналы между узлами. `messages[].dir`: `→` — от `from` к `to`, `←` — обратно.
+#            `messages[].type` — тип сообщения; каждое имя с заглавной буквы в нём `map:check`
+#            ищет в @grafetto/shared, в модели Prisma или в файлах из `decl`.
+#            `bend` — ручной изгиб линии в пикселях, чтобы она обошла чужие узлы.
+#
+# Сила контракта (`contract`) — главное, что эта вкладка показывает:
+#   bound     связан: одно объявление на канал, компилятор проверяет по нему обе стороны.
+#   named     назван: обе стороны берут тип из shared, но каждая выбирает его сама — ничто
+#             не связывает конкретный маршрут с конкретным типом.
+#   one-side  с одной стороны: тип объявлен только у одной стороны, или приведён кастом.
+#   opaque    без типа: байты, текстуры, чужой API — компилятор тут не помощник по природе.
+#
+# Проверка в рантайме — отдельная ось: ни один уровень выше не значит, что пришедшие данные
+# сверяются с типом при получении. Где это делается, сказано в `runtime` сообщения.
+#
+# События сокета `map:check` сверяет с ServerToClientEvents / ClientToServerEvents в обе
+# стороны, маршруты REST — с тем, что регистрирует сервер. Новое событие или ручка без строки
+# здесь = красный CI.
+
+zones:
+  - id: device
+    title: Устройство участника
+    col: 0
+    note: Браузерная вкладка. Таких вкладок в уроке столько, сколько участников.
+  - id: vps
+    title: VPS
+    col: 1
+    note: Один сервер, Docker Compose. Redis нет — один процесс Node держит все комнаты.
+  - id: external
+    title: Внешние сервисы
+    col: 1
+    note: Чужие системы, до которых мы достаём по HTTPS.
+  - id: peer
+    title: Другие участники
+    col: 2
+    note: Каждый — такая же вкладка, как слева.
+
+nodes:
+  - id: ui
+    title: Интерфейс и стор
+    zone: device
+    at: [1, 1]
+    kind: process
+    owns: >-
+      React-страницы и один Zustand-стор. Стор — отражение того, что уже применено к движку, а
+      не источник правды для картинки: движок меняют императивным вызовом, стор потом
+      записывает результат.
+    modules: [app-shell, room-shell, room-net, room-tools, room-panels, store-room, store-app, lib-api]
+
+  - id: engine
+    title: Движок
+    zone: device
+    at: [0, 1]
+    kind: process
+    owns: >-
+      PencilEngine в том же JS-потоке, что и интерфейс. Держит лог операций, тайлы слоёв и
+      конвейер от события пера до даба. Интерфейс видит его только через PencilEngineAPI.
+    modules: [engine-facade, engine-input, engine-dabs, engine-oplog, engine-buffers, engine-presets]
+
+  - id: gpu
+    title: GPU (WebGL1)
+    zone: device
+    at: [0, 0]
+    kind: store
+    owns: >-
+      Текстуры тайлов, буфер штриха и шейдеры. Сюда уезжает всё, что видно на холсте;
+      обратно — только через readPixels, дорого и редко.
+    modules: [engine-raster, engine-paper, engine-buffers]
+
+  - id: idb
+    title: IndexedDB
+    zone: device
+    at: [1, 0]
+    kind: store
+    owns: >-
+      Исходящая очередь операций (outbox): переживает потерю связи и перезагрузку вкладки.
+      И буфер обмена редактора — он переживает переход в другую комнату и виден из соседней
+      вкладки.
+    modules: [room-net]
+
+  - id: ls
+    title: localStorage
+    zone: device
+    at: [0, 2]
+    kind: store
+    owns: >-
+      Настройки приложения и комнаты, флаги, калибровка нажима. Только удобства этого
+      устройства — ничего, что должны видеть другие.
+    modules: [store-app, lib-browser]
+
+  - id: sw
+    title: Service Worker
+    zone: device
+    at: [1, 2]
+    kind: process
+    owns: >-
+      Кэш сборки для PWA. `/api/` и `/socket.io/` он не трогает — это проверено тестом,
+      иначе он отдавал бы устаревшие ответы. Он же отдаёт старую сборку сразу после деплоя.
+    modules: [pwa]
+
+  - id: peer
+    title: Вкладка другого участника
+    zone: peer
+    at: [0, 2]
+    kind: process
+    owns: >-
+      Та же схема, что слева: свой интерфейс, свой движок, свой GPU. Картинка у всех сходится
+      не потому, что кто-то шлёт пиксели, а потому что все сворачивают один и тот же лог.
+
+  - id: nginx
+    title: nginx
+    zone: vps
+    at: [0, 0]
+    kind: process
+    owns: >-
+      TLS, раздача статики (сборка, текстуры бумаги, шрифт иконок — заранее сжатые) и прокси
+      /api и /socket.io на процесс Node. Сам ничего не понимает в сообщениях.
+
+  - id: server
+    title: Процесс Node
+    zone: vps
+    at: [0, 1]
+    kind: process
+    owns: >-
+      Fastify (HTTP) и Socket.io в одном процессе. Комнаты живут в памяти: сервер присваивает
+      операциям seq и ретранслирует их, но ничего не рисует. Пишет в БД, не дожидаясь записи.
+    modules: [server-rooms, server-rooms-http, server-auth, server-admin, server-health, server-entry]
+
+  - id: pg
+    title: Postgres
+    zone: vps
+    at: [1, 0]
+    kind: store
+    owns: >-
+      Источник правды между сессиями: пользователи, комнаты, полный лог операций (он же
+      датасет), снапшоты слоёв, миниатюры.
+    modules: [server-entry]
+
+  - id: backup
+    title: Ночной бэкап
+    zone: vps
+    at: [1, 2]
+    kind: process
+    owns: >-
+      cron → deploy/backup.sh: pg_dump и выгрузка копии за пределы машины. Запуск, который
+      не выгрузил копию, считается упавшим — локальные дампы умирают вместе с сервером.
+
+  - id: resend
+    title: Resend
+    zone: external
+    at: [1, 0]
+    kind: external
+    owns: Отправка писем. Сейчас это только коды входа — то есть без него нельзя войти.
+
+  - id: sentry
+    title: Sentry
+    zone: external
+    at: [0, 0]
+    kind: external
+    owns: Ошибки и отчёты с клиента и с сервера.
+    modules: [lib-observability]
+
+  - id: b2
+    title: Backblaze B2
+    zone: external
+    at: [2, 0]
+    kind: external
+    owns: Внемашинная копия базы.
+
+links:
+  - id: engine-api
+    from: ui
+    to: engine
+    channel: вызовы PencilEngineAPI
+    contract: bound
+    summary: Operation, ToolType
+    note: >-
+      Один интерфейс, одна реализация, один пакет — самый крепкий контракт в системе. Главное
+      правило границы: стор — отражение движка. Меняют движок, стор записывает результат.
+    messages:
+      - { dir: '→', name: appendOperation, type: 'Operation', note: 'чужая или восстановленная операция' }
+      - { dir: '→', name: 'setTool / setColor / setSize …', type: 'ToolType', note: 'текущее состояние инструмента' }
+      - { dir: '→', name: setViewport, type: 'cx, cy, zoom, angle', note: 'вьюпорт у каждого свой' }
+      - { dir: '→', name: restoreLayerFromSnapshot, type: 'SnapshotTile[]', decl: [apps/web/src/engine/src/snapshotCodec.ts] }
+      - { dir: '→', name: appendPeerLiveDabs, type: 'PeerLivePacket', decl: [apps/web/src/engine/index.ts], note: 'чужой штрих, пока он ещё рисуется' }
+      - { dir: '←', name: onLocalOperation, type: 'Operation', note: 'свой завершённый штрих — дальше он уедет в outbox' }
+      - { dir: '←', name: 'undo() / redo()', type: 'Operation', note: 'обратная операция, её тоже отправляют' }
+      - { dir: '←', name: bakeNetworkSnapshot, type: 'Uint8Array', note: 'слой, упакованный для снапшота' }
+
+  - id: engine-gpu
+    from: engine
+    to: gpu
+    channel: вызовы WebGL1
+    contract: opaque
+    summary: дабы, текстуры
+    note: >-
+      Здесь тип — это раскладка байтов в буфере, и компилятор её не видит. Поэтому ошибки
+      здесь проявляются чёрным экраном или разной картинкой на разных GPU, а не красным
+      typecheck.
+    messages:
+      - { dir: '→', name: дабы штриха, type: 'Float32Array' }
+      - { dir: '→', name: текстуры бумаги и тайлов, type: 'WebGLTexture' }
+      - { dir: '←', name: readPixels, type: 'Uint8Array', note: 'снапшоты, миниатюры, пипетка' }
+
+  - id: ui-socket
+    from: ui
+    to: server
+    channel: Socket.io (WebSocket)
+    contract: bound
+    checks: socket
+    summary: Operation, StrokeLiveData
+    note: >-
+      Одна таблица событий в packages/shared/src/protocol.ts параметризует и клиентский
+      Socket, и серверный Server. Переименуешь поле — typecheck упадёт с обеих сторон. Но
+      только на этапе компиляции: пришедший пакет сервер не сверяет с типом, он проверяет
+      права, а не форму.
+    messages:
+      - { dir: '→', name: create_room, type: 'Room, JoinResult', note: 'ответ через ack' }
+      - { dir: '→', name: join_room, type: 'JoinResult', note: 'в запросе — последний известный seq' }
+      - { dir: '→', name: operation, type: 'Operation, SendResult', note: 'главный канал: штрихи и любые правки', runtime: 'права и заморозка проверяются, форма — нет' }
+      - { dir: '→', name: stroke_live, type: 'StrokeLiveData', note: 'дабы, пока рука ещё ведёт' }
+      - { dir: '→', name: stroke_live_end, type: 'strokeId' }
+      - { dir: '→', name: cursor_move, type: 'CursorMoveData' }
+      - { dir: '→', name: clock_sync, type: 'serverNow', note: 'сверка часов для живого штриха' }
+      - { dir: '→', name: palette_add_color, type: 'color' }
+      - { dir: '→', name: palette_remove_color, type: 'color' }
+      - { dir: '→', name: set_room_frozen, type: 'boolean' }
+      - { dir: '→', name: set_room_tools, type: 'ToggleableTool[]' }
+      - { dir: '→', name: set_participant_frozen, type: 'userId, frozen' }
+      - { dir: '→', name: set_active_board, type: 'boardId' }
+      - { dir: '→', name: assignment_start, type: 'AssignmentStartResult' }
+      - { dir: '→', name: set_class_location, type: 'assignmentId' }
+      - { dir: '→', name: set_spotlight, type: 'boardId' }
+      - { dir: '→', name: set_hand_raised, type: 'raised' }
+      - { dir: '→', name: set_class_visibility, type: 'ClassVisibility' }
+      - { dir: '←', name: room_state, type: 'Room, Operation[], Participant[], LessonState', note: 'всё для входа: комната, хвост лога, участники' }
+      - { dir: '←', name: operation_confirmed, type: 'seq, Operation', note: 'подтверждение — операция получила место в общем порядке' }
+      - { dir: '←', name: peer_stroke_live, type: 'StrokeLiveData' }
+      - { dir: '←', name: peer_stroke_live_end, type: 'strokeId' }
+      - { dir: '←', name: peer_cursor, type: 'CursorMoveData' }
+      - { dir: '←', name: peer_joined, type: 'Participant' }
+      - { dir: '←', name: peer_left, type: 'userId' }
+      - { dir: '←', name: palette_updated, type: 'palette' }
+      - { dir: '←', name: room_frozen_changed, type: 'frozen' }
+      - { dir: '←', name: room_tools_changed, type: 'ToggleableTool[]' }
+      - { dir: '←', name: participant_frozen_changed, type: 'userId, frozen' }
+      - { dir: '←', name: room_closed_changed, type: 'closedAt' }
+      - { dir: '←', name: join_request_created, type: 'RoomJoinRequest' }
+      - { dir: '←', name: join_request_resolved, type: 'requestId, approved' }
+      - { dir: '←', name: kicked, type: 'roomId' }
+      - { dir: '←', name: peer_board_changed, type: 'userId, boardId' }
+      - { dir: '←', name: active_board_changed, type: 'boardId' }
+      - { dir: '←', name: board_created, type: 'BoardSummary' }
+      - { dir: '←', name: board_renamed, type: 'boardId, name' }
+      - { dir: '←', name: boards_reordered, type: 'order' }
+      - { dir: '←', name: board_deleted, type: 'boardId' }
+      - { dir: '←', name: lesson_state, type: 'LessonState' }
+      - { dir: '←', name: participant_hand_changed, type: 'userId, raised' }
+      - { dir: '←', name: board_thumbnail_updated, type: 'boardId, updatedAt' }
+
+  - id: server-peer
+    from: server
+    to: peer
+    channel: Socket.io — рассылка
+    contract: bound
+    summary: те же события
+    note: >-
+      Сервер рассылает остальным участникам то же, что получил от одного: operation_confirmed
+      всем, peer_stroke_live и peer_cursor — соседям. Список событий — на стрелке слева.
+    messages:
+      - { dir: '→', name: 'события ServerToClientEvents', type: 'Operation, StrokeLiveData, CursorMoveData' }
+
+  - id: ui-rest
+    from: ui
+    to: server
+    channel: HTTP (REST, JSON)
+    contract: one-side
+    checks: rest
+    summary: Room, Me, BoardSummary
+    note: >-
+      Слабое место контракта (#623). Клиент пишет apiFetch<Room>(…) — это обещание, а не
+      проверка: res.json() приведён к нужному типу. Сервер собирает ответ литералом и тип
+      ответа не объявляет. Части типов (Me, MyRooms, SnapshotIndex) нет в shared вовсе.
+    messages:
+      - { dir: '→', name: 'GET /api/me', type: 'Me', decl: [apps/web/src/lib/api.ts], note: 'Me объявлен только на клиенте' }
+      - { dir: '→', name: 'POST /api/me/environment', type: 'ClientEnvironment', runtime: 'сервер прогоняет тело через sanitizeClientEnvironment — единственная ручка с настоящей проверкой' }
+      - { dir: '→', name: 'POST /api/auth/code/request', type: 'RequestedLoginCode', decl: [apps/web/src/lib/api.ts] }
+      - { dir: '→', name: 'POST /api/auth/code/verify', type: 'Me', decl: [apps/web/src/lib/api.ts] }
+      - { dir: '→', name: 'POST /api/auth/logout', type: 'Me', decl: [apps/web/src/lib/api.ts] }
+      - { dir: '→', name: 'GET /api/rooms', type: 'RoomsAtFolder', decl: [apps/web/src/lib/api.ts] }
+      - { dir: '→', name: 'GET /api/rooms/mine', type: 'MyRooms', decl: [apps/web/src/lib/api.ts], note: 'MyRooms объявлен только на клиенте' }
+      - { dir: '→', name: 'GET /api/rooms/search', type: 'Room[]' }
+      - { dir: '→', name: 'PATCH /api/rooms/:id', type: 'Room' }
+      - { dir: '→', name: 'PATCH /api/rooms/:id/closed', type: 'Room' }
+      - { dir: '→', name: 'DELETE /api/rooms/:id', type: 'ok' }
+      - { dir: '→', name: 'DELETE /api/rooms/:id/participation', type: 'ok' }
+      - { dir: '→', name: 'POST /api/rooms/:id/fork', type: 'Room' }
+      - { dir: '→', name: 'POST /api/rooms/folders', type: 'RoomFolder' }
+      - { dir: '→', name: 'PATCH /api/rooms/folders/:id', type: 'RoomFolder' }
+      - { dir: '→', name: 'DELETE /api/rooms/folders/:id', type: 'ok' }
+      - { dir: '→', name: 'PATCH /api/rooms/:id/folder', type: 'ok' }
+      - { dir: '→', name: 'GET /api/rooms/:id/access', type: 'RoomAccessInfo' }
+      - { dir: '→', name: 'PATCH /api/rooms/:id/access', type: 'RoomAccessMode', runtime: 'isRoomAccessMode на сервере' }
+      - { dir: '→', name: 'POST /api/rooms/:id/invites', type: 'RoomInvite' }
+      - { dir: '→', name: 'DELETE /api/rooms/:id/invites/:email', type: 'ok' }
+      - { dir: '→', name: 'POST /api/rooms/:id/join-requests/:requestId/…', type: 'ok', note: 'approve / deny' }
+      - { dir: '→', name: 'POST /api/rooms/:id/kick', type: 'ok' }
+      - { dir: '→', name: 'DELETE /api/rooms/:id/blocks/:userId', type: 'ok' }
+      - { dir: '→', name: 'POST /api/rooms/:id/boards', type: 'BoardSummary' }
+      - { dir: '→', name: 'PATCH /api/rooms/:id/boards/:boardId', type: 'BoardSummary' }
+      - { dir: '→', name: 'DELETE /api/rooms/:id/boards/:boardId', type: 'ok' }
+      - { dir: '→', name: 'POST /api/rooms/:roomId/snapshots', type: 'LayerState', note: 'клиент сам печёт снапшот и присылает: seq, структура слоёв, слои в base64; тело объявлено только на сервере, клиент шлёт голый fetch' }
+      - { dir: '→', name: 'GET /api/rooms/:roomId/snapshots/index', type: 'SnapshotIndexEntry', decl: [apps/server/src/snapshotStore.ts], note: 'на клиенте свой SnapshotIndex, на сервере свой — два независимых объявления' }
+      - { dir: '→', name: 'GET /api/rooms/:roomId/snapshots/:layerId/:seq', type: 'байты слоя', note: 'бинарный блоб, nginx отдаёт его отдельным правилом' }
+      - { dir: '→', name: 'GET /api/rooms/:roomId/operations', type: 'Operation[]', note: 'страница истории до seq; на клиенте res.json() as Operation[]' }
+      - { dir: '→', name: 'POST /api/rooms/:roomId/thumbnail', type: 'base64', note: 'миниатюру печёт клиент' }
+      - { dir: '→', name: 'GET /api/rooms/:roomId/thumbnail', type: 'png' }
+      - { dir: '→', name: 'GET /api/health', type: 'здоровье процесса', note: 'читает uptime-проверка, не клиент' }
+      - { dir: '→', name: 'GET /health', type: 'ok', note: 'снаружи недоступна: nginx проксирует только /api/' }
+
+  - id: ui-rest-admin
+    from: ui
+    to: server
+    channel: HTTP (REST) — админка
+    contract: named
+    checks: rest
+    summary: AdminOverview…
+    note: >-
+      Середина шкалы: обе стороны берут типы из packages/shared/src/admin.ts, но связь «эта
+      ручка отдаёт этот тип» каждая сторона пишет сама. Перепутать тип на одной стороне
+      компилятор не помешает.
+    messages:
+      - { dir: '→', name: 'GET /api/admin/overview', type: 'AdminOverview' }
+      - { dir: '→', name: 'GET /api/admin/users', type: 'AdminUserList' }
+      - { dir: '→', name: 'GET /api/admin/users/:id', type: 'AdminUserDetail' }
+      - { dir: '→', name: 'POST /api/admin/users/:id/ban', type: 'ok' }
+      - { dir: '→', name: 'POST /api/admin/users/:id/unban', type: 'ok' }
+      - { dir: '→', name: 'POST /api/admin/users/:id/revoke-sessions', type: 'ok' }
+      - { dir: '→', name: 'GET /api/admin/ip-bans', type: 'AdminIpBanList' }
+      - { dir: '→', name: 'GET /api/admin/ips/:ip', type: 'AdminIpDetail' }
+      - { dir: '→', name: 'POST /api/admin/ips/:ip/ban', type: 'ok' }
+      - { dir: '→', name: 'POST /api/admin/ips/:ip/unban', type: 'ok' }
+      - { dir: '→', name: 'GET /api/admin/lessons', type: 'AdminLessonList' }
+      - { dir: '→', name: 'GET /api/admin/lessons/:id/thumbnail', type: 'png' }
+      - { dir: '→', name: 'GET /api/admin/actions', type: 'AdminActionList' }
+
+  - id: ui-idb
+    from: ui
+    to: idb
+    channel: IndexedDB
+    contract: one-side
+    summary: OutboxEntry
+    note: >-
+      Тип знает только тот код, который пишет и читает. Что лежит на диске после обновления
+      приложения до новой версии, компилятор не проверит: запись могла оставить старая сборка.
+    messages:
+      - { dir: '→', name: pending-operations, type: 'OutboxEntry', decl: [apps/web/src/pages/Room/outboxStorage.ts], note: 'операция ждёт operation_confirmed' }
+      - { dir: '←', name: 'чтение при входе', type: 'OutboxEntry', decl: [apps/web/src/pages/Room/outboxStorage.ts], note: 'неотправленное уходит заново' }
+
+  - id: ui-ls
+    from: ui
+    to: ls
+    channel: localStorage (JSON-строки)
+    contract: one-side
+    summary: JSON с версией
+    note: >-
+      Строка на диске — каст при чтении. Поэтому настройки комнаты завёрнуты в конверт с
+      версией: чужую или старую форму выбрасывают, а не падают на ней.
+    messages:
+      - { dir: '→', name: настройки приложения и комнаты, type: 'JSON с версией' }
+      - { dir: '←', name: чтение при старте, type: 'JSON с версией' }
+
+  - id: ui-sentry
+    from: ui
+    to: sentry
+    channel: HTTPS (Sentry SDK)
+    contract: opaque
+    summary: ошибки, отчёты
+    messages:
+      - { dir: '→', name: исключения и отчёты о восстановлении, type: 'формат SDK' }
+
+  - id: nginx-ui
+    from: nginx
+    to: sw
+    bend: -170
+    channel: HTTPS (статика)
+    contract: opaque
+    summary: сборка, бумага, иконки
+    note: >-
+      Файлы, а не сообщения. Сжаты заранее (brotli/gzip) при сборке, nginx отдаёт готовое.
+      Service Worker кладёт сборку в кэш и дальше отдаёт вкладке её.
+    messages:
+      - { dir: '→', name: JS/CSS сборки, type: 'файлы' }
+      - { dir: '→', name: текстуры бумаги, type: 'запечённые байты', note: 'одинаковые на всех устройствах — поэтому печём заранее, а не на GPU' }
+      - { dir: '→', name: шрифт иконок, type: 'woff2' }
+
+  - id: nginx-server
+    from: nginx
+    to: server
+    channel: HTTP-прокси
+    contract: opaque
+    summary: /api, /socket.io
+    note: >-
+      nginx прокидывает запросы как есть. Стрелки «Интерфейс → Процесс Node» на самом деле
+      проходят через него; на карте они нарисованы напрямую, потому что смысл — там.
+    messages:
+      - { dir: '→', name: '/api/*', type: 'как есть' }
+      - { dir: '→', name: '/socket.io/*', type: 'как есть' }
+
+  - id: server-pg
+    from: server
+    to: pg
+    channel: SQL через Prisma
+    contract: one-side
+    summary: Operation в Json, Room
+    note: >-
+      Строки таблиц типизированы Prisma, но операция лежит в колонке Json — при чтении это
+      row.data as Operation. Строка БД и проводной тип — законно разные вещи (в строке есть
+      passwordHash); их граница — roomMapper.ts, там без кастов. Пишет сервер в очередь,
+      не дожидаясь записи.
+    messages:
+      - { dir: '→', name: запись операции, type: 'Operation', note: 'fire-and-forget: задержка БД не добавляется к задержке штриха' }
+      - { dir: '→', name: снапшот слоя, type: 'RoomLayerSnapshot' }
+      - { dir: '→', name: структура слоёв, type: 'RoomLayerState' }
+      - { dir: '←', name: холодная загрузка комнаты, type: 'Room', note: 'строка → проводной Room через toWireRoom' }
+      - { dir: '←', name: хвост лога, type: 'Operation', runtime: 'row.data as Operation — без проверки' }
+
+  - id: server-resend
+    from: server
+    to: resend
+    channel: HTTPS
+    contract: opaque
+    summary: письмо с кодом
+    messages:
+      - { dir: '→', name: POST /emails, type: 'EmailMessage', decl: [apps/server/src/email.ts], note: 'чужой API: наш тип описывает только то, что мы шлём' }
+
+  - id: server-sentry
+    from: server
+    to: sentry
+    channel: HTTPS (Sentry SDK)
+    contract: opaque
+    summary: ошибки
+    messages:
+      - { dir: '→', name: исключения сервера, type: 'формат SDK' }
+
+  - id: backup-pg
+    from: backup
+    to: pg
+    bend: 40
+    channel: pg_dump
+    contract: opaque
+    summary: дамп базы
+    messages:
+      - { dir: '←', name: дамп, type: 'pg_dump, custom-формат' }
+
+  - id: backup-b2
+    from: backup
+    to: b2
+    channel: rclone
+    contract: opaque
+    summary: копия дампа
+    messages:
+      - { dir: '→', name: дамп, type: 'файл' }
