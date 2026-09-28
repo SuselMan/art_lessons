@@ -1215,3 +1215,39 @@ describe('a checkpoint between two washes (#536 §17.55)', () => {
     }
   })
 })
+
+describe('a checkpoint inside two open washes (#536 §17.56)', () => {
+  const t0 = 1_700_000_000_000
+  const pair = () => Array.from({ length: 10 }, (_, i) => {
+    const user = i % 2 ? 'user-b' : 'user-a'
+    const y = i % 2 ? 44 : 20
+    return makeStroke(user, 'L', [dab(12 + i * 4, y, { size: 18 }), dab(20 + i * 4, y, { size: 18 })], {
+      id: 'op' + i, tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's' + i,
+      washId: i % 2 ? 'WB' : 'WA', timestamp: t0 + i * 500,
+    })
+  })
+
+  it('is taken while both washes are open, and an undo rebuilt from it matches a replay of the log', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(t0 + 6000)
+    try {
+      const engine = setupLayer()
+      const e = engine as unknown as { _checkpoints: { all: () => Array<{ washIds?: readonly string[]; opIds: string[] }>; best: (l: string, ops: unknown[]) => { start: number } | null }; _log: { layerPixelOps: (l: string) => unknown[] } }
+      const ops = pair()
+      for (const op of ops) { engine.appendOperation(op, 'remote'); vi.runAllTimers() }
+      const carrying = e._checkpoints.all().filter(c => c.washIds?.length)
+      expect(carrying.length).toBe(1)
+      expect([...carrying[0].washIds!].sort()).toEqual(['WA', 'WB'])
+      engine.appendOperation({ id: 'u1', type: 'operation_undo', userId: 'user-b', timestamp: t0 + 7000, targetOpId: 'op9' }, 'remote')
+      expect(e._checkpoints.best('L', e._log.layerPixelOps('L'))?.start).toBe(carrying[0].opIds.length)
+      vi.runAllTimers()
+      const after = readLayerPixels(engine, 'L')
+
+      const fresh = setupLayer()
+      for (const op of ops.slice(0, 9)) { fresh.appendOperation(op, 'remote'); vi.runAllTimers() }
+      expect(after).toEqual(readLayerPixels(fresh, 'L'))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

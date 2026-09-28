@@ -1583,6 +1583,12 @@ const WASH_CHECKPOINT_MIN_OPS = 3
 /** (§17.55) How far apart two participants' clocks may be when their
  *  timestamps are compared to decide a wash can no longer be rejoined. */
 const WASH_CLOCK_SKEW_MS = 10000
+/** (#536, §17.56) Pixel operations since the last usable checkpoint before
+ *  one carrying open washes is worth its textures. */
+const WASH_STATE_CHECKPOINT_MIN_OPS = 8
+/** (§17.56) The most the carried washes of one checkpoint may hold on the
+ *  GPU; past it none is taken (the iPad's wash textures are near its limit). */
+const WASH_STATE_CHECKPOINT_MAX_BYTES = 96 * 1024 * 1024
 
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
@@ -2203,6 +2209,111 @@ class RibbonStrokeScratch {
   get live(): boolean {
     return this._tiles.size > 0
   }
+
+  /** (#536, §17.56) The wash as the next operation of it will find it, at an
+   *  operation boundary: every texture that outlives a gesture's film, copied
+   *  into buffers of its own (the checkpoint keeps them; this scratch goes on
+   *  being painted), and every number the next operation reads. The film is
+   *  not taken — at a boundary it is released or about to be refreshed for a
+   *  new gesture (filmBuffers), so the restored tile starts without one.
+   *  `originOf` names each tile by its place on the sheet: the replay that
+   *  restores this paints into another buffer. */
+  snapshot(gl: WebGLRenderingContext, originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): ScratchSnapshot | null {
+    const tiles: ScratchSnapshot['tiles'] = []
+    for (const [tile, entry] of this._tiles) {
+      const at = originOf(tile)
+      if (!at) return null
+      const bufs: ScratchSnapshot['tiles'][number]['bufs'] = {}
+      for (const k of SNAPSHOT_TILE_BUFFERS) {
+        const b = entry[k]
+        if (!b) continue
+        const copy = new AccumulationBuffer(gl, b.width, b.height, 'nearest')
+        b.copyTo(copy)
+        bufs[k] = copy
+      }
+      tiles.push({ ...at, width: tile.width, height: tile.height, bufs })
+    }
+    return {
+      needsInk: this.needsInk, needsColor: this.needsColor,
+      paints: [...this.paints], waterUsed: this._waterUsed, pigmentUsed: this._pigmentUsed,
+      composite: this._composite ? { ...this._composite, fieldSeed: [...this._composite.fieldSeed] } : null,
+      dabSpacing: this._dabSpacing, brushEdgePx: this._brushEdgePx, dir: [...this._dir], dirSet: this._dirSet,
+      finish: this._finish ? { ...this._finish, bounds: { ...this._finish.bounds }, fieldSeed: [...this._finish.fieldSeed] } : null,
+      dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
+      lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
+      landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
+      tiles,
+    }
+  }
+
+  /** (#536, §17.56) A scratch as `snap` describes it, its tiles copied into
+   *  pooled buffers and keyed by `target`'s own tiles at the same places. */
+  static restore(pool: RibbonScratchPool, snap: ScratchSnapshot, target: ILayerBuffer): RibbonStrokeScratch {
+    const s = new RibbonStrokeScratch(pool, snap.needsInk, snap.needsColor)
+    for (const p of snap.paints) s.paints.add(p)
+    s._waterUsed = snap.waterUsed
+    s._pigmentUsed = snap.pigmentUsed
+    s._composite = snap.composite ? { ...snap.composite, fieldSeed: [...snap.composite.fieldSeed] } : null
+    s._dabSpacing = snap.dabSpacing
+    s._brushEdgePx = snap.brushEdgePx
+    s._dir = [snap.dir[0], snap.dir[1]]
+    s._dirSet = snap.dirSet
+    s._finish = snap.finish ? { ...snap.finish, target, bounds: { ...snap.finish.bounds }, fieldSeed: [...snap.finish.fieldSeed] } : null
+    s.dryCtx = snap.dryCtx ? { ...snap.dryCtx, target, bounds: { ...snap.dryCtx.bounds }, fieldSeed: [...snap.dryCtx.fieldSeed] } : null
+    s.lastKept = snap.lastKept ? { ...snap.lastKept } : undefined
+    s.gesture = snap.gesture
+    s.landing = snap.landing ? { ...snap.landing } : null
+    s.dwellMs = snap.dwellMs
+    s.dwellDone = snap.dwellDone
+    for (const t of snap.tiles) {
+      const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
+      const tile = target.resolveForPaint(rect).find(r => r.originX === t.originX && r.originY === t.originY)?.buffer
+      if (!tile) continue
+      const take = (b: AccumulationBuffer | undefined): AccumulationBuffer | null => {
+        if (!b) return null
+        const own = pool.acquire(b.width, b.height)
+        b.copyTo(own)
+        return own
+      }
+      const original = take(t.bufs.original), coverage = take(t.bufs.coverage)
+      if (!original || !coverage) continue
+      s._tiles.set(tile, {
+        original, coverage, inkLoad: take(t.bufs.inkLoad), inkSettled: take(t.bufs.inkSettled),
+        inkColor: take(t.bufs.inkColor), colorSettled: take(t.bufs.colorSettled),
+        strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1,
+        inkDry: null, colorDry: null,
+      })
+    }
+    return s
+  }
+}
+
+/** (#536, §17.56) The tile textures of a wash that outlive a gesture. Not
+ *  the provisional dry picture (inkDry/colorDry): the next operation's settle
+ *  lays it again before the composite reads it, and leaving it out was the
+ *  same to a level on the devices and a quarter less memory (80 MB of
+ *  carried washes on the iPad instead of 96). */
+const SNAPSHOT_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled'] as const
+
+/** (#536, §17.56) A checkpoint's carried wash: its scratch as the replay cache
+ *  would hold it at the checkpoint. */
+interface CarriedWash { key: string; washStrokeId: string | undefined; lastDab: Dab; snap: ScratchSnapshot }
+
+function freeScratchSnapshot(snap: ScratchSnapshot): void {
+  for (const t of snap.tiles) for (const b of Object.values(t.bufs)) b?.destroy()
+}
+
+/** (#536, §17.56) See RibbonStrokeScratch.snapshot. */
+interface ScratchSnapshot {
+  needsInk: boolean; needsColor: boolean
+  paints: string[]; waterUsed: number; pigmentUsed: number
+  composite: { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; bristleRadiusPx: number; fieldSeed: [number, number] } | null
+  dabSpacing: number; brushEdgePx: number; dir: [number, number]; dirSet: boolean
+  finish: Omit<NonNullable<RibbonStrokeScratch['finishContext']>, 'target'> | null
+  dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
+  lastKept: Dab | undefined; gesture: number
+  landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
+  tiles: Array<{ originX: number; originY: number; width: number; height: number; bufs: Partial<Record<typeof SNAPSHOT_TILE_BUFFERS[number], AccumulationBuffer>> }>
 }
 
 function clampNum(x: number, lo: number, hi: number): number {
@@ -2418,7 +2529,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  operation, packed into a checkpoint at the next idle moment. One per
    *  layer: a newer boundary replaces an unpacked older one, so a history
    *  batch holds a single copy, not one per wash. */
-  private _washBoundaries = new Map<string, { opIds: string[]; copies: Array<{ buffer: AccumulationBuffer; originX: number; originY: number }> }>()
+  private _washBoundaries = new Map<string, { opIds: string[]; copies: Array<{ buffer: AccumulationBuffer; originX: number; originY: number }>; washes: CarriedWash[] }>()
   private _washBoundaryScheduled = false
   private _replayRibbonChunks = new Map<string, {
     /** The grouping key: a wash id where the stroke has one, its gesture id
@@ -5004,6 +5115,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? 0, applied: [], timer: 0 }
+    if (best) this._seedWashes(best.cp, fresh, job.chunks) // (§17.56)
     this._rebuildJobs.set(layerId, job)
     job.timer = setTimeout(() => this._stepRebuildJob(job), 0)
   }
@@ -5123,6 +5235,7 @@ export class PencilEngine implements PencilEngineAPI {
           // union (which would wrongly claim the whole tile as content).
           buf.restoreTileContent(rect, pixels)
         }
+        this._seedWashes(cp, buf, this._replayRibbonChunks) // (§17.56)
         start = best.start
       } else {
         buf.clear()
@@ -5730,32 +5843,40 @@ export class PencilEngine implements PencilEngineAPI {
     const end = opId === undefined ? all.length : all.length - 1
     if (opId !== undefined && all[end]?.id !== opId) return
     const prefix = all.slice(0, end)
-    if (prefix.length - (this._checkpoints.best(layerId, prefix)?.start ?? 0) < WASH_CHECKPOINT_MIN_OPS) return
-    const lastAt = new Map<string, { at: number; user: string }>()
+    const since = prefix.length - (this._checkpoints.best(layerId, prefix)?.start ?? 0)
+    if (since < WASH_CHECKPOINT_MIN_OPS) return
+    const lastAt = new Map<string, { at: number; user: string; op: StrokeOperation }>()
     const latestOf = new Map<string, string>()
     for (const o of prefix) {
       if (o.type !== 'stroke' || !o.washId) continue
-      lastAt.set(o.washId, { at: o.timestamp, user: o.userId })
+      lastAt.set(o.washId, { at: o.timestamp, user: o.userId, op: o })
       latestOf.set(o.userId, o.washId)
     }
-    if (lastAt.has(washId)) return
+    // (§17.56) The washes that may still be continued past this point: the
+    // one this operation joins, and any other participant's their author has
+    // not left and that is young enough to be rejoined.
+    const open: string[] = []
     for (const [w, { at, user }] of lastAt) {
+      if (w === washId) { open.push(w); continue }
       if (user === userId || latestOf.get(user) !== w) continue
-      if (now - at <= WASH_JOIN_MS + WASH_CLOCK_SKEW_MS) return
+      if (now - at <= WASH_JOIN_MS + WASH_CLOCK_SKEW_MS) open.push(w)
     }
+    if (open.length && since < WASH_STATE_CHECKPOINT_MIN_OPS) return
     // At this author's own pen-down the stroke is already under way but has
     // painted nothing yet: only a peer's unrecorded ink can be on the layer.
     if (opId === undefined
       ? [...this._peerLiveStrokes.values()].some(l => l.layerId === layerId && l.paintedTotal > l.committedOffset)
       : this._hasUnrecordedInk(layerId)) return
+    const washes = open.length ? this._carryWashes(layerId, buf, open, lastAt) : []
+    if (!washes) return
     const pending = this._washBoundaries.get(layerId)
-    if (pending) for (const c of pending.copies) c.buffer.destroy()
+    if (pending) this._freeBoundary(pending)
     const copies = buf.allResident().map(t => {
       const copy = new AccumulationBuffer(this.gl, t.buffer.width, t.buffer.height, 'nearest')
       t.buffer.copyTo(copy)
       return { buffer: copy, originX: t.originX, originY: t.originY }
     })
-    this._washBoundaries.set(layerId, { opIds: prefix.map(o => o.id), copies })
+    this._washBoundaries.set(layerId, { opIds: prefix.map(o => o.id), copies, washes })
     if (this._washBoundaryScheduled) return
     this._washBoundaryScheduled = true
     const schedule: (fn: () => void) => void =
@@ -5763,24 +5884,102 @@ export class PencilEngine implements PencilEngineAPI {
     schedule(() => this._packWashBoundaries())
   }
 
+  /** (#536, §17.56) The open state of each of `open`, for a checkpoint inside
+   *  them - or null when one cannot be had (no scratch here to take it from,
+   *  a tile that cannot be named, past the memory ceiling). In the order the
+   *  replay cache holds them, least recent first, so a replay seeded with
+   *  them evicts as the one it stands in for would. */
+  private _carryWashes(
+    layerId: string, buf: ILayerBuffer, open: string[],
+    lastAt: Map<string, { op: StrokeOperation }>,
+  ): CarriedWash[] | null {
+    const origins = new Map<AccumulationBuffer, { originX: number; originY: number }>()
+    for (const t of buf.allResident()) origins.set(t.buffer, { originX: t.originX, originY: t.originY })
+    const originOf = (tile: AccumulationBuffer) => origins.get(tile) ?? null
+    const order = [...this._replayRibbonChunks.keys()]
+    const ranked = [...open].sort((a, b) => {
+      const ia = order.indexOf(a), ib = order.indexOf(b)
+      return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib)
+    })
+    const out: CarriedWash[] = []
+    let bytes = 0
+    const fail = (): null => { for (const w of out) freeScratchSnapshot(w.snap); return null }
+    for (const w of ranked) {
+      const chunk = this._replayRibbonChunks.get(w)
+      const own = this._wash && this._wash.id === w && this._wash.layerId === layerId ? this._wash.scratch : null
+      const scratch = chunk && chunk.target === buf ? chunk.scratch : own
+      if (!scratch || scratch.diffusePending) return fail()
+      const last = lastAt.get(w)?.op
+      if (!last) return fail()
+      const dabs = strokeDabs(last)
+      const lastDab = chunk && chunk.target === buf ? chunk.lastDab : dabs[dabs.length - 1]
+      if (!lastDab) return fail()
+      const snap = scratch.snapshot(this.gl, originOf)
+      if (!snap) return fail()
+      for (const t of snap.tiles) for (const b of Object.values(t.bufs)) if (b) bytes += b.width * b.height * 4
+      out.push({
+        key: w,
+        washStrokeId: chunk && chunk.target === buf ? chunk.washStrokeId : last.strokeId,
+        lastDab,
+        snap,
+      })
+      if (bytes > WASH_STATE_CHECKPOINT_MAX_BYTES) return fail()
+    }
+    return out
+  }
+
+  private _freeBoundary(b: { copies: Array<{ buffer: AccumulationBuffer }>; washes: CarriedWash[] }): void {
+    if (this._contextLost) return
+    for (const c of b.copies) c.buffer.destroy()
+    for (const w of b.washes) freeScratchSnapshot(w.snap)
+  }
+
+  /** (#536, §17.56) Puts a checkpoint's carried washes into a replay cache,
+   *  as scratches painting into `target`, before the replay's first operation
+   *  - so each continues as it would have from where the checkpoint stood. */
+  private _seedWashes(cp: Checkpoint, target: ILayerBuffer, chunks: PencilEngine['_replayRibbonChunks']): void {
+    const carried = cp.washes as CarriedWash[] | undefined
+    if (!carried) return
+    for (const w of carried) {
+      chunks.get(w.key)?.scratch.destroy()
+      chunks.delete(w.key)
+      chunks.set(w.key, {
+        strokeId: w.key, washStrokeId: w.washStrokeId, target,
+        scratch: RibbonStrokeScratch.restore(this._ribbonScratchPool, w.snap, target), lastDab: w.lastDab,
+      })
+    }
+  }
+
   private _packWashBoundaries(): void {
     this._washBoundaryScheduled = false
     const all = [...this._washBoundaries]
     this._washBoundaries.clear()
-    for (const [layerId, { opIds, copies }] of all) {
+    for (const [layerId, boundary] of all) {
+      const { opIds, copies, washes } = boundary
       if (!this._contextLost && !this._destroyed && copies.length) {
         const tiles = copies.map(({ buffer, originX, originY }) => ({
           originX, originY, width: buffer.width, height: buffer.height,
           packed: packTilePixels(buffer.readPixels()),
         }))
-        this._checkpoints.add({ layerId, opIds, tiles })
+        if (washes.length) {
+          // One checkpoint carrying washes per layer: the textures are dear.
+          for (const cp of [...this._checkpoints.all()]) if (cp.layerId === layerId && cp.washes) this._checkpoints.remove(cp)
+          this._checkpoints.add({
+            layerId, opIds, tiles, washIds: washes.map(w => w.key), washes,
+            dispose: () => { if (!this._contextLost) for (const w of washes) freeScratchSnapshot(w.snap) },
+          })
+        } else {
+          this._checkpoints.add({ layerId, opIds, tiles })
+        }
+        if (!this._contextLost) for (const c of copies) c.buffer.destroy()
+      } else {
+        this._freeBoundary(boundary)
       }
-      if (!this._contextLost) for (const c of copies) c.buffer.destroy()
     }
   }
 
   private _dropWashBoundaries(): void {
-    if (!this._contextLost) for (const { copies } of this._washBoundaries.values()) for (const c of copies) c.buffer.destroy()
+    for (const b of this._washBoundaries.values()) this._freeBoundary(b)
     this._washBoundaries.clear()
   }
 
@@ -6183,7 +6382,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _destroyBuffer(id: string): void {
     this._cancelRebuildJob(id) // (§17.53)
     const boundary = this._washBoundaries.get(id) // (§17.55)
-    if (boundary) { for (const c of boundary.copies) c.buffer.destroy(); this._washBoundaries.delete(id) }
+    if (boundary) { this._freeBoundary(boundary); this._washBoundaries.delete(id) }
     const buf = this._layers.get(id)
     if (buf) {
       this._sweepReveals(performance.now(), id)
@@ -6682,13 +6881,15 @@ export class PencilEngine implements PencilEngineAPI {
       } else {
         this._wash?.scratch.destroy()
         this._washId = nanoid(10)
-        this._checkpointBeforeWash(layerId, this._washId, this._userId, Date.now())
         this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
         this._wash = {
           id: this._washId, layerId, signature: washSignature,
           endedAt: now, scratch: this._ribbonStrokeScratch,
         }
       }
+      // (§17.55/§17.56) Before this stroke paints, and before its scratch
+      // starts a new gesture: a join carries the wash as it stood.
+      this._checkpointBeforeWash(layerId, this._washId!, this._userId, Date.now())
       this._ribbonStrokeScratch.beginStroke()
     } else {
       this._washId = null

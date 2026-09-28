@@ -131,3 +131,27 @@ describe('a watercolour wash across a checkpoint', () => {
     expect(store.best('L', ops)?.start).toBe(0)
   })
 })
+
+describe('a checkpoint that carries the open washes (§17.56)', () => {
+  const ops = [{ id: 'a', washId: 'W1' }, { id: 'b', washId: 'W2' }, { id: 'c', washId: 'W1' }, { id: 'd', washId: 'W2' }]
+
+  it('stands inside the washes it carries, and only those', () => {
+    const store = new CheckpointStore(1000)
+    store.add({ ...cp('L', ['a', 'b']), washIds: ['W1'] })
+    expect(store.best('L', ops)).toBeNull()
+    store.add({ ...cp('L', ['a', 'b']), washIds: ['W1', 'W2'] })
+    expect(store.best('L', ops)?.start).toBe(2)
+  })
+
+  it('frees what it carries when it goes', () => {
+    const store = new CheckpointStore(15)
+    let freed = 0
+    store.add({ ...cp('L', ['a']), dispose: () => { freed++ } })
+    store.add(cp('L', ['a', 'b']))
+    expect(freed).toBe(1)
+    const kept = { ...cp('L', ['a', 'b', 'c'], 1), dispose: () => { freed++ } }
+    store.add(kept)
+    store.remove(kept)
+    expect(freed).toBe(2)
+  })
+})

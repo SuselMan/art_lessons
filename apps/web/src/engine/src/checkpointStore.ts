@@ -59,6 +59,14 @@ export interface Checkpoint {
   // skipped rather than repainted.
   coveredSeq?: number
   covered?: Set<string>
+  /** (#536, §17.56) The washes this checkpoint carries the open state of:
+   *  it may stand inside them. What that state is, is the engine's business
+   *  (`washes`); the store only needs to know which ones are covered. */
+  washIds?: readonly string[]
+  washes?: unknown
+  /** Frees what the checkpoint holds outside the packed tiles (the washes'
+   *  GPU textures) when it is evicted, replaced or cleared. */
+  dispose?: () => void
 }
 
 const bytesOf = (cp: Checkpoint): number => cp.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
@@ -81,6 +89,7 @@ export class CheckpointStore {
   totalBytes(): number { return this.bytes }
 
   clear(): void {
+    for (const cp of this.list) cp.dispose?.()
     this.list = []
     this.bytes = 0
   }
@@ -94,6 +103,15 @@ export class CheckpointStore {
   }
 
   /** An ordinary checkpoint, taken at a CHECKPOINT_INTERVAL boundary. */
+  /** (#536, §17.56) Drops one checkpoint (and whatever it holds). */
+  remove(cp: Checkpoint): void {
+    const i = this.list.indexOf(cp)
+    if (i < 0) return
+    this.list.splice(i, 1)
+    this.bytes -= bytesOf(cp)
+    cp.dispose?.()
+  }
+
   add(cp: Checkpoint): void {
     this.list.push(cp)
     this.bytes += bytesOf(cp)
@@ -167,7 +185,7 @@ export class CheckpointStore {
       if (cp.opIds.length > ops.length) continue
       const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
       if (start < 0) continue
-      if (!cp.fromSnapshot && crossesWash(spans ??= washSpans(ops), start)) continue
+      if (!cp.fromSnapshot && crossesWash(spans ??= washSpans(ops), start, cp.washIds)) continue
       best = { cp, start }
     }
     return best
@@ -184,7 +202,7 @@ export class CheckpointStore {
       for (const id of c.covered) inSnapshot.add(id)
     }
     const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
-    return start >= 0 && !cp.fromSnapshot && crossesWash(washSpans(ops), start) ? -1 : start
+    return start >= 0 && !cp.fromSnapshot && crossesWash(washSpans(ops), start, cp.washIds) ? -1 : start
   }
 
   /** (#479) Backfill has put these operations in the log: record, on every
@@ -212,6 +230,7 @@ export class CheckpointStore {
       const index = this.list.findIndex(cp => !cp.pinned)
       if (index === -1) break
       const [evicted] = this.list.splice(index, 1)
+      evicted.dispose?.()
       this.bytes -= bytesOf(evicted)
     }
   }
@@ -221,17 +240,17 @@ export class CheckpointStore {
  *  wash carry its id. */
 export interface WashOp { id: string; washId?: string }
 
-type WashSpans = Array<[number, number]>
+type WashSpans = Array<[number, number, string]>
 
 /** (#536, §17.55) Each wash's first and last index in `ops`. */
 export function washSpans(ops: readonly WashOp[]): WashSpans {
-  const at = new Map<string, [number, number]>()
+  const at = new Map<string, [number, number, string]>()
   for (let i = 0; i < ops.length; i++) {
     const w = ops[i].washId
     if (!w) continue
     const s = at.get(w)
     if (s) s[1] = i
-    else at.set(w, [i, i])
+    else at.set(w, [i, i, w])
   }
   return [...at.values()]
 }
@@ -239,12 +258,15 @@ export function washSpans(ops: readonly WashOp[]): WashSpans {
 /** (#536, §17.55) Whether a wash has operations on both sides of `start`:
  *  a checkpoint there holds the wash half-dried in its pixels, and a replay
  *  from it would begin the rest of the wash afresh over its own beginning
- *  (#468). Checked where a checkpoint is USED, from the log as it stands,
+ *  (#468) - unless the checkpoint carries that wash's open state (§17.56).
+ *  Checked where a checkpoint is USED, from the log as it stands,
  *  so no rule about when one is taken can make it wrong - a pencil stroke
  *  checkpointing while someone else's wash was open used to. The snapshot
  *  floor is exempt: nothing earlier exists to replay from. */
-export function crossesWash(spans: WashSpans, start: number): boolean {
-  for (const [first, last] of spans) if (first < start && last >= start) return true
+export function crossesWash(spans: WashSpans, start: number, carried?: readonly string[]): boolean {
+  for (const [first, last, id] of spans) {
+    if (first < start && last >= start && !carried?.includes(id)) return true
+  }
   return false
 }
 
