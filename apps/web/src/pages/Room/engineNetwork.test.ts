@@ -4,7 +4,7 @@ import { unpackDabs, type LayerAddOperation, type StrokeOperation } from '@grafe
 
 import { resetRoomStore, useRoomStore } from '../../stores/roomStore'
 import { createEngineNetworkCallbacks } from './engineNetwork'
-import { createPendingPreviews } from './pendingPreviews'
+import { createPendingPreviews } from './net/pendingPreviews'
 
 /** (#493) The engine's side of the network, called the way the engine calls
  *  it: this person's own operations going out, a peer's reveal being

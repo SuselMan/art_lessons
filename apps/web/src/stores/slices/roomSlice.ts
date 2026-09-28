@@ -3,7 +3,7 @@ import type {
   AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, RoomAccessMode, ToggleableTool,
 } from '@grafetto/shared'
 
-import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
+import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants/participants'
 import { boardsReducer, sortBoards, type BoardsAction } from '../../lib/boards/boards'
 import type { PaperType } from '@grafetto/shared'
 

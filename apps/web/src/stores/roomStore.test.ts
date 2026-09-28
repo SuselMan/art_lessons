@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { useRoomStore } from './roomStore'
-import { defaultToolSettings } from '../pages/Room/toolSchemas'
+import { defaultToolSettings } from '../pages/Room/tools/toolSchemas'
 
 // #20: confirms the combined store's initial shape matches spec — layers,
 // viewport, tool, room all present with sane defaults, and nothing from

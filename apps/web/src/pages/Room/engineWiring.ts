@@ -5,7 +5,7 @@ import { diagLog } from '../../lib/observability/diagLog'
 import type { PencilSound } from '../../lib/sound/PencilSound'
 import { computeCompositeOrder } from '../../lib/layers/layers'
 import { useRoomStore } from '../../stores/roomStore'
-import { uploadThumbnail } from './snapshotSync'
+import { uploadThumbnail } from './net/snapshotSync'
 
 /** (#493) The pieces of the engine's mount effect that are about one thing
  *  each. What stays in the effect is the engine's construction and its

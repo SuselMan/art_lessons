@@ -3,15 +3,15 @@ import { clamp } from 'lodash-es'
 
 import type { PencilEngineAPI } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
-import { clientToRoomPoint } from './cameraMath'
+import { clientToRoomPoint } from './viewport/cameraMath'
 import {
   composeMatrix, invertMatrix, applyMatrix, isIdentityMatrix, IDENTITY_MATRIX,
   transformGestureKind, isNegligibleTransform, distortQuad, solveQuadMatrix, isFrameInFront,
   translateMatrix, scaleAxisMatrix, skewAxisMatrix, rotateAboutMatrix,
   type TransformBounds, type TransformMatrix, type TransformHandleKind, type TransformMode,
-} from './transformMath'
+} from './editing/transformMath'
 import type { TransformSession } from './useTransformSession'
-import type { Viewport } from './useViewport'
+import type { Viewport } from './viewport/useViewport'
 
 
 // Layer transform tool (#120): canvas-space pivot for a scale handle is

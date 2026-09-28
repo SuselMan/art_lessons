@@ -4,8 +4,8 @@ import { BACKGROUND_LAYER_ID, INITIAL_LAYER_ID, type LayerState, type Operation 
 import { translate } from '../../i18n/translate'
 import { replayLayerState, overlayLocalFields } from '../../lib/layers/layers'
 import { useSettingsStore } from '../settingsStore'
-import type { RulerPoint } from '../../pages/Room/RulerOverlay'
-import type { TransformBounds, TransformMatrix } from '../../pages/Room/transformMath'
+import type { RulerPoint } from '../../pages/Room/overlays/RulerOverlay'
+import type { TransformBounds, TransformMatrix } from '../../pages/Room/editing/transformMath'
 
 // (#208) The two baseline layers are the only ones whose names never travel
 // through the operation log — they're the implicit state every replay starts
@@ -67,7 +67,7 @@ export interface LayerSlice {
   /** Layer id → the peers drawing into it right now, for the layer panel's
    *  outline in each peer's colour. A *reflection* of strokes already
    *  received, inferred on the same "recently active" window as the
-   *  participants list (see pages/Room/drawingIndicator.ts) — nothing on the
+   *  participants list (see pages/Room/gestures/drawingIndicator.ts) — nothing on the
    *  wire says "started" or "stopped". Never includes the viewer's own id.
    *  Board-scoped like the rest of this slice, so a page turn clears it. */
   layerDrawers: Record<string, string[]>

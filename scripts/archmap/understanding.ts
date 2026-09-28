@@ -48,8 +48,8 @@ export interface UnderstandingDoc {
 /**
  * (#642) What coverage is counted over: each map-only group of a module is a unit of its own,
  * and whatever of a module no group claims is a unit named after the module. A module without
- * groups is one unit. So a topic pointing at `room-net` credits the net files, not all of
- * pages/Room, and a topic pointing at pages/Room credits all of it.
+ * groups is one unit. So a topic pointing at `ui-color` credits the colour files, not all of
+ * components, and a topic pointing at components credits all of it.
  */
 export interface UnitFacts {
   id: string;

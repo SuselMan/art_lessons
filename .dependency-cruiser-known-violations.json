@@ -114,7 +114,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/reportRestore.ts",
+    "from": "apps/web/src/pages/Room/diagnostics/reportRestore.ts",
     "to": "apps/web/src/engine/src/snapshotAudit.ts",
     "unresolvedTo": "../../engine/src/snapshotAudit",
     "dependencyTypes": [
@@ -129,7 +129,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/restoreReport.ts",
+    "from": "apps/web/src/pages/Room/diagnostics/restoreReport.ts",
     "to": "apps/web/src/engine/src/snapshotAudit.ts",
     "unresolvedTo": "../../engine/src/snapshotAudit",
     "dependencyTypes": [
@@ -143,7 +143,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/RoomLoadingOverlay.tsx",
+    "from": "apps/web/src/pages/Room/status/RoomLoadingOverlay.tsx",
     "to": "apps/web/src/engine/src/paperLoader.ts",
     "unresolvedTo": "../../engine/src/paperLoader",
     "dependencyTypes": [
@@ -158,7 +158,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/snapshotRestore.ts",
+    "from": "apps/web/src/pages/Room/net/snapshotRestore.ts",
     "to": "apps/web/src/engine/src/snapshotCodec.ts",
     "unresolvedTo": "../../engine/src/snapshotCodec",
     "dependencyTypes": [
@@ -172,7 +172,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/snapshotSync.ts",
+    "from": "apps/web/src/pages/Room/net/snapshotSync.ts",
     "to": "apps/web/src/engine/src/snapshotCodec.ts",
     "unresolvedTo": "../../engine/src/snapshotCodec",
     "dependencyTypes": [
@@ -413,8 +413,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/layerSlice.ts",
-    "to": "apps/web/src/pages/Room/RulerOverlay.tsx",
-    "unresolvedTo": "../../pages/Room/RulerOverlay",
+    "to": "apps/web/src/pages/Room/overlays/RulerOverlay.tsx",
+    "unresolvedTo": "../../pages/Room/overlays/RulerOverlay",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -428,8 +428,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/layerSlice.ts",
-    "to": "apps/web/src/pages/Room/transformMath.ts",
-    "unresolvedTo": "../../pages/Room/transformMath",
+    "to": "apps/web/src/pages/Room/editing/transformMath.ts",
+    "unresolvedTo": "../../pages/Room/editing/transformMath",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -443,7 +443,7 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/roomSlice.ts",
-    "to": "apps/web/src/pages/Room/participants.ts",
+    "to": "apps/web/src/pages/Room/participants/participants.ts",
     "unresolvedTo": "../../pages/Room/participants",
     "dependencyTypes": [
       "local",
@@ -457,8 +457,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/toolSlice.ts",
-    "to": "apps/web/src/pages/Room/toolSchemas.ts",
-    "unresolvedTo": "../../pages/Room/toolSchemas",
+    "to": "apps/web/src/pages/Room/tools/toolSchemas.ts",
+    "unresolvedTo": "../../pages/Room/tools/toolSchemas",
     "dependencyTypes": [
       "local",
       "import"
@@ -471,8 +471,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/viewportSlice.ts",
-    "to": "apps/web/src/pages/Room/useViewport.ts",
-    "unresolvedTo": "../../pages/Room/useViewport",
+    "to": "apps/web/src/pages/Room/viewport/useViewport.ts",
+    "unresolvedTo": "../../pages/Room/viewport/useViewport",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -486,8 +486,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/components/FloatingToolPanel/index.tsx",
-    "to": "apps/web/src/pages/Room/panelPosition.ts",
-    "unresolvedTo": "../../pages/Room/panelPosition",
+    "to": "apps/web/src/pages/Room/viewport/panelPosition.ts",
+    "unresolvedTo": "../../pages/Room/viewport/panelPosition",
     "dependencyTypes": [
       "local",
       "import"
@@ -500,8 +500,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/components/SettingField/index.tsx",
-    "to": "apps/web/src/pages/Room/toolSchemas.ts",
-    "unresolvedTo": "../../pages/Room/toolSchemas",
+    "to": "apps/web/src/pages/Room/tools/toolSchemas.ts",
+    "unresolvedTo": "../../pages/Room/tools/toolSchemas",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -903,8 +903,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/pages/Room/cameraMath.ts",
-    "to": "apps/web/src/pages/Room/useViewport.ts",
+    "from": "apps/web/src/pages/Room/viewport/cameraMath.ts",
+    "to": "apps/web/src/pages/Room/viewport/useViewport.ts",
     "unresolvedTo": "./useViewport",
     "dependencyTypes": [
       "local",
@@ -917,7 +917,7 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
         "dependencyTypes": [
           "local",
           "type-only",
@@ -925,7 +925,7 @@
         ]
       },
       {
-        "name": "apps/web/src/pages/Room/cameraMath.ts",
+        "name": "apps/web/src/pages/Room/viewport/cameraMath.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -935,7 +935,7 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/pages/Room/useViewport.ts",
+    "from": "apps/web/src/pages/Room/viewport/useViewport.ts",
     "to": "apps/web/src/stores/roomStore.ts",
     "unresolvedTo": "../../stores/roomStore",
     "dependencyTypes": [
@@ -962,7 +962,7 @@
         ]
       },
       {
-        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
         "dependencyTypes": [
           "local",
           "type-only",
@@ -973,7 +973,7 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/pages/Room/useViewport.ts",
+    "from": "apps/web/src/pages/Room/viewport/useViewport.ts",
     "to": "apps/web/src/stores/slices/viewportSlice.ts",
     "unresolvedTo": "../../stores/slices/viewportSlice",
     "dependencyTypes": [
@@ -993,7 +993,7 @@
         ]
       },
       {
-        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
         "dependencyTypes": [
           "local",
           "type-only",

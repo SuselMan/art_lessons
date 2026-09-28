@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand'
 
-import type { Viewport } from '../../pages/Room/useViewport'
+import type { Viewport } from '../../pages/Room/viewport/useViewport'
 import type { ToolSlice } from './toolSlice'
 
 export interface ViewportSlice {

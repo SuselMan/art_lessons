@@ -1,8 +1,8 @@
 import { useEffect, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
-import { backingStoreZoom, viewCentreWorld } from './cameraMath'
-import type { Viewport } from './useViewport'
+import { backingStoreZoom, viewCentreWorld } from './viewport/cameraMath'
+import type { Viewport } from './viewport/useViewport'
 
 export interface CanvasViewportInput {
   engineRef: RefObject<PencilEngineAPI | null>

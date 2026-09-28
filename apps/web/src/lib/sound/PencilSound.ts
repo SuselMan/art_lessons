@@ -43,7 +43,7 @@ import type { PaperCoarseness } from '@grafetto/shared'
 
 // Every module-level numeric knob that isn't part of a GrainVariant recipe
 // (deadzone/speed curve shape/global filter ranges/ramp times) used to be a
-// plain `const`. The live-tuning debug panel (Room/PencilSoundTuningPanel.tsx,
+// plain `const`. The live-tuning debug panel (Room/panels/PencilSoundTuningPanel.tsx,
 // #153 round 13) needs to nudge these too, not just per-recipe fields, so
 // they're grouped into one mutable, exported object instead. Every read site
 // below reads straight from PENCIL_SOUND_TUNING rather than a closed-over
@@ -432,7 +432,7 @@ export interface GrainVariant {
 // freqHz/decaySeconds/noiseMix, speedPresenceFloor, brightnessScale, qScale,
 // and PENCIL_SOUND_TUNING.masterSpeedExponent — see below). Ilya wants to
 // pick up tuning himself from here using the live debug panel
-// (Room/PencilSoundTuningPanel.tsx, built this same session) rather than
+// (Room/panels/PencilSoundTuningPanel.tsx, built this same session) rather than
 // continue blind by-ear rounds through Claude — takes 8-10's reasoning stays
 // above as a record of what was tried and why, in case it's worth
 // revisiting, but none of it is currently live.

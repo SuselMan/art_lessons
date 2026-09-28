@@ -5,11 +5,11 @@ import { toWireMatrix, type OperationDraft, type SelectionShape } from '@grafett
 import type { AreaImage, PencilEngineAPI } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
 import type { EditorTool } from '../../stores/slices/toolSlice'
-import { selectionBoundsRect, transformSelection } from './selectionGesture'
+import { selectionBoundsRect, transformSelection } from './gestures/selectionGesture'
 import {
   IDENTITY_MATRIX, isIdentityMatrix, type TransformBounds, type TransformMatrix,
-} from './transformMath'
-import { useCommittableSession } from './useCommittableSession'
+} from './editing/transformMath'
+import { useCommittableSession } from './shapes/useCommittableSession'
 
 /** (#493) The gizmo's open session. Authoritative — the store's matrix copy
  *  exists to drive rendering — and held in a ref rather than state so the drag

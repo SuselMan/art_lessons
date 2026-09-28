@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { useRoomStore } from '../../stores/roomStore'
-import { isTypingTarget } from './editorKeys'
+import { isTypingTarget } from './tools/editorKeys'
 
 /** (#493) Held Space pans the canvas (#319, ADR 007 §4).
  *

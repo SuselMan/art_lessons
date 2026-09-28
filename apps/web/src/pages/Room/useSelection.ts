@@ -6,14 +6,14 @@ import type { AreaImage, PencilEngineAPI } from '../../engine'
 import { isLayerLocked } from '../../lib/layers/layers'
 import { readClipboard, writeClipboard } from '../../stores/clipboardStore'
 import { useRoomStore } from '../../stores/roomStore'
-import { clientToRoomPoint, viewCentreWorld } from './cameraMath'
-import { ClickTracker } from './clickTracker'
-import { pastePlacement } from './pastePlacement'
+import { clientToRoomPoint, viewCentreWorld } from './viewport/cameraMath'
+import { ClickTracker } from './gestures/clickTracker'
+import { pastePlacement } from './editing/pastePlacement'
 import {
   appendFreehandPoint, closeAfterDoubleClick, closesPolygon, rectangleFromDrag,
   selectionFromPoints, POLYGON_CLOSE_RADIUS, type SelectionShapeKind,
-} from './selectionGesture'
-import { useCanvasTap } from './useCanvasTap'
+} from './gestures/selectionGesture'
+import { useCanvasTap } from './gestures/useCanvasTap'
 import type { DispatchedOp } from './useTransformSession'
 
 export interface SelectionDeps {

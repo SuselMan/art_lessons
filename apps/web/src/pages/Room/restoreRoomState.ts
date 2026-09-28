@@ -6,13 +6,13 @@ import type { Operation, Participant } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
-import type { OpenTimer } from './openTiming'
+import type { OpenTimer } from './diagnostics/openTiming'
 import { type ReplayGate, yieldToEventLoop } from './replayGate'
 import { undoneInBatch } from './undoneInBatch'
-import type { createPendingPreviews } from './pendingPreviews'
-import type { RestoreFailureReason } from './RestoreFailedOverlay'
-import type { createSnapshotUploader } from './snapshotSync'
-import type { SnapshotRestoreOutcome } from './snapshotRestore'
+import type { createPendingPreviews } from './net/pendingPreviews'
+import type { RestoreFailureReason } from './status/RestoreFailedOverlay'
+import type { createSnapshotUploader } from './net/snapshotSync'
+import type { SnapshotRestoreOutcome } from './net/snapshotRestore'
 
 /** What a `room_state` carries that this function acts on. */
 export interface RoomStatePayload {

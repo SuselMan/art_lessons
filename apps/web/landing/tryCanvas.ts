@@ -6,7 +6,7 @@ import {
 import { computeCompositeOrder } from '../src/lib/layers/layers'
 import {
   defaultToolSettings, getToolColor, isColorCapableTool, linerSizeToPx, type ToolSettingsMap, type UiToolId,
-} from '../src/pages/Room/toolSchemas'
+} from '../src/pages/Room/tools/toolSchemas'
 
 /** (#246) The landing's try-it sheet: the real engine on the real paper, the
  *  tools picked by a button and nothing else to set. Loaded only when someone

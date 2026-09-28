@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
-import { clientToRoomPoint } from './cameraMath'
-import { RULER_GESTURE_CURSOR } from './cursorController'
-import type { RulerPoint } from './RulerOverlay'
-import { rulerGestureAt, RULER_BODY_GRAB_PX, RULER_ENDPOINT_GRAB_PX } from './rulerGesture'
-import type { Viewport } from './useViewport'
+import { clientToRoomPoint } from './viewport/cameraMath'
+import { RULER_GESTURE_CURSOR } from './overlays/cursorController'
+import type { RulerPoint } from './overlays/RulerOverlay'
+import { rulerGestureAt, RULER_BODY_GRAB_PX, RULER_ENDPOINT_GRAB_PX } from './gestures/rulerGesture'
+import type { Viewport } from './viewport/useViewport'
 
 export interface RulerToolDeps {
   engineRef: RefObject<PencilEngineAPI | null>

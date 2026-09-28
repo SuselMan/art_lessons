@@ -8,10 +8,10 @@ import type { PencilEngineAPI } from '../../engine'
 import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { colorWellState, effectiveSwatch } from './colorWell'
+import { colorWellState, effectiveSwatch } from './tools/colorWell'
 import {
   getToolColor, isColorCapableTool, isShapeTool, toolColorField, type ColorCapableTool,
-} from './toolSchemas'
+} from './tools/toolSchemas'
 
 export interface ToolColorDeps {
   engineRef: RefObject<PencilEngineAPI | null>

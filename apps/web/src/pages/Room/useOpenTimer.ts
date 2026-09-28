@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
-import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
-import { reportRoomOpen } from './reportOpen'
+import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './diagnostics/openTiming'
+import { reportRoomOpen } from './diagnostics/reportOpen'
 
 export interface OpenTimerDeps {
   /** The URL id the report is filed under — whatever it is at report time. */

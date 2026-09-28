@@ -4,9 +4,9 @@ import type { Socket } from 'socket.io-client'
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 
 import { useT } from '../../i18n'
-import type { JoinGateState } from './JoinGate'
-import { describeJoinError, joinAttemptOutcome } from './joinError'
-import type { Outbox } from './outbox'
+import type { JoinGateState } from './status/JoinGate'
+import { describeJoinError, joinAttemptOutcome } from './net/joinError'
+import type { Outbox } from './net/outbox'
 
 export interface JoinGateDeps {
   /** The room id in the URL — what a joiner asks to join. */

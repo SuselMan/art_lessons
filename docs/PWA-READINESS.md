@@ -72,11 +72,11 @@ Service worker требует secure context — этот пункт закры�
 
 Это то, ради чего обычно и делают PWA, и оно уже есть:
 
-- **`apps/web/src/pages/Room/outboxStorage.ts`** — IndexedDB-база
+- **`apps/web/src/pages/Room/net/outboxStorage.ts`** — IndexedDB-база
   `pencil-outbox`, стор `pending-operations`. Каждая неподтверждённая
   операция персистится, поэтому перезагрузка вкладки или крэш не теряют
   штрихи.
-- **`apps/web/src/pages/Room/outbox.ts`** — экспоненциальный backoff
+- **`apps/web/src/pages/Room/net/outbox.ts`** — экспоненциальный backoff
   (1 с → 30 с), лимит параллельных отправок `MAX_CONCURRENT_SENDS = 2`
   (#298 — иначе бэклог в 384 штриха сериализовал ~55 МБ JSON за раз и
   планшет убивал вкладку по OOM), `MAX_ATTEMPTS = 12` с переходом в

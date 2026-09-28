@@ -714,7 +714,7 @@ round (see below) — no verdict on take 10's specific numbers landed either way
 
 ## Round 13, take 11 — debug panel built, takes 8-10 reverted
 
-Built `Room/PencilSoundTuningPanel.tsx` (collapsible, gated behind a new `pencilSoundTuning` feature
+Built `Room/panels/PencilSoundTuningPanel.tsx` (collapsible, gated behind a new `pencilSoundTuning` feature
 flag + `pencilSoundSetting === 'variant3'`): a slider for every `GrainVariant` field (floor/depth/
 curvePower/minHz/maxHz/useNormGain/brightnessScale/qScale/brightnessRangeBoost/speedPresenceFloor/
 outputGainScale/tap.*) plus every module-level constant that used to be a plain `const`
