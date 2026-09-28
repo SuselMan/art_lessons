@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { listRoomsAt } from '../../lib/api'
+import { listRoomsAt } from '../../lib/api/api'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Modal } from '../Modal'

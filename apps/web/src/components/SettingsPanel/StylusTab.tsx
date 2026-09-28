@@ -6,7 +6,7 @@ import { useT } from '../../i18n'
 import {
   IDENTITY_PRESSURE_CALIBRATION, PRESSURE_CURVE_PRESETS, PRESSURE_CURVE_PRESET_POINTS,
   matchingCurvePreset, type PressureCurvePoint, type PressureCurvePreset,
-} from '../../lib/pressureCalibration'
+} from '../../lib/input/pressureCalibration'
 import type { TranslationKey } from '../../i18n'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'

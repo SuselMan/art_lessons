@@ -1,5 +1,5 @@
 // Main-thread wrapper for pencil sound "Variant 3" (#153). Same public
-// surface as lib/PencilSound.ts's PencilSound (start/update/stop/destroy/
+// surface as lib/sound/PencilSound.ts's PencilSound (start/update/stop/destroy/
 // setHardness, driven by the engine's strokeStart/pointer/strokeEnd events —
 // see Room/index.tsx), but the synthesis itself runs per-sample inside an
 // AudioWorklet: see Variant3Synth.ts for the DSP and why.

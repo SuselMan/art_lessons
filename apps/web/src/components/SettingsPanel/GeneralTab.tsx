@@ -5,7 +5,7 @@ import { PrecisionSlider } from '../PrecisionSlider'
 import {
   MINIMAL_UI_TAP_MODES, floatingPanelChoices, floatingPanelSelection, minimalUiAvailable,
   type FloatingPanelMode, type MinimalUiTapMode,
-} from '../../lib/uiPreferences'
+} from '../../lib/browser/uiPreferences'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'
 

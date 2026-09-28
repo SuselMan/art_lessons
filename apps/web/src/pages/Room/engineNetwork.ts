@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import { packDabs, type ClientToServerEvents, type Operation } from '@grafetto/shared'
 
 import type { PencilEngineAPI, PencilEngineOptions } from '../../engine'
-import { liveTiming } from '../../lib/liveLatency'
+import { liveTiming } from '../../lib/observability/liveLatency'
 import { useRoomStore } from '../../stores/roomStore'
 import type { Outbox } from './outbox'
 import { commitRevealsBelow, type PendingPreviews } from './pendingPreviews'

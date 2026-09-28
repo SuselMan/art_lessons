@@ -11,10 +11,10 @@ import {
 import type { Room, RoomFolder, RoomsAtFolder } from '@grafetto/shared'
 import {
   ApiError, apiPath, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder, moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed,
-} from '../../lib/api'
-import { isLoggedIn, useAuth } from '../../lib/authState'
-import { preloadRoomPage } from '../../lib/roomChunk'
-import { useShareRoom } from '../../lib/useShareRoom'
+} from '../../lib/api/api'
+import { isLoggedIn, useAuth } from '../../lib/api/authState'
+import { preloadRoomPage } from '../../lib/api/roomChunk'
+import { useShareRoom } from '../../lib/api/useShareRoom'
 import { notifyError } from '../../stores/noticeStore'
 import { useSettingsStore, type LessonsView } from '../../stores/settingsStore'
 import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n'
@@ -470,7 +470,7 @@ export function MyLessons() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   // (#351) Every card on this page is a door into the Room chunk, so start
   // fetching it now rather than on whichever card gets clicked — see
-  // lib/roomChunk.ts for why that click is otherwise a multi-second wait
+  // lib/api/roomChunk.ts for why that click is otherwise a multi-second wait
   // with the old page still on screen.
   useEffect(preloadRoomPage, [])
   const [newFolderOpen, setNewFolderOpen] = useState(false)

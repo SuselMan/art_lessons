@@ -8,12 +8,12 @@ import { StatusCard } from './StatusCard'
 // thrown from a render or an effect anywhere under the router made React 19
 // unmount the root: the reader saw the page background and nothing else, no
 // message, no way out, and — with Sentry not yet asked — no report either.
-// The WebGL case that prompted it is now caught earlier (lib/webgl.ts), but
+// The WebGL case that prompted it is now caught earlier (lib/browser/webgl.ts), but
 // the class of failure is not specific to it; this is for the next one.
 //
 // Sentry's own boundary rather than a hand-rolled componentDidCatch so the
 // report carries the React component stack, and so it is a no-op report (not
-// a crash) in local dev where Sentry is not initialised (see lib/sentry.ts).
+// a crash) in local dev where Sentry is not initialised (see lib/observability/sentry.ts).
 
 function Fallback({ resetError }: { resetError: () => void }) {
   const t = useT()

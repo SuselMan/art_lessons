@@ -117,7 +117,7 @@ describe('#122 split-composite cache: visibility toggle of a non-active layer be
     engine.appendOperation(fillStroke('user-a', 'B', 2, 2, 2))
 
     // Hide A entirely (removed from the order, as the layer panel would do
-    // for a visibility toggle — see lib/layers.ts's orderedLayers).
+    // for a visibility toggle — see lib/layers/layers.ts's orderedLayers).
     engine.setCompositeOrder([{ id: 'B', opacity: 1 }])
     const withAHidden = readCompositePixels(engine)
     // A's content must not show through at all.

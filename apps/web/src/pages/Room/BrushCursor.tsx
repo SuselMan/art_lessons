@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import type { ToolType } from '@grafetto/shared'
 
 import { DEFAULT_NIB_ANCHOR, previewDabShape, type NibAnchor, type TiltResponse } from '../../engine'
-import { diagLog } from '../../lib/diagLog'
+import { diagLog } from '../../lib/observability/diagLog'
 import { clientToRoomPoint } from './cameraMath'
 import type { ViewportTransform, CanvasSize } from './pointerTransform'
 import styles from './Room.module.css'

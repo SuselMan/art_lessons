@@ -5,7 +5,7 @@ import type {
 
 import { api, apiPath } from './api'
 
-// (#588) The admin panel's calls. A file of their own so lib/api.ts — which
+// (#588) The admin panel's calls. A file of their own so lib/api/api.ts — which
 // every page imports — doesn't grow admin surface that ships to everyone.
 //
 // (#623) Typed by the shared route table, like every other call. An empty

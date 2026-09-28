@@ -6,7 +6,7 @@ import type { PencilEngineAPI } from '../../engine'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 
 const reportInvariant = vi.hoisted(() => vi.fn())
-vi.mock('../../lib/reportInvariant', () => ({ reportInvariant }))
+vi.mock('../../lib/observability/reportInvariant', () => ({ reportInvariant }))
 
 function layerState(overrides: Partial<LayerState> = {}): LayerState {
   return {

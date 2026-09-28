@@ -5,7 +5,7 @@ import {
   formatHotkeyLabel, getHotkeyBindings, isReservedCombo, matchesHotkey, setHotkeyBindings,
   type HotkeyBinding,
 } from './hotkeys'
-import type { KeyValueStorage } from './roomStorage'
+import type { KeyValueStorage } from '../browser/roomStorage'
 
 // Every platform-sensitive function takes the platform as its last argument
 // rather than reading navigator, so both branches are testable here; these two

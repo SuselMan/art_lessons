@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 
-import { ApiError } from '../../lib/api'
-import { fetchAdminOverview } from '../../lib/adminApi'
+import { ApiError } from '../../lib/api/api'
+import { fetchAdminOverview } from '../../lib/api/adminApi'
 import { NotFound } from '../NotFound'
 import { IpDetail, Ips } from './Ips'
 import { Journal } from './Journal'

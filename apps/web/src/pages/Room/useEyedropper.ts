@@ -1,7 +1,7 @@
 import { useCallback, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
-import { rgbToHex } from '../../lib/color'
+import { rgbToHex } from '../../lib/browser/color'
 import { useRoomStore } from '../../stores/roomStore'
 import { deviceNativeZoom } from './cameraMath'
 import { clientToCanvas } from './pointerTransform'

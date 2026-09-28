@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import type { AdminUserFilter } from '@grafetto/shared'
 
-import { fetchAdminUsers } from '../../lib/adminApi'
+import { fetchAdminUsers } from '../../lib/api/adminApi'
 import { Pager } from './Pager'
 import { ago, date, shortId } from './format'
 import styles from './Admin.module.css'

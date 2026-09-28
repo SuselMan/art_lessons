@@ -2,7 +2,7 @@ import type { RefObject } from 'react'
 
 import type { ServerToClientEvents } from '@grafetto/shared'
 
-import { isTeacherIn } from '../../lib/classMode'
+import { isTeacherIn } from '../../lib/boards/classMode'
 import { useRoomStore } from '../../stores/roomStore'
 
 export type BoardEventHandlers = Pick<ServerToClientEvents,

@@ -4,10 +4,10 @@ import type { Socket } from 'socket.io-client'
 import type { ClassVisibility, ClientToServerEvents, Participant, ServerToClientEvents } from '@grafetto/shared'
 
 import { useT } from '../../i18n'
-import { followDestination, teacherBoardId } from '../../lib/boards'
+import { followDestination, teacherBoardId } from '../../lib/boards/boards'
 import {
   classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, neighbourInGrid, ownBoardIn, stripBoards,
-} from '../../lib/classMode'
+} from '../../lib/boards/classMode'
 import { notifyError } from '../../stores/noticeStore'
 import { useRoomStore } from '../../stores/roomStore'
 

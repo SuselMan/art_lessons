@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url'
 
 import { chromium, type Page } from '@playwright/test'
 
-// The two dev-build handles this script drives (lib/devEngineHandle.ts), declared
+// The two dev-build handles this script drives (lib/observability/devEngineHandle.ts), declared
 // here rather than imported: the scripts project does not compile the app's
 // sources, and what is needed is three methods, not the engine's whole surface.
 declare global {

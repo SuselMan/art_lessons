@@ -1,7 +1,7 @@
 // Engine-level integration tests for #101: structural-operation undo/redo
 // (layer_add / layer_delete / layer_merge / layer_move / folder_add) exercised
 // against a *real* PencilEngine with actual pixel buffers (via MockGL — see
-// testing/mockGL.ts), not just the pure LayerState reducer (lib/layers.test.ts)
+// testing/mockGL.ts), not just the pure LayerState reducer (lib/layers/layers.test.ts)
 // or the generic done/undone/gone mechanics (OperationLog.test.ts).
 //
 // These specifically target the gap identified in #101: nothing previously

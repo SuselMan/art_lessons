@@ -3,8 +3,8 @@ import type { RefObject } from 'react'
 import { unpackDabs, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
-import { noteLivePacketPainted } from '../../lib/liveLatency'
-import { reportInvariant } from '../../lib/reportInvariant'
+import { noteLivePacketPainted } from '../../lib/observability/liveLatency'
+import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
 import { commitRevealsBelow, type PendingPreviews } from './pendingPreviews'
 

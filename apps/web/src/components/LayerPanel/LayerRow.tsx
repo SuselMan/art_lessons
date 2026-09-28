@@ -7,8 +7,8 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Menu } from '../Menu'
-import { isFolder } from '../../lib/layers'
-import { useLongPress } from '../../lib/useLongPress'
+import { isFolder } from '../../lib/layers/layers'
+import { useLongPress } from '../../lib/input/useLongPress'
 import styles from './LayerPanel.module.css'
 
 export interface LayerRowProps {

@@ -25,18 +25,18 @@ import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingTo
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
 import type { PickerOption } from '../../components/OptionPicker/types'
-import { exposeEngineForDev } from '../../lib/devEngineHandle'
+import { exposeEngineForDev } from '../../lib/observability/devEngineHandle'
 import {
   computeCompositeOrder, eraseThroughTargets, isLayerLocked,
-} from '../../lib/layers'
-import { hexToRgb } from '../../lib/color'
-import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
-import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
-import { useDragToAdjust } from '../../lib/useDragToAdjust'
-import { diagLog } from '../../lib/diagLog'
-import { formatHotkeyLabel } from '../../lib/hotkeys'
-import { useAuth } from '../../lib/authState'
-import { BANNED_ERROR_CODE, noteBanned } from '../../lib/banned'
+} from '../../lib/layers/layers'
+import { hexToRgb } from '../../lib/browser/color'
+import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/observability/featureFlags'
+import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/browser/uiPreferences'
+import { useDragToAdjust } from '../../lib/input/useDragToAdjust'
+import { diagLog } from '../../lib/observability/diagLog'
+import { formatHotkeyLabel } from '../../lib/input/hotkeys'
+import { useAuth } from '../../lib/api/authState'
+import { BANNED_ERROR_CODE, noteBanned } from '../../lib/api/banned'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
 import { useViewportToast } from './useViewportToast'
@@ -107,14 +107,14 @@ import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
 import { AnnotationOverlay } from './AnnotationOverlay'
-import { useCompactLayout } from '../../lib/useCompactLayout'
-import { useNarrowHeader } from '../../lib/useNarrowHeader'
+import { useCompactLayout } from '../../lib/input/useCompactLayout'
+import { useNarrowHeader } from '../../lib/input/useNarrowHeader'
 import { rotateAboutMatrix, type TransformMode } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { useJoinQueue } from './joinQueue'
 import { JoinGate } from './JoinGate'
 import { NoWebGL } from './NoWebGL'
-import { probeWebGL } from '../../lib/webgl'
+import { probeWebGL } from '../../lib/browser/webgl'
 import {
   loadToolSettings, saveToolSettings,
   isShapeTool, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
@@ -123,7 +123,7 @@ import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { TOOL_PHOTOS } from './toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
 import { ChiselAngleDial } from './ChiselAngleDial'
-import { reportInvariant } from '../../lib/reportInvariant'
+import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
@@ -2538,7 +2538,7 @@ function RoomEditor() {
     forgetDrawingActivity,
     awaitPaper,
     // Stable for the app's lifetime (one QueryClient, created outside React —
-    // see lib/queryClient.ts), so listing it here can never tear the socket
+    // see lib/api/queryClient.ts), so listing it here can never tear the socket
     // down and rebuild it.
     queryClient,
     // (#493) From useJoinGate now, so the lint rule asks for them: a useState
@@ -2557,7 +2557,7 @@ function RoomEditor() {
   tRef.current = t
 
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
-  // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────
+  // loaded above, not hardcoded here — see lib/input/hotkeys.ts) ─────────────────
   // (#493) The routing, and the precedence it encodes, is editorHotkeys.ts.
   useEditorHotkeys({
     tool, drawingTool, hotkeys,
@@ -3301,7 +3301,7 @@ function RoomEditor() {
             (#321) When it shows is a setting now (Always / in minimal UI /
             Never) rather than "only while minimal UI has hidden the chrome",
             which is what it meant when it was that mode's replacement
-            toolkit and nothing else — see lib/uiPreferences. */}
+            toolkit and nothing else — see lib/browser/uiPreferences. */}
         <FloatingToolPanel
           // See floatingSlotTool above for why this is narrowed rather than
           // folded: ruler/transform/grid/hand light neither slot.

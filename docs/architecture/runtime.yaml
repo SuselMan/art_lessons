@@ -54,7 +54,7 @@ nodes:
       React-страницы и один Zustand-стор. Стор — отражение того, что уже применено к движку, а
       не источник правды для картинки: движок меняют императивным вызовом, стор потом
       записывает результат.
-    modules: [apps/web/src, room-shell, room-net, room-tools, room-panels, store-room, store-app, lib-api]
+    modules: [apps/web/src, room-shell, room-net, room-tools, room-panels, store-room, store-app, apps/web/src/lib/api]
 
   - id: engine
     title: Движок
@@ -95,7 +95,7 @@ nodes:
     owns: >-
       Настройки приложения и комнаты, флаги, калибровка нажима. Только удобства этого
       устройства — ничего, что должны видеть другие.
-    modules: [store-app, lib-browser]
+    modules: [store-app, apps/web/src/lib/browser]
 
   - id: sw
     title: Service Worker
@@ -167,7 +167,7 @@ nodes:
     at: [0, 0]
     kind: external
     owns: Ошибки и отчёты с клиента и с сервера.
-    modules: [lib-observability]
+    modules: [apps/web/src/lib/observability]
 
   - id: b2
     title: Backblaze B2

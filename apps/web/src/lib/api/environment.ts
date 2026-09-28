@@ -1,8 +1,8 @@
 import type { ClientEnvironment } from '@grafetto/shared'
 
 import { api } from './api'
-import { APP_VERSION } from './appVersion'
-import { DEVICE_TYPE_STORAGE_KEY, useSettingsStore } from '../stores/settingsStore'
+import { APP_VERSION } from '../browser/appVersion'
+import { DEVICE_TYPE_STORAGE_KEY, useSettingsStore } from '../../stores/settingsStore'
 
 /** (#589) What this browser tells the server about itself, once per page load
  *  — the first thing asked about almost every bug here (which build, tablet or

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { AdminActionRow } from '@grafetto/shared'
 
-import { fetchAdminActions } from '../../lib/adminApi'
+import { fetchAdminActions } from '../../lib/api/adminApi'
 import { date, shortId } from './format'
 import styles from './Admin.module.css'
 

@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AdminIpBan, IpBanDurationHours } from '@grafetto/shared'
 import { IP_BAN_DURATIONS_HOURS } from '@grafetto/shared'
 
-import { ApiError } from '../../lib/api'
-import { banIp, fetchAdminIp, fetchIpBans, unbanIp } from '../../lib/adminApi'
+import { ApiError } from '../../lib/api/api'
+import { banIp, fetchAdminIp, fetchIpBans, unbanIp } from '../../lib/api/adminApi'
 import { ago, date, shortId } from './format'
 import styles from './Admin.module.css'
 

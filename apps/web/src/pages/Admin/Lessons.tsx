@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
-import { adminLessonThumbnailUrl, fetchAdminLessons } from '../../lib/adminApi'
+import { adminLessonThumbnailUrl, fetchAdminLessons } from '../../lib/api/adminApi'
 import { Pager } from './Pager'
 import { ago, date } from './format'
 import styles from './Admin.module.css'

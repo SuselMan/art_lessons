@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 
-import { diagLog } from '../../lib/diagLog'
-import { minimalUiTapsRequired, type MinimalUiTapMode } from '../../lib/uiPreferences'
+import { diagLog } from '../../lib/observability/diagLog'
+import { minimalUiTapsRequired, type MinimalUiTapMode } from '../../lib/browser/uiPreferences'
 import { TapSequence, type TapSequenceResult } from './tapSequence'
 import { TapTracker } from './tapTracker'
 import { INTERACTIVE_SELECTOR } from './useCanvasTap'

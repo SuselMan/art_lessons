@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import type { Operation } from '@grafetto/shared'
 
-import { makeInitialAnnotationState, replayAnnotations, type AnnotationState } from '../../lib/annotations'
+import { makeInitialAnnotationState, replayAnnotations, type AnnotationState } from '../../lib/annotations/annotations'
 
 /** An open text annotation — the caret is in it and nothing has been recorded
  *  yet. Kept in the store rather than in the overlay's own `useState` because
@@ -29,7 +29,7 @@ export interface AnnotationDraft {
 
 export interface AnnotationSlice {
   /** Derived from the operation log, never written directly — the projection
-   *  described in lib/annotations.ts. */
+   *  described in lib/annotations/annotations.ts. */
   annotations: AnnotationState
   syncAnnotationsFromLog: (ops: readonly Operation[]) => void
 

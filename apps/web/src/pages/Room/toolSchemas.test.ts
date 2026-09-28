@@ -14,7 +14,7 @@ import { PENCIL_GRADES } from '../../engine'
 import { TRANSFORM_MODES } from './transformMath'
 import { expScale } from '../../components/PrecisionSlider/sliderScale'
 import { DRAWING_TOOLS, NON_DRAWING_TOOLS } from '../../stores/slices/toolSlice'
-import type { KeyValueStorage } from '../../lib/roomStorage'
+import type { KeyValueStorage } from '../../lib/browser/roomStorage'
 
 function memoryStorage(): KeyValueStorage {
   const map = new Map<string, string>()

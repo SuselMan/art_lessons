@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import type { ClassVisibility, ToggleableTool } from '@grafetto/shared'
 
 import { useT } from '../../i18n'
-import { isDebugToolsEnabled } from '../../lib/debugTools'
+import { isDebugToolsEnabled } from '../../lib/observability/debugTools'
 import { Modal } from '../Modal'
 import { OptionGroup } from '../OptionGroup'
 import { RoomAccessControl } from '../RoomAccessControl'
@@ -56,7 +56,7 @@ export function SettingsPanel({
   const t = useT()
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   // Read once per open, not subscribed: the key is set by a URL parameter at
-  // startup (see lib/debugTools), so it cannot change while this is mounted.
+  // startup (see lib/observability/debugTools), so it cannot change while this is mounted.
   const [debugAvailable] = useState(() => isDebugToolsEnabled())
   // (#475) The pen calibration draws a stroke to measure it, which needs more
   // room than a settings modal normally takes. Held here rather than inside the

@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/react'
 import type { Operation, Participant } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
-import { reportInvariant } from '../../lib/reportInvariant'
+import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
 import type { OpenTimer } from './openTiming'
 import { type ReplayGate, yieldToEventLoop } from './replayGate'

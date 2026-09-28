@@ -1,5 +1,5 @@
 import type { LayerState } from '@grafetto/shared'
-import { ancestorsOf, isFolder } from '../../lib/layers'
+import { ancestorsOf, isFolder } from '../../lib/layers/layers'
 
 /** Row id → the outline colours that row shows for peers drawing on it.
  *

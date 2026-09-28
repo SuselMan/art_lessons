@@ -1,4 +1,4 @@
-import { pointOnCircle, wrapDegrees, type Point } from '../../../lib/angles'
+import { pointOnCircle, wrapDegrees, type Point } from '../../../lib/input/angles'
 
 /** The classic saturation/value triangle inside the hue ring (#341).
  *

@@ -4,7 +4,7 @@ import { isPaperType, type PaperType } from '@grafetto/shared'
 
 import {
   IDENTITY_PRESSURE_CALIBRATION, isPressureCalibration, type PressureCalibration,
-} from '../lib/pressureCalibration'
+} from '../lib/input/pressureCalibration'
 
 import {
   DEFAULT_COLOR_PICKER_MODE,
@@ -17,13 +17,13 @@ import {
 import {
   detectDeviceType, isCompactPreference, isDeviceType,
   type CompactPreference, type DeviceType,
-} from '../lib/deviceType'
-import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/hotkeys'
+} from '../lib/browser/deviceType'
+import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/input/hotkeys'
 import {
   DEFAULT_FLOATING_PANEL_MODE, DEFAULT_MINIMAL_UI_TAP_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
   isFloatingPanelMode, isMinimalUiTapMode, type FloatingPanelMode, type MinimalUiTapMode,
-} from '../lib/uiPreferences'
-import { detectTheme, isTheme, type Theme } from '../lib/theme'
+} from '../lib/browser/uiPreferences'
+import { detectTheme, isTheme, type Theme } from '../lib/browser/theme'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
 
 // App-wide user preferences (#208) — settings that belong to the person, not
@@ -259,7 +259,7 @@ export interface SettingsStore {
    *  eventually need for somebody. */
   compactPreference: CompactPreference
   setCompactPreference: (preference: CompactPreference) => void
-  /** (#426) Which palette the interface is painted in. See `lib/theme.ts` for
+  /** (#426) Which palette the interface is painted in. See `lib/browser/theme.ts` for
    *  why this is an accessibility setting rather than a cosmetic one. */
   theme: Theme
   setTheme: (theme: Theme) => void
@@ -295,7 +295,7 @@ export interface SettingsStore {
   pressureCalibration: PressureCalibration
   setPressureCalibration: (calibration: PressureCalibration) => void
   /** (#174) Keyboard bindings by action id. The registry, the codec and the
-   *  conflict rules stay in `lib/hotkeys`; this is only where the current
+   *  conflict rules stay in `lib/input/hotkeys`; this is only where the current
    *  values live, so that rebinding one reaches the editor's own keydown
    *  handler without the page reload the settings panel used to need. */
   hotkeys: Record<string, HotkeyBinding>
@@ -377,7 +377,7 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(PRESSURE_CALIBRATION_STORAGE_KEY, JSON.stringify(calibration))
     set({ pressureCalibration: calibration })
   },
-  // Own storage key and codec (`lib/hotkeys`), unlike the plain values above:
+  // Own storage key and codec (`lib/input/hotkeys`), unlike the plain values above:
   // bindings are validated per action against the registry on read, so a
   // renamed or dropped action can't leave a dead entry behind.
   hotkeys: typeof window === 'undefined' ? {} : getHotkeyBindings(localStorage),

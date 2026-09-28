@@ -6,7 +6,7 @@ import type { ClientToServerEvents, ServerToClientEvents, ToggleableTool } from 
 
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { useT } from '../../i18n'
-import { forkRoom, setRoomClosed } from '../../lib/api'
+import { forkRoom, setRoomClosed } from '../../lib/api/api'
 import { useRoomStore } from '../../stores/roomStore'
 
 export interface LessonActionsDeps {

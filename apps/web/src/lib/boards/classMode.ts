@@ -1,7 +1,7 @@
 import type { BoardSummary, Participant } from '@grafetto/shared'
 
 // (#595, ADR 015 §6) Class mode's reading of the lesson's board list, as pure
-// functions — the same reason lib/boards.ts exists. The server has already
+// functions — the same reason lib/boards/boards.ts exists. The server has already
 // filtered the list for this person (a classmate's personal board is simply
 // absent under `teacher_only`), so nothing here decides *access*; it decides
 // what goes where on screen.

@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import clsx from 'clsx'
 
-import { rgbToHex } from '../../lib/color'
+import { rgbToHex } from '../../lib/browser/color'
 import styles from './ColorWell.module.css'
 
 // (#542) The one glyph this app shows a tool's colour with, everywhere it

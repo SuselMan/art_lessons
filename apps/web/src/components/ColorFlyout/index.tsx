@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 
 import { useT } from '../../i18n'
-import { usePopupAnchor } from '../../lib/usePopupAnchor'
+import { usePopupAnchor } from '../../lib/input/usePopupAnchor'
 import { Icon } from '../Icon'
 import { ColorPicker } from '../ColorPicker'
 import { ColorWell } from '../ColorWell'

@@ -6,7 +6,7 @@ import { CATCH_UP_ENTER_QUEUE, CATCH_UP_LEAVE_QUEUE } from './catchUp'
 import { createConfirmedStreamHandler, type ConfirmedStreamEngine } from './confirmedStream'
 import { createPendingPreviews } from './pendingPreviews'
 
-vi.mock('../../lib/reportInvariant', () => ({ reportInvariant: vi.fn() }))
+vi.mock('../../lib/observability/reportInvariant', () => ({ reportInvariant: vi.fn() }))
 
 /** (#493) The confirmed stream, one arrival at a time. Each branch of the
  *  handler is a rule about how an arrival lands — painted now, revealed,

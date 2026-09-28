@@ -8,7 +8,7 @@ import { isTypingTarget } from './editorKeys'
  *
  *  Separate from the registry-driven shortcuts because this is a hold, not an
  *  action: it needs the keyup half, and it must not be rebindable (see
- *  lib/hotkeys.ts). Same guards as the shortcuts — a Space typed into a room
+ *  lib/input/hotkeys.ts). Same guards as the shortcuts — a Space typed into a room
  *  name or a dialog is a space, not a gesture.
  *
  *  Takes nothing and returns nothing: the hold is a fact about the room, so it

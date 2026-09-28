@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-import { useSettingsStore } from '../stores/settingsStore'
-import { compactMediaQuery, detectCompact, resolveCompact } from './deviceType'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { compactMediaQuery, detectCompact, resolveCompact } from '../browser/deviceType'
 
 /** (#512) Whether the editor should show its compact, annotation-only shell.
  *

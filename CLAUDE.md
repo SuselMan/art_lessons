@@ -54,7 +54,7 @@ grafetto/
   6. CSS Modules last
 - **Helpers**:
   - `components/Icon.tsx` for all Material Symbols icons.
-  - `lib/layers.ts` for layer-state helpers (`computeCompositeOrder`).
+  - `lib/layers/layers.ts` for layer-state helpers (`computeCompositeOrder`).
 - **Types**: import shared types from `@grafetto/shared`. Avoid redefining them locally. Avoid `as any` and `as` casts when a type guard or narrowing works.
 - **CSS**: CSS Modules + CSS variables from `styles/tokens.css`. Touch targets minimum 40–48 px on tablet.
 - **Engine**: public API surface is `PencilEngineAPI` from `engine/index.ts`. Internal classes live in `engine/src/`.

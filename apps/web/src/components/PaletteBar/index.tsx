@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import clsx from 'clsx'
-import { hexToRgb, rgbToHex } from '../../lib/color'
+import { hexToRgb, rgbToHex } from '../../lib/browser/color'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import styles from './PaletteBar.module.css'

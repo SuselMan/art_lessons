@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react'
 
-import { diagLog } from '../../lib/diagLog'
+import { diagLog } from '../../lib/observability/diagLog'
 import { isSlowOpen, stagesLine, type OpenReport } from './openTiming'
 
 // (#487) Отправляющая половина замера входа. Что произошло, решает

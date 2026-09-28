@@ -7,13 +7,13 @@ import { Menu, type MenuAction } from '../../components/Menu'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import type { PencilEngineAPI } from '../../engine'
 import { useT } from '../../i18n'
-import { renameRoom } from '../../lib/api'
+import { renameRoom } from '../../lib/api/api'
 import {
   isFullscreenSupported, subscribeFullscreenChange, toggleFullscreen as toggleFullscreenOn,
-} from '../../lib/fullscreen'
-import { formatHotkeyLabel } from '../../lib/hotkeys'
-import type { useDragToAdjust } from '../../lib/useDragToAdjust'
-import { useShareRoom } from '../../lib/useShareRoom'
+} from '../../lib/browser/fullscreen'
+import { formatHotkeyLabel } from '../../lib/input/hotkeys'
+import type { useDragToAdjust } from '../../lib/input/useDragToAdjust'
+import { useShareRoom } from '../../lib/api/useShareRoom'
 import { useRoomStore } from '../../stores/roomStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { SyncIndicator } from './SyncIndicator'
@@ -100,7 +100,7 @@ export function RoomHeader({
   // throw). What goes fullscreen is `document.documentElement`, not `editorRef`
   // — see toggleFullscreen for why that distinction is load-bearing (#357).
   const [isFullscreen, setIsFullscreen] = useState(false)
-  // (#466) Asked through lib/fullscreen rather than read off
+  // (#466) Asked through lib/browser/fullscreen rather than read off
   // `document.fullscreenEnabled` directly: on Safari below 16.4 that property
   // does not exist, so this was false and the button was never rendered — on
   // a browser that can do fullscreen perfectly well under the prefixed name.
@@ -156,7 +156,7 @@ export function RoomHeader({
   // element, including ones added later, and changes nothing about layout —
   // the editor already fills the page.
   //
-  // (#466) Both calls go through lib/fullscreen, which fills in the
+  // (#466) Both calls go through lib/browser/fullscreen, which fills in the
   // `webkit`-prefixed spelling Safari below 16.4 is limited to.
   const toggleFullscreen = useCallback(() => { void toggleFullscreenOn() }, [])
 

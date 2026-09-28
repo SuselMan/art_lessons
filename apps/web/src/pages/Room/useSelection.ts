@@ -3,7 +3,7 @@ import { useCallback, useRef, useState, type RefObject } from 'react'
 import { BACKGROUND_LAYER_ID, type OperationDraft } from '@grafetto/shared'
 
 import type { AreaImage, PencilEngineAPI } from '../../engine'
-import { isLayerLocked } from '../../lib/layers'
+import { isLayerLocked } from '../../lib/layers/layers'
 import { readClipboard, writeClipboard } from '../../stores/clipboardStore'
 import { useRoomStore } from '../../stores/roomStore'
 import { clientToRoomPoint, viewCentreWorld } from './cameraMath'

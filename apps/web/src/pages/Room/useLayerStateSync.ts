@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react'
 
-import { computeCompositeOrder, isLayerLocked, isVisibleUnderSolo, soloKeepSet } from '../../lib/layers'
+import { computeCompositeOrder, isLayerLocked, isVisibleUnderSolo, soloKeepSet } from '../../lib/layers/layers'
 import type { PencilEngineAPI } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
 import { isDrawingTool } from '../../stores/slices/toolSlice'

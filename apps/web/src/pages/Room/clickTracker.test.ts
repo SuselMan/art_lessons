@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { ClickTracker } from './clickTracker'
-import { CLICK_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { CLICK_MOVE_THRESHOLD_PX } from '../../lib/input/tapThreshold'
 
 describe('ClickTracker (#408)', () => {
   it('recognizes a stationary down/up as a click', () => {

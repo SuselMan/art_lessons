@@ -6,7 +6,7 @@
  *  Module-level rather than part of the Zustand store (CLAUDE.md: "one global
  *  store for all app state") because nothing *renders* from this — it is
  *  DOM-level bookkeeping between mounted components, the same kind of thing
- *  `lib/backNavigationGuard` holds. */
+ *  `lib/browser/backNavigationGuard` holds. */
 
 export interface ModalSlotEntry {
   /** Asks the owning component to unmount this modal — i.e. its own `onClose`. */

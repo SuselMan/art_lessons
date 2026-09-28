@@ -20,7 +20,7 @@ import { devBridge } from './scripts/devBridgePlugin.ts'
 // localhost — qualify). The API/Socket.io backend (apps/server, plain http)
 // is reverse-proxied through this same origin below rather than given its
 // own cert, so an https page never makes a direct http:// request (that's
-// "mixed content" and gets blocked regardless of CORS) — see lib/api.ts and
+// "mixed content" and gets blocked regardless of CORS) — see lib/api/api.ts and
 // Room/index.tsx's socket connection, both same-origin/relative regardless
 // of which mode is active here.
 //
@@ -78,7 +78,7 @@ const pwa = VitePWA({
   //
   // `prompt` does not mean the user is always asked — since #400 they usually
   // are not. It means the decision is ours rather than the plugin's, and it is
-  // made per situation in lib/registerServiceWorker.ts + pwa/updatePolicy.ts:
+  // made per situation in lib/browser/registerServiceWorker.ts + pwa/updatePolicy.ts:
   // applied silently where nothing is at risk, offered only to an installed
   // app that is holding a room, never offered in a browser tab. Note this is
   // about a build found *while a tab is open*; a newly opened tab gets the new
@@ -87,7 +87,7 @@ const pwa = VitePWA({
   // The manifest already exists as a static file (#47) and is linked from
   // index.html; generating one here would produce a second, competing one.
   manifest: false,
-  // Registration is ours (lib/registerServiceWorker.ts): the update offer has
+  // Registration is ours (lib/browser/registerServiceWorker.ts): the update offer has
   // to go through the app's own notification strip (#343), and the periodic
   // re-check added by #400 has nowhere else to live — the plugin's own
   // registration only ever checks once, at boot.

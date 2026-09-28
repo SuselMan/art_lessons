@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import { fetchMe } from '../../lib/api'
+import { fetchMe } from '../../lib/api/api'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { ErrorState } from '../ListState'

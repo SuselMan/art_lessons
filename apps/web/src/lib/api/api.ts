@@ -95,7 +95,7 @@ async function send(key: ApiRouteKey, args: AnyArgs | undefined, init: RequestIn
       ? errorBody.retryAfterSeconds
       : undefined
     // (#587) Whichever request hears it first tells the whole app — see
-    // lib/banned.ts.
+    // lib/api/banned.ts.
     if (res.status === 403 && code === BANNED_ERROR_CODE) noteBanned()
     throw new ApiError(res.status, code, retryAfter, errorBody)
   }

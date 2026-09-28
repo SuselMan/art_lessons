@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { JoinResult } from '@grafetto/shared'
 
 import type { TFunction } from '../../i18n'
-import { addRoomInvite, moveRoomToFolder } from '../../lib/api'
+import { addRoomInvite, moveRoomToFolder } from '../../lib/api/api'
 import { clearNotices, useNoticeStore } from '../../stores/noticeStore'
 import { resetRoomStore } from '../../stores/roomStore'
 import { createJoinFlow, type CreatorNavState, type JoinFlowDeps } from './joinFlow'
 
-vi.mock('../../lib/api', () => ({ addRoomInvite: vi.fn(), moveRoomToFolder: vi.fn() }))
+vi.mock('../../lib/api/api', () => ({ addRoomInvite: vi.fn(), moveRoomToFolder: vi.fn() }))
 
 /** (#493) Getting into a lesson and staying in it, driven through the two
  *  joining emits. Each test answers them the way the server would and checks

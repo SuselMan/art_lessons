@@ -6,7 +6,7 @@ import {
   getGraphiteGrainVariant, setGraphiteGrainVariant,
   getCharcoalGrainVariant, setCharcoalGrainVariant,
   type GrainVariant, GRAPHITE_GRAIN_LABELS,
-} from '../../lib/featureFlags'
+} from '../../lib/observability/featureFlags'
 import { GRAPHITE_GRAIN_DEFAULT, CHARCOAL_GRAIN_STREAKY } from '../../engine'
 import styles from './SettingsPanel.module.css'
 
@@ -16,7 +16,7 @@ import styles from './SettingsPanel.module.css'
  *  is being investigated, and it is only ever read by us.
  *
  *  Hidden unless `?debug=1` has been used in this browser (see
- *  `lib/debugTools`), which is also why it isn't simply `import.meta.env.DEV`:
+ *  `lib/observability/debugTools`), which is also why it isn't simply `import.meta.env.DEV`:
  *  most of these are set on a tablet, against production.
  *
  *  This is the one tab that keeps the old edit-a-draft-then-Save-reloads

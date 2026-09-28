@@ -1,7 +1,7 @@
 import { useEffect, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
-import { getFeatureFlag } from '../../lib/featureFlags'
+import { getFeatureFlag } from '../../lib/observability/featureFlags'
 
 /** (#536) The watercolor tool's dev-only switches, read off the Debug tab's
  *  feature flags and handed to the engine: which term of the composite to

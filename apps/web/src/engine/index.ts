@@ -50,12 +50,12 @@ import { PointerInput, type PointerData } from './src/PointerInput'
 // (#517) Same on-device ring buffer PointerInput writes to — the stroke
 // pipeline's two silent refusals below are only diagnosable from a tablet
 // with no inspector attached, which is what diagLog exists for.
-import { diagLog } from '../lib/diagLog'
+import { diagLog } from '../lib/observability/diagLog'
 // (#475) The calibration model itself is not engine code — it is pure input
 // math shared with the settings UI and the preferences store, so it lives in
 // `lib/` (the same direction PointerInput already imports diagLog from). The
 // engine only needs the type to name it in setPressureCalibration.
-import type { PressureCalibration } from '../lib/pressureCalibration'
+import type { PressureCalibration } from '../lib/input/pressureCalibration'
 import {
   PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
   type PencilGradeName, type PencilPreset,
@@ -525,7 +525,7 @@ export interface PencilEngineAPI {
    *  cross-layer erase may touch is a question about visibility, locks, folder
    *  nesting and who the room owner is — all of which live in LayerState and in
    *  the session, never in the engine (see `eraseThroughTargets` in
-   *  lib/layers.ts, which is the one place that rule is written down). The
+   *  lib/layers/layers.ts, which is the one place that rule is written down). The
    *  engine is told the answer and paints into it.
    *
    *  Read once at pen-down, like the active layer is: changing this mid-stroke
@@ -572,7 +572,7 @@ export interface PencilEngineAPI {
   // and through it the room thumbnail) keeps reading it in full. Only the
   // on-screen composite and what reads it (the "visible" fill source, whose
   // whole meaning is "what I am looking at") go through the filter. Room
-  // derives the set from the layer panel's solo (lib/layers.ts's
+  // derives the set from the layer panel's solo (lib/layers/layers.ts's
   // soloKeepSet); the engine knows nothing of folders or of why. `null`
   // clears it.
   //
@@ -741,7 +741,7 @@ export interface PencilEngineAPI {
   // (#169) Same as getOperations(), but excludes whatever
   // absorbHistoricalOperations has merged in so far. Room's LayerState is
   // derived by replaying done operations over a base (see
-  // lib/layers.ts's replayLayerState) — after a snapshot restore, that base
+  // lib/layers/layers.ts's replayLayerState) — after a snapshot restore, that base
   // is the snapshot's own `layerState` (already reflecting every structural
   // op through the snapshot's seq), so replaying the *historical* prefix on
   // top of it again would double-apply it. This is what lets Room keep
@@ -3422,7 +3422,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeOrder = items
     // #122: order/opacity/visibility/add/delete/merge/reorder all funnel
     // through here (the caller always pushes a freshly computed array — see
-    // lib/layers.ts's computeCompositeOrder) — unconditional invalidation is
+    // lib/layers/layers.ts's computeCompositeOrder) — unconditional invalidation is
     // cheap and doesn't need to reason about whether this particular call
     // actually changed anything relative to the last one.
     this._invalidateSplitCache()
@@ -3525,7 +3525,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  This method only maintains pixel/buffer state. The structural half
    *  (LayerState: which layers/folders exist, their order, opacity, etc.) is
    *  a pure derivation from `getOperations()` — see `replayLayerState` /
-   *  `applyContentOp` in `lib/layers.ts`, which is equally origin-agnostic —
+   *  `applyContentOp` in `lib/layers/layers.ts`, which is equally origin-agnostic —
    *  and is re-run by the caller after appending (see Room's `syncFromLog`).
    *
    *  Ops that reference a not-yet-known layer/folder id (e.g. a `stroke`

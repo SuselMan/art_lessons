@@ -6,7 +6,7 @@ import { resetRoomStore, useRoomStore } from '../../stores/roomStore'
 import { createPendingPreviews } from './pendingPreviews'
 import { createPeerEventHandlers, STREAMED_STROKE_MEMORY, type PeerEngine } from './peerEvents'
 
-vi.mock('../../lib/reportInvariant', () => ({ reportInvariant: vi.fn() }))
+vi.mock('../../lib/observability/reportInvariant', () => ({ reportInvariant: vi.fn() }))
 
 /** (#493) Other participants on the socket, called the way the socket calls
  *  them. The engine is four methods here, which is all these handlers ask

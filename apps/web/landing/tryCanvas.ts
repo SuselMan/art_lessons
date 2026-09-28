@@ -3,7 +3,7 @@ import { BACKGROUND_LAYER_ID, INITIAL_LAYER_ID, type LayerState, type ToolType }
 import {
   PencilEngine, charcoalPresetString, DEFAULT_CHARCOAL_TYPE, isCharcoalNib, isCharcoalType, watercolorPresetString,
 } from '../src/engine'
-import { computeCompositeOrder } from '../src/lib/layers'
+import { computeCompositeOrder } from '../src/lib/layers/layers'
 import {
   defaultToolSettings, getToolColor, isColorCapableTool, linerSizeToPx, type ToolSettingsMap, type UiToolId,
 } from '../src/pages/Room/toolSchemas'

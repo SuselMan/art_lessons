@@ -26,11 +26,11 @@
 // drew a conclusion from a pre-deploy bundle the service worker was still
 // serving (#294 on 30.07, the join-request run recorded in #314 §6). Both
 // times the tab had `registration.waiting` set and nobody had clicked.
-import { decideUpdateAction, isInstalledApp, isResumeFromBackground } from '../pwa/updatePolicy'
-import { translate } from '../i18n/translate'
-import { pushNotice } from '../stores/noticeStore'
+import { decideUpdateAction, isInstalledApp, isResumeFromBackground } from '../../pwa/updatePolicy'
+import { translate } from '../../i18n/translate'
+import { pushNotice } from '../../stores/noticeStore'
 import { isReloadUnsafe, onReloadSafe } from './reloadSafety'
-import { useSettingsStore } from '../stores/settingsStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 /** How often to ask the server whether sw.js changed. A conditional request
  *  for one small file, so the interval is set by how stale we are willing to

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 
-import { rotatePoint } from '../../../lib/angles'
-import { hsvToRgb } from '../../../lib/color'
+import { rotatePoint } from '../../../lib/input/angles'
+import { hsvToRgb } from '../../../lib/browser/color'
 import {
   barycentric,
   clampToTriangle,

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import clsx from 'clsx'
 
-import { useDragToAdjust } from '../../lib/useDragToAdjust'
+import { useDragToAdjust } from '../../lib/input/useDragToAdjust'
 import { Icon } from '../Icon'
 import { parseNumberInput, snapToStep, stepValue } from './numberField'
 import styles from './NumberField.module.css'

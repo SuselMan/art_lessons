@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 
 import { isModalOpen } from '../../components/Modal/modalSlot'
-import { browserZoomIntent, matchesHotkey, type HotkeyBinding } from '../../lib/hotkeys'
-import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
+import { browserZoomIntent, matchesHotkey, type HotkeyBinding } from '../../lib/input/hotkeys'
+import { isDismissLayerOpen } from '../../lib/input/useDismissOnOutside'
 import { useClipboardStore } from '../../stores/clipboardStore'
 import { useRoomStore } from '../../stores/roomStore'
 import type { DrawingTool, EditorTool } from '../../stores/slices/toolSlice'
@@ -55,11 +55,11 @@ export interface EditorKeyContext {
  *  The order is precedence: an open gesture (a transform session, a shape, a
  *  lasso) owns Enter and Esc outright, the platform's clipboard keys come
  *  next and only when there is something for them to act on, and the
- *  rebindable registry (#174, lib/hotkeys.ts) comes last. */
+ *  rebindable registry (#174, lib/input/hotkeys.ts) comes last. */
 export function handleEditorKey(e: KeyboardEvent, ctx: EditorKeyContext): void {
   // (#405) Enter and Esc end an open transform session — apply and cancel.
   // Handled here rather than in the registry below because they are not
-  // rebindable (see lib/hotkeys.ts on why), and checked before the bindings
+  // rebindable (see lib/input/hotkeys.ts on why), and checked before the bindings
   // so a rebind can never shadow the only two keys that close a session.
   //
   // Cancel throws the accumulated matrix away whole. Nothing was committed

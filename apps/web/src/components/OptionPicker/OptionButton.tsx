@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { usePopupAnchor } from '../../lib/usePopupAnchor'
+import { usePopupAnchor } from '../../lib/input/usePopupAnchor'
 import { OptionPopup } from './OptionPopup'
 import { OptionPreview } from './OptionPreview'
 import type { PickerOption } from './types'

@@ -2,7 +2,7 @@ import type { Annotation, AnnotationPatch, AnnotationShape, Operation } from '@g
 import { MAX_ANNOTATION_INK_POINTS } from '@grafetto/shared'
 
 /** Every annotation in the room, derived by folding the operation log — the
- *  same relationship `LayerState` has to the same log (see lib/layers.ts's
+ *  same relationship `LayerState` has to the same log (see lib/layers/layers.ts's
  *  `replayLayerState`), and derived the same way for the same reason: the log
  *  is the source of truth and this is a projection of it, so undo/redo need no
  *  code here at all. An undone `annotation_add` simply stops being among the
@@ -50,7 +50,7 @@ function patchAnnotation(annotation: Annotation, patch: AnnotationPatch): Annota
 /** Folds one operation into the state. Anything that is not an annotation
  *  operation passes straight through — callers hand this the whole log rather
  *  than pre-filtering it, exactly as `applyContentOp` is handed every
- *  operation in lib/layers.ts. */
+ *  operation in lib/layers/layers.ts. */
 export function applyAnnotationOp(state: AnnotationState, op: Operation): AnnotationState {
   switch (op.type) {
     case 'annotation_add': {
@@ -66,7 +66,7 @@ export function applyAnnotationOp(state: AnnotationState, op: Operation): Annota
       const existing = state.items[op.annotationId]
       // An update for an annotation that is not here lost a race with its own
       // deletion (or with an undo of the add). Dropping it is the same answer
-      // lib/layers.ts gives a property operation on a layer that is gone: a
+      // lib/layers/layers.ts gives a property operation on a layer that is gone: a
       // patch carries nothing that can be lost, so last-write-wins over
       // nothing is simply nothing.
       if (!existing) return state

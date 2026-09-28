@@ -15,7 +15,7 @@ import {
 } from '@grafetto/shared'
 import { parseNumberInput } from '../../components/NumberField/numberField'
 import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
-import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
+import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/browser/roomStorage'
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
@@ -1067,7 +1067,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // issue). 'colorPencil' already has a real schema entry so #188 is purely
   // UI wiring when it lands, not a data-model change.
   pencil: pencilLikeSchema(DEFAULT_GRAPHITE_COLOR, 4),
-  // Colors are [0,1] floats (WebGL convention), not 0-255 — see lib/color.ts.
+  // Colors are [0,1] floats (WebGL convention), not 0-255 — see lib/browser/color.ts.
   colorPencil: pencilLikeSchema([0.86, 0.16, 0.16], 4),
   charcoal: charcoalSchema(),
   liner: linerSchema(),
@@ -1748,7 +1748,7 @@ function coerceSettingValue(descriptor: SettingDescriptor, value: unknown): Sett
     return typeof value === 'string' && (valueType.options as readonly string[]).includes(value)
       ? value : descriptor.default
   }
-  // color — [0,1] floats (WebGL convention, see lib/color.ts), clamped same
+  // color — [0,1] floats (WebGL convention, see lib/browser/color.ts), clamped same
   // as a numberRange field would be, not just type-checked.
   return Array.isArray(value) && value.length === 3 && value.every(n => typeof n === 'number')
     ? (value.map(n => Math.min(1, Math.max(0, n))) as [number, number, number])

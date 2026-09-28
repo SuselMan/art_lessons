@@ -2,7 +2,7 @@ import type { RefObject } from 'react'
 
 import type { ClientToServerEvents, JoinDenial, Operation, Participant, ServerToClientEvents } from '@grafetto/shared'
 
-import { entryBoard } from '../../lib/boards'
+import { entryBoard } from '../../lib/boards/boards'
 import { useRoomStore } from '../../stores/roomStore'
 import { toLessonConfig } from './roomConfig'
 import type { SnapshotGate } from './snapshotGate'

@@ -77,7 +77,7 @@ test.describe('a second participant', () => {
    *  out of the layer-state sync right after it (JAVASCRIPT-K).
    *
    *  The fault goes in through `window.__engine`, the handle dev builds already
-   *  publish (`lib/devEngineHandle.ts`) — not through a hook added for the
+   *  publish (`lib/observability/devEngineHandle.ts`) — not through a hook added for the
    *  test. It patches the same object the join tail is about to call, so the
    *  throw lands at the real site rather than at a stand-in for it, and it is
    *  one-shot so the retry has something to succeed at. */

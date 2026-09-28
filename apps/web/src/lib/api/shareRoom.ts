@@ -1,8 +1,8 @@
 import type { RoomAccessMode } from '@grafetto/shared'
 
-import type { TranslationKey } from '../i18n'
+import type { TranslationKey } from '../../i18n'
 
-import type { DeviceType } from './deviceType'
+import type { DeviceType } from '../browser/deviceType'
 
 // (#314 §4) Handing someone a link to a project is the app's whole
 // hand-in/hand-out mechanism — there is no homework object, a student sends a

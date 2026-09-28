@@ -5,13 +5,13 @@ import {
   type CharcoalFeelConfig, type HapticGrainStats, type PencilEngineAPI, type PencilTiltConfig,
   type SmudgeGrainConfig, type StrokeDebugStats,
 } from '../../engine'
-import type { PencilSound } from '../../lib/PencilSound'
-import { clearDiagLogs, getDiagLogs } from '../../lib/diagLog'
-import { LIVE_LATENCY_BUDGET_MS, liveLatency, type LatencyStats } from '../../lib/liveLatency'
-import { serverClock } from '../../lib/serverClock'
-import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import type { PencilSound } from '../../lib/sound/PencilSound'
+import { clearDiagLogs, getDiagLogs } from '../../lib/observability/diagLog'
+import { LIVE_LATENCY_BUDGET_MS, liveLatency, type LatencyStats } from '../../lib/observability/liveLatency'
+import { serverClock } from '../../lib/observability/serverClock'
+import { TAP_MOVE_THRESHOLD_PX } from '../../lib/input/tapThreshold'
 import type { DrawingTool, EditorTool } from '../../stores/slices/toolSlice'
-import { getFeatureFlag } from '../../lib/featureFlags'
+import { getFeatureFlag } from '../../lib/observability/featureFlags'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { WatercolorPerfHud } from './WatercolorPerfHud'
 import type { TapDebugInfo } from './useTapToggle'
@@ -85,7 +85,7 @@ export function DebugStack({
 
   return (
     <div className={styles.debugStack}>
-      {/* On-device log capture (see lib/diagLog.ts) — for field reports
+      {/* On-device log capture (see lib/observability/diagLog.ts) — for field reports
           from a device with no attached inspector (Android tablets,
           mainly): diagLog() calls throughout the tap-toggle/viewport
           gesture code (and roomContentReady transitions) feed an

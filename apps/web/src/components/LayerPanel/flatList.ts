@@ -1,5 +1,5 @@
 import type { LayerState } from '@grafetto/shared'
-import { isFolder } from '../../lib/layers'
+import { isFolder } from '../../lib/layers/layers'
 
 export const S_BOT = '__bot_'
 

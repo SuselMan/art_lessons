@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { LayerFolder, LayerItem, LayerState, RasterLayer } from '@grafetto/shared'
 
-import { applyContentOp } from '../../lib/layers'
+import { applyContentOp } from '../../lib/layers/layers'
 import { buildDuplicateOps } from './duplicate'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {

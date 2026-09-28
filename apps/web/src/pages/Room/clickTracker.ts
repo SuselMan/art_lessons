@@ -1,4 +1,4 @@
-import { CLICK_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { CLICK_MOVE_THRESHOLD_PX } from '../../lib/input/tapThreshold'
 
 /** Pure state machine behind the click-past-the-gizmo gesture (#405/#408):
  *  recognizes a press-and-release that stayed put as a click, and a press that

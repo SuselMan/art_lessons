@@ -4,7 +4,7 @@ import { clamp } from 'lodash-es'
 
 import { ZOOM_MAX, deviceNativeZoom, fitZoom, holdAngle, minZoom, pinchViewport, rotateViewportAround, clampToPage } from './cameraMath'
 import { PinchTracker } from './pinchTracker'
-import { diagLog } from '../../lib/diagLog'
+import { diagLog } from '../../lib/observability/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 

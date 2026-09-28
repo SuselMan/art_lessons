@@ -6,10 +6,10 @@ import {
   DEFAULT_PAPER_COLORS, PAPER_COARSENESS, TOGGLEABLE_TOOLS,
   type ClassVisibility, type PaperCoarseness, type PaperType, type ToggleableTool,
 } from '@grafetto/shared'
-import { hexToRgb, rgbToHex } from '../../lib/color'
-import { preloadRoomPage } from '../../lib/roomChunk'
-import { useDismissOnOutside } from '../../lib/useDismissOnOutside'
-import { probeWebGL } from '../../lib/webgl'
+import { hexToRgb, rgbToHex } from '../../lib/browser/color'
+import { preloadRoomPage } from '../../lib/api/roomChunk'
+import { useDismissOnOutside } from '../../lib/input/useDismissOnOutside'
+import { probeWebGL } from '../../lib/browser/webgl'
 import { useT, type TFunction, type TranslationKey } from '../../i18n'
 import { PaperPreview } from '../../components/PaperPreview'
 import { AppHeader } from '../../components/AppHeader'
@@ -194,7 +194,7 @@ export function CreateRoom() {
   const [entering,    setEntering]    = useState(false)
 
   // (#351) The chunk that click will need, fetched while the creator is still
-  // choosing a size — see lib/roomChunk.ts. Nothing depends on it having
+  // choosing a size — see lib/api/roomChunk.ts. Nothing depends on it having
   // finished; it only decides whether the wait above is seconds or nothing.
   useEffect(preloadRoomPage, [])
 

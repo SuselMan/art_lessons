@@ -1,4 +1,4 @@
-import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { TAP_MOVE_THRESHOLD_PX } from '../../lib/input/tapThreshold'
 
 /** Pure state machine behind useTapToggle (#99): recognizes a short,
  *  stationary single-finger touch as a tap, as opposed to a drag or a

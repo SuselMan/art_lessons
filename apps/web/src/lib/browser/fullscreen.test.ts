@@ -7,7 +7,7 @@ import {
 // (#466) Like gzip.test.ts, this file exists for the branch nothing else runs.
 // The suite has no DOM environment at all — 140 test files, all of them node —
 // so rather than pull in jsdom for four functions, `document` is stubbed by
-// hand. That is cheap here precisely because lib/fullscreen reads the global
+// hand. That is cheap here precisely because lib/browser/fullscreen reads the global
 // per call instead of capturing it at import time.
 
 interface FakeDocument {

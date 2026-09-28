@@ -1,4 +1,4 @@
-import type { Hsv } from '../../../lib/color'
+import type { Hsv } from '../../../lib/browser/color'
 
 /** What every picker mode is handed, and all it is allowed to do.
  *
