@@ -4425,6 +4425,17 @@ export class PencilEngine implements PencilEngineAPI {
     // rather than silently losing dabs the watermark would still count.
     if (!buf) { live.desynced = true; return }
 
+    // (#536, ADR 011 §17.51) Not painted: a peer's watercolour lands when its
+    // operation does, through the replay path - one settle per operation,
+    // exactly as a reload paints it. Painted here, every packet of a few dabs
+    // went through that same path, and that path SETTLES after each call: a
+    // full settle per packet on every watching device - 150-500 ms a packet
+    // on the iPad, WebSocket handlers eating 800 ms frames on the Android,
+    // the Surface's GPU reset under it - and a picture settled in
+    // packet-sized steps that no reload reproduces. Nothing painted, nothing
+    // claimed: the operation paints all of its dabs when it arrives.
+    if (packet.tool === 'watercolor') { live.liveOffset += packet.dabs.length; return }
+
     // This packet's dabs sit at [liveOffset, liveOffset + n) in the gesture.
     // Anything below paintedTotal is already on the layer — put there by a
     // chunk operation that overtook the stream, which happens routinely: the

@@ -1087,3 +1087,21 @@ describe('the settle field is sized by this settle alone (#536 §17.49)', () => 
     expect([small.w, small.h]).toEqual([512, 256])
   })
 })
+
+describe("a peer's live watercolour (#536 §17.51)", () => {
+  it('is not painted from the live stream; its operation paints and settles it once, like a reload', () => {
+    const engine = setupLayer()
+    const d = [dab(16, 32, { size: 24 }), dab(24, 32, { size: 24 }), dab(32, 32, { size: 24 })]
+    const packet: PeerLivePacket = {
+      strokeId: 's1', layerId: 'L', tool: 'watercolor', preset: 'normal:100:70:PB29:round',
+      color: [0.2, 0.3, 0.6], packetSeq: 0, dabs: d, washId: 'w1',
+    }
+    engine.appendPeerLiveDabs('user-b', packet)
+    // Nothing painted, so no wash opened for it and nothing to claim later.
+    expect(markerReplayChunkFor(engine, 'w1')).toBeNull()
+    const op = makeStroke('user-b', 'L', d, { tool: 'watercolor', preset: packet.preset, strokeId: 's1', washId: 'w1' })
+    engine.appendOperation(op, 'remote')
+    // The operation paints through the replay path: the wash exists now.
+    expect(markerReplayChunkFor(engine, 'w1')).not.toBeNull()
+  })
+})

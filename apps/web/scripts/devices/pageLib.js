@@ -75,6 +75,31 @@
     for (let g = 0; g < grid * grid; g++) for (let c = 0; c < 4; c++) cells.push(cnt[g] ? Math.round(sum[g * 4 + c] / cnt[g]) : 0)
     return JSON.stringify({ extent: [minX, minY, maxX, maxY], tiles: tiles.map(t => t.originX + ',' + t.originY).sort().join(' '), grid, ops: E._log.layerPixelOps(layerId).length, cells })
   }
+  // Stall watch: every engine entry point that can take long, timed, plus the
+  // browser's own long-animation-frame entries - to say WHAT a multi-second
+  // frame was, not only that it happened.
+  mt.watch = () => {
+    const E = e()
+    if (E.__watched) { window.__mtStalls.length = 0; return 'reset' }
+    E.__watched = true
+    const S = window.__mtStalls = []
+    const wrap = (name, tag = (a) => '') => {
+      const o = E[name]; if (typeof o !== 'function') return
+      E[name] = function (...a) {
+        const t = performance.now(); const r = o.apply(this, a); const d = performance.now() - t
+        if (d > 150) S.push({ at: Math.round(t), ms: Math.round(d), what: name + tag(a) })
+        return r
+      }
+    }
+    wrap('appendOperation', a => ':' + (a[0] && a[0].type) + (a[0] && a[0].tool ? '/' + a[0].tool : '') + ':' + (a[1] || 'local'))
+    wrap('appendPeerLiveDabs', a => ':' + ((a[1] && a[1].dabs && a[1].dabs.length) || 0) + 'dabs')
+    for (const n of ['_rebuildLayer', '_flushPendingRebuilds', '_completeSettle', '_tickSettle', '_display', '_onEnd', '_takeCheckpoint', 'restoreLayerFromSnapshot', '_syncBuffersToLog']) wrap(n)
+    try {
+      new PerformanceObserver(l => { for (const x of l.getEntries()) if (x.duration > 300) S.push({ at: Math.round(x.startTime), ms: Math.round(x.duration), what: 'LoAF', scripts: (x.scripts || []).map(z => (z.sourceFunctionName || z.invoker || '?') + ':' + Math.round(z.duration)).slice(0, 5).join(' | '), renderStart: Math.round(x.renderStart - x.startTime) }) }).observe({ type: 'long-animation-frame', buffered: false })
+    } catch (err) { S.push({ what: 'no LoAF: ' + String(err).slice(0, 60) }) }
+    return 'watching'
+  }
+  mt.stalls = () => JSON.stringify((window.__mtStalls || []).slice(-40))
   window.__mt = mt
   return 'installed'
 })()
