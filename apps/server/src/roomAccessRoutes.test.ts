@@ -408,3 +408,17 @@ describe('kick and unkick', () => {
     expect(mockPrisma.roomJoinRequest.update).not.toHaveBeenCalled()
   })
 })
+
+// (#627) Fastify has already decoded the path parameter; decoding it a second
+// time mangled any address with a `%` in it — or threw on one that did not form
+// a valid escape, and answered 500.
+describe('removing an invite whose address has a % in it', () => {
+  it('removes that exact address', async () => {
+    mockPrisma.roomInvite.deleteMany.mockResolvedValue({ count: 1 })
+    const res = await del(buildApp(), `/api/rooms/room-1/invites/${encodeURIComponent('50%off@example.com')}`)
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.roomInvite.deleteMany).toHaveBeenCalledWith({
+      where: { roomId: 'room-1', email: '50%off@example.com' },
+    })
+  })
+})

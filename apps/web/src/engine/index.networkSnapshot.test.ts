@@ -17,7 +17,7 @@ import { decodeLayerTiles } from './src/snapshotCodec'
 describe('bakeNetworkSnapshot (#149)', () => {
   it('returns null for a layer with no pixel content yet', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
 
     expect(engine.bakeNetworkSnapshot('L')).toBeNull()
   })
@@ -29,8 +29,8 @@ describe('bakeNetworkSnapshot (#149)', () => {
 
   it('encodes exactly the resident tile pixels a stroke actually painted', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
 
     const baked = engine.bakeNetworkSnapshot('L')
     expect(baked).not.toBeNull()
@@ -42,11 +42,11 @@ describe('bakeNetworkSnapshot (#149)', () => {
 
   it('reflects the layer state at call time, not a stale cache', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
     const first = engine.bakeNetworkSnapshot('L')!
 
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
     const second = engine.bakeNetworkSnapshot('L')!
 
     const firstPixels = decodeLayerTiles(first, 0).tiles[0].pixels
@@ -58,8 +58,8 @@ describe('bakeNetworkSnapshot (#149)', () => {
 describe('restoreLayerFromSnapshot (#169)', () => {
   it('reproduces the exact pixels a fresh engine painted, without replaying any operations', () => {
     const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    source.appendOperation(makeLayerAdd('user-a', 'L'))
-    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    source.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
     const { tiles } = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0)
 
     // A fresh engine: initLayer only (no operations at all, no dabs painted).
@@ -89,8 +89,8 @@ describe('restoreLayerFromSnapshot (#169)', () => {
   // own doc comment).
   it('seeds a pinned local checkpoint so the restored content is not lost to undo/redo/revoke', () => {
     const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    source.appendOperation(makeLayerAdd('user-a', 'L'))
-    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    source.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
     const { tiles } = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0)
     const restoredPixels = [...readTilePixels(source, 'L', 0, 0, 8, 8)!]
 
@@ -106,7 +106,7 @@ describe('restoreLayerFromSnapshot (#169)', () => {
 
     // This client draws its own, totally unrelated stroke on the same layer,
     // then undoes it — the exact "добавил линию, сделал undo" repro.
-    target.appendOperation(makeStroke('user-b', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]))
+    target.appendOperation(makeStroke('user-b', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
     const undone = target.undo()
     expect(undone?.type).toBe('stroke')
 
@@ -117,10 +117,10 @@ describe('restoreLayerFromSnapshot (#169)', () => {
 
   it('replaces a stale pinned checkpoint rather than keeping both when restored twice (reconnect re-restoring a live engine)', () => {
     const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    source.appendOperation(makeLayerAdd('user-a', 'L'))
-    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    source.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
     const firstTiles = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles
-    source.appendOperation(makeStroke('user-a', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]))
+    source.appendOperation(makeStroke('user-a', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
     const secondTiles = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles
     const finalPixels = [...readTilePixels(source, 'L', 0, 0, 8, 8)!]
 
@@ -130,7 +130,7 @@ describe('restoreLayerFromSnapshot (#169)', () => {
     target.restoreLayerFromSnapshot('L', secondTiles) // a later reconnect re-restoring the newer snapshot
     expect(checkpointCountFor(target, 'L')).toBe(1) // stale one replaced, not accumulated
 
-    target.appendOperation(makeStroke('user-b', 'L', [dab(6, 6, { size: 4, pressure: 1, opacity: 0.5 })]))
+    target.appendOperation(makeStroke('user-b', 'L', [dab(6, 6, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
     target.undo()
 
     // Must reflect the *second*, more complete restore — not the first, stale one.
@@ -145,9 +145,9 @@ describe('restoreLayerFromSnapshot (#169)', () => {
 describe('bakeLayerByFullReplay (#289)', () => {
   it('agrees with bakeNetworkSnapshot for an ordinary painted layer', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
 
     const incremental = decodeLayerTiles(engine.bakeNetworkSnapshot('L')!, 0).tiles
     const replayed = decodeLayerTiles(engine.bakeLayerByFullReplay('L')!, 0).tiles
@@ -162,7 +162,7 @@ describe('bakeLayerByFullReplay (#289)', () => {
 
   it('returns null on the same conditions bakeNetworkSnapshot does, so the two stay comparable', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
 
     expect(engine.bakeLayerByFullReplay('nonexistent')).toBeNull()
     expect(engine.bakeNetworkSnapshot('nonexistent')).toBeNull()
@@ -178,15 +178,15 @@ describe('bakeLayerByFullReplay (#289)', () => {
     // pinned-checkpoint fix this state was silently destructive; the oracle
     // makes it observable either way.
     const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    source.appendOperation(makeLayerAdd('user-a', 'L'))
-    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    source.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
     const { tiles } = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0)
 
     const { engine: target } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     target.initLayer('L')
     target.restoreLayerFromSnapshot('L', tiles)
     // One own stroke, so both paths have something to bake at all.
-    target.appendOperation(makeStroke('user-b', 'L', [dab(1, 1, { size: 3, pressure: 1, opacity: 0.5 })]))
+    target.appendOperation(makeStroke('user-b', 'L', [dab(1, 1, { size: 3, pressure: 1, opacity: 0.5 })]), 'remote')
 
     const incremental = decodeLayerTiles(target.bakeNetworkSnapshot('L')!, 0).tiles[0].pixels
     const replayed = decodeLayerTiles(target.bakeLayerByFullReplay('L')!, 0).tiles[0].pixels
@@ -202,7 +202,7 @@ describe('absorbHistoricalOperations (#169)', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.initLayer('L') // as if seeded by a restored snapshot's layerState, not layer_add
     const tailStroke = makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })])
-    engine.appendOperation(tailStroke) // the live tail, applied first (as it really would be)
+    engine.appendOperation(tailStroke, 'remote') // the live tail, applied first (as it really would be)
 
     const beforePixels = [...readTilePixels(engine, 'L', 0, 0, 8, 8)!]
     const historicalAdd = makeLayerAdd('user-a', 'L')
@@ -267,8 +267,8 @@ describe('absorbHistoricalOperations (#169)', () => {
 describe('getOperationsSinceRestore (#169)', () => {
   it('equals getOperations() when nothing has been absorbed as history yet', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
 
     expect(engine.getOperationsSinceRestore().map(op => op.id)).toEqual(engine.getOperations().map(op => op.id))
   })
@@ -277,7 +277,7 @@ describe('getOperationsSinceRestore (#169)', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.initLayer('L')
     const tailAdd = makeLayerAdd('user-a', 'M') // applied first, as a real tail op would be
-    engine.appendOperation(tailAdd)
+    engine.appendOperation(tailAdd, 'remote')
 
     const page1 = [makeStroke('user-a', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })])]
     engine.absorbHistoricalOperations(page1)
@@ -322,7 +322,7 @@ describe('restoring a snapshot baked before bounded rooms were subdivided (#469)
   // function, in retileSnapshot.test.ts.
   it('lands the old page on the grid the buffer now uses', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 2048, height: 1024 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
 
     engine.restoreLayerFromSnapshot('L', [legacyPageTile(2048, 1024)], 300)
 
@@ -338,7 +338,7 @@ describe('restoring a snapshot baked before bounded rooms were subdivided (#469)
 
   it('re-bakes the restored page into the new tile shape, byte for byte', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 2048, height: 1024 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.restoreLayerFromSnapshot('L', [legacyPageTile(2048, 1024)], 300)
 
     const { tiles } = decodeLayerTiles(engine.bakeNetworkSnapshot('L')!, 0)
@@ -362,7 +362,7 @@ describe('restoring a snapshot baked before bounded rooms were subdivided (#469)
 
   it('creates no tile at all for a page that was stored empty', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 2048, height: 1024 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
 
     // The case that made an old ten-layer room unopenable on a tablet: nine of
     // its layers were all but blank and each still cost a full page.
@@ -384,7 +384,7 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
 
   it('records a landed restore with the tiles it can account for', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
 
     engine.restoreLayerFromSnapshot('L', [TILE], 100)
@@ -414,7 +414,7 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
 
   it('reports the GL error code when the upload does not land', () => {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
     const gl = canvas.getContext('webgl') as unknown as { getError: () => number }
     const real = gl.getError.bind(gl)
@@ -443,7 +443,7 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
 
   it('does not blame a restore for an error raised before it started', () => {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
     const gl = canvas.getContext('webgl') as unknown as { getError: () => number }
     const real = gl.getError.bind(gl)
@@ -459,7 +459,7 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
 
   it('empties on read, so one restore cannot be judged by another restore records', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
 
     engine.restoreLayerFromSnapshot('L', [TILE], 100)
@@ -491,11 +491,11 @@ describe('fully transparent tiles (#467)', () => {
 
   it('are not baked, so an erased-away layer stops publishing its emptiness', () => {
     const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(fillStroke('user-a', 'L', 0, 0, 15))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    engine.appendOperation(fillStroke('user-a', 'L', 0, 0, 15), 'remote')
     expect(engine.bakeNetworkSnapshot('L')).not.toBeNull() // the erase below proves nothing otherwise
 
-    engine.appendOperation(makeAreaClear('user-a', 'L', { points: [-30, -30, 30, -30, 30, 30, -30, 30] }))
+    engine.appendOperation(makeAreaClear('user-a', 'L', { points: [-30, -30, 30, -30, 30, 30, -30, 30] }), 'remote')
 
     // The tile is still resident — clearing does not release it — so this is
     // the filter talking, not the buffer having forgotten the tile.
@@ -505,7 +505,7 @@ describe('fully transparent tiles (#467)', () => {
 
   it('are not uploaded when restoring onto a layer that holds nothing', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
 
     engine.restoreLayerFromSnapshot('L', [blankTile()], 100)
@@ -523,8 +523,8 @@ describe('fully transparent tiles (#467)', () => {
   // is the one case where an all-transparent tile is *doing* something.
   it('are still uploaded when restoring onto a live buffer, because there they clear it', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
 
     engine.restoreLayerFromSnapshot('L', [blankTile()], 100)
 
@@ -550,7 +550,7 @@ describe('what a restore pins in memory (#467)', () => {
 
   it('holds the snapshot packed, not as a second full copy of the pixels', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
     const tile = sparseTile(64)
 
@@ -565,7 +565,7 @@ describe('what a restore pins in memory (#467)', () => {
   // rebuild then republishes.
   it('gives those exact pixels back when a rebuild reads them', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
-    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
     const tile = sparseTile(64)
     engine.restoreLayerFromSnapshot('L', [tile], 100)
@@ -573,7 +573,7 @@ describe('what a restore pins in memory (#467)', () => {
 
     // A stroke and its undo is the shortest route through _replayInto, which is
     // the only reader of a packed checkpoint.
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(30, 30, { size: 8, pressure: 1, opacity: 0.6 })]))
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(30, 30, { size: 8, pressure: 1, opacity: 0.6 })]), 'remote')
     expect([...readLayerPixels(engine, 'L')!]).not.toEqual(restored)
     engine.undo()
 

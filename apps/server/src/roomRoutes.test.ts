@@ -112,6 +112,20 @@ describe('PATCH /api/rooms/:id/closed', () => {
     expect(mockPrisma.room.update).not.toHaveBeenCalled()
   })
 
+  // (#627) The no-change answer used to be the bare row, read without the
+  // owner and the thumbnail — a thinner Room than the one a real change
+  // returns, for the same request.
+  it('answers the same full room whether or not anything changed', async () => {
+    const alreadyClosed = new Date('2026-07-01T09:00:00.000Z')
+    mockPrisma.room.findUnique.mockImplementation(async ({ include }: { include?: { owner?: unknown } }) => ({
+      ...closedRoom(alreadyClosed),
+      ...(include?.owner ? { owner: { name: 'Teacher' } } : {}),
+    }))
+    const res = await toggle(buildApp(), true)
+    expect(res.statusCode).toBe(200)
+    expect(res.json().ownerName).toBe('Teacher')
+  })
+
   it('notifies the room and updates the live mirror, but only on a real change', async () => {
     const notify = vi.fn()
     mockPrisma.room.findUnique.mockResolvedValue(closedRoom(null))

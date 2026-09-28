@@ -1,4 +1,6 @@
-import type { LayerState, Operation } from '@grafetto/shared'
+import { isLayerStateShape, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
+
+import { api, ApiError, apiPath } from '../../lib/api'
 import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../engine/src/snapshotCodec'
 
 /** What a restore reports back once every layer has been handed over: the room
@@ -28,13 +30,6 @@ export interface SnapshotRestoreSink {
 
 /** Stand-in for a blob already consumed, so the slot holds no bytes. */
 const EMPTY = new Uint8Array(0)
-
-/** What `/snapshots/index` answers: the plan for a restore, no pixels. */
-interface SnapshotIndex {
-  seq: number
-  layerState: LayerState
-  layers: Array<{ layerId: string; seq: number; hash: string }>
-}
 
 /** (#474) One entry of what a restore set out to do, kept so the result can be
  *  checked against the intent rather than against itself. `bytes` is the
@@ -233,7 +228,9 @@ async function fetchBlobs(
       try {
         blobs[i] = await withRetry(
           () => fetchBlobOnce(
-            `/api/rooms/${roomId}/snapshots/${layer.layerId}/${layer.seq}`,
+            apiPath('GET /api/rooms/:roomId/snapshots/:layerId/:seq', {
+              params: { roomId, layerId: layer.layerId, seq: layer.seq },
+            }),
             `snapshot blob ${layer.layerId}@${layer.seq}`,
           ),
           sleep,
@@ -270,17 +267,21 @@ export async function restoreLatestSnapshot(
     // "never baked" is a settled answer and must not be asked again.
     const body = await withRetry<SnapshotIndex | null>(async () => {
       try {
-        const res = await fetch(`/api/rooms/${roomId}/snapshots/index`, { credentials: 'include' })
-        if (res.status === 204) return { ok: true, value: null }
-        if (!res.ok) {
-          return { ok: false, retriable: isRetriableStatus(res.status), error: new Error(`snapshot index: ${res.status}`) }
-        }
-        return { ok: true, value: await res.json() as SnapshotIndex }
+        return { ok: true, value: await api('GET /api/rooms/:roomId/snapshots/index', { params: { roomId } }) }
       } catch (error) {
+        if (error instanceof ApiError) {
+          return { ok: false, retriable: isRetriableStatus(error.status), error: new Error(`snapshot index: ${error.status}`) }
+        }
         return { ok: false, retriable: true, error }
       }
     }, sleep)
     if (body === null) return { status: 'none' }
+    // (#623) The stored structure is what some client once uploaded; it is
+    // `unknown` on the wire, and only a LayerState-shaped one may reach the
+    // engine. A malformed row fails the restore here, before anything was
+    // touched, like any other fault in the plan.
+    const layerState = body.layerState
+    if (!isLayerStateShape(layerState)) throw new Error('snapshot index: stored layerState is malformed')
     plan = body.layers.map(layer => ({ layerId: layer.layerId, seq: layer.seq, bytes: 0 }))
 
     stage = 'blobs'
@@ -297,7 +298,7 @@ export async function restoreLatestSnapshot(
     // is still available, and where the layers must be created before pixels
     // can be put into them.
     stage = 'apply'
-    sink.beginLayers(body.layerState)
+    sink.beginLayers(layerState)
 
     for (let i = 0; i < body.layers.length; i++) {
       const layer = body.layers[i]
@@ -315,7 +316,7 @@ export async function restoreLatestSnapshot(
       appliedLayerIds.push(layer.layerId)
     }
 
-    return { status: 'restored', head: { seq: body.seq, layerState: body.layerState }, plan }
+    return { status: 'restored', head: { seq: body.seq, layerState }, plan }
   } catch (error) {
     return { status: 'failed', stage, plan, appliedLayerIds, error }
   }
@@ -338,11 +339,7 @@ export async function fetchHistoryPage(
   roomId: string, beforeSeq: number, limit = HISTORY_PAGE_LIMIT,
 ): Promise<Operation[]> {
   try {
-    const res = await fetch(`/api/rooms/${roomId}/operations?beforeSeq=${beforeSeq}&limit=${limit}`, {
-      credentials: 'include',
-    })
-    if (!res.ok) return []
-    return await res.json() as Operation[]
+    return await api('GET /api/rooms/:roomId/operations', { params: { roomId }, query: { beforeSeq, limit } })
   } catch {
     return []
   }

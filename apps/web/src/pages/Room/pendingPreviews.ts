@@ -1,3 +1,5 @@
+import type { Operation } from '@grafetto/shared'
+
 /** (#477) The peer strokes this client has received but has not finished
  *  revealing yet — a single set, because there is exactly one fact here.
  *
@@ -57,10 +59,42 @@ export interface PendingPreviews {
    *  `undefined` if it wasn't pending, for callers that only act when they
    *  actually took something off. */
   remove(opId: string): number | undefined
+  /** (#537) Every still-revealing op id whose seq is below `seq`, lowest
+   *  first — what has to be committed before anything at `seq` may be, so the
+   *  log receives the room's operations in the room's order. */
+  below(seq: number): string[]
   /** Every arrived-but-unpainted seq, for `snapshotGate.observe`. An iterable
    *  rather than a set: the gate only ever scans it, and this is called on
    *  every confirmed operation. */
   commitSeqs(): Iterable<number>
+}
+
+/** (#537) Commits every peer stroke still being revealed whose seq is below
+ *  `seq` — at once, without the rest of its animation — so that whatever is
+ *  about to be committed at `seq` lands after them in the log, as it does in
+ *  the room.
+ *
+ *  A reveal is a way of *showing* an operation, never a reason to reorder it.
+ *  Two reveals finish in whatever order their lengths dictate, and committing
+ *  on reveal-finish put a short late stroke under a long early one. Worse, a
+ *  layer_delete or merge arriving behind a still-revealing stroke destroyed
+ *  the layer first and then revoked the stroke — which the author's own merge
+ *  or copy of that layer still contained.
+ *
+ *  Returns whether anything was committed. */
+export function commitRevealsBelow(
+  seq: number,
+  previews: PendingPreviews,
+  engine: { dropPendingPreview(opId: string): Operation | null } | null,
+  applyRemoteOp: (op: Operation) => void,
+): boolean {
+  const ids = previews.below(seq)
+  for (const id of ids) {
+    const revealing = engine?.dropPendingPreview(id) ?? null
+    previews.remove(id)
+    if (revealing) applyRemoteOp(revealing)
+  }
+  return ids.length > 0
 }
 
 export function createPendingPreviews(): PendingPreviews {
@@ -82,6 +116,9 @@ export function createPendingPreviews(): PendingPreviews {
       const seq = bySeq.get(opId)
       bySeq.delete(opId)
       return seq
+    },
+    below(seq) {
+      return [...bySeq].filter(([, s]) => s < seq).sort((a, b) => a[1] - b[1]).map(([id]) => id)
     },
     commitSeqs() {
       return bySeq.values()

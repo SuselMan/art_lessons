@@ -7,6 +7,8 @@ import { build } from './collect';
 import { assign, listSourceFiles, loadMap, REPO_ROOT } from './model';
 import { render } from './render';
 import { loadRuntime } from './runtime';
+import { indexSymbols, mentioned, strings } from './symbols';
+import { coverage, loadUnderstanding } from './understanding';
 
 const OUT = join(REPO_ROOT, 'docs', 'architecture', 'map.html');
 
@@ -23,7 +25,21 @@ function main(): void {
   }
 
   console.log('· снимаю граф импортов, дубли и историю правок…');
-  const data = { ...build(map, assignment), runtime: loadRuntime(new Set(map.modules.map((m) => m.id))) };
+  const base = build(map, assignment);
+  // (#628) Coverage is computed here rather than in the page: it needs the same loc and churn
+  // numbers the structure tab shows, and the page should only draw.
+  const doc = loadUnderstanding();
+  const understanding = doc && {
+    levels: doc.levels,
+    topics: doc.topics,
+    names: doc.names ?? {},
+    people: Object.keys(doc.people ?? {}).map((person) => coverage(doc, person, base.modules)),
+  };
+  const runtime = loadRuntime(new Set(map.modules.map((m) => m.id)));
+  // (#632) Declarations of every type and function the map's prose mentions.
+  const decls = runtime?.links.flatMap((l) => l.messages.flatMap((m) => m.decl ?? [])) ?? [];
+  const symbols = mentioned(indexSymbols(decls), strings([map.modules, map.flows, runtime, doc]));
+  const data = { ...base, runtime, understanding, symbols };
 
   let remote = '';
   try {

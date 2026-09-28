@@ -6,7 +6,7 @@ import type { PencilEngineAPI } from '../../engine'
 import { noteLivePacketPainted } from '../../lib/liveLatency'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
-import type { PendingPreviews } from './pendingPreviews'
+import { commitRevealsBelow, type PendingPreviews } from './pendingPreviews'
 
 // (#429) How many recently-streamed gesture ids to remember — see
 // streamedStrokeIdsRef. Generous on purpose: the cost of one forgotten id is a
@@ -18,7 +18,7 @@ export type PeerEventHandlers = Pick<ServerToClientEvents,
   'peer_joined' | 'peer_stroke_live' | 'peer_stroke_live_end' | 'peer_left'>
 
 /** The part of the engine these handlers drive. */
-export type PeerEngine = Pick<PencilEngineAPI, 'appendPeerLiveDabs' | 'endPeerLiveStroke' | 'flushPeerPreview'>
+export type PeerEngine = Pick<PencilEngineAPI, 'appendPeerLiveDabs' | 'endPeerLiveStroke' | 'flushPeerPreview' | 'dropPendingPreview'>
 
 export interface PeerEventDeps {
   engineRef: RefObject<PeerEngine | null>
@@ -114,11 +114,17 @@ export function createPeerEventHandlers({
       // They left mid-reveal — commit whatever of their last stroke(s) had
       // already arrived rather than losing it, just without the animation.
       const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
+      let committed = stranded.length > 0
       for (const op of stranded) {
-        pendingPreviewsRef.current.remove(op.id)
+        const seq = pendingPreviewsRef.current.remove(op.id)
+        // (#537) Another peer's stroke the room ordered first may still be
+        // revealing: it goes into the log first, as it does everywhere else.
+        if (seq !== undefined && commitRevealsBelow(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)) {
+          committed = true
+        }
         applyRemoteOp(op)
       }
-      if (stranded.length) {
+      if (committed) {
         syncFromLog()
         checkSnapshotBoundary()
       }

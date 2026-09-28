@@ -9,7 +9,13 @@ export interface OutboxVerdictDeps {
   pendingIdsRef: RefObject<Set<string>>
   /** The highest seq this client knows of anywhere, sent on every rejoin. */
   latestKnownSeqRef: RefObject<number>
-  noteLayerSeq: (layerId: string, seq: number) => void
+  /** (#537) The server ordered this operation at `seq` — see
+   *  PencilEngineAPI.confirmOperation. The broadcast normally gets there first;
+   *  this is the one that still arrives when the broadcast was lost. */
+  confirmOperation: (op: Operation, seq: number) => void
+  /** (#537) The server refused this operation for good — take it back off
+   *  this client's canvas, where it is the only place it exists. */
+  discardOperation: (op: Operation) => void
   checkSnapshotBoundary: () => void
   /** Lets go of a gizmo preview held for an operation that will not land. */
   resolveTransformCommit: (opId: string) => void
@@ -26,7 +32,7 @@ export interface OutboxVerdictDeps {
  *  Out of the Outbox's construction in Room, where it was a pair of inline
  *  callbacks with every rule below and no test able to reach them. */
 export function createOutboxVerdicts({
-  pendingIdsRef, latestKnownSeqRef, noteLayerSeq, checkSnapshotBoundary,
+  pendingIdsRef, latestKnownSeqRef, confirmOperation, discardOperation, checkSnapshotBoundary,
   resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
 }: OutboxVerdictDeps): {
   onStalled: (op: Operation) => void
@@ -52,6 +58,12 @@ export function createOutboxVerdicts({
         // Never became real — drop it back out of the local island so a
         // later delete/merge targeting it isn't wrongly treated as safe.
         if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
+        // (#537) Every participant has to see the same picture, and nobody
+        // else will ever see this. It used to stay on this client's canvas for
+        // the rest of the lesson — a stroke refused on a locked layer, say.
+        // Recovery below re-creates the content as a *new* operation, so
+        // taking the original back first loses nothing.
+        discardOperation(op)
         // (#289 §17, #312) `target_gone` on a content-bearing op is the one
         // rejection a user can actually perceive as lost work — typically
         // drawn offline (or during a drop) onto a layer someone deleted in
@@ -72,7 +84,7 @@ export function createOutboxVerdicts({
         return
       }
       latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, result.seq)
-      if (op.type === 'stroke') noteLayerSeq(op.layerId, result.seq)
+      confirmOperation(op, result.seq)
       // Confirmed — a peer could plausibly reference this id from now on, so
       // it no longer qualifies as this client's own private local island
       // (see isLocalIslandSafe/dispatchOp).

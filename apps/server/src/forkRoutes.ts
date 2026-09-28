@@ -3,9 +3,11 @@ import type { FastifyInstance } from 'fastify'
 import { Prisma } from '@prisma/client'
 
 import { forkSeedUserId, type Operation } from '@grafetto/shared'
+import { apiRoute } from './apiRoute.js'
+import { asString } from './input.js'
 import { prisma } from './prisma.js'
 import { canSeeBoard, isLesson, lessonOf } from './lessons.js'
-import { toWireRoom } from './roomMapper.js'
+import { ROOM_WIRE_INCLUDE, toWireRoom } from './roomMapper.js'
 import { flushRoomWrites } from './rooms.js'
 import { residentOperationWhere } from './snapshotCoverage.js'
 
@@ -310,7 +312,7 @@ function copiedBoardData(board: SourceBoard, forkId: string, name: string, owner
 }
 
 export function registerForkRoutes(app: FastifyInstance): void {
-  app.post<{ Params: { id: string }; Body?: { name?: string; scope?: unknown } }>('/api/rooms/:id/fork', async (request, reply) => {
+  apiRoute(app, 'POST /api/rooms/:id/fork', async (request, reply) => {
     const sourceId = request.params.id
     const userId = request.userId
 
@@ -369,7 +371,7 @@ export function registerForkRoutes(app: FastifyInstance): void {
     // Palette is the lesson's (a board has none), and so is the folder — the
     // one from the caller's own participant row on the lesson.
     const palette = await prisma.roomPalette.findUnique({ where: { roomId: lesson.id }, select: { colors: true } })
-    const name = request.body?.name?.trim() || sourceBoards[0].name
+    const name = asString(request.body?.name)?.trim() || sourceBoards[0].name
     const folderId = membership?.folderId ?? null
 
     // One transaction: a fork that exists with half its content would look
@@ -429,7 +431,8 @@ export function registerForkRoutes(app: FastifyInstance): void {
       timeout: 30_000,
     })
 
-    const created = await prisma.room.findUniqueOrThrow({ where: { id: forkId } })
+    // (#627) With the owner and thumbnail, like every other room a list shows.
+    const created = await prisma.room.findUniqueOrThrow({ where: { id: forkId }, include: ROOM_WIRE_INCLUDE })
     // (#552) With its placement, so the caller can put the card where the copy
     // really is instead of assuming the folder it is looking at — from search
     // results those are two different folders.

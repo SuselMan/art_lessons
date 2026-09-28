@@ -43,7 +43,9 @@ import {
 import type { NibAngleConfig } from './src/markerPresets'
 import { shapeDrawParams, type ShapeDrawParams } from './src/shapeGeometry'
 import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerFilter } from './src/layerFilters'
-import { OperationLog, type PixelOperation } from './src/OperationLog'
+import {
+  OperationLog, pixelReadLayerIds, pixelWriteLayerIds, type LogEntry, type PixelOperation,
+} from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 // (#517) Same on-device ring buffer PointerInput writes to — the stroke
 // pipeline's two silent refusals below are only diagnosable from a tablet
@@ -124,6 +126,7 @@ export type { HapticGrainStats }
 // from a real change — the same functions the engine applies, so the dialog's
 // graph is the curve that will actually be used.
 export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/layerFilters'
+export { pixelWriteLayerIds } from './src/OperationLog'
 // (#345, #493) The paper download's progress, for the room's loading overlay.
 export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paperLoader'
 export type { Matrix3 }
@@ -579,6 +582,19 @@ export interface PencilEngineAPI {
   // read that has it applied.
   setDisplayFilter(ids: ReadonlySet<string> | null): void
   appendOperation(op: Operation, source?: OperationSource): void
+  /** (#537) The server has ordered this client's own operation `opId` at
+   *  `seq`. Moves it from the pending tail of the log to its place in the
+   *  room's true order and, if it had been painted before operations that now
+   *  sort after it, re-settles the layers where that matters. False when there
+   *  was nothing to confirm (already confirmed, never pending here). */
+  confirmOperation(opId: string, seq: number): boolean
+  /** (#537) The server refused this client's own pending operation for good:
+   *  takes it back off the canvas and out of the history, so this client does
+   *  not keep showing something nobody else will ever see. False when `opId`
+   *  is not a pending operation of this engine. */
+  discardOperation(opId: string): boolean
+  /** (#537) How many times a layer has been re-settled into true order. */
+  resettleCount(): number
   // (#398) Decodes the reference image of every `image_import` among `ops`
   // into the engine's image cache, so that applying those operations
   // afterwards paints them *synchronously*, in log order, like every other
@@ -2829,6 +2845,18 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#381) Layers whose rebuild was deferred by the current suspendDisplay
    *  batch — see _rebuildLayerOrDefer. Empty whenever the depth is 0. */
   private _pendingRebuilds = new Set<string>()
+  /** (#537) Layers whose pixels were painted in an order other than the one
+   *  the log now holds — an operation landed below something already painted
+   *  on them, or on top of another gesture's still-unrecorded ink. Each is
+   *  rebuilt from the log (which is in true order) as soon as nothing is being
+   *  painted into it live: see _settleLayers. */
+  private _unsettledLayers = new Set<string>()
+  /** A settle put off by an open watercolor wash — retried once it can no
+   *  longer be joined. */
+  private _settleRetryTimer: ReturnType<typeof setTimeout> | null = null
+  /** (#537) How many times a layer was re-settled into true order. For tests
+   *  and diagnostics — this is the "jerk" the fix trades for convergence. */
+  private _resettleCount = 0
 
   // Below/above split-composite cache (#122) — _runComposite normally
   // re-blits every visible layer/folder-child from _compositeOrder into
@@ -3572,7 +3600,17 @@ export class PencilEngine implements PencilEngineAPI {
     // replay settles each operation before painting the next, and this keeps
     // the live picture to that order.
     if (this._settle) this._completeSettle()
-    this._log.append(op)
+    // (#537) Local: the pending tail, applied ahead of the server's order.
+    // Remote: already ordered, so into the confirmed region at its seq — which
+    // is below any pending operation of this client's own.
+    const overtaken = this._log.append(op, source === 'local' ? { pending: true } : { serverSeq: op.seq })
+    // Marked before the switch below applies it, not after: a merge or a
+    // duplicate checkpoints its result on the spot, and a layer already known
+    // to be out of order must refuse that checkpoint (_takeCheckpoint).
+    this._noteOvertaken(op, overtaken)
+    for (const layerId of pixelWriteLayerIds(op)) {
+      if (this._foreignUnrecordedInk(layerId, op)) this._unsettledLayers.add(layerId)
+    }
     switch (op.type) {
       case 'layer_add':
         this._createBuffer(op.layerId)
@@ -3858,7 +3896,142 @@ export class PencilEngine implements PencilEngineAPI {
         // the UI owns LayerState and pushes the new composite order itself
         break
     }
+    this._settleLayers()
     if (source === 'local') this._onLocalOperation?.(op)
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  confirmOperation(opId: string, seq: number): boolean {
+    const confirmed = this._log.confirm(opId, seq)
+    if (!confirmed) return false
+    this._noteOvertaken(confirmed.op, confirmed.overtaken)
+    this._settleLayers()
+    return true
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  discardOperation(opId: string): boolean {
+    if (!this._log.isPending(opId)) return false
+    const target = this._log.revoke(opId)
+    if (!target) return false
+    // An undo or redo put nothing on the canvas of its own — it flipped
+    // another entry, and that flip is what has to come back: the server kept
+    // the target as it was. (A refused revoke is left alone — it leaves its
+    // target `gone`, which the log has no way to walk back.)
+    if (target.type === 'operation_undo' || target.type === 'operation_redo') {
+      const flipped = target.type === 'operation_undo'
+        ? this._log.applyRedo(target.targetOpId, target.userId)
+        : this._log.applyUndo(target.targetOpId, target.userId)
+      if (flipped) this._applyHistoryChange(flipped)
+      return true
+    }
+    // The same re-sync an undo or a teacher's revoke gets: whatever it put on
+    // the canvas has to come off again, by replaying the layer without it.
+    this._applyHistoryChange(target)
+    return true
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  resettleCount(): number {
+    return this._resettleCount
+  }
+
+  /** (#537) `op` has just taken its place in the log below `overtaken` —
+   *  entries that were already applied, so their pixels went down *before*
+   *  `op`'s did although they come after it. Wherever the two touch the same
+   *  layer, that layer's pixels are in the wrong order.
+   *
+   *  "Touch" includes reading: a merge or duplicate bakes its source's content
+   *  as of its own place in the order, so a source that picked up something
+   *  which now sorts after the merge was baked with too much in it. */
+  private _noteOvertaken(op: Operation, overtaken: readonly LogEntry[]): void {
+    if (!overtaken.length) return
+    const writes = pixelWriteLayerIds(op)
+    const reads = pixelReadLayerIds(op)
+    if (!writes.length && !reads.length) return
+    const touched = new Set([...writes, ...reads])
+    for (const e of overtaken) {
+      if (e.state !== 'done') continue
+      const laterWrites = pixelWriteLayerIds(e.op)
+      const laterReads = pixelReadLayerIds(e.op)
+      if (laterWrites.some(id => touched.has(id))) {
+        for (const id of writes) this._unsettledLayers.add(id)
+        for (const id of laterWrites) this._unsettledLayers.add(id)
+      } else if (laterReads.some(id => writes.includes(id))) {
+        for (const id of laterWrites) this._unsettledLayers.add(id)
+      }
+    }
+  }
+
+  /** (#537) Whether `layerId` holds ink painted live by a gesture other than
+   *  the one `op` records — this user's own gesture still under the pen, or a
+   *  peer's streamed one (#429) — that no operation accounts for yet. `op`'s
+   *  pixels then went down in the middle of that gesture's, which is no order
+   *  at all: whichever of the two the server puts first, the layer is wrong
+   *  where they overlap. */
+  private _foreignUnrecordedInk(layerId: string, op: Operation): boolean {
+    const strokeId = op.type === 'stroke' ? op.strokeId : undefined
+    const own = (userId: string, id: string | null | undefined) => !!strokeId && userId === op.userId && id === strokeId
+    if ((this._strokeLayerId === layerId || this._strokeExtraLayerIds.includes(layerId))
+      && !own(this._userId, this._strokeId)) return true
+    for (const live of this._peerLiveStrokes.values()) {
+      if (live.layerId !== layerId || live.paintedTotal <= live.committedOffset) continue
+      if (!own(live.peerId, live.strokeId)) return true
+    }
+    return false
+  }
+
+  /** (#537) Rebuilds every unsettled layer that can be rebuilt right now — the
+   *  visible "re-settle" into true order.
+   *
+   *  Never while this user is drawing (#429): a rebuild is a full replay on the
+   *  main thread, and the pen is the one place where a dropped frame is felt.
+   *  Never a layer with unrecorded ink on it either — a replay from the log
+   *  would wipe ink no operation describes yet — nor one a watercolor wash is
+   *  still open on, whose next stroke pools against the content from before
+   *  it began. Each of those clears on its own (pen-up, the operation
+   *  arriving, the wash drying), and each of those moments calls this again. */
+  private _settleLayers(): void {
+    if (!this._unsettledLayers.size || this._strokeLayerId) return
+    let settled = false
+    for (const layerId of [...this._unsettledLayers]) {
+      if (!this._layers.has(layerId)) { this._unsettledLayers.delete(layerId); continue }
+      if (this._hasUnrecordedInk(layerId)) continue
+      const wash = this._wash
+      if (wash && wash.layerId === layerId) {
+        const openFor = WASH_JOIN_MS - (performance.now() - wash.endedAt)
+        if (openFor > 0) { this._retrySettleIn(openFor + 1); continue }
+      }
+      this._unsettledLayers.delete(layerId)
+      this._resettleCount++
+      this._rebuildLayerOrDefer(layerId)
+      this._checkpointAfterSettle(layerId)
+      settled = true
+    }
+    if (settled) this._displayIfNotSuspended()
+  }
+
+  private _retrySettleIn(ms: number): void {
+    if (this._settleRetryTimer !== null) return
+    this._settleRetryTimer = setTimeout(() => {
+      this._settleRetryTimer = null
+      if (!this._destroyed) this._settleLayers()
+    }, ms)
+  }
+
+  /** A settle is a replay of everything since the layer's best checkpoint.
+   *  On a layer two people keep drawing on at once, that tail is also what
+   *  _takeCheckpoint keeps refusing to cut (there is always somebody's
+   *  unrecorded ink on it), so it would only grow. A settled layer equals its
+   *  replay state by construction — the one moment a checkpoint is certainly
+   *  valid — so take one here once the tail is long enough to be worth it. */
+  private _checkpointAfterSettle(layerId: string): void {
+    const ops = this._log.layerPixelOps(layerId)
+    const best = this._checkpoints.best(layerId, ops)
+    if (ops.length - (best?.start ?? 0) < CHECKPOINT_INTERVAL) return
+    const schedule: (fn: () => void) => void =
+      typeof requestIdleCallback === 'function' ? requestIdleCallback : fn => setTimeout(fn, 0)
+    schedule(() => this._takeCheckpoint(layerId))
   }
 
   /** Done operations in seq order — the material for LayerState derivation. */
@@ -4761,6 +4934,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   resetPeerLiveStrokes(): void {
     this._peerLiveStrokes.clear()
+    // (#537) Nothing is unrecorded any more, so nothing holds a settle back.
+    this._settleLayers()
   }
 
   /** (#429) How many of an arriving stroke operation's dabs are already on the
@@ -4939,6 +5114,8 @@ export class PencilEngine implements PencilEngineAPI {
     // Dwell (#245): the one non-rAF timer this engine owns — must not
     // outlive destroy() (e.g. a component unmounting mid-stroke).
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
+    if (this._settleRetryTimer !== null) { clearTimeout(this._settleRetryTimer); this._settleRetryTimer = null }
+    this._unsettledLayers.clear()
     cancelAnimationFrame(this._raf)
     if (this._displayRafId !== null) cancelAnimationFrame(this._displayRafId)
     this.canvas.removeEventListener('webglcontextlost', this._handleContextLost)
@@ -5140,6 +5317,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._rebuildWantsSlicing(layerId, ops)) { this._startRebuildJob(layerId); return }
     this._cancelRebuildJob(layerId)
     this._replayInto(buf, layerId, ops)
+    this._noteReplayedOrder(layerId)
     // (#522) A layer whose pixels reach below the log window can only be
     // rebuilt from its snapshot checkpoint. If that is gone — evicted once the
     // layer was destroyed and unpinned — the replay above just produced a
@@ -5268,6 +5446,16 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** The rebuilt buffer takes the old one's place, with its replay caches;
    *  everything that pointed into the old buffer's tiles is let go. */
+  /** (#537) A replay leaves the layer in the log's order — settled — unless
+   *  somebody's live ink was on it: the replay just wiped that, and the
+   *  operation that eventually records it will skip the dabs it believes are
+   *  already painted (#429's claim). Leaving the layer unsettled brings them
+   *  back: the next settle, after that operation lands, replays it whole. */
+  private _noteReplayedOrder(layerId: string): void {
+    if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
+    else this._unsettledLayers.delete(layerId)
+  }
+
   private _swapRebuiltLayer(job: RebuildJob): void {
     const { layerId } = job
     if (this._settle) this._completeSettle()
@@ -5285,6 +5473,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers.set(layerId, job.fresh)
     ;(job.fresh instanceof TiledLayerBuffer ? job.fresh : null)?.resumeEviction()
     old?.destroy()
+    this._noteReplayedOrder(layerId) // (#537)
     if (this._snapshots.hasCoverage(layerId) && !this._checkpoints.hasSnapshotFor(layerId)) {
       this._snapshots.refusePublishing(layerId)
     }
@@ -6124,6 +6313,9 @@ export class PencilEngine implements PencilEngineAPI {
     // existed. Skipping costs nothing: _maybeCheckpoint fires again on the
     // next boundary, past the flush.
     if (this._pendingRebuilds.has(layerId)) return
+    // (#537) Same contract once more: an unsettled layer's pixels went down in
+    // a different order from the one its op list is in.
+    if (this._unsettledLayers.has(layerId)) return
     // (#479) Same contract, the other way it gets violated — and the one that
     // cost a real lesson. _maybeCheckpoint defers this to idle time (#121), so
     // by the time it runs the buffer can hold ink that no *operation* accounts
@@ -6227,6 +6419,17 @@ export class PencilEngine implements PencilEngineAPI {
     // (#522) See SnapshotLedger's refusals: publishing what this client holds would
     // overwrite the room's own record of the layer with less than it has.
     if (!this._snapshots.mayPublish(layerId)) return null
+    // (#537) A snapshot claims "these pixels are the room's history up to the
+    // watermark". Two ways a layer here can hold something else, and in both
+    // the layer is left out of this snapshot — it keeps whatever coverage it
+    // had, and a joiner replays its operations instead:
+    //  - painted out of order and not re-settled yet (live ink in the way);
+    //  - holding this client's own unconfirmed operations. Their seq is above
+    //    any watermark this client can have seen, so a joiner restoring these
+    //    pixels would then receive the same operations and paint them twice.
+    if (this._unsettledLayers.has(layerId)) this._settleLayers()
+    if (this._unsettledLayers.has(layerId) || this._pendingRebuilds.has(layerId)) return null
+    if (this._log.hasPendingPixelOps(layerId)) return null
     // (#373) Content is judged from the buffer, never from the log. It used to
     // bail on `layerPixelOps(layerId).length === 0`, reading "no operations of
     // mine mention this layer" as "this layer is empty" — but the log is a
@@ -7428,7 +7631,10 @@ export class PencilEngine implements PencilEngineAPI {
           // dry paper, and an all-zero profile is bytes spent saying nothing.
           ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
         }
-        this._log.append(op)
+        this._log.append(op, { pending: true })
+        // (#537) A peer's live ink still unrecorded on this layer went down
+        // interleaved with this gesture's — see _foreignUnrecordedInk.
+        if (this._foreignUnrecordedInk(targetId, op)) this._unsettledLayers.add(targetId)
         // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
         // replay then starts from those instead of from the operations — but a
         // wash's strokes share one accumulation whose frozen `original` is the
@@ -7463,6 +7669,8 @@ export class PencilEngine implements PencilEngineAPI {
     // The paper is now wetter than it was, and nothing else will ask for a
     // frame until the next stroke — so this is where watching it dry starts.
     if (this._paperWet.peak(performance.now()) > 0.01) this._scheduleDryingRepaint()
+    // (#537) The pen is up: whatever was waiting for it to re-settle can now.
+    this._settleLayers()
     this._handlers.strokeEnd?.(e)
   }
 
@@ -8042,7 +8250,8 @@ export class PencilEngine implements PencilEngineAPI {
         ...(this._washId ? { washId: this._washId } : {}),
         ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
       }
-      this._log.append(op)
+      this._log.append(op, { pending: true })
+      if (this._foreignUnrecordedInk(targetId, op)) this._unsettledLayers.add(targetId)
       this._maybeCheckpoint(targetId)
       this._onLocalOperation?.(op)
     }

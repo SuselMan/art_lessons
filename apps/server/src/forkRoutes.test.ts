@@ -214,6 +214,18 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(res.json().room.folderId).toBe('folder-7')
   })
 
+  // (#627) The copy was read back without its owner, so the answer lacked
+  // `ownerName` — unlike every other room the list shows.
+  it('answers with the full room, owner name included', async () => {
+    const base = mockPrisma.room.findUniqueOrThrow.getMockImplementation()!
+    mockPrisma.room.findUniqueOrThrow.mockImplementation(async (args: { where: { id: string }; include?: { owner?: unknown } }) => ({
+      ...(await base(args)),
+      ...(args.include?.owner ? { owner: { name: 'Student' } } : {}),
+    }))
+    const res = await fork(buildApp('student'))
+    expect(res.json().room.ownerName).toBe('Student')
+  })
+
   it('leaves an unfiled source\'s copy unfiled (#552)', async () => {
     const res = await fork(buildApp('student'))
 

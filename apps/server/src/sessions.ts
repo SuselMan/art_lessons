@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
 
 import { sanitizeClientEnvironment } from '@grafetto/shared'
+import type { ApiOk } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
 import { describeClient } from './clientDescription.js'
 import { prisma } from './prisma.js'
 
@@ -121,7 +123,7 @@ export async function pruneSightings(now = new Date()): Promise<{ devices: numbe
  *  device as it is now, and a stale field left over from an older report
  *  would be a claim nobody made. */
 export function registerSessionRoutes(app: FastifyInstance): void {
-  app.post<{ Body: unknown }>('/api/me/environment', {
+  apiRoute(app, 'POST /api/me/environment', {
     // Once per page load per tab; a ceiling well above that only stops a loop.
     config: { rateLimit: { max: 30, timeWindow: '5 minutes' } },
     bodyLimit: 8 * 1024,
@@ -139,6 +141,6 @@ export function registerSessionRoutes(app: FastifyInstance): void {
       },
       update: { env, envAt: now },
     })
-    return { ok: true }
+    return { ok: true } satisfies ApiOk
   })
 }

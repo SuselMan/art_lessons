@@ -226,7 +226,7 @@ links:
     messages:
       - { dir: '→', name: create_room, type: 'Room, JoinResult', note: 'ответ через ack' }
       - { dir: '→', name: join_room, type: 'JoinResult', note: 'в запросе — последний известный seq' }
-      - { dir: '→', name: operation, type: 'Operation, SendResult', note: 'главный канал: штрихи и любые правки', runtime: 'права и заморозка проверяются, форма — нет' }
+      - { dir: '→', name: operation, type: 'Operation, SendResult', note: 'главный канал: штрихи и любые правки. Штрих — StrokeOperation: слой, инструмент, цвет и массив Dab — отпечатков кисти (координаты, нажим, наклон, размер), а не пиксели', runtime: 'права и заморозка проверяются, форма — нет' }
       - { dir: '→', name: stroke_live, type: 'StrokeLiveData', note: 'дабы, пока рука ещё ведёт' }
       - { dir: '→', name: stroke_live_end, type: 'strokeId' }
       - { dir: '→', name: cursor_move, type: 'CursorMoveData' }
@@ -283,21 +283,23 @@ links:
     from: ui
     to: server
     channel: HTTP (REST, JSON)
-    contract: one-side
+    contract: bound
     checks: rest
     summary: Room, Me, BoardSummary
     note: >-
-      Слабое место контракта (#623). Клиент пишет apiFetch<Room>(…) — это обещание, а не
-      проверка: res.json() приведён к нужному типу. Сервер собирает ответ литералом и тип
-      ответа не объявляет. Части типов (Me, MyRooms, SnapshotIndex) нет в shared вовсе.
+      С #623 связан, как и сокет: таблица маршрутов в packages/shared/src/rest.ts. Сервер
+      регистрирует ручку через apiRoute(app, 'МЕТОД /путь') — метод, путь и тип ответа из
+      таблицы; клиент зовёт api('МЕТОД /путь', …) — params, query, тело и ответ оттуда же.
+      Переименованное поле роняет typecheck с обеих сторон. Тело запроса сервер получает с
+      именами полей из таблицы, но значениями unknown, и проверяет сам.
     messages:
-      - { dir: '→', name: 'GET /api/me', type: 'Me', decl: [apps/web/src/lib/api.ts], note: 'Me объявлен только на клиенте' }
+      - { dir: '→', name: 'GET /api/me', type: 'Me' }
       - { dir: '→', name: 'POST /api/me/environment', type: 'ClientEnvironment', runtime: 'сервер прогоняет тело через sanitizeClientEnvironment — единственная ручка с настоящей проверкой' }
-      - { dir: '→', name: 'POST /api/auth/code/request', type: 'RequestedLoginCode', decl: [apps/web/src/lib/api.ts] }
-      - { dir: '→', name: 'POST /api/auth/code/verify', type: 'Me', decl: [apps/web/src/lib/api.ts] }
-      - { dir: '→', name: 'POST /api/auth/logout', type: 'Me', decl: [apps/web/src/lib/api.ts] }
-      - { dir: '→', name: 'GET /api/rooms', type: 'RoomsAtFolder', decl: [apps/web/src/lib/api.ts] }
-      - { dir: '→', name: 'GET /api/rooms/mine', type: 'MyRooms', decl: [apps/web/src/lib/api.ts], note: 'MyRooms объявлен только на клиенте' }
+      - { dir: '→', name: 'POST /api/auth/code/request', type: 'RequestedLoginCode' }
+      - { dir: '→', name: 'POST /api/auth/code/verify', type: 'Me' }
+      - { dir: '→', name: 'POST /api/auth/logout', type: 'Me' }
+      - { dir: '→', name: 'GET /api/rooms', type: 'RoomsAtFolder' }
+      - { dir: '→', name: 'GET /api/rooms/mine', type: 'MyRooms' }
       - { dir: '→', name: 'GET /api/rooms/search', type: 'Room[]' }
       - { dir: '→', name: 'PATCH /api/rooms/:id', type: 'Room' }
       - { dir: '→', name: 'PATCH /api/rooms/:id/closed', type: 'Room' }
@@ -319,9 +321,9 @@ links:
       - { dir: '→', name: 'PATCH /api/rooms/:id/boards/:boardId', type: 'BoardSummary' }
       - { dir: '→', name: 'DELETE /api/rooms/:id/boards/:boardId', type: 'ok' }
       - { dir: '→', name: 'POST /api/rooms/:roomId/snapshots', type: 'LayerState', note: 'клиент сам печёт снапшот и присылает: seq, структура слоёв, слои в base64; тело объявлено только на сервере, клиент шлёт голый fetch' }
-      - { dir: '→', name: 'GET /api/rooms/:roomId/snapshots/index', type: 'SnapshotIndexEntry', decl: [apps/server/src/snapshotStore.ts], note: 'на клиенте свой SnapshotIndex, на сервере свой — два независимых объявления' }
+      - { dir: '→', name: 'GET /api/rooms/:roomId/snapshots/index', type: 'SnapshotIndex', note: '204 — ещё ничего не испекли; layerState на проводе unknown, клиент проверяет isLayerStateShape' }
       - { dir: '→', name: 'GET /api/rooms/:roomId/snapshots/:layerId/:seq', type: 'байты слоя', note: 'бинарный блоб, nginx отдаёт его отдельным правилом' }
-      - { dir: '→', name: 'GET /api/rooms/:roomId/operations', type: 'Operation[]', note: 'страница истории до seq; на клиенте res.json() as Operation[]' }
+      - { dir: '→', name: 'GET /api/rooms/:roomId/operations', type: 'Operation[]', note: 'страница истории до seq' }
       - { dir: '→', name: 'POST /api/rooms/:roomId/thumbnail', type: 'base64', note: 'миниатюру печёт клиент' }
       - { dir: '→', name: 'GET /api/rooms/:roomId/thumbnail', type: 'png' }
       - { dir: '→', name: 'GET /api/health', type: 'здоровье процесса', note: 'читает uptime-проверка, не клиент' }
@@ -331,13 +333,12 @@ links:
     from: ui
     to: server
     channel: HTTP (REST) — админка
-    contract: named
+    contract: bound
     checks: rest
     summary: AdminOverview…
     note: >-
-      Середина шкалы: обе стороны берут типы из packages/shared/src/admin.ts, но связь «эта
-      ручка отдаёт этот тип» каждая сторона пишет сама. Перепутать тип на одной стороне
-      компилятор не помешает.
+      Через ту же таблицу маршрутов, что и остальной REST (#623): типы из admin.ts, а связь
+      «эта ручка отдаёт этот тип» записана один раз, в rest.ts.
     messages:
       - { dir: '→', name: 'GET /api/admin/overview', type: 'AdminOverview' }
       - { dir: '→', name: 'GET /api/admin/users', type: 'AdminUserList' }

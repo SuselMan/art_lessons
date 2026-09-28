@@ -294,3 +294,18 @@ describe('IP bans (#590)', () => {
     expect(isIpBanned('203.0.113.7', now + 1000)).toBe(false)
   })
 })
+
+// (#627) Thumbnails are stored as WebP as well as PNG (#595); the admin route
+// said image/png for both.
+describe('lesson thumbnail', () => {
+  it('is served with the type it was stored as', async () => {
+    mockPrisma.roomThumbnail.findUnique.mockImplementation(async ({ select }: { select?: Record<string, boolean> }) => ({
+      data: Buffer.from('RIFF....WEBP'),
+      ...(select?.contentType ? { contentType: 'image/webp' } : {}),
+    }))
+    const { app } = buildApp('admin-1')
+    const res = await app.inject({ method: 'GET', url: '/api/admin/lessons/room-1/thumbnail' })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['content-type']).toBe('image/webp')
+  })
+})

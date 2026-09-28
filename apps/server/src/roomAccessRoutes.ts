@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import type { RoomAccessInfo, RoomAccessMode } from '@grafetto/shared'
+import type { ApiOk, RoomAccessInfo, RoomAccessMode, RouteResponse } from '@grafetto/shared'
 import { isRoomAccessMode } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
 import { prisma } from './prisma.js'
 import { hashRoomPassword } from './rooms.js'
 import { setRoomAccessMode, setRoomPassword } from './ownerControls.js'
@@ -94,7 +95,7 @@ async function requireOwnedRoom(
 
 export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAccessNotifier): void {
   // Everything the access panel needs to render itself, in one request.
-  app.get<{ Params: { id: string } }>('/api/rooms/:id/access', async (request, reply) => {
+  apiRoute(app, 'GET /api/rooms/:id/access', async (request, reply) => {
     const room = await requireOwnedRoom(request, reply)
     if (!room) return reply
 
@@ -146,8 +147,7 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
   // leaves the password alone, and vice versa. `password: null` removes it;
   // an empty string is rejected rather than treated as removal, since a blank
   // input is far more likely to be a mistake than a decision.
-  app.patch<{ Params: { id: string }; Body: { accessMode?: unknown; password?: unknown } }>(
-    '/api/rooms/:id/access', async (request, reply) => {
+  apiRoute(app, 'PATCH /api/rooms/:id/access', async (request, reply) => {
       const room = await requireOwnedRoom(request, reply)
       if (!room) return reply
 
@@ -186,8 +186,7 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
     },
   )
 
-  app.post<{ Params: { id: string }; Body: { email?: unknown } }>(
-    '/api/rooms/:id/invites', async (request, reply) => {
+  apiRoute(app, 'POST /api/rooms/:id/invites', async (request, reply) => {
       const room = await requireOwnedRoom(request, reply)
       if (!room) return reply
 
@@ -235,19 +234,20 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
   // the room: an invite is permission to enter, and someone who has entered is
   // a participant (see the join gate's prior-participation rule). Removing a
   // person is `kick` below, which is a different decision and says so.
-  app.delete<{ Params: { id: string; email: string } }>(
-    '/api/rooms/:id/invites/:email', async (request, reply) => {
+  apiRoute(app, 'DELETE /api/rooms/:id/invites/:email', async (request, reply) => {
       const room = await requireOwnedRoom(request, reply)
       if (!room) return reply
 
-      const email = normalizeEmail(decodeURIComponent(request.params.email))
+      // Already decoded by the router — decoding again mangled an address with a
+      // `%` in it, or threw on one that was not a valid escape (#627).
+      const email = normalizeEmail(request.params.email)
       if (!email) return reply.code(400).send({ error: 'invalid_email' })
 
       // deleteMany rather than delete: removing an invite that isn't there is
       // the state the caller asked for, not an error worth a 404 in a panel
       // that may be a click behind the truth.
       await prisma.roomInvite.deleteMany({ where: { roomId: room.id, email } })
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
@@ -255,8 +255,7 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
   // status, and both are idempotent-ish by way of `updateMany` scoped to the
   // room: a request id from another room can't be resolved through this one.
   for (const [suffix, status] of [['approve', 'approved'], ['deny', 'denied']] as const) {
-    app.post<{ Params: { id: string; requestId: string } }>(
-      `/api/rooms/:id/join-requests/:requestId/${suffix}`, async (request, reply) => {
+    apiRoute(app, `POST /api/rooms/:id/join-requests/:requestId/${suffix}`, async (request, reply) => {
         const room = await requireOwnedRoom(request, reply)
         if (!room) return reply
 
@@ -282,7 +281,7 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
           approved: status === 'approved',
         })
 
-        return { ok: true, status }
+        return { ok: true, status } satisfies RouteResponse<`POST /api/rooms/:id/join-requests/:requestId/${typeof suffix}`>
       },
     )
   }
@@ -291,8 +290,7 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
   // gate checks first, and clears the two things that would otherwise let them
   // straight back in: an invite for their address, and a request of theirs the
   // owner had already approved.
-  app.post<{ Params: { id: string }; Body: { userId?: unknown } }>(
-    '/api/rooms/:id/kick', async (request, reply) => {
+  apiRoute(app, 'POST /api/rooms/:id/kick', async (request, reply) => {
       const room = await requireOwnedRoom(request, reply)
       if (!room) return reply
 
@@ -328,15 +326,14 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
       // above is what keeps them out; this is what makes it happen now instead
       // of at their next reconnect — which, mid-lesson, could be never.
       notify?.kicked(room.id, userId)
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
   // Undoing a kick. Not in #226's original list, and added deliberately: a
   // block is permanent and reachable by one tap in the panel, so shipping the
   // kick without this makes a misclick unfixable except by hand in Postgres.
-  app.delete<{ Params: { id: string; userId: string } }>(
-    '/api/rooms/:id/blocks/:userId', async (request, reply) => {
+  apiRoute(app, 'DELETE /api/rooms/:id/blocks/:userId', async (request, reply) => {
       const room = await requireOwnedRoom(request, reply)
       if (!room) return reply
 
@@ -349,7 +346,7 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
       // invite and any approval with it. Both readings of "unblock" are the
       // owner saying *you may come back*, so neither needs a second decision.
       await prisma.roomBlock.deleteMany({ where: { roomId: room.id, userId: request.params.userId } })
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 }

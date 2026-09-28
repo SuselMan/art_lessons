@@ -41,7 +41,6 @@
     });
   });
 
-  var maxLoc = Math.max.apply(null, D.modules.map(function (m) { return m.loc; }).concat([1]));
   var maxChurn = Math.max.apply(null, D.modules.map(function (m) { return m.churn; }).concat([1]));
   var maxDebt = Math.max.apply(null, D.modules.map(function (m) {
     return (violationsByModule.get(m.id) || []).length;
@@ -146,8 +145,10 @@
   var canvasW = 0;
   var canvasH = 0;
 
+  // Height is the module's size (lines of code, square-rooted so one giant does not dwarf the
+  // rest); the floor leaves room for the title and the metrics row.
   function cardHeight(m) {
-    return Math.max(46, Math.min(112, 42 + Math.sqrt(m.loc) * 2.1));
+    return Math.max(64, Math.min(128, 58 + Math.sqrt(m.loc) * 2.1));
   }
 
   function computeLayout() {
@@ -240,6 +241,15 @@
 
   function drawGraph() {
     svg.innerHTML = '';
+    // (#639) One arrowhead per edge state: a marker cannot inherit its path's stroke colour.
+    var defs = el('defs', {}, svg);
+    ['base', 'in', 'out', 'back'].forEach(function (k) {
+      var mk = el('marker', {
+        id: 'arr-' + k, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7,
+        orient: 'auto-start-reverse', markerUnits: 'userSpaceOnUse',
+      }, defs);
+      el('path', { d: 'M0,1 L10,5 L0,9 z', class: 'arrow arrow-' + k }, mk);
+    });
     gRoot = el('g', {}, svg);
     gBands = el('g', {}, gRoot);
     gEdges = el('g', {}, gRoot);
@@ -296,11 +306,15 @@
       wrap(m.title, 24).slice(0, 2).forEach(function (ln, i) {
         text(g, p.x + 12, p.y + 21 + i * 15, 'title', ln);
       });
-      var vio = (violationsByModule.get(m.id) || []).length;
-      text(g, p.x + 12, p.y + p.h - 20, 'meta',
-        m.loc.toLocaleString('ru') + ' стр · ' + m.fileCount + ' ф' + (vio ? ' · ⚠' + vio : ''));
-      el('rect', { x: p.x + 12, y: p.y + p.h - 11, width: p.w - 24, height: 4, rx: 2, class: 'bar-bg' }, g);
-      el('rect', { x: p.x + 12, y: p.y + p.h - 11, width: 0, height: 4, rx: 2, class: 'bar' }, g);
+      // (#639) Every metric at once, instead of one bar at a time relative to the biggest module.
+      text(g, p.x + 12, p.y + p.h - 27, 'meta',
+        m.loc.toLocaleString('ru') + ' стр · ' + m.fileCount + ' ' + plural(m.fileCount, 'файл', 'файла', 'файлов'));
+      var row = el('text', { x: p.x + 12, y: p.y + p.h - 11, class: 'metrics' }, g);
+      metricSpans(m).forEach(function (sp, i) {
+        if (i) el('tspan', { class: 'sep' }, row).textContent = ' · ';
+        var t = el('tspan', { class: 'mv', 'data-level': sp.level }, row);
+        t.textContent = sp.text;
+      });
       if (focus && focus.id === m.id) g.setAttribute('data-focus', 'true');
       // Selection happens in the svg-level pointerup, not here: panning can start on a card
       // too, so a click is only distinguishable from a drag once the pointer comes back up.
@@ -310,6 +324,31 @@
 
     paintMetric();
     applySearch();
+  }
+
+  function plural(n, one, few, many) {
+    var d = n % 10, h = n % 100;
+    if (d === 1 && h !== 11) return one;
+    if (d >= 2 && d <= 4 && (h < 12 || h > 14)) return few;
+    return many;
+  }
+
+  function testRatio(m) { return m.loc ? m.testLoc / m.loc : 0; }
+  function debtOf(m) {
+    return (violationsByModule.get(m.id) || []).length + (clonesByModule.get(m.id) || []).length;
+  }
+
+  /** The metrics row: tests, churn, debt — coloured only where the value asks for attention. */
+  function metricSpans(m) {
+    var r = testRatio(m);
+    var out = [{
+      text: 'тесты ' + (r >= 10 ? Math.round(r) + '×' : r >= 1 ? r.toFixed(1).replace('.', ',') + '×' : Math.round(r * 100) + ' %'),
+      level: r === 0 ? 'bad' : r < 0.25 ? 'warn' : 'ok',
+    }];
+    out.push({ text: 'правок ' + m.churn, level: m.churn / maxChurn > 0.35 ? 'warn' : 'plain' });
+    var d = debtOf(m);
+    if (d) out.push({ text: 'долг ' + d, level: 'bad' });
+    return out;
   }
 
   function wrap(str, max) {
@@ -337,28 +376,33 @@
 
   /* ------------------------------------------------------------------ metric colouring */
 
-  var metric = 'size';
+  var metric = 'none';
 
-  function metricValue(m) {
-    if (metric === 'size') return { v: m.loc / maxLoc, col: 'var(--accent)' };
+  /** (#639) The selected chip tints each card — a heat map — instead of drawing a bar. */
+  function metricTint(m) {
+    if (metric === 'none') return null;
     if (metric === 'tests') {
-      var ratio = m.loc ? m.testLoc / m.loc : 0;
-      return { v: Math.min(1, ratio), col: ratio >= 0.25 ? 'var(--ok)' : ratio > 0 ? 'var(--out)' : 'var(--warn)' };
+      var r = testRatio(m);
+      return r === 0 ? ['--warn', 30] : r < 0.25 ? ['--out', 22] : ['--ok', 26];
     }
-    if (metric === 'churn') return { v: m.churn / maxChurn, col: 'var(--out)' };
-    var n = (violationsByModule.get(m.id) || []).length + (clonesByModule.get(m.id) || []).length;
-    return { v: Math.min(1, n / Math.max(maxDebt, 3)), col: n ? 'var(--warn)' : 'var(--line)' };
+    if (metric === 'churn') return ['--out', Math.round(6 + 30 * m.churn / maxChurn)];
+    if (metric === 'debt') {
+      var d = debtOf(m);
+      return d ? ['--warn', Math.round(14 + 36 * Math.min(1, d / Math.max(maxDebt, 3)))] : null;
+    }
+    var who = D.understanding && D.understanding.people[0];
+    var sc = who ? who.moduleScore[m.id] || 0 : 0;
+    return sc >= 1 ? ['--ok', 32] : sc >= 0.5 ? ['--in', 26] : sc > 0 ? ['--out', 20] : ['--warn', 14];
   }
 
   function paintMetric() {
     D.modules.forEach(function (m) {
       var g = gNodes.querySelector('[data-id="' + m.id + '"]');
       if (!g) return;
-      var bar = g.querySelectorAll('rect')[2];
-      var p = pos.get(m.id);
-      var mv = metricValue(m);
-      bar.setAttribute('width', Math.max(0, Math.round((p.w - 24) * mv.v)));
-      bar.setAttribute('fill', mv.col);
+      var tint = metricTint(m);
+      g.querySelector('rect').style.fill = tint
+        ? 'color-mix(in srgb, var(' + tint[0] + ') ' + tint[1] + '%, var(--card))'
+        : '';
     });
   }
 
@@ -415,6 +459,99 @@
     });
   }
 
+  /* (#632) Names of types and functions the map mentions become clickable; the click shows the
+   * declaration lifted from the code at build time (D.symbols). Delegated on the document, so
+   * panels that re-render their HTML need no wiring of their own. */
+  var SYMBOLS = D.symbols || {};
+
+  function symText(str) {
+    return String(str).split(/(\b[A-Za-z_]\w{2,}\b)/).map(function (part, i) {
+      if (i % 2 && Object.prototype.hasOwnProperty.call(SYMBOLS, part)) {
+        return '<span class="sym" data-sym="' + part + '">' + part + '</span>';
+      }
+      return esc(part);
+    }).join('');
+  }
+
+  /* Syntax colouring for the snippets. A tokenizer of our own rather than a library: the map
+   * has to open offline from a file, and a highlighter that builds its own spans would fight
+   * the clickable-name spans above. TypeScript declarations and Prisma models are all it sees,
+   * so comments, strings, keywords, type names and property keys are enough. */
+  var KEYWORDS = new Set(('export type interface const let function class enum extends implements import from ' +
+    'readonly declare keyof typeof as return if else new void null undefined true false in of ' +
+    'public private protected static async await model').split(' '));
+  var BUILTINS = new Set(('string number boolean unknown any never object bigint symbol Record Partial Pick ' +
+    'Omit Readonly ReadonlyArray ReadonlySet ReadonlyMap Array Promise Set Map Date Uint8Array Float32Array ' +
+    'Int String Boolean Json Bytes DateTime Float BigInt Decimal').split(' '));
+  var TOKEN = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|('(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`)|(@@?\w+)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)/g;
+
+  // Named apart from `highlight(id)` above on purpose: both are function declarations in one
+  // closure, so a second `highlight` silently replaced the edge highlighting (#643).
+  function highlightCode(src) {
+    var out = '', last = 0, m;
+    TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      last = TOKEN.lastIndex;
+      var t = m[0];
+      if (m[1]) out += '<span class="hl-c">' + symText(t) + '</span>';
+      else if (m[2]) out += '<span class="hl-s">' + esc(t) + '</span>';
+      else if (m[3]) out += '<span class="hl-a">' + esc(t) + '</span>';
+      else if (m[4]) out += '<span class="hl-n">' + t + '</span>';
+      else if (Object.prototype.hasOwnProperty.call(SYMBOLS, t)) out += '<span class="sym hl-t" data-sym="' + t + '">' + t + '</span>';
+      // A key before `:` is a property even when it is spelled like a keyword (`type: 'stroke'`).
+      else if (/^\s*\??:/.test(src.slice(last, last + 3))) out += '<span class="hl-p">' + esc(t) + '</span>';
+      else if (KEYWORDS.has(t)) out += '<span class="hl-k">' + t + '</span>';
+      else if (BUILTINS.has(t)) out += '<span class="hl-b">' + t + '</span>';
+      else if (/^[A-Z]/.test(t)) out += '<span class="hl-t">' + esc(t) + '</span>';
+      else out += esc(t);
+    }
+    return out + esc(src.slice(last));
+  }
+
+  var symPop = document.createElement('div');
+  symPop.className = 'sym-pop';
+  symPop.hidden = true;
+  document.body.appendChild(symPop);
+
+  function showSymbol(name, x, y) {
+    var decls = SYMBOLS[name] || [];
+    var h = ['<button class="sym-close" aria-label="закрыть">×</button>'];
+    decls.forEach(function (d) {
+      h.push('<div class="sym-head"><b>' + esc(name) + '</b> <span class="tag">' + esc(d.kind) + '</span> ' +
+        '<a class="link path" target="_blank" rel="noreferrer" href="' + REPO + '/' + d.path + '#L' + d.line + '">' +
+        esc(d.path) + ':' + d.line + ' ↗</a></div>' +
+        '<pre><code>' + highlightCode(d.snippet) + '</code></pre>' +
+        (d.truncated ? '<p class="num" style="float:none">… обрезано — целиком по ссылке</p>' : ''));
+    });
+    if (decls.length > 1) {
+      h.splice(1, 0, '<p class="sym-many">Одно имя — ' + decls.length + ' объявления. Часто разница между ними и есть суть.</p>');
+    }
+    symPop.innerHTML = h.join('');
+    symPop.hidden = false;
+    var w = Math.min(640, window.innerWidth - 24);
+    symPop.style.width = w + 'px';
+    symPop.style.left = Math.max(12, Math.min(x - 20, window.innerWidth - w - 12)) + 'px';
+    // Below the click when there is room, otherwise above it; never past the viewport edge.
+    var below = y + 14, above = y - 14, H = window.innerHeight;
+    var top = H - below - 12 >= 320 || H - below > above ? below : 12;
+    symPop.style.top = top + 'px';
+    symPop.style.maxHeight = Math.max(160, (top === below ? H - below : above) - 12) + 'px';
+    symPop.scrollTop = 0;
+  }
+
+  document.addEventListener('click', function (ev) {
+    var sym = ev.target.closest && ev.target.closest('.sym');
+    if (sym) {
+      ev.stopPropagation();
+      showSymbol(sym.getAttribute('data-sym'), ev.clientX, ev.clientY);
+      return;
+    }
+    if (ev.target.closest && ev.target.closest('.sym-close')) { symPop.hidden = true; return; }
+    if (!symPop.hidden && !symPop.contains(ev.target)) symPop.hidden = true;
+  }, true);
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') symPop.hidden = true; });
+
   function fileLink(path, line) {
     var href = REPO + '/' + path + (line ? '#L' + line : '');
     return '<a class="link path" href="' + href + '" target="_blank" rel="noreferrer">' + esc(path) + '</a>';
@@ -437,6 +574,20 @@
         'опирается. <b>Синие</b> связи входят в выбранный модуль, <b>оранжевые</b> — выходят из него. ' +
         '<b>Красная</b> связь идёт против порядка слоёв: что-то глубокое тянется наверх. ' +
         'Пунктир — импорт только типов.</p>' +
+        '<h3>Что на карточке</h3>' +
+        '<p><b>Высота</b> — размер модуля в строках кода; внизу — строки и число файлов. ' +
+        '<b>Стрелка</b> идёт от того, кто импортирует, к тому, кого импортируют.</p>' +
+        '<p>Метрики проекта — не структура, поэтому скрыты. Переключатель <b>«метрики»</b> в шапке ' +
+        'добавляет на каждую карточку строку из трёх чисел и чипы, которые окрашивают карточки ' +
+        'тепловой картой по выбранному:</p><ul class="list">' +
+        '<li><b>тесты</b> — сколько строк тестов приходится на строку кода модуля. Это не покрытие: ' +
+        'длинный тест может проверять мало. Красное — тестов нет, жёлтое — меньше 25 %.</li>' +
+        '<li><b>правок</b> — сколько раз файлы модуля менялись в коммитах за полгода (сумма по файлам). ' +
+        'Жёлтое — верхняя треть по проекту: здесь чаще всего пишут.</li>' +
+        '<li><b>долг</b> — нарушения архитектурных правил и повторы кода с другими модулями; ' +
+        'показывается, только если он есть. Подробности — на вкладке «Здоровье».</li></ul>' +
+        '<p>Чип <b>«понимание»</b> доступен всегда: он окрашивает модули по тому, что ты уже можешь ' +
+        'объяснить (вкладка «Понимание»).</p>' +
         '<h3>Как убрать лишнее</h3>' +
         '<p>Клик по <b>заголовку слоя</b> сворачивает весь столбец в полоску; клик по полоске ' +
         'разворачивает обратно.</p>' +
@@ -472,8 +623,8 @@
       (focus && !focused ? '<button data-act="unfocus">сбросить фокус</button>' : '') +
       '</div>');
 
-    h.push('<p class="owns">' + esc(m.owns) + '</p>');
-    m.notes.forEach(function (n) { h.push('<p class="note">' + esc(n) + '</p>'); });
+    h.push('<p class="owns">' + symText(m.owns) + '</p>');
+    m.notes.forEach(function (n) { h.push('<p class="note">' + symText(n) + '</p>'); });
     if (m.tags.length) {
       h.push('<div style="margin-top:10px">' + m.tags.map(function (t) {
         return '<span class="tag">' + esc(t) + '</span>';
@@ -727,6 +878,26 @@
 
   search.addEventListener('input', applySearch);
 
+  // (#639) Project metrics — tests, churn, debt — are not the structure, so they stay out of
+  // the default view: one switch shows the metrics row on every card and the chips that tint
+  // by them. The choice survives a reload.
+  var METRICS_KEY = 'archmap.metrics.v1';
+  var metricsToggle = document.getElementById('metrics-toggle');
+  function setMetricsShown(on) {
+    document.body.setAttribute('data-metrics', on ? 'on' : 'off');
+    metricsToggle.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem(METRICS_KEY, on ? '1' : '0'); } catch (e) { /* not remembered */ }
+    if (!on && ['tests', 'churn', 'debt'].indexOf(metric) >= 0) {
+      document.querySelector('[data-metric="none"]').click();
+    }
+  }
+  var metricsSaved = false;
+  try { metricsSaved = localStorage.getItem(METRICS_KEY) === '1'; } catch (e) { /* default off */ }
+  setMetricsShown(metricsSaved);
+  metricsToggle.addEventListener('click', function () {
+    setMetricsShown(document.body.getAttribute('data-metrics') !== 'on');
+  });
+
   document.querySelectorAll('[data-metric]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       metric = btn.getAttribute('data-metric');
@@ -789,7 +960,7 @@
       f.steps.forEach(function (s) {
         h.push('<div class="step" data-side="' + esc(s.side || 'client') + '">' +
           '<div class="rail"><div class="dot"></div><div class="stem"></div></div>' +
-          '<div class="body"><h4>' + esc(s.title) + '</h4><p>' + esc(s.detail) + '</p>' +
+          '<div class="body"><h4>' + symText(s.title) + '</h4><p>' + symText(s.detail) + '</p>' +
           (s.module ? '<div class="where">→ <span class="link" data-jump="' + s.module + '">' +
             esc((byId.get(s.module) || {}).title || s.module) + '</span></div>' : '') +
           '</div></div>');
@@ -807,6 +978,8 @@
    * stack vertically. Links are curves between node centres — parallel links between the
    * same pair fan out — and the nodes are drawn on top, so a curve's ends tuck under them.
    */
+
+  var rtSelect = null; // set once the runtime tab is drawn, so other tabs can jump to a link
 
   var CONTRACT = {
     bound: {
@@ -948,7 +1121,7 @@
     var selected = null; // { type: 'node' | 'link', id }
 
     function linkify(str) {
-      return esc(str).replace(/#(\d{2,4})/g, function (_, n) {
+      return symText(str).replace(/#(\d{2,4})/g, function (_, n) {
         var title = D.issues && D.issues[n];
         return '<a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + n + '">#' + n +
           (title ? ' (' + esc(title) + ')' : '') + '</a>';
@@ -1020,10 +1193,10 @@
         h.push('<h3>Сообщения · ' + l.messages.length + '</h3><table class="rt-msgs"><tbody>');
         l.messages.forEach(function (m) {
           var target = m.dir === '→' ? to.title : from.title;
-          h.push('<tr><td class="rt-dir" title="к: ' + esc(target) + '">' + m.dir + '</td><td><code>' + esc(m.name) +
-            '</code><div class="rt-type">' + esc(m.type) + '</div>' +
+          h.push('<tr><td class="rt-dir" title="к: ' + esc(target) + '">' + m.dir + '</td><td><code>' + symText(m.name) +
+            '</code><div class="rt-type">' + symText(m.type) + '</div>' +
             (m.note ? '<div class="rt-mnote">' + linkify(m.note) + '</div>' : '') +
-            (m.runtime ? '<div class="rt-runtime">в рантайме: ' + esc(m.runtime) + '</div>' : '') +
+            (m.runtime ? '<div class="rt-runtime">в рантайме: ' + symText(m.runtime) + '</div>' : '') +
             '</td></tr>');
         });
         h.push('</tbody></table><p class="num" style="float:none">→ от «' + esc(from.title) + '» к «' + esc(to.title) +
@@ -1075,6 +1248,121 @@
       select({ type: hit.classList.contains('rt-node') ? 'node' : 'link', id: id });
     });
     select(null);
+    rtSelect = select;
+  }
+
+  /* ------------------------------------------------------------------ understanding tab (#628) */
+
+  var STATUS_CLASS = { 'не отмечено': 's0', 'слышал': 's1', 'понимаю': 's2', 'объясню сам': 's3' };
+
+  function renderUnderstanding() {
+    var host = document.getElementById('view-understanding');
+    var U = D.understanding;
+    if (!U || !U.people.length) {
+      host.innerHTML = '<div class="health"><p class="lede">docs/architecture/understanding.yaml не найден или в нём нет людей.</p></div>';
+      return;
+    }
+    var c = U.people[0];
+    var topicById = new Map(U.topics.map(function (t) { return [t.id, t]; }));
+    var pct = function (a, b) { return b ? Math.round((a / b) * 100) : 0; };
+    var h = ['<div class="health und">'];
+    h.push('<h2>Понимание — ' + esc(U.names[c.person] || c.person) + '</h2>');
+    h.push('<p class="lede">Что из архитектуры человек может объяснить сам. Баллы: «понимаю» — 0,5, «объясню сам» — 1; ' +
+      '«объясню сам» ставится только после задачи на понимание. Уровни считаются отдельно, чтобы дыра в обзоре ' +
+      'не пряталась за деталями. Код — доля строк в модулях, которые покрывает понятая тема; знание подсистемы в ' +
+      'общих чертах даёт модулю половину балла. Данные — <code>docs/architecture/understanding.yaml</code>.</p>');
+
+    h.push('<div class="und-tiles">');
+    c.levels.forEach(function (l, i) {
+      var p = pct(l.score, l.topics);
+      h.push('<div class="und-tile"><span>' + i + ' · ' + esc(l.title) + '</span><b>' + p + ' %</b>' +
+        '<div class="und-bar"><i style="width:' + p + '%"></i></div><em>' + l.topics + ' тем</em></div>');
+    });
+    [['Код', c.code.loc, c.code.total, 'строк'], ['Код по правкам', c.code.churn, c.code.churnTotal, 'правок за полгода']]
+      .forEach(function (r) {
+        var p = pct(r[1], r[2]);
+        h.push('<div class="und-tile code"><span>' + r[0] + '</span><b>' + p + ' %</b>' +
+          '<div class="und-bar"><i style="width:' + p + '%"></i></div><em>из ' + Math.round(r[2]).toLocaleString('ru') +
+          ' ' + r[3] + '</em></div>');
+      });
+    h.push('</div>');
+
+    h.push('<h3>Изучать дальше</h3><p class="lede">Темы, до которых уже можно дойти: их родитель понят или его нет.</p><ul class="und-next">');
+    c.next.slice(0, 6).forEach(function (id) { h.push('<li>' + topicLine(topicById.get(id))); });
+    h.push('</ul>');
+
+    if (c.hotspots.length) {
+      h.push('<h3>Часто меняются, но непонятны</h3><p class="lede">Модули с наибольшим числом правок за полгода, ' +
+        'которые не покрыты темой на уровне «понимаю». Сюда агенты пишут чаще всего — а проверить их некому.</p>');
+      h.push('<table><thead><tr><th>модуль</th><th class="r">правок</th><th class="r">строк</th></tr></thead><tbody>');
+      c.hotspots.forEach(function (id) {
+        var m = byId.get(id);
+        h.push('<tr><td><span class="link" data-jump="' + id + '">' + esc(m.title) + '</span></td><td class="r">' +
+          m.churn + '</td><td class="r">' + m.loc.toLocaleString('ru') + '</td></tr>');
+      });
+      h.push('</tbody></table>');
+    }
+
+    h.push('<h3>Дерево тем</h3>');
+    function branch(parentId) {
+      var kids = U.topics.filter(function (t) { return (t.parent || null) === parentId; });
+      if (!kids.length) return '';
+      return '<ul class="und-tree">' + kids.map(function (t) {
+        return '<li>' + topicLine(t, true) + branch(t.id) + '</li>';
+      }).join('') + '</ul>';
+    }
+    h.push(branch(null));
+
+    if (c.unreached.length) {
+      h.push('<h3>Модули, до которых не дотягивается ни одна тема · ' + c.unreached.length + '</h3>' +
+        '<p class="lede">Дыра не в понимании, а в самом списке тем.</p><p>' +
+        c.unreached.map(function (id) {
+          return '<span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span>';
+        }).join(' · ') + '</p>');
+    }
+    h.push('</div>');
+    host.innerHTML = h.join('');
+    wireJumps(host);
+    host.querySelectorAll('[data-rt]').forEach(function (n) {
+      n.addEventListener('click', function () {
+        document.querySelector('.tabs button[data-tab="runtime"]').click();
+        if (rtSelect) rtSelect({ type: 'link', id: n.getAttribute('data-rt') });
+      });
+    });
+    host.querySelectorAll('[data-flows]').forEach(function (n) {
+      n.addEventListener('click', function () { document.querySelector('.tabs button[data-tab="flows"]').click(); });
+    });
+
+    function topicLine(t, withRefs) {
+      var st = c.status[t.id];
+      var out = '<span class="und-status ' + STATUS_CLASS[st] + '">' + esc(st) + '</span> <b>' + esc(t.title) + '</b>' +
+        ' <span class="tag">' + esc(U.levels[t.level]) + '</span>';
+      if (t.issue) {
+        out += ' <a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + t.issue + '">#' + t.issue + '</a>';
+      }
+      if (t.why) out += '<div class="und-why">' + symText(t.why) + '</div>';
+      if (withRefs) {
+        var refs = [];
+        (t.layers || []).forEach(function (id) { refs.push('слой ' + esc((layerById.get(id) || {}).title || id)); });
+        (t.modules || []).forEach(function (id) {
+          refs.push('<span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span>');
+        });
+        (t.links || []).forEach(function (id) {
+          var l = D.runtime && D.runtime.links.filter(function (x) { return x.id === id; })[0];
+          refs.push('<span class="link" data-rt="' + id + '">⇄ ' + esc(l ? l.channel : id) + '</span>');
+        });
+        (t.flows || []).forEach(function (id) {
+          var f = D.flows.filter(function (x) { return x.id === id; })[0];
+          refs.push('<span class="link" data-flows>↓ ' + esc(f ? f.title : id) + '</span>');
+        });
+        (t.adr || []).forEach(function (id) {
+          refs.push('<a class="link" target="_blank" rel="noreferrer" href="' + REPO + '/docs/adr/' + id + '.md">ADR ' +
+            esc(id.slice(0, 3)) + '</a>');
+        });
+        if (refs.length) out += '<div class="und-refs">' + refs.join(' · ') + '</div>';
+      }
+      return out;
+    }
   }
 
   /* ------------------------------------------------------------------ health tab */
@@ -1164,6 +1452,7 @@
   renderFlows();
   renderRuntime();
   renderHealth();
+  renderUnderstanding();
   renderPanel(null);
   fit();
   window.addEventListener('resize', function () { if (!selected) fit(); });

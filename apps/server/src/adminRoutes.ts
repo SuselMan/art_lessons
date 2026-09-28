@@ -1,13 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { Prisma } from '@prisma/client'
 
-import type {
-  AdminActionList, AdminActionRow, AdminDevice, AdminIpBan, AdminIpBanList, AdminIpDetail, AdminLessonList,
-  AdminLessonRow, AdminOverview, AdminUserDetail, AdminUserFilter, AdminUserIp, AdminUserLesson, AdminUserList,
-  AdminUserRow, ClientEnvironment,
-} from '@grafetto/shared'
+import type { AdminActionList, AdminActionRow, AdminDevice, AdminIpBan, AdminIpBanList, AdminIpDetail, AdminLessonList, AdminLessonRow, AdminOverview, AdminUserDetail, AdminUserFilter, AdminUserIp, AdminUserLesson, AdminUserList, AdminUserRow, ApiOk, ClientEnvironment } from '@grafetto/shared'
 import { IP_BAN_DURATIONS_HOURS, sanitizeClientEnvironment } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
+import { asString } from './input.js'
 import { bannedCount, isBanned, isIpBanned, noteBanned, noteIpBan, noteRevoked } from './bans.js'
 import { normalizeIp } from './sessions.js'
 import { readDisk } from './disk.js'
@@ -171,7 +169,7 @@ async function adminSeenOn(ip: string): Promise<boolean> {
 export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void {
   const onlineUserIds = () => new Set(live.connectedUserIds())
 
-  app.get('/api/admin/overview', { preHandler: requireAdmin }, async (): Promise<AdminOverview> => {
+  apiRoute(app, 'GET /api/admin/overview', { preHandler: requireAdmin }, async (): Promise<AdminOverview> => {
     const now = Date.now()
     const day = new Date(now - DAY_MS)
     const week = new Date(now - 7 * DAY_MS)
@@ -246,18 +244,17 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
     }
   })
 
-  app.get<{ Querystring: { filter?: string; q?: string; offset?: string } }>(
-    '/api/admin/users', { preHandler: requireAdmin },
+  apiRoute(app, 'GET /api/admin/users', { preHandler: requireAdmin },
     async (request): Promise<AdminUserList> => {
       const filters: readonly AdminUserFilter[] = ['all', 'registered', 'guests', 'banned']
       const filter = filters.find(f => f === request.query.filter) ?? 'registered'
-      const where = userWhere(filter, (request.query.q ?? '').trim())
+      const where = userWhere(filter, (asString(request.query.q) ?? '').trim())
       const [users, total] = await Promise.all([
         prisma.user.findMany({
           where,
           select: USER_ROW_SELECT,
           orderBy: [{ lastSeenAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
-          skip: parseOffset(request.query.offset),
+          skip: parseOffset(asString(request.query.offset)),
           take: PAGE_SIZE,
         }),
         prisma.user.count({ where }),
@@ -267,7 +264,7 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
     },
   )
 
-  app.get<{ Params: { id: string } }>('/api/admin/users/:id', { preHandler: requireAdmin }, async (request, reply) => {
+  apiRoute(app, 'GET /api/admin/users/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = request.params
     const user = await prisma.user.findUnique({
       where: { id },
@@ -352,8 +349,7 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
     return detail
   })
 
-  app.post<{ Params: { id: string }; Body: { reason?: unknown } }>(
-    '/api/admin/users/:id/ban', { preHandler: requireAdmin },
+  apiRoute(app, 'POST /api/admin/users/:id/ban', { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = request.params
       const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : ''
@@ -386,12 +382,11 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       // the ban at the handshake (socketHandlers.ts).
       live.disconnectUser(id)
       request.log.info({ adminId: request.userId, targetUserId: id }, 'admin banned user')
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
-  app.post<{ Params: { id: string }; Body: { reason?: unknown } }>(
-    '/api/admin/users/:id/unban', { preHandler: requireAdmin },
+  apiRoute(app, 'POST /api/admin/users/:id/unban', { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = request.params
       const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim().slice(0, MAX_REASON_LENGTH) : ''
@@ -407,7 +402,7 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       ])
       noteBanned(id, false)
       request.log.info({ adminId: request.userId, targetUserId: id }, 'admin unbanned user')
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
@@ -416,8 +411,7 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
   // on a school computer and left", or for a ban that should also end the
   // session on a device the ban alone would not reach (it does, but this says
   // so explicitly in the journal).
-  app.post<{ Params: { id: string } }>(
-    '/api/admin/users/:id/revoke-sessions', { preHandler: requireAdmin },
+  apiRoute(app, 'POST /api/admin/users/:id/revoke-sessions', { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = request.params
       if (id === request.userId) return reply.code(400).send({ error: 'cannot_revoke_self' })
@@ -431,11 +425,11 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       noteRevoked(id, at)
       live.disconnectUser(id)
       request.log.info({ adminId: request.userId, targetUserId: id }, 'admin revoked sessions')
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
-  app.get('/api/admin/ip-bans', { preHandler: requireAdmin }, async (): Promise<AdminIpBanList> => {
+  apiRoute(app, 'GET /api/admin/ip-bans', { preHandler: requireAdmin }, async (): Promise<AdminIpBanList> => {
     const rows = await prisma.ipBan.findMany({
       where: { liftedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
@@ -444,7 +438,7 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
     return { bans: await ipBanRows(rows) }
   })
 
-  app.get<{ Params: { ip: string } }>('/api/admin/ips/:ip', { preHandler: requireAdmin }, async (request): Promise<AdminIpDetail> => {
+  apiRoute(app, 'GET /api/admin/ips/:ip', { preHandler: requireAdmin }, async (request): Promise<AdminIpDetail> => {
     const ip = normalizeIp(request.params.ip)
     const [sightings, bans] = await Promise.all([
       prisma.ipSighting.findMany({ where: { ip }, orderBy: { lastSeenAt: 'desc' }, take: 200 }),
@@ -475,8 +469,7 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
     }
   })
 
-  app.post<{ Params: { ip: string }; Body: { reason?: unknown; hours?: unknown } }>(
-    '/api/admin/ips/:ip/ban', { preHandler: requireAdmin },
+  apiRoute(app, 'POST /api/admin/ips/:ip/ban', { preHandler: requireAdmin },
     async (request, reply) => {
       const ip = normalizeIp(request.params.ip)
       const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : ''
@@ -502,12 +495,11 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       noteIpBan(ip, expiresAt.getTime())
       live.disconnectIp(ip)
       request.log.info({ adminId: request.userId, ip, hours }, 'admin banned ip')
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
-  app.post<{ Params: { ip: string }; Body: { reason?: unknown } }>(
-    '/api/admin/ips/:ip/unban', { preHandler: requireAdmin },
+  apiRoute(app, 'POST /api/admin/ips/:ip/unban', { preHandler: requireAdmin },
     async (request, reply) => {
       const ip = normalizeIp(request.params.ip)
       const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim().slice(0, MAX_REASON_LENGTH) : ''
@@ -522,14 +514,13 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
       ])
       noteIpBan(ip, null)
       request.log.info({ adminId: request.userId, ip }, 'admin lifted ip ban')
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
-  app.get<{ Querystring: { q?: string; offset?: string } }>(
-    '/api/admin/lessons', { preHandler: requireAdmin },
+  apiRoute(app, 'GET /api/admin/lessons', { preHandler: requireAdmin },
     async (request): Promise<AdminLessonList> => {
-      const q = (request.query.q ?? '').trim()
+      const q = (asString(request.query.q) ?? '').trim()
       const where: Prisma.RoomWhereInput = q
         ? { lessonId: null, OR: [{ id: q }, { name: { contains: q, mode: 'insensitive' } }, { owner: { email: { contains: q, mode: 'insensitive' } } }] }
         : { lessonId: null }
@@ -544,7 +535,7 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
             _count: { select: { participants: true } },
           },
           orderBy: { createdAt: 'desc' },
-          skip: parseOffset(request.query.offset),
+          skip: parseOffset(asString(request.query.offset)),
           take: PAGE_SIZE,
         }),
         prisma.room.count({ where }),
@@ -584,17 +575,18 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
   // has no way into the room itself: being able to stop abuse does not need
   // reading everyone's work, and a panel that could would be the most
   // sensitive page in the product for no gain.
-  app.get<{ Params: { id: string } }>('/api/admin/lessons/:id/thumbnail', { preHandler: requireAdmin }, async (request, reply) => {
+  apiRoute(app, 'GET /api/admin/lessons/:id/thumbnail', { preHandler: requireAdmin }, async (request, reply) => {
     const thumbnail = await prisma.roomThumbnail.findUnique({
       where: { roomId: request.params.id },
-      select: { data: true },
+      select: { data: true, contentType: true },
     })
     if (!thumbnail) return reply.code(404).send({ error: 'not_found' })
-    reply.header('Content-Type', 'image/png').header('Cache-Control', 'private, max-age=300')
+    // (#627) The stored type: thumbnails are WebP as well as PNG since #595.
+    reply.header('Content-Type', thumbnail.contentType).header('Cache-Control', 'private, max-age=300')
     return reply.send(thumbnail.data)
   })
 
-  app.get('/api/admin/actions', { preHandler: requireAdmin }, async (): Promise<AdminActionList> => {
+  apiRoute(app, 'GET /api/admin/actions', { preHandler: requireAdmin }, async (): Promise<AdminActionList> => {
     return { actions: await actionRows({}, 200) }
   })
 }

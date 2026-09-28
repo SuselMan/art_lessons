@@ -28,10 +28,10 @@ describe('a merge a restored snapshot already accounts for', () => {
     // Bake what the merge result is *supposed* to look like, from a room that
     // really performed it.
     const source = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-    source.engine.appendOperation(makeLayerAdd('user-a', 'A'))
-    source.engine.appendOperation(makeLayerAdd('user-a', 'B'))
-    source.engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
-    source.engine.appendOperation(makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]))
+    source.engine.appendOperation(makeLayerAdd('user-a', 'A'), 'remote')
+    source.engine.appendOperation(makeLayerAdd('user-a', 'B'), 'remote')
+    source.engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
+    source.engine.appendOperation(makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]), 'remote')
     const merged = tilesOf(source.engine, 'M')
     expect(merged.length).toBeGreaterThan(0)
 
@@ -47,7 +47,7 @@ describe('a merge a restored snapshot already accounts for', () => {
     engine.appendOperation({
       ...makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]),
       seq: 50,
-    })
+    }, 'remote')
 
     // The sources are empty on this client (their own strokes were withheld —
     // they are covered by M's pixels), so compositing would have wiped M.
@@ -66,7 +66,7 @@ describe('a merge a restored snapshot already accounts for', () => {
     engine.appendOperation({
       ...makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]),
       seq: 50,
-    })
+    }, 'remote')
 
     expect(hasLayerBuffer(engine, 'A')).toBe(false)
     expect(hasLayerBuffer(engine, 'B')).toBe(false)
@@ -75,33 +75,33 @@ describe('a merge a restored snapshot already accounts for', () => {
 
   it('composites normally when the merge is newer than the coverage', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'A'))
-    engine.appendOperation(makeLayerAdd('user-a', 'B'))
+    engine.appendOperation(makeLayerAdd('user-a', 'A'), 'remote')
+    engine.appendOperation(makeLayerAdd('user-a', 'B'), 'remote')
     engine.initLayer('M')
     engine.restoreLayerFromSnapshot('M', [
       { originX: 0, originY: 0, width: 8, height: 8, pixels: new Uint8Array(8 * 8 * 4) },
     ], 100)
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
 
     // seq 150 is past this layer's coverage of 100, so it is a real merge.
     engine.appendOperation({
       ...makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]),
       seq: 150,
-    })
+    }, 'remote')
 
     expect(readLayerPixels(engine, 'M')!.some(v => v !== 0)).toBe(true)
   })
 
   it('composites normally when nothing was restored for the layer at all', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'A'))
-    engine.appendOperation(makeLayerAdd('user-a', 'B'))
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(makeLayerAdd('user-a', 'A'), 'remote')
+    engine.appendOperation(makeLayerAdd('user-a', 'B'), 'remote')
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
 
     engine.appendOperation({
       ...makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]),
       seq: 50,
-    })
+    }, 'remote')
 
     expect(readLayerPixels(engine, 'M')!.some(v => v !== 0)).toBe(true)
   })
@@ -113,14 +113,14 @@ describe('a transform a restored snapshot already accounts for', () => {
   it('leaves a covered layer alone', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]))
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const before = readLayerPixels(engine, 'A')!.slice()
 
     engine.appendOperation({
       ...makeLayerTransform('user-a', [{ layerId: 'A', matrix: [...shift] as never }]),
       seq: 50,
-    })
+    }, 'remote')
 
     expect([...readLayerPixels(engine, 'A')!]).toEqual([...before])
   })
@@ -131,8 +131,8 @@ describe('a transform a restored snapshot already accounts for', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
     engine.initLayer('B')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]))
-    engine.appendOperation(makeStroke('user-a', 'B', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]))
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'B', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const coveredBefore = readLayerPixels(engine, 'A')!.slice()
     const uncoveredBefore = readLayerPixels(engine, 'B')!.slice()
@@ -143,7 +143,7 @@ describe('a transform a restored snapshot already accounts for', () => {
         { layerId: 'B', matrix: [...shift] as never },
       ]),
       seq: 50,
-    })
+    }, 'remote')
 
     expect([...readLayerPixels(engine, 'A')!]).toEqual([...coveredBefore])
     expect([...readLayerPixels(engine, 'B')!]).not.toEqual([...uncoveredBefore])
@@ -152,14 +152,14 @@ describe('a transform a restored snapshot already accounts for', () => {
   it('applies to a covered layer when the transform is newer than the coverage', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]))
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const before = readLayerPixels(engine, 'A')!.slice()
 
     engine.appendOperation({
       ...makeLayerTransform('user-a', [{ layerId: 'A', matrix: [...shift] as never }]),
       seq: 150,
-    })
+    }, 'remote')
 
     expect([...readLayerPixels(engine, 'A')!]).not.toEqual([...before])
   })
@@ -173,14 +173,14 @@ describe('a pure pixel operation the restored pixels already contain', () => {
   it('does not paint a stroke twice', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const restored = readLayerPixels(engine, 'A')!.slice()
 
     engine.appendOperation({
       ...makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]),
       seq: 50,
-    })
+    }, 'remote')
 
     expect([...readLayerPixels(engine, 'A')!]).toEqual([...restored])
   })
@@ -193,7 +193,7 @@ describe('a pure pixel operation the restored pixels already contain', () => {
     // the operations below its snapshot, so replay must not find them there.
     const source = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     source.engine.initLayer('A')
-    source.engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]))
+    source.engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
     const baked = tilesOf(source.engine, 'A')
 
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
@@ -204,12 +204,12 @@ describe('a pure pixel operation the restored pixels already contain', () => {
     engine.appendOperation({
       ...makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]),
       seq: 50,
-    })
+    }, 'remote')
     // A later stroke and its undo force the rebuild path over this layer.
     engine.appendOperation({
       ...makeStroke('user-b', 'A', [dab(1, 1, { size: 2, pressure: 1, opacity: 1 })]),
       seq: 200,
-    })
+    }, 'remote')
     engine.undo()
 
     expect([...readLayerPixels(engine, 'A')!]).toEqual([...restored])
@@ -218,14 +218,14 @@ describe('a pure pixel operation the restored pixels already contain', () => {
   it('still paints a stroke made after the coverage', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const restored = readLayerPixels(engine, 'A')!.slice()
 
     engine.appendOperation({
       ...makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]),
       seq: 150,
-    })
+    }, 'remote')
 
     expect([...readLayerPixels(engine, 'A')!]).not.toEqual([...restored])
   })
@@ -233,13 +233,13 @@ describe('a pure pixel operation the restored pixels already contain', () => {
   it('does not let a covered layer_clear wipe the restored pixels', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 1 })]))
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 1 })]), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const restored = readLayerPixels(engine, 'A')!.slice()
 
     engine.appendOperation({
       id: 'clear-1', type: 'layer_clear', userId: 'user-a', timestamp: 0, layerId: 'A', seq: 50,
-    })
+    }, 'remote')
 
     expect([...readLayerPixels(engine, 'A')!]).toEqual([...restored])
   })
@@ -250,9 +250,9 @@ describe('a pure pixel operation the restored pixels already contain', () => {
 describe('restoring without a coverage seq', () => {
   it('covers nothing, so a merge composites as it always did', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
-    engine.appendOperation(makeLayerAdd('user-a', 'A'))
-    engine.appendOperation(makeLayerAdd('user-a', 'B'))
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(makeLayerAdd('user-a', 'A'), 'remote')
+    engine.appendOperation(makeLayerAdd('user-a', 'B'), 'remote')
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
     engine.initLayer('M')
     engine.restoreLayerFromSnapshot('M', [
       { originX: 0, originY: 0, width: 8, height: 8, pixels: new Uint8Array(8 * 8 * 4) },
@@ -261,7 +261,7 @@ describe('restoring without a coverage seq', () => {
     engine.appendOperation({
       ...makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]),
       seq: 50,
-    })
+    }, 'remote')
 
     expect(readLayerPixels(engine, 'M')!.some(v => v !== 0)).toBe(true)
   })

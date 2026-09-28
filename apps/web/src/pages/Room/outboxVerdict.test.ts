@@ -24,7 +24,8 @@ function setup() {
   const deps = {
     pendingIdsRef: { current: new Set<string>(['L-new']) },
     latestKnownSeqRef: { current: 5 },
-    noteLayerSeq: vi.fn(),
+    confirmOperation: vi.fn(),
+    discardOperation: vi.fn(),
     checkSnapshotBoundary: vi.fn(),
     resolveTransformCommit: vi.fn(),
     scheduleLostWorkRecovery: vi.fn(),
@@ -44,10 +45,14 @@ describe('a confirmed operation', () => {
     expect(deps.latestKnownSeqRef.current).toBe(9)
   })
 
-  it('notes a stroke’s seq on its layer and checks the snapshot boundary', () => {
+  // (#537) The ack carries the same seq the broadcast does; whichever gets
+  // there first puts the operation in its place in the room's order.
+  it('confirms the operation at its seq and checks the snapshot boundary', () => {
     const { deps, onSettled } = setup()
-    onSettled(stroke('s1'), { ok: true, seq: 9 })
-    expect(deps.noteLayerSeq).toHaveBeenCalledWith('layer-1', 9)
+    const op = stroke('s1')
+    onSettled(op, { ok: true, seq: 9 })
+    expect(deps.confirmOperation).toHaveBeenCalledWith(op, 9)
+    expect(deps.discardOperation).not.toHaveBeenCalled()
     expect(deps.checkSnapshotBoundary).toHaveBeenCalledOnce()
   })
 
@@ -67,6 +72,15 @@ describe('a rejected operation', () => {
     expect(deps.resolveTransformCommit).toHaveBeenCalledWith('s1')
     expect(deps.latestKnownSeqRef.current).toBe(5)
     expect(deps.checkSnapshotBoundary).not.toHaveBeenCalled()
+  })
+
+  // (#537) Nobody else will ever see it, so neither may its author.
+  it('is taken back off this client’s canvas', () => {
+    const { deps, onSettled } = setup()
+    const op = stroke('s1')
+    onSettled(op, { ok: false, reason: 'room_frozen' })
+    expect(deps.discardOperation).toHaveBeenCalledWith(op)
+    expect(deps.confirmOperation).not.toHaveBeenCalled()
   })
 
   it('drops a rejected new layer out of the local island too', () => {
