@@ -15,7 +15,7 @@ import { decodeLayerTiles } from './src/snapshotCodec'
 
 function freshEngine() {
   const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-  engine.appendOperation(makeLayerAdd('user-a', 'A'))
+  engine.appendOperation(makeLayerAdd('user-a', 'A'), 'remote')
   return engine
 }
 
@@ -31,7 +31,7 @@ describe('isLayerDirty', () => {
 
   it('goes false again once the layer has been baked', () => {
     const engine = freshEngine()
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
     expect(engine.isLayerDirty('A')).toBe(true)
 
     engine.bakeNetworkSnapshot('A')
@@ -41,8 +41,8 @@ describe('isLayerDirty', () => {
 
   it('does not report one layer dirty because another one is', () => {
     const engine = freshEngine()
-    engine.appendOperation(makeLayerAdd('user-a', 'B'))
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(makeLayerAdd('user-a', 'B'), 'remote')
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
 
     expect(engine.isLayerDirty('A')).toBe(true)
     expect(engine.isLayerDirty('B')).toBe(false)
@@ -54,7 +54,7 @@ describe('isLayerDirty — every way pixels can change', () => {
    *  the engine noticed. */
   function afterMutation(mutate: (engine: ReturnType<typeof freshEngine>) => void): boolean {
     const engine = freshEngine()
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
     engine.bakeNetworkSnapshot('A')
     expect(engine.isLayerDirty('A')).toBe(false)
     mutate(engine)
@@ -63,7 +63,7 @@ describe('isLayerDirty — every way pixels can change', () => {
 
   it('notices a remote stroke', () => {
     expect(afterMutation(engine => {
-      engine.appendOperation(makeStroke('user-b', 'A', [dab(2, 2, { size: 3, pressure: 1, opacity: 1 })]))
+      engine.appendOperation(makeStroke('user-b', 'A', [dab(2, 2, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
     })).toBe(true)
   })
 
@@ -71,13 +71,13 @@ describe('isLayerDirty — every way pixels can change', () => {
     expect(afterMutation(engine => {
       engine.appendOperation({
         id: 'clear-1', type: 'layer_clear', userId: 'user-b', timestamp: 0, layerId: 'A',
-      })
+      }, 'remote')
     })).toBe(true)
   })
 
   it('notices a layer_transform', () => {
     expect(afterMutation(engine => {
-      engine.appendOperation(makeLayerTransform('user-b', [{ layerId: 'A', matrix: [1, 0, 0, 1, 2, 0] }]))
+      engine.appendOperation(makeLayerTransform('user-b', [{ layerId: 'A', matrix: [1, 0, 0, 1, 2, 0] }]), 'remote')
     })).toBe(true)
   })
 
@@ -95,21 +95,21 @@ describe('isLayerDirty — every way pixels can change', () => {
   it('notices a local stroke drawn with the pointer', () => {
     const engine = freshEngine()
     engine.setActiveLayer('A')
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
     engine.bakeNetworkSnapshot('A')
 
     // Same path a real pen-down/move/up takes into the layer buffer.
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(1, 1, { size: 2, pressure: 1, opacity: 1 })]))
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(1, 1, { size: 2, pressure: 1, opacity: 1 })]), 'remote')
 
     expect(engine.isLayerDirty('A')).toBe(true)
   })
 
   it('notices a merge, on the layer it produced', () => {
     const engine = freshEngine()
-    engine.appendOperation(makeLayerAdd('user-a', 'B'))
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(makeLayerAdd('user-a', 'B'), 'remote')
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
 
-    engine.appendOperation(makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]))
+    engine.appendOperation(makeLayerMerge('user-a', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]), 'remote')
 
     expect(engine.isLayerDirty('M')).toBe(true)
   })
@@ -121,7 +121,7 @@ describe('isLayerDirty — every way pixels can change', () => {
 describe('isLayerDirty — after restoring a snapshot', () => {
   function bakedTiles() {
     const engine = freshEngine()
-    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    engine.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
     return decodeLayerTiles(engine.bakeNetworkSnapshot('A')!, 0).tiles
   }
 
@@ -143,7 +143,7 @@ describe('isLayerDirty — after restoring a snapshot', () => {
     engine.appendOperation({
       ...makeStroke('user-b', 'A', [dab(1, 1, { size: 2, pressure: 1, opacity: 1 })]),
       seq: 200,
-    })
+    }, 'remote')
 
     expect(engine.isLayerDirty('A')).toBe(true)
   })
@@ -157,7 +157,7 @@ describe('isLayerDirty — after restoring a snapshot', () => {
 describe('bakeNetworkSnapshot judges content from the buffer, not the log', () => {
   it('bakes a layer whose pixels came from a restore and never from an operation', () => {
     const source = freshEngine()
-    source.appendOperation(fillStroke('user-a', 'A', 4, 4, 6))
+    source.appendOperation(fillStroke('user-a', 'A', 4, 4, 6), 'remote')
     const tiles = decodeLayerTiles(source.bakeNetworkSnapshot('A')!, 0).tiles
 
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })

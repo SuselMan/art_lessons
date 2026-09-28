@@ -19,7 +19,24 @@ export type OperationState = 'done' | 'undone' | 'gone'
 export interface LogEntry {
   op: Operation
   state: OperationState
+  /** (#537) This client's own operation, applied optimistically and not yet
+   *  confirmed by the server. Pending entries always form the log's tail —
+   *  see OperationLog's own doc comment on the two regions. */
+  pending?: boolean
+  /** (#537) The server's seq, once known: set on every confirmed entry that
+   *  arrived with one. Absent on pending entries and on backfilled history
+   *  (which is older than everything else anyway). */
+  serverSeq?: number
 }
+
+/** (#537) Where `append` puts an operation. */
+export type Placement =
+  /** This client's own operation, applied before the server has ordered it:
+   *  goes on the very end, in the pending tail. */
+  | { pending: true }
+  /** An operation the server has already ordered: goes into the confirmed
+   *  region at its seq, below every pending entry. */
+  | { pending?: false; serverSeq?: number }
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
 export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation
@@ -41,6 +58,24 @@ export function isPixelOperation(op: Operation): op is PixelOperation {
     || op.type === 'shape'
     // (#574) And a filter: one layer, pixels only, replayed from its numbers.
     || op.type === 'layer_filter'
+}
+
+/** (#537) The layers whose pixels `op` writes. Empty for anything that is not
+ *  a pixel operation — including undo/redo/revoke, which rebuild their
+ *  target's layers themselves. */
+export function pixelWriteLayerIds(op: Operation): string[] {
+  if (!isPixelOperation(op)) return []
+  return op.type === 'layer_transform' ? op.transforms.map(t => t.layerId) : [op.layerId]
+}
+
+/** (#537) The layers whose pixels `op` reads without writing: a merge's sources
+ *  and a duplicate's source. Their content at the operation's place in the
+ *  order is baked into its result, so something landing on them *earlier* in
+ *  the order changes that result. */
+export function pixelReadLayerIds(op: Operation): string[] {
+  if (op.type === 'layer_merge') return op.sources.map(s => s.id)
+  if (op.type === 'layer_duplicate') return [op.sourceId]
+  return []
 }
 
 /** Every PixelOperation but layer_transform targets exactly one layer via its
@@ -85,9 +120,32 @@ function coalesces(prev: Operation, next: Operation): boolean {
  *  "undo the undo" instead of reaching further back into real content. */
 const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation_undo', 'operation_redo'])
 
+/** (#537) The log holds two regions, in this order:
+ *
+ *   - **confirmed** — every operation the server has ordered, sorted by the
+ *     server's seq. The room's true history, identical on every client.
+ *   - **pending** — this client's own operations, applied the moment they were
+ *     made and not yet confirmed, in the order they were made.
+ *
+ *  That is the order the room *will* have: the stream of confirmations is
+ *  ordered, so anything confirmed from now on either is one of the pending
+ *  entries or has a seq below all of them. A peer's operation is therefore
+ *  inserted below the pending tail rather than appended after it, and an own
+ *  operation moves from the tail to its seq when its confirmation arrives.
+ *
+ *  Pixels are painted when an operation is applied, which is not always in
+ *  this order — that is what `append` and `confirm` report back as
+ *  `overtaken`: the entries now *after* the operation that were painted
+ *  *before* it. The engine re-settles the layers where that matters.
+ *
+ *  Local `seq` still means "array index" (see append()); every move
+ *  renumbers the entries it shifted. */
 export class OperationLog {
   private _entries: LogEntry[] = []
   private _nextSeq = 0
+  /** (#537) Entries [0, _confirmedCount) are the confirmed region; the rest
+   *  are the pending tail. */
+  private _confirmedCount = 0
   // (#150) Per-layer count of currently-`done` pixel ops, maintained
   // incrementally alongside every state transition that can change it
   // (append/applyUndo/applyRedo/revoke below) — `_maybeCheckpoint`
@@ -130,21 +188,109 @@ export class OperationLog {
    *  nuke the very entries it and its siblings are about to flip back to
    *  `done`, or a multi-step redo would wipe its own remaining redo stack
    *  after the first step. */
-  append(op: Operation): void {
+  /**
+   *  (#537) Returns the entries that now come *after* `op` although they were
+   *  already applied — empty in the common case, where `op` lands on the end
+   *  of its region with nothing painted above it. See the class doc comment. */
+  append(op: Operation, placement: Placement = {}): LogEntry[] {
     if (!META_OP_TYPES.has(op.type)) {
       for (const e of this._entries) {
         if (e.state === 'undone' && e.op.userId === op.userId) e.state = 'gone'
       }
     }
 
-    const last = this._entries[this._entries.length - 1]
-    if (last && last.state === 'done' && coalesces(last.op, op)) {
-      last.op = { ...op, seq: last.op.seq }
-      return
+    if (placement.pending) {
+      // Coalesced only into another pending entry: folding an unconfirmed
+      // operation into a confirmed one would leave that entry claiming a
+      // confirmation it no longer has.
+      const last = this._entries[this._entries.length - 1]
+      if (last && last.pending && last.state === 'done' && coalesces(last.op, op)) {
+        last.op = { ...op, seq: last.op.seq }
+        return []
+      }
+      this._entries.push({ op: { ...op, seq: this._nextSeq++ }, state: 'done', pending: true })
+      this._bumpPixelOpCount(op, 1)
+      return []
     }
 
-    this._entries.push({ op: { ...op, seq: this._nextSeq++ }, state: 'done' })
+    const at = this._confirmedSlot(placement.serverSeq)
+    const prev = this._entries[at - 1]
+    if (prev && !prev.pending && prev.state === 'done' && coalesces(prev.op, op)) {
+      prev.op = { ...op, seq: prev.op.seq }
+      if (placement.serverSeq !== undefined) prev.serverSeq = placement.serverSeq
+      return this._entries.slice(at)
+    }
+    const entry: LogEntry = { op: { ...op, seq: at }, state: 'done' }
+    if (placement.serverSeq !== undefined) entry.serverSeq = placement.serverSeq
+    this._entries.splice(at, 0, entry)
+    this._confirmedCount++
+    this._nextSeq++
+    this._renumber(at + 1, this._entries.length)
     this._bumpPixelOpCount(op, 1)
+    return this._entries.slice(at + 1)
+  }
+
+  /** (#537) The server has ordered one of this client's pending operations at
+   *  `serverSeq`: moves it out of the pending tail to its place in the
+   *  confirmed region. Returns the entry's operation and the entries it moved
+   *  below, or null when there is nothing to confirm — an id that was never
+   *  pending here, was already confirmed (the ack and the broadcast both
+   *  report it), or was coalesced into a later entry. */
+  confirm(opId: string, serverSeq: number): { op: Operation; overtaken: LogEntry[] } | null {
+    let from = -1
+    for (let i = this._confirmedCount; i < this._entries.length; i++) {
+      if (this._entries[i].op.id === opId) { from = i; break }
+    }
+    if (from === -1) return null
+    const [entry] = this._entries.splice(from, 1)
+    const at = this._confirmedSlot(serverSeq)
+    this._entries.splice(at, 0, entry)
+    entry.pending = false
+    entry.serverSeq = serverSeq
+    this._confirmedCount++
+    this._renumber(at, from + 1)
+    return { op: entry.op, overtaken: this._entries.slice(at + 1, from + 1) }
+  }
+
+  /** (#537) Whether `opId` is one of this client's still-unconfirmed entries. */
+  isPending(opId: string): boolean {
+    for (let i = this._confirmedCount; i < this._entries.length; i++) {
+      if (this._entries[i].op.id === opId) return true
+    }
+    return false
+  }
+
+  /** (#537) Whether any still-`done`, unconfirmed entry writes this layer's
+   *  pixels — i.e. whether the layer shows something the room's own history
+   *  does not have yet. O(pending tail). */
+  hasPendingPixelOps(layerId: string): boolean {
+    for (let i = this._confirmedCount; i < this._entries.length; i++) {
+      const e = this._entries[i]
+      if (e.state === 'done' && pixelWriteLayerIds(e.op).includes(layerId)) return true
+    }
+    return false
+  }
+
+  /** Where a confirmed operation with this seq belongs: after every confirmed
+   *  entry with a lower (or unknown) seq. Scans back from the region's end,
+   *  which is where it almost always goes — the stream is ordered. */
+  private _confirmedSlot(serverSeq: number | undefined): number {
+    let at = this._confirmedCount
+    if (serverSeq === undefined) return at
+    while (at > 0) {
+      const prevSeq = this._entries[at - 1].serverSeq
+      if (prevSeq === undefined || prevSeq <= serverSeq) break
+      at--
+    }
+    return at
+  }
+
+  /** Local seq is the array index; re-stamps [from, to) after a move. */
+  private _renumber(from: number, to: number): void {
+    for (let i = from; i < to; i++) {
+      const e = this._entries[i]
+      if (e.op.seq !== i) e.op = { ...e.op, seq: i }
+    }
   }
 
   /** Read-only: the user's latest `done` op eligible for undo (excludes
@@ -312,9 +458,11 @@ export class OperationLog {
    *  that invariant true across the splice. O(n) in the log's total size;
    *  fine for a background, few-times-per-session operation. */
   prependHistorical(entries: readonly LogEntry[]): void {
-    const merged = [...entries, ...this._entries].map((e, i) => ({ ...e, op: { ...e.op, seq: i } }))
+    const merged = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]
+      .map((e, i) => ({ ...e, op: { ...e.op, seq: i } }))
     this._entries = merged
     this._nextSeq = merged.length
+    this._confirmedCount += entries.length
     for (const e of entries) {
       if (e.state === 'done') this._bumpPixelOpCount(e.op, 1)
     }

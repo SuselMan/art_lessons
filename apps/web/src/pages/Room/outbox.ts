@@ -36,7 +36,7 @@ export interface OutboxDeps {
   send: (op: Operation) => Promise<SendResult>
   // Fires exactly once per operation, the moment it gets a real SendResult
   // (never for a timeout/retry) — Room/index.tsx uses this for the same
-  // watermark/pendingIds/noteLayerSeq bookkeeping onLocalOperation's ack
+  // watermark/pendingIds/confirmation bookkeeping onLocalOperation's ack
   // callback always did, now shared by both the always-optimistic and the
   // deferred (requires_confirmation) dispatch paths.
   onSettled?: (op: Operation, result: SendResult) => void

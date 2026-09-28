@@ -9,7 +9,7 @@ import { createPeerEventHandlers, STREAMED_STROKE_MEMORY, type PeerEngine } from
 vi.mock('../../lib/reportInvariant', () => ({ reportInvariant: vi.fn() }))
 
 /** (#493) Other participants on the socket, called the way the socket calls
- *  them. The engine is three methods here, which is all these handlers ask
+ *  them. The engine is four methods here, which is all these handlers ask
  *  of it — enough to say what reaches it and when. */
 
 function stroke(id: string, userId = 'peer'): StrokeOperation {
@@ -31,6 +31,7 @@ function setup(engine: Partial<PeerEngine> = {}) {
     appendPeerLiveDabs: vi.fn(),
     endPeerLiveStroke: vi.fn(() => 0),
     flushPeerPreview: vi.fn(() => []),
+    dropPendingPreview: vi.fn(() => null),
     ...engine,
   }
   const deps = {
@@ -123,6 +124,21 @@ describe('peer_left', () => {
     expect(deps.pendingPreviewsRef.current.has('s1')).toBe(false)
     expect(deps.syncFromLog).toHaveBeenCalledOnce()
     expect(deps.checkSnapshotBoundary).toHaveBeenCalledOnce()
+  })
+
+  // (#537) The log takes the room's order, not the order reveals happen to stop.
+  it('commits another peer’s earlier stroke, still revealing, before theirs', () => {
+    const mine = stroke('s-left', 'peer')
+    const earlier = stroke('s-other', 'other')
+    const { deps, on } = setup({
+      flushPeerPreview: vi.fn(() => [mine]),
+      dropPendingPreview: vi.fn((id: string) => (id === 's-other' ? earlier : null)),
+    })
+    deps.pendingPreviewsRef.current.add('s-other', 4)
+    deps.pendingPreviewsRef.current.add('s-left', 5)
+    on.peer_left('peer')
+    expect(deps.applyRemoteOp.mock.calls.map(([op]) => op.id)).toEqual(['s-other', 's-left'])
+    expect(deps.pendingPreviewsRef.current.size).toBe(0)
   })
 })
 

@@ -22,7 +22,9 @@ function layerAdd(id: string, layerId: string): LayerAddOperation {
 }
 
 function setup() {
+  const engine = { dropPendingPreview: vi.fn((_id: string): StrokeOperation | null => null) }
   const deps = {
+    engineRef: { current: engine },
     appliedOpIdsRef: { current: new Set<string>() },
     pendingIdsRef: { current: new Set<string>() },
     outbox: { enqueue: vi.fn(async () => {}) },
@@ -73,6 +75,21 @@ describe('a peer’s reveal that has finished', () => {
     expect(deps.applyRemoteOp).toHaveBeenCalledWith(op)
     expect(deps.syncFromLog).toHaveBeenCalledOnce()
     expect(deps.checkSnapshotBoundary).toHaveBeenCalledOnce()
+  })
+
+  // (#537) A short stroke can finish revealing before a longer one the room
+  // ordered first. The log takes them in the room's order regardless.
+  it('commits every reveal the room ordered before it first', () => {
+    const { deps, on } = setup()
+    const long = stroke('long')
+    deps.pendingPreviewsRef.current.add('long', 3)
+    deps.pendingPreviewsRef.current.add('short', 4)
+    deps.pendingPreviewsRef.current.add('later', 5)
+    deps.engineRef.current.dropPendingPreview.mockImplementation(id => (id === 'long' ? long : null))
+    on.onPreviewApplied(stroke('short'))
+    expect(deps.applyRemoteOp.mock.calls.map(([op]) => op.id)).toEqual(['long', 'short'])
+    expect(deps.pendingPreviewsRef.current.has('later')).toBe(true)
+    expect(deps.pendingPreviewsRef.current.size).toBe(1)
   })
 })
 

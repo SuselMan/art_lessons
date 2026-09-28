@@ -44,7 +44,7 @@ function setup() {
     streamedStrokeIdsRef: { current: new Set<string>() },
     deferredOpsQueueRef: { current: [] as Operation[] },
     previewScheduleRef: { current: { noteOperation: vi.fn() } },
-    noteLayerSeq: vi.fn(),
+    confirmOwnOperation: vi.fn(),
     markLayerActive: vi.fn(),
     applyRemoteOp: vi.fn(),
     syncFromLog: vi.fn(),
@@ -77,14 +77,32 @@ describe('the watermark', () => {
 })
 
 describe('this client’s own operations', () => {
-  it('are not painted twice — only the layer’s seq and the snapshot boundary move', () => {
+  it('are not painted twice — they are confirmed at their seq and the snapshot boundary moves', () => {
     const { engine, deps, confirm } = setup()
     deps.appliedOpIdsRef.current.add('mine')
-    confirm({ seq: 1, operation: stroke('mine', { userId: 'me' }) })
+    const mine = stroke('mine', { userId: 'me' })
+    confirm({ seq: 1, operation: mine })
     expect(deps.applyRemoteOp).not.toHaveBeenCalled()
     expect(engine.previewOperation).not.toHaveBeenCalled()
-    expect(deps.noteLayerSeq).toHaveBeenCalledWith('layer-1', 1)
+    expect(deps.confirmOwnOperation).toHaveBeenCalledWith(mine, 1)
     expect(deps.checkSnapshotBoundary).toHaveBeenCalledOnce()
+  })
+
+  // (#537) A peer stroke ordered before this one is still revealing: it goes
+  // into the log first, or the confirmation would put this client's own
+  // operation below something that is then committed on top of it.
+  it('are confirmed only after every reveal the room ordered before them is committed', () => {
+    const { engine, deps, confirm } = setup()
+    const order: string[] = []
+    vi.mocked(deps.applyRemoteOp).mockImplementation(op => { order.push(`apply ${op.id}`) })
+    vi.mocked(deps.confirmOwnOperation).mockImplementation(op => { order.push(`confirm ${op.id}`) })
+    const early = stroke('early')
+    vi.mocked(engine.dropPendingPreview).mockImplementation(id => (id === 'early' ? early : null))
+    confirm({ seq: 1, operation: early })
+    deps.appliedOpIdsRef.current.add('mine')
+    confirm({ seq: 2, operation: stroke('mine', { userId: 'me' }) })
+    expect(order).toEqual(['apply early', 'confirm mine'])
+    expect(deps.pendingPreviewsRef.current.size).toBe(0)
   })
 })
 
@@ -132,6 +150,44 @@ describe('a peer’s stroke', () => {
   })
 })
 
+describe('reveals and the room’s order (#537)', () => {
+  // Reveals end in whatever order their lengths dictate; the log must not.
+  it('a stroke committed at once lands after every earlier one still revealing, in seq order', () => {
+    const { engine, deps, confirm } = setup()
+    const first = stroke('first')
+    const second = stroke('second', { userId: 'peer-2' })
+    vi.mocked(engine.dropPendingPreview).mockImplementation(id => (id === 'first' ? first : id === 'second' ? second : null))
+    confirm({ seq: 1, operation: first })
+    confirm({ seq: 2, operation: second })
+    deps.streamedStrokeIdsRef.current.add('g3')
+    const third = stroke('third', { userId: 'peer-3', strokeId: 'g3' })
+    confirm({ seq: 3, operation: third })
+    expect(vi.mocked(deps.applyRemoteOp).mock.calls.map(([op]) => op.id)).toEqual(['first', 'second', 'third'])
+    expect(deps.pendingPreviewsRef.current.size).toBe(0)
+  })
+
+  // The case that lost ink outright: the layer went away before its stroke
+  // was committed, so the stroke was revoked — while the author's own copy
+  // or merge of that layer still held it.
+  it('a structural operation never overtakes a stroke still revealing on its layer', () => {
+    const { engine, deps, confirm } = setup()
+    const s = stroke('s1')
+    vi.mocked(engine.dropPendingPreview).mockImplementation(id => (id === 's1' ? s : null))
+    confirm({ seq: 1, operation: s })
+    confirm({ seq: 2, operation: layerAdd('a') })
+    expect(vi.mocked(deps.applyRemoteOp).mock.calls.map(([op]) => op.id)).toEqual(['s1', 'a'])
+  })
+
+  it('a stroke that is only queued for its own reveal commits nothing yet', () => {
+    const { engine, deps, confirm } = setup()
+    confirm({ seq: 1, operation: stroke('s1') })
+    confirm({ seq: 2, operation: stroke('s2', { userId: 'peer-2' }) })
+    expect(engine.dropPendingPreview).not.toHaveBeenCalled()
+    expect(deps.applyRemoteOp).not.toHaveBeenCalled()
+    expect(deps.pendingPreviewsRef.current.size).toBe(2)
+  })
+})
+
 describe('undo', () => {
   // Both land in the log synchronously, so nothing is painted — but the
   // stroke has a done-then-undone entry a later redo can restore.
@@ -140,6 +196,8 @@ describe('undo', () => {
     const target = stroke('s1')
     deps.pendingPreviewsRef.current.add('s1', 1)
     vi.mocked(engine.dropPendingPreview).mockReturnValue(target)
+    // As Room's own does: applying is what makes an id known.
+    vi.mocked(deps.applyRemoteOp).mockImplementation(op => { deps.appliedOpIdsRef.current.add(op.id) })
 
     const u = undo('u1', 's1')
     confirm({ seq: 2, operation: u })

@@ -5,7 +5,7 @@ import type { Operation, ServerToClientEvents } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
-import type { PendingPreviews } from './pendingPreviews'
+import { commitRevealsBelow as commitRevealsBelowShared, type PendingPreviews } from './pendingPreviews'
 
 /** The part of the engine the confirmed stream drives. */
 export type ConfirmedStreamEngine = Pick<PencilEngineAPI, 'previewOperation' | 'dropPendingPreview'>
@@ -27,7 +27,9 @@ export interface ConfirmedStreamDeps {
   /** Undo/redo/revoke waiting for a target the backfill has not reached. */
   deferredOpsQueueRef: RefObject<Operation[]>
   previewScheduleRef: RefObject<{ noteOperation(now: number): void } | null>
-  noteLayerSeq: (layerId: string, seq: number) => void
+  /** (#537) This client's own operation has come back with its seq: move it
+   *  to its place in the true order (see PencilEngineAPI.confirmOperation). */
+  confirmOwnOperation: (op: Operation, seq: number) => void
   markLayerActive: (userId: string, layerId: string) => void
   applyRemoteOp: (op: Operation) => void
   syncFromLog: () => void
@@ -43,7 +45,7 @@ export interface ConfirmedStreamDeps {
 export function createConfirmedStreamHandler({
   engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
-  noteLayerSeq, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+  confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
 }: ConfirmedStreamDeps): ServerToClientEvents['operation_confirmed'] {
   // (#289 §7/§11 — reliable history spec v0.2) Renamed from
   // handlePeerOperation: this now fires for *every* confirmed operation,
@@ -53,6 +55,12 @@ export function createConfirmedStreamHandler({
   // rather than racing it against a separate, faster ack. `seq` comes
   // from the envelope, not `operation.seq` (optional until stamped) —
   // simpler for logging/diagnostics, per the same spec.
+
+  // (#537) See commitRevealsBelow: nothing is committed at `seq` while a
+  // stroke below it is still only being shown.
+  const commitRevealsBelow = (seq: number): boolean =>
+    commitRevealsBelowShared(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
+
   return ({ seq, operation: op }) => {
     // (#289 §12) A gap in this stream is impossible on an unbroken
     // connection (TCP never silently drops or reorders within one), so
@@ -74,11 +82,17 @@ export function createConfirmedStreamHandler({
       // This client's own operation, looping back through the same
       // ordered stream every peer gets — onLocalOperation already applied
       // it optimistically at dispatch time, so there is nothing left to
-      // paint here. Advancing the watermark above is the only thing this
-      // arrival still needs to do (noteLayerSeq is also called from
-      // onLocalOperation's own ack — calling it again here is redundant
-      // but harmless, and covers the rare case this arrives first).
-      if (op.type === 'stroke') noteLayerSeq(op.layerId, seq)
+      // paint here.
+      //
+      // (#537) …but it was painted before its seq existed, and now it has
+      // one. Confirming moves it from the log's pending tail to its place in
+      // the room's order; if peer operations were painted on the same layer
+      // in between and now sort *after* it, the engine re-settles that layer.
+      // The ack reports the same seq — whichever arrives first confirms, the
+      // other is a no-op.
+      const flushed = commitRevealsBelow(seq)
+      confirmOwnOperation(op, seq)
+      if (flushed) syncFromLog()
       checkSnapshotBoundary()
       return
     }
@@ -87,7 +101,6 @@ export function createConfirmedStreamHandler({
     // above, which does the actual applyRemoteOp/syncFromLog once the
     // reveal finishes playing every dab back.
     if (op.type === 'stroke') {
-      noteLayerSeq(op.layerId, seq)
       // A peer whose client predates live streaming (#429) only ever shows
       // up here, whole and after the fact — still enough to light the row.
       markLayerActive(op.userId, op.layerId)
@@ -103,6 +116,7 @@ export function createConfirmedStreamHandler({
           catchingUpRef.current = true
           reportInvariant('reveal backlog — applying peer strokes without animation', { backlog })
         }
+        commitRevealsBelow(seq)
         applyRemoteOp(op)
         syncFromLog()
         checkSnapshotBoundary()
@@ -116,6 +130,7 @@ export function createConfirmedStreamHandler({
       // for a stronger reason: here the content is not merely correct, it is
       // already visible, and has been since the author drew it.
       if (op.strokeId && streamedStrokeIdsRef.current.has(op.strokeId)) {
+        commitRevealsBelow(seq)
         applyRemoteOp(op)
         syncFromLog()
         checkSnapshotBoundary()
@@ -129,25 +144,12 @@ export function createConfirmedStreamHandler({
       engineRef.current?.previewOperation(op)
       return
     }
-    // An undo/revoke racing a still-revealing stroke of its own: skip the
-    // animation, but still commit the stroke to the log immediately right
-    // before the undo/revoke that targets it — both applied synchronously
-    // here, so nothing is ever actually painted to screen, but the log
-    // still has a 'done'-then-'undone' entry a later redo can restore.
-    // Dropping the operation outright (rather than just its animation)
-    // would leave OperationLog.applyUndo/Redo with no entry to flip.
-    if (
-      (op.type === 'operation_undo' || op.type === 'operation_revoke') &&
-      pendingPreviewsRef.current.has(op.targetOpId)
-    ) {
-      const target = engineRef.current?.dropPendingPreview(op.targetOpId)
-      pendingPreviewsRef.current.remove(op.targetOpId)
-      if (target) applyRemoteOp(target)
-      applyRemoteOp(op)
-      syncFromLog()
-      checkSnapshotBoundary()
-      return
-    }
+    // Everything below this point commits `op` now, so whatever still
+    // reveals below it goes first (#537). That includes an undo/revoke racing
+    // the reveal of its own target: the target is committed, then flipped,
+    // in the same task — nothing reaches the screen in between, and the log
+    // keeps the 'done'-then-'undone' entry a later redo needs.
+    commitRevealsBelow(seq)
     // (#169) Target isn't in the log yet — background backfill hasn't
     // reached it (or, very rarely, a real gap). Defer rather than apply
     // now: applying now would silently no-op and lose it permanently. See

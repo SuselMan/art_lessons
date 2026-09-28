@@ -2,16 +2,18 @@ import type { RefObject } from 'react'
 
 import { packDabs, type ClientToServerEvents, type Operation } from '@grafetto/shared'
 
-import type { PencilEngineOptions } from '../../engine'
+import type { PencilEngineAPI, PencilEngineOptions } from '../../engine'
 import { liveTiming } from '../../lib/liveLatency'
 import { useRoomStore } from '../../stores/roomStore'
 import type { Outbox } from './outbox'
-import type { PendingPreviews } from './pendingPreviews'
+import { commitRevealsBelow, type PendingPreviews } from './pendingPreviews'
 
 export type EngineNetworkCallbacks = Required<Pick<PencilEngineOptions,
   'onLocalOperation' | 'onPreviewApplied' | 'onLiveStrokeDabs' | 'onLiveStrokeEnd'>>
 
 export interface EngineNetworkDeps {
+  /** For committing reveals out from under the one that just finished (#537). */
+  engineRef: RefObject<Pick<PencilEngineAPI, 'dropPendingPreview'> | null>
   /** Ids already in this engine's log — this client's own included. */
   appliedOpIdsRef: RefObject<Set<string>>
   /** Ids this client created and the server has not confirmed yet. */
@@ -34,7 +36,7 @@ export interface EngineNetworkDeps {
  *  and when a gesture streams live. Out of Room's mount-engine effect, where
  *  these were inline options of `new PencilEngine`. */
 export function createEngineNetworkCallbacks({
-  appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
+  engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
   applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef, sendLive, sendLiveEnd,
 }: EngineNetworkDeps): EngineNetworkCallbacks {
   return {
@@ -52,7 +54,7 @@ export function createEngineNetworkCallbacks({
     // (#289 §9) Sending goes through the Outbox rather than a bare emit:
     // persisted first, retried with backoff, replayed on reconnect. Its
     // `onSettled` (see the Outbox construction above) owns everything the
-    // old inline ack callback did — watermark, pendingIds, noteLayerSeq.
+    // old inline ack callback did — watermark, pendingIds, the seq confirmation (#537).
     onLocalOperation: op => {
       appliedOpIdsRef.current.add(op.id)
       // (#289 §2/§4) A fresh layer/folder is a "local island" member from
@@ -65,7 +67,10 @@ export function createEngineNetworkCallbacks({
     // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
     // commit it for real now, matching what's already visible on screen.
     onPreviewApplied: op => {
-      pendingPreviewsRef.current.remove(op.id)
+      const seq = pendingPreviewsRef.current.remove(op.id)
+      // (#537) A shorter stroke of another peer can finish revealing before a
+      // longer one that the room ordered first — commit that one first.
+      if (seq !== undefined) commitRevealsBelow(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
       applyRemoteOp(op)
       syncFromLog()
       checkSnapshotBoundary()
