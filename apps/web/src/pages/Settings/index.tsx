@@ -172,7 +172,10 @@ function VersionSection() {
         {/* A build identity, not prose — monospace so two of them can be
             compared character by character, which is the only thing anyone
             ever does with it. */}
-        <code className={styles.version}>{APP_VERSION} · {WATERCOLOR_ROUND}</code>
+        <code className={styles.version}>{APP_VERSION}</code>
+        {/* (#536) Which watercolour round this build carries - its own element:
+            the build identity above is compared as an exact string. */}
+        <code className={styles.version}>{WATERCOLOR_ROUND}</code>
         {isDeployedBuild() && (
           <button
             type="button"

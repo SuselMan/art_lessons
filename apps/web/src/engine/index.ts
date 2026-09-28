@@ -4337,6 +4337,14 @@ export class PencilEngine implements PencilEngineAPI {
     // framebuffer, and a point the camera is not currently looking at has no
     // pixel to sample. Callers already handle null (a pick that misses).
     if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null
+    // (#536, §17.46) Displays are coalesced onto the next frame now; a pick
+    // right after an operation read the frame before it (the eyedropper after
+    // a stroke, and every e2e probe). Land the pending one first.
+    if (this._displayRafId !== null) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._displayRafId)
+      this._displayRafId = null
+      this._display()
+    }
     const pixel = new Uint8Array(4)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     // WebGL reads bottom-up; screen coords here are top-down like the rest of
