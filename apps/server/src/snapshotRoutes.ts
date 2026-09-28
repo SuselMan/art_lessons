@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify'
+import type { SnapshotUploadResult } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
 import { canSeeResidentBoard } from './classroom.js'
 import { getParticipant } from './rooms.js'
 import { getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot } from './snapshotStore.js'
@@ -25,11 +27,7 @@ function mayUseBoard(roomId: string, userId: string): boolean {
 }
 
 export function registerSnapshotRoutes(app: FastifyInstance): void {
-  app.post<{
-    Params: { roomId: string }
-    Body: { seq: number; layerState: unknown; layers: Record<string, string> }
-  }>(
-    '/api/rooms/:roomId/snapshots',
+  apiRoute(app, 'POST /api/rooms/:roomId/snapshots',
     { bodyLimit: SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES },
     async (request, reply) => {
       const { roomId } = request.params
@@ -74,7 +72,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
           '#149: snapshot hash mismatch on duplicate upload — possible cross-device determinism violation',
         )
       }
-      return { ok: true, stored: result.created.length, duplicate: result.duplicated.length }
+      return { ok: true, stored: result.created.length, duplicate: result.duplicated.length } satisfies SnapshotUploadResult
     },
   )
 
@@ -87,12 +85,12 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
   // said "latest", nothing about it could ever be cached: re-entering an
   // unchanged room re-downloaded all of it, including for the very client
   // that had baked and uploaded those pixels minutes earlier.
-  app.get<{ Params: { roomId: string } }>('/api/rooms/:roomId/snapshots/index', async (request, reply) => {
+  apiRoute(app, 'GET /api/rooms/:roomId/snapshots/index', async (request, reply) => {
     const { roomId } = request.params
     if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
     const index = await getSnapshotIndex(roomId)
-    if (!index) return reply.code(204).send()
+    if (!index) return reply.code(204).send(undefined)
     // Never cached: which seq is newest is exactly the thing that changes.
     reply.header('Cache-Control', 'no-store')
     return {
@@ -106,8 +104,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
     }
   })
 
-  app.get<{ Params: { roomId: string; layerId: string; seq: string } }>(
-    '/api/rooms/:roomId/snapshots/:layerId/:seq',
+  apiRoute(app, 'GET /api/rooms/:roomId/snapshots/:layerId/:seq',
     async (request, reply) => {
       const { roomId, layerId } = request.params
       if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
@@ -131,7 +128,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
       // costs one index lookup instead of several megabytes.
       const inm = request.headers['if-none-match']
       if (inm && inm.split(',').some(tag => tag.trim() === `"${snapshot.hash}"`)) {
-        return reply.code(304).send()
+        return reply.code(304).send(undefined)
       }
 
       // Sent as the gzip bytes themselves, *not* as Content-Encoding: gzip.
@@ -151,8 +148,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
     },
   )
 
-  app.get<{ Params: { roomId: string }; Querystring: { beforeSeq: string; limit?: string } }>(
-    '/api/rooms/:roomId/operations',
+  apiRoute(app, 'GET /api/rooms/:roomId/operations',
     async (request, reply) => {
       const { roomId } = request.params
       if (!mayUseBoard(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })

@@ -6,6 +6,7 @@ import type { AssignmentSummary } from '@grafetto/shared'
 import { useT, type TFunction } from '../../i18n'
 import { Icon } from '../../components/Icon'
 import type { GridTile } from '../../lib/classMode'
+import { apiPath } from '../../lib/api'
 
 import styles from './ClassGrid.module.css'
 
@@ -118,7 +119,7 @@ export function ClassGrid({
                   <div className={styles.picture}>
                     {board.thumbnailUpdatedAt ? (
                       <img
-                        src={`/api/rooms/${board.id}/thumbnail?v=${encodeURIComponent(board.thumbnailUpdatedAt)}`}
+                        src={apiPath('GET /api/rooms/:roomId/thumbnail', { params: { roomId: board.id }, query: { v: board.thumbnailUpdatedAt } })}
                         alt=""
                         draggable={false}
                       />

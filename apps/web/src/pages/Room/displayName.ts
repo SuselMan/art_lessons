@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid'
-import type { Me } from '../../lib/api'
+import type { Me } from '@grafetto/shared'
 
 // CreateRoom never asks for a name, so for a signed-out visitor there is
 // nothing upstream to read a participant's display name from. This generates a

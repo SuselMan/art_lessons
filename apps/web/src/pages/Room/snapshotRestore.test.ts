@@ -77,7 +77,7 @@ describe('restoreLatestSnapshot', () => {
   beforeEach(() => { decompressions.count = 0 })
 
   it("reports 'none' on a 204 (room has no snapshot yet)", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ status: 204, ok: false })
+    global.fetch = vi.fn().mockResolvedValue({ status: 204, ok: true })
     const { sink, begun } = recordingSink()
     expect(await restoreLatestSnapshot('room-1', sink)).toEqual({ status: 'none' })
     expect(begun).toEqual([])
@@ -263,7 +263,12 @@ describe('restoreLatestSnapshot', () => {
       // Addressed by seq, not by "latest" — that is what makes it cacheable.
       '/api/rooms/my-room/snapshots/background/200',
     ])
-    for (const [, init] of mockFetch.mock.calls) expect(init).toEqual({ credentials: 'include' })
+    // Plain GETs that carry the identity cookie; the index goes through api(),
+    // the blobs are read as bytes, and neither sends a body.
+    for (const [, init] of mockFetch.mock.calls) {
+      expect(init).toMatchObject({ credentials: 'include' })
+      expect(init).not.toHaveProperty('body')
+    }
   })
 
   // (#533) Everything below is one production morning: a laptop whose uplink
@@ -393,7 +398,7 @@ describe('fetchHistoryPage', () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, json: async () => [] })
     await fetchHistoryPage('room-1', 300, 250)
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/rooms/room-1/operations?beforeSeq=300&limit=250', { credentials: 'include' },
+      '/api/rooms/room-1/operations?beforeSeq=300&limit=250', expect.objectContaining({ credentials: 'include', method: 'GET' }),
     )
   })
 

@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import type { BoardSummary } from '@grafetto/shared'
+import type { ApiOk, BoardSummary } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
 import { prisma } from './prisma.js'
 import { isLesson } from './lessons.js'
 import { noteBoardCreated, noteBoardDeleted, noteBoardRenamed, noteBoardsReordered } from './classroom.js'
@@ -94,7 +95,7 @@ async function loadStrip(lessonId: string): Promise<BoardSummary[]> {
 }
 
 export function registerBoardRoutes(app: FastifyInstance, notify?: BoardNotifier): void {
-  app.post<{ Params: { id: string }; Body?: { name?: unknown } }>('/api/rooms/:id/boards', async (request, reply) => {
+  apiRoute(app, 'POST /api/rooms/:id/boards', async (request, reply) => {
     const lesson = await requireOwnedLesson(request, reply)
     if (!lesson) return reply
 
@@ -144,8 +145,7 @@ export function registerBoardRoutes(app: FastifyInstance, notify?: BoardNotifier
   // Rename and/or reorder. Both fields optional and independently applied;
   // the lesson itself can be renamed here (its name is the first board's
   // name) but not moved — it is always first.
-  app.patch<{ Params: { id: string; boardId: string }; Body?: { name?: unknown; order?: unknown } }>(
-    '/api/rooms/:id/boards/:boardId', async (request, reply) => {
+  apiRoute(app, 'PATCH /api/rooms/:id/boards/:boardId', async (request, reply) => {
       const lesson = await requireOwnedLesson(request, reply)
       if (!lesson) return reply
       const { boardId } = request.params
@@ -196,8 +196,7 @@ export function registerBoardRoutes(app: FastifyInstance, notify?: BoardNotifier
     },
   )
 
-  app.delete<{ Params: { id: string; boardId: string } }>(
-    '/api/rooms/:id/boards/:boardId', async (request, reply) => {
+  apiRoute(app, 'DELETE /api/rooms/:id/boards/:boardId', async (request, reply) => {
       const lesson = await requireOwnedLesson(request, reply)
       if (!lesson) return reply
       const { boardId } = request.params
@@ -224,7 +223,7 @@ export function registerBoardRoutes(app: FastifyInstance, notify?: BoardNotifier
       const { wasActive } = noteBoardDeleted(lesson.id, boardId)
       notify?.boardDeleted(lesson.id, boardId)
       if (wasActive || wasActiveInDb) notify?.activeBoardChanged(lesson.id, null)
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 }

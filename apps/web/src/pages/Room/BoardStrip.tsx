@@ -6,6 +6,7 @@ import type { BoardSummary, Participant } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../../components/Icon'
 import { Menu } from '../../components/Menu'
+import { apiPath } from '../../lib/api'
 
 import styles from './BoardStrip.module.css'
 
@@ -101,7 +102,7 @@ export function BoardStrip({
               <div className={styles.picture}>
                 {board.thumbnailUpdatedAt ? (
                   <img
-                    src={`/api/rooms/${board.id}/thumbnail?v=${encodeURIComponent(board.thumbnailUpdatedAt)}`}
+                    src={apiPath('GET /api/rooms/:roomId/thumbnail', { params: { roomId: board.id }, query: { v: board.thumbnailUpdatedAt } })}
                     alt=""
                     loading="lazy"
                     draggable={false}
