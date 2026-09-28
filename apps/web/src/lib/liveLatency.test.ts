@@ -64,17 +64,23 @@ describe('the meter', () => {
     clock.add({ offset: 100, rtt: 6 })
     const meter = createLatencyMeter()
     let frame: (() => void) | undefined
-    noteLivePacketPainted('peer', { sentAt: 1000, penAgeMs: 40 }, { clock, meter, nextFrame: cb => { frame = cb } })
+    let device = 5000
+    noteLivePacketPainted('peer', { sentAt: 1000, penAgeMs: 40 }, {
+      clock, meter, nextFrame: cb => { frame = cb }, now: () => device, arrivedAt: 4990,
+    })
     expect(meter.stats()).toBeNull()
     local = 980 // server time 1080: 80 ms after the author sent it
+    device = 5012 // and on this device, 22 ms after the packet reached its handler
     frame!()
-    expect(meter.stats()).toMatchObject({ count: 1, p50: 120, sendP95: 80, overBudget: 0 })
+    expect(meter.stats()).toMatchObject({
+      count: 1, p50: 120, sendP95: 80, localP95: 22, uncertaintyMax: 3, overBudget: 0,
+    })
   })
 
   it('reports the tail, and counts what is over budget', () => {
     const meter = createLatencyMeter()
     for (let i = 1; i <= 100; i++) {
-      meter.record({ userId: 'p', penToInkMs: i * 3, sendToInkMs: i, uncertaintyMs: 1 })
+      meter.record({ userId: 'p', penToInkMs: i * 3, sendToInkMs: i, uncertaintyMs: 1, localMs: i % 10 })
     }
     const s = meter.stats()!
     expect(s.p50).toBe(150)
@@ -85,7 +91,7 @@ describe('the meter', () => {
 
   it('keeps a rolling window', () => {
     const meter = createLatencyMeter(3)
-    for (const v of [900, 10, 20, 30]) meter.record({ userId: 'p', penToInkMs: v, sendToInkMs: v, uncertaintyMs: 0 })
+    for (const v of [900, 10, 20, 30]) meter.record({ userId: 'p', penToInkMs: v, sendToInkMs: v, uncertaintyMs: 0, localMs: 0 })
     expect(meter.stats()!.max).toBe(30)
   })
 })

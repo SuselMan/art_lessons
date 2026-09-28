@@ -63,6 +63,8 @@ export function createPeerEventHandlers({
     // already on the layer, so it would show the mark twice — once solid,
     // once being redrawn over it.
     peer_stroke_live: data => {
+      // (#432) Before the paint below, so the meter's local part includes it.
+      const arrivedAt = performance.now()
       // Same gate the canvas itself is under until the initial restore
       // finishes (see roomContentReady's own doc comment): painting into a
       // layer whose buffer restoreLayerFromSnapshot is about to overwrite
@@ -76,7 +78,7 @@ export function createPeerEventHandlers({
         washId: data.washId,
       })
       // (#432) Timed on the frame that composites it — see liveLatency.
-      noteLivePacketPainted(data.userId, data)
+      noteLivePacketPainted(data.userId, data, { arrivedAt })
       const seen = streamedStrokeIdsRef.current
       seen.add(data.strokeId)
       while (seen.size > STREAMED_STROKE_MEMORY) seen.delete(seen.values().next().value as string)
