@@ -5,7 +5,7 @@ import type {
   LayerClearOperation, LayerLockOperation, LayerOwnerLockOperation, LayerTransformOperation,
   LayerVisibilityOperation, Operation, StrokeOperation,
 } from '@grafetto/shared'
-import { INITIAL_LAYER_ID } from '@grafetto/shared'
+import { INITIAL_LAYER_ID, WATERCOLOR_WET_DRY_MS } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, flushAllRoomWrites, pendingWriteCount,
@@ -1537,6 +1537,19 @@ describe('RESIDENT_OP_TYPES', () => {
 // withheld from a joining client. This is the rule the 2026-07-31 live bug was
 // about (see isCoveredBySnapshot's own doc comment): withholding on one half
 // alone is how a layer ended up listed twice, then three times.
+describe('isCoveredBySnapshot — paper_dry (#536 §17.48)', () => {
+  const dry = (timestamp: number): Operation => ({ id: 'op-dry', type: 'paper_dry', userId: 'user-a', timestamp, seq: 50 })
+
+  it('reaches a joining client while it can still matter, whatever the snapshots cover', () => {
+    const covered = new Map([['layer-1', 1000]])
+    expect(isCoveredBySnapshot(covered, dry(1_000_000), 1000, new Set(['layer-1']), 1_000_000 + 60_000)).toBe(false)
+  })
+
+  it('stops being kept once the paper would have dried by itself', () => {
+    expect(isCoveredBySnapshot(new Map(), dry(1_000_000), null, null, 1_000_000 + WATERCOLOR_WET_DRY_MS + 1)).toBe(true)
+  })
+})
+
 describe('isCoveredBySnapshot — layer_duplicate', () => {
   const dup = (seq: number): Operation => layerDuplicate({ layerId: 'copy', sourceId: 'src', seq })
 

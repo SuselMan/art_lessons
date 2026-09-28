@@ -52,6 +52,11 @@ export function useLeaveGuard(): () => Promise<void> {
   useEffect(() => {
     if (!editorOnScreen) return
     const releaseHold = holdReload()
+    // (#536) Production only. In a dev build every dev-server reload (a saved
+    // file) raised the browser's "Reload site?" on any device someone had
+    // touched, and a test tablet or iPad across the room then sat frozen on
+    // it until somebody walked over - it hung a four-device test twice.
+    if (import.meta.env.DEV) return releaseHold
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       // Browsers ignore custom text here and show their own wording; the
       // preventDefault is what actually triggers the prompt.

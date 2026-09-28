@@ -17,11 +17,13 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
-  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
-  watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep, watercolorStandingWater, watercolorBrushRunsDry, watercolorBloomStrength, watercolorPuddleMerge, watercolorSpreadBudget, watercolorFrontSteps, watercolorCarryStrides, WC_CARRY_RATE, WC_CARRY_MAX_STEPS, WC_CARRY_HORIZON,
+  watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
+  watercolorWashSignature, watercolorStartExcess, watercolorPuddleDepth, WC_FILM_STAND,
 } from './watercolorPresets'
 import { watercolorPigmentByCode, WATERCOLOR_PIGMENTS, DEFAULT_WATERCOLOR_PIGMENT } from './watercolorPigments'
 import { brushPenWidth } from './brushPenPresets'
@@ -46,8 +48,113 @@ describe('watercolor preset (#468, ADR 011 §5)', () => {
     // sits below its end instead of pinned at it, and raised this to put the
     // tone back where it was. The pass a mark lands on is now about 0.83 of
     // this, so the effective ceiling moved not at all.
-    expect(WATERCOLOR_PRESET.opacity).toBeLessThan(0.85)
-    expect(WATERCOLOR_PRESET.opacity).toBeGreaterThan(0.3)
+    //
+    // (#536) And the assertion moved off this number onto the one it was always
+    // standing in for. The preset's own opacity is not the material's
+    // transparency and has not been since v4 — pigment multiplies it, and the
+    // composite's density curve tops out well under 1 — so pinning the raw
+    // number was measuring the wrong thing, and it went off the moment the
+    // curve underneath it changed while the finished mark did not. What has to
+    // stay true is that an ordinary mix lands nowhere near a covering ink.
+    const effective = WATERCOLOR_PRESET.opacity
+      * watercolorPigmentEffects(WATERCOLOR_MIX_DEFAULT.pigment).strength
+    expect(effective).toBeLessThan(0.7)
+    expect(effective).toBeGreaterThan(0.3)
+    // Not asserted against the brush pen's 0.97 any more: this number is one
+    // factor of three now (the third is the composite's own density curve,
+    // which lives in GLSL and tops an ordinary pass out well under 1), and an
+    // assertion that reaches for two of the three is the kind that goes off
+    // when nothing a painter could see has moved.
+  })
+})
+
+describe('standing water (#536, ADR 011 §17.21)', () => {
+  it('follows the load, not the water setting: a 40 % brush lays a 40 % puddle that fades like a full one', () => {
+    // Clean water (retain 1) on dry paper.
+    expect(watercolorStandingWater(1, 1, 0, 1)).toBeCloseTo(1, 9)
+    expect(watercolorStandingWater(0.4, 1, 0, 1)).toBeCloseTo(0.4, 9)
+    const full = watercolorStandingWater(1, 1, 0, watercolorWaterLoad(40))
+    const damp = watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(40))
+    expect(damp / full).toBeCloseTo(0.4, 9)
+    // The film is whole over the body of the stroke and gives out with the
+    // brush: still whole at one run, half way gone at two.
+    expect(watercolorStandingWater(1, 1, 0, watercolorWaterLoad(20))).toBeGreaterThan(0.9)
+    expect(full).toBeGreaterThan(0.2)
+    expect(full).toBeLessThan(0.7)
+    // Run dry: nothing stands, at any setting.
+    expect(watercolorStandingWater(1, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)
+    expect(watercolorStandingWater(0.4, 1, 0, watercolorWaterLoad(200))).toBeLessThan(1e-3)
+  })
+
+  it('blooms on damp paper only: nothing dry, nothing wet, the most in between (§17.23)', () => {
+    expect(watercolorBloomStrength(0)).toBe(0)
+    expect(watercolorBloomStrength(0.03)).toBe(0)
+    expect(watercolorBloomStrength(0.3)).toBeGreaterThan(0.9)
+    expect(watercolorBloomStrength(0.9)).toBe(0)
+    // (s17.39) ...a loaded pass; clean water still blooms a wet wash.
+    expect(watercolorBloomStrength(0.9, 0)).toBeGreaterThan(0.5)
+    expect(watercolorBloomStrength(0.9, 0)).toBeLessThan(watercolorBloomStrength(0.3, 0))
+    expect(watercolorBloomStrength(0.55)).toBeLessThan(watercolorBloomStrength(0.3))
+  })
+
+  it('merges a mark into the puddle it lands in only when that puddle is wet (§17.25)', () => {
+    // Dry and damp keep their own front: a glaze and a bloom both have a rim.
+    expect(watercolorPuddleMerge(0)).toBe(0)
+    expect(watercolorPuddleMerge(0.3)).toBe(0)
+    // Wet: one puddle, one front - and the bloom has stood down by then.
+    expect(watercolorPuddleMerge(0.9)).toBe(1)
+    expect(watercolorBloomStrength(0.9)).toBe(0)
+    expect(watercolorPuddleMerge(0.55)).toBeGreaterThan(0)
+    expect(watercolorPuddleMerge(0.55)).toBeLessThan(1)
+  })
+
+  it('spreads a wet brush further on wet paper than a dry one on dry (§17.24)', () => {
+    expect(watercolorSpreadBudget(30, 1, 1)).toBeGreaterThan(watercolorSpreadBudget(30, 1, 0))
+    expect(watercolorSpreadBudget(30, 1, 0)).toBeGreaterThan(watercolorSpreadBudget(30, 0, 0))
+    // In cost units, over a relief that costs ~1.6 a cell: the photo's drop
+    // runs a third of its radius on damp paper.
+    // (s17.29) ...and on wet paper about a radius: series 5's fingers.
+    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeGreaterThan(0.7)
+    expect(watercolorSpreadBudget(30, 1, 0.5) / 30).toBeLessThan(0.95)
+    expect(watercolorSpreadBudget(30, 1, 1) / 30).toBeGreaterThan(1)
+    expect(watercolorSpreadBudget(30, 1, 0) / 30).toBeLessThan(0.65)
+    expect(watercolorSpreadBudget(300, 1, 1)).toBe(160)
+    // (s17.34) A flooded landing runs further than a merely wet one.
+    expect(watercolorSpreadBudget(20, 1, 1)).toBeGreaterThan(watercolorSpreadBudget(20, 1, 0.7) + 40)
+    // The front's steps: capped low on dry paper, higher on wet.
+    expect(watercolorFrontSteps(100, 200, 0)).toBe(56)
+    // (s17.44) A wet landing seeds the whole footprint: the radius is not
+    // crossed, only the budget runs - 140 passes where the cap alone allowed 216.
+    expect(watercolorFrontSteps(100, 200, 1)).toBe(140)
+    expect(watercolorFrontSteps(10, 20, 1)).toBe(14)
+    expect(watercolorFrontSteps(10, 20, 0.5)).toBe(24)
+  })
+
+  it('carries the paint the whole budget in a few strided steps (§17.29)', () => {
+    for (const budget of [2, 6, 18, 40]) {
+      const strides = watercolorCarryStrides(budget)
+      const reach = strides.reduce((a, s) => a + s, 0) * WC_CARRY_RATE
+      expect(strides.length).toBeLessThanOrEqual(WC_CARRY_MAX_STEPS)
+      // Reaches the budget (a whole cycle of dyadic strides up to the
+      // budget sums to about four times it).
+      expect(reach).toBeGreaterThanOrEqual(budget)
+      // No stride coarser than the budget: the paint follows the front's
+      // fingers, it does not jump past them.
+      expect(Math.max(...strides)).toBeLessThanOrEqual(Math.max(1, budget * WC_CARRY_HORIZON))
+      // ...and the fine strides come back after the coarse ones.
+      expect(strides[strides.length - 1]).toBeLessThan(Math.max(...strides) + 1)
+    }
+    expect(watercolorCarryStrides(18)).toEqual([1, 2, 4, 8, 16, 16, 8, 4, 2, 1])
+  })
+
+  it('runs a brush dry only when it carries pigment', () => {
+    expect(watercolorBrushRunsDry(0)).toBe(false)
+    expect(watercolorBrushRunsDry(0.01)).toBe(true)
+  })
+
+  it('keeps everything on paper that is already wet, whatever the retention', () => {
+    expect(watercolorStandingWater(1, 0.15, 1, 1)).toBeCloseTo(1, 9)
+    expect(watercolorStandingWater(1, 0.15, 0, 1)).toBeCloseTo(0.15, 9)
   })
 })
 
@@ -210,21 +317,30 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
     }
   })
 
-  it('bottoms out rather than reaching zero', () => {
-    // A brush dragged a long way is drier, not empty — it keeps laying a thin
-    // broken wash until it is lifted. A zero here would make long strokes
-    // simply stop painting, which is a bug, not dry brush.
-    expect(watercolorWaterLoad(1e4)).toBeGreaterThan(0.2)
-    expect(watercolorWaterLoad(1e4)).toBeLessThan(0.45)
+  it('runs dry, but never to exactly zero', () => {
+    // (#536, §17.18) A brush dragged a long way is DRY — the contact breaks up,
+    // the hairs show, and nothing stands on the sheet to run in. The old floor
+    // of 0.22 kept every long line damp to the end ("почему вода в кисти не
+    // заканчивается никогда?"). A hair of water stays so the ratios the
+    // composite divides out stay defined; it is not a wash.
+    expect(watercolorWaterLoad(1e4)).toBeGreaterThan(0)
+    expect(watercolorWaterLoad(1e4)).toBeLessThan(0.1)
   })
 
   it('leaves an ordinary stroke almost undepleted and a long sweep plainly dry', () => {
     // Deliberately loose — this pins the *shape*, not today's exact numbers.
-    // A short mark that has already lost a third of its water reads as a
-    // failing brush rather than as watercolor; a 40-radius sweep that keeps
-    // nearly everything defeats the whole term.
-    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.70)
-    expect(watercolorWaterLoad(40)).toBeLessThan(0.55)
+    //
+    // (#536) The short-mark bound came down from 0.70 to 0.55, and it is a
+    // judgement being revised rather than a bound being loosened to fit: the
+    // old number said a mark eight radii long that has lost a third of its
+    // water "reads as a failing brush", and the verdict from an actual hand on
+    // the actual build was the opposite — the brush was running out far too
+    // slowly. Neither number was ever visible before the density curve was
+    // fixed, so the old one was never really under test.
+    // (#536, §17.18) …and 0.55 → 0.50 with the floor gone: the same run, a
+    // lower resting level, so the curve at eight radii sits a shade lower.
+    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.50)
+    expect(watercolorWaterLoad(40)).toBeLessThan(0.40)
   })
 
   it('measures travel in brush radii, not pixels', () => {
@@ -240,24 +356,73 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
 })
 
 describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
-  it('runs water down faster than pigment', () => {
-    // The whole reason for two curves rather than one. Water soaks away and
-    // evaporates; pigment stays on the hairs. That gap is what walks a single
-    // long stroke from a wet saturated start to a dry but still strongly
-    // coloured end — which is a behaviour, not an effect, and is very far from
-    // what a marker does.
+  it('runs the paint out before the water', () => {
+    // (#536) This assertion is the reverse of the one it replaces, and the
+    // reversal came from a hand rather than from an argument: Ilya, painting
+    // the same stroke with a real brush, reports the paint going first. It is
+    // also what the mark does — a brush at the end of a long sweep is still
+    // damp and no longer coloured, which is the dry-brush end everyone knows.
+    //
+    // The old assertion was not wrong about the model, it was wrong about the
+    // world, and it survived because neither curve could be seen: the deposit
+    // sat above the composite's saturation ceiling, so a sixteen per cent
+    // change in it moved no pixels.
     for (const u of [5, 10, 20, 40, 80]) {
-      expect(watercolorWaterLoad(u)).toBeLessThan(watercolorPigmentLoad(u))
+      expect(watercolorPigmentLoad(u)).toBeLessThan(watercolorWaterLoad(u))
     }
   })
 
-  it('leaves a long stroke drier than it is pale', () => {
-    // Concretely: by 40 radii the brush should have lost most of its water and
-    // only a little of its paint. If these ever converge, the tool is back to
-    // one quantity and the dry-brush tail stops existing.
-    const water = watercolorWaterLoad(40)
-    const pigment = watercolorPigmentLoad(40)
-    expect(pigment - water).toBeGreaterThan(0.2)
+  it('spends a finite budget, the same on any path, and spends it further when wet (#536, §17.14)', () => {
+    // The brush-level invariant: initial = delivered + remaining, so what a
+    // stroke can lay down over ANY path is the integral of the curve — a
+    // scribble on the spot and a straight line of the same travel deliver the
+    // same mass, and no travel, however long, exceeds the budget. The floor
+    // that used to sit under the curve made the budget infinite: two hundred
+    // dabs on one spot at ten per cent each was a brush that never emptied.
+    const delivered = (water: number, radii: number, step: number): number => {
+      let sum = 0
+      for (let u = 0; u < radii; u += step) sum += watercolorPigmentLoad(u, water) * watercolorPigmentRate(water) * step
+      return sum
+    }
+    // …and the budget is rate × run, a known number per water: a wet brush
+    // carries more than a dry one (it is loaded with more solution), but
+    // never more than a few times more, and never an unbounded amount.
+    const dryBudget = watercolorPigmentRun(0) * watercolorPigmentRate(0)
+    const wetBudget = watercolorPigmentRun(1) * watercolorPigmentRate(1)
+    expect(wetBudget).toBeGreaterThan(dryBudget)
+    // (s17.28) A wet brush spends its pigment over ten times the run of a dry
+    // one at half the rate: five times the budget, and Ilya's photographs
+    // want a loaded wet stroke nearly one tone for sixteen radii.
+    expect(wetBudget).toBeLessThan(dryBudget * 6)
+    for (const water of [0, 0.5, 1]) {
+      const budget = watercolorPigmentRun(water) * watercolorPigmentRate(water)
+      // Path geometry is not an input, only travel: a fine-stepped scribble and
+      // a coarse-stepped sweep integrate to the same thing.
+      // Relative, not absolute: the budget scales with the pigment gain and
+      // the step error scales with it.
+      expect(delivered(water, 500, 0.05) / delivered(water, 500, 0.5)).toBeCloseTo(1, 1)
+      expect(delivered(water, 500, 0.05)).toBeLessThanOrEqual(budget * 1.01)
+      expect(delivered(water, 5000, 0.5)).toBeLessThanOrEqual(budget * 1.05)
+      // …and remaining + delivered is the budget at every point.
+      for (const u of [1, 8, 32, 100]) {
+        expect(delivered(water, u, 0.01) / budget + watercolorPigmentLoad(u, water)).toBeCloseTo(1, 1)
+      }
+      expect(delivered(water, 5000, 0.5) / budget).toBeCloseTo(1, 1)
+    }
+    // Wet spends further, dry sooner: the observation the two runs came from.
+    expect(watercolorPigmentRun(1)).toBeGreaterThan(watercolorPigmentRun(0) * 3)
+    expect(watercolorPigmentLoad(20, 1)).toBeGreaterThan(watercolorPigmentLoad(20, 0) * 3)
+  })
+
+  it('leaves a long stroke pale before it leaves it dry', () => {
+    // Measured where the two curves are furthest apart rather than at the end
+    // of a very long sweep, where both have settled onto their floors and the
+    // gap is necessarily small. What has to be true is that there is a stretch
+    // of the stroke that is still wet and already pale — that stretch *is* the
+    // dry-brush tail.
+    expect(watercolorWaterLoad(12) - watercolorPigmentLoad(12)).toBeGreaterThan(0.15)
+    // And the ordering holds all the way out.
+    expect(watercolorPigmentLoad(40)).toBeLessThan(watercolorWaterLoad(40))
   })
 
   it('lets water govern geometry and pigment govern paint, never the reverse', () => {
@@ -289,8 +454,16 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
     expect(deep.strength).toBeGreaterThan(pale.strength * 3)
     expect(deep.granulation).toBeGreaterThan(pale.granulation)
     expect(deep.wetEdge).toBeGreaterThan(pale.wetEdge)
-    // Never zero: a stroke the user asked for has to leave something.
-    expect(watercolorPigmentEffects(0).strength).toBeGreaterThan(0)
+    // (#536) Zero, and this assertion is the inverse of the one it replaces.
+    // It used to read "never zero: a stroke the user asked for has to leave
+    // something", which sounded like care for the user and was in fact a
+    // control that lied: the bottom of the pigment slider still painted, so
+    // "clean water" — the one technique the two axes exist to make possible —
+    // could not be asked for at all. What a water stroke leaves is wetness, on
+    // the paper and not in the pixels.
+    expect(watercolorPigmentEffects(0).strength).toBe(0)
+    // …and the moment there is any pigment at all, there is paint.
+    expect(watercolorPigmentEffects(0.02).strength).toBeGreaterThan(0)
   })
 
   it('gives the three named mixes genuinely different characters', () => {
@@ -425,25 +598,44 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
   // rasterizes DAB_FRAG, and §11's whole result is a redistribution inside the
   // composite (see this file's own header). What *is* testable is the gate: a
   // wash that is not very wet must not pay for the term, and must not get it.
-  it('is off for anything short of a very wet mix', () => {
-    for (const water of [0, 0.3, 0.55, 0.7, 0.78]) {
+  it('is off for a brush with no water to move anything with', () => {
+    for (const water of [0, 0.2, 0.34]) {
       const p = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water, pigment: 0.6 }))
       expect(p.migrate).toBe(0)
     }
   })
 
-  it('is on above it, and only there', () => {
-    const damp = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.6, pigment: 0.6 }))
+  it('is on from an ordinary damp mix upward', () => {
+    // (#536) The threshold came down from 0.78, and it is a recalibration
+    // rather than a loosening. 0.78 was chosen when the only source of water
+    // was the brush's own mix, where it meant "the wet preset and nothing
+    // else". Water can now be laid on the paper deliberately, and at the
+    // ordinary damp mix (0.55) that puddle never opened the gate — so the pass
+    // whose whole job is moving pigment through standing water had never once
+    // run in the case it exists for.
+    // (s17.30) ...and now off altogether: the deposit carries the pigment
+    // (s17.29), and this pass hid the deposit's structure behind its own ring.
+    const damp = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.55, pigment: 0.6 }))
     const wet = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.95, pigment: 0.6 }))
     expect(damp.migrate).toBe(0)
-    expect(wet.migrate).toBeGreaterThan(0)
+    expect(wet.migrate).toBe(0)
+  })
+
+  it('runs on a dry brush dragged through water already on the paper', () => {
+    // The case the whole thing exists for, and the one it could not reach: the
+    // brush is nearly dry, the paper is not.
+    // (s17.30) Off for the same reason as above; the case lives in the
+    // deposit's remobilisation (mode 13) and carry now.
+    const dryBrush = watercolorPresetString('normal', { water: 0.12, pigment: 0.8 })
+    expect(ribbonProfileFor('watercolor', dryBrush, 0).migrate).toBe(0)
+    expect(ribbonProfileFor('watercolor', dryBrush, 0.9).migrate).toBe(0)
   })
 
   // The reach and the gate travel with the profile so a peer replaying the
   // stroke redistributes the pigment exactly as the author's machine did.
   it('carries a gate the shader can read, in the same units as the mix', () => {
     const p = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.95, pigment: 0.6 }))
-    expect(p.migrateLo).toBeGreaterThan(0.5)
+    expect(p.migrateLo).toBeGreaterThan(0.2)
     expect(p.migrateLo).toBeLessThan(p.migrateHi)
     expect(p.migrateHi).toBeLessThanOrEqual(1)
     expect(p.migrateOfRadius).toBeGreaterThan(0)
@@ -459,7 +651,10 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
     const mix = { water: 0.95, pigment: 0.6 }
     const a = ribbonProfileFor('watercolor', watercolorPresetString('normal', mix, staining.code))
     const b = ribbonProfileFor('watercolor', watercolorPresetString('normal', mix, lifting.code))
-    expect(a.migrate).toBeLessThan(b.migrate)
+    // (s17.30) The composite's migration is off for every paint; staining's
+    // say on transport is a debt of the deposit's carry, not of this pass.
+    expect(a.migrate).toBe(0)
+    expect(b.migrate).toBe(0)
   })
 
   // Every other tool goes through the same program, and a nonzero gain there
@@ -683,5 +878,238 @@ describe('watercolor flex nib (#489)', () => {
     // barely moving: slow careful work should land under the brush.
     expect(fast.x - fast.footprint.x).toBeGreaterThan(slow.x - slow.footprint.x)
     expect(slow.x - slow.footprint.x).toBeCloseTo(0, 6)
+  })
+})
+
+describe('what keeps a wash open (#536)', () => {
+  const blue: [number, number, number] = [0.1, 0.2, 0.7]
+
+  it('survives either mix slider moving', () => {
+    // The sequence this exists for: lay clean water, turn the pigment up, take
+    // paint into it. Those are necessarily two strokes with different mixes,
+    // and under the old rule — the whole preset string — they were necessarily
+    // two washes, so the second could not know the first had happened.
+    const water = watercolorPresetString('normal', { water: 0.95, pigment: 0 }, 'PB29')
+    const paint = watercolorPresetString('normal', { water: 0.5, pigment: 0.8 }, 'PB29')
+    expect(watercolorWashSignature(water, blue)).toBe(watercolorWashSignature(paint, blue))
+  })
+
+  it('survives changing brush and pressure feel', () => {
+    // Swapping brushes mid-wash is ordinary. Neither the nib nor how the stylus
+    // is read says anything about what is lying on the paper.
+    const round = watercolorPresetString('soft', WATERCOLOR_MIX_DEFAULT, 'PB29', 'round')
+    const flat = watercolorPresetString('firm', WATERCOLOR_MIX_DEFAULT, 'PB29', 'chisel')
+    expect(watercolorWashSignature(round, blue)).toBe(watercolorWashSignature(flat, blue))
+  })
+
+  it('continues across a different paint or a different colour (#536, §17.19)', () => {
+    // A second paint into a wash that is still wet MIXES with the first —
+    // the wash carries every paint's colour per texel as optical depth — so
+    // the signature no longer keeps paints apart. A glaze is still a glaze:
+    // it is the drying, not the colour, that closes a wash.
+    const cobalt = watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, 'PB29')
+    const other = watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, 'PY35')
+    expect(watercolorWashSignature(cobalt, blue)).toBe(watercolorWashSignature(other, blue))
+    expect(watercolorWashSignature(cobalt, blue)).toBe(watercolorWashSignature(cobalt, [0.9, 0.1, 0.1]))
+  })
+})
+
+describe('paper wetness against brush water (#536)', () => {
+  const dryBrush = watercolorPresetString('normal', { water: 0.12, pigment: 0.8 }, 'PB29')
+
+  it('makes a dry brush on wet paper spread without making it stop scratching', () => {
+    const onDry = ribbonProfileFor('watercolor', dryBrush, 0)
+    const onWet = ribbonProfileFor('watercolor', dryBrush, 0.9)
+    // What happens to the paint after it lands is the paper's business…
+    expect(onWet.spreadOfRadius).toBeGreaterThan(onDry.spreadOfRadius * 2)
+    expect(onWet.edgeSoft).toBeGreaterThan(onDry.edgeSoft * 2)
+    // …and how the brush meets the paper is still the brush's. Collapsing the
+    // two would turn a dry brush dragged over a puddle into a loaded one, which
+    // is exactly what a wet-in-wet mark does not look like.
+    expect(onWet.dryContact).toBe(onDry.dryContact)
+    expect(onWet.dryContact).toBeGreaterThan(0.5)
+  })
+
+  it('lets even a loaded brush travel further on paper that is already wet', () => {
+    // (#536) This assertion is the reverse of the one it replaces, which said a
+    // loaded brush should be unaffected because its own water already exceeded
+    // the paper's. That was true of the saturating curves — which do take the
+    // wetter of the two — and false of the thing a painter sees: water lying on
+    // the sheet is extra reservoir, and paint laid into it goes further than
+    // the same paint laid on dry paper however loaded the brush was. Wet-in-wet
+    // is not a fringe a few pixels wide, and treating the paper as merely "not
+    // less wet than the brush" is what kept it one.
+    const loaded = watercolorPresetString('normal', { water: 0.92, pigment: 0.5 }, 'PB29')
+    const onDry = ribbonProfileFor('watercolor', loaded, 0)
+    const onWet = ribbonProfileFor('watercolor', loaded, 0.9)
+    expect(onWet.spreadOfRadius).toBeGreaterThan(onDry.spreadOfRadius * 2)
+    // …and the brush still meets the paper the way it always did.
+    expect(onWet.dryContact).toBe(onDry.dryContact)
+  })
+})
+
+describe('the touch-down surplus (#536)', () => {
+  it('is a short surplus, not a second depletion curve', () => {
+    // Heavier as the brush lands…
+    // (s17.37) A touch with no pause: a little; with a two-second dwell:
+    // about twice the body, as the dwell test photographed.
+    expect(watercolorStartExcess(0, 0)).toBeGreaterThan(1.1)
+    expect(watercolorStartExcess(0, 0)).toBeLessThan(1.5)
+    expect(watercolorStartExcess(0, 0, 2000)).toBeGreaterThan(2)
+    expect(watercolorStartExcess(0, 0, 500)).toBeGreaterThan(watercolorStartExcess(0, 0))
+    expect(watercolorStartExcess(0, 0, 500)).toBeLessThan(watercolorStartExcess(0, 0, 2000))
+    // ...and the puddle seed only with a dwell: a landing that moves on at
+    // once lays a film, a landing that stood a while a puddle.
+    expect(watercolorPuddleDepth(0, 0, 0, 0)).toBeCloseTo(WC_FILM_STAND, 6)
+    expect(watercolorPuddleDepth(0, 0, 0, 2000)).toBeGreaterThan(0.95)
+    // …and spent within a radius or two, which is the whole difference between
+    // "the brush arrived carrying something" and a dark segment at the start of
+    // every line. A flat wash is a series of bands; at four radii this would be
+    // a periodic dark head across the finished wash, which is the spatial
+    // structure v9 went to trouble to remove.
+    expect(watercolorStartExcess(3, 0)).toBeLessThan(1.2)
+    expect(watercolorStartExcess(40, 0)).toBeCloseTo(1, 6)
+  })
+
+  it('does not dump into standing water', () => {
+    // A loaded brush lowered into a bead merges with it. One predicate — what
+    // is under the landing point — covers the head of a mark on dry paper, a
+    // second pass over something wet, and the next band of a flat wash laid up
+    // against the wet one before it.
+    expect(watercolorStartExcess(0, 1)).toBeCloseTo(1, 6)
+    const partial = watercolorStartExcess(0, 0.5)
+    expect(partial).toBeGreaterThan(1)
+    expect(partial).toBeLessThan(watercolorStartExcess(0, 0))
+  })
+
+  it('never takes anything away', () => {
+    // A multiplier over the normal dose, never under it: this adds a surplus,
+    // it does not make the rest of the stroke lighter than it was.
+    for (const s of [0, 0.5, 1, 5, 50]) expect(watercolorStartExcess(s, 0)).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('the brush drinks from the paper (#536, ADR 011 §17)', () => {
+  it('spends the clock exactly as before wherever the paper is dry', () => {
+    // The single most important property here. Every stroke that never meets
+    // water — which is nearly all of them — has to walk the identical curve it
+    // walked before the exchange existed, or this feature has quietly retuned
+    // the whole tool.
+    let used = 0
+    for (let i = 0; i < 20; i++) used = watercolorWaterClock(used, 0.7, 0)
+    expect(used).toBeCloseTo(20 * 0.7, 10)
+  })
+
+  it('gives water back where the paper is wet, in proportion to how wet', () => {
+    const step = 0.7
+    const damp = watercolorWaterClock(4, step, 0.3)
+    const wet = watercolorWaterClock(4, step, 1)
+    expect(damp).toBeLessThan(4 + step)
+    expect(wet).toBeLessThan(damp)
+    // Standing water does not merely hold the level, it recovers it — a brush
+    // dragged through a puddle comes out wetter than it went in.
+    expect(wet).toBeLessThan(4)
+  })
+
+  it('never charges the brush past full', () => {
+    // The clock stops at zero, so no amount of dwelling in a puddle can make a
+    // brush wetter than the one the user picked up.
+    let used = 0.2
+    for (let i = 0; i < 50; i++) used = watercolorWaterClock(used, 0.5, 1)
+    expect(used).toBe(0)
+  })
+
+  it('leaves a tail: the brush stays wetter for a while after it is out', () => {
+    // This is the behaviour Ilya described — the brush drags the puddle a
+    // little way past its edge — and it falls out of rewinding the clock
+    // rather than being modelled separately.
+    const step = 0.5
+    let drank = 0, never = 0
+    for (let i = 0; i < 6; i++) { drank = watercolorWaterClock(drank, step, 0.9); never = watercolorWaterClock(never, step, 0) }
+    // Out of the puddle, both running down at the ordinary rate.
+    const tail: number[] = []
+    for (let i = 0; i < 120; i++) {
+      drank = watercolorWaterClock(drank, step, 0)
+      never = watercolorWaterClock(never, step, 0)
+      tail.push(watercolorWaterLoad(drank) - watercolorWaterLoad(never))
+    }
+    // Wetter than a brush that never saw the water, right after leaving…
+    expect(tail[0]).toBeGreaterThan(0.05)
+    // …still wetter a short way on…
+    expect(tail[8]).toBeGreaterThan(0)
+    // …and the gap only ever closes, never grows.
+    for (let i = 1; i < tail.length; i++) expect(tail[i]).toBeLessThanOrEqual(tail[i - 1] + 1e-12)
+    // …until both are down on the floor together and the puddle is forgotten.
+    //
+    // It closes slowly, and that is worth being exact about rather than tuning
+    // away: the two clocks stay the *same* distance apart for the rest of the
+    // stroke, because from here on both advance at the same rate. What shrinks
+    // is what that distance is worth, since both are running down the flat end
+    // of the same exponential. So the brush does not "re-dry" after the puddle
+    // — it finishes the stroke slightly wetter than it would have, by an amount
+    // that stops mattering. Which is what a real one does.
+    expect(tail[tail.length - 1]).toBeLessThan(0.01)
+  })
+
+  it('takes a readable bite out of the paper without wiping it', () => {
+    expect(watercolorPaperDrained(0, 0)).toBe(0)
+    expect(watercolorPaperDrained(1, 0)).toBeGreaterThan(0.15)
+    // Per *stroke*, applied once per cell (PaperWetness.drain), so a scribble
+    // that crosses the same cells forty times takes this once, not forty times.
+    expect(watercolorPaperDrained(1, 0)).toBeLessThan(0.4)
+    // Proportional: a barely damp patch gives up barely anything.
+    expect(watercolorPaperDrained(0.2, 0)).toBeCloseTo(watercolorPaperDrained(1, 0) * 0.2, 10)
+    // A loaded brush takes next to nothing — it has nowhere to put it.
+    expect(watercolorPaperDrained(1, 1)).toBe(0)
+    expect(watercolorPaperDrained(1, 0.5)).toBeCloseTo(watercolorPaperDrained(1, 0) * 0.5, 10)
+  })
+})
+
+describe('the deposit has to fit in the buffer it is written to (#536)', () => {
+  // The single most expensive bug of this whole effort, turned into an
+  // assertion. The accumulation buffer is RGBA/UNSIGNED_BYTE, so its ceiling is
+  // a hard clamp at 1.0, and the deposit gain was deliberately set to run an
+  // ordinary pass at roughly twice that — the flat interior it produced was
+  // read as a feature. Everything downstream then read a constant, which is
+  // what "ничего не кончается", "щетинок не видно", "длинная линия не меняется"
+  // and "повторным проходом не выровнять" all were: four complaints, one fact.
+  //
+  // The estimate is deliberately crude and deliberately generous. A point on a
+  // straight stroke is under the brush for about two radii of travel, and the
+  // dose is depositPerRadius per radius with the stamps and bands splitting it
+  // between them — so about 2 x depositPerRadius lands on that pixel in one
+  // pass. It does not need to be exact: the failure it guards against is a
+  // factor of four, not a few per cent.
+  const singlePass = (preset: string): number =>
+    2 * ribbonProfileFor('watercolor', preset, 0).depositPerRadius
+
+  it('leaves room for several glazes on top of the first', () => {
+    for (const preset of ['normal:55:60:PB29:round', 'normal:92:42:PB29:round', 'normal:18:88:PB29:round']) {
+      // Comfortably inside the buffer…
+      expect(singlePass(preset)).toBeLessThan(0.7)
+      // …and not so far inside that a pass writes nothing a later one can add
+      // to, which is the same mistake from the other end.
+      expect(singlePass(preset)).toBeGreaterThan(0.1)
+    }
+  })
+
+  it('does not let the pigment setting push a pass over the ceiling', () => {
+    // Paint strength rides its own channel on the deposit (pigmentStrength)
+    // rather than scaling the deposit itself, which is what keeps this true at
+    // both ends of the slider. If that ever moves back onto the dose, this is
+    // the test that says so.
+    const weak = ribbonProfileFor('watercolor', 'normal:55:5:PB29:round', 0)
+    const strong = ribbonProfileFor('watercolor', 'normal:55:100:PB29:round', 0)
+    expect(strong.depositPerRadius).toBe(weak.depositPerRadius)
+    expect(strong.pigmentStrength).toBeGreaterThan(weak.pigmentStrength)
+  })
+
+  it('keeps the composite’s saturation point where the deposit actually lands', () => {
+    // The curve and the scale are one number in two places: the composite reads
+    // density off the deposit, so moving either alone changes the tool’s tone
+    // rather than its behaviour. A pass has to reach the saturation point and
+    // then some, or the curve is flat everywhere the tool is used.
+    const profile = ribbonProfileFor('watercolor', 'normal:55:60:PB29:round', 0)
+    expect(singlePass('normal:55:60:PB29:round')).toBeGreaterThan(profile.saturateInk)
   })
 })

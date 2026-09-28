@@ -40,6 +40,66 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Collapsible live-tuning panel for every PencilSound/PENCIL_SOUND_VARIANT_3 knob (#153 round 13), plus a "copy config" button to hand tuned values back. Only shown while sound is on (General tab).',
     envVar: 'VITE_PENCIL_SOUND_TUNING',
   },
+  {
+    key: 'wcViewSilhouette',
+    label: 'Watercolor: show silhouette only (dev only)',
+    description: 'Paints the wash with its silhouette as the tone — the mark after spreading and its re-threshold — instead of the finished colour. If the blotching is here, it is the spread field eating into the mark.',
+    envVar: 'VITE_WC_VIEW_SILHOUETTE',
+  },
+  {
+    key: 'wcViewDensity',
+    label: 'Watercolor: show density only (dev only)',
+    description: 'Paints the wash with the film density as the tone — everything the deposit carries, including the mottling now written into it. If the blotching is here, it is the deposit. Wins over the silhouette view when both are on.',
+    envVar: 'VITE_WC_VIEW_DENSITY',
+  },
+  {
+    key: 'wcViewPigment',
+    label: 'Watercolor: show mobile pigment only (dev only)',
+    description: 'Paints the wash with the pigment channel of the deposit (deposit x strength, x3) as the tone - what the wet diffusion pass carries (#536, ADR 011 s17.11). Wins over the silhouette and density views.',
+    envVar: 'VITE_WC_VIEW_PIGMENT',
+  },
+  {
+    key: 'wcViewWater',
+    label: 'Watercolor: show standing water only (dev only)',
+    description: 'Paints the wash with the standing water the wet diffusion pass gates on - the free water of clean passes and the wetness pigment passes recorded under themselves (#536, ADR 011 s17.11). Wins over the other three views.',
+    envVar: 'VITE_WC_VIEW_WATER',
+  },
+  {
+    key: 'wcNoSpread',
+    label: 'Watercolor A/B: composite spread off (dev only)',
+    description: 'Zeroes the composite\'s blur-and-rethreshold of the silhouette (u_spreadPx). The water front (#536, ADR 011 s17.24) now writes the wetted domain into the coverage itself; this shows what the re-threshold still adds - or eats.',
+    envVar: 'VITE_WC_NO_SPREAD',
+  },
+  {
+    key: 'wcNoMigrate',
+    label: 'Watercolor A/B: composite migration off (dev only)',
+    description: 'Zeroes the composite\'s pigment migration (u_migratePx, ADR 011 s17.6) - half its cost. The tideline now lives in the deposit (s17.23); this shows what the composite\'s own ring still contributes.',
+    envVar: 'VITE_WC_NO_MIGRATE',
+  },
+  {
+    key: 'wcNoDiffuse',
+    label: 'Watercolor A/B: wet diffusion off (dev only)',
+    description: 'Skips the wet diffusion schedule at the settle (ADR 011 s17.11): the mobile paint moves only with the water front (s17.29). Shows what the isotropic smear adds - or erases.',
+    envVar: 'VITE_WC_NO_DIFFUSE',
+  },
+  {
+    key: 'wcNoCarry',
+    label: 'Watercolor A/B: front carry off (dev only)',
+    description: 'Skips the carry of the mobile paint along the water front (ADR 011 s17.29): the paint stays inside the footprint and only the diffusion moves it.',
+    envVar: 'VITE_WC_NO_CARRY',
+  },
+  {
+    key: 'wcOpDry',
+    label: 'Watercolor A/B: every operation dries on its own (dev only)',
+    description: 'The r17 behaviour: tide and fixation at every pen-up, each operation a finished wash before the next arrives. Off, the wash dries as ONE component (ADR 011 s17.42): its operations stay one wet material and the tide is laid once, along the outer contour of the whole wash, as a provisional dry target at every pen-up.',
+    envVar: 'VITE_WC_OP_DRY',
+  },
+  {
+    key: 'wcPerfHud',
+    label: 'Watercolor: performance readout (dev only)',
+    description: 'Live frame interval, batch cost, settle time and GPU memory of the watercolor tool (#536, ADR 011 s17.22) - for reading numbers off a tablet with no inspector attached.',
+    envVar: 'VITE_WC_PERF_HUD',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'

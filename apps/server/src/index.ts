@@ -115,6 +115,13 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsM
   cors: { origin: true, credentials: true },
   maxHttpBufferSize: MAX_HTTP_BUFFER_SIZE_BYTES,
   perMessageDeflate: { threshold: 1024 },
+  // (#536, ADR 011 §17.49) 60 s, from socket.io's default 20. A client can
+  // hold its main thread longer than 20 s on a tablet - an undo that rebuilds
+  // a watercolour layer replays every settle since the last checkpoint - and
+  // a missed ping then dropped the socket, whose reconnect replayed the room
+  // again, which dropped it again. The price: a client that vanishes without
+  // closing its socket stays in the roster up to ~85 s instead of ~45.
+  pingTimeout: 60_000,
 })
 
 // Room state (#32), operation relay + log (#34/#35), room_state snapshot

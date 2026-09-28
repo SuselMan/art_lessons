@@ -42,7 +42,34 @@ import type { Dab } from '@grafetto/shared'
 //
 // 0 for every tool that has no water model, which leaves the channel it feeds
 // unread.
-const FLOATS_PER_VERTEX = 5 // x, y, edgePx, inkDeposit, inkDeposit*water
+//
+// (#536) Six, and the sixth is the brush's own across-coordinate: -1 at the
+// left tangent, 0 on the centre line, +1 at the right. It exists so the
+// composite can index a *hair* rather than a place on the paper — see
+// BRISTLE_COMB in shaders.ts. Nothing else can supply it: `edgePx` is an
+// unsigned distance to the nearest boundary, so a hair on the left and its
+// mirror on the right are the same number, and the fragment stage has no way
+// to tell them apart afterwards.
+// (#536) Seven, and the seventh is the same deposit weighted by how wet the
+// *paper* already was under this segment — a different quantity from the sixth
+// in the same way the brush's own water is a different quantity from the
+// paper's: one decides how the mark was laid, the other what became of it.
+// Per vertex for the identical reason inkWater is: a value per batch makes the
+// finished mark depend on where the stroke happened to be cut into pointer
+// events.
+// (#536) Eight, and the eighth is how strong the paint in the brush was — the
+// pigment slider, per stroke. It has to ride the deposit rather than the
+// composite's single per-batch opacity, because a wash spans several strokes
+// and they no longer have to agree about it: laying clean water and then taking
+// paint into it is two strokes of the same wash with pigment 0 and pigment 0.8.
+// With one scalar for the whole wash, whichever stroke happened to be first
+// decided the lot — and a wash that opened with clean water rendered its own
+// paint invisible at pen-up.
+// (#536, s17.27) Nine: how DEEP the water stands under this segment, 1 for
+// the puddle a brush leaves where it lands (and in a wet wash), less for the
+// film it lays along the stroke. The photographs: a stroke's puddle dries
+// last and leaves a ragged front inside the stroke where it met the film.
+const FLOATS_PER_VERTEX = 9 // …, across, inkDeposit*paperWet, inkDeposit*strength, puddle
 
 /** Which shape the nib actually is. Mirrors DAB_FRAG's markerNibDistPx —
  *  the two must agree, or the bands and the stamps they connect would be built
@@ -260,7 +287,17 @@ export function buildRibbonBands(
    *  Watercolor passes one so its bands share the stamps' normalization and
    *  water depletion — the two overlap almost everywhere, so leaving the bands
    *  on the old scale would let them swamp whatever the stamps expressed. */
-  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number },
+  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number; strength: number; puddle?: number },
+  /** (#536, s17.30) Emit the nib body at EVERY pose, the real samples too,
+   *  not only the interpolated ones. Under the watercolour film's MAX blend
+   *  the band and the sample's shader stamp do not add: the stamp is a
+   *  plateau with a ramp over the outer half, the band is full to its edge,
+   *  and on the outer side of a turn the wedge between two bands was covered
+   *  by the ramp alone - a row of light spokes round every circle ("лента
+   *  мазка рвётся при круговых движениях"). A full body at the vertex fills
+   *  the wedge; under MAX it costs nothing in tone. Additive modes must not
+   *  set this: the body would deposit on top of the stamp. */
+  fillEveryPose = false,
 ): Float32Array {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
@@ -268,36 +305,52 @@ export function buildRibbonBands(
   const out: number[] = []
   let ink = 0 // deposit carried by whichever segment is currently being emitted
   let inkWater = 0 // the same deposit, weighted by that segment's own water
-  const push = (x: number, y: number, edge: number): void => { out.push(x, y, edge, ink, inkWater) }
+  let inkWet = 0 // …and by how wet the paper under it already was (#536)
+  let inkStrength = 0 // …and by how strong the paint was (#536)
+  let puddle = 1 // (s17.27) how deep the water stands here
+  const push = (x: number, y: number, edge: number, across: number): void => {
+    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength, puddle)
+  }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
     m1: { x: number; y: number }, e1: number, t1: { x: number; y: number },
+    /** Which side of the centre line this half of the band is: -1 or +1. */
+    side: number,
   ): void => {
     // m = centre-line vertex (edge = full half-width), t = tangent-line vertex
     // (edge = 0, i.e. exactly on the outer boundary).
-    push(m0.x, m0.y, e0); push(t0.x, t0.y, 0); push(t1.x, t1.y, 0)
-    push(m0.x, m0.y, e0); push(t1.x, t1.y, 0); push(m1.x, m1.y, e1)
+    push(m0.x, m0.y, e0, 0); push(t0.x, t0.y, 0, side); push(t1.x, t1.y, 0, side)
+    push(m0.x, m0.y, e0, 0); push(t1.x, t1.y, 0, side); push(m1.x, m1.y, e1, side)
   }
 
   /** One nib body, as an antialiased polygon: a ring of triangles carrying the
    *  edge ramp, and a fan filling everything inside it solid. Only ever emitted
    *  for *interpolated* poses — the real samples get an exact analytic outline
    *  from the shader instead (DAB_FRAG's u_inkMode=6). */
-  const body = (centre: { x: number; y: number }, nib: NibGeometry): void => {
+  const body = (centre: { x: number; y: number }, nib: NibGeometry, nx: number, ny: number): void => {
     const inset = Math.min(aaPx, nib.semiMinor * 0.5)
     const rim = outlinePoints(nib, 0, OUTLINE_SEGMENTS)
     const core = outlinePoints(nib, inset, OUTLINE_SEGMENTS)
+    // (#536) The same across-coordinate the bands carry, so an interpolated
+    // pose does not punch a comb-less hole through the middle of a turn:
+    // distance from the centre along the band's own perpendicular, normalized
+    // by how far the nib reaches in it.
+    const reach = Math.max(nibSupport(nib, nx, ny).value, 1e-3)
+    const across = (p: { x: number; y: number }): number =>
+      Math.max(-1, Math.min(1, (p.x * nx + p.y * ny) / reach))
     for (let i = 0; i < OUTLINE_SEGMENTS; i++) {
       const j = (i + 1) % OUTLINE_SEGMENTS
       const r0 = { x: centre.x + rim[i].x, y: centre.y + rim[i].y }
       const r1 = { x: centre.x + rim[j].x, y: centre.y + rim[j].y }
       const c0 = { x: centre.x + core[i].x, y: centre.y + core[i].y }
       const c1 = { x: centre.x + core[j].x, y: centre.y + core[j].y }
+      const ar0 = across(rim[i]), ar1 = across(rim[j])
+      const ac0 = across(core[i]), ac1 = across(core[j])
       // ramp ring
-      push(r0.x, r0.y, 0); push(r1.x, r1.y, 0); push(c1.x, c1.y, inset)
-      push(r0.x, r0.y, 0); push(c1.x, c1.y, inset); push(c0.x, c0.y, inset)
+      push(r0.x, r0.y, 0, ar0); push(r1.x, r1.y, 0, ar1); push(c1.x, c1.y, inset, ac1)
+      push(r0.x, r0.y, 0, ar0); push(c1.x, c1.y, inset, ac1); push(c0.x, c0.y, inset, ac0)
       // solid interior
-      push(centre.x, centre.y, inset); push(c0.x, c0.y, inset); push(c1.x, c1.y, inset)
+      push(centre.x, centre.y, inset, 0); push(c0.x, c0.y, inset, ac0); push(c1.x, c1.y, inset, ac1)
     }
   }
 
@@ -313,9 +366,15 @@ export function buildRibbonBands(
       const got = inkFor(d0, d1, travel)
       ink = got.ink
       inkWater = ink * got.water
+      inkWet = ink * got.paperWet
+      inkStrength = ink * got.strength
+      puddle = got.puddle ?? 1
     } else {
       ink = d1.opacity * travel * 0.5
       inkWater = 0
+      inkWet = 0
+      inkStrength = 0
+      puddle = 1
     }
 
     const steps = poseSubdivisions(
@@ -337,12 +396,12 @@ export function buildRibbonBands(
       const ra = nibSupport(ga, -nx, -ny), rb = nibSupport(gb, -nx, -ny)
       const ca = { x: a.x, y: a.y }, cb = { x: b.x, y: b.y }
 
-      quad(ca, la.value, { x: a.x + la.x, y: a.y + la.y }, cb, lb.value, { x: b.x + lb.x, y: b.y + lb.y })
-      quad(ca, ra.value, { x: a.x + ra.x, y: a.y + ra.y }, cb, rb.value, { x: b.x + rb.x, y: b.y + rb.y })
+      quad(ca, la.value, { x: a.x + la.x, y: a.y + la.y }, cb, lb.value, { x: b.x + lb.x, y: b.y + lb.y }, -1)
+      quad(ca, ra.value, { x: a.x + ra.x, y: a.y + ra.y }, cb, rb.value, { x: b.x + rb.x, y: b.y + rb.y }, +1)
 
       // Interior sub-poses only: the endpoints already have their own exact,
       // shader-drawn nib stamp.
-      if (k > 0) body(ca, ga)
+      if (k > 0 || fillEveryPose) body(ca, ga, nx, ny)
     }
   }
 

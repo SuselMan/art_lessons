@@ -98,6 +98,9 @@ export const MATERIAL_ICON_NAMES = [
   'humidity_low',
   'humidity_mid',
   'humidity_high',
+  // #536 §17.47 — the watercolor's "dry everything": a hair dryer is what a
+  // painter actually reaches for, the sun is the glyph that reads as drying.
+  'sunny',
   'pan_tool',
   'pinch',
   'rectangle',

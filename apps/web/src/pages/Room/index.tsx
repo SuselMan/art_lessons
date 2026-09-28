@@ -140,6 +140,9 @@ import {
   type EditorTool, type PrimaryDrawingTool,
 } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
+import { createReplayGate } from './replayGate'
+import { GlLostOverlay, useGlContextLost } from './GlLostOverlay'
+import { useWatercolorDevFlags } from './useWatercolorDevFlags'
 import styles from './Room.module.css'
 
 // (#393) The one place a ViewportCursor becomes a class name. The decision
@@ -313,6 +316,7 @@ function RoomEditor() {
   // (#429) Mirrored for the socket effect's live-stroke handler, which is
   // wired once per connection and must see the current value rather than
   // whatever it was when the listener was attached.
+  const replayGateRef = useRef(createReplayGate<{ seq: number; operation: Operation }>())
   const roomContentReadyRef = useRef(roomContentReady)
   roomContentReadyRef.current = roomContentReady
   useEffect(() => {
@@ -939,6 +943,7 @@ function RoomEditor() {
   // the same fix, so the next setting added here inherits it instead of
   // rediscovering it.
   const [engineEpoch, setEngineEpoch] = useState(0)
+  const glLost = useGlContextLost(canvasRef, engineEpoch) // (#536, §17.50) see GlLostOverlay
   const initialToolRef = useRef({
     pencil: toolSettings.pencil.grade as PencilGradeName,
     size: toolSettings.pencil.size as number,
@@ -1866,7 +1871,7 @@ function RoomEditor() {
             key: 'replay-incomplete', durationMs: null,
           }),
           getSnapshotUploader: () => snapshotUploader,
-          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
+          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
         })
       })()
     } else if (!isCreator) {
@@ -1917,6 +1922,7 @@ function RoomEditor() {
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
   const { cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
     useToolSync({ engineRef, engineEpoch })
+  useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // (#493) Whose colour the controls edit, what the engine draws with, the
   // well, the room palette and the flyout — see useToolColor.
   const {
@@ -2425,7 +2431,7 @@ function RoomEditor() {
           // Through the ref, and read when the bootstrap needs it: the uploader
           // is per board, and this effect does not re-run when the board does.
           getSnapshotUploader: () => snapshotUploaderRef.current,
-          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
+          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
         })
       },
       socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
@@ -2438,6 +2444,7 @@ function RoomEditor() {
       catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
       confirmOwnOperation: (op, seq) => confirmOwnOperation(op, seq, true),
       markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+      replayGate: replayGateRef.current,
     })
 
     // (#152) peer_cursor itself is no longer handled here at all — Room had
@@ -2891,6 +2898,7 @@ function RoomEditor() {
           paintTargetId={paintTargetId} paintTargetLocked={paintTargetLocked}
           copySelection={() => { void copySelection() }} cutSelection={() => { void cutSelection() }}
           pasteClipboard={() => { void pasteClipboard() }} deleteSelectionContents={deleteSelectionContents}
+          onWatercolorDry={() => { dispatchOp({ type: 'paper_dry' }) }}
         />
         </div>
 
@@ -3392,6 +3400,7 @@ function RoomEditor() {
         )}
       </div>
 
+      {glLost && <GlLostOverlay />}
       {/* (#493) The developer overlays — see DebugStack. */}
       <DebugStack
         debugEnabled={debugEnabled} hapticGrainEnabled={hapticGrainEnabled}

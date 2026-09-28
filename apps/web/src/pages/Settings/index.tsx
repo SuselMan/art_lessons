@@ -5,6 +5,7 @@ import { OptionGroup } from '../../components/OptionGroup'
 import { LOCALES, LOCALE_NAMES, useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
 import { APP_VERSION, isDeployedBuild } from '../../lib/appVersion'
+import { WATERCOLOR_ROUND } from '../../engine'
 import { COMPACT_PREFERENCES, DEVICE_TYPES, type CompactPreference, type DeviceType } from '../../lib/deviceType'
 import { checkForUpdateNow } from '../../lib/registerServiceWorker'
 import { THEMES, type Theme } from '../../lib/theme'
@@ -172,6 +173,9 @@ function VersionSection() {
             compared character by character, which is the only thing anyone
             ever does with it. */}
         <code className={styles.version}>{APP_VERSION}</code>
+        {/* (#536) Which watercolour round this build carries - its own element:
+            the build identity above is compared as an exact string. */}
+        <code className={styles.version}>{WATERCOLOR_ROUND}</code>
         {isDeployedBuild() && (
           <button
             type="button"

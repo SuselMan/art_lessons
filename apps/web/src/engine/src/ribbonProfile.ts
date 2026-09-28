@@ -147,6 +147,16 @@ export interface RibbonProfile {
   waterLevel: number
   /** #468 v4 — the stroke's own pigment level, 0..1. Same story. */
   pigmentLevel: number
+  /** (#536) How strong the paint is, 0..1 — the pigment slider resolved through
+   *  watercolorPigmentEffects. Rides the deposit rather than the composite's
+   *  single per-batch opacity, because a wash spans several strokes that may
+   *  each carry a different amount of paint. 0 for tools with no paint model,
+   *  which never read it. */
+  pigmentStrength: number
+  /** (#536) How many hair bundles lie across the brush, and how unevenly they
+   *  deliver pigment. See DAB_FRAG's u_bristleCombs. 0 for tools with no hair. */
+  bristleCombs: number
+  bristleInk: number
   /** #468 v4 — reach as a fraction of the stroke's own radius, before spreadPx
    *  caps it (ADR 011 §4.1). Water decides it: a dry brush barely leaves its
    *  own footprint, a flood travels visibly further than the hand went. 0 for a
@@ -478,6 +488,9 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   // reservoir, not a finite load of water with paint in it.
   waterLevel: 0,
   pigmentLevel: 0,
+  pigmentStrength: 0,
+  bristleCombs: 0,
+  bristleInk: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
   strokeDir: [1, 0] as [number, number],
@@ -539,6 +552,9 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   // reservoir, not a finite load of water with paint in it.
   waterLevel: 0,
   pigmentLevel: 0,
+  pigmentStrength: 0,
+  bristleCombs: 0,
+  bristleInk: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
   strokeDir: [1, 0] as [number, number],
@@ -573,10 +589,6 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
  *  the one thing that is not allowed here. */
 const WATERCOLOR_EDGE_AA_PX = 3.0
 
-/** How wide the tideline is. 7px is a visible rim at a realistic wash size
- *  without turning into a vignette; it is also comfortably inside what a
- *  16-tap ring can resolve without aliasing into a dotted outline. */
-const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
 
 /** ADR 011 §3.2/§3.8 — inkLoad at which one pass reaches full density.
  *
@@ -605,7 +617,13 @@ const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
  *  wash unevenness unchanged to the second decimal, graded wash unchanged in
  *  spread and step evenness, with WATERCOLOR_PRESET.opacity raised to keep the
  *  tone where it was. */
-const WATERCOLOR_SATURATE_INK = 1.35
+//  #536 — 0.20, from 1.35, and it is not an independent retune: it is measured
+//  in deposit units, and WATERCOLOR_CONE_DEPOSIT_GAIN moved the deposit scale
+//  by the same factor. Left at 1.35 it would call a full wash nearly empty and
+//  quietly switch the migration pass off. Everything denominated in deposit
+//  units has to move together or one of them silently stops meaning what it
+//  says.
+const WATERCOLOR_SATURATE_INK = 0.20
 
 /** Below this half-width the nib is widened rather than dropped, same as the
  *  brush pen. Higher than its 0.5 because this tool's own width floor is 0.32
@@ -617,7 +635,7 @@ const WATERCOLOR_MIN_HALF_WIDTH_PX = 0.75
  *  along fibres far more than ink does, so its boundary is the most irregular
  *  of any tool here. Still rim-only by construction (the shader scales the term
  *  by 1 - coverage), so no value of this can put holes inside a wash. */
-const WATERCOLOR_PAPER_EDGE = 0.55
+const WATERCOLOR_PAPER_EDGE = 0.0 // (s17.27) the sheet's pits no longer bite the contour: on Ilya's photographs a stroke's edge is the brush's own smooth line, and the bite turned the tideline into specks
 
 /** ADR 011 §3.5 — the **cap** on how far the wash may leave the brush's own
  *  footprint, in canvas px. The engine scales the actual reach with the
@@ -656,15 +674,68 @@ const WATERCOLOR_STAMP_INK_SHARE = 0.82
 
 /** Converts the deposit from "per unit length of travel" to the scale the cone
  *  profile actually accumulates at, so the numbers in watercolorPigmentEffects
- *  stay readable. A single pass runs it roughly twice over the deposit buffer's
- *  own ceiling, which is deliberate: what makes a stroke's inside a flat film
- *  rather than a domed airbrush stripe is precisely that the accumulation tops
- *  out across the whole width and slopes only through the margin. Measured — at
- *  a quarter of this the cross-section came back a smooth dome, which is not
- *  what a loaded brush leaves. */
-const WATERCOLOR_CONE_DEPOSIT_GAIN = 1.8
+ *  stay readable.
+ *
+ *  #536 — 0.27, down from 1.8, and this is the number the whole tool was
+ *  standing on without anyone noticing.
+ *
+ *  It used to be set so that a single pass ran "roughly twice over the deposit
+ *  buffer's own ceiling", deliberately, because that is what made a stroke's
+ *  inside a flat film rather than a domed airbrush stripe. The buffer is
+ *  RGBA/UNSIGNED_BYTE (AccumulationBuffer), so its ceiling is a hard clamp at
+ *  1.0 — and running twice over it means **an ordinary pass saturates the
+ *  buffer flat**. Everything downstream then reads a constant.
+ *
+ *  That is the real reason a second pass changed nothing, a long line did not
+ *  thin, the hairs delivered evenly and the paint never ran out: all of those
+ *  are multipliers on the deposit, and the deposit was being clipped before any
+ *  of them could be seen. Replacing the composite's saturating curve with a
+ *  Beer-Lambert film (#536, earlier) was necessary and could not help on its
+ *  own, because the clipping happens upstream of the curve.
+ *
+ *  The flat cross-section it was protecting was being produced by the clipping,
+ *  not by the cone. A cone deposit at this spacing is close to a partition of
+ *  unity and sums nearly flat across the interior on its own; if a dome comes
+ *  back, that is the thing to fix — the deposit's shape — rather than clipping
+ *  the top off it again.
+ *
+ *  0.27 puts an ordinary pass near 0.3 of the buffer, so three or four glazes
+ *  build before anything saturates. WATERCOLOR_DENSITY_K in the shader is set
+ *  against this: move one and the other has to follow, or the tool changes
+ *  tone. */
+const WATERCOLOR_CONE_DEPOSIT_GAIN = 0.205
 
-const WATERCOLOR_SPREAD_CAP_PX = 26.0
+//  (#536, §17.24) 3, from 26: the spread is the water front's now (the
+//  settle extends the silhouette to where the water ran); the composite's
+//  re-threshold is left as the edge's reconstruction only, and a wide blur
+//  here would smooth the ragged front the settle just made.
+const WATERCOLOR_SPREAD_CAP_PX = 3.0
+
+/** (#536) How much further a wash travels through water already on the paper,
+ *  as a multiplier on its reach at full soak. The cap moves with it (see
+ *  _paintRibbonStroke) — leaving the cap put would have made this number do
+ *  nothing on any brush big enough to reach it, which is the failure mode of
+ *  every capped multiplier. */
+//  #536 — 3.0, from 2. Ilya put a number on it: a 30 px dot dropped into
+//  standing water should finish nearer 45 px across. The reach is what carries
+//  that (the re-threshold's outward push is proportional to it — see
+//  WC_WET_PUSH), and at 2 the arithmetic came out around twelve px of growth
+//  where he was asking for fifteen.
+const WATERCOLOR_WET_BLOOM = 4.0
+
+/** (#536) How wide one hair bundle is on the paper, in px. A hair is a fixed
+ *  physical thing: a wider brush carries *more* bundles, not wider ones, and a
+ *  narrow nib carries few. Anything finer than a few pixels stops reading as
+ *  hair and starts reading as noise, which is what a fixed bundle count did to
+ *  every brush that was not large. */
+//  #536 — 3.5 px, from 5. At 5 px a 30 px brush carried six bundles across its
+//  whole mark, which is at the very bottom of what reads as hair rather than as
+//  waviness; 3.5 puts it at about nine, and a 100 px brush at nearly thirty,
+//  which is the range a real sable actually looks like. The number had never
+//  been judged against the shipping path on a small brush before, because the
+//  dev caricature that was meant to answer that question overrode it with a
+//  fixed count and was left switched on.
+export const WATERCOLOR_BRISTLE_BUNDLE_PX = 3.5
 
 /** Floor, so even the thinnest line's boundary stops being mathematically
  *  exact. Below roughly this the blur cannot displace anything at all. */
@@ -698,8 +769,14 @@ const WATERCOLOR_MIGRATE_MIN_PX = 3.0
 const WATERCOLOR_MIGRATE_GAIN = 0.75
 
 /** Where "wet enough for paint to swim" begins and where it is complete. */
-const WATERCOLOR_MIGRATE_LO = 0.78
-const WATERCOLOR_MIGRATE_HI = 1.0
+//  #536 — 0.34, from 0.78. The gate was calibrated when the only source of
+//  water was the brush's own mix, where 0.78 meant "the wet preset and nothing
+//  else". Since water can be laid on the paper deliberately, the same number
+//  meant that a puddle put down at the ordinary "damp" mix (0.55) never opened
+//  the gate at all — so the pass whose entire job is moving pigment through
+//  standing water had never once run in the case it exists for.
+const WATERCOLOR_MIGRATE_LO = 0.34
+const WATERCOLOR_MIGRATE_HI = 0.85
 
 /** Exported for the engine, which resolves the reach against the gesture's own
  *  first dab exactly as it does the spread's. */
@@ -722,9 +799,25 @@ export const WATERCOLOR_SPREAD = {
  *  already builds a whole ribbon geometry buffer, and it buys the one thing a
  *  shared constant cannot: two strokes with different mixes, live in the same
  *  room at the same time, rendering correctly. */
-function watercolorRibbon(presetName: string | undefined): RibbonProfile {
+function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonProfile {
   const mix = watercolorMixFromPreset(presetName)
   const w = watercolorWaterEffects(mix.water)
+  // (#536) Two water numbers, not one, and the split is the whole of "paint
+  // into wet paper".
+  //
+  //   `w`  the brush's own load. It decides *delivery and contact*: whether the
+  //        hairs break away from the paper at all, and how the mark is laid.
+  //   `t`  the wetter of the brush and the paper it landed on. It decides what
+  //        happens to the paint *after* it has left the brush: how far the wash
+  //        travels, how softly the boundary resolves, whether pigment migrates.
+  //
+  // Collapsing the two — which is what a single max() over everything would do
+  // — gets the interesting case backwards: a dry brush dragged over wet paper
+  // is still a dry brush, and still scratches, but the paint it does leave now
+  // blooms. That is the whole reason a wet-in-wet mark looks nothing like a
+  // loaded one.
+  const t = paperWet > mix.water ? watercolorWaterEffects(paperWet) : w
+  const transportWater = Math.max(mix.water, paperWet)
   const p = watercolorPigmentEffects(mix.pigment)
   // (#468 v5) The paint itself. `mix.pigment` is *how much* paint; this is
   // *which* paint, and they multiply: a lot of a smooth phthalo green still
@@ -777,7 +870,7 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
     minHalfWidthPx: WATERCOLOR_MIN_HALF_WIDTH_PX,
     paperRim: WATERCOLOR_PAPER_EDGE,
-    wetEdgeRadiusPx: WATERCOLOR_WET_EDGE_RADIUS_PX,
+    wetEdgeRadiusPx: 0,
     spreadPx: WATERCOLOR_SPREAD_CAP_PX,
     saturateInk: WATERCOLOR_SATURATE_INK,
     normalizeDeposit: true,
@@ -788,16 +881,50 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // ── from water: geometry and behaviour ──
     waterLevel: mix.water,
     pigmentLevel: mix.pigment,
+    pigmentStrength: p.strength,
+    // (#536) Resolved from the mark's own width by the engine (see
+    // WATERCOLOR_BRISTLE_BUNDLE_PX); this is only the fallback for a path that
+    // has no radius to hand.
+    //
+    // It used to be a flat 22, and that is two faults in one number. The
+    // across-brush coordinate runs -1..+1 over the *whole* width, so 22 meant
+    // forty-four bundles across the mark whatever its size: a hair thinner than
+    // a pixel on an ordinary brush, which reads as noise rather than as hair,
+    // and outright invisible on the flat nib, whose mark is thin by
+    // construction. Both were reported — "щетинок мало" and "на chisel кажется
+    // они не работают" — and both are this.
+    bristleCombs: 4,
+    //  #536 — 0.62, from 0.45. "Щетинки есть, но можно сделать их заметнее?"
+    //  The two structural faults are fixed now (the saturation ceiling that
+    //  buried the modulation, and the bundle count that made it sub-pixel), so
+    //  this is finally a number that can be turned rather than a symptom of
+    //  something else — which is the first time in this issue that has been
+    //  true of the hair. Zero-mean, so raising it does not darken the mark.
+    // (s17.28) 0: the hair no longer combs the DOSE. Ilya's photographs: a
+    // loaded stroke's body is one flat film, and the hair shows only where
+    // the brush is nearly dry - as breaks in the contact along the paper's
+    // tooth, which the composite's dry-contact term draws (u_dryContact, with
+    // the bundle field modulating the reach). The density comb read as a
+    // rake at every water level once the water ran down along the stroke.
+    bristleInk: 0,
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.
-    spreadOfRadius: w.spreadOfRadius * (0.6 + 0.8 * paint.diffusion),
-    cloud: w.cloud,
-    edgeSoft: w.edgeSoft,
-    edgeWander: w.edgeWander,
-    tideLo: w.tideLo,
-    tideHi: w.tideHi,
+    // (#536) …and a bloom on genuinely wet paper. Wet-in-wet is not a fringe a
+    // few pixels wide; the paint travels a visible distance through the water
+    // that is already there, which is the whole reason anyone lays water first.
+    // Scaled by the paper rather than by the mix, so a dry brush dragged into a
+    // puddle blooms and the same brush on dry paper does not.
+    spreadOfRadius: t.spreadOfRadius * (0.6 + 0.8 * paint.diffusion) * (1 + WATERCOLOR_WET_BLOOM * paperWet),
+    cloud: t.cloud,
+    edgeSoft: t.edgeSoft,
+    edgeWander: t.edgeWander,
+    tideLo: t.tideLo,
+    tideHi: t.tideHi,
     strokeDir: [1, 0],
+    // The brush's own water, never the paper's: wet paper does not stop a
+    // starved brush from riding the crests, it only decides what becomes of
+    // the paint that does land.
     dryContact: w.dryContact,
     // ── from pigment: how much paint ──
     granulation: p.granulation * (0.25 + 1.5 * paint.granulation),
@@ -807,7 +934,11 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // A staining paint binds to the fibre and cannot migrate to the drying
     // perimeter, so it leaves *less* of a rim — the reduction is the point, not
     // a fudge factor.
-    wetEdge: p.wetEdge * (1 - 0.6 * paint.staining),
+    // (#536, §17.23) Zero: the tideline now lives in the deposit — the
+    // settle carries paint to the water's edge — and a composite-time rim on
+    // top of it drew the same line twice. Left as a field so the shader path
+    // can be A/B'd until the water front lands; then it goes.
+    wetEdge: 0,
     // ── from the paint: whether it can travel at all (#468 v11) ──
     //
     // The same staining figure, and rather harder, because this is the real
@@ -821,11 +952,19 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // threshold cannot migrate anywhere — and a zero here skips sixty texture
     // reads per fragment instead of spending them on a result known in advance.
     // Measured at roughly half the composite's cost on a full-width band.
-    migrate: mix.water <= WATERCOLOR_MIGRATE_LO
+    // (#536, s17.30) Off. The composite's migration was the presentation-time
+    // stand-in for pigment transport; the deposit carries it now (s17.29),
+    // and measured on the rig this pass HID the deposit's structure - a
+    // clean-water stroke over a wet wash showed as a thin white outline (the
+    // pass's own ring, Ilya's "чёткий контур каждого касания") where the
+    // deposit held a real band. The design thread: an effect that answers
+    // "where did the pigment move" has no place in the composite. Kept as
+    // code behind this zero until the concentration transport lands.
+    migrate: 0 * (transportWater <= WATERCOLOR_MIGRATE_LO
       ? 0
       : WATERCOLOR_MIGRATE_GAIN
         * (1 - 0.7 * paint.staining)
-        * (0.6 + 0.8 * paint.diffusion),
+        * (0.6 + 0.8 * paint.diffusion)),
     migrateOfRadius: WATERCOLOR_MIGRATE_OF_RADIUS,
     migrateLo: WATERCOLOR_MIGRATE_LO,
     migrateHi: WATERCOLOR_MIGRATE_HI,
@@ -869,6 +1008,10 @@ function digitalBrushRibbon(presetName: string | undefined): RibbonProfile {
   // ADR 013 §4 — stamps, no bands. See RibbonProfile.stampsOnly.
   stampsOnly: true,
   coverageInkMode: 10,
+  // (#536) No water model, no hair comb: the watercolor's own fields.
+  pigmentStrength: 0,
+  bristleCombs: 0,
+  bristleInk: 0,
   nibShape: 'ellipse',
   cornerFraction: 0,
   aaPx: DIGITAL_BRUSH_MIN_AA_PX,
@@ -936,9 +1079,16 @@ export function isRibbonTool(tool: ToolType): boolean {
     || tool === 'digitalBrush'
 }
 
-export function ribbonProfileFor(tool: ToolType, presetName: string | undefined): RibbonProfile {
+export { WATERCOLOR_WET_BLOOM }
+
+export function ribbonProfileFor(
+  tool: ToolType, presetName: string | undefined,
+  /** (#536) How wet the paper was where this gesture came down, 0..1 — read
+   *  back from the stroke's recorded profile, never from a live clock. */
+  paperWet = 0,
+): RibbonProfile {
   if (tool === 'digitalBrush') return digitalBrushRibbon(presetName)
-  if (tool === 'watercolor') return watercolorRibbon(presetName)
+  if (tool === 'watercolor') return watercolorRibbon(presetName, paperWet)
   if (tool === 'brushPen') return BRUSH_PEN_RIBBON
   return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_RIBBON : MARKER_BULLET_RIBBON
 }

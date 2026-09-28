@@ -3,7 +3,7 @@ import { useEffect, useMemo, type RefObject } from 'react'
 import {
   charcoalPresetString, DEFAULT_CHARCOAL_TYPE, DEFAULT_NIB_ANCHOR, DEFAULT_TILT_RESPONSE, digitalBrushFromPreset,
   digitalBrushPreset, isCharcoalNib, isCharcoalType, isNibAnchor, isPressureResponse, isTiltResponse,
-  isWatercolorNib, isWatercolorPigmentCode, watercolorPigmentByCode, watercolorPresetString,
+  isWatercolorNib, watercolorPresetString,
   type PencilEngineAPI, type PencilGradeName,
 } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
@@ -26,7 +26,6 @@ export interface ToolSyncDeps {
  *  what the brush-ring cursor draws with. */
 export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
   const toolSettings = useRoomStore(s => s.toolSettings)
-  const setToolSetting = useRoomStore(s => s.setToolSetting)
   const drawingTool = useRoomStore(s => s.drawingTool)
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
   // engine is configured with, and while the ruler or the gizmo is selected
@@ -77,26 +76,20 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
   const watercolorResponse = toolSettings.watercolor.pressureResponse as string
   const watercolorWater = toolSettings.watercolor.water as number
   const watercolorPigment = toolSettings.watercolor.pigment as number
-  // #468 v5 — which paint, on top of how much of it. Rides the same string as
-  // a fourth field; a stroke recorded before v5 has no code and falls back.
-  const watercolorPaint = toolSettings.watercolor.pigmentCode as string
   // #489 — and which brush, as a fifth field. Absent from every stroke recorded
   // before it, which is why they replay as the round nib they were drawn with.
   const watercolorNib = toolSettings.watercolor.nib as string
   const watercolorPreset = watercolorPresetString(
     isPressureResponse(watercolorResponse) ? watercolorResponse : 'normal',
     { water: watercolorWater, pigment: watercolorPigment },
-    isWatercolorPigmentCode(watercolorPaint) ? watercolorPaint : undefined,
+    // (#536) The paint code rides the preset string as its fourth field, but
+    // the choice of a tube is gone from the UI: the colour comes from the
+    // ordinary picker like every other tool's, and every stroke records the
+    // default paint's behavioural numbers. A stroke recorded with another
+    // code still replays with it.
+    undefined,
     isWatercolorNib(watercolorNib) ? watercolorNib : undefined,
   )
-  // #468 v5 — picking a paint sets the tool's colour to that paint's own. The
-  // colour swatch stays editable afterwards: the four behavioural numbers still
-  // apply, which is the honest reading of "cobalt, but I want it warmer" — you
-  // are still painting with cobalt.
-  useEffect(() => {
-    if (!isWatercolorPigmentCode(watercolorPaint)) return
-    setToolSetting('watercolor', 'color', watercolorPigmentByCode(watercolorPaint).color)
-  }, [watercolorPaint, setToolSetting])
 
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
   // marker, the size label for liner, the charcoal type for charcoal, the

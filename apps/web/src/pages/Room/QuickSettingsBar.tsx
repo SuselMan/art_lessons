@@ -8,6 +8,7 @@ import { useT } from '../../i18n'
 import { useClipboardStore } from '../../stores/clipboardStore'
 import { useRoomStore } from '../../stores/roomStore'
 import { ShapeFrameFields } from './ShapeFrameFields'
+import { WatercolorDryButton } from './WatercolorDryButton'
 import { TOOL_SCHEMAS, type UiToolId } from './toolSchemas'
 import styles from './Room.module.css'
 
@@ -24,6 +25,9 @@ export interface QuickSettingsBarProps {
   cutSelection: () => void
   pasteClipboard: () => void
   deleteSelectionContents: () => void
+  /** (#536, §17.47/48) "Высушить всё" - sends `paper_dry` (see
+   *  WatercolorDryButton). */
+  onWatercolorDry: () => void
 }
 
 /** (#493) The column beside the rail: the tool in hand's quick-access
@@ -42,7 +46,7 @@ export interface QuickSettingsBarProps {
  *  selection and the clipboard are read from the stores. */
 export function QuickSettingsBar({
   uiHidden, compact, onShapeFrameChange, paintTargetId, paintTargetLocked,
-  copySelection, cutSelection, pasteClipboard, deleteSelectionContents,
+  copySelection, cutSelection, pasteClipboard, deleteSelectionContents, onWatercolorDry,
 }: QuickSettingsBarProps): React.JSX.Element {
   const t = useT()
   // Every `EditorTool` is a `UiToolId` by construction — see settingsToolId
@@ -91,6 +95,7 @@ export function QuickSettingsBar({
           live in the full settings panel instead (Ilya, 05.09): the rail is
           for what a hand reaches for mid-gesture. */}
       {shapeFrame && <ShapeFrameFields frame={shapeFrame} onChange={onShapeFrameChange} />}
+      {settingsToolId === 'watercolor' && <WatercolorDryButton onDry={onWatercolorDry} />}
       {/* (#446) What can be done with a selection, as buttons rather than
           only as Ctrl+C/X/V. A tablet is a first-class target here and has
           no modifier keys at all: without these, cut/copy/paste — the half

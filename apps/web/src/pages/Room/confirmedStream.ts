@@ -35,6 +35,12 @@ export interface ConfirmedStreamDeps {
   syncFromLog: () => void
   checkSnapshotBoundary: () => void
   requestFullResync: () => void
+  /** (#536, ADR 011 §17.49) Holds arrivals while a restore's tail replay
+   *  yields - see replayGate.ts. */
+  replayGate?: {
+    hold(payload: { seq: number; operation: Operation }): boolean
+    setHandler(handler: (payload: { seq: number; operation: Operation }) => void): void
+  }
 }
 
 /** (#493) `operation_confirmed` — the room's one ordered stream of what
@@ -46,6 +52,7 @@ export function createConfirmedStreamHandler({
   engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
   confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+  replayGate,
 }: ConfirmedStreamDeps): ServerToClientEvents['operation_confirmed'] {
   // (#289 §7/§11 — reliable history spec v0.2) Renamed from
   // handlePeerOperation: this now fires for *every* confirmed operation,
@@ -61,7 +68,8 @@ export function createConfirmedStreamHandler({
   const commitRevealsBelow = (seq: number): boolean =>
     commitRevealsBelowShared(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
 
-  return ({ seq, operation: op }) => {
+  const handler: ServerToClientEvents['operation_confirmed'] = ({ seq, operation: op }) => {
+    if (replayGate?.hold({ seq, operation: op })) return
     // (#289 §12) A gap in this stream is impossible on an unbroken
     // connection (TCP never silently drops or reorders within one), so
     // seeing one means the connection was interrupted without this client
@@ -166,4 +174,7 @@ export function createConfirmedStreamHandler({
     syncFromLog()
     checkSnapshotBoundary()
   }
+  // Held arrivals come back through this same handler once the gate opens.
+  replayGate?.setHandler(handler)
+  return handler
 }

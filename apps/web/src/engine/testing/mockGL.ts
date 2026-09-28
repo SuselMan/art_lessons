@@ -141,6 +141,7 @@ export class MockGL {
   readonly TRIANGLES = ENUM.TRIANGLES
   readonly FLOAT = ENUM.FLOAT
   readonly BLEND = ENUM.BLEND
+  readonly SCISSOR_TEST = 0x0c11
   readonly ONE = ENUM.ONE
   readonly ONE_MINUS_SRC_ALPHA = ENUM.ONE_MINUS_SRC_ALPHA
   readonly ONE_MINUS_SRC_COLOR = ENUM.ONE_MINUS_SRC_COLOR
@@ -485,6 +486,7 @@ export class MockGL {
   // (the interesting branch); the driver-refuses path is only reachable on
   // real hardware and is deliberately a graceful degrade, not an error.
   getError(): number { return ENUM.NO_ERROR }
+  finish(): void {}
 
   // (#474) Present so gpuInfo() — which every snapshot restore now calls to
   // stamp its report — exercises the same shape here as in a browser. A mock
@@ -631,6 +633,10 @@ export class MockGL {
   // viewport to the full target size), a composite draw can now rasterize
   // into a sub-rect. Recorded here and consulted by _rasterComposite.
   viewport(x: number, y: number, w: number, h: number): void { this._viewport = { x, y, w, h } }
+  // (#536, s17.12) The reveal's keep-fresh limits a field op to the batch's
+  // rect with a scissor; nothing here rasterizes that pass, so recording the
+  // rect is all the mock needs to do.
+  scissor(_x: number, _y: number, _w: number, _h: number): void {}
   // Tracked since #330: BLEND used to be enabled at every dab/composite draw
   // call site in this codebase (beginDraw/beginErase/_compositeTextures) and
   // disabled only around the 'papergen'/'display' passes this mock doesn't
@@ -682,6 +688,10 @@ export class MockGL {
   // per-pixel lerp). Every other call site still pairs its src factor with
   // ONE_MINUS_SRC_ALPHA — see the module docstring's blend-arithmetic note.
   blendFunc(src: number, dst: number): void { this._blendSrc = src; this._blendDst = dst }
+  // (#536, s17.28) The watercolor film blends by MAX through EXT_blend_minmax;
+  // the mock reports no such extension (see getExtension), so the engine takes
+  // its additive path here, and endDraw's reset to FUNC_ADD (blendEquation
+  // below) is a no-op.
   // (#573) Accepted and ignored: the only caller is the digital brush's
   // coverage pass, whose rasterizer below models its "over" directly — and
   // this mock has one channel, so there is no separate alpha to MAX into.

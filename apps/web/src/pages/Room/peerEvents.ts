@@ -76,6 +76,7 @@ export function createPeerEventHandlers({
         preset: data.preset, color: data.color, packetSeq: data.packetSeq,
         dabs: unpackDabs(data.dabsPacked),
         washId: data.washId,
+        wet: data.wet,
       })
       // (#432) Timed on the frame that composites it — see liveLatency.
       noteLivePacketPainted(data.userId, data, { arrivedAt })

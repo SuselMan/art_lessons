@@ -77,6 +77,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'humidity_low': '\u{f164}',
   'humidity_mid': '\u{f165}',
   'humidity_high': '\u{f163}',
+  'sunny': '\u{e81a}',
   'pan_tool': '\u{e925}',
   'pinch': '\u{eb38}',
   'rectangle': '\u{eb54}',

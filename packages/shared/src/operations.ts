@@ -47,6 +47,30 @@ export type OperationRedoOperation = OperationBase & {
   targetOpId: string
 }
 
+/** (#536, ADR 011 §17.48) "Высушить всё" - the watercolour paper is dry, for
+ *  everyone in the room, from this point in the log on. The whole sheet, not
+ *  a layer: the teacher presses it to KNOW that what a student lays next goes
+ *  onto dry paper, which a per-client button could not promise.
+ *
+ *  It carries nothing, and changes no pixel. Its whole effect is on the
+ *  ephemeral wetness every client keeps (and on which wash the next stroke
+ *  may join); the strokes after it record the dry paper they met in their own
+ *  `wet` profile, so a replay would reproduce the picture even without it.
+ *  What it adds is the part a replay does not see: the sheen on every screen,
+ *  and the paper the next live stroke of each participant lands on.
+ *
+ *  Not undoable (there is no "wet it again"), and worthless past the paper's
+ *  own drying time - see WATERCOLOR_WET_DRY_MS. */
+export type PaperDryOperation = OperationBase & {
+  type: 'paper_dry'
+}
+
+/** (#536) How long watercolour water stays on the paper, in ms. Here rather
+ *  than only in the engine because the server needs it too: a `paper_dry`
+ *  older than this can have no effect on anything, and stops being sent to a
+ *  joining client (isCoveredBySnapshot). */
+export const WATERCOLOR_WET_DRY_MS = 120000
+
 export type Operation =
   | StrokeOperation
   | LayerAddOperation
@@ -75,6 +99,7 @@ export type Operation =
   | AnnotationAddOperation
   | AnnotationUpdateOperation
   | AnnotationDeleteOperation
+  | PaperDryOperation
 
 /** (#518) The layers whose *pixels* `op` changes — the only question a lock
  *  needs answered.

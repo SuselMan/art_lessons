@@ -32,6 +32,11 @@ import { App } from './App'
 // exactly when that answer is hardest to get and most worth having.
 exposeAppVersion()
 
+// (#536) Dev builds only: remote eval + console for devices we cannot attach
+// a debugger to (an iPad without a Mac). See src/dev/devBridge.ts. A dynamic
+// import behind a compile-time constant, so a production bundle has no trace.
+if (import.meta.env.DEV) void import('./dev/devBridge').then(m => m.startDevBridge())
+
 // (#208) index.html can only carry a static `lang`; the real one is the
 // stored/detected locale, and assistive tech reads this attribute.
 syncDocumentLanguage()

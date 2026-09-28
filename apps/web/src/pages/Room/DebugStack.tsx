@@ -11,7 +11,9 @@ import { LIVE_LATENCY_BUDGET_MS, liveLatency, type LatencyStats } from '../../li
 import { serverClock } from '../../lib/serverClock'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import type { DrawingTool, EditorTool } from '../../stores/slices/toolSlice'
+import { getFeatureFlag } from '../../lib/featureFlags'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
+import { WatercolorPerfHud } from './WatercolorPerfHud'
 import type { TapDebugInfo } from './useTapToggle'
 import styles from './Room.module.css'
 
@@ -76,7 +78,10 @@ export function DebugStack({
   // Smudge's own grain knobs (smudgeGrain.ts). Unlike the two above these are
   // read at paint time, so they land on the next *dab*, not the next stroke.
   const [smudgeGrain, setSmudgeGrainState] = useState<SmudgeGrainConfig>(() => ({ ...SMUDGE_GRAIN }))
-  if (!(debugEnabled || hapticGrainEnabled || tapDebugEnabled || pencilSoundTuningEnabled)) return null
+  // (#536, §17.22) The watercolour's performance readout: a flag of its own,
+  // read here rather than threaded through the Room.
+  const wcPerfHudEnabled = getFeatureFlag('wcPerfHud')
+  if (!(debugEnabled || hapticGrainEnabled || tapDebugEnabled || pencilSoundTuningEnabled || wcPerfHudEnabled)) return null
 
   return (
     <div className={styles.debugStack}>
@@ -324,6 +329,7 @@ export function DebugStack({
       )}
 
       {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} tool={drawingTool} />}
+      {wcPerfHudEnabled && <WatercolorPerfHud engineRef={engineRef} className={styles.debugOverlay} />}
     </div>
   )
 }

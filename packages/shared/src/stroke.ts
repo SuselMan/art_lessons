@@ -118,4 +118,36 @@ export type StrokeOperation = OperationBase & {
    *  recorded before this existed — those replay exactly as they always did,
    *  each standing alone. */
   washId?: string
+
+  /** (#536) How wet the paper already was where this stroke landed — one hex
+   *  digit per dab, in order, `'0'` dry and `'f'` flooded.
+   *
+   *  This is the field that makes "lay clean water, then take paint into it"
+   *  expressible, and the shape of it is the whole architectural argument.
+   *  Wetness itself is a live, ephemeral, client-side thing that decays on a
+   *  wall clock, and it must stay that way: a replayable thirty-second physical
+   *  model of water on paper would be enormous and would put clocks back into
+   *  replay. What gets written down instead is not the environment but the
+   *  **interaction with it** — what this stroke saw at the moment it was made.
+   *  Live resolves clock -> wetness field -> stroke parameters -> serialize;
+   *  replay reads the serialized parameters straight back and reproduces the
+   *  identical mark. Clocks stay entirely on the decision side, exactly as they
+   *  already do for `washId`.
+   *
+   *  Quantized, and quantized *before* the live stroke uses it rather than
+   *  after: both paths must read the same piecewise-constant profile, or a
+   *  stroke would visibly redraw itself the moment the room reloaded — the
+   *  failure a per-batch water uniform caused once already.
+   *
+   *  One digit per dab rather than one per group of them, and the reason is
+   *  slicing rather than fidelity: a long gesture is cut into chunk operations
+   *  and into live packets at arbitrary dab boundaries, and each piece has to
+   *  carry exactly its own dabs' profile. Per-dab makes that a substring; any
+   *  coarser stride makes it an off-by-something waiting to happen. A hex digit
+   *  against a packed dab's ~53 bytes is under two per cent, and it is highly
+   *  compressible — long runs of a single digit are the normal case.
+   *
+   *  Absent when the stroke landed on dry paper, which is most strokes, and
+   *  absent from every stroke recorded before this existed. Both read as dry. */
+  wet?: string
 }

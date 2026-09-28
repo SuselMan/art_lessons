@@ -136,6 +136,16 @@ export type StrokeLiveData = {
    *  Measured before this field existed: 84.6% of the mark differed between
    *  author and peer, up to 64/255 per channel. */
   washId?: string
+
+  /** (#536) Mirrors StrokeOperation.wet, and for exactly the reason washId is
+   *  here: a peer paints the mark from this stream while the pen is still down,
+   *  and the operation that follows usually paints nothing. Wetness the author
+   *  saw is not derivable on the peer — its own copy of the live field is its
+   *  own — so it has to arrive with the dabs or the two draw different marks.
+   *
+   *  Grows as the stroke does: each packet carries the profile so far, and a
+   *  later packet's is a prefix-extension of an earlier one. */
+  wet?: string
   /** (#432) When the author sent this packet, on the *server's* clock (see
    *  lib/serverClock.ts on the web side). Participants' clocks are not in step
    *  with each other, but each can estimate its offset to the server, so a

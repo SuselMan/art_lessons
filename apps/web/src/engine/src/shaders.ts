@@ -189,6 +189,161 @@ ${WICK_EXPAND_GLSL}
 // brush size, instead of the old normalized-space falloff whose width was a
 // fixed fraction of the dab (36-40% of the mark's half-width at any size — see
 // docs/marker-edge-problem.md).
+/** (#536) The portable noise family, emitted into every shader that needs it.
+ *
+ *  Extracted because the deposit is written by *two* shaders — the nib stamps
+ *  in DAB_FRAG and the ribbon bands in RIBBON_FRAG — and moving the wash's
+ *  mottling out of the composite and into the deposit (ADR 011 §17.4) means
+ *  both of them have to evaluate the identical field. Two hand-synced copies
+ *  would disagree somewhere, and where a stamp and a band disagree the seam
+ *  appears at the dab pitch, which is the artifact class this tool has fought
+ *  twice already. GLSL ES 1.0 has no #include, so one string and two
+ *  interpolations is the enforcement — the same trick paperToneGLSL uses for
+ *  the paper tone. */
+const WC_NOISE_GLSL = `
+  float hash(vec2 p) {
+    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
+    return fract(p.x * p.y * (p.x + p.y));
+  }
+
+  // ── Watercolor fields (#468 v2, ADR 011 §3.5-3.7) ────────────────────────
+  //
+  // Everything below exists to answer one criticism of v1: the wash was a
+  // swept brush footprint filled with an even tone, which is the definition of
+  // a marker. v1 had exactly one spatial scale of its own - paper grain, at
+  // 1-3px - so the eye read "textured digital brush". These helpers add the
+  // two coarser scales a real wash has, and make the mark's own boundary stop
+  // coinciding with the brush's path.
+  //
+  // All of it is built on hash() above, which is the project's portable
+  // fract/floor hash - no sin(), no finite differences, nothing that has ever
+  // diverged between a desktop and a tablet GPU (see paperCatch's comment and
+  // .claude/rules.md). Value noise is an interpolation of four hash samples,
+  // which is contractive: a per-GPU difference in one lattice value is damped,
+  // never amplified.
+
+  /** Value noise, one lattice cell per unit of p. */
+  float wcNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    // Smoothstep interpolant, so the field has no visible lattice creases.
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+
+  /** Two octaves, roughly 0..1. The second sits at ~2.7x the frequency and a
+   *  deliberately irrational-looking offset, so the two never line up into a
+   *  grid. This is what gives one call both the coarse water clouds and the
+   *  pigment clumping inside them. */
+  float wcFbm(vec2 p) {
+    return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
+  }
+
+  // (#536, ADR 011 §17.4) The wash's own coarse unevenness — where the water
+  // pooled, where the brush unloaded — applied where the paint is **laid**
+  // rather than where it is shown.
+  //
+  // This is the whole of the fix Ilya's verdict forced: "эта текстура
+  // независимо ни от чего лежит на холсте, сколько сверху ни крась, она всё
+  // равно остаётся". As a multiplier in the composite it could not be
+  // otherwise, because the composite *recomputes* the mark from position — the
+  // field at a place is the same number forever, so no amount of painting can
+  // change it, and it is not the paint's texture at all but the paper's.
+  //
+  // Written into the deposit, it becomes a property of the paint that is
+  // actually there. A second pass brings its own field and the two add, and
+  // the sum of two independent unevennesses is flatter than either — which is
+  // "выровнять тон повторным проходом", arriving by itself rather than as a
+  // separate levelling mechanism. It is also the only form in which the field
+  // *can* be per-stroke: the composite is one pass over a whole wash, so a
+  // per-stroke seed is inexpressible there.
+  //
+  // The seed is derived from the stroke's own recorded id, so the live mark and
+  // its replay draw the identical field, and two strokes over one spot draw
+  // different ones.
+  float wcCloud(vec2 wp, vec2 seed, float amount) {
+    if (amount <= 0.0) return 1.0;
+    return 1.0 + amount * (wcFbm(wp * 0.018 + seed) - 0.5) * 2.0;
+  }
+
+  // (#536) The pigment settling out of *this* pass, at the scale a wash grains
+  // at. Split from the paper's own preference, which stays in the composite:
+  // the pits are where they are and every pass finds the same ones, but how
+  // much of a given suspension happens to settle into them is an event, not a
+  // property of the sheet.
+  //
+  // Getting that split wrong is what produced the sheet Ilya photographed —
+  // white blotches over the whole page, identical however many passes went
+  // over them, because the whole field was a function of position evaluated at
+  // display time, and with the wash window at twenty-five seconds the whole
+  // page was one wash and therefore one field.
+  //
+  // The hard split (halve below the threshold, amplify above) is kept: it is
+  // what makes the mark break into patches that grain and patches that do not,
+  // rather than an even dither, and it is the part borrowed from Writing on
+  // Water.
+  float wcSettling(vec2 wp, vec2 seed, float amount) {
+    if (amount <= 0.0) return 1.0;
+    float n = wcFbm(wp * 0.11 + seed + vec2(19.0, 71.0)) - 0.5;
+    n = n < 0.05 ? n * 0.5 : n * 1.6;
+    return max(1.0 + amount * n * 2.0, 0.0);
+  }
+
+  // (#536, ADR 011 s17.13) How much the brush's hairs swing the delivery per
+  // hair, from the brush's CURRENT water - after the clocks and after
+  // whatever it drank from the paper, so a dry brush enters a puddle with
+  // its hairs showing and is smooth a few dabs in, and a loaded one lays an
+  // even film from the first dab. Not paper wetness directly: the paper does
+  // not wet the hairs until they have picked it up (see watercolorWaterClock).
+  // Was the other way round in the composite - hairs strongest on a WET mark,
+  // gated off by dryness - which is what drew the crayon rings over a
+  // dissolved dot and left a dry brush with none.
+  //
+  // The shape is a COMB with gaps, not a ripple: at a dry brush the hairs are
+  // separate tracks with bare paper between them ("на бумаге реально видно
+  // линии щетинок"), so the field is thresholded to tracks and gaps and the
+  // amount goes to nothing between hairs. Doubled so the mean delivery is
+  // unchanged - the comb redistributes the dose across the hairs, it does
+  // not add or remove any. wcHairAmp is how far toward that comb the brush
+  // is; wet, none at all.
+  // (#536, s17.21) How much of a dab's delivered water stands on the sheet,
+  // by the brush's LOAD - its water at the dab over the nominal mix: the
+  // whole film above HI, none at the floor. The CPU twin,
+  // watercolorStandingGate, feeds the live wetness field the same number.
+  const float WC_STANDING_LO = 0.04;
+  const float WC_STANDING_HI = 0.35;
+  float wcStandingGate(float brushWater, float washWater) {
+    return smoothstep(WC_STANDING_LO, WC_STANDING_HI, brushWater / max(washWater, 1e-4));
+  }
+  const float WC_HAIR_WET_LO = 0.25;
+  const float WC_HAIR_WET_HI = 0.75;
+  float wcHairAmp(float bristleInk, float brushWater) {
+    return min(1.0, bristleInk * 1.6) * (1.0 - smoothstep(WC_HAIR_WET_LO, WC_HAIR_WET_HI, brushWater));
+  }
+  float wcHairComb(float hair, float amp) {
+    return mix(1.0, 2.0 * smoothstep(0.3, 0.7, hair), amp);
+  }
+  // (#536, s17.20) WHICH hair is under this texel: a field over the across-
+  // brush coordinate (scaled to the bundle count, so a hair is a fixed place
+  // in the brush) and a slow drift with world position, so the hairs gather
+  // and separate as a real brush's do rather than staying a rigid comb.
+  // Slow: the drift used to move through three full periods every 125 world
+  // px, so the pattern re-dealt itself every forty pixels and thick hairs
+  // popped in and out along a long line - "как будто в процессе кисть
+  // меняется". One place for the ink pass and the composite's contact break,
+  // so both count the same hair.
+  const float WC_HAIR_DRIFT_SCALE = 0.0012;
+  const float WC_HAIR_DRIFT_GAIN = 0.9;
+  float wcHairField(float across, float combs, vec2 wp) {
+    float drift = wcFbm(wp * WC_HAIR_DRIFT_SCALE + vec2(71.0, 13.0));
+    return wcFbm(vec2(across * combs, drift * WC_HAIR_DRIFT_GAIN) + vec2(3.0, 29.0));
+  }
+`;
+
 export const RIBBON_VERT = `
   attribute vec2 a_position;
   attribute float a_edge;
@@ -201,17 +356,36 @@ export const RIBBON_VERT = `
   // FLOATS_PER_VERTEX for the bug that forced it there. 0 for every tool
   // without a water model, which leaves the channel it feeds unread.
   attribute float a_inkWater;
+  // (#536) Where across the brush this vertex is: -1 at one tangent line, 0 on
+  // the centre line, +1 at the other. A *hair* lives at a fixed value of this
+  // for the whole gesture, which is what separates a brush with hair from a
+  // noise field the brush drives over — see markerRibbon.ts's own note.
+  attribute float a_across;
+  // (#536) The same deposit weighted by how wet the paper under this segment
+  // already was — the brush's water and the paper's are two quantities, and
+  // the composite has to be able to tell them apart per pixel.
+  attribute float a_inkWet;
+  attribute float a_inkStrength;
+  attribute float a_puddle;
 
   uniform vec2 u_resolution;
 
   varying float v_edge;
   varying float v_ink;
   varying float v_inkWater;
+  varying float v_across;
+  varying float v_inkWet;
+  varying float v_puddle;
+  varying float v_inkStrength;
 
   void main() {
     v_edge = a_edge;
     v_ink = a_ink;
     v_inkWater = a_inkWater;
+    v_across = a_across;
+    v_inkWet = a_inkWet;
+    v_inkStrength = a_inkStrength;
+    v_puddle = a_puddle;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -230,10 +404,53 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
+  /** (#536, s17.11/13/18) Standing water, into coverage .b (premultiplied
+   *  like .r): the wetter of the paper wetness the stroke saw under itself
+   *  (v_inkWet) and what it left. A clean-water stroke leaves u_washWater, its
+   *  nominal mix, whole; a pigment stroke leaves the brush's water AT THIS
+   *  DAB (v_inkWater, after the clocks) kept by u_waterRetain, rising to 1
+   *  where the paper was already wet - see watercolorWaterRetention. The wet
+   *  diffusion pass reads standing water off the wash's own silhouette from
+   *  it. One of u_washWater / u_waterRetain is zero for any given stroke.
+   *
+   *  The first version recorded nothing for a pigment stroke, to keep a
+   *  spiral on dry paper from levelling into a blob; it also kept a loaded
+   *  brush's scribble dry-on-dry. Retention is the middle: a thin film on dry
+   *  paper, a puddle's worth where there was a puddle. */
+  uniform float u_washWater;
+  uniform float u_waterRetain;
+  /** (#536, s17.13) The brush's hairs, laid into the DEPOSIT. Bundles across
+   *  the mark (the count DAB_FRAG's composite also uses for the contact
+   *  break) and the delivery swing per hair at a dry brush. See wcHairAmp. */
+  uniform float u_bristleCombs;
+  uniform float u_bristleInk;
+  /** (#536, s17.19) Ink mode, second target: write the OPTICAL DEPTH of the
+   *  paint this band lays rather than its deposit - mass x u_tau per channel,
+   *  scaled by WC_DEPTH_SCALE into eight bits, mass itself in .a. The same
+   *  amount as the deposit pass, so depth and deposit agree texel by texel;
+   *  see pigmentOptics.ts. */
+  uniform float u_depthWrite;
+  uniform vec3 u_tau;
+  const float WC_DEPTH_SCALE = 4.0;
 
   varying float v_edge;
   varying float v_ink;
   varying float v_inkWater;
+  varying float v_across;
+  varying float v_inkWet;
+  varying float v_puddle;
+  varying float v_inkStrength;
+
+  // (#536) The band half of the deposited mottling. The world origin has to be
+  // handed in because a band is drawn into a tile-sized scratch buffer and
+  // gl_FragCoord alone says nothing about where on the sheet that is — the same
+  // reason DAB_FRAG carries u_paperOrigin (#141).
+  uniform vec2 u_worldOrigin;
+  uniform vec2 u_mottleSeed;
+  uniform float u_cloudDeposit;
+  uniform float u_granDeposit;
+
+${WC_NOISE_GLSL}
 
   void main() {
     // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
@@ -244,7 +461,14 @@ export const RIBBON_FRAG = `
     // two primitives agree where they meet.
     float cov = clamp(v_edge / u_aaPx, 0.0, 1.0);
     if (cov <= 0.0) discard;
-    float amount = u_mode > 0.5 ? cov * v_ink : cov;
+    // (#536) Ink only: the mottling is a property of how much paint landed, not
+    // of where the mark's silhouette is.
+    vec2 mottleWp = gl_FragCoord.xy + u_worldOrigin;
+    float mottle = u_mode > 0.5
+      ? wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
+        * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
+      : 1.0;
+    float amount = u_mode > 0.5 ? cov * v_ink * mottle : cov;
     // (#468 v4) Same two-channel deposit the nib stamps write: .a is how much
     // paint landed, .rgb the same amount weighted by how wet the brush was, so
     // the composite can recover a per-pixel water level. One value for the
@@ -257,7 +481,44 @@ export const RIBBON_FRAG = `
     // how the stroke happened to be cut into pointer events — a live stroke and
     // a replay of it disagreed over a quarter of the mark, and a reload
     // visibly redrew it.
-    gl_FragColor = vec4(vec3(u_mode > 0.5 ? cov * v_inkWater : amount), amount);
+    // (#536) The coverage buffer's .r now carries the brush's across-coordinate,
+    // remapped to 0..1 and premultiplied by coverage the same way "over"
+    // blending expects, so the composite recovers it as .r/.a. It is free real
+    // estate: in coverage mode all three colour channels held a copy of alpha
+    // and nothing ever read them. .g keeps that copy so anything that did is
+    // unaffected; .b (#536, s17.11) is the standing water here - the free
+    // water of a clean pass, or the wetness a pigment pass recorded under
+    // itself - the record the diffusion pass gates on. See u_washWater.
+    //
+    // Premultiplied "over" means overlapping passes blend toward whichever drew
+    // last where it covered fully, which is the physically right answer: the
+    // last pass of the brush over a spot is the one whose hairs you see.
+    float acrossEncoded = v_across * 0.5 + 0.5;
+    // (#536, s17.20) v_inkWater and v_inkWet are the band's dose WEIGHTED by
+    // its water and by the paper's wetness (markerRibbon.ts packs ink*water,
+    // so that the ink pass can lay deposit-weighted sums); the plain values
+    // are those over the dose. Used as if they were plain, they were a
+    // hundredth of themselves: the standing water a band recorded was nothing,
+    // so a stroke's own puddle existed only in the caps its stamps left
+    // uncovered - a row of crescents, "зубья в лужах" - and the hair comb
+    // read every band as bone dry.
+    float bandWater = v_ink > 1e-6 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0;
+    float bandWet = v_ink > 1e-6 ? clamp(v_inkWet / v_ink, 0.0, 1.0) : 0.0;
+    // (#536, s17.13) The hairs vary the delivery, here, into the deposit -
+    // see wcHairAmp. The across coordinate is this band's own, so a hair is
+    // a fixed place in the brush and its streak follows the brush round a
+    // curve, exactly as the composite's contact break indexes it.
+    if (u_mode > 0.5 && u_bristleInk > 0.0) {
+      float hair = wcHairField(v_across, u_bristleCombs, mottleWp);
+      amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, bandWater));
+    }
+    // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
+    // composite recovers a per-pixel mean of each by dividing by .a.
+    gl_FragColor = u_mode > 0.5
+      ? (u_depthWrite > 0.5
+          ? vec4(amount * v_inkStrength * u_tau / WC_DEPTH_SCALE, amount * v_inkStrength)
+          : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount))
+      : vec4(acrossEncoded * amount, amount, amount * max(bandWet, v_puddle * u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
   }
 `;
 
@@ -395,6 +656,12 @@ export const DAB_FRAG = `
   // the stroke's silhouette/alpha; this governs how dark the color mix
   // goes — see the composite branch below).
   uniform sampler2D u_inkLoad;
+  /** (#536, s17.19) The wash's optical depth per texel - see RIBBON_FRAG's
+   *  u_depthWrite. Read by the composite for the paint's own colour. */
+  uniform sampler2D u_inkColor;
+  uniform float u_depthWrite;
+  uniform vec3 u_tau;
+  const float WC_DEPTH_SCALE = 4.0;
   // Every _dabProg draw already sets this (see engine/index.ts's own
   // _drawRibbonCompositeDab/_drawRibbonCompositeDab and every other caller)
   // — declared here too so this fragment shader can read it back for the
@@ -409,9 +676,62 @@ export const DAB_FRAG = `
   // geometric branches read either.
   uniform float u_nibShape;
   uniform float u_nibCorner;
+  // (#536) The direction across the brush's travel, expressed in this nib's own
+  // local axes and unit length. Per dab, because a stroke turns: the stamps
+  // have to agree with the bands about which way "across" points, or the comb
+  // would soften at every stamp and read as a ripple at the dab pitch — the
+  // exact artifact class the cone deposit was introduced to kill (u_inkMode=6's
+  // own note). (0,1) for anything that does not set it, which for a round nib
+  // whose angle follows the path is already the right answer.
+  uniform vec2 u_acrossLocal;
+  // (#536) How wet the paper under this dab already was, 0..1 — read from what
+  // the stroke recorded, never from a live field, so replay reproduces it.
+  uniform float u_paperWet;
+  /** (#536, s17.11/13) See RIBBON_FRAG's u_washWater and u_waterRetain -
+   *  the coverage stamp's .b, from these and u_paperWet the same way. */
+  uniform float u_washWater;
+  // (s17.27) How deep the water stands under this stamp - see markerRibbon.ts.
+  uniform float u_puddle;
+  uniform float u_waterRetain;
+  // (#536) How strong the paint in the brush was for this dab — the pigment
+  // slider, resolved per stroke. Rides the deposit for the reason
+  // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
+  // and they are allowed to disagree about it.
+  uniform float u_inkStrength;
+  // (#536) The wash's coarse mottling, now laid down with the paint rather than
+  // multiplied over it at display time — see wcCloud. Seed per stroke.
+  uniform float u_cloudDeposit;
+  uniform float u_granDeposit;
+  uniform vec2 u_mottleSeed;
+  // (#536) The hair comb: how many bundles lie across the brush, and how
+  // unevenly they deliver pigment as a fraction either side of the mean.
+  //
+  // Uniforms rather than constants because the count is resolved from the
+  // brush being held, not from a shipping number: a hair is a fixed few pixels
+  // wide, so a wider brush carries more of them (WATERCOLOR_BRISTLE_BUNDLE_PX).
+  // The depth is on the profile (RibbonProfile.bristleInk).
+  //
+  // There was a dev flag here that replaced the count with a fixed caricature
+  // of about thirty bundles, to settle whether the *spatial organisation* read
+  // as hair at all before anyone touched the amplitude again. It answered its
+  // question and was then removed, because a size-blind override of the very
+  // number that has to scale with the brush is a trap: left on, it put fifty-six
+  // half-pixel bundles across a 30 px mark and looked exactly like the bug it
+  // was meant to diagnose.
+  uniform float u_bristleCombs;
+  uniform float u_bristleInk;
+  // (#536) 0 = paint normally; 1 = show the silhouette; 2 = show the density.
+  uniform float u_wcDebugView;
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
+  /** (#536) 1 = this ink stamp lands only where the wash already has coverage,
+   *  scaled by that coverage. The halo of a wet-in-wet dab: pigment carried by
+   *  standing water goes as far as the water and no further, and the water is
+   *  the wash's own silhouette - so a halo can never leave the puddle. Read with
+   *  u_strokeCoverage bound to the wash's coverage buffer (see
+   *  _drawRibbonNibPass's clipTo); 0 for every ordinary stamp. */
+  uniform float u_inkClip;
   // #454 (ADR 009 §8) — how strongly the paper's grain acts on a ribbon tool's
   // *rim*, as a fraction of the edge ramp. 0 for every draw that isn't one of
   // the two branches below, which makes their terms vanish identically.
@@ -581,47 +901,90 @@ export const DAB_FRAG = `
   // exact same stroke. Same fix as paperNoise.ts's own hash — Inigo
   // Quilez's artifact-free hash, built from fract/floor/multiply only, no
   // transcendental functions to lose precision under mediump.
-  float hash(vec2 p) {
-    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
-    return fract(p.x * p.y * (p.x + p.y));
-  }
 
-  // ── Watercolor fields (#468 v2, ADR 011 §3.5-3.7) ────────────────────────
+
+  // (#536) How much deposit one e-folding of transmission costs. Picked so an
+  // ordinary single pass lands around 0.78 rather than pinned at 1: that is
+  // what leaves room above for a second pass to darken, and room below for a
+  // brush running out of paint to lighten. u_saturateInk is *not* this — it
+  // stays the migration pass's reference for a full film and is left alone,
+  // because coupling the two is how one retune silently becomes two.
   //
-  // Everything below exists to answer one criticism of v1: the wash was a
-  // swept brush footprint filled with an even tone, which is the definition of
-  // a marker. v1 had exactly one spatial scale of its own - paper grain, at
-  // 1-3px - so the eye read "textured digital brush". These helpers add the
-  // two coarser scales a real wash has, and make the mark's own boundary stop
-  // coinciding with the brush's path.
-  //
-  // All of it is built on hash() above, which is the project's portable
-  // fract/floor hash - no sin(), no finite differences, nothing that has ever
-  // diverged between a desktop and a tablet GPU (see paperCatch's comment and
-  // .claude/rules.md). Value noise is an interpolation of four hash samples,
-  // which is contractive: a per-GPU difference in one lattice value is damped,
-  // never amplified.
+  // #536 — 0.54, from 1.8, and it moves with WATERCOLOR_CONE_DEPOSIT_GAIN
+  // rather than on its own: the gain came down by the same factor so that an
+  // ordinary pass stops clipping the 8-bit deposit buffer, and this keeps the
+  // tone of that pass exactly where it was (density 0.43 before and after).
+  // What changes is what lies above it — a second glaze now reads 0.67 and a
+  // third 0.81, where before every one of them read the same clipped value.
+  const float WC_DENSITY_K = 0.54;
+  // (s17.43) How much more a black covers than a white per unit of mass, on
+  // the fourth power of darkness so a mid blue (Y 0.25) gains a third and a
+  // mid tone a tenth while a black gains the whole of it: at the square the
+  // blue's body went up by 70 % with the black's.
+  const float WC_TINT_DARK = 1.2;
+  // (#536, s17.26) The dry brush reads the paper's catch over this many px.
+  // (s17.29) 6, from 2.5: Ilya's series 6 - the gaps a dry brush leaves are
+  // islands a millimetre or two across (10-20 px at the room's scale), not
+  // a speckle at the grain; at 2.5 px the mark read as a solid film with a
+  // fine roughness over it.
+  const float WC_DRY_TOOTH_PX = 9.0;
+  // (s17.29) All of the contact from the tooth's scale, none from the
+  // grain: at 0.75 the grain's quarter set the threshold's texture and the
+  // gaps came out as a speckle over a film, where the photographs have
+  // islands the size of the tooth with a plain film between.
+  const float WC_DRY_COARSE = 1.0;
+  const float WC_DRY_LIFT = 0.5;
+  // (s17.29) The water at which the contact starts breaking - 0.6, from
+  // 0.45: the series' strokes at 0.21-0.36 water are all broken in the
+  // photograph, and at 0.45 the gate had them nearly closed.
+  const float WC_DRY_WATER_LO = 0.15;
+  const float WC_DRY_WATER_HI = 0.5;
+  const float WC_DRY_CONTACT_W = 0.3;
+  // (#536, s17.26) The ink stamp's profile: 1 = a cone to the centre, 3 = a
+  // plateau with a ramp over the outer half of the nib.
+  const float WC_STAMP_PLATEAU = 2.0;
+  /** (#536) How far below the blur's half point the wash's re-threshold sits on
+   *  fully wet paper — the tool's only term that makes a mark genuinely bigger
+   *  rather than merely softer or more irregular. See its use, under u_spreadPx.
+   *
+   *  Declared here rather than beside the other WC_WET_* constants, which live
+   *  in PAPER_COMPOSE_FRAG: GLSL ES 1.0 has no include, these are two separate
+   *  programs, and a constant declared in the wrong one is a compile error that
+   *  takes the whole engine down with it. */
+  const float WC_WET_PUSH = 0.50;
+  /** How strongly the paper's pits mottle a thin film on wet paper - the halo
+   *  of a wet-in-wet mark. See granHere. */
+  // (#536) 0.35, from 1.1. The term scales with (1 - density), and once the
+  // diffusion spreads a mark thin across a puddle that factor is large
+  // everywhere in it - a wet line through a puddle came out grainy, "в
+  // области лужи кисть становится как сухая". Ilya asked for the wet-paper
+  // grain to be barely visible; this is barely visible.
+  const float WC_WET_GRAN = 0.35;
+  /** What is left of the push for a brush with no water in it. A floor rather
+   *  than a gate: a nearly dry brush dragged through standing water still
+   *  bleeds plainly, it simply does not flood. */
+  const float WC_PUSH_DRY = 0.45;
+  /** How strongly the paper's own grain steers the advancing front. */
+  const float WC_WET_PAPER = 1.3;
+  /** Where the pigment's own spread samples for paint, as a fraction of the
+   *  boundary's reach. Above 1: this ring is what decides how far the blot
+   *  gets, so it has to reach about a brush radius — the growth Ilya measured
+   *  on paper is roughly 1.7x across, and a ring that stops short of the mark's
+   *  own radius cannot produce it. */
+  /** How much of the neighbouring deposit arrives here at full push. Above 1
+   *  because a ring average outside a mark is mostly empty taps: at one radius
+   *  out perhaps three of twelve land on paint, so the mean understates what is
+   *  actually available to travel by about that factor. */
+  /** How much arrived pigment counts as the wash being present at all, and how
+   *  much counts as fully present. Both small: out at the margin only two or
+   *  three of twelve taps land on paint, so what arrives is a small fraction of
+   *  a core deposit however strong the mark is. */
 
-  /** Value noise, one lattice cell per unit of p. */
-  float wcNoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    // Smoothstep interpolant, so the field has no visible lattice creases.
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-  }
+  // (#536) How wide the transport's own view of the concentration is, in px.
+  // Wider than a hair bundle on purpose — see its use.
+  const float WC_TRANSPORT_SMOOTH_PX = 7.0;
 
-  /** Two octaves, roughly 0..1. The second sits at ~2.7x the frequency and a
-   *  deliberately irrational-looking offset, so the two never line up into a
-   *  grid. This is what gives one call both the coarse water clouds and the
-   *  pigment clumping inside them. */
-  float wcFbm(vec2 p) {
-    return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
-  }
+${WC_NOISE_GLSL}
 
   // (#468 v10) Twelve directions per ring, not eight, and the two rings of one
   // blur offset by half a step. NEAREST-filtered source sampled at fixed
@@ -773,10 +1136,19 @@ export const DAB_FRAG = `
     a *= 0.25;
     float dep = a.a;
     float wat = dep > 0.004 ? clamp(a.r / dep, 0.0, 1.0) : 0.0;
+    // (#536) …and how wet the *paper* under it already was, which this pass did
+    // not consult at all. That omission is why painting into a puddle looked no
+    // different from painting on dry paper: the machinery for moving pigment
+    // was here, gated on the brush alone, and therefore blind to the one thing
+    // wet-in-wet is about.
+    float pap = dep > 0.004 ? clamp(a.g / dep, 0.0, 1.0) : 0.0;
     float cov = texture2D(u_strokeCoverage, uv).a;
     // How wet this place counts as: mostly the mix the stroke was made with,
-    // nudged by the water actually left in the brush here.
-    float wetness = mix(u_water, wat, WC_MIGRATE_LOCAL);
+    // nudged by the water actually left in the brush here — and never less than
+    // what was already lying on the paper. Same rule the profile draws between
+    // contact and transport: the brush decides how the paint is laid, the paper
+    // decides what becomes of it afterwards.
+    float wetness = max(mix(u_water, wat, WC_MIGRATE_LOCAL), pap);
     // Can exceed 1 — see WC_MIGRATE_FLOOD. Only the flux reads it that way; the
     // tideline's own retreat clamps it back (search for min(migrateGate, 1.0)).
     float gate = smoothstep(u_migrateLo, u_migrateHi, wetness)
@@ -913,7 +1285,18 @@ export const DAB_FRAG = `
       // see its own comment for why the ramp is one-sided.
       float cov = clamp(-markerNibDistPx() / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
-      gl_FragColor = vec4(vec3(cov), cov);
+      // (#536) .r carries where across the brush this fragment sits, on the
+      // same -1..+1 scale RIBBON_FRAG writes and remapped the same way. The
+      // support value of an ellipse in local direction u is
+      // sqrt((a*u.x)^2 + (b*u.y)^2), so dividing the projection by it lands
+      // exactly +/-1 at the tangent points the bands' own tangent vertices sit
+      // on — the two primitives therefore agree wherever they overlap.
+      float bAx = max(v_radius, 1e-4);
+      float aAx = bAx * max(v_aspectRatio, 1.0);
+      vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
+      float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
+      float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
 
@@ -931,14 +1314,54 @@ export const DAB_FRAG = `
       float dPx = markerNibDistPx();
       float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
-      float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
+      // (#536, s17.26) A plateau with a ramp over the outer half of the
+      // nib, not a cone to the centre: the cone summed along a stroke gave a
+      // cross-section that fell off over the whole radius - a soft film with
+      // no edge, and a tideline sitting in the trough beyond it ("печенька").
+      // A wet stroke's film is flat and ends where the water ends. The sum
+      // still meets stamps entering and leaving smoothly enough; the
+      // diffusion pass (s17.11) levels what ripple is left. Mean over the
+      // disc 0.58 against the cone's 0.33: WATERCOLOR_CONE_DEPOSIT_GAIN
+      // carries the conversion.
+      float depth = clamp(-dPx / max(v_radius, 1e-4) * WC_STAMP_PLATEAU, 0.0, 1.0);
       float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
+      // (#536, s17.13) The hairs, into the deposit - the stamp's half of what
+      // RIBBON_FRAG's ink mode does, on the same across coordinate the
+      // coverage stamp writes (mode 6 above) so stamp and band agree about
+      // which hair is which. See wcHairAmp.
+      if (u_bristleInk > 0.0) {
+        float bAx = max(v_radius, 1e-4);
+        float aAx = bAx * max(v_aspectRatio, 1.0);
+        vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
+        float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
+        float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
+        vec2 hairWp = gl_FragCoord.xy + u_paperOrigin;
+        float hair = wcHairField(acrossN, u_bristleCombs, hairWp);
+        amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, u_inkWater));
+      }
+      if (u_inkClip > 0.5) {
+        // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
+        // inside (the composite's own note is about non-uniform flow).
+        float washCov = texture2D(u_strokeCoverage, gl_FragCoord.xy / u_resolution).a;
+        amount *= washCov;
+      }
+      // (#536) …unevenly, and the unevenness is deposited with the paint. Same
+      // world mapping the paper sampling uses, so a stamp and a band cannot
+      // disagree about where the field is.
+      vec2 mottleWp = gl_FragCoord.xy + u_paperOrigin;
+      amount *= wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
+              * wcSettling(mottleWp, u_mottleSeed, u_granDeposit);
       // .a is the deposit; .rgb the same deposit weighted by how wet the brush
       // was for this dab. Both accumulate additively, so the composite's r/a is
       // the deposit-weighted mean water over everything that landed here — see
       // u_inkWater. Zero for every tool that does not set it, which leaves the
       // ratio undefined and unread.
-      gl_FragColor = vec4(vec3(amount * u_inkWater), amount);
+      if (u_depthWrite > 0.5) {
+        // (#536, s17.19) Into the depth buffer instead: see RIBBON_FRAG.
+        gl_FragColor = vec4(amount * u_inkStrength * u_tau / WC_DEPTH_SCALE, amount * u_inkStrength);
+        return;
+      }
+      gl_FragColor = vec4(amount * u_inkWater, amount * u_paperWet, amount * u_inkStrength, amount);
       return;
     }
 
@@ -1076,12 +1499,61 @@ export const DAB_FRAG = `
       vec4 ink = u_inkSmoothPx > 0.0
         ? wcInkAvg(tileUV, texel, u_inkSmoothPx * 0.5)
         : texture2D(u_inkLoad, tileUV);
+      // (#536, s17.19) What colour the paint HERE is: the mass-weighted
+      // geometric mean of the transmittances of everything laid on this
+      // texel, exp(-D / m), read off the depth buffer - so two paints in one
+      // puddle mix as paints do (blue and yellow to a dull green), and one
+      // paint comes out exactly the colour it carries. Where nothing was
+      // laid the batch's own colour stands in, as with strength.
+      // Read as a ratio with a small prior on the batch's own paint: at a
+      // thin fringe the mass is a code or two and the depth rounds to none,
+      // and a bare ratio there is exp(0) - WHITE paint, which is what the
+      // "светлые артефакты, после высыхания остались" were. With the prior
+      // the fringe is the batch's colour and the body is the mixture.
+      vec4 depth = texture2D(u_inkColor, tileUV);
+      // (s17.26) …and the prior grows where the mass is thin: the front's
+      // extension and a relocated rim's fringe hold a few codes of mass with
+      // a depth rounded per channel, and a bare ratio there swung the hue
+      // texel by texel - red, cyan and blue specks along a yellow mark's
+      // edge in the replay. Under WC_DEPTH_THIN of mass the batch's own
+      // colour takes over; a body's mass is ten times that.
+      // (s17.43) 0.03 -> 0: the constant part of the prior blended the BATCH's
+      // colour into every texel the composite touched, whatever the record
+      // held - 13 % of purple into a yellow body of 0.2 mass - and the
+      // composite touches its rect, so the second stroke's rect edge was a
+      // crisp line of colour change across the first paint ("чёткая линия
+      // смены цвета", "вот эта линия"). Hunted through the carry, the bloom,
+      // the halo and the dry contact first: none of the wash's buffers had
+      // the edge, only the composite's output did. The thin-mass term below
+      // keeps the fringe fix this prior was added for.
+      const float WC_DEPTH_PRIOR = 0.0;
+      const float WC_DEPTH_THIN = 0.12;
+      float thinPrior = WC_DEPTH_PRIOR + WC_DEPTH_THIN * (1.0 - smoothstep(0.0, WC_DEPTH_THIN, depth.a));
+      vec3 tauBatch = -log(max(u_color, vec3(0.02)));
+      vec3 tauHere = (depth.rgb * WC_DEPTH_SCALE + tauBatch * thinPrior) / (depth.a + thinPrior);
+      vec3 paint = exp(-tauHere);
 
       // §4.1 - how wet the brush was *here*, recovered from the deposit's own
       // weighted sum (see u_inkWater). Outside the mark there is no deposit to
       // divide by, so the batch's nominal water stands in; that region is the
       // spread fringe, which is about to be decided by exactly this value.
       float waterHere = ink.a > 0.004 ? clamp(ink.r / ink.a, 0.0, 1.0) : u_water;
+      // (#536) …and how wet the paper it landed on already was, recovered the
+      // same way. Two quantities, and keeping them apart is the whole of
+      // wet-in-wet: the brush's own water decides how the mark was *laid* (see
+      // u_dryContact below, which reads waterHere and only waterHere), the
+      // paper's decides what becomes of the paint afterwards. A dry brush over
+      // a puddle still scratches; the little paint it leaves still blooms.
+      float paperWetHere = ink.a > 0.004 ? clamp(ink.g / ink.a, 0.0, 1.0) : 0.0;
+      // (#536) …and how strong the paint that landed here was. Per pixel, not
+      // per batch, because a wash is several strokes and they may carry
+      // different amounts of paint — that is the whole of "lay clean water,
+      // then take colour into it". Outside the mark there is no deposit to
+      // divide by, so the batch's own setting stands in.
+      float strengthHere = ink.a > 0.004 ? clamp(ink.b / ink.a, 0.0, 1.0) : u_inkStrength;
+      // Recomputed after the migration pass below, which moves paint as well as
+      // mass — see its own note.
+      float transportHere = max(waterHere, paperWetHere);
 
       // §3.5 - the wash leaves the brush's footprint.
       //
@@ -1101,12 +1573,33 @@ export const DAB_FRAG = `
       // *into* the mark, which is what a wash starved of water actually does.
       float coverage = rawCoverage;
       float blurred = rawCoverage;
+      // (#536) Both are wanted below, by the pigment's own spread — see the
+      // deposit further down.
+      float push = 0.0;
       if (u_spreadPx > 0.0) {
         // Reach scales with the water actually left here, not just with the
         // stroke's nominal setting. A stroke that starts flooded and runs dry
         // therefore spreads far at its beginning and hardly at all by its end,
         // inside one mark.
-        float reach = u_spreadPx * mix(0.25, 1.0, waterHere);
+        // (#536) How far the blur reaches, and this is deliberately NOT where
+        // the wet-in-wet bloom lives any more.
+        //
+        // It was, and putting it here was the reason four rounds of "растекание
+        // должно быть сильнее" changed nothing on screen. The bloom multiplied
+        // the radius, so a 30 px dot in standing water asked for a blur of
+        // about eighty pixels — and wcRingAvg is twelve taps on a ring. Twelve
+        // point samples at eighty pixels are not a blur of a thirty-pixel dot;
+        // every one of them lands on bare paper, the blurred value collapses to
+        // the centre tap's share, and the re-threshold has nothing left to push
+        // outward. Making the bloom bigger made the sampler worse, which is
+        // exactly the shape of the reports.
+        //
+        // So the radius stays near the mark's own scale, where the ring is a
+        // fair approximation of a disc average, and the *growth* is carried by
+        // how far below the blur's half point the threshold sits — see
+        // WC_WET_PUSH. Displacement is roughly 2*reach*push either way; this
+        // way the blur it displaces is real.
+        float reach = u_spreadPx * mix(0.25, 1.0, transportHere);
         blurred =
             0.20 * rawCoverage
           + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55, 1.0)
@@ -1121,13 +1614,87 @@ export const DAB_FRAG = `
         // exactly, so a dry mark with u_edgeWander near zero goes where the hand
         // went. Every earlier version spent a fixed 0.10..0.62 here whatever the
         // mix, which is why even a nearly dry brush drew a shape of its own.
-        float thr = 0.5 + u_edgeWander * (wcFbm(wp * 0.030) - 0.5);
+        // (#536) Widened where the paper was already wet: the gesture's own
+        // uniforms were resolved from the wetness under its *first* dab, so a
+        // stroke that runs from dry paper into a puddle needs the rest of the
+        // difference per pixel.
+        float wetGain = mix(1.0, 1.7, paperWetHere);
+        // (#536) …and the boundary is pushed *outward* where the paper is wet,
+        // which is the difference between a mark whose edge wanders and a blot
+        // that actually grows.
+        //
+        // Ilya, spelling out what he had been asking for: a 30 px dot dropped
+        // into standing water should end up nearer 45 px across. Everything
+        // here up to now was zero-mean — the threshold wandered either side of
+        // 0.5, so the boundary got *irregular* without getting *bigger*, and
+        // the drying animation only filled in a margin the composite had
+        // already drawn. Neither of those can move a boundary fifteen pixels.
+        //
+        // Thresholding a blur below its half point does. The boundary lands
+        // where the blurred silhouette equals thr, and the blur's slope across
+        // an edge is about 1/(2*reach), so biasing thr down by d displaces it
+        // outward by roughly 2*reach*d — real growth, into the water only,
+        // because paperWetHere is zero everywhere else.
+        // (#536) How hard the boundary is pushed outward, and it now reads
+        // *both* waters rather than only the paper's.
+        //
+        // Ilya, from the real thing: a wet brush drawn through a puddle spreads
+        // markedly more than a nearly dry one, and the nearly dry one still
+        // spreads plainly. So the paper decides whether there is anywhere to go
+        // and the brush decides how much goes — a product, with a floor well
+        // above zero rather than a gate.
+        // paperWetHere is read off the deposit, and outside the brush's own
+        // footprint the deposit used to be zero — which made this term zero
+        // precisely where growth has to happen, measured as 15 px against 15.
+        // The fix is not here: the halo pass now lays a real, wider deposit
+        // wherever the paper was wet (see _paintRibbonStroke), so the per-pixel
+        // value exists out there and this reads it as it always did.
+        push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
+        // …and the front follows the sheet. In the photographs the spread half
+        // of a mark is not a smooth gradient at all: it is granular, and the
+        // grain is the paper's own. Steering the threshold by paperCatch makes
+        // the advancing boundary run further in the sheet's valleys than over
+        // its crests, so the spread arrives *as* texture rather than as a blur
+        // with texture drawn over it. Scaled by push, so a mark that is not
+        // spreading is not roughened either.
+        // Sign matters, and it was wrong: paperCatch is HIGH on a fibre crest
+        // and low in a pit, and this used to lower the threshold on crests, so
+        // the front ran furthest over the tops of the paper. Ilya, with the
+        // real thing in front of him: pigment in standing water runs along the
+        // valleys and settles in the pits, a web with the crests left paler.
+        // A crest now raises the threshold, a pit lowers it.
+        float thr = 0.5
+          - push
+          + WC_WET_PAPER * push * (paperCatch - 0.5)
+          + u_edgeWander * wetGain * (wcFbm(wp * 0.030) - 0.5);
         // §4.1 - how sharply the boundary resolves, and the range is water's
         // to set. A flood has edges running from nearly lost to fairly crisp
         // within one mark; a dry brush has only crisp ones, because there is no
         // liquid to feather them.
-        float soft = max(u_edgeSoft, 0.03) * mix(0.75, 1.25, wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
-        coverage = smoothstep(thr, thr + soft, blurred);
+        float soft = max(u_edgeSoft, 0.03) * wetGain * mix(0.75, 1.25, wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
+        // (#536) The upper end of the ramp is clamped to 1, and that one
+        // change is what stops a wash being blotchy.
+        //
+        // This block exists to make the mark's *boundary* wander off the
+        // brush's own outline (§3.5). But thr + soft could exceed 1 — at a
+        // wet setting it reached about 1.2 — and smoothstep(0.7, 1.2, 1.0) is
+        // 0.66, not 1. So the field was cutting a third of the coverage away
+        // in places where the blur is saturated, i.e. deep *inside* a solid
+        // wash, where there is no boundary for it to act on at all.
+        //
+        // That was the blotching: a swing of about a third in alpha, at the
+        // 30-60 px scale of these two noise fields, anchored to the paper and
+        // therefore identical however many times it was painted over. It read
+        // as "a texture that lies on the sheet no matter what", which is
+        // exactly what it was — and it was never pigment, which is why it never
+        // looked like pigment. Ilya's two exports settled it in one look: the
+        // density view is smooth and the silhouette view is the artifact.
+        //
+        // Clamping keeps the whole intended behaviour. Where the blur is
+        // saturated the fragment is at least a blur radius from any edge and
+        // now reads full; near the boundary the ramp still moves with thr and
+        // still eats into a starved wash, which §3.5 asks for deliberately.
+        coverage = smoothstep(thr, min(thr + soft, 1.0), blurred);
       }
 
       // §4.2 - dry brush, as *geometry* rather than as texture.
@@ -1145,37 +1712,128 @@ export const DAB_FRAG = `
       // paperCatch is high on a fibre crest and low in a pit, and it is baked
       // offline in double precision - so this adds a smoothstep and a multiply
       // and nothing that cross-device determinism has ever been broken by.
-      float dryness = u_dryContact * (1.0 - waterHere);
-      if (dryness > 0.0) {
-        // §8 - the brush's own hairs, not just the paper's relief.
-        //
-        // A nearly dry round brush does not present a clean disc to the paper:
-        // its hairs group into bundles and separate, so the mark breaks into
-        // *longitudinal* streaks running along the travel. A term that knows
-        // only the paper's height threshold cannot produce those, and what it
-        // produces instead reads as an aerosol or a pastel — which is exactly
-        // how the dry brush was described.
-        //
-        // Modelled by sampling a field in a frame rotated onto the stroke's own
-        // direction and stretched some fifteen times along it: fine across the
-        // travel, long and smooth along it. That is the shape of a bundle of
-        // hairs, and it costs one rotation and one fbm.
-        vec2 along = u_strokeDir;
-        vec2 across = vec2(-along.y, along.x);
-        vec2 bristleUV = vec2(dot(wp, along) * 0.012, dot(wp, across) * 0.19);
-        float bristle = wcFbm(bristleUV + vec2(3.0, 29.0));
+      // §8, #536 - the brush's own hairs. ONE field, TWO outputs.
+      //
+      // Until #536 this lived entirely inside the dryness > 0.0 branch, and
+      // u_dryContact is identically zero above 0.62 water while the "wet"
+      // preset sits at 0.92 - so the wettest brush in the tool was the one
+      // guaranteed to have no hair structure at all. That is backwards against
+      // a real brush, where the hairs are visible loaded as well as dry; they
+      // simply stop *breaking the contact* and start *varying the delivery*.
+      // So the gate is gone and the field now has two ends:
+      //
+      //   dry   the hairs ride the paper's crests and the silhouette genuinely
+      //         breaks up - gaps of bare paper, not pale paint;
+      //   wet   contact is continuous and the hairs instead lay down more
+      //         pigment along some lines than others, inside a solid mark.
+      //
+      // Both are mixed by dryness rather than switched, so nothing steps.
+      //
+      // Where the field is indexed is the other half of the fix. It used to be
+      // world position rotated onto the stroke's direction, which makes it a
+      // field the brush drives *over*: turn the stroke or lay a second pass and
+      // the streaks do not stay on the same hairs, because they were never
+      // attached to any. Now the across-brush axis comes from the rasterizer
+      // (RIBBON_FRAG writes it into coverage's .r), so a hair is a fixed place
+      // in the brush and its streak follows the brush round a curve.
+      //
+      // The second axis is a slow *isotropic* world field rather than distance
+      // along u_strokeDir, and that is deliberate twice over: a perfectly rigid
+      // comb reads as a rake or a fan brush rather than a round one - real
+      // hairs gather and separate as the brush travels - and u_strokeDir is a
+      // per-batch value, so indexing by it made the pattern jump wherever a
+      // live stroke happened to be cut into pointer events.
+      float acrossN = rawCoverage > 0.004
+        ? clamp(texture2D(u_strokeCoverage, tileUV).r / rawCoverage, 0.0, 1.0) * 2.0 - 1.0
+        : 0.0;
+      float bristle = wcHairField(acrossN, u_bristleCombs, wp);
 
+      // (#536) …and the paper's water counts here as much as the brush's.
+      //
+      // "Кажется, что сухой кисти вообще пофиг на лужу" — it was, and this line
+      // is the whole of it: the break-up read the brush's own load and nothing
+      // else, so a dry brush skipped across standing water exactly as it skips
+      // across a dry sheet.
+      //
+      // Standing water bridges the gaps. A dry brush riding the crests of the
+      // paper still touches every crest, and the film lying in the valleys
+      // between them joins those touches into a continuous mark. What it does
+      // NOT do is make the brush loaded: the pigment it carries is still its
+      // own, so the mark comes out continuous and pale rather than broken and
+      // strong. Which is what dry-on-wet looks like.
+      //
+      // That distinction is why this is a change here rather than on the
+      // profile. RibbonProfile.dryContact stays a property of the mix alone —
+      // "how the brush meets the paper is the brush's business", and there is a
+      // test on it — and what the paper is allowed to decide is whether the
+      // contact it makes is bridged, which is this.
+      //
+      // The hair does not disappear with the gaps, it changes register: the
+      // deposit modulation below is faded in by exactly what fades this out, so
+      // the bundles stop breaking the silhouette and start delivering unevenly
+      // inside a solid mark. Still readable, and weaker, which is what a real
+      // one does under water.
+      // (s17.28) A gate, not a line: the photographs show a full film at
+      // half water and the tooth breaking through only near dry.
+      // (s17.43) ...and the water STANDING on the texel now, from the wash's
+      // coverage record (.b), counts with them. The two ratios above are
+      // what the brush brought and what the paper held when the paint was
+      // laid; a wash that has since been flooded - a puddle a later stroke
+      // ran its front through, or a big blob whose brush ran low on water
+      // along the way - kept a low ratio and was composited as a dry-brush
+      // mark: the whole of Ilya's yellow puddle broke up on the tooth, and
+      // where a second stroke's coverage overwrote the across coordinate
+      // the break-up changed pattern along a line ("вот эта линия").
+      float standingHere = texture2D(u_strokeCoverage, tileUV).b;
+      float dryness = u_dryContact * (1.0 - smoothstep(WC_DRY_WATER_LO, WC_DRY_WATER_HI, max(max(waterHere, paperWetHere), standingHere)));
+      if (dryness > 0.0) {
         // Where a bundle sits, the brush reaches further down into the paper;
         // between bundles it barely touches even a crest. So the bristles
         // modulate the paper's own catch rather than being laid over the result.
-        float reach = paperCatch * mix(0.55, 1.45, bristle);
+        // (s17.26) At the sheet's tooth, not its grain: the catch averaged
+        // over a few pixels, so a dry brush skips pits the size of the
+        // paper's texture and leaves crests as blobs (dry_wa_effect), not a
+        // pixel speckle. Four taps rather than a mip: a mip chain is the
+        // driver's filter, and the composite must agree across devices.
+        // (s17.29) A 3x3 box at the tooth's scale, not four diagonal taps
+        // at it: four taps that far apart aliased the sheet's own period
+        // into a maze of straight corridors (series 6 read as a printed
+        // pattern); nine taps a third of the scale apart are a low-pass.
+        vec2 dTex = (WC_DRY_TOOTH_PX / 3.0) / u_paperTexSize * u_paperScale;
+        float coarse = 0.0;
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) coarse += texture2D(u_paperHeightMap, paperUV + vec2(float(i), float(j)) * dTex).a;
+        coarse /= 9.0;
+        float catchTooth = mix(paperCatch, coarse, WC_DRY_COARSE);
+        // (s17.29) The hair's say on the contact 0.55-1.45 -> 0.8-1.2: at
+        // the old swing the hair field, read through the across coordinate
+        // the stamps write, drew a ladder of straight corridors along and
+        // across the mark; the photographs' gaps are the sheet's islands
+        // with a light grain of the hairs over them, not the other way.
+        float reach = catchTooth * mix(0.8, 1.2, bristle);
         // The threshold climbs with dryness: at 0 it sits below every catch
         // value and nothing is cut, at 1 only the highest crests under a bundle
         // survive.
-        float lift = mix(-0.05, 0.72, dryness);
-        float contact = smoothstep(lift, lift + 0.22, reach);
+        // (s17.26) 0.72 kept only the highest crests: a dry stroke was a
+        // thin sparse speckle where the photographs (dry_wa_effect) show
+        // half the tooth taking paint at the start and thinning along.
+        float lift = mix(-0.05, WC_DRY_LIFT, dryness);
+        float contact = smoothstep(lift, lift + WC_DRY_CONTACT_W, reach);
         coverage *= mix(1.0, contact, dryness);
       }
+
+      // The wet end of the same field. Zero-mean on purpose: a loaded brush
+      // does not put down *less* paint for having hair, it puts it down
+      // unevenly, so the mark's overall tone must not move as this fades in.
+      // Faded out by dryness so the two ends never both act - once the contact
+      // is genuinely breaking up, modulating the dose as well would double-
+      // count the same hair.
+      // (#536, s17.13) The delivery swing used to be applied here, on top of
+      // the deposit - which is why it survived the wet diffusion pass as if
+      // by magic and drew crayon rings over a dissolved dot: a composite
+      // knows nothing about how the paint was delivered and re-imposed the
+      // comb on whatever lay under it. It now lives in the ink pass, where a
+      // delivery belongs; only the contact break above, which is about the
+      // paper and the hairs riding it dry, is still decided here.
 
       // Untouched by this stroke - leave the layer exactly as it is. With
       // coverage 0 everything below reproduces dst identically, so this is a
@@ -1244,7 +1902,17 @@ export const DAB_FRAG = `
         // pixel or two of the boundary, so it carries no shape for a gradient
         // to be taken of; the deposit fades out over most of a brush radius,
         // because the nib stamps are cones, and that fade is the margin.
-        float s = max(u_inkSmoothPx * 0.5, 1.0);
+        // (#536) The field that decides *where* and *how hard* pigment moves is
+        // read off a deliberately blurred concentration, and the mass is then
+        // taken out of the unblurred deposit.
+        //
+        // Without that the transport sees the hair as real concentration
+        // unevenness and pumps it flat — the bristle structure vanished from
+        // the tool the moment the gate came down and this pass started running
+        // in ordinary cases. Blurring wider than a bundle leaves the large
+        // water/pigment differences to move mass, which is what wet-in-wet is,
+        // and leaves the hair alone, which is what a brush is.
+        float s = max(u_inkSmoothPx * 0.5, WC_TRANSPORT_SMOOTH_PX);
         float R = u_migratePx;
         float full = max(u_saturateInk * WC_MIGRATE_FULL, 0.0001);
         vec4 c = wcTransportField(tileUV, texel, s, full);
@@ -1262,10 +1930,69 @@ export const DAB_FRAG = `
         f += wcFlux(c, tileUV, texel, vec2(-0.5,  C30), R, s, full);
         f += wcFlux(c, tileUV, texel, vec2( 0.5, -C30), R, s, full);
         f += wcFlux(c, tileUV, texel, vec2(-0.5, -C30), R, s, full);
-        deposit = max(ink.a + u_migrate * (f.x - f.y) * 0.0833333, 0.0);
+        float moved = u_migrate * (f.x - f.y) * 0.0833333;
+        deposit = max(ink.a + moved, 0.0);
+        // (#536) …and the *paint* moves with it, not just the amount.
+        //
+        // Until now this pass moved ink.a alone. Where it carried mass into a
+        // patch of clean water — which is the whole of wet-in-wet — the paint's
+        // own strength there stayed zero, so the arriving pigment showed up as
+        // nothing at all. Worse than nothing: strengthHere is a ratio, so more
+        // deposit under an unchanged strength channel reads *paler*. That is
+        // why "the pigment does not spread into the puddle" survived every
+        // attempt to widen the reach — the reach was not the problem, the paint
+        // was not travelling with it.
+        //
+        // Arriving paint carries this stroke's own strength and what leaves
+        // takes the local strength with it, so the ratio stays meaningful at
+        // both ends. A simplification while a wash holds one paint at a time —
+        // when it can hold several (ADR 011 §17.4's multi-pigment step) the
+        // arriving strength has to come from the neighbour instead.
+        float strengthWas = ink.a > 0.004 ? clamp(ink.b / ink.a, 0.0, 1.0) : 0.0;
+        strengthHere = deposit > 0.004
+          ? clamp((ink.b + max(moved, 0.0) * u_inkStrength + min(moved, 0.0) * strengthWas) / deposit, 0.0, 1.0)
+          : strengthHere;
       }
 
-      float density = smoothstep(0.0, u_saturateInk, deposit);
+      // (#536) Beer-Lambert, not smoothstep, and this is a correction rather
+      // than a preference.
+      //
+      // smoothstep has a derivative of exactly zero at both ends by
+      // construction. The deposit was deliberately calibrated to land about
+      // twice the ceiling on an ordinary pass (WATERCOLOR_CONE_DEPOSIT_GAIN's
+      // own note), so every wash was sitting on the flat top of that curve —
+      // and therefore *nothing that modulates the deposit could be seen*.
+      // Pigment running out along a stroke, the hairs delivering unevenly, the
+      // surplus a brush dumps as it lands, a second pass levelling a first:
+      // all of them multiply the deposit, all of them were being multiplied
+      // into a number that was then clipped. The tool was unresponsive by
+      // construction, and every one of those was reported as missing.
+      //
+      // A transparent film's transmission is exponential in how much pigment
+      // is in it, which is the law this should have been all along: it never
+      // reaches 1, so more paint always reads as more paint, and it still
+      // flattens across the inside of a stroke — the flat cross-section the
+      // gain was raised for survives, because exp saturates gradually where
+      // smoothstep saturates absolutely.
+      // (#536, s17.25) ...of how much PIGMENT is in it, not how much paint.
+      // The film's tone used to be strength x (1 - exp(-amount / K)), with
+      // strength the pigment's share of the amount: clean water laid over a
+      // settled wash raised the amount, lowered the share, and the wash read
+      // paler - an optical act with no pigment moved, which is not what water
+      // on dry pigment does. Now the deposit's pigment mass alone sets the
+      // tone (Beer-Lambert in the mass), and the front's relocation (s17.24)
+      // is the only thing that lightens a centre or darkens a rim. The mass
+      // is strength x deposit: ink.b, or its migration-consistent recount.
+      float pigmentMass = strengthHere * deposit;
+      // (s17.43) ...weighed by the paint's own darkness: a dark pigment covers
+      // more per unit of mass than a light one (tinting strength - ivory
+      // black or indigo against a lemon yellow), and with one density curve
+      // for every paint a full-strength black dried to a mid grey (143 of 255
+      // against paper 246; Ilya: "должно быть явно чернее"). The luminance is
+      // the record's own colour, so a mixture darkens as it should.
+      float darkness = 1.0 - dot(paint, vec3(0.2126, 0.7152, 0.0722));
+      float tint = 1.0 + WC_TINT_DARK * pow(darkness, 4.0);
+      float density = 1.0 - exp(-pigmentMass * tint / WC_DENSITY_K);
 
       // §3.3 granulation - heavier pigment settles into the paper's pits while
       // the wash is still liquid and dries there. paperCatch is high on a fibre
@@ -1292,10 +2019,22 @@ export const DAB_FRAG = `
       //  - it only appears where paint is actually dense. A thin passage of a
       //    granulating paint is smooth; the clumps show up where enough
       //    pigment collected to have something to clump.
-      float granNoise = wcFbm(wp * 0.11 + vec2(19.0, 71.0)) - 0.5;
-      granNoise = granNoise < 0.05 ? granNoise * 0.5 : granNoise * 1.6;
-      float granHere = u_granulation * (0.2 + 0.8 * density * density);
-      float gran = 1.0 + granHere * (granNoise * 2.0 + (1.0 - 2.0 * paperCatch) * 0.5);
+      // (#536) Only the paper's own half survives here. The noise half — which
+      // was the larger of the two by a long way — moved into the deposit
+      // (wcSettling), because it is what a *pass* leaves rather than what a
+      // *place* is, and a field evaluated at display time cannot be changed by
+      // painting over it. The pits, on the other hand, genuinely are where they
+      // are, and every pass finds the same ones; that stays.
+      // (#536) ...plus the water's own settling. The term above fades with
+      // density on purpose (a thin passage is smooth), which left the halo of a
+      // wet-in-wet mark - low density by construction - perfectly even:
+      // "slishkom rovno, bez vliyaniya tekstury". Pigment carried by standing
+      // water is the one case where a thin film IS granular: it is the water
+      // draining into the sheet's pits that puts it there. So on wet paper the
+      // paper's catch acts in proportion to how thin the film is, not how thick.
+      float granHere = u_granulation * (0.2 + 0.8 * density * density)
+        + WC_WET_GRAN * paperWetHere * (1.0 - density);
+      float gran = 1.0 + granHere * (1.0 - 2.0 * paperCatch) * 0.5;
 
       // §3.6 - the wash's own coarse structure, the scale v1 had nothing at.
       //
@@ -1306,7 +2045,10 @@ export const DAB_FRAG = `
       // that gives the mark the three scales it needs. Centred on 1.0 for the
       // same reason granulation is - this redistributes tone, it does not
       // darken the wash.
-      float cloud = 1.0 + u_cloud * (wcFbm(wp * 0.018) - 0.5) * 2.0;
+      // (#536) Gone from here — see wcCloud. It used to be computed at this
+      // point from world position, which is precisely why no amount of painting
+      // could change it. The deposit carries it now.
+      float cloud = 1.0;
 
       // §3.1 wet edge - the tideline. As a wash dries, water evaporates fastest
       // at the perimeter and capillary flow carries pigment there to replace
@@ -1389,6 +2131,27 @@ export const DAB_FRAG = `
       // scalar describe the whole batch correctly.
       float pigment = clamp(coverage * v_opacity * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
 
+      // (#536) Diagnostic view, dev-only. The mark's tone becomes one term of
+      // the product above instead of the product, so "which of these carries
+      // the blotches" is answered by looking rather than by arithmetic about
+      // amplitudes — which has now been wrong three times running. 1 = the
+      // silhouette after the spread and its re-threshold, 2 = the film's
+      // density, i.e. everything the deposit carries, 3 = the deposit's own
+      // pigment channel, x3, 4 = the standing water WC_DIFFUSE_FRAG gates on
+      // (s17.11) - so "did it move, and could it" are answered by looking at
+      // the buffers rather than at the tone. View 4 found the first gate shut
+      // over most of a puddle; no amount of staring at the tone had.
+      if (u_wcDebugView > 0.5) {
+        // 4 = standing water as WC_DIFFUSE_FRAG gates on it; keep in step
+        // with wcWaterAt there.
+        vec4 rawInk = texture2D(u_inkLoad, tileUV);
+        vec4 rawCov = texture2D(u_strokeCoverage, tileUV);
+        float nominalDbg = rawCov.a > 0.002 ? rawCov.b / rawCov.a : 0.0;
+        float recordedDbg = rawInk.a > 0.002 ? rawInk.g / rawInk.a : 0.0;
+        float gateDbg = rawCov.a * clamp(max(nominalDbg, recordedDbg), 0.0, 1.0);
+        pigment = clamp(u_wcDebugView < 1.5 ? coverage : u_wcDebugView < 2.5 ? density : u_wcDebugView < 3.5 ? ink.b * 3.0 : gateDbg, 0.0, 1.0);
+      }
+
       // The composite. Still the three-term separable blend the marker's branch
       // below uses (#439) - on bare paper, over existing pigment, and what this
       // stroke does not cover - but the middle term is no longer a plain
@@ -1415,11 +2178,11 @@ export const DAB_FRAG = `
       // opaque paint of the same colour and load look the same on white - so
       // only the middle term needs the choice.
       float newAlpha = mix(dst.a, 1.0, pigment);
-      vec3 transmitted = effectiveBase * u_color;
-      vec3 covered = mix(effectiveBase, u_color, pigment);
+      vec3 transmitted = effectiveBase * paint;
+      vec3 covered = mix(effectiveBase, paint, pigment);
       vec3 overPaint = mix(transmitted, covered, u_pigmentOpacity);
       vec3 premultResult =
-          pigment * (1.0 - dst.a) * u_color
+          pigment * (1.0 - dst.a) * paint
         + pigment * dst.a * overPaint
         + (1.0 - pigment) * dst.a * effectiveBase;
       // Premultiplied, and written with blending *off*
@@ -2184,11 +2947,551 @@ export const DISPLAY_VERT = `
   }
 `;
 
+/** (#536, §17.46) The screen cache onto the canvas, texel for texel. */
+export const SCREEN_BLIT_FRAG = `
+  precision mediump float;
+  uniform sampler2D u_tex;
+  varying vec2 v_uv;
+  void main() { gl_FragColor = texture2D(u_tex, v_uv); }
+`;
+
 // Composites one layer onto the composite FBO with opacity.
 // Blend mode: ONE, ONE_MINUS_SRC_ALPHA  →  Porter-Duff "over"
 // Passes the layer's own premultiplied color through (scaled by opacity)
 // rather than discarding it — each layer's accumulation buffer already
 // carries the real per-stroke colors baked in by DAB_FRAG.
+/** (#536, ADR 011 s17.12) A layer tile while a wash on it is still
+ *  "running": the tile's canonical pixels (u_after) with what the screen
+ *  showed before the settle (u_before) mixed back in by u_hold, which the
+ *  engine eases from 1 to 0 over WC_REVEAL_MS. Presentation only - the tile
+ *  itself already holds the dry target - so what the eye sees after pen-up
+ *  is the paint converging on where the settle put it, rather than the
+ *  settle arriving all at once. Both textures are premultiplied, so a
+ *  linear mix is a valid blend; the result is scaled by the layer's opacity
+ *  exactly as LAYER_COMPOSITE_FRAG scales a plain tile. */
+export const WASH_REVEAL_FRAG = `
+  precision mediump float;
+  uniform sampler2D u_after;
+  uniform sampler2D u_before;
+  uniform float u_hold;
+  uniform float u_opacity;
+  varying vec2 v_uv;
+  void main() {
+    vec4 c = mix(texture2D(u_after, v_uv), texture2D(u_before, v_uv), u_hold);
+    gl_FragColor = vec4(c.rgb * u_opacity, c.a * u_opacity);
+  }
+`;
+
+/** (#536, s17.17) One arithmetic step between two same-sized fields, for
+ *  the wet diffusion's bookkeeping: mode 0 is the MOBILE share of what a
+ *  settle has to move, u_k * max(a - b, 0) - the deposit less what was
+ *  already settled, never negative because deposits only add; mode 1 is
+ *  a + u_k * b, which puts the fixed part aside (k = -1) and adds the moved
+ *  part back (k = 1). Blend off; whole quad. */
+export const WC_FIELD_OP_FRAG = `
+  precision highp float;
+  uniform sampler2D u_a;
+  uniform sampler2D u_b;
+  uniform float u_k;
+  uniform float u_mode;
+  /** Mode 2: the colour record of a ONE-paint wash from its deposit - the
+   *  mass in a's .b (amount x strength) times u_tau, scaled as the ink pass
+   *  scales it. What the diffusion would have produced for a single paint,
+   *  in one pass instead of the schedule. */
+  uniform vec3 u_tau;
+  /** Mode 3: a + b - c, three fields - the reveal's kept picture plus what a
+   *  live batch just changed (s17.12): the tile after the batch less the
+   *  tile before it. */
+  uniform sampler2D u_c;
+  /** (s17.23) Mode 4: a mask, rising from u_k to 4 u_k of a.a. Mode 5: a 3x3
+   *  binomial blur of a at u_dir texels of stride.
+   *
+   *  The rim (s17.23, s17.24): paint inside a footprint goes to the edge of
+   *  the WATER it sits in. u_d is the water front's cost texture
+   *  (WC_WATER_FRONT_FRAG), u_band = (budget, band width) over its costMax.
+   *  Mode 6 writes the BAND texture - r the band, the last width cells
+   *  inside the budget, g inside, the domain the water wets, each soft over
+   *  one cell. Mode 7 is the paint to move, u_k * a * inside; mode 8 puts it
+   *  back: a * (1 - u_k * inside) + band * b / c, with b the moved paint
+   *  gathered and c the band gathered by the same kernel, so what the
+   *  interior lost lands on the band around it, mass kept to the kernel's
+   *  approximation. Mode 10 seeds the cost from a deposit: 0 where a.a is
+   *  above u_k, 1 (unreached) elsewhere. Mode 11 extends a coverage record
+   *  (a) over the domain (u_d.g): the silhouette and the standing-water
+   *  record (u_k) reach as far as the water did. */
+  uniform vec2 u_dir;
+  uniform sampler2D u_d;
+  uniform vec2 u_origin;
+  uniform vec2 u_size;
+  uniform vec2 u_band;
+  // (s17.26) Fit a record into its 8 bits WITHOUT changing its channel
+  // ratios: a rim gathers three times a body's mass, and for a yellow the
+  // depth's blue channel overflowed alone - a per-channel clamp turned the
+  // rim magenta and cyan, texel by texel. Scaling the whole vec4 keeps the
+  // colour (and water, paper, strength ratios) and loses only the mass
+  // past the ceiling.
+  #define WC_FIELD_FIT(v) ((v) / max(1.0, max(max((v).r, (v).g), max((v).b, (v).a))))
+  // (s17.25) The rim's deposition profile: the tail's weight against the
+  // sharp peak, its floor on a paper crest, and the height window that
+  // counts as a valley (paper height ~0.5 +/- 0.19).
+  const float WC_RIM_TAIL = 0.6;
+  const float WC_RIM_TAIL_TIDE = 0.0;
+  const float WC_RIM_TAIL_FLOOR = 0.25;
+  const float WC_RIM_VALLEY_LO = 0.35;
+  const float WC_RIM_VALLEY_HI = 0.6;
+  // (s17.26) How much rim a texel keeps where the record says no water stood.
+  const float WC_RIM_DRY_FLOOR = 0.15;
+  // (s17.37) The landing puddle's edge against the stroke's contour, per length.
+  const float WC_BACKRUN_GAIN = 2.5;
+  // (s17.27) The share of the mark's standing level below which its water
+  // did not stand: the front's seed ends there.
+  const float WC_SEED_FILM_LO = 0.15;
+  const float WC_SEED_FILM_HI = 0.3;
+  // A near step: the puddle's edge is where the RELAXATION starts, not a
+  // ramp of preset cost - a ramp gave the backrun a smooth arc, the
+  // relief-run front gives it the photographs' fingers.
+  const float WC_SEED_DEEP_LO = 0.78;
+  const float WC_SEED_DEEP_HI = 0.84;
+  varying vec2 v_uv;
+  // (s17.29) Mode 15, the carry: how much of a texel's paint goes to the
+  // neighbour at uvj, before normalisation - zero unless the neighbour is
+  // in the domain (cost at most u_band.x) and further along the cost than
+  // the texel (the water runs outward), else the CONDUCTANCE of the step
+  // (its length over its cost in cells) to the power u_size.x. u_size.y is
+  // costMax, u_origin.x the stride's length in texels.
+  const float WC_CARRY_TAPER = 1.6;
+  // (s17.43) How much of the sheet's capacity for carried paint is gone at
+  // the front: the balance the flow settles to is paint proportional to
+  // capacity, so this is the density at the front against the source's.
+  const float WC_CARRY_TAIL = 0.85;
+  // 1.0 = OFF, measured (s17.38): at 0.3 the balance drew the sheet's
+  // tooth as a net over the invasion zone, at 0.6 a blotch over every
+  // flat wash - and no fingers at either, because this sheet's relief has
+  // no 60-90 px channels to carry them (the spectrum of s17.25). Kept as
+  // the operator's shape for a sheet that has them.
+  const float WC_CARRY_RIDGE = 1.0;
+  const float WC_CARRY_VALLEY_HI = 0.46;
+  const float WC_CARRY_CREST_LO = 0.54;
+  float wcCarryWeight(float ci, vec2 uvj) {
+    if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) return 0.0;
+    float cj = texture2D(u_d, uvj).r;
+    if (cj > u_band.x) return 0.0;
+    float d = (cj - ci) * u_size.y;
+    if (d <= 1e-3) return 0.0;
+    // (s17.35) ...fading with how far along the front the RECEIVER lies:
+    // the flux weakens toward the horizon, so the moved paint lies along the
+    // way, dense near the footprint and thin at the tips, instead of piling
+    // in a band at the horizon - the ring twice the footprint's density that
+    // read as "пустое место, потом линия растекания". The sheet filters the
+    // pigment as the water goes on (the design thread's immobilisation, in
+    // its cheapest form).
+    // (s17.43) ...all the way to nothing at the front, on a curve: at 0.75
+    // the flow still filled the domain to a level and stopped, and the
+    // domain's edge inside a wet wash was a crisp line of colour change
+    // (Ilya's two annotations, "чёткая линия смены цвета", "вот эта линия"
+    // - the lighter band of the second paint ending in a line inside the
+    // first). The pigment lags the water it rides in; its density falls
+    // toward the front and the edge is a fade, not a step.
+    float fade = pow(1.0 - smoothstep(0.0, u_band.x, cj), WC_CARRY_TAPER);
+    // (s17.38) ...and by the sheet's relief at the receiver: a valley takes
+    // the flow freely, a crest with a penalty - not a wall, or the domain
+    // would come apart into islands. The front's cost already prefers the
+    // valleys; this is what keeps the moved paint IN them instead of
+    // filling the domain evenly (the design thread: capillary
+    // conductivity, not a higher power on the gradient). The height is the
+    // cost texture's .g, written by the front's relaxation.
+    return pow(min(u_origin.x / d, 4.0), u_size.x) * fade;
+  }
+  // (s17.38) The sheet's capillary conductance at a texel: a valley takes
+  // the flow freely, a crest with a penalty - not a wall, or the domain
+  // would come apart into islands. Applied to the AMOUNT that crosses into
+  // the receiver, not to the split between neighbours (there it cancelled
+  // in the normalisation and changed nothing). The front's cost already
+  // prefers the valleys; this keeps the moved paint IN them instead of
+  // filling the domain evenly - the design thread's "attenuate the
+  // outgoing flux", the cheapest form of settling on the way. The height
+  // is the cost texture's .g, written by the front's relaxation.
+  // At the sheet's TOOTH, not its grain: a 3x3 box of the height at three
+  // texels' stride (the dry contact's scale, s17.29). At the grain the
+  // balance came out as a speckle over the invasion zone; the
+  // photographs' fingers are the valley network a few texels wide.
+  float wcCapillary(vec2 uv) {
+    float h = 0.0;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) h += texture2D(u_d, uv + vec2(float(i), float(j)) * u_dir * (3.0 / max(u_origin.x, 1.0))).g;
+    h /= 9.0;
+    return mix(WC_CARRY_RIDGE, 1.0, 1.0 - smoothstep(WC_CARRY_VALLEY_HI, WC_CARRY_CREST_LO, h));
+  }
+
+  vec2 wcCarryDir(int k) {
+    return k == 0 ? vec2(1.0, 0.0) : k == 1 ? vec2(-1.0, 0.0) : k == 2 ? vec2(0.0, 1.0) : vec2(0.0, -1.0);
+  }
+  void main() {
+    vec4 a = texture2D(u_a, v_uv);
+    vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 19.5) {
+      // (s17.44) max(a, b) per channel: the settle's extended coverage merged
+      // into a tile's coverage that the gesture may have gone on stamping
+      // while the settle ran, instead of overwriting it.
+      gl_FragColor = max(a, b);
+      return;
+    }
+    if (u_mode > 18.5) {
+      // (s17.42) The group tide's seeds, from the wash's COVERAGE (a.a, the
+      // union of every operation's domain) instead of one operation's cost:
+      // with u_dir.x set, the inward pass's seed (inside unreached at 1,
+      // outside the source at 0 - mode 12's convention, .b empty: no
+      // "earlier mark" in one component); without it, a stand-in for the
+      // outward cost, 0 inside and 1 outside, so mode 6 reads the whole
+      // union as the domain with the dome full everywhere.
+      float m = smoothstep(u_k, u_k * 4.0, a.a);
+      gl_FragColor = u_dir.x > 0.0 ? vec4(m, 0.0, 0.0, 1.0) : vec4(1.0 - m, 0.0, 0.0, 1.0);
+      return;
+    }
+    if (u_mode > 17.5) {
+      // (s17.41) Mode 13 over the DOME (u_d.a) instead of the footprint: a
+      // wet landing re-mobilises the earlier paint across the puddle its
+      // water joined, most under the brush and less toward the front, so
+      // the two paints mix both ways within the puddle - not only the new
+      // one into the old. Under the footprint alone the earlier mark kept
+      // its own contour through the new one, and the mixing ran one way
+      // ("одна линия растеклась, а другая нет"). The share: the new water's
+      // where the new paint lies, at least WC_REMOB_DOME of the dome
+      // elsewhere.
+      // (s17.42) The floor comes in as u_origin.x: WC_REMOB_DOME as a rule,
+      // 1.0 under the group-dry oracle, where the earlier paint never dried
+      // and all of it under the dome is one liquid with the new.
+      float dome = texture2D(u_d, v_uv).a;
+      float share = max(a.a / max(a.a + b.a, 1e-4), u_origin.x * dome);
+      vec4 add = u_k * share * dome * b;
+      float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
+      float peak = max(max(add.r, add.g), max(add.b, add.a));
+      gl_FragColor = a + add * min(1.0, room / max(peak, 1e-4));
+      return;
+    }
+    if (u_mode > 16.5) {
+      // (s17.40) The puddle's mixing gate: the coverage with its standing
+      // water (.b) scaled by the dome over the footprint (u_d.a).
+      gl_FragColor = vec4(a.r, a.g, a.b * texture2D(u_d, v_uv).a, a.a);
+      return;
+    }
+    if (u_mode > 14.5) {
+      // (s17.29) One carry step. What moves is the mobile paint (a, all
+      // four channels, in the texel's own proportions); what the flow
+      // EQUALISES is the total pigment, mobile plus fixed (a.a + b.a): a
+      // texel in the domain hands its four axis neighbours a stride away,
+      // split by wcCarryWeight, u_k of its excess of total over theirs -
+      // never more than its mobile amount - and receives what each
+      // neighbour's own split sends this way: donor form, the field is
+      // conserved to the eight-bit write. The flow fills the domain to
+      // the source's concentration and stops, as water carrying paint
+      // into a wet wash does (the photographs' fingers are the body's
+      // density, not a line at their tips): moving a fixed share piled it
+      // all in single texels at the front, and equalising the mobile
+      // amount alone sent a mark's paint and the re-mobilised wash under
+      // it into fingers denser than its body, because the wash's settled
+      // paint in the domain did not count.
+      // Mode 16 is the same step for the COLOUR record (a): the fractions
+      // come from the deposit's mobile (u_c) and fixed (u_b) fields, so
+      // the two records move by identical fractions.
+      // (s17.35) ...and only u_origin.y of the mobile paint TRAVELS at all:
+      // the rest stays as if fixed, and the balance the flow equalises is
+      // the travelling share against the neighbour's. Equalising the whole
+      // mobile field drained a loaded stroke's footprint over a wet wash
+      // into the ring around it - the stroke read paler than its own
+      // surroundings ("пересекаются, потом пустое место, потом линия
+      // растекания"). The photographs keep the body; the sheet filters
+      // the pigment while the water goes on (the design thread's
+      // immobilisation), and this is its cheapest form: a share that never
+      // leaves, no second output buffer.
+      // (s17.38) ...and what it equalises is the paint per unit of the
+      // sheet's CAPACITY (wcCapillary): a valley holds a full measure, a
+      // crest a fraction, so the balance the flow settles to is paint in
+      // the valleys, not an even fill of the domain. Weighting the rate
+      // alone (the first try) left the equilibrium even - valleys 1.27x
+      // the crests before the smoothing, 1.12x after. The photographs'
+      // fingers are the balance, not the rate.
+      float ci = texture2D(u_d, v_uv).r;
+      vec4 out4 = a;
+      bool colour = u_mode > 15.5;
+      vec4 m = colour ? texture2D(u_c, v_uv) : a;
+      float trav = u_origin.y;
+      // (s17.43) The sheet's capacity for the carried paint falls toward the
+      // front: the water that has travelled furthest holds the least pigment
+      // (the sheet filters it on the way - the design thread's immobilisation
+      // in its balance form). The flow settles to a density proportional to
+      // the capacity, so the paint fades out toward the front instead of
+      // filling the domain to one level and stopping at a line. Weighting the
+      // flux alone (WC_CARRY_TAPER) could not do this: it slows the fill, the
+      // balance is the same. Measured on Ilya's yellow/purple pair: the band
+      // was a flat tone with a six-texel step at the domain's edge.
+      float capI = wcCapillary(v_uv) * (1.0 - WC_CARRY_TAIL * smoothstep(0.0, u_band.x, ci));
+      // (s17.43) The NEW paint's own concentration, not the total: a pigment
+      // in water spreads whatever other pigment already lies there, and
+      // equalising the total kept a stroke's paint inside its footprint
+      // wherever the wash under it was dense - and, with the earlier paint
+      // re-mobilised before the carry, swept that paint out to the new
+      // front and piled it in a line ("чёткая линия смены цвета"). The
+      // earlier paint is re-mobilised AFTER the carry now and mixes by
+      // diffusion alone, both ways; the fixed field is still read for the
+      // colour record's fractions (u_b in mode 16) and nothing else.
+      float Ti = trav * m.a / capI;
+      if (ci <= u_band.x) {
+        float ws[4];
+        float wsum = 0.0;
+        for (int k = 0; k < 4; k++) { ws[k] = wcCarryWeight(ci, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
+        for (int k = 0; k < 4; k++) {
+          vec2 uvj = v_uv + wcCarryDir(k) * u_dir;
+          if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
+          vec4 aj = texture2D(u_a, uvj);
+          vec4 mj = colour ? texture2D(u_c, uvj) : aj;
+          float cj = texture2D(u_d, uvj).r;
+          float capJ = wcCapillary(uvj) * (1.0 - WC_CARRY_TAIL * smoothstep(0.0, u_band.x, cj));
+          float Tj = trav * mj.a / capJ;
+          // Moving d from i to j lowers Ti by d/capI and raises Tj by
+          // d/capJ: the step toward balance is (Ti - Tj) times the pair's
+          // series capacity. Both sides evaluate the same expression.
+          // The harmonic mean: 1 between two full measures, so the rate of
+          // the plain balance is unchanged (the series capacity alone halved
+          // it and the drop in a clean puddle lost two thirds of its reach).
+          float capIJ = 2.0 * capI * capJ / (capI + capJ);
+          // Give: my share toward j, of my excess over j, capped at what
+          // travels here.
+          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 1e-4));
+          // Take: j's share toward me, of its excess over me - the same
+          // expression j evaluates on its side.
+          if (cj > u_band.x) continue;
+          int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
+          float wj = 0.0, wme = 0.0;
+          for (int mm = 0; mm < 4; mm++) {
+            float w = wcCarryWeight(cj, uvj + wcCarryDir(mm) * u_dir);
+            wj += w;
+            if (mm == back) wme = w;
+          }
+          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 1e-4));
+        }
+      }
+      gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));
+      return;
+    }
+    if (u_mode > 13.5) {
+      // Mode 8 for the tide: the band is the texture's .b, its gather c.b.
+      vec4 bd = texture2D(u_d, v_uv);
+      vec4 c = texture2D(u_c, v_uv);
+      gl_FragColor = WC_FIELD_FIT(a * (1.0 - u_k * bd.g) + bd.b * b / max(c.b, 1e-3));
+      return;
+    }
+    if (u_mode > 12.5) {
+      // a + u_k * b where u_d says (its .r): the earlier paint under a
+      // footprint re-mobilised by a wet landing (s17.25). As much of it as
+      // fits: a clean puddle's amount is most of a byte, and scaling the
+      // SUM down to fit took the new paint's pigment with it - a stroke into
+      // a puddle came out nearly white. The added part shrinks instead, in
+      // its own proportions, so the new paint is never touched.
+      // (s17.30) ...and only the share the NEW water can take up: the new
+      // mobile amount over the new plus the settled - a clean-water stroke
+      // over an equal wash lifts half the wash under it, a light touch a
+      // little. All of it (the design thread's "invisible pressure") made
+      // a water stroke over a wet wash push nearly every grain of the wash
+      // out from under itself: a white band with dark ragged edges.
+      float share = a.a / max(a.a + b.a, 1e-4);
+      vec4 add = u_k * share * b * texture2D(u_d, v_uv).r;
+      float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
+      float peak = max(max(add.r, add.g), max(add.b, add.a));
+      gl_FragColor = a + add * min(1.0, room / max(peak, 1e-4));
+      return;
+    }
+    if (u_mode > 11.5) {
+      // Seed of the inward pass: the outward cost in a.r; everything past
+      // the budget (u_k, over costMax) is the source at 0, the domain is
+      // unreached at 1.
+      float m = step(a.r, u_k);
+      // .b: where an EARLIER mark's deposit already lies (u_d), carried
+      // through the inward relaxation for the merge below.
+      gl_FragColor = vec4(m, 0.0, texture2D(u_d, v_uv).r, 1.0);
+      return;
+    }
+    if (u_mode > 10.5) {
+      // The domain straight from the outward cost (u_d, budget u_band.x,
+      // cell u_size.x), so the coverage can be extended BEFORE the band is
+      // built and the band can read the standing water it records.
+      float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, texture2D(u_d, v_uv).r);
+      float r = a.a > 0.002 ? a.r : 0.5 * inside;
+      gl_FragColor = vec4(r, max(a.g, inside), max(a.b, inside * u_k), max(a.a, inside));
+      return;
+    }
+    if (u_mode > 9.5) {
+      // Seed of the outward pass: the footprint (a.a past u_k) at cost 0,
+      // everything else unreached at 1 - except the footprint's fringe, which
+      // is a RAMP of cost over u_k..4 u_k (u_band.x is one cell of cost),
+      // not a step: a live stroke's batches and a replay's one pass round
+      // the fringe a code or two apart, and a step there flips whole texels
+      // of the domain and its band between the two, where a ramp moves the
+      // front by a fraction of a cell.
+      // (s17.27) ...and only where the mark's water STOOD (the coverage's
+      // record, b.b, against the mark's own standing level u_band.y): a
+      // stroke that ran dry along its length seeds its front at its wet
+      // start, and the front - the backrun of the photographs - lies inside
+      // the stroke where the puddle met the drier body.
+      // Two depths of water in the record: the FILM the brush lays along
+      // its path (WC_FILM_STAND of the mark's level) seeds at u_size.x, one
+      // cell short of the budget, so its front is its own contour; the
+      // PUDDLE - where the brush landed, or a wet wash - seeds at zero, and
+      // its front runs out INTO the film by the paper's relief and stops a
+      // cell short of the film's own cost: the ragged backrun inside a
+      // stroke. Where no water stood, unreached.
+      float m = 1.0 - smoothstep(u_k, u_k * 4.0, a.a);
+      float rel = b.b / max(u_band.y, 1e-4);
+      float film = smoothstep(WC_SEED_FILM_LO, WC_SEED_FILM_HI, rel);
+      float deep = smoothstep(WC_SEED_DEEP_LO, WC_SEED_DEEP_HI, rel);
+      // (s17.41) The film seeds wherever the mark laid paint, whatever its
+      // standing water: gating it by the standing record (s17.27) put the
+      // domain's edge INSIDE a stroke wherever the brush's water ran out or
+      // rose over its own film, and the tide's line ran along that inner
+      // edge ("подтёк внутри одного мазка"). The dwell test settled where
+      // a hard line inside a stroke comes from: the landing puddle (deep
+      // seed, backrun by dwell), not a drier stretch of film.
+      float cost = a.a > u_k ? mix(u_size.x, m * u_band.x, deep) : 1.0;
+      gl_FragColor = vec4(cost, 0.0, 0.0, 1.0);
+      return;
+    }
+    if (u_mode > 5.5) {
+      if (u_mode > 8.5) {
+        // (s17.30) The bloom's lift: by the dome (band .a), not the domain.
+        gl_FragColor = u_k * a * texture2D(u_d, v_uv).a;
+        return;
+      }
+      if (u_mode > 7.5) {
+        vec4 bd = texture2D(u_d, v_uv);
+        vec4 c = texture2D(u_c, v_uv);
+        gl_FragColor = WC_FIELD_FIT(a * (1.0 - u_k * bd.a) + bd.r * b / max(c.r, 1e-3));
+        return;
+      }
+      if (u_mode > 6.5) {
+        gl_FragColor = u_k * a * texture2D(u_d, v_uv).g;
+        return;
+      }
+      // The domain from the outward cost (u_d, budget u_band.x, one cell of
+      // cost u_size.x the softness of its edge); the band from the INWARD
+      // cost (u_c: how far a texel is from the front, over the paper): the
+      // last u_band.y cells inside it, cell u_size.y.
+      // (s17.25) The band is a deposition PROFILE, not a mask: a sharp peak
+      // in the last cell or two before the front plus a weaker tail over the
+      // band's width that only the paper's valleys carry. One relocation
+      // lands its mass on this profile (normalised by the gathered profile,
+      // mode 8), so the peak can be several times the tail without the
+      // total changing: a line of stoppage with structure behind it, which
+      // is what the photographs have, rather than a uniform dark strip.
+      vec4 inward = texture2D(u_c, v_uv);
+      float costOut = texture2D(u_d, v_uv).r;
+      float costIn = inward.r;
+      float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, costOut);
+      // The line sits on the second ring in from the front, not the first:
+      // the first is the stroke's antialiased fringe, where the standing
+      // record is fractional and the line came out as a row of dots.
+      float sharp = 1.0 - smoothstep(1.5 * u_size.y, 3.0 * u_size.y, costIn);
+      float valley = 1.0 - smoothstep(WC_RIM_VALLEY_LO, WC_RIM_VALLEY_HI, inward.g);
+      float tail = (1.0 - smoothstep(u_band.y, u_band.y + u_size.y, costIn)) * (WC_RIM_TAIL_FLOOR + (1.0 - WC_RIM_TAIL_FLOOR) * valley);
+      // (s17.25) One puddle, one front: where this mark landed wet and its
+      // front runs over an earlier mark (inward.b), the two waters merged
+      // and there is no line of stoppage - u_k is how wet it landed.
+      // The bloom's ring is deep with fingers (the photo's); a stroke's
+      // tideline is the line itself with a short tail - a deep tail with
+      // valley fingers on every stroke read as a lobed outline.
+      float profileBloom = inside * min(sharp + WC_RIM_TAIL * tail, 1.0);
+      // (s17.27) ...and the puddle's front inside the film: the last cells
+      // the puddle's cost reached before the film's own (u_band.x less one
+      // cell, see the seed). The film's texels sit exactly at that cost and
+      // are left out by the half-cell margin.
+      // u_band.y is the band's width in the INWARD pass's units; the same
+      // width in the outward cost's units is u_band.y * u_size.x / u_size.y
+      // (one cell of each). Mixed up, the band covered the whole puddle.
+      // (s17.31) The backrun LINE at the puddle's front inside the film is
+      // gone: on Ilya's layer of single strokes every wet loaded stroke
+      // started with a hard dark arc ("кайма в начале, неприятно"), and a
+      // stroke crossing its own wet film drew the same arc round the
+      // crossing - one puddle has no line inside it. The puddle's front
+      // still runs (the seed is unchanged) and the carry still moves its
+      // paint, so a landing reads darker with a soft edge, which is what
+      // the photographs of a loaded wet stroke show (series 1); the hard
+      // dark start of a thin wash (series 2) waits for the dwell test.
+      // (s17.37) ...and back, by the landing DWELL (u_tau.x, 0..1): the
+      // dwell test showed the hard edge is the front of a puddle the
+      // standing brush left, growing with the pause, and absent without
+      // one - not a rim of every landing. The seed is the puddle
+      // (watercolorPuddleDepth by dwell), the line its front in the film.
+      float filmCost = u_band.x - u_size.x;
+      float wOut = u_band.y * u_size.x / u_size.y;
+      float backrun = u_tau.x * inside * smoothstep(filmCost - wOut, filmCost - 0.4 * wOut, costOut) * (1.0 - smoothstep(filmCost - 0.6 * u_size.x, filmCost - 0.3 * u_size.x, costOut));
+      // The puddle's edge weighs WC_BACKRUN_GAIN times the contour per unit
+      // of length: the puddle holds the reservoir's dose and its rim dries
+      // against the film, the photograph's edge is darker than any contour.
+      float profileTide = inside * min(sharp + WC_RIM_TAIL_TIDE * tail, 1.0) + WC_BACKRUN_GAIN * backrun;
+      // (s17.26) Where water actually stood, from the coverage's record
+      // (b, extended over the domain): a rim forms where a puddle dried,
+      // not along a stroke that ran dry. u_origin.x is the mark's own
+      // standing level, so the record reads 0..1 against it.
+      // ...and the record is read as the most any of the 3x3 around holds,
+      // for the same reason: one texel of fringe must not break the line.
+      float bb = b.b;
+      for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) bb = max(bb, texture2D(u_b, v_uv + vec2(float(i), float(j)) * u_dir).b);
+      float stood = clamp(bb / max(u_origin.x, 1e-3), 0.0, 1.0);
+      float stoodW = mix(WC_RIM_DRY_FLOOR, 1.0, stood);
+      // The bloom's band (.r): the wash's paint the drop pushed lands here,
+      // wherever the water reached. The tide's band (.b): this mark's own
+      // line of stoppage - none where the mark lies over an earlier mark
+      // that was still damp or wet (u_origin.y): no dry paper there to stop
+      // at, the bloom is the only edge. A merge (u_k) is the wet extreme.
+      float over = inward.b * max(u_k, u_origin.y);
+      // .a: the DOME over the drop - how much of the wash's paint the bloom
+      // lifts here: all of it under the centre, falling to none at the
+      // front (s17.30). A uniform lift over the domain left a hard-edged
+      // hole; the photographs' light patch is soft-edged with the paint
+      // piling at the ring.
+      float dome = inside * (1.0 - smoothstep(0.35 * u_band.x, u_band.x, costOut));
+      // .g: what the TIDE may take from - the domain less where an earlier
+      // mark's paint lies under a wet landing (s17.30). The tide took its
+      // share of everything mobile inside, the re-mobilised earlier paint
+      // included, and landed it on a band that is zero over the earlier
+      // mark: the mass left the overlap for the outer contour, and at the
+      // new pass's fringe, where no new paint made up for it, a flat wash
+      // showed a light seam along every pass (band 43 against 60 of the
+      // earlier pass alone, two-pass rig).
+      gl_FragColor = vec4(profileBloom * stoodW, inside * (1.0 - over), profileTide * stoodW * (1.0 - over), dome);
+      return;
+    }
+    if (u_mode > 4.5) {
+      // All four channels: the moved paint is a whole deposit texel.
+      vec4 s = vec4(0.0);
+      for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+          float w = (i == 0 ? 2.0 : 1.0) * (j == 0 ? 2.0 : 1.0);
+          s += w * texture2D(u_a, v_uv + vec2(float(i), float(j)) * u_dir);
+        }
+      }
+      gl_FragColor = s / 16.0;
+      return;
+    }
+    if (u_mode > 3.5) {
+      // Soft, not a step: the deposit's fringe is a code or two, and a live
+      // stroke's batches round it differently from a replay's one pass; a
+      // step there flips whole texels of the band between the two, a ramp
+      // moves them by a fraction.
+      float m = smoothstep(u_k, u_k * 4.0, a.a);
+      gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
+      return;
+    }
+    if (u_mode > 2.5) {
+      gl_FragColor = clamp(a + b - texture2D(u_c, v_uv), 0.0, 1.0);
+      return;
+    }
+    if (u_mode > 1.5) {
+      gl_FragColor = vec4(a.b * u_tau / 4.0, a.b);
+      return;
+    }
+    gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : WC_FIELD_FIT(a + b * u_k);
+  }
+`;
+
 export const LAYER_COMPOSITE_FRAG = `
   precision mediump float;
   uniform sampler2D u_layer;
@@ -2227,6 +3530,285 @@ export const LAYER_COMPOSITE_FRAG = `
 // top-down v has to be turned around to reach it. The two flips are separate
 // facts about two different spaces, and cancelling them against each other
 // would only work back in the symmetric case this is fixing.
+/** (#536, ADR 011 s17.11) One step of pigment diffusion in standing water,
+ *  over a wash's deposit buffer. The GPU twin of wetDiffusion.ts, and it has
+ *  to stay a twin: same stencil, same pair formula, same constants, so the
+ *  oracle's four invariants (mass, confinement, valley bias, symmetry) are
+ *  what this computes rather than what it is hoped to compute.
+ *
+ *  Reads the deposit (u_ink) and the wash's coverage (u_coverage), writes the
+ *  deposit one step later. The whole vec4 travels together: whatever fraction
+ *  of a pixel's pigment moves takes that pixel's water/paper/strength channels
+ *  along in the same proportion, so the ratios the composite divides out
+ *  stay meaningful in the moved paint.
+ *
+ *  Each unordered pair (i, j) is evaluated from both ends, once per fragment,
+ *  and the two evaluations are exact negatives of each other in IEEE
+ *  arithmetic - a difference negated, a max pair swapped - so what i gives j
+ *  gets, to the bit, before the 8-bit write. The write quantises per pixel and
+ *  that is the one known leak; it is measured (divergence(N)), not argued.
+ *
+ *  No clamp anywhere in the flux. With K(D + B) <= 1 a pixel cannot give more
+ *  than it holds in one step, so the result is non-negative by construction,
+ *  and a clamp is exactly what would have broken the antisymmetry. */
+export const WC_DIFFUSE_FRAG = `
+  precision highp float;
+  uniform sampler2D u_ink;
+  uniform sampler2D u_coverage;
+  uniform sampler2D u_paperHeightMap;
+  uniform vec2 u_resolution;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
+  uniform vec2 u_paperScale;
+  uniform float u_d;
+  uniform float u_b;
+  /** Stencil radius for this step, texels, and which ring: 0 the axes and
+   *  diagonals, 1 the knight's ring (2,1) - see WET_DIFFUSE_SCHEDULE. */
+  uniform float u_radius;
+  uniform float u_stencil;
+  varying vec2 v_uv;
+
+  // Standing water at a texel: the wash's silhouette, times the wetter of two
+  // records - what the last pass that covered it wrote into coverage .b (the
+  // free water of a clean pass, or the wetness a pigment pass recorded under
+  // itself; see u_washWater) and the paper wetness the paint here was laid
+  // into, deposit-weighted (ink .g, the same digits).
+  //
+  // Not the brush's depleted load (ink .r). That was the first version, and
+  // measured on a replay of Ilya's puddle it gated the pass shut: a puddle
+  // laid by one long stroke has its load run down over most of its area, so
+  // the water read 0.15 in patches and 0 in between, and the pigment dropped
+  // into it stayed where it was. How wet a patch of paper is barely cares
+  // which end of the stroke wetted it - the same argument that feeds the
+  // live field the mix rather than the load (see _paintDabs).
+  // (#536, s17.19) From the coverage alone, on purpose: the pass now runs
+  // over two fields - the deposit and its optical depth - and both must move
+  // by the same fractions, so the gate may not read the field it moves. The
+  // coverage's .b already carries the wetter of the recorded paper wetness
+  // and the standing water the stroke left (see u_washWater).
+  float wcWaterAt(vec4 cov) {
+    if (cov.a <= 0.002) return 0.0;
+    return clamp(cov.b, 0.0, cov.a);
+  }
+
+  float wcHeightAt(vec2 px) {
+    vec2 paperUV = (px + u_paperOrigin) / u_paperTexSize * u_paperScale;
+    return texture2D(u_paperHeightMap, paperUV).r;
+  }
+
+  void main() {
+    vec2 texel = 1.0 / u_resolution;
+    vec2 px = v_uv * u_resolution;
+    vec4 ink = texture2D(u_ink, v_uv);
+    vec4 cov = texture2D(u_coverage, v_uv);
+    float wi = wcWaterAt(cov);
+    // What moves is the deposit, all four channels of it, and each pair's
+    // exchange is written as two DONOR terms: i hands j a fraction of its own
+    // vec4, j hands i a fraction of its own. On .a the two sum to exactly the
+    // oracle's flux, D (ci - cj) plus the downhill terms; on .r .g .b each
+    // donor's share travels in that donor's own proportions, so the ratios
+    // the composite divides out (water, paper, strength) stay meaningful in
+    // the moved paint, and every channel is conserved by the same argument
+    // as .a. Moving the pigment channel alone was tried: in a texel the
+    // puddle laid thinly the composite reads strength = .b/.a and clamps it,
+    // so pigment arriving there capped instead of showing.
+    float hi = wcHeightAt(px);
+    vec4 out4 = ink;
+    if (wi > 0.0) {
+      // The eight neighbours, the same eight and in the same order as the
+      // oracle's stencil.
+      for (int k = 0; k < 8; k++) {
+        vec2 o;
+        if (u_stencil < 0.5) {
+          if (k == 0) o = vec2( 1.0,  0.0);
+          else if (k == 1) o = vec2(-1.0,  0.0);
+          else if (k == 2) o = vec2( 0.0,  1.0);
+          else if (k == 3) o = vec2( 0.0, -1.0);
+          else if (k == 4) o = vec2( 1.0,  1.0);
+          else if (k == 5) o = vec2(-1.0,  1.0);
+          else if (k == 6) o = vec2( 1.0, -1.0);
+          else o = vec2(-1.0, -1.0);
+        } else {
+          if (k == 0) o = vec2( 2.0,  1.0);
+          else if (k == 1) o = vec2(-2.0, -1.0);
+          else if (k == 2) o = vec2( 1.0,  2.0);
+          else if (k == 3) o = vec2(-1.0, -2.0);
+          else if (k == 4) o = vec2(-1.0,  2.0);
+          else if (k == 5) o = vec2( 1.0, -2.0);
+          else if (k == 6) o = vec2(-2.0,  1.0);
+          else o = vec2( 2.0, -1.0);
+        }
+        o *= u_radius;
+        vec2 uvj = v_uv + o * texel;
+        // Off the buffer's edge is dry paper: nothing crosses it.
+        if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
+        vec4 inkj = texture2D(u_ink, uvj);
+        vec4 covj = texture2D(u_coverage, uvj);
+        float wj = wcWaterAt(covj);
+        float gate = min(wi, wj);
+        if (gate <= 0.0) continue;
+        float dh = hi - wcHeightAt(px + o);
+        // On .a, give * ink.a - take * inkj.a is gate * (D (ci - cj)
+        // + B max(dh,0) ci - B max(-dh,0) cj): the oracle's flux. From j's
+        // side the same two products appear with the roles swapped -
+        // bit-identical, so what i gives j gets.
+        float give = gate * (u_d + u_b * max(dh, 0.0));
+        float take = gate * (u_d + u_b * max(-dh, 0.0));
+        out4 -= give * ink;
+        out4 += take * inkj;
+      }
+    }
+    gl_FragColor = max(out4, vec4(0.0));
+  }
+`;
+
+/** (#536, ADR 011 §17.24) One relaxation step of the WATER FRONT — the
+ *  GPU twin of wettingCost in waterFront.ts. u_cost.r is the cost of
+ *  reaching a texel from the operation's footprint, in cells over
+ *  u_costMax (1.0 = not reached); a step takes the least over the eight
+ *  neighbours of their cost plus the edge's, and the edge is dearer uphill
+ *  on the paper and never cheaper than u_floor. Repeated ~1.4 x budget
+ *  times, the texels within the budget are the domain the water wets: its
+ *  edge runs ahead in the paper's valleys and stalls on its ridges — the
+ *  drying front the rims are built on. min and add only, so live and
+ *  replay agree to the bit. */
+/** (#536, ADR 011 §17.44) Moving a region between a tile (full resolution)
+ *  and the settle's field at 1/u_ratio of it, for the big brushes whose
+ *  settle runs at half resolution. Drawn over the destination with a scissor
+ *  on the region; gl_FragCoord is the destination pixel, u_dstOrigin the
+ *  region's corner there, u_srcOrigin the matching corner in the source, in
+ *  source texels, u_ratio source texels per destination pixel.
+ *  Mode 0: the 2x2 mean of the source (tile -> field).
+ *  Mode 1: base + up(new) - up(old), bilinear - the field's CHANGE brought
+ *          back onto the full-resolution record, so its grain and the
+ *          brush's texture survive and only the movement is coarse.
+ *  Mode 2: max(base, up(new)) - the coverage the water front extended. */
+export const WC_RESAMPLE_FRAG = `
+  precision highp float;
+  uniform sampler2D u_src;
+  uniform sampler2D u_old;
+  uniform sampler2D u_base;
+  uniform vec2 u_srcSize;
+  uniform vec2 u_baseSize;
+  uniform vec2 u_dstOrigin;
+  uniform vec2 u_srcOrigin;
+  uniform float u_ratio;
+  uniform float u_mode;
+  // (s17.44) The source rect the interpolation may read, in source texels:
+  // the settle field's own rect. Past it the field holds nothing of this
+  // settle, and a bilinear tap there halved the change on the rect's last
+  // half cell - a thin line along every settle window's edge.
+  uniform vec4 u_clamp;
+  varying vec2 v_uv;
+  vec4 wcTexel(sampler2D t, vec2 q) { return texture2D(t, (clamp(floor(q), u_clamp.xy, u_clamp.zw - 1.0) + 0.5) / u_srcSize); }
+  vec4 wcBilerp(sampler2D t, vec2 q) {
+    vec2 g = q - 0.5;
+    vec2 i = floor(g);
+    vec2 f = g - i;
+    vec4 a = wcTexel(t, i), b = wcTexel(t, i + vec2(1.0, 0.0));
+    vec4 c = wcTexel(t, i + vec2(0.0, 1.0)), d = wcTexel(t, i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+  void main() {
+    vec2 q = u_srcOrigin + (gl_FragCoord.xy - u_dstOrigin) * u_ratio;
+    if (u_mode < 0.5) {
+      gl_FragColor = 0.25 * (wcTexel(u_src, q + vec2(-0.5, -0.5)) + wcTexel(u_src, q + vec2(0.5, -0.5))
+        + wcTexel(u_src, q + vec2(-0.5, 0.5)) + wcTexel(u_src, q + vec2(0.5, 0.5)));
+      return;
+    }
+    vec4 base = texture2D(u_base, gl_FragCoord.xy / u_baseSize);
+    if (u_mode < 1.5) {
+      // The change fades out over the last cells of the settle's rect: the
+      // rect is padded past anything the settle can move, so what reaches
+      // its edge is the half-resolution round trip's own residue, and
+      // applied up to the edge and not past it, that residue drew a line
+      // along every window's edge on a flat wash.
+      float edge = min(min(q.x - u_clamp.x, u_clamp.z - q.x), min(q.y - u_clamp.y, u_clamp.w - q.y));
+      float keep = smoothstep(1.0, 6.0, edge);
+      gl_FragColor = clamp(base + keep * (wcBilerp(u_src, q) - wcBilerp(u_old, q)), 0.0, 1.0);
+      return;
+    }
+    gl_FragColor = max(base, wcBilerp(u_src, q));
+  }
+`;
+
+export const WC_WATER_FRONT_FRAG = `
+  precision highp float;
+  uniform sampler2D u_cost;
+  uniform sampler2D u_paperHeightMap;
+  uniform vec2 u_resolution;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
+  uniform vec2 u_paperScale;
+  uniform float u_climb;
+  uniform float u_floor;
+  uniform float u_costMax;
+  // (s17.27) The wash's film (its stitched coverage, .a): a front runs over
+  // a wet film by the paper's relief, and onto DRY paper at u_dryCost times
+  // the price - the sheet's sizing holds a film's edge where the brush left
+  // it. Ilya's photographs: a stroke on dry paper has the brush's own
+  // smooth contour whatever its water; the ragged fronts are inside the
+  // stroke where its puddle met its drier body, and in a wet wash.
+  uniform sampler2D u_film;
+  uniform float u_dryCost;
+  // (s17.44) The step's length in texels. 1 is the plain relaxation; a
+  // longer one is a JUMP of that many cells in one pass, costed as the sum
+  // of the single steps it stands for - the climb terms telescope along a
+  // straight path (sum of h_i - h_{i+1} is h_here - h_far), the floor holds
+  // per cell. A dyadic schedule of jumps then a few unit passes reaches a
+  // front of hundreds of cells in ~16 passes instead of hundreds.
+  uniform float u_stride;
+  varying vec2 v_uv;
+  const float WC_FILM_LO = 0.02;
+  const float WC_FILM_HI = 0.15;
+
+  float wcFrontHeightAt(vec2 px) {
+    vec2 paperUV = (px + u_paperOrigin) / u_paperTexSize * u_paperScale;
+    return texture2D(u_paperHeightMap, paperUV).r;
+  }
+
+  void main() {
+    vec2 texel = 1.0 / u_resolution;
+    vec2 px = v_uv * u_resolution;
+    float best = texture2D(u_cost, v_uv).r * u_costMax;
+    float hj = wcFrontHeightAt(px);
+    for (int k = 0; k < 8; k++) {
+      vec2 o;
+      if (k == 0) o = vec2( 1.0,  0.0);
+      else if (k == 1) o = vec2(-1.0,  0.0);
+      else if (k == 2) o = vec2( 0.0,  1.0);
+      else if (k == 3) o = vec2( 0.0, -1.0);
+      else if (k == 4) o = vec2( 1.0,  1.0);
+      else if (k == 5) o = vec2(-1.0,  1.0);
+      else if (k == 6) o = vec2( 1.0, -1.0);
+      else o = vec2(-1.0, -1.0);
+      vec2 uvj = v_uv + o * u_stride * texel;
+      if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
+      float ci = texture2D(u_cost, uvj).r;
+      if (ci >= 0.999) continue;
+      float len = k < 4 ? 1.0 : 1.41421356;
+      // (s17.26) The first WC_FRONT_SMOOTH cells of run are flat: a stroke's
+      // 2-3 px of spread on dry paper gave a lobed edge on every stroke
+      // ("печенька"); the sheet's sizing holds a thin film's edge, and the
+      // relief bends only a front that runs on past it (a drop's).
+      // Two cells, or half the budget on a mark whose water runs further
+      // (u_costMax is the budget plus four): a big wet blob's lobes stay at
+      // half its spread, a drop's front keeps its fingers.
+      float relief = max(u_floor * u_stride, u_stride + u_climb * (hj - wcFrontHeightAt(px + o * u_stride)));
+      // Thresholded: the silhouette's antialiased ramp is two or three
+      // texels wide, and read raw it priced the film's own edge like dry
+      // paper - the inward pass could not enter, and the tideline was gone.
+      float film = smoothstep(WC_FILM_LO, WC_FILM_HI, texture2D(u_film, v_uv).a);
+      float edge = len * relief * mix(u_dryCost, 1.0, film);
+      best = min(best, ci * u_costMax + edge);
+    }
+    // .g: the paper's height here, for the band's valley term (mode 6 of
+    // the field op reads it off the inward pass, which is the one that
+    // carries the paper's uniforms).
+    gl_FragColor = vec4(min(best, u_costMax) / u_costMax, hj, texture2D(u_cost, v_uv).b, 1.0);
+  }
+`;
+
 export const IMAGE_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_image;
@@ -2622,6 +4204,250 @@ export const PAPER_COMPOSE_FRAG = `
   // infinite room), and then paper covers the screen exactly as before.
   uniform vec4 u_pageRect;
   uniform vec3 u_deskColor;
+  // (#536) Where the paper is still wet — display only, and that is the whole
+  // point of it living here rather than anywhere near the accumulation.
+  //
+  // Nothing about this reaches stored content, a snapshot, an export or a peer.
+  // It is a local, ephemeral read of a local, ephemeral field: the author
+  // watches their own paper dry, a peer watches theirs, a late joiner sees a
+  // dry sheet, and every one of them is looking at the identical pixels
+  // underneath. That is why no clock had to be written down for it.
+  //
+  // A coarse world-space map, one texel per wetness cell, over u_wetRect —
+  // minX, minY, maxX, maxY in world units, with maxX <= minX meaning "nothing
+  // is wet" and switching the whole term off.
+  uniform sampler2D u_wetMap;
+  uniform vec4 u_wetRect;
+  /** Texels of u_wetMap, so its slope can be read a texel at a time. */
+  /** (#536) How wet the wettest paper on the sheet is right now, 0..1. The rim
+   *  bands are placed as fractions of this rather than at absolute wetness —
+   *  see WC_DARK_MID. 1.0 when nothing needs normalising. */
+  uniform float u_wetPeak;
+
+  // (#536) Where the light comes from, how far inside the rim the line sits,
+  // and how bright it is. The width is the offset: a couple of world pixels is
+  // the thin bead a real puddle shows, and it stays that width at any zoom
+  // because it is measured in the world the water lives in.
+  const vec2 WC_WET_LIGHT_DIR = vec2(-0.6, -0.8);
+  const float WC_WET_RIM_PX = 5.0;
+  const float WC_WET_RIM_GAIN = 6.0;
+  const float WC_WET_GLOSS = 0.34;
+  const float WC_WET_SHADE = 0.11;
+  /** (s17.33) The fresh-water shade: how much darker the wettest paper reads
+   *  than merely damp paper, and the wetness it starts rising from. */
+  const float WC_FRESH_SHADE = 0.07;
+  // (s17.43) The power applied to a painted colour under fresh water, at
+  // full freshness: 1.35 takes a mid blue (0.45) to 0.34, a near-white
+  // nowhere - deeper and more saturated, never greyer.
+  const float WC_FRESH_DEEPEN = 0.35;
+  const float WC_FRESH_LO = 0.45;
+  /** The cast shadow on the far side. Softer than the meniscus: it is the drop
+   *  sitting on the paper, not the surface of the drop.
+   *
+   *  #536 — OFF, at zero, and deliberately as a *bisection* rather than as a
+   *  decision about the effect. Something reads as a halo round the puddle and
+   *  four attempts to place this band correctly have each moved the halo
+   *  without removing it. The band is the only term that lives outside the
+   *  meniscus, so switching it off answers in one look which of two things is
+   *  true: either the halo goes, and it was always this, or it stays, and it is
+   *  the damp tint or the sheen and the shadow was never involved.
+   *
+   *  Kept as a constant rather than deleted so the answer can be acted on
+   *  either way — restoring it is one number. Everything that computes rimCast
+   *  is untouched, and multiplying by zero costs nothing a driver will not fold
+   *  away.
+   *
+   *  The same reasoning as the bristle caricature (§17.5): after three wrong
+   *  guesses, stop guessing amplitudes and take a measurement that can only
+   *  come back one of two ways. */
+  const float WC_WET_CAST = 0.0;
+  // (#536) THREE windows on the wetness value, and which of them is gated by
+  // the light is the whole of what makes a puddle read as a puddle.
+  //
+  //   rim     a bright arc just inside the edge  -- lit side only
+  //   ring    a thin dark line at the edge       -- ALL THE WAY ROUND
+  //   cast    a soft shadow just outside it      -- far side only
+  //
+  // The ring not being gated is the correction. It used to be, so the far side
+  // of a puddle had nothing on it at all and the near side had a highlight with
+  // one dark edge -- "тёмная часть должна быть и за бликом, и с другой стороны
+  // лужи тоже". Look at any photograph of water on paper: the meniscus is a
+  // continuous dark line round the whole perimeter, because the edge bends the
+  // view of what is underneath whichever way the light comes from. Only the
+  // specular arc and the cast shadow know where the light is.
+  //
+  // All three are much tighter than the first version, and packed close
+  // together rather than spread with a gap: these are shallow puddles soaking
+  // into paper, not the domed beads on a waxed surface in the reference photo.
+  // The window's width in wetness is its band's width on screen, so narrowing
+  // it is literally flattening the drop.
+  // (#536, s17.12) The bead - rim, its dark ring and the cast - needs standing
+  // water, in ABSOLUTE terms. Every band below is placed on t, the field
+  // normalised to its own peak, which is right for where the edge is and
+  // wrong for whether there is a bead at all: a stroke at 35% water was the
+  // wettest thing on the sheet and got a full meniscus ("лужа рисуется как
+  // обычно"), while its sheen (gated on raw) was already nil. One absolute
+  // wetness, two response curves: the sheen from moderate, the bead only from
+  // high. Damp paper is tinted and still gates the diffusion of the next
+  // stroke; it just has no valley of water to catch the light.
+  const float WC_BEAD_LO = 0.45;
+  const float WC_BEAD_HI = 0.70;
+  const float WC_RIM_LO  = 0.158;
+  const float WC_RIM_MID = 0.177;
+  const float WC_RIM_HI  = 0.196;
+  /** Centre of the meniscus ring, and its half-width on the *unlit* side. On
+   *  the lit side it is squeezed to a fraction of this: the specular arc is
+   *  already telling the eye where that edge is, and a full-weight dark line
+   *  crowded up against it was read as part of a double outline rather than as
+   *  the same ring continuing round. */
+  const float WC_DARK_MID  = 0.128;
+  const float WC_DARK_HALF = 0.026;
+  const float WC_DARK_LIT  = 0.40;
+  // …and all of them are read as fractions of how wet the wettest paper on the
+  // sheet currently is, not as absolute wetness. That is a bug fix, and the bug
+  // it fixes is the one that made a drying puddle turn into a dark grey blob.
+  //
+  // A window on the absolute value only works while the puddle's own plateau is
+  // above it. As the paper dries the plateau descends, and it descends *through*
+  // every window in turn -- so at some point the whole interior of the puddle
+  // satisfies "is this the ring?" at once, and a moment later "is this the
+  // shadow?". The rings are not at the edge at all by then; the edge is simply
+  // where the value happened to be. Scaling by the peak pins each band to a
+  // fixed place on the edge's ramp for the puddle's whole life, and as a bonus
+  // keeps its width in pixels constant too, because the ramp and the window
+  // shrink together.
+  /** The cast shadow: wider than the ring and softer, sitting just outside it.
+   *
+   *  It reads as a shadow rather than as a second outline because it is about
+   *  twice the ring's width and has no gap from it — an equally narrow band a
+   *  gap away is simply another line, which is what "непонятная двойная
+   *  обводка" was.
+   *
+   *  The correction after that one went the other way and was worse: giving it
+   *  an inner edge and no outer one at all made it hold right out to the limit
+   *  of the wetness field, which is the "серый ореол" round the whole puddle.
+   *  A shadow does need to end. */
+  //  #536 — pushed up against the ring (which spans DARK_MID +/- DARK_HALF,
+  //  i.e. 0.102..0.154) instead of sitting out at 0.016..0.070, and that is the
+  //  halo. The window was narrow in *wetness* and enormous in *pixels*, because
+  //  down near zero the field is almost flat — the wider smoothing kernel that
+  //  fixed the octagon flattened that tail further still. A band placed on the
+  //  tail covers half the sheet however tight its numbers look. Sitting
+  //  directly outside the ring with no gap it is instead what it should be: the
+  //  far edge simply reads a little thicker and softer than the near one.
+  const float WC_CAST_IN  = 0.102;
+  const float WC_CAST_MID = 0.077;
+  const float WC_CAST_OUT = 0.052;
+  /** The single outside limit of everything the overlay draws, on the shared
+   *  edge coordinate. Sits just under the outermost band (the cast shadow's own
+   *  outer edge) so nothing has room to leak past it onto the field's tail, and
+   *  it is a hard step rather than a ramp on purpose: a soft cut-off is another
+   *  gradient for the eye to find, which is the thing being removed. */
+  const float WC_EDGE_OUT = 0.048;
+  // For scale: the wetness map is one texel per 16 px cell, linearly filtered
+  // and then smoothed over a texel again, so raw falls from 1 to 0 across
+  // roughly 32 world px. A window that many hundredths wide is therefore that
+  // many thirty-seconds of a world pixel -- the three bands above come out at
+  // about 1.2, 1.7 and 1.9 world px, with the highlight sitting 1.6 px inside
+  // the ring. Measured in the world the water is in, not on screen, so they
+  // shrink when the canvas is zoomed out. That is right for a physical bead and
+  // it does mean a puddle seen at 45% shows the ring and little else.
+
+  // (#536, ADR 011 §17.6) How far the paint is held back from where it will end
+  // up, at full flood. The stored pixels are the *dry* result — already carrying
+  // whatever spread the wetness the author recorded bought them — and this is a
+  // presentation-only correction that pulls the mark back in while the water is
+  // still there and lets go of it as the paper dries. Zero wetness, zero
+  // correction, so the picture converges on what is stored no matter what the
+  // clock does.
+  //  #536 — how far the paint is held back from where it will end up at the
+  //  instant it is laid into standing water, and it is a *shape* question as
+  //  much as a size one.
+  //
+  //  Ilya, describing the real thing: touch a brush to a wet surface and the
+  //  paint runs out hard at first, then slows, then very nearly stops. That is
+  //  not what a linear release looks like and it is not what a smoothstep
+  //  release looks like either — a smoothstep starts slow, which reads as the
+  //  mark sitting still and then thinking about it, and was behind "начало
+  //  рисовать как сухая кисть". WC_RELAX_EASE puts the motion at the front:
+  //  most of the travel happens in the first seconds after the pen leaves, and
+  //  the tail of it is a long slow crawl to a stop.
+  //
+  //  Two terms make up the total spread and they are easy to confuse. This one
+  //  is transient and decides *when* the paint gets there; WC_WET_PUSH is
+  //  permanent and decides *where* it ends up. Turning this up does not make a
+  //  dried mark any bigger.
+  // (#536, s17.12) Zero: retired. It held the thin tones under wet paper
+  // back while the halo was a composite-time guess, so the halo could seem to
+  // grow out of the core as the sheet dried. With the halo and the diffusion
+  // in the deposit and the reveal easing the settle in (s17.12), it had
+  // nothing left to hide and one thing left to break: it masked EVERY thin
+  // tone under standing water, old dry strokes included - "водой поверх
+  // старых высохших штрихов - они странно исчезают, пока не высохнут лужи".
+  // Kept as a constant so the plumbing reads, not as a knob.
+  const float WC_WET_RELAX = 0.0;
+  /** Alpha below which a pixel is taken to be the halo, and above which the
+   *  core. Between the two the reveal ramps. */
+  const float WC_HALO_A = 0.22;
+  const float WC_CORE_A = 0.55;
+  /** Exponent on the release. Above 1 fronts the motion — see WC_WET_RELAX. */
+  //  5, from 7: with the reveal doing real work the seventh power spent the
+  //  whole halo in the first second, which reads as a jump rather than as
+  //  paint running. Still front-loaded - most of the travel is in the first
+  //  few seconds and the tail is a slow crawl.
+  const float WC_RELAX_EASE = 5.0;
+  /** The wetness a freshly laid flood carries, which is what the release is
+   *  measured against. Reading the raw value rather than the normalised edge
+   *  coordinate is deliberate: this has to run down as the patch dries, and a
+   *  lone puddle decays in step with the peak, so the normalised ratio between
+   *  them would never move at all. */
+  const float WC_RELAX_REF = 0.90;
+  // The window over which it lets go. Far wider than the sheen's: the sheen
+  // must vanish the moment a patch is merely damp, or every mark drags a grey
+  // halo, whereas the paint has to still be creeping when the shine has long
+  // gone — that is most of what "watching it dry" is.
+  // #536 - 0.50..0.95, from 0.04..0.45: "растекание должно быть интенсивней,
+  // быстрее, больше". The window is what decides *when* in the drying the paint
+  // moves, and down at 0.04 the release was spread across almost the entire
+  // minute, so at any moment almost nothing was happening. Up here it is spent
+  // inside the first half of the drying - the paint creeps out over the first
+  // twenty-odd seconds and is settled well before the sheen goes, which is also
+  // the right way round physically.
+  // The release runs on the shared edge coordinate rather than on raw wetness,
+  // so it means the same thing however wet the brush was: 1 the moment the
+  // water goes down, 0 when that patch is dry.
+
+  /** The wetness map, smoothed over its own texels so the grid it is built on
+   *  does not show as facets.
+   *
+   *  A full 3x3 binomial tent at one texel, not the four half-texel taps this
+   *  started as. Four taps at half a texel average within a single texel's
+   *  neighbourhood and so cannot round off a *texel-sized* corner at all --
+   *  which is what a puddle edge is made of, and why the meniscus came out
+   *  visibly octagonal. Nine taps of a separable 1-2-1 is the smallest kernel
+   *  whose support actually spans the staircase, and it is separable enough to
+   *  stay isotropic, which a wider box would not be. */
+  /** (#536, s17.18) The body level of the puddle THIS texel belongs to: the
+   *  maximum over the five-by-five cells around it (two cells is the whole
+   *  of the tent's edge ramp, so from anywhere on an edge the body is in
+   *  reach). Everything placed on the edge's ramp is normalised by it rather
+   *  than by the sheet's peak. Normalising by the sheet's peak was right
+   *  only while there was one puddle: lay a fresh one beside an old one at
+   *  a fifth of its level and the old puddle's whole BODY lands at the t of
+   *  the new one's edge, where the rim and its dark ring are drawn - "рядом
+   *  возвращается уже высохшая лужа и заново сохнет"; and touching a pen
+   *  into a wash lifted the peak back to one, so every band in it moved. */
+  // (#536, s17.22) Both come precomputed in the map itself - the 5x5 max in
+  // .a, the 3x3 tent in .r - see _updateWetTexture. They were 25 and 9 taps
+  // here, per screen pixel, per frame, of a field that changes eight times a
+  // second.
+  float wcWetBodyAt(vec2 uv) {
+    return texture2D(u_wetMap, uv).a;
+  }
+
+  float wcWetAt(vec2 uv) {
+    return texture2D(u_wetMap, uv).r;
+  }
 
   varying vec2 v_uv;
 
@@ -2711,10 +4537,220 @@ export const PAPER_COMPOSE_FRAG = `
     vec2 paperUV = worldPos / u_paperTexSize * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;
 
-    ${paperToneGLSL('paperHeight')}
-    float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);
+    // (#536) What water does to paper, and it is one mechanism rather than two
+    // effects: water fills the pits between the fibres, so the surface stops
+    // being rough and starts being smooth. The grain flattening *is* the sheen.
+    //
+    // Deliberately not a specular highlight from a fixed virtual light. That
+    // would read as lacquer, and worse, it would put a stable pattern of
+    // reflections on the sheet that the eye starts taking for part of the
+    // drawing — a real wet wash reflects its own room, and a canvas has no
+    // room. Suppressing the paper's own micro-contrast is what the eye
+    // actually reads as "this patch is still wet", and it costs one lerp.
+    float wet = 0.0;
+    // (#536) The rim highlight, the meniscus ring, and the cast shadow.
+    float rim = 0.0;
+    float rimDark = 0.0;
+    float rimCast = 0.0;
+    // (#536) How much of the paint's spread has not happened yet — see
+    // WC_WET_RELAX and the block below graphite.
+    float held = 0.0;
+    // (#536) The faint all-over tint of damp paper — see its use below.
+    float damp = 0.0;
+    float fresh = 0.0;
+    if (u_wetRect.z > u_wetRect.x) {
+      vec2 wetSpan = max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
+      vec2 wetUV = (worldPos - u_wetRect.xy) / wetSpan;
+      if (wetUV.x >= 0.0 && wetUV.x <= 1.0 && wetUV.y >= 0.0 && wetUV.y <= 1.0) {
+        // (#536) Thresholded, not used raw. The field is what the *model*
+        // reads to decide how paint behaves, and it is deliberately generous
+        // there — a trace of damp still matters to a brush. On screen a trace
+        // of damp must show nothing at all, or every mark drags a soft grey
+        // halo behind it, which is exactly what the first version did.
+        float raw = wcWetAt(wetUV);
+        // (#536) One edge for the whole overlay, and everything below is
+        // expressed on it. This replaces four independent thresholds on the
+        // raw value, which is where the halo kept coming back from.
+        //
+        // The field is deliberately *wider than the water*: a cell counts as
+        // wet if its centre falls under the dab at all, the home cell always
+        // counts, the display map is padded with a border texel of zero, and
+        // the 3x3 tent that rounded off the octagon spreads the step another
+        // texel each way. So the value does not stop at the mark: it trails off
+        // down a long shallow ramp outside it, and any term with a low enough
+        // threshold paints that ramp as a soft wide band. Which is the halo,
+        // and it is not a depiction of anything: it is the tail of a model
+        // field showing through. Moving one threshold in only handed the tail
+        // to whichever term had the next lowest one, three times over.
+        //
+        // The shared coordinate is 1 in the body of the water and 0 outside
+        // it, normalised by the wettest paper on the sheet so that it means the
+        // same thing at every stage of drying (see WC_DARK_MID). WC_EDGE_OUT is
+        // then the single outside
+        // limit of everything the overlay draws: past it the sheet is painted
+        // exactly as dry paper, whatever the field still holds out there for
+        // the *model* to read.
+        float body = max(wcWetBodyAt(wetUV), 0.05);
+        float t = clamp(raw / body, 0.0, 1.0);
+        float inWater = step(WC_EDGE_OUT, t);
+        // Which of these read the shared coordinate and which read the raw
+        // value is not a detail — it is the difference between "where is the
+        // edge" and "how wet is it", and they must not be swapped.
+        //
+        // The bands below are geometry: the ring belongs at a fixed place on
+        // the edge's ramp whatever stage of drying the sheet is at, so they are
+        // normalised. The two below are physical quantities that have to *fade*
+        // as the paper dries — and normalising those would freeze them, because
+        // a single puddle drying on its own decays in step with the peak, so
+        // the ratio between them never moves. A sheen that never dulls and
+        // paint that never relaxes is what that costs.
+        //
+        // So: extent from the coordinate, amount from the value.
+        wet = inWater * smoothstep(0.35, 0.95, raw);
+        held = WC_WET_RELAX * pow(clamp(raw / WC_RELAX_REF, 0.0, 1.0), WC_RELAX_EASE);
+        damp = inWater * smoothstep(WC_EDGE_OUT, 0.42, t) * smoothstep(0.04, 0.30, raw);
+        fresh = inWater * smoothstep(WC_FRESH_LO, 1.0, raw);
+        // The rim, as a *window on the wetness value* rather than as a
+        // derivative of it.
+        //
+        // Two earlier attempts read the map's slope — first as a surface normal
+        // under a specular, then as a difference along the light — and both
+        // faceted on curves and came out too thick. Both faults are the same
+        // fault: the map is a coarse grid with a linear filter, so anything
+        // built from its rate of change is piecewise constant and shows the
+        // grid, and its width is whatever the filter happens to give.
+        //
+        // The wetness value itself is smooth and rises monotonically across the
+        // rim, so a narrow window on it is a narrow ring *in the world*, with
+        // no reference to the grid at all. Two windows: a bright one just
+        // inside the water's edge, and a darker one a little further out, which
+        // is the surface turning back down — the thing Ilya asked for and the
+        // reason a real bead reads as a bead rather than as a glow.
+        //
+        // The side term keeps both on the lit half only: a rim that shines all the way
+        // round is a ring of light, not a lit puddle.
+        float ahead = wcWetAt(wetUV + (WC_WET_LIGHT_DIR * WC_WET_RIM_PX) / wetSpan);
+        // Normalised by the peak like the windows are, and for the same
+        // reason: without it the lit/unlit split fades out as the sheet dries,
+        // taking the highlight and the cast shadow with it and leaving a bare
+        // ring long before the water is gone.
+        float side = clamp((ahead - raw) * WC_WET_RIM_GAIN / body, 0.0, 1.0);
+        rim = side * inWater
+          * smoothstep(WC_RIM_LO, WC_RIM_MID, t)
+          * (1.0 - smoothstep(WC_RIM_MID, WC_RIM_HI, t));
+        // No side term: the meniscus goes right round. Only its width knows
+        // where the light is - thinner under the highlight, full weight on the
+        // far side.
+        float ringHalf = WC_DARK_HALF * mix(1.0, WC_DARK_LIT, side);
+        rimDark = inWater
+          * smoothstep(WC_DARK_MID - ringHalf, WC_DARK_MID, t)
+          * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_MID + ringHalf, t));
+        rimCast = (1.0 - side) * inWater
+          * smoothstep(WC_CAST_OUT, WC_CAST_MID, t)
+          * (1.0 - smoothstep(WC_CAST_MID, WC_CAST_IN, t));
+        // The bead is a thing standing water does - see WC_BEAD_LO. Gated on
+        // the puddle's BODY level, not on raw here: the bands sit on the edge
+        // ramp, where raw is a fifth of the body by construction (t =
+        // 0.16..0.20), so gating on the local value switched every bead off -
+        // "ты лужу сломал, где блик".
+        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, body);
+        rim *= bead;
+        rimDark *= bead;
+        rimCast *= bead;
+      }
+    }
+    // (#536, ADR 011 §17.6) The paint relaxing outward as the water goes.
+    //
+    // The model is inverted from the obvious one, and that inversion is the
+    // whole reason this is safe. The obvious version lets a mark start tight
+    // and *mutate* toward its spread state, which means a snapshot taken
+    // mid-drying freezes a half-finished mark and a later stroke can glaze over
+    // one — clocks in the content, which §2 does not allow. Here the stored
+    // pixels are the finished, fully spread mark from the instant the pen came
+    // up, and what is transient is a correction *held against* them, which goes
+    // to zero. Nothing downstream of the frame buffer can ever see it.
+    //
+    // An S-curve on coverage rather than a blur, and it needs no extra taps
+    // because it needs no neighbours: pulling the soft margin of a mark down
+    // while leaving its core alone *is* "the paint has not reached out there
+    // yet". Letting go of it fills the margin back in, and the mark visibly
+    // creeps into the water over the drying window. The core coming up very
+    // slightly at the same time is the other half of the same observation, and
+    // it runs the right way round — watercolour dries lighter, so while it is
+    // wet it is a shade deeper in the middle than it will end up.
+    // Two S-curves rather than one, and the reason is Ilya's own measurement:
+    // "кажется растекание есть, просто оно слишком слабое — я два скрина
+    // сравнил, штрих в луже и вправду отличается". One smoothstep moves a
+    // half-covered fringe pixel by about a tenth; the eye does not read a tenth
+    // as movement over thirty seconds, it reads it as nothing. Composed, the
+    // same guarantees hold — still exactly 0 at 0 and 1 at 1, still monotone,
+    // so the picture still converges on the stored pixels — while the margin
+    // now loses about half of itself at full flood and visibly fills back in.
+    // (#536) ...and it is a REVEAL, not a mild tightening. What is stored is
+    // the finished mark, halo and all (ADR 011 s17.10). While the paper is wet
+    // the halo is held back - the thin film (alpha under WC_CORE_A) is masked
+    // out in proportion to held, the dense core is left alone - and as the
+    // water goes the mask lifts and the halo comes up out of the core, fast at
+    // first and then slowing. That is the drying Ilya described, and it is the
+    // part the earlier S-curve could not do: it pulled a fringe down by a
+    // fraction, which hid nothing, so a wet-in-wet mark arrived already spread.
+    //
+    // Fixed alpha thresholds rather than a per-pixel "is this halo" flag: the
+    // display has no such flag and would need a second layer-sized transient to
+    // carry one. The halo is thin by construction (its dose is a quarter of the
+    // core's), so alpha separates the two well enough, and the mask only ever
+    // acts where the paper is wet.
+    float core = smoothstep(WC_HALO_A, WC_CORE_A, graphite);
+    graphite *= mix(1.0, core, held);
+    // Well under 1: even a flooded sheet is not a mirror, and leaving most of
+    // the grain is what keeps a wet patch reading as paper rather than as a
+    // hole in the paper.
+    float shownHeight = mix(paperHeight, 0.5, wet * 0.5);
+    float gloss = rim * WC_WET_GLOSS;
+    float shade = rimDark * WC_WET_SHADE + rimCast * WC_WET_CAST;
+
+    ${paperToneGLSL('shownHeight')}
+    float graphiteTexture = mix(1.0, shownHeight * 0.5 + 0.2, graphite * 0.25);
     vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
     vec3 color = mix(paperTone, graphiteTone, graphite);
+    // And the smaller half of it: wet paper is a shade deeper than dry, which
+    // is the same fact as "watercolour dries lighter" seen from the other side.
+    // Three per cent at full flood — under what anyone would call a change of
+    // colour, and enough to see a puddle.
+    // (#536) …and it is read off a much softer, wider gate than the sheen.
+    //
+    // "Серое пятно исчезло совсем, хотя оно давало эффект влажной бумаги — оно
+    // просто должно быть едва видным." Riding the sheen's own 0.35..0.95
+    // threshold, it was a hard-edged patch that appeared and vanished with it;
+    // damp paper is not a patch with an edge. This gate opens far earlier and
+    // saturates far sooner, so the whole wetted area carries the tint and it
+    // fades out smoothly at the margin instead of stopping at a line. Which is
+    // also the difference between this and a halo: an area, not a ring.
+    // 1.2 per cent: "она должна быть едва заметная". Twice this read as a grey
+    // patch rather than as damp paper.
+    color *= mix(1.0, 0.988, damp);
+    // (s17.33) ...and FRESH water on top of that: the tint above saturates at
+    // 0.3 of wetness, so a drop of clean water into a wash that is still wet
+    // showed nothing at all ("рисование водой ничего не рисует, пятно
+    // проявляется потом") - the wash and the drop were both past the gate.
+    // A second, deeper shade that keeps rising to full wetness reads a
+    // fresh mark darker than the older wet around it and fades with the
+    // same clock; it is a picture of the water, not of any paint (the
+    // design thread: show the water, never a bloom the model has not made).
+    // (s17.43) ...on bare paper. Over PAINT the same neutral shade read as
+    // dirt: darkening every channel alike is what a grey wash over a colour
+    // does, and Ilya painted with it - "пока не высохло, цвет грязный". Wet
+    // paint is not greyer than dry, it is DEEPER: the film is thicker and
+    // more saturated, and dries lighter and duller. So over paint the fresh
+    // water deepens the tone instead (a power on the colour: whites stay
+    // white, a colour gains chroma as it darkens), and the neutral shade is
+    // kept for the paper between the marks, where a drop of clean water
+    // still has to show. Both fade with the same clock.
+    float onPaint = smoothstep(0.02, 0.25, graphite);
+    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh * (1.0 - onPaint));
+    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_FRESH_DEEPEN * fresh * onPaint));
+    color += vec3(gloss);
+    color *= 1.0 - shade;
 
     // Antialiased page edge. A hard test leaves the sheet's border crawling
     // with jaggies at any camera angle, and the border is a straight line the
