@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { REPO_ROOT } from './model';
 import type { Dataset } from './collect';
 import type { RuntimeMap } from './runtime';
+import type { Coverage, Topic } from './understanding';
 
 const PAGE = join(REPO_ROOT, 'scripts', 'archmap', 'page');
 
@@ -19,7 +20,12 @@ function repoUrls(remote: string, branch: string): { blob: string; issues: strin
   };
 }
 
-export function render(data: Dataset & { runtime?: RuntimeMap }, remote: string): string {
+export interface PageExtras {
+  runtime?: RuntimeMap;
+  understanding?: { levels: string[]; topics: Topic[]; names: Record<string, string>; people: Coverage[] };
+}
+
+export function render(data: Dataset & PageExtras, remote: string): string {
   const urls = repoUrls(remote, data.branch);
   const payload = { ...data, repo: urls.blob, issuesBase: urls.issues };
   const stamp = `${data.commit} · ${data.generatedAt.slice(0, 16).replace('T', ' ')} UTC`;

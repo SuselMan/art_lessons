@@ -346,6 +346,16 @@
       return { v: Math.min(1, ratio), col: ratio >= 0.25 ? 'var(--ok)' : ratio > 0 ? 'var(--out)' : 'var(--warn)' };
     }
     if (metric === 'churn') return { v: m.churn / maxChurn, col: 'var(--out)' };
+    if (metric === 'understanding') {
+      // (#628) The first person's best topic score for this module; a red stub means "nobody
+      // on the team can explain this yet".
+      var who = D.understanding && D.understanding.people[0];
+      var sc = who ? who.moduleScore[m.id] || 0 : 0;
+      return {
+        v: Math.max(sc, 0.06),
+        col: sc >= 1 ? 'var(--ok)' : sc >= 0.5 ? 'var(--in)' : sc > 0 ? 'var(--out)' : 'var(--warn)',
+      };
+    }
     var n = (violationsByModule.get(m.id) || []).length + (clonesByModule.get(m.id) || []).length;
     return { v: Math.min(1, n / Math.max(maxDebt, 3)), col: n ? 'var(--warn)' : 'var(--line)' };
   }
@@ -808,6 +818,8 @@
    * same pair fan out — and the nodes are drawn on top, so a curve's ends tuck under them.
    */
 
+  var rtSelect = null; // set once the runtime tab is drawn, so other tabs can jump to a link
+
   var CONTRACT = {
     bound: {
       title: 'связан',
@@ -1075,6 +1087,121 @@
       select({ type: hit.classList.contains('rt-node') ? 'node' : 'link', id: id });
     });
     select(null);
+    rtSelect = select;
+  }
+
+  /* ------------------------------------------------------------------ understanding tab (#628) */
+
+  var STATUS_CLASS = { 'не отмечено': 's0', 'слышал': 's1', 'понимаю': 's2', 'объясню сам': 's3' };
+
+  function renderUnderstanding() {
+    var host = document.getElementById('view-understanding');
+    var U = D.understanding;
+    if (!U || !U.people.length) {
+      host.innerHTML = '<div class="health"><p class="lede">docs/architecture/understanding.yaml не найден или в нём нет людей.</p></div>';
+      return;
+    }
+    var c = U.people[0];
+    var topicById = new Map(U.topics.map(function (t) { return [t.id, t]; }));
+    var pct = function (a, b) { return b ? Math.round((a / b) * 100) : 0; };
+    var h = ['<div class="health und">'];
+    h.push('<h2>Понимание — ' + esc(U.names[c.person] || c.person) + '</h2>');
+    h.push('<p class="lede">Что из архитектуры человек может объяснить сам. Баллы: «понимаю» — 0,5, «объясню сам» — 1; ' +
+      '«объясню сам» ставится только после задачи на понимание. Уровни считаются отдельно, чтобы дыра в обзоре ' +
+      'не пряталась за деталями. Код — доля строк в модулях, которые покрывает понятая тема; знание подсистемы в ' +
+      'общих чертах даёт модулю половину балла. Данные — <code>docs/architecture/understanding.yaml</code>.</p>');
+
+    h.push('<div class="und-tiles">');
+    c.levels.forEach(function (l, i) {
+      var p = pct(l.score, l.topics);
+      h.push('<div class="und-tile"><span>' + i + ' · ' + esc(l.title) + '</span><b>' + p + ' %</b>' +
+        '<div class="und-bar"><i style="width:' + p + '%"></i></div><em>' + l.topics + ' тем</em></div>');
+    });
+    [['Код', c.code.loc, c.code.total, 'строк'], ['Код по правкам', c.code.churn, c.code.churnTotal, 'правок за полгода']]
+      .forEach(function (r) {
+        var p = pct(r[1], r[2]);
+        h.push('<div class="und-tile code"><span>' + r[0] + '</span><b>' + p + ' %</b>' +
+          '<div class="und-bar"><i style="width:' + p + '%"></i></div><em>из ' + Math.round(r[2]).toLocaleString('ru') +
+          ' ' + r[3] + '</em></div>');
+      });
+    h.push('</div>');
+
+    h.push('<h3>Изучать дальше</h3><p class="lede">Темы, до которых уже можно дойти: их родитель понят или его нет.</p><ul class="und-next">');
+    c.next.slice(0, 6).forEach(function (id) { h.push('<li>' + topicLine(topicById.get(id))); });
+    h.push('</ul>');
+
+    if (c.hotspots.length) {
+      h.push('<h3>Часто меняются, но непонятны</h3><p class="lede">Модули с наибольшим числом правок за полгода, ' +
+        'которые не покрыты темой на уровне «понимаю». Сюда агенты пишут чаще всего — а проверить их некому.</p>');
+      h.push('<table><thead><tr><th>модуль</th><th class="r">правок</th><th class="r">строк</th></tr></thead><tbody>');
+      c.hotspots.forEach(function (id) {
+        var m = byId.get(id);
+        h.push('<tr><td><span class="link" data-jump="' + id + '">' + esc(m.title) + '</span></td><td class="r">' +
+          m.churn + '</td><td class="r">' + m.loc.toLocaleString('ru') + '</td></tr>');
+      });
+      h.push('</tbody></table>');
+    }
+
+    h.push('<h3>Дерево тем</h3>');
+    function branch(parentId) {
+      var kids = U.topics.filter(function (t) { return (t.parent || null) === parentId; });
+      if (!kids.length) return '';
+      return '<ul class="und-tree">' + kids.map(function (t) {
+        return '<li>' + topicLine(t, true) + branch(t.id) + '</li>';
+      }).join('') + '</ul>';
+    }
+    h.push(branch(null));
+
+    if (c.unreached.length) {
+      h.push('<h3>Модули, до которых не дотягивается ни одна тема · ' + c.unreached.length + '</h3>' +
+        '<p class="lede">Дыра не в понимании, а в самом списке тем.</p><p>' +
+        c.unreached.map(function (id) {
+          return '<span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span>';
+        }).join(' · ') + '</p>');
+    }
+    h.push('</div>');
+    host.innerHTML = h.join('');
+    wireJumps(host);
+    host.querySelectorAll('[data-rt]').forEach(function (n) {
+      n.addEventListener('click', function () {
+        document.querySelector('.tabs button[data-tab="runtime"]').click();
+        if (rtSelect) rtSelect({ type: 'link', id: n.getAttribute('data-rt') });
+      });
+    });
+    host.querySelectorAll('[data-flows]').forEach(function (n) {
+      n.addEventListener('click', function () { document.querySelector('.tabs button[data-tab="flows"]').click(); });
+    });
+
+    function topicLine(t, withRefs) {
+      var st = c.status[t.id];
+      var out = '<span class="und-status ' + STATUS_CLASS[st] + '">' + esc(st) + '</span> <b>' + esc(t.title) + '</b>' +
+        ' <span class="tag">' + esc(U.levels[t.level]) + '</span>';
+      if (t.issue) {
+        out += ' <a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + t.issue + '">#' + t.issue + '</a>';
+      }
+      if (t.why) out += '<div class="und-why">' + esc(t.why) + '</div>';
+      if (withRefs) {
+        var refs = [];
+        (t.layers || []).forEach(function (id) { refs.push('слой ' + esc((layerById.get(id) || {}).title || id)); });
+        (t.modules || []).forEach(function (id) {
+          refs.push('<span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span>');
+        });
+        (t.links || []).forEach(function (id) {
+          var l = D.runtime && D.runtime.links.filter(function (x) { return x.id === id; })[0];
+          refs.push('<span class="link" data-rt="' + id + '">⇄ ' + esc(l ? l.channel : id) + '</span>');
+        });
+        (t.flows || []).forEach(function (id) {
+          var f = D.flows.filter(function (x) { return x.id === id; })[0];
+          refs.push('<span class="link" data-flows>↓ ' + esc(f ? f.title : id) + '</span>');
+        });
+        (t.adr || []).forEach(function (id) {
+          refs.push('<a class="link" target="_blank" rel="noreferrer" href="' + REPO + '/docs/adr/' + id + '.md">ADR ' +
+            esc(id.slice(0, 3)) + '</a>');
+        });
+        if (refs.length) out += '<div class="und-refs">' + refs.join(' · ') + '</div>';
+      }
+      return out;
+    }
   }
 
   /* ------------------------------------------------------------------ health tab */
@@ -1164,6 +1291,7 @@
   renderFlows();
   renderRuntime();
   renderHealth();
+  renderUnderstanding();
   renderPanel(null);
   fit();
   window.addEventListener('resize', function () { if (!selected) fit(); });
