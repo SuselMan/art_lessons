@@ -44,7 +44,7 @@ export interface KeyContext {
   modalOpen: boolean
   /** The event target is an `<input>`/`<textarea>`/contentEditable element. */
   typing: boolean
-  /** `isDismissLayerOpen()` from lib/useDismissOnOutside. */
+  /** `isDismissLayerOpen()` from lib/input/useDismissOnOutside. */
   popoverOpen: boolean
 }
 

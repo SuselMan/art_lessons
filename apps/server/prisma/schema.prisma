@@ -564,7 +564,7 @@ enum RoomJoinRequestStatus {
 // both the same user id, and the question this table answers is "which of
 // their devices", so the device needs an id of its own.
 //
-// `env` is what the client reports about itself (lib/environment.ts) — build,
+// `env` is what the client reports about itself (lib/api/environment.ts) — build,
 // screen, pen, GPU — and is replaced wholesale on every report. Json rather
 // than columns: it is read by one person in the admin panel and never
 // queried, and the set of fields will keep growing with the bugs it answers.

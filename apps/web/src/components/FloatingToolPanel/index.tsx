@@ -183,7 +183,7 @@ interface Props {
  *  was that anyone with minimal UI off never saw this panel at all.
  *
  *  (#321) That is now a setting — always / only in minimal UI / never (see
- *  lib/uiPreferences and Room's own use of it). "Always" means it can sit on
+ *  lib/browser/uiPreferences and Room's own use of it). "Always" means it can sit on
  *  top of the full chrome, duplicating the header's Undo/Redo and the
  *  toolbar's pencil/eraser: deliberate, since the point of the cluster is
  *  that it is wherever the hand already is.

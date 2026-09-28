@@ -34,7 +34,7 @@ export type UpdateAction =
   | 'wait'
 
 export interface UpdateContext {
-  /** From lib/reloadSafety: a joined room is holding the tab. */
+  /** From lib/browser/reloadSafety: a joined room is holding the tab. */
   reloadUnsafe: boolean
   /** Launched from the home screen / as an installed app rather than in a
    *  browser tab — i.e. "closing the last tab" may never happen. */

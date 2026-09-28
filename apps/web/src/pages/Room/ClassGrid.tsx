@@ -44,7 +44,7 @@ function updatedAgo(at: string | undefined, now: number, t: TFunction): string {
 /** (#595, ADR 015 §6, §11) All the works of one assignment at a glance — the
  *  big view behind the Class tab's "Все работы": one tile per student's board — its live preview, the student's name, whether they
  *  are here, a raised hand, how fresh the picture is. Raised hands first,
- *  then by name (see lib/classMode's classGrid). A tap goes to the board.
+ *  then by name (see lib/boards/classMode's classGrid). A tap goes to the board.
  *
  *  The teacher's version also carries the controls: showing one work to
  *  everyone, and moving the class — "Все ко мне" from here, or "Вернуть всех

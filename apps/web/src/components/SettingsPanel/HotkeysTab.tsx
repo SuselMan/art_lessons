@@ -8,7 +8,7 @@ import {
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'
 
-/** (#174) Rebinding, against the registry in `lib/hotkeys` — which is the
+/** (#174) Rebinding, against the registry in `lib/input/hotkeys` — which is the
  *  single source of truth for this list, the editor's own keydown handler and
  *  every tooltip that spells a shortcut out.
  *

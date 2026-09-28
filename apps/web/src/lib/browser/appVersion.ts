@@ -56,7 +56,7 @@ export function isDeployedBuild(version = APP_VERSION): boolean {
 /** Puts the version where a console, a CDP session or a bug report can reach
  *  it without a UI. Called once at boot from main.tsx.
  *
- *  Not dev-only, unlike lib/devEngineHandle: a version string is the one piece
+ *  Not dev-only, unlike lib/observability/devEngineHandle: a version string is the one piece
  *  of state whose whole purpose is to be readable on the machine that has the
  *  problem, which is never this one. It exposes nothing — the same string is
  *  already visible in Settings and in the bundle. */

@@ -295,7 +295,7 @@ export interface SettingsStore {
   pressureCalibration: PressureCalibration
   setPressureCalibration: (calibration: PressureCalibration) => void
   /** (#174) Keyboard bindings by action id. The registry, the codec and the
-   *  conflict rules stay in `lib/hotkeys`; this is only where the current
+   *  conflict rules stay in `lib/input/hotkeys`; this is only where the current
    *  values live, so that rebinding one reaches the editor's own keydown
    *  handler without the page reload the settings panel used to need. */
   hotkeys: Record<string, HotkeyBinding>
@@ -377,7 +377,7 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(PRESSURE_CALIBRATION_STORAGE_KEY, JSON.stringify(calibration))
     set({ pressureCalibration: calibration })
   },
-  // Own storage key and codec (`lib/hotkeys`), unlike the plain values above:
+  // Own storage key and codec (`lib/input/hotkeys`), unlike the plain values above:
   // bindings are validated per action against the registry on read, so a
   // renamed or dropped action can't leave a dead entry behind.
   hotkeys: typeof window === 'undefined' ? {} : getHotkeyBindings(localStorage),

@@ -100,7 +100,7 @@ export function RoomHeader({
   // throw). What goes fullscreen is `document.documentElement`, not `editorRef`
   // — see toggleFullscreen for why that distinction is load-bearing (#357).
   const [isFullscreen, setIsFullscreen] = useState(false)
-  // (#466) Asked through lib/fullscreen rather than read off
+  // (#466) Asked through lib/browser/fullscreen rather than read off
   // `document.fullscreenEnabled` directly: on Safari below 16.4 that property
   // does not exist, so this was false and the button was never rendered — on
   // a browser that can do fullscreen perfectly well under the prefixed name.
@@ -156,7 +156,7 @@ export function RoomHeader({
   // element, including ones added later, and changes nothing about layout —
   // the editor already fills the page.
   //
-  // (#466) Both calls go through lib/fullscreen, which fills in the
+  // (#466) Both calls go through lib/browser/fullscreen, which fills in the
   // `webkit`-prefixed spelling Safari below 16.4 is limited to.
   const toggleFullscreen = useCallback(() => { void toggleFullscreenOn() }, [])
 

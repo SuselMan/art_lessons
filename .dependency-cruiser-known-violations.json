@@ -188,7 +188,7 @@
     "type": "dependency",
     "from": "apps/web/src/engine/index.ts",
     "to": "apps/web/src/lib/observability/diagLog.ts",
-    "unresolvedTo": "../lib/diagLog",
+    "unresolvedTo": "../lib/observability/diagLog",
     "dependencyTypes": [
       "local",
       "import"
@@ -202,7 +202,7 @@
     "type": "dependency",
     "from": "apps/web/src/engine/index.ts",
     "to": "apps/web/src/lib/input/pressureCalibration.ts",
-    "unresolvedTo": "../lib/pressureCalibration",
+    "unresolvedTo": "../lib/input/pressureCalibration",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -217,7 +217,7 @@
     "type": "dependency",
     "from": "apps/web/src/engine/src/PointerInput.ts",
     "to": "apps/web/src/lib/observability/diagLog.ts",
-    "unresolvedTo": "../../lib/diagLog",
+    "unresolvedTo": "../../lib/observability/diagLog",
     "dependencyTypes": [
       "local",
       "import"
@@ -231,7 +231,7 @@
     "type": "dependency",
     "from": "apps/web/src/engine/src/PointerInput.ts",
     "to": "apps/web/src/lib/input/pressureCalibration.ts",
-    "unresolvedTo": "../../lib/pressureCalibration",
+    "unresolvedTo": "../../lib/input/pressureCalibration",
     "dependencyTypes": [
       "local",
       "import"

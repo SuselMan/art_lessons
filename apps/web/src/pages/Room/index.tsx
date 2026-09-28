@@ -3301,7 +3301,7 @@ function RoomEditor() {
             (#321) When it shows is a setting now (Always / in minimal UI /
             Never) rather than "only while minimal UI has hidden the chrome",
             which is what it meant when it was that mode's replacement
-            toolkit and nothing else — see lib/uiPreferences. */}
+            toolkit and nothing else — see lib/browser/uiPreferences. */}
         <FloatingToolPanel
           // See floatingSlotTool above for why this is narrowed rather than
           // folded: ruler/transform/grid/hand light neither slot.

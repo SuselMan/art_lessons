@@ -3,7 +3,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 // (#405) How many popovers built on this hook are open right now. A counter
 // rather than a boolean because several can legitimately be mounted at once
 // (a menu whose item opens a picker), and StrictMode mounts every effect
-// twice — the same reasoning as lib/reloadSafety's own holds counter.
+// twice — the same reasoning as lib/browser/reloadSafety's own holds counter.
 //
 // It exists for one reader: the editor's global Escape handler, which cancels
 // an open transform session and must not do so while anything is layered over
