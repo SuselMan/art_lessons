@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify'
+import type { ApiOk } from '@grafetto/shared'
 
+import { apiRoute } from './apiRoute.js'
 import { prisma } from './prisma.js'
 import { canSeeResidentBoard } from './classroom.js'
 import { getParticipant } from './rooms.js'
@@ -228,8 +230,7 @@ function sniffPng(buffer: Buffer): { ok: true; width: number; height: number } |
  *  password-protected room's thumbnail by guessing its id, bypassing the
  *  socket-level password check entirely. */
 export function registerThumbnailRoutes(app: FastifyInstance, notify?: ThumbnailNotifier): void {
-  app.post<{ Params: { roomId: string }; Body: { data: string } }>(
-    '/api/rooms/:roomId/thumbnail',
+  apiRoute(app, 'POST /api/rooms/:roomId/thumbnail',
     { bodyLimit: THUMBNAIL_UPLOAD_BODY_LIMIT_BYTES },
     async (request, reply) => {
       const { roomId } = request.params
@@ -276,11 +277,11 @@ export function registerThumbnailRoutes(app: FastifyInstance, notify?: Thumbnail
         select: { updatedAt: true },
       })
       notify?.(roomId, stored.updatedAt.toISOString())
-      return { ok: true }
+      return { ok: true } satisfies ApiOk
     },
   )
 
-  app.get<{ Params: { roomId: string } }>('/api/rooms/:roomId/thumbnail', async (request, reply) => {
+  apiRoute(app, 'GET /api/rooms/:roomId/thumbnail', async (request, reply) => {
     const { roomId } = request.params
     if (!(await hasPersistedRoomAccess(roomId, request.userId))) return reply.code(403).send({ error: 'forbidden' })
 
@@ -294,7 +295,7 @@ export function registerThumbnailRoutes(app: FastifyInstance, notify?: Thumbnail
     // thing that ever changes a row is a full replace (upsert above), so
     // "same updatedAt" already implies "same bytes" without hashing the blob.
     const etag = `"${thumbnail.updatedAt.getTime()}"`
-    if (request.headers['if-none-match'] === etag) return reply.code(304).send()
+    if (request.headers['if-none-match'] === etag) return reply.code(304).send(undefined)
 
     reply
       .header('Content-Type', thumbnail.contentType)

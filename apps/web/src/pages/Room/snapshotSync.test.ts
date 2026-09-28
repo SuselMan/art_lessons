@@ -55,7 +55,8 @@ function fetchCallsTo(path: string): FetchCall[] {
 const originalFetch = global.fetch
 
 beforeEach(() => {
-  global.fetch = vi.fn().mockResolvedValue({ ok: true })
+  // Shaped like the server's real answer: both uploads reply `{ ok: true, … }`.
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
 })
 
 afterEach(() => {

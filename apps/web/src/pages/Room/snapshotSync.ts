@@ -2,6 +2,7 @@ import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { compressLayerTiles } from '../../engine/src/snapshotCodec'
+import { api } from '../../lib/api'
 import { reportInvariant } from '../../lib/reportInvariant'
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -23,12 +24,7 @@ async function uploadSnapshot(
     encoded[layerId] = bytesToBase64(await compressLayerTiles(raw))
   }
   try {
-    await fetch(`/api/rooms/${roomId}/snapshots`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ seq, layerState, layers: encoded }),
-    })
+    await api('POST /api/rooms/:roomId/snapshots', { params: { roomId }, body: { seq, layerState, layers: encoded } })
   } catch {
     // Best-effort (#149 epic): another client independently crossing the
     // same seq boundary will very likely succeed even if this upload was
@@ -67,19 +63,13 @@ export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): 
     const preview = await engine.bakePreview()
     if (!preview) return false
     const bytes = new Uint8Array(await preview.arrayBuffer())
-    const res = await fetch(`/api/rooms/${roomId}/thumbnail`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ data: bytesToBase64(bytes) }),
-    })
-    // 429 lands here too, as `ok: false` — rate-limited is simply "not
-    // stored this time", nothing to report or retry.
+    await api('POST /api/rooms/:roomId/thumbnail', { params: { roomId }, body: { data: bytesToBase64(bytes) } })
     // (#176) Reported back so the board strip can refresh the picture of the
     // page just left — thumbnails are not announced over the socket.
-    return res.ok
+    return true
   } catch {
-    // Best-effort — see doc comment above.
+    // Best-effort — see doc comment above. A 429 lands here too: rate-limited
+    // is simply "not stored this time", nothing to report or retry.
     return false
   }
 }

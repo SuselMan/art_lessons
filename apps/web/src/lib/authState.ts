@@ -1,5 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchMe, type Me } from './api'
+import type { Me } from '@grafetto/shared'
+
+import { fetchMe } from './api'
 
 // A plain query key, not a Context — React Query's cache already shares one
 // result across every useAuth() caller, so a Context here would just be
