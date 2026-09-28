@@ -1276,3 +1276,15 @@ describe('a participant’s earlier washes leave the replay cache (#536 §17.57)
     expect([...e._replayRibbonChunks.keys()]).toEqual(['B2'])
   })
 })
+
+describe('a snapshot never holds half a wash (#536 §17.59)', () => {
+  it('refuses to bake a layer while a wash on it may be continued, and bakes once the paper is dried', () => {
+    const engine = setupLayer()
+    const t = Date.now()
+    engine.appendOperation(makeStroke('user-b', 'L', [dab(16, 32, { size: 20 }), dab(40, 32, { size: 20 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's1', washId: 'W1', timestamp: t }), 'remote')
+    engine.getOperations()
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    engine.appendOperation({ id: 'dry1', type: 'paper_dry', userId: 'user-c', timestamp: t + 10 }, 'remote')
+    expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
+  })
+})

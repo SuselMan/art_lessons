@@ -5927,22 +5927,10 @@ export class PencilEngine implements PencilEngineAPI {
     const prefix = all.slice(0, end)
     const since = prefix.length - (this._checkpoints.best(layerId, prefix)?.start ?? 0)
     if (since < WASH_CHECKPOINT_MIN_OPS) return
-    const lastAt = new Map<string, { at: number; user: string; op: StrokeOperation }>()
-    const latestOf = new Map<string, string>()
-    for (const o of prefix) {
-      if (o.type !== 'stroke' || !o.washId) continue
-      lastAt.set(o.washId, { at: o.timestamp, user: o.userId, op: o })
-      latestOf.set(o.userId, o.washId)
-    }
     // (§17.56) The washes that may still be continued past this point: the
     // one this operation joins, and any other participant's their author has
     // not left and that is young enough to be rejoined.
-    const open: string[] = []
-    for (const [w, { at, user }] of lastAt) {
-      if (w === washId) { open.push(w); continue }
-      if (user === userId || latestOf.get(user) !== w) continue
-      if (now - at <= WASH_JOIN_MS + WASH_CLOCK_SKEW_MS) open.push(w)
-    }
+    const { open, lastAt } = this._openWashes(prefix, now, userId, washId)
     if (open.length && since < WASH_STATE_CHECKPOINT_MIN_OPS) return
     // At this author's own pen-down the stroke is already under way but has
     // painted nothing yet: only a peer's unrecorded ink can be on the layer.
@@ -5964,6 +5952,34 @@ export class PencilEngine implements PencilEngineAPI {
     const schedule: (fn: () => void) => void =
       typeof requestIdleCallback === 'function' ? requestIdleCallback : fn => setTimeout(fn, 0)
     schedule(() => this._packWashBoundaries())
+  }
+
+  /** (#536, §17.56, §17.59) The washes among `ops` that may still be
+   *  continued after them: a wash is closed once its author strokes anything
+   *  else (they can only rejoin their latest), once the paper has been dried
+   *  after it (paper_dry closes every wash), or once it is older than any wash
+   *  can be rejoined, by the operations' own timestamps. `joining` is the wash
+   *  an operation about to be applied belongs to, by `author`. A guess only
+   *  where time decides it; every use checks the log itself afterwards. */
+  private _openWashes(ops: readonly Operation[], now: number, author?: string, joining?: string): {
+    open: string[]; lastAt: Map<string, { at: number; user: string; op: StrokeOperation }>
+  } {
+    const lastAt = new Map<string, { at: number; user: string; op: StrokeOperation }>()
+    const latestOf = new Map<string, string>()
+    for (const o of ops) {
+      if (o.type === 'paper_dry') { lastAt.clear(); latestOf.clear(); continue }
+      if (o.type !== 'stroke') continue
+      if (!o.washId) { latestOf.set(o.userId, ''); continue }
+      lastAt.set(o.washId, { at: o.timestamp, user: o.userId, op: o })
+      latestOf.set(o.userId, o.washId)
+    }
+    const open: string[] = []
+    for (const [w, { at, user }] of lastAt) {
+      if (w === joining) { open.push(w); continue }
+      if (user === author || latestOf.get(user) !== w) continue
+      if (now - at <= WASH_JOIN_MS + WASH_CLOCK_SKEW_MS) open.push(w)
+    }
+    return { open, lastAt }
   }
 
   /** (#536, §17.56) The open state of each of `open`, for a checkpoint inside
@@ -6170,6 +6186,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._flushOpQueue() // (§17.58)
     const buf = this._layers.get(layerId)
     if (!buf) return null
+    // (#536, §17.59) Never with a wash on it that may still be continued. A
+    // snapshot is what a late joiner starts from, and the rest of that wash
+    // would then settle over pixels that already hold its beginning - a
+    // glaze instead of one wet wash, for that participant only, for good, and
+    // passed on in every snapshot they bake. Refusing costs nothing: the layer
+    // is left out of this upload and the server keeps serving its operations.
+    const washOps = this._log.doneOperations().filter(o => o.type === 'paper_dry' || (o.type === 'stroke' && o.layerId === layerId))
+    if (this._openWashes(washOps, Date.now()).open.length) return null
     // (§17.53) Mid-rebuild the buffer is the pre-undo picture: not this time.
     // The layer stays dirty and goes with the next boundary.
     if (this._rebuildJobs.has(layerId)) return null
