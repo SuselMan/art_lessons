@@ -639,11 +639,14 @@ describe('a wash reaches every path that paints (#468)', () => {
 
   it('drops the oldest wash rather than growing without bound', () => {
     const engine = setupLayer()
+    // Eight participants: one author's later wash retires their earlier one
+    // outright (§17.57), so the LRU is only ever about different authors.
     for (let i = 0; i < 8; i++) {
-      engine.appendOperation(makeStroke('user-a', 'L', [dab(8 + i, 32, { size: 12 }), dab(16 + i, 32, { size: 12 })], {
+      engine.appendOperation(makeStroke(`user-${i}`, 'L', [dab(8 + i, 32, { size: 12 }), dab(16 + i, 32, { size: 12 })], {
         tool: 'watercolor', preset: 'normal:92:42:PB29', strokeId: `g${i}`, washId: `w${i}`,
       }), 'remote')
     }
+    engine.getOperations() // (§17.58) lands the queued ones
     // Bounded, and the survivors are the recent ones: an evicted wash goes back
     // to being a seam, which is what every ribbon tool did before washes.
     expect(markerReplayChunkCount(engine)).toBeLessThanOrEqual(4)
@@ -1116,8 +1119,12 @@ describe("a peer's watercolour operation arriving live (#536 §17.52)", () => {
     expect(inFlight).toBeTruthy()
     expect(inFlight!.next).toBeLessThan(inFlight!.ops.length)
     const d2 = [dab(16, 48, { size: 24 }), dab(32, 48, { size: 24 })]
-    engine.appendOperation(makeStroke('user-c', 'L', d2, { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's2', washId: 'w2' }), 'remote')
-    // The first ran to its end before the second painted anything.
+    const second = makeStroke('user-c', 'L', d2, { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's2', washId: 'w2' })
+    engine.appendOperation(second, 'remote')
+    // (§17.58) The second waits its turn rather than forcing the first to land.
+    expect(inFlight!.next).toBeLessThan(inFlight!.ops.length)
+    expect(engine.getOperations().some(o => o.id === second.id)).toBe(true)
+    // Landing the queue ran the first to its end before the second painted.
     expect(inFlight!.next).toBe(inFlight!.ops.length)
   })
 
@@ -1249,5 +1256,23 @@ describe('a checkpoint inside two open washes (#536 §17.56)', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('a participant’s earlier washes leave the replay cache (#536 §17.57)', () => {
+  it('retires a wash once its author strokes elsewhere, and keeps other authors’', () => {
+    const engine = setupLayer()
+    const e = engine as unknown as { _replayRibbonChunks: Map<string, unknown> }
+    const wc = (user: string, washId: string, y: number) => makeStroke(user, 'L', [dab(16, y, { size: 16 }), dab(40, y, { size: 16 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: washId + y, washId })
+    engine.appendOperation(wc('user-b', 'B1', 16), 'remote')
+    engine.appendOperation(wc('user-c', 'C1', 32), 'remote')
+    engine.getOperations() // (§17.58) lands the queued ones
+    expect([...e._replayRibbonChunks.keys()].sort()).toEqual(['B1', 'C1'])
+    engine.appendOperation(wc('user-b', 'B2', 48), 'remote')
+    engine.getOperations()
+    expect([...e._replayRibbonChunks.keys()].sort()).toEqual(['B2', 'C1'])
+    engine.appendOperation(makeStroke('user-c', 'L', [dab(16, 56), dab(40, 56)], { tool: 'pencil' }), 'remote')
+    engine.getOperations()
+    expect([...e._replayRibbonChunks.keys()]).toEqual(['B2'])
   })
 })

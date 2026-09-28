@@ -81,7 +81,13 @@ describe('ribbon replay across a layer rebuild (#554)', () => {
   })
 
   it('gives a re-replayed gesture a fresh scratch', () => {
-    const engine = threeLines()
+    // Three authors (§17.57): a participant's later stroke retires the cache
+    // entry of their earlier one, so g1 stays cached only while its author
+    // has drawn nothing since.
+    const engine = layer()
+    for (const [i, [user, y]] of ([['user-b', 16], ['user-c', 32], ['user-a', 48]] as const).entries()) {
+      engine.appendOperation(makeStroke(user, 'L', wavyLine(y), { tool: 'brushPen', strokeId: `g${i + 1}` }))
+    }
     const first = markerReplayChunkFor(engine, 'g1')?.scratch
 
     engine.undo()

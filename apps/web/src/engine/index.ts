@@ -1589,6 +1589,9 @@ const WASH_STATE_CHECKPOINT_MIN_OPS = 8
 /** (§17.56) The most the carried washes of one checkpoint may hold on the
  *  GPU; past it none is taken (the iPad's wash textures are near its limit). */
 const WASH_STATE_CHECKPOINT_MAX_BYTES = 96 * 1024 * 1024
+/** (#536, §17.57) The watercolour's GPU memory on a touch device - see
+ *  PencilEngine._enforceGpuBudget. The iPad's tab died near 600 MB of it. */
+const GPU_BUDGET_TOUCH_BYTES = 400 * 1024 * 1024
 
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
@@ -1757,6 +1760,14 @@ class RibbonScratchPool {
     for (const list of this._free.values()) for (const b of list) b.destroy()
     this._free.clear()
     this._allocatedBytes = 0
+    this._freeBytes = 0
+  }
+
+  /** (#536, §17.57) Gives every idle buffer back to the driver. */
+  trimFree(): void {
+    for (const list of this._free.values()) for (const b of list) b.destroy()
+    this._free.clear()
+    this._allocatedBytes -= this._freeBytes
     this._freeBytes = 0
   }
 
@@ -2297,7 +2308,13 @@ const SNAPSHOT_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 
 
 /** (#536, §17.56) A checkpoint's carried wash: its scratch as the replay cache
  *  would hold it at the checkpoint. */
-interface CarriedWash { key: string; washStrokeId: string | undefined; lastDab: Dab; snap: ScratchSnapshot }
+interface CarriedWash { key: string; userId: string; washStrokeId: string | undefined; lastDab: Dab; snap: ScratchSnapshot }
+
+function scratchSnapshotBytes(snap: ScratchSnapshot): number {
+  let n = 0
+  for (const t of snap.tiles) for (const b of Object.values(t.bufs)) if (b) n += b.width * b.height * 4
+  return n
+}
 
 function freeScratchSnapshot(snap: ScratchSnapshot): void {
   for (const t of snap.tiles) for (const b of Object.values(t.bufs)) b?.destroy()
@@ -2531,6 +2548,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  batch holds a single copy, not one per wash. */
   private _washBoundaries = new Map<string, { opIds: string[]; copies: Array<{ buffer: AccumulationBuffer; originX: number; originY: number }>; washes: CarriedWash[] }>()
   private _washBoundaryScheduled = false
+  /** (#536, §17.57) See _enforceGpuBudget: a touch device's browser gives a
+   *  page far less GPU memory than a desktop's. */
+  private _gpuBudget = typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 1
+    ? GPU_BUDGET_TOUCH_BYTES : Infinity
+  /** (#536, §17.57) Who painted each replay-cache key - see _retireWashesOf. */
+  private _chunkAuthors = new Map<string, string>()
   private _replayRibbonChunks = new Map<string, {
     /** The grouping key: a wash id where the stroke has one, its gesture id
      *  otherwise (#468 v7). */
@@ -3389,7 +3412,7 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── Operation log API ───────────────────────────────────────────────────────
 
   /** See PencilEngineAPI's doc comment. */
-  suspendDisplay(): void { this._displaySuspendDepth++ }
+  suspendDisplay(): void { this._flushOpQueue(); this._displaySuspendDepth++ } // (§17.58)
 
   /** See PencilEngineAPI's doc comment. */
   resumeDisplay(): void {
@@ -3480,6 +3503,57 @@ export class PencilEngine implements PencilEngineAPI {
    *  applying a `room_state` snapshot or a `peer_operation` must pass
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
+    // (#536, §17.58) A peer's watercolour operation arriving while a settle is
+    // still spreading over frames waits its turn instead of forcing that
+    // settle to land now: on the iPad the forced landing was 85-325 ms of every
+    // arrival (four participants painting). Whole - the log too - so nothing
+    // sees the operation before it is painted; strictly in arrival order; and
+    // everything else, and everything that reads the engine's state, lands the
+    // queue first (_flushOpQueue).
+    if (this._shouldQueue(op, source)) {
+      this._opQueue.push({ op, source })
+      this._scheduleOpDrain()
+      return
+    }
+    this._flushOpQueue()
+    this._appendOperationNow(op, source)
+  }
+
+  /** (§17.58) See appendOperation. */
+  private _opQueue: Array<{ op: Operation; source: OperationSource }> = []
+  private _opDrainRaf = 0
+
+  private _shouldQueue(op: Operation, source: OperationSource): boolean {
+    return source === 'remote' && op.type === 'stroke' && op.tool === 'watercolor'
+      && this._displaySuspendDepth === 0 && !this._destroyed && !this._contextLost
+      && typeof requestAnimationFrame === 'function'
+      && (this._opQueue.length > 0 || !!this._settle)
+  }
+
+  /** (§17.58) Applies every queued operation now, in order. */
+  private _flushOpQueue(): void {
+    while (this._opQueue.length) {
+      const { op, source } = this._opQueue.shift()!
+      this._appendOperationNow(op, source)
+    }
+  }
+
+  /** (§17.58) One queued operation per frame, and only once the settle ahead
+   *  of it has landed on its own. */
+  private _scheduleOpDrain(): void {
+    if (this._opDrainRaf || typeof requestAnimationFrame !== 'function') return
+    this._opDrainRaf = requestAnimationFrame(() => {
+      this._opDrainRaf = 0
+      if (!this._opQueue.length || this._destroyed) return
+      if (!this._settle) {
+        const { op, source } = this._opQueue.shift()!
+        this._appendOperationNow(op, source)
+      }
+      if (this._opQueue.length) this._scheduleOpDrain()
+    })
+  }
+
+  private _appendOperationNow(op: Operation, source: OperationSource): void {
     // (#536, §17.52) A settle spread over frames (a peer's operation, or this
     // author's own) lands before the next operation touches anything: the
     // replay settles each operation before painting the next, and this keeps
@@ -3556,6 +3630,7 @@ export class PencilEngine implements PencilEngineAPI {
         else this._execDuplicateLive(op)
         break
       case 'stroke': {
+        this._retireWashesOf(op) // (§17.57)
         // (#536, §17.49) Undone later in this same history batch: logged
         // (above), not painted - see setUnpaintedInBatch.
         if (this._unpaintedInBatch?.has(op.id)) { this._skippedInBatch.add(op.id); break }
@@ -3775,6 +3850,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Done operations in seq order — the material for LayerState derivation. */
   getOperations(): Operation[] {
+    this._flushOpQueue() // (§17.58)
     return this._log.doneOperations()
   }
 
@@ -3787,6 +3863,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  everyone else's canvas from this one. Returns the affected operation
    *  (e.g. the stroke), same contract as before. */
   undo(): Operation | null {
+    this._flushOpQueue() // (§17.58)
     const target = this._log.undoTarget(this._userId)
     if (!target) return null
     // (#536) Take the paper's water with it. The wetness field is not in the
@@ -3808,6 +3885,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Symmetric with `undo()` — see its docstring. */
   redo(): Operation | null {
+    this._flushOpQueue() // (§17.58)
     const target = this._log.redoTarget(this._userId)
     if (!target) return null
     this.appendOperation({
@@ -4839,6 +4917,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._opQueue = [] // (§17.58)
+    if (this._opDrainRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._opDrainRaf)
     this._destroyed = true
     for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
     this._dropWashBoundaries() // (§17.55)
@@ -5288,6 +5368,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
     switch (op.type) {
       case 'stroke': {
+        this._retireWashesOf(op) // (§17.57)
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
         // case for why replay/undo/redo is deterministic from the op's own
         // dabs alone now.
@@ -5665,6 +5746,7 @@ export class PencilEngine implements PencilEngineAPI {
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
+    this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
     this._contextLost = true
   }
 
@@ -5918,12 +6000,12 @@ export class PencilEngine implements PencilEngineAPI {
       if (!snap) return fail()
       for (const t of snap.tiles) for (const b of Object.values(t.bufs)) if (b) bytes += b.width * b.height * 4
       out.push({
-        key: w,
+        key: w, userId: last.userId,
         washStrokeId: chunk && chunk.target === buf ? chunk.washStrokeId : last.strokeId,
         lastDab,
         snap,
       })
-      if (bytes > WASH_STATE_CHECKPOINT_MAX_BYTES) return fail()
+      if (bytes > WASH_STATE_CHECKPOINT_MAX_BYTES || this._washGpuBytes() + bytes > this._gpuBudget) return fail()
     }
     return out
   }
@@ -5943,6 +6025,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const w of carried) {
       chunks.get(w.key)?.scratch.destroy()
       chunks.delete(w.key)
+      this._chunkAuthors.set(w.key, w.userId)
       chunks.set(w.key, {
         strokeId: w.key, washStrokeId: w.washStrokeId, target,
         scratch: RibbonStrokeScratch.restore(this._ribbonScratchPool, w.snap, target), lastDab: w.lastDab,
@@ -5976,6 +6059,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._freeBoundary(boundary)
       }
     }
+    if (!this._contextLost && !this._destroyed) this._enforceGpuBudget() // (§17.57)
   }
 
   private _dropWashBoundaries(): void {
@@ -6083,6 +6167,7 @@ export class PencilEngine implements PencilEngineAPI {
 
 
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
+    this._flushOpQueue() // (§17.58)
     const buf = this._layers.get(layerId)
     if (!buf) return null
     // (§17.53) Mid-rebuild the buffer is the pre-undo picture: not this time.
@@ -6770,6 +6855,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _onStart(e: PointerData): void {
+    // (§17.58) This stroke comes after everything that has arrived.
+    this._flushOpQueue()
     // See _paperTexLoaded's own field comment: painting before the real
     // paper texture has loaded would bake in the placeholder's flat,
     // meaningless response permanently. Blocking the stroke from starting
@@ -9331,6 +9418,27 @@ export class PencilEngine implements PencilEngineAPI {
    *  gesture it belongs to — see _replayRibbonChunk. Returns null for an
    *  operation with no gesture id (a stroke recorded before strokeId existed),
    *  which then falls back to a throwaway scratch, exactly as before. */
+  /** (#536, §17.57) A participant's stroke closes every wash and gesture of
+   *  theirs but its own: a wash is only ever joined by its author's NEXT
+   *  stroke (the author's single open `_wash`), and a gesture's chunks are
+   *  that author's consecutive operations. So the cache entries of their
+   *  earlier washes can never be read again, and they go now instead of when
+   *  the LRU gets to them - four whole-sheet washes held that way were most
+   *  of the 600 MB the iPad died at (multitest, CJoiem15). A fact of the log
+   *  order, the same live and on every replay, so what is painted does not
+   *  change - only an open wash is no longer evicted to make room for them. */
+  private _retireWashesOf(op: StrokeOperation): void {
+    const key = op.washId ?? op.strokeId
+    for (const [k, chunk] of this._replayRibbonChunks) {
+      if (k === key || this._chunkAuthors.get(k) !== op.userId) continue
+      if (this._settle?.scratch === chunk.scratch) this._completeSettle()
+      chunk.scratch.destroy()
+      this._replayRibbonChunks.delete(k)
+      this._chunkAuthors.delete(k)
+    }
+    if (key) this._chunkAuthors.set(key, op.userId)
+  }
+
   private _replayChunkScratch(
     target: ILayerBuffer, strokeId: string | undefined, washId: string | undefined,
     dabs: Dab[], profile: RibbonProfile,
@@ -11797,12 +11905,49 @@ export class PencilEngine implements PencilEngineAPI {
    *  the last settle landed; the next settle simply allocates it again. */
   private _scheduleFieldRelease(): void {
     if (this._fieldReleaseTimer) clearTimeout(this._fieldReleaseTimer)
+    // (§17.57) Past the device's budget the field goes now, not in 45 s.
+    if (this._enforceGpuBudget()) return
     this._fieldReleaseTimer = setTimeout(() => {
       this._fieldReleaseTimer = 0
       if (this._settle) return
       for (const f of this._fieldCache) destroyField(f)
       this._fieldCache = []
     }, WET_FIELD_RELEASE_MS) as unknown as number
+  }
+
+  /** (#536, §17.57) What the watercolour holds on the GPU beyond the layers
+   *  themselves: the washes' scratch (live and pooled), the settle field, and
+   *  the washes carried by checkpoints. */
+  private _washGpuBytes(): number {
+    const pool = this._ribbonScratchPool.bytes
+    let carried = 0
+    for (const cp of this._checkpoints.all()) {
+      for (const w of (cp.washes as CarriedWash[] | undefined) ?? []) carried += scratchSnapshotBytes(w.snap)
+    }
+    const field = this._fieldCache.reduce((n, f) => n + f.w * f.h * 4 * 10, 0)
+    return pool.live + pool.free + field + carried
+  }
+
+  /** (#536, §17.57) Brings the watercolour's GPU memory under the device's
+   *  budget with what costs nothing in the picture, cheapest first: the
+   *  pool's idle buffers, the settle field (remade at the next settle, a
+   *  ~100 ms hitch), the washes carried by checkpoints (an undo then replays
+   *  further). What the open washes themselves hold is the one part it cannot
+   *  touch. True when anything was freed. The iPad's Safari kills the tab
+   *  near 600 MB of it (multitest, CJoiem15, r30) - with no warning and no
+   *  event, so this has to be kept under rather than recovered from. */
+  private _enforceGpuBudget(): boolean {
+    if (this._washGpuBytes() <= this._gpuBudget) return false
+    this._ribbonScratchPool.trimFree()
+    if (this._washGpuBytes() > this._gpuBudget && !this._settle && this._fieldCache.length) {
+      if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
+      for (const f of this._fieldCache) destroyField(f)
+      this._fieldCache = []
+    }
+    if (this._washGpuBytes() > this._gpuBudget) {
+      for (const cp of [...this._checkpoints.all()]) if (cp.washes) this._checkpoints.remove(cp)
+    }
+    return true
   }
 
   /** Drops the settle in flight without landing it — the field is gone. */
