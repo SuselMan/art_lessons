@@ -1130,3 +1130,48 @@ describe("a peer's watercolour operation arriving live (#536 §17.52)", () => {
     engine.resumeDisplay()
   })
 })
+
+describe('an undo in a watercolour layer rebuilds it over slices (#536 §17.53)', () => {
+  it('keeps the old buffer on screen, bakes nothing from it, and swaps in the replay when caught up', () => {
+    vi.useFakeTimers()
+    try {
+      const engine = setupLayer()
+      const e = engine as unknown as { _layers: Map<string, unknown>; _rebuildJobs: Map<string, unknown> }
+      const a = makeStroke('user-a', 'L', [dab(16, 32, { size: 24 }), dab(32, 32, { size: 24 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'g1', washId: 'w1' })
+      const b = makeStroke('user-a', 'L', [dab(16, 48, { size: 24 }), dab(32, 48, { size: 24 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'g2', washId: 'w2' })
+      engine.appendOperation(a, 'remote')
+      engine.appendOperation(b, 'remote')
+      const before = e._layers.get('L')
+      engine.appendOperation({ id: 'u1', type: 'operation_undo', userId: 'user-a', timestamp: 0, targetOpId: b.id }, 'remote')
+      // Nothing replayed synchronously: the old buffer is still the layer.
+      expect(e._rebuildJobs.has('L')).toBe(true)
+      expect(e._layers.get('L')).toBe(before)
+      expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+      vi.runAllTimers()
+      expect(e._rebuildJobs.has('L')).toBe(false)
+      expect(e._layers.get('L')).not.toBe(before)
+      expect(engine.getOperations().filter(o => o.type === 'stroke').map(o => o.id)).toEqual([a.id])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('restarts when the log moves under it (a redo mid-rebuild)', () => {
+    vi.useFakeTimers()
+    try {
+      const engine = setupLayer()
+      const e = engine as unknown as { _rebuildJobs: Map<string, { applied: string[] }> }
+      const a = makeStroke('user-a', 'L', [dab(16, 32, { size: 24 }), dab(32, 32, { size: 24 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'g1', washId: 'w1' })
+      const b = makeStroke('user-a', 'L', [dab(16, 48, { size: 24 }), dab(32, 48, { size: 24 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'g2', washId: 'w2' })
+      engine.appendOperation(a, 'remote')
+      engine.appendOperation(b, 'remote')
+      engine.appendOperation({ id: 'u1', type: 'operation_undo', userId: 'user-a', timestamp: 0, targetOpId: b.id }, 'remote')
+      engine.appendOperation({ id: 'r1', type: 'operation_redo', userId: 'user-a', timestamp: 0, targetOpId: b.id }, 'remote')
+      vi.runAllTimers()
+      expect(e._rebuildJobs.size).toBe(0)
+      expect(engine.getOperations().filter(o => o.type === 'stroke').map(o => o.id)).toEqual([a.id, b.id])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

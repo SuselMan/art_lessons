@@ -486,6 +486,7 @@ export class MockGL {
   // (the interesting branch); the driver-refuses path is only reachable on
   // real hardware and is deliberately a graceful degrade, not an error.
   getError(): number { return ENUM.NO_ERROR }
+  finish(): void {}
 
   // (#474) Present so gpuInfo() — which every snapshot restore now calls to
   // stamp its report — exercises the same shape here as in a browser. A mock

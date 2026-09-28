@@ -8,7 +8,7 @@ import {
   createPlaceholderPaperTexture, generatePaperMipmaps, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
-import { CheckpointStore } from './src/checkpointStore'
+import { CheckpointStore, type Checkpoint } from './src/checkpointStore'
 import { ScratchFreeList, ScratchSlot } from './src/scratchPools'
 import { SnapshotLedger } from './src/snapshotLedger'
 import { previewDownscaleChain } from './src/previewChain'
@@ -1287,6 +1287,22 @@ interface PeerPreviewState {
   timer: ReturnType<typeof setTimeout> | null
 }
 
+/** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
+ *  operations replayed into a FRESH buffer a slice at a time, the old buffer
+ *  on screen meanwhile, swapped in whole when the replay has caught up. */
+interface RebuildJob {
+  layerId: string
+  fresh: ILayerBuffer
+  /** The job's own replay-scratch cache: live washes keep theirs. */
+  chunks: Map<string, { strokeId: string; washStrokeId?: string; target: ILayerBuffer; scratch: RibbonStrokeScratch; lastDab: Dab }>
+  cp: Checkpoint | null
+  /** Index in the layer's ops the replay began at (the checkpoint's reach). */
+  start: number
+  /** Ids replayed so far, in order, from `start`. */
+  applied: string[]
+  timer: ReturnType<typeof setTimeout> | 0
+}
+
 // One scratch tile of a live gizmo-drag preview (#120/#139) — shaped exactly
 // like a real PaintTarget (see ILayerBuffer.ts) so _drawCompositeItem can
 // draw it through the same _drawTileComposite call a real resident tile
@@ -2390,6 +2406,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  buffers per tile it touches. Four covers a handful of people painting at
    *  once; past that the oldest wash goes back to being a seam, which is the
    *  behaviour this had for every tool before washes existed. */
+  /** (§17.53) Sliced layer rebuilds in progress, by layer. */
+  private _rebuildJobs = new Map<string, RebuildJob>()
   private _replayRibbonChunks = new Map<string, {
     /** The grouping key: a wash id where the stroke has one, its gesture id
      *  otherwise (#468 v7). */
@@ -4696,6 +4714,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   destroy(): void {
     this._destroyed = true
+    for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
     // Dwell (#245): the one non-rAF timer this engine owns — must not
     // outlive destroy() (e.g. a component unmounting mid-stroke).
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
@@ -4892,7 +4911,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _rebuildLayer(layerId: string): void {
     const buf = this._layers.get(layerId)
     if (!buf) return
-    this._replayInto(buf, layerId, this._log.layerPixelOps(layerId))
+    // (#536, §17.53) A watercolour replay settles every operation: 5 s on the
+    // laptop, 22 s on the iPad for one undo in a lesson-sized room, the
+    // Surface's GPU reset under it, and every participant frozen at once
+    // (an undo is everyone's operation). Sliced instead, into a fresh buffer.
+    const ops = this._log.layerPixelOps(layerId)
+    if (this._rebuildWantsSlicing(layerId, ops)) { this._startRebuildJob(layerId); return }
+    this._cancelRebuildJob(layerId)
+    this._replayInto(buf, layerId, ops)
     // (#522) A layer whose pixels reach below the log window can only be
     // rebuilt from its snapshot checkpoint. If that is gone — evicted once the
     // layer was destroyed and unpinned — the replay above just produced a
@@ -4922,6 +4948,129 @@ export class PencilEngine implements PencilEngineAPI {
    *  (e.g. right after _syncBuffersToLog hands _replayInto a brand-new empty
    *  TiledLayerBuffer with zero tiles). Same generic path for both modes —
    *  no instanceof branch needed, unlike the old bounded-only fast path. */
+  /** (§17.53) Whether a rebuild replays any watercolour: only that is dear
+   *  enough to slice (and needs a timer, which a test double may lack). */
+  private _rebuildWantsSlicing(layerId: string, ops: PixelOperation[]): boolean {
+    if (typeof setTimeout !== 'function' || this._destroyed) return false
+    const best = this._checkpoints.best(layerId, ops)
+    for (let i = best?.start ?? 0; i < ops.length; i++) {
+      const op = ops[i]
+      if (op.type === 'stroke' && op.tool === 'watercolor' && !best?.cp.covered?.has(op.id)) return true
+    }
+    return false
+  }
+
+  private _cancelRebuildJob(layerId: string): void {
+    const job = this._rebuildJobs.get(layerId)
+    if (!job) return
+    if (job.timer) clearTimeout(job.timer)
+    this._rebuildJobs.delete(layerId)
+    if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
+    for (const c of job.chunks.values()) c.scratch.destroy()
+    job.fresh.destroy()
+  }
+
+  /** (§17.53) Starts (or restarts) the sliced rebuild of `layerId`: a fresh
+   *  buffer, the best checkpoint restored into it, the replay scheduled. */
+  private _startRebuildJob(layerId: string): void {
+    this._cancelRebuildJob(layerId)
+    const ops = this._log.layerPixelOps(layerId)
+    const fresh = this._makeLayerBuffer(layerId)
+    ;(fresh instanceof TiledLayerBuffer ? fresh : null)?.suspendEviction()
+    fresh.clear()
+    const best = this._checkpoints.best(layerId, ops)
+    if (best) {
+      for (const t of best.cp.tiles) {
+        const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
+        const pixels = unpackTilePixels(t.packed, t.width * t.height * 4)
+        for (const target of fresh.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, pixels)
+        fresh.restoreTileContent(rect, pixels)
+      }
+    }
+    const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? 0, applied: [], timer: 0 }
+    this._rebuildJobs.set(layerId, job)
+    job.timer = setTimeout(() => this._stepRebuildJob(job), 0)
+  }
+
+  /** One slice: re-check the job still describes the log (an undo meanwhile
+   *  restarts it), replay for ~12 ms, and swap once caught up. */
+  private _stepRebuildJob(job: RebuildJob): void {
+    job.timer = 0
+    if (this._rebuildJobs.get(job.layerId) !== job || this._destroyed) return
+    if (this._contextLost) { job.timer = setTimeout(() => this._stepRebuildJob(job), 100); return }
+    const ops = this._log.layerPixelOps(job.layerId)
+    const startNow = job.cp ? this._checkpoints.startOf(job.cp, ops) : 0
+    let valid = startNow === job.start
+    for (let k = 0; valid && k < job.applied.length; k++) valid = ops[job.start + k]?.id === job.applied[k]
+    if (!valid) { this._startRebuildJob(job.layerId); return }
+    // Never under this user's own pen: one watercolour operation replays in
+    // up to 2 s of GPU on the iPad, which the stroke in hand would stutter by.
+    if (this._strokeLayerId) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
+    // The slice is bounded in GPU time, not only CPU: one settle of a
+    // lesson-sized wash is 0.6 s of GPU on the laptop, queued by a few ms of
+    // script - enough, on the Surface, for Windows to reset the GPU. So the
+    // settles run spread, this job drives its own entry by entry, and every
+    // unit of work is waited out (gl.finish) before the clock is read.
+    const gl = this.gl
+    const t0 = performance.now()
+    const live = this._replayRibbonChunks
+    this._replayRibbonChunks = job.chunks
+    try {
+      let i = job.start + job.applied.length
+      let first = true
+      while (first || performance.now() - t0 < 12) {
+        first = false
+        if (this._settle && this._jobOwnsSettle(job)) this._advanceSettle()
+        else if (i < ops.length) {
+          const op = ops[i]
+          if (!job.cp?.covered?.has(op.id)) this._applyPixelOp(job.fresh, job.layerId, op, true)
+          job.applied.push(op.id)
+          i++
+        } else break
+        gl.finish()
+      }
+    } finally {
+      job.chunks = this._replayRibbonChunks
+      this._replayRibbonChunks = live
+    }
+    const caughtUp = job.start + job.applied.length >= ops.length && !(this._settle && this._jobOwnsSettle(job))
+    if (!caughtUp) { job.timer = setTimeout(() => this._stepRebuildJob(job), 0); return }
+    this._swapRebuiltLayer(job)
+  }
+
+  private _jobOwnsSettle(job: RebuildJob): boolean {
+    const scratch = this._settle?.scratch
+    for (const c of job.chunks.values()) if (c.scratch === scratch) return true
+    return false
+  }
+
+  /** The rebuilt buffer takes the old one's place, with its replay caches;
+   *  everything that pointed into the old buffer's tiles is let go. */
+  private _swapRebuiltLayer(job: RebuildJob): void {
+    const { layerId } = job
+    if (this._settle) this._completeSettle()
+    const old = this._layers.get(layerId)
+    for (const [k, c] of this._replayRibbonChunks) {
+      if (c.target !== old) continue
+      c.scratch.destroy()
+      this._replayRibbonChunks.delete(k)
+    }
+    for (const [k, c] of job.chunks) this._replayRibbonChunks.set(k, c)
+    // This author's open wash was painted over the old tiles.
+    if (this._wash?.layerId === layerId) this._clearWash()
+    this._sweepReveals(performance.now(), layerId)
+    this._rebuildJobs.delete(layerId)
+    this._layers.set(layerId, job.fresh)
+    ;(job.fresh instanceof TiledLayerBuffer ? job.fresh : null)?.resumeEviction()
+    old?.destroy()
+    if (this._snapshots.hasCoverage(layerId) && !this._checkpoints.hasSnapshotFor(layerId)) {
+      this._snapshots.refusePublishing(layerId)
+    }
+    this._snapshots.markDirty(layerId)
+    this._invalidateSplitCache()
+    this._displayIfNotSuspended()
+  }
+
   private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
     // #144: `buf`'s own tile count while this method is repopulating it is a
     // meaningless, in-flux intermediate value (e.g. restoring a checkpoint's
@@ -5007,7 +5156,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation): void {
+  private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
     switch (op.type) {
       case 'stroke': {
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
@@ -5017,7 +5166,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Decoded once and shared: this is the hot path of every layer rebuild,
         // and strokeDabs unpacks the whole packed array each time it is called.
         const dabs = strokeDabs(op)
-        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
+        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle)
         // (#536) Replaying the log restores the water too, for the handful of
         // strokes young enough to still be wet. That is what makes undo behave:
         // undo drops the layer's whole field (PaperWetness.forgetLayer, which
@@ -5398,6 +5547,9 @@ export class PencilEngine implements PencilEngineAPI {
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
+    // (§17.53) Their buffers died with the context; the restore rebuilds.
+    for (const job of this._rebuildJobs.values()) if (job.timer) clearTimeout(job.timer)
+    this._rebuildJobs.clear()
     this._contextLost = false
     this._initGL()
     // The dead gl context already took the previous _paperTex (placeholder
@@ -5538,6 +5690,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  replaying that checkpoint's excluded tail is exactly what brings a
    *  later tile into existence again, the same as it did the first time. */
   private _takeCheckpoint(layerId: string): void {
+    // (§17.53) The old buffer on screen during a sliced rebuild still holds
+    // what the log no longer has (the undone stroke): never bake it.
+    if (this._rebuildJobs.has(layerId)) return
     // A lost context's readPixels returns stale/zeroed data (spec no-op),
     // which would silently bake a blank snapshot into undo history — skip
     // rather than corrupt; _handleContextRestored rebuilds from the log
@@ -5636,6 +5791,9 @@ export class PencilEngine implements PencilEngineAPI {
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
     const buf = this._layers.get(layerId)
     if (!buf) return null
+    // (§17.53) Mid-rebuild the buffer is the pre-undo picture: not this time.
+    // The layer stays dirty and goes with the next boundary.
+    if (this._rebuildJobs.has(layerId)) return null
     // (#522) See SnapshotLedger's refusals: publishing what this client holds would
     // overwrite the room's own record of the layer with less than it has.
     if (!this._snapshots.mayPublish(layerId)) return null
@@ -5928,6 +6086,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    this._cancelRebuildJob(id) // (§17.53)
     const buf = this._layers.get(id)
     if (buf) {
       this._sweepReveals(performance.now(), id)
@@ -11301,16 +11460,22 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._settleSkipped = 0
     const perTick = this._strokeLayerId ? 1 : PencilEngine.WET_SETTLE_OPS_PER_TICK
-    const end = Math.min(s.ops.length, s.next + perTick)
-    for (; s.next < end; s.next++) s.ops[s.next]()
-    if (s.next >= s.ops.length) {
-      this._settle = null
-      s.complete()
-      this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
-      this._scheduleFieldRelease()
-      return
-    }
-    this._scheduleSettleTick()
+    for (let k = 0; k < perTick && this._settle === s; k++) this._advanceSettle()
+    if (this._settle === s) this._scheduleSettleTick()
+  }
+
+  /** Runs the next entry of the settle in flight; lands it after the last. */
+  private _advanceSettle(): void {
+    const s = this._settle
+    if (!s) return
+    if (!s.scratch.live) { this._settle = null; return }
+    if (s.next < s.ops.length) s.ops[s.next++]()
+    if (s.next < s.ops.length) return
+    this._settle = null
+    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+    s.complete()
+    this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
+    this._scheduleFieldRelease()
   }
 
   /** Runs whatever is left of the settle in flight, now. Called before
@@ -11520,7 +11685,9 @@ export class PencilEngine implements PencilEngineAPI {
           }
         }
         if ((reveal || spread) && typeof requestAnimationFrame === 'function') {
-          this._startSettle(scratch, job.ops, spread && !reveal ? () => { complete(); this._displayIfNotSuspended() } : complete)
+          // (§17.53) A sliced rebuild's buffer is not on screen yet: nothing to redraw.
+          const shown = [...this._layers.values()].includes(target)
+          this._startSettle(scratch, job.ops, spread && !reveal && shown ? () => { complete(); this._displayIfNotSuspended() } : complete)
           return
         }
         for (const op of job.ops) op()

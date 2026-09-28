@@ -170,6 +170,19 @@ export class CheckpointStore {
     return best
   }
 
+  /** (#536, §17.53) Where `cp`'s pixels reach in `ops` today, by the same
+   *  rule as best(), or -1 when the log has moved away from it (an undo, a
+   *  revoke). A sliced rebuild re-checks its checkpoint with this every slice. */
+  startOf(cp: Checkpoint, ops: readonly { id: string }[]): number {
+    let inSnapshot: Set<string> | null = null
+    for (const c of this.list) {
+      if (c.layerId !== cp.layerId || !c.fromSnapshot || !c.covered) continue
+      inSnapshot ??= new Set()
+      for (const id of c.covered) inSnapshot.add(id)
+    }
+    return checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
+  }
+
   /** (#479) Backfill has put these operations in the log: record, on every
    *  pinned checkpoint, those its pixels already contain — so a rebuild skips
    *  rather than repaints them. Takes the server's seq off the copies the
