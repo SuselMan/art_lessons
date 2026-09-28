@@ -24,7 +24,7 @@ async function closeLesson(page: Page, roomId: string): Promise<void> {
 }
 
 test.describe('the owner’s controls', () => {
-  test('freezing the room freezes the student, and unfreezing lets them go', async ({ page, browser }) => {
+  test('freezing the room freezes the student, and unfreezing lets them go', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
     const student = await browser.newContext()
@@ -42,7 +42,7 @@ test.describe('the owner’s controls', () => {
     }
   })
 
-  test('freezing one participant freezes that participant only', async ({ page, browser }) => {
+  test('freezing one participant freezes that participant only', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
     const student = await browser.newContext()
@@ -98,7 +98,7 @@ test.describe('a closed lesson', () => {
     await expect(page.getByRole('button', { name: 'Reopen' })).toBeHidden()
   })
 
-  test('a student takes a copy and lands in it', async ({ page, browser }) => {
+  test('a student takes a copy and lands in it', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
     const student = await browser.newContext()

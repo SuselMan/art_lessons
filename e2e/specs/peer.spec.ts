@@ -4,6 +4,7 @@ import {
   activeLayerId, createRoom, drawStroke, hasLayerContent, INK, joinRoom,
   maxDarknessOverContent, waitForOperations, waitForRoomReady,
 } from '../support/room'
+import { slow } from '../support/pace'
 
 /** (#491) Two people in one room — the reason this product exists.
  *
@@ -13,7 +14,7 @@ import {
  *  at one and broken at the other, and the manual pass that used to cover this
  *  needed two devices. */
 test.describe('a second participant', () => {
-  test('sees what was drawn before they arrived', async ({ page, browser }) => {
+  test('sees what was drawn before they arrived', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
     await drawStroke(page, [[320, 300], [640, 300]])
@@ -38,7 +39,7 @@ test.describe('a second participant', () => {
     }
   })
 
-  test('sees a stroke drawn while they are watching', async ({ page, browser }) => {
+  test('sees a stroke drawn while they are watching', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -80,7 +81,7 @@ test.describe('a second participant', () => {
    *  test. It patches the same object the join tail is about to call, so the
    *  throw lands at the real site rather than at a stand-in for it, and it is
    *  one-shot so the retry has something to succeed at. */
-  test('is told when the room cannot be assembled, instead of getting a half-open editor', async ({ page, browser }) => {
+  test('is told when the room cannot be assembled, instead of getting a half-open editor', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
     await drawStroke(page, [[320, 300], [640, 300]])
@@ -122,7 +123,7 @@ test.describe('a second participant', () => {
       await studentPage.locator('form button[type="submit"]').click()
 
       const alert = studentPage.getByRole('alert')
-      await expect(alert, 'a room that did not come together has to say so').toBeVisible({ timeout: 60_000 })
+      await expect(alert, 'a room that did not come together has to say so').toBeVisible({ timeout: slow(60_000) })
       // The canvas stays gated for the same reason as #533: an editor that
       // accepts strokes is a claim that what it shows is the room, and the
       // layer state behind this one is not this room's.
@@ -147,7 +148,7 @@ test.describe('a second participant', () => {
  *  no coverage at all until the code moved into useCursorBroadcast and the
  *  move made the gap obvious. */
 test.describe('a peer cursor', () => {
-  test('follows the other person around the canvas', async ({ page, browser }) => {
+  test('follows the other person around the canvas', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 

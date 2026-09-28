@@ -113,7 +113,7 @@ test.describe('layer solo', () => {
     return { roomId, lower, upper, lowerInk: lowerInk!, upperInk: upperInk!, cx, cy }
   }
 
-  test('the row menu shows one layer alone, the toolbar brings the rest back, and the room never knew', async ({ page, browser }) => {
+  test('the row menu shows one layer alone, the toolbar brings the rest back, and the room never knew', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const { roomId, lower, upper, lowerInk, upperInk } = await twoInkedLayers(page)
     const opsBefore = (await operations(page)).length
 

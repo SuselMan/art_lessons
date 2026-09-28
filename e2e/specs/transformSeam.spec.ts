@@ -22,6 +22,13 @@ import { expect, test } from '@playwright/test'
  *  here to be a WebGL context and a module server — no room, no server state.
  */
 test.describe('a tiled layer resamples as one image (#507)', () => {
+  // (#616) The one scenario the software run cannot stand in for: its whole
+  // question is what a GPU does at a texture's edge, and SwiftShader passing
+  // it would say nothing about that. Skipped there, by name, rather than
+  // weakened — it still runs on every GPU run, the renderer guard below
+  // included.
+  test.skip(process.env.E2E_GL === 'swiftshader', 'measures GPU texture-edge filtering; needs a real GPU')
+
   test('no source-tile boundary shows through a resampling transform', async ({ page }) => {
     await page.goto('/')
 
