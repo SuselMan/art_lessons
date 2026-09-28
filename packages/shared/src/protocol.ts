@@ -146,6 +146,16 @@ export type StrokeLiveData = {
    *  Grows as the stroke does: each packet carries the profile so far, and a
    *  later packet's is a prefix-extension of an earlier one. */
   wet?: string
+  /** (#432) When the author sent this packet, on the *server's* clock (see
+   *  lib/serverClock.ts on the web side). Participants' clocks are not in step
+   *  with each other, but each can estimate its offset to the server, so a
+   *  peer can take "ink on my screen, server time" minus this and get the
+   *  send-to-ink path. Absent until the author's clock has synced once. */
+  sentAt?: number
+  /** (#432) How long the oldest dab in this packet had been under the pen
+   *  when it was sent — the last dab's `t` minus the first's. Added to the
+   *  send-to-ink path it gives pen-to-ink for the worst dab of the packet. */
+  penAgeMs?: number
 }
 
 // (#149 epic) Every SNAPSHOT_SEQ_INTERVAL operations (by the room's global,
@@ -473,6 +483,10 @@ export type ClientToServerEvents = {
   // sender would do differently on a failure. The gesture's real operation
   // follows through `operation` above.
   stroke_live: (data: StrokeLiveData) => void
+  // (#432) One round of clock estimation: the server answers with its own
+  // Date.now(). The client times the round trip and keeps the fastest of a
+  // few, so its offset to the server is known to within half of that.
+  clock_sync: (ack: (serverNow: number) => void) => void
   // (#429) The pen came up (or the gesture was abandoned). Lets peers close
   // their bookkeeping for this gesture immediately, rather than inferring the
   // end from the committed operation — which can arrive later, and which a

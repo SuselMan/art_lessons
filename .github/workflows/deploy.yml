@@ -210,6 +210,18 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # (#621) Only the files the box runs from, not the sources: since 28.09
+      # the repo is private, and the box has no business holding credentials
+      # to it. It used to `git fetch` its own anonymous https clone, which
+      # stopped working the moment the repo went private.
+      - name: Check out the deploy files
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            deploy
+            docker-compose.prod.yml
+          sparse-checkout-cone-mode: false
+
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -268,11 +280,21 @@ jobs:
             echo "⚠️ Off-site backups are switched off (BACKUP_REMOTE=off) — local dumps only. See deploy/README.md → Backups." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # The checkout is brought up to date here rather than inside deploy.sh,
-      # and the order matters: a script that resets its own checkout rewrites
-      # itself while bash is still reading it, so a change to deploy.sh landed
-      # one deploy late — see that file's own comment for the two deploys of
-      # missing backups that cost.
+      # (#621) The box's copy of the deploy files is brought up to date here,
+      # from the checkout above, rather than by the box pulling git — and
+      # before deploy.sh starts, not by it: a script that rewrites its own
+      # file while bash is still reading it takes effect one deploy late —
+      # see that file's own comment for the two deploys of missing backups
+      # that cost. `--delete` inside deploy/ only, so a file removed from the
+      # repo is removed from the box; .env and backup.env sit one level up and
+      # are never touched.
+      - name: Sync deploy files to the VPS
+        run: |
+          rsync -a --delete -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes" \
+            deploy/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/art-lessons/deploy/"
+          rsync -a -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes" \
+            docker-compose.prod.yml "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/art-lessons/docker-compose.prod.yml"
+
       # (#177) SENTRY_DSN rides along the same way SERVER_IMAGE does, rather
       # than being written into the VPS's .env: that file holds
       # POSTGRES_PASSWORD, which is baked into the Postgres volume at initdb
@@ -284,8 +306,6 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "cd /opt/art-lessons \
-             && git fetch origin main \
-             && git reset --hard origin/main \
              && SERVER_IMAGE='${{ needs.build.outputs.image }}' \
                 SENTRY_DSN='${{ vars.SENTRY_SERVER_DSN }}' \
                 SENTRY_RELEASE='${{ github.sha }}' \

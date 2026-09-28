@@ -15,7 +15,7 @@ const SUBMIT = 'form button[type="submit"]'
  *  a second round trip that no unit test covers.
  */
 test.describe('the join gate', () => {
-  test('never shows a password field for a room without one', async ({ page, browser }) => {
+  test('never shows a password field for a room without one', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -35,7 +35,7 @@ test.describe('the join gate', () => {
     }
   })
 
-  test('asks for a password only after a passwordless attempt is refused', async ({ page, browser }) => {
+  test('asks for a password only after a passwordless attempt is refused', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page, 'E2E locked lesson', { password: 'open-sesame' })
     await waitForRoomReady(page)
 

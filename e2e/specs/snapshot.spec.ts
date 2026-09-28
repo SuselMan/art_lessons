@@ -4,6 +4,7 @@ import {
   activeLayerId, createRoom, drawStroke, INK, joinRoom, maxDarknessOverContent,
   operations, waitForOperations, waitForRoomReady,
 } from '../support/room'
+import { slow } from '../support/pace'
 
 /** (#491) The fast-rejoin path — the one a long lesson actually uses.
  *
@@ -25,7 +26,7 @@ import {
  *  shortcut: the boundary is a hundred real operations. Kept anyway. */
 test.describe('rejoining a room that has a snapshot', () => {
   // A hundred strokes, a snapshot bake, an upload, and a second browser.
-  test.setTimeout(240_000)
+  test.setTimeout(slow(240_000))
 
   /** Draws a room past the snapshot boundary and waits until the pixels are
    *  actually stored, so a joiner will take the restore path. Shared by both
@@ -60,12 +61,12 @@ test.describe('rejoining a room that has a snapshot', () => {
       if (res.status() !== 200) return 0
       const body = await res.json() as { layers?: unknown[] }
       return body.layers?.length ?? 0
-    }, { timeout: 120_000, message: 'a snapshot should be stored for this room' }).toBeGreaterThan(0)
+    }, { timeout: slow(120_000), message: 'a snapshot should be stored for this room' }).toBeGreaterThan(0)
 
     return roomId
   }
 
-  test('the joiner restores from stored pixels instead of replaying everything', async ({ page, browser }) => {
+  test('the joiner restores from stored pixels instead of replaying everything', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await roomWithStoredSnapshot(page)
 
     const student = await browser.newContext()
@@ -101,7 +102,7 @@ test.describe('rejoining a room that has a snapshot', () => {
    *  call, not a server saying no. `/snapshots/index` is deliberately left
    *  alone: the failure under test is the pixels not arriving, and a room whose
    *  index also failed would be a different (and less dangerous) story. */
-  test('a joiner whose snapshot never arrives is told, not shown an empty room', async ({ page, browser }) => {
+  test('a joiner whose snapshot never arrives is told, not shown an empty room', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await roomWithStoredSnapshot(page)
 
     const student = await browser.newContext()
@@ -117,7 +118,7 @@ test.describe('rejoining a room that has a snapshot', () => {
       await studentPage.locator('form button[type="submit"]').click()
 
       const alert = studentPage.getByRole('alert')
-      await expect(alert, 'the failure has to be said out loud').toBeVisible({ timeout: 60_000 })
+      await expect(alert, 'the failure has to be said out loud').toBeVisible({ timeout: slow(60_000) })
       // The canvas stays gated: an editor that accepts strokes is a claim that
       // what it is showing is the room.
       await expect(studentPage.locator('canvas').first()).toHaveCSS('pointer-events', 'none')

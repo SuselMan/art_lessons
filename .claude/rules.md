@@ -7,6 +7,32 @@
 - Do not switch frameworks or major libraries without explicit approval.
 - **Pre-production bias: prefer the best solution over the fast/safe one.** Until this product has live users in production, correctness/quality of the underlying approach beats shipping speed or minimizing churn — there's no user-facing risk yet to a bigger rewrite, and no deadline being missed by doing it right now instead of patching around it. Don't reach for a quick mitigation (a tuning knob, a partial fix, a workaround) when the actual best-known solution is identifiable and buildable now, even if it's a bigger lift — e.g. prefer a real architectural fix (a GPU-side pipeline instead of a CPU readback) over a partial one (cutting readback count) when the real fix is known and the partial one was only reached for under time pressure. This flips once real users depend on production — then the usual stability/blast-radius caution applies.
 
+## Понимание архитектуры
+
+Большую часть кода пишут агенты, и проект уже не простой. «Код есть» не значит «Илья
+понимает, как это устроено», а решения, принцип которых он не знает, он не может ни проверить,
+ни оспорить. Поэтому понимание ведётся как отдельная работа, а не как побочный эффект.
+
+- **Перед архитектурным решением назови принцип, который за ним стоит, и спроси Илью, знает
+  ли он его.** Архитектурное — это решение, которое вводит или меняет границу между частями,
+  новый паттерн, контракт между процессами, или выбирает между подходами так, что это потом
+  трудно развернуть. Правка внутри одного модуля по уже принятому образцу — не архитектурное.
+  Вопрос — одна строка и три варианта: «знаю» / «объясни сейчас» / «заведи задачу на
+  понимание». Не лекция по умолчанию.
+- **Сначала загляни в `docs/architecture/understanding.yaml`.** Если тема там уже на
+  «понимаю» или «объясню сам» — не спрашивай, просто назови принцип. Если темы нет —
+  предложи её добавить.
+- **Задача на понимание — это issue с меткой `kind:understanding`.** В теле: что понять, где
+  смотреть (карта, ADR, код), 3–5 контрольных вопросов. Готово не когда прочитано, а когда
+  Илья ответил на вопросы своими словами и ответы сходятся с кодом. После этого статус темы в
+  `understanding.yaml` поднимается в том же изменении. Первая такая задача — #625 (научиться
+  читать карту).
+- **Статус «объясню сам» ставится только по задаче**, не по самооценке и не потому, что тема
+  обсуждалась в разговоре. «Понимаю» можно поставить со слов Ильи.
+- Карта понимания пока ведётся для одного человека (`people.ilya`), но устроена так, чтобы
+  добавить второго разработчика строкой. Темы ссылаются на модули, каналы, потоки и ADR с
+  карты, и `map:check` падает, если ссылка устарела.
+
 ## Release track (issue #314)
 
 Issue **#314 — «Трек к первому релизу»** is the single list of what must be 100% covered
@@ -233,6 +259,8 @@ We track work in GitHub Issues. `tasks/*.md` was removed; historical task detail
 - `kind:refactor` — internal cleanup with no user-facing behavior change.
 - `kind:chore` — build, deps, CI, tooling.
 - `kind:docs` — documentation, README, ADRs.
+- `kind:understanding` — a developer learns how part of the architecture works; done when they
+  can explain it back, not when it is read. See «Понимание архитектуры» above.
 
 - `area:engine` — WebGL pencil engine.
 - `area:ui` — React components, CSS, user interactions.
@@ -259,6 +287,8 @@ Every issue must have exactly one `kind:*` and one `area:*`.
   Example: `[Bug] UI: панель слоёв не сворачивается на планшете`
 - Refactor: `[Refactor] <Area>: <What changes>`  
   Example: `[Refactor] Engine: убрать any-касты из PencilEngineAPI`
+- Understanding: `[Understanding] <Area>: <What to understand>`  
+  Example: `[Understanding] Карта архитектуры: научиться её читать`
 
 ### Workflow rules
 

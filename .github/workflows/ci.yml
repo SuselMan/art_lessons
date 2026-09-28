@@ -2,6 +2,17 @@ name: CI
 
 on:
   pull_request:
+  # A full run by hand, from the Actions tab on the PR's branch — both e2e
+  # parts. (Not `labeled`: that event fires for every label, and with the
+  # concurrency group below it would cancel a run in progress for nothing.)
+  workflow_dispatch:
+
+# (#621) The repo is private, and a private repo on the free plan has 2000
+# Actions minutes a month. A push to a PR with a run still going makes that
+# run's result worthless, so it is cancelled rather than paid for to the end.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -43,3 +54,71 @@ jobs:
         run: |
           npm run map:check
           npm run map:rules
+
+  # (#616, трек #314 §12) The browser harness (#491) on every PR. A separate job
+  # so a red e2e run never hides a red unit run, and so they run side by side.
+  #
+  # Split in two, and the split is about the runner, not the tests. This repo
+  # is private, so the free runner has two cores and no GPU; a scenario with a
+  # second browser renders two canvases in software at once, and there the
+  # runner's speed varied threefold between runs — the same boards scenario
+  # took 4 minutes on one run and 12 on the next, and the two-browser specs
+  # timed out doing nothing wrong. So:
+  #   - `single` — everything with one browser. Blocking: it has to pass.
+  #   - `two-browsers` — the scenarios tagged @two-browsers. Reports, but does
+  #     not fail the workflow (continue-on-error). Its red is a prompt to run
+  #     the spec locally on a GPU, not a verdict. Runs only on request — see
+  #     the strategy below.
+  # A paid runner would make both blocking; that waits until the project pays
+  # for it (Ilya, 28.09).
+  e2e:
+    name: e2e (${{ matrix.part }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.part == 'two-browsers' }}
+    # (#621) The two-browser part costs ~30 runner minutes and is advisory
+    # anyway, so on the free plan's budget it runs only when asked for: the
+    # e2e-full label on the PR (read on each push to it), or a manual run.
+    # The single part runs always.
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ${{ fromJSON((github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'e2e-full')) && '["single","two-browsers"]' || '["single"]') }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The rooms in these tests draw on real paper; without the bake every
+      # paper fetch 404s and the canvas never opens.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # No GPU on the runner: the software rasteriser, asked for by name — see
+      # the launchOptions comment in playwright.config.ts. Postgres is the
+      # harness's own throwaway container (docker is on the runner).
+      - name: End-to-end tests
+        env:
+          E2E_GL: swiftshader
+        run: npx playwright test --project=chromium ${{ matrix.part == 'single' && '--grep-invert @two-browsers' || '--grep @two-browsers' }}
+
+      - name: Upload report and failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.part }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

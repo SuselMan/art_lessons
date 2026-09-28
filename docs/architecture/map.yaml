@@ -336,6 +336,10 @@ modules:
       - apps/web/src/pages/Room/useOpenTimer.ts
       - apps/web/src/pages/Room/useLeaveGuard.ts
       - apps/web/src/pages/Room/useToolSync.ts
+      - apps/web/src/pages/Room/useToolColor.ts
+      - apps/web/src/pages/Room/useLessonActions.ts
+      - apps/web/src/pages/Room/useBoardActions.ts
+      - apps/web/src/pages/Room/useClassView.ts
       - apps/web/src/pages/Room/useLogDerivedState.ts
       - apps/web/src/pages/Room/useLayerPanelBridge.ts
     issues: [25, 493]
@@ -479,6 +483,7 @@ modules:
       - apps/web/src/pages/Room/socketRevival.ts
       - apps/web/src/pages/Room/confirmedStream.ts
       - apps/web/src/pages/Room/peerEvents.ts
+      - apps/web/src/pages/Room/useServerClockSync.ts
       - apps/web/src/pages/Room/boardEvents.ts
       - apps/web/src/pages/Room/roomControlEvents.ts
       - apps/web/src/pages/Room/syncStatus.ts
@@ -960,6 +965,9 @@ modules:
       - apps/web/src/lib/initSentry.ts
       - apps/web/src/lib/diagLog.ts
       - apps/web/src/lib/reportInvariant.ts
+      - apps/web/src/lib/serverClock.ts
+      - apps/web/src/lib/liveLatency.ts
+      - apps/web/src/lib/liveLatency.test.ts
       - apps/web/src/lib/reportInvariant.test.ts
       - apps/web/src/lib/featureFlags.ts
       - apps/web/src/lib/debugTools.ts
@@ -1386,7 +1394,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 3849
+    maxLines: 3426
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича

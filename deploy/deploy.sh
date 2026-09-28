@@ -21,7 +21,9 @@ set -euo pipefail
 APP_DIR=/opt/art-lessons
 cd "$APP_DIR"
 
-# The checkout is brought up to date by whoever invokes this script, NOT here.
+# This directory is brought up to date by whoever invokes this script, NOT
+# here — since #621 by CI rsyncing deploy/ and the compose file onto the box,
+# which has no git access to the (private) repo.
 # It used to do its own `git fetch && git reset --hard origin/main` on the two
 # lines above this comment, which quietly made every change to this file take
 # effect one deploy late: bash reads a script incrementally as it runs, so

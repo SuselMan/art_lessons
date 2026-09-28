@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { createRoom, drawStroke, waitForOperations, waitForRoomReady } from '../support/room'
+import { slow } from '../support/pace'
 
 /** (#346, #493) The paper texture failing to load, and the retry. Written
  *  when the wait and the retry moved out of Room into usePaperReadiness.
@@ -15,7 +16,7 @@ test('a paper that fails to load keeps the room closed, and Try again opens it',
   await page.route('**/paper/**', route => route.abort())
 
   await createRoom(page)
-  await expect(page.getByText("The paper didn't load")).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText("The paper didn't load")).toBeVisible({ timeout: slow(20_000) })
   // Closed: the canvas does not take input while the paper is missing.
   expect(await page.evaluate(() => {
     const canvas = document.querySelector('canvas')
