@@ -22,8 +22,8 @@ import Fastify from 'fastify'
 import type { Prisma } from '@prisma/client'
 
 import { isForkSeedUser } from '@grafetto/shared'
-import { prisma } from '../prisma.js'
-import { registerForkRoutes } from '../forkRoutes.js'
+import { prisma } from '../db/prisma.js'
+import { registerForkRoutes } from '../roomRoutes/forkRoutes.js'
 
 const OWNER_ID = 'measure-fork-owner'
 const LAYERS = ['measure-layer-a', 'measure-layer-b']

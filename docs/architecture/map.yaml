@@ -83,7 +83,8 @@ layers:
     title: Сервер
     part: server
     note: >-
-      HTTP, реальное время и точка входа — один плоский server/src; это группы внутри него.
+      HTTP, реальное время и точка входа — подпапки server/src (#649): комнаты, их REST, вход,
+      админка, здоровье процесса и обвязка REST. Клиент Prisma — слоем правее.
   - id: server-infra
     title: Инфраструктура
     part: server
@@ -916,140 +917,6 @@ groupings:
           остальными участниками.
       tags: [фильтры, детерминизм]
 
-  apps/server/src:
-    - id: server-rooms
-      title: Комнаты и релей
-      owns: >-
-        Сердце сервера: комнаты в памяти, подкреплённые Postgres, ретрансляция операций всем
-        участникам, живые штрихи и курсоры, undo/redo, заморозка. Сервер никогда не рендерит —
-        он пересылает операции. rooms.ts разбирается по доменам (#612). Внизу реестр
-        (roomRegistry.ts): запись комнаты, Map, правило урок/доска, очередь записи в Postgres;
-        над ним — какие строки комната пишет по ходу (roomPersistence.ts). Поверх него отдельно:
-        структурный лог, проверка операций, правило покрытия снапшотом (snapshotCoverage.ts),
-        хранилище снапшотов (snapshotStore.ts), рычаги владельца — заморозка, инструменты,
-        закрытие, доступ, блокировки слоёв (ownerControls.ts) — и живой класс: доски, задания,
-        подсветка, руки (classroom.ts). Холодная загрузка из Postgres — roomLoader.ts; журнал
-        операций — operationLog.ts; взгляды для здоровья, сторожа и админки — roomStats.ts. В
-        rooms.ts остаются создание, вход и выход, выселение и room_state.
-      files:
-        - apps/server/src/rooms.ts
-        - apps/server/src/rooms.test.ts
-        - apps/server/src/roomRegistry.ts
-        - apps/server/src/roomRegistry.test.ts
-        - apps/server/src/roomPersistence.ts
-        - apps/server/src/roomPersistence.test.ts
-        - apps/server/src/roomLoader.ts
-        - apps/server/src/roomLoader.test.ts
-        - apps/server/src/roomStats.ts
-        - apps/server/src/structuralLog.ts
-        - apps/server/src/structuralLog.test.ts
-        - apps/server/src/operationGate.ts
-        - apps/server/src/operationGate.test.ts
-        - apps/server/src/operationLog.ts
-        - apps/server/src/snapshotCoverage.ts
-        - apps/server/src/snapshotCoverage.test.ts
-        - apps/server/src/snapshotStore.ts
-        - apps/server/src/ownerControls.ts
-        - apps/server/src/roomSnapshots.test.ts
-        - apps/server/src/socketHandlers.ts
-        - apps/server/src/socketHandlers.test.ts
-        - apps/server/src/lessons.ts
-        - apps/server/src/boards.test.ts
-        - apps/server/src/classMode.ts
-        - apps/server/src/classMode.test.ts
-        - apps/server/src/classroom.ts
-      adr: [002-collaborative-undo, 014-boards, 015-class-mode]
-      notes:
-        - >-
-          Работа в классе (ADR 015): личная доска — доска урока с владельцем-учеником. Кто её
-          видит, решает одна функция canSeeBoard (lessons.ts) — и для join_room, и для REST, и
-          для LessonState, который собирается под получателя и шлётся событием lesson_state.
-        - >-
-          Map остаётся источником правды для всего живого; запись в Postgres — fire-and-forget,
-          её не ждут на горячем пути. Плата: операция, проигравшая гонку падению сервера,
-          выпадает из истории, хотя уже была ретранслирована.
-        - >-
-          Комната, которая читается как стёртая, — это испорченная строка RoomLayerState, а не
-          потерянные данные.
-      tags: [socket.io, комнаты]
-
-    - id: server-rooms-http
-      title: HTTP-ручки комнат
-      owns: >-
-        REST поверх тех же комнат: список и папки, доступ и приглашения, форк, миниатюры,
-        снапшоты, отображение сущности комнаты в проводной вид.
-      files:
-        - apps/server/src/roomRoutes*.ts
-        - apps/server/src/roomFolderRoutes*.ts
-        - apps/server/src/roomAccessRoutes*.ts
-        - apps/server/src/forkRoutes*.ts
-        - apps/server/src/boardRoutes*.ts
-        - apps/server/src/thumbnailRoutes*.ts
-        - apps/server/src/snapshotRoutes*.ts
-        - apps/server/src/roomMapper.ts
-        - apps/server/src/apiRoute.ts
-        - apps/server/src/input.ts
-      tags: [rest]
-
-    - id: server-auth
-      title: Аккаунты и доступ
-      owns: >-
-        Беспарольный вход по коду на email, выдача и проверка кодов, личность запроса,
-        ограничение частоты, правила доступа к комнате. Устройства и адреса, с которых человек
-        заходит (#589): кука `al_dev`, запись визитов, окружение от клиента, срок хранения.
-      files:
-        - apps/server/src/authRoutes*.ts
-        - apps/server/src/loginCodes*.ts
-        - apps/server/src/loginCodeEmail.ts
-        - apps/server/src/email.ts
-        - apps/server/src/identity.ts
-        - apps/server/src/rateLimit.ts
-        - apps/server/src/roomAccess.ts
-        - apps/server/src/roomAccess.test.ts
-        - apps/server/src/sessions*.ts
-      tags: [аккаунты, доступ]
-
-    - id: server-admin
-      title: Админка и баны
-      owns: >-
-        `/api/admin/*` за allow-list email (#586) и бан аккаунта (#587). Множество забаненных
-        живёт в памяти процесса: его читают identityHook и хэндшейк сокета на каждом запросе, а
-        пишут только маршруты бана — после записи в базу и журнал `AdminAction`.
-      files:
-        - apps/server/src/adminRoutes*.ts
-        - apps/server/src/bans.ts
-      tags: [админка, аккаунты]
-
-    - id: server-health
-      title: Здоровье процесса
-      owns: >-
-        Всё, чем процесс отчитывается о себе: health-ручки, диск, память, задержка event loop,
-        отставание снапшотов, описание клиента, настройки Sentry, корректное завершение.
-      files:
-        - apps/server/src/healthRoutes*.ts
-        - apps/server/src/disk*.ts
-        - apps/server/src/memory*.ts
-        - apps/server/src/eventLoop*.ts
-        - apps/server/src/snapshotLagWatch*.ts
-        - apps/server/src/clientDescription*.ts
-        - apps/server/src/sentryOptions*.ts
-        - apps/server/src/instrument.ts
-        - apps/server/src/shutdown*.ts
-      tags: [эксплуатация]
-
-    - id: server-entry
-      title: Точка входа и БД
-      owns: >-
-        Поднятие Fastify и Socket.io, клиент Prisma, схема и миграции Postgres. Redis нет —
-        одного процесса пока хватает.
-      files:
-        - apps/server/src/index.ts
-        - apps/server/src/prisma.ts
-      notes:
-        - >-
-          Локально серверу нужен `docker start art_lessons_pg` до `npm run dev`.
-      tags: [fastify, prisma, postgres]
-
   packages/shared:
     - id: shared-contract
       title: Общие типы и операции
@@ -1178,14 +1045,14 @@ flows:
           с частичными дабами и `cursor_move`.
       - id: relay
         title: Сервер присваивает seq и ретранслирует
-        module: server-rooms
+        module: apps/server/src/rooms
         side: server
         detail: >-
           Комната в памяти даёт операции порядковый номер, рассылает `operation_confirmed`
           всем и `peer_stroke_live` — соседям. Сервер ничего не рисует.
       - id: persist
         title: Запись в Postgres
-        module: server-entry
+        module: apps/server/src/db
         side: server
         detail: >-
           Запись идёт fire-and-forget, её не ждут на горячем пути: задержка БД не должна
@@ -1220,7 +1087,7 @@ flows:
           заново то, что вкладка не теряла.
       - id: room_state
         title: room_state
-        module: server-rooms
+        module: apps/server/src/rooms
         side: server
         detail: >-
           Сервер отдаёт комнату, участников, палитру, статус заморозки, номер последнего
@@ -1229,7 +1096,7 @@ flows:
           съел рисунок.
       - id: fetch
         title: Загрузка снапшотов
-        module: server-rooms-http
+        module: apps/server/src/roomRoutes
         side: server
         detail: >-
           Клиент сам забирает индекс снапшотов и по блобу на слой обычным HTTP — по сокету
@@ -1271,7 +1138,7 @@ flows:
           действие в комнате».
       - id: server_undo
         title: Сервер выпускает обратную операцию
-        module: server-rooms
+        module: apps/server/src/rooms
         side: server
         detail: >-
           Отмена сама становится операцией в общем логе и получает свой seq — иначе порядок

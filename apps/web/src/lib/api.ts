@@ -121,7 +121,7 @@ export async function api<K extends ApiRouteKey>(key: K, ...[args]: ArgList<K>):
   const res = await send(key, args, undefined)
   const parsed: unknown = res.status === 204 ? null : await res.json()
   // The one place a response is taken on trust, and the reason it can be:
-  // the server's side of the same table (apps/server/src/apiRoute.ts) is what
+  // the server's side of the same table (apps/server/src/http/apiRoute.ts) is what
   // makes this claim true, and no caller writes a type of its own any more.
   return parsed as ApiResult<K>
 }

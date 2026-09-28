@@ -1,18 +1,17 @@
 ---
 layer: server
-summary: Fastify и Socket.io
-issues: [649]
-tags: [сервер]
+summary: точка входа
+tags: [fastify, сервер]
 ---
-# server/src — Fastify и Socket.io
+# server/src — точка входа сервера
 
-Весь сервер: точка входа, комнаты в памяти и релей операций по сокету, REST-ручки комнат,
-аккаунты и доступ, админка, здоровье процесса. Один процесс Node, без Redis. Сервер никогда не
-рендерит — он пересылает и хранит операции.
+Поднятие Fastify и Socket.io: `index.ts` собирает процесс из модулей-подпапок, `instrument.ts`
+подключает Sentry до всего остального. Один процесс Node, без Redis — одного процесса пока
+хватает. Сервер никогда не рендерит — он пересылает и хранит операции.
 
 ## Заметки
 
-- Смысловые куски этой папки — группы карты (`docs/architecture/map.yaml` → `groupings`):
-  server-rooms, server-rooms-http, server-auth, server-admin, server-health, server-entry. В
-  коде этих групп нет; когда папку разложат по подпапкам, описание группы переедет в README
-  новой подпапки.
+- `instrument.ts` лежит здесь, а не в `health/`, потому что его путь (`dist/instrument.js`)
+  зашит в `--import` в Dockerfile и в `npm start`: перенос файла сломал бы запуск в проде.
+- Подпапки: `rooms` (комнаты и релей по сокету), `roomRoutes` (REST комнат), `auth` (вход и
+  личность), `admin`, `health`, `http` (обвязка REST), `db` (клиент Prisma).

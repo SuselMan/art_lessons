@@ -133,7 +133,7 @@ nodes:
     owns: >-
       Fastify (HTTP) и Socket.io в одном процессе. Комнаты живут в памяти: сервер присваивает
       операциям seq и ретранслирует их, но ничего не рисует. Пишет в БД, не дожидаясь записи.
-    modules: [server-rooms, server-rooms-http, server-auth, server-admin, server-health, server-entry]
+    modules: [apps/server/src, apps/server/src/rooms, apps/server/src/roomRoutes, apps/server/src/auth, apps/server/src/admin, apps/server/src/health, apps/server/src/http]
 
   - id: pg
     title: Postgres
@@ -143,7 +143,7 @@ nodes:
     owns: >-
       Источник правды между сессиями: пользователи, комнаты, полный лог операций (он же
       датасет), снапшоты слоёв, миниатюры.
-    modules: [apps/server/prisma, server-entry]
+    modules: [apps/server/prisma, apps/server/src/db]
 
   - id: backup
     title: Ночной бэкап
@@ -442,7 +442,7 @@ links:
     contract: opaque
     summary: письмо с кодом
     messages:
-      - { dir: '→', name: POST /emails, type: 'EmailMessage', decl: [apps/server/src/email.ts], note: 'чужой API: наш тип описывает только то, что мы шлём' }
+      - { dir: '→', name: POST /emails, type: 'EmailMessage', decl: [apps/server/src/auth/email.ts], note: 'чужой API: наш тип описывает только то, что мы шлём' }
 
   - id: server-sentry
     from: server

@@ -166,7 +166,7 @@ topics:
     why: >-
       Сервер держит комнату в памяти, даёт операциям seq, рассылает их и пишет в базу, не
       дожидаясь записи. Почему один процесс и нет Redis.
-    modules: [server-rooms, server-entry]
+    modules: [apps/server/src/rooms, apps/server/src, apps/server/src/db]
     links: [ui-socket, server-peer, server-pg]
 
   - id: snapshots
@@ -174,7 +174,7 @@ topics:
     parent: server
     title: Снапшоты и быстрый вход в длинную комнату
     why: Почему снапшоты печёт клиент, а сервер их только хранит, и как хвост лога ложится поверх.
-    modules: [server-rooms-http, room-diagnostics]
+    modules: [apps/server/src/roomRoutes, room-diagnostics]
     flows: [join]
 
   - id: collaborative-undo
@@ -188,7 +188,7 @@ topics:
     level: 2
     parent: server
     title: Гости, вход по коду и доступ к комнате
-    modules: [server-auth, apps/web/src/pages/Auth, ui-room-access]
+    modules: [apps/server/src/auth, apps/server/src/rooms, apps/web/src/pages/Auth, ui-room-access]
 
   - id: contract-strength
     level: 2
