@@ -10,7 +10,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS } from '@grafetto/shared'
-import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
+import { PencilEngine, pixelWriteLayerIds, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -984,6 +984,15 @@ function RoomEditor() {
     }
     layerAppliedSeqRef.current.set(layerId, seq)
   }, [])
+  // (#537) Every layer an operation's pixels go onto, not only a stroke's: an
+  // erase, a clear, a fill or a filter out of order is as wrong as a stroke.
+  // Called where an operation takes its place in the room's order on this
+  // client — applyRemoteOp, and this client's own at its confirmation off the
+  // ordered stream — which since #537 is always seq order, so this should
+  // stay at zero.
+  const noteOperationSeq = useCallback((op: Operation, seq: number) => {
+    for (const layerId of pixelWriteLayerIds(op)) noteLayerSeq(layerId, seq)
+  }, [noteLayerSeq])
   // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
   // client itself created but the server hasn't confirmed yet — the
   // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
@@ -1193,6 +1202,24 @@ function RoomEditor() {
   // can still count a previous visit's unsent work for the common case of a
   // lesson with one board.
   const outboxBoardId = boardId ?? id ?? ''
+  // (#537) The layer panel's state is derived from the log's order, which a
+  // confirmation or a discard can change. Through a ref: syncFromLog is
+  // defined below the Outbox, the same situation recoverLostWorkRef is in.
+  const syncFromLogRef = useRef<() => void>(() => {})
+  /** (#537) This client's own operation has its seq — from the ordered stream
+   *  (`ordered`), from room_state's tail after a reconnect (also ordered), or
+   *  from the ack, which reaches here after an IndexedDB await and so may land
+   *  behind later arrivals. The engine places it by seq either way; only an
+   *  ordered confirmation is fed to the #480 counter. */
+  const confirmOwnOperation = useCallback((op: Operation, seq: number, ordered: boolean) => {
+    if (!engineRef.current?.confirmOperation(op.id, seq)) return
+    if (ordered) noteOperationSeq(op, seq)
+    if (op.type !== 'stroke') syncFromLogRef.current()
+  }, [noteOperationSeq])
+  /** (#537) The server refused this client's operation for good. */
+  const discardOwnOperation = useCallback((op: Operation) => {
+    if (engineRef.current?.discardOperation(op.id)) syncFromLogRef.current()
+  }, [])
   const outbox = useMemo(() => new Outbox({
     storage: createIndexedDbOutboxStorage(),
     // (#358) Binds this queue to this board, in storage as well as in memory.
@@ -1218,14 +1245,16 @@ function RoomEditor() {
     // (#493) What a stalled or settled operation means for this client —
     // see outboxVerdict.ts.
     ...createOutboxVerdicts({
-      pendingIdsRef, latestKnownSeqRef, noteLayerSeq, checkSnapshotBoundary,
+      pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
+      confirmOperation: (op, seq) => confirmOwnOperation(op, seq, false),
+      discardOperation: discardOwnOperation,
       resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
     }),
     // (#201) The counter the ConnectionBanner reports. Passing a plain
     // setState is safe from any callsite: React batches, and the Outbox
     // only ever calls this after a real size change.
     onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
-  }), [outboxBoardId, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery, resolveTransformCommit])
+  }), [outboxBoardId, checkSnapshotBoundary, confirmOwnOperation, discardOwnOperation, scheduleLostWorkRecovery, resolveTransformCommit])
   // (#176) For the socket effect, which must not list `outbox` as a
   // dependency — see snapshotUploaderRef.
   const outboxRef = useRef(outbox)
@@ -1393,6 +1422,7 @@ function RoomEditor() {
   // from the engine's log — coalesced per burst, or now — see
   // useLogDerivedState.
   const { restoredLayerStateRef, syncFromLog, syncFromLogNow } = useLogDerivedState({ engineRef })
+  syncFromLogRef.current = syncFromLog
 
   // (#312) Mints one replacement layer per dead target and replays the
   // rejected operations onto it, in their original draw order.
@@ -1524,9 +1554,18 @@ function RoomEditor() {
   // not dedupe by id — see engine/src/OperationLog.ts), corrupting pixel
   // state and undo. It does not attempt to reconcile a divergent history.
   const applyRemoteOp = useCallback((op: Operation) => {
-    if (appliedOpIdsRef.current.has(op.id)) return
+    if (appliedOpIdsRef.current.has(op.id)) {
+      // (#537) Seen before — and if it is this client's own, still waiting for
+      // its seq, this is where it gets one: room_state's tail after a
+      // reconnect carries operations whose broadcast and ack were both lost
+      // with the old socket. Without this they would sit in the pending tail
+      // for good, above everything anybody draws from then on.
+      if (op.seq !== undefined) confirmOwnOperation(op, op.seq, true)
+      return
+    }
     appliedOpIdsRef.current.add(op.id)
     engineRef.current?.appendOperation(op, 'remote')
+    if (op.seq !== undefined) noteOperationSeq(op, op.seq)
     if (op.type === 'stroke') markActive(op.userId)
     // (#395) The layer now genuinely carries this transform, so the gizmo
     // preview that has been standing in for it since pointerup can go. This
@@ -1534,7 +1573,7 @@ function RoomEditor() {
     // path the author's own layer_transform comes back through here like any
     // peer's (see dispatchOp's outbox branch and #289 §7/§11).
     resolveTransformCommit(op.id)
-  }, [markActive, resolveTransformCommit])
+  }, [markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq])
 
   // (#169) Re-checks every deferred meta-op (see deferredOpsQueueRef's own
   // doc comment) after a backfill page lands — anything whose target has
@@ -1802,7 +1841,7 @@ function RoomEditor() {
       // (#493) Local operations out, peer reveals committed, the live stroke
       // channel — see engineNetwork.ts.
       ...createEngineNetworkCallbacks({
-        appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
+        engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
         applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,
         sendLive: data => { socketRef.current?.emit('stroke_live', data) },
         sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
@@ -2449,7 +2488,8 @@ function RoomEditor() {
     const handleOperationConfirmed = createConfirmedStreamHandler({
       engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
       catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
-      noteLayerSeq, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+      confirmOwnOperation: (op, seq) => confirmOwnOperation(op, seq, true),
+      markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
     })
 
     // (#152) peer_cursor itself is no longer handled here at all — Room had

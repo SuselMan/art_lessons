@@ -29,8 +29,8 @@ import { decodeLayerTiles } from './src/snapshotCodec'
  *  ними нет — ровно то положение, в котором был пострадавший клиент. */
 function joinedFromSnapshot() {
   const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
-  source.appendOperation(makeLayerAdd('user-a', 'L'))
-  source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+  source.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+  source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]), 'remote')
   const { tiles } = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0)
   const restoredPixels = [...readTilePixels(source, 'L', 0, 0, 8, 8)!]
 
@@ -44,8 +44,8 @@ describe('слой, воскрешённый отменой структурно
   it('сохраняет пиксели из снапшота, когда отменён поглотивший его мерж', () => {
     const { target, restoredPixels } = joinedFromSnapshot()
 
-    target.appendOperation(makeLayerAdd('user-b', 'M'))
-    target.appendOperation(makeLayerMerge('user-b', 'N', [{ id: 'L', opacity: 1 }, { id: 'M', opacity: 1 }]))
+    target.appendOperation(makeLayerAdd('user-b', 'M'), 'remote')
+    target.appendOperation(makeLayerMerge('user-b', 'N', [{ id: 'L', opacity: 1 }, { id: 'M', opacity: 1 }]), 'remote')
     expect(target.bakeNetworkSnapshot('L')).toBeNull() // слоя больше нет — мерж его съел
 
     expect(target.undo()?.type).toBe('layer_merge')
@@ -58,7 +58,7 @@ describe('слой, воскрешённый отменой структурно
   it('сохраняет пиксели из снапшота, когда отменено удаление слоя', () => {
     const { target, restoredPixels } = joinedFromSnapshot()
 
-    target.appendOperation(makeLayerDelete('user-b', ['L']))
+    target.appendOperation(makeLayerDelete('user-b', ['L']), 'remote')
     expect(target.undo()?.type).toBe('layer_delete')
 
     const revived = readTilePixels(target, 'L', 0, 0, 8, 8)
@@ -72,14 +72,14 @@ describe('слой, воскрешённый отменой структурно
     // Чекпойнта не стало (здесь — руками, в проде это вытеснение по бюджету):
     // слой воскреснет неполным, и такой блоб не должен уехать на сервер.
     // Пустой снапшот стоит переигранных операций, неверный — стоит урока.
-    target.appendOperation(makeLayerDelete('user-b', ['L']))
+    target.appendOperation(makeLayerDelete('user-b', ['L']), 'remote')
     dropCheckpointsFor(target, 'L')
     target.undo()
 
     // Рисуем поверх воскрешённого слоя: без этого он просто пуст, и `null`
     // ничего не доказывал бы — его вернула бы проверка «нет тайлов».
     // Теперь тайлы есть, и отказать может только сам запрет.
-    target.appendOperation(makeStroke('user-b', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]))
+    target.appendOperation(makeStroke('user-b', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
     expect(readTilePixels(target, 'L', 0, 0, 8, 8)).not.toBeNull()
 
     expect(target.bakeNetworkSnapshot('L')).toBeNull()
