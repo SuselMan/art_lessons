@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 
+import { apiRoute } from './apiRoute.js'
+import { asString } from './input.js'
 import { prisma } from './prisma.js'
 import { isEmailBanned } from './bans.js'
 import { IDENTITY_COOKIE, identityCookieOptions, signIdentityToken } from './identity.js'
@@ -50,7 +52,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
   // Unthrottled on purpose: a plain read, and every page load makes exactly
   // one of them (main.tsx) — a limit here would fire on people, not attackers.
-  app.get('/api/me', async (request) => {
+  apiRoute(app, 'GET /api/me', async (request) => {
     const user = await prisma.user.findUnique({
       where: { id: request.userId },
       select: { id: true, email: true, name: true },
@@ -58,10 +60,11 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     return { userId: request.userId, email: user?.email ?? null, name: user?.name ?? null }
   })
 
-  app.post<{ Body: { email: string; locale?: string } }>('/api/auth/code/request', {
+  apiRoute(app, 'POST /api/auth/code/request', {
     config: { rateLimit: CODE_REQUEST_IP_LIMIT },
   }, async (request, reply) => {
-    const { email, locale } = request.body ?? {}
+    const email = asString(request.body?.email)
+    const locale = asString(request.body?.locale)
     if (!email || !isValidEmail(email)) return reply.code(400).send({ error: 'invalid_email' })
 
     // Checked before anything is written or mailed, and keyed by address:
@@ -115,10 +118,11 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     }
   })
 
-  app.post<{ Body: { email: string; code: string } }>('/api/auth/code/verify', {
+  apiRoute(app, 'POST /api/auth/code/verify', {
     config: { rateLimit: CODE_VERIFY_IP_LIMIT },
   }, async (request, reply) => {
-    const { email, code } = request.body ?? {}
+    const email = asString(request.body?.email)
+    const code = asString(request.body?.code)
     if (!email || !code) return reply.code(400).send({ error: 'invalid_code' })
 
     // Read before the bcrypt comparison, so an exhausted address also stops
@@ -150,7 +154,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     return { userId: user.id, email: user.email, name: user.name }
   })
 
-  app.post('/api/auth/logout', {
+  apiRoute(app, 'POST /api/auth/logout', {
     config: { rateLimit: LOGOUT_IP_LIMIT },
   }, async (request, reply) => {
     // Logging out drops back to a *fresh* anonymous guest identity rather

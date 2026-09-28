@@ -8,10 +8,9 @@ import {
   useDraggable, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
-import type { Room, RoomFolder } from '@grafetto/shared'
+import type { Room, RoomFolder, RoomsAtFolder } from '@grafetto/shared'
 import {
-  ApiError, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder,
-  moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed, type RoomsAtFolder,
+  ApiError, apiPath, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder, moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed,
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
 import { preloadRoomPage } from '../../lib/roomChunk'
@@ -176,7 +175,7 @@ function CardThumbnail({ room }: { room: Room }) {
   return wantsPicture ? (
     <img
       className={styles.cardThumbnail}
-      src={`/api/rooms/${boardId}/thumbnail?v=${encodeURIComponent(version)}`}
+      src={apiPath('GET /api/rooms/:roomId/thumbnail', { params: { roomId: boardId }, query: { v: version } })}
       alt=""
       loading="lazy"
       draggable={false}

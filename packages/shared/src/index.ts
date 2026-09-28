@@ -14,6 +14,7 @@ export * from './operations.js'
 export * from './annotations.js'
 export * from './protocol.js'
 export * from './hotkeys.js'
+export * from './rest.js'
 
 // (#366) Stroke dab encoding — see dabCodec.ts.
 export { DAB_PACK_VERSION, packDabs, strokeDabs, unpackDabs } from './dabCodec.js'

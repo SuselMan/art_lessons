@@ -3,6 +3,8 @@ import type { FastifyInstance } from 'fastify'
 import { Prisma } from '@prisma/client'
 
 import { forkSeedUserId, type Operation } from '@grafetto/shared'
+import { apiRoute } from './apiRoute.js'
+import { asString } from './input.js'
 import { prisma } from './prisma.js'
 import { canSeeBoard, isLesson, lessonOf } from './lessons.js'
 import { toWireRoom } from './roomMapper.js'
@@ -310,7 +312,7 @@ function copiedBoardData(board: SourceBoard, forkId: string, name: string, owner
 }
 
 export function registerForkRoutes(app: FastifyInstance): void {
-  app.post<{ Params: { id: string }; Body?: { name?: string; scope?: unknown } }>('/api/rooms/:id/fork', async (request, reply) => {
+  apiRoute(app, 'POST /api/rooms/:id/fork', async (request, reply) => {
     const sourceId = request.params.id
     const userId = request.userId
 
@@ -369,7 +371,7 @@ export function registerForkRoutes(app: FastifyInstance): void {
     // Palette is the lesson's (a board has none), and so is the folder — the
     // one from the caller's own participant row on the lesson.
     const palette = await prisma.roomPalette.findUnique({ where: { roomId: lesson.id }, select: { colors: true } })
-    const name = request.body?.name?.trim() || sourceBoards[0].name
+    const name = asString(request.body?.name)?.trim() || sourceBoards[0].name
     const folderId = membership?.folderId ?? null
 
     // One transaction: a fork that exists with half its content would look

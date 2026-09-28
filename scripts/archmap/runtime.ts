@@ -150,8 +150,13 @@ function eventTable(src: string, name: string): Set<string> {
 function serverRoutes(): Set<string> {
   const routes = new Set<string>();
   const re = /\.(get|post|put|patch|delete)\s*(?:<[\s\S]*?>)?\s*\(\s*['"`](\/[^'"`]*)['"`]/g;
+  // (#623) Most routes register through apiRoute(app, 'METHOD /path', …) — the key of the
+  // shared route table — and only the health routes still through app.get directly.
+  const viaTable = /apiRoute\(\s*\w+\s*,\s*['"`](GET|POST|PUT|PATCH|DELETE) (\/[^'"`]*)['"`]/g;
   for (const file of sourceFiles('apps/server/src')) {
-    for (const m of read(file).matchAll(re)) routes.add(`${m[1].toUpperCase()} ${normaliseRoute(m[2])}`);
+    const text = read(file);
+    for (const m of text.matchAll(re)) routes.add(`${m[1].toUpperCase()} ${normaliseRoute(m[2])}`);
+    for (const m of text.matchAll(viaTable)) routes.add(`${m[1]} ${normaliseRoute(m[2])}`);
   }
   return routes;
 }
