@@ -34,6 +34,10 @@ export interface LatencySample {
   /** How far either clock estimate could be off, combined — the receiver's
    *  half round trip (the sender's is not known here). */
   uncertaintyMs: number
+  /** (#432) This device's own part, on its own clock and so exact: from the
+   *  packet reaching its handler to the frame that composites it. What is
+   *  left of sendToInkMs after this is the network and the author's send. */
+  localMs: number
 }
 
 export interface LatencyStats {
@@ -43,6 +47,12 @@ export interface LatencyStats {
   max: number
   /** p95 of the network-and-paint part, to tell a slow batch from a slow link. */
   sendP95: number
+  /** p50/p95 of this device's own part (arrival → frame) — clock-free. */
+  localP50: number
+  localP95: number
+  /** The worst clock uncertainty among the samples: how much of any number
+   *  above could be the clocks rather than the ink. */
+  uncertaintyMax: number
   overBudget: number
 }
 
@@ -73,12 +83,16 @@ export function createLatencyMeter(capacity = 300): LatencyMeter {
       if (samples.length === 0) return null
       const pen = samples.map(s => s.penToInkMs).sort((a, b) => a - b)
       const send = samples.map(s => s.sendToInkMs).sort((a, b) => a - b)
+      const local = samples.map(s => s.localMs).sort((a, b) => a - b)
       return {
         count: pen.length,
         p50: percentile(pen, 0.5),
         p95: percentile(pen, 0.95),
         max: pen[pen.length - 1],
         sendP95: percentile(send, 0.95),
+        localP50: percentile(local, 0.5),
+        localP95: percentile(local, 0.95),
+        uncertaintyMax: Math.max(...samples.map(s => s.uncertaintyMs)),
         overBudget: pen.filter(v => v > LIVE_LATENCY_BUDGET_MS).length,
       }
     },
@@ -113,11 +127,19 @@ export function liveTiming(
  *  the layer; takes its sample on the next frame. */
 export function noteLivePacketPainted(
   userId: string, packet: Pick<StrokeLiveData, 'sentAt' | 'penAgeMs'>,
-  { clock = serverClock, meter = liveLatency, nextFrame = requestFrame }:
-  { clock?: ServerClock; meter?: LatencyMeter; nextFrame?: (cb: () => void) => void } = {},
+  {
+    clock = serverClock, meter = liveLatency, nextFrame = requestFrame, now = localNow,
+    arrivedAt,
+  }: {
+    clock?: ServerClock; meter?: LatencyMeter; nextFrame?: (cb: () => void) => void; now?: () => number
+    /** When the packet reached its handler, on `now`'s clock — before it was
+     *  painted. Defaults to the moment of this call. */
+    arrivedAt?: number
+  } = {},
 ): void {
   const { sentAt } = packet
   if (sentAt === undefined) return
+  const arrived = arrivedAt ?? now()
   nextFrame(() => {
     const inkAt = clock.serverNow()
     const uncertainty = clock.uncertainty()
@@ -125,8 +147,13 @@ export function noteLivePacketPainted(
     const sendToInkMs = inkAt - sentAt
     meter.record({
       userId, sendToInkMs, penToInkMs: sendToInkMs + (packet.penAgeMs ?? 0), uncertaintyMs: uncertainty,
+      localMs: now() - arrived,
     })
   })
+}
+
+function localNow(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now()
 }
 
 function requestFrame(cb: () => void): void {

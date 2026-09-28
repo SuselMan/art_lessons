@@ -346,8 +346,9 @@ function LiveLatencyLine(): React.JSX.Element {
   return (
     <div>
       peer ink: p50 {stats.p50.toFixed(0)} / p95 {stats.p95.toFixed(0)} / max {stats.max.toFixed(0)}ms
-      {' '}(net p95 {stats.sendP95.toFixed(0)}, over {LIVE_LATENCY_BUDGET_MS}: {stats.overBudget}/{stats.count}
-      {clockError !== null ? `, ±${clockError.toFixed(0)}` : ''})
+      {' '}(net+paint p95 {stats.sendP95.toFixed(0)}, here p95 {stats.localP95.toFixed(0)},
+      {' '}over {LIVE_LATENCY_BUDGET_MS}: {stats.overBudget}/{stats.count}, clocks ±{stats.uncertaintyMax.toFixed(0)}
+      {clockError !== null ? ` now ±${clockError.toFixed(0)}` : ''})
     </div>
   )
 }
