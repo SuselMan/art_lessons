@@ -1580,6 +1580,10 @@ const WASH_RECENT_MS = 1200
 /** (#536, §17.55) Pixel operations since the layer's last usable checkpoint
  *  before a wash boundary is worth a tile copy. */
 const WASH_CHECKPOINT_MIN_OPS = 3
+/** (§17.58) See _checkpointBeforeWash. */
+const WASH_CHECKPOINT_MIN_INTERVAL_MS = 10000
+/** (§17.58) Settle entries a frame at most while a queue waits - see _tickSettle. */
+const WET_SETTLE_OPS_BACKLOG_MAX = 2
 /** (§17.55) How far apart two participants' clocks may be when their
  *  timestamps are compared to decide a wash can no longer be rejoined. */
 const WASH_CLOCK_SKEW_MS = 10000
@@ -2548,6 +2552,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  batch holds a single copy, not one per wash. */
   private _washBoundaries = new Map<string, { opIds: string[]; copies: Array<{ buffer: AccumulationBuffer; originX: number; originY: number }>; washes: CarriedWash[] }>()
   private _washBoundaryScheduled = false
+  private _lastBoundaryCheckpoint = new Map<string, number>()
+  /** (§17.58) Settle entries a frame at most while peers' operations wait -
+   *  see _tickSettle. A field, not a constant, so the device rig can compare
+   *  paces without reloading every tab. */
+  settleBacklogMax = WET_SETTLE_OPS_BACKLOG_MAX
   /** (#536, §17.57) See _enforceGpuBudget: a touch device's browser gives a
    *  page far less GPU memory than a desktop's. */
   private _gpuBudget = typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 1
@@ -3524,10 +3533,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _opDrainRaf = 0
 
   private _shouldQueue(op: Operation, source: OperationSource): boolean {
-    return source === 'remote' && op.type === 'stroke' && op.tool === 'watercolor'
-      && this._displaySuspendDepth === 0 && !this._destroyed && !this._contextLost
-      && typeof requestAnimationFrame === 'function'
-      && (this._opQueue.length > 0 || !!this._settle)
+    if (source !== 'remote' || this._displaySuspendDepth !== 0 || this._destroyed || this._contextLost) return false
+    if (typeof requestAnimationFrame !== 'function') return false
+    // Behind a queue, every peer operation waits - order kept without a
+    // synchronous landing of everything ahead of it.
+    if (this._opQueue.length > 0) return true
+    return op.type === 'stroke' && op.tool === 'watercolor' && (!!this._settle || !!this._strokeLayerId)
   }
 
   /** (§17.58) Applies every queued operation now, in order. */
@@ -3545,7 +3556,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._opDrainRaf = requestAnimationFrame(() => {
       this._opDrainRaf = 0
       if (!this._opQueue.length || this._destroyed) return
-      if (!this._settle) {
+      // Not under this user's own pen either: a peer's operation lands in
+      // 30-280 ms on the iPad, and the stroke in hand would stutter by it.
+      if (!this._settle && !this._strokeLayerId) {
         const { op, source } = this._opQueue.shift()!
         this._appendOperationNow(op, source)
       }
@@ -3850,8 +3863,11 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Done operations in seq order — the material for LayerState derivation. */
   getOperations(): Operation[] {
-    this._flushOpQueue() // (§17.58)
-    return this._log.doneOperations()
+    // (§17.58) Queued operations count as done - they will be, in this order -
+    // but are not landed for it: the room reads this after every operation
+    // (useLogDerivedState), and landing here emptied the queue each time.
+    const done = this._log.doneOperations()
+    return this._opQueue.length ? [...done, ...this._opQueue.map(q => q.op)] : done
   }
 
   /** Undoes this user's own latest done operation — and, unlike before #103,
@@ -3863,7 +3879,6 @@ export class PencilEngine implements PencilEngineAPI {
    *  everyone else's canvas from this one. Returns the affected operation
    *  (e.g. the stroke), same contract as before. */
   undo(): Operation | null {
-    this._flushOpQueue() // (§17.58)
     const target = this._log.undoTarget(this._userId)
     if (!target) return null
     // (#536) Take the paper's water with it. The wetness field is not in the
@@ -3885,7 +3900,6 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Symmetric with `undo()` — see its docstring. */
   redo(): Operation | null {
-    this._flushOpQueue() // (§17.58)
     const target = this._log.redoTarget(this._userId)
     if (!target) return null
     this.appendOperation({
@@ -5925,6 +5939,11 @@ export class PencilEngine implements PencilEngineAPI {
     const end = opId === undefined ? all.length : all.length - 1
     if (opId !== undefined && all[end]?.id !== opId) return
     const prefix = all.slice(0, end)
+    // (§17.58) At most one a layer every WASH_CHECKPOINT_MIN_INTERVAL_MS: the
+    // tile copies cost the iPad 65-400 ms, and four people painting cross a
+    // boundary every half second.
+    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    if (nowMs - (this._lastBoundaryCheckpoint.get(layerId) ?? -Infinity) < WASH_CHECKPOINT_MIN_INTERVAL_MS) return
     const since = prefix.length - (this._checkpoints.best(layerId, prefix)?.start ?? 0)
     if (since < WASH_CHECKPOINT_MIN_OPS) return
     // (§17.56) The washes that may still be continued past this point: the
@@ -5932,6 +5951,10 @@ export class PencilEngine implements PencilEngineAPI {
     // not left and that is young enough to be rejoined.
     const { open, lastAt } = this._openWashes(prefix, now, userId, washId)
     if (open.length && since < WASH_STATE_CHECKPOINT_MIN_OPS) return
+    // (§17.58) A touch device carries no washes: a whole-sheet wash is 144 MB
+    // of copies, its GPU budget would drop them again, and its undo has the
+    // sliced rebuild (§17.53) to fall back on.
+    if (open.length && Number.isFinite(this._gpuBudget)) return
     // At this author's own pen-down the stroke is already under way but has
     // painted nothing yet: only a peer's unrecorded ink can be on the layer.
     if (opId === undefined
@@ -5947,6 +5970,7 @@ export class PencilEngine implements PencilEngineAPI {
       return { buffer: copy, originX: t.originX, originY: t.originY }
     })
     this._washBoundaries.set(layerId, { opIds: prefix.map(o => o.id), copies, washes })
+    this._lastBoundaryCheckpoint.set(layerId, nowMs)
     if (this._washBoundaryScheduled) return
     this._washBoundaryScheduled = true
     const schedule: (fn: () => void) => void =
@@ -6183,7 +6207,10 @@ export class PencilEngine implements PencilEngineAPI {
 
 
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
-    this._flushOpQueue() // (§17.58)
+    // (§17.58) Not with peers' operations still queued: landing them here was a
+    // multi-second hitch at every snapshot boundary; the layer stays dirty and
+    // goes with the next one.
+    if (this._opQueue.length) return null
     const buf = this._layers.get(layerId)
     if (!buf) return null
     // (#536, §17.59) Never with a wash on it that may still be continued. A
@@ -6879,8 +6906,10 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _onStart(e: PointerData): void {
-    // (§17.58) This stroke comes after everything that has arrived.
-    this._flushOpQueue()
+    // (§17.58) Peers' queued watercolour stays queued: landing it here was a
+    // one-second hitch on the iPad right at the pen's touch. It lands after
+    // this stroke, one a frame - the same order this author already saw for
+    // anything arriving mid-stroke (#289); everyone else paints by the log.
     // See _paperTexLoaded's own field comment: painting before the real
     // paper texture has loaded would bake in the placeholder's flat,
     // meaningless response permanently. Blocking the stroke from starting
@@ -11890,7 +11919,14 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     this._settleSkipped = 0
-    const perTick = this._strokeLayerId ? 1 : PencilEngine.WET_SETTLE_OPS_PER_TICK
+    // (§17.58) ...and more a frame while peers' operations wait behind it and
+    // nobody is drawing here: one a frame is 0.5-1 s an operation on the
+    // iPad, and with three others painting their marks arrived up to ten
+    // seconds late.
+    // Only after an on-time frame, the same gate as the pen's: a late one means
+    // the device is already behind.
+    const perTick = this._strokeLayerId || late ? 1
+      : Math.min(this.settleBacklogMax, PencilEngine.WET_SETTLE_OPS_PER_TICK + this._opQueue.length)
     for (let k = 0; k < perTick && this._settle === s; k++) this._advanceSettle()
     if (this._settle === s) this._scheduleSettleTick()
   }

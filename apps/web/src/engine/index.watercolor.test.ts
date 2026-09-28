@@ -37,6 +37,11 @@ import {
 } from './testing/engineTestUtils'
 import type { PeerLivePacket } from './index'
 
+/** (§17.58) Lands the queue of peers' watercolour operations now. */
+function land(engine: PencilEngine): void {
+  (engine as unknown as { _flushOpQueue(): void })._flushOpQueue()
+}
+
 function setupLayer(width = 64, height = 64) {
   const { engine } = createTestEngine({ userId: 'user-a' }, { width, height })
   engine.appendOperation(makeLayerAdd('user-a', 'L'))
@@ -646,7 +651,7 @@ describe('a wash reaches every path that paints (#468)', () => {
         tool: 'watercolor', preset: 'normal:92:42:PB29', strokeId: `g${i}`, washId: `w${i}`,
       }), 'remote')
     }
-    engine.getOperations() // (§17.58) lands the queued ones
+    land(engine) // (§17.58) lands the queued ones
     // Bounded, and the survivors are the recent ones: an evicted wash goes back
     // to being a seam, which is what every ribbon tool did before washes.
     expect(markerReplayChunkCount(engine)).toBeLessThanOrEqual(4)
@@ -1059,11 +1064,13 @@ describe('a history batch that undoes its own stroke (#536 §17.49)', () => {
     const a = makeStroke('user-a', 'L', wcStroke(), { tool: 'watercolor', strokeId: 'g1' })
     const b = makeStroke('user-a', 'L', wcStroke(16, 40, 48, 40), { tool: 'watercolor', strokeId: 'g2' })
     const rebuild = vi.spyOn(engine as unknown as { _rebuildLayer: (id: string) => void }, '_rebuildLayer')
+    engine.suspendDisplay() // a history batch, as the room runs one
     engine.setUnpaintedInBatch(new Set([b.id]))
     engine.appendOperation(a, 'remote')
     engine.appendOperation(b, 'remote')
     engine.appendOperation(undoOf('u1', b.id), 'remote')
     engine.setUnpaintedInBatch(null)
+    engine.resumeDisplay()
     expect(rebuild).not.toHaveBeenCalled()
     expect(engine.getOperations().filter(o => o.type === 'stroke').map(o => o.id)).toEqual([a.id])
   })
@@ -1123,7 +1130,10 @@ describe("a peer's watercolour operation arriving live (#536 §17.52)", () => {
     engine.appendOperation(second, 'remote')
     // (§17.58) The second waits its turn rather than forcing the first to land.
     expect(inFlight!.next).toBeLessThan(inFlight!.ops.length)
+    // Counted as done, not landed for it (the room reads this every operation).
     expect(engine.getOperations().some(o => o.id === second.id)).toBe(true)
+    expect(inFlight!.next).toBeLessThan(inFlight!.ops.length)
+    land(engine)
     // Landing the queue ran the first to its end before the second painted.
     expect(inFlight!.next).toBe(inFlight!.ops.length)
   })
@@ -1150,6 +1160,7 @@ describe('an undo in a watercolour layer rebuilds it over slices (#536 §17.53)'
       engine.appendOperation(b, 'remote')
       const before = e._layers.get('L')
       engine.appendOperation({ id: 'u1', type: 'operation_undo', userId: 'user-a', timestamp: 0, targetOpId: b.id }, 'remote')
+      land(engine) // (§17.58) behind b in the queue
       // Nothing replayed synchronously: the old buffer is still the layer.
       expect(e._rebuildJobs.has('L')).toBe(true)
       expect(e._layers.get('L')).toBe(before)
@@ -1266,13 +1277,13 @@ describe('a participant’s earlier washes leave the replay cache (#536 §17.57)
     const wc = (user: string, washId: string, y: number) => makeStroke(user, 'L', [dab(16, y, { size: 16 }), dab(40, y, { size: 16 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: washId + y, washId })
     engine.appendOperation(wc('user-b', 'B1', 16), 'remote')
     engine.appendOperation(wc('user-c', 'C1', 32), 'remote')
-    engine.getOperations() // (§17.58) lands the queued ones
+    land(engine) // (§17.58) lands the queued ones
     expect([...e._replayRibbonChunks.keys()].sort()).toEqual(['B1', 'C1'])
     engine.appendOperation(wc('user-b', 'B2', 48), 'remote')
-    engine.getOperations()
+    land(engine)
     expect([...e._replayRibbonChunks.keys()].sort()).toEqual(['B2', 'C1'])
     engine.appendOperation(makeStroke('user-c', 'L', [dab(16, 56), dab(40, 56)], { tool: 'pencil' }), 'remote')
-    engine.getOperations()
+    land(engine)
     expect([...e._replayRibbonChunks.keys()]).toEqual(['B2'])
   })
 })
@@ -1282,7 +1293,7 @@ describe('a snapshot never holds half a wash (#536 §17.59)', () => {
     const engine = setupLayer()
     const t = Date.now()
     engine.appendOperation(makeStroke('user-b', 'L', [dab(16, 32, { size: 20 }), dab(40, 32, { size: 20 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's1', washId: 'W1', timestamp: t }), 'remote')
-    engine.getOperations()
+    land(engine)
     expect(engine.bakeNetworkSnapshot('L')).toBeNull()
     engine.appendOperation({ id: 'dry1', type: 'paper_dry', userId: 'user-c', timestamp: t + 10 }, 'remote')
     expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
