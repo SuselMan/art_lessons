@@ -152,7 +152,7 @@ export class CheckpointStore {
    *  whole settle, 50 s frozen on the tablet ("после undo зависла комната").
    *  Those operations are in the checkpoint's pixels already (they are in
    *  the snapshot it was built on), so they are stepped over, not required. */
-  best(layerId: string, ops: readonly { id: string }[]): { cp: Checkpoint; start: number } | null {
+  best(layerId: string, ops: readonly WashOp[]): { cp: Checkpoint; start: number } | null {
     let inSnapshot: Set<string> | null = null
     for (const cp of this.list) {
       if (cp.layerId !== layerId || !cp.fromSnapshot || !cp.covered) continue
@@ -160,12 +160,15 @@ export class CheckpointStore {
       for (const id of cp.covered) inSnapshot.add(id)
     }
     let best: { cp: Checkpoint; start: number } | null = null
+    let spans: WashSpans | null = null
     for (const cp of this.list) {
       if (cp.layerId !== layerId) continue
       if (best && cp.opIds.length <= best.cp.opIds.length) continue
       if (cp.opIds.length > ops.length) continue
       const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
-      if (start >= 0) best = { cp, start }
+      if (start < 0) continue
+      if (!cp.fromSnapshot && crossesWash(spans ??= washSpans(ops), start)) continue
+      best = { cp, start }
     }
     return best
   }
@@ -173,14 +176,15 @@ export class CheckpointStore {
   /** (#536, §17.53) Where `cp`'s pixels reach in `ops` today, by the same
    *  rule as best(), or -1 when the log has moved away from it (an undo, a
    *  revoke). A sliced rebuild re-checks its checkpoint with this every slice. */
-  startOf(cp: Checkpoint, ops: readonly { id: string }[]): number {
+  startOf(cp: Checkpoint, ops: readonly WashOp[]): number {
     let inSnapshot: Set<string> | null = null
     for (const c of this.list) {
       if (c.layerId !== cp.layerId || !c.fromSnapshot || !c.covered) continue
       inSnapshot ??= new Set()
       for (const id of c.covered) inSnapshot.add(id)
     }
-    return checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
+    const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
+    return start >= 0 && !cp.fromSnapshot && crossesWash(washSpans(ops), start) ? -1 : start
   }
 
   /** (#479) Backfill has put these operations in the log: record, on every
@@ -211,6 +215,37 @@ export class CheckpointStore {
       this.bytes -= bytesOf(evicted)
     }
   }
+}
+
+/** An operation as the wash rule sees it: stroke operations of a watercolour
+ *  wash carry its id. */
+export interface WashOp { id: string; washId?: string }
+
+type WashSpans = Array<[number, number]>
+
+/** (#536, §17.55) Each wash's first and last index in `ops`. */
+export function washSpans(ops: readonly WashOp[]): WashSpans {
+  const at = new Map<string, [number, number]>()
+  for (let i = 0; i < ops.length; i++) {
+    const w = ops[i].washId
+    if (!w) continue
+    const s = at.get(w)
+    if (s) s[1] = i
+    else at.set(w, [i, i])
+  }
+  return [...at.values()]
+}
+
+/** (#536, §17.55) Whether a wash has operations on both sides of `start`:
+ *  a checkpoint there holds the wash half-dried in its pixels, and a replay
+ *  from it would begin the rest of the wash afresh over its own beginning
+ *  (#468). Checked where a checkpoint is USED, from the log as it stands,
+ *  so no rule about when one is taken can make it wrong - a pencil stroke
+ *  checkpointing while someone else's wash was open used to. The snapshot
+ *  floor is exempt: nothing earlier exists to replay from. */
+export function crossesWash(spans: WashSpans, start: number): boolean {
+  for (const [first, last] of spans) if (first < start && last >= start) return true
+  return false
 }
 
 /** (#536, §17.49) Where a checkpoint's operations end in `ops`, or -1 when

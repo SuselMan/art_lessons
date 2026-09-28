@@ -100,3 +100,34 @@ describe('best', () => {
     expect(store.best('L', [{ id: 'x' }])?.cp.fromSnapshot).toBe(true)
   })
 })
+
+// (#536, §17.55) A checkpoint inside a watercolour wash is no base to replay
+// the rest of that wash from, whatever rule took it.
+describe('a watercolour wash across a checkpoint', () => {
+  const ops = [{ id: 'a', washId: 'W1' }, { id: 'b', washId: 'W1' }, { id: 'c', washId: 'W2' }, { id: 'd' }]
+
+  it('rejects a checkpoint the wash runs through, and takes one before it', () => {
+    const store = new CheckpointStore(1000)
+    store.add(cp('L', ['a']))
+    store.add(cp('L', ['a', 'b']))
+    store.add(cp('L', ['a', 'b', 'c']))
+    // W2 ends at c, so after c nothing crosses; 'a' alone would split W1.
+    expect(store.best('L', ops)?.start).toBe(3)
+    const moreOfW2 = [...ops, { id: 'e', washId: 'W2' }]
+    expect(store.best('L', moreOfW2)?.start).toBe(2)
+  })
+
+  it('says a running rebuild’s checkpoint stopped holding once the wash grows past it', () => {
+    const store = new CheckpointStore(1000)
+    const at = cp('L', ['a', 'b'])
+    store.add(at)
+    expect(store.startOf(at, ops)).toBe(2)
+    expect(store.startOf(at, [...ops, { id: 'e', washId: 'W1' }])).toBe(-1)
+  })
+
+  it('leaves the snapshot floor alone', () => {
+    const store = new CheckpointStore(1000)
+    store.pinSnapshot('L', [tile(10)], 0)
+    expect(store.best('L', ops)?.start).toBe(0)
+  })
+})

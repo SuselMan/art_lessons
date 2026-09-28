@@ -1175,3 +1175,43 @@ describe('an undo in a watercolour layer rebuilds it over slices (#536 §17.53)'
     }
   })
 })
+
+describe('a checkpoint between two washes (#536 §17.55)', () => {
+  it('copies the layer just before a new wash paints, and a rebuild starts there', () => {
+    vi.useFakeTimers()
+    try {
+      const engine = setupLayer()
+      const e = engine as unknown as { _checkpoints: { best: (l: string, ops: unknown[]) => { start: number } | null }; _log: { layerPixelOps: (l: string) => unknown[] } }
+      const t0 = Date.now()
+      const w1 = [0, 1, 2].map(i => makeStroke('user-a', 'L', [dab(16 + i * 8, 32, { size: 20 }), dab(20 + i * 8, 32, { size: 20 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'a' + i, washId: 'W1', timestamp: t0 + i }))
+      for (const op of w1) engine.appendOperation(op, 'remote')
+      vi.runAllTimers()
+      expect(e._checkpoints.best('L', e._log.layerPixelOps('L'))).toBeNull()
+      const w2 = makeStroke('user-a', 'L', [dab(16, 48, { size: 20 }), dab(32, 48, { size: 20 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'b0', washId: 'W2', timestamp: t0 + 10 })
+      engine.appendOperation(w2, 'remote')
+      vi.runAllTimers()
+      expect(e._checkpoints.best('L', e._log.layerPixelOps('L'))?.start).toBe(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('takes none while another participant’s wash may still be joined', () => {
+    vi.useFakeTimers()
+    try {
+      const engine = setupLayer()
+      const e = engine as unknown as { _checkpoints: { all: () => unknown[] } }
+      const t0 = Date.now()
+      const ops = [
+        makeStroke('user-b', 'L', [dab(40, 16, { size: 20 }), dab(48, 16, { size: 20 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'x', washId: 'WB', timestamp: t0 }),
+        ...[0, 1, 2].map(i => makeStroke('user-a', 'L', [dab(16 + i * 8, 32, { size: 20 }), dab(20 + i * 8, 32, { size: 20 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'a' + i, washId: 'W1', timestamp: t0 + 1 + i })),
+        makeStroke('user-a', 'L', [dab(16, 48, { size: 20 }), dab(32, 48, { size: 20 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 'b0', washId: 'W2', timestamp: t0 + 10 }),
+      ]
+      for (const op of ops) engine.appendOperation(op, 'remote')
+      vi.runAllTimers()
+      expect(e._checkpoints.all()).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

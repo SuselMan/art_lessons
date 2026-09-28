@@ -1577,6 +1577,12 @@ const WASH_JOIN_MS = 100000
  *  lifted for an instant mid-band; it is the old, purely temporal rule kept as
  *  a floor beneath the physical one. */
 const WASH_RECENT_MS = 1200
+/** (#536, §17.55) Pixel operations since the layer's last usable checkpoint
+ *  before a wash boundary is worth a tile copy. */
+const WASH_CHECKPOINT_MIN_OPS = 3
+/** (§17.55) How far apart two participants' clocks may be when their
+ *  timestamps are compared to decide a wash can no longer be rejoined. */
+const WASH_CLOCK_SKEW_MS = 10000
 
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
@@ -2408,6 +2414,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  behaviour this had for every tool before washes existed. */
   /** (§17.53) Sliced layer rebuilds in progress, by layer. */
   private _rebuildJobs = new Map<string, RebuildJob>()
+  /** (#536, §17.55) Tile copies taken just before a new wash's first
+   *  operation, packed into a checkpoint at the next idle moment. One per
+   *  layer: a newer boundary replaces an unpacked older one, so a history
+   *  batch holds a single copy, not one per wash. */
+  private _washBoundaries = new Map<string, { opIds: string[]; copies: Array<{ buffer: AccumulationBuffer; originX: number; originY: number }> }>()
+  private _washBoundaryScheduled = false
   private _replayRibbonChunks = new Map<string, {
     /** The grouping key: a wash id where the stroke has one, its gesture id
      *  otherwise (#468 v7). */
@@ -3448,6 +3460,9 @@ export class PencilEngine implements PencilEngineAPI {
         if (buf && this._snapshots.isCovered(op.layerId, op.seq)) {
           this._log.revoke(op.id)
           break
+        }
+        if (buf && source === 'remote' && op.tool === 'watercolor' && op.washId) {
+          this._checkpointBeforeWash(op.layerId, op.washId, op.userId, op.timestamp, op.id)
         }
         if (buf) {
           // Smudge (#416) needs no seeding here anymore: an operation is
@@ -4715,6 +4730,7 @@ export class PencilEngine implements PencilEngineAPI {
   destroy(): void {
     this._destroyed = true
     for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
+    this._dropWashBoundaries() // (§17.55)
     // Dwell (#245): the one non-rAF timer this engine owns — must not
     // outlive destroy() (e.g. a component unmounting mid-stroke).
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
@@ -5550,6 +5566,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.53) Their buffers died with the context; the restore rebuilds.
     for (const job of this._rebuildJobs.values()) if (job.timer) clearTimeout(job.timer)
     this._rebuildJobs.clear()
+    this._washBoundaries.clear() // (§17.55) their textures went with the context
     this._contextLost = false
     this._initGL()
     // The dead gl context already took the previous _paperTex (placeholder
@@ -5689,6 +5706,84 @@ export class PencilEngine implements PencilEngineAPI {
    *  checkpoint whose opIds are an exact prefix of the current done ops, so
    *  replaying that checkpoint's excluded tail is exactly what brings a
    *  later tile into existence again, the same as it did the first time. */
+  /** (#536, §17.55) A watercolour wash never lets a checkpoint in: its
+   *  strokes share one accumulation, so the picture halfway through it is
+   *  no base to replay the rest from (#468). With the paper wet for two
+   *  minutes, one participant's washes follow each other with no gap, and a
+   *  layer went a whole lesson without a checkpoint - every undo replayed it
+   *  all (5 s on the laptop, 22 s on the iPad, a GPU reset on the Surface).
+   *
+   *  The one moment between two washes is just before the new one's first
+   *  operation paints. The tiles are copied on the GPU now (no stall) and
+   *  packed at the next idle moment. Only when no other wash on the layer
+   *  may still be open - by the operations' own timestamps, against the
+   *  longest a wash can be rejoined; that is a guess, and CheckpointStore
+   *  checks the log itself when the checkpoint is used (crossesWash). */
+  private _checkpointBeforeWash(layerId: string, washId: string, userId: string, now: number, opId?: string): void {
+    if (this._contextLost || this._destroyed) return
+    if (this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)) return
+    const buf = this._layers.get(layerId)
+    if (!buf) return
+    const all = this._log.layerPixelOps(layerId)
+    // The operation itself is in the log already; it must be the last one, or
+    // what is on screen is not the prefix before it (#289).
+    const end = opId === undefined ? all.length : all.length - 1
+    if (opId !== undefined && all[end]?.id !== opId) return
+    const prefix = all.slice(0, end)
+    if (prefix.length - (this._checkpoints.best(layerId, prefix)?.start ?? 0) < WASH_CHECKPOINT_MIN_OPS) return
+    const lastAt = new Map<string, { at: number; user: string }>()
+    const latestOf = new Map<string, string>()
+    for (const o of prefix) {
+      if (o.type !== 'stroke' || !o.washId) continue
+      lastAt.set(o.washId, { at: o.timestamp, user: o.userId })
+      latestOf.set(o.userId, o.washId)
+    }
+    if (lastAt.has(washId)) return
+    for (const [w, { at, user }] of lastAt) {
+      if (user === userId || latestOf.get(user) !== w) continue
+      if (now - at <= WASH_JOIN_MS + WASH_CLOCK_SKEW_MS) return
+    }
+    // At this author's own pen-down the stroke is already under way but has
+    // painted nothing yet: only a peer's unrecorded ink can be on the layer.
+    if (opId === undefined
+      ? [...this._peerLiveStrokes.values()].some(l => l.layerId === layerId && l.paintedTotal > l.committedOffset)
+      : this._hasUnrecordedInk(layerId)) return
+    const pending = this._washBoundaries.get(layerId)
+    if (pending) for (const c of pending.copies) c.buffer.destroy()
+    const copies = buf.allResident().map(t => {
+      const copy = new AccumulationBuffer(this.gl, t.buffer.width, t.buffer.height, 'nearest')
+      t.buffer.copyTo(copy)
+      return { buffer: copy, originX: t.originX, originY: t.originY }
+    })
+    this._washBoundaries.set(layerId, { opIds: prefix.map(o => o.id), copies })
+    if (this._washBoundaryScheduled) return
+    this._washBoundaryScheduled = true
+    const schedule: (fn: () => void) => void =
+      typeof requestIdleCallback === 'function' ? requestIdleCallback : fn => setTimeout(fn, 0)
+    schedule(() => this._packWashBoundaries())
+  }
+
+  private _packWashBoundaries(): void {
+    this._washBoundaryScheduled = false
+    const all = [...this._washBoundaries]
+    this._washBoundaries.clear()
+    for (const [layerId, { opIds, copies }] of all) {
+      if (!this._contextLost && !this._destroyed && copies.length) {
+        const tiles = copies.map(({ buffer, originX, originY }) => ({
+          originX, originY, width: buffer.width, height: buffer.height,
+          packed: packTilePixels(buffer.readPixels()),
+        }))
+        this._checkpoints.add({ layerId, opIds, tiles })
+      }
+      if (!this._contextLost) for (const c of copies) c.buffer.destroy()
+    }
+  }
+
+  private _dropWashBoundaries(): void {
+    if (!this._contextLost) for (const { copies } of this._washBoundaries.values()) for (const c of copies) c.buffer.destroy()
+    this._washBoundaries.clear()
+  }
+
   private _takeCheckpoint(layerId: string): void {
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
     // what the log no longer has (the undone stroke): never bake it.
@@ -6087,6 +6182,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _destroyBuffer(id: string): void {
     this._cancelRebuildJob(id) // (§17.53)
+    const boundary = this._washBoundaries.get(id) // (§17.55)
+    if (boundary) { for (const c of boundary.copies) c.buffer.destroy(); this._washBoundaries.delete(id) }
     const buf = this._layers.get(id)
     if (buf) {
       this._sweepReveals(performance.now(), id)
@@ -6585,6 +6682,7 @@ export class PencilEngine implements PencilEngineAPI {
       } else {
         this._wash?.scratch.destroy()
         this._washId = nanoid(10)
+        this._checkpointBeforeWash(layerId, this._washId, this._userId, Date.now())
         this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
         this._wash = {
           id: this._washId, layerId, signature: washSignature,
