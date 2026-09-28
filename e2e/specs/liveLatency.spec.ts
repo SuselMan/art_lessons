@@ -42,7 +42,12 @@ test('a peer’s live stroke is timed pen to ink, and on localhost it is within 
       // is never less than its network-and-paint part.
       expect(stats.p50).toBeGreaterThan(-5)
       expect(stats.p95).toBeGreaterThanOrEqual(stats.sendP95)
-      expect(stats.p95, `pen→ink p95 ${stats.p95} ms`).toBeLessThan(BUDGET_MS)
+      // The budget only on a GPU: in the software run (#616) painting a frame is
+      // itself most of the time measured, and that is the rasteriser's number,
+      // not the ink's.
+      if (process.env.E2E_GL !== 'swiftshader') {
+        expect(stats.p95, `pen→ink p95 ${stats.p95} ms`).toBeLessThan(BUDGET_MS)
+      }
     } finally {
       await student.close()
     }
