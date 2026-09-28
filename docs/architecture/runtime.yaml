@@ -226,7 +226,7 @@ links:
     messages:
       - { dir: '→', name: create_room, type: 'Room, JoinResult', note: 'ответ через ack' }
       - { dir: '→', name: join_room, type: 'JoinResult', note: 'в запросе — последний известный seq' }
-      - { dir: '→', name: operation, type: 'Operation, SendResult', note: 'главный канал: штрихи и любые правки', runtime: 'права и заморозка проверяются, форма — нет' }
+      - { dir: '→', name: operation, type: 'Operation, SendResult', note: 'главный канал: штрихи и любые правки. Штрих — StrokeOperation: слой, инструмент, цвет и массив Dab — отпечатков кисти (координаты, нажим, наклон, размер), а не пиксели', runtime: 'права и заморозка проверяются, форма — нет' }
       - { dir: '→', name: stroke_live, type: 'StrokeLiveData', note: 'дабы, пока рука ещё ведёт' }
       - { dir: '→', name: stroke_live_end, type: 'strokeId' }
       - { dir: '→', name: cursor_move, type: 'CursorMoveData' }
