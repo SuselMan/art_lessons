@@ -8,23 +8,19 @@ import { nanoid } from 'nanoid'
 import type {
   LayerState, Operation, Participant,
   SendResult, ClientToServerEvents, ServerToClientEvents,
-  BoardSummary, ClassVisibility,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, type ToggleableTool } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS } from '@grafetto/shared'
 import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
 import { SidePanel } from '../../components/SidePanel'
-import {
-  ColorFlyout, ColorFlyoutBody, type ColorFlyoutContent, type ColorPairControls,
-} from '../../components/ColorFlyout'
+import { ColorFlyout, ColorFlyoutBody } from '../../components/ColorFlyout'
 import { Notice } from '../../components/Notice'
 import { BoardStrip, TeacherChip } from './BoardStrip'
 import { ClassBar, ClassGrid } from './ClassGrid'
 import { ClassPlaces } from './ClassPlaces'
 import { createPreviewSchedule } from './previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
-import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
@@ -39,7 +35,6 @@ import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '..
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { diagLog } from '../../lib/diagLog'
 import { formatHotkeyLabel } from '../../lib/hotkeys'
-import { createBoard, deleteBoard, forkRoom, renameBoard, reorderBoard, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { BANNED_ERROR_CODE, noteBanned } from '../../lib/banned'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -69,6 +64,10 @@ import { usePaperReadiness } from './usePaperReadiness'
 import { useOpenTimer } from './useOpenTimer'
 import { useLeaveGuard } from './useLeaveGuard'
 import { useToolSync } from './useToolSync'
+import { useToolColor } from './useToolColor'
+import { useLessonActions } from './useLessonActions'
+import { useBoardActions } from './useBoardActions'
+import { useClassView } from './useClassView'
 import { useLogDerivedState } from './useLogDerivedState'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
@@ -116,10 +115,8 @@ import { NoWebGL } from './NoWebGL'
 import { probeWebGL } from '../../lib/webgl'
 import {
   loadToolSettings, saveToolSettings,
-  getToolColor, isColorCapableTool, type ColorCapableTool,
-  isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
+  isShapeTool, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
 } from './toolSchemas'
-import { colorWellState, effectiveSwatch } from './colorWell'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { TOOL_PHOTOS } from './toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
@@ -127,13 +124,6 @@ import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
-import {
-  activeBoardPayload, followDestination, followingAfterPick, movedOrder, teacherBoardId,
-} from '../../lib/boards'
-import {
-  classGrid, followChip, isForeignPersonalBoard, isPersonalBoard, neighbourInGrid, ownBoardIn,
-  stripBoards,
-} from '../../lib/classMode'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
@@ -157,19 +147,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
   crosshair: styles.viewportCursorCrosshair,
   grab: styles.viewportCursorGrab,
   default: styles.viewportCursorDefault,
-}
-
-/** (#595) Where following leads a student right now, from the store — for
- *  the callbacks that decide it at the moment of the tap. */
-function destinationOf(s: {
-  lessonId: string | null; activeBoardId: string | null; spotlightBoardId: string | null
-  activeAssignmentId: string | null; boards: BoardSummary[]; userId: string
-}): string | null {
-  if (!s.lessonId) return null
-  return followDestination({
-    lessonId: s.lessonId, activeBoardId: s.activeBoardId, spotlightBoardId: s.spotlightBoardId,
-    ownAssignmentBoardId: ownBoardIn(s.boards, s.activeAssignmentId, s.userId)?.id ?? null,
-  })
 }
 
 // LAN dev server port (apps/server); derived from window.location.hostname
@@ -247,7 +224,6 @@ function RoomEditor() {
   // (#310) In-app replacements for the window.confirm/window.alert this
   // editor used to reach for. `alert` is renamed on the way in so a reader
   // can't mistake it for the global it replaces.
-  const { confirm, alert: showAlert } = useConfirmDialog()
 
   // (#24) The store is a module-level singleton — reset it before anything
   // below reads a selector, so a genuine unmount+remount (e.g. via an
@@ -565,9 +541,6 @@ function RoomEditor() {
   useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? '') }))
   const toolSettings = useRoomStore(s => s.toolSettings)
   const setToolSetting = useRoomStore(s => s.setToolSetting)
-  // (#529) Which of a shape's two colours every colour control is acting on.
-  const shapeSwatch = useRoomStore(s => s.shapeSwatch)
-  const setShapeSwatch = useRoomStore(s => s.setShapeSwatch)
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
   // front pattern as toolSettings above; null until the panel's
   // ever been dragged in this room, in which case it renders at its
@@ -885,224 +858,34 @@ function RoomEditor() {
   const roomFrozen = useRoomStore(s => s.roomFrozen)
   const isBlockedByFreeze = !isOwner && (roomFrozen || !!myParticipant?.frozen)
 
-  // ── boards (#176, ADR 014 §7 step 4) ─────────────────────────────────────
+  // ── boards and class mode (#176, #595) ─────────────────────────────────
+  // Hoisted from the engine refs below: both hooks send over it, and a ref
+  // named in a hook's arguments has to exist before the hook is called.
+  const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
+  // The store's own facts about the lesson, read where the markup uses them.
   const boards = useRoomStore(s => s.boards)
-  const activeBoardId = useRoomStore(s => s.activeBoardId)
-  const following = useRoomStore(s => s.following)
-  const [boardsOpen, setBoardsOpen] = useState(false)
-  // One request at a time from the "+": the board lands over REST *and* over
-  // the socket, and a second tap during the round trip would make two pages.
-  const [boardBusy, setBoardBusy] = useState(false)
-  /** The board the teacher is on — the lesson's own when `activeBoardId` is
-   *  null. Undefined until the lesson is known: computed from the store's
-   *  lesson id, not the URL-backed `lessonId` above, which before the first
-   *  room_state may still be a board's id. */
   const knownLessonId = useRoomStore(s => s.lessonId)
-  const teacherBoard = knownLessonId ? teacherBoardId({ id: knownLessonId, activeBoardId }) : undefined
-  // ── class mode (#595, ADR 015 §6, §11) ──────────────────────────────────
-  // What the server put in `boards` is already what this person may see; the
-  // split below is only about where each board goes on screen.
   const assignments = useRoomStore(s => s.assignments)
   const activeAssignmentId = useRoomStore(s => s.activeAssignmentId)
   const spotlightBoardId = useRoomStore(s => s.spotlightBoardId)
   const classVisibility = useRoomStore(s => s.classVisibility)
   const handsRaised = useRoomStore(s => s.handsRaised)
-  /** The assignment whose works the big grid is showing; null — closed. */
-  const [gridAssignmentId, setGridAssignmentId] = useState<string | null>(null)
-  const [assignmentBusy, setAssignmentBusy] = useState(false)
-  const presentUserIds = useMemo(() => new Set(participants.map(p => p.userId)), [participants])
-  const currentBoardSummary = boards.find(b => b.id === boardId)
-  const onPersonalBoard = currentBoardSummary !== undefined && isPersonalBoard(currentBoardSummary)
-  const ownAssignmentBoardId = ownBoardIn(boards, activeAssignmentId, myUserId)?.id ?? null
-  /** The grid, and the teacher's ‹ › on a student's board, both walk the works
-   *  of one assignment: the grid's own, the board's own. */
-  const gridAssignment = assignments.find(a => a.id === gridAssignmentId) ?? null
-  const gridTiles = useMemo(
-    () => classGrid(boards, gridAssignmentId, presentUserIds, handsRaised),
-    [boards, gridAssignmentId, presentUserIds, handsRaised],
-  )
-  const barTiles = useMemo(
-    () => classGrid(boards, currentBoardSummary?.assignmentId ?? null, presentUserIds, handsRaised),
-    [boards, currentBoardSummary?.assignmentId, presentUserIds, handsRaised],
-  )
-  /** A student's own board in each assignment they have one in — the Class
-   *  tab's "my boards". */
-  const ownBoards = useMemo(() => {
-    const own = new Map<string, string>()
-    for (const b of boards) if (b.ownerId === myUserId && b.assignmentId) own.set(b.assignmentId, b.id)
-    return own
-  }, [boards, myUserId])
-  /** The teacher's way to a student's work from the participants list: their
-   *  board where the class is, else in the latest assignment they have one in. */
-  const workOf = useCallback((userId: string) => {
-    const s = useRoomStore.getState()
-    const byOrder = [...s.assignments].sort((a, b) => b.order - a.order).map(a => a.id)
-    for (const assignmentId of [s.activeAssignmentId, ...byOrder]) {
-      const own = ownBoardIn(s.boards, assignmentId, userId)
-      if (own) return own.id
-    }
-    return undefined
-  }, [])
-  /** A classmate's work this client was let in to look at: drawing on it is
-   *  refused server-side (`board_not_yours`), so it is shown closed. */
-  const readOnlyBoard = isForeignPersonalBoard(currentBoardSummary, myUserId, isOwner)
-  const myHandRaised = handsRaised.includes(myUserId)
-  /** Raised hands of people present — the Class tab's badge counts them. */
-  const handsUp = handsRaised.filter(id => presentUserIds.has(id)).length
-  const followDest = knownLessonId
-    ? followDestination({ lessonId: knownLessonId, activeBoardId, spotlightBoardId, ownAssignmentBoardId })
-    : undefined
-  /** "All works" is the teacher's always; a student's only when the lesson
-   *  shows work to the class. Not in the phone shell, which only watches. */
-  const canOpenGrid = !compact && (isOwner || classVisibility === 'class')
-  /** "Учитель смотрит вашу работу": the teacher is on this student's own board. */
-  const teacherOnMyBoard = !isOwner && onPersonalBoard && currentBoardSummary?.ownerId === myUserId
-    && participants.some(p => p.role === 'owner' && p.boardId === boardId)
-  /** The strip is the lesson's pages only — personal boards live in the Class tab. */
-  const stripList = useMemo(() => stripBoards(boards), [boards])
-
-  /** (#176) The strip is offered when there is something to turn to, or to
-   *  the owner who can make it so. The phone shell (#512) only turns pages —
-   *  for the owner too, so there it needs a second board to be worth opening. */
-  const stripAvailable = compact ? stripList.length > 1 : (isOwner || stripList.length > 1)
-  const showTeacherChip = !isOwner && !following && followDest !== undefined && followDest !== boardId
-  const chip = followDest === undefined ? null : followChip({
-    destination: followDest, spotlightBoardId, ownAssignmentBoardId, boards,
+  // (#493) The strip's page turns and edits — see useBoardActions.
+  const {
+    boardsOpen, setBoardsOpen, boardBusy, selectBoard, returnToTeacher, addBoard, renameBoardAction, moveBoard,
+    removeBoard,
+  } = useBoardActions({ socketRef, switchBoardRef, isOwnerRef })
+  // (#493) Where each board goes on screen, and the class-mode requests — see
+  // useClassView.
+  const {
+    teacherBoard, gridAssignmentId, setGridAssignmentId, assignmentBusy, currentBoardSummary, onPersonalBoard,
+    ownAssignmentBoardId, gridAssignment, gridTiles, barTiles, ownBoards, workOf, readOnlyBoard, myHandRaised,
+    handsUp, canOpenGrid, teacherOnMyBoard, stripList, stripAvailable, showTeacherChip, chipText,
+    openClassBoard, startAssignment, setClassLocation, setSpotlight, setHandRaised, setClassVisibility,
+    stepInGrid,
+  } = useClassView({
+    socketRef, switchBoardRef, isOwnerRef, selectBoard, boardId, participants, myUserId, isOwner, compact,
   })
-  const chipText = chip === null ? null
-    : chip.kind === 'spotlight' ? t('class.chipSpotlight', { name: chip.name })
-      : chip.kind === 'ownWork' ? t('class.chipOwnWork')
-        : t('boards.teacherOn', { name: chip.name })
-  /** A page turn by hand. The owner's turn is also the class's: their board
-   *  becomes the active one (persisted server-side, broadcast as
-   *  `active_board_changed`). A student's turn decides whether they are still
-   *  following — see followingAfterPick. */
-  const selectBoard = useCallback((next: string) => {
-    const s = useRoomStore.getState()
-    if (!s.lessonId) return
-    if (isOwnerRef.current) {
-      const payload = activeBoardPayload(next, s.lessonId)
-      s.setActiveBoardId(payload)
-      socketRef.current?.emit('set_active_board', { boardId: payload })
-    } else {
-      // (#595) "Where following leads" is not always the teacher's board any
-      // more — during a round it is the student's own.
-      s.setFollowing(followingAfterPick(next, destinationOf(s) ?? s.lessonId))
-    }
-    switchBoardRef.current?.(next)
-  }, [])
-  /** The chip: back to the teacher, following on again. */
-  const returnToTeacher = useCallback(() => {
-    const s = useRoomStore.getState()
-    if (!s.lessonId) return
-    s.setFollowing(true)
-    switchBoardRef.current?.(destinationOf(s) ?? s.lessonId)
-  }, [])
-  /** (#595) A board opened from the class grid, the Class tab or the
-   *  teacher's ‹ ›. For the teacher it is a visit, not a page turn: an ordinary
-   *  join, never `set_active_board` — the class must not be sent to a
-   *  student's work because the teacher went to look at it (ADR 015 §4). A
-   *  student going to a board by hand is stepping away, like any pick. */
-  const openClassBoard = useCallback((next: string) => {
-    setGridAssignmentId(null)
-    if (isOwnerRef.current) switchBoardRef.current?.(next)
-    else selectBoard(next)
-  }, [selectBoard])
-  const startAssignment = useCallback((name: string) => {
-    const socket = socketRef.current
-    if (!socket || assignmentBusy) return
-    setAssignmentBusy(true)
-    socket.emit('assignment_start', { name }, result => {
-      setAssignmentBusy(false)
-      if (!result.ok) notifyError(t('class.error.start'), { key: 'assignment-start' })
-    })
-  }, [assignmentBusy, t])
-  /** (ADR 015 §11) Moves the class: to an assignment, or (null) "Все ко мне". */
-  const setClassLocation = useCallback((assignmentId: string | null) => {
-    socketRef.current?.emit('set_class_location', { assignmentId })
-    setGridAssignmentId(null)
-  }, [])
-  const setSpotlight = useCallback((target: string | null) => {
-    socketRef.current?.emit('set_spotlight', { boardId: target })
-  }, [])
-  const setHandRaised = useCallback((raised: boolean, whose?: string) => {
-    socketRef.current?.emit('set_hand_raised', whose ? { raised, userId: whose } : { raised })
-  }, [])
-  const setClassVisibility = useCallback((value: ClassVisibility) => {
-    socketRef.current?.emit('set_class_visibility', { value })
-  }, [])
-  const stepInGrid = useCallback((step: -1 | 1) => {
-    if (!boardId) return
-    const next = neighbourInGrid(barTiles, boardId, step)
-    if (next) switchBoardRef.current?.(next)
-  }, [boardId, barTiles])
-  const addBoard = useCallback(async () => {
-    const lesson = useRoomStore.getState().lessonId
-    if (!lesson || boardBusy) return
-    setBoardBusy(true)
-    try {
-      const board = await createBoard(lesson)
-      // The broadcast delivers it too; the reducer merges by id.
-      useRoomStore.getState().applyBoardsAction({ type: 'board_created', board })
-      selectBoard(board.id)
-    } catch {
-      notifyError(t('boards.error.create'), { key: 'board-create' })
-    } finally {
-      setBoardBusy(false)
-    }
-  }, [boardBusy, selectBoard, t])
-  const renameBoardAction = useCallback(async (target: string, name: string) => {
-    const s = useRoomStore.getState()
-    const lesson = s.lessonId
-    const previous = s.boards.find(b => b.id === target)?.name
-    if (!lesson || previous === undefined) return
-    // Optimistic, like the header's own rename: the field is already gone.
-    s.applyBoardsAction({ type: 'board_renamed', boardId: target, name })
-    if (target === lesson) s.setRoomName(name)
-    try {
-      await renameBoard(lesson, target, name)
-    } catch {
-      useRoomStore.getState().applyBoardsAction({ type: 'board_renamed', boardId: target, name: previous })
-      if (target === lesson) useRoomStore.getState().setRoomName(previous)
-      notifyError(t('boards.error.rename'), { key: 'board-rename' })
-    }
-  }, [t])
-  const moveBoard = useCallback(async (target: string, direction: -1 | 1) => {
-    const s = useRoomStore.getState()
-    const lesson = s.lessonId
-    if (!lesson) return
-    const before = s.boards.map(b => b.id)
-    const order = movedOrder(s.boards, target, direction, lesson)
-    if (!order) return
-    s.applyBoardsAction({ type: 'boards_reordered', order })
-    try {
-      await reorderBoard(lesson, target, order.indexOf(target))
-    } catch {
-      useRoomStore.getState().applyBoardsAction({ type: 'boards_reordered', order: before })
-      notifyError(t('boards.error.reorder'), { key: 'board-reorder' })
-    }
-  }, [t])
-  /** Hard delete, so it asks first — the same dialog shape as clearing a
-   *  layer (#171). The strip updates from the `board_deleted` broadcast, and
-   *  anyone on the board is moved by the server before it arrives. */
-  const removeBoard = useCallback(async (target: string) => {
-    const s = useRoomStore.getState()
-    const lesson = s.lessonId
-    const board = s.boards.find(b => b.id === target)
-    if (!lesson || !board || target === lesson) return
-    const ok = await confirm({
-      title: t('boards.deleteTitle', { name: board.name }),
-      message: t('boards.deleteMessage'),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    })
-    if (!ok) return
-    try {
-      await deleteBoard(lesson, target)
-    } catch {
-      notifyError(t('boards.error.delete'), { key: 'board-delete' })
-    }
-  }, [confirm, t])
   // (#222) Closed for editing — the lesson has been handed out and stopped
   // changing. Deliberately *not* `!isOwner`: the server binds the owner too
   // (see getOperationRejectReason in rooms.ts), and a client gate that let
@@ -1159,7 +942,6 @@ function RoomEditor() {
     tool,
   })
 
-  const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   // (#24) userId lives in the store now (roomSlice) but is deliberately
   // never read reactively — it's only ever needed at "moment of action"
   // (e.g. stamping an operation), same non-reactive-ref-like usage as
@@ -2145,108 +1927,13 @@ function RoomEditor() {
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
   const { cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
     useToolSync({ engineRef, engineEpoch })
-  // Which tool's own color field the "Color" SidePanel tab, the palette
-  // swatches, FloatingToolPanel's color dot and the eyedropper all read and
-  // write — lastDrawingTool rather than `tool` directly, so it still reflects
-  // liner/marker while eraser/smudge is briefly active on top of it, same
-  // reasoning as lastDrawingTool itself (see toolSlice.ts). Typed as
-  // ColorCapableTool (toolSchemas.ts), the capability these consumers
-  // actually depend on — not re-listing pencil/liner/marker by hand here.
-  //
-  // (#453) The fill broke the "always a drawing tool" assumption: it owns a
-  // colour and is not a DrawingTool, so falling through to `lastDrawingTool`
-  // pointed every colour control at the pencil while the bucket was in hand —
-  // the picker moved a swatch and the next fill came out the old colour. The
-  // question this answers is "whose colour am I editing", so it asks the
-  // capability (isColorCapableTool) of the tool actually selected, and only
-  // falls back for the tools that own no colour at all.
-  // (#529) Choosing a colour also switches that swatch back on.
-  //
-  // Only the shapes have a swatch to switch on, and this is the whole of what
-  // "off" means for them — an explicit absence, not a transparent colour. A
-  // person who reaches for the palette with an empty fill selected is asking
-  // for a fill; making them press the crossed-out circle again first would be
-  // an extra step whose only outcome is the one they already chose (Ilya,
-  // 05.09).
-  //
-  // (#542) Through `effectiveSwatch`, not the stored one: with a line in hand
-  // and the fill selected the stored value names a colour the tool cannot draw,
-  // and a pick landing there would vanish without a trace.
-  const applyToolColor = useCallback((toolId: ColorCapableTool, value: [number, number, number]) => {
-    const settings = useRoomStore.getState().toolSettings
-    const swatch = effectiveSwatch(settings, toolId, shapeSwatch)
-    setToolSetting(toolId, toolColorField(toolId, swatch), value)
-    if (isShapeTool(toolId)) setToolSetting(toolId, swatch === 'fill' ? 'fillOn' : 'strokeOn', true)
-  }, [setToolSetting, shapeSwatch])
-
-  const colorTool: ColorCapableTool = isColorCapableTool(tool) ? tool : lastDrawingTool
-  const colorToolColor = getToolColor(toolSettings, colorTool, effectiveSwatch(toolSettings, colorTool, shapeSwatch))
-  // (#405) Where a picked colour lands: the tool the eyedropper hands the
-  // canvas back to, if that tool owns a colour at all. The issue asks for the
-  // colour to be written "into the tool you returned to" — for the eraser or
-  // smudge there is no such field, so it falls through to `colorTool`, the
-  // same slot the picker and the palette are already editing, rather than
-  // being silently dropped. Deliberately the same expression `activeColor`
-  // below feeds the engine, so the swatch that lights up is the colour the
-  // next stroke will actually use.
-  const pickedColorTool: ColorCapableTool = isColorCapableTool(drawingTool) ? drawingTool : colorTool
-  // Which shape the picker takes is a per-person preference, so it comes from
-  // settingsStore, not the room store — the latter is wiped on every Room
-  // mount (#337).
-  const colorPickerMode = useSettingsStore(s => s.colorPickerMode)
-  const setColorPickerMode = useSettingsStore(s => s.setColorPickerMode)
-  // Falls back to colorTool's color for eraser/smudge, which have no color
-  // field of their own — the engine keeps one current color regardless of
-  // which tool is active, so it should already hold what the next drawing
-  // stroke will use.
-  const activeColor = getToolColor(toolSettings, pickedColorTool, effectiveSwatch(toolSettings, pickedColorTool, shapeSwatch))
-  useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor, engineEpoch])
-
-  // ── the colour well (#542) ──────────────────────────────────────────────────
-  //
-  // One glyph and one flyout serve every tool, so what the well shows is
-  // resolved once — in colorWell.ts, which is also the only part of this
-  // reachable from a unit test — instead of being assembled again at each
-  // surface that shows a colour.
-  //
-  // `colorTool` already falls back to the last drawing tool for the eraser and
-  // the smudge, so the well is never empty and never disabled: with a rubber in
-  // hand it shows — and edits — the colour the next stroke will use. That is
-  // the same slot the picker has always been editing in that state; what
-  // changes is only that it is now visible instead of one tab away.
-  const well = colorWellState(toolSettings, colorTool, shapeSwatch)
-  const wellLabel = well.pair
-    ? t(well.pair.active === 'fill' ? 'room.shape.fill' : 'room.shape.stroke')
-    : t('room.panel.color')
-
-  const swapShapeColors = useCallback(() => {
-    // Trades the colours themselves, not which one is selected — the same
-    // thing X does in every other editor, and the reason it is a swap rather
-    // than two edits is that the pair is what the user is looking at.
-    const settings = useRoomStore.getState().toolSettings
-    const stroke = getToolColor(settings, 'shape', 'stroke')
-    const fill = getToolColor(settings, 'shape', 'fill')
-    const strokeOn = settings.shape.strokeOn !== false
-    const fillOn = settings.shape.fillOn === true
-    setToolSetting('shape', 'strokeColor', fill)
-    setToolSetting('shape', 'fillColor', stroke)
-    setToolSetting('shape', 'strokeOn', fillOn)
-    setToolSetting('shape', 'fillOn', strokeOn)
-  }, [setToolSetting])
-
-  const toggleActiveShapeSwatch = useCallback(() => {
-    const settings = useRoomStore.getState().toolSettings
-    const swatch = effectiveSwatch(settings, 'shape', useRoomStore.getState().shapeSwatch)
-    const key = swatch === 'fill' ? 'fillOn' : 'strokeOn'
-    setToolSetting('shape', key, settings.shape[key] === false)
-  }, [setToolSetting])
-
-  const colorPair: ColorPairControls | undefined = well.pair ? {
-    ...well.pair,
-    onSelect: setShapeSwatch,
-    onSwap: swapShapeColors,
-    onToggleActive: toggleActiveShapeSwatch,
-  } : undefined
+  // (#493) Whose colour the controls edit, what the engine draws with, the
+  // well, the room palette and the flyout — see useToolColor.
+  const {
+    applyToolColor, colorTool, pickedColorTool, well, wellLabel, colorPair, palette, addPaletteColor,
+    colorContent, colorFlyoutAt, openPanelColorSurface, railWellRef, panelWellRef, closeColorFlyout,
+    openRailColorSurface, expandColorField,
+  } = useToolColor({ engineRef, engineEpoch, socketRef })
   // FloatingToolPanel (#157) is an eight-slot compass the user lays out
   // themselves: any slot holds a tool, one of the two groups, undo/redo, or
   // nothing.
@@ -2344,125 +2031,12 @@ function RoomEditor() {
   // layout and the panel's position part company on that.
   const floatingPanelLayout = useSettingsStore(s => s.floatingPanelLayout)
   const setFloatingPanelLayout = useSettingsStore(s => s.setFloatingPanelLayout)
-  // (#190 epic) Room palette — see roomSlice's own doc comment for why this
-  // is a plain setter, not a reducer. Add/remove requests round-trip through
-  // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
-  // than being applied optimistically here — palette_updated is the only
-  // thing that ever actually writes this store field.
-  const palette = useRoomStore(s => s.palette)
-  const addPaletteColor = useCallback((color: string) => {
-    socketRef.current?.emit('palette_add_color', { color })
-  }, [])
-  const removePaletteColor = useCallback((color: string) => {
-    socketRef.current?.emit('palette_remove_color', { color })
-  }, [])
+  // (#493) The owner's live switches and the two ways out of a closed lesson
+  // — see useLessonActions.
+  const {
+    toggleRoomFrozen, setRoomTools, closedBusy, reopenRoom, takeRoomCopy, toggleParticipantFrozen,
+  } = useLessonActions({ socketRef, roomId: id, lessonId })
 
-  // Everything the colour surface needs, built once and handed to whichever
-  // presentation is up — the popover, or the same body pinned in the panel.
-  // One object rather than two prop lists, so the two can never drift apart.
-  const colorContent: ColorFlyoutContent = {
-    value: colorToolColor,
-    onChange: v => applyToolColor(colorTool, v),
-    mode: colorPickerMode,
-    onModeChange: setColorPickerMode,
-    palette,
-    onAddPaletteColor: addPaletteColor,
-    onRemovePaletteColor: removePaletteColor,
-    pair: colorPair,
-  }
-  // (#254/#256/#259) Optimistic-free, same as palette add/remove above — the
-  // server is the only writer of `roomFrozen` (via room_frozen_changed);
-  // this just requests the change. socketHandlers.ts rejects the request
-  // outright for a non-owner, so wiring the button to always be callable
-  // here is safe (the header button itself is also only rendered for the
-  // owner — see the render section below — this stays defensive either way).
-  const toggleRoomFrozen = useCallback(() => {
-    socketRef.current?.emit('set_room_frozen', !useRoomStore.getState().roomFrozen)
-  }, [])
-  // (#548) Same shape as the freeze toggle above and for the same reason: the
-  // server is the only writer, and it broadcasts the result back to everyone
-  // (`room_tools_changed`) including this tab. So nothing is patched locally
-  // here — an optimistic update would only be a second opinion about a value
-  // the server sanitizes anyway.
-  const setRoomTools = useCallback((next: ToggleableTool[] | undefined) => {
-    socketRef.current?.emit('set_room_tools', next)
-  }, [])
-  // (#222) Reopening from inside the room. Unlike the freeze toggles around
-  // it this goes over REST, because closing is persisted and the same call
-  // has to work from the lesson list where there is no socket for the room
-  // (see roomRoutes.ts). The store is patched from the answer rather than
-  // waiting for the server's own `room_closed_changed` broadcast to come
-  // back: the broadcast is what tells *everyone else*, and relying on it
-  // here would leave the person who pressed the button looking at a room
-  // that is still closed if their socket happens to be down.
-  const [closedBusy, setClosedBusy] = useState(false)
-  const reopenRoom = useCallback(async () => {
-    if (!lessonId) return
-    setClosedBusy(true)
-    try {
-      const updated = await setRoomClosed(lessonId, false)
-      useRoomStore.getState().setRoomClosedAt(updated.closedAt ?? null)
-    } catch {
-      void showAlert({ message: t('room.error.reopen') })
-    } finally {
-      setClosedBusy(false)
-    }
-  }, [lessonId, showAlert, t])
-  // (#222/#317) The student half: a closed lesson is homework, and this is
-  // how it gets taken. Navigates *into* the copy — the opposite of the same
-  // action in the lesson list (#317), and for the opposite reason: there the
-  // point is to hand copies out, here the point is to start working.
-  const takeRoomCopy = useCallback(async () => {
-    if (!id) return
-    setClosedBusy(true)
-    try {
-      const { room: copy } = await forkRoom(id, { name: t('lessons.forkedName', { name: config?.name ?? '' }), scope: 'board' })
-      navigate(`/room/${copy.id}`)
-    } catch {
-      void showAlert({ message: t('room.error.takeCopy') })
-      setClosedBusy(false)
-    }
-  }, [id, navigate, config?.name, showAlert, t])
-  // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
-  // one participant — passed to ParticipantsPanel's onToggleFreeze.
-  const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
-    socketRef.current?.emit('set_participant_frozen', { userId, frozen })
-  }, [])
-  // (#542) "Go refine this further than a tap on the well allows." Which well
-  // it opens from is the whole of the state: 'rail' is the one pinned at the
-  // top of the tool bar, 'panel' the one in the middle of the floating panel.
-  //
-  // This used to be `setUiHidden(false); setActivePanel('color')` — bringing
-  // the whole chrome back was load-bearing, because the picker lived in a tab
-  // of a strip that minimal UI fades out. A flyout that hangs off the well
-  // that opened it needs none of that: the surface goes where the colour
-  // already is, in either chrome state, which is the point of the well having
-  // a fixed home in each.
-  const [colorFlyoutAt, setColorFlyoutAt] = useState<'rail' | 'panel' | null>(null)
-  const railWellRef = useRef<HTMLButtonElement>(null)
-  const panelWellRef = useRef<HTMLButtonElement>(null)
-  const closeColorFlyout = useCallback(() => setColorFlyoutAt(null), [])
-  /** What pressing a colour well in the chrome does: the popover, always. The
-   *  side panel's Color tab shows the same surface and is always there too, but
-   *  it is a second route rather than a mode this has to branch on — a press on
-   *  the well means "the colour, here, now", and answering it by scrolling a
-   *  panel into view somewhere else would be a different answer to a different
-   *  question (Ilya, 10.09). */
-  const openRailColorSurface = useCallback(() => {
-    setColorFlyoutAt(at => (at === 'rail' ? null : 'rail'))
-  }, [])
-  // A colour swatch in the full settings tab opens the *rail's* surface, not
-  // one chasing the swatch that was pressed: that tab is only ever on screen
-  // beside the rail, and one surface in one fixed place beats a popover that
-  // follows whichever copy of a swatch was clicked. Which field was pressed
-  // still matters — it points the surface at that colour first, so a shape's
-  // fill swatch edits the fill rather than whichever of the two was last
-  // selected.
-  const expandColorField = useCallback((key: string) => {
-    if (key === 'strokeColor') setShapeSwatch('stroke')
-    if (key === 'fillColor') setShapeSwatch('fill')
-    openRailColorSurface()
-  }, [setShapeSwatch, openRailColorSurface])
   // Persist last-used settings per room (#156/#196) — mirrors the pattern
   // above (derived state -> engine), just targeting storage instead.
   useEffect(() => {
@@ -3754,7 +3328,7 @@ function RoomEditor() {
           // Opens the flyout on the panel's own well, not on the rail's — the
           // rail may not be on screen at all, which is the case this panel
           // exists for.
-          onOpenColorPicker={() => setColorFlyoutAt('panel')}
+          onOpenColorPicker={openPanelColorSurface}
           // The two service entries in the palette fan, present only for a tool
           // that carries two colours. Touch-sized where the glyph's own ring is
           // not, which is why the switch lives out here and not on the glyph.
