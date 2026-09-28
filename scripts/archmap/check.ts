@@ -13,6 +13,7 @@
  * which is the whole point: the paragraph is the part a reader actually needs.
  */
 import { assign, listSourceFiles, loadMap } from './model';
+import { checkRuntime, loadRuntime } from './runtime';
 
 function main(): void {
   const map = loadMap();
@@ -65,6 +66,17 @@ function main(): void {
       );
     } else if (b.maxLines - n >= 100) {
       notes.push(`  ${b.file}: ${n} строк, бюджет ${b.maxLines} — можно ужать.`);
+    }
+  }
+
+  // (#624) The runtime cut: every socket event, REST route and type on its arrows must
+  // still exist in the code — and nothing the code has may be missing from it.
+  const runtime = loadRuntime(new Set(map.modules.map((m) => m.id)));
+  if (runtime) {
+    const drift = checkRuntime(runtime);
+    if (drift.length) {
+      problems.push('Разрез «Исполнение» (docs/architecture/runtime.yaml) разошёлся с кодом:');
+      for (const d of drift) problems.push(`    ${d}`);
     }
   }
 

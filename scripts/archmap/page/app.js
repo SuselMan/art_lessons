@@ -801,6 +801,282 @@
     wireJumps(host);
   }
 
+  /* ------------------------------------------------------------------ runtime tab (#624)
+   *
+   * Processes and stores, laid out on a hand-picked grid per zone; zones sharing a `col`
+   * stack vertically. Links are curves between node centres — parallel links between the
+   * same pair fan out — and the nodes are drawn on top, so a curve's ends tuck under them.
+   */
+
+  var CONTRACT = {
+    bound: {
+      title: 'связан',
+      text: 'Одно объявление на канал, компилятор проверяет по нему обе стороны. ' +
+        'Переименуешь поле — typecheck упадёт и там, и там.',
+    },
+    named: {
+      title: 'назван',
+      text: 'Обе стороны берут тип из shared, но связь «этот маршрут — этот тип» каждая пишет сама. ' +
+        'Ошибиться на одной стороне компилятор не помешает.',
+    },
+    'one-side': {
+      title: 'с одной стороны',
+      text: 'Тип объявлен только у одной стороны или приведён кастом (as). ' +
+        'Расхождение не ловится ничем, кроме падения на живых данных.',
+    },
+    opaque: {
+      title: 'без типа',
+      text: 'Байты, текстуры, файлы, чужой API. Компилятор тут не помощник по самой природе канала.',
+    },
+  };
+  var KIND = { process: 'процесс', store: 'хранилище', external: 'внешний сервис' };
+
+  function renderRuntime() {
+    var host = document.getElementById('view-runtime');
+    var R = D.runtime;
+    if (!R) {
+      host.innerHTML = '<div class="health"><p class="lede">docs/architecture/runtime.yaml не найден.</p></div>';
+      return;
+    }
+    var nodeById = new Map(R.nodes.map(function (n) { return [n.id, n]; }));
+    var linkById = new Map(R.links.map(function (l) { return [l.id, l]; }));
+
+    var CELL_W = 300, CELL_H = 150, NODE_W = 196, NODE_H = 62, PAD = 26, HEAD = 40, GAP_X = 110, GAP_Y = 36;
+
+    // Zones → columns → stacked boxes.
+    var cols = [];
+    R.zones.forEach(function (z, i) {
+      var c = z.col !== undefined ? z.col : i;
+      (cols[c] = cols[c] || []).push(z);
+    });
+    var zoneBox = new Map();
+    var x = 20;
+    cols.forEach(function (zs) {
+      if (!zs) return;
+      var y = 20, colW = 0;
+      zs.forEach(function (z) {
+        var nodes = R.nodes.filter(function (n) { return n.zone === z.id; });
+        var nc = 1 + Math.max.apply(null, nodes.map(function (n) { return n.at[0]; }).concat([0]));
+        var nr = 1 + Math.max.apply(null, nodes.map(function (n) { return n.at[1]; }).concat([0]));
+        var w = nc * CELL_W + PAD * 2 - (CELL_W - NODE_W);
+        var h = HEAD + nr * CELL_H + PAD - (CELL_H - NODE_H);
+        zoneBox.set(z.id, { x: x, y: y, w: w, h: h, z: z });
+        y += h + GAP_Y;
+        colW = Math.max(colW, w);
+      });
+      zs.forEach(function (z) { zoneBox.get(z.id).w = colW; });
+      x += colW + GAP_X;
+    });
+    var W = x - GAP_X + 20;
+    var H = 40 + Math.max.apply(null, Array.from(zoneBox.values()).map(function (b) { return b.y + b.h; }));
+
+    var pos = new Map();
+    R.nodes.forEach(function (n) {
+      var b = zoneBox.get(n.zone);
+      var nx = b.x + PAD + n.at[0] * CELL_W;
+      var ny = b.y + HEAD + n.at[1] * CELL_H;
+      pos.set(n.id, { x: nx, y: ny, cx: nx + NODE_W / 2, cy: ny + NODE_H / 2 });
+    });
+
+    host.innerHTML =
+      '<div class="rt-wrap">' +
+      '<div class="rt-canvas"><div class="rt-legend"></div><svg id="rt-svg"></svg></div>' +
+      '<aside class="rt-panel"></aside></div>';
+    var legend = host.querySelector('.rt-legend');
+    legend.innerHTML = Object.keys(CONTRACT).map(function (k) {
+      return '<span class="rt-key" data-contract="' + k + '"><svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" /></svg>' +
+        esc(CONTRACT[k].title) + '</span>';
+    }).join('') + '<span class="rt-key-note">цвет и штрих линии — сила контракта</span>';
+
+    var s = host.querySelector('#rt-svg');
+    s.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    // Fit the width of the pane; never blow up past natural size on a wide screen.
+    s.style.maxWidth = W + 'px';
+
+    zoneBox.forEach(function (b) {
+      var g = el('g', { class: 'rt-zone' }, s);
+      el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 14 }, g);
+      text(g, b.x + 16, b.y + 22, 'rt-zone-title', b.z.title);
+      if (b.z.note) tip(g, b.z.note);
+    });
+
+    // Parallel links between the same pair fan out around the straight line.
+    var pairCount = new Map(), pairSeen = new Map();
+    R.links.forEach(function (l) {
+      var k = [l.from, l.to].sort().join('|');
+      pairCount.set(k, (pairCount.get(k) || 0) + 1);
+    });
+    var gLinks = el('g', {}, s);
+    var gNodesRt = el('g', {}, s);
+    // Labels go on top of the nodes: between neighbours the midpoint can sit on a box's edge.
+    var gLabels = el('g', {}, s);
+    R.links.forEach(function (l) {
+      var a = pos.get(l.from), b = pos.get(l.to);
+      var k = [l.from, l.to].sort().join('|');
+      var i = pairSeen.get(k) || 0;
+      pairSeen.set(k, i + 1);
+      var off = (i - (pairCount.get(k) - 1) / 2) * 58 + (l.bend || 0);
+      var dx = b.cx - a.cx, dy = b.cy - a.cy, len = Math.hypot(dx, dy) || 1;
+      // Keep the normal pointing the same way whichever end is `from`, so a fan stays a fan.
+      var sign = l.from < l.to ? 1 : -1;
+      var nx = (-dy / len) * sign, ny = (dx / len) * sign;
+      var mx = (a.cx + b.cx) / 2 + nx * off * 2, my = (a.cy + b.cy) / 2 + ny * off * 2;
+      var g = el('g', { class: 'rt-link', 'data-id': l.id, 'data-contract': l.contract }, gLinks);
+      var d = 'M' + a.cx + ',' + a.cy + ' Q' + mx + ',' + my + ' ' + b.cx + ',' + b.cy;
+      el('path', { d: d, class: 'rt-hit' }, g);
+      el('path', { d: d, class: 'rt-line' }, g);
+      // Midpoint of the quadratic curve.
+      var lx = 0.25 * a.cx + 0.5 * mx + 0.25 * b.cx, ly = 0.25 * a.cy + 0.5 * my + 0.25 * b.cy;
+      var label = el('g', { class: 'rt-label', 'data-id': l.id, 'data-contract': l.contract }, gLabels);
+      var t = text(label, lx, ly + 4, 'rt-label-text', clip(l.summary, 34));
+      t.setAttribute('text-anchor', 'middle');
+      var tw = Math.min(l.summary.length, 34) * 6.3 + 18;
+      label.insertBefore(el('rect', { x: lx - tw / 2, y: ly - 10, width: tw, height: 20, rx: 10 }), t);
+      tip(label, l.channel + ' · ' + l.messages.length + ' сообщ.');
+    });
+
+    R.nodes.forEach(function (n) {
+      var p = pos.get(n.id);
+      var g = el('g', { class: 'rt-node', 'data-id': n.id, 'data-kind': n.kind }, gNodesRt);
+      el('rect', { x: p.x, y: p.y, width: NODE_W, height: NODE_H, rx: n.kind === 'store' ? 4 : 11 }, g);
+      if (n.kind === 'store') el('line', { x1: p.x, y1: p.y + 7, x2: p.x + NODE_W, y2: p.y + 7, class: 'rt-store-lid' }, g);
+      text(g, p.x + 14, p.y + 28, 'rt-node-title', clip(n.title, 24));
+      text(g, p.x + 14, p.y + 46, 'rt-node-kind', KIND[n.kind] || n.kind);
+    });
+
+    var panel = host.querySelector('.rt-panel');
+    var selected = null; // { type: 'node' | 'link', id }
+
+    function linkify(str) {
+      return esc(str).replace(/#(\d{2,4})/g, function (_, n) {
+        var title = D.issues && D.issues[n];
+        return '<a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + n + '">#' + n +
+          (title ? ' (' + esc(title) + ')' : '') + '</a>';
+      });
+    }
+
+    function badge(c) {
+      return '<span class="rt-badge" data-contract="' + c + '">' + esc(CONTRACT[c].title) + '</span>';
+    }
+
+    function linkRow(l, fromId) {
+      var other = l.from === fromId ? l.to : l.from;
+      return '<li><span class="link" data-rt-link="' + l.id + '">' + esc(l.channel) + '</span> ' + badge(l.contract) +
+        '<br><span class="num">' + (l.from === fromId ? '→ ' : '← ') + esc(nodeById.get(other).title) + ' · ' +
+        l.messages.length + ' сообщ.</span></li>';
+    }
+
+    function renderRtPanel() {
+      var h = [];
+      if (!selected) {
+        h.push('<h2>Исполнение</h2><p class="owns">Что живёт, когда программа запущена, и что эти части шлют друг другу. ' +
+          'Вкладка «Структура» отвечает на вопрос «кто кого импортирует»; здесь вопрос другой — клиент и сервер ' +
+          'друг друга не импортируют, но разговаривают весь урок.</p>');
+        h.push('<h3>Как читать</h3><ul class="list">' +
+          '<li><b>Прямоугольник</b> — процесс: код, который выполняется.</li>' +
+          '<li><b>С крышкой</b> — хранилище: данные лежат, пока их не спросят.</li>' +
+          '<li><b>Пунктирная рамка</b> — чужая система.</li>' +
+          '<li><b>Линия</b> — канал. Подпись на ней — главные типы, которые по нему ходят. Клик — полный список ' +
+          'сообщений с направлением и типом.</li></ul>');
+        h.push('<h3>Сила контракта</h3>');
+        Object.keys(CONTRACT).forEach(function (k) {
+          h.push('<p class="note">' + badge(k) + ' ' + esc(CONTRACT[k].text) + '</p>');
+        });
+        h.push('<p class="owns" style="color:var(--ink-2)">Проверка в рантайме — отдельная ось. Даже «связан» значит ' +
+          'только проверку при компиляции: пришедший по сети пакет с типом никто не сверяет, кроме пары ' +
+          'мест — они помечены в сообщениях.</p>');
+        h.push('<h3>Все каналы</h3><ul class="list">');
+        var order = ['bound', 'named', 'one-side', 'opaque'];
+        R.links.slice().sort(function (a, b) { return order.indexOf(a.contract) - order.indexOf(b.contract); })
+          .forEach(function (l) {
+            h.push('<li><span class="link" data-rt-link="' + l.id + '">' + esc(nodeById.get(l.from).title) + ' — ' +
+              esc(nodeById.get(l.to).title) + '</span> ' + badge(l.contract) + '<br><span class="num">' +
+              esc(l.channel) + '</span></li>');
+          });
+        h.push('</ul>');
+      } else if (selected.type === 'node') {
+        var n = nodeById.get(selected.id);
+        var z = zoneBox.get(n.zone).z;
+        h.push('<h2>' + esc(n.title) + '</h2><span class="layer-tag">' + esc(KIND[n.kind]) + ' · ' + esc(z.title) + '</span>');
+        h.push('<p class="owns">' + linkify(n.owns) + '</p>');
+        if (n.modules && n.modules.length) {
+          h.push('<h3>Из каких модулей собран</h3><ul class="list">');
+          n.modules.forEach(function (id) {
+            h.push('<li><span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span></li>');
+          });
+          h.push('</ul>');
+        }
+        var mine = R.links.filter(function (l) { return l.from === n.id || l.to === n.id; });
+        h.push('<h3>Каналы · ' + mine.length + '</h3><ul class="list">');
+        mine.forEach(function (l) { h.push(linkRow(l, n.id)); });
+        h.push('</ul>');
+      } else {
+        var l = linkById.get(selected.id);
+        var from = nodeById.get(l.from), to = nodeById.get(l.to);
+        h.push('<h2>' + esc(l.channel) + '</h2><span class="layer-tag"><span class="link" data-rt-node="' + from.id + '">' +
+          esc(from.title) + '</span> ⇄ <span class="link" data-rt-node="' + to.id + '">' + esc(to.title) + '</span></span>');
+        h.push('<p class="note">' + badge(l.contract) + ' ' + esc(CONTRACT[l.contract].text) + '</p>');
+        if (l.note) h.push('<p class="owns">' + linkify(l.note) + '</p>');
+        h.push('<h3>Сообщения · ' + l.messages.length + '</h3><table class="rt-msgs"><tbody>');
+        l.messages.forEach(function (m) {
+          var target = m.dir === '→' ? to.title : from.title;
+          h.push('<tr><td class="rt-dir" title="к: ' + esc(target) + '">' + m.dir + '</td><td><code>' + esc(m.name) +
+            '</code><div class="rt-type">' + esc(m.type) + '</div>' +
+            (m.note ? '<div class="rt-mnote">' + linkify(m.note) + '</div>' : '') +
+            (m.runtime ? '<div class="rt-runtime">в рантайме: ' + esc(m.runtime) + '</div>' : '') +
+            '</td></tr>');
+        });
+        h.push('</tbody></table><p class="num" style="float:none">→ от «' + esc(from.title) + '» к «' + esc(to.title) +
+          '», ← обратно.</p>');
+      }
+      if (selected) h.unshift('<p><span class="link" data-rt-clear>← как читать эту вкладку</span></p>');
+      panel.innerHTML = h.join('');
+      panel.querySelectorAll('[data-rt-link]').forEach(function (e) {
+        e.addEventListener('click', function () { select({ type: 'link', id: e.getAttribute('data-rt-link') }); });
+      });
+      panel.querySelectorAll('[data-rt-node]').forEach(function (e) {
+        e.addEventListener('click', function () { select({ type: 'node', id: e.getAttribute('data-rt-node') }); });
+      });
+      panel.querySelectorAll('[data-rt-clear]').forEach(function (e) {
+        e.addEventListener('click', function () { select(null); });
+      });
+      wireJumps(panel);
+    }
+
+    function select(sel) {
+      selected = sel;
+      var liveNodes = new Set(), liveLinks = new Set();
+      if (sel && sel.type === 'node') {
+        liveNodes.add(sel.id);
+        R.links.forEach(function (l) {
+          if (l.from === sel.id || l.to === sel.id) { liveLinks.add(l.id); liveNodes.add(l.from); liveNodes.add(l.to); }
+        });
+      } else if (sel) {
+        var l = linkById.get(sel.id);
+        liveLinks.add(l.id); liveNodes.add(l.from); liveNodes.add(l.to);
+      }
+      s.querySelectorAll('.rt-node').forEach(function (e) {
+        var id = e.getAttribute('data-id');
+        e.setAttribute('data-dim', String(!!sel && !liveNodes.has(id)));
+        e.setAttribute('data-sel', String(!!sel && sel.type === 'node' && sel.id === id));
+      });
+      s.querySelectorAll('.rt-link, .rt-label').forEach(function (e) {
+        var id = e.getAttribute('data-id');
+        e.setAttribute('data-dim', String(!!sel && !liveLinks.has(id)));
+        e.setAttribute('data-sel', String(!!sel && sel.type === 'link' && sel.id === id));
+      });
+      renderRtPanel();
+    }
+
+    s.addEventListener('click', function (ev) {
+      var hit = ev.target.closest('.rt-node, .rt-link, .rt-label');
+      if (!hit) return select(null);
+      var id = hit.getAttribute('data-id');
+      select({ type: hit.classList.contains('rt-node') ? 'node' : 'link', id: id });
+    });
+    select(null);
+  }
+
   /* ------------------------------------------------------------------ health tab */
 
   function renderHealth() {
@@ -886,6 +1162,7 @@
   drawGraph();
   renderFilterBar();
   renderFlows();
+  renderRuntime();
   renderHealth();
   renderPanel(null);
   fit();
