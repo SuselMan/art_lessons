@@ -6,8 +6,18 @@
  *   2. `npm run map:rules` — fails when a documented architectural boundary is crossed.
  *
  * The rules here are not style preferences: each one is a boundary that CLAUDE.md or an
- * ADR already states in prose. Writing it down here is what makes it survive.
+ * ADR already states in prose. Writing it down here is what makes it survive. The layer rules
+ * (`layer-*`) are not written here at all — see layerRules() below.
  */
+// The map's model is TypeScript; tsx's require hook lets this config load it synchronously,
+// so the rules are always generated from the READMEs as they are right now — never a stale copy.
+const { require: tsxRequire } = require('tsx/cjs/api');
+
+function layerRules() {
+  const model = tsxRequire('./scripts/archmap/model.ts', __filename);
+  return model.layerRules(model.loadMap());
+}
+
 module.exports = {
   forbidden: [
     {
@@ -19,37 +29,11 @@ module.exports = {
       from: { pathNot: '^apps/web/src/engine/' },
       to: { path: '^apps/web/src/engine/src/' },
     },
-    {
-      name: 'engine-knows-no-app',
-      comment:
-        'The WebGL engine is a standalone library: it must not reach into the store, the ' +
-        'React components, the pages or the i18n layer. Store state is a reflection of the ' +
-        'engine, never the other way round (CLAUDE.md → State).',
-      severity: 'error',
-      from: { path: '^apps/web/src/engine/' },
-      to: { path: '^apps/web/src/(stores|components|pages|i18n)/' },
-    },
-    {
-      name: 'shared-is-a-leaf',
-      comment: 'packages/shared is imported by everyone and imports nothing of ours.',
-      severity: 'error',
-      from: { path: '^packages/shared/' },
-      to: { path: '^apps/' },
-    },
-    {
-      name: 'server-has-no-client',
-      comment: 'The server never renders (CLAUDE.md → Rendering): it retransmits operations.',
-      severity: 'error',
-      from: { path: '^apps/server/' },
-      to: { path: '^apps/web/' },
-    },
-    {
-      name: 'store-holds-no-ui',
-      comment: 'The store holds state, not React. Components read it, it does not read them.',
-      severity: 'error',
-      from: { path: '^apps/web/src/stores/' },
-      to: { path: '^apps/web/src/(components|pages)/' },
-    },
+    // (#642) Layer rules — one per layer, generated from docs/architecture/map.yaml (layer
+    // order and parts) and each module's README.md header (its layer). They replaced the
+    // hand-written engine-knows-no-app, store-holds-no-ui, server-has-no-client and
+    // shared-is-a-leaf, which were four special cases of the same order.
+    ...layerRules(),
     {
       name: 'no-circular',
       comment: 'A cycle means two modules are really one — name it or split it.',
