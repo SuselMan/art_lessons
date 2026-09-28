@@ -200,7 +200,7 @@ server says so once at boot (`index.ts`) rather than leaving it to be
 discovered by whoever tries first.
 
 Provider is Resend, reached with a plain `fetch` from
-`apps/server/src/email.ts` (one POST; no SDK dependency for that).
+`apps/server/src/auth/email.ts` (one POST; no SDK dependency for that).
 
 **Secret**:
 

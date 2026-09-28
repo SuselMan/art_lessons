@@ -87,7 +87,7 @@ export function clones(minTokens = 60): Clone[] {
       '--ignore',
       '**/node_modules/**,**/dist/**,**/coverage/**',
       // Without this jscpd reports paths relative to the common base of the scanned roots,
-      // so `apps/server/src/disk.ts` comes back as `server/src/disk.ts` and matches nothing.
+      // so `apps/server/src/health/disk.ts` comes back as `server/src/health/disk.ts` and matches nothing.
       '--absolute',
       '--silent',
     ],

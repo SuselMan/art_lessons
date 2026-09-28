@@ -162,7 +162,7 @@ export type StrokeLiveData = {
 // server-assigned seq — see Operation.seq), any client that's caught up to
 // that point independently bakes and uploads a full-room pixel+layerState
 // snapshot; the server just dedups by (roomId, seq), first arrival wins (see
-// apps/server/src/rooms.ts's saveSnapshot). Shared so both the client
+// apps/server/src/rooms/rooms.ts's saveSnapshot). Shared so both the client
 // (deciding when to bake) and the server (validating an upload actually
 // lands on a real boundary) agree on the same points without coordination.
 //

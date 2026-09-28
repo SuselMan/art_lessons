@@ -11,7 +11,7 @@ import type { LayerState, Operation } from '@grafetto/shared'
 
 /** Operation types that carry content a user would perceive as lost. The
  *  server gates exactly this set on a destroyed target (see
- *  `hasMissingAliveTarget` in apps/server/src/rooms.ts) — property-only
+ *  `hasMissingAliveTarget` in apps/server/src/rooms/rooms.ts) — property-only
  *  operations are deliberately not in it, since a rejected opacity change
  *  costs nothing to redo. */
 const CONTENT_OP_TYPES = new Set(['stroke', 'image_import', 'layer_clear'])

@@ -215,7 +215,7 @@ jobs:
               echo ""
               if [ "$disk" = "unknown" ]; then
                 echo "The server could not read the filesystem at all — the disk alert is blind."
-                echo "Not «there is room»: we do not know. See \`apps/server/src/disk.ts\`."
+                echo "Not «there is room»: we do not know. See \`apps/server/src/health/disk.ts\`."
               elif [ "$disk" = "critical" ]; then
                 echo "Postgres с некуда писать — это не деградация, а остановка: операции"
                 echo "перестают сохраняться, и урок, который человек считает нарисованным,"
@@ -253,7 +253,7 @@ jobs:
               fi
               echo ""
               echo "Смотреть на \`rooms.resident\` рядом: нагрузку создают не открытые комнаты,"
-              echo "а те, в которых сейчас рисуют. Замер и пороги — \`apps/server/src/eventLoop.ts\`,"
+              echo "а те, в которых сейчас рисуют. Замер и пороги — \`apps/server/src/health/eventLoop.ts\`,"
               echo "прогон повторяется через \`apps/server/src/scripts/loadTest.ts\`."
               echo "Лечение — вертикальное (ядра), горизонтальное упирается в #113 (Redis) и #207."
             } >> "$GITHUB_STEP_SUMMARY"

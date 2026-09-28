@@ -6,7 +6,7 @@ tags: [prisma, postgres]
 # server/prisma — схема Postgres
 
 Схема базы (`schema.prisma`) и миграции Postgres. Клиент Prisma, который по ней генерируется,
-подключает `server/src/prisma.ts`.
+подключает `server/src/db/prisma.ts`.
 
 ## Заметки
 

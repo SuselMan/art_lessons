@@ -2,7 +2,7 @@
 // with actual pixel buffers (via MockGL — see testing/mockGL.ts).
 //
 // The pure LayerState half lives in lib/layers.test.ts and the server's own
-// aliveIds/coverage half in apps/server/src/rooms.test.ts. What only this file
+// aliveIds/coverage half in apps/server/src/rooms/rooms.test.ts. What only this file
 // can check is the part a duplicate shares with a merge and nothing else: the
 // copy's pixels have to come out identical to the source's, and they have to
 // stay identical when they are *rebuilt* from the log rather than composited
