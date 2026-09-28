@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 
 import type { PencilEngineAPI } from '../../apps/web/src/engine'
+import type { LatencyMeter } from '../../apps/web/src/lib/liveLatency'
 import type { useRoomStore } from '../../apps/web/src/stores/roomStore'
 import type { Operation } from '../../packages/shared/src/index'
 import { slow } from './pace'
@@ -13,6 +14,8 @@ declare global {
   interface Window {
     __engine?: PencilEngineAPI
     __roomStore?: typeof useRoomStore
+    /** (#432) The pen-to-ink meter — published in every build, see liveLatency. */
+    __liveLatency?: LatencyMeter
   }
 }
 

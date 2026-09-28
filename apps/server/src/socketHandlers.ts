@@ -654,6 +654,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
     })
 
+    // (#432) The latency meter's time reference. Answered for anyone on the
+    // socket, joined or not: it reads nothing and writes nothing, and a client
+    // wants its clock in step before the first packet it will have to time.
+    socket.on('clock_sync', ack => {
+      if (typeof ack === 'function') ack(Date.now())
+    })
+
     socket.on('stroke_live_end', ({ strokeId }) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return

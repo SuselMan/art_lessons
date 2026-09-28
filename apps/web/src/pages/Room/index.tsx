@@ -68,6 +68,7 @@ import { useToolColor } from './useToolColor'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
+import { useServerClockSync } from './useServerClockSync'
 import { useLogDerivedState } from './useLogDerivedState'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
@@ -886,6 +887,8 @@ function RoomEditor() {
   } = useClassView({
     socketRef, switchBoardRef, isOwnerRef, selectBoard, boardId, participants, myUserId, isOwner, compact,
   })
+  // (#432) The latency meter's clock — see useServerClockSync.
+  useServerClockSync(socketRef, connected)
   // (#222) Closed for editing — the lesson has been handed out and stopped
   // changing. Deliberately *not* `!isOwner`: the server binds the owner too
   // (see getOperationRejectReason in rooms.ts), and a client gate that let

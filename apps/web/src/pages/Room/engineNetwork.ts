@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import { packDabs, type ClientToServerEvents, type Operation } from '@grafetto/shared'
 
 import type { PencilEngineOptions } from '../../engine'
+import { liveTiming } from '../../lib/liveLatency'
 import { useRoomStore } from '../../stores/roomStore'
 import type { Outbox } from './outbox'
 import type { PendingPreviews } from './pendingPreviews'
@@ -89,6 +90,9 @@ export function createEngineNetworkCallbacks({
         // its stroke id alone and paints a wash the author never made — see
         // StrokeLiveData.washId.
         ...(packet.washId ? { washId: packet.washId } : {}),
+        // (#432) When it left, on the server's clock, and how long its oldest
+        // dab had waited — what a peer needs to time pen to ink.
+        ...liveTiming(packet.dabs),
       })
     },
     onLiveStrokeEnd: strokeId => {

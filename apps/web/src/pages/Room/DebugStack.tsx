@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 
 import {
   CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS,
@@ -7,6 +7,8 @@ import {
 } from '../../engine'
 import type { PencilSound } from '../../lib/PencilSound'
 import { clearDiagLogs, getDiagLogs } from '../../lib/diagLog'
+import { LIVE_LATENCY_BUDGET_MS, liveLatency, type LatencyStats } from '../../lib/liveLatency'
+import { serverClock } from '../../lib/serverClock'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import type { DrawingTool, EditorTool } from '../../stores/slices/toolSlice'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -132,6 +134,8 @@ export function DebugStack({
           ) : (
             <div>draw a stroke to see stats</div>
           )}
+          {/* (#432) A peer's pen to ink on this screen — see liveLatency. */}
+          <LiveLatencyLine />
           {/* Live paper-fill-threshold tuning (see chat) — applies to
               the very next dab painted, no Save/reload. */}
           {/* pointerEvents: 'auto' overrides .debugStack's own
@@ -320,6 +324,30 @@ export function DebugStack({
       )}
 
       {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} tool={drawingTool} />}
+    </div>
+  )
+}
+
+/** (#432) Refreshed at most twice a second: a peer streams a packet every
+ *  60 ms, and re-rendering the overlay on each would be the overlay costing
+ *  the frames it is there to count. */
+function LiveLatencyLine(): React.JSX.Element {
+  const [stats, setStats] = useState<LatencyStats | null>(() => liveLatency.stats())
+  useEffect(() => {
+    let pending = false
+    return liveLatency.subscribe(() => {
+      if (pending) return
+      pending = true
+      setTimeout(() => { pending = false; setStats(liveLatency.stats()) }, 500)
+    })
+  }, [])
+  const clockError = serverClock.uncertainty()
+  if (!stats) return <div>peer ink: no live packets yet{clockError === null ? ' (clock not synced)' : ''}</div>
+  return (
+    <div>
+      peer ink: p50 {stats.p50.toFixed(0)} / p95 {stats.p95.toFixed(0)} / max {stats.max.toFixed(0)}ms
+      {' '}(net p95 {stats.sendP95.toFixed(0)}, over {LIVE_LATENCY_BUDGET_MS}: {stats.overBudget}/{stats.count}
+      {clockError !== null ? `, ±${clockError.toFixed(0)}` : ''})
     </div>
   )
 }

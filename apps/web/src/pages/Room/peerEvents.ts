@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import { unpackDabs, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
+import { noteLivePacketPainted } from '../../lib/liveLatency'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
 import type { PendingPreviews } from './pendingPreviews'
@@ -74,6 +75,8 @@ export function createPeerEventHandlers({
         dabs: unpackDabs(data.dabsPacked),
         washId: data.washId,
       })
+      // (#432) Timed on the frame that composites it — see liveLatency.
+      noteLivePacketPainted(data.userId, data)
       const seen = streamedStrokeIdsRef.current
       seen.add(data.strokeId)
       while (seen.size > STREAMED_STROKE_MEMORY) seen.delete(seen.values().next().value as string)
