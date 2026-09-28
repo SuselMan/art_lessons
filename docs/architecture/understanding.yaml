@@ -1,0 +1,84 @@
+# Карта понимания: что из архитектуры разработчик может объяснить сам.
+#
+# Большую часть кода пишут агенты, поэтому «код есть» и «я понимаю, как это устроено» —
+# разные вещи. Этот файл ведёт вторую. Правило, по которому он пополняется, — в
+# .claude/rules.md → «Понимание архитектуры».
+#
+# topics — темы. Каждая ссылается на то, что уже есть на карте: модули (`modules`), каналы
+#          «Исполнения» (`links`), потоки (`flows`) и ADR (`adr`), чтобы тему можно было
+#          открыть, а не только назвать.
+# people — кто что понимает. Статусы по возрастанию:
+#          не отмечено → слышал → понимаю → объясню сам
+#          «Объясню сам» ставится только после задачи kind:understanding, на контрольные
+#          вопросы которой человек ответил своими словами. Не по самооценке.
+
+topics:
+  - id: map-reading
+    title: Как читать карту архитектуры
+    issue: 625
+    why: Без этого остальные темы не с чего открывать.
+
+  - id: operation-log
+    title: Лог операций — источник правды для картинки
+    why: >-
+      Картинка у всех участников сходится не потому, что кто-то шлёт пиксели, а потому что
+      все сворачивают один и тот же лог. Отсюда отмена, снапшоты, форк и датасет.
+    modules: [engine-oplog, server-rooms, shared-contract]
+    flows: [stroke, join]
+
+  - id: optimistic-local
+    title: Сначала локально, сеть догоняет
+    why: >-
+      Линия появляется под пером до всякой сети; операция ждёт подтверждения в outbox.
+      Объясняет outbox, seq, operation_confirmed и дубли.
+    modules: [room-net, engine-facade]
+    links: [ui-idb, ui-socket]
+    flows: [stroke]
+
+  - id: store-reflects-engine
+    title: Стор — отражение движка, а не его источник
+    why: >-
+      Главная граница клиента. Движок меняют императивным вызовом, стор записывает результат.
+      Нарушение этой границы даёт рассинхрон картинки и интерфейса.
+    modules: [store-room, engine-facade]
+    links: [engine-api]
+
+  - id: contract-strength
+    title: Сила контракта между процессами
+    why: >-
+      Связан / назван / с одной стороны / без типа. Помогает понять, где изменение поля
+      поймает компилятор, а где сломает прод молча (#623).
+    links: [ui-socket, ui-rest, ui-rest-admin, server-pg]
+
+  - id: collaborative-undo
+    title: Отмена в общей комнате — не стек
+    adr: [002-collaborative-undo]
+    flows: [undo]
+
+  - id: snapshots
+    title: Снапшоты и быстрый вход в длинную комнату
+    why: Почему снапшоты печёт клиент, а сервер их только хранит, и как хвост лога ложится поверх.
+    modules: [engine-oplog, server-rooms-http]
+    flows: [join]
+
+  - id: cross-device-determinism
+    title: Одинаковая картинка на разных GPU
+    why: >-
+      Почему бумага печётся заранее, а не считается на GPU. Правило — в .claude/rules.md →
+      «Cross-device pixel determinism».
+    modules: [engine-paper, build-assets]
+    links: [engine-gpu, nginx-ui]
+
+  - id: layer-model
+    title: Модель слоёв и папок
+    adr: [001-layer-panel-dnd, 014-layer-filters]
+    modules: [lib-layers, ui-layers]
+
+  - id: boards-and-class
+    title: Доски и режим класса
+    adr: [014-boards, 015-class-mode]
+    modules: [lib-boards]
+
+people:
+  ilya:
+    map-reading: слышал

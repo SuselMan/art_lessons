@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { REPO_ROOT } from './model';
 import type { Dataset } from './collect';
+import type { RuntimeMap } from './runtime';
 
 const PAGE = join(REPO_ROOT, 'scripts', 'archmap', 'page');
 
@@ -18,7 +19,7 @@ function repoUrls(remote: string, branch: string): { blob: string; issues: strin
   };
 }
 
-export function render(data: Dataset, remote: string): string {
+export function render(data: Dataset & { runtime?: RuntimeMap }, remote: string): string {
   const urls = repoUrls(remote, data.branch);
   const payload = { ...data, repo: urls.blob, issuesBase: urls.issues };
   const stamp = `${data.commit} · ${data.generatedAt.slice(0, 16).replace('T', ' ')} UTC`;

@@ -252,6 +252,80 @@ a.link { color: var(--accent); }
 .step .body p { margin: 0; color: var(--ink-2); font-size: 13px; }
 .step .body .where { margin-top: 7px; font-size: 12px; }
 
+/* ---------- runtime (#624) ---------- */
+
+/* Contract strength, strongest first: one colour + one dash pattern per level, so the
+   legend reads in greyscale too. */
+[data-contract='bound'] { --c: var(--ok); --dash: none; }
+[data-contract='named'] { --c: var(--in); --dash: 10 4; }
+[data-contract='one-side'] { --c: var(--out); --dash: 5 5; }
+[data-contract='opaque'] { --c: var(--ink-3); --dash: 1.5 5; }
+
+.rt-wrap { display: flex; height: 100%; }
+.rt-canvas { flex: 1; min-width: 0; overflow: auto; padding: 0 0 30px; }
+#rt-svg { display: block; width: 100%; height: auto; }
+.rt-legend {
+  position: sticky; top: 0; left: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+  padding: 10px 20px; background: var(--bg); border-bottom: 1px solid var(--line-2); font-size: 12.5px;
+}
+.rt-key { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); }
+.rt-key line { stroke: var(--c); stroke-width: 3; stroke-dasharray: var(--dash); stroke-linecap: round; }
+.rt-key-note { color: var(--ink-3); font-size: 11.5px; }
+
+.rt-zone rect { fill: var(--panel-2); stroke: var(--line-2); }
+.rt-zone-title { fill: var(--ink-3); font: 600 11px var(--sans); letter-spacing: 0.09em; text-transform: uppercase; }
+
+.rt-link { cursor: pointer; }
+.rt-link .rt-hit { fill: none; stroke: transparent; stroke-width: 14; }
+.rt-link .rt-line {
+  fill: none; stroke: var(--c); stroke-width: 2; stroke-dasharray: var(--dash); stroke-linecap: round; opacity: 0.8;
+}
+.rt-link:hover .rt-line, .rt-link[data-sel='true'] .rt-line { stroke-width: 3.5; opacity: 1; }
+.rt-link[data-dim='true'] .rt-line { opacity: 0.12; }
+
+.rt-label { cursor: pointer; }
+.rt-label rect { fill: var(--panel); stroke: var(--c); stroke-width: 1.2; }
+.rt-label-text { fill: var(--ink-2); font: 11px var(--mono); }
+.rt-label:hover rect, .rt-label[data-sel='true'] rect { stroke-width: 2.4; }
+.rt-label[data-dim='true'] { opacity: 0.18; }
+
+.rt-node { cursor: pointer; }
+.rt-node rect { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
+.rt-node[data-kind='external'] rect { stroke-dasharray: 5 4; fill: var(--panel-2); }
+.rt-node .rt-store-lid { stroke: var(--line); stroke-width: 1.2; }
+.rt-node:hover rect { fill: var(--card-hover); stroke: var(--accent); }
+.rt-node[data-sel='true'] rect { stroke: var(--accent); stroke-width: 2.5; }
+.rt-node[data-dim='true'] { opacity: 0.3; }
+.rt-node-title { fill: var(--ink); font: 600 13px var(--sans); }
+.rt-node-kind { fill: var(--ink-3); font: 11px var(--sans); }
+
+.rt-panel {
+  width: 380px; flex: none; border-left: 1px solid var(--line); background: var(--panel);
+  overflow-y: auto; padding: 16px 18px 40px;
+}
+.rt-panel h2 { margin: 0 0 2px; font-size: 17px; letter-spacing: -0.01em; }
+.rt-panel h3 {
+  margin: 22px 0 8px; font: 600 11px var(--sans); letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.rt-panel .layer-tag { color: var(--ink-3); font-size: 12px; }
+.rt-panel .owns { margin: 10px 0 0; }
+.rt-panel .note {
+  margin: 8px 0 0; padding: 8px 10px; background: var(--panel-2);
+  border-left: 2px solid var(--accent); border-radius: 0 6px 6px 0; font-size: 13px; color: var(--ink-2);
+}
+.rt-badge {
+  display: inline-block; font-size: 11px; padding: 0 7px; border-radius: 999px; white-space: nowrap;
+  border: 1.5px solid var(--c); color: var(--c); font-weight: 600;
+}
+.rt-msgs { table-layout: fixed; }
+.rt-msgs td { font-size: 12.5px; overflow-wrap: anywhere; }
+.rt-msgs code { font: 12px var(--mono); color: var(--ink); }
+.rt-dir { width: 22px; color: var(--ink-3); font-size: 15px; }
+.rt-type { font: 11.5px var(--mono); color: var(--accent); margin-top: 2px; }
+.rt-mnote { color: var(--ink-2); margin-top: 2px; }
+.rt-runtime { color: var(--ink-2); margin-top: 3px; font-size: 12px; padding-left: 8px; border-left: 2px solid var(--out); }
+
 /* ---------- health ---------- */
 
 .health { height: 100%; overflow: auto; padding: 22px 26px 60px; }
