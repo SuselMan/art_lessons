@@ -41,7 +41,6 @@
     });
   });
 
-  var maxLoc = Math.max.apply(null, D.modules.map(function (m) { return m.loc; }).concat([1]));
   var maxChurn = Math.max.apply(null, D.modules.map(function (m) { return m.churn; }).concat([1]));
   var maxDebt = Math.max.apply(null, D.modules.map(function (m) {
     return (violationsByModule.get(m.id) || []).length;
@@ -146,8 +145,10 @@
   var canvasW = 0;
   var canvasH = 0;
 
+  // Height is the module's size (lines of code, square-rooted so one giant does not dwarf the
+  // rest); the floor leaves room for the title and the metrics row.
   function cardHeight(m) {
-    return Math.max(46, Math.min(112, 42 + Math.sqrt(m.loc) * 2.1));
+    return Math.max(64, Math.min(128, 58 + Math.sqrt(m.loc) * 2.1));
   }
 
   function computeLayout() {
@@ -240,6 +241,15 @@
 
   function drawGraph() {
     svg.innerHTML = '';
+    // (#639) One arrowhead per edge state: a marker cannot inherit its path's stroke colour.
+    var defs = el('defs', {}, svg);
+    ['base', 'in', 'out', 'back'].forEach(function (k) {
+      var mk = el('marker', {
+        id: 'arr-' + k, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7,
+        orient: 'auto-start-reverse', markerUnits: 'userSpaceOnUse',
+      }, defs);
+      el('path', { d: 'M0,1 L10,5 L0,9 z', class: 'arrow arrow-' + k }, mk);
+    });
     gRoot = el('g', {}, svg);
     gBands = el('g', {}, gRoot);
     gEdges = el('g', {}, gRoot);
@@ -296,11 +306,15 @@
       wrap(m.title, 24).slice(0, 2).forEach(function (ln, i) {
         text(g, p.x + 12, p.y + 21 + i * 15, 'title', ln);
       });
-      var vio = (violationsByModule.get(m.id) || []).length;
-      text(g, p.x + 12, p.y + p.h - 20, 'meta',
-        m.loc.toLocaleString('ru') + ' стр · ' + m.fileCount + ' ф' + (vio ? ' · ⚠' + vio : ''));
-      el('rect', { x: p.x + 12, y: p.y + p.h - 11, width: p.w - 24, height: 4, rx: 2, class: 'bar-bg' }, g);
-      el('rect', { x: p.x + 12, y: p.y + p.h - 11, width: 0, height: 4, rx: 2, class: 'bar' }, g);
+      // (#639) Every metric at once, instead of one bar at a time relative to the biggest module.
+      text(g, p.x + 12, p.y + p.h - 27, 'meta',
+        m.loc.toLocaleString('ru') + ' стр · ' + m.fileCount + ' ' + plural(m.fileCount, 'файл', 'файла', 'файлов'));
+      var row = el('text', { x: p.x + 12, y: p.y + p.h - 11, class: 'metrics' }, g);
+      metricSpans(m).forEach(function (sp, i) {
+        if (i) el('tspan', { class: 'sep' }, row).textContent = ' · ';
+        var t = el('tspan', { class: 'mv', 'data-level': sp.level }, row);
+        t.textContent = sp.text;
+      });
       if (focus && focus.id === m.id) g.setAttribute('data-focus', 'true');
       // Selection happens in the svg-level pointerup, not here: panning can start on a card
       // too, so a click is only distinguishable from a drag once the pointer comes back up.
@@ -310,6 +324,31 @@
 
     paintMetric();
     applySearch();
+  }
+
+  function plural(n, one, few, many) {
+    var d = n % 10, h = n % 100;
+    if (d === 1 && h !== 11) return one;
+    if (d >= 2 && d <= 4 && (h < 12 || h > 14)) return few;
+    return many;
+  }
+
+  function testRatio(m) { return m.loc ? m.testLoc / m.loc : 0; }
+  function debtOf(m) {
+    return (violationsByModule.get(m.id) || []).length + (clonesByModule.get(m.id) || []).length;
+  }
+
+  /** The metrics row: tests, churn, debt — coloured only where the value asks for attention. */
+  function metricSpans(m) {
+    var r = testRatio(m);
+    var out = [{
+      text: 'тесты ' + (r >= 10 ? Math.round(r) + '×' : r >= 1 ? r.toFixed(1).replace('.', ',') + '×' : Math.round(r * 100) + ' %'),
+      level: r === 0 ? 'bad' : r < 0.25 ? 'warn' : 'ok',
+    }];
+    out.push({ text: 'правок ' + m.churn, level: m.churn / maxChurn > 0.35 ? 'warn' : 'plain' });
+    var d = debtOf(m);
+    if (d) out.push({ text: 'долг ' + d, level: 'bad' });
+    return out;
   }
 
   function wrap(str, max) {
@@ -337,38 +376,33 @@
 
   /* ------------------------------------------------------------------ metric colouring */
 
-  var metric = 'size';
+  var metric = 'none';
 
-  function metricValue(m) {
-    if (metric === 'size') return { v: m.loc / maxLoc, col: 'var(--accent)' };
+  /** (#639) The selected chip tints each card — a heat map — instead of drawing a bar. */
+  function metricTint(m) {
+    if (metric === 'none') return null;
     if (metric === 'tests') {
-      var ratio = m.loc ? m.testLoc / m.loc : 0;
-      return { v: Math.min(1, ratio), col: ratio >= 0.25 ? 'var(--ok)' : ratio > 0 ? 'var(--out)' : 'var(--warn)' };
+      var r = testRatio(m);
+      return r === 0 ? ['--warn', 30] : r < 0.25 ? ['--out', 22] : ['--ok', 26];
     }
-    if (metric === 'churn') return { v: m.churn / maxChurn, col: 'var(--out)' };
-    if (metric === 'understanding') {
-      // (#628) The first person's best topic score for this module; a red stub means "nobody
-      // on the team can explain this yet".
-      var who = D.understanding && D.understanding.people[0];
-      var sc = who ? who.moduleScore[m.id] || 0 : 0;
-      return {
-        v: Math.max(sc, 0.06),
-        col: sc >= 1 ? 'var(--ok)' : sc >= 0.5 ? 'var(--in)' : sc > 0 ? 'var(--out)' : 'var(--warn)',
-      };
+    if (metric === 'churn') return ['--out', Math.round(6 + 30 * m.churn / maxChurn)];
+    if (metric === 'debt') {
+      var d = debtOf(m);
+      return d ? ['--warn', Math.round(14 + 36 * Math.min(1, d / Math.max(maxDebt, 3)))] : null;
     }
-    var n = (violationsByModule.get(m.id) || []).length + (clonesByModule.get(m.id) || []).length;
-    return { v: Math.min(1, n / Math.max(maxDebt, 3)), col: n ? 'var(--warn)' : 'var(--line)' };
+    var who = D.understanding && D.understanding.people[0];
+    var sc = who ? who.moduleScore[m.id] || 0 : 0;
+    return sc >= 1 ? ['--ok', 32] : sc >= 0.5 ? ['--in', 26] : sc > 0 ? ['--out', 20] : ['--warn', 14];
   }
 
   function paintMetric() {
     D.modules.forEach(function (m) {
       var g = gNodes.querySelector('[data-id="' + m.id + '"]');
       if (!g) return;
-      var bar = g.querySelectorAll('rect')[2];
-      var p = pos.get(m.id);
-      var mv = metricValue(m);
-      bar.setAttribute('width', Math.max(0, Math.round((p.w - 24) * mv.v)));
-      bar.setAttribute('fill', mv.col);
+      var tint = metricTint(m);
+      g.querySelector('rect').style.fill = tint
+        ? 'color-mix(in srgb, var(' + tint[0] + ') ' + tint[1] + '%, var(--card))'
+        : '';
     });
   }
 
@@ -538,6 +572,20 @@
         'опирается. <b>Синие</b> связи входят в выбранный модуль, <b>оранжевые</b> — выходят из него. ' +
         '<b>Красная</b> связь идёт против порядка слоёв: что-то глубокое тянется наверх. ' +
         'Пунктир — импорт только типов.</p>' +
+        '<h3>Что на карточке</h3>' +
+        '<p><b>Высота</b> — размер модуля в строках кода; внизу — строки и число файлов. ' +
+        '<b>Стрелка</b> идёт от того, кто импортирует, к тому, кого импортируют.</p>' +
+        '<p>Метрики проекта — не структура, поэтому скрыты. Переключатель <b>«метрики»</b> в шапке ' +
+        'добавляет на каждую карточку строку из трёх чисел и чипы, которые окрашивают карточки ' +
+        'тепловой картой по выбранному:</p><ul class="list">' +
+        '<li><b>тесты</b> — сколько строк тестов приходится на строку кода модуля. Это не покрытие: ' +
+        'длинный тест может проверять мало. Красное — тестов нет, жёлтое — меньше 25 %.</li>' +
+        '<li><b>правок</b> — сколько раз файлы модуля менялись в коммитах за полгода (сумма по файлам). ' +
+        'Жёлтое — верхняя треть по проекту: здесь чаще всего пишут.</li>' +
+        '<li><b>долг</b> — нарушения архитектурных правил и повторы кода с другими модулями; ' +
+        'показывается, только если он есть. Подробности — на вкладке «Здоровье».</li></ul>' +
+        '<p>Чип <b>«понимание»</b> доступен всегда: он окрашивает модули по тому, что ты уже можешь ' +
+        'объяснить (вкладка «Понимание»).</p>' +
         '<h3>Как убрать лишнее</h3>' +
         '<p>Клик по <b>заголовку слоя</b> сворачивает весь столбец в полоску; клик по полоске ' +
         'разворачивает обратно.</p>' +
@@ -827,6 +875,26 @@
   }
 
   search.addEventListener('input', applySearch);
+
+  // (#639) Project metrics — tests, churn, debt — are not the structure, so they stay out of
+  // the default view: one switch shows the metrics row on every card and the chips that tint
+  // by them. The choice survives a reload.
+  var METRICS_KEY = 'archmap.metrics.v1';
+  var metricsToggle = document.getElementById('metrics-toggle');
+  function setMetricsShown(on) {
+    document.body.setAttribute('data-metrics', on ? 'on' : 'off');
+    metricsToggle.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem(METRICS_KEY, on ? '1' : '0'); } catch (e) { /* not remembered */ }
+    if (!on && ['tests', 'churn', 'debt'].indexOf(metric) >= 0) {
+      document.querySelector('[data-metric="none"]').click();
+    }
+  }
+  var metricsSaved = false;
+  try { metricsSaved = localStorage.getItem(METRICS_KEY) === '1'; } catch (e) { /* default off */ }
+  setMetricsShown(metricsSaved);
+  metricsToggle.addEventListener('click', function () {
+    setMetricsShown(document.body.getAttribute('data-metrics') !== 'on');
+  });
 
   document.querySelectorAll('[data-metric]').forEach(function (btn) {
     btn.addEventListener('click', function () {
