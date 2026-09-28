@@ -156,6 +156,24 @@ describe('an operation the server refused', () => {
     expect(engine.discardOperation(add.id)).toBe(false)
     expect(ids(engine)).toEqual([add.id])
   })
+
+  // An undo paints nothing itself: refusing it has to bring back what it hid.
+  it('a refused undo puts its target back on the canvas', () => {
+    const engine = client()
+    const add = seq(makeLayerAdd(PEER, 'L'), 1)
+    engine.appendOperation(add, 'remote')
+    const line = bar(ME, 'L')
+    engine.appendOperation(line)
+    engine.confirmOperation(line.id, 2)
+    const before = readLayerPixels(engine, 'L')
+    expect(engine.undo()?.id).toBe(line.id)
+    expect(readLayerPixels(engine, 'L')!.every(v => v === 0)).toBe(true)
+
+    const undoOp = engine.getOperations().find(op => op.type === 'operation_undo')!
+    expect(engine.discardOperation(undoOp.id)).toBe(true)
+    expectPixelsEqual(readLayerPixels(engine, 'L'), before)
+    expect(ids(engine)).toEqual([add.id, line.id])
+  })
 })
 
 describe('a merge ordered before this client’s pending stroke on its source', () => {

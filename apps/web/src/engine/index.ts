@@ -3079,6 +3079,17 @@ export class PencilEngine implements PencilEngineAPI {
     if (!this._log.isPending(opId)) return false
     const target = this._log.revoke(opId)
     if (!target) return false
+    // An undo or redo put nothing on the canvas of its own — it flipped
+    // another entry, and that flip is what has to come back: the server kept
+    // the target as it was. (A refused revoke is left alone — it leaves its
+    // target `gone`, which the log has no way to walk back.)
+    if (target.type === 'operation_undo' || target.type === 'operation_redo') {
+      const flipped = target.type === 'operation_undo'
+        ? this._log.applyRedo(target.targetOpId, target.userId)
+        : this._log.applyUndo(target.targetOpId, target.userId)
+      if (flipped) this._applyHistoryChange(flipped)
+      return true
+    }
     // The same re-sync an undo or a teacher's revoke gets: whatever it put on
     // the canvas has to come off again, by replaying the layer without it.
     this._applyHistoryChange(target)
