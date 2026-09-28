@@ -78,7 +78,7 @@ export interface RuntimeMap {
 
 const RUNTIME_YAML = join(REPO_ROOT, 'docs/architecture/runtime.yaml');
 
-export function loadRuntime(moduleIds: Set<string>): RuntimeMap | undefined {
+export function loadRuntime(refs: Set<string>): RuntimeMap | undefined {
   if (!existsSync(RUNTIME_YAML)) return undefined;
   const rt = parse(readFileSync(RUNTIME_YAML, 'utf8')) as RuntimeMap;
 
@@ -93,7 +93,7 @@ export function loadRuntime(moduleIds: Set<string>): RuntimeMap | undefined {
     if (cells.has(cell)) throw new Error(`runtime node "${n.id}": cell ${cell} is taken`);
     cells.add(cell);
     for (const m of n.modules ?? []) {
-      if (!moduleIds.has(m)) throw new Error(`runtime node "${n.id}": unknown module "${m}"`);
+      if (!refs.has(m)) throw new Error(`runtime node "${n.id}": unknown module or group "${m}"`);
     }
   }
   const linkIds = new Set<string>();

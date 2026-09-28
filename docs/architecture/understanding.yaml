@@ -8,7 +8,8 @@
 #          3 — детали. `parent` — тема на уровень (или больше) выше; к теме переходим, когда
 #          родитель уже на «понимаю». Ссылки на карту:
 #            layers  — слои «Структуры» целиком (обзорное понимание подсистемы),
-#            modules — конкретные модули,
+#            modules — конкретные модули (путь папки) или группы карты (id из map.yaml →
+#                      groupings),
 #            links   — каналы «Исполнения», flows — потоки, adr — файлы docs/adr без .md.
 # people — кто что понимает. Статусы и баллы:
 #            не отмечено 0 · слышал 0 · понимаю 0,5 · объясню сам 1
@@ -62,7 +63,7 @@ topics:
     parent: product-shape
     title: 'Клиент: интерфейс и стор'
     why: React-страницы, стор, сетевой слой комнаты — всё, что в браузере вокруг движка.
-    layers: [shell, screens, editor-ui, editor-logic, ui-kit, state, platform]
+    layers: [shell, screens, editor, ui-kit, state, platform]
 
   - id: engine
     level: 1
@@ -76,7 +77,7 @@ topics:
     parent: product-shape
     title: Сервер
     why: Комнаты в памяти, порядок операций, HTTP-ручки, база.
-    layers: [server-http, server-realtime, server-infra]
+    layers: [server, server-infra]
 
   - id: contract
     level: 1
@@ -101,7 +102,7 @@ topics:
     why: >-
       Картинка у всех сходится не потому, что кто-то шлёт пиксели, а потому что все
       сворачивают один лог. Отсюда отмена, снапшоты, форк и датасет.
-    modules: [engine-oplog, engine-facade]
+    modules: [engine-oplog, apps/web/src/engine]
     flows: [stroke, join]
 
   - id: dab-pipeline
@@ -187,7 +188,7 @@ topics:
     level: 2
     parent: server
     title: Гости, вход по коду и доступ к комнате
-    modules: [server-auth, screen-auth, ui-room-access]
+    modules: [server-auth, apps/web/src/pages/Auth, ui-room-access]
 
   - id: contract-strength
     level: 2
@@ -205,14 +206,14 @@ topics:
     parent: infra
     title: От пуша до прода
     why: CI → образ → VPS, миграции до старта сервера, бэкапы, и почему старый прогон откатывает прод.
-    modules: [build-dist, build-config]
+    modules: [build-dist, apps/web]
 
   - id: architecture-checks
     level: 2
     parent: infra
     title: Проверки архитектуры
     why: map:check, границы dependency-cruiser, бюджеты файлов — что именно они ловят.
-    modules: [archmap]
+    modules: [scripts/archmap]
 
   # ------------------------------------------------------------------ 3 · детали
 
@@ -254,7 +255,7 @@ topics:
     parent: client
     title: Переводы
     adr: [006-i18n]
-    modules: [i18n]
+    modules: [apps/web/src/i18n]
 
 names:
   ilya: Илья

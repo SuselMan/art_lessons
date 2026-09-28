@@ -75,11 +75,16 @@ responsible for, what depends on what, and where the code repeats itself. Open i
 exploring an unfamiliar area — it is faster than grepping, and it links straight to the ADRs.
 
 It is half generated (imports, sizes, clones, churn, rule violations — re-derived on every
-build) and half hand-written (`docs/architecture/map.yaml` — the "what is this for" prose).
-`npm run map:check` fails when a source file belongs to no module, so **adding a folder means
-adding a paragraph to `map.yaml`**; `npm run map:rules` fails on a new crossing of a declared
-architectural boundary. Both run in CI. Details and the "CI is red, now what" guide:
-`docs/architecture/README.md`.
+build) and half hand-written. **A module is a folder with a `README.md`** (#642): its header
+says the module's layer and gives two or three words for the map, its first paragraph says
+what the module is for. A folder without a README belongs to the nearest module above it.
+`docs/architecture/map.yaml` holds only what belongs to no single module — layer order and
+who may import whom, the map-only groups inside big flat folders, budgets, flows.
+`npm run map:check` fails when a source file lies in no module or a README header is wrong,
+so **a new top-level folder means a `README.md` with a paragraph**; `npm run map:rules`
+fails on a new import against the layer order (rules generated from the READMEs) or another
+declared boundary. Both run in CI. The README format, how to add a module, and the
+"CI is red, now what" guide: `docs/architecture/README.md`.
 
 Next to it, `docs/architecture/understanding.yaml` tracks which parts of the architecture Ilya
 can explain himself — agents write most of the code, so "the code exists" and "the owner

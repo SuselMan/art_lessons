@@ -14,7 +14,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 
-import { REPO_ROOT, type ArchMap } from './model';
+import { REPO_ROOT, refIds, type ArchMap, type Assignment } from './model';
 import type { RuntimeMap } from './runtime';
 
 export const STATUSES = ['не отмечено', 'слышал', 'понимаю', 'объясню сам'] as const;
@@ -45,11 +45,33 @@ export interface UnderstandingDoc {
   names?: Record<string, string>;
 }
 
-export interface ModuleFacts {
+/**
+ * (#642) What coverage is counted over: each map-only group of a module is a unit of its own,
+ * and whatever of a module no group claims is a unit named after the module. A module without
+ * groups is one unit. So a topic pointing at `room-net` credits the net files, not all of
+ * pages/Room, and a topic pointing at pages/Room credits all of it.
+ */
+export interface UnitFacts {
   id: string;
+  module: string;
   layer: string;
   loc: number;
   churn: number;
+}
+
+export function unitFacts(map: ArchMap, a: Assignment, churnOf: (path: string) => number): UnitFacts[] {
+  const out = new Map<string, UnitFacts>();
+  for (const m of map.modules) {
+    for (const f of a.byModule.get(m.id) ?? []) {
+      const id = a.grouping.get(f.path) ?? m.id;
+      let u = out.get(id);
+      if (!u) out.set(id, (u = { id, module: m.id, layer: m.layer, loc: 0, churn: 0 }));
+      // Lines count code only, like the cards; churn counts every file, tests included.
+      if (!f.isTest && !f.isStyle) u.loc += f.loc;
+      u.churn += churnOf(f.path);
+    }
+  }
+  return [...out.values()];
 }
 
 export interface Coverage {
@@ -57,11 +79,13 @@ export interface Coverage {
   status: Record<string, Status>;
   levels: { title: string; topics: number; score: number }[];
   code: { loc: number; total: number; churn: number; churnTotal: number };
-  /** Module id → best score any topic gives it. */
+  /** Unit id (group, or module) → best score any topic gives it. */
+  unitScore: Record<string, number>;
+  /** Module id → its units' scores weighted by lines — what tints a card. */
   moduleScore: Record<string, number>;
-  /** Modules no topic reaches at all — the topic list itself has a gap there. */
+  /** Units no topic reaches at all — the topic list itself has a gap there. */
   unreached: string[];
-  /** Hot modules below «понимаю», by churn. */
+  /** Hot units below «понимаю», by churn. */
   hotspots: string[];
   /** Topics below «понимаю» whose parent is at «понимаю» or better — the frontier. */
   next: string[];
@@ -77,7 +101,7 @@ export function loadUnderstanding(): UnderstandingDoc | undefined {
 /** Every reference must still exist on the map, and the tree must be a tree. */
 export function checkUnderstanding(doc: UnderstandingDoc, map: ArchMap, runtime: RuntimeMap | undefined): string[] {
   const out: string[] = [];
-  const modules = new Set(map.modules.map((m) => m.id));
+  const modules = refIds(map);
   const layers = new Set(map.layers.map((l) => l.id));
   const flows = new Set(map.flows.map((f) => f.id));
   const links = new Set(runtime?.links.map((l) => l.id) ?? []);
@@ -95,7 +119,7 @@ export function checkUnderstanding(doc: UnderstandingDoc, map: ArchMap, runtime:
       else if (p.level >= t.level) out.push(`${where}: родитель ${p.id} не выше по уровню`);
     } else if (t.level !== 0) out.push(`${where}: у темы уровня ${t.level} должен быть родитель`);
     for (const x of t.layers ?? []) if (!layers.has(x)) out.push(`${where}: нет слоя ${x}`);
-    for (const x of t.modules ?? []) if (!modules.has(x)) out.push(`${where}: нет модуля ${x}`);
+    for (const x of t.modules ?? []) if (!modules.has(x)) out.push(`${where}: нет модуля или группы ${x}`);
     for (const x of t.flows ?? []) if (!flows.has(x)) out.push(`${where}: нет потока ${x}`);
     for (const x of t.links ?? []) if (!links.has(x)) out.push(`${where}: нет канала ${x}`);
     for (const x of t.adr ?? []) {
@@ -113,7 +137,7 @@ export function checkUnderstanding(doc: UnderstandingDoc, map: ArchMap, runtime:
   return out;
 }
 
-export function coverage(doc: UnderstandingDoc, person: string, modules: ModuleFacts[]): Coverage {
+export function coverage(doc: UnderstandingDoc, person: string, modules: UnitFacts[]): Coverage {
   const marks = doc.people?.[person] ?? {};
   const status: Record<string, Status> = {};
   for (const t of doc.topics) status[t.id] = marks[t.id] ?? 'не отмечено';
@@ -124,22 +148,32 @@ export function coverage(doc: UnderstandingDoc, person: string, modules: ModuleF
     return { title, topics: here.length, score: here.reduce((s, t) => s + score(t.id), 0) };
   });
 
-  const moduleScore: Record<string, number> = {};
+  const unitScore: Record<string, number> = {};
   const reached = new Set<string>();
   const credit = (id: string, v: number): void => {
     reached.add(id);
-    moduleScore[id] = Math.max(moduleScore[id] ?? 0, v);
+    unitScore[id] = Math.max(unitScore[id] ?? 0, v);
   };
   for (const t of doc.topics) {
-    for (const id of t.modules ?? []) credit(id, score(t.id));
+    for (const ref of t.modules ?? []) {
+      // A module ref covers every unit of the module; a group ref covers that group.
+      for (const u of modules) if (u.id === ref || u.module === ref) credit(u.id, score(t.id));
+    }
     for (const layer of t.layers ?? []) {
       for (const m of modules) if (m.layer === layer) credit(m.id, score(t.id) * LAYER_WEIGHT);
     }
   }
+  const moduleScore: Record<string, number> = {};
+  const moduleLoc: Record<string, number> = {};
+  for (const u of modules) {
+    moduleLoc[u.module] = (moduleLoc[u.module] ?? 0) + u.loc;
+    moduleScore[u.module] = (moduleScore[u.module] ?? 0) + u.loc * (unitScore[u.id] ?? 0);
+  }
+  for (const id of Object.keys(moduleScore)) moduleScore[id] = moduleLoc[id] ? moduleScore[id] / moduleLoc[id] : 0;
 
   const code = { loc: 0, total: 0, churn: 0, churnTotal: 0 };
   for (const m of modules) {
-    const s = moduleScore[m.id] ?? 0;
+    const s = unitScore[m.id] ?? 0;
     code.total += m.loc;
     code.loc += m.loc * s;
     code.churnTotal += m.churn;
@@ -147,7 +181,7 @@ export function coverage(doc: UnderstandingDoc, person: string, modules: ModuleF
   }
 
   const hotspots = modules
-    .filter((m) => (moduleScore[m.id] ?? 0) < SCORE['понимаю'] && m.churn > 0)
+    .filter((m) => (unitScore[m.id] ?? 0) < SCORE['понимаю'] && m.churn > 0)
     .sort((a, b) => b.churn - a.churn)
     .slice(0, 10)
     .map((m) => m.id);
@@ -164,6 +198,7 @@ export function coverage(doc: UnderstandingDoc, person: string, modules: ModuleF
     status,
     levels,
     code,
+    unitScore,
     moduleScore,
     unreached: modules.filter((m) => !reached.has(m.id)).map((m) => m.id),
     hotspots,

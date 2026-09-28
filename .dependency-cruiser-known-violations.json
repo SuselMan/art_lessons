@@ -186,6 +186,189 @@
   },
   {
     "type": "dependency",
+    "from": "apps/web/src/engine/index.ts",
+    "to": "apps/web/src/lib/diagLog.ts",
+    "unresolvedTo": "../lib/diagLog",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-engine-api"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/engine/index.ts",
+    "to": "apps/web/src/lib/pressureCalibration.ts",
+    "unresolvedTo": "../lib/pressureCalibration",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-engine-api"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/engine/src/PointerInput.ts",
+    "to": "apps/web/src/lib/diagLog.ts",
+    "unresolvedTo": "../../lib/diagLog",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-engine-internals"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/engine/src/PointerInput.ts",
+    "to": "apps/web/src/lib/pressureCalibration.ts",
+    "unresolvedTo": "../../lib/pressureCalibration",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-engine-internals"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/i18n/index.ts",
+    "to": "apps/web/src/stores/settingsStore.ts",
+    "unresolvedTo": "../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/devEngineHandle.ts",
+    "to": "apps/web/src/stores/roomStore.ts",
+    "unresolvedTo": "../stores/roomStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/environment.ts",
+    "to": "apps/web/src/stores/settingsStore.ts",
+    "unresolvedTo": "../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/registerServiceWorker.ts",
+    "to": "apps/web/src/stores/noticeStore.ts",
+    "unresolvedTo": "../stores/noticeStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/registerServiceWorker.ts",
+    "to": "apps/web/src/stores/settingsStore.ts",
+    "unresolvedTo": "../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/roomChunk.ts",
+    "to": "apps/web/src/pages/Room/index.tsx",
+    "unresolvedTo": "../pages/Room",
+    "dependencyTypes": [
+      "local",
+      "dynamic-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/useCompactLayout.ts",
+    "to": "apps/web/src/stores/settingsStore.ts",
+    "unresolvedTo": "../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/useShareRoom.ts",
+    "to": "apps/web/src/stores/noticeStore.ts",
+    "unresolvedTo": "../stores/noticeStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/useShareRoom.ts",
+    "to": "apps/web/src/stores/settingsStore.ts",
+    "unresolvedTo": "../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
     "from": "apps/web/src/stores/noticeStore.ts",
     "to": "apps/web/src/components/Notice/Notice.tsx",
     "unresolvedTo": "../components/Notice/Notice",
@@ -196,7 +379,7 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
     }
   },
   {
@@ -210,7 +393,7 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
     }
   },
   {
@@ -224,7 +407,7 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
     }
   },
   {
@@ -239,7 +422,7 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
     }
   },
   {
@@ -254,7 +437,7 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
     }
   },
   {
@@ -268,7 +451,7 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
     }
   },
   {
@@ -282,7 +465,7 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
     }
   },
   {
@@ -297,7 +480,36 @@
     ],
     "rule": {
       "severity": "error",
-      "name": "store-holds-no-ui"
+      "name": "layer-state"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/components/FloatingToolPanel/index.tsx",
+    "to": "apps/web/src/pages/Room/panelPosition.ts",
+    "unresolvedTo": "../../pages/Room/panelPosition",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-ui-kit"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/components/SettingField/index.tsx",
+    "to": "apps/web/src/pages/Room/toolSchemas.ts",
+    "unresolvedTo": "../../pages/Room/toolSchemas",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-ui-kit"
     }
   },
   {
@@ -446,6 +658,36 @@
       },
       {
         "name": "apps/web/src/engine/src/brushPenPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "apps/web/src/engine/src/dabShaping.ts",
+    "to": "apps/web/src/engine/src/digitalBrushPresets.ts",
+    "unresolvedTo": "./digitalBrushPresets",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "apps/web/src/engine/src/digitalBrushPresets.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "apps/web/src/engine/src/dabShaping.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -782,6 +1024,15 @@
     "type": "module",
     "from": "apps/web/scripts/bakeAppIcons.ts",
     "to": "apps/web/scripts/bakeAppIcons.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  },
+  {
+    "type": "module",
+    "from": "apps/web/scripts/bakeBrushSamples.ts",
+    "to": "apps/web/scripts/bakeBrushSamples.ts",
     "rule": {
       "severity": "warn",
       "name": "no-orphans"

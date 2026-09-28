@@ -180,7 +180,7 @@ export interface Dataset {
   generatedAt: string;
   commit: string;
   branch: string;
-  groups: ArchMap['groups'];
+  parts: ArchMap['parts'];
   layers: ArchMap['layers'];
   modules: DatasetModule[];
   edges: DatasetEdge[];
@@ -209,11 +209,34 @@ export interface DatasetFile {
   in: number;
   out: number;
   churn: number;
+  /** (#642) The map-only group this file is in, if its module has groups. */
+  group?: string;
+}
+
+/** (#642) A map-only group inside a module, with its measured size — never a card of its own. */
+export interface DatasetGrouping {
+  id: string;
+  title: string;
+  owns: string;
+  adr: string[];
+  issues: number[];
+  notes: string[];
+  tags: string[];
+  loc: number;
+  fileCount: number;
+  churn: number;
 }
 
 export interface DatasetModule {
+  /** The folder, repo-relative. */
   id: string;
+  /** The folder as shown on the map (`pages/Room`) — what every link on the page prints. */
   title: string;
+  /** Two or three words from the README header. */
+  summary: string;
+  parent?: string;
+  children: string[];
+  groupings: DatasetGrouping[];
   layer: string;
   owns: string;
   adr: string[];
@@ -238,9 +261,8 @@ export interface DatasetEdge {
   samples: [string, string][];
 }
 
-export function build(map: ArchMap, assignment: Assignment): Dataset {
+export function build(map: ArchMap, assignment: Assignment, churnCounts: Map<string, number>): Dataset {
   const graph = cruise();
-  const churnCounts = churn();
   const index = moduleOf(assignment);
   const cloneList = clones();
 
@@ -261,12 +283,33 @@ export function build(map: ArchMap, assignment: Assignment): Dataset {
         in: degIn.get(f.path) ?? 0,
         out: degOut.get(f.path) ?? 0,
         churn: churnCounts.get(f.path) ?? 0,
+        group: assignment.grouping.get(f.path),
       }))
       .sort((a, b) => b.loc - a.loc);
     const code = dsFiles.filter((f) => f.kind === 'code');
+    const groupings = def.groupings.map((g) => {
+      const mine = dsFiles.filter((f) => f.group === g.id);
+      const gcode = mine.filter((f) => f.kind === 'code');
+      return {
+        id: g.id,
+        title: g.title,
+        owns: g.owns,
+        adr: g.adr ?? [],
+        issues: g.issues ?? [],
+        notes: g.notes ?? [],
+        tags: g.tags ?? [],
+        loc: gcode.reduce((a, f) => a + f.loc, 0),
+        fileCount: gcode.length,
+        churn: mine.reduce((a, f) => a + f.churn, 0),
+      };
+    });
     return {
       id: def.id,
-      title: def.title,
+      title: def.label,
+      summary: def.summary,
+      parent: def.parent,
+      children: def.children,
+      groupings,
       layer: def.layer,
       owns: def.owns.trim(),
       adr: def.adr ?? [],
@@ -312,13 +355,15 @@ export function build(map: ArchMap, assignment: Assignment): Dataset {
     cycle: v.cycle?.map((c) => c.name),
   }));
 
-  const allIssues = [...new Set(map.modules.flatMap((m) => m.issues ?? []))].sort((a, b) => a - b);
+  const allIssues = [
+    ...new Set(map.modules.flatMap((m) => [...m.issues, ...m.groupings.flatMap((g) => g.issues ?? [])])),
+  ].sort((a, b) => a - b);
 
   return {
     generatedAt: new Date().toISOString(),
     commit: run('git', ['rev-parse', '--short', 'HEAD'], true).trim(),
     branch: run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], true).trim(),
-    groups: map.groups,
+    parts: map.parts,
     layers: map.layers,
     modules,
     edges: [...edgeMap.values()].sort((a, b) => b.weight - a.weight),
