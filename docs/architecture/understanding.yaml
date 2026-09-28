@@ -149,6 +149,7 @@ topics:
     modules: [room-net]
     links: [ui-idb, ui-socket]
     flows: [stroke]
+    issue: 635
 
   - id: room-screen
     level: 2
