@@ -166,7 +166,7 @@ topics:
     why: >-
       Сервер держит комнату в памяти, даёт операциям seq, рассылает их и пишет в базу, не
       дожидаясь записи. Почему один процесс и нет Redis.
-    modules: [apps/server/src/rooms, apps/server/src]
+    modules: [apps/server/src/rooms, apps/server/src, apps/server/src/db]
     links: [ui-socket, server-peer, server-pg]
 
   - id: snapshots
@@ -188,7 +188,7 @@ topics:
     level: 2
     parent: server
     title: Гости, вход по коду и доступ к комнате
-    modules: [apps/server/src/auth, apps/web/src/pages/Auth, ui-room-access]
+    modules: [apps/server/src/auth, apps/server/src/rooms, apps/web/src/pages/Auth, ui-room-access]
 
   - id: contract-strength
     level: 2
