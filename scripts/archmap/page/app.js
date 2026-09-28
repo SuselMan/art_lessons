@@ -573,16 +573,19 @@
         '<b>Красная</b> связь идёт против порядка слоёв: что-то глубокое тянется наверх. ' +
         'Пунктир — импорт только типов.</p>' +
         '<h3>Что на карточке</h3>' +
-        '<p><b>Высота</b> — размер модуля в строках кода. Ниже — строки и число файлов, затем три ' +
-        'метрики:</p><ul class="list">' +
+        '<p><b>Высота</b> — размер модуля в строках кода; внизу — строки и число файлов. ' +
+        '<b>Стрелка</b> идёт от того, кто импортирует, к тому, кого импортируют.</p>' +
+        '<p>Метрики проекта — не структура, поэтому скрыты. Переключатель <b>«метрики»</b> в шапке ' +
+        'добавляет на каждую карточку строку из трёх чисел и чипы, которые окрашивают карточки ' +
+        'тепловой картой по выбранному:</p><ul class="list">' +
         '<li><b>тесты</b> — сколько строк тестов приходится на строку кода модуля. Это не покрытие: ' +
         'длинный тест может проверять мало. Красное — тестов нет, жёлтое — меньше 25 %.</li>' +
         '<li><b>правок</b> — сколько раз файлы модуля менялись в коммитах за полгода (сумма по файлам). ' +
         'Жёлтое — верхняя треть по проекту: здесь чаще всего пишут.</li>' +
         '<li><b>долг</b> — нарушения архитектурных правил и повторы кода с другими модулями; ' +
         'показывается, только если он есть. Подробности — на вкладке «Здоровье».</li></ul>' +
-        '<p>Чипы в шапке окрашивают карточки по выбранной метрике — видно, где сгущается. ' +
-        '<b>Стрелка</b> идёт от того, кто импортирует, к тому, кого импортируют.</p>' +
+        '<p>Чип <b>«понимание»</b> доступен всегда: он окрашивает модули по тому, что ты уже можешь ' +
+        'объяснить (вкладка «Понимание»).</p>' +
         '<h3>Как убрать лишнее</h3>' +
         '<p>Клик по <b>заголовку слоя</b> сворачивает весь столбец в полоску; клик по полоске ' +
         'разворачивает обратно.</p>' +
@@ -872,6 +875,26 @@
   }
 
   search.addEventListener('input', applySearch);
+
+  // (#639) Project metrics — tests, churn, debt — are not the structure, so they stay out of
+  // the default view: one switch shows the metrics row on every card and the chips that tint
+  // by them. The choice survives a reload.
+  var METRICS_KEY = 'archmap.metrics.v1';
+  var metricsToggle = document.getElementById('metrics-toggle');
+  function setMetricsShown(on) {
+    document.body.setAttribute('data-metrics', on ? 'on' : 'off');
+    metricsToggle.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem(METRICS_KEY, on ? '1' : '0'); } catch (e) { /* not remembered */ }
+    if (!on && ['tests', 'churn', 'debt'].indexOf(metric) >= 0) {
+      document.querySelector('[data-metric="none"]').click();
+    }
+  }
+  var metricsSaved = false;
+  try { metricsSaved = localStorage.getItem(METRICS_KEY) === '1'; } catch (e) { /* default off */ }
+  setMetricsShown(metricsSaved);
+  metricsToggle.addEventListener('click', function () {
+    setMetricsShown(document.body.getAttribute('data-metrics') !== 'on');
+  });
 
   document.querySelectorAll('[data-metric]').forEach(function (btn) {
     btn.addEventListener('click', function () {

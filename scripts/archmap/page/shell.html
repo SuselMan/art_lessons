@@ -14,10 +14,11 @@
   </div>
   <div class="chips">
     <button class="chip" data-metric="none" aria-pressed="true">без окраски</button>
-    <button class="chip" data-metric="tests" aria-pressed="false">тесты</button>
-    <button class="chip" data-metric="churn" aria-pressed="false">правки</button>
-    <button class="chip" data-metric="debt" aria-pressed="false">долг</button>
     <button class="chip" data-metric="understanding" aria-pressed="false">понимание</button>
+    <button class="chip switch" id="metrics-toggle" aria-pressed="false" title="Метрики проекта: тесты, правки, долг. Это не структура — поэтому по умолчанию скрыты.">метрики</button>
+    <button class="chip metric-chip" data-metric="tests" aria-pressed="false">тесты</button>
+    <button class="chip metric-chip" data-metric="churn" aria-pressed="false">правки</button>
+    <button class="chip metric-chip" data-metric="debt" aria-pressed="false">долг</button>
   </div>
   <span class="spacer"></span>
   <input id="search" type="search" placeholder="Найти модуль или файл  ( / )" />

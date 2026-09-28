@@ -429,3 +429,8 @@ td.r, th.r { text-align: right; }
   font-size: 20px; line-height: 1; cursor: pointer; padding: 0 2px;
 }
 .sym-close:hover { color: var(--accent); }
+
+/* (#639) Metrics switch: off by default, the cards show only what the structure is. */
+body[data-metrics='off'] .node .metrics,
+body[data-metrics='off'] .metric-chip { display: none; }
+.chip.switch[aria-pressed='true'] { background: var(--panel-2); border-color: var(--accent); color: var(--accent); }
