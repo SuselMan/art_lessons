@@ -425,6 +425,97 @@
     });
   }
 
+  /* (#632) Names of types and functions the map mentions become clickable; the click shows the
+   * declaration lifted from the code at build time (D.symbols). Delegated on the document, so
+   * panels that re-render their HTML need no wiring of their own. */
+  var SYMBOLS = D.symbols || {};
+
+  function symText(str) {
+    return String(str).split(/(\b[A-Za-z_]\w{2,}\b)/).map(function (part, i) {
+      if (i % 2 && Object.prototype.hasOwnProperty.call(SYMBOLS, part)) {
+        return '<span class="sym" data-sym="' + part + '">' + part + '</span>';
+      }
+      return esc(part);
+    }).join('');
+  }
+
+  /* Syntax colouring for the snippets. A tokenizer of our own rather than a library: the map
+   * has to open offline from a file, and a highlighter that builds its own spans would fight
+   * the clickable-name spans above. TypeScript declarations and Prisma models are all it sees,
+   * so comments, strings, keywords, type names and property keys are enough. */
+  var KEYWORDS = new Set(('export type interface const let function class enum extends implements import from ' +
+    'readonly declare keyof typeof as return if else new void null undefined true false in of ' +
+    'public private protected static async await model').split(' '));
+  var BUILTINS = new Set(('string number boolean unknown any never object bigint symbol Record Partial Pick ' +
+    'Omit Readonly ReadonlyArray ReadonlySet ReadonlyMap Array Promise Set Map Date Uint8Array Float32Array ' +
+    'Int String Boolean Json Bytes DateTime Float BigInt Decimal').split(' '));
+  var TOKEN = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|('(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`)|(@@?\w+)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)/g;
+
+  function highlight(src) {
+    var out = '', last = 0, m;
+    TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      last = TOKEN.lastIndex;
+      var t = m[0];
+      if (m[1]) out += '<span class="hl-c">' + symText(t) + '</span>';
+      else if (m[2]) out += '<span class="hl-s">' + esc(t) + '</span>';
+      else if (m[3]) out += '<span class="hl-a">' + esc(t) + '</span>';
+      else if (m[4]) out += '<span class="hl-n">' + t + '</span>';
+      else if (Object.prototype.hasOwnProperty.call(SYMBOLS, t)) out += '<span class="sym hl-t" data-sym="' + t + '">' + t + '</span>';
+      // A key before `:` is a property even when it is spelled like a keyword (`type: 'stroke'`).
+      else if (/^\s*\??:/.test(src.slice(last, last + 3))) out += '<span class="hl-p">' + esc(t) + '</span>';
+      else if (KEYWORDS.has(t)) out += '<span class="hl-k">' + t + '</span>';
+      else if (BUILTINS.has(t)) out += '<span class="hl-b">' + t + '</span>';
+      else if (/^[A-Z]/.test(t)) out += '<span class="hl-t">' + esc(t) + '</span>';
+      else out += esc(t);
+    }
+    return out + esc(src.slice(last));
+  }
+
+  var symPop = document.createElement('div');
+  symPop.className = 'sym-pop';
+  symPop.hidden = true;
+  document.body.appendChild(symPop);
+
+  function showSymbol(name, x, y) {
+    var decls = SYMBOLS[name] || [];
+    var h = ['<button class="sym-close" aria-label="закрыть">×</button>'];
+    decls.forEach(function (d) {
+      h.push('<div class="sym-head"><b>' + esc(name) + '</b> <span class="tag">' + esc(d.kind) + '</span> ' +
+        '<a class="link path" target="_blank" rel="noreferrer" href="' + REPO + '/' + d.path + '#L' + d.line + '">' +
+        esc(d.path) + ':' + d.line + ' ↗</a></div>' +
+        '<pre><code>' + highlight(d.snippet) + '</code></pre>' +
+        (d.truncated ? '<p class="num" style="float:none">… обрезано — целиком по ссылке</p>' : ''));
+    });
+    if (decls.length > 1) {
+      h.splice(1, 0, '<p class="sym-many">Одно имя — ' + decls.length + ' объявления. Часто разница между ними и есть суть.</p>');
+    }
+    symPop.innerHTML = h.join('');
+    symPop.hidden = false;
+    var w = Math.min(640, window.innerWidth - 24);
+    symPop.style.width = w + 'px';
+    symPop.style.left = Math.max(12, Math.min(x - 20, window.innerWidth - w - 12)) + 'px';
+    // Below the click when there is room, otherwise above it; never past the viewport edge.
+    var below = y + 14, above = y - 14, H = window.innerHeight;
+    var top = H - below - 12 >= 320 || H - below > above ? below : 12;
+    symPop.style.top = top + 'px';
+    symPop.style.maxHeight = Math.max(160, (top === below ? H - below : above) - 12) + 'px';
+    symPop.scrollTop = 0;
+  }
+
+  document.addEventListener('click', function (ev) {
+    var sym = ev.target.closest && ev.target.closest('.sym');
+    if (sym) {
+      ev.stopPropagation();
+      showSymbol(sym.getAttribute('data-sym'), ev.clientX, ev.clientY);
+      return;
+    }
+    if (ev.target.closest && ev.target.closest('.sym-close')) { symPop.hidden = true; return; }
+    if (!symPop.hidden && !symPop.contains(ev.target)) symPop.hidden = true;
+  }, true);
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') symPop.hidden = true; });
+
   function fileLink(path, line) {
     var href = REPO + '/' + path + (line ? '#L' + line : '');
     return '<a class="link path" href="' + href + '" target="_blank" rel="noreferrer">' + esc(path) + '</a>';
@@ -482,8 +573,8 @@
       (focus && !focused ? '<button data-act="unfocus">сбросить фокус</button>' : '') +
       '</div>');
 
-    h.push('<p class="owns">' + esc(m.owns) + '</p>');
-    m.notes.forEach(function (n) { h.push('<p class="note">' + esc(n) + '</p>'); });
+    h.push('<p class="owns">' + symText(m.owns) + '</p>');
+    m.notes.forEach(function (n) { h.push('<p class="note">' + symText(n) + '</p>'); });
     if (m.tags.length) {
       h.push('<div style="margin-top:10px">' + m.tags.map(function (t) {
         return '<span class="tag">' + esc(t) + '</span>';
@@ -799,7 +890,7 @@
       f.steps.forEach(function (s) {
         h.push('<div class="step" data-side="' + esc(s.side || 'client') + '">' +
           '<div class="rail"><div class="dot"></div><div class="stem"></div></div>' +
-          '<div class="body"><h4>' + esc(s.title) + '</h4><p>' + esc(s.detail) + '</p>' +
+          '<div class="body"><h4>' + symText(s.title) + '</h4><p>' + symText(s.detail) + '</p>' +
           (s.module ? '<div class="where">→ <span class="link" data-jump="' + s.module + '">' +
             esc((byId.get(s.module) || {}).title || s.module) + '</span></div>' : '') +
           '</div></div>');
@@ -960,7 +1051,7 @@
     var selected = null; // { type: 'node' | 'link', id }
 
     function linkify(str) {
-      return esc(str).replace(/#(\d{2,4})/g, function (_, n) {
+      return symText(str).replace(/#(\d{2,4})/g, function (_, n) {
         var title = D.issues && D.issues[n];
         return '<a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + n + '">#' + n +
           (title ? ' (' + esc(title) + ')' : '') + '</a>';
@@ -1032,10 +1123,10 @@
         h.push('<h3>Сообщения · ' + l.messages.length + '</h3><table class="rt-msgs"><tbody>');
         l.messages.forEach(function (m) {
           var target = m.dir === '→' ? to.title : from.title;
-          h.push('<tr><td class="rt-dir" title="к: ' + esc(target) + '">' + m.dir + '</td><td><code>' + esc(m.name) +
-            '</code><div class="rt-type">' + esc(m.type) + '</div>' +
+          h.push('<tr><td class="rt-dir" title="к: ' + esc(target) + '">' + m.dir + '</td><td><code>' + symText(m.name) +
+            '</code><div class="rt-type">' + symText(m.type) + '</div>' +
             (m.note ? '<div class="rt-mnote">' + linkify(m.note) + '</div>' : '') +
-            (m.runtime ? '<div class="rt-runtime">в рантайме: ' + esc(m.runtime) + '</div>' : '') +
+            (m.runtime ? '<div class="rt-runtime">в рантайме: ' + symText(m.runtime) + '</div>' : '') +
             '</td></tr>');
         });
         h.push('</tbody></table><p class="num" style="float:none">→ от «' + esc(from.title) + '» к «' + esc(to.title) +
@@ -1179,7 +1270,7 @@
       if (t.issue) {
         out += ' <a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + t.issue + '">#' + t.issue + '</a>';
       }
-      if (t.why) out += '<div class="und-why">' + esc(t.why) + '</div>';
+      if (t.why) out += '<div class="und-why">' + symText(t.why) + '</div>';
       if (withRefs) {
         var refs = [];
         (t.layers || []).forEach(function (id) { refs.push('слой ' + esc((layerById.get(id) || {}).title || id)); });

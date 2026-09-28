@@ -7,6 +7,7 @@ import { build } from './collect';
 import { assign, listSourceFiles, loadMap, REPO_ROOT } from './model';
 import { render } from './render';
 import { loadRuntime } from './runtime';
+import { indexSymbols, mentioned, strings } from './symbols';
 import { coverage, loadUnderstanding } from './understanding';
 
 const OUT = join(REPO_ROOT, 'docs', 'architecture', 'map.html');
@@ -34,7 +35,11 @@ function main(): void {
     names: doc.names ?? {},
     people: Object.keys(doc.people ?? {}).map((person) => coverage(doc, person, base.modules)),
   };
-  const data = { ...base, runtime: loadRuntime(new Set(map.modules.map((m) => m.id))), understanding };
+  const runtime = loadRuntime(new Set(map.modules.map((m) => m.id)));
+  // (#632) Declarations of every type and function the map's prose mentions.
+  const decls = runtime?.links.flatMap((l) => l.messages.flatMap((m) => m.decl ?? [])) ?? [];
+  const symbols = mentioned(indexSymbols(decls), strings([map.modules, map.flows, runtime, doc]));
+  const data = { ...base, runtime, understanding, symbols };
 
   let remote = '';
   try {

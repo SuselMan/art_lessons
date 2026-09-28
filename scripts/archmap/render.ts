@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { REPO_ROOT } from './model';
 import type { Dataset } from './collect';
 import type { RuntimeMap } from './runtime';
+import type { SymbolDecl } from './symbols';
 import type { Coverage, Topic } from './understanding';
 
 const PAGE = join(REPO_ROOT, 'scripts', 'archmap', 'page');
@@ -23,6 +24,7 @@ function repoUrls(remote: string, branch: string): { blob: string; issues: strin
 export interface PageExtras {
   runtime?: RuntimeMap;
   understanding?: { levels: string[]; topics: Topic[]; names: Record<string, string>; people: Coverage[] };
+  symbols?: Record<string, SymbolDecl[]>;
 }
 
 export function render(data: Dataset & PageExtras, remote: string): string {

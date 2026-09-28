@@ -1,4 +1,11 @@
 :root {
+  --hl-k: #8a3fd1;
+  --hl-s: #2f7d4f;
+  --hl-c: #8a857c;
+  --hl-t: #b25b00;
+  --hl-b: #1f6fc4;
+  --hl-p: #1b1a18;
+  --hl-n: #c2410c;
   --bg: #f6f5f2;
   --panel: #ffffff;
   --panel-2: #fbfaf8;
@@ -22,6 +29,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
+    --hl-k: #c792ea;
+    --hl-s: #9ece6a;
+    --hl-c: #7e786f;
+    --hl-t: #f0a63d;
+    --hl-b: #5fa8f5;
+    --hl-p: #ece9e3;
+    --hl-n: #ff9e64;
     --bg: #16151a;
     --panel: #1e1d24;
     --panel-2: #23222a;
@@ -43,6 +57,13 @@
 }
 
 :root[data-theme='dark'] {
+  --hl-k: #c792ea;
+  --hl-s: #9ece6a;
+  --hl-c: #7e786f;
+  --hl-t: #f0a63d;
+  --hl-b: #5fa8f5;
+  --hl-p: #ece9e3;
+  --hl-n: #ff9e64;
   --bg: #16151a;
   --panel: #1e1d24;
   --panel-2: #23222a;
@@ -365,3 +386,37 @@ td.r, th.r { text-align: right; }
 .und-tree li { padding: 7px 0 3px; }
 .und-why { color: var(--ink-2); font-size: 12.5px; margin-top: 2px; max-width: 80ch; }
 .und-refs { font-size: 12px; margin-top: 3px; color: var(--ink-3); }
+
+/* ---------- symbols (#632) ---------- */
+
+.sym {
+  cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+}
+.sym:hover { color: var(--accent); text-decoration-style: solid; }
+.sym-pop {
+  position: fixed; z-index: 50; overflow: auto; padding: 12px 14px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.sym-pop[hidden] { display: none; }
+.sym-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 4px 28px 6px 0; font-size: 14px; }
+.sym-head .tag { margin: 0; }
+.sym-pop pre {
+  margin: 0 0 10px; padding: 10px 12px; background: var(--panel-2); border-radius: 8px;
+  font: 12px/1.5 var(--mono); color: var(--ink); overflow-x: auto; white-space: pre;
+}
+.sym-pop pre .sym { text-decoration-color: color-mix(in srgb, currentColor 60%, transparent); }
+.hl-k { color: var(--hl-k); }
+.hl-s { color: var(--hl-s); }
+.hl-c { color: var(--hl-c); font-style: italic; }
+.hl-t { color: var(--hl-t); }
+.hl-b { color: var(--hl-b); }
+.hl-p { color: var(--hl-p); }
+.hl-n { color: var(--hl-n); }
+.hl-a { color: var(--hl-k); }
+.sym-many { margin: 0 28px 8px 0; font-size: 12.5px; color: var(--ink-2); }
+.sym-close {
+  position: sticky; float: right; top: 0; border: 0; background: none; color: var(--ink-3);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.sym-close:hover { color: var(--accent); }
