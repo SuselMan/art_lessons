@@ -445,6 +445,7 @@ modules:
       - apps/web/src/pages/Room/socketRevival.ts
       - apps/web/src/pages/Room/confirmedStream.ts
       - apps/web/src/pages/Room/peerEvents.ts
+      - apps/web/src/pages/Room/useServerClockSync.ts
       - apps/web/src/pages/Room/boardEvents.ts
       - apps/web/src/pages/Room/roomControlEvents.ts
       - apps/web/src/pages/Room/syncStatus.ts
@@ -926,6 +927,9 @@ modules:
       - apps/web/src/lib/initSentry.ts
       - apps/web/src/lib/diagLog.ts
       - apps/web/src/lib/reportInvariant.ts
+      - apps/web/src/lib/serverClock.ts
+      - apps/web/src/lib/liveLatency.ts
+      - apps/web/src/lib/liveLatency.test.ts
       - apps/web/src/lib/reportInvariant.test.ts
       - apps/web/src/lib/featureFlags.ts
       - apps/web/src/lib/debugTools.ts
@@ -1335,7 +1339,7 @@ modules:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 3414
+    maxLines: 3417
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича
