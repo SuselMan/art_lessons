@@ -12,7 +12,7 @@ tags: [сервер]
 
 ## Заметки
 
-- Папка плоская, а смысловые куски — группы карты (`docs/architecture/map.yaml` → `groupings`):
+- Смысловые куски этой папки — группы карты (`docs/architecture/map.yaml` → `groupings`):
   server-rooms, server-rooms-http, server-auth, server-admin, server-health, server-entry. В
   коде этих групп нет; когда папку разложат по подпапкам, описание группы переедет в README
   новой подпапки.

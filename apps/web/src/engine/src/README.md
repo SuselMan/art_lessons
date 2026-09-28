@@ -12,7 +12,7 @@ tags: [webgl1]
 
 ## Заметки
 
-- Папка плоская, а смысловые куски — группы карты (`docs/architecture/map.yaml` → `groupings`):
+- Смысловые куски этой папки — группы карты (`docs/architecture/map.yaml` → `groupings`):
   engine-buffers, engine-dabs, engine-presets, engine-paper, engine-input, engine-oplog,
   engine-raster, engine-filters. В коде этих групп нет; когда папку разложат по подпапкам,
   описание группы переедет в README новой подпапки.

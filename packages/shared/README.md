@@ -10,6 +10,6 @@ tags: [контракт]
 
 ## Заметки
 
-- Папка плоская, а смысловые куски — группы карты (`docs/architecture/map.yaml` → `groupings`):
+- Смысловые куски этой папки — группы карты (`docs/architecture/map.yaml` → `groupings`):
   shared-contract, shared-dab-codec. В коде этих групп нет; когда папку разложат по подпапкам,
   описание группы переедет в README новой подпапки.
