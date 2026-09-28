@@ -10,12 +10,14 @@
     <button data-tab="runtime" aria-selected="false">Исполнение</button>
     <button data-tab="flows" aria-selected="false">Потоки</button>
     <button data-tab="health" aria-selected="false">Здоровье</button>
+    <button data-tab="understanding" aria-selected="false">Понимание</button>
   </div>
   <div class="chips">
     <button class="chip" data-metric="size" aria-pressed="true">размер</button>
     <button class="chip" data-metric="tests" aria-pressed="false">тесты</button>
     <button class="chip" data-metric="churn" aria-pressed="false">правки</button>
     <button class="chip" data-metric="debt" aria-pressed="false">долг</button>
+    <button class="chip" data-metric="understanding" aria-pressed="false">понимание</button>
   </div>
   <span class="spacer"></span>
   <input id="search" type="search" placeholder="Найти модуль или файл  ( / )" />
@@ -35,6 +37,7 @@
   <div class="view" id="view-runtime"></div>
   <div class="view" id="view-flows"></div>
   <div class="view" id="view-health"></div>
+  <div class="view" id="view-understanding"></div>
   <aside id="panel" class="empty"></aside>
 </main>
 

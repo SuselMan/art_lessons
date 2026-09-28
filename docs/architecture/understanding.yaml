@@ -1,83 +1,259 @@
-# Карта понимания: что из архитектуры разработчик может объяснить сам.
+# Карта понимания: что из архитектуры разработчик может объяснить сам (#628).
 #
 # Большую часть кода пишут агенты, поэтому «код есть» и «я понимаю, как это устроено» —
 # разные вещи. Этот файл ведёт вторую. Правило, по которому он пополняется, — в
 # .claude/rules.md → «Понимание архитектуры».
 #
-# topics — темы. Каждая ссылается на то, что уже есть на карте: модули (`modules`), каналы
-#          «Исполнения» (`links`), потоки (`flows`) и ADR (`adr`), чтобы тему можно было
-#          открыть, а не только назвать.
-# people — кто что понимает. Статусы по возрастанию:
-#          не отмечено → слышал → понимаю → объясню сам
-#          «Объясню сам» ставится только после задачи kind:understanding, на контрольные
-#          вопросы которой человек ответил своими словами. Не по самооценке.
+# topics — дерево от общего к частному. `level`: 0 — обзор, 1 — подсистемы, 2 — механизмы,
+#          3 — детали. `parent` — тема на уровень (или больше) выше; к теме переходим, когда
+#          родитель уже на «понимаю». Ссылки на карту:
+#            layers  — слои «Структуры» целиком (обзорное понимание подсистемы),
+#            modules — конкретные модули,
+#            links   — каналы «Исполнения», flows — потоки, adr — файлы docs/adr без .md.
+# people — кто что понимает. Статусы и баллы:
+#            не отмечено 0 · слышал 0 · понимаю 0,5 · объясню сам 1
+#          «Объясню сам» — только по задаче kind:understanding, на контрольные вопросы которой
+#          человек ответил своими словами. Темы, которых нет в списке человека, — «не отмечено».
+#
+# Метрики считает карта (вкладка «Понимание»):
+#   по дереву — сумма баллов на каждом уровне отдельно;
+#   по коду   — доля строк в модулях, которые покрывает понятая тема. Модуль получает балл
+#               самой сильной темы, которая на него ссылается; ссылка через `layers` даёт
+#               половину балла — знать подсистему в общих чертах не то же, что знать модуль.
+
+levels:
+  - Обзор
+  - Подсистемы
+  - Механизмы
+  - Детали
 
 topics:
+  # ------------------------------------------------------------------ 0 · обзор
+
+  - id: product-shape
+    level: 0
+    title: Система целиком
+    why: >-
+      Что делает продукт, кто в нём участвует и где что выполняется: рисует клиент, сервер
+      только пересылает и хранит. Каркас, на который вешается всё остальное.
+    links: [ui-socket, ui-rest, server-pg]
+    flows: [stroke]
+
+  - id: domain-model
+    level: 0
+    title: Предметные сущности
+    why: >-
+      Урок, доска, слой, папка, штрих, даб, операция, снапшот, участник — про что программа,
+      а не из чего она сделана. Эти слова потом встречаются в каждом разрезе.
+    modules: [shared-contract]
+
   - id: map-reading
+    level: 0
     title: Как читать карту архитектуры
     issue: 625
     why: Без этого остальные темы не с чего открывать.
 
+  # ------------------------------------------------------------------ 1 · подсистемы
+
+  - id: client
+    level: 1
+    parent: product-shape
+    title: 'Клиент: интерфейс и стор'
+    why: React-страницы, стор, сетевой слой комнаты — всё, что в браузере вокруг движка.
+    layers: [shell, screens, editor-ui, editor-logic, ui-kit, state, platform]
+
+  - id: engine
+    level: 1
+    parent: product-shape
+    title: Движок
+    why: От события пера до пикселя на экране; лог операций и тайлы слоёв.
+    layers: [engine-api, engine-internals]
+
+  - id: server
+    level: 1
+    parent: product-shape
+    title: Сервер
+    why: Комнаты в памяти, порядок операций, HTTP-ручки, база.
+    layers: [server-http, server-realtime, server-infra]
+
+  - id: contract
+    level: 1
+    parent: domain-model
+    title: Общий контракт
+    why: packages/shared — типы, которые одинаково понимают клиент и сервер.
+    layers: [shared]
+
+  - id: infra
+    level: 1
+    parent: product-shape
+    title: Сборка, проверки и деплой
+    why: Как код становится продом и что не даёт ему сломаться по дороге.
+    layers: [tooling]
+
+  # ------------------------------------------------------------------ 2 · механизмы
+
   - id: operation-log
+    level: 2
+    parent: engine
     title: Лог операций — источник правды для картинки
     why: >-
-      Картинка у всех участников сходится не потому, что кто-то шлёт пиксели, а потому что
-      все сворачивают один и тот же лог. Отсюда отмена, снапшоты, форк и датасет.
-    modules: [engine-oplog, server-rooms, shared-contract]
+      Картинка у всех сходится не потому, что кто-то шлёт пиксели, а потому что все
+      сворачивают один лог. Отсюда отмена, снапшоты, форк и датасет.
+    modules: [engine-oplog, engine-facade]
     flows: [stroke, join]
 
+  - id: dab-pipeline
+    level: 2
+    parent: engine
+    title: От пера до даба
+    why: Событие указателя → сплайн → дабы по пресету инструмента → буфер штриха.
+    modules: [engine-input, engine-dabs, engine-presets]
+    flows: [stroke]
+
+  - id: layers-and-tiles
+    level: 2
+    parent: engine
+    title: Буферы слоёв и тайлы
+    why: Где на GPU живёт каждый слой и как слои сводятся в картинку.
+    modules: [engine-buffers, lib-layers]
+
+  - id: cross-device-determinism
+    level: 2
+    parent: engine
+    title: Одинаковая картинка на разных GPU
+    why: >-
+      Почему бумага печётся заранее, а не считается на GPU. Правило — .claude/rules.md →
+      «Cross-device pixel determinism».
+    modules: [engine-paper, engine-raster, build-assets]
+    links: [engine-gpu, nginx-ui]
+
+  - id: store-reflects-engine
+    level: 2
+    parent: client
+    title: Стор — отражение движка
+    why: >-
+      Главная граница клиента: движок меняют императивным вызовом, стор записывает
+      результат. Нарушение даёт рассинхрон картинки и интерфейса.
+    modules: [store-room, store-app]
+    links: [engine-api]
+
   - id: optimistic-local
+    level: 2
+    parent: client
     title: Сначала локально, сеть догоняет
     why: >-
-      Линия появляется под пером до всякой сети; операция ждёт подтверждения в outbox.
-      Объясняет outbox, seq, operation_confirmed и дубли.
-    modules: [room-net, engine-facade]
+      Линия появляется до всякой сети, операция ждёт подтверждения в outbox. Объясняет
+      outbox, seq, operation_confirmed и дубли.
+    modules: [room-net]
     links: [ui-idb, ui-socket]
     flows: [stroke]
 
-  - id: store-reflects-engine
-    title: Стор — отражение движка, а не его источник
-    why: >-
-      Главная граница клиента. Движок меняют императивным вызовом, стор записывает результат.
-      Нарушение этой границы даёт рассинхрон картинки и интерфейса.
-    modules: [store-room, engine-facade]
-    links: [engine-api]
+  - id: room-screen
+    level: 2
+    parent: client
+    title: Экран комнаты — из чего собран
+    why: Самый большой и самый часто правимый кусок клиента; у его главного файла есть потолок длины.
+    modules: [room-shell, room-panels, room-overlays, room-status, room-tools, room-viewport, room-gestures]
 
-  - id: contract-strength
-    title: Сила контракта между процессами
+  - id: rooms-in-memory
+    level: 2
+    parent: server
+    title: Комнаты в памяти и порядок операций
     why: >-
-      Связан / назван / с одной стороны / без типа. Помогает понять, где изменение поля
-      поймает компилятор, а где сломает прод молча (#623).
-    links: [ui-socket, ui-rest, ui-rest-admin, server-pg]
+      Сервер держит комнату в памяти, даёт операциям seq, рассылает их и пишет в базу, не
+      дожидаясь записи. Почему один процесс и нет Redis.
+    modules: [server-rooms, server-entry]
+    links: [ui-socket, server-peer, server-pg]
+
+  - id: snapshots
+    level: 2
+    parent: server
+    title: Снапшоты и быстрый вход в длинную комнату
+    why: Почему снапшоты печёт клиент, а сервер их только хранит, и как хвост лога ложится поверх.
+    modules: [server-rooms-http, room-diagnostics]
+    flows: [join]
 
   - id: collaborative-undo
+    level: 2
+    parent: server
     title: Отмена в общей комнате — не стек
     adr: [002-collaborative-undo]
     flows: [undo]
 
-  - id: snapshots
-    title: Снапшоты и быстрый вход в длинную комнату
-    why: Почему снапшоты печёт клиент, а сервер их только хранит, и как хвост лога ложится поверх.
-    modules: [engine-oplog, server-rooms-http]
-    flows: [join]
+  - id: auth-identity
+    level: 2
+    parent: server
+    title: Гости, вход по коду и доступ к комнате
+    modules: [server-auth, screen-auth, ui-room-access]
 
-  - id: cross-device-determinism
-    title: Одинаковая картинка на разных GPU
+  - id: contract-strength
+    level: 2
+    parent: contract
+    title: Сила контракта между процессами
     why: >-
-      Почему бумага печётся заранее, а не считается на GPU. Правило — в .claude/rules.md →
-      «Cross-device pixel determinism».
-    modules: [engine-paper, build-assets]
-    links: [engine-gpu, nginx-ui]
+      Связан / назван / с одной стороны / без типа: где изменение поля поймает компилятор,
+      а где сломает прод молча (#623).
+    modules: [shared-dab-codec, lib-api]
+    links: [ui-socket, ui-rest, ui-rest-admin, server-pg]
+
+  - id: deploy-pipeline
+    level: 2
+    parent: infra
+    title: От пуша до прода
+    why: CI → образ → VPS, миграции до старта сервера, бэкапы, и почему старый прогон откатывает прод.
+    modules: [build-dist, build-config]
+
+  - id: architecture-checks
+    level: 2
+    parent: infra
+    title: Проверки архитектуры
+    why: map:check, границы dependency-cruiser, бюджеты файлов — что именно они ловят.
+    modules: [archmap]
+
+  # ------------------------------------------------------------------ 3 · детали
 
   - id: layer-model
+    level: 3
+    parent: layers-and-tiles
     title: Модель слоёв и папок
     adr: [001-layer-panel-dnd, 014-layer-filters]
-    modules: [lib-layers, ui-layers]
+    modules: [ui-layers, engine-filters, ui-filters]
+
+  - id: brush-tools
+    level: 3
+    parent: dab-pipeline
+    title: Инструменты-кисти
+    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 012-tip-footprint-geometry, 013-digital-brush]
+
+  - id: watercolor
+    level: 3
+    parent: dab-pipeline
+    title: Акварель
+    adr: [011-watercolor]
 
   - id: boards-and-class
+    level: 3
+    parent: rooms-in-memory
     title: Доски и режим класса
     adr: [014-boards, 015-class-mode]
     modules: [lib-boards]
+
+  - id: selection-and-fill
+    level: 3
+    parent: room-screen
+    title: Выделение, трансформация, заливка
+    adr: [008-selection, 010-fill-tool]
+    modules: [room-editing, room-shapes]
+
+  - id: i18n
+    level: 3
+    parent: client
+    title: Переводы
+    adr: [006-i18n]
+    modules: [i18n]
+
+names:
+  ilya: Илья
 
 people:
   ilya:
