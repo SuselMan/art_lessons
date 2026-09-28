@@ -24,12 +24,17 @@ export class ApiError extends Error {
   /** Set by the endpoints that answer "not now" rather than "no" — currently
    *  the sign-in code cooldown (#316), where the wait is the whole message. */
   retryAfterSeconds: number | undefined
+  /** (#627) The error body as the server sent it, for the few routes that say
+   *  more than a code — a refused snapshot names the layers it would have
+   *  erased. Untyped on purpose: read it with a check. */
+  body: unknown
 
-  constructor(status: number, code: string | undefined, retryAfterSeconds?: number) {
+  constructor(status: number, code: string | undefined, retryAfterSeconds?: number, body?: unknown) {
     super(`request failed: ${status}${code ? ` (${code})` : ''}`)
     this.status = status
     this.code = code
     this.retryAfterSeconds = retryAfterSeconds
+    this.body = body
   }
 }
 
@@ -92,7 +97,7 @@ async function send(key: ApiRouteKey, args: AnyArgs | undefined, init: RequestIn
     // (#587) Whichever request hears it first tells the whole app — see
     // lib/banned.ts.
     if (res.status === 403 && code === BANNED_ERROR_CODE) noteBanned()
-    throw new ApiError(res.status, code, retryAfter)
+    throw new ApiError(res.status, code, retryAfter, errorBody)
   }
   return res
 }

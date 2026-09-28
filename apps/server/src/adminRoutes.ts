@@ -578,10 +578,11 @@ export function registerAdminRoutes(app: FastifyInstance, live: AdminLive): void
   apiRoute(app, 'GET /api/admin/lessons/:id/thumbnail', { preHandler: requireAdmin }, async (request, reply) => {
     const thumbnail = await prisma.roomThumbnail.findUnique({
       where: { roomId: request.params.id },
-      select: { data: true },
+      select: { data: true, contentType: true },
     })
     if (!thumbnail) return reply.code(404).send({ error: 'not_found' })
-    reply.header('Content-Type', 'image/png').header('Cache-Control', 'private, max-age=300')
+    // (#627) The stored type: thumbnails are WebP as well as PNG since #595.
+    reply.header('Content-Type', thumbnail.contentType).header('Cache-Control', 'private, max-age=300')
     return reply.send(thumbnail.data)
   })
 

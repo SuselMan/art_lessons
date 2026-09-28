@@ -238,7 +238,9 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
       const room = await requireOwnedRoom(request, reply)
       if (!room) return reply
 
-      const email = normalizeEmail(decodeURIComponent(request.params.email))
+      // Already decoded by the router — decoding again mangled an address with a
+      // `%` in it, or threw on one that was not a valid escape (#627).
+      const email = normalizeEmail(request.params.email)
       if (!email) return reply.code(400).send({ error: 'invalid_email' })
 
       // deleteMany rather than delete: removing an invite that isn't there is

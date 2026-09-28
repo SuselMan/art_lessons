@@ -7,7 +7,7 @@ import { apiRoute } from './apiRoute.js'
 import { asString } from './input.js'
 import { prisma } from './prisma.js'
 import { canSeeBoard, isLesson, lessonOf } from './lessons.js'
-import { toWireRoom } from './roomMapper.js'
+import { ROOM_WIRE_INCLUDE, toWireRoom } from './roomMapper.js'
 import { flushRoomWrites } from './rooms.js'
 import { residentOperationWhere } from './snapshotCoverage.js'
 
@@ -431,7 +431,8 @@ export function registerForkRoutes(app: FastifyInstance): void {
       timeout: 30_000,
     })
 
-    const created = await prisma.room.findUniqueOrThrow({ where: { id: forkId } })
+    // (#627) With the owner and thumbnail, like every other room a list shows.
+    const created = await prisma.room.findUniqueOrThrow({ where: { id: forkId }, include: ROOM_WIRE_INCLUDE })
     // (#552) With its placement, so the caller can put the card where the copy
     // really is instead of assuming the folder it is looking at — from search
     // results those are two different folders.

@@ -2,7 +2,7 @@ import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { compressLayerTiles } from '../../engine/src/snapshotCodec'
-import { api } from '../../lib/api'
+import { api, ApiError } from '../../lib/api'
 import { reportInvariant } from '../../lib/reportInvariant'
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -25,7 +25,20 @@ async function uploadSnapshot(
   }
   try {
     await api('POST /api/rooms/:roomId/snapshots', { params: { roomId }, body: { seq, layerState, layers: encoded } })
-  } catch {
+  } catch (error) {
+    // (#627) The one failure worth telling anyone about: the server refusing
+    // the structure because it omits layers the log says are alive (#462).
+    // That is a client that tried to erase them, and swallowing it with the
+    // rest is how it went unseen.
+    if (error instanceof ApiError && error.code === 'stale_layer_state') {
+      const body = error.body
+      const missing: string[] = body && typeof body === 'object' && 'missing' in body && Array.isArray(body.missing)
+        ? body.missing.filter((id: unknown): id is string => typeof id === 'string')
+        : []
+      reportInvariant('snapshot refused by the server — stale layer state', {
+        roomId, seq, missingCount: missing.length, missing: missing.join(','),
+      })
+    }
     // Best-effort (#149 epic): another client independently crossing the
     // same seq boundary will very likely succeed even if this upload was
     // dropped (offline tab, a server hiccup) — nothing here retries. If

@@ -4,7 +4,7 @@ import type { ApiOk } from '@grafetto/shared'
 import { apiRoute } from './apiRoute.js'
 import { asString } from './input.js'
 import { prisma } from './prisma.js'
-import { toWireRoom } from './roomMapper.js'
+import { ROOM_WIRE_INCLUDE, toWireRoom } from './roomMapper.js'
 import { setRoomClosed } from './ownerControls.js'
 import { isLesson } from './lessons.js'
 
@@ -44,7 +44,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
       prisma.room.findMany({
         where: { ownerId: request.userId, lessonId: null },
         orderBy: { createdAt: 'desc' },
-        include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+        include: ROOM_WIRE_INCLUDE,
       }),
       prisma.room.findMany({
         where: {
@@ -53,7 +53,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
           lessonId: null,
         },
         orderBy: { createdAt: 'desc' },
-        include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+        include: ROOM_WIRE_INCLUDE,
       }),
     ])
     return { owned: owned.map(toWireRoom), participated: participated.map(toWireRoom) }
@@ -80,7 +80,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
       },
       orderBy: { createdAt: 'desc' },
       take: 50, // bound the response; "top 50 matches" is plenty for a name search
-      include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+      include: ROOM_WIRE_INCLUDE,
     })
     return { rooms: rooms.map(toWireRoom) }
   })
@@ -100,7 +100,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
 
     const updated = await prisma.room.update({
       where: { id: room.id }, data: { name },
-      include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+      include: ROOM_WIRE_INCLUDE,
     })
     return toWireRoom(updated)
   })
@@ -119,7 +119,9 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
   // survives a double click on the toggle.
   apiRoute(app, 'PATCH /api/rooms/:id/closed',
     async (request, reply) => {
-      const room = await prisma.room.findUnique({ where: { id: request.params.id } })
+      // (#627) Read with the same include the update returns, so the answer is
+      // the same full Room whether or not the state changed.
+      const room = await prisma.room.findUnique({ where: { id: request.params.id }, include: ROOM_WIRE_INCLUDE })
       if (!room || isBoard(room)) return reply.code(404).send({ error: 'not_found' })
       if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
       if (typeof request.body?.closed !== 'boolean') return reply.code(400).send({ error: 'invalid_closed' })
@@ -128,8 +130,7 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
       const closedAt = alreadyInState ? room.closedAt : (request.body.closed ? new Date() : null)
 
       const updated = alreadyInState ? room : await prisma.room.update({
-        where: { id: room.id }, data: { closedAt },
-        include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+        where: { id: room.id }, data: { closedAt }, include: ROOM_WIRE_INCLUDE,
       })
 
       // The in-memory mirror has to move before the broadcast, not after: a

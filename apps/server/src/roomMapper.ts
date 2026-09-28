@@ -1,5 +1,13 @@
 import { sanitizeEnabledTools, type ClassVisibility, type Room, type RoomAccessMode, type RoomFolder } from '@grafetto/shared'
 
+/** (#627) What a Room row has to be read with for toWireRoom to give the full
+ *  wire Room — the owner's name and the thumbnail's stamp. One constant, so a
+ *  route cannot answer a thinner Room than its neighbour for the same room. */
+export const ROOM_WIRE_INCLUDE = {
+  thumbnail: { select: { updatedAt: true } },
+  owner: { select: { name: true } },
+} as const
+
 /** Shared by roomRoutes.ts (REST "Мои уроки" list) and rooms.ts (cold-load
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type
  *  identically. */
