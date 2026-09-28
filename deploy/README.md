@@ -56,8 +56,14 @@ not canonical.
 - `ufw` firewall: only SSH (22), HTTP (80), HTTPS (443) open.
 - Docker CE + Compose plugin, nginx, certbot (+ nginx plugin), Node.js 20
   installed via apt/NodeSource.
-- Repo cloned to `/opt/art-lessons` (public repo, plain HTTPS clone, no
-  deploy key needed for git itself).
+- `/opt/art-lessons` holds what the box runs from — `deploy/` and
+  `docker-compose.prod.yml` — and **no sources**. (#621) It used to be an
+  anonymous HTTPS clone of the then-public repo that each deploy `git
+  fetch`ed; the repo is private since 28.09, and rather than give the box
+  credentials to the code, CI now rsyncs those files onto it on every deploy.
+  An old `.git` directory there is harmless leftover. A fresh box only needs
+  the directory to exist (`sudo install -d -o deploy -g deploy
+  /opt/art-lessons`) — the first deploy fills it.
 - `/opt/art-lessons/.env` (**not in git** — holds `POSTGRES_PASSWORD` and
   `JWT_SECRET`, generated once with `openssl rand -base64 32`,
   `docker-compose.prod.yml` reads them via `env_file`/shell interpolation).
@@ -243,13 +249,13 @@ breaks. Everyone not on the list gets a plain 404 from `/api/admin/*`.
    tagged with the commit SHA (and `latest`).
 3. `deploy` job (only if `build` succeeded): SSHes into the VPS as `deploy`
    — rsyncs the built `apps/web` bundle into `~deploy/web-dist-incoming/`,
-   then brings `/opt/art-lessons` up to date (`git fetch` + `reset --hard
-   origin/main` — just config files now: `docker-compose.prod.yml`, the
-   deploy script itself, nginx config; no build inputs) and *only then* runs
+   then rsyncs `deploy/` and `docker-compose.prod.yml` from its own sparse
+   checkout into `/opt/art-lessons` (#621 — config files only, the box never
+   sees the sources) and *only then* runs
    `deploy/deploy.sh` with `SERVER_IMAGE` set to the pushed ghcr.io tag (and
    `SENTRY_DSN`/`SENTRY_RELEASE` alongside it, when configured — see above).
 
-   That order is deliberate: the script used to reset the checkout itself,
+   That order is deliberate: the script used to update its own files itself,
    which rewrote the script underneath the running bash and made any change
    to it take effect one deploy late — see the comment at the top of
    `deploy.sh`. The script:
@@ -286,13 +292,17 @@ ssh deploy@80.209.232.109
 # — it doesn't build anything anymore (#199), so a *manual* redeploy needs
 # an image tag from an actual CI build (check the `build` job's own output,
 # or just `:latest`, which the workflow always pushes alongside the SHA tag):
-cd /opt/art-lessons && git fetch origin main && git reset --hard origin/main
+# (#621) The box has no git access (private repo). To bring its deploy files
+# up to date by hand, push them from a checkout on your machine first:
+#   rsync -a --delete deploy/ deploy@80.209.232.109:/opt/art-lessons/deploy/
+#   rsync -a docker-compose.prod.yml deploy@80.209.232.109:/opt/art-lessons/
+cd /opt/art-lessons
 # SENTRY_DSN is passed the same way and defaults to empty — a manual
 # redeploy without it produces a working server that reports nothing until
 # the next CI deploy puts it back. Add it here to keep reporting on:
 SERVER_IMAGE=ghcr.io/suselman/art-lessons-server:latest bash deploy/deploy.sh
-# Updating the checkout is a separate step on purpose: deploy.sh must not
-# reset the checkout it is itself running from — see the comment at its top.
+# Updating the files is a separate step on purpose: deploy.sh must not
+# rewrite the file it is itself running from — see the comment at its top.
 docker compose -f docker-compose.prod.yml logs -f server   # server logs
 docker compose -f docker-compose.prod.yml ps               # container status
 sudo systemctl status nginx
