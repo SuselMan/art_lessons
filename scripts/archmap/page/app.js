@@ -439,6 +439,40 @@
     }).join('');
   }
 
+  /* Syntax colouring for the snippets. A tokenizer of our own rather than a library: the map
+   * has to open offline from a file, and a highlighter that builds its own spans would fight
+   * the clickable-name spans above. TypeScript declarations and Prisma models are all it sees,
+   * so comments, strings, keywords, type names and property keys are enough. */
+  var KEYWORDS = new Set(('export type interface const let function class enum extends implements import from ' +
+    'readonly declare keyof typeof as return if else new void null undefined true false in of ' +
+    'public private protected static async await model').split(' '));
+  var BUILTINS = new Set(('string number boolean unknown any never object bigint symbol Record Partial Pick ' +
+    'Omit Readonly ReadonlyArray ReadonlySet ReadonlyMap Array Promise Set Map Date Uint8Array Float32Array ' +
+    'Int String Boolean Json Bytes DateTime Float BigInt Decimal').split(' '));
+  var TOKEN = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|('(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`)|(@@?\w+)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)/g;
+
+  function highlight(src) {
+    var out = '', last = 0, m;
+    TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      last = TOKEN.lastIndex;
+      var t = m[0];
+      if (m[1]) out += '<span class="hl-c">' + symText(t) + '</span>';
+      else if (m[2]) out += '<span class="hl-s">' + esc(t) + '</span>';
+      else if (m[3]) out += '<span class="hl-a">' + esc(t) + '</span>';
+      else if (m[4]) out += '<span class="hl-n">' + t + '</span>';
+      else if (Object.prototype.hasOwnProperty.call(SYMBOLS, t)) out += '<span class="sym hl-t" data-sym="' + t + '">' + t + '</span>';
+      // A key before `:` is a property even when it is spelled like a keyword (`type: 'stroke'`).
+      else if (/^\s*\??:/.test(src.slice(last, last + 3))) out += '<span class="hl-p">' + esc(t) + '</span>';
+      else if (KEYWORDS.has(t)) out += '<span class="hl-k">' + t + '</span>';
+      else if (BUILTINS.has(t)) out += '<span class="hl-b">' + t + '</span>';
+      else if (/^[A-Z]/.test(t)) out += '<span class="hl-t">' + esc(t) + '</span>';
+      else out += esc(t);
+    }
+    return out + esc(src.slice(last));
+  }
+
   var symPop = document.createElement('div');
   symPop.className = 'sym-pop';
   symPop.hidden = true;
@@ -451,7 +485,7 @@
       h.push('<div class="sym-head"><b>' + esc(name) + '</b> <span class="tag">' + esc(d.kind) + '</span> ' +
         '<a class="link path" target="_blank" rel="noreferrer" href="' + REPO + '/' + d.path + '#L' + d.line + '">' +
         esc(d.path) + ':' + d.line + ' ↗</a></div>' +
-        '<pre><code>' + symText(d.snippet) + '</code></pre>' +
+        '<pre><code>' + highlight(d.snippet) + '</code></pre>' +
         (d.truncated ? '<p class="num" style="float:none">… обрезано — целиком по ссылке</p>' : ''));
     });
     if (decls.length > 1) {

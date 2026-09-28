@@ -139,16 +139,24 @@ export function indexSymbols(extraFiles: string[]): Map<string, SymbolDecl[]> {
   return index;
 }
 
-/** Keep only the names that occur somewhere in the map's own text. */
+/**
+ * The names the map's own text mentions — and, transitively, every indexed name their
+ * declarations mention. `Operation` is a union of thirty variants; opening it and finding only
+ * the one variant the prose happened to name is exactly the dead end this exists to remove.
+ */
 export function mentioned(index: Map<string, SymbolDecl[]>, texts: string[]): Record<string, SymbolDecl[]> {
-  const words = new Set<string>();
-  for (const t of texts) for (const [w] of t.matchAll(/\b[A-Za-z_]\w{2,}\b/g)) words.add(w);
+  const words = (t: string): string[] => [...t.matchAll(/\b[A-Za-z_]\w{2,}\b/g)].map((m) => m[0]);
   const out: Record<string, SymbolDecl[]> = {};
-  for (const w of [...words].sort()) {
+  const queue = texts.flatMap(words);
+  while (queue.length) {
+    const w = queue.pop()!;
+    if (out[w]) continue;
     const d = index.get(w);
-    if (d) out[w] = d;
+    if (!d) continue;
+    out[w] = d;
+    for (const decl of d) queue.push(...words(decl.snippet));
   }
-  return out;
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
 }
 
 /** Every string anywhere inside a parsed YAML document. */
