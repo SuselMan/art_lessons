@@ -10,7 +10,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS } from '@grafetto/shared'
-import { PencilEngine, pixelWriteLayerIds, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
+import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -70,6 +70,7 @@ import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
 import { useServerClockSync } from './useServerClockSync'
 import { useLogDerivedState } from './useLogDerivedState'
+import { useTrueOrder } from './useTrueOrder'
 import { useSelection } from './useSelection'
 import { DebugStack } from './DebugStack'
 import { usePencilSound } from './usePencilSound'
@@ -956,43 +957,8 @@ function RoomEditor() {
     engineRef.current?.setUserId(userId)
   }, [])
   const appliedOpIdsRef   = useRef<Set<string>>(new Set())
-  // (#289 epic — reliable history spec v0.2 §2/§4, Phase 2 diagnostic) Highest
-  // confirmed `seq` applied to each layer so far, keyed by layerId. Exists
-  // purely to *detect and log* the one remaining ordering hazard Phase 1
-  // doesn't close: this client's own stroke still paints immediately, at
-  // `_onEnd` time, before its `seq` is even known — if a peer's concurrent
-  // stroke on the same layer turns out to have an *earlier* true seq, it
-  // still arrives (and gets composited) after this client's own already did.
-  // Closing that gap for real means deferring a local stroke's commit into
-  // the confirmed buffer until its own operation_confirmed arrives (the same
-  // machinery peer reveals already use) — real engine-level surgery on the
-  // live pointer/stroke-completion path, which needs a real device to verify
-  // safely (see CLAUDE.md's cross-device pixel-determinism history) and is
-  // deliberately not attempted unsupervised here. This tracker at least
-  // turns the hazard from invisible into a logged, countable event, so
-  // whether it's worth that follow-up can be judged from real usage instead
-  // of guessing.
-  const layerAppliedSeqRef = useRef<Map<string, number>>(new Map())
-  const noteLayerSeq = useCallback((layerId: string, seq: number) => {
-    const highest = layerAppliedSeqRef.current.get(layerId) ?? 0
-    if (seq < highest) {
-      // (#480) Ровно тот «logged, countable event», которого просит
-      // комментарий выше — только теперь считается там, где это видно не
-      // только при открытом девтулзе.
-      reportInvariant('layer op applied out of true order', { layerId, seq, alreadyOnScreen: highest })
-      return
-    }
-    layerAppliedSeqRef.current.set(layerId, seq)
-  }, [])
-  // (#537) Every layer an operation's pixels go onto, not only a stroke's: an
-  // erase, a clear, a fill or a filter out of order is as wrong as a stroke.
-  // Called where an operation takes its place in the room's order on this
-  // client — applyRemoteOp, and this client's own at its confirmation off the
-  // ordered stream — which since #537 is always seq order, so this should
-  // stay at zero.
-  const noteOperationSeq = useCallback((op: Operation, seq: number) => {
-    for (const layerId of pixelWriteLayerIds(op)) noteLayerSeq(layerId, seq)
-  }, [noteLayerSeq])
+  // (#537) Own operations' place in the room's order, and the #480 counter.
+  const { noteOperationSeq, resetLayerSeqs, confirmOwnOperation, discardOwnOperation, syncFromLogRef } = useTrueOrder({ engineRef })
   // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
   // client itself created but the server hasn't confirmed yet — the
   // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
@@ -1193,7 +1159,7 @@ function RoomEditor() {
   //
   // `onSettled` is the one place a definitive verdict lands, for both
   // dispatch paths (optimistic and confirmation-gated) — the same
-  // watermark/pendingIds/noteLayerSeq bookkeeping onLocalOperation's own ack
+  // watermark/pendingIds bookkeeping onLocalOperation's own ack
   // callback used to do inline.
   // (#176) The queue's key is the board, not the URL: operations are content,
   // and a page turn hands the next board a queue of its own (see the effect
@@ -1202,24 +1168,6 @@ function RoomEditor() {
   // can still count a previous visit's unsent work for the common case of a
   // lesson with one board.
   const outboxBoardId = boardId ?? id ?? ''
-  // (#537) The layer panel's state is derived from the log's order, which a
-  // confirmation or a discard can change. Through a ref: syncFromLog is
-  // defined below the Outbox, the same situation recoverLostWorkRef is in.
-  const syncFromLogRef = useRef<() => void>(() => {})
-  /** (#537) This client's own operation has its seq — from the ordered stream
-   *  (`ordered`), from room_state's tail after a reconnect (also ordered), or
-   *  from the ack, which reaches here after an IndexedDB await and so may land
-   *  behind later arrivals. The engine places it by seq either way; only an
-   *  ordered confirmation is fed to the #480 counter. */
-  const confirmOwnOperation = useCallback((op: Operation, seq: number, ordered: boolean) => {
-    if (!engineRef.current?.confirmOperation(op.id, seq)) return
-    if (ordered) noteOperationSeq(op, seq)
-    if (op.type !== 'stroke') syncFromLogRef.current()
-  }, [noteOperationSeq])
-  /** (#537) The server refused this client's operation for good. */
-  const discardOwnOperation = useCallback((op: Operation) => {
-    if (engineRef.current?.discardOperation(op.id)) syncFromLogRef.current()
-  }, [])
   const outbox = useMemo(() => new Outbox({
     storage: createIndexedDbOutboxStorage(),
     // (#358) Binds this queue to this board, in storage as well as in memory.
@@ -1786,7 +1734,7 @@ function RoomEditor() {
    *  React runs that cleanup before the next mount's body. */
   const enterBoard = useCallback((board: string, stash: NonNullable<typeof pendingSnapshotRef.current>) => {
     appliedOpIdsRef.current = new Set()
-    layerAppliedSeqRef.current = new Map()
+    resetLayerSeqs()
     pendingIdsRef.current = new Set()
     lastConfirmedSeqRef.current = 0
     latestKnownSeqRef.current = 0
@@ -1815,7 +1763,7 @@ function RoomEditor() {
   // (#493) Stable: a `useCallback` with no dependencies inside useDrawingActivity,
   // so naming it keeps this callback exactly as stable as it was with the
   // bare state setter it replaces.
-  }, [resetDrawingActivity, restoredLayerStateRef])
+  }, [resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1957,7 +1905,7 @@ function RoomEditor() {
     markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
     hapticGrainEnabled, checkSnapshotBoundary, markJoinRestoreDone, restoreFromSnapshot, backfillHistory,
     finishOpenTimer,
-    grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
+    grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, outbox,
     awaitPaper,
     // (#493) The ref *object* — stable for the component's life, so naming it
     // costs nothing. Never `.current`: that would rebuild the engine every
@@ -2573,7 +2521,7 @@ function RoomEditor() {
     }
   }, [
     sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
-    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, noteLayerSeq,
+    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, confirmOwnOperation,
     syncFromLogNow, enterBoard,
     // (#429) Used by the live-stroke handler, markLayerActive too. Both are
     // useCallback with no dependencies (see their definitions), so they are

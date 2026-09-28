@@ -54,7 +54,7 @@ export function createEngineNetworkCallbacks({
     // (#289 §9) Sending goes through the Outbox rather than a bare emit:
     // persisted first, retried with backoff, replayed on reconnect. Its
     // `onSettled` (see the Outbox construction above) owns everything the
-    // old inline ack callback did — watermark, pendingIds, noteLayerSeq.
+    // old inline ack callback did — watermark, pendingIds, the seq confirmation (#537).
     onLocalOperation: op => {
       appliedOpIdsRef.current.add(op.id)
       // (#289 §2/§4) A fresh layer/folder is a "local island" member from

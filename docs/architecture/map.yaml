@@ -303,6 +303,7 @@ modules:
       - apps/web/src/pages/Room/useBoardActions.ts
       - apps/web/src/pages/Room/useClassView.ts
       - apps/web/src/pages/Room/useLogDerivedState.ts
+      - apps/web/src/pages/Room/useTrueOrder.ts
       - apps/web/src/pages/Room/useLayerPanelBridge.ts
     issues: [25, 493]
     notes:
