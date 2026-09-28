@@ -30,9 +30,9 @@
 import { readFileSync } from 'node:fs'
 import v8 from 'node:v8'
 
-import { prisma } from '../prisma.js'
-import { getResidentRoomStats } from '../roomStats.js'
-import { ensureRoomLoaded } from '../roomLoader.js'
+import { prisma } from '../db/prisma.js'
+import { getResidentRoomStats } from '../rooms/roomStats.js'
+import { ensureRoomLoaded } from '../rooms/roomLoader.js'
 
 const MB = 1024 * 1024
 const OWNER_ID = 'measure-owner'

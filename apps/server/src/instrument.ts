@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 
-import { buildSentryOptions } from './sentryOptions.js'
+import { buildSentryOptions } from './health/sentryOptions.js'
 
 // (#177) Loaded through node's `--import` before anything else in the process
 // (see package.json's start script and the Dockerfile), which is what the
