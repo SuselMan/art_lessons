@@ -5,6 +5,9 @@ import type { PencilEngineAPI } from '../../engine'
 
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 
+const reportInvariant = vi.hoisted(() => vi.fn())
+vi.mock('../../lib/reportInvariant', () => ({ reportInvariant }))
+
 function layerState(overrides: Partial<LayerState> = {}): LayerState {
   return {
     items: {
@@ -313,5 +316,38 @@ describe('#386 a snapshot is never stored against a layer state that contradicts
     uploader.onSeqObserved(0, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
 
     await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+  })
+})
+
+// (#627) The server refusing a snapshot because its structure omits live layers
+// (#462) is the one signal that a client tried to erase them — and the upload
+// swallowed every failure alike, so nobody ever saw it.
+describe('a snapshot the server refuses as stale', () => {
+  it('is reported, with the layers it would have erased', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false, status: 400, json: async () => ({ ok: false, error: 'stale_layer_state', missing: ['layer-3'] }),
+    })
+    reportInvariant.mockReset()
+    const uploader = createSnapshotUploader('room-1')
+    const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+
+    uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
+
+    await vi.waitFor(() => expect(reportInvariant).toHaveBeenCalledWith(
+      'snapshot refused by the server — stale layer state',
+      expect.objectContaining({ roomId: 'room-1', seq: SNAPSHOT_SEQ_INTERVAL, missingCount: 1, missing: 'layer-3' }),
+    ))
+  })
+
+  it('stays quiet about an ordinary failure', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({ error: 'unavailable' }) })
+    reportInvariant.mockReset()
+    const uploader = createSnapshotUploader('room-1')
+    const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+
+    uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(reportInvariant).not.toHaveBeenCalledWith('snapshot refused by the server — stale layer state', expect.anything())
   })
 })

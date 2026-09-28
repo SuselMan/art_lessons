@@ -4,7 +4,7 @@ import type { ApiOk } from '@grafetto/shared'
 import { apiRoute } from './apiRoute.js'
 import { asString, readNullableString } from './input.js'
 import { prisma } from './prisma.js'
-import { toWireRoom, toWireRoomFolder } from './roomMapper.js'
+import { ROOM_WIRE_INCLUDE, toWireRoom, toWireRoomFolder } from './roomMapper.js'
 
 /** Walks a folder's `parentFolderId` chain up to root, true if `targetId`
  *  appears anywhere in it — used to reject reparenting a folder into its own
@@ -48,7 +48,7 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
         where: { userId: request.userId, folderId, room: { lessonId: null } },
         include: {
           room: {
-            include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+            include: ROOM_WIRE_INCLUDE,
           },
         },
         orderBy: { room: { createdAt: 'desc' } },
