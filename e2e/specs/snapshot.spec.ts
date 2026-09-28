@@ -66,7 +66,7 @@ test.describe('rejoining a room that has a snapshot', () => {
     return roomId
   }
 
-  test('the joiner restores from stored pixels instead of replaying everything', async ({ page, browser }) => {
+  test('the joiner restores from stored pixels instead of replaying everything', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await roomWithStoredSnapshot(page)
 
     const student = await browser.newContext()
@@ -102,7 +102,7 @@ test.describe('rejoining a room that has a snapshot', () => {
    *  call, not a server saying no. `/snapshots/index` is deliberately left
    *  alone: the failure under test is the pixels not arriving, and a room whose
    *  index also failed would be a different (and less dangerous) story. */
-  test('a joiner whose snapshot never arrives is told, not shown an empty room', async ({ page, browser }) => {
+  test('a joiner whose snapshot never arrives is told, not shown an empty room', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await roomWithStoredSnapshot(page)
 
     const student = await browser.newContext()

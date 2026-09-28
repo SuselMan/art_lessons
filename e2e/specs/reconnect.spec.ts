@@ -20,7 +20,7 @@ import { slow } from '../support/pace'
  *  because it was painted optimistically the moment it was drawn. Whether it
  *  reached the server is a question only somebody else can answer. */
 test.describe('a connection that drops mid-lesson', () => {
-  test('work drawn offline reaches the server once the connection returns', async ({ page, browser, context }) => {
+  test('work drawn offline reaches the server once the connection returns', { tag: '@two-browsers' }, async ({ page, browser, context }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -70,7 +70,7 @@ test.describe('a connection that drops mid-lesson', () => {
   // path is covered many times over, because every test opens a room; the
   // catch-up path is only reached by a reconnect *while someone else draws*,
   // and nothing did that.
-  test('what was drawn while a student was offline reaches them when they return', async ({ page, browser }) => {
+  test('what was drawn while a student was offline reaches them when they return', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 

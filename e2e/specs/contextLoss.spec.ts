@@ -146,7 +146,7 @@ test.describe('losing the WebGL context', () => {
     expect(await hasLayerContent(page, layer)).toBe(true)
   })
 
-  test('a peer stroke in flight is not left half-drawn', async ({ page, browser }) => {
+  test('a peer stroke in flight is not left half-drawn', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 

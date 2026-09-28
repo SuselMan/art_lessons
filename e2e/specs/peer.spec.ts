@@ -14,7 +14,7 @@ import { slow } from '../support/pace'
  *  at one and broken at the other, and the manual pass that used to cover this
  *  needed two devices. */
 test.describe('a second participant', () => {
-  test('sees what was drawn before they arrived', async ({ page, browser }) => {
+  test('sees what was drawn before they arrived', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
     await drawStroke(page, [[320, 300], [640, 300]])
@@ -39,7 +39,7 @@ test.describe('a second participant', () => {
     }
   })
 
-  test('sees a stroke drawn while they are watching', async ({ page, browser }) => {
+  test('sees a stroke drawn while they are watching', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -81,7 +81,7 @@ test.describe('a second participant', () => {
    *  test. It patches the same object the join tail is about to call, so the
    *  throw lands at the real site rather than at a stand-in for it, and it is
    *  one-shot so the retry has something to succeed at. */
-  test('is told when the room cannot be assembled, instead of getting a half-open editor', async ({ page, browser }) => {
+  test('is told when the room cannot be assembled, instead of getting a half-open editor', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
     await drawStroke(page, [[320, 300], [640, 300]])
@@ -148,7 +148,7 @@ test.describe('a second participant', () => {
  *  no coverage at all until the code moved into useCursorBroadcast and the
  *  move made the gap obvious. */
 test.describe('a peer cursor', () => {
-  test('follows the other person around the canvas', async ({ page, browser }) => {
+  test('follows the other person around the canvas', { tag: '@two-browsers' }, async ({ page, browser }) => {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 

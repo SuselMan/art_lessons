@@ -94,7 +94,7 @@ async function openGrid(page: Page, assignment: string): Promise<Locator> {
  *  when the class comes back. One test, because every step is the next one's
  *  setup. */
 test.describe('class mode', () => {
-  test('hand out, draw, walk the class, show one to all, call everyone back and send them back', async ({ page: teacher, browser }) => {
+  test('hand out, draw, walk the class, show one to all, call everyone back and send them back', { tag: '@two-browsers' }, async ({ page: teacher, browser }) => {
     test.setTimeout(slow(300_000))
 
     const lessonId = await createRoom(teacher, 'E2E class')

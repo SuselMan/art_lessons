@@ -113,7 +113,7 @@ async function activeContent(page: Page): Promise<Rect | null> {
  *  setup — two people, two boards, and strokes whose positions the later
  *  steps read back. Steps name the claim being made. */
 test.describe('boards', () => {
-  test('the teacher turns pages, the student follows, and both boards keep their ink', async ({ page: teacher, browser }) => {
+  test('the teacher turns pages, the student follows, and both boards keep their ink', { tag: '@two-browsers' }, async ({ page: teacher, browser }) => {
     // Eight round trips of switching boards, each a fresh engine restore, plus
     // a reload — well over the single-scenario default.
     test.setTimeout(slow(240_000))
