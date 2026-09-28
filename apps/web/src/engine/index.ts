@@ -6120,6 +6120,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _checkpointBeforeWash(layerId: string, washId: string, userId: string, now: number, opId?: string): void {
     if (this._contextLost || this._destroyed) return
     if (this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)) return
+    // (#537) Not a layer known to be out of the server's order: its pixels are
+    // not the replay of its log, and every settle and undo would start from
+    // them - the same refusal _takeCheckpoint and the snapshot bake make.
+    if (this._unsettledLayers.has(layerId)) return
     const buf = this._layers.get(layerId)
     if (!buf) return
     const all = this._log.layerPixelOps(layerId)
