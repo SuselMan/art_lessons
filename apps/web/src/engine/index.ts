@@ -3264,6 +3264,7 @@ export class PencilEngine implements PencilEngineAPI {
     // memory on the tablet for joins that will never come. A peer's wash
     // still open would lose only its joinability, and only if a history
     // batch lands in the middle of it.
+    if (this._settle) this._completeSettle() // (§17.52) before its scratch goes
     for (const chunk of this._replayRibbonChunks.values()) chunk.scratch.destroy()
     this._replayRibbonChunks.clear()
     this._display()
@@ -3338,6 +3339,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  applying a `room_state` snapshot or a `peer_operation` must pass
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
+    // (#536, §17.52) A settle spread over frames (a peer's operation, or this
+    // author's own) lands before the next operation touches anything: the
+    // replay settles each operation before painting the next, and this keeps
+    // the live picture to that order.
+    if (this._settle) this._completeSettle()
     this._log.append(op)
     switch (op.type) {
       case 'layer_add':
@@ -3442,8 +3448,11 @@ export class PencilEngine implements PencilEngineAPI {
           const allDabs = strokeDabs(op)
           const skip = this._claimLivePaintedDabs(op, allDabs.length)
           const dabs = skip ? allDabs.slice(skip) : allDabs
+          // (§17.52) A peer's operation arriving live settles over frames;
+          // a history batch (the display suspended) stays synchronous.
+          const spread = source === 'remote' && this._displaySuspendDepth === 0
           const standing = dabs.length
-            ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
+            ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread)
             : undefined
           // (#536) The same dabs, and the same slice: whatever the live stream
           // already delivered has already wet the paper here.
@@ -4435,6 +4444,8 @@ export class PencilEngine implements PencilEngineAPI {
     // packet-sized steps that no reload reproduces. Nothing painted, nothing
     // claimed: the operation paints all of its dabs when it arrives.
     if (packet.tool === 'watercolor') { live.liveOffset += packet.dabs.length; return }
+    // (§17.52) Other tools paint into the layer now: a spread settle lands first.
+    if (this._settle) this._completeSettle()
 
     // This packet's dabs sit at [liveOffset, liveOffset + n) in the gesture.
     // Anything below paintedTotal is already on the layer — put there by a
@@ -4984,6 +4995,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  still being painted live by _paintSmudgeDabs and must not have its imprint
    *  reset under it by, say, a peer's undo arriving mid-stroke. */
   private _dropCarriedGestureState(buf: ILayerBuffer): void {
+    if (this._settle) this._completeSettle() // (§17.52) before the scratch goes
     for (const [key, chunk] of this._replayRibbonChunks) {
       if (chunk.target !== buf) continue
       chunk.scratch.destroy()
@@ -6325,6 +6337,11 @@ export class PencilEngine implements PencilEngineAPI {
       })
       return
     }
+    // (#536, §17.52) Any tool: a settle spread over frames (a peer's
+    // operation, or this author's own last wash) lands before this stroke
+    // paints, or its copy-back would cover what the stroke lays under the
+    // wash - replay order again.
+    if (this._settle) this._completeSettle()
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
     // (#520) The eraser's cross-layer mode, resolved once here for the whole
@@ -8077,6 +8094,9 @@ export class PencilEngine implements PencilEngineAPI {
      *  replay must resolve it from the same id, or the two draw different
      *  texture; see mottleSeedFor. */
     strokeSeed?: [number, number],
+    /** (#536, §17.52) A peer's operation arriving live: its settle may be
+     *  spread over frames. Never for a history batch or a rebuild. */
+    spreadSettle = false,
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return undefined }
@@ -8098,7 +8118,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #454: two tools now, dispatched by isRibbonTool rather than by name —
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
-    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed)
+    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -8795,6 +8815,7 @@ export class PencilEngine implements PencilEngineAPI {
     ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string, washId?: string,
     wetProfile?: string,
     strokeSeed?: [number, number],
+    spreadSettle = false,
   ): ReadonlyMap<Dab, number> | undefined {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -8823,6 +8844,9 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536, §17.22) Only the author's own gesture (the caller-owned scratch)
     // defers its composite to the frame; a replay or a peer's packet has no
     // frame to wait for and composites as it always did.
+    // (§17.52) A settle of this same wash still spread over frames lands
+    // before anything is painted into it - replay order.
+    if (!ribbonScratch && this._settle?.scratch === scratch) this._completeSettle()
     this._paintRibbonStroke(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed, !!ribbonScratch)
     // Replay finishes the stroke inside this call as far as it can know: a
     // one-shot has painted every dab there is, a chunk every dab of its own
@@ -8830,7 +8854,7 @@ export class PencilEngine implements PencilEngineAPI {
     // over larger bounds, when the next chunk arrives — the composite is a pure
     // recomputation, so repeating it is a no-op by construction.
     if (!ribbonScratch) {
-      this._finishRibbonStroke(scratch)
+      this._finishRibbonStroke(scratch, false, false, spreadSettle && !!chunk)
       // (§17.43) A chunk's end is a film's end, as at the live chunk flush;
       // for a gesture's last operation the next stroke begins a new film
       // anyway, so this is only ever what the flush did.
@@ -8884,6 +8908,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // A stale entry under the same key but a *different* layer buffer is not a
     // hit — the scratch mirrors the tiles of one target and nothing else.
+    if (cached && this._settle?.scratch === cached.scratch) this._completeSettle() // (§17.52)
     cached?.scratch.destroy()
     this._replayRibbonChunks.delete(key)
     const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
@@ -8893,6 +8918,7 @@ export class PencilEngine implements PencilEngineAPI {
     })
     while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
       const oldest = this._replayRibbonChunks.keys().next().value as string
+      if (this._settle?.scratch === this._replayRibbonChunks.get(oldest)?.scratch) this._completeSettle() // (§17.52)
       this._replayRibbonChunks.get(oldest)?.scratch.destroy()
       this._replayRibbonChunks.delete(oldest)
     }
@@ -11381,6 +11407,10 @@ export class PencilEngine implements PencilEngineAPI {
      *  chunk thirty times a second for a second and a half - 1555 draw
      *  calls on one zigzag on the tablet. The pen-up reveals the lot. */
     fade = reveal,
+    /** (#536, §17.52) Spread over frames without a reveal: a peer's
+     *  operation arriving live. The same computation as the synchronous
+     *  replay, landed before anything else touches the wash or the field. */
+    spread = false,
   ): void {
     // (#536, §17.22) Whatever the last batches left for the frame lands now,
     // for every ribbon tool: the marker's scratch is torn down right after
@@ -11489,8 +11519,8 @@ export class PencilEngine implements PencilEngineAPI {
             this._displayIfNotSuspended()
           }
         }
-        if (reveal && typeof requestAnimationFrame === 'function') {
-          this._startSettle(scratch, job.ops, complete)
+        if ((reveal || spread) && typeof requestAnimationFrame === 'function') {
+          this._startSettle(scratch, job.ops, spread && !reveal ? () => { complete(); this._displayIfNotSuspended() } : complete)
           return
         }
         for (const op of job.ops) op()

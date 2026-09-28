@@ -1080,7 +1080,7 @@ export const WC_REMOB_DOME = 0.6
  *  shown next to the app version in Settings: Ilya tests the LAN dev server
  *  from a tablet, and "which version am I looking at" has to be answerable
  *  from the screen. Bumped by hand with each ADR 011 §17 section. */
-export const WATERCOLOR_ROUND = 'акварель r26 (§17.51)'
+export const WATERCOLOR_ROUND = 'акварель r27 (§17.52)'
 /** The rim band's width, px at world scale: the sliver just inside the
  *  footprint's edge that the moved paint lands on — from WC_RIM_INSET_PX
  *  inside the edge (clear of the stamp's anti-aliased fringe) inward. */

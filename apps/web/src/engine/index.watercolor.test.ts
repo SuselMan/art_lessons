@@ -1105,3 +1105,28 @@ describe("a peer's live watercolour (#536 §17.51)", () => {
     expect(markerReplayChunkFor(engine, 'w1')).not.toBeNull()
   })
 })
+
+describe("a peer's watercolour operation arriving live (#536 §17.52)", () => {
+  it('settles over frames, and the next operation lands it first', () => {
+    const engine = setupLayer()
+    const e = engine as unknown as { _settle: { scratch: unknown; next: number; ops: unknown[] } | null }
+    const d1 = [dab(16, 32, { size: 24 }), dab(24, 32, { size: 24 }), dab(32, 32, { size: 24 })]
+    engine.appendOperation(makeStroke('user-b', 'L', d1, { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's1', washId: 'w1' }), 'remote')
+    const inFlight = e._settle
+    expect(inFlight).toBeTruthy()
+    expect(inFlight!.next).toBeLessThan(inFlight!.ops.length)
+    const d2 = [dab(16, 48, { size: 24 }), dab(32, 48, { size: 24 })]
+    engine.appendOperation(makeStroke('user-c', 'L', d2, { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's2', washId: 'w2' }), 'remote')
+    // The first ran to its end before the second painted anything.
+    expect(inFlight!.next).toBe(inFlight!.ops.length)
+  })
+
+  it('stays synchronous inside a history batch', () => {
+    const engine = setupLayer()
+    const e = engine as unknown as { _settle: unknown }
+    engine.suspendDisplay()
+    engine.appendOperation(makeStroke('user-b', 'L', [dab(16, 32, { size: 24 }), dab(32, 32, { size: 24 })], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: 's1', washId: 'w1' }), 'remote')
+    expect(e._settle).toBeNull()
+    engine.resumeDisplay()
+  })
+})
