@@ -199,8 +199,8 @@ describe('a peer’s live-streamed gesture (#429) with another operation committ
     engine.endPeerLiveStroke(PEER, 'g1')
     engine.appendOperation(seq(line, 3), 'remote')
 
-    expect(engine.resettleCount()).toBe(1)
     expectPixelsEqual(readLayerPixels(engine, 'L'), reference([add, seq(rub, 2), seq(line, 3)], 'L'))
+    expect(engine.resettleCount()).toBe(1)
   })
 })
 
@@ -226,6 +226,7 @@ describe('the pen under this user’s hand (#429)', () => {
     const ops = engine.getOperations()
     expect(ops.map(op => op.id).slice(0, 3)).toEqual([add.id, ops[1].id, line.id])
     expect(ops[1].type === 'stroke' && ops[1].tool).toBe('eraser')
+    expectPixelsEqual(readLayerPixels(engine, 'L'), reference(ops, 'L'))
   })
 })
 
