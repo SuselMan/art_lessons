@@ -6,8 +6,27 @@
   var REPO = D.repo; // https://github.com/owner/name/blob/main
   var byId = new Map(D.modules.map(function (m) { return [m.id, m]; }));
   var layerById = new Map(D.layers.map(function (l) { return [l.id, l]; }));
-  var groupById = new Map(D.groups.map(function (g) { return [g.id, g]; }));
+  var partById = new Map(D.parts.map(function (g) { return [g.id, g]; }));
   var rank = new Map(D.layers.map(function (l, i) { return [l.id, i]; }));
+
+  /* (#642) A module is a folder with a README; inside the big flat folders the map keeps its
+   * own split as groups. Flows, runtime nodes and topics may point at either, so every link
+   * resolves through here: a group lands on its module with the group opened. */
+  var groupById = new Map();
+  D.modules.forEach(function (m) {
+    m.groupings.forEach(function (g) { groupById.set(g.id, { g: g, m: m }); });
+  });
+  function refModule(id) {
+    if (byId.has(id)) return byId.get(id);
+    var hit = groupById.get(id);
+    return hit ? hit.m : null;
+  }
+  function refTitle(id) {
+    var hit = groupById.get(id);
+    if (hit) return hit.m.title + ' › ' + hit.g.title;
+    var m = byId.get(id);
+    return m ? m.title : id;
+  }
 
   var outEdges = new Map();
   var inEdges = new Map();
@@ -148,7 +167,7 @@
   // Height is the module's size (lines of code, square-rooted so one giant does not dwarf the
   // rest); the floor leaves room for the title and the metrics row.
   function cardHeight(m) {
-    return Math.max(64, Math.min(128, 58 + Math.sqrt(m.loc) * 2.1));
+    return Math.max(80, Math.min(136, 66 + Math.sqrt(m.loc) * 2.1));
   }
 
   function computeLayout() {
@@ -185,8 +204,8 @@
       x += COL_W;
     });
 
-    D.groups.forEach(function (g) {
-      var own = cols.filter(function (c) { return c.layer.group === g.id; });
+    D.parts.forEach(function (g) {
+      var own = cols.filter(function (c) { return c.layer.part === g.id; });
       if (!own.length) return;
       var x0 = Math.min.apply(null, own.map(function (c) { return c.x; }));
       var x1 = Math.max.apply(null, own.map(function (c) { return c.x + c.w; }));
@@ -303,12 +322,14 @@
       if (!p) return;
       var g = el('g', { class: 'node', 'data-id': m.id }, gNodes);
       el('rect', { x: p.x, y: p.y, width: p.w, height: p.h }, g);
-      wrap(m.title, 24).slice(0, 2).forEach(function (ln, i) {
-        text(g, p.x + 12, p.y + 21 + i * 15, 'title', ln);
-      });
+      // (#642) The folder path, as it is in the repo, and the README's two or three words.
+      text(g, p.x + 12, p.y + 21, 'title', clip(m.title, 24));
+      text(g, p.x + 12, p.y + 37, 'summary', '(' + clip(m.summary, 28) + ')');
+      tip(g, m.id + (m.groupings.length ? ' · групп карты: ' + m.groupings.length : ''));
       // (#639) Every metric at once, instead of one bar at a time relative to the biggest module.
       text(g, p.x + 12, p.y + p.h - 27, 'meta',
-        m.loc.toLocaleString('ru') + ' стр · ' + m.fileCount + ' ' + plural(m.fileCount, 'файл', 'файла', 'файлов'));
+        m.loc.toLocaleString('ru') + ' стр · ' + m.fileCount + ' ' + plural(m.fileCount, 'файл', 'файла', 'файлов') +
+        (m.groupings.length ? ' · ' + m.groupings.length + ' гр.' : ''));
       var row = el('text', { x: p.x + 12, y: p.y + p.h - 11, class: 'metrics' }, g);
       metricSpans(m).forEach(function (sp, i) {
         if (i) el('tspan', { class: 'sep' }, row).textContent = ' · ';
@@ -349,19 +370,6 @@
     var d = debtOf(m);
     if (d) out.push({ text: 'долг ' + d, level: 'bad' });
     return out;
-  }
-
-  function wrap(str, max) {
-    var words = str.split(' ');
-    var lines = [];
-    var cur = '';
-    words.forEach(function (w) {
-      if ((cur + ' ' + w).trim().length > max) { if (cur) lines.push(cur); cur = w; }
-      else cur = (cur ? cur + ' ' : '') + w;
-    });
-    if (cur) lines.push(cur);
-    if (lines.length > 2) { lines = [lines[0], clip(lines.slice(1).join(' '), max)]; }
-    return lines;
   }
 
   /** Re-run everything downstream of a filter change. */
@@ -438,15 +446,24 @@
     if (node) gNodes.appendChild(node);
   }
 
-  function select(id) {
+  function select(id, group) {
     selected = id;
     highlight(id);
-    renderPanel(id);
+    renderPanel(id, group);
     // The page also ships as a published snapshot, where the embedding frame can refuse
     // history writes — a deep link is a nicety, not a reason to break selection.
     try {
-      history.replaceState(null, '', id ? '#' + id : location.pathname + location.search);
+      history.replaceState(null, '', id ? '#' + (group || id) : location.pathname + location.search);
     } catch (e) { /* opaque origin */ }
+  }
+
+  /** Go to a module or a map group from anywhere: reveal it, select it, centre on it. */
+  function goTo(ref) {
+    var m = refModule(ref);
+    if (!m) return;
+    if (!visible.has(m.id)) reveal(m.id);
+    select(m.id, m.id === ref ? null : ref);
+    centerOn(m.id);
   }
 
   /* ------------------------------------------------------------------ side panel */
@@ -560,10 +577,58 @@
   function moduleLink(id) {
     var m = byId.get(id);
     var off = visible.has(id) ? '' : ' off';
-    return '<span class="link' + off + '" data-goto="' + id + '">' + esc(m ? m.title : id) + '</span>';
+    return '<span class="link' + off + '" data-goto="' + id + '" title="' + esc(m ? m.summary : '') + '">' +
+      esc(m ? m.title : id) + '</span>';
   }
 
-  function renderPanel(id) {
+  function decisions(adr, issues) {
+    var h = [];
+    adr.forEach(function (a) {
+      h.push('<li><a class="link" target="_blank" rel="noreferrer" href="' + REPO +
+        '/docs/adr/' + a + '.md">ADR ' + esc(a) + '</a> — ' + esc(D.adr[a] || '') + '</li>');
+    });
+    issues.forEach(function (n) {
+      h.push('<li><a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + n +
+        '">#' + n + '</a> — ' + esc(D.issues[String(n)] || 'без названия в кэше') + '</li>');
+    });
+    return h.join('');
+  }
+
+  /* (#642) The map's own split of a flat folder. Drawn inside the module's panel, never as a
+   * card, and labelled for what it is: a grouping that exists on the map and not in the code. */
+  function renderGroupings(m, openGroup) {
+    if (!m.groupings.length) return '';
+    var h = ['<h3>Группы · ' + m.groupings.length + '</h3>' +
+      '<p class="map-only">Группировка карты, в коде её нет: <code>' + esc(m.title) + '</code> — один модуль, ' +
+      'а эти куски выделены в нём вручную (<code>docs/architecture/map.yaml</code> → <code>groupings</code>). ' +
+      'Когда кусок получит свою подпапку с README.md, он станет модулем, а группа исчезнет.</p>'];
+    m.groupings.forEach(function (g) {
+      var files = m.files.filter(function (f) { return f.group === g.id; });
+      h.push('<details class="grouping" data-group="' + esc(g.id) + '"' + (g.id === openGroup ? ' open' : '') + '>' +
+        '<summary><b>' + esc(g.title) + '</b> <span class="tag map-only-tag">группа карты</span>' +
+        '<span class="num">' + g.loc.toLocaleString('ru') + ' стр · ' + g.fileCount + '</span></summary>' +
+        '<div class="grouping-body"><div class="gid">' + esc(g.id) + '</div>' +
+        '<p class="owns">' + symText(g.owns) + '</p>');
+      g.notes.forEach(function (n) { h.push('<p class="note">' + symText(n) + '</p>'); });
+      if (g.adr.length || g.issues.length) h.push('<ul class="list">' + decisions(g.adr, g.issues) + '</ul>');
+      h.push('<ul class="list">');
+      files.forEach(function (f) {
+        var badge = f.kind === 'test' ? ' <span class="tag">тест</span>' : f.kind === 'style' ? ' <span class="tag">css</span>' : '';
+        h.push('<li><span class="num">' + f.loc + '</span>' + fileLink(f.path) + badge + '</li>');
+      });
+      h.push('</ul></div></details>');
+    });
+    var loose = m.files.filter(function (f) { return !f.group; });
+    if (loose.length) {
+      h.push('<details class="grouping"><summary><b>вне групп</b><span class="num">' + loose.length +
+        '</span></summary><div class="grouping-body"><ul class="list">');
+      loose.forEach(function (f) { h.push('<li><span class="num">' + f.loc + '</span>' + fileLink(f.path) + '</li>'); });
+      h.push('</ul></div></details>');
+    }
+    return h.join('');
+  }
+
+  function renderPanel(id, openGroup) {
     if (!id) {
       aside.className = 'empty';
       aside.innerHTML =
@@ -575,6 +640,10 @@
         '<b>Красная</b> связь идёт против порядка слоёв: что-то глубокое тянется наверх. ' +
         'Пунктир — импорт только типов.</p>' +
         '<h3>Что на карточке</h3>' +
+        '<p><b>Карточка — папка</b> с файлом README.md: первая строка — её путь (без <code>apps/web/src/</code>), ' +
+        'в скобках — два-три слова из шапки README. Папка без README входит в ближайший модуль выше. ' +
+        'Большие плоские папки карта делит на <b>группы</b> — они в панели модуля, а не отдельными карточками: ' +
+        'это группировка карты, в коде её нет.</p>' +
         '<p><b>Высота</b> — размер модуля в строках кода; внизу — строки и число файлов. ' +
         '<b>Стрелка</b> идёт от того, кто импортирует, к тому, кого импортируют.</p>' +
         '<p>Метрики проекта — не структура, поэтому скрыты. Переключатель <b>«метрики»</b> в шапке ' +
@@ -602,7 +671,7 @@
     }
     var m = byId.get(id);
     var layer = layerById.get(m.layer);
-    var group = groupById.get(layer.group);
+    var part = partById.get(layer.part);
     var outs = (outEdges.get(id) || []).slice().sort(function (a, b) { return b.weight - a.weight; });
     var ins = (inEdges.get(id) || []).slice().sort(function (a, b) { return b.weight - a.weight; });
     var vios = violationsByModule.get(id) || [];
@@ -611,8 +680,16 @@
     var h = [];
 
     aside.className = '';
-    h.push('<h2>' + esc(m.title) + '</h2>');
-    h.push('<div class="layer-tag">' + esc(group.title) + ' · ' + esc(layer.title) + '</div>');
+    h.push('<h2>' + esc(m.title) + ' <span class="h-summary">(' + esc(m.summary) + ')</span></h2>');
+    h.push('<div class="layer-tag">' + esc(part.title) + ' · ' + esc(layer.title) + ' · ' +
+      '<a class="link path" target="_blank" rel="noreferrer" href="' + REPO.replace('/blob/', '/tree/') + '/' + m.id +
+      '">' + esc(m.id) + '/README.md ↗</a></div>');
+    if (m.parent || m.children.length) {
+      h.push('<div class="tree">' +
+        (m.parent ? 'входит в ' + moduleLink(m.parent) : '') +
+        (m.parent && m.children.length ? ' · ' : '') +
+        (m.children.length ? 'подмодули: ' + m.children.map(moduleLink).join(', ') : '') + '</div>');
+    }
 
     h.push('<div class="actions">' +
       '<button data-act="focus1"' + (focused && focus.depth === 1 ? ' aria-pressed="true"' : '') +
@@ -639,17 +716,10 @@
       '</div>');
 
     if (m.adr.length || m.issues.length) {
-      h.push('<h3>Решения</h3><ul class="list">');
-      m.adr.forEach(function (a) {
-        h.push('<li><a class="link" target="_blank" rel="noreferrer" href="' + REPO +
-          '/docs/adr/' + a + '.md">ADR ' + esc(a) + '</a> — ' + esc(D.adr[a] || '') + '</li>');
-      });
-      m.issues.forEach(function (n) {
-        h.push('<li><a class="link" target="_blank" rel="noreferrer" href="' + D.issuesBase + n +
-          '">#' + n + '</a> — ' + esc(D.issues[String(n)] || 'без названия в кэше') + '</li>');
-      });
-      h.push('</ul>');
+      h.push('<h3>Решения</h3><ul class="list">' + decisions(m.adr, m.issues) + '</ul>');
     }
+
+    h.push(renderGroupings(m, openGroup));
 
     if (outs.length) {
       h.push('<h3>Опирается на · ' + outs.length + '</h3><ul class="list">');
@@ -686,15 +756,23 @@
       h.push('</ul>');
     }
 
-    h.push('<h3>Файлы · ' + m.files.length + '</h3><ul class="list">');
-    m.files.forEach(function (f) {
-      var badge = f.kind === 'test' ? ' <span class="tag">тест</span>' : f.kind === 'style' ? ' <span class="tag">css</span>' : '';
-      h.push('<li><span class="num">' + f.loc + '</span>' + fileLink(f.path) + badge + '</li>');
-    });
-    h.push('</ul>');
+    // A grouped module already lists its files group by group, above.
+    if (!m.groupings.length) {
+      h.push('<h3>Файлы · ' + m.files.length + '</h3><ul class="list">');
+      m.files.forEach(function (f) {
+        var badge = f.kind === 'test' ? ' <span class="tag">тест</span>' : f.kind === 'style' ? ' <span class="tag">css</span>' : '';
+        h.push('<li><span class="num">' + f.loc + '</span>' + fileLink(f.path) + badge + '</li>');
+      });
+      h.push('</ul>');
+    }
 
     aside.innerHTML = h.join('');
     aside.scrollTop = 0;
+    var opened = openGroup && aside.querySelector('details[data-group="' + openGroup + '"]');
+    if (opened) {
+      opened.setAttribute('data-target', 'true');
+      opened.scrollIntoView({ block: 'start' });
+    }
     aside.querySelectorAll('[data-goto]').forEach(function (n) {
       n.addEventListener('click', function () {
         var target = n.getAttribute('data-goto');
@@ -854,7 +932,11 @@
     if (!q) return hits;
     D.modules.forEach(function (m) {
       if (m.title.toLowerCase().indexOf(q) >= 0 ||
-        m.id.indexOf(q) >= 0 ||
+        m.id.toLowerCase().indexOf(q) >= 0 ||
+        m.summary.toLowerCase().indexOf(q) >= 0 ||
+        m.groupings.some(function (g) {
+          return g.id.indexOf(q) >= 0 || g.title.toLowerCase().indexOf(q) >= 0 || g.owns.toLowerCase().indexOf(q) >= 0;
+        }) ||
         m.owns.toLowerCase().indexOf(q) >= 0 ||
         m.tags.join(' ').toLowerCase().indexOf(q) >= 0 ||
         m.files.some(function (f) { return f.path.toLowerCase().indexOf(q) >= 0; })) hits.add(m.id);
@@ -939,11 +1021,7 @@
       n.addEventListener('click', function () {
         var id = n.getAttribute('data-jump');
         document.querySelector('.tabs button[data-tab="structure"]').click();
-        setTimeout(function () {
-          if (!visible.has(id)) reveal(id);
-          select(id);
-          centerOn(id);
-        }, 0);
+        setTimeout(function () { goTo(id); }, 0);
       });
     });
   }
@@ -962,7 +1040,7 @@
           '<div class="rail"><div class="dot"></div><div class="stem"></div></div>' +
           '<div class="body"><h4>' + symText(s.title) + '</h4><p>' + symText(s.detail) + '</p>' +
           (s.module ? '<div class="where">→ <span class="link" data-jump="' + s.module + '">' +
-            esc((byId.get(s.module) || {}).title || s.module) + '</span></div>' : '') +
+            esc(refTitle(s.module)) + '</span></div>' : '') +
           '</div></div>');
       });
       h.push('</div></section>');
@@ -1175,7 +1253,7 @@
         if (n.modules && n.modules.length) {
           h.push('<h3>Из каких модулей собран</h3><ul class="list">');
           n.modules.forEach(function (id) {
-            h.push('<li><span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span></li>');
+            h.push('<li><span class="link" data-jump="' + id + '">' + esc(refTitle(id)) + '</span></li>');
           });
           h.push('</ul>');
         }
@@ -1295,10 +1373,11 @@
       h.push('<h3>Часто меняются, но непонятны</h3><p class="lede">Модули с наибольшим числом правок за полгода, ' +
         'которые не покрыты темой на уровне «понимаю». Сюда агенты пишут чаще всего — а проверить их некому.</p>');
       h.push('<table><thead><tr><th>модуль</th><th class="r">правок</th><th class="r">строк</th></tr></thead><tbody>');
+      var unitById = new Map((U.units || []).map(function (u) { return [u.id, u]; }));
       c.hotspots.forEach(function (id) {
-        var m = byId.get(id);
-        h.push('<tr><td><span class="link" data-jump="' + id + '">' + esc(m.title) + '</span></td><td class="r">' +
-          m.churn + '</td><td class="r">' + m.loc.toLocaleString('ru') + '</td></tr>');
+        var u = unitById.get(id) || { churn: 0, loc: 0 };
+        h.push('<tr><td><span class="link" data-jump="' + id + '">' + esc(refTitle(id)) + '</span></td><td class="r">' +
+          u.churn + '</td><td class="r">' + u.loc.toLocaleString('ru') + '</td></tr>');
       });
       h.push('</tbody></table>');
     }
@@ -1314,10 +1393,10 @@
     h.push(branch(null));
 
     if (c.unreached.length) {
-      h.push('<h3>Модули, до которых не дотягивается ни одна тема · ' + c.unreached.length + '</h3>' +
+      h.push('<h3>Модули и группы, до которых не дотягивается ни одна тема · ' + c.unreached.length + '</h3>' +
         '<p class="lede">Дыра не в понимании, а в самом списке тем.</p><p>' +
         c.unreached.map(function (id) {
-          return '<span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span>';
+          return '<span class="link" data-jump="' + id + '">' + esc(refTitle(id)) + '</span>';
         }).join(' · ') + '</p>');
     }
     h.push('</div>');
@@ -1345,7 +1424,7 @@
         var refs = [];
         (t.layers || []).forEach(function (id) { refs.push('слой ' + esc((layerById.get(id) || {}).title || id)); });
         (t.modules || []).forEach(function (id) {
-          refs.push('<span class="link" data-jump="' + id + '">' + esc((byId.get(id) || {}).title || id) + '</span>');
+          refs.push('<span class="link" data-jump="' + id + '">' + esc(refTitle(id)) + '</span>');
         });
         (t.links || []).forEach(function (id) {
           var l = D.runtime && D.runtime.links.filter(function (x) { return x.id === id; })[0];
@@ -1377,7 +1456,9 @@
     D.health.violations.forEach(function (v) { (byRule[v.rule] = byRule[v.rule] || []).push(v); });
     h.push('<h3>Нарушения архитектурных правил · ' + D.health.violations.length + '</h3>');
     h.push('<p class="lede">Правила описаны в <code>.dependency-cruiser.cjs</code>. Каждое — граница, ' +
-      'которую CLAUDE.md или ADR уже объявляет словами.</p>');
+      'которую CLAUDE.md или ADR уже объявляет словами. Правила <code>layer-*</code> генерируются из порядка слоёв ' +
+      '(<code>docs/architecture/map.yaml</code>) и слоя модуля в шапке его README: слой может импортировать свой ' +
+      'слой и слои правее, но не левее.</p>');
     if (!D.health.violations.length) h.push('<p class="empty-note">Чисто.</p>');
     Object.keys(byRule).sort().forEach(function (rule) {
       var list = byRule[rule];
@@ -1457,10 +1538,6 @@
   fit();
   window.addEventListener('resize', function () { if (!selected) fit(); });
 
-  var hash = location.hash.slice(1);
-  if (hash && byId.has(hash)) {
-    if (!visible.has(hash)) reveal(hash);
-    select(hash);
-    centerOn(hash);
-  }
+  var hash = decodeURIComponent(location.hash.slice(1));
+  if (hash && refModule(hash)) goTo(hash);
 })();

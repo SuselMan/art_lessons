@@ -1,3 +1,19 @@
+---
+layer: tooling
+summary: e2e-стенд
+tags: [playwright, реальный-браузер]
+---
+# e2e — e2e-стенд
+
+Playwright-сценарии поверх настоящего браузера и настоящего сервера — единственное место, где
+проверяется то, что vitest с mock-WebGL проверить не может: реальные пиксели и реальный ввод
+пером.
+
+## Заметки
+
+- Свежему worktree нужен `npm run bake:paper` до первого прогона, иначе бумага не грузится.
+- Порты 4491/5491 умеет держать брошенный прогон из соседнего worktree.
+
 # End-to-end tests
 
 Scenarios in a real browser, against a real server and a real database.

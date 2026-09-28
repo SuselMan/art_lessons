@@ -6,7 +6,7 @@
 #
 #   nodes  — процессы и хранилища. `zone` — где физически живёт, `at: [колонка, строка]` —
 #            место в сетке своей зоны (зоны с одинаковым `col` стоят столбиком), `modules` — модули со вкладки «Структура», из которых он
-#            собран.
+#            собран: путь папки модуля или id группы карты (map.yaml → groupings).
 #   links  — каналы между узлами. `messages[].dir`: `→` — от `from` к `to`, `←` — обратно.
 #            `messages[].type` — тип сообщения; каждое имя с заглавной буквы в нём `map:check`
 #            ищет в @grafetto/shared, в модели Prisma или в файлах из `decl`.
@@ -54,7 +54,7 @@ nodes:
       React-страницы и один Zustand-стор. Стор — отражение того, что уже применено к движку, а
       не источник правды для картинки: движок меняют императивным вызовом, стор потом
       записывает результат.
-    modules: [app-shell, room-shell, room-net, room-tools, room-panels, store-room, store-app, lib-api]
+    modules: [apps/web/src, room-shell, room-net, room-tools, room-panels, store-room, store-app, lib-api]
 
   - id: engine
     title: Движок
@@ -64,7 +64,7 @@ nodes:
     owns: >-
       PencilEngine в том же JS-потоке, что и интерфейс. Держит лог операций, тайлы слоёв и
       конвейер от события пера до даба. Интерфейс видит его только через PencilEngineAPI.
-    modules: [engine-facade, engine-input, engine-dabs, engine-oplog, engine-buffers, engine-presets]
+    modules: [apps/web/src/engine, engine-input, engine-dabs, engine-oplog, engine-buffers, engine-presets]
 
   - id: gpu
     title: GPU (WebGL1)
@@ -105,7 +105,7 @@ nodes:
     owns: >-
       Кэш сборки для PWA. `/api/` и `/socket.io/` он не трогает — это проверено тестом,
       иначе он отдавал бы устаревшие ответы. Он же отдаёт старую сборку сразу после деплоя.
-    modules: [pwa]
+    modules: [apps/web/src/pwa]
 
   - id: peer
     title: Вкладка другого участника
@@ -143,7 +143,7 @@ nodes:
     owns: >-
       Источник правды между сессиями: пользователи, комнаты, полный лог операций (он же
       датасет), снапшоты слоёв, миниатюры.
-    modules: [server-entry]
+    modules: [apps/server/prisma, server-entry]
 
   - id: backup
     title: Ночной бэкап
