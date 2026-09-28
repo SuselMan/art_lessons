@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { IDENTITY_PRESSURE_CALIBRATION, type PressureCalibration } from '../../lib/pressureCalibration'
+import { IDENTITY_PRESSURE_CALIBRATION, type PressureCalibration } from '../../lib/input/pressureCalibration'
 import { PointerInput, type PointerData } from './PointerInput'
 
 // #475 — the calibration is applied here and nowhere else, because the value

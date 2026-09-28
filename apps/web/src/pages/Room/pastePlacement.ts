@@ -1,4 +1,4 @@
-import type { ClipboardMeta } from '../../lib/clipboardStorage'
+import type { ClipboardMeta } from '../../lib/browser/clipboardStorage'
 
 /** Where a pasted raster's top-left corner goes, in the layer space of the
  *  room being pasted *into*. */

@@ -2,8 +2,8 @@ import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import type { RoomAccessInfo, RoomJoinRequest } from '@grafetto/shared'
 
-import { ApiError, getRoomAccess, resolveJoinRequest } from '../../lib/api'
-import { roomAccessQueryKey } from '../../lib/queryClient'
+import { ApiError, getRoomAccess, resolveJoinRequest } from '../../lib/api/api'
+import { roomAccessQueryKey } from '../../lib/api/queryClient'
 import { useT } from '../../i18n'
 import { notifyError } from '../../stores/noticeStore'
 

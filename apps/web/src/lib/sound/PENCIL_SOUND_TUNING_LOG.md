@@ -399,7 +399,7 @@ Fix: `apps/web/vite.config.ts` now runs the dev server on https via `vite-plugin
 (auto-generates + trusts a local CA on this machine) and proxies `/api` and `/socket.io` to
 `apps/server` (still plain http) so the browser only ever talks to the one https origin — a direct
 `http://` request from an `https://` page is blocked as mixed content regardless of CORS, which is
-why the backend got proxied rather than given its own cert. `lib/api.ts` and `Room/index.tsx`'s
+why the backend got proxied rather than given its own cert. `lib/api/api.ts` and `Room/index.tsx`'s
 socket connection switched from a hardcoded `http://${hostname}:4000` to same-origin/relative to
 go through that proxy. One-time device-side step: the tablet needs the CA at
 `C:\Users\Ilya\.vite-plugin-mkcert\rootCA.pem` installed as a trusted CA cert (Chrome respects the

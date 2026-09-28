@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import type { ClassVisibility, ToggleableTool } from '@grafetto/shared'
 
 import { useT } from '../../i18n'
-import { isDebugToolsEnabled } from '../../lib/debugTools'
+import { isDebugToolsEnabled } from '../../lib/observability/debugTools'
 import { Modal } from '../Modal'
 import { OptionGroup } from '../OptionGroup'
 import { RoomAccessControl } from '../RoomAccessControl'

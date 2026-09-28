@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { LayerState, OperationDraft } from '@grafetto/shared'
-import { isFolder } from '../../lib/layers'
+import { isFolder } from '../../lib/layers/layers'
 
 /** (#449) Every operation one "Duplicate" costs, in the order they must be
  *  applied, plus the id the copy will have.

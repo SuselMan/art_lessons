@@ -118,7 +118,7 @@ topics:
     parent: engine
     title: Буферы слоёв и тайлы
     why: Где на GPU живёт каждый слой и как слои сводятся в картинку.
-    modules: [engine-buffers, lib-layers]
+    modules: [engine-buffers, apps/web/src/lib/layers]
 
   - id: cross-device-determinism
     level: 2
@@ -198,7 +198,7 @@ topics:
     why: >-
       Связан / назван / с одной стороны / без типа: где изменение поля поймает компилятор,
       а где сломает прод молча (#623).
-    modules: [shared-dab-codec, lib-api]
+    modules: [shared-dab-codec, apps/web/src/lib/api]
     links: [ui-socket, ui-rest, ui-rest-admin, server-pg]
 
   - id: deploy-pipeline
@@ -241,7 +241,7 @@ topics:
     parent: rooms-in-memory
     title: Доски и режим класса
     adr: [014-boards, 015-class-mode]
-    modules: [lib-boards]
+    modules: [apps/web/src/lib/boards]
 
   - id: selection-and-fill
     level: 3

@@ -144,7 +144,7 @@ export const IP_BAN_DURATIONS_HOURS = [1, 24, 24 * 7, 24 * 30] as const
 export type IpBanDurationHours = typeof IP_BAN_DURATIONS_HOURS[number]
 
 /** (#589) What a browser reports about itself once per page load
- *  (apps/web lib/environment.ts). Flat on purpose: the server keeps only the
+ *  (apps/web lib/api/environment.ts). Flat on purpose: the server keeps only the
  *  keys it knows, each checked against its type (`sanitizeClientEnvironment`),
  *  and a flat record is what makes that a loop instead of a parser.
  *

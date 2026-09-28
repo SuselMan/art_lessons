@@ -2,8 +2,8 @@ import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { compressLayerTiles } from '../../engine/src/snapshotCodec'
-import { api, ApiError } from '../../lib/api'
-import { reportInvariant } from '../../lib/reportInvariant'
+import { api, ApiError } from '../../lib/api/api'
+import { reportInvariant } from '../../lib/observability/reportInvariant'
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''

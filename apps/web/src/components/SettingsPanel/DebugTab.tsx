@@ -6,7 +6,7 @@ import {
   getGraphiteGrainVariant, setGraphiteGrainVariant,
   getCharcoalGrainVariant, setCharcoalGrainVariant,
   type GrainVariant, GRAPHITE_GRAIN_LABELS,
-} from '../../lib/featureFlags'
+} from '../../lib/observability/featureFlags'
 import { GRAPHITE_GRAIN_DEFAULT, CHARCOAL_GRAIN_STREAKY } from '../../engine'
 import styles from './SettingsPanel.module.css'
 

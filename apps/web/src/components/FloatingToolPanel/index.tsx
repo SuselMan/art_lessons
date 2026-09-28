@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { isToolEnabledInRoom, type ToggleableTool } from '@grafetto/shared'
 
-import { BUTTON_DRAG_THRESHOLD_PX } from '../../lib/tapThreshold'
-import { useDraggablePosition } from '../../lib/useDraggablePosition'
-import { useLongPress } from '../../lib/useLongPress'
+import { BUTTON_DRAG_THRESHOLD_PX } from '../../lib/input/tapThreshold'
+import { useDraggablePosition } from '../../lib/input/useDraggablePosition'
+import { useLongPress } from '../../lib/input/useLongPress'
 import { useT, type TranslationKey } from '../../i18n'
 import { Icon } from '../Icon'
 import { ColorWell } from '../ColorWell'
 import type { ColorPairControls } from '../ColorFlyout'
-import { hexToRgb } from '../../lib/color'
+import { hexToRgb } from '../../lib/browser/color'
 import {
   clampPanelPosition, savePanelPosition, PANEL_SIZE, PANEL_DOM_ID, type PanelPosition,
 } from '../../pages/Room/panelPosition'
@@ -152,7 +152,7 @@ interface Props {
    *  relationship is inverted from every other piece of chrome). */
   hidden?: boolean
   /** Hotkey hints for the Undo/Redo slots' tooltips, formatted by the caller
-   *  (see lib/hotkeys.ts's formatHotkeyLabel) — this component stays decoupled
+   *  (see lib/input/hotkeys.ts's formatHotkeyLabel) — this component stays decoupled
    *  from the hotkeys registry itself, same as it already is for every other
    *  piece of Room state it's handed as props. They are the only two slot
    *  contents with a shortcut worth naming: a tool's hotkey belongs on the

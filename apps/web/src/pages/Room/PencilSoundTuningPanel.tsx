@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 
 import type { ToolType } from '@grafetto/shared'
 
-import { TOOL_SOUND_CONFIGS, TOOL_SOUND_DEFAULTS, PENCIL_SOUND_TUNING, type PencilSound, type GrainVariant, type PencilSoundTuning } from '../../lib/PencilSound'
+import { TOOL_SOUND_CONFIGS, TOOL_SOUND_DEFAULTS, PENCIL_SOUND_TUNING, type PencilSound, type GrainVariant, type PencilSoundTuning } from '../../lib/sound/PencilSound'
 
 import styles from './Room.module.css'
 

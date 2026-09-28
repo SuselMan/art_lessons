@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 
-import { useLongPress } from '../../lib/useLongPress'
-import { usePopupAnchor } from '../../lib/usePopupAnchor'
+import { useLongPress } from '../../lib/input/useLongPress'
+import { usePopupAnchor } from '../../lib/input/usePopupAnchor'
 import type { IconName } from '../../icons/iconNames'
 import { Icon } from '../Icon'
 import { OptionPopup } from '../OptionPicker/OptionPopup'

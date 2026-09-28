@@ -3,7 +3,7 @@ import { useCallback, useRef, type RefObject } from 'react'
 import type { Operation } from '@grafetto/shared'
 
 import { pixelWriteLayerIds, type PencilEngineAPI } from '../../engine'
-import { reportInvariant } from '../../lib/reportInvariant'
+import { reportInvariant } from '../../lib/observability/reportInvariant'
 
 export interface TrueOrderDeps {
   engineRef: RefObject<Pick<PencilEngineAPI, 'confirmOperation' | 'discardOperation'> | null>

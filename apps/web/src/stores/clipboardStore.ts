@@ -4,7 +4,7 @@ import {
   CLIPBOARD_META_KEY, clearClipboardMeta, createIndexedDbClipboardStorage, metaOf,
   readClipboardMeta, writeClipboardMeta,
   type ClipboardMeta, type ClipboardRecord, type ClipboardStorage,
-} from '../lib/clipboardStorage'
+} from '../lib/browser/clipboardStorage'
 
 // (#521) What the editor currently has copied — as a *reflection*, never as
 // the data itself.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { pointOnCircle, rotatePoint } from '../../../lib/angles'
+import { pointOnCircle, rotatePoint } from '../../../lib/input/angles'
 import {
   barycentric,
   clampToTriangle,

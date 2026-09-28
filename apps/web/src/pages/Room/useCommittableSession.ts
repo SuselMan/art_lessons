@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 
-import { holdReload } from '../../lib/reloadSafety'
+import { holdReload } from '../../lib/browser/reloadSafety'
 import { ClickTracker } from './clickTracker'
 
 // (#528) An *uncommitted edit that outlives its own gesture*: the transform

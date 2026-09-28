@@ -24,7 +24,7 @@
 //
 // It does *not* reload tabs that are already open, and must not: a room
 // mid-lesson has operations in flight (#313). That decision stays where #400
-// put it — lib/registerServiceWorker.ts + pwa/updatePolicy.ts.
+// put it — lib/browser/registerServiceWorker.ts + pwa/updatePolicy.ts.
 //
 // What is cached, and what must never be, lives in swConfig.ts next to its
 // test.
@@ -139,7 +139,7 @@ registerRoute(new NavigationRoute(handleNavigation))
 // `registerType: 'prompt'` means the app decides when a waiting worker takes
 // over, and it says so with this message — workbox-window's
 // `messageSkipWaiting()`, reached from `updateSW(true)` in
-// lib/registerServiceWorker.ts. `generateSW` shipped this listener for free;
+// lib/browser/registerServiceWorker.ts. `generateSW` shipped this listener for free;
 // without it here, every update offer would be a button that does nothing.
 self.addEventListener('message', (event) => {
   const data: unknown = event.data

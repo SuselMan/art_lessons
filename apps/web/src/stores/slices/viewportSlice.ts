@@ -20,7 +20,7 @@ export interface ViewportSlice {
   // `tool` would lose the thing to go back to, so releasing Space would drop
   // the person into a tool they never picked.
   //
-  // It is also why Space is not in the hotkey registry (see lib/hotkeys.ts):
+  // It is also why Space is not in the hotkey registry (see lib/input/hotkeys.ts):
   // the registry has no keyup half, and a rebindable hold is a mode with no
   // guaranteed way out.
   handHeld: boolean

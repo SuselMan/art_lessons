@@ -1,12 +1,12 @@
 import { expect, type Page } from '@playwright/test'
 
 import type { PencilEngineAPI } from '../../apps/web/src/engine'
-import type { LatencyMeter } from '../../apps/web/src/lib/liveLatency'
+import type { LatencyMeter } from '../../apps/web/src/lib/observability/liveLatency'
 import type { useRoomStore } from '../../apps/web/src/stores/roomStore'
 import type { Operation } from '../../packages/shared/src/index'
 import { slow } from './pace'
 
-/** (#491) The two handles lib/devEngineHandle.ts publishes in dev builds.
+/** (#491) The two handles lib/observability/devEngineHandle.ts publishes in dev builds.
  *  Typed against the app's own types rather than re-declared loosely, so a
  *  rename in the engine's public API breaks these tests at `npm run
  *  typecheck` instead of at midnight. */

@@ -1,9 +1,9 @@
 import type { RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
-import { diagLog } from '../../lib/diagLog'
-import type { PencilSound } from '../../lib/PencilSound'
-import { computeCompositeOrder } from '../../lib/layers'
+import { diagLog } from '../../lib/observability/diagLog'
+import type { PencilSound } from '../../lib/sound/PencilSound'
+import { computeCompositeOrder } from '../../lib/layers/layers'
 import { useRoomStore } from '../../stores/roomStore'
 import { uploadThumbnail } from './snapshotSync'
 

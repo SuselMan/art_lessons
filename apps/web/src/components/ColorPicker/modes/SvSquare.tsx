@@ -1,7 +1,7 @@
 import { useRef, type CSSProperties } from 'react'
 import { clamp } from 'lodash-es'
 
-import { hsvToRgb, rgbToHex } from '../../../lib/color'
+import { hsvToRgb, rgbToHex } from '../../../lib/browser/color'
 import type { ColorPickerModeProps } from './types'
 import styles from './SvSquare.module.css'
 

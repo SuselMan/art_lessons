@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import type { Operation, ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
-import { reportInvariant } from '../../lib/reportInvariant'
+import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { commitRevealsBelow as commitRevealsBelowShared, type PendingPreviews } from './pendingPreviews'
 

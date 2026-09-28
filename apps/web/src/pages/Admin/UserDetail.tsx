@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import type { AdminUserDetail } from '@grafetto/shared'
 
-import { ApiError } from '../../lib/api'
-import { banUser, fetchAdminUser, revokeSessions, unbanUser } from '../../lib/adminApi'
+import { ApiError } from '../../lib/api/api'
+import { banUser, fetchAdminUser, revokeSessions, unbanUser } from '../../lib/api/adminApi'
 import { DeviceList, IpList } from './Devices'
 import { ActionTable } from './Journal'
 import { ago, date } from './format'

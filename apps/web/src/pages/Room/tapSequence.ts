@@ -1,4 +1,4 @@
-import { DOUBLE_TAP_MAX_DELAY_MS, DOUBLE_TAP_MAX_DIST_PX } from '../../lib/tapThreshold'
+import { DOUBLE_TAP_MAX_DELAY_MS, DOUBLE_TAP_MAX_DIST_PX } from '../../lib/input/tapThreshold'
 
 export interface TapSequenceResult {
   /** How long the current run is, counting the tap just fed in. Always ≥ 1. */

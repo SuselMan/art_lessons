@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import {
   MIN_CALIBRATION_SAMPLES, calibrationFromMeasurement, compilePressureCalibration, measurePressure,
   type PressureCalibration, type PressureCurvePoint, type PressureMeasurement, type PressureVerdict,
-} from '../../lib/pressureCalibration'
+} from '../../lib/input/pressureCalibration'
 import { useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
 import { centreOffset, clearTrace, drawTrace, sizeCanvasToBox, type TracePoint } from './strokeTrace'

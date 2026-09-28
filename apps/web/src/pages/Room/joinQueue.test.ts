@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 import type { RoomAccessInfo, RoomJoinRequest } from '@grafetto/shared'
 
-import { roomAccessQueryKey } from '../../lib/queryClient'
+import { roomAccessQueryKey } from '../../lib/api/queryClient'
 import { applyJoinRequestCreated, applyJoinRequestResolved } from './joinQueue'
 
 function request(id: string, name = 'Ann'): RoomJoinRequest {

@@ -187,7 +187,7 @@
   {
     "type": "dependency",
     "from": "apps/web/src/engine/index.ts",
-    "to": "apps/web/src/lib/diagLog.ts",
+    "to": "apps/web/src/lib/observability/diagLog.ts",
     "unresolvedTo": "../lib/diagLog",
     "dependencyTypes": [
       "local",
@@ -201,7 +201,7 @@
   {
     "type": "dependency",
     "from": "apps/web/src/engine/index.ts",
-    "to": "apps/web/src/lib/pressureCalibration.ts",
+    "to": "apps/web/src/lib/input/pressureCalibration.ts",
     "unresolvedTo": "../lib/pressureCalibration",
     "dependencyTypes": [
       "local",
@@ -216,7 +216,7 @@
   {
     "type": "dependency",
     "from": "apps/web/src/engine/src/PointerInput.ts",
-    "to": "apps/web/src/lib/diagLog.ts",
+    "to": "apps/web/src/lib/observability/diagLog.ts",
     "unresolvedTo": "../../lib/diagLog",
     "dependencyTypes": [
       "local",
@@ -230,7 +230,7 @@
   {
     "type": "dependency",
     "from": "apps/web/src/engine/src/PointerInput.ts",
-    "to": "apps/web/src/lib/pressureCalibration.ts",
+    "to": "apps/web/src/lib/input/pressureCalibration.ts",
     "unresolvedTo": "../../lib/pressureCalibration",
     "dependencyTypes": [
       "local",
@@ -257,7 +257,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/devEngineHandle.ts",
+    "from": "apps/web/src/lib/observability/devEngineHandle.ts",
     "to": "apps/web/src/stores/roomStore.ts",
     "unresolvedTo": "../stores/roomStore",
     "dependencyTypes": [
@@ -271,7 +271,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/environment.ts",
+    "from": "apps/web/src/lib/api/environment.ts",
     "to": "apps/web/src/stores/settingsStore.ts",
     "unresolvedTo": "../stores/settingsStore",
     "dependencyTypes": [
@@ -285,7 +285,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/registerServiceWorker.ts",
+    "from": "apps/web/src/lib/browser/registerServiceWorker.ts",
     "to": "apps/web/src/stores/noticeStore.ts",
     "unresolvedTo": "../stores/noticeStore",
     "dependencyTypes": [
@@ -299,7 +299,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/registerServiceWorker.ts",
+    "from": "apps/web/src/lib/browser/registerServiceWorker.ts",
     "to": "apps/web/src/stores/settingsStore.ts",
     "unresolvedTo": "../stores/settingsStore",
     "dependencyTypes": [
@@ -313,7 +313,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/roomChunk.ts",
+    "from": "apps/web/src/lib/api/roomChunk.ts",
     "to": "apps/web/src/pages/Room/index.tsx",
     "unresolvedTo": "../pages/Room",
     "dependencyTypes": [
@@ -327,7 +327,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/useCompactLayout.ts",
+    "from": "apps/web/src/lib/input/useCompactLayout.ts",
     "to": "apps/web/src/stores/settingsStore.ts",
     "unresolvedTo": "../stores/settingsStore",
     "dependencyTypes": [
@@ -341,7 +341,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/useShareRoom.ts",
+    "from": "apps/web/src/lib/api/useShareRoom.ts",
     "to": "apps/web/src/stores/noticeStore.ts",
     "unresolvedTo": "../stores/noticeStore",
     "dependencyTypes": [
@@ -355,7 +355,7 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/useShareRoom.ts",
+    "from": "apps/web/src/lib/api/useShareRoom.ts",
     "to": "apps/web/src/stores/settingsStore.ts",
     "unresolvedTo": "../stores/settingsStore",
     "dependencyTypes": [
@@ -864,7 +864,7 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/lib/hotkeys.ts",
+    "from": "apps/web/src/lib/input/hotkeys.ts",
     "to": "apps/web/src/i18n/index.ts",
     "unresolvedTo": "../i18n",
     "dependencyTypes": [
@@ -893,7 +893,7 @@
         ]
       },
       {
-        "name": "apps/web/src/lib/hotkeys.ts",
+        "name": "apps/web/src/lib/input/hotkeys.ts",
         "dependencyTypes": [
           "local",
           "import"

@@ -4,7 +4,7 @@ import type {
 } from '@grafetto/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
-import { boardsReducer, sortBoards, type BoardsAction } from '../../lib/boards'
+import { boardsReducer, sortBoards, type BoardsAction } from '../../lib/boards/boards'
 import type { PaperType } from '@grafetto/shared'
 
 // This is the spec's vaguest bucket ("room: id, name, participants, local
@@ -123,7 +123,7 @@ export interface RoomInfoSlice {
    *  default; a hand-picked board turns it off, the "teacher is on …" chip
    *  turns it back on. Meaningless for the owner — they never follow —
    *  which is why it is stored raw and combined with `isOwner` at the read
-   *  site (see `followTarget` in lib/boards.ts). */
+   *  site (see `followTarget` in lib/boards/boards.ts). */
   following: boolean
   /** From `room_state.lesson`, on every join and reconnect. */
   setLesson: (lesson: LessonState) => void

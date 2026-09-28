@@ -1,24 +1,24 @@
 // (#177) Must stay the first import in the file — see the module's own
 // comment for why the order is the whole point of it existing.
-import './lib/initSentry'
+import './lib/observability/initSentry'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import './styles/global.css'
 import type { Me } from '@grafetto/shared'
 
-import { fetchMe } from './lib/api'
-import { reportEnvironment } from './lib/environment'
-import { ME_QUERY_KEY } from './lib/authState'
-import { queryClient } from './lib/queryClient'
-import { setSentryDeviceType, setSentryUser } from './lib/sentry'
+import { fetchMe } from './lib/api/api'
+import { reportEnvironment } from './lib/api/environment'
+import { ME_QUERY_KEY } from './lib/api/authState'
+import { queryClient } from './lib/api/queryClient'
+import { setSentryDeviceType, setSentryUser } from './lib/observability/sentry'
 // Side-effecting import: registers its popstate listener before
 // <BrowserRouter> (inside App) ever mounts and adds its own — see the
 // module's own comment for why registration order matters here.
-import './lib/backNavigationGuard'
-import { exposeAppVersion } from './lib/appVersion'
-import { registerServiceWorker } from './lib/registerServiceWorker'
-import { syncDebugToolsFromUrl } from './lib/debugTools'
+import './lib/browser/backNavigationGuard'
+import { exposeAppVersion } from './lib/browser/appVersion'
+import { registerServiceWorker } from './lib/browser/registerServiceWorker'
+import { syncDebugToolsFromUrl } from './lib/observability/debugTools'
 import {
   syncDeviceTypeAttribute,
   syncDocumentLanguage,

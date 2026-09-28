@@ -3,7 +3,7 @@ import { clamp } from 'lodash-es'
 
 import {
   MAX_CURVE_POINTS, compilePressureCurve, type PressureCurvePoint,
-} from '../../lib/pressureCalibration'
+} from '../../lib/input/pressureCalibration'
 import { useT } from '../../i18n'
 import styles from './PressureCalibration.module.css'
 

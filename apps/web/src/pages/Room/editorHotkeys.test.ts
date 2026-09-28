@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { HOTKEY_ACTIONS } from '../../lib/hotkeys'
+import { HOTKEY_ACTIONS } from '../../lib/input/hotkeys'
 import { useClipboardStore } from '../../stores/clipboardStore'
 import { resetRoomStore, useRoomStore } from '../../stores/roomStore'
 import { handleEditorKey, type EditorKeyContext } from './editorHotkeys'

@@ -5,7 +5,7 @@ import { Logo } from '../../components/Logo'
 import styles from './Room.module.css'
 
 // (#570) Shown in place of the editor when this browser cannot give us a
-// WebGL context (see lib/webgl.ts). Same card as JoinGate: the reader is in
+// WebGL context (see lib/browser/webgl.ts). Same card as JoinGate: the reader is in
 // the same position as a student on a room link — this page and nothing
 // else — so it borrows that screen's language rather than inventing one.
 

@@ -5,9 +5,9 @@ import type { BoardSummary, ClientToServerEvents, ServerToClientEvents } from '@
 
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { useT } from '../../i18n'
-import { createBoard, deleteBoard, renameBoard, reorderBoard } from '../../lib/api'
-import { activeBoardPayload, followDestination, followingAfterPick, movedOrder } from '../../lib/boards'
-import { ownBoardIn } from '../../lib/classMode'
+import { createBoard, deleteBoard, renameBoard, reorderBoard } from '../../lib/api/api'
+import { activeBoardPayload, followDestination, followingAfterPick, movedOrder } from '../../lib/boards/boards'
+import { ownBoardIn } from '../../lib/boards/classMode'
 import { notifyError } from '../../stores/noticeStore'
 import { useRoomStore } from '../../stores/roomStore'
 

@@ -22,7 +22,7 @@ import { E2E_APP_VERSION, SERVER_HEALTH_URL, SERVER_PORT, WEB_PORT, WEB_URL } fr
  *  passes, and every one of them goes stale at the next commit.
  *
  *  **How the assertions work.** Not screenshots. `window.__engine` is the
- *  live engine, exposed in dev builds (see lib/devEngineHandle.ts), and its
+ *  live engine, exposed in dev builds (see lib/observability/devEngineHandle.ts), and its
  *  own API answers the questions these tests ask: `pickColor` reads a pixel
  *  out of the composited framebuffer (the context is created with
  *  `preserveDrawingBuffer: true`, so that read is stable from outside a

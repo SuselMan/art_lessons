@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { clampPanelPosition, loadPanelPosition, savePanelPosition } from './panelPosition'
-import type { KeyValueStorage } from '../../lib/roomStorage'
+import type { KeyValueStorage } from '../../lib/browser/roomStorage'
 
 function memoryStorage(): KeyValueStorage {
   const map = new Map<string, string>()

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
 
 import { useT } from '../../i18n'
-import { rgbToHsv, hsvToRgb, rgbToHex, hexToRgb, type Hsv } from '../../lib/color'
+import { rgbToHsv, hsvToRgb, rgbToHex, hexToRgb, type Hsv } from '../../lib/browser/color'
 import { OptionGroup } from '../OptionGroup'
 import { BarSquare } from './modes/BarSquare'
 import { RingSquare } from './modes/RingSquare'

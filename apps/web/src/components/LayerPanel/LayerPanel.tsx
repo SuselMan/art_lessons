@@ -36,8 +36,8 @@ import { rollUpDrawerColors } from './drawerColors'
 import {
   isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
   placementAbove, normalizeMoveSet, isLockedByAncestor, soloKeepSet,
-} from '../../lib/layers'
-import { readImageFile } from '../../lib/image'
+} from '../../lib/layers/layers'
+import { readImageFile } from '../../lib/browser/image'
 import styles from './LayerPanel.module.css'
 
 export interface LayerPanelProps {

@@ -3,9 +3,9 @@ import { nanoid } from 'nanoid'
 
 import type { AnnotationShape, OperationDraft } from '@grafetto/shared'
 
-import { rgbToHex } from '../../lib/color'
-import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations'
-import { CLICK_MOVE_THRESHOLD_PX, TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { rgbToHex } from '../../lib/browser/color'
+import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations/annotations'
+import { CLICK_MOVE_THRESHOLD_PX, TAP_MOVE_THRESHOLD_PX } from '../../lib/input/tapThreshold'
 import { useRoomStore } from '../../stores/roomStore'
 import type { EditorTool } from '../../stores/slices/toolSlice'
 import { annotationAt } from './annotationHitTest'

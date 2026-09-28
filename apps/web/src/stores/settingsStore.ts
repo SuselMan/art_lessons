@@ -4,7 +4,7 @@ import { isPaperType, type PaperType } from '@grafetto/shared'
 
 import {
   IDENTITY_PRESSURE_CALIBRATION, isPressureCalibration, type PressureCalibration,
-} from '../lib/pressureCalibration'
+} from '../lib/input/pressureCalibration'
 
 import {
   DEFAULT_COLOR_PICKER_MODE,
@@ -17,13 +17,13 @@ import {
 import {
   detectDeviceType, isCompactPreference, isDeviceType,
   type CompactPreference, type DeviceType,
-} from '../lib/deviceType'
-import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/hotkeys'
+} from '../lib/browser/deviceType'
+import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/input/hotkeys'
 import {
   DEFAULT_FLOATING_PANEL_MODE, DEFAULT_MINIMAL_UI_TAP_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
   isFloatingPanelMode, isMinimalUiTapMode, type FloatingPanelMode, type MinimalUiTapMode,
-} from '../lib/uiPreferences'
-import { detectTheme, isTheme, type Theme } from '../lib/theme'
+} from '../lib/browser/uiPreferences'
+import { detectTheme, isTheme, type Theme } from '../lib/browser/theme'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
 
 // App-wide user preferences (#208) — settings that belong to the person, not
@@ -259,7 +259,7 @@ export interface SettingsStore {
    *  eventually need for somebody. */
   compactPreference: CompactPreference
   setCompactPreference: (preference: CompactPreference) => void
-  /** (#426) Which palette the interface is painted in. See `lib/theme.ts` for
+  /** (#426) Which palette the interface is painted in. See `lib/browser/theme.ts` for
    *  why this is an accessibility setting rather than a cosmetic one. */
   theme: Theme
   setTheme: (theme: Theme) => void

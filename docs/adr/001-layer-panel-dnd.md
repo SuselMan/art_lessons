@@ -113,7 +113,7 @@ The flat-list approach is simpler, relies on a single well-supported dnd-kit pat
 - `apps/web/src/components/LayerPanel/flatList.ts` — flatten / reconstruct helpers.
 - `apps/web/src/components/LayerPanel/LayerPanel.tsx` — DnD logic, selection, menus.
 - `apps/web/src/components/LayerPanel/LayerRow.tsx` — sortable row rendering.
-- `apps/web/src/lib/layers.ts` — `parentOf`, `getVisibleOrder`, `collectDescendants`, `computeCompositeOrder`.
+- `apps/web/src/lib/layers/layers.ts` — `parentOf`, `getVisibleOrder`, `collectDescendants`, `computeCompositeOrder`.
 
 ## Notes on pointer-event handling
 

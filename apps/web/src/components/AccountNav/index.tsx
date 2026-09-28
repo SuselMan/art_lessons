@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { isLoggedIn, useAuth } from '../../lib/authState'
-import { logout } from '../../lib/api'
+import { isLoggedIn, useAuth } from '../../lib/api/authState'
+import { logout } from '../../lib/api/api'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Menu } from '../Menu'

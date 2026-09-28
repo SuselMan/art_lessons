@@ -18,7 +18,7 @@
 
 /** The build-time inputs this module reads. A plain shape rather than
  *  `import.meta.env` directly, so the resolution is testable without a Vite
- *  build — same reasoning as lib/sentry.ts's own SentryBuildEnv. */
+ *  build — same reasoning as lib/observability/sentry.ts's own SentryBuildEnv. */
 export interface VersionBuildEnv {
   VITE_APP_VERSION?: string
   DEV?: boolean

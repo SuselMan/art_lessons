@@ -3,7 +3,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import type { PaperType } from '@grafetto/shared'
 
 import { PENCIL_PRESETS, type PencilGradeName } from '../../engine'
-import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
+import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/sound/PencilSound'
 import { useRoomStore } from '../../stores/roomStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 

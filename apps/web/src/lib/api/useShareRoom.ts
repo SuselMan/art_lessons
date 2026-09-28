@@ -1,9 +1,9 @@
 import { useCallback } from 'react'
 import type { RoomAccessMode } from '@grafetto/shared'
 
-import { useT } from '../i18n'
-import { pushNotice } from '../stores/noticeStore'
-import { useSettingsStore } from '../stores/settingsStore'
+import { useT } from '../../i18n'
+import { pushNotice } from '../../stores/noticeStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 import { roomShareUrl, shareNoticeFor, shareOrCopy } from './shareRoom'
 

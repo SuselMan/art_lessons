@@ -147,7 +147,7 @@ export type StrokeLiveData = {
    *  later packet's is a prefix-extension of an earlier one. */
   wet?: string
   /** (#432) When the author sent this packet, on the *server's* clock (see
-   *  lib/serverClock.ts on the web side). Participants' clocks are not in step
+   *  lib/observability/serverClock.ts on the web side). Participants' clocks are not in step
    *  with each other, but each can estimate its offset to the server, so a
    *  peer can take "ink on my screen, server time" minus this and get the
    *  send-to-ink path. Absent until the author's clock has synced once. */

@@ -1,4 +1,4 @@
-import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
+import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/browser/roomStorage'
 
 export interface PanelPosition { x: number; y: number }
 

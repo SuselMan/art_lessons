@@ -4,7 +4,7 @@ import { useT } from '../../i18n'
 import {
   HOTKEY_ACTIONS, captureHotkeyBinding, findHotkeyConflict, formatHotkeyLabel,
   isReservedCombo,
-} from '../../lib/hotkeys'
+} from '../../lib/input/hotkeys'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'
 

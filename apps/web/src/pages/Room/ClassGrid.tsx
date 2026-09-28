@@ -5,8 +5,8 @@ import type { AssignmentSummary } from '@grafetto/shared'
 
 import { useT, type TFunction } from '../../i18n'
 import { Icon } from '../../components/Icon'
-import type { GridTile } from '../../lib/classMode'
-import { apiPath } from '../../lib/api'
+import type { GridTile } from '../../lib/boards/classMode'
+import { apiPath } from '../../lib/api/api'
 
 import styles from './ClassGrid.module.css'
 

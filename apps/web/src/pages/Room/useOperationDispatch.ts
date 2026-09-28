@@ -5,7 +5,7 @@ import type { Operation, OperationDraft } from '@grafetto/shared'
 
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import type { PencilEngineAPI } from '../../engine'
-import { isLockedAgainst } from '../../lib/layers'
+import { isLockedAgainst } from '../../lib/layers/layers'
 import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
 import { isLocalIslandSafe } from './optimism'

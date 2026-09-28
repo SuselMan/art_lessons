@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 
-import { usePopupAnchor } from '../../lib/usePopupAnchor'
+import { usePopupAnchor } from '../../lib/input/usePopupAnchor'
 import { Icon } from '../Icon'
 import type { IconName } from '../../icons/iconNames'
 

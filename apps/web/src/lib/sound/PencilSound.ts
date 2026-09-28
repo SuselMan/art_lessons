@@ -323,7 +323,7 @@ export interface GrainVariant {
   // same asperities the way a real tip dragging back and forth would. This
   // adds a *second*, independent grain mechanism modeled on the abandoned
   // AudioWorklet variant's distance-triggered grains (round 11,
-  // lib/pencilSoundV3/Variant3Synth.ts, still on disk unused): PencilSound
+  // lib/sound/pencilSoundV3/Variant3Synth.ts, still on disk unused): PencilSound
   // itself (not the node graph) integrates pixels-of-stroke-traveled
   // between update() calls and fires a discrete, pre-baked micro-grain
   // one-shot (see createMicroGrainBuffer()) every
@@ -768,7 +768,7 @@ function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
  *  docstring for why this exists as a pre-baked buffer rather than a
  *  live-gated BiquadFilterNode — two earlier live-graph attempts both still
  *  read as noise with an envelope. */
-// Exported for lib/InterfaceClick.ts (#280) — reuses this exact synthesis
+// Exported for lib/sound/InterfaceClick.ts (#280) — reuses this exact synthesis
 // primitive for the radial-dial angle control's per-degree UI click,
 // deliberately not the rest of this file's continuous, speed-driven paper-
 // friction graph (a fundamentally different, always-looping sound source —
@@ -1207,7 +1207,7 @@ export class PencilSound implements PencilSoundAPI {
    *  from the pre-baked distanceGrainBuffer every ~distanceGrainSpacingPx,
    *  jittered so it doesn't tick metronomically — the same algorithm as the
    *  abandoned AudioWorklet variant's own distance-triggered grains (round 11,
-   *  lib/pencilSoundV3/Variant3Synth.ts), adapted from per-sample to
+   *  lib/sound/pencilSoundV3/Variant3Synth.ts), adapted from per-sample to
    *  per-pointer-event granularity. Amplitude is heavy-tailed (mostly quiet
    *  ticks, occasional loud one) and pressure-scaled, same as that source.
    *  dtMs is clamped so a long gap (tab backgrounded, stroke resumed after a

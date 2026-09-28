@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import clsx from 'clsx'
 
-import { InterfaceClick } from '../../lib/InterfaceClick'
+import { InterfaceClick } from '../../lib/sound/InterfaceClick'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { diagLog } from '../../lib/diagLog'
-import { angleToCompassDegrees, roundToStep, wholeUnitsCrossed, wrapDegrees, wrapValue, type Point } from '../../lib/angles'
+import { diagLog } from '../../lib/observability/diagLog'
+import { angleToCompassDegrees, roundToStep, wholeUnitsCrossed, wrapDegrees, wrapValue, type Point } from '../../lib/input/angles'
 import styles from './RadialDial.module.css'
 
 export interface RadialDialProps {

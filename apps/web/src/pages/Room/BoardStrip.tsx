@@ -6,7 +6,7 @@ import type { BoardSummary, Participant } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../../components/Icon'
 import { Menu } from '../../components/Menu'
-import { apiPath } from '../../lib/api'
+import { apiPath } from '../../lib/api/api'
 
 import styles from './BoardStrip.module.css'
 

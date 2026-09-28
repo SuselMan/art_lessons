@@ -25,7 +25,7 @@ test.describe('app version (#515)', () => {
   test('and the same string is on globalThis, for a console that has no UI', async ({ page }) => {
     // The device with the problem is never the device debugging it. This is the
     // path a remote CDP attach or a pasted devtools line uses — see
-    // lib/appVersion.ts's exposeAppVersion.
+    // lib/browser/appVersion.ts's exposeAppVersion.
     //
     // Declared locally rather than reaching for the app's own `declare global`:
     // the e2e project is a separate tsconfig with none of src/ in it, which is

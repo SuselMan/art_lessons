@@ -18,7 +18,7 @@ import type {
  *
  *  This is that table: one entry per route, keyed by `"METHOD /path"` exactly
  *  as the server registers it. The server registers through it (apiRoute.ts)
- *  and the client calls through it (lib/api.ts), so neither side can name a
+ *  and the client calls through it (lib/api/api.ts), so neither side can name a
  *  path, a field or a response the other does not agree on.
  *
  *  Two roles for a body, on purpose. `body` is what the *client* sends, typed

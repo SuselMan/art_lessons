@@ -1,4 +1,4 @@
-import { angleToCompassDegrees, pointOnCircle, type Point } from '../../../lib/angles'
+import { angleToCompassDegrees, pointOnCircle, type Point } from '../../../lib/input/angles'
 
 /** Hue ring + inscribed saturation/value square (#340).
  *

@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { useT } from '../../i18n'
-import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
-import { holdReload } from '../../lib/reloadSafety'
+import { setBackNavigationGuard } from '../../lib/browser/backNavigationGuard'
+import { holdReload } from '../../lib/browser/reloadSafety'
 import { useRoomStore } from '../../stores/roomStore'
 
 /** (#313, #377, #400, #493) Every way out of the room, on the Room side:

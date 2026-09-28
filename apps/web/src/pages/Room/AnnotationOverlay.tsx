@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 're
 import { MAX_ANNOTATION_TEXT_LENGTH } from '@grafetto/shared'
 
 import { Icon } from '../../components/Icon'
-import { inkPathData, type AnnotationState } from '../../lib/annotations'
+import { inkPathData, type AnnotationState } from '../../lib/annotations/annotations'
 import type { AnnotationDraft } from '../../stores/slices/annotationSlice'
 import { ANNOTATION_ID_ATTR, ANNOTATION_PART_ATTR } from './annotationHitTest'
 import styles from './Room.module.css'

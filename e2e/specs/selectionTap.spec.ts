@@ -15,7 +15,7 @@ import { createRoom, waitForRoomReady } from '../support/room'
 test.use({ hasTouch: true })
 
 /** The canvas is laid out for a tablet on purpose: this bug was reported from
- *  one, and `deviceType` decides presentation only (see lib/deviceType.ts), so
+ *  one, and `deviceType` decides presentation only (see lib/browser/deviceType.ts), so
  *  pinning it keeps the layout the same on every machine that runs this
  *  instead of leaving it to whatever touch emulation does to `pointer:
  *  coarse`. English for the same reason floatingPanel.spec.ts asks for it: the

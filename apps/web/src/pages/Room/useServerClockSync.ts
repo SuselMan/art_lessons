@@ -3,7 +3,7 @@ import type { Socket } from 'socket.io-client'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 
-import { syncServerClock } from '../../lib/serverClock'
+import { syncServerClock } from '../../lib/observability/serverClock'
 
 // A route can change under a long lesson (wifi to mobile, a VPN coming up),
 // and with it the offset; a sync is five tiny round trips, so it is repeated

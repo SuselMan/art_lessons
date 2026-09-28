@@ -23,8 +23,8 @@ import type { RoomAccessMode, RoomAccessParticipant, RoomInvite, RoomJoinRequest
 import {
   addRoomInvite, ApiError, getRoomAccess, kickFromRoom, removeRoomInvite, resolveJoinRequest,
   setRoomAccess, unblockFromRoom,
-} from '../../lib/api'
-import { roomAccessQueryKey } from '../../lib/queryClient'
+} from '../../lib/api/api'
+import { roomAccessQueryKey } from '../../lib/api/queryClient'
 import { useT, type TFunction } from '../../i18n'
 import { notifyError } from '../../stores/noticeStore'
 import { useRoomStore } from '../../stores/roomStore'

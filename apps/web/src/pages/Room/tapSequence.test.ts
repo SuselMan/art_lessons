@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { TapSequence } from './tapSequence'
-import { DOUBLE_TAP_MAX_DELAY_MS, DOUBLE_TAP_MAX_DIST_PX } from '../../lib/tapThreshold'
+import { DOUBLE_TAP_MAX_DELAY_MS, DOUBLE_TAP_MAX_DIST_PX } from '../../lib/input/tapThreshold'
 
 describe('TapSequence (#189)', () => {
   it('fires on every tap when one is required', () => {

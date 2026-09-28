@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { TapTracker } from './tapTracker'
-import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { TAP_MOVE_THRESHOLD_PX } from '../../lib/input/tapThreshold'
 
 describe('TapTracker (#99)', () => {
   it('recognizes a stationary down/up as a tap', () => {

@@ -106,7 +106,7 @@ export function operationRejectReason(
   //
   // Narrow on purpose: only the operations that paint (`paintedLayerIds`), so
   // a locked layer can still be renamed, moved, cleared, duplicated and
-  // deleted. That is the same line the client draws — see lib/layers.ts's
+  // deleted. That is the same line the client draws — see lib/layers/layers.ts's
   // `isLockedAgainst`, which is what stops these ever being sent by a current
   // build. This check is for the ones that are not: an old tab, a replayed
   // packet, anything that has been out of the room while the lock went on.
@@ -160,7 +160,7 @@ function ownerLockedTargets(record: GateBoard, op: Operation): boolean {
 function sharedLockedTargets(record: GateBoard, op: Operation): boolean {
   if (record.sharedLockedLayerIds.size === 0) return false
   // `layer_clear` empties a layer from the row's own menu, next to Delete, and
-  // is exempt on both sides — see lib/layers.ts's LOCK_EXEMPT_OP_TYPES for the
+  // is exempt on both sides — see lib/layers/layers.ts's LOCK_EXEMPT_OP_TYPES for the
   // reasoning. Named here rather than shared as a list because the two sides
   // are allowed to disagree in only one direction, and a server that reads its
   // policy from the client's is not a check.

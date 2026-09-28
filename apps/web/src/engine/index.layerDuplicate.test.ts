@@ -1,7 +1,7 @@
 // Engine-level tests for #449: layer_duplicate against a real PencilEngine
 // with actual pixel buffers (via MockGL — see testing/mockGL.ts).
 //
-// The pure LayerState half lives in lib/layers.test.ts and the server's own
+// The pure LayerState half lives in lib/layers/layers.test.ts and the server's own
 // aliveIds/coverage half in apps/server/src/rooms/rooms.test.ts. What only this file
 // can check is the part a duplicate shares with a merge and nothing else: the
 // copy's pixels have to come out identical to the source's, and they have to
@@ -171,7 +171,7 @@ describe('layer_duplicate: opacity belongs to the copy, never to its pixels', ()
     const paintedA = readLayerPixels(engine, 'A')!
 
     // A half-transparent source. The copy's *layer* opacity becomes 0.5 (that
-    // is applyContentOp's job, covered in lib/layers.test.ts) — its pixels must
+    // is applyContentOp's job, covered in lib/layers/layers.test.ts) — its pixels must
     // stay exactly what the source's are, or a copy of a 50% layer would
     // display at 25%.
     engine.appendOperation(makeLayerDuplicate('user-a', 'A-copy', 'A', { sourceOpacity: 0.5 }))
