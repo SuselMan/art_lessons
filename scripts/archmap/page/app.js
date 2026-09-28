@@ -485,7 +485,9 @@
     'Int String Boolean Json Bytes DateTime Float BigInt Decimal').split(' '));
   var TOKEN = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|('(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`)|(@@?\w+)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)/g;
 
-  function highlight(src) {
+  // Named apart from `highlight(id)` above on purpose: both are function declarations in one
+  // closure, so a second `highlight` silently replaced the edge highlighting (#643).
+  function highlightCode(src) {
     var out = '', last = 0, m;
     TOKEN.lastIndex = 0;
     while ((m = TOKEN.exec(src))) {
@@ -519,7 +521,7 @@
       h.push('<div class="sym-head"><b>' + esc(name) + '</b> <span class="tag">' + esc(d.kind) + '</span> ' +
         '<a class="link path" target="_blank" rel="noreferrer" href="' + REPO + '/' + d.path + '#L' + d.line + '">' +
         esc(d.path) + ':' + d.line + ' ↗</a></div>' +
-        '<pre><code>' + highlight(d.snippet) + '</code></pre>' +
+        '<pre><code>' + highlightCode(d.snippet) + '</code></pre>' +
         (d.truncated ? '<p class="num" style="float:none">… обрезано — целиком по ссылке</p>' : ''));
     });
     if (decls.length > 1) {
