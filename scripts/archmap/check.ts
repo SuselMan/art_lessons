@@ -12,8 +12,52 @@
  * Run it in CI next to typecheck/lint/test. Adding a folder then costs one paragraph of prose,
  * which is the whole point: the paragraph is the part a reader actually needs.
  */
-import { assign, listSourceFiles, loadMap } from './model';
-import { checkRuntime, loadRuntime } from './runtime';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parse } from 'yaml';
+
+import { assign, listSourceFiles, loadMap, REPO_ROOT, type ArchMap } from './model';
+import { checkRuntime, loadRuntime, type RuntimeMap } from './runtime';
+
+const STATUSES = ['не отмечено', 'слышал', 'понимаю', 'объясню сам'];
+
+interface Topic {
+  id: string;
+  modules?: string[];
+  links?: string[];
+  flows?: string[];
+  adr?: string[];
+}
+
+/** understanding.yaml: every topic must point at things that still exist on the map. */
+function checkUnderstanding(map: ArchMap, runtime: RuntimeMap | undefined): string[] {
+  const path = join(REPO_ROOT, 'docs/architecture/understanding.yaml');
+  if (!existsSync(path)) return [];
+  const doc = parse(readFileSync(path, 'utf8')) as {
+    topics: Topic[];
+    people?: Record<string, Record<string, string>>;
+  };
+  const out: string[] = [];
+  const modules = new Set(map.modules.map((m) => m.id));
+  const flows = new Set(map.flows.map((f) => f.id));
+  const links = new Set(runtime?.links.map((l) => l.id) ?? []);
+  const topics = new Set(doc.topics.map((t) => t.id));
+  for (const t of doc.topics) {
+    for (const m of t.modules ?? []) if (!modules.has(m)) out.push(`understanding ${t.id}: нет модуля ${m}`);
+    for (const f of t.flows ?? []) if (!flows.has(f)) out.push(`understanding ${t.id}: нет потока ${f}`);
+    for (const l of t.links ?? []) if (!links.has(l)) out.push(`understanding ${t.id}: нет канала ${l}`);
+    for (const d of t.adr ?? []) {
+      if (!existsSync(join(REPO_ROOT, 'docs/adr', `${d}.md`))) out.push(`understanding ${t.id}: нет ADR ${d}`);
+    }
+  }
+  for (const [who, marks] of Object.entries(doc.people ?? {})) {
+    for (const [topic, status] of Object.entries(marks)) {
+      if (!topics.has(topic)) out.push(`understanding ${who}: нет темы ${topic}`);
+      if (!STATUSES.includes(status)) out.push(`understanding ${who}/${topic}: статус «${status}» не из ${STATUSES.join(' / ')}`);
+    }
+  }
+  return out;
+}
 
 function main(): void {
   const map = loadMap();
@@ -79,6 +123,8 @@ function main(): void {
       for (const d of drift) problems.push(`    ${d}`);
     }
   }
+
+  problems.push(...checkUnderstanding(map, runtime));
 
   const covered = files.length - a.unclaimed.length;
   if (!problems.length) {
