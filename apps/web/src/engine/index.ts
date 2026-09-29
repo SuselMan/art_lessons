@@ -5312,6 +5312,14 @@ export class PencilEngine implements PencilEngineAPI {
     for (const b of this._revealPool) b.destroy()
     this._revealPool = []
     this.gl.deleteTexture(this._paperTex)
+    // (#536, §17.69) And the context itself, when its canvas has already left
+    // the page (the room was closed; React removes the element before the
+    // engine is retired). Left to the collector, a phone moving from room to
+    // room piled them up until a new engine's programs no longer linked
+    // ("Program link error:" with an empty log, the Android tab after four
+    // rooms). A canvas still on the page is kept: a board switch builds the
+    // next engine on the same element, and a lost context would be its.
+    if (this.canvas.isConnected === false) this.gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
 
   // ─── History / replay ────────────────────────────────────────────────────────

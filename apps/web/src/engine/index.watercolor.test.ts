@@ -1476,3 +1476,28 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     expect(I._spilledWashes.has('w1')).toBe(false)
   })
 })
+
+// (#536, §17.69) A room closed in the app, not by a page load: the canvas has
+// left the page before the engine is retired, and its WebGL context is let go
+// now rather than whenever the browser collects it. A board switch builds the
+// next engine on the same, still attached canvas - that context must live.
+describe('what destroy lets go of (#536 §17.69)', () => {
+  function withLoseContext(connected: boolean) {
+    const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 32, height: 32 })
+    const loseContext = vi.fn()
+    const gl = (engine as unknown as { gl: { getExtension: (n: string) => unknown } }).gl
+    const orig = gl.getExtension.bind(gl)
+    gl.getExtension = (n: string) => (n === 'WEBGL_lose_context' ? { loseContext } : orig(n))
+    Object.defineProperty(canvas, 'isConnected', { value: connected, configurable: true })
+    engine.destroy()
+    return loseContext
+  }
+
+  it('loses the context of a canvas that has left the page', () => {
+    expect(withLoseContext(false)).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the context of a canvas still on the page', () => {
+    expect(withLoseContext(true)).not.toHaveBeenCalled()
+  })
+})
