@@ -1,4 +1,4 @@
-import { useCallback, useRef, type RefObject } from 'react'
+import { useCallback, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
@@ -20,6 +20,9 @@ const HISTORY_BACKFILL_DEPTH = SNAPSHOT_SEQ_INTERVAL
 
 export interface RemoteOperationsDeps {
   engineRef: RefObject<PencilEngineAPI | null>
+  /** The board stream's applied ids and deferred meta-ops — see useBoardStream. */
+  appliedOpIdsRef: RefObject<Set<string>>
+  deferredOpsQueueRef: RefObject<Operation[]>
   /** useLogDerivedState's base for LayerState after a snapshot restore. */
   restoredLayerStateRef: RefObject<LayerState | null>
   markActive: (userId: string) => void
@@ -33,22 +36,11 @@ export interface RemoteOperationsDeps {
 /** (#493) How the network's operations reach the engine: once each, deferred
  *  while their target is still in unfetched history, restored from a snapshot,
  *  and backfilled behind it for undo. Out of Room — the three restore steps
- *  are what restoreRoomState is handed, and the idempotency set and deferred
- *  queue are what the confirmed stream and a page turn read and reset. */
+ *  are what restoreRoomState is handed. */
 export function useRemoteOperations({
-  engineRef, restoredLayerStateRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq,
-  syncFromLog, checkSnapshotBoundary,
+  engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
+  confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,
 }: RemoteOperationsDeps) {
-  const appliedOpIdsRef = useRef<Set<string>>(new Set())
-  // (#169) A live operation_undo/operation_redo/operation_revoke whose
-  // targetOpId isn't in appliedOpIdsRef yet — the target is somewhere in
-  // pre-snapshot history background backfill hasn't reached yet. Applying it
-  // immediately would silently no-op (OperationLog.applyUndo/applyRedo/
-  // revoke all return null for an unknown id, see their own doc comments),
-  // losing the operation permanently instead of catching up once backfill
-  // reaches it. Drained by drainDeferredQueue after every backfill page.
-  const deferredOpsQueueRef = useRef<Operation[]>([])
-
   // Applies an operation that arrived from the network (room_state replay or
   // operation_confirmed) exactly once. The guard isn't full reconnect/catch-up
   // logic (#74) — it's a minimal idempotency net: since a reconnect re-runs
@@ -77,7 +69,7 @@ export function useRemoteOperations({
     // path the author's own layer_transform comes back through here like any
     // peer's (see dispatchOp's outbox branch and #289 §7/§11).
     resolveTransformCommit(op.id)
-  }, [engineRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq])
+  }, [engineRef, appliedOpIdsRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq])
 
   // (#169) Re-checks every deferred meta-op (see deferredOpsQueueRef's own
   // doc comment) after a backfill page lands — anything whose target has
@@ -91,7 +83,7 @@ export function useRemoteOperations({
       syncFromLog()
       checkSnapshotBoundary()
     }
-  }, [applyRemoteOp, syncFromLog, checkSnapshotBoundary])
+  }, [deferredOpsQueueRef, appliedOpIdsRef, applyRemoteOp, syncFromLog, checkSnapshotBoundary])
 
   // (#169 bug fix) Injects a downloaded snapshot's pixels + structure into
   // `engine` and sets restoredLayerStateRef so syncFromLog starts deriving
@@ -201,7 +193,7 @@ export function useRemoteOperations({
       for (const op of page) appliedOpIdsRef.current.add(op.id)
       drainDeferredQueue()
     })
-  }, [drainDeferredQueue])
+  }, [appliedOpIdsRef, drainDeferredQueue])
 
-  return { appliedOpIdsRef, deferredOpsQueueRef, applyRemoteOp, drainDeferredQueue, restoreFromSnapshot, backfillHistory }
+  return { applyRemoteOp, drainDeferredQueue, restoreFromSnapshot, backfillHistory }
 }

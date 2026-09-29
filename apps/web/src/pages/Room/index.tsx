@@ -64,6 +64,7 @@ import { useSnapshotPublishing } from './useSnapshotPublishing'
 import { useLivePreviewBake } from './useLivePreviewBake'
 import { useLostWork } from './useLostWork'
 import { useBoardOutbox } from './useBoardOutbox'
+import { useBoardStream } from './useBoardStream'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -121,7 +122,6 @@ import { loadActiveLayerId, saveActiveLayerId } from './editing/activeLayer'
 import { ChiselAngleDial } from './overlays/ChiselAngleDial'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
-import { createPendingPreviews } from './net/pendingPreviews'
 import { createSnapshotGate } from './net/snapshotGate'
 import { restoreRoomState } from './restoreRoomState'
 import { useTransformSession, type TransformSession } from './useTransformSession'
@@ -869,46 +869,15 @@ function RoomEditor() {
   // fresh layers and reported — see useLostWork.
   const { lostWork, setLostWork, scheduleLostWorkRecovery, resetLostWork } =
     useLostWork({ engineRef, restoredLayerStateRef, syncFromLog })
-  // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
-  // client itself created but the server hasn't confirmed yet — the
-  // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
-  // layer_duplicate/layer_transform's targets against. Added the instant a
-  // layer_add/folder_add is dispatched (see onLocalOperation below), removed once
-  // its SendResult settles either way — confirmed means it's now something
-  // a peer could plausibly reference too; rejected means it never became
-  // real in the first place.
-  const pendingIdsRef = useRef<Set<string>>(new Set())
-  // (#289 §12) Last seq seen on the live confirmed stream — distinct from
-  // latestKnownSeqRef, which also folds in bulk room_state catch-up and so
-  // can't tell "the live stream skipped something" from "we just replayed a
-  // batch". Reset on every full resync, since the stream restarts there.
-  const lastConfirmedSeqRef = useRef(0)
-  // (#289 §16) True while this client is deliberately skipping peer-stroke
-  // reveal animation to work through a backlog — see handleOperationConfirmed.
-  const catchingUpRef = useRef(false)
+  // (#493) Where this client stands in the board's operation stream — applied,
+  // pending, last seen, still revealing — reset together on a page turn. See
+  // useBoardStream.
+  const { stream, resetStream } = useBoardStream()
+  const {
+    appliedOpIdsRef, pendingIdsRef, lastConfirmedSeqRef, latestKnownSeqRef, catchingUpRef, deferredOpsQueueRef,
+    pendingPreviewsRef, streamedStrokeIdsRef,
+  } = stream
   const strokeActiveRef   = useRef(false)
-  // Stroke ops whose live reveal (previewOperation) hasn't finished playing
-  // yet — i.e. not yet appendOperation'd into the log/layer. Consulted by
-  // handleOperationConfirmed so a fast operation_undo/operation_revoke
-  // targeting one of these can drop it from the reveal instead of trying
-  // (and silently failing) to undo an op the log was never given, and by
-  // checkSnapshotBoundary for the seqs those reveals still owe. (#477) One
-  // structure for both readings — see pendingPreviews.ts for why they were
-  // two, and what that cost.
-  const pendingPreviewsRef = useRef(createPendingPreviews())
-  // (#429) Gestures this client watched arrive live, so their operations are
-  // applied straight rather than animated a second time (see
-  // handleOperationConfirmed's stroke branch).
-  //
-  // Trimmed rather than cleared on any particular event: a gesture's
-  // operations follow its packets within moments, but there is no single
-  // moment at which an id is provably finished with — a long gesture emits an
-  // operation at every STROKE_DAB_CHUNK_LIMIT boundary, so "the operation
-  // arrived" does not mean "no more will". Keeping the most recent
-  // STREAMED_STROKE_MEMORY ids covers any plausible in-flight window while
-  // bounding what would otherwise grow for the whole lesson. Insertion order
-  // is Set's own iteration order, so the oldest is simply the first.
-  const streamedStrokeIdsRef = useRef<Set<string>>(new Set())
   // A joiner's first room_state can arrive before the engine exists — we need
   // that very event to learn `config` in the first place, and the engine only
   // mounts once `config` is set (see the mount-engine effect below). Its
@@ -929,12 +898,6 @@ function RoomEditor() {
   // room_state yet" the way it does for a joiner (whose `room` is only ever
   // learned from that same first event).
   const firstRoomStateReceivedRef = useRef(false)
-  // Highest operation seq this client has definitely seen — from ack'd local
-  // operations and from operation_confirmed's envelopes (#149/#289). Sent back as
-  // lastKnownSeq on every join_room/create_room (including reconnects), so
-  // the server can trim room_state's tailOperations instead of resending
-  // everything already known. 0 means "nothing yet," same as omitting it.
-  const latestKnownSeqRef = useRef(0)
   // (#493) Whether and when this client writes its canvas back as the room's
   // snapshot — the per-board uploader, the gate, the replay-incomplete flag —
   // see useSnapshotPublishing.
@@ -1111,10 +1074,8 @@ function RoomEditor() {
   // (#493) How the network's operations reach the engine — once each, deferred
   // until their target arrives, restored from a snapshot and backfilled behind
   // it — see useRemoteOperations.
-  const {
-    appliedOpIdsRef, deferredOpsQueueRef, applyRemoteOp, drainDeferredQueue, restoreFromSnapshot, backfillHistory,
-  } = useRemoteOperations({
-    engineRef, restoredLayerStateRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq,
+  const { applyRemoteOp, drainDeferredQueue, restoreFromSnapshot, backfillHistory } = useRemoteOperations({
+    engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq,
     syncFromLog, checkSnapshotBoundary,
   })
 
@@ -1186,16 +1147,9 @@ function RoomEditor() {
    *  decide whether its canvas may be published as the board's preview, and
    *  React runs that cleanup before the next mount's body. */
   const enterBoard = useCallback((board: string, stash: NonNullable<typeof pendingSnapshotRef.current>) => {
-    appliedOpIdsRef.current = new Set()
+    resetStream()
     resetLayerSeqs()
-    pendingIdsRef.current = new Set()
-    lastConfirmedSeqRef.current = 0
-    latestKnownSeqRef.current = 0
-    catchingUpRef.current = false
-    deferredOpsQueueRef.current = []
     resetDrawingActivity()
-    pendingPreviewsRef.current = createPendingPreviews()
-    streamedStrokeIdsRef.current = new Set()
     restoredLayerStateRef.current = null
     resetLostWork()
     setRestoreFailure(null)
@@ -1215,7 +1169,7 @@ function RoomEditor() {
   // (#493) Stable: a `useCallback` with no dependencies inside useDrawingActivity,
   // so naming it keeps this callback exactly as stable as it was with the
   // bare state setter it replaces.
-  }, [resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs, appliedOpIdsRef, deferredOpsQueueRef, resetLostWork])
+  }, [resetStream, resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs, resetLostWork])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1362,6 +1316,7 @@ function RoomEditor() {
     // costs nothing. Never `.current`: that would rebuild the engine every
     // time the sound instance changed. openTimerRef likewise (useOpenTimer).
     pencilSoundRef, openTimerRef, appliedOpIdsRef, snapshotGateRef, replayIncompleteRef,
+    pendingIdsRef, pendingPreviewsRef, latestKnownSeqRef,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -1833,11 +1788,12 @@ function RoomEditor() {
     // down and rebuild it.
     queryClient,
     // (#493) From useJoinGate, useRemoteOperations, useSnapshotPublishing,
-    // useLivePreviewBake and useBoardOutbox now, so the lint rule
+    // useLivePreviewBake, useBoardOutbox and useBoardStream now, so the lint rule
     // asks for them: a useState setter and useRef objects, all stable for the
     // component's life — naming them can never tear the socket down.
     setJoinState, retryJoinRef, openTimerRef, appliedOpIdsRef, deferredOpsQueueRef,
     previewScheduleRef, replayIncompleteRef, snapshotGateRef, snapshotUploaderRef, outboxRef,
+    catchingUpRef, lastConfirmedSeqRef, pendingPreviewsRef, streamedStrokeIdsRef, latestKnownSeqRef,
     // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
     // read through refs), `navigate` (changes with the URL this effect itself
     // rewrites) and `boardId` (a page turn is not a new socket).
