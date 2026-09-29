@@ -158,8 +158,11 @@ interface EngineInternals {
   _compositeFBO: AccumulationBuffer
   // #301 white-box access — see readCompositePixels below.
   _composeToFBO: (needCompositeFBO?: boolean) => void
-  // #145 white-box access — see buildExportComposite below.
-  _buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
+  // #145 white-box access — see buildExportComposite below. (#494) Lives on
+  // Exporter (src/export/Exporter.ts) now.
+  _exporter: {
+    buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
+  }
   // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
   _assemblyPad: () => { padX: number; padY: number }
   // (#494) The on-screen composite's CameraFrame — see src/raster/cameraFrame.ts.
@@ -306,30 +309,30 @@ export interface ExportComposite {
   width: number
   height: number
   // RGBA8, GL-row-order (bottom-up) — same convention readCompositePixels/
-  // AccumulationBuffer.readPixels already give; see _buildContentComposite's
-  // own doc comment in engine/index.ts.
+  // AccumulationBuffer.readPixels already give; see
+  // Exporter.buildContentComposite's own doc comment.
   pixels: Uint8Array
 }
 
 /** White-box hook into exportPNG's infinite-room composite-building step
- *  (#145) — _buildContentComposite() itself. Returns the union content-
+ *  (#145) — Exporter.buildContentComposite() itself. Returns the union content-
  *  bounds rect plus that rect's raw (unblended, premultiplied-color/
  *  coverage-alpha) pixels, or null if every layer is empty.
  *
  *  This is the layer these tests can actually assert on: exportPNG's own
  *  final output isn't mockable end-to-end — MockGL deliberately never
  *  rasterizes the paper-blend/display-transparent passes (see mockGL.ts's
- *  module docstring), and _exportInfinitePNG's PNG encoding step reaches for
+ *  module docstring), and the engine's PNG encoding step reaches for
  *  `document.createElement('canvas')`, which doesn't exist in vitest's
  *  'node' environment (see the root vitest.config.ts) — so a test exercising
  *  the full exportPNG() call with real content on an infinite-room engine
- *  would throw, not just fail an assertion. _buildContentComposite is the
+ *  would throw, not just fail an assertion. buildContentComposite is the
  *  exact boundary where "pixels MockGL can rasterize" ends and "the DOM-only
  *  PNG encoding step" begins, so that's what this reaches past — same
  *  documented, centralized reach-past-private-fields pattern as every other
  *  helper in this file. */
 export function buildExportComposite(engine: PencilEngine): ExportComposite | null {
-  const result = internals(engine)._buildContentComposite()
+  const result = internals(engine)._exporter.buildContentComposite()
   if (!result) return null
   const pixels = result.buffer.readPixels()
   result.buffer.destroy()

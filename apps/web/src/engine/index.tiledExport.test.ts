@@ -2,15 +2,15 @@
 // drawing" composite (#145) — before this fix, exportPNG (like pickColor)
 // only ever read the on-screen, camera-framed _compositeFBO/canvas, so
 // content far from the current camera's view was silently missing from an
-// exported PNG. _buildContentComposite (see engine/index.ts) is the fix:
-// it builds a *second*, camera-independent composite covering every layer's
-// entire getContentBounds union, reusing _drawTileComposite via a synthetic
-// fixed camera rather than the live, on-screen `_infiniteCamera`.
+// exported PNG. Exporter.buildContentComposite (src/export/Exporter.ts) is
+// the fix: it builds a *second*, camera-independent composite covering every
+// layer's entire getContentBounds union, reusing _drawTileComposite through
+// its own fixed CameraFrame rather than the live, on-screen one.
 //
 // MockGL never rasterizes the paper-blend/display-transparent passes (see
 // mockGL.ts's module docstring) and the real PNG-encoding step needs a DOM
 // <canvas> that doesn't exist under vitest's 'node' environment — so these
-// tests assert on _buildContentComposite's own raw pixel output (via
+// tests assert on buildContentComposite's own raw pixel output (via
 // buildExportComposite, see engineTestUtils.ts) rather than a full
 // engine.exportPNG() call. That's the exact boundary between "pixels MockGL
 // can simulate" and "the DOM-only encoding step" — see pickColor's own
@@ -135,8 +135,8 @@ describe('exportPNG infinite-room content composite (#145)', () => {
     engine.appendOperation(fillStroke('user-a', 'L', 8, 8, 6))
 
     const spy = vi.spyOn(
-      engine as unknown as { _buildContentComposite: (r?: unknown) => unknown },
-      '_buildContentComposite',
+      (engine as unknown as { _exporter: { buildContentComposite: (r?: unknown) => unknown } })._exporter,
+      'buildContentComposite',
     )
     await engine.exportPNG()
 

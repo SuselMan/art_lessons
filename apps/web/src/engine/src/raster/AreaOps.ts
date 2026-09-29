@@ -979,8 +979,7 @@ export class AreaOps {
     const patch = new AccumulationBuffer(gl, w, h)
     patch.clear()
     // Straight world-aligned copies rather than _drawTileComposite, which
-    // reads the live camera (and would need _buildContentComposite's whole
-    // save/override/restore dance to be told to ignore it). A pure
+    // draws through a CameraFrame and would need one built for this patch. A pure
     // translation through the transform blit is the same pixels with none of
     // that: patch-local (0,0) is world (minX, minY) by construction.
     for (const { buffer, originX, originY } of layerBuf.resolveVisible(mask.rect)) {
