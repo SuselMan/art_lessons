@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paper/paperConstants'
 import {
@@ -12,6 +12,7 @@ import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchFreeList, ScratchSlot } from './src/buffers/scratchPools'
 import { SnapshotLedger } from './src/oplog/snapshotLedger'
 import { previewDownscaleChain } from './src/raster/previewChain'
+import { BlitPasses, type MaskTexture } from './src/raster/blitPasses'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
   CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
@@ -1106,13 +1107,6 @@ export type AreaFillRaster = AreaImage
  *  on its bounding box, small enough that it does not meaningfully grow the
  *  readback. */
 const INFINITE_FILL_MARGIN = 256
-
-/** (#446) A selection's coverage mask on the GPU, with the world rect it
- *  spans — everything the two mask shaders need to place it. */
-interface MaskTexture {
-  tex: WebGLTexture
-  rect: WorldRect
-}
 
 /** Straight-alpha copy of premultiplied RGBA8 bytes. Layer buffers store
  *  colour premultiplied by coverage; PNG (and `<img>` decoding on the way back
@@ -2744,15 +2738,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** (§17.49) The settle's field: one entry, at exactly the size of the
    *  settle that asked for it last - see _diffuseFieldFor. */
   private _fieldCache: Array<SettleField> = []
-  private _blitProg!: WebGLProgram
-  private _transformProg!: WebGLProgram
-  // Selection (#446) — the masked transform blit and the one-shader-two-blend-
-  // modes mask pass (see AREA_TRANSFORM_FRAG/AREA_MASK_FRAG). Separate
-  // programs rather than branches inside the existing transform blit: the
-  // whole-layer path runs on every gizmo drag frame of every transform there
-  // has ever been, and a mask sampler it never uses has no business in it.
-  private _areaTransformProg!: WebGLProgram
-  private _areaMaskProg!: WebGLProgram
+  // (#494) The transform, selection and image blits — see blitPasses.ts.
+  private _passes!: BlitPasses
   // (#527) The shape rasterizer — see SHAPE_FRAG.
   private _shapeProg!: WebGLProgram
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
@@ -2793,10 +2780,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
-  private _blitUni!: Record<string, WebGLUniformLocation | null>
-  private _transformUni!: Record<string, WebGLUniformLocation | null>
-  private _areaTransformUni!: Record<string, WebGLUniformLocation | null>
-  private _areaMaskUni!: Record<string, WebGLUniformLocation | null>
   private _shapeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgePickupUni!: Record<string, WebGLUniformLocation | null>
@@ -2805,10 +2788,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabPosLoc!: number
   private _dispTransparentPosLoc!: number
   private _compositePosLoc!: number
-  private _blitPosLoc!: number
-  private _transformPosLoc!: number
-  private _areaTransformPosLoc!: number
-  private _areaMaskPosLoc!: number
   private _shapePosLoc!: number
   // Attribute locations are per-*program*, not per-shader-source — even
   // though _smudgeProg shares DAB_VERT's exact source with _dabProg, it's a
@@ -4603,7 +4582,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  _bakeTransform (read its docstring first): resolve the transformed
    *  content's world bounds from every source tile's corners, then stitch
    *  each overlapping destination tile from every overlapping source tile,
-   *  one alpha-blended _runTransformBlit pass per pair.
+   *  one alpha-blended BlitPasses.transform pass per pair.
    *
    *  #142: every room (bounded or infinite) is backed by TiledLayerBuffer
    *  now, so this is the same code path for both — a bounded layer just
@@ -4739,7 +4718,7 @@ export class PencilEngine implements PencilEngineAPI {
           const toWorld = translationMatrix(rect.minX, rect.minY)
           const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
           const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-          this._runTransformBlit(srcTile.buffer, mc, dw, dh, scratch.fbo, 'add')
+          this._passes.transform(srcTile.buffer, mc, dw, dh, scratch.fbo, 'add')
         })
         tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
       }
@@ -5135,6 +5114,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
+    this._passes.destroy()
     // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
     // are just a possibly-mid-stroke alias of the same object (see
     // ScratchSlot), so destroying via the pool alone avoids a
@@ -6776,10 +6756,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
-    this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
-    this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
-    this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
-    this._areaMaskProg        = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
     this._shapeProg           = createProgram(gl, DISPLAY_VERT, SHAPE_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._previewDownsampleProg = createProgram(gl, DISPLAY_VERT, DOWNSAMPLE_FRAG)
@@ -6856,7 +6832,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
-    this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
       'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride',
@@ -6865,11 +6840,6 @@ export class PencilEngine implements PencilEngineAPI {
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
       'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
     ])
-    this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
-    this._areaTransformUni = getUniforms(gl, this._areaTransformProg, [
-      'u_source', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
-    ])
-    this._areaMaskUni = getUniforms(gl, this._areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
     this._shapeUni = getUniforms(gl, this._shapeProg, [
       'u_dstSize', 'u_dstOrigin', 'u_center', 'u_rotCS', 'u_half',
       'u_kind', 'u_base', 'u_outer', 'u_inner', 'u_hasInner', 'u_strokeContours', 'u_band',
@@ -6915,12 +6885,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
     this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
-    this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
-    this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
-    this._areaTransformPosLoc  = gl.getAttribLocation(this._areaTransformProg, 'a_position')
-    this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
     this._shapePosLoc          = gl.getAttribLocation(this._shapeProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._previewDownsampleUni = getUniforms(gl, this._previewDownsampleProg, ['u_src', 'u_tapOffset'])
@@ -6946,6 +6912,9 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
+    // (#494) The resampling blits (transform, selection, image) — see
+    // blitPasses.ts. Rebuilt with everything else here on a context restore.
+    this._passes = new BlitPasses(gl, this._screenBuf)
     this._dabInstBuf = gl.createBuffer()!
     this._ribbonBuf  = gl.createBuffer()!
 
@@ -8455,18 +8424,7 @@ export class PencilEngine implements PencilEngineAPI {
     const worldRect: WorldRect = { minX: drawX, minY: drawY, maxX: drawX + drawW, maxY: drawY + drawH }
     for (const { buffer, originX, originY } of layerBuf.resolveForPaint(worldRect)) {
       buffer.beginDraw()
-      gl.useProgram(this._blitProg)
-      const u = this._blitUni
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.uniform1i(u.u_image, 0)
-      gl.uniform2f(u.u_bufferSize, buffer.width, buffer.height)
-      gl.uniform4f(u.u_imageRect, drawX - originX, drawY - originY, drawW, drawH)
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      const posLoc = this._blitPosLoc
-      gl.enableVertexAttribArray(posLoc)
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      this._passes.image(texture, buffer.width, buffer.height, drawX - originX, drawY - originY, drawW, drawH)
       buffer.endDraw()
     }
     // (#155 Tier 2) See _paintDabs' identical call for why.
@@ -8504,7 +8462,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  (originX, originY). The shader turns each pixel into a world position
    *  itself, so a real tile, a scratch tile and a preview tile are all drawn
    *  by the same call with nothing translated by the caller — the pattern
-   *  `_runAreaMaskPass` established. */
+   *  `BlitPasses.areaMask` established. */
   private _runShapePass(
     target: AccumulationBuffer, originX: number, originY: number, params: ShapeDrawParams,
     stroke: ShapeStroke | null, fill: ShapeFill | null,
@@ -8696,7 +8654,7 @@ export class PencilEngine implements PencilEngineAPI {
         patch.clear()
         let any = false
         for (const { buffer, originX, originY } of layerBuf.resolveVisible(region)) {
-          this._runTransformBlit(buffer, translationMatrix(region.minX - originX, region.minY - originY), pw, ph, patch.fbo)
+          this._passes.transform(buffer, translationMatrix(region.minX - originX, region.minY - originY), pw, ph, patch.fbo)
           any = true
         }
         if (!any) continue
@@ -13416,7 +13374,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  inversion required. */
   private _finishInfiniteComposite(targetFbo: WebGLFramebuffer): void {
     const { canvas } = this
-    this._runTransformBlit(
+    this._passes.transform(
       this._assemblyFBO, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, targetFbo,
     )
   }
@@ -13551,7 +13509,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  _finishPaperBlend pair — one pass, one buffer less.
    *
    *  Writes opaque paper everywhere (alpha 1.0, blending off), so unlike
-   *  _runTransformBlit there's nothing underneath for it to blend against
+   *  BlitPasses.transform there's nothing underneath for it to blend against
    *  and no need to pre-clear the screen. */
   /** (#536) Rebuilds the display-side wetness texture, at most a few times a
    *  second — the field changes slowly and this runs inside the frame loop.
@@ -13870,73 +13828,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
   }
 
-  /** Low-level transform-blit draw call — renders `source` through
-   *  `matrixInv` (already inverted: maps destination buffer-local px to
-   *  source buffer-local px, both top-down) into `targetFbo` (sized
-   *  `dstW x dstH`) — source and destination sizes are independent (#134:
-   *  the final rotate blit reads the padded, bigger _assemblyFBO and writes
-   *  the real, smaller canvas-sized target; every other caller happens to
-   *  use matching sizes, which this reduces to exactly as before).
-   *
-   *  Never plain-replaces: every caller's target is either freshly cleared
-   *  (transparent) before its first draw here, or already holds content this
-   *  draw belongs on top of. Which of the two blends applies is the `blend`
-   *  argument, and the distinction is not cosmetic —
-   *
-   *  - 'over' (ONE, ONE_MINUS_SRC_ALPHA), the default: one source, drawn onto
-   *    whatever is already there. The image/paste blit (`_drawImageThroughMatrix`)
-   *    genuinely lands on existing layer content; the world-aligned patch
-   *    copies (`_copyArea`, `_composeAreaFillPatch`) and the export rotate
-   *    (`_finishInfiniteComposite`) draw disjoint regions onto a cleared
-   *    target, where the two blends agree anyway.
-   *  - 'add' (ONE, ONE): several *source tiles of one layer* stitched into
-   *    one destination tile — the live gizmo preview (`previewLayerTransform`)
-   *    and the bake (`_bakeTransform`). Their contributions are disjoint
-   *    except in the half-texel band along each source-tile boundary, where
-   *    each pass carries its own share of one bilinear kernel (see
-   *    TILE_BILINEAR in shaders.ts) and the shares have to sum to one. "Over"
-   *    would scale the second pass down by the first's coverage and lose part
-   *    of it, which is exactly the seam #507 was.
-   *
-   *  Every caller targets a buffer another pass reads from afterwards — since
-   *  #301 the frame's last drawing step is _composePaperToScreen, which writes
-   *  the screen through its own program rather than this one. */
-  private _runTransformBlit(
-    source: AccumulationBuffer, matrixInv: Matrix3,
-    dstW: number, dstH: number, targetFbo: WebGLFramebuffer | null,
-    blend: 'over' | 'add' = 'over',
-  ): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, dstW, dstH)
-    gl.enable(gl.BLEND)
-    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
-    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    gl.useProgram(this._transformProg)
-    const tu = this._transformUni
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._transformPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.activeTexture(gl.TEXTURE0)
-    // (#507) The shader does its own bilinear from exact texel centres — the
-    // sampler must not interpolate underneath it, and must not be left on a
-    // mip filter by an earlier composite. See setPointSampling.
-    source.setPointSampling(true)
-    gl.bindTexture(gl.TEXTURE_2D, source.texture)
-    gl.uniform1i(tu.u_source, 0)
-    gl.uniform2f(tu.u_dstSize, dstW, dstH)
-    gl.uniform2f(tu.u_srcSize, source.width, source.height)
-    gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    source.setPointSampling(false)
-
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
   /** Bakes a transform into a layer's content, in place (#133 fix) —
    *  destination tiles are resolved from the *transformed* content's world
    *  bounds and created on demand, so content moved/scaled past wherever
@@ -13952,7 +13843,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  source tile's transformed bounds is rendered into its own fresh scratch
    *  buffer first, reading only from the untouched original source tiles
    *  (one pass per overlapping source tile, alpha-blended — see
-   *  _runTransformBlit — since a destination tile's content can come from
+   *  BlitPasses.transform — since a destination tile's content can come from
    *  more than one source tile when the transform includes rotation/scale);
    *  only once every scratch is fully rendered are the original source tiles
    *  cleared and the scratches copied into their real destination tiles
@@ -14091,7 +13982,7 @@ export class PencilEngine implements PencilEngineAPI {
         const toWorld = translationMatrix(destTarget.originX, destTarget.originY)
         const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
         const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-        this._runTransformBlit(
+        this._passes.transform(
           srcTile.buffer, mc, destTarget.buffer.width, destTarget.buffer.height, scratch.fbo, 'add',
         )
         // (#155 Tier 2) The real content this pair just contributed to
@@ -14173,88 +14064,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._maskCache = null
   }
 
-  /** One AREA_MASK_FRAG pass over a whole buffer — see that shader's comment
-   *  for why the two modes are one program: 'erase' punches the selection out
-   *  (`dst *= 1 - coverage`), 'keep' throws away everything outside it
-   *  (`dst *= coverage`). `originX/originY` is the target's world origin, so
-   *  the caller never has to translate the mask. */
-  private _runAreaMaskPass(
-    target: AccumulationBuffer, originX: number, originY: number, mask: MaskTexture, mode: 'erase' | 'keep',
-  ): void {
-    const { gl } = this
-    if (mode === 'erase') target.beginErase()
-    else target.beginKeepDraw()
-    gl.useProgram(this._areaMaskProg)
-    const u = this._areaMaskUni
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, mask.tex)
-    gl.uniform1i(u.u_mask, 0)
-    gl.uniform2f(u.u_dstSize, target.width, target.height)
-    gl.uniform2f(u.u_dstOrigin, originX, originY)
-    gl.uniform4f(
-      u.u_maskRect, mask.rect.minX, mask.rect.minY,
-      mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
-    )
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._areaMaskPosLoc)
-    gl.vertexAttribPointer(this._areaMaskPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** The masked twin of _runTransformBlit: draws one source tile's *selected*
-   *  pixels through `matrixInv` into `targetFbo`.
-   *
-   *  `blend` carries the same meaning as _runTransformBlit's (read it there):
-   *  'over' lands the piece on a destination that already holds the part of
-   *  the layer that isn't moving, and is only correct when this is the single
-   *  source tile; 'add' sums several source tiles' shares of one bilinear
-   *  kernel into a transparent buffer of their own, which _composeAreaTiles
-   *  then composites over the tile in one go (#507). */
-  private _runAreaTransformBlit(
-    source: AccumulationBuffer, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,
-    dstW: number, dstH: number, targetFbo: WebGLFramebuffer, blend: 'over' | 'add',
-  ): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, dstW, dstH)
-    gl.enable(gl.BLEND)
-    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
-    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    gl.useProgram(this._areaTransformProg)
-    const u = this._areaTransformUni
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._areaTransformPosLoc)
-    gl.vertexAttribPointer(this._areaTransformPosLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.activeTexture(gl.TEXTURE0)
-    // (#507) Same reason as _runTransformBlit's: the shader filters by hand
-    // from exact texel centres. See setPointSampling.
-    source.setPointSampling(true)
-    gl.bindTexture(gl.TEXTURE_2D, source.texture)
-    gl.uniform1i(u.u_source, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, mask.tex)
-    gl.uniform1i(u.u_mask, 1)
-    gl.activeTexture(gl.TEXTURE0)
-
-    gl.uniform2f(u.u_dstSize, dstW, dstH)
-    gl.uniform2f(u.u_srcSize, source.width, source.height)
-    gl.uniform2f(u.u_srcOrigin, srcOriginX, srcOriginY)
-    gl.uniform4f(
-      u.u_maskRect, mask.rect.minX, mask.rect.minY,
-      mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
-    )
-    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(matrixInv))
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    source.setPointSampling(false)
-
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
   /** The whole of an `area_transform`, rendered into scratch tiles — shared
    *  verbatim by the live drag preview and the committed bake, which is the
    *  point: what you see while dragging and what lands when you let go are
@@ -14313,7 +14122,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (existing) existing.copyTo(scratch)
       else scratch.clear()
 
-      if (overlapsSrc) this._runAreaMaskPass(scratch, rect.minX, rect.minY, mask, 'erase')
+      if (overlapsSrc) this._passes.areaMask(scratch, rect.minX, rect.minY, mask, 'erase')
       if (overlapsDst) {
         // (#507) A selection lying inside one tile can be drawn straight onto
         // that tile's remaining content. A selection spanning several cannot:
@@ -14335,7 +14144,7 @@ export class PencilEngine implements PencilEngineAPI {
           const toWorld = translationMatrix(rect.minX, rect.minY)
           const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
           const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-          this._runAreaTransformBlit(
+          this._passes.areaTransform(
             srcTile.buffer, srcTile.originX, srcTile.originY, mc, mask,
             w, h, lift ? lift.fbo : scratch.fbo, lift ? 'add' : 'over',
           )
@@ -14432,7 +14241,7 @@ export class PencilEngine implements PencilEngineAPI {
     const mask = this._acquireMask(selection)
     if (!mask) return
     for (const target of layerBuf.resolveExistingForPaint(mask.rect)) {
-      this._runAreaMaskPass(target.buffer, target.originX, target.originY, mask, 'erase')
+      this._passes.areaMask(target.buffer, target.originX, target.originY, mask, 'erase')
     }
   }
 
@@ -14470,17 +14279,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
     scratch.beginDraw()
-    gl.useProgram(this._blitProg)
-    const u = this._blitUni
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.uniform1i(u.u_image, 0)
-    gl.uniform2f(u.u_bufferSize, w, h)
-    gl.uniform4f(u.u_imageRect, 0, 0, w, h)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._blitPosLoc)
-    gl.vertexAttribPointer(this._blitPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    this._passes.image(texture, w, h, 0, 0, w, h)
     scratch.endDraw()
     gl.deleteTexture(texture)
 
@@ -14490,7 +14289,7 @@ export class PencilEngine implements PencilEngineAPI {
     const toWorld = translationMatrix(originX, originY)
     const toRectLocal = translationMatrix(-rect.x, -rect.y)
     const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
-    this._runTransformBlit(scratch, mc, target.width, target.height, target.fbo)
+    this._passes.transform(scratch, mc, target.width, target.height, target.fbo)
     this._releaseScratchBuf(scratch)
   }
 
@@ -14672,9 +14471,9 @@ export class PencilEngine implements PencilEngineAPI {
     // translation through the transform blit is the same pixels with none of
     // that: patch-local (0,0) is world (minX, minY) by construction.
     for (const { buffer, originX, originY } of layerBuf.resolveVisible(mask.rect)) {
-      this._runTransformBlit(buffer, translationMatrix(minX - originX, minY - originY), w, h, patch.fbo)
+      this._passes.transform(buffer, translationMatrix(minX - originX, minY - originY), w, h, patch.fbo)
     }
-    this._runAreaMaskPass(patch, minX, minY, mask, 'keep')
+    this._passes.areaMask(patch, minX, minY, mask, 'keep')
 
     const pixels = patch.readPixels()
     patch.destroy()
@@ -14778,7 +14577,7 @@ export class PencilEngine implements PencilEngineAPI {
       const dest = layerPatch ?? patch
       if (layerPatch) layerPatch.clear()
       for (const { buffer, originX, originY } of layerBuf.resolveVisible(rect)) {
-        this._runTransformBlit(buffer, translationMatrix(rect.minX - originX, rect.minY - originY), w, h, dest.fbo)
+        this._passes.transform(buffer, translationMatrix(rect.minX - originX, rect.minY - originY), w, h, dest.fbo)
       }
       if (layerPatch) this._compositeTextures([{ texture: layerPatch.texture, opacity }], patch.fbo, w, h)
     }

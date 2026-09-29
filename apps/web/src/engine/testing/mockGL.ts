@@ -1155,7 +1155,7 @@ export class MockGL {
   // difference doesn't matter (whole-pixel translates, axis-aligned
   // scales/rotations) or use a tolerance like expectPixelsClose.
   // #133 (infinite canvas): the real engine always blends this pass now
-  // (ONE, ONE_MINUS_SRC_ALPHA — see _runTransformBlit's docstring for why
+  // (ONE, ONE_MINUS_SRC_ALPHA — see BlitPasses.transform's docstring for why
   // that's equivalent to a plain replace for its old single-pass callers,
   // and necessary for the tile-aware bake's multi-pass-per-destination-tile
   // case). Must mirror that blend here, not unconditionally overwrite: a
