@@ -13,7 +13,7 @@
 // multi-megabyte tiles per test.
 import { describe, expect, it } from 'vitest'
 
-import { MockGL } from '../testing/mockGL'
+import { MockGL } from '../../testing/mockGL'
 import { TiledLayerBuffer, type TileRebuilder } from './TiledLayerBuffer'
 
 function gl(): WebGLRenderingContext { return new MockGL() as unknown as WebGLRenderingContext }

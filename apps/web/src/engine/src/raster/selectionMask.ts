@@ -1,6 +1,6 @@
 import type { SelectionShape } from '@grafetto/shared'
 
-import type { WorldRect } from './tileMath'
+import type { WorldRect } from '../buffers/tileMath'
 
 // (#446) Turns a selection polygon into an 8-bit coverage mask.
 //

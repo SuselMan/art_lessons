@@ -17,7 +17,7 @@ import {
   createTestEngine, expectPixelsEqual, fillStroke, makeLayerAdd, makeLayerTransform,
   readTilePixels, readTransformPreviewTextureIds, readTransformPreviewTiles, residentTileCount,
 } from './testing/engineTestUtils'
-import { TILE_SIZE } from './src/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 describe('previewLayerTransform: multi-tile live preview (#139)', () => {
   it('a tile-straddling source stages one preview tile per source tile, not just the first one the old code happened to grab', () => {

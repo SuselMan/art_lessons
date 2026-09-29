@@ -102,7 +102,7 @@ topics:
     why: >-
       Картинка у всех сходится не потому, что кто-то шлёт пиксели, а потому что все
       сворачивают один лог. Отсюда отмена, снапшоты, форк и датасет.
-    modules: [engine-oplog, apps/web/src/engine]
+    modules: [apps/web/src/engine/src/oplog, apps/web/src/engine]
     flows: [stroke, join]
 
   - id: dab-pipeline
@@ -110,7 +110,7 @@ topics:
     parent: engine
     title: От пера до даба
     why: Событие указателя → сплайн → дабы по пресету инструмента → буфер штриха.
-    modules: [engine-input, engine-dabs, engine-presets]
+    modules: [apps/web/src/engine/src/input, apps/web/src/engine/src/dabs, apps/web/src/engine/src/presets]
     flows: [stroke]
 
   - id: layers-and-tiles
@@ -118,7 +118,7 @@ topics:
     parent: engine
     title: Буферы слоёв и тайлы
     why: Где на GPU живёт каждый слой и как слои сводятся в картинку.
-    modules: [engine-buffers, apps/web/src/lib/layers]
+    modules: [apps/web/src/engine/src/buffers, apps/web/src/lib/layers]
 
   - id: cross-device-determinism
     level: 2
@@ -127,7 +127,7 @@ topics:
     why: >-
       Почему бумага печётся заранее, а не считается на GPU. Правило — .claude/rules.md →
       «Cross-device pixel determinism».
-    modules: [engine-paper, engine-raster, build-assets]
+    modules: [apps/web/src/engine/src/paper, apps/web/src/engine/src/raster, build-assets]
     links: [engine-gpu, nginx-ui]
 
   - id: store-reflects-engine
@@ -222,7 +222,7 @@ topics:
     parent: layers-and-tiles
     title: Модель слоёв и папок
     adr: [001-layer-panel-dnd, 014-layer-filters]
-    modules: [ui-layers, engine-filters, ui-filters]
+    modules: [ui-layers, apps/web/src/engine/src/filters, ui-filters]
 
   - id: brush-tools
     level: 3

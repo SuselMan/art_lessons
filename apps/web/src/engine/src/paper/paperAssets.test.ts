@@ -34,7 +34,7 @@ import { PAPER_BAKE_RESOLUTION } from './paperConstants'
 import { PAPER_MANIFEST_FILENAME, parsePaperManifest, type PaperManifest } from './paperManifest'
 
 const RES = PAPER_BAKE_RESOLUTION
-const paperDir = join(dirname(fileURLToPath(import.meta.url)), '../../../public/paper')
+const paperDir = join(dirname(fileURLToPath(import.meta.url)), '../../../../public/paper')
 
 // The bake is a prebuild step and its output is gitignored, so a clean
 // checkout that has not built yet legitimately has nothing to check.

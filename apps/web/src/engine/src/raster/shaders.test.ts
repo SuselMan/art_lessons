@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   DAB_FRAG, DAB_VERT, RIBBON_FRAG, PAPER_COMPOSE_FRAG, WC_WATER_FRONT_FRAG, WC_FIELD_OP_FRAG,
 } from './shaders'
-import { PIGMENT_DEPTH_SCALE } from './pigmentOptics'
-import { WC_STANDING_GATE_LO, WC_STANDING_GATE_HI } from './watercolorPresets'
+import { PIGMENT_DEPTH_SCALE } from '../watercolor/pigmentOptics'
+import { WC_STANDING_GATE_LO, WC_STANDING_GATE_HI } from '../presets/watercolorPresets'
 
 // (#536) One structural check on the GLSL, and it exists because this file is
 // several *independent programs* that happen to live in one TypeScript module.

@@ -107,7 +107,7 @@ slow. Root cause is architectural, not a quick patch:
 ```
  M apps/web/src/engine/index.tiledTransform.test.ts
  M apps/web/src/engine/index.ts
- M apps/web/src/engine/src/TiledLayerBuffer.test.ts
+ M apps/web/src/engine/src/buffers/TiledLayerBuffer.test.ts
  M apps/web/src/pages/Room/index.tsx
 ```
 

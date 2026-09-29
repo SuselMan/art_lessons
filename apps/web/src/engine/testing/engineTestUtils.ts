@@ -14,15 +14,15 @@ import type {
 } from '@grafetto/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
-import type { Matrix3 } from '../src/matrix'
-import type { AccumulationBuffer } from '../src/AccumulationBuffer'
-import type { CheckpointStore } from '../src/checkpointStore'
-import type { ILayerBuffer } from '../src/ILayerBuffer'
-import { __setPaperLoaderForTesting } from '../src/paperLoader'
-import { PAPER_BAKE_RESOLUTION } from '../src/paperConstants'
-import type { PointerData } from '../src/PointerInput'
-import { TiledLayerBuffer } from '../src/TiledLayerBuffer'
-import { TILE_SIZE, tileWorldRect } from '../src/tileMath'
+import type { Matrix3 } from '../src/raster/matrix'
+import type { AccumulationBuffer } from '../src/buffers/AccumulationBuffer'
+import type { CheckpointStore } from '../src/oplog/checkpointStore'
+import type { ILayerBuffer } from '../src/buffers/ILayerBuffer'
+import { __setPaperLoaderForTesting } from '../src/paper/paperLoader'
+import { PAPER_BAKE_RESOLUTION } from '../src/paper/paperConstants'
+import type { PointerData } from '../src/input/PointerInput'
+import { TiledLayerBuffer } from '../src/buffers/TiledLayerBuffer'
+import { TILE_SIZE, tileWorldRect } from '../src/buffers/tileMath'
 import { MockGL, type MockLocation, type UniformValue } from './mockGL'
 
 // jsdom is not used (vitest env is 'node' — see root vitest.config.ts), so
@@ -251,7 +251,7 @@ export function evictedTileCount(engine: PencilEngine, layerId: string): number 
 }
 
 /** Reads back one specific tile's pixels by tile coordinate (see
- *  engine/src/tileMath.ts) — null if that tile isn't resident (or the layer
+ *  engine/src/buffers/tileMath.ts) — null if that tile isn't resident (or the layer
  *  doesn't exist / isn't tiled). Used to assert content landed on (or
  *  didn't land on) a specific tile after a tile-straddling stroke or a
  *  transform bake that moves content across a tile boundary. `tileW/tileH`

@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createTestEngine, dab, makeLayerAdd, makeLayerDelete, makeLayerMerge, makeStroke, readTilePixels,
 } from './testing/engineTestUtils'
-import { decodeLayerTiles } from './src/snapshotCodec'
+import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
 /** Клиент, вошедший в комнату по снапшоту: пиксели слоя есть, а истории под
  *  ними нет — ровно то положение, в котором был пострадавший клиент. */

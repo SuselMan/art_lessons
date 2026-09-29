@@ -10,7 +10,7 @@
 // about ordering.
 import { describe, expect, it } from 'vitest'
 
-import { MockGL } from '../testing/mockGL'
+import { MockGL } from '../../testing/mockGL'
 import { TiledLayerBuffer, type TileDownsampler, type TileRebuilder } from './TiledLayerBuffer'
 import { COARSE_FACTORS } from './tileMath'
 

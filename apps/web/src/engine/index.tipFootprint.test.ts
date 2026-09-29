@@ -16,9 +16,9 @@ import type { StrokeOperation } from '@grafetto/shared'
 
 import { previewDabShape } from './index'
 import { createTestEngine, paperReady, simulateStroke } from './testing/engineTestUtils'
-import { PENCIL_DAB_SHAPING } from './src/dabShaping'
-import { shapingForBrushPenPreset } from './src/brushPenPresets'
-import { createTipState, tipFootprint, type TipInput } from './src/tipFootprint'
+import { PENCIL_DAB_SHAPING } from './src/presets/dabShaping'
+import { shapingForBrushPenPreset } from './src/presets/brushPenPresets'
+import { createTipState, tipFootprint, type TipInput } from './src/dabs/tipFootprint'
 
 /** Tools that narrow the head of a stroke *after* the footprint is computed —
  *  the one place a recorded dab still disagrees with the cursor, and the

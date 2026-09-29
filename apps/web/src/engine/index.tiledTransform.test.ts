@@ -12,7 +12,7 @@ import {
   createTestEngine, expectPixelsEqual, fillStroke, makeLayerAdd, makeLayerTransform,
   readTilePixels, residentTileCount,
 } from './testing/engineTestUtils'
-import { TILE_SIZE } from './src/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 describe('infinite canvas: transform bake never clips content (#133)', () => {
   it('translating content two tiles to the right lands it intact on the destination tile, matching a reference painted directly there', () => {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayerState, Operation } from '@grafetto/shared'
 
-import { compressLayerTiles, encodeLayerTiles, type SnapshotTile } from '../../../engine/src/snapshotCodec'
+import { compressLayerTiles, encodeLayerTiles, type SnapshotTile } from '../../../engine/src/oplog/snapshotCodec'
 import {
   fetchHistoryPage, HISTORY_PAGE_LIMIT, restoreLatestSnapshot,
   SNAPSHOT_BLOB_CONCURRENCY, SNAPSHOT_FETCH_ATTEMPTS, walkHistoryBackward,
@@ -13,8 +13,8 @@ import {
 // once is what killed the tab on iPadOS — so it needs an assertion that fails
 // when someone innocently restores the `Promise.all`.
 const { decompressions } = vi.hoisted(() => ({ decompressions: { count: 0 } }))
-vi.mock('../../../engine/src/snapshotCodec', async importActual => {
-  const actual = await importActual<typeof import('../../../engine/src/snapshotCodec')>()
+vi.mock('../../../engine/src/oplog/snapshotCodec', async importActual => {
+  const actual = await importActual<typeof import('../../../engine/src/oplog/snapshotCodec')>()
   return {
     ...actual,
     decompressLayerTiles: async (bytes: Uint8Array) => {

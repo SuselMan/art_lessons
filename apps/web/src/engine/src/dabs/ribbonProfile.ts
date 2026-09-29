@@ -3,14 +3,14 @@ import type { ToolType } from '@grafetto/shared'
 import {
   digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset, digitalBrushPressureFromPreset,
   type BrushDescriptor, type BrushPressureSettings,
-} from './digitalBrushPresets'
+} from '../presets/digitalBrushPresets'
 import { MARKER_INK_REF_CHORD_PX } from './markerInkGain'
-import { markerNibFromPreset } from './markerPresets'
+import { markerNibFromPreset } from '../presets/markerPresets'
 import {
   watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorPigmentFromPreset,
-} from './watercolorPresets'
-import { watercolorPigmentByCode } from './watercolorPigments'
+} from '../presets/watercolorPresets'
+import { watercolorPigmentByCode } from '../presets/watercolorPigments'
 import type { NibShape } from './markerRibbon'
 
 // #455, ADR 009 §1: what the ribbon rasterizer draws, separated from what it

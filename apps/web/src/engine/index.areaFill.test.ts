@@ -5,7 +5,7 @@
 // MockGL neither paints graphite the way the real dab shader does nor encodes
 // a PNG — a test of computeAreaFill here would be measuring the mock (see the
 // project_mockgl_no_marker memory for the last time that lesson was learned).
-// It has its own tests, on plain arrays, in src/floodFill.test.ts.
+// It has its own tests, on plain arrays, in src/raster/floodFill.test.ts.
 //
 // What is worth checking here is the half that a permanent operation log
 // depends on: a recorded fill lands where it says it lands, and it replays.

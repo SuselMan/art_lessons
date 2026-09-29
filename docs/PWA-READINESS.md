@@ -282,7 +282,7 @@ SW. Это единственный нехэшированный указате�
 Манифест сознательно фетчится, а не генерируется в бандл: `public/paper/` в
 `.gitignore`, `npm run dev` не запускает `prebuild`, и закоммиченный TS-модуль
 был бы утверждением о выпечке, которой в репозитории нет — полное обоснование
-в шапке `apps/web/src/engine/src/paperManifest.ts`.
+в шапке `apps/web/src/engine/src/paper/paperManifest.ts`.
 
 Заодно в #342 с этих файлов снят двойной gzip: они уже gzip-потоки, но уходили
 как `application/octet-stream`, который есть в `gzip_types`, и nginx жал их

@@ -12,7 +12,7 @@ import {
   checkpointCountFor, createTestEngine, dab, expectPixelsClose, expectPixelsEqual, fillStroke,
   makeLayerAdd, makeStroke, readTilePixels, residentTileCount,
 } from './testing/engineTestUtils'
-import { TILE_SIZE } from './src/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 const CHECKPOINT_INTERVAL = 20
 

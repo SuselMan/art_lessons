@@ -28,7 +28,7 @@ Accepted (2026-07-21). Определяет скоуп эпика «Линер/F
 
 Весь pressure/tilt→геометрия даба код сейчас живёт в одном месте,
 общем для всех инструментов: `DabSystem._makeDab`
-(`apps/web/src/engine/src/DabSystem.ts`):
+(`apps/web/src/engine/src/dabs/DabSystem.ts`):
 
 ```ts
 const size       = baseSize * (0.3 + 0.7 * pressure)         // ±70% от pressure
@@ -83,7 +83,7 @@ aspect = 1 + 0.15 * tiltNorm                       // не tiltNorm³ * 6, ка�
 ```
 width = baseWidth * (pressure >= SEAT ? 1
                                       : lerp(WIDTH_MIN, 1, smoothstep(pressure / SEAT)))
-// SEAT = 0.22, WIDTH_MIN = 0.6 — engine/src/dabShaping.ts
+// SEAT = 0.22, WIDTH_MIN = 0.6 — engine/src/presets/dabShaping.ts
 flow  = см. §3 и §8: нажим уходит в paper fill (реальный, незажатый Dab.pressure),
         а не в отдельный множитель flow
 ```
@@ -150,7 +150,7 @@ flow = 1.0                                   при 0.15 <= speed <= 1.75 px/м�
      -> 1.05 (smoothstep) к speed = 0        подтекание ползущего штриха
 ```
 
-См. `engine/src/linerPresets.ts`'s `linerSpeedFlow` — числа сверены с
+См. `engine/src/presets/linerPresets.ts`'s `linerSpeedFlow` — числа сверены с
 измеренным диапазоном, но по-прежнему не проверены глазом на устройстве.
 
 ### 4. Впитывание бумаги (halo)
@@ -199,7 +199,7 @@ grain map, позиция даба) — не вводить новую live per-
   `DabSystem` в принципе не порождает новых дагов, если указатель не сдвинулся
   (`continueStroke`'s >0.5px guard) — значит держать перо на месте буквально
   ничего не рисовало ни у одного инструмента. Добавлен таймер в движке
-  (`PencilEngine._paintDwellDab`, `engine/src/linerPresets.ts`'s `dwellFlow`/
+  (`PencilEngine._paintDwellDab`, `engine/src/presets/linerPresets.ts`'s `dwellFlow`/
   `DwellConfig`/`dwellConfigForTool`) — пока стилус в пределах
   `stillThresholdPx` от точки, где остановился, раз в `intervalMs`
   подмешивается доп. даб в ту же позицию, с opacity по насыщающейся кривой от

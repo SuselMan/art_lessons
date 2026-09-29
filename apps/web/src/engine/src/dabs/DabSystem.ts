@@ -10,13 +10,13 @@
 import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
-import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
+import { PENCIL_DAB_SHAPING, type DabShapingProfile } from '../presets/dabShaping'
 import { MIN_DAB_SPACING_PX, boundedDabSpacing, nominalDabSpacing } from './dabSpacing'
 import {
   assignTipState, copyTipState, createTipState, maxNibReach, tipFootprint,
   type TipFootprint, type TipState,
 } from './tipFootprint'
-import { tiltNormFrom } from './tiltMath'
+import { tiltNormFrom } from '../presets/tiltMath'
 
 interface ControlPoint {
   x: number

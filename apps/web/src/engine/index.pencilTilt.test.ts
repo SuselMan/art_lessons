@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest'
 import type { StrokeOperation, ToolType } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
-import { PENCIL_TILT } from './src/pencilTilt'
-import { TILT_RESPONSES, type TiltResponse } from './src/tiltCurve'
+import { PENCIL_TILT } from './src/presets/pencilTilt'
+import { TILT_RESPONSES, type TiltResponse } from './src/presets/tiltCurve'
 import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './testing/engineTestUtils'
 
 async function setupLayer() {

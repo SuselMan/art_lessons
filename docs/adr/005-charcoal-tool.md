@@ -535,7 +535,7 @@ Ilya (§5.1); для сравнения у графита `GRAPHITE_GRAIN_DEFAUL
 ## MVP-скоуп (Charcoal v1)
 
 1. `ToolType` += `'charcoal'` (`packages/shared`).
-2. `engine/src/charcoalPresets.ts` — таблица пресетов, тип-гард, резолв с
+2. `engine/src/presets/charcoalPresets.ts` — таблица пресетов, тип-гард, резолв с
    фолбэком на willow.
 3. `CHARCOAL_DAB_SHAPING` в `dabShaping.ts` + ветка в `shapingForTool`.
 4. Ветка `u_inkMode = 5` в `DAB_FRAG` + три униформы

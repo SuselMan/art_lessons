@@ -1,6 +1,6 @@
 // Engine-level tests for the #141 paper-texture grain fix, updated for the
 // later move to an offline-baked, raw-byte-uploaded texture (see
-// ../scripts/bakePaperTextures.ts and src/paperLoader.ts): the
+// ../scripts/bakePaperTextures.ts and src/paper/paperLoader.ts): the
 // world-position uniform plumbing DAB_FRAG needs (u_paperOrigin/
 // u_paperTexSize) is unchanged by that move — it's still what turns a dab's
 // local-buffer position into the true world position the paper texture is
@@ -10,7 +10,7 @@
 // loading it is now asynchronous (a placeholder is bound synchronously,
 // swapped for the real texture once the load resolves — see _paperReady).
 //
-// Three original defects, all in engine/index.ts + src/shaders.ts:
+// Three original defects, all in engine/index.ts + src/raster/shaders.ts:
 //  1. _initPaper generated the paper texture at canvas.width x
 //     canvas.height — an infinite room's *current on-screen viewport size*,
 //     not any fixed world/paper resolution. (Moot now — the texture is
@@ -29,9 +29,9 @@ import {
   createTestEngine, dab, lastPaperDabUniform, makeLayerAdd, makeStroke,
   paperReady, paperTextureSize, paperTextureWrap, readLayerPixels, simulateStroke, triggerContextRestore,
 } from './testing/engineTestUtils'
-import { __resetPaperLoaderForTesting, __setPaperLoaderForTesting } from './src/paperLoader'
-import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
-import { TILE_SIZE } from './src/tileMath'
+import { __resetPaperLoaderForTesting, __setPaperLoaderForTesting } from './src/paper/paperLoader'
+import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paper/paperConstants'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 describe('paper texture: world-space grain sampling (#141)', () => {
   describe('bounded and infinite rooms share the exact same baked texture', () => {

@@ -13,7 +13,7 @@ import {
   createTestEngine, dab, fillStroke, hasLayerBuffer, makeLayerAdd, makeLayerMerge, makeLayerTransform, makeStroke,
   readLayerPixels,
 } from './testing/engineTestUtils'
-import { decodeLayerTiles } from './src/snapshotCodec'
+import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
 /** Bakes `layerId` and restores those exact pixels back into a fresh engine's
  *  same-named layer, at `coveredSeq` — the shape a real join has, minus the

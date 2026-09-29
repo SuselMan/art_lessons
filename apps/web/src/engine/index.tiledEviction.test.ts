@@ -8,7 +8,7 @@
 // machinery undo/redo/reconnect already use) into a scratch TiledLayerBuffer
 // and extracting the one tile asked about — not TiledLayerBuffer's own
 // eviction/LRU/budget bookkeeping in isolation, which
-// src/TiledLayerBuffer.eviction.test.ts already covers with a fake
+// src/buffers/TiledLayerBuffer.eviction.test.ts already covers with a fake
 // rebuilder.
 import { describe, expect, it } from 'vitest'
 
@@ -16,7 +16,7 @@ import {
   createTestEngine, dab, evictedTileCount, expectPixelsEqual, makeLayerAdd, makeStroke, readTilePixels,
   residentTileCount,
 } from './testing/engineTestUtils'
-import { TILE_SIZE } from './src/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 // Matches TiledLayerBuffer's own unexported budget constants — 128MB byte
 // budget / (TILE_SIZE^2 * 4 bytes/texel) = 32 resident tiles for an

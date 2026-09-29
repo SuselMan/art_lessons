@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { clipTileToPage, retileSnapshotTiles } from './retileSnapshot'
-import type { SnapshotTile } from './snapshotCodec'
+import type { SnapshotTile } from '../oplog/snapshotCodec'
 
 /** Лист A4 @150dpi — тот самый, на котором это меряли (комната U68gWoq-). */
 const PAGE = { w: 1754, h: 2480 }

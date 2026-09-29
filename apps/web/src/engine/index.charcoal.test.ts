@@ -21,10 +21,10 @@ import { describe, expect, it } from 'vitest'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
-import { CHARCOAL_PRESETS, charcoalPresetString } from './src/charcoalPresets'
-import { scallopSpacingLimit } from './src/dabSpacing'
-import { GRAPHITE_GRAIN_DEFAULT } from './src/pencilPresets'
-import { CHARCOAL_FEEL } from './src/charcoalFeel'
+import { CHARCOAL_PRESETS, charcoalPresetString } from './src/presets/charcoalPresets'
+import { scallopSpacingLimit } from './src/dabs/dabSpacing'
+import { GRAPHITE_GRAIN_DEFAULT } from './src/presets/pencilPresets'
+import { CHARCOAL_FEEL } from './src/presets/charcoalFeel'
 import {
   createTestEngine, makeLayerAdd, lastPaperDabUniform, paperReady, simulateStroke,
   simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd,

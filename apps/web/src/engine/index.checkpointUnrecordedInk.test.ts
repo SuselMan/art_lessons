@@ -36,7 +36,7 @@ import {
   checkpointCountFor, createTestEngine, dab, expectPixelsClose, makeLayerAdd, makeStroke,
   paperReady, readLayerPixels, simulateStrokeMove, simulateStrokeStart, takeCheckpointNow,
 } from './testing/engineTestUtils'
-import { decodeLayerTiles } from './src/snapshotCodec'
+import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
 const CANVAS = { width: 32, height: 32 }
 const COLOR: [number, number, number] = [0.14, 0.14, 0.17]

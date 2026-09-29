@@ -4,10 +4,10 @@ import type { Dab } from '@grafetto/shared'
 
 import { DabSystem } from './DabSystem'
 import { scallopSpacingLimit } from './dabSpacing'
-import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
-import { MARKER_BULLET_DAB_SHAPING, shapingForMarkerPreset } from './markerPresets'
-import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
-import { tiltAzimuthRad } from './tiltMath'
+import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from '../presets/dabShaping'
+import { MARKER_BULLET_DAB_SHAPING, shapingForMarkerPreset } from '../presets/markerPresets'
+import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from '../presets/tiltCurve'
+import { tiltAzimuthRad } from '../presets/tiltMath'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //

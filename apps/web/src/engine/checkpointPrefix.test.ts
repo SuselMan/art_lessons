@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { checkpointPrefixEnd } from './src/checkpointStore'
+import { checkpointPrefixEnd } from './src/oplog/checkpointStore'
 
 const ops = (...ids: string[]) => ids.map(id => ({ id }))
 

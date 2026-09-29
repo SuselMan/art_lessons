@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createTestEngine, fillStroke, makeLayerAdd } from './testing/engineTestUtils'
 import type { MockGL } from './testing/mockGL'
-import { previewTargetSize } from './src/previewChain'
+import { previewTargetSize } from './src/raster/previewChain'
 
 type ToBlob = (cb: (blob: Blob | null) => void, type?: string, quality?: number) => void
 

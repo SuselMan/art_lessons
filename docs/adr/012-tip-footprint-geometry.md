@@ -21,8 +21,8 @@ Proposed (2026-08-22). Определяет скоуп #482.
 Форма пятна контакта считается сегодня четырьмя независимыми кусками кода, и три
 из них — копии первого, разошедшиеся в разной степени.
 
-1. **`DabSystem._makeDab`** (`engine/src/DabSystem.ts:728`) — основной путь, через
-   `DabShapingProfile` (`engine/src/dabShaping.ts`). Единственный, который знает
+1. **`DabSystem._makeDab`** (`engine/src/dabs/DabSystem.ts:728`) — основной путь, через
+   `DabShapingProfile` (`engine/src/presets/dabShaping.ts`). Единственный, который знает
    про фильтры входа и про состояние наконечника.
 
 2. **`PencilEngine._paintDwellDab`** (`engine/index.ts:5661`) — вторая реализация,
@@ -39,7 +39,7 @@ Proposed (2026-08-22). Определяет скоуп #482.
    эллипс.
 
 4. **`applyBrushPenHeadTaper` / `applyBrushPenEndTaper` / `applyBrushPenSpeedContact`**
-   (`engine/src/brushPenPresets.ts`) — три пост-процесса, которые правят `dab.size`
+   (`engine/src/presets/brushPenPresets.ts`) — три пост-процесса, которые правят `dab.size`
    **после** того, как форма уже посчитана. Побочный эффект прямой: `elongation`
    и дальность изгиба `lagPx` считаются по нетейперенной ширине, то есть на первых
    10 px штриха наконечник «шире», чем нарисован.
@@ -134,7 +134,7 @@ interface TipFootprint {
 | `twist` — прокрутка пера вокруг оси | **нет вообще** | экранная |
 | `baseSize` | есть | world px |
 
-`twist` в `PointerData` (`engine/src/PointerInput.ts:25`) отсутствует: там только
+`twist` в `PointerData` (`engine/src/input/PointerInput.ts:25`) отсутствует: там только
 `x, y, pressure, tiltX, tiltY, speed, pointerType, timeStamp`. Поле `e.twist` есть
 в спеке PointerEvent, но железо его почти не отдаёт (S Pen не отдаёт). Слот в API
 оставляем, реализацию — нет; иначе первый же инструмент, которому он понадобится,

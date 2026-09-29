@@ -23,8 +23,8 @@ import {
   createTestEngine, fillStroke, makeAreaTransform, makeLayerAdd, makeLayerTransform,
 } from './testing/engineTestUtils'
 import type { MockGL } from './testing/mockGL'
-import { rectangleSelection } from './src/selectionMask'
-import { TILE_SIZE } from './src/tileMath'
+import { rectangleSelection } from './src/raster/selectionMask'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 /** An infinite room with one layer whose content straddles the boundary
  *  between tile (0,0) and tile (1,0) — the only arrangement in which a

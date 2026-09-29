@@ -7,8 +7,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { compositeCenterFor, compositeScaleFor, createTestEngine, fillStroke, makeLayerAdd, readCompositePixels, rotateMatrixInvFor, screenToWorldFor } from './testing/engineTestUtils'
-import { applyMatrix } from './src/matrix'
-import { TILE_SIZE } from './src/tileMath'
+import { applyMatrix } from './src/raster/matrix'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 // Reads one texel's alpha out of a readCompositePixels() Uint8Array
 // (RGBA8, row-major, top-down — same convention _display() itself uses).

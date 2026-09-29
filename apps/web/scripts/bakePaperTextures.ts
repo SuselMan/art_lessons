@@ -45,12 +45,12 @@ import sharp from 'sharp'
 
 import { PAPER_GRAIN_TYPES, type PaperGrainType } from '@grafetto/shared'
 
-import { buildPaperCatch, buildPaperCatchLut } from '../src/engine/src/paperCatch.js'
-import { PAPER_BAKE_RESOLUTION } from '../src/engine/src/paperConstants.js'
+import { buildPaperCatch, buildPaperCatchLut } from '../src/engine/src/paper/paperCatch.js'
+import { PAPER_BAKE_RESOLUTION } from '../src/engine/src/paper/paperConstants.js'
 import {
   PAPER_MANIFEST_FILENAME, PAPER_MANIFEST_VERSION, parsePaperManifest,
   type PaperAssetEntry, type PaperManifest,
-} from '../src/engine/src/paperManifest.js'
+} from '../src/engine/src/paper/paperManifest.js'
 import { quantizeHeight, writePaperAsset } from './paperAssetIO.js'
 
 const RES = PAPER_BAKE_RESOLUTION

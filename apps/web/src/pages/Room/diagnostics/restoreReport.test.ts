@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LayerState } from '@grafetto/shared'
-import { GL_OUT_OF_MEMORY, type SnapshotRestoreAudit } from '../../../engine/src/snapshotAudit'
+import { GL_OUT_OF_MEMORY, type SnapshotRestoreAudit } from '../../../engine/src/oplog/snapshotAudit'
 import { buildRestoreReport, reportProblems, restoreReportTitle } from './restoreReport'
 import type { SnapshotRestoreOutcome } from '../net/snapshotRestore'
 

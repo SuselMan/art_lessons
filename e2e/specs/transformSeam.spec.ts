@@ -36,7 +36,7 @@ test.describe('a tiled layer resamples as one image (#507)', () => {
       // Through a variable so this stays a runtime URL: the dev server
       // resolves it, `tsc -p tsconfig.e2e.json` has no idea what a Vite root
       // is and would fail on the literal.
-      const shadersUrl = '/src/engine/src/shaders.ts'
+      const shadersUrl = '/src/engine/src/raster/shaders.ts'
       const { DISPLAY_VERT, TRANSFORM_BLIT_FRAG } = await import(shadersUrl) as {
         DISPLAY_VERT: string; TRANSFORM_BLIT_FRAG: string
       }
