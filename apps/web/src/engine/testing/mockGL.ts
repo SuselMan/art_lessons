@@ -906,7 +906,7 @@ export class MockGL {
   }
 
   // Mirrors SMUDGE_TRANSFER_FRAG (#416) — circular-only (angle=0,
-  // aspectRatio=1 always for a smudge dab, see _paintOneSmudgeDab), so this
+  // aspectRatio=1 always for a smudge dab, see SmudgePainter.paintOneDab), so this
   // skips _rasterDab's rotation/aspect math entirely. Both of a dab's draws
   // come through here: u_mode 0 is the erase half (dst *= 1-a, under
   // beginErase()) and u_mode 1 the additive half (dst += carried*a, under

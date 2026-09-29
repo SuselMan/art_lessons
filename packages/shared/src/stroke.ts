@@ -74,7 +74,7 @@ export type StrokeOperation = OperationBase & {
   // reproduce pickup/deposit amounts that depended on state living *outside*
   // any single dab, so each op had to state it. #416 replaced the scalar
   // with a raster imprint that resets at every gesture (see
-  // engine/index.ts's _smudgeImprints) — a smudge operation reproduces from
+  // engine/src/dabs/SmudgePainter.ts's imprints) — a smudge operation reproduces from
   // its own dabs alone again, and there is nothing left for these to carry.
   // A stroke recorded with them simply replays under the new model, ignoring
   // them.
