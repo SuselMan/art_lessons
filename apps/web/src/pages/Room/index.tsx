@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { io, type Socket } from 'socket.io-client'
 import clsx from 'clsx'
-import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
   LayerState, Operation, Participant,
@@ -29,7 +28,6 @@ import {
 import { hexToRgb } from '../../lib/browser/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/observability/featureFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/browser/uiPreferences'
-import { useDragToAdjust } from '../../lib/input/useDragToAdjust'
 import { diagLog } from '../../lib/observability/diagLog'
 import { formatHotkeyLabel } from '../../lib/input/hotkeys'
 import { useAuth } from '../../lib/api/authState'
@@ -63,6 +61,7 @@ import { useLeaveGuard } from './useLeaveGuard'
 import { useToolSync } from './useToolSync'
 import { useToolColor } from './useToolColor'
 import { useToolChoice } from './useToolChoice'
+import { useZoomControls } from './useZoomControls'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -92,7 +91,7 @@ import { ToolRail } from './panels/ToolRail'
 import { QuickSettingsBar } from './panels/QuickSettingsBar'
 import { ToolSettingsTab } from './panels/ToolSettingsTab'
 import { resolveDisplayName } from './participants/displayName'
-import { ZOOM_MAX, cameraTransformCss, deviceNativeZoom, minZoom } from './viewport/cameraMath'
+import { cameraTransformCss } from './viewport/cameraMath'
 import { createLostWorkBatcher, recoveryOperations, type LostContentOp } from './net/lostWork'
 import { Outbox } from './net/outbox'
 import { createSocketRevival } from './net/socketRevival'
@@ -147,16 +146,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
   grab: styles.viewportCursorGrab,
   default: styles.viewportCursorDefault,
 }
-
-// LAN dev server port (apps/server); derived from window.location.hostname
-// How long a stroke's "drawing" activity (local or peer) stays visible before
-// the #38 indicator clears it — see drawingIndicator.ts.
-
-// (#329) Degrees of canvas rotation per pixel of vertical drag on the angle
-// readout. Deliberately fine: the gesture has to be able to land on a specific
-// angle (a horizon line, a construction axis), and a quarter turn is a click
-// away regardless — so precision matters more here than reach.
-const ROTATE_DEG_PER_PX = 0.5
 
 // (#312) How long lost-work recovery waits for the outbox to stop producing
 // `target_gone` rejections before it mints replacement layers, and the hard
@@ -1240,22 +1229,10 @@ function RoomEditor() {
   const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, zoomBy, angleDeg, canvasTransform } =
     useViewport(config, toolActiveRef, config?.infinite ?? false, onPinchPhase)
 
-  // Infinite rooms measure "100%" against the device-native 1-world-unit-per-
-  // physical-pixel scale rather than against `vp.zoom` directly — see
-  // deviceNativeZoom's doc comment. Both the header readout and #362's toast
-  // display and reset through these, so the two cannot drift into disagreeing
-  // about what 100% means.
-  const zoomBase = config?.infinite ? deviceNativeZoom() : 1
-  const zoomPercent = Math.round(vp.zoom / zoomBase * 100)
-  const resetZoom = useCallback(() => {
-    setVp(v => ({ ...v, zoom: zoomBase }))
-  }, [setVp, zoomBase])
-  // Both values at once, for the toast's single button — and only those two.
-  // `fitCanvas` would also re-centre, which in minimal UI means the drawing
-  // jumping out from under the fingers that just finished a gesture on it.
-  const resetZoomAndRotation = useCallback(() => {
-    setVp(v => ({ ...v, zoom: zoomBase, angle: 0 }))
-  }, [setVp, zoomBase])
+  // (#493) What "100%" means, the resets, and the drag gestures on the zoom
+  // and angle readouts — see useZoomControls.
+  const { zoomPercent, resetZoom, resetZoomAndRotation, onZoomDragDown, onAngleDragDown } =
+    useZoomControls({ vp, setVp, infinite: config?.infinite ?? false })
 
   // (#362) The readout belongs to a gesture made *in* minimal UI, so crossing
   // that boundary drops it either way: entering, so a pinch made moments before
@@ -1287,31 +1264,6 @@ function RoomEditor() {
   // or in Room.module.css) decides any part of it.
   const cursor = useCursor()
 
-  // Drag up/down on the zoom label to adjust zoom without a two-finger pinch
-  // (#97); a plain click still resets to 100%, mirroring angleLabel's
-  // click-to-reset-rotation below.
-  // Clamped to the same limits as the wheel/pinch gestures (see minZoom) —
-  // this control writes vp.zoom directly, so a floor of its own would let a
-  // drag reach a zoom no gesture can, which for an infinite room is the
-  // per-frame tile cost #363 exists to bound.
-  const zoomFloor = minZoom(!!config?.infinite)
-  const { onPointerDown: onZoomDragDown } = useDragToAdjust(
-    vp.zoom,
-    z => setVp(v => ({ ...v, zoom: clamp(z, zoomFloor, ZOOM_MAX) })),
-    { min: zoomFloor, max: ZOOM_MAX, sensitivity: 0.01 },
-  )
-
-  // (#329) Rotation by the same drag gesture, on the angle readout — this
-  // replaced the two rotate-by-15° buttons, which could only ever step. Worked
-  // in degrees rather than radians so the sensitivity is a number that means
-  // something: at 0.5°/px a quarter turn is a ~180px drag, and single degrees
-  // are still individually reachable. Wrapping, not clamping: half a turn is
-  // not a wall anyone rotating a sheet of paper expects to hit.
-  const { onPointerDown: onAngleDragDown } = useDragToAdjust(
-    vp.angle * 180 / Math.PI,
-    deg => setVp(v => ({ ...v, angle: deg * Math.PI / 180 })),
-    { min: 0, max: 360, sensitivity: ROTATE_DEG_PER_PX, wrap: true },
-  )
 
   // #99: layered independently on top of useViewport's own touch pan/pinch
   // handling on the same `.viewport` element — see useTapToggle's docstring
