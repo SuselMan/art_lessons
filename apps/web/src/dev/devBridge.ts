@@ -6,6 +6,8 @@
 // sends (an async function body, or a bare expression), answers with the
 // JSON of the result, and forwards warnings, errors and uncaught exceptions.
 
+import { startLinkSpy } from './linkSpy'
+
 const ID_KEY = 'devbridge:id'
 
 type Hot = NonNullable<ImportMeta['hot']>
@@ -59,6 +61,7 @@ function devNavigate(url: string): void {
 }
 
 export function startDevBridge(): void {
+  startLinkSpy();
   (globalThis as { __devNavigate?: (url: string) => void }).__devNavigate = devNavigate
   const hot: Hot | undefined = import.meta.hot
   if (!hot) return

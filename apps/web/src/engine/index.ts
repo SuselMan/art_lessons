@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -388,6 +388,8 @@ export interface WatercolorPerf {
    *  number of GPU steps it ran. 0 when none yet. */
   settleMs: number
   settleOps: number
+  /** (§17.70) The longest rebuild slice so far, ms (GPU included). */
+  rebuildSliceMs: number
   /** GPU memory held by the tool, MB: pooled scratch tiles (live and free),
    *  the diffusion field, the reveals' kept pictures. */
   scratchLiveMB: number
@@ -417,6 +419,8 @@ export interface WatercolorPerf {
    *  number of GPU steps it ran. 0 when none yet. */
   settleMs: number
   settleOps: number
+  /** (§17.70) The longest rebuild slice so far, ms (GPU included). */
+  rebuildSliceMs: number
   /** GPU memory held by the tool, MB: pooled scratch tiles (live and free),
    *  the diffusion field, the reveals' kept pictures. */
   scratchLiveMB: number
@@ -1406,29 +1410,28 @@ const WC_FIELD_PX = 1536
 /** (§17.70) Ribbon band triangles per draw in a rebuild: one whole-operation
  *  band draw was 1 s of GPU on the Surface. */
 const REBUILD_BAND_PIECE_TRIS = 256
-/** (§17.70) ms ≈ perDraw · draws + perPx · px, fitted by least squares over
- *  recent slices (older ones fading), each measured behind a gl.finish. */
-class DrawCostModel {
-  perDraw = 0.05
-  perPx = 2e-5
-  private _nn = 0; private _np = 0; private _pp = 0; private _nt = 0; private _pt = 0
+/** (§17.70) How much of a rebuild's watercolour one slice may draw: at most
+ *  `draws` draws and `px` tile pixels, whichever comes first. A slice that
+ *  ran long shrinks both by as much as it overran; one that ran short lets
+ *  the limit it stopped at grow a quarter. A least-squares fit of a cost per
+ *  draw and per pixel was tried first: the two go together in every slice,
+ *  the fit put the pixel price at its floor on the Surface, and the slices
+ *  heavy in pixels ran to 0.35 s. */
+class SliceLimits {
+  draws = 64
+  px = 1 << 20
+  /** The worst slice so far, for _wcPerf. */
+  worst = { ms: 0, draws: 0, px: 0 }
 
-  fit(draws: number, px: number, ms: number): void {
-    const k = 0.9
-    const p = px / 1e6 // conditioned: megapixels
-    this._nn = this._nn * k + draws * draws
-    this._np = this._np * k + draws * p
-    this._pp = this._pp * k + p * p
-    this._nt = this._nt * k + draws * ms
-    this._pt = this._pt * k + p * ms
-    const det = this._nn * this._pp - this._np * this._np
-    if (det > 1e-9 * this._nn * this._pp && det > 0) {
-      this.perDraw = Math.min(20, Math.max(0.002, (this._pp * this._nt - this._np * this._pt) / det))
-      this.perPx = Math.min(1e-3, Math.max(1e-7, (this._nn * this._pt - this._np * this._nt) / det / 1e6))
-    } else {
-      // One kind of slice so far: scale both to what it showed.
-      const guess = this.perDraw * draws + this.perPx * px
-      if (guess > 0) { const f = Math.min(4, Math.max(0.25, ms / guess)); this.perDraw *= f; this.perPx *= f }
+  note(draws: number, px: number, ms: number, byDraws: boolean): void {
+    if (ms > this.worst.ms) this.worst = { ms: Math.round(ms), draws, px }
+    if (ms > REBUILD_SLICE_MS * 1.5) {
+      const f = Math.max(0.1, REBUILD_SLICE_MS / ms)
+      this.draws = Math.max(1, Math.floor(Math.min(this.draws, draws) * f))
+      this.px = Math.max(1 << 12, Math.floor(Math.min(this.px, Math.max(px, 1)) * f))
+    } else if (ms < REBUILD_SLICE_MS * 0.5) {
+      if (byDraws) this.draws = Math.min(4096, Math.ceil(this.draws * 1.25))
+      else this.px = Math.min(1 << 26, Math.ceil(this.px * 1.25))
     }
   }
 }
@@ -2193,6 +2196,16 @@ class RibbonStrokeScratch {
    *  settle still to run are not a resting state. The scratch is left as it
    *  was; the caller destroys it once the spill is stored. */
   spill(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): SpilledScratch | null {
+    const work = this.spillWork(originOf)
+    let r = work.next()
+    while (!r.done) r = work.next()
+    return r.value
+  }
+
+  /** (§17.70) spill() a buffer at a time: yields after each readback, which
+   *  is a wait on the GPU and on the Android tablet was 1.9 s for a whole
+   *  wash at once. The caller must not change the wash until it finishes. */
+  *spillWork(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): Generator<void, SpilledScratch | null, void> {
     if (this.diffusePending || this.pendingComposite.size) return null
     const tiles: SpilledScratch['tiles'] = []
     let bytes = 0
@@ -2214,6 +2227,7 @@ class RibbonStrokeScratch {
         const packed = packTilePixels(b.readPixels(read), work)
         bufs[k] = packed
         bytes += packed.byteLength
+        yield
       }
       tiles.push({ ...at, width: tile.width, height: tile.height, bufs })
     }
@@ -2541,6 +2555,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  next operation cannot be painted as everyone else paints it - so it
    *  rebuilds the layer instead, which replays the wash from its start. */
   private _lostWashes = new Map<string, ILayerBuffer>()
+  /** (§17.70) The spill in progress, a buffer per step, and the washes the
+   *  cache's slots are waiting to see spilled after it. */
+  private _spillJob: { key: string; scratch: RibbonStrokeScratch; usedAt: number; timer: ReturnType<typeof setTimeout> | 0 } | null = null
+  private _spillPumpTimer: ReturnType<typeof setTimeout> | 0 = 0
+  /** (§17.70) A rebuild's step is running: the cache is the job's own. */
+  private _inJobStep = false
   private _replayRibbonChunks = new Map<string, {
     /** The grouping key: a wash id where the stroke has one, its gesture id
      *  otherwise (#468 v7). */
@@ -2601,6 +2621,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
   private _fieldOpProg!: WebGLProgram
   private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
+  /** (§17.70) Modes 10-20 - see WC_FIELD_OP_HIGH_FRAG. */
+  private _fieldOpHighProg!: WebGLProgram
+  private _fieldOpHighUni!: Record<string, WebGLUniformLocation | null>
+  private _fieldOpHighPosLoc!: number
   private _fieldOpPosLoc = -1
   /** (#536, §17.46) The paper composite's own copy of the screen, so a frame
    *  that changed only the brush's rect recomposes that rect alone. */
@@ -2672,6 +2696,7 @@ export class PencilEngine implements PencilEngineAPI {
     frameAt: [] as number[], frameMs: [] as number[],
     batchAt: [] as number[], batchMs: [] as number[],
     settleStart: 0, settleOps: 0, settleMs: 0,
+    sliceWorst: { ms: 0, draws: 0, px: 0 },
   }
   /** (#536, §17.11) The one field the wet diffusion runs over: the wash's
    *  tiles stitched into a rect, so paint crosses tile seams as freely as any
@@ -4117,7 +4142,7 @@ export class PencilEngine implements PencilEngineAPI {
       frameP50: pct(intervals, 0.5), frameP95: pct(intervals, 0.95), frames: p.frameAt.length,
       displayMs: pct(p.frameMs, 0.5),
       batchesPerSec: p.batchAt.length * 1000 / span, batchP50: pct(p.batchMs, 0.5), batchMax: pct(p.batchMs, 1),
-      settleMs: p.settleMs, settleOps: p.settleOps,
+      settleMs: p.settleMs, settleOps: p.settleOps, rebuildSliceMs: p.sliceWorst.ms,
       scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,
       fieldMB: this._fieldCache.reduce((n, f) => n + f.w * f.h * 4 * 10, 0) * MB,
       revealMB: revealBytes * MB,
@@ -4988,6 +5013,7 @@ export class PencilEngine implements PencilEngineAPI {
     const t0 = performance.now()
     const live = this._replayRibbonChunks
     this._replayRibbonChunks = job.chunks
+    this._inJobStep = true
     try {
       let i = job.start + job.applied.length
       let first = true
@@ -5008,6 +5034,7 @@ export class PencilEngine implements PencilEngineAPI {
     } finally {
       job.chunks = this._replayRibbonChunks
       this._replayRibbonChunks = live
+      this._inJobStep = false
     }
     const caughtUp = job.start + job.applied.length >= ops.length && !(this._settle && this._jobOwnsSettle(job))
     if (!caughtUp) { job.timer = setTimeout(() => this._stepRebuildJob(job), 0); return }
@@ -5039,30 +5066,34 @@ export class PencilEngine implements PencilEngineAPI {
         ),
       }
     }
-    const cost = this._sliceCost
+    const lim = this._sliceLimits
     const t0 = performance.now()
-    let draws = 0, px = 0
+    let draws = 0, px = 0, byDraws = false
     let r = p.work.next()
     while (!r.done) {
       draws++
       px += r.value
-      if (cost.perDraw * draws + cost.perPx * px >= REBUILD_SLICE_MS) break
+      if (draws >= lim.draws) { byDraws = true; break }
+      if (px >= lim.px) break
       r = p.work.next()
     }
     this.gl.finish()
-    // The last slice also finishes the stroke - not a draw's cost, not fitted.
-    if (!r.done) cost.fit(draws, px, performance.now() - t0)
+    // The last slice also finishes the stroke - not a draw's cost, not counted.
+    if (!r.done) {
+      lim.note(draws, px, performance.now() - t0, byDraws)
+      this._wcPerf.sliceWorst = lim.worst
+    }
     if (!r.done) return false
     this._wetFromForeignStroke(job.layerId, op.tool, op.preset, p.dabs, op.timestamp, r.value)
     job.part = null
     return true
   }
 
-  /** (§17.70) What one draw of a rebuild's watercolour costs this device's
-   *  GPU. Both terms matter and differ by device: on the iPad every draw into
-   *  its own target is a render pass, a few hundred in a slice cost more than
-   *  their pixels, while on a desktop GPU the pixels dominate. */
-  private readonly _sliceCost = new DrawCostModel()
+  /** (§17.70) How much a rebuild's watercolour slice may draw on this
+   *  device. Both limits matter and differ by device: on the iPad every draw
+   *  into its own target is a render pass, a few hundred in a slice cost more
+   *  than their pixels, while on a desktop GPU the pixels dominate. */
+  private readonly _sliceLimits = new SliceLimits()
 
   /** (§17.70) The buffers rebuild jobs are about to replace. */
   private _rebuildTargets(): Set<ILayerBuffer> {
@@ -5988,6 +6019,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
+    this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
@@ -6009,6 +6041,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
+    this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
@@ -6027,6 +6060,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
+    this._fieldOpHighPosLoc    = gl.getAttribLocation(this._fieldOpHighProg, 'a_position')
     this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
     this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
@@ -7524,6 +7558,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  out an open one, whose next stroke then started over in a fresh scratch
    *  on this client only. */
   private _trimChunkCache(): void {
+    // (§17.70) Outside a rebuild's step, over frames: a readback of a whole
+    // wash was 3.7 s on the Surface at a rebuilt layer's swap. The cache is
+    // over its slots only until the queue gets there.
+    if (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS && !this._inJobStep && typeof setTimeout === 'function') {
+      this._pumpSpills()
+      return
+    }
     while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
       this._evictChunk(this._replayRibbonChunks.keys().next().value as string, true)
     }
@@ -7549,6 +7590,62 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     c.scratch.destroy()
+  }
+
+  /** (§17.70) _evictChunk(key, true) spread over frames: a readback a step.
+   *  Abandoned - nothing lost, the reads were copies - if the wash is painted
+   *  into, settled or let go of meanwhile. */
+  private _startSpill(key: string): void {
+    const c = this._replayRibbonChunks.get(key)
+    if (!c) return
+    const origins = new Map<AccumulationBuffer, { originX: number; originY: number }>()
+    for (const t of c.target.allResident()) origins.set(t.buffer, { originX: t.originX, originY: t.originY })
+    const work = c.scratch.spillWork(tile => origins.get(tile) ?? null)
+    const job = { key, scratch: c.scratch, usedAt: c.usedAt ?? 0, timer: 0 as ReturnType<typeof setTimeout> | 0 }
+    this._spillJob = job
+    const step = (): void => {
+      job.timer = 0
+      if (this._spillJob !== job) return
+      const now = this._replayRibbonChunks.get(key)
+      if (this._destroyed || this._contextLost || now !== c || (c.usedAt ?? 0) !== job.usedAt
+        || c.scratch.diffusePending || this._settle?.scratch === c.scratch) { this._spillJob = null; this._pumpSpillsLater(); return }
+      const t0 = performance.now()
+      let r = work.next()
+      while (!r.done && performance.now() - t0 < 4) r = work.next()
+      if (!r.done) { job.timer = setTimeout(step, 16); return }
+      this._spillJob = null
+      this._replayRibbonChunks.delete(key)
+      if (r.value) {
+        this._spilledWashes.set(key, { target: c.target, userId: this._chunkAuthors.get(key), washStrokeId: c.washStrokeId, lastDab: c.lastDab, spill: r.value })
+        this._trimSpilled()
+      } else {
+        this._lostWashes.set(key, c.target)
+      }
+      c.scratch.destroy()
+      if (this._gpuBudget !== Infinity) this._ribbonScratchPool.trimFree()
+      this._scheduleBudgetCheck()
+      this._pumpSpillsLater()
+    }
+    job.timer = setTimeout(step, 0)
+  }
+
+  /** (§17.70) While the cache is over its slots and nothing is being
+   *  spilled, spills the least recently used wash that is at rest (the map's
+   *  order is its use order). One busy just now is tried again a little later. */
+  private _pumpSpills(): void {
+    if (this._destroyed || this._spillJob || this._inJobStep) return
+    if (this._replayRibbonChunks.size <= REPLAY_RIBBON_CHUNK_SLOTS) return
+    for (const [key, c] of this._replayRibbonChunks) {
+      if (c.scratch.diffusePending || this._settle?.scratch === c.scratch) continue
+      this._startSpill(key)
+      return
+    }
+    this._pumpSpillsLater()
+  }
+
+  private _pumpSpillsLater(): void {
+    if (this._spillPumpTimer || this._destroyed) return
+    this._spillPumpTimer = setTimeout(() => { this._spillPumpTimer = 0; this._pumpSpills() }, 100)
   }
 
   /** (§17.68) Main memory is not free either: past the cap the oldest spilled
@@ -8543,11 +8640,13 @@ export class PencilEngine implements PencilEngineAPI {
       gl.enable(gl.SCISSOR_TEST)
       gl.scissor(opts.scissor[0], opts.scissor[1], opts.scissor[2], opts.scissor[3])
     }
-    gl.useProgram(this._fieldOpProg)
-    const u = this._fieldOpUni
+    const high = mode > 9.5 // (§17.70)
+    gl.useProgram(high ? this._fieldOpHighProg : this._fieldOpProg)
+    const u = high ? this._fieldOpHighUni : this._fieldOpUni
+    const pos = high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._fieldOpPosLoc)
-    gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(pos)
+    gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, a.texture)
     gl.uniform1i(u.u_a, 0)
@@ -9897,9 +9996,14 @@ export class PencilEngine implements PencilEngineAPI {
         // its rebuilt twin taking its place: reading it back first (up to
         // 1.4 s on the iPad) bought nothing.
         if (this._rebuildTargets().has(c.target)) continue
-        this._evictChunk(key, true)
-        this._ribbonScratchPool.trimFree()
-        spilled++
+        // (§17.70) Over several frames, one wash at a time; the next check
+        // comes when it lands.
+        if (this._spillJob || typeof setTimeout !== 'function') {
+          if (!this._spillJob) { this._evictChunk(key, true); this._ribbonScratchPool.trimFree(); spilled++; continue }
+          break
+        }
+        this._startSpill(key)
+        break
       }
     }
     return true

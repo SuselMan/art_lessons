@@ -643,6 +643,8 @@ describe('a wash reaches every path that paints (#468)', () => {
   })
 
   it('drops the oldest wash rather than growing without bound', () => {
+    vi.useFakeTimers()
+    try {
     const engine = setupLayer()
     // Eight participants: one author's later wash retires their earlier one
     // outright (§17.57), so the LRU is only ever about different authors.
@@ -652,11 +654,14 @@ describe('a wash reaches every path that paints (#468)', () => {
       }), 'remote')
     }
     land(engine) // (§17.58) lands the queued ones
+    // (§17.70) Spilled over frames, one wash at a time.
+    vi.advanceTimersByTime(5000)
     // Bounded, and the survivors are the recent ones: an evicted wash goes back
     // to being a seam, which is what every ribbon tool did before washes.
     expect(markerReplayChunkCount(engine)).toBeLessThanOrEqual(4)
     expect(markerReplayChunkFor(engine, 'w7')).toBeTruthy()
     expect(markerReplayChunkFor(engine, 'w0')).toBeNull()
+    } finally { vi.useRealTimers() }
   })
 
   // A checkpoint bakes the layer's pixels. The strokes of a wash share an
@@ -1418,9 +1423,13 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
   // accumulation on this client only.
   it('a fifth participant’s wash spills the oldest instead of destroying it', () => {
     const e = setupLayer()
-    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
-    for (const [i, u] of ['u2', 'u3', 'u4', 'u5'].entries()) e.appendOperation(strokeIn(u, 'w' + u, 's' + u, 20 + i * 8, 20), 'remote')
-    land(e)
+    vi.useFakeTimers()
+    try {
+      e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+      for (const [i, u] of ['u2', 'u3', 'u4', 'u5'].entries()) e.appendOperation(strokeIn(u, 'w' + u, 's' + u, 20 + i * 8, 20), 'remote')
+      land(e)
+      vi.advanceTimersByTime(5000) // (§17.70) spilled over frames
+    } finally { vi.useRealTimers() }
     const I = e as unknown as Internals
     expect(I._replayRibbonChunks.has('w1')).toBe(false)
     expect(I._spilledWashes.has('w1')).toBe(true)
@@ -1439,7 +1448,13 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
     I._gpuBudget = 1
-    I._enforceGpuBudget()
+    vi.useFakeTimers()
+    try {
+      I._enforceGpuBudget()
+      // (§17.70) Read back over several steps, not in the check itself.
+      expect(I._replayRibbonChunks.has('w1')).toBe(true)
+      vi.advanceTimersByTime(1000)
+    } finally { vi.useRealTimers() }
     expect(I._replayRibbonChunks.has('w1')).toBe(false)
     expect(I._spilledWashes.has('w1')).toBe(true)
     I._gpuBudget = Infinity
@@ -1460,6 +1475,28 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     expect(I._replayRibbonChunks.has('w1')).toBe(true)
   })
 
+  it('a spill in progress is let go when the wash is painted into meanwhile (§17.70)', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
+    I._washActiveAt = -1e9
+    I._gpuBudget = 1
+    vi.useFakeTimers()
+    try {
+      I._enforceGpuBudget()
+      I._gpuBudget = Infinity
+      e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+      vi.advanceTimersByTime(1000)
+    } finally { vi.useRealTimers() }
+    land(e)
+    expect(I._spilledWashes.has('w1')).toBe(false)
+    expect(I._replayRibbonChunks.has('w1')).toBe(true)
+    expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
+  })
+
   it('the author’s next wash closes the spilled one', () => {
     const e = setupLayer()
     e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
@@ -1470,7 +1507,11 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
     I._gpuBudget = 1
-    I._enforceGpuBudget()
+    vi.useFakeTimers()
+    try {
+      I._enforceGpuBudget()
+      vi.advanceTimersByTime(1000)
+    } finally { vi.useRealTimers() }
     expect(I._spilledWashes.has('w1')).toBe(true)
     I._gpuBudget = Infinity
     e.appendOperation(strokeIn('u1', 'w9', 's9', 4, 40), 'remote')

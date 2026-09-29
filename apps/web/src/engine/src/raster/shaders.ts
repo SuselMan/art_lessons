@@ -3137,6 +3137,7 @@ export const WC_FIELD_OP_FRAG = `
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+#ifdef FIELD_OP_HIGH
     if (u_mode > 19.5) {
       // (s17.44) max(a, b) per channel: the settle's extended coverage merged
       // into a tile's coverage that the gesture may have gone on stamping
@@ -3363,6 +3364,8 @@ export const WC_FIELD_OP_FRAG = `
       gl_FragColor = vec4(cost, 0.0, 0.0, 1.0);
       return;
     }
+    gl_FragColor = vec4(0.0);
+#else
     if (u_mode > 5.5) {
       if (u_mode > 8.5) {
         // (s17.30) The bloom's lift: by the dome (band .a), not the domain.
@@ -3498,8 +3501,19 @@ export const WC_FIELD_OP_FRAG = `
       return;
     }
     gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : WC_FIELD_FIT(a + b * u_k);
+#endif
   }
 `;
+
+/** (#536, §17.70) WC_FIELD_OP_FRAG's modes 10-20, a program of their own; the
+ *  plain constant is modes 0-9. As one program the whole of it crashed the
+ *  Galaxy Tab's shader compiler (Adreno, SIGSEGV in QGLCLinkProgram) every
+ *  time it was really compiled - usually Chrome served it from its program
+ *  cache, and a miss took the GPU process down, twice, and WebGL with it.
+ *  Dropping any one mode compiled; the halves are well clear of whatever
+ *  limit that is. */
+export const WC_FIELD_OP_HIGH_FRAG = `#define FIELD_OP_HIGH
+${WC_FIELD_OP_FRAG}`
 
 export const LAYER_COMPOSITE_FRAG = `
   precision mediump float;
