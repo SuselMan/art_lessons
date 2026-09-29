@@ -5,8 +5,8 @@ import { packDabs, type ClientToServerEvents, type Operation } from '@grafetto/s
 import type { PencilEngineAPI, PencilEngineOptions } from '../../engine'
 import { liveTiming } from '../../lib/observability/liveLatency'
 import { useRoomStore } from '../../stores/roomStore'
-import type { Outbox } from './outbox'
-import { commitRevealsBelow, type PendingPreviews } from './pendingPreviews'
+import type { Outbox } from './net/outbox'
+import { commitRevealsBelow, type PendingPreviews } from './net/pendingPreviews'
 
 export type EngineNetworkCallbacks = Required<Pick<PencilEngineOptions,
   'onLocalOperation' | 'onPreviewApplied' | 'onLiveStrokeDabs' | 'onLiveStrokeEnd'>>

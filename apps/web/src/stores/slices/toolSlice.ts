@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import type { ShapeFrame } from '@grafetto/shared'
 
-import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../pages/Room/toolSchemas'
+import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../pages/Room/tools/toolSchemas'
 
 // ── one selected tool (#405) ────────────────────────────────────────────────
 //

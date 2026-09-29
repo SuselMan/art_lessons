@@ -147,7 +147,7 @@ topics:
     why: >-
       Линия появляется до всякой сети, операция ждёт подтверждения в outbox. Объясняет
       outbox, seq, operation_confirmed и дубли.
-    modules: [room-net]
+    modules: [apps/web/src/pages/Room/net]
     links: [ui-idb, ui-socket]
     flows: [stroke]
     issue: 635
@@ -157,7 +157,7 @@ topics:
     parent: client
     title: Экран комнаты — из чего собран
     why: Самый большой и самый часто правимый кусок клиента; у его главного файла есть потолок длины.
-    modules: [room-shell, room-panels, room-overlays, room-status, room-tools, room-viewport, room-gestures]
+    modules: [apps/web/src/pages/Room, apps/web/src/pages/Room/panels, apps/web/src/pages/Room/overlays, apps/web/src/pages/Room/status, apps/web/src/pages/Room/tools, apps/web/src/pages/Room/viewport, apps/web/src/pages/Room/gestures]
 
   - id: rooms-in-memory
     level: 2
@@ -174,7 +174,7 @@ topics:
     parent: server
     title: Снапшоты и быстрый вход в длинную комнату
     why: Почему снапшоты печёт клиент, а сервер их только хранит, и как хвост лога ложится поверх.
-    modules: [apps/server/src/roomRoutes, room-diagnostics]
+    modules: [apps/server/src/roomRoutes, apps/web/src/pages/Room/diagnostics]
     flows: [join]
 
   - id: collaborative-undo
@@ -248,7 +248,7 @@ topics:
     parent: room-screen
     title: Выделение, трансформация, заливка
     adr: [008-selection, 010-fill-tool]
-    modules: [room-editing, room-shapes]
+    modules: [apps/web/src/pages/Room/editing, apps/web/src/pages/Room/shapes]
 
   - id: i18n
     level: 3

@@ -114,9 +114,9 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/reportRestore.ts",
+    "from": "apps/web/src/pages/Room/diagnostics/reportRestore.ts",
     "to": "apps/web/src/engine/src/snapshotAudit.ts",
-    "unresolvedTo": "../../engine/src/snapshotAudit",
+    "unresolvedTo": "../../../engine/src/snapshotAudit",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -129,9 +129,9 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/restoreReport.ts",
+    "from": "apps/web/src/pages/Room/diagnostics/restoreReport.ts",
     "to": "apps/web/src/engine/src/snapshotAudit.ts",
-    "unresolvedTo": "../../engine/src/snapshotAudit",
+    "unresolvedTo": "../../../engine/src/snapshotAudit",
     "dependencyTypes": [
       "local",
       "import"
@@ -143,9 +143,37 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/pages/Room/RoomLoadingOverlay.tsx",
+    "from": "apps/web/src/pages/Room/net/snapshotRestore.ts",
+    "to": "apps/web/src/engine/src/snapshotCodec.ts",
+    "unresolvedTo": "../../../engine/src/snapshotCodec",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/net/snapshotSync.ts",
+    "to": "apps/web/src/engine/src/snapshotCodec.ts",
+    "unresolvedTo": "../../../engine/src/snapshotCodec",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "engine-public-api-only"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/pages/Room/status/RoomLoadingOverlay.tsx",
     "to": "apps/web/src/engine/src/paperLoader.ts",
-    "unresolvedTo": "../../engine/src/paperLoader",
+    "unresolvedTo": "../../../engine/src/paperLoader",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -154,48 +182,6 @@
     "rule": {
       "severity": "error",
       "name": "engine-public-api-only"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/pages/Room/snapshotRestore.ts",
-    "to": "apps/web/src/engine/src/snapshotCodec.ts",
-    "unresolvedTo": "../../engine/src/snapshotCodec",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "engine-public-api-only"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/pages/Room/snapshotSync.ts",
-    "to": "apps/web/src/engine/src/snapshotCodec.ts",
-    "unresolvedTo": "../../engine/src/snapshotCodec",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "engine-public-api-only"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/engine/index.ts",
-    "to": "apps/web/src/lib/observability/diagLog.ts",
-    "unresolvedTo": "../lib/observability/diagLog",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-engine-api"
     }
   },
   {
@@ -215,9 +201,23 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/engine/src/PointerInput.ts",
+    "from": "apps/web/src/engine/index.ts",
     "to": "apps/web/src/lib/observability/diagLog.ts",
-    "unresolvedTo": "../../lib/observability/diagLog",
+    "unresolvedTo": "../lib/observability/diagLog",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-engine-api"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/engine/src/PointerInput.ts",
+    "to": "apps/web/src/lib/input/pressureCalibration.ts",
+    "unresolvedTo": "../../lib/input/pressureCalibration",
     "dependencyTypes": [
       "local",
       "import"
@@ -230,8 +230,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/engine/src/PointerInput.ts",
-    "to": "apps/web/src/lib/input/pressureCalibration.ts",
-    "unresolvedTo": "../../lib/input/pressureCalibration",
+    "to": "apps/web/src/lib/observability/diagLog.ts",
+    "unresolvedTo": "../../lib/observability/diagLog",
     "dependencyTypes": [
       "local",
       "import"
@@ -257,51 +257,9 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/observability/devEngineHandle.ts",
-    "to": "apps/web/src/stores/roomStore.ts",
-    "unresolvedTo": "../stores/roomStore",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-platform"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "apps/web/src/lib/api/environment.ts",
     "to": "apps/web/src/stores/settingsStore.ts",
-    "unresolvedTo": "../stores/settingsStore",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-platform"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/lib/browser/registerServiceWorker.ts",
-    "to": "apps/web/src/stores/noticeStore.ts",
-    "unresolvedTo": "../stores/noticeStore",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-platform"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/lib/browser/registerServiceWorker.ts",
-    "to": "apps/web/src/stores/settingsStore.ts",
-    "unresolvedTo": "../stores/settingsStore",
+    "unresolvedTo": "../../stores/settingsStore",
     "dependencyTypes": [
       "local",
       "import"
@@ -315,7 +273,7 @@
     "type": "dependency",
     "from": "apps/web/src/lib/api/roomChunk.ts",
     "to": "apps/web/src/pages/Room/index.tsx",
-    "unresolvedTo": "../pages/Room",
+    "unresolvedTo": "../../pages/Room",
     "dependencyTypes": [
       "local",
       "dynamic-import"
@@ -327,23 +285,9 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/lib/input/useCompactLayout.ts",
-    "to": "apps/web/src/stores/settingsStore.ts",
-    "unresolvedTo": "../stores/settingsStore",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-platform"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "apps/web/src/lib/api/useShareRoom.ts",
     "to": "apps/web/src/stores/noticeStore.ts",
-    "unresolvedTo": "../stores/noticeStore",
+    "unresolvedTo": "../../stores/noticeStore",
     "dependencyTypes": [
       "local",
       "import"
@@ -357,7 +301,63 @@
     "type": "dependency",
     "from": "apps/web/src/lib/api/useShareRoom.ts",
     "to": "apps/web/src/stores/settingsStore.ts",
-    "unresolvedTo": "../stores/settingsStore",
+    "unresolvedTo": "../../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/browser/registerServiceWorker.ts",
+    "to": "apps/web/src/stores/noticeStore.ts",
+    "unresolvedTo": "../../stores/noticeStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/browser/registerServiceWorker.ts",
+    "to": "apps/web/src/stores/settingsStore.ts",
+    "unresolvedTo": "../../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/input/useCompactLayout.ts",
+    "to": "apps/web/src/stores/settingsStore.ts",
+    "unresolvedTo": "../../stores/settingsStore",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "layer-platform"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/lib/observability/devEngineHandle.ts",
+    "to": "apps/web/src/stores/roomStore.ts",
+    "unresolvedTo": "../../stores/roomStore",
     "dependencyTypes": [
       "local",
       "import"
@@ -413,8 +413,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/layerSlice.ts",
-    "to": "apps/web/src/pages/Room/RulerOverlay.tsx",
-    "unresolvedTo": "../../pages/Room/RulerOverlay",
+    "to": "apps/web/src/pages/Room/editing/transformMath.ts",
+    "unresolvedTo": "../../pages/Room/editing/transformMath",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -428,8 +428,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/layerSlice.ts",
-    "to": "apps/web/src/pages/Room/transformMath.ts",
-    "unresolvedTo": "../../pages/Room/transformMath",
+    "to": "apps/web/src/pages/Room/overlays/RulerOverlay.tsx",
+    "unresolvedTo": "../../pages/Room/overlays/RulerOverlay",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -443,8 +443,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/roomSlice.ts",
-    "to": "apps/web/src/pages/Room/participants.ts",
-    "unresolvedTo": "../../pages/Room/participants",
+    "to": "apps/web/src/pages/Room/participants/participants.ts",
+    "unresolvedTo": "../../pages/Room/participants/participants",
     "dependencyTypes": [
       "local",
       "import"
@@ -457,8 +457,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/toolSlice.ts",
-    "to": "apps/web/src/pages/Room/toolSchemas.ts",
-    "unresolvedTo": "../../pages/Room/toolSchemas",
+    "to": "apps/web/src/pages/Room/tools/toolSchemas.ts",
+    "unresolvedTo": "../../pages/Room/tools/toolSchemas",
     "dependencyTypes": [
       "local",
       "import"
@@ -471,8 +471,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/stores/slices/viewportSlice.ts",
-    "to": "apps/web/src/pages/Room/useViewport.ts",
-    "unresolvedTo": "../../pages/Room/useViewport",
+    "to": "apps/web/src/pages/Room/viewport/useViewport.ts",
+    "unresolvedTo": "../../pages/Room/viewport/useViewport",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -486,8 +486,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/components/FloatingToolPanel/index.tsx",
-    "to": "apps/web/src/pages/Room/panelPosition.ts",
-    "unresolvedTo": "../../pages/Room/panelPosition",
+    "to": "apps/web/src/pages/Room/viewport/panelPosition.ts",
+    "unresolvedTo": "../../pages/Room/viewport/panelPosition",
     "dependencyTypes": [
       "local",
       "import"
@@ -500,8 +500,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/components/SettingField/index.tsx",
-    "to": "apps/web/src/pages/Room/toolSchemas.ts",
-    "unresolvedTo": "../../pages/Room/toolSchemas",
+    "to": "apps/web/src/pages/Room/tools/toolSchemas.ts",
+    "unresolvedTo": "../../pages/Room/tools/toolSchemas",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -866,7 +866,7 @@
     "type": "cycle",
     "from": "apps/web/src/lib/input/hotkeys.ts",
     "to": "apps/web/src/i18n/index.ts",
-    "unresolvedTo": "../i18n",
+    "unresolvedTo": "../../i18n",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -903,8 +903,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/pages/Room/cameraMath.ts",
-    "to": "apps/web/src/pages/Room/useViewport.ts",
+    "from": "apps/web/src/pages/Room/viewport/cameraMath.ts",
+    "to": "apps/web/src/pages/Room/viewport/useViewport.ts",
     "unresolvedTo": "./useViewport",
     "dependencyTypes": [
       "local",
@@ -917,7 +917,7 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
         "dependencyTypes": [
           "local",
           "type-only",
@@ -925,7 +925,7 @@
         ]
       },
       {
-        "name": "apps/web/src/pages/Room/cameraMath.ts",
+        "name": "apps/web/src/pages/Room/viewport/cameraMath.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -935,9 +935,9 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/pages/Room/useViewport.ts",
+    "from": "apps/web/src/pages/Room/viewport/useViewport.ts",
     "to": "apps/web/src/stores/roomStore.ts",
-    "unresolvedTo": "../../stores/roomStore",
+    "unresolvedTo": "../../../stores/roomStore",
     "dependencyTypes": [
       "local",
       "import"
@@ -962,7 +962,7 @@
         ]
       },
       {
-        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
         "dependencyTypes": [
           "local",
           "type-only",
@@ -973,9 +973,9 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/pages/Room/useViewport.ts",
+    "from": "apps/web/src/pages/Room/viewport/useViewport.ts",
     "to": "apps/web/src/stores/slices/viewportSlice.ts",
-    "unresolvedTo": "../../stores/slices/viewportSlice",
+    "unresolvedTo": "../../../stores/slices/viewportSlice",
     "dependencyTypes": [
       "local",
       "import"
@@ -993,7 +993,7 @@
         ]
       },
       {
-        "name": "apps/web/src/pages/Room/useViewport.ts",
+        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
         "dependencyTypes": [
           "local",
           "type-only",

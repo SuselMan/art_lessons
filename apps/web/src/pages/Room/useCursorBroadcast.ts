@@ -4,8 +4,8 @@ import type { Socket } from 'socket.io-client'
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 
 import { useRoomStore } from '../../stores/roomStore'
-import { clientToRoomPoint } from './cameraMath'
-import { shouldEmitCursor } from './cursorThrottle'
+import { clientToRoomPoint } from './viewport/cameraMath'
+import { shouldEmitCursor } from './net/cursorThrottle'
 
 export interface CursorBroadcastInput {
   /** The viewport container. Pointer positions are measured against it. */

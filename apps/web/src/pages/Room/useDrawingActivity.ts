@@ -4,7 +4,7 @@ import { useRoomStore } from '../../stores/roomStore'
 import {
   currentlyDrawing, currentlyDrawingLayers, layerActivityKey, sameIds, sameLayerDrawers,
   type LayerActivity,
-} from './drawingIndicator'
+} from './gestures/drawingIndicator'
 
 /** How long after someone's last stroke event they stop counting as drawing. */
 const DRAWING_TIMEOUT_MS = 1500

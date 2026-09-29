@@ -4,7 +4,7 @@ import { OptionButton, OptionSelect, type PickerOption } from '../OptionPicker'
 import { Switch } from '../Switch'
 import { rgbToHex } from '../../lib/browser/color'
 import { useT } from '../../i18n'
-import type { SettingDescriptor } from '../../pages/Room/toolSchemas'
+import type { SettingDescriptor } from '../../pages/Room/tools/toolSchemas'
 import styles from './SettingField.module.css'
 
 interface SettingFieldProps {

@@ -8,10 +8,10 @@ import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations/annot
 import { CLICK_MOVE_THRESHOLD_PX, TAP_MOVE_THRESHOLD_PX } from '../../lib/input/tapThreshold'
 import { useRoomStore } from '../../stores/roomStore'
 import type { EditorTool } from '../../stores/slices/toolSlice'
-import { annotationAt } from './annotationHitTest'
-import { clientToRoomPoint } from './cameraMath'
-import { getToolColor } from './toolSchemas'
-import { useCatcherHole } from './useCatcherHole'
+import { annotationAt } from './editing/annotationHitTest'
+import { clientToRoomPoint } from './viewport/cameraMath'
+import { getToolColor } from './tools/toolSchemas'
+import { useCatcherHole } from './editing/useCatcherHole'
 import type { DispatchedOp } from './useTransformSession'
 
 /** (#510) How far apart two live ink samples must be, in world units, before

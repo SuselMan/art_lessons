@@ -54,7 +54,7 @@ nodes:
       React-страницы и один Zustand-стор. Стор — отражение того, что уже применено к движку, а
       не источник правды для картинки: движок меняют императивным вызовом, стор потом
       записывает результат.
-    modules: [apps/web/src, room-shell, room-net, room-tools, room-panels, store-room, store-app, apps/web/src/lib/api]
+    modules: [apps/web/src, apps/web/src/pages/Room, apps/web/src/pages/Room/net, apps/web/src/pages/Room/tools, apps/web/src/pages/Room/panels, store-room, store-app, apps/web/src/lib/api]
 
   - id: engine
     title: Движок
@@ -85,7 +85,7 @@ nodes:
       Исходящая очередь операций (outbox): переживает потерю связи и перезагрузку вкладки.
       И буфер обмена редактора — он переживает переход в другую комнату и виден из соседней
       вкладки.
-    modules: [room-net]
+    modules: [apps/web/src/pages/Room/net]
 
   - id: ls
     title: localStorage
@@ -364,8 +364,8 @@ links:
       Тип знает только тот код, который пишет и читает. Что лежит на диске после обновления
       приложения до новой версии, компилятор не проверит: запись могла оставить старая сборка.
     messages:
-      - { dir: '→', name: pending-operations, type: 'OutboxEntry', decl: [apps/web/src/pages/Room/outboxStorage.ts], note: 'операция ждёт operation_confirmed' }
-      - { dir: '←', name: 'чтение при входе', type: 'OutboxEntry', decl: [apps/web/src/pages/Room/outboxStorage.ts], note: 'неотправленное уходит заново' }
+      - { dir: '→', name: pending-operations, type: 'OutboxEntry', decl: [apps/web/src/pages/Room/net/outboxStorage.ts], note: 'операция ждёт operation_confirmed' }
+      - { dir: '←', name: 'чтение при входе', type: 'OutboxEntry', decl: [apps/web/src/pages/Room/net/outboxStorage.ts], note: 'неотправленное уходит заново' }
 
   - id: ui-ls
     from: ui

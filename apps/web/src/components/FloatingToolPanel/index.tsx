@@ -12,7 +12,7 @@ import type { ColorPairControls } from '../ColorFlyout'
 import { hexToRgb } from '../../lib/browser/color'
 import {
   clampPanelPosition, savePanelPosition, PANEL_SIZE, PANEL_DOM_ID, type PanelPosition,
-} from '../../pages/Room/panelPosition'
+} from '../../pages/Room/viewport/panelPosition'
 import { layoutFlyoutItems, paletteFlyoutActions, type PaletteFlyoutAction, type RayLayoutConfig } from './colorFlyout'
 import {
   SLOT_CHOICES, assignSlot, isGroupWithdrawn, sameSlotContent, slotChoiceKey, slotChoiceLabelKey,

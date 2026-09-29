@@ -3,10 +3,10 @@ import { useCallback, type RefObject } from 'react'
 import type { PencilEngineAPI } from '../../engine'
 import { rgbToHex } from '../../lib/browser/color'
 import { useRoomStore } from '../../stores/roomStore'
-import { deviceNativeZoom } from './cameraMath'
-import { clientToCanvas } from './pointerTransform'
-import type { ColorCapableTool } from './toolSchemas'
-import type { Viewport } from './useViewport'
+import { deviceNativeZoom } from './viewport/cameraMath'
+import { clientToCanvas } from './viewport/pointerTransform'
+import type { ColorCapableTool } from './tools/toolSchemas'
+import type { Viewport } from './viewport/useViewport'
 
 export interface EyedropperDeps {
   engineRef: RefObject<PencilEngineAPI | null>

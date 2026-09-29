@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { PANEL_SIZE } from '../../pages/Room/panelPosition'
+import { PANEL_SIZE } from '../../pages/Room/viewport/panelPosition'
 import {
   DEFAULT_PANEL_LAYOUT, SLOT_CHOICES, SLOT_COUNT, SLOT_RADIUS, assignSlot, isGroupWithdrawn,
   parsePanelLayout, pinnedTools, resolveSlotTool, sameSlotContent,
