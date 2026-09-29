@@ -25,6 +25,7 @@ import type { Dab, ToolType } from '@grafetto/shared'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import type { WorldRect } from '../buffers/tileMath'
+import type { PaperRead } from '../paper/PaperState'
 import { CHARCOAL_FEEL } from '../presets/charcoalFeel'
 import { charcoalNibFromPreset, charcoalPresetFor, type CharcoalPreset } from '../presets/charcoalPresets'
 import { LINER_WICK_PX, LINER_WICK_RADIUS_CAP, linerWickPx } from '../presets/linerPresets'
@@ -43,23 +44,17 @@ interface InstancedArraysExt {
 
 /** What StampPainter may ask of the engine. Functions, not values, for
  *  everything the engine replaces or changes: the quad buffer is rebuilt by
- *  its _initGL on a context restore, the paper texture, scale and catch change
- *  whenever the paper does, and the grain mode follows two dev overrides.
- *  Separate functions rather than one paper() object on purpose: this is the
- *  per-pointer-event path, and none of these allocates. */
+ *  its _initGL on a context restore, and the grain mode follows two dev
+ *  overrides. The paper is the engine's one PaperState, held by reference:
+ *  its texture and catch change inside it, read at draw time — this is the
+ *  per-pointer-event path, and reading it allocates nothing new. */
 export interface StampContext {
   readonly gl: WebGLRenderingContext
   readonly infinite: boolean
   /** DAB_VERT's -0.5..0.5 dab quad. */
   quadBuf(): WebGLBuffer
-  /** The sheet's world size — what a bounded room's batch is clamped to. */
-  pageSize(): { w: number; h: number }
-  paperTex(): WebGLTexture
-  /** See the engine's _paperWorldSize. */
-  paperWorldSize(): { w: number; h: number }
-  paperScale(): number
-  paperFillThreshold(): number
-  paperFillCap(): number
+  /** The grain, and the sheet a bounded room's batch is clamped to. */
+  readonly paper: PaperRead
   /** DAB_FRAG's u_grainMode for this draw — see resolveGrainMode. */
   grainMode(charcoal: CharcoalPreset | null): number
 }
@@ -305,7 +300,7 @@ export class StampPainter {
     // stroke to the window's own size, so on a 4096 page nothing below the
     // window's height painted at all — the dab's rect came back empty and no
     // tile was ever resolved.
-    const { w: pageW, h: pageH } = this.ctx.pageSize()
+    const { w: pageW, h: pageH } = this.ctx.paper.pageSize()
     return {
       minX: Math.max(minX, 0), minY: Math.max(minY, 0),
       maxX: Math.min(maxX, pageW), maxY: Math.min(maxY, pageH),
@@ -330,8 +325,8 @@ export class StampPainter {
     const u = this.dabUni
 
     gl.uniform2f(u.u_resolution, resW, resH)
-    const paperScale = this.ctx.paperScale()
-    gl.uniform2f(u.u_paperScale, paperScale, paperScale)
+    const paper = this.ctx.paper
+    gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
     // #141: world-space paper sampling — see DAB_FRAG's own comment. Y is
     // negated (defensively normalized away from -0 with `|| 0`, since
     // JSON/toEqual-style equality checks — see this fix's own tests — can
@@ -341,18 +336,18 @@ export class StampPainter {
     // added) there for the two to agree at every shared tile edge — see
     // this fix's own tests for the boundary derivation. originX/Y are
     // always (0,0) for a bounded room, so this is (0,0) there regardless.
-    const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
+    const { w: paperTexW, h: paperTexH } = paper.worldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
     gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this.ctx.paperTex())
+    gl.bindTexture(gl.TEXTURE_2D, paper.texture)
     gl.uniform1i(u.u_paperHeightMap, 0)
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
     gl.uniform1i(u.u_grainMode, this.ctx.grainMode(charcoal))
-    gl.uniform1f(u.u_paperFillThreshold, this.ctx.paperFillThreshold())
-    gl.uniform1f(u.u_paperFillCap, this.ctx.paperFillCap())
+    gl.uniform1f(u.u_paperFillThreshold, paper.fillThreshold)
+    gl.uniform1f(u.u_paperFillCap, paper.fillCap)
     gl.uniform1f(u.u_inkMode, inkMode)
     // #452: the shader applies the cap itself, per dab, because only it knows
     // each dab's own radius on the batched path — these two carry the rule,
@@ -427,22 +422,22 @@ export class StampPainter {
 
     gl.useProgram(this.instProg)
     gl.uniform2f(u.u_resolution, resW, resH)
-    const paperScale = this.ctx.paperScale()
-    gl.uniform2f(u.u_paperScale, paperScale, paperScale)
+    const paper = this.ctx.paper
+    gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
     // #141: see paintUniform's own comment for the world-space-paper /
     // origin-sign reasoning — identical here, just for the batched path.
-    const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
+    const { w: paperTexW, h: paperTexH } = paper.worldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
     gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this.ctx.paperTex())
+    gl.bindTexture(gl.TEXTURE_2D, paper.texture)
     gl.uniform1i(u.u_paperHeightMap, 0)
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
     gl.uniform1i(u.u_grainMode, this.ctx.grainMode(charcoal))
-    gl.uniform1f(u.u_paperFillThreshold, this.ctx.paperFillThreshold())
-    gl.uniform1f(u.u_paperFillCap, this.ctx.paperFillCap())
+    gl.uniform1f(u.u_paperFillThreshold, paper.fillThreshold)
+    gl.uniform1f(u.u_paperFillCap, paper.fillCap)
     gl.uniform1f(u.u_inkMode, inkMode)
     // #452: the shader applies the cap itself, per dab, because only it knows
     // each dab's own radius on the batched path — these two carry the rule,

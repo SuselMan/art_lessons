@@ -220,7 +220,7 @@ export function createRoomStateHandler<Engine>({
         // "Nothing to restore" is not the same as "nothing to wait for",
         // though: the paper texture is a hard prerequisite for drawing at
         // all (the engine drops any stroke that starts before it has
-        // loaded — see _paperTexLoaded), so this awaits it exactly like
+        // loaded — see PaperState.loaded), so this awaits it exactly like
         // every other exit from this handler does. Without the await, a
         // freshly created room dismissed its own preloader mid-download —
         // visibly, since #345 put a real progress bar on it — and opened

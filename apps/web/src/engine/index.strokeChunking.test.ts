@@ -24,7 +24,7 @@ describe('#(perf) very long strokes are chunked into multiple StrokeOperations',
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
     engine.setActiveLayer('L')
     // _onStart refuses to begin a stroke at all until the paper texture has
-    // loaded (see engine/index.ts's own _paperTexLoaded comment) — silently
+    // loaded (see src/paper/PaperState.ts's _loaded comment) — silently
     // a no-op otherwise, which is exactly why this needs awaiting first.
     await paperReady(engine)
 

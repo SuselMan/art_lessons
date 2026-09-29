@@ -110,7 +110,7 @@ describe('a checkpoint taken while this user is still drawing', () => {
   it('is refused, since the recorded operation does not exist until pen-up', async () => {
     const { engine } = createTestEngine({ userId: 'me' }, CANVAS)
     // The pointer path refuses to start a stroke until the real paper texture
-    // is in (engine's _paperTexLoaded gate), and a stroke that never starts
+    // is in (engine's PaperState.loaded gate), and a stroke that never starts
     // would make this test pass for the wrong reason.
     await paperReady(engine)
     engine.appendOperation(makeLayerAdd('me', 'L'))

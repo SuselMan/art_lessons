@@ -179,10 +179,10 @@ interface EngineInternals {
   // #141 white-box access — see paperTextureSize/paperTextureWrap/
   // lastPaperDabUniform below.
   gl: MockGL
-  _paperTex: object
-  // Resolves once _initPaper's async load has swapped the placeholder for
-  // the real baked texture — see engine/index.ts's own field comment.
-  _paperReady: Promise<void>
+  // (#494) The paper lives on PaperState (src/paper/PaperState.ts). ready()
+  // resolves once its async load has swapped the placeholder for the real
+  // baked texture — see that class's own field comments.
+  _paper: { readonly texture: object; ready(): Promise<void> }
   _dabUni: Record<string, MockLocation | null>
   // (#494) The instanced stamp program's uniforms live on StampPainter now.
   _stamps: { instUni: Record<string, MockLocation | null> }
@@ -446,11 +446,11 @@ export function rotateMatrixInvFor(engine: PencilEngine): Matrix3 {
 // PencilEngine's private fields.
 
 /** The paper texture's own GL pixel dimensions — the same fixed, offline-
- *  baked resolution for both bounded and infinite rooms (see _initPaper);
- *  a 1x1 placeholder until `await internals(engine)._paperReady` resolves. */
+ *  baked resolution for both bounded and infinite rooms (see PaperState.load);
+ *  a 1x1 placeholder until `await paperReady(engine)` resolves. */
 export function paperTextureSize(engine: PencilEngine): { width: number; height: number } | null {
   const eng = internals(engine)
-  return eng.gl.getTextureSize(eng._paperTex)
+  return eng.gl.getTextureSize(eng._paper.texture)
 }
 
 /** (#365) The paper texture's mip state: how many chains have been built for
@@ -461,23 +461,23 @@ export function paperTextureSize(engine: PencilEngine): { width: number; height:
 export function paperMipState(engine: PencilEngine): { generations: number; askingForMips: boolean } {
   const eng = internals(engine)
   return {
-    generations: eng.gl.getMipmapGenerations(eng._paperTex),
-    askingForMips: eng.gl.getMinFilter(eng._paperTex) === eng.gl.LINEAR_MIPMAP_LINEAR,
+    generations: eng.gl.getMipmapGenerations(eng._paper.texture),
+    askingForMips: eng.gl.getMinFilter(eng._paper.texture) === eng.gl.LINEAR_MIPMAP_LINEAR,
   }
 }
 
 /** The paper texture's wrap mode — REPEAT for both bounded and infinite
- *  rooms (see _initPaper/paperLoader.ts). */
+ *  rooms (see PaperState.load/paperLoader.ts). */
 export function paperTextureWrap(engine: PencilEngine): { wrapS: number; wrapT: number } | null {
   const eng = internals(engine)
-  return eng.gl.getTextureWrap(eng._paperTex)
+  return eng.gl.getTextureWrap(eng._paper.texture)
 }
 
-/** Awaits _initPaper's in-flight (or already-settled) load — see
- *  engine/index.ts's own _paperReady field comment. Lets a test observe the
+/** Awaits PaperState's in-flight (or already-settled) load — see its own
+ *  _ready field comment. Lets a test observe the
  *  post-load texture deterministically instead of guessing tick counts. */
 export function paperReady(engine: PencilEngine): Promise<void> {
-  return internals(engine)._paperReady
+  return internals(engine)._paper.ready()
 }
 
 /** Simulates a WebGL context-restore (webglcontextrestored) without needing
