@@ -163,13 +163,28 @@ function isCoverableOp(op: Operation): op is CoverableOperation {
  *  This is the one rule three callers share — what stays in RAM, what a
  *  joining client is sent, and what a fork copies (forkRoutes.ts) — precisely
  *  because letting them drift is the shape of the bug the epic exists to
- *  fix. */
+ *  fix.
+ *
+ *  (#536, §17.61) `targetOf` resolves what an undo, redo or revoke points at.
+ *  Such an operation does what its target did, in reverse, so it is covered
+ *  exactly when its target *at the undo's own seq* would be: an undo of a
+ *  stroke needs that stroke's layer pixels to have reached it, not merely the
+ *  stored structure. Judged by structure alone, a layer with no pixel snapshot
+ *  — every watercolour layer whose bake was refused mid-wash — sent a joining
+ *  client the stroke and withheld its undo, so the undone stroke came back.
+ *  Without `targetOf`, or with a target no longer held, it falls back to that
+ *  structural reading. */
 export function isCoveredBySnapshot(
   coveredSeqByLayer: ReadonlyMap<string, number>, op: Operation,
   layerStateSeq: number | null = null, layerStateIds: ReadonlySet<string> | null = null,
   now: number = Date.now(),
+  targetOf?: (opId: string) => Operation | undefined,
 ): boolean {
   const seq = op.seq ?? 0
+  if (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') {
+    const target = targetOf?.(op.targetOpId)
+    if (target) return isCoveredBySnapshot(coveredSeqByLayer, { ...target, seq }, layerStateSeq, layerStateIds, now)
+  }
   const structureCovered = layerStateSeq !== null && seq <= layerStateSeq
   // A layer the stored structure no longer lists is gone, and a gone layer
   // needs no pixels: nothing displays it. Only meaningful for an operation the

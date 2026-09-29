@@ -26,7 +26,9 @@ import { deriveLayerIds } from './structuralLog.js'
 function trimResidentOperations(record: RoomRecord): void {
   if (record.coveredSeqByLayer.size === 0) return
   record.operations = record.operations.filter(
-    op => !isCoveredBySnapshot(record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds))
+    op => !isCoveredBySnapshot(
+      record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds, undefined,
+      id => record.operationsById.get(id)))
   record.operationsById = new Map(record.operations.map(op => [op.id, op]))
 }
 

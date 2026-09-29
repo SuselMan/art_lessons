@@ -6691,7 +6691,16 @@ export class PencilEngine implements PencilEngineAPI {
    *  without ever touching a buffer — so the resulting entries' done/undone/
    *  gone states come from the exact same state machine, then merges them
    *  into the real log in one step. */
-  absorbHistoricalOperations(ops: Operation[]): void {
+  absorbHistoricalOperations(pageOps: Operation[]): void {
+    // (#536, §17.61) A backfill page is "everything below the snapshot's seq",
+    // but since #372 the join tail is judged per layer: a layer with no pixel
+    // snapshot of its own gets its whole history in the tail. So a page can
+    // repeat what the log already holds — in room jExxU2EJ all 100 of it, and
+    // again on every reconnect's restore. Prepended twice, a stroke is painted
+    // twice by every later rebuild: undo darkened the layer it rebuilt.
+    const held = new Set(this._log.entries.map(e => e.op.id))
+    const ops = pageOps.filter(op => !held.has(op.id))
+    if (ops.length === 0) return
     const scratch = new OperationLog()
     for (const op of ops) {
       scratch.append(op)

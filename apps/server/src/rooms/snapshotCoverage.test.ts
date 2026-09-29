@@ -54,6 +54,38 @@ describe('structure', () => {
   })
 })
 
+// (#536, §17.61) A stored layerState with no pixel snapshot for the layer —
+// what a watercolour room gets while every bake is refused mid-wash. The
+// stroke is sent; its undo used to be withheld as "structure", so a joining
+// client showed the undone stroke.
+describe('undo, redo, revoke', () => {
+  const undo = (seq: number, target: Operation): Operation =>
+    ({ ...base(seq), id: `u${seq}`, type: 'operation_undo', targetOpId: target.id })
+  const ids = new Set(['layer-1', 'layer-2'])
+
+  it('is covered exactly when its target would be at the undo’s own seq', () => {
+    const target = stroke(3)
+    const targetOf = (id: string) => (id === target.id ? target : undefined)
+    expect(isCoveredBySnapshot(new Map(), target, 10, ids)).toBe(false)
+    expect(isCoveredBySnapshot(new Map(), undo(5, target), 10, ids, 0, targetOf)).toBe(false)
+    // Pixels that reached the undo already show the stroke gone.
+    expect(isCoveredBySnapshot(new Map([['layer-1', 5]]), undo(5, target), 10, ids, 0, targetOf)).toBe(true)
+    // Pixels past the stroke but short of its undo still show it.
+    expect(isCoveredBySnapshot(new Map([['layer-1', 4]]), undo(5, target), 10, ids, 0, targetOf)).toBe(false)
+  })
+
+  it('of a structural operation stays judged by the stored structure', () => {
+    const target = add(3)
+    const targetOf = (id: string) => (id === target.id ? target : undefined)
+    expect(isCoveredBySnapshot(new Map(), undo(5, target), 10, ids, 0, targetOf)).toBe(true)
+    expect(isCoveredBySnapshot(new Map(), undo(15, target), 10, ids, 0, targetOf)).toBe(false)
+  })
+
+  it('falls back to the structure when the target is not held', () => {
+    expect(isCoveredBySnapshot(new Map(), undo(5, stroke(3)), 10, ids, 0, () => undefined)).toBe(true)
+  })
+})
+
 describe('layerStateIdsOf', () => {
   // Null, not an empty set: an empty set would withhold every operation.
   it('reads the ids, and answers null — never empty — for what it cannot read', () => {
