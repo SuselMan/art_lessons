@@ -1,27 +1,12 @@
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import type { IconName } from '../../icons/iconNames'
+import type { NoticeAction, NoticeVariant } from '../../stores/noticeStore'
 import styles from './Notice.module.css'
 
-/** What the strip means, which is the only thing a caller should have to pick
- *  — the colour follows from it (#343). `neutral` is not a weaker warning: a
- *  lesson closed for editing is its normal state once handed out, and
- *  colouring that as a problem would misreport it. */
-export type NoticeVariant = 'error' | 'warning' | 'success' | 'neutral'
-
-/** Which edge the strip is anchored to. Not used by `Notice` itself — it is
- *  the containers (`NoticeStack`, and the room's own two columns) that
- *  position, so this type lives here next to the variant it travels with. */
-export type NoticePosition = 'top' | 'bottom'
-
-export interface NoticeAction {
-  label: string
-  onClick: () => void
-  /** For an action that runs a request — the button stays visible but
-   *  un-clickable while it is in flight, instead of the strip vanishing and
-   *  reappearing. */
-  disabled?: boolean
-}
+// (#650) The notice's data types live with the store that holds notices; the strip only
+// draws them. Re-exported so `components/Notice` stays the one place callers import from.
+export type { NoticeAction, NoticePosition, NoticeVariant } from '../../stores/noticeStore'
 
 /** The default icon per variant, so the common case is one prop shorter.
  *  Overridable because the meaning is sometimes more specific than the

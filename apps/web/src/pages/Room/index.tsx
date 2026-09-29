@@ -109,7 +109,7 @@ import { SelectionOverlay } from './overlays/SelectionOverlay'
 import { AnnotationOverlay } from './overlays/AnnotationOverlay'
 import { useCompactLayout } from '../../lib/input/useCompactLayout'
 import { useNarrowHeader } from '../../lib/input/useNarrowHeader'
-import { rotateAboutMatrix, type TransformMode } from './editing/transformMath'
+import { rotateAboutMatrix, type TransformMode } from '../../lib/transform/transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './panels/ParticipantsPanel'
 import { useJoinQueue } from './net/joinQueue'
 import { JoinGate } from './status/JoinGate'
@@ -119,7 +119,7 @@ import {
   loadToolSettings, saveToolSettings,
   isShapeTool, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
 } from './tools/toolSchemas'
-import { loadPanelPosition, type PanelPosition } from './viewport/panelPosition'
+import { loadPanelPosition, type PanelPosition } from '../../components/FloatingToolPanel/panelPosition'
 import { TOOL_PHOTOS } from './tools/toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './editing/activeLayer'
 import { ChiselAngleDial } from './overlays/ChiselAngleDial'

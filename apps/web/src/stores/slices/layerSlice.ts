@@ -4,8 +4,17 @@ import { BACKGROUND_LAYER_ID, INITIAL_LAYER_ID, type LayerState, type Operation 
 import { translate } from '../../i18n/translate'
 import { replayLayerState, overlayLocalFields } from '../../lib/layers/layers'
 import { useSettingsStore } from '../settingsStore'
-import type { RulerPoint } from '../../pages/Room/overlays/RulerOverlay'
-import type { TransformBounds, TransformMatrix } from '../../pages/Room/editing/transformMath'
+import type { TransformBounds, TransformMatrix } from '../../lib/transform/transformMath'
+
+export interface RulerPoint {
+  // Canvas physical-pixel space for bounded rooms (same coordinate system
+  // as Dab.x/y); genuine world space for infinite rooms (#143) — matches
+  // what engine.setRuler's snapping compares real stroke dabs against
+  // there. Produced by Room's ruler drag handler via `clientToRoomPoint`
+  // either way.
+  x: number
+  y: number
+}
 
 // (#208) The two baseline layers are the only ones whose names never travel
 // through the operation log — they're the implicit state every replay starts

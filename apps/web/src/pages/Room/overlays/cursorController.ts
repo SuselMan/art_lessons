@@ -3,7 +3,7 @@ import type { ToolType } from '@grafetto/shared'
 
 import { useRoomStore } from '../../../stores/roomStore'
 import type { DrawingTool, EditorTool } from '../../../stores/slices/toolSlice'
-import { transformGestureKind, type TransformHandleKind, type TransformMode } from '../editing/transformMath'
+import { transformGestureKind, type TransformHandleKind, type TransformMode } from '../../../lib/transform/transformMath'
 import type { RulerGesture } from '../gestures/rulerGesture'
 
 // ── what the pointer looks like, decided in exactly one place (#393) ────────

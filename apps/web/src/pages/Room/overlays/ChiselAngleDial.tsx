@@ -1,7 +1,7 @@
 import { RadialDial } from '../../../components/RadialDial'
 import { useRoomStore } from '../../../stores/roomStore'
 import { useT } from '../../../i18n'
-import { PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from '../viewport/panelPosition'
+import { PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from '../../../components/FloatingToolPanel/panelPosition'
 import { formatDegreesMinutes, type UiToolId } from '../tools/toolSchemas'
 
 interface ChiselAngleDialProps {

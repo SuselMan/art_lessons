@@ -2,7 +2,7 @@ import { transformHandleCursor, TRANSFORM_PIVOT_CURSOR } from './cursorControlle
 import {
   applyMatrix, frameCorners, IDENTITY_MATRIX,
   type Point, type TransformBounds, type TransformHandleKind, type TransformMatrix, type TransformMode,
-} from '../editing/transformMath'
+} from '../../../lib/transform/transformMath'
 import styles from '../Room.module.css'
 
 interface TransformGizmoProps {

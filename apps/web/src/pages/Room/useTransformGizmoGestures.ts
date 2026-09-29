@@ -9,7 +9,7 @@ import {
   transformGestureKind, isNegligibleTransform, distortQuad, solveQuadMatrix, isFrameInFront,
   translateMatrix, scaleAxisMatrix, skewAxisMatrix, rotateAboutMatrix,
   type TransformBounds, type TransformMatrix, type TransformHandleKind, type TransformMode,
-} from './editing/transformMath'
+} from '../../lib/transform/transformMath'
 import type { TransformSession } from './useTransformSession'
 import type { Viewport } from './viewport/useViewport'
 

@@ -369,21 +369,6 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/stores/noticeStore.ts",
-    "to": "apps/web/src/components/Notice/Notice.tsx",
-    "unresolvedTo": "../components/Notice/Notice",
-    "dependencyTypes": [
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-state"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "apps/web/src/stores/settingsStore.ts",
     "to": "apps/web/src/components/ColorPicker/pickerModes.ts",
     "unresolvedTo": "../components/ColorPicker/pickerModes",
@@ -412,50 +397,6 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/stores/slices/layerSlice.ts",
-    "to": "apps/web/src/pages/Room/editing/transformMath.ts",
-    "unresolvedTo": "../../pages/Room/editing/transformMath",
-    "dependencyTypes": [
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-state"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/stores/slices/layerSlice.ts",
-    "to": "apps/web/src/pages/Room/overlays/RulerOverlay.tsx",
-    "unresolvedTo": "../../pages/Room/overlays/RulerOverlay",
-    "dependencyTypes": [
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-state"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/stores/slices/roomSlice.ts",
-    "to": "apps/web/src/pages/Room/participants/participants.ts",
-    "unresolvedTo": "../../pages/Room/participants/participants",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-state"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "apps/web/src/stores/slices/toolSlice.ts",
     "to": "apps/web/src/pages/Room/tools/toolSchemas.ts",
     "unresolvedTo": "../../pages/Room/tools/toolSchemas",
@@ -466,35 +407,6 @@
     "rule": {
       "severity": "error",
       "name": "layer-state"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/stores/slices/viewportSlice.ts",
-    "to": "apps/web/src/pages/Room/viewport/useViewport.ts",
-    "unresolvedTo": "../../pages/Room/viewport/useViewport",
-    "dependencyTypes": [
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-state"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "apps/web/src/components/FloatingToolPanel/index.tsx",
-    "to": "apps/web/src/pages/Room/viewport/panelPosition.ts",
-    "unresolvedTo": "../../pages/Room/viewport/panelPosition",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "layer-ui-kit"
     }
   },
   {
@@ -896,107 +808,6 @@
         "name": "apps/web/src/lib/input/hotkeys.ts",
         "dependencyTypes": [
           "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "apps/web/src/pages/Room/viewport/cameraMath.ts",
-    "to": "apps/web/src/pages/Room/viewport/useViewport.ts",
-    "unresolvedTo": "./useViewport",
-    "dependencyTypes": [
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "warn",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
-        "dependencyTypes": [
-          "local",
-          "type-only",
-          "import"
-        ]
-      },
-      {
-        "name": "apps/web/src/pages/Room/viewport/cameraMath.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "apps/web/src/pages/Room/viewport/useViewport.ts",
-    "to": "apps/web/src/stores/roomStore.ts",
-    "unresolvedTo": "../../../stores/roomStore",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "warn",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "apps/web/src/stores/roomStore.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "apps/web/src/stores/slices/viewportSlice.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
-        "dependencyTypes": [
-          "local",
-          "type-only",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "apps/web/src/pages/Room/viewport/useViewport.ts",
-    "to": "apps/web/src/stores/slices/viewportSlice.ts",
-    "unresolvedTo": "../../../stores/slices/viewportSlice",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "warn",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "apps/web/src/stores/slices/viewportSlice.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "apps/web/src/pages/Room/viewport/useViewport.ts",
-        "dependencyTypes": [
-          "local",
-          "type-only",
           "import"
         ]
       }

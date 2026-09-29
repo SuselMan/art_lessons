@@ -6,9 +6,10 @@ import { ZOOM_MAX, deviceNativeZoom, fitZoom, holdAngle, minZoom, pinchViewport,
 import { PinchTracker } from './pinchTracker'
 import { diagLog } from '../../../lib/observability/diagLog'
 import { useRoomStore } from '../../../stores/roomStore'
-import { isHandActive } from '../../../stores/slices/viewportSlice'
+import { isHandActive, type Viewport } from '../../../stores/slices/viewportSlice'
 
-export interface Viewport { cx: number; cy: number; zoom: number; angle: number }
+// (#650) Declared with the store slice that holds it; re-exported for the camera's callers.
+export type { Viewport } from '../../../stores/slices/viewportSlice'
 
 interface CanvasSize { width: number; height: number }
 
