@@ -11,14 +11,11 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import {
   PencilEngine, type PencilEngineAPI, type PencilGradeName, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage,
 } from '../../engine'
-import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
-import { SidePanel } from '../../components/SidePanel'
-import { ColorFlyout, ColorFlyoutBody } from '../../components/ColorFlyout'
+import { ColorFlyout } from '../../components/ColorFlyout'
 import { Notice } from '../../components/Notice'
 import { BoardStrip, TeacherChip } from './panels/BoardStrip'
 import { ClassBar, ClassGrid } from './panels/ClassGrid'
-import { ClassPlaces } from './panels/ClassPlaces'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
@@ -89,7 +86,6 @@ import { ConnectionBanner } from './status/ConnectionBanner'
 import { RoomHeader } from './panels/RoomHeader'
 import { ToolRail } from './panels/ToolRail'
 import { QuickSettingsBar } from './panels/QuickSettingsBar'
-import { ToolSettingsTab } from './panels/ToolSettingsTab'
 import { resolveDisplayName } from './participants/displayName'
 import { cameraTransformCss } from './viewport/cameraMath'
 import { connectRoomSocket } from './net/roomSocket'
@@ -97,7 +93,7 @@ import { useCursor, type ViewportCursor } from './overlays/cursorController'
 import { CanvasOverlays } from './overlays/CanvasOverlays'
 import { useCompactLayout } from './useCompactLayout'
 import { useNarrowHeader } from '../../lib/input/useNarrowHeader'
-import { ParticipantsPanel, ParticipantsRoomActions } from './panels/ParticipantsPanel'
+import { RoomSidePanel } from './panels/RoomSidePanel'
 import { useJoinQueue } from './net/joinQueue'
 import { JoinGate } from './status/JoinGate'
 import { NoWebGL } from './status/NoWebGL'
@@ -429,9 +425,6 @@ function RoomEditor() {
   // not need it to. Where the finger *does* draw, two-finger pan follows
   // automatically rather than as a second setting: see toolActiveRef below.
   const annotateWithFinger = compact && annotateActive
-  // (#557) The layer solo: private view state like `annotationsHidden`, applied to the engine as a display filter below.
-  const soloIds = useRoomStore(s => s.soloIds)
-  const setSoloIds = useRoomStore(s => s.setSoloIds)
   // The session itself. Authoritative (the store copy exists to drive
   // rendering), and a ref rather than state so the drag handlers don't have to
   // list a value that changes on every animation frame among their deps.
@@ -487,7 +480,6 @@ function RoomEditor() {
   // of the engine's operation log (ADR 002), never independently mutable
   // content state; see syncFromLog below and roomStore's layerSlice.
   const layerState = useRoomStore(s => s.layerState)
-  const setLayerStateLocal = useRoomStore(s => s.setLayerStateLocal)
   // (#506) The one field of that cache which is *not* derived from the log:
   // `activeId` is per-user view state, so a reload has nothing to rebuild it
   // from and every room used to open on its top layer regardless of what the
@@ -533,19 +525,6 @@ function RoomEditor() {
   // folds each socket event through the same pure participantsReducer
   // (participants.ts), reused unchanged.
   const participants = useRoomStore(s => s.participants)
-  const layerDrawers = useRoomStore(s => s.layerDrawers)
-  // Layer id → the colours of the peers drawing into it, for the layer
-  // panel's outline. A peer without a roster entry (left a moment ago, the
-  // entry already gone) simply has no colour to show and drops out.
-  const layerDrawerColors = useMemo(() => {
-    const colorOf = new Map(participants.map(p => [p.userId, p.color]))
-    const out: Record<string, string[]> = {}
-    for (const [layerId, userIds] of Object.entries(layerDrawers)) {
-      const colors = userIds.flatMap(u => colorOf.get(u) ?? [])
-      if (colors.length) out[layerId] = colors
-    }
-    return out
-  }, [layerDrawers, participants])
   const dispatchParticipants = useRoomStore(s => s.applyParticipantAction)
   // (#254 epic) `userId` is normally read only non-reactively via getState()
   // at "moment of action" call sites (see its own doc comment on
@@ -601,13 +580,10 @@ function RoomEditor() {
   // named in a hook's arguments has to exist before the hook is called.
   const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   // The store's own facts about the lesson, read where the markup uses them.
-  const boards = useRoomStore(s => s.boards)
   const knownLessonId = useRoomStore(s => s.lessonId)
-  const assignments = useRoomStore(s => s.assignments)
   const activeAssignmentId = useRoomStore(s => s.activeAssignmentId)
   const spotlightBoardId = useRoomStore(s => s.spotlightBoardId)
   const classVisibility = useRoomStore(s => s.classVisibility)
-  const handsRaised = useRoomStore(s => s.handsRaised)
   // (#493) The strip's page turns and edits — see useBoardActions.
   const {
     boardsOpen, setBoardsOpen, boardBusy, selectBoard, returnToTeacher, addBoard, renameBoardAction, moveBoard,
@@ -615,15 +591,15 @@ function RoomEditor() {
   } = useBoardActions({ socketRef, switchBoardRef, isOwnerRef })
   // (#493) Where each board goes on screen, and the class-mode requests — see
   // useClassView.
-  const {
-    teacherBoard, gridAssignmentId, setGridAssignmentId, assignmentBusy, currentBoardSummary, onPersonalBoard,
-    ownAssignmentBoardId, gridAssignment, gridTiles, barTiles, ownBoards, workOf, readOnlyBoard, myHandRaised,
-    handsUp, canOpenGrid, teacherOnMyBoard, bakesPreviewHere, stripList, stripAvailable, showTeacherChip, chipText,
-    openClassBoard, startAssignment, setClassLocation, setSpotlight, setHandRaised, setClassVisibility,
-    stepInGrid,
-  } = useClassView({
+  const classView = useClassView({
     socketRef, switchBoardRef, isOwnerRef, selectBoard, boardId, participants, myUserId, isOwner, compact,
   })
+  const {
+    teacherBoard, gridAssignmentId, setGridAssignmentId, currentBoardSummary, onPersonalBoard,
+    ownAssignmentBoardId, gridAssignment, gridTiles, barTiles, readOnlyBoard, myHandRaised,
+    canOpenGrid, teacherOnMyBoard, bakesPreviewHere, stripList, stripAvailable, showTeacherChip, chipText,
+    openClassBoard, setClassLocation, setSpotlight, setHandRaised, setClassVisibility, stepInGrid,
+  } = classView
   // (#432) The latency meter's clock — see useServerClockSync.
   useServerClockSync(socketRef, connected)
   // (#222) Closed for editing — the lesson has been handed out and stopped
@@ -1916,11 +1892,6 @@ function RoomEditor() {
         })()}
 
         {/* ── Side panel (layers, color, …) ── */}
-        {/* #99: wrapped rather than passing a className into SidePanel — the
-            wrapper is a positioned overlay (see .layerPanelWrap) that only
-            fades in/out, so the panel stays mounted (no lost focus/state)
-            and the canvas underneath never resizes, same as header/toolbar
-            above. */}
         {/* (#512) Not rendered in the compact shell, like the drawing tools:
             layers are a property of the picture, and this shell does not edit
             the picture.
@@ -1933,116 +1904,14 @@ function RoomEditor() {
             aimed at the drawing landed on the panel instead: no note, no mark,
             not even a two-finger pan. */}
         {!compact && (
-        <div
-          className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}
-        >
-          <SidePanel
-            active={activePanel}
-            onSelect={setActivePanel}
-            tabs={[
-              {
-                id: 'layers', icon: 'layers', title: t('room.panel.layers'),
-                content: (
-                  <LayerPanel
-                    layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp}
-                    isOwner={isOwner} {...layerPanelBridge}
-                    soloIds={soloIds} onSoloChange={setSoloIds}
-                    drawerColors={layerDrawerColors}
-                    onOpenFilters={setFilterLayerId}
-                  />
-                ),
-              },
-              {
-                // (#542) The colour surface, always here. Not the old Color tab
-                // back: that one had contents of its own, and this renders the
-                // very same `ColorFlyoutBody` the popover does — one surface in
-                // two presentations, which is what the issue asked for.
-                //
-                // It earns the strip's space on the tools that mix: stroke,
-                // nudge the colour, stroke again is a loop, and a popover has
-                // to be reopened for every nudge while hiding both the canvas
-                // and the quick settings under it — on the watercolour, that is
-                // the Water and Pigment sliders, the other half of mixing.
-                id: 'color', icon: 'palette', title: t('room.panel.color'),
-                content: <ColorFlyoutBody {...colorContent} />,
-              },
-              {
-                // (#328) Who's in the room, their live status, and the owner's
-                // moderation actions on each of them — plus the room-wide
-                // freeze in this tab's own header, which is where it moved to
-                // from the top bar.
-                // (#595, ADR 015 §11) The Class tab: where the class is, the
-                // lesson's assignments, and the people in it.
-                id: 'participants', icon: 'group', title: t('room.panel.class'),
-                // (#380) The one thing in this panel that needs an answer
-                // *now*. Without it on the strip, the waiting section below
-                // only reaches an owner who was already looking at this tab —
-                // which, mid-lesson, is nobody. (#595) Raised hands are the
-                // other one, counted with it — like unread messages.
-                badge: isOwner ? joinQueue.requests.length + handsUp : 0,
-                badgeLabel: [
-                  joinQueue.requests.length > 0 ? t('room.joinQueue.badge', { n: joinQueue.requests.length }) : null,
-                  handsUp > 0 && isOwner ? t('class.handsBadge', { n: handsUp }) : null,
-                ].filter(Boolean).join(' · '),
-                headerActions: (
-                  <ParticipantsRoomActions
-                    isOwner={isOwner}
-                    roomFrozen={roomFrozen}
-                    onToggleRoomFrozen={toggleRoomFrozen}
-                  />
-                ),
-                content: (
-                  <>
-                  {knownLessonId && teacherBoard !== undefined && !compact && (
-                    <ClassPlaces
-                      isTeacher={isOwner}
-                      assignments={assignments}
-                      activeAssignmentId={activeAssignmentId}
-                      spotlight={spotlightBoardId
-                        ? { name: boards.find(b => b.id === spotlightBoardId)?.name ?? '' }
-                        : null}
-                      ownBoards={ownBoards}
-                      currentBoardId={boardId}
-                      teacherBoardId={teacherBoard}
-                      canOpenGrid={canOpenGrid}
-                      busy={assignmentBusy}
-                      defaultName={t('class.defaultName', { n: assignments.length + 1 })}
-                      onGather={() => setClassLocation(null)}
-                      onSendTo={setClassLocation}
-                      onStart={startAssignment}
-                      onOpenGrid={setGridAssignmentId}
-                      onGoto={selectBoard}
-                      onSpotlightOff={() => setSpotlight(null)}
-                    />
-                  )}
-                  <ParticipantsPanel
-                    participants={participants}
-                    drawingIds={drawingIds}
-                    myUserId={myUserId}
-                    isOwner={isOwner}
-                    onToggleFreeze={toggleParticipantFrozen}
-                    joinRequests={joinQueue.requests}
-                    resolvingRequestId={joinQueue.resolvingId}
-                    onResolveJoinRequest={joinQueue.resolve}
-                    handsRaised={handsRaised}
-                    onLowerHand={whose => setHandRaised(false, whose)}
-                    workOf={workOf}
-                    onOpenWork={openClassBoard}
-                  />
-                  </>
-                ),
-              },
-              {
-                // #197: full settings for the *currently active* tool, same
-                // TOOL_SCHEMAS/SettingField data + component the toolbar's
-                // quick-access row uses (#196) — this tab just renders every
-                // field, not only the quickAccess-flagged ones.
-                id: 'toolSettings', icon: 'tune', title: t('room.panel.toolSettings'),
-                content: <ToolSettingsTab onExpandColor={expandColorField} onShapeFrameChange={shape.setFrame} />,
-              },
-            ]}
+          <RoomSidePanel
+            uiHidden={uiHidden} active={activePanel} onSelect={setActivePanel}
+            isOwner={isOwner} dispatchOp={dispatchOp} layerPanelBridge={layerPanelBridge}
+            onOpenFilters={setFilterLayerId} colorContent={colorContent} joinQueue={joinQueue} drawingIds={drawingIds}
+            classView={classView} selectBoard={selectBoard}
+            toggleRoomFrozen={toggleRoomFrozen} toggleParticipantFrozen={toggleParticipantFrozen}
+            onExpandColor={expandColorField} onShapeFrameChange={shape.setFrame}
           />
-        </div>
         )}
 
         {/* Draggable floating tool cluster (#157) — independent of the
