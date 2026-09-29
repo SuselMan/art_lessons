@@ -13,7 +13,6 @@ import {
 } from '../../engine'
 import { FilterPanel } from '../../components/FilterPanel'
 import { ColorFlyout } from '../../components/ColorFlyout'
-import { Notice } from '../../components/Notice'
 import { ClassChrome } from './panels/ClassChrome'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
@@ -29,7 +28,6 @@ import { useAuth } from '../../lib/api/authState'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './viewport/useViewport'
 import { useViewportToast } from './viewport/useViewportToast'
-import { ViewportToast } from './status/ViewportToast'
 import { useCommittableSession } from './shapes/useCommittableSession'
 import { useShapeTool } from './shapes/useShapeTool'
 import { useRulerTool } from './useRulerTool'
@@ -78,10 +76,7 @@ import { OfflineRoomOverlay } from './status/OfflineRoomOverlay'
 import { PaperFailedOverlay } from './status/PaperFailedOverlay'
 import { RestoreFailedOverlay, type RestoreFailureReason } from './status/RestoreFailedOverlay'
 import { notOpenScreen, useOfflineGrace } from './status/notOpenScreen'
-import { FrozenBanner } from './status/FrozenBanner'
-import { ClosedBanner } from './status/ClosedBanner'
-import { LostWorkBanner } from './status/LostWorkBanner'
-import { ConnectionBanner } from './status/ConnectionBanner'
+import { RoomNotices } from './status/RoomNotices'
 import { RoomHeader } from './panels/RoomHeader'
 import { ToolRail } from './panels/ToolRail'
 import { QuickSettingsBar } from './panels/QuickSettingsBar'
@@ -590,8 +585,7 @@ function RoomEditor() {
     socketRef, switchBoardRef, isOwnerRef, selectBoard, boardId, participants, myUserId, isOwner, compact,
   })
   const {
-    currentBoardSummary, onPersonalBoard, ownAssignmentBoardId, readOnlyBoard, myHandRaised, teacherOnMyBoard,
-    bakesPreviewHere, stripAvailable, setHandRaised, setClassVisibility,
+    onPersonalBoard, readOnlyBoard, myHandRaised, bakesPreviewHere, stripAvailable, setHandRaised, setClassVisibility,
   } = classView
   // (#432) The latency meter's clock — see useServerClockSync.
   useServerClockSync(socketRef, connected)
@@ -1718,90 +1712,15 @@ function RoomEditor() {
           )}
         </div>
 
-        {/* (#343) Derived notices — each one visible exactly while its own
-            condition holds, so the condition is the whole lifetime and
-            there is nothing to dismiss or time out. Stacked as siblings in
-            a flex column instead of each guessing at the others' height.
-
-            (#364) Siblings of `.viewport`, not children of it. `.viewport` is
-            a positioned element with a z-index, i.e. a stacking context, so a
-            column inside it could not paint above the header or the side panel
-            no matter what z-index it was given — and hit-testing follows
-            painting, which is why a wide strip's dismiss button (its rightmost
-            control) was unclickable under `.layerPanelWrap` on a tablet, where
-            the column's `max-width` reaches that far. Raising the z-index
-            *inside* the viewport was not the fix, and neither was dropping
-            `.viewport`'s own: `.canvasCatcher` is a
-            full-viewport `pointer-events: auto` layer at z-index 4 in there,
-            and lifting them into the shared context would have them swallow
-            taps meant for the chrome. */}
-        <div className={styles.noticesTop}>
-          {/* (#254/#259) Only ever shown to a blocked non-owner — the owner
-              triggering their own room-wide freeze isn't blocked by it (see
-              isBlockedByFreeze), so this never shows for them. */}
-          {isBlockedByFreeze && !roomClosed && <FrozenBanner roomFrozen={roomFrozen} />}
-          {/* (#595) Class mode's two notices for a student: the teacher is on
-              their own board (the cursor alone is easy to miss), or they are
-              looking at a classmate's work and the pen will not take. */}
-          {teacherOnMyBoard && (
-            <Notice variant="neutral" icon="school" role="status" message={t('class.teacherWatching')} />
-          )}
-          {readOnlyBoard && currentBoardSummary && (
-            <Notice
-              variant="neutral"
-              icon="visibility"
-              role="status"
-              message={t('class.readOnly', { name: currentBoardSummary.name })}
-              action={ownAssignmentBoardId ? { label: t('class.backToOwn'), onClick: () => selectBoard(ownAssignmentBoardId) } : undefined}
-            />
-          )}
-          {/* (#222) Wins over the freeze banner when both apply: a closed
-              lesson is the more complete explanation, and unlike freeze it
-              offers the way forward (reopen, or take a copy). */}
-          {roomClosed && (
-            <ClosedBanner
-              isOwner={isOwner}
-              busy={closedBusy}
-              onReopen={reopenRoom}
-              onTakeCopy={takeRoomCopy}
-            />
-          )}
-          {/* (#289 §17) Independent of the freeze banner above — both can
-              be up at once, which the column now handles on its own. */}
-          {lostWork && (
-            <LostWorkBanner
-              layerNames={lostWork.layerNames}
-              recovered={lostWork.restoredLayerIds.length > 0}
-              onUndo={undoLostWorkRecovery}
-              onDismiss={() => setLostWork(null)}
-            />
-          )}
-          {/* (#362) Last in the column on purpose: a frozen or closed room is
-              the more important thing on screen and keeps the top slot, and
-              being siblings is what stops the two from overlapping — the same
-              reason the banners above are a column rather than three absolute
-              boxes. Only in minimal UI: with the chrome up, the header's own
-              readouts are the ones to read, and a second copy of them
-              floating over the canvas would be noise. */}
-          {uiHidden && viewportToastVisible && (
-            <ViewportToast
-              zoomPercent={zoomPercent}
-              angleDeg={angleDeg}
-              onReset={resetZoomAndRotation}
-            />
-          )}
-        </div>
-        {/* (#201) Bottom-anchored, so it can coexist with the event
-            banners above for as long as a bad connection lasts. Hidden
-            entirely while connected with an empty queue. */}
-        <div className={styles.noticesBottom}>
-          <ConnectionBanner
-            connected={connected}
-            everConnected={everConnected}
-            pending={outboxState.pending}
-            stalled={outboxState.stalled}
-          />
-        </div>
+        {/* (#343, #364) The derived notices and the connection banner —
+            siblings of `.viewport`, see RoomNotices for why. */}
+        <RoomNotices
+          isOwner={isOwner} isBlockedByFreeze={isBlockedByFreeze} classView={classView} selectBoard={selectBoard}
+          closed={{ busy: closedBusy, onReopen: reopenRoom, onTakeCopy: takeRoomCopy }}
+          lostWork={lostWork} onUndoLostWork={undoLostWorkRecovery} onDismissLostWork={() => setLostWork(null)}
+          toast={uiHidden && viewportToastVisible ? { zoomPercent, angleDeg, onReset: resetZoomAndRotation } : null}
+          connection={{ connected, everConnected, pending: outboxState.pending, stalled: outboxState.stalled }}
+        />
 
         {/* (#574) Mounted only while its layer is a paintable layer: if the
             layer is deleted, or the room stops taking edits, the dialog goes
