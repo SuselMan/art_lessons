@@ -143,7 +143,7 @@ describe('paper texture: world-space grain sampling (#141)', () => {
       // DAB_VERT's own clip.y flip means a tile's local gl_FragCoord.y runs
       // opposite to the tile origin's top-down world-Y convention — origin
       // must be *subtracted*, not added, for the two to agree at a shared
-      // tile edge (see DAB_FRAG's / _paintDabsInstanced's own comment) —
+      // tile edge (see DAB_FRAG's / StampPainter.paintInstanced's own comment) —
       // i.e. u_paperOrigin.y is the *negation* of the tile's true world-Y
       // origin (TILE_SIZE for tile row 1), not the origin itself.
       expect(origin).toEqual([0, -TILE_SIZE])

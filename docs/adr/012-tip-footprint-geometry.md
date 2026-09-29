@@ -66,7 +66,7 @@ tiltMag > 15 ? atan2(tiltY, tiltX) : pathAngle
 
 **Ширина не вся в `Dab.size`.** Итоговая полуширина — это
 `dab.size * 0.5 * preset.sizeMultiplier`, и множитель применяется на отрисовке
-(`_dabWorldHalfExtents`, `_paintDabsInstanced`, `markerRibbon.nibGeometry`), а не
+(`dabWorldHalfExtents`, `StampPainter.paintInstanced`, `markerRibbon.nibGeometry`), а не
 запекается в даб. У графита он ходит 0.5…1.6 по грейдам, у угля 1.10…1.20. Ластик
 его обходит целиком (`erasing ? 1.0 : preset.sizeMultiplier`) — не решением, а
 булевым флагом, протянутым через весь пайплайн.

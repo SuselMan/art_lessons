@@ -184,7 +184,8 @@ interface EngineInternals {
   // the real baked texture — see engine/index.ts's own field comment.
   _paperReady: Promise<void>
   _dabUni: Record<string, MockLocation | null>
-  _dabInstUni: Record<string, MockLocation | null>
+  // (#494) The instanced stamp program's uniforms live on StampPainter now.
+  _stamps: { instUni: Record<string, MockLocation | null> }
   _handleContextRestored: () => void
   // #245 white-box access — see inProgressStrokeDabs below.
   _strokeDabs: Dab[]
@@ -490,21 +491,21 @@ export function triggerContextRestore(engine: PencilEngine): void {
 
 /** The last value a named dab-shader uniform (e.g. 'u_paperOrigin',
  *  'u_paperTexSize') was set to for the most recently painted dab —
- *  whichever of the batched (_dabInstUni) or per-dab-uniform (_dabUni) path
+ *  whichever of the batched (StampPainter's instUni) or per-dab-uniform (_dabUni) path
  *  actually ran last (MockGL always provides the ANGLE_instanced_arrays
  *  shim, so in practice this is always the batched path — see
- *  _paintDabsInstanced). Reads through the *instanced* program first since
+ *  StampPainter.paintInstanced). Reads through the *instanced* program first since
  *  that's the one every real dab paint in these tests actually uses. */
 export function lastPaperDabUniform(engine: PencilEngine, name: string): UniformValue | undefined {
   const eng = internals(engine)
-  const loc = eng._dabInstUni[name] ?? eng._dabUni[name]
+  const loc = eng._stamps.instUni[name] ?? eng._dabUni[name]
   return loc ? eng.gl.readUniform(loc) : undefined
 }
 
 /** Like lastPaperDabUniform, but reads only the non-batched per-dab program
  *  (_dabUni) — needed for marker (#250), whose own paint path
  *  (_paintRibbonStroke) always draws through _dabProg
- *  directly and never _paintDabsInstanced/_dabProgInstanced (see
+ *  directly and never StampPainter's paintInstanced/instProg (see
  *  _paintRibbonDabs' own doc comment on why marker dabs can't batch).
  *  lastPaperDabUniform's own "prefer the instanced location" order would
  *  silently read whatever some *other*, unrelated tool's instanced draw

@@ -119,7 +119,7 @@ ${WICK_EXPAND_GLSL}
 // stroke segment. Packed into 2 vec4 + 1 float (rather than 8 separate
 // scalar/vec2 attributes) to stay comfortably within WebGL1's guaranteed
 // minimum of 8 vertex attributes (a_position takes one of the 4 used here).
-// See engine/index.ts's _paintDabsInstanced for the buffer layout this
+// See dabs/StampPainter.ts's paintInstanced for the buffer layout this
 // expects (interleaved, stride 9 floats: cx,cy,radius,angle,aspect,
 // pressure,tiltX,tiltY,opacity) and for why this preserves the exact
 // sequential per-dab blend order the old per-dab loop relied on.
@@ -534,7 +534,7 @@ export const DAB_FRAG = `
   // ever touching the paper texture — (0,0) for a bounded room (world
   // space == canvas-pixel space there, see tileMath.ts) or a tile's own
   // world origin for an infinite room (Y pre-negated by the caller — see
-  // _paintDabsUniform/_paintDabsInstanced in engine/index.ts) — so two
+  // StampPainter's paintUniform/paintInstanced) — so two
   // dabs at the same true world position sample the exact same paper
   // texel regardless of which tile either one happens to land in. Before
   // this, paperUV came from raw gl_FragCoord/u_resolution alone: every

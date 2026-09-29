@@ -240,7 +240,7 @@ export class SmudgePainter {
 
   /** See paintOneDab's own doc comment for the algorithm and
    *  the engine's _paintDabs doc comment for `prevDab`/`strokeId`. Never batched (unlike
-   *  pencil/eraser's _paintDabsInstanced): every dab both reads the canvas
+   *  pencil/eraser's StampPainter.paintInstanced): every dab both reads the canvas
    *  under it and writes to it, through an imprint threaded dab-to-dab, so
    *  dab N+1's own passes can't be submitted until dab N's have actually
    *  been issued in order. A real cost pencil/eraser don't pay (their dabs

@@ -81,7 +81,7 @@ export class ShapePass {
   /** The world rect a shape's pixels can reach, clamped to the sheet in a
    *  bounded room.
    *
-   *  The clamp is the same one the engine's `_dabsWorldBounds` applies and for
+   *  The clamp is the same one StampPainter's `worldBounds` applies and for
    *  the same reason: a bounded room's tiles are lazily created, and a shape
    *  whose frame merely touches the page edge would otherwise resolve — and
    *  keep forever — a tile of off-page ground nothing can ever make visible

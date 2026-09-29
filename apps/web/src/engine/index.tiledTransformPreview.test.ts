@@ -141,7 +141,7 @@ describe('previewLayerTransform: multi-tile live preview (#139)', () => {
     // Ground truth: _bakeTransform's own already-correct committed result —
     // not an independently-painted reference, since real pointer-driven
     // painting is clamped to the visible page for bounded rooms (#142; see
-    // _dabsWorldBounds) and couldn't reach world x=18 directly the way this
+    // StampPainter.worldBounds) and couldn't reach world x=18 directly the way this
     // transform does.
     engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix }]))
     engine.clearLayerTransformPreview()
@@ -177,7 +177,7 @@ describe('previewLayerTransform: multi-tile live preview (#139)', () => {
     // (not just the tile's whole extent, which is all resolveForPaint used
     // to reason about pre-Tier-2 — see _bakeTransform's own doc comment)
     // reaches right up to the page's own right edge — nominally [8,18],
-    // clamped to [8,16] by _dabsWorldBounds' bounded-room clamp (pointer
+    // clamped to [8,16] by StampPainter.worldBounds' bounded-room clamp (pointer
     // input can't paint past the visible page, same reasoning as ever).
     // Translating by dx=1..5 keeps that real content straddling the
     // (0,0)/(16,0) tile boundary throughout ([9,17] through [13,21]) —
