@@ -856,7 +856,7 @@ export function makeImageImport(
 
 /** (#398) Stands in for the browser's `Image` in vitest's 'node' environment,
  *  which has none — the engine decodes an imported reference image through it
- *  (see _loadImage), so without this the import path cannot run in a test at
+ *  (see the engine's _decodeImage), so without this the import path cannot run in a test at
  *  all. Deliberately per-test rather than process-wide like the rAF/paper
  *  stubs above: what a test of the *import* path usually needs to control is
  *  exactly this — whether a decode succeeds, and when.

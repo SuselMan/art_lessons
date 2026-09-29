@@ -37,7 +37,7 @@ export type ImageImportOperation = OperationBase & {
   width: number
   height: number
   // World-space top-left placement (infinite canvas only, #133 follow-on).
-  // Omitted entirely by fixed-canvas rooms — when absent, _paintImage's
+  // Omitted entirely by fixed-canvas rooms — when absent, the engine's image blit's
   // existing fit-center-within-the-fixed-canvas behavior is unchanged, so
   // every already-recorded op (which never had x/y) keeps replaying exactly
   // as before. Infinite-mode imports always set both.
