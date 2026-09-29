@@ -41,7 +41,7 @@ export function useCursorBroadcast({ vpRef, socketRef, strokeActiveRef }: Cursor
     const el = vpRef.current
     if (!el || !config) return
     // (#155 follow-up) Cached rect, same forced-reflow reasoning as the
-    // engine's own _getCanvasRect (see its doc comment) — getBoundingClientRect
+    // engine's own Camera.canvasRect (see its doc comment) — getBoundingClientRect
     // is a synchronous layout read, and this handler runs on every real
     // pointermove reaching the viewport (throttled to shouldEmitCursor's own
     // rate for the *emit*, but the read itself ran unthrottled before this).

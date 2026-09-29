@@ -4498,7 +4498,7 @@ export const PAPER_COMPOSE_FRAG = `
     vec2 srcUV = vec2(srcPx.x / u_srcSize.x, 1.0 - srcPx.y / u_srcSize.y);
     // Outside the accumulation buffer reads as "no strokes here", not as a
     // transparent hole: the assembly buffer is sized so any rotation still
-    // covers the screen (see _renderBufferExtent), but if that ever fails
+    // covers the screen (see Camera.renderBufferExtent), but if that ever fails
     // at a corner the honest fallback is bare paper, not a punched-out gap.
     bool inside = srcUV.x >= 0.0 && srcUV.x <= 1.0 && srcUV.y >= 0.0 && srcUV.y <= 1.0;
     vec4 acc = vec4(0.0);
