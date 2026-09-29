@@ -26,7 +26,7 @@ import {
   eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers/layers'
 import { hexToRgb } from '../../lib/browser/color'
-import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/browser/uiPreferences'
+import { floatingPanelVisible } from '../../lib/browser/uiPreferences'
 import { diagLog } from '../../lib/observability/diagLog'
 import { formatHotkeyLabel } from '../../lib/input/hotkeys'
 import { useAuth } from '../../lib/api/authState'
@@ -35,7 +35,6 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './viewport/useViewport'
 import { useViewportToast } from './viewport/useViewportToast'
 import { ViewportToast } from './status/ViewportToast'
-import { useTapToggle, type TapDebugInfo } from './gestures/useTapToggle'
 import { useCommittableSession } from './shapes/useCommittableSession'
 import { useShapeTool } from './shapes/useShapeTool'
 import { useRulerTool } from './useRulerTool'
@@ -67,6 +66,7 @@ import { useLostWork } from './useLostWork'
 import { useBoardOutbox } from './useBoardOutbox'
 import { useBoardStream } from './useBoardStream'
 import { useEngineDevOptions } from './useEngineDevOptions'
+import { useMinimalUi } from './useMinimalUi'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -290,81 +290,10 @@ function RoomEditor() {
   // not this — see RoomHeader's toggleFullscreen for why (#357).
   const editorRef = useRef<HTMLDivElement>(null)
 
-  // Minimal UI (#99): a short single-finger tap on the canvas hides the
-  // header/toolbar/layer panel via a CSS class (never unmounted — no lost
-  // focus/state), tap again to bring them back.
-  //
-  // (#189) Two taps by default rather than one — see MinimalUiTapMode. The
-  // count is a setting because the cheaper gesture is genuinely nicer for
-  // anyone whose hand never trips it.
-  //
-  // (#321) A real setting now rather than a feature flag, and touch-only:
-  // `minimalUiActive` folds in the device check, because a PC has neither the
-  // tap that turns this on nor anything that would turn it back off (#384).
-  const minimalUiSetting = useSettingsStore(s => s.minimalUi)
-  const deviceType = useSettingsStore(s => s.deviceType)
-  const tapToHideEnabled = minimalUiActive(minimalUiSetting, deviceType)
-  /** (#509 v3) Whether a second tap on the canvas means "hide the chrome" right
-   *  now — the only case worth making a new note wait for. A ref so the
-   *  annotation gesture handlers read it at event time instead of being rebuilt
-   *  every time the setting changes. Assigned just below useTapToggle, against
-   *  that hook's own arming condition, so the two cannot drift. */
-  const doubleTapArmedRef = useRef(false)
-  /** A tap that may yet become a note, waiting out the grace period above.
-   *  Declared up here, before `toggleUI`, because that is what has to be able
-   *  to call the whole thing off. */
-  const pendingNoteRef = useRef<{ timer: number } | null>(null)
-  const minimalUiTapMode = useSettingsStore(s => s.minimalUiTapMode)
-  // (#157/#321) Where the floating tool cluster is allowed to appear.
+  // (#157/#321) Where the floating tool cluster is allowed to appear, and the
+  // device it is judged for.
   const floatingPanelMode = useSettingsStore(s => s.floatingPanel)
-  useEffect(() => { diagLog('tapToHideEnabled is', tapToHideEnabled) }, [tapToHideEnabled])
-  const [uiHidden, setUiHidden] = useState(false)
-  // Read via a ref (not the setUiHidden updater's own `h` param) purely so
-  // the diagLog call sits in toggleUI's own body, not inside the updater —
-  // StrictMode double-invokes updater functions to check purity, which
-  // would otherwise log every real toggle twice with a misleadingly
-  // identical "before" value both times. toggleUI itself stays `[]`-stable
-  // (useTapToggle's effect deps include `onTap`; a churning identity there
-  // re-attaches its native listeners on every toggle — see its own doc
-  // comment on exactly that class of bug).
-  const uiHiddenRef = useRef(uiHidden)
-  uiHiddenRef.current = uiHidden
-  // Diagnostic (matches useTapToggle/useViewport's own tap:/vp: diagLog
-  // calls) for the "floating panel flickers after a stroke" reports — logs
-  // every actual flip plus the stack-free "why" (never which call site;
-  // there's only one), so a real device's copy-logs output can be
-  // correlated against the tap:/vp:/stroke: timeline below.
-  const toggleUI = useCallback(() => {
-    diagLog('toggleUI: uiHidden', uiHiddenRef.current, '->', !uiHiddenRef.current)
-    // (#509 v5) A double tap slower than NOTE_DOUBLE_TAP_GRACE_MS will already
-    // have opened an empty note by the time it completes. Undoing that here is
-    // what lets the grace period be short: a note has to survive only the
-    // *brisk* double tap, and the slow one is tidied up after the fact instead
-    // of being waited out. Nothing is lost either way — an empty draft is local
-    // state and records no operation.
-    //
-    // Both halves matter. The open note is the first tap's; the *pending* one
-    // is the second tap's, queued a moment ago by the very press that completed
-    // this gesture — cancel only the first and the second lands 160ms later,
-    // which is what "the double tap left a note behind" looked like.
-    if (pendingNoteRef.current) {
-      window.clearTimeout(pendingNoteRef.current.timer)
-      pendingNoteRef.current = null
-    }
-    const draft = useRoomStore.getState().annotationDraft
-    if (draft && draft.annotationId === null && !draft.text.trim()) {
-      useRoomStore.getState().closeAnnotationDraft()
-    }
-    setUiHidden(h => !h)
-  }, [])
-  // (#321) Turning the setting off while the chrome is hidden has to give it
-  // back: the tap that would restore it is the very thing being switched off,
-  // so without this the room stays stripped with no way out short of a
-  // reload — and the settings panel that was just used is itself part of the
-  // hidden chrome.
-  useEffect(() => {
-    if (!tapToHideEnabled) setUiHidden(false)
-  }, [tapToHideEnabled])
+  const deviceType = useSettingsStore(s => s.deviceType)
 
   // #94's "a resting hand mid-stroke corrupts settings" guard used to be a
   // `useState` here, on the theory that two flips per stroke are too cheap to
@@ -374,16 +303,6 @@ function RoomEditor() {
   // stroke to change `pointer-events` on four wrappers. It now lives in the
   // store as `strokeActive` (see strokeSlice for the full rule) and reaches
   // the DOM without a render at all — see the projection effect below.
-
-  // Diagnostic for "works on Samsung, not on a Surface" (see chat) — see
-  // TapDebugInfo's docstring for what each field means.
-  //
-  // (#321) Gated on the debug flag as well as on the mode. It used to hang
-  // off the mode alone, which was safe while the mode was itself a developer
-  // feature flag — now that a teacher can turn minimal UI on, that would have
-  // put an English stats overlay in the corner of their lesson.
-  const [tapDebug, setTapDebug] = useState<TapDebugInfo | null>(null)
-  const tapDebugEnabled = debugEnabled && tapToHideEnabled
 
   // (#24) Backed by the store now — same one-shot seeding timing the old
   // useState(() => creatorDraft?.room ? toRoomConfig(...) : null) had.
@@ -949,12 +868,6 @@ function RoomEditor() {
   const { zoomPercent, resetZoom, resetZoomAndRotation, onZoomDragDown, onAngleDragDown } =
     useZoomControls({ vp, setVp, infinite: config?.infinite ?? false })
 
-  // (#362) The readout belongs to a gesture made *in* minimal UI, so crossing
-  // that boundary drops it either way: entering, so a pinch made moments before
-  // the tap doesn't surface a readout as though the tap had caused it; leaving,
-  // so the pending dismissal doesn't survive to fire against a later gesture.
-  useEffect(() => { hideViewportToast() }, [uiHidden, hideViewportToast])
-
   // Hand (#319, #443) — the drag itself lives in useViewport; Room owns the
   // ways in and out and what it looks like. Two routes, one meaning: the hand
   // *selected* (an ordinary member of `tool` since #443) and Space *held* over
@@ -980,32 +893,26 @@ function RoomEditor() {
   const cursor = useCursor()
 
 
-  // #99: layered independently on top of useViewport's own touch pan/pinch
-  // handling on the same `.viewport` element — see useTapToggle's docstring
-  // for why the two never conflict, and why it takes the element (`vpEl`)
-  // rather than the ref.
-  //
-  // (#408) Off entirely while the gizmo is up: a tap on the canvas then belongs
-  // to the transform tool, which reads it as "I'm done here" (see the
-  // click-past-the-gizmo effect below). Both listeners sit on `.viewport` and
-  // neither can see what the other made of the same touch, so leaving both
-  // armed meant one finger dismissing the gizmo *and* stripping the chrome in
-  // the same instant — two answers to a gesture that asked one question.
-  // Suppressing it here rather than inside the hook keeps the rule where the
-  // conflict is, and costs nothing: the tap puts the transform tool down, so
-  // by the next tap this is armed again and hides the chrome as it always did.
+  // (#408) A tap on the canvas belongs to the transform tool while the gizmo is
+  // up, which reads it as "I'm done here" (see the click-past-the-gizmo
+  // effect). Both listeners sit on `.viewport` and neither can see what the
+  // other made of the same touch, so leaving the chrome toggle armed too meant
+  // one finger dismissing the gizmo *and* stripping the chrome in the same
+  // instant — two answers to a gesture that asked one question. The rule is
+  // kept here, where the conflict is, rather than inside the hook; and it
+  // costs nothing: the tap puts the transform tool down, so by the next tap
+  // the toggle is armed again and hides the chrome as it always did.
   //
   // (#519) The selection tool claims the same tap for the same kind of reason,
   // with one difference: it claims it only while there is a selection on
-  // screen to put down (see clearSelectionOnTap below). With none, a tap means
+  // screen to put down (see clearSelectionOnTap). With none, a tap means
   // nothing to that tool, so the chrome toggle keeps it — unlike the gizmo,
   // which is either up or the tool is not in hand at all.
   const canvasTapClaimed = transformActive || (selectionActive && selection !== null)
-  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !canvasTapClaimed, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
-  // (#509 v3) Mirrors the exact condition above, so a note only ever waits for
-  // the double-tap window when a double tap is really listening for one.
-  doubleTapArmedRef.current = tapToHideEnabled && !canvasTapClaimed
-    && minimalUiTapsRequired(minimalUiTapMode) > 1
+  // (#99, #189, #321, #509) Minimal UI: the tap that hides the chrome, and the
+  // annotation gestures' side of it — see useMinimalUi.
+  const { uiHidden, toggleUI, tapToHideEnabled, tapDebug, tapDebugEnabled, doubleTapArmedRef, pendingNoteRef } =
+    useMinimalUi({ vpEl, canvasTapClaimed, debugEnabled, hideViewportToast })
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
