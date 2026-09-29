@@ -2669,7 +2669,12 @@ export class PencilEngine implements PencilEngineAPI {
   settleBacklogMax = WET_SETTLE_OPS_BACKLOG_MAX
   /** (#536, §17.57) See _enforceGpuBudget: a touch device's browser gives a
    *  page far less GPU memory than a desktop's. */
+  // (§17.69) ...and not every touch screen is short of it: the Surface has one,
+  // and paying the spill there (a readPixels stall of a second on its GPU) for
+  // memory it has in plenty was a regression. Chrome reports its memory; Safari
+  // does not, and the iPad is exactly the device this is for.
   private _gpuBudget = typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 1
+    && ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 0) <= 4
     ? GPU_BUDGET_TOUCH_BYTES : Infinity
   /** (#536, §17.57) Who painted each replay-cache key - see _retireWashesOf. */
   private _chunkAuthors = new Map<string, string>()
@@ -5565,7 +5570,6 @@ export class PencilEngine implements PencilEngineAPI {
     const t0 = performance.now()
     const live = this._replayRibbonChunks
     this._replayRibbonChunks = job.chunks
-    this._rebuildStepping = true
     try {
       let i = job.start + job.applied.length
       let first = true
@@ -5581,7 +5585,6 @@ export class PencilEngine implements PencilEngineAPI {
         gl.finish()
       }
     } finally {
-      this._rebuildStepping = false
       job.chunks = this._replayRibbonChunks
       this._replayRibbonChunks = live
     }
@@ -9963,12 +9966,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  out an open one, whose next stroke then started over in a fresh scratch
    *  on this client only. */
   private _trimChunkCache(): void {
-    // (§17.69) A rebuild on a touch device keeps two: it replays every wash
-    // of the layer from the start, next to the live layer and its own washes,
-    // and on the iPad that stack was the tab's last moment (flight recorder,
-    // i5wt2iKp: killed mid-rebuild). What it evicts is spilled bit for bit.
-    const slots = this._rebuildStepping && this._gpuBudget !== Infinity ? 2 : REPLAY_RIBBON_CHUNK_SLOTS
-    while (this._replayRibbonChunks.size > slots) {
+    while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
       this._evictChunk(this._replayRibbonChunks.keys().next().value as string, true)
     }
   }
@@ -12494,8 +12492,6 @@ export class PencilEngine implements PencilEngineAPI {
    *  the iPad four resting washes sat at 472 MB against a 400 MB budget with
    *  nothing left to call it. */
   private _budgetTimer = 0
-  /** (§17.69) Inside a rebuild job's slice: the replay cache is the job's. */
-  private _rebuildStepping = false
   /** (§17.68) performance.now() of the last watercolour paint or settle step. */
   private _washActiveAt = 0
   private _scheduleBudgetCheck(): void {
