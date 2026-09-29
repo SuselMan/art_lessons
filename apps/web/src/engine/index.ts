@@ -6804,6 +6804,7 @@ export class PencilEngine implements PencilEngineAPI {
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
       'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+      'u_rectComposite',
       // Liner only (#452, ADR 003 §4) — how far past its own radius a dab's
       // quad is grown so the absorbed band has somewhere to land, and the cap
       // on that. Set to 0 by every other draw through this program (marker's
@@ -12888,7 +12889,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_tiltX, dab.tiltX)
     gl.uniform1f(u.u_tiltY, dab.tiltY)
     gl.uniform1f(u.u_opacity, dab.opacity)
+    // (§17.62) The whole quad, corners included - see u_rectComposite.
+    gl.uniform1f(u.u_rectComposite, 1)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.uniform1f(u.u_rectComposite, 0)
     gl.uniform1i(u.u_inkColor, 0)
 
     buffer.endDraw()

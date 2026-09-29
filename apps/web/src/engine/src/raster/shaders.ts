@@ -586,6 +586,10 @@ export const DAB_FRAG = `
   // ordered highest-value-first since these are independent if/return
   // checks, not an else-if chain.
   uniform float u_inkMode;
+  // (#536, ADR 011 §17.62) 1 while a ribbon composite draws its rect: the quad
+  // is the whole rect, and the dab ellipse below must not cut its corners.
+  // Every other draw through this program leaves it 0.
+  uniform float u_rectComposite;
   // Charcoal only (#304, ADR 005 §4-6) — the per-type fields graphite
   // has no equivalent for, straight off CHARCOAL_PRESETS (charcoalPresets.ts).
   // Plain uniforms rather than per-instance attributes: they're properties of
@@ -1426,7 +1430,11 @@ ${WC_NOISE_GLSL}
     // anything out of the band that opens up: shape is exactly 0 out there
     // (smoothstep clamps to 1 at dist >= 1.0), so graphite/charcoal/eraser
     // deposit nothing there even if some future draw did widen their quads.
-    if (dist > 1.0 + v_wick) discard;
+    // (#536, §17.62) Not for a composite rect: its quad is the rect, and the
+    // ellipse inscribed in it left every corner un-recomposited - the ends of
+    // a V-shaped wash kept their wet live picture, and a replay dropped them.
+    // The composite branches (u_inkMode 2, 8, 9) read no dab geometry.
+    if (dist > 1.0 + v_wick && u_rectComposite < 0.5) discard;
 
     float innerEdge = u_hardness * 0.85;
     float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
