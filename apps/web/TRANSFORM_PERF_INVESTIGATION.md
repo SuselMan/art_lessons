@@ -331,7 +331,7 @@ Implemented, tested, and live-verified in this same session.
   - Integer rounding happens once, inside `markContentPainted` itself
     (floor/ceil outward) — every tracked rect stays integer end to end, so
     `getContentBounds`' pre-existing "content bounds are integers" guarantee
-    (`_buildContentComposite`'s zero-rounding export-camera placement relies
+    (`Exporter.buildContentComposite`'s zero-rounding export-camera placement relies
     on this) holds with no separate rounding step needed anywhere else, and
     the existing pure-translation exact-equality test
     (`index.layerTransform.test.ts`'s "shifts by the exact same offset...")

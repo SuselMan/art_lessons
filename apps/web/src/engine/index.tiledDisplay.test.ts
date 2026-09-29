@@ -197,8 +197,8 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
   // MockGL's own transform-blit simulation is nearest-neighbor (see
   // mockGL.ts's own docstring) so it can't directly show blur the way real
   // bilinear sampling would — what it *can* verify is the actual
-  // engineering invariant the fix relies on: _compositeCenterX/Y must
-  // differ from canvas.width/2, canvas.height/2 by an exact integer.
+  // engineering invariant the fix relies on: the live CameraFrame's
+  // centerX/Y must differ from canvas.width/2, canvas.height/2 by an exact integer.
   it('the composite center stays an exact integer offset from canvas center, even for a canvas size that used to produce a fractional one', () => {
     // 50x50: _renderBufferExtent's own half-diagonal rounding (Math.ceil)
     // makes ext=71 here (odd) while canvas.width is even — found by search;
@@ -248,8 +248,8 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
     for (const [sx, sy] of [[0, 0], [32, 32], [63, 17], [7, 61]]) {
       const [worldX, worldY] = applyMatrix(toWorld, sx, sy)
       // The composite's own forward placement of that world point — the
-      // unrounded form of _worldToScreenEdgeX/Y (which rounds only to keep
-      // adjacent tile edges sharing a pixel; see its own doc comment).
+      // unrounded form of frameEdgeX/Y (which rounds only to keep adjacent
+      // tile edges sharing a pixel; see src/raster/cameraFrame.ts).
       const expectedAssemblyX = (worldX - camera.wx) * scale + center.x
       const expectedAssemblyY = (worldY - camera.wy) * scale + center.y
 

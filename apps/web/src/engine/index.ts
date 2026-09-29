@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paper/paperConstants'
 import {
@@ -10,13 +10,14 @@ import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchSlot } from './src/buffers/scratchPools'
 import { SnapshotLedger } from './src/oplog/snapshotLedger'
-import { previewDownscaleChain } from './src/raster/previewChain'
 import { BlitPasses } from './src/raster/blitPasses'
 import { AreaOps, asImportRecord, type AreaImage, type AreaFillRequest, type AreaFillRaster } from './src/raster/AreaOps'
 import { LayerPreviews } from './src/raster/layerPreviews'
+import { frameEdgeX, frameEdgeY, type CameraFrame } from './src/raster/cameraFrame'
 import { ImageImport } from './src/raster/ImageImport'
 import { ShapePass } from './src/raster/ShapePass'
 import { FilterPass } from './src/filters/FilterPass'
+import { Exporter } from './src/export/Exporter'
 import { SmudgePainter } from './src/dabs/SmudgePainter'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
@@ -1023,8 +1024,8 @@ export interface PencilEngineAPI {
   // so this exports the tightest rect containing every layer's actual
   // painted content (getContentBounds's own union, at exactly 1 world unit
   // = 1 pixel) instead of whatever the camera happens to be looking at right
-  // now. A bounded room's export is completely unaffected by this — see
-  // _exportInfinitePNG's own doc comment for the full reasoning.
+  // now. A bounded room exports its whole sheet (#470) — see
+  // Exporter.exportPNG (src/export/Exporter.ts) for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
@@ -1284,16 +1285,6 @@ function paperColorOf(type: PaperType): [number, number, number] {
 // which is also where the bake script gets it from) is the world-space size
 // the baked tile repeats over, used identically by bounded and infinite
 // rooms alike — see _paperWorldSize().
-
-// #145: hard clamp (per axis) on exportPNG's infinite-room "whole drawing"
-// render target — see _buildContentComposite's own doc comment for why this
-// is a fixed constant rather than a live gl.MAX_TEXTURE_SIZE query. Every
-// real device this app targets supports textures far bigger than this
-// already; a drawing that legitimately spans more than ~8 tiles across in
-// one axis (TILE_SIZE is 1024) is the one case this clips to a smaller rect,
-// anchored at the content bounds' own top-left, rather than exporting in
-// full — a known, deliberately-accepted limitation, not attempted here.
-const MAX_EXPORT_DIMENSION_PX = 8192
 
 export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
 
@@ -2475,10 +2466,6 @@ export class PencilEngine implements PencilEngineAPI {
 
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
-  // Transparent-export variant of _dispProg (#15) — see DISPLAY_TRANSPARENT_
-  // FRAG's comment for why this needs its own tiny program rather than a
-  // branch inside DISPLAY_FRAG.
-  private _dispTransparentProg!: WebGLProgram
   private _compositeProg!: WebGLProgram
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
@@ -2596,12 +2583,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonPuddleLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
-  private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _brushStampUni!: Record<string, WebGLUniformLocation | null>
   private _brushCompositeUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
-  private _dispTransparentPosLoc!: number
   private _compositePosLoc!: number
   private _brushStampPosLoc!: number
   private _brushCompositePosLoc!: number
@@ -2691,62 +2676,12 @@ export class PencilEngine implements PencilEngineAPI {
   // a mode branch; _runComposite is what actually skips it.
   private _assemblyFBO!: AccumulationBuffer
 
-  // #134-follow-up: the pixel position within the *current* composite
-  // target (the real canvas for bounded rooms; _assemblyFBO for infinite
-  // ones) that the camera's own world point (wx, wy) maps to — what
-  // _worldToScreenEdgeX/Y actually center on. Set once per _runComposite
-  // call, read by every _drawTileComposite call within it (all of them
-  // originate from that one _runComposite, synchronously, so this is safe
-  // shared state, same pattern _infiniteCamera itself already is).
-  //
-  // For a bounded room (or a canvas-sized buildFbo target generally) this
-  // is trivially canvas.width/2, canvas.height/2. For infinite rooms it is
-  // NOT _assemblyFBO's own half-size (ext/2) — that was the pre-fix bug:
-  // ext/2 - canvas.width/2 is only an integer by luck (ext and canvas.width
-  // rarely share the same parity), so the final rotate blit
-  // (_finishInfiniteComposite) was translating by a fractional pixel at
-  // *every* zoom/angle, even angle=0 — bilinear-resampling (bilinear is
-  // AccumulationBuffer's fixed filter mode) every single pixel against its
-  // neighbors on every frame, a constant, uniform softening any infinite
-  // room's whole image had that a bounded room's direct-to-screen
-  // _drawTileComposite path never does. Padding to _assemblyPad()'s
-  // *rounded* half-difference instead keeps the offset between this and
-  // canvas.width/2 an exact integer, so the angle=0 case (by far the
-  // common one) is a lossless, pixel-aligned copy — only an actively
-  // rotated camera still resamples, which is expected and unavoidable
-  // there regardless.
-  private _compositeCenterX = 0
-  private _compositeCenterY = 0
-
-  // (#301) Composite-target pixels per world unit — the scale
-  // _worldToScreenEdgeX/Y place tiles at, set alongside _compositeCenterX/Y
-  // and read by the same callers under the same "one _runComposite, all
-  // synchronous" contract.
-  //
-  // NOT simply the camera's zoom for an infinite room: it's min(1, zoom),
-  // with whatever's left over (zoom / this) applied by the single screen
-  // pass at the end instead. Above zoom 1 that's the difference between one
-  // resample and two. The old assembly-at-zoom arrangement magnified tiles
-  // into the assembly buffer (resample #1) and then rotated that (resample
-  // #2), and two chained bilinear passes over pencil texture visibly mush
-  // it. Drawing the assembly at world resolution instead makes the first
-  // step an exact 1:1 texel copy — tile origins are integers, so every
-  // rounded edge in _worldToScreenEdgeX/Y lands exactly on a texel boundary
-  // — leaving exactly one resample, in _composePaperToScreen, the same
-  // count a bounded room's CSS-transformed canvas has always had.
-  //
-  // Capped at 1 rather than following zoom upward because there is no
-  // information above world resolution to preserve: strokes are stored in
-  // world-space tiles, so an assembly buffer denser than that would just be
-  // an early magnification of the same texels. Below zoom 1 it does follow
-  // zoom (the screen genuinely holds fewer pixels than the world does), so
-  // that case keeps its existing behavior exactly.
-  //
-  // Costs nothing in memory: the assembly buffer stays its fixed
-  // half-diagonal square (see _renderBufferExtent) and a zoomed-in camera
-  // simply needs less of it — no reallocation on zoom, which would be GPU
-  // alloc churn on the one gesture that can least afford it.
-  private _compositeScale = 1
+  // (#494) Where the composite puts world space on its target — centre, scale,
+  // view — is no longer a set of fields _runComposite overwrites every frame
+  // (and the export used to swap out and restore): each pass builds a
+  // CameraFrame value and hands it down. See src/raster/cameraFrame.ts for the
+  // pixel-alignment (#134) and scale (#301) reasoning that used to live here,
+  // and _liveCameraFrame for the on-screen one.
 
   // #141: infinite-only, camera-relative "paper peeking through" pass —
   // see PAPER_COMPOSE_FRAG's own comment for the full pipeline reasoning.
@@ -2758,11 +2693,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperComposeProg!: WebGLProgram
   private _paperComposeUni!: Record<string, WebGLUniformLocation | null>
   private _paperComposePosLoc!: number
-
-  // (#595) bakePreview's 2x box-downscale step — see DOWNSAMPLE_FRAG.
-  private _previewDownsampleProg!: WebGLProgram
-  private _previewDownsampleUni!: Record<string, WebGLUniformLocation | null>
-  private _previewDownsamplePosLoc!: number
 
   // Batched dab rendering (#123) — one instanced draw call per _paintDabs
   // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
@@ -2802,6 +2732,9 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _shapes: ShapePass
   // (#494) Layer filters on the tiles — see FilterPass.ts.
   private readonly _filters: FilterPass
+  // (#494) Export and the room thumbnail — see src/export/Exporter.ts. Its
+  // programs are built by _initGL.
+  private readonly _exporter: Exporter
 
   // Paper texture — a placeholder set synchronously in the constructor (and
   // on context-restore), swapped for the real baked texture once _initPaper's
@@ -3060,6 +2993,27 @@ export class PencilEngine implements PencilEngineAPI {
       pageSize: () => this._pageSize(),
       layerPainted: id => { if (id !== this._activeId) this._invalidateSplitCache() },
       display: () => this._display(),
+    })
+    // (#494) Export and the thumbnail — see Exporter.ts. Its programs are
+    // built by _initGL below, like every other one.
+    this._exporter = new Exporter({
+      gl,
+      infinite: this._infinite,
+      screenBuf: () => this._screenBuf,
+      pageSize: () => this._pageSize(),
+      compositeOrder: () => this._compositeOrder,
+      contentBounds: id => this.getContentBounds(id),
+      drawLayer: (frame, id, opacity, fbo, w, h) => this._drawCompositeItem(frame, id, opacity, fbo, w, h),
+      composePaper: (tex, fbo, w, h, origin) => this._renderPaperComposeInto(tex, fbo, w, h, origin),
+      composeScreen: () => {
+        this._composeToFBO()
+        return this._compositeFBO.texture
+      },
+      display: () => this._display(),
+      canvasSize: () => ({ w: this.canvas.width, h: this.canvas.height }),
+      cameraCenter: () => ({ wx: this._infiniteCamera.wx, wy: this._infiniteCamera.wy }),
+      canvasBlob: () => new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png')),
+      encode: (pixels, w, h, type, quality) => this._pixelsToBlob(pixels, w, h, type, quality),
     })
     // (#494) Layer filters — see FilterPass.ts.
     this._filters = new FilterPass({
@@ -4158,7 +4112,7 @@ export class PencilEngine implements PencilEngineAPI {
    *      _applyHistoryChange; setPaper), and JS is single-threaded, so by the
    *      time a pointerdown handler can call pickColor the visible canvas
    *      already reflects the very last of those calls. Confirmed by reading
-   *      every _display()/_displayTransparent() call site in this file —
+   *      every _display() call site in this file (and Exporter's transparent fallback) —
    *      none of them defer to a rAF loop (the constructor's own
    *      requestAnimationFrame call is a one-time kickoff, not a per-frame
    *      loop). No code change needed here — see #145's issue thread for the
@@ -4398,7 +4352,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** How much bigger _assemblyFBO is than the real canvas,
    *  split (roughly) evenly on each side, *rounded to the nearest whole
-   *  pixel* — see _compositeCenterX/Y's own field comment for why this
+   *  pixel* — see CameraFrame.centerX (src/raster/cameraFrame.ts) for why this
    *  integer-ness is exactly the fix for infinite rooms always looking
    *  faintly softer than bounded ones. Zero for bounded rooms (their
    *  render-buffer extent is exactly canvas size — see _renderBufferExtent
@@ -4415,7 +4369,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** (#301) The scale _runComposite draws the assembly buffer at — see
-   *  _compositeScale's own field comment for the full reasoning. A bounded
+   *  CameraFrame.scale for the full reasoning. A bounded
    *  room's camera zoom is the constructor's fixed 1 for the engine's whole
    *  lifetime (its real zoom is the DOM canvasWrap's CSS transform), so the
    *  min() below leaves that path at exactly 1, unchanged. */
@@ -4431,6 +4385,24 @@ export class PencilEngine implements PencilEngineAPI {
    *  Catmull-Rom and a plain bilinear tap (see PAPER_COMPOSE_FRAG). */
   private _residualScale(): number {
     return this._infiniteCamera.zoom / this._infiniteCompositeScale()
+  }
+
+  /** (#494) The on-screen composite's frame: the live camera, drawn into
+   *  _assemblyFBO at canvas centre plus its rounded padding (#134), at
+   *  min(1, zoom) (#301), reading tiles over _visibleWorldRect. Derived, not
+   *  stored — every _composeToFBO builds it fresh and passes it down. */
+  private _liveCameraFrame(): CameraFrame {
+    const { canvas } = this
+    const { wx, wy, angle } = this._infiniteCamera
+    const { padX, padY } = this._assemblyPad()
+    return {
+      wx, wy,
+      centerX: canvas.width / 2 + padX,
+      centerY: canvas.height / 2 + padY,
+      scale: this._infiniteCompositeScale(),
+      angle,
+      view: this._visibleWorldRect(),
+    }
   }
 
   /** Live gizmo-drag preview (#120) — see AreaOps.previewLayerTransform. */
@@ -4703,20 +4675,7 @@ export class PencilEngine implements PencilEngineAPI {
     return this
   }
 
-  /** See PencilEngineAPI's doc comment. `canvas.toBlob()` snapshots the
-   *  drawing buffer synchronously at call time (encoding happens async, but
-   *  the pixels it encodes are fixed the moment it's called) — same
-   *  assumption the pre-existing paper variant already relied on by calling
-   *  `_display()` right before `toBlob()`. That's what makes it safe to
-   *  restore the normal on-screen paper view immediately after kicking off
-   *  toBlob() for the transparent variant, without waiting for its callback:
-   *  the visible canvas (this.canvas is the real, on-screen WebGL canvas —
-   *  there's no separate offscreen render target) never has to sit showing
-   *  the transparent frame past this synchronous call.
-   *
-   *  #145: this camera-viewport path is exactly right for a bounded room
-   *  (unchanged below) but is handed off to _exportInfinitePNG for an
-   *  infinite one instead — see that method's own doc comment.
+  /** See PencilEngineAPI's doc comment; the work is Exporter's (#494).
    *
    *  Awaits _paperReady first: the paper texture loads asynchronously (see
    *  _initPaper), and an export triggered in the brief window before it
@@ -4726,69 +4685,15 @@ export class PencilEngine implements PencilEngineAPI {
    *  slow/offline first load makes the gap real. */
   async exportPNG(transparent = false): Promise<Blob | null> {
     await this._paperReady
-    // (#470) Both kinds of room render offscreen now. A bounded room used to
-    // export by calling _display() and grabbing canvas.toBlob(), which was
-    // exact only because its canvas *was* the sheet at 1:1; the canvas is the
-    // viewport now, so that would export whatever happened to be on screen,
-    // at whatever zoom, with the desk around it. The sheet's own rect through
-    // the offscreen path gives back exactly the old image.
-    const rect = this._infinite ? null : (() => {
-      const { w, h } = this._pageSize()
-      return { x: 0, y: 0, width: w, height: h }
-    })()
-    return this._exportOffscreenPNG(transparent, rect)
+    return this._exporter.exportPNG(transparent)
   }
 
-  /** See PencilEngineAPI's doc comment, and ADR 015 §5 for why it exists.
-   *
-   *  The old thumbnail path went exportPNG() -> decode -> 2D-canvas shrink ->
-   *  re-encode: a full-sheet readPixels (8.7 MB on A4) plus two PNG encodes
-   *  and a decode, all on the main thread of the device that is drawing.
-   *  Here the only full-size work is the GPU composite exportPNG already
-   *  does; the shrink is a chain of 2x box steps on the GPU
-   *  (previewDownscaleChain + DOWNSAMPLE_FRAG), and readPixels touches at
-   *  most maxSide x maxSide pixels.
-   *
-   *  Frame: identical to exportPNG — the bounded room's whole sheet, or an
-   *  infinite room's content bounds. An infinite room with nothing drawn has
-   *  no content bounds; exportPNG falls back to the on-screen view there, and
-   *  this falls back to blank paper of the viewport's size, which is the same
-   *  picture without touching the visible canvas. */
+  /** See PencilEngineAPI's doc comment, and ADR 015 §5 for why it exists;
+   *  the work is Exporter's (#494). */
   async bakePreview(maxSide = 320): Promise<Blob | null> {
     await this._paperReady
     if (this._destroyed || this._contextLost) return null
-    const rect = this._infinite
-      ? (this._allVisibleContentBounds() ?? {
-        x: this._infiniteCamera.wx - this.canvas.width / 2,
-        y: this._infiniteCamera.wy - this.canvas.height / 2,
-        width: Math.max(1, this.canvas.width),
-        height: Math.max(1, this.canvas.height),
-      })
-      : (() => {
-        const { w, h } = this._pageSize()
-        return { x: 0, y: 0, width: w, height: h }
-      })()
-    const composite = this._buildContentComposite(rect)
-    if (!composite) return null
-
-    const { bounds, buffer } = composite
-    const { gl } = this
-    const { width: w, height: h } = buffer
-    let current = new AccumulationBuffer(gl, w, h)
-    this._renderPaperComposeInto(buffer.texture, current.fbo, w, h, bounds)
-    buffer.destroy()
-
-    for (const step of previewDownscaleChain(w, h, Math.max(1, Math.floor(maxSide)))) {
-      const next = new AccumulationBuffer(gl, step.width, step.height)
-      this._renderDownsampleInto(current.texture, next.fbo, step.width, step.height)
-      current.destroy()
-      current = next
-    }
-
-    const pixels = current.readPixels()
-    const { width: pw, height: ph } = current
-    current.destroy()
-    return this._pixelsToBlob(pixels, pw, ph, 'image/webp', 0.8)
+    return this._exporter.bakePreview(maxSide)
   }
 
   destroy(): void {
@@ -4823,6 +4728,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBuf = null
     this._area.destroy()
     this._shapes.destroy()
+    this._exporter.destroy()
     this._smudge.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
@@ -6437,18 +6343,18 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._dabProg             = createProgram(gl, DAB_VERT, DAB_FRAG)
     this._dabProgInstanced    = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
-    this._dispTransparentProg = createProgram(gl, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG)
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
-    this._previewDownsampleProg = createProgram(gl, DISPLAY_VERT, DOWNSAMPLE_FRAG)
     // (#494) Smudge's transfer and imprint-refresh programs — see SmudgePainter.ts.
     this._smudge.initGL()
     // (#494) The shape rasterizer — see ShapePass.ts.
     this._shapes.initGL()
+    // (#494) Export's transparent and thumbnail-downscale passes — see Exporter.ts.
+    this._exporter.initGL()
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
@@ -6516,7 +6422,6 @@ export class PencilEngine implements PencilEngineAPI {
       'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
       'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
     ])
-    this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
@@ -6551,7 +6456,6 @@ export class PencilEngine implements PencilEngineAPI {
     ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
-    this._dispTransparentPosLoc = gl.getAttribLocation(this._dispTransparentProg, 'a_position')
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
@@ -6561,8 +6465,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
-    this._previewDownsampleUni = getUniforms(gl, this._previewDownsampleProg, ['u_src', 'u_tapOffset'])
-    this._previewDownsamplePosLoc = gl.getAttribLocation(this._previewDownsampleProg, 'a_position')
     this._brushStampPosLoc     = gl.getAttribLocation(this._brushStampProg, 'a_position')
     this._brushCompositePosLoc = gl.getAttribLocation(this._brushCompositeProg, 'a_position')
 
@@ -9937,17 +9839,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  wash: same rect, same blend, but the tile's pixels are mixed with the
    *  kept picture by the reveal's current hold. */
   private _drawTileReveal(
-    reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
+    frame: CameraFrame, reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
     opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number, minifying: boolean,
   ): void {
     const { gl } = this
     // Sampled exactly as the tile is — see _revealWash on why the copy is
     // mip-capable at all.
     reveal.before.setMipSampling(minifying && reveal.before.ensureMipmaps())
-    const leftEdge   = this._worldToScreenEdgeX(originX)
-    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
-    const topEdge    = this._worldToScreenEdgeY(originY)
-    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
+    const leftEdge   = frameEdgeX(frame, originX)
+    const rightEdge  = frameEdgeX(frame, originX + bw)
+    const topEdge    = frameEdgeY(frame, originY)
+    const bottomEdge = frameEdgeY(frame, originY + bh)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(leftEdge, targetH - bottomEdge, rightEdge - leftEdge, bottomEdge - topEdge)
@@ -11810,16 +11712,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  tile) composite correctly instead of only ever showing one tile's
    *  worth. */
   private _drawCompositeItem(
-    id: string, opacity: number, targetFbo: WebGLFramebuffer, viewRect: WorldRect,
+    frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
     targetW: number, targetH: number,
   ): void {
+    const viewRect = frame.view
     // (#365) Whether this pass is shrinking tiles on the way to its target.
     // Only then is a mip chain worth having: at or above 1:1 the base level
     // is already the right size, and generating levels nobody samples would
     // be pure cost on the one path (drawing at 100%) that must stay fast.
-    // The export path sets _compositeScale to exactly 1 for the same reason
-    // — see _buildContentComposite.
-    const minifying = this._compositeScale < 1
+    // The export's frame is exactly 1:1 for the same reason — see
+    // exactFrame.
+    const minifying = frame.scale < 1
 
     const preview = this._previews.tiles.get(id)
     // (#446) A selection preview shadows only the tiles it holds — the rest of
@@ -11831,7 +11734,7 @@ export class PencilEngine implements PencilEngineAPI {
       for (const { originX, originY, buffer } of preview) {
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
         this._drawTileComposite(
-          buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
       }
       if (!areaPreview) return
@@ -11850,7 +11753,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (shadowed.has(`${originX},${originY}`)) continue
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
         this._drawTileComposite(
-          buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
       }
       return
@@ -11864,7 +11767,7 @@ export class PencilEngine implements PencilEngineAPI {
     // fine tiles it fell back to had been evicted while the coarse level was
     // on screen, and recovering hundreds of them at once costs an Operation
     // Log replay plus a readback and re-upload each.
-    const factor = coarseFactorFor(this._compositeScale)
+    const factor = coarseFactorFor(frame.scale)
     const coarse = factor === null ? null : buf.resolveCoarse(viewRect, factor)
     // (#503) `coarse.length`, not just `coarse`: an empty array is truthy, so
     // a level holding nothing here used to end the draw outright — the layer
@@ -11879,7 +11782,7 @@ export class PencilEngine implements PencilEngineAPI {
       for (const { buffer, originX, originY } of coarse) {
         buffer.setMipSampling(false)
         this._drawTileComposite(
-          buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
+          frame, buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
         )
       }
       return
@@ -11894,13 +11797,13 @@ export class PencilEngine implements PencilEngineAPI {
       const reveal = this._washReveals.get(buffer)
       if (reveal) {
         this._drawTileReveal(
-          reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+          frame, reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
           minifying,
         )
         continue
       }
       this._drawTileComposite(
-        buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+        frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
       )
     }
   }
@@ -11911,20 +11814,20 @@ export class PencilEngine implements PencilEngineAPI {
    *  entirely otherwise), so _drawCompositeItem always resolves to a real
    *  layer's own current buffer here, never a scratch preview. */
   private _rebuildSplitCacheIfDirty(
-    belowItems: CompositeItem[], aboveItems: CompositeItem[], viewRect: WorldRect,
+    frame: CameraFrame, belowItems: CompositeItem[], aboveItems: CompositeItem[],
     targetW: number, targetH: number,
   ): void {
     if (!this._splitCacheDirty) return
-    this._rebuildCacheHalf(this._belowCache, belowItems, viewRect, targetW, targetH)
-    this._rebuildCacheHalf(this._aboveCache, aboveItems, viewRect, targetW, targetH)
+    this._rebuildCacheHalf(frame, this._belowCache, belowItems, targetW, targetH)
+    this._rebuildCacheHalf(frame, this._aboveCache, aboveItems, targetW, targetH)
     this._splitCacheDirty = false
   }
 
   private _rebuildCacheHalf(
-    target: AccumulationBuffer, items: CompositeItem[], viewRect: WorldRect, targetW: number, targetH: number,
+    frame: CameraFrame, target: AccumulationBuffer, items: CompositeItem[], targetW: number, targetH: number,
   ): void {
     target.clear()
-    for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, target.fbo, viewRect, targetW, targetH)
+    for (const { id, opacity } of items) this._drawCompositeItem(frame, id, opacity, target.fbo, targetW, targetH)
   }
 
   /** #122: normally recomposites *every* visible layer/folder-child from
@@ -12027,74 +11930,6 @@ export class PencilEngine implements PencilEngineAPI {
     return dabs.map(d => ({ ...d, x: d.x - origin.x, y: d.y - origin.y }))
   }
 
-  /** Infinite canvas (#133 Phase 1) — draws one tile's texture into
-   *  `targetFbo` at its camera-relative screen position, blended over
-   *  whatever's already there (same (ONE, ONE_MINUS_SRC_ALPHA) "over" every
-   *  other composite pass in this file uses) — the tile-aware counterpart
-   *  to _compositeTextures' fullscreen-quad draw.
-   *
-   *  Positions the tile via gl.viewport() instead of a per-tile clip-space
-   *  computation in a shader — deliberately, and not for simplicity: an
-   *  earlier version computed each tile's destination quad and/or source-UV
-   *  sub-rect in the shader (a uniform mat3, a dynamically-reuploaded vertex
-   *  buffer, even a compile-time constant — every variant tried), and
-   *  reproducibly sampled as fully transparent black on a real ANGLE/D3D
-   *  backend (confirmed: Chrome/Windows) — but *only* on some draws, not
-   *  others, in a pattern that tracked draw-call position within the
-   *  composite pass rather than which values were used (bisection ruled out
-   *  clip-space magnitude, branching, uniform-vs-attribute-vs-constant, and
-   *  program identity in turn). Whatever the underlying driver quirk is,
-   *  routing the tile's position through gl.viewport — ordinary WebGL state,
-   *  not a shader computation — sidesteps it entirely: this reuses
-   *  _compositeProg/DISPLAY_VERT completely unmodified (the same program
-   *  every *other* composite pass in this file already relies on) with its
-   *  plain full quad, and lets the fixed-function rasterizer do the
-   *  positioning instead. Verified stable across a full stroke crossing all
-   *  four tile boundaries — no dropout, no seam.
-   *
-   *  Doesn't itself account for camera rotation (_infiniteCamera.angle) —
-   *  the viewport is always an axis-aligned rect, so a rotated view would
-   *  misplace tiles if this drew straight to the real screen. It doesn't:
-   *  for infinite rooms _runComposite always targets the unrotated
-   *  _assemblyFBO here (see targetW/targetH, always that buffer's own
-   *  size in that case) and _finishInfiniteComposite applies the actual
-   *  rotation exactly once, afterwards, on the assembled result — see its
-   *  own comment (#134).
-   *
-   *  Rounds each of the tile's four EDGES individually (via
-   *  _worldToScreenEdgeX/Y below), rather than rounding a position and a
-   *  size independently — two tiles sharing a world-space edge (adjacent
-   *  tile origins are always exactly TILE_SIZE apart) compute that shared
-   *  edge from the exact same formula and thus the exact same rounded
-   *  pixel, however the camera/zoom fraction falls. Rounding position and
-   *  size separately (the pre-#140 version of this method) doesn't have
-   *  that guarantee — `round(pos) + round(size)` and `round(pos + size)`
-   *  disagree for plenty of real zoom/pan combinations (confirmed: e.g.
-   *  zoom 1.01 with the camera offset a few hundred world units from a
-   *  tile boundary), producing a 1px transparent gap or a 1px overlap
-   *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
-   *  case for a concrete reproduction.
-   *
-   *  Centers on _compositeCenterX/Y — the current composite target's own
-   *  pixel position for the camera's world point — rather than this
-   *  target's own half-size (targetW/2): see that field's own comment for
-   *  why the two aren't the same thing for infinite rooms, and why that
-   *  distinction is what keeps an unrotated infinite-room frame pixel-
-   *  aligned (no blur) instead of resampled through a fractional offset.
-   *
-   *  (#301) Scales by _compositeScale, not the camera's raw zoom — above
-   *  zoom 1 the two differ, and the leftover magnification is applied later,
-   *  by the same pass that applies the rotation. See that field's comment. */
-  private _worldToScreenEdgeX(worldX: number): number {
-    const { wx } = this._infiniteCamera
-    return Math.round((worldX - wx) * this._compositeScale + this._compositeCenterX)
-  }
-
-  private _worldToScreenEdgeY(worldY: number): number {
-    const { wy } = this._infiniteCamera
-    return Math.round((worldY - wy) * this._compositeScale + this._compositeCenterY)
-  }
-
   /** (#365) Draws one fine tile, shrunk, into its slot of a coarse tile —
    *  the TileDownsampler TiledLayerBuffer is handed so it can keep its coarse
    *  level current without owning a shader.
@@ -12144,15 +11979,73 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
+  /** Infinite canvas (#133 Phase 1) — draws one tile's texture into
+   *  `targetFbo` at its camera-relative screen position, blended over
+   *  whatever's already there (same (ONE, ONE_MINUS_SRC_ALPHA) "over" every
+   *  other composite pass in this file uses) — the tile-aware counterpart
+   *  to _compositeTextures' fullscreen-quad draw.
+   *
+   *  Positions the tile via gl.viewport() instead of a per-tile clip-space
+   *  computation in a shader — deliberately, and not for simplicity: an
+   *  earlier version computed each tile's destination quad and/or source-UV
+   *  sub-rect in the shader (a uniform mat3, a dynamically-reuploaded vertex
+   *  buffer, even a compile-time constant — every variant tried), and
+   *  reproducibly sampled as fully transparent black on a real ANGLE/D3D
+   *  backend (confirmed: Chrome/Windows) — but *only* on some draws, not
+   *  others, in a pattern that tracked draw-call position within the
+   *  composite pass rather than which values were used (bisection ruled out
+   *  clip-space magnitude, branching, uniform-vs-attribute-vs-constant, and
+   *  program identity in turn). Whatever the underlying driver quirk is,
+   *  routing the tile's position through gl.viewport — ordinary WebGL state,
+   *  not a shader computation — sidesteps it entirely: this reuses
+   *  _compositeProg/DISPLAY_VERT completely unmodified (the same program
+   *  every *other* composite pass in this file already relies on) with its
+   *  plain full quad, and lets the fixed-function rasterizer do the
+   *  positioning instead. Verified stable across a full stroke crossing all
+   *  four tile boundaries — no dropout, no seam.
+   *
+   *  Doesn't itself account for camera rotation (_infiniteCamera.angle) —
+   *  the viewport is always an axis-aligned rect, so a rotated view would
+   *  misplace tiles if this drew straight to the real screen. It doesn't:
+   *  for infinite rooms _runComposite always targets the unrotated
+   *  _assemblyFBO here (see targetW/targetH, always that buffer's own
+   *  size in that case) and _finishInfiniteComposite applies the actual
+   *  rotation exactly once, afterwards, on the assembled result — see its
+   *  own comment (#134).
+   *
+   *  Rounds each of the tile's four EDGES individually (via
+   *  frameEdgeX/Y, src/raster/cameraFrame.ts), rather than rounding a position and a
+   *  size independently — two tiles sharing a world-space edge (adjacent
+   *  tile origins are always exactly TILE_SIZE apart) compute that shared
+   *  edge from the exact same formula and thus the exact same rounded
+   *  pixel, however the camera/zoom fraction falls. Rounding position and
+   *  size separately (the pre-#140 version of this method) doesn't have
+   *  that guarantee — `round(pos) + round(size)` and `round(pos + size)`
+   *  disagree for plenty of real zoom/pan combinations (confirmed: e.g.
+   *  zoom 1.01 with the camera offset a few hundred world units from a
+   *  tile boundary), producing a 1px transparent gap or a 1px overlap
+   *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
+   *  case for a concrete reproduction.
+   *
+   *  Centers on `frame`'s centerX/Y — the current composite target's own
+   *  pixel position for the camera's world point — rather than this
+   *  target's own half-size (targetW/2): see CameraFrame.centerX for
+   *  why the two aren't the same thing for infinite rooms, and why that
+   *  distinction is what keeps an unrotated infinite-room frame pixel-
+   *  aligned (no blur) instead of resampled through a fractional offset.
+   *
+   *  (#301) Scales by frame.scale, not the camera's raw zoom — above
+   *  zoom 1 the two differ, and the leftover magnification is applied later,
+   *  by the same pass that applies the rotation. See CameraFrame.scale. */
   private _drawTileComposite(
-    texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
+    frame: CameraFrame, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
     opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
   ): void {
     const { gl } = this
-    const leftEdge   = this._worldToScreenEdgeX(originX)
-    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
-    const topEdge    = this._worldToScreenEdgeY(originY)
-    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
+    const leftEdge   = frameEdgeX(frame, originX)
+    const rightEdge  = frameEdgeX(frame, originX + bw)
+    const topEdge    = frameEdgeY(frame, originY)
+    const bottomEdge = frameEdgeY(frame, originY + bh)
     const glX = leftEdge
     // gl.viewport's y is measured from the bottom of the target, unlike the
     // top-down (topEdge, bottomEdge) this file uses everywhere else.
@@ -12199,15 +12092,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  leaves populated, so _composeToFBO now owns the single call to
    *  _finishInfiniteComposite once everything (real content + previews) is
    *  in place. */
-  private _runComposite(items: CompositeItem[], partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null): void {
-    const viewRect = this._visibleWorldRect()
+  private _runComposite(
+    frame: CameraFrame, items: CompositeItem[],
+    partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null,
+  ): void {
     const buildFbo = this._assemblyFBO.fbo
     const targetW  = this._assemblyFBO.width
     const targetH  = this._assemblyFBO.height
-    const { padX, padY } = this._assemblyPad()
-    this._compositeCenterX = this.canvas.width / 2 + padX
-    this._compositeCenterY = this.canvas.height / 2 + padY
-    this._compositeScale = this._infiniteCompositeScale()
 
     const idx = this._activeId !== null ? items.findIndex(it => it.id === this._activeId) : -1
     // idx === -1 (no active layer, or it's not currently composited — e.g.
@@ -12219,19 +12110,19 @@ export class PencilEngine implements PencilEngineAPI {
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
     // (§17.46) The split caches are rebuilt (in full) before any scissor.
-    if (this._previews.tiles.size === 0) this._rebuildSplitCacheIfDirty(belowItems, aboveItems, viewRect, targetW, targetH)
+    if (this._previews.tiles.size === 0) this._rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
     // (§17.46) A frame whose only change is the live stroke reassembles only
     // its rect (unrotated camera: the assembly is then the screen, padded):
     // clearing and redrawing the whole assembly - the caches and every
     // resident tile of the active layer - was the second-dearest thing in a
     // big stroke's frame on the tablet.
     let scissored = false
-    if (partialWorld && this._infiniteCamera.angle === 0 && this._previews.tiles.size === 0) {
+    if (partialWorld && frame.angle === 0 && this._previews.tiles.size === 0) {
       const pad = 8
-      const x0 = Math.max(0, this._worldToScreenEdgeX(partialWorld.minX) - pad)
-      const x1 = Math.min(targetW, this._worldToScreenEdgeX(partialWorld.maxX) + pad)
-      const top = Math.max(0, this._worldToScreenEdgeY(partialWorld.minY) - pad)
-      const bottom = Math.min(targetH, this._worldToScreenEdgeY(partialWorld.maxY) + pad)
+      const x0 = Math.max(0, frameEdgeX(frame, partialWorld.minX) - pad)
+      const x1 = Math.min(targetW, frameEdgeX(frame, partialWorld.maxX) + pad)
+      const top = Math.max(0, frameEdgeY(frame, partialWorld.minY) - pad)
+      const bottom = Math.min(targetH, frameEdgeY(frame, partialWorld.maxY) + pad)
       if (x1 > x0 && bottom > top) {
         this.gl.enable(this.gl.SCISSOR_TEST)
         this.gl.scissor(x0, targetH - bottom, x1 - x0, bottom - top)
@@ -12241,7 +12132,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._assemblyFBO.clear()
 
     if (this._previews.tiles.size > 0) {
-      for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, buildFbo, viewRect, targetW, targetH)
+      for (const { id, opacity } of items) this._drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH)
       return
     }
 
@@ -12249,7 +12140,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._compositeTextures([{ texture: this._belowCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
     }
     if (activeItem) {
-      this._drawCompositeItem(activeItem.id, activeItem.opacity, buildFbo, viewRect, targetW, targetH)
+      this._drawCompositeItem(frame, activeItem.id, activeItem.opacity, buildFbo, targetW, targetH)
     }
     if (aboveItems.length) {
       this._compositeTextures([{ texture: this._aboveCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
@@ -12265,7 +12156,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  world point as the real camera, just padded bigger — see its field
    *  comment) into the real `targetFbo`, rotating by -angle: forward,
    *  screen = canvasCenter + R(angle)*(assemblyPx - assemblyCenter) is the
-   *  same world->screen convention _worldToScreenEdgeX/Y and the old
+   *  same world->screen convention frameEdgeX/Y and the old
    *  (pre-#136) _worldToScreenTransform used (scale baked in via zoom,
    *  here already applied when the assembly buffer itself was drawn, so
    *  only the rotation is left) — this needs that mapping's inverse,
@@ -12285,7 +12176,7 @@ export class PencilEngine implements PencilEngineAPI {
    *
    *  Uses _assemblyPad()'s *rounded* half-difference as the assembly
    *  buffer's own center, not its literal half-size (ext/2) — see
-   *  _compositeCenterX/Y's field comment for why that distinction is what
+   *  CameraFrame.centerX's comment for why that distinction is what
    *  keeps an unrotated (angle 0, by far the common case) frame an exact,
    *  lossless pixel copy instead of a permanently-blurred bilinear
    *  resample.
@@ -12314,8 +12205,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  through, carried one step further than _infiniteRotateMatrixInv (which
    *  stops at assembly pixels). Forward, that chain is
    *  screenPx = canvasCenter + R(angle) * (world - camera) * zoom
-   *  — composed of _worldToScreenEdgeX/Y (world -> assembly px, zoom and
-   *  _compositeCenterX/Y) and _infiniteRotateMatrixInv (assembly px ->
+   *  — composed of frameEdgeX/Y (world -> assembly px, the live frame's
+   *  scale and centre) and _infiniteRotateMatrixInv (assembly px ->
    *  screen px, rotation about canvasCenter); the assembly buffer's own
    *  padding cancels out between the two, which is why it doesn't appear
    *  here at all. Inverting gives world = camera + R(-angle) * (screenPx -
@@ -12698,7 +12589,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Catmull-Rom only when this pass genuinely resamples. An unrotated
     // camera at or below zoom 1 maps screen pixels onto assembly texels one
     // for one, offset by an exact integer (that integer-ness is what
-    // _assemblyPad/_compositeCenterX exist to guarantee) — a plain bilinear
+    // _assemblyPad/CameraFrame.centerX exist to guarantee) — a plain bilinear
     // tap is then already lossless and 9x cheaper. See PAPER_COMPOSE_FRAG.
     const resamples = this._infiniteCamera.angle !== 0 || this._residualScale() !== 1
     gl.uniform1f(u.u_sharpResample, resamples ? 1 : 0)
@@ -12754,8 +12645,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** Rebuilds `_compositeFBO` from every live layer plus whatever preview
    *  buffers are currently active (live-tip, speculative-prediction, peer
    *  reveals) — the shared first half of both `_display()` (paper-blended,
-   *  drawn to the visible canvas) and `_displayTransparent()` (#15, no
-   *  paper). Stores premultiplied graphite color in `.rgb`, coverage in
+   *  drawn to the visible canvas) and Exporter's transparent fallback (#15,
+   *  no paper). Stores premultiplied graphite color in `.rgb`, coverage in
    *  `.a` (see DISPLAY_FRAG's comment) — neither downstream pass re-renders
    *  any dab or layer, they only differ in how they read this buffer back.
    *
@@ -12781,7 +12672,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#301) An infinite room's on-screen path never reads _compositeFBO —
     // _composePaperToScreen goes straight from _assemblyFBO to the screen,
     // and the only consumers of the rotated, unblended canvas-sized copy
-    // (_displayTransparent, which is bounded-only in practice) ask for it
+    // (Exporter's transparent empty-drawing fallback) ask for it
     // explicitly. So for the every-frame display case this skips both a
     // full-canvas clear and the rotate blit at the bottom of this method —
     // two screen-sized passes per frame that were being rendered and thrown
@@ -12802,8 +12693,9 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     // (#557) The on-screen composite is the one place the display filter
-    // applies; _buildContentComposite (export) walks _compositeOrder itself.
-    this._runComposite(this._displayOrder(), needCompositeFBO ? null : partialWorld)
+    // applies; Exporter.buildContentComposite walks _compositeOrder itself.
+    const frame = this._liveCameraFrame()
+    this._runComposite(frame, this._displayOrder(), needCompositeFBO ? null : partialWorld)
 
     const buildFbo = this._assemblyFBO.fbo
     const buildW   = this._assemblyFBO.width
@@ -12812,7 +12704,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Camera-relative blend of one preview buffer, world rect [origin,
     // origin+(w,h)] — see this method's own doc comment above.
     const blendPreview = (texture: WebGLTexture, origin: { x: number; y: number }): void => {
-      this._drawTileComposite(texture, origin.x, origin.y, w, h, 1, buildFbo, buildW, buildH)
+      this._drawTileComposite(frame, texture, origin.x, origin.y, w, h, 1, buildFbo, buildW, buildH)
     }
 
     // #104 live-tip preview: blended in before the #92 preview below so the
@@ -12921,185 +12813,10 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  /** Transparent-background export variant (#15) — draws to the same visible
-   *  canvas as `_display()` (there's no separate offscreen target), but
-   *  through DISPLAY_TRANSPARENT_FRAG instead of the paper-blend DISPLAY_
-   *  FRAG: un-premultiplies `_compositeFBO`'s stored color and writes
-   *  coverage straight through as alpha, so untouched canvas is transparent
-   *  rather than opaque paper. Only ever called from exportPNG(true), which
-   *  restores the normal paper view via `_display()` right after grabbing
-   *  the blob (see its docstring). */
-  private _displayTransparent(): void {
-    const { gl, canvas } = this
-    const w = canvas.width, h = canvas.height
-
-    this._composeToFBO()
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    gl.viewport(0, 0, w, h)
-    gl.disable(gl.BLEND)
-
-    gl.useProgram(this._dispTransparentProg)
-    const u = this._dispTransparentUni
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._compositeFBO.texture)
-    gl.uniform1i(u.u_accumulation, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._dispTransparentPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-  }
-
-  // ─── Infinite-room export (#145) ───────────────────────────────────────────
-  //
-  // exportPNG's camera-viewport path (_display()/_displayTransparent() +
-  // canvas.toBlob(), above) is exactly right for a bounded room — its canvas
-  // literally is the whole drawing — but for an infinite room "whatever the
-  // camera currently frames" isn't "the whole drawing" at all, just an
-  // arbitrary crop. The methods below build a *second*, camera-independent
-  // render of the tightest rect containing every layer's actual content
-  // (getContentBounds's own union, at 1 world unit = 1 pixel) and read that
-  // back directly, rather than reusing _compositeFBO/the real canvas (both
-  // are fixed at canvas.width x canvas.height, which has no necessary
-  // relationship to the content bounds' own size).
-
-  /** Union of getContentBounds() across every layer currently in
-   *  _compositeOrder — i.e. every layer that actually participates in the
-   *  on-screen composite right now, same set _runComposite itself draws
-   *  (a hidden layer's content is no more "part of the drawing" here than
-   *  it is on screen). The tightest world-space rect containing all of it;
-   *  null if every one of them is empty (or there are no layers at all).
-   *  Used by _buildContentComposite for exportPNG's infinite-room path. */
-  private _allVisibleContentBounds(): { x: number; y: number; width: number; height: number } | null {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const { id } of this._compositeOrder) {
-      const b = this.getContentBounds(id)
-      if (!b) continue
-      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
-      maxX = Math.max(maxX, b.x + b.width); maxY = Math.max(maxY, b.y + b.height)
-    }
-    if (maxX <= minX) return null
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-  }
-
-  /** Builds one unblended (premultiplied-color/coverage-alpha — exactly
-   *  _compositeFBO's own convention, see _composeToFBO's doc comment)
-   *  accumulation buffer covering every layer's ENTIRE resident content,
-   *  positioned by a synthetic, fixed (zoom 1, angle 0) camera centered on
-   *  the union content bounds instead of the live, on-screen
-   *  `_infiniteCamera`.
-   *
-   *  Reuses _drawCompositeItem/_drawTileComposite completely unmodified
-   *  rather than inventing a second rendering path to keep in sync with the
-   *  real one: passing a viewRect that exactly encloses the whole target
-   *  buffer makes resolveVisible() return every resident tile anyway (a
-   *  tile only gets excluded if it falls entirely outside viewRect — see
-   *  ILayerBuffer's own doc comment), and _drawTileComposite's screen-
-   *  position math only ever reads `this._infiniteCamera` and the target
-   *  size/fbo it's given — nothing specific to the real on-screen canvas —
-   *  so temporarily swapping the camera field is enough to retarget the
-   *  exact same drawing code at an arbitrary offscreen buffer instead of the
-   *  screen. This runs fully synchronously (no draw call here can yield to
-   *  other engine code), so the swap is safe without any observer noticing
-   *  the camera "moved"; the try/finally is just cheap insurance against a
-   *  thrown error leaving it swapped.
-   *
-   *  Content bounds are integers (see getContentBounds), so this camera
-   *  placement makes every tile origin land on an exact integer screen
-   *  position with zero rounding — no seam risk the way a fractional-zoom
-   *  on-screen camera has (see _drawTileComposite's own docstring).
-   *
-   *  Clamped to MAX_EXPORT_DIMENSION_PX per axis — see that constant's own
-   *  comment. Caller owns the returned buffer's lifetime (destroy() once
-   *  read). Returns null if every layer is empty — see exportPNG's own
-   *  fallback for that case. */
-  private _buildContentComposite(
-    rect: { x: number; y: number; width: number; height: number } | null = null,
-  ): { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null {
-    // (#470) An explicit rect is the bounded room's sheet — export it whole,
-    // blank margins and all, because the sheet's own edges are part of the
-    // picture there. Without one (an infinite room) the drawing's content
-    // bounds are the only rect that means anything.
-    const raw = rect ?? this._allVisibleContentBounds()
-    if (!raw) return null
-
-    const width  = Math.min(Math.ceil(raw.width),  MAX_EXPORT_DIMENSION_PX)
-    const height = Math.min(Math.ceil(raw.height), MAX_EXPORT_DIMENSION_PX)
-    const bounds = { x: raw.x, y: raw.y, width, height }
-
-    const { gl } = this
-    const buffer = new AccumulationBuffer(gl, width, height)
-    buffer.clear()
-
-    const savedCamera = this._infiniteCamera
-    const savedCenterX = this._compositeCenterX
-    const savedCenterY = this._compositeCenterY
-    const savedScale = this._compositeScale
-    this._infiniteCamera = { wx: bounds.x + width / 2, wy: bounds.y + height / 2, zoom: 1, angle: 0 }
-    // #134-follow-up: _drawTileComposite/_worldToScreenEdgeX/Y center on
-    // _compositeCenterX/Y, not this target's own half-size, since #136 —
-    // this buffer is a plain, direct 1:1 target (no assembly-buffer padding
-    // concept applies here at all), so that center is simply its own
-    // width/2, height/2, exactly matching the synthetic camera above.
-    this._compositeCenterX = width / 2
-    this._compositeCenterY = height / 2
-    // (#301) Same story for the scale those two are paired with: this target
-    // is 1 world unit = 1 pixel by construction (see the synthetic camera's
-    // zoom above), which is what min(1, zoom) yields here anyway — set
-    // explicitly rather than left at whatever the last on-screen frame used,
-    // since nothing calls _runComposite on this path to refresh it.
-    this._compositeScale = 1
-    const viewRect: WorldRect = { minX: bounds.x, minY: bounds.y, maxX: bounds.x + width, maxY: bounds.y + height }
-    try {
-      for (const { id, opacity } of this._compositeOrder) {
-        this._drawCompositeItem(id, opacity, buffer.fbo, viewRect, width, height)
-      }
-    } finally {
-      this._infiniteCamera = savedCamera
-      this._compositeCenterX = savedCenterX
-      this._compositeCenterY = savedCenterY
-      this._compositeScale = savedScale
-    }
-
-    return { bounds, buffer }
-  }
-
-  /** Transparent-export variant (#15/#145) of DISPLAY_TRANSPARENT_FRAG,
-   *  parameterized to read an arbitrary source texture into an arbitrary
-   *  target instead of hardcoding _compositeFBO -> the real canvas the way
-   *  _displayTransparent() does — the un-premultiply math itself is
-   *  unchanged, just retargeted. See _displayTransparent's own comment for
-   *  what this shader does and why. */
-  private _renderDisplayTransparentInto(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, w, h)
-    gl.disable(gl.BLEND)
-
-    gl.useProgram(this._dispTransparentProg)
-    const u = this._dispTransparentUni
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
-    gl.uniform1i(u.u_accumulation, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._dispTransparentPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
   /** Paper-baked export variant (#145) — the same PAPER_COMPOSE_FRAG the
    *  live screen pass uses, just pointed at an arbitrary source/target
-   *  instead of _assemblyFBO/the screen, like _renderDisplayTransparentInto
-   *  above. The export camera _buildContentComposite sets up is never
+   *  instead of _assemblyFBO/the screen — Exporter's context `composePaper`
+   *  (#494). The exactFrame Exporter.buildContentComposite draws through is never
    *  rotated and always renders at exactly 1 world unit = 1 pixel, so both
    *  of that shader's mappings degenerate here: the accumulation lookup is
    *  the identity (source and target are the same size, pixel for pixel),
@@ -13160,36 +12877,12 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** (#595) One step of bakePreview's downscale chain: `sourceTex` shrunk
-   *  into the whole of `targetFbo` (w x h) through DOWNSAMPLE_FRAG. The tap
-   *  offset is a quarter of a destination pixel — see the shader's comment for
-   *  why that is an exact 2x2 box on a halving step. */
-  private _renderDownsampleInto(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, w, h)
-    gl.disable(gl.BLEND)
-    gl.useProgram(this._previewDownsampleProg)
-    const u = this._previewDownsampleUni
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
-    gl.uniform1i(u.u_src, 0)
-    gl.uniform2f(u.u_tapOffset, 0.25 / w, 0.25 / h)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._previewDownsamplePosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
   /** Hand-builds an image Blob from raw RGBA8 bytes read back via
    *  gl.readPixels — needed because the export render targets are never the
-   *  real on-screen canvas (see _exportOffscreenPNG's own doc comment for
-   *  why), so there's no canvas.toBlob() of the GL canvas to lean on.
+   *  real on-screen canvas (see Exporter.exportPNG's doc comment for why), so
+   *  there's no canvas.toBlob() of the GL canvas to lean on. Stays in the
+   *  engine because it needs the DOM; Exporter and AreaOps get it through
+   *  their contexts.
    *  gl.readPixels' rows come out GL/window-bottom-first (the same convention
    *  getContentBounds' own doc comment explains and corrects for) — flipped
    *  here so row 0 of the image is the visual top.
@@ -13222,64 +12915,6 @@ export class PencilEngine implements PencilEngineAPI {
     const blob = await encode(type, quality)
     if (type === 'image/png' || (blob && (blob.type === type || blob.type === 'image/png'))) return blob
     return encode('image/png')
-  }
-
-  /** exportPNG's infinite-room path (#145) — see PencilEngineAPI.exportPNG's
-   *  own doc comment. A bounded room's canvas literally *is* the whole
-   *  drawing, so the plain camera-viewport `_display()`/`_displayTransparent()`
-   *  + `canvas.toBlob()` path (still used verbatim for bounded rooms, and as
-   *  this method's own empty-drawing fallback below) is already exactly
-   *  right there. An infinite room has no such fixed rect — "export the
-   *  current camera viewport" is what the pre-#145 code did (it never had a
-   *  tile-aware alternative), and is no more useful for an infinite canvas
-   *  than a screenshot: whatever isn't currently on screen just isn't in the
-   *  file. This instead exports the tightest rect containing every layer's
-   *  actual painted content (see _buildContentComposite/
-   *  _allVisibleContentBounds), rendered at exactly 1 world unit = 1 pixel —
-   *  "give me my whole drawing" being a far more useful default for a real
-   *  user than "give me whatever I happened to be looking at," and the
-   *  tightest-bbox framing (rather than e.g. padding to some arbitrary
-   *  margin) needs no further judgment call about how much blank space to
-   *  include.
-   *
-   *  Renders through an *offscreen* framebuffer sized to the content bounds
-   *  rather than resizing the real on-screen canvas to match (which would
-   *  briefly glitch the live view, or race a concurrent ResizeObserver-
-   *  driven resizeCanvas() call) — gl.readPixels works against whichever
-   *  framebuffer is currently bound, not just the canvas's own default one,
-   *  so there's no need to touch `this.canvas` at all. The visible on-screen
-   *  frame is never disturbed by any of this — unlike the bounded/transparent
-   *  path above, there's nothing to restore via _display() afterward. */
-  private _exportOffscreenPNG(
-    transparent: boolean, rect: { x: number; y: number; width: number; height: number } | null,
-  ): Promise<Blob | null> {
-    const composite = this._buildContentComposite(rect)
-    if (!composite) {
-      // Nothing painted on any layer — no content rect to speak of. Falls
-      // back to the plain camera-viewport export (blank paper, or fully
-      // transparent either way) rather than producing a 0x0 image; this is
-      // the one case where "export the current view" and "export the whole
-      // drawing" agree — there's no drawing either way.
-      if (transparent) this._displayTransparent()
-      else this._display()
-      const blob = new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png'))
-      if (transparent) this._display()
-      return blob
-    }
-
-    const { bounds, buffer } = composite
-    const { gl } = this
-    const { width: w, height: h } = buffer
-
-    const out = new AccumulationBuffer(gl, w, h)
-    if (transparent) this._renderDisplayTransparentInto(buffer.texture, out.fbo, w, h)
-    else this._renderPaperComposeInto(buffer.texture, out.fbo, w, h, bounds)
-
-    const pixels = out.readPixels()
-    buffer.destroy()
-    out.destroy()
-
-    return this._pixelsToBlob(pixels, w, h)
   }
 }
 

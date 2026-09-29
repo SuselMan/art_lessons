@@ -158,13 +158,15 @@ interface EngineInternals {
   _compositeFBO: AccumulationBuffer
   // #301 white-box access — see readCompositePixels below.
   _composeToFBO: (needCompositeFBO?: boolean) => void
-  // #145 white-box access — see buildExportComposite below.
-  _buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
+  // #145 white-box access — see buildExportComposite below. (#494) Lives on
+  // Exporter (src/export/Exporter.ts) now.
+  _exporter: {
+    buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
+  }
   // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
   _assemblyPad: () => { padX: number; padY: number }
-  _compositeCenterX: number
-  _compositeCenterY: number
-  _compositeScale: number
+  // (#494) The on-screen composite's CameraFrame — see src/raster/cameraFrame.ts.
+  _liveCameraFrame: () => { centerX: number; centerY: number; scale: number }
   // #301 white-box access — see screenToWorldFor/rotateMatrixInvFor below.
   _screenToWorldMatrix: () => Matrix3
   _infiniteRotateMatrixInv: () => Matrix3
@@ -307,30 +309,30 @@ export interface ExportComposite {
   width: number
   height: number
   // RGBA8, GL-row-order (bottom-up) — same convention readCompositePixels/
-  // AccumulationBuffer.readPixels already give; see _buildContentComposite's
-  // own doc comment in engine/index.ts.
+  // AccumulationBuffer.readPixels already give; see
+  // Exporter.buildContentComposite's own doc comment.
   pixels: Uint8Array
 }
 
 /** White-box hook into exportPNG's infinite-room composite-building step
- *  (#145) — _buildContentComposite() itself. Returns the union content-
+ *  (#145) — Exporter.buildContentComposite() itself. Returns the union content-
  *  bounds rect plus that rect's raw (unblended, premultiplied-color/
  *  coverage-alpha) pixels, or null if every layer is empty.
  *
  *  This is the layer these tests can actually assert on: exportPNG's own
  *  final output isn't mockable end-to-end — MockGL deliberately never
  *  rasterizes the paper-blend/display-transparent passes (see mockGL.ts's
- *  module docstring), and _exportInfinitePNG's PNG encoding step reaches for
+ *  module docstring), and the engine's PNG encoding step reaches for
  *  `document.createElement('canvas')`, which doesn't exist in vitest's
  *  'node' environment (see the root vitest.config.ts) — so a test exercising
  *  the full exportPNG() call with real content on an infinite-room engine
- *  would throw, not just fail an assertion. _buildContentComposite is the
+ *  would throw, not just fail an assertion. buildContentComposite is the
  *  exact boundary where "pixels MockGL can rasterize" ends and "the DOM-only
  *  PNG encoding step" begins, so that's what this reaches past — same
  *  documented, centralized reach-past-private-fields pattern as every other
  *  helper in this file. */
 export function buildExportComposite(engine: PencilEngine): ExportComposite | null {
-  const result = internals(engine)._buildContentComposite()
+  const result = internals(engine)._exporter.buildContentComposite()
   if (!result) return null
   const pixels = result.buffer.readPixels()
   result.buffer.destroy()
@@ -395,17 +397,16 @@ export function assemblyPad(engine: PencilEngine): { padX: number; padY: number 
   return internals(engine)._assemblyPad()
 }
 
-/** #134-follow-up white-box access: the pixel position within the *current*
- *  composite target that the camera's own world point (wx, wy) maps to —
- *  only meaningful right after a real composite has run (setInfiniteCamera/
- *  a paint/etc. — anything that calls _display()), since it's set fresh by
- *  _runComposite every time. See engine/index.ts's _compositeCenterX field
- *  comment for why, for an infinite room, this must differ from
+/** #134-follow-up white-box access: the pixel position within the on-screen
+ *  composite target that the camera's own world point (wx, wy) maps to — the
+ *  live CameraFrame's centre, which every _composeToFBO derives fresh from the
+ *  current camera and canvas (#494). See CameraFrame.centerX in
+ *  src/raster/cameraFrame.ts for why, for an infinite room, this must differ from
  *  canvas.width/2 by an exact integer (not any fractional amount) to avoid
  *  a permanent, uniform bilinear-resample blur on every frame. */
 export function compositeCenterFor(engine: PencilEngine): { x: number; y: number } {
-  const i = internals(engine)
-  return { x: i._compositeCenterX, y: i._compositeCenterY }
+  const frame = internals(engine)._liveCameraFrame()
+  return { x: frame.centerX, y: frame.centerY }
 }
 
 /** #301 white-box access: the two destination-driven inverse mappings
@@ -421,10 +422,10 @@ export function screenToWorldFor(engine: PencilEngine): Matrix3 {
 }
 
 /** #301 white-box access: composite-target pixels per world unit — min(1,
- *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See the
- *  field's own comment in engine/index.ts. */
+ *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See
+ *  CameraFrame.scale in src/raster/cameraFrame.ts. */
 export function compositeScaleFor(engine: PencilEngine): number {
-  return internals(engine)._compositeScale
+  return internals(engine)._liveCameraFrame().scale
 }
 
 export function rotateMatrixInvFor(engine: PencilEngine): Matrix3 {
