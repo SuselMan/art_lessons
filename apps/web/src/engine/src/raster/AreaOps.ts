@@ -380,8 +380,8 @@ export class AreaOps {
    *
    *  Two-phase to stay WebGL1-safe (can't read and write the same texture
    *  in one draw call, same reasoning AccumulationBuffer.copyTo's read-
-   *  into-temp-then-copy pattern exists for — see _execMergeLive/
-   *  _replayMergeInto): every destination tile that overlaps at least one
+   *  into-temp-then-copy pattern exists for — see StructuralOps.mergeLive/
+   *  replayMergeInto): every destination tile that overlaps at least one
    *  source tile's transformed bounds is rendered into its own fresh scratch
    *  buffer first, reading only from the untouched original source tiles
    *  (one pass per overlapping source tile, alpha-blended — see

@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { DAB_VERT, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
@@ -8,6 +8,7 @@ import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchSlot } from './src/buffers/scratchPools'
 import { SnapshotLedger } from './src/oplog/snapshotLedger'
 import { SnapshotIO } from './src/oplog/SnapshotIO'
+import { StructuralOps } from './src/oplog/structuralOps'
 import { BlitPasses } from './src/raster/blitPasses'
 import { AreaOps, asImportRecord, type AreaImage, type AreaFillRequest, type AreaFillRaster } from './src/raster/AreaOps'
 import { LayerPreviews } from './src/raster/layerPreviews'
@@ -103,7 +104,7 @@ import {
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
-import { TILE_SIZE, coarseFactorFor, type WorldRect } from './src/buffers/tileMath'
+import { TILE_SIZE, coarseFactorFor } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
@@ -2660,6 +2661,8 @@ export class PencilEngine implements PencilEngineAPI {
   // anything new to publish, what its restored pixels already contain, whether
   // it may be published at all. See snapshotLedger.ts.
   private readonly _snapshots = new SnapshotLedger()
+  // (#494) Layer merge and duplicate — see structuralOps.ts.
+  private readonly _structural: StructuralOps
   // (#494) Snapshot bake, restore, audit and history backfill over the ledger
   // above — see SnapshotIO.ts.
   private readonly _snapshotIO: SnapshotIO
@@ -2909,6 +2912,23 @@ export class PencilEngine implements PencilEngineAPI {
       scratchLayer: id => this._makeLayerBuffer(id),
       applyPixelOp: (buf, id, op) => this._applyPixelOp(buf, id, op),
       preloadImages: ops => { void this.preloadImages(ops) },
+    })
+    // (#494) Layer merge and duplicate — see structuralOps.ts. The layer map
+    // and the log are assigned further down, hence functions.
+    this._structural = new StructuralOps({
+      ledger: this._snapshots,
+      log: () => this._log,
+      layer: id => this._layers.get(id),
+      hasLayer: id => this._layers.has(id),
+      setLayer: (id, buf) => { this._layers.set(id, buf) },
+      makeLayerBuffer: id => this._makeLayerBuffer(id),
+      createBuffer: id => this._createBuffer(id),
+      destroyBuffer: id => this._destroyBuffer(id),
+      replayInto: (buf, id, ops) => this._replayInto(buf, id, ops),
+      compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
+      takeCheckpoint: id => this._takeCheckpoint(id),
+      invalidateSplitCache: () => this._invalidateSplitCache(),
+      displayIfNotSuspended: () => this._displayIfNotSuspended(),
     })
     // (#494) Layer filters — see FilterPass.ts.
     this._filters = new FilterPass({
@@ -3164,7 +3184,7 @@ export class PencilEngine implements PencilEngineAPI {
   retryPaper(): Promise<void> { return this._paper.retry() }
 
   /** (#147) What appendOperation's own branches and _applyHistoryChange/
-   *  _execMergeLive call instead of `this._display()` directly — a no-op
+   *  StructuralOps call instead of `this._display()` directly — a no-op
    *  while a suspendDisplay() span is active (see its own doc comment),
    *  otherwise identical to calling _display() right there. */
   private _displayIfNotSuspended(): void {
@@ -3330,22 +3350,10 @@ export class PencilEngine implements PencilEngineAPI {
         break
       }
       case 'layer_merge':
-        // (#374) A merge that a restored snapshot already accounts for still
-        // has to happen structurally — the result layer exists, its sources
-        // do not — but must not composite anything: the result's pixels came
-        // back from the snapshot, and `_execMergeLive` would replace that
-        // buffer with a freshly composited one, discarding them.
-        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execMergeStructuralOnly(op)
-        else this._execMergeLive(op)
+        this._structural.execMerge(op) // (#374) see StructuralOps.execMerge
         break
       case 'layer_duplicate':
-        // (#449) Same two-way split as layer_merge above and for the same
-        // reason: the copy's pixels can already have come back from a restored
-        // snapshot, and re-copying the source over them would be wrong twice —
-        // it discards whatever was painted on the copy after the duplicate, and
-        // the source itself has moved on since.
-        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execDuplicateStructuralOnly(op)
-        else this._execDuplicateLive(op)
+        this._structural.execDuplicate(op) // (#449)
         break
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
@@ -4906,15 +4914,15 @@ export class PencilEngine implements PencilEngineAPI {
         buf.clear()
         break
       case 'layer_merge':
-        this._replayMergeInto(buf, op)
+        this._structural.replayMergeInto(buf, op)
         break
       case 'layer_duplicate':
-        this._replayDuplicateInto(buf, op)
+        this._structural.replayDuplicateInto(buf, op)
         break
       case 'image_import':
         // (#398) Same as appendOperation's own branch, minus the late-arrival
         // repair: this one can be replaying into a throwaway scratch buffer
-        // (see _replayMergeInto), which has no layer to rebuild. Every replay
+        // (see StructuralOps.replayMergeInto), which has no layer to rebuild. Every replay
         // that matters here reaches this with the image already decoded —
         // preloadImages on the join/reconnect paths, and the cache entry the
         // first paint left behind for undo/redo's later rebuilds.
@@ -4985,11 +4993,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  Camera.visibleWorldRect and _composeToFBO/_display, both
    *  unchanged in size), so this never changes what an on-page bounded room
    *  looks like. */
-  /** `layerId` given: this is (or is about to become, see _execMergeLive) a
+  /** `layerId` given: this is (or is about to become, see StructuralOps.mergeLive) a
    *  real, persistent layer buffer — wires up #144's rebuild-on-demand hook
    *  so it's eligible for byte-budget eviction (see TiledLayerBuffer's own
    *  docstring). Omitted: a short-lived scratch/temp buffer (a merge
-   *  source's replay target in _replayMergeInto, or _makeTileRebuilder's own
+   *  source's replay target in StructuralOps.replayMergeInto, or _makeTileRebuilder's own
    *  recovery-replay scratch below) that's destroyed the moment the one
    *  operation using it finishes and never queried again afterward — no
    *  rebuildTile is wired, which is also what keeps it from evicting at all
@@ -5037,7 +5045,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  Recovering one specific tile in isolation, without replaying (and
    *  therefore fully recreating, defeating eviction's own point) every
    *  *other* tile the layer has ever touched, isn't possible in general:
-   *  AreaOps.bakeLayerTransform/_replayMergeInto are inherently whole-layer, cross-tile
+   *  AreaOps.bakeLayerTransform/StructuralOps.replayMergeInto are inherently whole-layer, cross-tile
    *  operations (a bake's destination tile can draw from any source tile;
    *  a merge composites every one of a source layer's tiles) — replaying
    *  the tail of pixel ops into anything less than a real, full multi-tile
@@ -5108,149 +5116,6 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._infinite) return { w: TILE_SIZE, h: TILE_SIZE }
     const { w, h } = this._pageSize()
     return { w: Math.min(TILE_SIZE, w), h: Math.min(TILE_SIZE, h) }
-  }
-
-  /** Composites every buffer `source` currently holds into the
-   *  corresponding buffer(s) of `dest` at the same world position, at
-   *  `opacity` — the tile-generalized form of a single
-   *  `_compositeTextures([{texture: source.texture, opacity}], dest.fbo)`
-   *  call. Bounded mode: source/dest each have exactly one buffer at origin
-   *  (0,0), so this reduces to exactly that one call. Infinite mode: each
-   *  of source's resident tiles lands on the one dest tile at the same
-   *  world position (both use the same TILE_SIZE grid rooted at the same
-   *  origin, so tile boundaries always line up — no cross-tile blending
-   *  needed here, unlike a transform bake). */
-  private _compositeLayerInto(source: ILayerBuffer, dest: ILayerBuffer, opacity: number): void {
-    for (const src of source.allResident()) {
-      const rect: WorldRect = {
-        minX: src.originX, minY: src.originY,
-        maxX: src.originX + src.buffer.width, maxY: src.originY + src.buffer.height,
-      }
-      for (const destTarget of dest.resolveForPaint(rect)) {
-        this._compositeTextures(
-          [{ texture: src.buffer.texture, opacity }], destTarget.buffer.fbo,
-          destTarget.buffer.width, destTarget.buffer.height,
-        )
-      }
-      // (#155 Tier 2) Same grid, same origin (see this method's own doc
-      // comment) — src's real content rect lands on dest at the exact same
-      // world coordinates, no transform to reason about. null (src tile
-      // fully empty) means nothing to mark, same as skipping the composite
-      // itself would (the blend above is just a no-op in that case).
-      if (src.contentRect) dest.markContentPainted(src.contentRect)
-    }
-  }
-
-  /** Replays a merge: rebuilds each source as it was just before the merge
-   *  (done ops with lower seq) into a temp buffer and composites bottom→top
-   *  with the opacities captured in the operation. Recursive when a source is
-   *  itself a merge result. */
-  private _replayMergeInto(buf: ILayerBuffer, op: LayerMergeOperation): void {
-    buf.clear()
-    for (const src of op.sources) {
-      const temp = this._makeLayerBuffer()
-      this._replayInto(temp, src.id, this._log.layerPixelOps(src.id, op.seq))
-      this._compositeLayerInto(temp, buf, src.opacity)
-      temp.destroy()
-    }
-  }
-
-  /** (#449) Replays a duplicate: rebuilds the source as it was just before the
-   *  duplicate (done ops with lower seq) into a temp buffer and copies it in.
-   *  Recursive when the source is itself a merge or duplicate result.
-   *
-   *  Composited at 1, not at the source's opacity: the copy carries that
-   *  opacity as its own layer property (see applyContentOp's layer_duplicate
-   *  case), so applying it to the pixels as well would show it twice — a copy
-   *  of a 50% layer would land at 25%. This is the one place a duplicate
-   *  deliberately differs from a merge, which has no layer of its own left to
-   *  hold the source opacities and must bake them. */
-  private _replayDuplicateInto(buf: ILayerBuffer, op: LayerDuplicateOperation): void {
-    buf.clear()
-    const temp = this._makeLayerBuffer()
-    this._replayInto(temp, op.sourceId, this._log.layerPixelOps(op.sourceId, op.seq))
-    this._compositeLayerInto(temp, buf, 1)
-    temp.destroy()
-  }
-
-  /** (#374) The structural half of a merge, for one whose pixel result a
-   *  restored snapshot already holds.
-   *
-   *  Deliberately keeps the existing target buffer rather than making a new
-   *  one: that buffer is what `restoreLayerFromSnapshot` filled, and it is the
-   *  merge's result, arrived by a shorter route. Sources still have to go —
-   *  a merge consumes them, and leaving them alive would show every merged
-   *  layer twice, once inside the result and once beside it.
-   *
-   *  No checkpoint is taken: the restore already pinned one holding exactly
-   *  these pixels. */
-  private _execMergeStructuralOnly(op: LayerMergeOperation): void {
-    this._invalidateSplitCache()
-    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
-    for (const s of op.sources) this._destroyBuffer(s.id)
-    this._displayIfNotSuspended()
-  }
-
-  /** Live merge fast path: sources' buffers already hold replay state, so
-   *  composite them directly instead of rebuilding. The immediate checkpoint
-   *  spares the recursive source rebuild on any later undo above this layer. */
-  private _execMergeLive(op: LayerMergeOperation): void {
-    // #122: sources are destroyed and a new target buffer object takes their
-    // place — always structural, regardless of whether any of the ids
-    // involved happen to be the active layer.
-    this._invalidateSplitCache()
-    const target = this._makeLayerBuffer(op.layerId)
-    target.clear()
-    for (const s of op.sources) {
-      const buf = this._layers.get(s.id)
-      if (buf) this._compositeLayerInto(buf, target, s.opacity)
-    }
-    this._layers.set(op.layerId, target)
-    this._snapshots.markDirty(op.layerId)
-    for (const s of op.sources) this._destroyBuffer(s.id)
-    this._takeCheckpoint(op.layerId)
-    this._displayIfNotSuspended()
-  }
-
-  /** (#449) The structural half of a duplicate whose pixel result a restored
-   *  snapshot already holds — the copy is a layer in its own right by then,
-   *  restored like any other, so there is nothing left to copy into it.
-   *
-   *  Shorter than its merge counterpart because a duplicate consumes nothing:
-   *  no sources to destroy, and the source layer is meant to still be there. */
-  private _execDuplicateStructuralOnly(op: LayerDuplicateOperation): void {
-    this._invalidateSplitCache()
-    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
-    this._displayIfNotSuspended()
-  }
-
-  /** Live duplicate fast path, the counterpart of _execMergeLive: the source's
-   *  buffer already holds replay state, so copy it directly instead of
-   *  rebuilding its whole history into a scratch buffer.
-   *
-   *  A missing source buffer produces an empty copy rather than a refusal.
-   *  Operations apply in true seq order, and the server rejects a duplicate
-   *  naming a dead id (rooms.ts's getOperationRejectReason), so the only way to
-   *  reach that is a source this client has not built yet — the same condition
-   *  every other pixel branch here treats as "skip, the log is the truth" (see
-   *  appendOperation's own doc comment).
-   *
-   *  The immediate checkpoint matters more here than it does for a merge: a
-   *  duplicate's replay is a full from-scratch rebuild of *another* layer's
-   *  entire history into a temp buffer, which the checkpoint spares every
-   *  later undo above this one. */
-  private _execDuplicateLive(op: LayerDuplicateOperation): void {
-    this._invalidateSplitCache()
-    const target = this._makeLayerBuffer(op.layerId)
-    target.clear()
-    const source = this._layers.get(op.sourceId)
-    // Opacity 1 — see _replayDuplicateInto for why the source's own opacity
-    // must not be baked into the pixels here.
-    if (source) this._compositeLayerInto(source, target, 1)
-    this._layers.set(op.layerId, target)
-    this._snapshots.markDirty(op.layerId)
-    this._takeCheckpoint(op.layerId)
-    this._displayIfNotSuspended()
   }
 
   // ─── Context loss (#121) ─────────────────────────────────────────────────────
@@ -10619,7 +10484,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  already-composited texture and blending *that* at opacity 1 produces
    *  the exact same result as blending every entry individually in order —
    *  same technique this file already uses for layer_merge
-   *  (_execMergeLive/_replayMergeInto).
+   *  (StructuralOps.mergeLive/replayMergeInto).
    *
    *  Bypassed entirely whenever a layer-transform gizmo preview (#120) is
    *  active: previewLayerTransform can substitute scratch content for *any*
