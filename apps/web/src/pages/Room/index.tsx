@@ -14,8 +14,7 @@ import {
 import { FilterPanel } from '../../components/FilterPanel'
 import { ColorFlyout } from '../../components/ColorFlyout'
 import { Notice } from '../../components/Notice'
-import { BoardStrip, TeacherChip } from './panels/BoardStrip'
-import { ClassBar, ClassGrid } from './panels/ClassGrid'
+import { ClassChrome } from './panels/ClassChrome'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
@@ -581,24 +580,18 @@ function RoomEditor() {
   const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   // The store's own facts about the lesson, read where the markup uses them.
   const knownLessonId = useRoomStore(s => s.lessonId)
-  const activeAssignmentId = useRoomStore(s => s.activeAssignmentId)
-  const spotlightBoardId = useRoomStore(s => s.spotlightBoardId)
   const classVisibility = useRoomStore(s => s.classVisibility)
   // (#493) The strip's page turns and edits — see useBoardActions.
-  const {
-    boardsOpen, setBoardsOpen, boardBusy, selectBoard, returnToTeacher, addBoard, renameBoardAction, moveBoard,
-    removeBoard,
-  } = useBoardActions({ socketRef, switchBoardRef, isOwnerRef })
+  const boardActions = useBoardActions({ socketRef, switchBoardRef, isOwnerRef })
+  const { boardsOpen, setBoardsOpen, selectBoard } = boardActions
   // (#493) Where each board goes on screen, and the class-mode requests — see
   // useClassView.
   const classView = useClassView({
     socketRef, switchBoardRef, isOwnerRef, selectBoard, boardId, participants, myUserId, isOwner, compact,
   })
   const {
-    teacherBoard, gridAssignmentId, setGridAssignmentId, currentBoardSummary, onPersonalBoard,
-    ownAssignmentBoardId, gridAssignment, gridTiles, barTiles, readOnlyBoard, myHandRaised,
-    canOpenGrid, teacherOnMyBoard, bakesPreviewHere, stripList, stripAvailable, showTeacherChip, chipText,
-    openClassBoard, setClassLocation, setSpotlight, setHandRaised, setClassVisibility, stepInGrid,
+    currentBoardSummary, onPersonalBoard, ownAssignmentBoardId, readOnlyBoard, myHandRaised, teacherOnMyBoard,
+    bakesPreviewHere, stripAvailable, setHandRaised, setClassVisibility,
   } = classView
   // (#432) The latency meter's clock — see useServerClockSync.
   useServerClockSync(socketRef, connected)
@@ -1505,72 +1498,12 @@ function RoomEditor() {
         tapToHideEnabled={tapToHideEnabled} toggleUI={toggleUI} setSettingsOpen={setSettingsOpen}
       />
 
-      {/* (#176) The board strip and the "teacher is on …" chip. Both live
-          under the header and go with it in minimal UI — the same wrapper
-          class, so a hidden header never leaves a strip floating over the
-          paper. The chip is offered to a student who stepped away from the
-          teacher's board; the strip to anyone who can turn pages. */}
-      {knownLessonId && teacherBoard !== undefined && (
-        <div className={clsx(uiHidden && styles.uiHidden)}>
-          {boardsOpen && stripAvailable && (
-            <BoardStrip
-              boards={stripList}
-              lessonId={knownLessonId}
-              currentId={wantedBoardRef.current ?? boardId}
-              teacherId={teacherBoard}
-              participants={participants}
-              canEdit={isOwner && !compact}
-              compact={compact}
-              busy={boardBusy}
-              onSelect={selectBoard}
-              onClose={() => setBoardsOpen(false)}
-              onCreate={() => void addBoard()}
-              onRename={(target, name) => void renameBoardAction(target, name)}
-              onMove={(target, direction) => void moveBoard(target, direction)}
-              onDelete={target => void removeBoard(target)}
-            />
-          )}
-          {showTeacherChip && chipText !== null && (
-            <TeacherChip
-              text={chipText}
-              stripOpen={boardsOpen && stripAvailable}
-              onReturn={returnToTeacher}
-            />
-          )}
-          {/* (#595) The teacher's bar on a student's board. Takes the chip's
-              place — the teacher never has one. */}
-          {isOwner && onPersonalBoard && currentBoardSummary && !compact && gridAssignmentId === null && !(boardsOpen && stripAvailable) && (
-            <ClassBar
-              name={currentBoardSummary.name}
-              lit={spotlightBoardId === currentBoardSummary.id}
-              canStep={barTiles.length > 1}
-              annotating={annotationMode}
-              onGrid={() => setGridAssignmentId(currentBoardSummary.assignmentId ?? null)}
-              onStep={stepInGrid}
-              onSpotlight={() => setSpotlight(spotlightBoardId === currentBoardSummary.id ? null : currentBoardSummary.id)}
-              onAnnotatingChange={next => toggleAnnotationMode(next)}
-            />
-          )}
-        </div>
-      )}
-
-      {/* (#595) The class grid, over the canvas — see ClassGrid's own note. */}
-      {gridAssignment && canOpenGrid && (
-        <ClassGrid
-          assignment={gridAssignment}
-          isCurrent={gridAssignment.id === activeAssignmentId}
-          tiles={gridTiles}
-          isTeacher={isOwner}
-          currentId={boardId}
-          spotlightBoardId={spotlightBoardId}
-          onOpen={openClassBoard}
-          onClose={() => setGridAssignmentId(null)}
-          onGather={() => setClassLocation(null)}
-          onSendHere={() => setClassLocation(gridAssignment.id)}
-          onSpotlight={setSpotlight}
-          onLowerHand={whose => setHandRaised(false, whose)}
-        />
-      )}
+      {/* (#176, #595) The board strip, the teacher chip, the teacher's bar
+          and the class grid — see ClassChrome. */}
+      <ClassChrome
+        uiHidden={uiHidden} isOwner={isOwner} compact={compact} classView={classView} boardActions={boardActions}
+        wantedBoardRef={wantedBoardRef} toggleAnnotationMode={toggleAnnotationMode}
+      />
 
       {/* (#230) roomId/isOwner are what the Access tab needs; the panel shows
           it only when both are present. */}
