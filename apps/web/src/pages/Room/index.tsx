@@ -5,7 +5,7 @@ import { io, type Socket } from 'socket.io-client'
 import clsx from 'clsx'
 import type {
   Operation, Participant,
-  SendResult, ClientToServerEvents, ServerToClientEvents,
+  ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
@@ -45,7 +45,6 @@ import { useTransformGizmoGestures } from './useTransformGizmoGestures'
 import { createBoardEventHandlers } from './net/boardEvents'
 import { createPeerEventHandlers } from './net/peerEvents'
 import { createConfirmedStreamHandler } from './net/confirmedStream'
-import { createOutboxVerdicts } from './net/outboxVerdict'
 import { createEngineNetworkCallbacks } from './engineNetwork'
 import { createJoinFlow, type CreatorNavState } from './net/joinFlow'
 import { toRoomConfig } from './net/roomConfig'
@@ -64,6 +63,7 @@ import { useRemoteOperations } from './useRemoteOperations'
 import { useSnapshotPublishing } from './useSnapshotPublishing'
 import { useLivePreviewBake } from './useLivePreviewBake'
 import { useLostWork } from './useLostWork'
+import { useBoardOutbox } from './useBoardOutbox'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -94,9 +94,7 @@ import { QuickSettingsBar } from './panels/QuickSettingsBar'
 import { ToolSettingsTab } from './panels/ToolSettingsTab'
 import { resolveDisplayName } from './participants/displayName'
 import { cameraTransformCss } from './viewport/cameraMath'
-import { Outbox } from './net/outbox'
 import { createSocketRevival } from './net/socketRevival'
-import { createIndexedDbOutboxStorage } from './net/outboxStorage'
 import { PeerCursors } from './overlays/PeerCursors'
 import { BrushCursor } from './overlays/BrushCursor'
 import { useCursor, type ViewportCursor } from './overlays/cursorController'
@@ -150,25 +148,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
 // that an ordinary slow load or a brief blip never trips it, short enough
 // that nobody watches a spinner wondering whether their work survived.
 const OFFLINE_OVERLAY_GRACE_MS = 6000
-
-// (#289 epic, reliable history spec v0.2 §9) A bare socket.io ack has no
-// timeout of its own — a dropped packet (either leg) would otherwise leave
-// the Outbox waiting forever instead of ever retrying. `socket` is read at
-// call time by the caller (never closed over stale), since Outbox.send is
-// invoked long after the socket that existed when the Outbox itself was
-// constructed may have been replaced by a reconnect.
-function sendOperationWithTimeout(
-  socket: Socket<ServerToClientEvents, ClientToServerEvents> | null, op: Operation, timeoutMs = 5000,
-): Promise<SendResult> {
-  return new Promise((resolve, reject) => {
-    if (!socket) { reject(new Error('sendOperationWithTimeout: no active socket')); return }
-    const timer = setTimeout(() => reject(new Error('operation send timed out')), timeoutMs)
-    socket.emit('operation', op, result => {
-      clearTimeout(timer)
-      resolve(result)
-    })
-  })
-}
 
 /** (#570) The route component. The editor below assumes a WebGL context is
  *  there for the taking — `new PencilEngine` throws otherwise, from a mount
@@ -720,11 +699,6 @@ function RoomEditor() {
   // retry below — a UI callback with no socket of its own — is what has to
   // call it.
   const requestFullResyncRef = useRef<(() => void) | null>(null)
-  // (#201) Live size of the outbox — how much drawing exists only on this
-  // device so far. Mirrored into state (rather than read off the Outbox on
-  // render) because the Outbox is not a React store and its changes come
-  // from socket acks, not renders.
-  const [outboxState, setOutboxState] = useState({ pending: 0, stalled: 0 })
   // (#24) Backed by the store now — applyParticipantAction still just
   // folds each socket event through the same pure participantsReducer
   // (participants.ts), reused unchanged.
@@ -979,73 +953,28 @@ function RoomEditor() {
   // useOpenTimer.
   const { openTimerRef, startOpenTimer, finishOpenTimer } = useOpenTimer({ id, engineRef })
 
-  // (#289 epic, reliable history spec v0.2 §9) Every outgoing operation goes
-  // through here rather than a bare `socket.emit` — persisted to IndexedDB
-  // first, retried with exponential backoff until a real `SendResult`
-  // arrives, and replayed wholesale on reconnect (see handleConnect's
-  // resendAll below). Without this, an operation whose packet was dropped
-  // was simply lost forever: it painted locally, never reached the server,
-  // and nothing ever noticed or retried it.
-  //
-  // `onSettled` is the one place a definitive verdict lands, for both
-  // dispatch paths (optimistic and confirmation-gated) — the same
-  // watermark/pendingIds bookkeeping onLocalOperation's own ack
-  // callback used to do inline.
-  // (#176) The queue's key is the board, not the URL: operations are content,
-  // and a page turn hands the next board a queue of its own (see the effect
-  // below that retires the previous one). Before the first `room_state` a
-  // joiner has no board yet; the URL id stands in so the offline screen (#313)
-  // can still count a previous visit's unsent work for the common case of a
-  // lesson with one board.
-  const outboxBoardId = boardId ?? id ?? ''
-  const outbox = useMemo(() => new Outbox({
-    storage: createIndexedDbOutboxStorage(),
-    // (#358) Binds this queue to this board, in storage as well as in memory.
-    // `outboxBoardId` is in the dep list below for the same reason: a queue
-    // holding one board's unconfirmed strokes must not survive into another —
-    // that is exactly how they used to get sent there.
-    roomId: outboxBoardId,
-    send: op => sendOperationWithTimeout(socketRef.current, op),
-    // (#298) Nothing may go out before create_room/join_room has completed:
-    // the server has no room to record against and answers `not_joined`, so
-    // every such send is guaranteed to fail. This used to drain on *connect*
-    // instead, which on a tablet with a 384-operation backlog meant blasting
-    // ~55 MB of stroke JSON at a socket that had joined nothing — every
-    // reconnect, forever.
-    //
-    // (#176) And nothing may go out while the socket is on — or on its way to
-    // — a board other than this queue's. An operation carries no board of its
-    // own; the server records it against wherever the socket is. The join ack
-    // for the *lesson* can land after this client has already asked to turn to
-    // the teacher's board, and a `resendAll` at that moment would put the
-    // first board's leftovers on the second.
-    canSend: () => hasJoinedRef.current && socketBoardRef.current === outboxBoardId,
-    // (#493) What a stalled or settled operation means for this client —
-    // see outboxVerdict.ts.
-    ...createOutboxVerdicts({
-      pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
-      confirmOperation: (op, seq) => confirmOwnOperation(op, seq, false),
-      discardOperation: discardOwnOperation,
-      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
-    }),
-    // (#201) The counter the ConnectionBanner reports. Passing a plain
-    // setState is safe from any callsite: React batches, and the Outbox
-    // only ever calls this after a real size change.
-    onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
-  }), [
-    outboxBoardId, checkSnapshotBoundary, confirmOwnOperation, discardOwnOperation, scheduleLostWorkRecovery,
-    resolveTransformCommit, setLostWork,
-  ])
-  // (#176) For the socket effect, which must not list `outbox` as a
-  // dependency — see snapshotUploaderRef.
-  const outboxRef = useRef(outbox)
-  outboxRef.current = outbox
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
   // room or re-showing the join gate to an already-joined user.
   const hasJoinedRef = useRef(false)
-  // The credentials a joiner's gate submission used, replayed verbatim on a
+  // (#537) The ack's reading of a confirmation — see useTrueOrder. Its own
+  // callback so the outbox, which is rebuilt when any verdict changes
+  // identity, is not rebuilt every render by an inline arrow.
+  const confirmOwnOperationFromAck = useCallback(
+    (op: Operation, seq: number) => confirmOwnOperation(op, seq, false),
+    [confirmOwnOperation],
+  )
+  // (#289 §9, #176, #313) The board's outgoing queue, its retirement on a page
+  // turn and its live size — see useBoardOutbox.
+  const { outbox, outboxRef, outboxState } = useBoardOutbox({
+    boardId: boardId ?? id ?? '', socketRef, hasJoinedRef, socketBoardRef,
+    verdicts: {
+      pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
+      confirmOperation: confirmOwnOperationFromAck, discardOperation: discardOwnOperation,
+      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+    },
+  })  // The credentials a joiner's gate submission used, replayed verbatim on a
   // later reconnect (a fresh socket id always means a fresh join — see the
   // handleConnect reconnect branch below).
   const lastJoinAttemptRef = useRef<{ name: string; password?: string } | null>(null)
@@ -1160,34 +1089,6 @@ function RoomEditor() {
   useEffect(() => {
     if (!id) navigate('/create')
   }, [id, navigate])
-
-  // (#313) Surfaces a previous page load's unconfirmed work immediately,
-  // without waiting for a join that may never come on this visit — the
-  // offline screen's whole job is to report that number at exactly the
-  // moment nothing can be sent.
-  //
-  // (#358) Also where the *previous* room's queue is retired. Room is one
-  // component for every `/room/:id` (no `key` on the route), so an in-place id
-  // change — taking a copy of a closed room, opening a fork — swaps `outbox`
-  // without unmounting anything, and the instance left behind kept its retry
-  // timers, its unsent entries, and a `send` closing over the shared socket
-  // ref that has since joined the new room. Its next retry then landed in that
-  // room, because an operation carries no room of its own and the server
-  // records whatever arrives against the socket's current one.
-  //
-  // Retired by comparing instances rather than from this effect's cleanup:
-  // StrictMode runs mount → cleanup → mount while `useMemo` keeps handing back
-  // the same Outbox, so a disposing cleanup would leave the live queue dead in
-  // development and nowhere else. Comparing means a simulated remount sees two
-  // identical refs and does nothing.
-  const previousOutbox = useRef(outbox)
-  useEffect(() => {
-    if (previousOutbox.current !== outbox) {
-      previousOutbox.current.dispose()
-      previousOutbox.current = outbox
-    }
-    void outbox.hydrate()
-  }, [outbox])
 
   // (#346, #464) Whether the paper texture arrived, the retry when it did not,
   // and the download's progress — see usePaperReadiness.
@@ -1959,12 +1860,12 @@ function RoomEditor() {
     // see lib/api/queryClient.ts), so listing it here can never tear the socket
     // down and rebuild it.
     queryClient,
-    // (#493) From useJoinGate, useRemoteOperations, useSnapshotPublishing and
-    // useLivePreviewBake now, so the lint rule
+    // (#493) From useJoinGate, useRemoteOperations, useSnapshotPublishing,
+    // useLivePreviewBake and useBoardOutbox now, so the lint rule
     // asks for them: a useState setter and useRef objects, all stable for the
     // component's life — naming them can never tear the socket down.
     setJoinState, retryJoinRef, openTimerRef, appliedOpIdsRef, deferredOpsQueueRef,
-    previewScheduleRef, replayIncompleteRef, snapshotGateRef, snapshotUploaderRef,
+    previewScheduleRef, replayIncompleteRef, snapshotGateRef, snapshotUploaderRef, outboxRef,
     // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
     // read through refs), `navigate` (changes with the URL this effect itself
     // rewrites) and `boardId` (a page turn is not a new socket).
