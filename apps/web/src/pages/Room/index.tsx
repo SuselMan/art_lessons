@@ -77,6 +77,7 @@ import { PaperFailedOverlay } from './status/PaperFailedOverlay'
 import { RestoreFailedOverlay, type RestoreFailureReason } from './status/RestoreFailedOverlay'
 import { notOpenScreen, useOfflineGrace } from './status/notOpenScreen'
 import { RoomNotices } from './status/RoomNotices'
+import { CanvasCatchers } from './editing/CanvasCatchers'
 import { RoomHeader } from './panels/RoomHeader'
 import { ToolRail } from './panels/ToolRail'
 import { QuickSettingsBar } from './panels/QuickSettingsBar'
@@ -374,7 +375,6 @@ function RoomEditor() {
   // of its own kind (layer_transform) via the engine's live preview +
   // dispatchOp rather than through engine.setTool(); see toolSlice.
   const eyedropperActive = tool === 'eyedropper'
-  const rulerActive     = tool === 'ruler'
   const transformActive = tool === 'transform'
   // (#446) The selection tool. Unlike the four above it leaves something
   // behind that outlives having it in hand: the selection itself, which the
@@ -382,11 +382,6 @@ function RoomEditor() {
   // "is it selected" and "is there a selection" are two different questions
   // here, and both get asked below.
   const selectionActive = tool === 'selection'
-  // (#453) One-shot like the eyedropper — a tap is the whole gesture — but
-  // unlike it the tool stays in hand afterwards: filling one region of a
-  // drawing almost always means filling the next one too, whereas picking a
-  // colour is something you do once on the way back to drawing.
-  const fillActive = tool === 'fill'
   // (#509/#510, эпик #87) The two annotation tools. Both stay in hand after a
   // gesture like the fill does — remarks come in groups, one per thing worth
   // saying — and neither ever touches a layer: what they produce lives in the
@@ -1638,78 +1633,22 @@ function RoomEditor() {
               {canvasOverlays}
             </div>
           )}
-          {/* (#405) One catcher for the two tools whose gesture is a press on
-              the canvas itself. The ruler's is armed for as long as the tool is
-              selected — laying a new line and grabbing the existing one are the
-              same surface now, told apart per press by rulerGestureAt — where
-              it used to disappear the moment a line existed. (#445) That is
-              also exactly when the ruler is on screen, so nothing invisible is
-              ever grabbable: off screen means inert, the same rule that keeps
-              it from snapping. */}
-          {eyedropperActive && (
-            <div className={styles.canvasCatcher} onPointerDown={handleEyedropperPick} />
-          )}
-          {/* (#453) A tap, like the eyedropper's. `pointerEvents: none` while a
-              fill is running is what refuses the second tap, and it refuses it
-              at the surface rather than inside the handler so the cursor says
-              so too. */}
-          {fillActive && (
-            <div
-              className={styles.canvasCatcher}
-              style={fillBusy ? { cursor: 'progress' } : undefined}
-              onPointerDown={handleFillTap}
-            />
-          )}
-          {rulerActive && (
-            <div
-              className={styles.canvasCatcher}
-              onPointerDown={handleRulerDown}
-              onPointerMove={handleRulerHover}
-              onPointerEnter={handleRulerEnter}
-            />
-          )}
-          {/* (#446) Same pattern: mounted only while the selection tool is in
-              hand, so a selection left on screen under the pencil is an
-              outline and nothing more. */}
-          {selectionActive && (
-            <div
-              className={styles.canvasCatcher}
-              onPointerDown={handleSelectionDown}
-              onPointerMove={handleSelectionHover}
-              onDoubleClick={handleSelectionDoubleClick}
-              onPointerEnter={() => { selectionRectRef.current = null }}
-            />
-          )}
-          {/* (#509/#510) The same pattern once more, and the same rule: the
-              catcher exists exactly while its tool is in hand, so annotations
-              left on screen under the pencil are marks and nothing more.
-
-              Ordered under the overlay in the DOM but above it in effect —
-              a press on an editable note hits the note's own handler first
-              (it stops propagation), and everything that misses one lands
-              here and starts a new one. */}
-          {annotateTextActive && (
-            <div
-              ref={annotationTextCatcherRef}
-              className={styles.canvasCatcher}
-              style={annotationHover ? { cursor: 'pointer' } : undefined}
-              onPointerDown={handleAnnotationTextTap}
-              onPointerMove={handleAnnotationHover}
-              onPointerLeave={() => setAnnotationHover(false)}
-            />
-          )}
-          {annotatePenActive && (
-            <div className={styles.canvasCatcher} onPointerDown={handleAnnotationPenDown} />
-          )}
-          {annotateEraserActive && (
-            <div
-              className={styles.canvasCatcher}
-              style={annotationHover ? { cursor: 'pointer' } : undefined}
-              onPointerDown={handleAnnotationEraseDown}
-              onPointerMove={handleAnnotationHover}
-              onPointerLeave={() => setAnnotationHover(false)}
-            />
-          )}
+          {/* (#405) The surface each press-on-the-canvas tool takes its
+              gesture from — see CanvasCatchers. */}
+          <CanvasCatchers
+            onEyedropperPick={handleEyedropperPick}
+            fill={{ busy: fillBusy, onTap: e => { void handleFillTap(e) } }}
+            ruler={{ onDown: handleRulerDown, onHover: handleRulerHover, onEnter: handleRulerEnter }}
+            selection={{
+              onDown: handleSelectionDown, onHover: handleSelectionHover, onDoubleClick: handleSelectionDoubleClick,
+              onEnter: () => { selectionRectRef.current = null },
+            }}
+            annotation={{
+              textCatcherRef: annotationTextCatcherRef, hover: annotationHover, setHover: setAnnotationHover,
+              onTextTap: handleAnnotationTextTap, onHover: handleAnnotationHover, onPenDown: handleAnnotationPenDown,
+              onEraseDown: handleAnnotationEraseDown,
+            }}
+          />
         </div>
 
         {/* (#343, #364) The derived notices and the connection banner —
