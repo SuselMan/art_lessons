@@ -13,7 +13,7 @@
 // `?url` (not the raw bytes): these are ~40 KB PNGs each, so they stay separate
 // files the browser fetches on demand, and only the URL strings are in the
 // bundle.
-const files = import.meta.glob('../../../assets/tool-types/*/*.png', {
+const files = import.meta.glob('../../assets/tool-types/*/*.png', {
   eager: true,
   query: '?url',
   import: 'default',
@@ -29,7 +29,7 @@ const files = import.meta.glob('../../../assets/tool-types/*/*.png', {
  *  the UI puts behind it rather than in a lit white box. Unlike the sample
  *  strokes below they get no paper tint — paper is what a stroke needs to be
  *  read against, and a pencil is not a stroke. */
-const toolFiles = import.meta.glob('../../../assets/tools/*.png', {
+const toolFiles = import.meta.glob('../../assets/tools/*.png', {
   eager: true,
   query: '?url',
   import: 'default',
@@ -37,13 +37,13 @@ const toolFiles = import.meta.glob('../../../assets/tools/*.png', {
 
 export const TOOL_PHOTOS: Record<string, string> = Object.fromEntries(
   Object.entries(toolFiles).map(([path, url]) => [
-    path.slice('../../../assets/tools/'.length, -'.png'.length),
+    path.slice('../../assets/tools/'.length, -'.png'.length),
     url,
   ]),
 )
 
 function imagesFor(tool: string): Record<string, string> {
-  const prefix = `../../../assets/tool-types/${tool}/`
+  const prefix = `../../assets/tool-types/${tool}/`
   return Object.fromEntries(
     Object.entries(files)
       .filter(([path]) => path.startsWith(prefix))

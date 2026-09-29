@@ -5,13 +5,9 @@ import type { SelectionShape } from '@grafetto/shared'
 // of Room/index.tsx for the same reason rulerGesture.ts is — this is the part
 // worth testing, and none of it needs an engine, a canvas or a store.
 
-/** The three ways to draw a selection. Rectangle and freehand are one press
- *  and one release; the point-by-point lasso is a sequence of taps ended by
- *  closing on the first point (or by double-tapping / pressing Enter, both of
- *  which Room maps onto `closePolygonSelection` below). */
-export const SELECTION_SHAPES = ['rectangle', 'polygon', 'freehand'] as const
-
-export type SelectionShapeKind = (typeof SELECTION_SHAPES)[number]
+// The three shapes themselves live beside the tool registry that offers them
+// as a setting (#650); re-exported so this file's importers keep one place.
+export { SELECTION_SHAPES, type SelectionShapeKind } from '../../../lib/tools/selectionShapes'
 
 /** How far apart, in layer pixels, two freehand samples must be to record a
  *  second one. A pen reports far denser than a lasso needs: the points ride in

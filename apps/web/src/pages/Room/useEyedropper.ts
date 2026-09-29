@@ -5,7 +5,7 @@ import { rgbToHex } from '../../lib/browser/color'
 import { useRoomStore } from '../../stores/roomStore'
 import { deviceNativeZoom } from './viewport/cameraMath'
 import { clientToCanvas } from './viewport/pointerTransform'
-import type { ColorCapableTool } from './tools/toolSchemas'
+import type { ColorCapableTool } from '../../lib/tools/toolSchemas'
 import type { Viewport } from './viewport/useViewport'
 
 export interface EyedropperDeps {

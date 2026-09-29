@@ -4,7 +4,7 @@ import { SettingField } from '../../../components/SettingField'
 import { useT } from '../../../i18n'
 import { useRoomStore } from '../../../stores/roomStore'
 import { ShapeRatioPresets } from '../shapes/ShapeFrameFields'
-import { TOOL_SCHEMAS, type UiToolId } from '../tools/toolSchemas'
+import { TOOL_SCHEMAS, type UiToolId } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
 
 export interface ToolSettingsTabProps {

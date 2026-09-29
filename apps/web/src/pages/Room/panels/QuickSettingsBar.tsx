@@ -9,7 +9,7 @@ import { useClipboardStore } from '../../../stores/clipboardStore'
 import { useRoomStore } from '../../../stores/roomStore'
 import { ShapeFrameFields } from '../shapes/ShapeFrameFields'
 import { WatercolorDryButton } from './WatercolorDryButton'
-import { TOOL_SCHEMAS, type UiToolId } from '../tools/toolSchemas'
+import { TOOL_SCHEMAS, type UiToolId } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
 
 export interface QuickSettingsBarProps {

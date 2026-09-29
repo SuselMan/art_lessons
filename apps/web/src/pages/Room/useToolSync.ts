@@ -9,7 +9,7 @@ import {
 } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { linerSizeToPx } from './tools/toolSchemas'
+import { linerSizeToPx } from '../../lib/tools/toolSchemas'
 
 export interface ToolSyncDeps {
   engineRef: RefObject<PencilEngineAPI | null>

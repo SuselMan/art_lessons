@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { en } from '../../../i18n/core/en'
-import { ru } from '../../../i18n/core/ru'
+import { en } from '../../i18n/core/en'
+import { ru } from '../../i18n/core/ru'
 
 import {
   loadToolSettings, saveToolSettings, defaultToolSettings,
@@ -10,11 +10,10 @@ import {
   MAX_TOOL_SIZE_PX, toolSizeRange, toolGradeOptions, degreesMinutesParse, formatDegreesMinutes,
   type UiToolId, type SettingValueType,
 } from './toolSchemas'
-import { PENCIL_GRADES } from '../../../engine'
-import { TRANSFORM_MODES } from '../../../lib/transform/transformMath'
-import { expScale } from '../../../components/PrecisionSlider/sliderScale'
-import { DRAWING_TOOLS, NON_DRAWING_TOOLS } from '../../../stores/slices/toolSlice'
-import type { KeyValueStorage } from '../../../lib/browser/roomStorage'
+import { PENCIL_GRADES } from '../../engine'
+import { TRANSFORM_MODES } from '../transform/transformMath'
+import { expScale } from './sliderScale'
+import type { KeyValueStorage } from '../browser/roomStorage'
 
 function memoryStorage(): KeyValueStorage {
   const map = new Map<string, string>()
@@ -111,11 +110,8 @@ describe('toolSizeRange (#336)', () => {
 // TOOL_SCHEMAS (Room's `settingsToolId` is now just the selected tool), so the
 // schema has to hold up its end for the four tools that used to be modes.
 describe('the selectable tools all have a panel to show (#405)', () => {
-  it('gives every selectable tool a schema entry', () => {
-    for (const toolId of [...DRAWING_TOOLS, ...NON_DRAWING_TOOLS]) {
-      expect(TOOL_SCHEMAS[toolId], toolId).toBeTruthy()
-    }
-  })
+  // Every selectable tool having an entry at all is checked from the store's
+  // side, in toolSlice.test.ts: the tool lists are the store's (#650).
 
   // The ruler and the grid have nothing but these toggles, so an empty quick
   // column beside a selected one would read as a tool that failed to load.

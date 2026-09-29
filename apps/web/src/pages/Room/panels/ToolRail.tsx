@@ -14,7 +14,7 @@ import { useRoomStore } from '../../../stores/roomStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import type { EditorTool, PrimaryDrawingTool } from '../../../stores/slices/toolSlice'
 import type { ColorWellState } from '../tools/colorWell'
-import { isShapeTool, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS } from '../tools/toolSchemas'
+import { isShapeTool, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
 
 export interface ToolRailProps {

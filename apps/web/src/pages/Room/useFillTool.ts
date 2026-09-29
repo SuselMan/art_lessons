@@ -5,7 +5,7 @@ import type { FillSourceMode, OperationDraft } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
 import { clientToRoomPoint } from './viewport/cameraMath'
-import { getToolColor } from './tools/toolSchemas'
+import { getToolColor } from '../../lib/tools/toolSchemas'
 import type { DispatchedOp } from './useOperationDispatch'
 
 export interface FillToolDeps {

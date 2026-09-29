@@ -118,9 +118,9 @@ import { probeWebGL } from '../../lib/browser/webgl'
 import {
   loadToolSettings, saveToolSettings,
   isShapeTool, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
-} from './tools/toolSchemas'
+} from '../../lib/tools/toolSchemas'
 import { loadPanelPosition, type PanelPosition } from '../../components/FloatingToolPanel/panelPosition'
-import { TOOL_PHOTOS } from './tools/toolTypeImages'
+import { TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './editing/activeLayer'
 import { ChiselAngleDial } from './overlays/ChiselAngleDial'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
