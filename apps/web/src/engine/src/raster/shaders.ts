@@ -2272,7 +2272,7 @@ ${WC_NOISE_GLSL}
 
       // v_opacity, not a per-dab quantity smuggled through coverage: every dab
       // of a brush-pen stroke carries the same opacity (engine's own
-      // _bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
+      // bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
       // §9), so one uniform value describes the whole batch exactly. A tool
       // whose opacity varied per dab could not be composited from a coverage
       // buffer this way at all.
@@ -2398,7 +2398,7 @@ ${WC_NOISE_GLSL}
       // variant set graphite uses (u_grainMode) rather than a charcoal-only
       // dither — so the dev grain-variant selector can audition all eleven for
       // charcoal, and whichever wins becomes CHARCOAL_PRESETS' own grain field
-      // (see charcoalPresets.ts, and _resolveGrainMode in engine/index.ts for
+      // (see charcoalPresets.ts, and resolveGrainMode in presets/resolvePreset.ts for
       // how a preset default and a live override combine).
       //
       // Two charcoal-specific differences from how the graphite path below
@@ -2627,7 +2627,7 @@ ${WC_NOISE_GLSL}
       // solid interior to 1 right at the rim) instead of a second edge mask
       // - stronger on absorbent paper (paperCatch low) and on a slow/
       // dwelling stroke. v_opacity already bakes in the speed/dwell
-      // response deterministically at record time (_bakeDabOpacity's liner
+      // response deterministically at record time (bakeDabOpacity's liner
       // branch and _paintDwellDab, both in engine/index.ts) - no new
       // per-viewer-nondeterministic input here, and no fiber-direction bias
       // in v1 (ADR's own 'Потом' follow-up list - deliberately isotropic,

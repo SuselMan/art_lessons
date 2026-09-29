@@ -1125,8 +1125,8 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // Растушёвка/smudge (#14): redistributes graphite already on the layer,
   // so there's no color field (unlike pencil/colorPencil) — 'opacity' is
   // relabeled 'Strength' here, feeding the same Dab.opacity field
-  // pencil/eraser already use (see _bakeDabOpacity's own smudge branch in
-  // engine/index.ts), just interpreted as "how much of what's picked up
+  // pencil/eraser already use (see bakeDabOpacity's own smudge branch in
+  // engine/src/dabs/dabOpacity.ts), just interpreted as "how much of what's picked up
   // gets redeposited" rather than "how much new graphite". Default size is
   // bigger than a pencil's own (a blending stump covers more area than a
   // pencil point).

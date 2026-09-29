@@ -2,7 +2,7 @@
 // drives the real pointer pipeline (_onStart/_onMove/_onEnd) rather than
 // appending pre-built dabs, so these exercise the actual code paths a live
 // stroke uses — DabSystem's per-tool shaping (#240), the deposit-pressure
-// floor, _bakeDabOpacity's liner branch, and the end-of-stroke taper — the
+// floor, bakeDabOpacity's liner branch, and the end-of-stroke taper — the
 // same way index.ruler.test.ts verifies live snapping rather than just
 // testing snapToRuler() in isolation.
 import { strokeDabs } from '@grafetto/shared'

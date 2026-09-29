@@ -243,7 +243,7 @@ banding/шевроны (issue #266). Диагноз: `coverage` из v1 — од
 `inkLoad` копится не "долей на даб", а `deposit = dab.opacity * segmentLength`,
 где `segmentLength = |dab - prevDab|` — реальное пройденное расстояние
 между соседними дабами (не время/не число pointer-событий/не spacing).
-`dab.opacity` уже несёт flow от скорости/наклона (`_bakeDabOpacity`'s
+`dab.opacity` уже несёт flow от скорости/наклона (`bakeDabOpacity`'s
 marker branch), так что итоговая формула эквивалентна
 `flowPerDistance(speed, tilt) * segmentLength * pressureFactor` из
 предложения эксперта — просто пересобрана из уже существующих кусков, а не

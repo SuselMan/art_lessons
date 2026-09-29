@@ -12,7 +12,7 @@
 // have made every hard grade 2.65x heavier). See src/dabs/dabSpacing.ts.
 //
 // Driven through the real pointer pipeline rather than by appending dabs, so
-// these run through DabSystem's own spacing and _bakeDabOpacity's real
+// these run through DabSystem's own spacing and bakeDabOpacity's real
 // branches. Geometry only — nothing here reads pixels, which MockGL could not
 // answer anyway (see the project's own note on that).
 import { strokeDabs } from '@grafetto/shared'
@@ -177,7 +177,7 @@ describe('graphite dab spacing follows the mark, not the brush size (#478)', () 
     // it rather than against the upright stroke outright.
     const upright = await strokeWith('pencil', '2H', { tiltX: 0 })
     const leaned = await strokeWith('pencil', '2H', { tiltX: 45 })
-    // Read back off the dab's own baked aspect, the same way _bakeDabOpacity
+    // Read back off the dab's own baked aspect, the same way bakeDabOpacity
     // derives the term in the first place — so this asserts "the tilt term and
     // nothing else", not a remembered constant.
     const lightening = pencilTiltDensity(pencilTiltness(leaned.at(-1)!.aspectRatio))

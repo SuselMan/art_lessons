@@ -2,7 +2,7 @@
 // the real pointer pipeline (_onStart/_onMove/_onEnd) rather than appending
 // pre-built dabs, so these exercise the paths a live stroke actually uses —
 // DabSystem's per-tool shaping (CHARCOAL_DAB_SHAPING), _resolvePreset's
-// charcoal branch, _bakeDabOpacity, and the u_inkMode/u_charcoal* uniform
+// charcoal branch, bakeDabOpacity, and the u_inkMode/u_charcoal* uniform
 // wiring — the same way index.liner.test.ts does for the fineliner.
 //
 // What is NOT verifiable here: MockGL never compiles or runs DAB_FRAG's GLSL
@@ -287,7 +287,7 @@ describe('charcoal tool (#304, ADR 005)', () => {
 
   // ADR 005 §5.1: charcoal's mark texture comes from the same computeGrain
   // variant set graphite uses, but each material keeps its own default, and the
-  // dev selector overrides both. These assert _resolveGrainMode's two arms —
+  // dev selector overrides both. These assert resolveGrainMode's two arms —
   // the exact behaviour that lets the selector audition variants on charcoal
   // without disturbing graphite when it's off.
   describe('grain variant (§5.1)', () => {

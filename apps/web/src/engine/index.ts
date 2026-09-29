@@ -19,6 +19,8 @@ import { ShapePass } from './src/raster/ShapePass'
 import { FilterPass } from './src/filters/FilterPass'
 import { Exporter } from './src/export/Exporter'
 import { SmudgePainter } from './src/dabs/SmudgePainter'
+import { bakeDabOpacity } from './src/dabs/dabOpacity'
+import { nibScallops, presetForTool, renderSizeScale, resolveGrainMode } from './src/presets/resolvePreset'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
   CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
@@ -26,7 +28,7 @@ import {
   type CharcoalPreset, type CharcoalType, type CharcoalNib,
 } from './src/presets/charcoalPresets'
 import {
-  CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, charcoalBroadness, charcoalBroadDensity,
+  CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS,
   type CharcoalFeelConfig,
 } from './src/presets/charcoalFeel'
 import { DabSystem } from './src/dabs/DabSystem'
@@ -34,16 +36,12 @@ import {
   DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
 } from './src/presets/dabShaping'
 import { tipFootprint } from './src/dabs/tipFootprint'
+import { DEFAULT_DAB_SPACING_FACTOR, isFootprintSpacedTool } from './src/dabs/dabSpacing'
 import {
-  dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isDepositScaledTool, isFootprintSpacedTool,
-  type DabSpacingBounds,
-} from './src/dabs/dabSpacing'
-import {
-  PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
+  PENCIL_TILT, PENCIL_TILT_SLIDERS,
   type PencilTiltConfig,
 } from './src/presets/pencilTilt'
 import { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, type SmudgeGrainConfig } from './src/presets/smudgeGrain'
-import { tiltMagnitudeDeg } from './src/presets/tiltMath'
 import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/presets/tiltCurve'
@@ -53,19 +51,17 @@ import {
 } from './src/oplog/OperationLog'
 import { PointerInput, type DiagLog, type PointerData, type PressureMap } from './src/input/PointerInput'
 import {
-  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
+  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT,
   type PencilGradeName, type PencilPreset,
 } from './src/presets/pencilPresets'
 import {
-  LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper,
+  LINER_SIZES_MM, linerTiltFlow, applyLinerEndTaper,
   dwellConfigForTool, dwellFlow, linerWickPx,
   LINER_WICK_PX, LINER_WICK_RADIUS_CAP,
   type DwellConfig, type LinerSizeMm,
 } from './src/presets/linerPresets'
-import { markerNibFromPreset, markerPressureFlow } from './src/presets/markerPresets'
 import {
   brushStampsForDab, digitalBrushCeiling, digitalBrushFromPreset, digitalBrushMixer,
-  digitalBrushPresetFor, digitalBrushScallops,
   type BrushDescriptor, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
 export {
@@ -88,16 +84,16 @@ export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
 import {
-  BRUSH_PEN_PRESET, applyBrushPenEndTaper,
+  applyBrushPenEndTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/presets/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
+  applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
   watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
-  watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
+  watercolorTravelRadius, watercolorSpreadRadius,
   watercolorMixFromPreset,
 } from './src/presets/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
@@ -1390,30 +1386,6 @@ const WET_EDGE_MAX_PX = 14
  *  grain, which is meant to be finer than anything the brush draws. */
 const WET_CLOUD_PERIOD_PX = 640
 const WET_GRAIN_PERIOD_PX = 224
-
-// Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
-// marker has no hardness *scale* the way graphite's grades do (same
-// reasoning LINER_PRESET's own comment gives: one physical material, not a
-// per-grade spread), but bullet and chisel are still two different
-// physical tips, not just two dab shapes — a chisel's own wider contact
-// area means the same opacity number would read as darker per pass than
-// bullet's, purely from covering more area per dab, not from actually
-// being "more marker." Still uncalibrated first-pass numbers (same "verify
-// by eye and retune" status every other first-pass constant in this
-// codebase carries):
-//  - opacity: moderate for both, well under liner's near-saturated 0.95 —
-//    ADR 004 §5 deliberately relies on the composite's own asymptotic
-//    darkening ("2-3 passes darkens toward a limit") rather than a single
-//    stroke reaching full coverage the way a fineliner's first pass does.
-//    Chisel's is lower than bullet's — same "wider contact, lower local
-//    dose" reasoning as MARKER_CHISEL_ASPECT_RATIO's own effect on area.
-//  - hardness: inert since #330. The marker's edge is geometry now, resolved
-//    over a fixed canvas-pixel ramp (MARKER_EDGE_AA_PX), so no branch it
-//    reaches ever reads this; PencilPreset simply requires the field.
-//  - sizeMultiplier: 1 for both — no calibrated size step to derive this
-//    from yet, same "no fudge factor" reasoning as LINER_PRESET's own.
-const MARKER_BULLET_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.78, sizeMultiplier: 1.0 }
-const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, sizeMultiplier: 1.0 }
 
 // The marker's own ribbon constants (edge ramp, curvature tolerance, chisel
 // corner radius, rim ink falloff) moved to src/dabs/ribbonProfile.ts in #454: they
@@ -7228,7 +7200,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._handlers.strokeEnd?.(e)
   }
 
-  /** Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
+  /** (#494) A one-line wrapper over presetForTool (presets/resolvePreset.ts,
+   *  where the marker presets named below live too); kept as a method because
+   *  the ribbon paths call it by this name.
+   *
+   *  Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
    *  hardness, sizeMultiplier} triple that drives both opacity baking
    *  (_bakeDabOpacity) and rendering (_paintDabs/_dabWorldHalfExtents). Liner has
    *  no hardness scale (see LINER_PRESET's own comment) — every calibrated
@@ -7264,212 +7240,23 @@ export class PencilEngine implements PencilEngineAPI {
     return renderSizeScale(tool, presetName)
   }
 
-  /** (#489/#501) Whether this stroke's nib takes #485's scallop bound — see
-   *  DabSystem.nibScallop for the whole argument, including why the marker's
-   *  own 5:1 chisel deliberately does not.
-   *
-   *  A property of the *nib*, not of the tool, which is why it is a lookup on
-   *  the preset string rather than a list of tool names: the same tool spaces
-   *  its round nib one way and its elongated one another, and the round ones
-   *  have shipped. Two stated here rather than one flag per tool for the reason
-   *  _resolvePreset's own inkMode comment gives: two switches for one question
-   *  drift apart. */
+  /** (#489/#501) See nibScallops (presets/resolvePreset.ts). */
   private _nibScallops(tool: ToolType, presetName: string): boolean {
-    if (tool === 'watercolor') return watercolorNibFromPreset(presetName) !== 'round'
-    if (tool === 'charcoal') return charcoalNibFromPreset(presetName) === 'chisel'
-    // #547 — asked of the brush rather than hardcoded, because here the answer
-    // is a property of the preset: the round four scallop no more than
-    // watercolor's round nib does, and 'flat' is a 4:1 tip whose silhouette dips
-    // between stamps exactly as every other elongated one here.
-    if (tool === 'digitalBrush') return digitalBrushScallops(presetName)
-    return false
+    return nibScallops(tool, presetName)
   }
 
-  /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use.
-   *
-   *  Each material carries its own shipped default — GRAPHITE_GRAIN_DEFAULT
-   *  (10, "Solid") for graphite, CHARCOAL_PRESETS.grain (3, "Streaky") per
-   *  charcoal type — and each has its own independent dev override
-   *  (`grainMode` / `charcoalGrainMode`), which is `undefined` when that
-   *  selector sits at "default". Two separate overrides rather than one shared
-   *  flag specifically so auditioning a variant on one material doesn't
-   *  disturb the other (#304 follow-up). */
+  /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use,
+   *  given this engine's two dev overrides — see resolveGrainMode
+   *  (presets/resolvePreset.ts). */
   private _resolveGrainMode(charcoal: CharcoalPreset | null): number {
-    return charcoal
-      ? this._charcoalGrainMode ?? charcoal.grain
-      : this._grainMode ?? GRAPHITE_GRAIN_DEFAULT
+    return resolveGrainMode(charcoal, this._grainMode, this._charcoalGrainMode)
   }
 
-  /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
-   *  by the real stroke path and the #92 prediction preview, so predicted
-   *  dabs render with visually consistent opacity to real ones. tool/
-   *  presetName/opacity are explicit params (rather than always reading this
-   *  user's own _strokeTool/_strokePreset/_opts.opacity) purely so both
-   *  callers can pass their own state through one shared implementation. */
+  /** Bakes final dab opacity in place — see bakeDabOpacity (dabs/dabOpacity.ts).
+   *  Shared by the real stroke path and the #92 prediction preview; tool/
+   *  presetName/opacity are explicit so both callers pass their own state. */
   private _bakeDabOpacity(dabs: Dab[], speed: number, tool: ToolType, presetName: string, opacity: number): void {
-    const preset      = this._resolvePreset(tool, presetName)
-    const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
-    // Marker (#250, ADR 004 §2) shares liner's exact speed-flow curve —
-    // "minimal influence" is the same physical justification ADR 004 gives
-    // (a real ink/dye tip doesn't compress the way graphite does), and
-    // reusing linerSpeedFlow rather than inventing a separate marker curve
-    // keeps this v1/uncalibrated (ADR 004 MVP scope) without adding a new
-    // unverified formula on top of an already-uncalibrated one.
-    const inkSpeed = (tool === 'liner' || tool === 'marker') ? linerSpeedFlow(speed) : 0
-    // #478: for a footprint-spaced tool the step between dabs is no longer a
-    // constant fraction of the brush size, so how many dabs land on a given
-    // pixel now varies with grade, pressure and tilt — and for these three
-    // tools the deposit is linear in `Dab.opacity` and normalized by nothing
-    // else, so denser dabs would simply paint a darker mark. This holds the
-    // tone where it is; see dabSpacing.ts's dabDepositScale for why the linear
-    // form is the accurate one here rather than a convenient one.
-    //
-    // Null (and therefore free) for every tool still on the old spacing rule,
-    // where the ratio would be exactly 1 by construction.
-    // #547: not isFootprintSpacedTool — the digital brush is spaced by that rule
-    // and deliberately excluded from this correction. See isDepositScaledTool.
-    const sizeScale = isDepositScaledTool(tool) ? this._dabSizeScale(tool, presetName) : null
-    // #501: which bounds actually shaped this stroke's step. The deposit is
-    // divided by the step the dabs were *really* spaced at, so this has to be
-    // the same pair DabSystem was given at _onStart — a chisel spaced by the
-    // scallop bound but normalised by the footprint rule alone would simply
-    // paint darker, in proportion to how much the extra bound tightened it.
-    const spacingBounds: DabSpacingBounds = { footprint: true, scallop: this._nibScallops(tool, presetName) }
-    // #501: the flat nib's elongation is a property of the cut, not of how far
-    // the stick is laid over — and its contact patch is *smaller* than the
-    // round end face, not larger, so charcoal's broad-side lightening reads it
-    // exactly backwards. Zero here, and 0 passed as u_charcoalBroadAspect at
-    // paint time, so the shader's own copy of the same derivation agrees
-    // (charcoalBroadness' comment on why the two must not disagree).
-    const chiselNib = tool === 'charcoal' && charcoalNibFromPreset(presetName) === 'chisel'
-    const baseSize  = this._physicalSize
-    for (const dab of dabs) {
-      if (tool === 'eraser') dab.opacity = opacity
-      // Smudge (#14) has no pencil preset to draw an opacity from (the
-      // opacity slider here is repurposed as "strength" — see toolSchemas'
-      // own smudge entry) — same speedFactor as pencil though: moving
-      // slower still means a firmer, more thorough blend, matching how a
-      // real blending stump behaves.
-      else if (tool === 'smudge') dab.opacity = opacity * speedFactor
-      // Liner (#241, ADR 003 §2-3, §7): pressure's own contribution to flow
-      // lives entirely in DabShapingProfile.depositPressure (dabShaping.ts),
-      // baked into dab.pressure before this ever runs — see linerPresets.ts's
-      // own comment on why it isn't re-derived here. Speed and tilt are the
-      // only two factors this branch adds on top of the flat preset opacity.
-      else if (tool === 'liner') {
-        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
-        dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg)
-      }
-      // Marker (#250, ADR 004 §2; explicit pressureFactor added in "Ревизия
-      // v1.5" §1 — the expert's own proposed
-      // `deposit = flowPerDistance * segmentLength * pressureFactor` names
-      // it as its own term rather than folding it silently into "flow"):
-      // same speed/tilt shape as liner (shared inkSpeed above), plus a mild
-      // markerPressureFlow term liner doesn't have. `dab.opacity` here is
-      // *not yet* the final ink deposit — _paintRibbonStroke multiplies it
-      // by this dab's own segmentLength at paint time (distance-
-      // normalization can't happen here: this function only ever sees one
-      // dab at a time, with no notion of "distance since the previous
-      // one" — see _markerSegmentLength).
-      else if (tool === 'marker') {
-        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
-        dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg) * markerPressureFlow(dab.pressure)
-      }
-      // Brush pen (#454, ADR 009 §5/§9): flat. Not "not tuned yet" — flat on
-      // purpose, and in two directions.
-      //
-      // No pressure term, because a tool where pressure moves width *and*
-      // alpha together reads as an airbrush rather than a pen; ADR 009 §9
-      // makes width the only thing pressure drives. No speed or tilt term
-      // either: the liner's inkSpeed models ink leaving a capillary tip at a
-      // rate per unit *time*, which is a fineliner's physics, not a flexing
-      // brush nib's — what speed does to this tool is sharpen the tail
-      // (applyBrushPenEndTaper), and that is the whole of it in v1.
-      //
-      // The flatness is also load-bearing downstream, not merely tidy: every
-      // dab of the stroke carrying the same opacity is exactly what lets the
-      // source-over composite reconstruct the finished pixel from a coverage
-      // buffer and one scalar (DAB_FRAG's u_inkMode=8 branch). A per-dab
-      // opacity could not be expressed there at all.
-      else if (tool === 'brushPen') dab.opacity = preset.opacity * opacity
-      // #547, ADR 013 §3 — flat, and for the composite's own reason stated for
-      // the brush pen directly above: this number is the *stroke's* opacity, and
-      // the source-over composite reconstructs each finished pixel from one
-      // coverage buffer and one scalar. A per-dab value could not be expressed
-      // there.
-      //
-      // What varies per dab for this tool is **flow**, and it deliberately does
-      // not live here: it is applied when the stamp is drawn into the coverage
-      // buffer (_paintRibbonDabs), where accumulating it is the whole point.
-      // Recomputed on replay from Dab.pressure and the frozen descriptor rather
-      // than recorded, so the payload gains nothing (digitalBrushFlow).
-      else if (tool === 'digitalBrush') dab.opacity = preset.opacity * opacity
-      // Watercolor (#468, ADR 011 §5): flat, for every reason the brush pen's
-      // is flat directly above, plus one of its own.
-      //
-      // The shared reasons: pressure drives the brush's width, not its
-      // transparency, and a flat per-stroke opacity is what lets the composite
-      // reconstruct a finished pixel from a coverage buffer and one scalar
-      // (DAB_FRAG's u_inkMode=9 branch reads u_opacity, not a per-dab value).
-      //
-      // Its own: how dark a wash comes out is already modelled, and modelled
-      // somewhere better — inkLoad accumulates distance-normalized deposit and
-      // the composite saturates it (WATERCOLOR_SATURATE_INK). Adding a speed or
-      // pressure term to alpha *as well* would be two mechanisms competing to
-      // express one physical quantity, which is how the marker's own density
-      // got hard to reason about before "Ревизия v1.5" separated them.
-      // (#468 v9) …times how much paint is in the water. This is pigment's one
-      // and only route to the finished pixel: the deposit is now a constant
-      // (watercolorPigmentEffects), so nothing else scales with it and the
-      // control stays linear. Constant across a stroke, which is what lets the
-      // composite reconstruct a finished pixel from a coverage buffer and one
-      // scalar at all.
-      // (#536) …and no longer times how much paint is in the water. That factor
-      // moved onto the deposit (DAB_FRAG's u_inkStrength), because a wash spans
-      // several strokes and they are allowed to carry different amounts of
-      // paint — that is precisely what "lay clean water, then take colour into
-      // it" is. With it here, the composite reconstructed the whole wash from
-      // one scalar taken from whichever stroke opened it, so a wash that began
-      // with clean water rendered every stroke after it invisible at pen-up.
-      else if (tool === 'watercolor') dab.opacity = preset.opacity * opacity
-      // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
-      // speed curve deliberately — "slower stroke -> denser deposit" is equally
-      // true of both materials — and adds one term graphite has no analogue
-      // for. Laid on its broad side, the stick spreads the same pressure over a
-      // far larger contact patch, so it must deposit lighter; without this, the
-      // broad regime just paints a much bigger *and* equally dark mark, which
-      // reads as a fat marker rather than a stick on its side. Derived from the
-      // dab's own baked aspectRatio rather than re-running the curve on tilt,
-      // so it can't disagree with the geometry actually being drawn (see
-      // charcoalBroadness' own comment).
-      else if (tool === 'charcoal') {
-        const broadness = chiselNib ? 0 : charcoalBroadness(dab.aspectRatio)
-        dab.opacity = preset.opacity * opacity * speedFactor * charcoalBroadDensity(broadness)
-      }
-      // Graphite (#389). The tilt term is the counterpart of charcoal's
-      // broad-side lightening just above, and arrives here the same way: from
-      // the dab's own baked aspectRatio, not by re-running the curve on tilt,
-      // so a slider moved between record time and here can't make the deposit
-      // disagree with the geometry it's shading (see pencilTiltness). Reduces
-      // to exactly the old expression when PENCIL_TILT.lightening is 0.
-      //
-      // Eraser and smudge share the tilt *geometry* but not this: their
-      // branches above never had a preset opacity to scale, and "erases less
-      // when tilted" is a change to how erasing works rather than a
-      // consequence of spreading graphite over more paper.
-      else dab.opacity = preset.opacity * opacity * speedFactor * pencilTiltDensity(pencilTiltness(dab.aspectRatio))
-      // Applied on top of whichever branch ran, not inside them: it is a
-      // property of how densely this dab's own footprint got sampled, and says
-      // nothing about which material is being deposited. Baked into the
-      // recorded Dab like every other term here, so a peer replaying the
-      // stroke reproduces the same tone without knowing anything about
-      // spacing (#478).
-      if (sizeScale !== null) {
-        dab.opacity *= dabDepositScale(
-          { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale, hardness: preset.hardness },
-          baseSize, this._dabs.spacingFactor, spacingBounds)
-      }
-    }
+    bakeDabOpacity(dabs, speed, tool, presetName, opacity, this._physicalSize, this._dabs.spacingFactor)
   }
 
   /** Bakes final dab opacity, stamps Dab.t, paints, and buffers the dabs for
@@ -12916,42 +12703,4 @@ export class PencilEngine implements PencilEngineAPI {
     if (type === 'image/png' || (blob && (blob.type === type || blob.type === 'image/png'))) return blob
     return encode('image/png')
   }
-}
-
-
-/** Which `PencilPreset` a tool draws with, given the per-stroke preset string.
- *
- *  At module scope rather than on the engine (#547) because two callers need it
- *  and only one of them is the engine: `previewDabShape` is a pure query the
- *  brush cursor uses without a GL context, and it has to answer with the same
- *  numbers the renderer will use, or the outline and the mark disagree. */
-function presetForTool(tool: ToolType, presetName: string): PencilPreset {
-    if (tool === 'liner') return LINER_PRESET
-    if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
-    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
-    // — its presetName slot carries the pressure response, not a nib or a
-    // grade, so there is nothing here to branch on (brushPenPresets.ts).
-    if (tool === 'brushPen') return BRUSH_PEN_PRESET
-    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
-    // ladder and no hardness grade, so `presetName` carries the pressure
-    // response instead and there is nothing here to branch on
-    // (watercolorPresets.ts).
-    if (tool === 'watercolor') return WATERCOLOR_PRESET
-    // #547, ADR 013 — unlike every branch above, this one genuinely varies with
-    // the preset string: it *is* the brush. hardness comes out of the frozen
-    // descriptor and is read twice downstream — by the stamp shader and by the
-    // spacing rule — which is why it is resolved here once rather than parsed
-    // again at either site.
-    if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
-    if (tool === 'charcoal') return charcoalPresetFor(presetName)
-    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
-}
-
-/** The multiplier between `Dab.size` and the mark this tool actually leaves.
- *
- *  The eraser's 1.0 is not a default standing in for a missing preset: it is the
- *  value the renderer uses, because an eraser is sized as it is asked to be
- *  rather than carrying a grade's own width. */
-function renderSizeScale(tool: ToolType, presetName: string): number {
-  return tool === 'eraser' ? 1.0 : presetForTool(tool, presetName).sizeMultiplier
 }

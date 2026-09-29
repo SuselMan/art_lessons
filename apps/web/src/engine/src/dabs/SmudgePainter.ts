@@ -30,7 +30,7 @@ import { createProgram, getUniforms } from '../raster/utils'
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
 // existing dab fields — see toolSchemas.ts's smudge entry and
-// _bakeDabOpacity's own smudge branch). See paintOneDab for how each
+// bakeDabOpacity's own smudge branch). See paintOneDab for how each
 // is used, and SMUDGE_TRANSFER_FRAG's own file comment in shaders.ts for the
 // algorithm they tune: as of #416 the stump carries a raster imprint of what
 // it picked up, and every dab is a per-pixel lerp of the canvas toward that
@@ -413,7 +413,7 @@ export class SmudgePainter {
     if (priming) return
 
     // dab.opacity is the UI's "Strength" slider for this tool (see
-    // _bakeDabOpacity's own smudge branch); pressure and travel are the two
+    // bakeDabOpacity's own smudge branch); pressure and travel are the two
     // physical terms on top of it.
     // The mixer lays paint down at its own rate, and pressure acts through the
     // brush's opacity curve when that switch is on — the same meaning pressure
