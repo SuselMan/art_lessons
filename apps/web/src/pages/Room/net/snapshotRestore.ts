@@ -1,7 +1,7 @@
 import { isLayerStateShape, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
 
 import { api, ApiError, apiPath } from '../../../lib/api/api'
-import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../../engine/src/oplog/snapshotCodec'
+import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../../engine/snapshots'
 
 /** What a restore reports back once every layer has been handed over: the room
  *  seq it reached and the layer tree it was baked against. The pixels are not
