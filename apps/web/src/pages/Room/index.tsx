@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { io, type Socket } from 'socket.io-client'
 import clsx from 'clsx'
 import type {
-  Operation, Participant,
+  Operation,
   ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
@@ -123,11 +123,11 @@ import { ChiselAngleDial } from './overlays/ChiselAngleDial'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import { createSnapshotGate } from './net/snapshotGate'
-import { restoreRoomState } from './restoreRoomState'
+import type { RoomStatePayload } from './restoreRoomState'
+import { useRoomRestore } from './useRoomRestore'
 import { useTransformSession, type TransformSession } from './useTransformSession'
-import { initLayersFromStore, retireEngine, wireLocalStrokeEvents } from './engineWiring'
+import { initLayersFromStore, openParkedRoomState, retireEngine, wireLocalStrokeEvents } from './engineWiring'
 import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
-import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import { createReplayGate } from './replayGate'
@@ -883,12 +883,7 @@ function RoomEditor() {
   // mounts once `config` is set (see the mount-engine effect below). Its
   // operations/participants are stashed here and replayed once the engine is
   // up, instead of being dropped.
-  const pendingSnapshotRef = useRef<{
-    latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]; palette: string[]
-    // (#254/#255 epic) Room-wide freeze at the moment this snapshot was
-    // taken — see the mount-engine effect's pending-snapshot replay below.
-    frozen: boolean
-  } | null>(null)
+  const pendingSnapshotRef = useRef<RoomStatePayload | null>(null)
   // True once this session's `handleRoomState` has processed its very first
   // `room_state` — governs "initial handshake" vs. "genuine reconnect" there.
   // Deliberately a dedicated ref rather than checking `!useRoomStore.getState().room`:
@@ -1074,7 +1069,7 @@ function RoomEditor() {
   // (#493) How the network's operations reach the engine — once each, deferred
   // until their target arrives, restored from a snapshot and backfilled behind
   // it — see useRemoteOperations.
-  const { applyRemoteOp, drainDeferredQueue, restoreFromSnapshot, backfillHistory } = useRemoteOperations({
+  const { applyRemoteOp, restoreFromSnapshot, backfillHistory } = useRemoteOperations({
     engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq,
     syncFromLog, checkSnapshotBoundary,
   })
@@ -1171,6 +1166,14 @@ function RoomEditor() {
   // bare state setter it replaces.
   }, [resetStream, resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs, resetLostWork])
 
+  // (#493) restoreRoomState with what its two callers — the mount effect and
+  // the socket's catch-up — share bound once. See useRoomRestore.
+  const restoreRoom = useRoomRestore({
+    restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
+    setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
+    replayGate: replayGateRef.current,
+  })
+
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
     // (#176) No board, no engine: a joiner has nothing to build for until the
@@ -1232,72 +1235,14 @@ function RoomEditor() {
     wireLocalStrokeEvents(engine, { strokeActiveRef, markActive, pencilSoundRef })
     initLayersFromStore(engine)
 
-    // Joiner path: the room_state that told us `config` (see the socket-wiring
-    // effect) arrived before the engine existed to apply its operations to —
-    // replay it now that it does. No-op for the creator, and for a joiner's
-    // reconnect (appliedOpIdsRef already dedupes across a fresh room_state
-    // reaching an already-mounted engine, but this path is specifically the
-    // one-time first mount).
-    const pending = pendingSnapshotRef.current
-    if (pending) {
-      pendingSnapshotRef.current = null
-      // Awaits engine.paperReady() first (see its own doc comment): a
-      // stroke replayed before the real paper texture has loaded would
-      // permanently bake in the placeholder's flat response, with nothing
-      // later to re-paint it once the real texture arrives. Wrapped in an
-      // async IIFE rather than making this whole effect async — the effect
-      // still needs to register handlers/cleanup synchronously below,
-      // unaffected by this deferred branch.
-      void (async () => {
-        // (#487) Фазы входа. Отмечаются по факту перехода, вплотную к тому
-        // await'у, который их и стоит — иначе они меряют не то, что называют.
-        openTimerRef.current?.stage('paper')
-        openTimerRef.current?.note({
-          tailOperations: pending.tailOperations.length,
-          latestSeq: latestKnownSeqRef.current,
-          snapshotSeq: pending.latestSnapshotSeq,
-        })
-        // (#346) A failure here abandons the replay rather than running it
-        // against the placeholder: awaitPaper puts up the retry screen, and
-        // roomContentReady stays false so the room is not claimed to be open.
-        if (!(await awaitPaper(engine))) return
-        // (#493) The restore itself is shared with handleRoomState — see
-        // restoreRoomState for the whole of it and why there is one.
-        await restoreRoomState(engine, pending, { mode: 'join', alreadyHadSeq: 0 }, {
-          boardId,
-          restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone,
-          dispatchParticipants, setRestoreFailure, setRoomContentReady, finishOpenTimer,
-          notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
-            key: 'replay-incomplete', durationMs: null,
-          }),
-          getSnapshotUploader: () => snapshotUploader,
-          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
-        })
-      })()
-    } else if (!isCreator) {
-      // Nothing to restore on this particular mount (e.g. a remount after
-      // the first join already completed) — don't leave a stale `false`
-      // from a prior mount stuck forever with nothing left to flip it.
-      // Creator excluded: `pending` is always null for a creator's very
-      // first mount too (its config is known synchronously, so
-      // handleRoomState never has a reason to populate pendingSnapshotRef
-      // the way a joiner's does — see its own doc comment), but at this
-      // point nothing has confirmed yet whether this is a genuinely new
-      // room or the creator's own reload of one with real content to
-      // restore. Marking ready here regardless used to race ahead of that
-      // answer; handleRoomState's first room_state is what actually knows,
-      // and sets this itself either way (see its own two branches).
-      //
-      // Still gated on paperReady() even though there is nothing to replay:
-      // "ready" is what takes the preloader down and lets the pencil through,
-      // and the engine refuses to start a stroke until the real texture has
-      // loaded (see _paperTexLoaded). Marking ready before then hands over a
-      // room that looks open and silently ignores every stroke.
-      void (async () => {
-        openTimerRef.current?.stage('paper')
-        if (await awaitPaper(engine)) { setRoomContentReady(true); finishOpenTimer(engine) }
-      })()
-    }
+    // (#493) The `room_state` parked for this engine, or the paper wait for a
+    // room with none — see openParkedRoomState.
+    void openParkedRoomState(engine, {
+      pendingSnapshotRef, isCreator, openTimerRef, latestKnownSeqRef, awaitPaper, setRoomContentReady, finishOpenTimer,
+      restore: pending => restoreRoom(engine, pending, { mode: 'join', alreadyHadSeq: 0 }, {
+        boardId, finishOpenTimer, getSnapshotUploader: () => snapshotUploader,
+      }),
+    })
 
     return () => {
       engineRef.current = null
@@ -1307,10 +1252,9 @@ function RoomEditor() {
     }
   }, [
     boardId, enginePaper, enginePaperColor, engineInfinite,
-    markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
-    hapticGrainEnabled, checkSnapshotBoundary, markJoinRestoreDone, restoreFromSnapshot, backfillHistory,
-    finishOpenTimer,
-    grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, outbox,
+    markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled,
+    hapticGrainEnabled, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
+    grainMode, charcoalGrainMode, isCreator, snapshotUploader, outbox,
     awaitPaper,
     // (#493) The ref *object* — stable for the component's life, so naming it
     // costs nothing. Never `.current`: that would rebuild the engine every
@@ -1666,18 +1610,12 @@ function RoomEditor() {
       // would also be a new dependency of this effect, and this effect's
       // dependencies are what tear the socket down.
       restoreCatchup: async (engine, state, alreadyHadSeq, boardId) => {
-        await restoreRoomState(engine, state, { mode: 'catchup', alreadyHadSeq }, {
+        await restoreRoom(engine, state, { mode: 'catchup', alreadyHadSeq }, {
           boardId,
-          restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone,
-          dispatchParticipants, setRestoreFailure, setRoomContentReady,
           finishOpenTimer: () => {},
-          notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
-            key: 'replay-incomplete', durationMs: null,
-          }),
           // Through the ref, and read when the bootstrap needs it: the uploader
           // is per board, and this effect does not re-run when the board does.
           getSnapshotUploader: () => snapshotUploaderRef.current,
-          latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate: replayGateRef.current,
         })
       },
       socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
@@ -1774,8 +1712,7 @@ function RoomEditor() {
     }
   }, [
     sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
-    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, confirmOwnOperation,
-    syncFromLogNow, enterBoard,
+    restoreRoom, confirmOwnOperation, enterBoard,
     // (#429) Used by the live-stroke handler, markLayerActive too. Both are
     // useCallback with no dependencies (see their definitions), so they are
     // stable for this component's lifetime and can never tear the socket

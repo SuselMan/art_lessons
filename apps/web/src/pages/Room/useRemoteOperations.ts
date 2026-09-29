@@ -195,5 +195,5 @@ export function useRemoteOperations({
     })
   }, [appliedOpIdsRef, drainDeferredQueue])
 
-  return { applyRemoteOp, drainDeferredQueue, restoreFromSnapshot, backfillHistory }
+  return { applyRemoteOp, restoreFromSnapshot, backfillHistory }
 }
