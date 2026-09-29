@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import type { PaperLoadProgress } from '../../../engine/src/paper/paperLoader'
+import type { PaperLoadProgress } from '../../../engine'
 import { useT, type TranslationKey } from '../../../i18n'
 import styles from './RoomLoadingOverlay.module.css'
 

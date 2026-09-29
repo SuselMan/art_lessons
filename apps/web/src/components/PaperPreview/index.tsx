@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PaperType } from '@grafetto/shared'
 
 import { useT } from '../../i18n'
-import { getPaperPreviewBytes, PAPER_PREVIEW_RESOLUTION } from '../../engine/src/paper/paperLoader'
-import { PAPER_TONE_AMPLITUDE_VALUE } from '../../engine/src/raster/shaders'
+import { getPaperPreviewBytes, PAPER_PREVIEW_RESOLUTION, PAPER_TONE_AMPLITUDE } from '../../engine/paper'
 
 interface Props {
   type: PaperType
@@ -48,7 +47,7 @@ function paint(canvas: HTMLCanvasElement, height: Uint8Array, bgColorHex: string
       // the same shape paperToneGLSL applies, and the only one that reads
       // identically on a white, coloured or near-black paper.
       const signed = (value / 255) * 2 - 1
-      const amp = PAPER_TONE_AMPLITUDE_VALUE * 255
+      const amp = PAPER_TONE_AMPLITUDE * 255
       const shift = (channel: number) =>
         Math.round(Math.min(Math.max(channel, amp), 255 - amp) + amp * signed)
       const i = (y * w + x) * 4

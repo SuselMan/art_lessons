@@ -8,8 +8,7 @@ import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from '../src/engine/src/paper/paperConstants.js'
-import type { PaperAssetEntry } from '../src/engine/src/paper/paperManifest.js'
+import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE, type PaperAssetEntry } from '../src/engine/paperBake.js'
 
 // The picker has to show paper the way the canvas does, which means sampling
 // it at the same texel-per-pixel ratio the canvas uses — not the whole tile
