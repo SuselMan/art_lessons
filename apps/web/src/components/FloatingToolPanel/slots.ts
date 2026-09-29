@@ -9,20 +9,24 @@
 // It is now eight slots the user lays out themselves, which turns that into
 // two questions: what is *in* a slot, and what does that resolve to right
 // now. Everything below exists to keep those two apart.
+//
+// (#650) What a slot can hold and how a layout is stored live in
+// lib/browser/panelLayout.ts, below the store that persists it; this file is
+// the panel's half — geometry, the chooser, faces — and re-exports the model.
 
 import type { TranslationKey } from '../../i18n'
 import type { IconName } from '../../icons/iconNames'
 import {
-  FLOATING_PRIMARY_TOOLS, SLOT_FIXED_TOOLS, TOOL_DISPLAY,
-  type FloatingPanelTool,
-} from './tools'
+  SLOT_ACTIONS, SLOT_COUNT, SLOT_FIXED_TOOLS, SLOT_GROUPS, slotChoiceKey,
+  type FloatingPanelTool, type PanelLayout, type SlotAction, type SlotChoice, type SlotContent, type SlotGroup,
+} from '../../lib/browser/panelLayout'
+import { TOOL_DISPLAY } from './tools'
 
-/** Eight, laid out as a compass: index 0 is straight up and they run
- *  clockwise, so 0/2/4/6 are the four the panel has always had (N/E/S/W) and
- *  the odd indices are the diagonals added alongside them. The old layout is
- *  therefore a sub-sequence of this one rather than a thing that was replaced,
- *  which is what lets DEFAULT_PANEL_LAYOUT below reproduce it exactly. */
-export const SLOT_COUNT = 8
+export {
+  DEFAULT_PANEL_LAYOUT, SLOT_ACTIONS, SLOT_COUNT, SLOT_GROUPS, parsePanelLayout, serializePanelLayout,
+  slotChoiceKey,
+  type PanelLayout, type SlotAction, type SlotChoice, type SlotContent, type SlotGroup,
+} from '../../lib/browser/panelLayout'
 
 /** Distance (px) from the panel's center to a slot button's center.
  *
@@ -37,66 +41,6 @@ export const SLOT_COUNT = 8
  *  wrong answer (see CLAUDE.md on 40–48 px touch targets). */
 export const SLOT_RADIUS = 62
 
-/** (#544) A group of tools behind one slot, exactly as the left rail has them:
- *  `drawing` is every material, `shape` is the four shapes.
- *
- *  This replaced the two *roles* the panel used to have (`drawing` and
- *  `secondary` — "whichever one I last used"). A group does everything a role
- *  did and one thing more: a role could only hand back what you had already
- *  picked somewhere else, so the panel could remember the watercolor but never
- *  reach it; a group's own chooser reaches all of them. And it does it without
- *  the thing that made a role hard to explain — a slot whose meaning changed
- *  under you, marked with a badge nobody read.
- *
- *  The secondary role has no successor and needs none: the eraser, the smudge
- *  and the eyedropper are three separate buttons in the rail too, so a slot
- *  that wants the eraser holds the eraser. */
-export type SlotGroup = 'drawing' | 'shape'
-
-export const SLOT_GROUPS = ['drawing', 'shape'] as const satisfies readonly SlotGroup[]
-
-/** The two things the panel does that are not tools. They sit in slots like
- *  everything else so that "move undo somewhere my thumb reaches" is a layout
- *  edit rather than a feature request. */
-export type SlotAction = 'undo' | 'redo'
-
-export const SLOT_ACTIONS = ['undo', 'redo'] as const satisfies readonly SlotAction[]
-
-/** What a slot holds. `null` (used everywhere a SlotContent is optional) is
- *  the fourth case: an empty slot, drawn as a dot. */
-export type SlotContent =
-  | { kind: 'tool'; tool: FloatingPanelTool }
-  | { kind: 'group'; group: SlotGroup }
-  | { kind: 'action'; action: SlotAction }
-
-/** Always SLOT_COUNT long — enforced by the parser below rather than by the
- *  type, since TypeScript's fixed-length tuple would have to be written out
- *  eight times at every call site that maps over it. */
-export type PanelLayout = readonly (SlotContent | null)[]
-
-/** The panel exactly as it was before it had eight slots: the drawing group on
- *  top, the eraser on the bottom, undo and redo on the sides, and the four
- *  diagonals empty.
- *
- *  Deliberately not "a sensible new default that uses all eight". Someone who
- *  never opens the chooser should not discover that their panel has been
- *  rearranged under them, and four dots that do nothing until held are a much
- *  smaller thing to explain than four buttons that were chosen for you. */
-export const DEFAULT_PANEL_LAYOUT: PanelLayout = [
-  { kind: 'group', group: 'drawing' },
-  null,
-  { kind: 'action', action: 'redo' },
-  null,
-  // The eraser by name, where the `secondary` role used to sit. The role meant
-  // "the eraser, or the smudge, or the eyedropper — whichever you touched
-  // last", and what it did in practice was be the eraser while occasionally
-  // being something else without warning.
-  { kind: 'tool', tool: 'eraser' },
-  null,
-  { kind: 'action', action: 'undo' },
-  null,
-]
-
 /** Offset (px) of slot `index`'s center from the panel's own center. Index 0
  *  points straight up and they run clockwise; y grows downward, which is why
  *  the cosine is negated. */
@@ -107,12 +51,6 @@ export function slotOffset(index: number): { x: number; y: number } {
 
 // ── the chooser ─────────────────────────────────────────────────────────────
 
-/** One entry in the fan that opens when a slot is held: everything a slot can
- *  be set to, plus the one thing that is not a content at all. `clear` is a
- *  choice rather than a separate gesture on purpose — putting something in a
- *  slot and taking it back out are the same decision seen twice, and a user
- *  who found the fan has already found the way to empty the slot. */
-export type SlotChoice = { kind: 'clear' } | SlotContent
 
 /** Every choice, in the order the fan lays them out: clear first (the fan's
  *  first ray, the same place the palette fan puts its own odd-one-out), then
@@ -134,15 +72,6 @@ export const SLOT_CHOICES: readonly SlotChoice[] = [
   ...SLOT_ACTIONS.map((action): SlotChoice => ({ kind: 'action', action })),
 ]
 
-/** Stable React key / test handle for a choice or a slot's content. */
-export function slotChoiceKey(choice: SlotChoice): string {
-  switch (choice.kind) {
-    case 'clear': return 'clear'
-    case 'tool': return `tool:${choice.tool}`
-    case 'group': return `group:${choice.group}`
-    case 'action': return `action:${choice.action}`
-  }
-}
 
 export function sameSlotContent(a: SlotContent | null, b: SlotContent | null): boolean {
   if (a === null || b === null) return a === b
@@ -272,91 +201,4 @@ export function assignSlot(layout: PanelLayout, index: number, choice: SlotChoic
     if (content !== null && sameSlotContent(existing, content)) return null
     return existing
   })
-}
-
-// ── persistence ─────────────────────────────────────────────────────────────
-
-function isSlotContent(value: unknown): value is SlotContent {
-  if (typeof value !== 'object' || value === null) return false
-  const v = value as { kind?: unknown; tool?: unknown; group?: unknown; action?: unknown }
-  if (v.kind === 'tool') return (SLOT_FIXED_TOOLS as readonly unknown[]).includes(v.tool)
-  if (v.kind === 'group') return (SLOT_GROUPS as readonly unknown[]).includes(v.group)
-  if (v.kind === 'action') return (SLOT_ACTIONS as readonly unknown[]).includes(v.action)
-  return false
-}
-
-/** (#544) What a slot stored by an older build becomes.
- *
- *  Not a nicety: the layout this replaces is the *default* one, so the drawing
- *  role sits in slot 0 of every panel anyone has ever rearranged, and the
- *  generic "an entry I don't recognise becomes an empty slot" rule below would
- *  quietly delete the top and bottom buttons off all of them. Three legacy
- *  shapes, and each maps to the thing that does the same job:
- *
- *   - the drawing role → the drawing group, which is its successor exactly;
- *   - the secondary role → the eraser, which is what it was in practice;
- *   - a pinned material or the shape tool → the group it now lives in, since
- *     materials and shapes are no longer things a slot can hold on its own.
- *
- *  Returns null for anything else, which is the old rule, still the right
- *  answer for a tool that has genuinely gone away. */
-function migrateSlotContent(value: unknown): SlotContent | null {
-  if (typeof value !== 'object' || value === null) return null
-  const v = value as { kind?: unknown; tool?: unknown; role?: unknown }
-  if (v.kind === 'role') {
-    if (v.role === 'drawing') return { kind: 'group', group: 'drawing' }
-    if (v.role === 'secondary') return { kind: 'tool', tool: 'eraser' }
-    return null
-  }
-  if (v.kind === 'tool') {
-    if ((FLOATING_PRIMARY_TOOLS as readonly unknown[]).includes(v.tool)) {
-      return { kind: 'group', group: 'drawing' }
-    }
-    if (v.tool === 'shape') return { kind: 'group', group: 'shape' }
-  }
-  return null
-}
-
-/** Drops every repeat of a content after its first appearance.
- *
- *  Needed only by the migration above, and needed by it because migration is
- *  the one thing that can *create* a duplicate: a panel with both the drawing
- *  role and a pinned marker was two useful buttons and becomes two identical
- *  ones. `assignSlot` prevents duplicates going forward; this cleans up the
- *  ones that arrive already made. */
-function dedupeLayout(layout: PanelLayout): PanelLayout {
-  const seen = new Set<string>()
-  return layout.map(content => {
-    if (content === null) return null
-    const key = slotChoiceKey(content)
-    if (seen.has(key)) return null
-    seen.add(key)
-    return content
-  })
-}
-
-/** Reads a stored layout, falling back to the default for anything that is not
- *  exactly one.
- *
- *  Validated entry by entry rather than trusted, for the reason every other
- *  localStorage-backed preference in this app gives (see settingsStore's
- *  pressure calibration): this is user-writable text that outlives deploys.
- *  Here it also outlives the *tool list* — a tool renamed or dropped in a
- *  later release leaves a stored slot naming something that no longer exists,
- *  and the honest answer to that is an empty slot, not a button whose icon
- *  lookup returns undefined. What #544 dropped is the exception, and it goes
- *  through migrateSlotContent instead: those entries have a successor, so
- *  emptying the slot would be throwing away a layout we can still read. */
-export function parsePanelLayout(raw: string | null): PanelLayout {
-  if (raw === null) return DEFAULT_PANEL_LAYOUT
-  let parsed: unknown
-  try { parsed = JSON.parse(raw) } catch { return DEFAULT_PANEL_LAYOUT }
-  if (!Array.isArray(parsed) || parsed.length !== SLOT_COUNT) return DEFAULT_PANEL_LAYOUT
-  return dedupeLayout(parsed.map(entry => (
-    isSlotContent(entry) ? entry : migrateSlotContent(entry)
-  )))
-}
-
-export function serializePanelLayout(layout: PanelLayout): string {
-  return JSON.stringify(layout)
 }

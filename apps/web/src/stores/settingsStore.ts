@@ -10,10 +10,10 @@ import {
   DEFAULT_COLOR_PICKER_MODE,
   isColorPickerMode,
   type ColorPickerMode,
-} from '../components/ColorPicker/pickerModes'
+} from '../lib/browser/colorPickerMode'
 import {
   DEFAULT_PANEL_LAYOUT, parsePanelLayout, serializePanelLayout, type PanelLayout,
-} from '../components/FloatingToolPanel/slots'
+} from '../lib/browser/panelLayout'
 import {
   detectDeviceType, isCompactPreference, isDeviceType,
   type CompactPreference, type DeviceType,
