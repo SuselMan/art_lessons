@@ -52,7 +52,9 @@ export function getRoomBacklog(roomId: string): {
   if (!record) return undefined
   let uncoveredOps = 0
   for (const op of record.operations) {
-    if (!isCoveredBySnapshot(record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds)) {
+    if (!isCoveredBySnapshot(
+      record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds, undefined,
+      id => record.operationsById.get(id))) {
       uncoveredOps += 1
     }
   }

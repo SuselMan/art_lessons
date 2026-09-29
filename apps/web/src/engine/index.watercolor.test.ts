@@ -1299,3 +1299,53 @@ describe('a snapshot never holds half a wash (#536 §17.59)', () => {
     expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
   })
 })
+
+describe('a gesture begun off the sheet (#536 §17.63)', () => {
+  const PRESET = 'normal:100:70:PB29:round'
+  type Chunk = { scratch: { waterUsed: number; pigmentUsed: number } }
+  const spent = (engine: PencilEngine, washId: string) => {
+    const c = (engine as unknown as { _replayRibbonChunks: Map<string, Chunk> })._replayRibbonChunks.get(washId)!
+    return [c.scratch.waterUsed, c.scratch.pigmentUsed]
+  }
+  // Off the 64 px sheet to the left, then onto it.
+  const off = Array.from({ length: 12 }, (_, i) => dab(-400 + i * 16, 32, { size: 24, t: i * 8 }))
+  const on = Array.from({ length: 4 }, (_, i) => dab(8 + i * 12, 32, { size: 24, t: 96 + i * 8 }))
+
+  // The author paints a gesture in small batches and a batch with nothing on
+  // the sheet used to return before spending the brush; a replay paints the
+  // same dabs as one batch that reaches the sheet and spent it. Cut as the
+  // replay of two chunk operations, the first wholly off the sheet.
+  it('spends the brush over the off-sheet dabs however the gesture is cut', () => {
+    const whole = setupLayer()
+    whole.appendOperation(makeStroke('user-b', 'L', [...off, ...on], { tool: 'watercolor', preset: PRESET, strokeId: 's1', washId: 'w1' }), 'remote')
+    land(whole)
+    const cut = setupLayer()
+    cut.appendOperation(makeStroke('user-b', 'L', off, { tool: 'watercolor', preset: PRESET, strokeId: 's1', washId: 'w1' }), 'remote')
+    cut.appendOperation(makeStroke('user-b', 'L', on, { tool: 'watercolor', preset: PRESET, strokeId: 's1', washId: 'w1' }), 'remote')
+    land(cut)
+    expect(spent(whole, 'w1')[0]).toBeGreaterThan(0)
+    expect(spent(cut, 'w1')).toEqual(spent(whole, 'w1'))
+  })
+
+  // The chunk span doubles for a half-resolution settle, and the settle decides
+  // that from the nib the dabs drew - pressure included - not from the size
+  // slider. A 96 slider at a light touch settles at full resolution in a field
+  // capped at 1536 px, so its chunks must stay at 1100.
+  it('cuts chunks by the nib the dabs drew, not by the size setting', () => {
+    const engine = setupLayer()
+    const e = engine as unknown as {
+      _opts: { size: number }; _strokeTool: string; _strokePreset: string
+      _strokeChunkBox: { minX: number; minY: number; maxX: number; maxY: number; half: number } | null
+      _resolvePreset: (tool: string, preset: string) => { sizeMultiplier: number }
+      _chunkSpanExceeded: () => boolean
+    }
+    e._opts.size = 96
+    e._strokeTool = 'watercolor'
+    e._strokePreset = PRESET
+    const mult = e._resolvePreset('watercolor', PRESET).sizeMultiplier
+    e._strokeChunkBox = { minX: 0, minY: 0, maxX: 1500, maxY: 10, half: 40 / mult }
+    expect(e._chunkSpanExceeded()).toBe(true)
+    e._strokeChunkBox = { minX: 0, minY: 0, maxX: 1500, maxY: 10, half: 50 / mult }
+    expect(e._chunkSpanExceeded()).toBe(false)
+  })
+})
