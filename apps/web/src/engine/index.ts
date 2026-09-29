@@ -1609,7 +1609,7 @@ const WASH_STATE_CHECKPOINT_MIN_OPS = 8
 const WASH_STATE_CHECKPOINT_MAX_BYTES = 96 * 1024 * 1024
 /** (#536, §17.57) The watercolour's GPU memory on a touch device - see
  *  PencilEngine._enforceGpuBudget. The iPad's tab died near 600 MB of it. */
-const GPU_BUDGET_TOUCH_BYTES = 400 * 1024 * 1024
+const GPU_BUDGET_TOUCH_BYTES = 300 * 1024 * 1024
 
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
@@ -1690,7 +1690,9 @@ const REPLAY_RIBBON_CHUNK_SLOTS = 4
  *  many washes; past it the oldest are marked lost (a rebuild if they go on). */
 const SPILLED_WASHES_MAX_BYTES = 128 * 1024 * 1024
 /** (§17.68) How long a wash has to rest before the budget may spill it. */
-const SPILL_IDLE_MS = 5000
+const SPILL_IDLE_MS = 8000
+/** (§17.68) ...and how long the whole room has to be still first. */
+const WASH_QUIET_MS = 2000
 
 /** (#536) Hair bundles across the mark, from the mark's own half-width, so a
  *  hair stays a fixed few pixels wide whatever brush is held — see
@@ -5296,6 +5298,20 @@ export class PencilEngine implements PencilEngineAPI {
     // (#522) Nor is there a layer left to refuse to publish; whatever restores
     // into this engine next is what it will have to answer for.
     this._snapshots.clearRefusals()
+    // (#536, §17.69) ...and the rest of what the watercolour holds on the
+    // GPU. A room left without a page reload (the app's own navigation) keeps
+    // the WebGL context alive until the browser collects it, and all of this
+    // with it: the settle field alone is up to 90 MB. The iPad, moved from
+    // room to room between test runs, died early in a run at 338 MB of this
+    // engine's own textures.
+    if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
+    for (const f of this._fieldCache) destroyField(f)
+    this._fieldCache = []
+    for (const r of this._washReveals.values()) r.before.destroy()
+    this._washReveals.clear()
+    for (const b of this._revealPool) b.destroy()
+    this._revealPool = []
+    this.gl.deleteTexture(this._paperTex)
   }
 
   // ─── History / replay ────────────────────────────────────────────────────────
@@ -5541,6 +5557,7 @@ export class PencilEngine implements PencilEngineAPI {
     const t0 = performance.now()
     const live = this._replayRibbonChunks
     this._replayRibbonChunks = job.chunks
+    this._rebuildStepping = true
     try {
       let i = job.start + job.applied.length
       let first = true
@@ -5556,6 +5573,7 @@ export class PencilEngine implements PencilEngineAPI {
         gl.finish()
       }
     } finally {
+      this._rebuildStepping = false
       job.chunks = this._replayRibbonChunks
       this._replayRibbonChunks = live
     }
@@ -9789,6 +9807,7 @@ export class PencilEngine implements PencilEngineAPI {
     // into the real layer regardless (see _paintDabs' own doc comment on
     // `target`).
     if (target instanceof AccumulationBuffer) return undefined
+    this._washActiveAt = performance.now() // (§17.68)
     const preset = this._resolvePreset(tool, presetName)
     // (#536) The paper's own wetness where this gesture came down, read from
     // what the stroke recorded rather than from the live field: a replay has no
@@ -9936,7 +9955,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  out an open one, whose next stroke then started over in a fresh scratch
    *  on this client only. */
   private _trimChunkCache(): void {
-    while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
+    // (§17.69) A rebuild on a touch device keeps two: it replays every wash
+    // of the layer from the start, next to the live layer and its own washes,
+    // and on the iPad that stack was the tab's last moment (flight recorder,
+    // i5wt2iKp: killed mid-rebuild). What it evicts is spilled bit for bit.
+    const slots = this._rebuildStepping && this._gpuBudget !== Infinity ? 2 : REPLAY_RIBBON_CHUNK_SLOTS
+    while (this._replayRibbonChunks.size > slots) {
       this._evictChunk(this._replayRibbonChunks.keys().next().value as string, true)
     }
   }
@@ -12414,6 +12438,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _advanceSettle(): void {
     const s = this._settle
     if (!s) return
+    this._washActiveAt = performance.now() // (§17.68)
     if (!s.scratch.live) { this._settle = null; return }
     if (s.next < s.ops.length) s.ops[s.next++]()
     if (s.next < s.ops.length) return
@@ -12461,6 +12486,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  the iPad four resting washes sat at 472 MB against a 400 MB budget with
    *  nothing left to call it. */
   private _budgetTimer = 0
+  /** (§17.69) Inside a rebuild job's slice: the replay cache is the job's. */
+  private _rebuildStepping = false
+  /** (§17.68) performance.now() of the last watercolour paint or settle step. */
+  private _washActiveAt = 0
   private _scheduleBudgetCheck(): void {
     if (this._gpuBudget === Infinity) return
     if (this._budgetTimer) clearTimeout(this._budgetTimer)
@@ -12470,6 +12499,16 @@ export class PencilEngine implements PencilEngineAPI {
       if (this._settle || this._strokeLayerId) { this._scheduleBudgetCheck(); return }
       this._enforceGpuBudget()
     }, 1000) as unknown as number
+  }
+
+  /** (§17.68) Nobody has painted watercolour or settled any for a while. The
+   *  budget's spill reads a wash back and its next stroke uploads it again -
+   *  hundreds of megabytes across to the GPU process each way. Both of the
+   *  iPad's lost tabs died right there, a spill and its wash's unspill 50-70 ms
+   *  apart in the middle of four people painting (flight recorder, vyIPuYyi,
+   *  en2iozvm); twelve round trips in a quiet room cost it nothing. */
+  private _washesQuiet(): boolean {
+    return performance.now() - this._washActiveAt >= WASH_QUIET_MS
   }
 
   /** (#536, §17.57) What the watercolour holds on the GPU beyond the layers
@@ -12507,10 +12546,16 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.68) ...and last, the open washes of others that are resting, least
     // recently painted first, down to four fifths of the budget so the next
     // settle does not bring it straight back. Spilled, not dropped: the next
-    // stroke of one brings it back from main memory, bit for bit.
+    // stroke of one brings it back from main memory, bit for bit. Only in a
+    // quiet room - see _washesQuiet; the timer comes back until it is one.
     if (this._washGpuBytes() > this._gpuBudget) {
+      // (§17.69) One wash a check while the room is busy - the check comes
+      // back a second later - and as many as it takes in a quiet one.
+      const quiet = this._washesQuiet()
+      let spilled = 0
       for (const [key, c] of [...this._replayRibbonChunks]) {
         if (this._washGpuBytes() <= this._gpuBudget * 0.8) break
+        if (!quiet && spilled >= 1) { this._scheduleBudgetCheck(); break }
         if (c.scratch === this._settle?.scratch || c.scratch.diffusePending) continue
         // Not a wash painted into in the last few seconds: its author is
         // mid-session, the next operation would bring it straight back, and
@@ -12521,6 +12566,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (author && [...this._peerLiveStrokes.values()].some(l => l.peerId === author)) continue
         this._evictChunk(key, true)
         this._ribbonScratchPool.trimFree()
+        spilled++
       }
     }
     return true

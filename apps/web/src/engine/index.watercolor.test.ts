@@ -1394,7 +1394,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
   type Chunk = { scratch: { dryCtx: { bounds: { minX: number; minY: number; maxX: number; maxY: number } } | null } }
   type Internals = {
     _replayRibbonChunks: Map<string, Chunk & { usedAt?: number }>; _spilledWashes: Map<string, unknown>; _lostWashes: Map<string, unknown>
-    _gpuBudget: number; _enforceGpuBudget: () => boolean; _completeSettle: () => void
+    _gpuBudget: number; _enforceGpuBudget: () => boolean; _completeSettle: () => void; _washActiveAt: number
   }
   const strokeIn = (user: string, wash: string, stroke: string, x: number, y: number) =>
     makeStroke(user, 'L', [dab(x, y, { size: 8, t: 0 }), dab(x + 6, y, { size: 8, t: 8 }), dab(x + 12, y, { size: 8, t: 16 })],
@@ -1435,6 +1435,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     I._completeSettle()
     // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
+    I._washActiveAt = -1e9
     I._gpuBudget = 1
     I._enforceGpuBudget()
     expect(I._replayRibbonChunks.has('w1')).toBe(false)
@@ -1465,6 +1466,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     I._completeSettle()
     // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
+    I._washActiveAt = -1e9
     I._gpuBudget = 1
     I._enforceGpuBudget()
     expect(I._spilledWashes.has('w1')).toBe(true)
