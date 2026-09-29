@@ -30,7 +30,6 @@ import { floatingPanelVisible } from '../../lib/browser/uiPreferences'
 import { diagLog } from '../../lib/observability/diagLog'
 import { formatHotkeyLabel } from '../../lib/input/hotkeys'
 import { useAuth } from '../../lib/api/authState'
-import { BANNED_ERROR_CODE, noteBanned } from '../../lib/api/banned'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './viewport/useViewport'
 import { useViewportToast } from './viewport/useViewportToast'
@@ -42,14 +41,9 @@ import { useFillTool } from './useFillTool'
 import { useEyedropper } from './useEyedropper'
 import { useEditorHotkeys } from './tools/editorHotkeys'
 import { useTransformGizmoGestures } from './useTransformGizmoGestures'
-import { createBoardEventHandlers } from './net/boardEvents'
-import { createPeerEventHandlers } from './net/peerEvents'
-import { createConfirmedStreamHandler } from './net/confirmedStream'
 import { createEngineNetworkCallbacks } from './engineNetwork'
-import { createJoinFlow, type CreatorNavState } from './net/joinFlow'
+import type { CreatorNavState } from './net/joinFlow'
 import { toRoomConfig } from './net/roomConfig'
-import { createRoomStateHandler } from './net/roomStateHandler'
-import { createRoomControlEventHandlers } from './net/roomControlEvents'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useJoinGate } from './useJoinGate'
 import { usePaperReadiness } from './usePaperReadiness'
@@ -98,7 +92,7 @@ import { QuickSettingsBar } from './panels/QuickSettingsBar'
 import { ToolSettingsTab } from './panels/ToolSettingsTab'
 import { resolveDisplayName } from './participants/displayName'
 import { cameraTransformCss } from './viewport/cameraMath'
-import { createSocketRevival } from './net/socketRevival'
+import { connectRoomSocket } from './net/roomSocket'
 import { PeerCursors } from './overlays/PeerCursors'
 import { BrushCursor } from './overlays/BrushCursor'
 import { useCursor, type ViewportCursor } from './overlays/cursorController'
@@ -164,6 +158,11 @@ function RoomEditor() {
   const navigate = useNavigate()
   const location = useLocation()
   const t        = useT()
+  // `t` changes identity when the reader switches language, and listing it as a
+  // dependency of the socket effect would tear the connection down and rebuild
+  // it on a language switch — so the socket's handlers read it through this.
+  const tRef = useRef(t)
+  tRef.current = t
   // (#380) Only for the access cache the join queue lives in — see joinQueue.ts.
   const queryClient = useQueryClient()
   // (#310) In-app replacements for the window.confirm/window.alert this
@@ -765,10 +764,7 @@ function RoomEditor() {
   // pending, last seen, still revealing — reset together on a page turn. See
   // useBoardStream.
   const { stream, resetStream } = useBoardStream()
-  const {
-    appliedOpIdsRef, pendingIdsRef, lastConfirmedSeqRef, latestKnownSeqRef, catchingUpRef, deferredOpsQueueRef,
-    pendingPreviewsRef, streamedStrokeIdsRef,
-  } = stream
+  const { appliedOpIdsRef, pendingIdsRef, latestKnownSeqRef, deferredOpsQueueRef, pendingPreviewsRef } = stream
   const strokeActiveRef   = useRef(false)
   // A joiner's first room_state can arrive before the engine exists — we need
   // that very event to learn `config` in the first place, and the engine only
@@ -1420,64 +1416,27 @@ function RoomEditor() {
   // snapshot uploader are reached through refs for exactly that reason.
   useEffect(() => {
     if (!sessionId) return
-    // The URL id at the moment this lesson's socket was built. `id` itself
-    // may change underneath (a board id replaced by its lesson's) without this
-    // effect re-running, so the first join uses the id it was made for.
-    const id = sessionId
-    // A new socket is a new first `room_state` — the one that tells a joiner
-    // the lesson's config. Reset here rather than only at mount so a
-    // navigation into another lesson (takeRoomCopy) learns that lesson's name
-    // and paper instead of keeping the previous one's.
-    firstRoomStateReceivedRef.current = false
-
-    // Same-origin: the Vite dev server proxies /socket.io to apps/server
-    // (see vite.config.ts) — works under both `npm run dev` (https, needed
-    // for AudioWorklet-based sound experiments) and `npm run dev:http`.
-    const socket: Socket<ServerToClientEvents, ClientToServerEvents> =
-      io({ withCredentials: true })
-    socketRef.current = socket
-
-    // (#504) socket.io переподключается само — кроме двух случаев, в которых
-    // оно объявляет, что больше не пытается, и тогда открытая комната висит на
-    // «Нет связи» до перезагрузки страницы. См. socketRevival.ts: там и
-    // перечень случаев, и почему у страницы комнаты нет законной причины
-    // принять такой ответ.
-    const revival = createSocketRevival(socket)
-
-    // (#493) Joining and staying joined — create/rejoin, page turns,
-    // following, gap resync — see joinFlow.ts. Handed the two joining emits
-    // rather than the socket.
-    const {
-      joinCredentials, reportJoinFailure, handleConnect, switchBoard, maybeFollow, requestFullResync,
-    } = createJoinFlow({
-      id, isCreator, creatorDraft,
-      joinRoom: (data, ack) => { socket.emit('join_room', data, ack) },
-      createRoom: (data, ack) => { socket.emit('create_room', data, ack) },
-      isCurrentSocket: () => socket === socketRef.current,
-      noteConnected: () => {
-        setConnected(true)
-        setEverConnected(true)
-        revival.noteConnect()
+    // (#493) The socket itself, its revival and the whole `socket.on` table —
+    // see connectRoomSocket. What stays here is what it is handed, and the
+    // dependency list below that decides when it is rebuilt.
+    return connectRoomSocket({
+      sessionId, isCreator, creatorDraft,
+      // Same-origin: the Vite dev server proxies /socket.io to apps/server
+      // (see vite.config.ts) — works under both `npm run dev` (https, needed
+      // for AudioWorklet-based sound experiments) and `npm run dev:http`.
+      openSocket: () => io({ withCredentials: true }),
+      onConnectionChange: next => {
+        setConnected(next)
+        if (next) setEverConnected(true)
       },
-      applyIdentity, setRoomContentReady,
-      hasJoinedRef, lastJoinAttemptRef, myDisplayNameRef, latestKnownSeqRef, lastConfirmedSeqRef, outboxRef,
-      wantedBoardRef, boardIdRef, socketBoardRef, isOwnerRef, engineRef, streamedStrokeIdsRef, tRef,
-    })
-    switchBoardRef.current = next => { void switchBoard(next) }
-    // (#346) Published for the paper retry, which lives outside this effect —
-    // see requestFullResyncRef's own comment.
-    requestFullResyncRef.current = requestFullResync
-
-    // (#493) Where a room_state takes this client, and what it does with the
-    // content — see roomStateHandler.ts.
-    const handleRoomState = createRoomStateHandler({
-      id, isCreator,
+      ...stream, engineRef, socketRef, switchBoardRef, requestFullResyncRef, outboxRef,
+      boardIdRef, wantedBoardRef, socketBoardRef, isOwnerRef, roomContentReadyRef,
+      hasJoinedRef, lastJoinAttemptRef, myDisplayNameRef, tRef, retryJoinRef, setJoinState, queryClient,
+      firstRoomStateReceivedRef, awaitingSeededBoardStateRef, pendingSnapshotRef, snapshotGateRef, previewScheduleRef,
       replaceUrl: path => navigateRef.current(path, { replace: true }),
-      joinRoom: (data, ack) => { socket.emit('join_room', data, ack) },
-      joinCredentials, applyIdentity, reportJoinFailure, requestFullResync, maybeFollow,
-      enterBoard, awaitPaper, markJoinRestoreDone, setRoomContentReady,
+      applyIdentity, setRoomContentReady, enterBoard, awaitPaper, markJoinRestoreDone,
       clearRestoreFailure: () => setRestoreFailure(null),
-      // Shared with the engine's mount effect — see restoreRoomState. The open
+      // Shared with the engine's mount effect — see useRoomRestore. The open
       // is not being timed any more, hence the no-op finisher: a real one here
       // would also be a new dependency of this effect, and this effect's
       // dependencies are what tear the socket down.
@@ -1490,98 +1449,10 @@ function RoomEditor() {
           getSnapshotUploader: () => snapshotUploaderRef.current,
         })
       },
-      socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
-      pendingSnapshotRef, latestKnownSeqRef, isOwnerRef, engineRef, snapshotGateRef,
-    })
-
-    // (#493) Out of line — see confirmedStream.ts.
-    const handleOperationConfirmed = createConfirmedStreamHandler({
-      engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
-      catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
       confirmOwnOperation: (op, seq) => confirmOwnOperation(op, seq, true),
-      markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+      markActive, markLayerActive, forgetDrawingActivity, applyRemoteOp, syncFromLog, checkSnapshotBoundary,
       replayGate: replayGateRef.current,
     })
-
-    // (#152) peer_cursor itself is no longer handled here at all — Room had
-    // nothing to do with it beyond forwarding into Room-level state (which
-    // is exactly what re-rendered this whole ~1600-line component up to
-    // ~30Hz per moving peer). PeerCursors now subscribes directly (see its
-    // own component) — position updates never reach Room's render tree.
-
-    const handleDisconnect = (reason: string) => {
-      setConnected(false)
-      revival.noteDisconnect(reason)
-    }
-
-    // (#504) Раньше не слушался вовсе, а это половина проблемы: отказ в
-    // хендшейке (серверный `io.use()` не смог резолвить личность — например,
-    // новый контейнер уже принимает сокеты, а Prisma ещё не отвечает) socket.io
-    // считает окончательным и больше не пытается.
-    // (#587) Кроме одного отказа, который окончателен по-настоящему: бан.
-    // Оживлять такой сокет — значит стучаться в сервер раз в пять секунд до
-    // закрытия вкладки; вместо этого всё приложение уходит на экран бана.
-    const handleConnectError = (err: Error) => {
-      if (err.message === BANNED_ERROR_CODE) {
-        noteBanned()
-        return
-      }
-      revival.noteConnectError()
-    }
-
-    // (#493) Three domains out of line, as handler factories — see
-    // peerEvents.ts, boardEvents.ts and roomControlEvents.ts. The `socket.on` table below
-    // still lists every event this page answers.
-    const peer = createPeerEventHandlers({
-      engineRef, roomContentReadyRef, streamedStrokeIdsRef, pendingPreviewsRef,
-      markActive, markLayerActive, forgetDrawingActivity,
-      applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
-    })
-    const board = createBoardEventHandlers({
-      maybeFollow, wantedBoardRef, socketBoardRef, boardIdRef, setRoomContentReady, isOwnerRef,
-    })
-    const control = createRoomControlEventHandlers({
-      sessionId: id, queryClient, hasJoinedRef, retryJoinRef, setJoinState, tRef,
-    })
-
-    socket.on('lesson_state',               board.lesson_state)
-    socket.on('participant_hand_changed',   board.participant_hand_changed)
-    socket.on('board_thumbnail_updated',    board.board_thumbnail_updated)
-    socket.on('peer_board_changed',         board.peer_board_changed)
-    socket.on('active_board_changed',       board.active_board_changed)
-    socket.on('board_created',              board.board_created)
-    socket.on('board_renamed',              board.board_renamed)
-    socket.on('boards_reordered',           board.boards_reordered)
-    socket.on('board_deleted',              board.board_deleted)
-    socket.on('connect',                    handleConnect)
-    socket.on('room_state',                 handleRoomState)
-    socket.on('operation_confirmed',        handleOperationConfirmed)
-    socket.on('peer_joined',                peer.peer_joined)
-    socket.on('peer_left',                  peer.peer_left)
-    socket.on('peer_stroke_live',           peer.peer_stroke_live)
-    socket.on('peer_stroke_live_end',       peer.peer_stroke_live_end)
-    socket.on('palette_updated',            control.palette_updated)
-    socket.on('room_frozen_changed',        control.room_frozen_changed)
-    socket.on('room_tools_changed',         control.room_tools_changed)
-    socket.on('room_closed_changed',        control.room_closed_changed)
-    socket.on('participant_frozen_changed', control.participant_frozen_changed)
-    socket.on('join_request_created',       control.join_request_created)
-    socket.on('join_request_resolved',      control.join_request_resolved)
-    socket.on('kicked',                     control.kicked)
-    socket.on('disconnect',                 handleDisconnect)
-    socket.on('connect_error',              handleConnectError)
-
-    return () => {
-      // Раньше `socket.disconnect()`: иначе запланированная попытка заведёт
-      // сокет комнаты, которую уже покинули.
-      revival.cancel()
-      socket.disconnect()
-      socketRef.current = null
-      requestFullResyncRef.current = null
-      switchBoardRef.current = null
-      socketBoardRef.current = null
-      wantedBoardRef.current = null
-    }
   }, [
     sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
     restoreRoom, confirmOwnOperation, enterBoard,
@@ -1596,23 +1467,15 @@ function RoomEditor() {
     // see lib/api/queryClient.ts), so listing it here can never tear the socket
     // down and rebuild it.
     queryClient,
-    // (#493) From useJoinGate, useRemoteOperations, useSnapshotPublishing,
-    // useLivePreviewBake, useBoardOutbox and useBoardStream now, so the lint rule
-    // asks for them: a useState setter and useRef objects, all stable for the
-    // component's life — naming them can never tear the socket down.
-    setJoinState, retryJoinRef, openTimerRef, appliedOpIdsRef, deferredOpsQueueRef,
-    previewScheduleRef, replayIncompleteRef, snapshotGateRef, snapshotUploaderRef, outboxRef,
-    catchingUpRef, lastConfirmedSeqRef, pendingPreviewsRef, streamedStrokeIdsRef, latestKnownSeqRef,
+    // (#493) From useJoinGate, useSnapshotPublishing, useLivePreviewBake,
+    // useBoardOutbox and useBoardStream now, so the lint rule asks for them: a
+    // useState setter, useRef objects and an object of refs, all stable for
+    // the component's life — naming them can never tear the socket down.
+    setJoinState, retryJoinRef, previewScheduleRef, snapshotGateRef, snapshotUploaderRef, outboxRef, stream,
     // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
     // read through refs), `navigate` (changes with the URL this effect itself
     // rewrites) and `boardId` (a page turn is not a new socket).
   ])
-
-  // Same reason as `retryJoinRef`: `t` changes identity when the reader
-  // switches language, and listing it as a dependency of the socket effect
-  // would tear the connection down and rebuild it on a language switch.
-  const tRef = useRef(t)
-  tRef.current = t
 
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
   // loaded above, not hardcoded here — see lib/input/hotkeys.ts) ─────────────────
