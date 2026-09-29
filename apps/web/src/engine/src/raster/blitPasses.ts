@@ -115,14 +115,14 @@ export class BlitPasses {
    *  argument, and the distinction is not cosmetic —
    *
    *  - 'over' (ONE, ONE_MINUS_SRC_ALPHA), the default: one source, drawn onto
-   *    whatever is already there. The image/paste blit (`_drawImageThroughMatrix`)
+   *    whatever is already there. The image/paste blit (`AreaOps.drawImageThroughMatrix`)
    *    genuinely lands on existing layer content; the world-aligned patch
    *    copies (`_copyArea`, `_composeAreaFillPatch`) and the export rotate
    *    (`_finishInfiniteComposite`) draw disjoint regions onto a cleared
    *    target, where the two blends agree anyway.
    *  - 'add' (ONE, ONE): several *source tiles of one layer* stitched into
    *    one destination tile — the live gizmo preview (`previewLayerTransform`)
-   *    and the bake (`_bakeTransform`). Their contributions are disjoint
+   *    and the bake (`AreaOps.bakeLayerTransform`). Their contributions are disjoint
    *    except in the half-texel band along each source-tile boundary, where
    *    each pass carries its own share of one bilinear kernel (see
    *    TILE_BILINEAR in shaders.ts) and the shares have to sum to one. "Over"
@@ -205,7 +205,7 @@ export class BlitPasses {
    *  'over' lands the piece on a destination that already holds the part of
    *  the layer that isn't moving, and is only correct when this is the single
    *  source tile; 'add' sums several source tiles' shares of one bilinear
-   *  kernel into a transparent buffer of their own, which _composeAreaTiles
+   *  kernel into a transparent buffer of their own, which AreaOps.composeAreaTiles
    *  then composites over the tile in one go (#507). */
   areaTransform(
     source: AccumulationBuffer, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,

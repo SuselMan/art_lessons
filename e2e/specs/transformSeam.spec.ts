@@ -11,7 +11,7 @@ import { expect, test } from '@playwright/test'
  *  resampled pencil stroke — three sources of flakiness stacked on top of the
  *  one fact under test. So this drives the engine's own shader directly, with
  *  the exact destination<-source composition previewLayerTransform and
- *  _bakeTransform build, over content whose correct resample is arithmetic.
+ *  AreaOps.bakeLayerTransform build, over content whose correct resample is arithmetic.
  *  The other half of the fix — that the engine actually blends those passes
  *  additively and point-samples their sources — is asserted against recorded
  *  GL state in apps/web/src/engine/index.tiledTransformSeams.test.ts, which
@@ -81,7 +81,7 @@ test.describe('a tiled layer resamples as one image (#507)', () => {
         const tex = gl.createTexture()!
         gl.bindTexture(gl.TEXTURE_2D, tex)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, S, S, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
-        // NEAREST and CLAMP_TO_EDGE: exactly what _runTransformBlit puts the
+        // NEAREST and CLAMP_TO_EDGE: exactly what BlitPasses.transform puts the
         // source on for the draw (AccumulationBuffer.setPointSampling).
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
