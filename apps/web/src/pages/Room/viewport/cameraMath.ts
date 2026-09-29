@@ -1,6 +1,6 @@
 import { clamp } from 'lodash-es'
 
-import type { Viewport } from './useViewport'
+import type { Viewport } from '../../../stores/slices/viewportSlice'
 import { clientToCanvas, type CanvasSize } from './pointerTransform'
 
 // #143: world<->screen conversion for infinite-canvas rooms' overlay

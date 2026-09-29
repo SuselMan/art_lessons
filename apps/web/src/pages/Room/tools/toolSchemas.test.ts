@@ -11,7 +11,7 @@ import {
   type UiToolId, type SettingValueType,
 } from './toolSchemas'
 import { PENCIL_GRADES } from '../../../engine'
-import { TRANSFORM_MODES } from '../editing/transformMath'
+import { TRANSFORM_MODES } from '../../../lib/transform/transformMath'
 import { expScale } from '../../../components/PrecisionSlider/sliderScale'
 import { DRAWING_TOOLS, NON_DRAWING_TOOLS } from '../../../stores/slices/toolSlice'
 import type { KeyValueStorage } from '../../../lib/browser/roomStorage'

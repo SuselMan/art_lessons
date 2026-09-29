@@ -20,7 +20,7 @@ import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './t
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
 import { DIGITAL_BRUSH_IMAGES } from './toolTypeImages'
-import { TRANSFORM_MODES, type TransformMode } from '../editing/transformMath'
+import { TRANSFORM_MODES, type TransformMode } from '../../../lib/transform/transformMath'
 import { SELECTION_SHAPES, type SelectionShapeKind } from '../gestures/selectionGesture'
 import type { TranslationKey } from '../../../i18n'
 import type { IconName } from '../../../icons/iconNames'

@@ -8,7 +8,7 @@ import type { EditorTool } from '../../stores/slices/toolSlice'
 import { selectionBoundsRect, transformSelection } from './gestures/selectionGesture'
 import {
   IDENTITY_MATRIX, isIdentityMatrix, type TransformBounds, type TransformMatrix,
-} from './editing/transformMath'
+} from '../../lib/transform/transformMath'
 import { useCommittableSession } from './shapes/useCommittableSession'
 
 /** (#493) The gizmo's open session. Authoritative — the store's matrix copy

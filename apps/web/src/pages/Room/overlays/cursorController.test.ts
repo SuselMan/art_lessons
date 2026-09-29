@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { resolveCursor, transformHandleCursor, RULER_GESTURE_CURSOR, type CursorState } from './cursorController'
-import { TRANSFORM_MODES, type TransformHandleKind } from '../editing/transformMath'
+import { TRANSFORM_MODES, type TransformHandleKind } from '../../../lib/transform/transformMath'
 import { DRAWING_TOOLS, NON_DRAWING_TOOLS } from '../../../stores/slices/toolSlice'
 
 // #393: the whole point of the module is that these answers live in one

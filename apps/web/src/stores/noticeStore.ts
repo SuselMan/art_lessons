@@ -1,7 +1,26 @@
 import { create } from 'zustand'
 
-import type { NoticeAction, NoticePosition, NoticeVariant } from '../components/Notice/Notice'
 import type { IconName } from '../icons/iconNames'
+
+/** What the strip means, which is the only thing a caller should have to pick
+ *  — the colour follows from it (#343). `neutral` is not a weaker warning: a
+ *  lesson closed for editing is its normal state once handed out, and
+ *  colouring that as a problem would misreport it. */
+export type NoticeVariant = 'error' | 'warning' | 'success' | 'neutral'
+
+/** Which edge the strip is anchored to. Not used by `Notice` itself — it is
+ *  the containers (`NoticeStack`, and the room's own two columns) that
+ *  position, so this type lives here next to the variant it travels with. */
+export type NoticePosition = 'top' | 'bottom'
+
+export interface NoticeAction {
+  label: string
+  onClick: () => void
+  /** For an action that runs a request — the button stays visible but
+   *  un-clickable while it is in flight, instead of the strip vanishing and
+   *  reappearing. */
+  disabled?: boolean
+}
 
 // (#343) Notices that report an *event* — a request that failed, an action
 // that succeeded. Nothing in application state implies they should be

@@ -1,7 +1,8 @@
 import type { StateCreator } from 'zustand'
 
-import type { Viewport } from '../../pages/Room/viewport/useViewport'
 import type { ToolSlice } from './toolSlice'
+
+export interface Viewport { cx: number; cy: number; zoom: number; angle: number }
 
 export interface ViewportSlice {
   // useViewport.ts keeps its entire internal architecture (rAF-throttled

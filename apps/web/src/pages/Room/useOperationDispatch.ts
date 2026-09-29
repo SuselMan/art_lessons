@@ -10,7 +10,7 @@ import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
 import { isLocalIslandSafe } from './net/optimism'
 import type { Outbox } from './net/outbox'
-import { isIdentityMatrix } from './editing/transformMath'
+import { isIdentityMatrix } from '../../lib/transform/transformMath'
 import type { TransformSession } from './useTransformSession'
 
 /** What dispatchOp did with an operation (#395). `applied: true` means the

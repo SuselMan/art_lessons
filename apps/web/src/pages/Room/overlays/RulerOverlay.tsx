@@ -1,14 +1,9 @@
+import type { RulerPoint } from '../../../stores/slices/layerSlice'
 import styles from '../Room.module.css'
 
-export interface RulerPoint {
-  // Canvas physical-pixel space for bounded rooms (same coordinate system
-  // as Dab.x/y); genuine world space for infinite rooms (#143) — matches
-  // what engine.setRuler's snapping compares real stroke dabs against
-  // there. Produced by Room's ruler drag handler via `clientToRoomPoint`
-  // either way.
-  x: number
-  y: number
-}
+// (#650) The point type lives with the store field that holds the ruler (layerSlice's
+// rulerLine); re-exported here for the overlay's own callers.
+export type { RulerPoint } from '../../../stores/slices/layerSlice'
 
 interface RulerOverlayProps {
   a: RulerPoint
