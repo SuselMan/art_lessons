@@ -9,7 +9,7 @@ import type {
   LayerState, Operation, Participant,
   SendResult, ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, SHAPE_KINDS, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
@@ -22,9 +22,6 @@ import { ClassPlaces } from './panels/ClassPlaces'
 import { createPreviewSchedule } from './net/previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
-import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
-import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
-import type { PickerOption } from '../../components/OptionPicker/types'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
 import {
   computeCompositeOrder, eraseThroughTargets, isLayerLocked,
@@ -65,6 +62,7 @@ import { useOpenTimer } from './useOpenTimer'
 import { useLeaveGuard } from './useLeaveGuard'
 import { useToolSync } from './useToolSync'
 import { useToolColor } from './useToolColor'
+import { useToolChoice } from './useToolChoice'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -117,10 +115,9 @@ import { NoWebGL } from './status/NoWebGL'
 import { probeWebGL } from '../../lib/browser/webgl'
 import {
   loadToolSettings, saveToolSettings,
-  isShapeTool, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
+  isShapeTool,
 } from '../../lib/tools/toolSchemas'
 import { loadPanelPosition, type PanelPosition } from '../../components/FloatingToolPanel/panelPosition'
-import { TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './editing/activeLayer'
 import { ChiselAngleDial } from './overlays/ChiselAngleDial'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
@@ -134,12 +131,8 @@ import { restoreRoomState } from './restoreRoomState'
 import { useTransformSession, type TransformSession } from './useTransformSession'
 import { initLayersFromStore, retireEngine, wireLocalStrokeEvents } from './engineWiring'
 import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
-import { notifyError, notifyWarning } from '../../stores/noticeStore'
+import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
-import {
-  isPrimaryDrawingTool, PRIMARY_DRAWING_TOOLS,
-  type EditorTool, type PrimaryDrawingTool,
-} from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import { createReplayGate } from './replayGate'
 import { GlLostOverlay, useGlContextLost } from './status/GlLostOverlay'
@@ -502,23 +495,12 @@ function RoomEditor() {
   // `room_state` and is patched by `room_tools_changed`, and a second copy
   // would only be a second thing to keep in step.
   const enabledTools = useRoomStore(s => s.room?.enabledTools)
-  /** Whether the room offers this tool at all. The toolbar asks it per button
-   *  (a tool the room does not offer has no button), and `selectTool` asks it
-   *  again for the paths that have no button to hide — a hotkey, a floating
-   *  panel slot assigned before the tool was switched off. */
-  const toolOffered = useCallback(
-    (candidate: EditorTool) => isToolEnabledInRoom(enabledTools, candidate),
-    [enabledTools],
-  )
-  /** Where a hand goes when what it was holding stops being offered. The first
-   *  material the room still has — never the first *tool*, which could be the
-   *  ruler, i.e. a hand that cannot draw. A toolset always keeps one material
-   *  (sanitizeEnabledTools refuses the ones that don't), so this cannot come
-   *  up empty; the pencil is the fallback for the unrestricted room. */
-  const fallbackTool = useMemo<EditorTool>(() => (
-    enabledTools?.find(candidate => (TOOLSET_MATERIAL_TOOLS as readonly string[]).includes(candidate)) as EditorTool
-      ?? 'pencil'
-  ), [enabledTools])
+  // (#493) The toolset gate, every way a tool gets into a hand, and the two
+  // groups the rail and the floating panel show — see useToolChoice.
+  const {
+    toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool,
+    drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
+  } = useToolChoice()
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
   // there is no second "mode" axis over it any more.
@@ -529,10 +511,6 @@ function RoomEditor() {
   // one selected otherwise, so picking up the ruler never leaves the engine
   // holding a tool that isn't one. Also where the eyedropper goes back to.
   const drawingTool = useRoomStore(s => s.drawingTool)
-  // Last of pencil/liner actually selected — what a "return to drawing"
-  // toggle (eraser/smudge off) should go back to, instead of assuming
-  // pencil (kept in sync by the store's own setTool, see toolSlice.ts).
-  const lastDrawingTool = useRoomStore(s => s.lastDrawingTool)
   // Unified per-tool settings (#196) — grade/size/opacity/color for every
   // registered tool (TOOL_SCHEMAS in toolSchemas.ts), persisted per room
   // (#156). Backed by the store (#23): seeded once up front from this
@@ -1930,99 +1908,6 @@ function RoomEditor() {
     colorContent, colorFlyoutAt, openPanelColorSurface, railWellRef, panelWellRef, closeColorFlyout,
     openRailColorSurface, expandColorField,
   } = useToolColor({ engineRef, engineEpoch, socketRef })
-  // FloatingToolPanel (#157) is an eight-slot compass the user lays out
-  // themselves: any slot holds a tool, one of the two groups, undo/redo, or
-  // nothing.
-  //
-  // (#544) It used to hold *roles* instead of groups — "the drawing tool you
-  // have no button for", "the eraser/smudge/eyedropper you have no button
-  // for" — and they are gone. A role could only ever hand back a tool you had
-  // already picked somewhere else, which on a tablet in minimal UI, with no
-  // rail and no hotkeys, means it could not reach a material you had not
-  // touched this session. A group reaches all of them, and does it without a
-  // slot whose meaning changes under you. `recentSecondaryTools` and
-  // `lastSecondaryTool` left the store with the secondary role: it was the
-  // only thing that ever read them.
-  //
-  // (#544) The three things the rail's one drawing button needs.
-  //
-  // `drawingGroupTool` is what the button wears and what a plain tap takes.
-  // It follows `lastDrawingTool` — the last *material* in hand, which the
-  // store already maintains and which every route to a material updates, the
-  // hotkeys and the floating panel included — so the rail cannot disagree with
-  // the hand. The fallback covers the one case that can: a room whose toolset
-  // no longer offers what this person last drew with (#548). The button then
-  // shows what the room does offer rather than a material it has withdrawn.
-  const drawingGroupOptions = useMemo<PickerOption[]>(
-    () => PRIMARY_DRAWING_TOOLS.filter(toolOffered).map(id => ({
-      value: id,
-      label: t(TOOL_DISPLAY[id].labelKey),
-      photo: TOOL_PHOTOS[id],
-    })),
-    [toolOffered, t],
-  )
-  const drawingGroupTool = useMemo<PrimaryDrawingTool>(
-    () => (toolOffered(lastDrawingTool)
-      ? lastDrawingTool
-      : (drawingGroupOptions[0]?.value as PrimaryDrawingTool) ?? 'pencil'),
-    [lastDrawingTool, toolOffered, drawingGroupOptions],
-  )
-  // Lit when any material is in hand — not when `tool` happens to equal the
-  // one the button is wearing. The eraser and the smudge are their own buttons
-  // beside it and must not light this one.
-  const drawingGroupActive = isPrimaryDrawingTool(tool)
-  // (#544) The same three things for the shapes, with one difference that
-  // matters: these options are values of one tool's `kind` setting, not tools.
-  // The chooser therefore reads and writes the setting — and the labels and
-  // icons come from that setting's own schema, so the rail cannot come to
-  // disagree with the settings panel about what a polystar is called.
-  const shapeKind = shapeKindOf(toolSettings)
-  const shapeKindOptions = useMemo<PickerOption[]>(
-    () => SHAPE_KINDS.map(kind => ({
-      value: kind,
-      label: t(SHAPE_KIND_LABEL_KEYS[kind]),
-      icon: SHAPE_KIND_ICONS[kind],
-    })),
-    [t],
-  )
-  // (#544) The same two groups again, in the shape the floating panel wants
-  // them. Built from the values above rather than beside them, so the panel
-  // and the rail cannot come to disagree about what is in hand — which is the
-  // whole reason the panel stopped keeping its own answer (a role) in the
-  // first place.
-  //
-  // The shape group is empty when the room does not offer shapes; the panel
-  // reads that as "withdrawn" and draws the slot dim. The drawing group can
-  // never be empty — a toolset always keeps one material.
-  const panelGroups = useMemo<PanelGroups>(() => ({
-    drawing: {
-      tool: drawingGroupTool,
-      icon: TOOL_DISPLAY[drawingGroupTool].icon,
-      value: drawingGroupTool,
-      members: drawingGroupOptions.map(option => ({
-        value: option.value,
-        label: option.label,
-        icon: TOOL_DISPLAY[option.value as PrimaryDrawingTool].icon,
-      })),
-    },
-    shape: {
-      tool: 'shape',
-      icon: SHAPE_KIND_ICONS[shapeKind],
-      value: shapeKind,
-      members: toolOffered('shape')
-        ? shapeKindOptions.map(option => ({
-          value: option.value,
-          label: option.label,
-          icon: option.icon ?? 'shapes',
-        }))
-        : [],
-    },
-  }), [drawingGroupTool, drawingGroupOptions, shapeKind, shapeKindOptions, toolOffered])
-  // Which slots light up. Deliberately null for the tools no slot can name —
-  // which, now that every toolbar tool can sit in a slot, means only the
-  // annotation set, and the panel is not on screen alongside those anyway
-  // (`compact` below).
-  const floatingSlotTool = isFloatingPanelTool(tool) ? tool : null
   // Global, not per room — see settingsStore's own comment for why the panel's
   // layout and the panel's position part company on that.
   const floatingPanelLayout = useSettingsStore(s => s.floatingPanelLayout)
@@ -2137,68 +2022,6 @@ function RoomEditor() {
   const handleEyedropperPick = useEyedropper({
     engineRef, vpRef, vp, handActive, applyToolColor, pickedColorTool, addPaletteColor,
   })
-
-  // (#405) Selecting a tool selects it. Pressing a toolbar button never hands
-  // the canvas back to something else, however many times it is pressed: a
-  // button that reads as "this tool is in hand" and answers a second press by
-  // putting a *different* tool in hand contradicts the one thing this whole
-  // change is for. It also could not be consistent — the toggle-back target
-  // used to be `lastDrawingTool` for the eraser and smudge but a hardcoded
-  // pencil for charcoal, liner and marker, so the same gesture landed
-  // somewhere different depending on which button you pressed.
-  //
-  // (#548) And the one gate on the room's toolset. Every way a tool gets into
-  // a hand routes through here or through `toggleTool` below, so refusing a
-  // tool the room does not offer is one check rather than fifteen. The toolbar
-  // does not render those buttons at all; this is the backstop for the paths
-  // with no button to hide.
-  const selectTool = useCallback((next: EditorTool) => {
-    if (!isToolEnabledInRoom(enabledTools, next)) return
-    setTool(next)
-  }, [setTool, enabledTools])
-
-  // (#544) Picking one member out of a group's fan in the floating panel. The
-  // two groups differ exactly here and nowhere the panel can see: a material
-  // *is* a tool, while a shape is a setting on a tool that then has to be
-  // taken as well. Routed through `selectTool` like every other path into a
-  // hand, so the toolset gate applies here too.
-  const selectGroupMember = useCallback((group: SlotGroup, value: string) => {
-    if (group === 'drawing') { selectTool(value as EditorTool); return }
-    setToolSetting('shape', 'kind', value)
-    selectTool('shape')
-  }, [selectTool, setToolSetting])
-
-  // The toggle survives, but only on the *keys*. "Press E, do a correction,
-  // press E again" is a real one-handed affordance that a key can offer and a
-  // button cannot: the finger is already there, and there is no visual state
-  // claiming otherwise. Both halves route through here so a second press
-  // always lands on the tool you were drawing with, whichever key it was.
-  const toggleTool = useCallback((next: EditorTool) => {
-    if (!isToolEnabledInRoom(enabledTools, next)) return
-    // (#548) The tool to come back to may itself have been switched off since
-    // it was last held — `drawingTool` remembers what was drawn with, not what
-    // is still on the desk.
-    const back = isToolEnabledInRoom(enabledTools, drawingTool) ? drawingTool : fallbackTool
-    setTool(prev => (prev === next ? back : next))
-  }, [setTool, drawingTool, enabledTools, fallbackTool])
-
-  // (#548) The hand that was holding a tool the room has just stopped
-  // offering. Every other path is closed by `selectTool` above, but this one
-  // is not a selection at all — the tool was already in hand when the toolset
-  // moved under it.
-  //
-  // Silent on the first run: a room whose toolset excludes the pencil hands a
-  // joiner something else before they have touched anything, and announcing
-  // that would be telling someone their tool was taken when they never had it.
-  // Only an actual change during the session is worth a word.
-  const toolsetSeenRef = useRef(false)
-  useEffect(() => {
-    const announce = toolsetSeenRef.current
-    toolsetSeenRef.current = true
-    if (isToolEnabledInRoom(enabledTools, tool)) return
-    setTool(fallbackTool)
-    if (announce) notifyWarning(t('toolset.withdrawn'), { key: 'toolset-withdrawn' })
-  }, [enabledTools, tool, fallbackTool, setTool, t])
 
   // Active layer, or the current multi-select from LayerPanel — background
   // is never a legal transform target, same as merge/delete (#120).
