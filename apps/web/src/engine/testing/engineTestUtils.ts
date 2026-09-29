@@ -163,13 +163,15 @@ interface EngineInternals {
   _exporter: {
     buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
   }
-  // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
-  _assemblyPad: () => { padX: number; padY: number }
-  // (#494) The on-screen composite's CameraFrame — see src/raster/cameraFrame.ts.
-  _liveCameraFrame: () => { centerX: number; centerY: number; scale: number }
-  // #301 white-box access — see screenToWorldFor/rotateMatrixInvFor below.
-  _screenToWorldMatrix: () => Matrix3
-  _infiniteRotateMatrixInv: () => Matrix3
+  // #134-follow-up / #301 white-box access — see assemblyPad/compositeCenterFor/
+  // screenToWorldFor/rotateMatrixInvFor below. (#494) The camera lives on
+  // Camera (src/raster/Camera.ts) now.
+  _camera: {
+    assemblyPad: () => { padX: number; padY: number }
+    liveFrame: () => { centerX: number; centerY: number; scale: number }
+    screenToWorldMatrix: () => Matrix3
+    rotateMatrixInv: () => Matrix3
+  }
   // Live gizmo-drag preview (#120/#139) — see LayerPreviews and its
   // PreviewTile (src/raster/layerPreviews.ts). Structurally identical,
   // redeclared here rather than imported from the engine's internals since
@@ -388,14 +390,14 @@ export function checkpointBytes(engine: PencilEngine): number {
 
 /** #134-follow-up white-box access: how much bigger the assembly buffer is
  *  than the real canvas, per axis, *rounded to the nearest whole pixel* —
- *  see _assemblyPad's own doc comment in engine/index.ts. Both components
+ *  see Camera.assemblyPad's own doc comment (src/raster/Camera.ts). Both components
  *  are integers by construction (Math.round always returns one); what a
  *  test actually wants to check is that the engine *uses* this padding
  *  (rather than the assembly buffer's raw half-size) when placing content
  *  and rotating it back — see index.tiledDisplay.test.ts's blur-regression
  *  test for that end-to-end check. */
 export function assemblyPad(engine: PencilEngine): { padX: number; padY: number } {
-  return internals(engine)._assemblyPad()
+  return internals(engine)._camera.assemblyPad()
 }
 
 /** #134-follow-up white-box access: the pixel position within the on-screen
@@ -406,7 +408,7 @@ export function assemblyPad(engine: PencilEngine): { padX: number; padY: number 
  *  canvas.width/2 by an exact integer (not any fractional amount) to avoid
  *  a permanent, uniform bilinear-resample blur on every frame. */
 export function compositeCenterFor(engine: PencilEngine): { x: number; y: number } {
-  const frame = internals(engine)._liveCameraFrame()
+  const frame = internals(engine)._camera.liveFrame()
   return { x: frame.centerX, y: frame.centerY }
 }
 
@@ -419,18 +421,18 @@ export function compositeCenterFor(engine: PencilEngine): { x: number; y: number
  *  compare the matrices themselves against where the composite actually put
  *  content. See index.tiledDisplay.test.ts's paper-alignment test. */
 export function screenToWorldFor(engine: PencilEngine): Matrix3 {
-  return internals(engine)._screenToWorldMatrix()
+  return internals(engine)._camera.screenToWorldMatrix()
 }
 
 /** #301 white-box access: composite-target pixels per world unit — min(1,
  *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See
  *  CameraFrame.scale in src/raster/cameraFrame.ts. */
 export function compositeScaleFor(engine: PencilEngine): number {
-  return internals(engine)._liveCameraFrame().scale
+  return internals(engine)._camera.liveFrame().scale
 }
 
 export function rotateMatrixInvFor(engine: PencilEngine): Matrix3 {
-  return internals(engine)._infiniteRotateMatrixInv()
+  return internals(engine)._camera.rotateMatrixInv()
 }
 
 // ─── Paper-texture white-box access (#141) ─────────────────────────────────

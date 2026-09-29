@@ -200,7 +200,7 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
   // engineering invariant the fix relies on: the live CameraFrame's
   // centerX/Y must differ from canvas.width/2, canvas.height/2 by an exact integer.
   it('the composite center stays an exact integer offset from canvas center, even for a canvas size that used to produce a fractional one', () => {
-    // 50x50: _renderBufferExtent's own half-diagonal rounding (Math.ceil)
+    // 50x50: Camera.renderBufferExtent's own half-diagonal rounding (Math.ceil)
     // makes ext=71 here (odd) while canvas.width is even — found by search;
     // the old ext/2-based center (35.5) minus canvas.width/2 (25) is 10.5,
     // a real fractional pixel offset, not just a hypothetical one.

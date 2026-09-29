@@ -12,6 +12,7 @@ import { BlitPasses } from './src/raster/blitPasses'
 import { AreaOps, asImportRecord, type AreaImage, type AreaFillRequest, type AreaFillRaster } from './src/raster/AreaOps'
 import { LayerPreviews } from './src/raster/layerPreviews'
 import { frameEdgeX, frameEdgeY, type CameraFrame } from './src/raster/cameraFrame'
+import { Camera, translateDabs } from './src/raster/Camera'
 import { ImageImport } from './src/raster/ImageImport'
 import { ShapePass } from './src/raster/ShapePass'
 import { FilterPass } from './src/filters/FilterPass'
@@ -96,7 +97,7 @@ import {
 } from './src/presets/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
 import {
-  applyMatrix, composeMatrix, invertMatrix, scaleRotateMatrix, toMat3, translationMatrix,
+  applyMatrix, invertMatrix, toMat3, translationMatrix,
   IDENTITY_MATRIX, type Matrix3,
 } from './src/raster/matrix'
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
@@ -237,10 +238,9 @@ export interface PencilEngineOptions {
   // is the same TiledLayerBuffer regardless of this flag (see
   // _makeLayerBuffer); what `infinite` actually controls is the *visible*
   // window and camera: false/omitted (default) keeps a fixed, non-panning
-  // canvas.width x canvas.height viewport (see _visibleWorldRect's bounded
-  // branch) with rotation handled by the DOM canvasWrap's own CSS
-  // transform; true hands the viewport to a free-roaming, rotatable
-  // world-space camera (setInfiniteCamera/_infiniteCamera). Fixed once at
+  // canvas.width x canvas.height viewport (see Camera.visibleWorldRect)
+  // with rotation handled by the DOM canvasWrap's own CSS transform; true hands the viewport to a free-roaming, rotatable
+  // world-space camera (setInfiniteCamera/Camera). Fixed once at
   // construction — an engine instance never switches modes mid-life.
   infinite?: boolean
   /** (#470) The sheet's size in world units, for a bounded room.
@@ -2525,21 +2525,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
 
-  // Infinite canvas (#133 Phase 1) — camera-relative on-screen rendering.
-  // _drawTileComposite draws one tile at its correct screen position (see
-  // its own comment); _infiniteCamera is the current world point at screen
-  // center, zoom, and rotation — set via setInfiniteCamera(), meaningless
-  // (never read) for a bounded-canvas engine. Unlike setViewport()'s
-  // {cx,cy}, which is a screen-space canvas-center position for the CSS-
-  // panned bounded-canvas path, this is a direct world-space reference
-  // point — there's no fixed canvas rect to recenter around once the
-  // canvas element itself just is "the viewport."
-  private _infiniteCamera = { wx: 0, wy: 0, zoom: 1, angle: 0 }
-
-  // (#155 follow-up) Cached canvas.getBoundingClientRect() for
-  // setInfiniteCamera's pointer-transform closure — see _getCanvasRect's own
-  // doc comment for why this is safe to cache and what invalidates it.
-  private _canvasRectCache: DOMRect | null = null
+  // (#494) Where the screen is looking — the pose (world point at screen
+  // centre, zoom, rotation), the cached on-screen canvas rect and every piece
+  // of math derived from them. See src/raster/Camera.ts.
+  private readonly _camera: Camera
 
   // (#147) See suspendDisplay/resumeDisplay's own doc comments.
   private _displaySuspendDepth = 0
@@ -2598,7 +2587,7 @@ export class PencilEngine implements PencilEngineAPI {
   // zoom-applied composite into this buffer instead of the real (canvas-
   // sized) target for infinite rooms; _finishInfiniteComposite then does
   // exactly one final rotate blit from here into the real target. Sized
-  // to _renderBufferExtent() — a square big enough (canvas's own half-
+  // to Camera.renderBufferExtent() — a square big enough (canvas's own half-
   // diagonal, doubled) that any rotation of the camera still finds the
   // whole screen covered by content this buffer actually holds. Bounded
   // rooms never read/write this (their rotation is the DOM canvasWrap's
@@ -2612,7 +2601,7 @@ export class PencilEngine implements PencilEngineAPI {
   // (and the export used to swap out and restore): each pass builds a
   // CameraFrame value and hands it down. See src/raster/cameraFrame.ts for the
   // pixel-alignment (#134) and scale (#301) reasoning that used to live here,
-  // and _liveCameraFrame for the on-screen one.
+  // and Camera.liveFrame (src/raster/Camera.ts) for the on-screen one.
 
   // #141: infinite-only, camera-relative "paper peeking through" pass —
   // see PAPER_COMPOSE_FRAG's own comment for the full pipeline reasoning.
@@ -2801,23 +2790,16 @@ export class PencilEngine implements PencilEngineAPI {
     this.canvas = canvas
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
-    // Bounded rooms never call setInfiniteCamera (only Room's infinite-mode
-    // viewport-sync effect does) — #136: the below/above split-cache and
-    // main composite now always go through the camera-relative tile-draw
-    // path (_drawTileComposite), so a bounded room needs a fixed "identity"
-    // camera here so world space (== canvas-pixel space for bounded rooms,
-    // see tileMath.ts) maps 1:1 onto screen space, matching the plain
-    // fullscreen-quad blit this replaces. Canvas size is fixed for a bounded
-    // room's lifetime (unlike infinite rooms' resizeCanvas), so this is the
-    // only assignment it ever needs.
-    // (#470) Centred on the sheet, not on the canvas: the canvas is the
-    // viewport now and its centre is an arbitrary corner of the page. The
-    // caller drives the camera from its own viewport state within a frame or
-    // two, so this only decides what the very first frame shows — but a first
-    // frame looking at the wrong place is a visible flash.
-    this._infiniteCamera = options.infinite
-      ? { wx: canvas.width / 2, wy: canvas.height / 2, zoom: 1, angle: 0 }
-      : { wx: (options.pageWidth ?? canvas.width) / 2, wy: (options.pageHeight ?? canvas.height) / 2, zoom: 1, angle: 0 }
+    // (#494) The first frame's pose (centred on the sheet for a bounded room)
+    // is decided inside — see Camera's constructor. The rect read is the
+    // engine's own DOM call, handed in so Camera.ts stays DOM-free.
+    this._camera = new Camera({
+      canvas,
+      infinite: this._infinite,
+      pageWidth: options.pageWidth,
+      pageHeight: options.pageHeight,
+      measureRect: () => canvas.getBoundingClientRect(),
+    })
 
     const gl = canvas.getContext('webgl', {
       premultipliedAlpha: false,
@@ -2907,7 +2889,7 @@ export class PencilEngine implements PencilEngineAPI {
       },
       display: () => this._display(),
       canvasSize: () => ({ w: this.canvas.width, h: this.canvas.height }),
-      cameraCenter: () => ({ wx: this._infiniteCamera.wx, wy: this._infiniteCamera.wy }),
+      cameraCenter: () => ({ wx: this._camera.pose.wx, wy: this._camera.pose.wy }),
       canvasBlob: () => new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png')),
       encode: (pixels, w, h, type, quality) => this._pixelsToBlob(pixels, w, h, type, quality),
     })
@@ -4014,7 +3996,7 @@ export class PencilEngine implements PencilEngineAPI {
       const { w: pageW, h: pageH } = this._pageSize()
       if (canvasX < 0 || canvasY < 0 || canvasX >= pageW || canvasY >= pageH) return null
     }
-    const [sx, sy] = applyMatrix(invertMatrix(this._screenToWorldMatrix()), canvasX, canvasY)
+    const [sx, sy] = applyMatrix(invertMatrix(this._camera.screenToWorldMatrix()), canvasX, canvasY)
     const x = Math.round(sx)
     const y = Math.round(sy)
     // Off-screen is unreadable rather than wrong: the colour lives in the
@@ -4089,83 +4071,19 @@ export class PencilEngine implements PencilEngineAPI {
     // #482: same reason as setInfiniteCamera's own assignment — a bounded room
     // rotates too, and the tilt reading is against the screen either way.
     this._dabs.cameraAngle = angle
-    const { canvas } = this
-    const cos = Math.cos(-angle)
-    const sin = Math.sin(-angle)
-    const hw  = canvas.width  / 2
-    const hh  = canvas.height / 2
-    this._pointer.setTransform((clientX, clientY) => {
-      const dx = clientX - cx
-      const dy = clientY - cy
-      const rx = dx * cos - dy * sin
-      const ry = dx * sin + dy * cos
-      return { x: rx / zoom + hw, y: ry / zoom + hh }
-    })
+    this._pointer.setTransform(this._camera.boundedPointerTransform(cx, cy, zoom, angle))
   }
 
-  /** (#155 follow-up) `canvas.getBoundingClientRect()`, cached — a real
-   *  synchronous layout read (a forced reflow if anything invalidated
-   *  layout earlier in the same task), and setInfiniteCamera's pointer-
-   *  transform closure below used to call it fresh on *every* real pointer
-   *  sample during a stroke (a fast stylus easily produces dozens of
-   *  coalesced samples per animation frame). Live profiling during a
-   *  drawing session confirmed this as the single largest actual
-   *  app-attributable CPU cost, and chrome-devtools-mcp's own
-   *  ForcedReflow insight independently named this exact call path
-   *  (`_handleMove` → `_extract` → this transform closure) as the top
-   *  forced-reflow culprit.
-   *
-   *  The canvas element's on-screen rect only changes on a genuine layout
-   *  event (window/container resize — see resizeCanvas, which invalidates
-   *  this), never merely from panning or drawing (a camera move
-   *  re-renders *content*, it never repositions the canvas element itself
-   *  — see setInfiniteCamera's own doc comment), so caching indefinitely
-   *  between resizes is safe. */
-  private _getCanvasRect(): DOMRect {
-    return this._canvasRectCache ??= this.canvas.getBoundingClientRect()
-  }
-
-  /** See PencilEngineAPI's doc comment. The pointer transform here is the
-   *  exact inverse of _worldToScreenTransform's world->screen math (solved
-   *  by hand, not matrix-inverted at runtime, since it's cheap and fixed
-   *  shape) — a raw client pointer event must land on the same world point
-   *  a tile rendered at (wx,wy,zoom,angle) currently shows there. Unlike
-   *  setViewport, this reads the canvas element's own on-screen rect
-   *  (via _getCanvasRect(), see its own doc comment) rather than trusting a
-   *  separate (cx,cy) screen-position parameter — infinite mode's canvas
-   *  has no CSS pan transform of its own (see resizeCanvas), it's simply
-   *  positioned to fill the viewport, so this is the same client->canvas-
-   *  local math PointerInput's own untransformed fallback already does,
-   *  composed with the inverse camera rotation/zoom on top. */
+  /** See PencilEngineAPI's doc comment. The pointer transform is the exact
+   *  inverse of the composite's world->screen math — see
+   *  Camera.pointerTransform. */
   setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void {
-    this._infiniteCamera = { wx, wy, zoom, angle }
+    this._camera.set(wx, wy, zoom, angle)
     // #482: the frame the device's tilt reading has to be converted out of —
     // see DabSystem.cameraAngle. Assigned here rather than at stroke start so
     // it tracks a canvas rotated with the pen still down.
     this._dabs.cameraAngle = angle
-    const { canvas } = this
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    // hw/hh must be read live inside the closure (like
-    // _worldToScreenTransform does), not captured here: resizeCanvas() can
-    // change canvas.width/height afterwards (the ResizeObserver's first
-    // firing normally lands after this is first called, while the canvas is
-    // still at its default 300x150) without this ever being called again,
-    // which left pointer input reading a stale size while every render used
-    // the live one — dabs landed tens/hundreds of px off from the visible
-    // stroke.
-    this._pointer.setTransform((clientX, clientY) => {
-      const rect = this._getCanvasRect()
-      const scaleX = canvas.width / (rect.width || canvas.width)
-      const scaleY = canvas.height / (rect.height || canvas.height)
-      const screenX = (clientX - rect.left) * scaleX
-      const screenY = (clientY - rect.top) * scaleY
-      const hw = canvas.width / 2
-      const hh = canvas.height / 2
-      const sx = (screenX - hw) / zoom
-      const sy = (screenY - hh) / zoom
-      return { x: wx + sx * cos + sy * sin, y: wy - sx * sin + sy * cos }
-    })
+    this._pointer.setTransform(this._camera.pointerTransform())
     // Unlike setViewport (bounded mode pans via a CSS transform the caller
     // owns — the engine's own pixels never change), a camera move here
     // genuinely changes what belongs on screen, so the engine must
@@ -4184,10 +4102,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
-  /** See PencilEngineAPI's doc comment. */
-  /** See PencilEngineAPI's doc comment. */
+  /** See PencilEngineAPI's doc comment, and Camera.canvasRect. */
   invalidateCanvasRect(): void {
-    this._canvasRectCache = null
+    this._camera.invalidateRect()
   }
 
   resizeCanvas(width: number, height: number): void {
@@ -4195,10 +4112,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (canvas.width === width && canvas.height === height) return
     canvas.width = width
     canvas.height = height
-    // (#155 follow-up) A genuine layout event — _getCanvasRect's cache is
+    // (#155 follow-up) A genuine layout event — Camera.canvasRect's cache is
     // stale from here on until re-queried.
-    this._canvasRectCache = null
-    const { w: ew, h: eh } = this._renderBufferExtent()
+    this._camera.invalidateRect()
+    const { w: ew, h: eh } = this._camera.renderBufferExtent()
     this._compositeFBO.destroy()
     this._belowCache.destroy()
     this._aboveCache.destroy()
@@ -4216,80 +4133,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
-  /** Pixel size for _belowCache/_aboveCache/_assemblyFBO: a square padded to
-   *  the canvas's own half-diagonal, big enough that any camera rotation
-   *  still finds the whole screen covered once _finishInfiniteComposite
-   *  crops/rotates it back down to the real canvas size.
-   *
-   *  (#470) The same for both kinds of room now. A bounded room used to size
-   *  these to its *sheet*, because its canvas element was the sheet and the
-   *  browser did the panning with a CSS transform — so every buffer here grew
-   *  with the paper rather than with the screen. On a 4096x4096 sheet that was
-   *  four full-sheet buffers, 256 MiB, allocated before a single stroke, and
-   *  it killed the tab on an iPad. Now the sheet is a rectangle in the world
-   *  and these are all screen-sized, so the cost of a big sheet is nothing. */
-  private _renderBufferExtent(): { w: number; h: number } {
-    const { canvas } = this
-    const halfDiag = Math.sqrt((canvas.width / 2) ** 2 + (canvas.height / 2) ** 2)
-    const extent = Math.ceil(halfDiag * 2)
-    return { w: extent, h: extent }
-  }
-
-
-  /** How much bigger _assemblyFBO is than the real canvas,
-   *  split (roughly) evenly on each side, *rounded to the nearest whole
-   *  pixel* — see CameraFrame.centerX (src/raster/cameraFrame.ts) for why this
-   *  integer-ness is exactly the fix for infinite rooms always looking
-   *  faintly softer than bounded ones. Zero for bounded rooms (their
-   *  render-buffer extent is exactly canvas size — see _renderBufferExtent
-   *  — so there's nothing to pad).
-   *
-   *  (#470) That last sentence stopped being true when bounded rooms started
-   *  rendering through the camera: their extent is the same padded square now,
-   *  so they pad exactly like an infinite room and the early return that used
-   *  to sit here would have put every bounded frame half a buffer off. */
-  private _assemblyPad(): { padX: number; padY: number } {
-    const { canvas } = this
-    const { w: ew, h: eh } = this._renderBufferExtent()
-    return { padX: Math.round((ew - canvas.width) / 2), padY: Math.round((eh - canvas.height) / 2) }
-  }
-
-  /** (#301) The scale _runComposite draws the assembly buffer at — see
-   *  CameraFrame.scale for the full reasoning. A bounded
-   *  room's camera zoom is the constructor's fixed 1 for the engine's whole
-   *  lifetime (its real zoom is the DOM canvasWrap's CSS transform), so the
-   *  min() below leaves that path at exactly 1, unchanged. */
-  private _infiniteCompositeScale(): number {
-    return Math.min(1, this._infiniteCamera.zoom)
-  }
-
-  /** (#301) How much magnification the final screen pass still has to apply
-   *  on top of what the assembly buffer was already drawn at — 1 whenever
-   *  the camera is at or below zoom 1, and the zoom itself above that (the
-   *  assembly caps at world resolution). Also the flag for whether that pass
-   *  resamples at all: combined with a nonzero angle it decides between
-   *  Catmull-Rom and a plain bilinear tap (see PAPER_COMPOSE_FRAG). */
-  private _residualScale(): number {
-    return this._infiniteCamera.zoom / this._infiniteCompositeScale()
-  }
-
-  /** (#494) The on-screen composite's frame: the live camera, drawn into
-   *  _assemblyFBO at canvas centre plus its rounded padding (#134), at
-   *  min(1, zoom) (#301), reading tiles over _visibleWorldRect. Derived, not
-   *  stored — every _composeToFBO builds it fresh and passes it down. */
-  private _liveCameraFrame(): CameraFrame {
-    const { canvas } = this
-    const { wx, wy, angle } = this._infiniteCamera
-    const { padX, padY } = this._assemblyPad()
-    return {
-      wx, wy,
-      centerX: canvas.width / 2 + padX,
-      centerY: canvas.height / 2 + padY,
-      scale: this._infiniteCompositeScale(),
-      angle,
-      view: this._visibleWorldRect(),
-    }
-  }
 
   /** Live gizmo-drag preview (#120) — see AreaOps.previewLayerTransform. */
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: LayerTransformMatrix }>): void {
@@ -5139,7 +4982,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the same #133 guarantee infinite rooms already had — and transforming
    *  it back later recovers it correctly. The room's *visible/exported*
    *  extent is still exactly canvas.width x canvas.height regardless (see
-   *  _visibleWorldRect's bounded branch and _composeToFBO/_display, both
+   *  Camera.visibleWorldRect and _composeToFBO/_display, both
    *  unchanged in size), so this never changes what an on-page bounded room
    *  looks like. */
   /** `layerId` given: this is (or is about to become, see _execMergeLive) a
@@ -6058,7 +5901,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
     // previously baked content is gone either way, so the split cache must
     // be rebuilt before its next read regardless of why _initGL() ran.
-    const { w: ew, h: eh } = this._renderBufferExtent()
+    const { w: ew, h: eh } = this._camera.renderBufferExtent()
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
@@ -10786,79 +10629,18 @@ export class PencilEngine implements PencilEngineAPI {
    *  (pre-#122) per-frame full recompute for as long as any preview exists.
    *
    *  (#136) Same split-cache technique now backs both bounded and infinite
-   *  rooms — see _drawCompositeItem and the constructor's _infiniteCamera
-   *  init. No per-mode branch left here. */
-  /** The world-space rect currently visible on screen — what determines
-   *  which tiles resolveVisible()/composite bother reading (never creates
-   *  them, so a few extra out-of-view tiles considered here costs a bit of
-   *  redundant compositing, never correctness).
-   *
-   *  #142: a bounded room's viewport is exactly its fixed canvas.width x
-   *  canvas.height, full stop — its rotation is the DOM canvasWrap's own
-   *  CSS transform, never this camera's `angle` (always 0 for it, see the
-   *  constructor), so there's no rotated footprint to pad for the way an
-   *  infinite room's camera-relative view needs. Padding it anyway would
-   *  cost real, needless compositing work on every frame (large canvas
-   *  presets like A4 already span several tiles) for tiles that can never
-   *  actually be visible.
-   *
-   *  An infinite room's camera can point anywhere and rotate freely, so
-   *  this generously pads to an axis-aligned bounding box of the (rotated)
-   *  viewport rect — tightening this to the exact rotated quad instead of
-   *  its bounding box is a nicety, not a correctness fix. */
-  private _visibleWorldRect(): WorldRect {
-    const { canvas } = this
-    // (#470) Camera-derived for a bounded room too: what is on screen is now
-    // decided by where the camera is, not by the sheet being the canvas.
-    const { wx, wy, zoom } = this._infiniteCamera
-    const halfW = canvas.width / 2 / zoom
-    const halfH = canvas.height / 2 / zoom
-    const halfDiag = Math.sqrt(halfW * halfW + halfH * halfH)
-    return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
-  }
-
-  /** (#138) World point that a live-tip/predicted/peer-reveal preview
-   *  buffer's own pixel (0,0) represents. These buffers are always plain,
-   *  fixed-size (canvas.width x canvas.height) AccumulationBuffers — unlike
-   *  a real layer's tiles, which resolveForPaint() dynamically positions to
-   *  cover wherever a batch of dabs actually falls, these never grow or
-   *  move once created, so *some* origin has to be chosen up front for
-   *  their dabs (genuine world coordinates for infinite rooms, arbitrarily
-   *  far from world origin depending on where the camera happens to be) to
-   *  land inside their fixed small pixel range at all.
-   *
-   *  Centering on the current camera's own world position is the natural
-   *  choice: the whole point of these previews is to show something
-   *  happening on screen right now, and (per _invalidateSplitCache's own
-   *  note on setInfiniteCamera) panning and painting are mutually exclusive
-   *  gestures in this app, so the camera is guaranteed not to move for as
-   *  long as a single stroke/prediction/reveal buffer stays alive — one
-   *  snapshot at creation time (stroke start / previewOperation's first
-   *  queued op for a peer) stays valid for that buffer's whole lifetime.
-   *
-   *  Reduces to exactly (0,0) for a bounded room: its _infiniteCamera is
-   *  the constructor's fixed {wx: canvas.width/2, wy: canvas.height/2}
-   *  identity (see its own comment), so this cancels out — the plain
-   *  (0,0)-anchored behavior every one of these buffers already had before
-   *  #138 is preserved exactly. */
+   *  rooms — see _drawCompositeItem and Camera's constructor
+   *  pose. No per-mode branch left here. */
+  /** (#138) See Camera.centeredOrigin. Kept by this name for the stroke
+   *  lifecycle code, which is live on another branch. */
   private _cameraCenteredOrigin(): { x: number; y: number } {
-    const { wx, wy } = this._infiniteCamera
-    return { x: wx - this.canvas.width / 2, y: wy - this.canvas.height / 2 }
+    return this._camera.centeredOrigin()
   }
 
-  /** (#138) Translates `dabs` from world coordinates into one of the
-   *  preview buffers' own local coordinate space (buffer pixel (0,0) ==
-   *  world `origin` — see _cameraCenteredOrigin), mirroring what
-   *  ILayerBuffer.resolveForPaint's originX/originY subtraction already
-   *  does for a real tile in _paintDabs. Never mutates its input: dabs may
-   *  still be read afterward by their real caller (_strokeDabs, in
-   *  particular, must keep the untranslated *world* coordinates for the
-   *  eventual recorded Operation). A no-op array identity when `origin` is
-   *  exactly (0,0) (every bounded-room call, see _cameraCenteredOrigin) —
-   *  skips the allocation on the hot path that never needed it. */
+  /** (#138) See translateDabs (src/raster/Camera.ts). Kept by this name for
+   *  the same reason as _cameraCenteredOrigin. */
   private _translateDabs(dabs: Dab[], origin: { x: number; y: number }): Dab[] {
-    if (origin.x === 0 && origin.y === 0) return dabs
-    return dabs.map(d => ({ ...d, x: d.x - origin.x, y: d.y - origin.y }))
+    return translateDabs(dabs, origin)
   }
 
   /** (#365) Draws one fine tile, shrunk, into its slot of a coarse tile —
@@ -10935,7 +10717,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  positioning instead. Verified stable across a full stroke crossing all
    *  four tile boundaries — no dropout, no seam.
    *
-   *  Doesn't itself account for camera rotation (_infiniteCamera.angle) —
+   *  Doesn't itself account for camera rotation (Camera.pose.angle) —
    *  the viewport is always an axis-aligned rect, so a rotated view would
    *  misplace tiles if this drew straight to the real screen. It doesn't:
    *  for infinite rooms _runComposite always targets the unrotated
@@ -11096,62 +10878,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _finishInfiniteComposite(targetFbo: WebGLFramebuffer): void {
     const { canvas } = this
     this._passes.transform(
-      this._assemblyFBO, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, targetFbo,
-    )
-  }
-
-  /** The destination(canvas)->source(assembly) matrix _finishInfiniteComposite
-   *  rotates through — factored out so the on-screen pass
-   *  (_composePaperToScreen, #301) can apply the exact same rotation
-   *  without duplicating the math.
-   *
-   *  Uses _assemblyPad()'s *rounded* half-difference as the assembly
-   *  buffer's own center, not its literal half-size (ext/2) — see
-   *  CameraFrame.centerX's comment for why that distinction is what
-   *  keeps an unrotated (angle 0, by far the common case) frame an exact,
-   *  lossless pixel copy instead of a permanently-blurred bilinear
-   *  resample.
-   *
-   *  (#301) Carries the residual magnification too, not just the rotation:
-   *  above zoom 1 the assembly buffer is drawn at world resolution rather
-   *  than at zoom, and this pass is where the rest of the zoom gets applied
-   *  — which is the point, since doing both here means one resample instead
-   *  of two. At or below zoom 1 the residual is exactly 1 and this reduces
-   *  to the pure rotation it has always been. */
-  private _infiniteRotateMatrixInv(): Matrix3 {
-    const { canvas } = this
-    const { angle } = this._infiniteCamera
-    const { padX, padY } = this._assemblyPad()
-    return composeMatrix(
-      translationMatrix(canvas.width / 2 + padX, canvas.height / 2 + padY),
-      composeMatrix(
-        scaleRotateMatrix(1 / this._residualScale(), -angle),
-        translationMatrix(-canvas.width / 2, -canvas.height / 2),
-      ),
-    )
-  }
-
-  /** Screen(canvas)-pixel -> world-unit mapping for the live camera — the
-   *  full inverse of the forward chain the composite actually draws
-   *  through, carried one step further than _infiniteRotateMatrixInv (which
-   *  stops at assembly pixels). Forward, that chain is
-   *  screenPx = canvasCenter + R(angle) * (world - camera) * zoom
-   *  — composed of frameEdgeX/Y (world -> assembly px, the live frame's
-   *  scale and centre) and _infiniteRotateMatrixInv (assembly px ->
-   *  screen px, rotation about canvasCenter); the assembly buffer's own
-   *  padding cancels out between the two, which is why it doesn't appear
-   *  here at all. Inverting gives world = camera + R(-angle) * (screenPx -
-   *  canvasCenter) / zoom, i.e. exactly the composition below.
-   *
-   *  (#301) What lets PAPER_COMPOSE_FRAG sample paper at a screen pixel's
-   *  true world position *after* the rotation instead of before it — see
-   *  that shader's own comment for why doing it after is the whole point. */
-  private _screenToWorldMatrix(): Matrix3 {
-    const { canvas } = this
-    const { wx, wy, zoom, angle } = this._infiniteCamera
-    return composeMatrix(
-      translationMatrix(wx, wy),
-      composeMatrix(scaleRotateMatrix(1 / zoom, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
+      this._assemblyFBO, this._camera.rotateMatrixInv(), canvas.width, canvas.height, targetFbo,
     )
   }
 
@@ -11373,7 +11100,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.46) The screen rect (GL, bottom-up) a world rect covers, padded. */
   private _damageScreenRect(b: { minX: number; minY: number; maxX: number; maxY: number }): [number, number, number, number] | null {
     const { canvas } = this
-    const m = invertMatrix(this._screenToWorldMatrix())
+    const m = invertMatrix(this._camera.screenToWorldMatrix())
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
     for (const [wx, wy] of [[b.minX, b.minY], [b.maxX, b.minY], [b.minX, b.maxY], [b.maxX, b.maxY]] as const) {
       const [sx, sy] = applyMatrix(m, wx, wy)
@@ -11397,7 +11124,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._screenCache = new AccumulationBuffer(gl, canvas.width, canvas.height, 'nearest')
       this._paperCacheKey = ''
     }
-    const cam = this._infiniteCamera
+    const cam = this._camera.pose
     const key = `${cam.wx},${cam.wy},${cam.zoom},${cam.angle},${canvas.width},${canvas.height}`
     const partial = this._paperPartialOK && this._paperDamage && key === this._paperCacheKey ? this._paperDamage : null
     this._paperPartialOK = false
@@ -11432,7 +11159,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._assemblyFBO.texture)
     gl.uniform1i(u.u_accumulation, 0)
-    this._paper.bindForCompose(this._paper.texelsPerPixel(this._infiniteCamera.zoom))
+    this._paper.bindForCompose(this._paper.texelsPerPixel(this._camera.pose.zoom))
     gl.uniform1i(u.u_paperMap, 1)
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
@@ -11449,14 +11176,14 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
     gl.uniform2f(u.u_dstSize, canvas.width, canvas.height)
     gl.uniform2f(u.u_srcSize, ext, ext)
-    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(this._infiniteRotateMatrixInv()))
-    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(this._screenToWorldMatrix()))
+    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(this._camera.rotateMatrixInv()))
+    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(this._camera.screenToWorldMatrix()))
     // Catmull-Rom only when this pass genuinely resamples. An unrotated
     // camera at or below zoom 1 maps screen pixels onto assembly texels one
     // for one, offset by an exact integer (that integer-ness is what
-    // _assemblyPad/CameraFrame.centerX exist to guarantee) — a plain bilinear
+    // Camera.assemblyPad/CameraFrame.centerX exist to guarantee) — a plain bilinear
     // tap is then already lossless and 9x cheaper. See PAPER_COMPOSE_FRAG.
-    const resamples = this._infiniteCamera.angle !== 0 || this._residualScale() !== 1
+    const resamples = this._camera.pose.angle !== 0 || this._camera.residualScale() !== 1
     gl.uniform1f(u.u_sharpResample, resamples ? 1 : 0)
     gl.uniform4fv(u.u_pageRect, this._paper.pageRect())
     gl.uniform3fv(u.u_deskColor, this._opts.deskColor)
@@ -11559,7 +11286,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     // (#557) The on-screen composite is the one place the display filter
     // applies; Exporter.buildContentComposite walks _compositeOrder itself.
-    const frame = this._liveCameraFrame()
+    const frame = this._camera.liveFrame()
     this._runComposite(frame, this._displayOrder(), needCompositeFBO ? null : partialWorld)
 
     const buildFbo = this._assemblyFBO.fbo

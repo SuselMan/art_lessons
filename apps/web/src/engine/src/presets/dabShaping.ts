@@ -107,7 +107,7 @@ export interface DabShapingProfile {
    * derived from do not agree on a frame: `pathAngle` is already world, while
    * `tiltX/tiltY` are reported by the device relative to the **screen**. So a
    * profile that reads tilt must convert, and `cameraAngle` (the viewport's
-   * own rotation, `_infiniteCamera.angle`) is what it converts with. A profile
+   * own rotation, `Camera.pose.angle`) is what it converts with. A profile
    * anchored to the canvas (a chisel's fixed angle) or to the stroke ignores it
    * — those frames need no conversion, which is the whole reason the anchor has
    * to be named rather than assumed.

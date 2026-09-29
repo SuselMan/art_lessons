@@ -283,7 +283,7 @@ export function cameraTransformCss(vp: Viewport): string {
 
 /** The world-space rect currently visible in the viewport — used by the
  *  infinite-room grid variant (see GridOverlay.tsx) to know how far to draw
- *  lines. Deliberately mirrors PencilEngine's own `_visibleWorldRect` (a
+ *  lines. Deliberately mirrors the engine's own `Camera.visibleWorldRect` (a
  *  generous axis-aligned bounding box of the rotated viewport rect, padded
  *  to the half-diagonal rather than tightened to the exact rotated quad) —
  *  the grid only needs to *at least* cover what's actually visible, and
