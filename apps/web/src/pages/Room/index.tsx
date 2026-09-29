@@ -124,6 +124,7 @@ import { TOOL_PHOTOS } from './tools/toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './editing/activeLayer'
 import { ChiselAngleDial } from './overlays/ChiselAngleDial'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
+import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import { createPendingPreviews } from './net/pendingPreviews'
 import { createSnapshotGate } from './net/snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './net/snapshotSync'
@@ -1780,6 +1781,8 @@ function RoomEditor() {
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
+      // (#650) The engine's diagnostic lines, into the on-device ring buffer.
+      diagLog,
       infinite: engineInfinite,
       // (#470) The sheet, in world units. The canvas is the viewport now, so
       // the engine can no longer read this off it the way it used to.
@@ -1825,7 +1828,7 @@ function RoomEditor() {
     // touch the setting again. Read straight off the store rather than through
     // a dependency, because a calibration in this list would tear the WebGL
     // context down and rebuild it every time the curve is dragged.
-    engine.setPressureCalibration(useSettingsStore.getState().pressureCalibration)
+    engine.setPressureMap(pressureMapOf(useSettingsStore.getState().pressureCalibration))
 
     // (#493) What happens around this person's own strokes, and the layer
     // structure the store already holds — see engineWiring.

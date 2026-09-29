@@ -46,16 +46,7 @@ import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerF
 import {
   OperationLog, pixelReadLayerIds, pixelWriteLayerIds, type LogEntry, type PixelOperation,
 } from './src/oplog/OperationLog'
-import { PointerInput, type PointerData } from './src/input/PointerInput'
-// (#517) Same on-device ring buffer PointerInput writes to — the stroke
-// pipeline's two silent refusals below are only diagnosable from a tablet
-// with no inspector attached, which is what diagLog exists for.
-import { diagLog } from '../lib/observability/diagLog'
-// (#475) The calibration model itself is not engine code — it is pure input
-// math shared with the settings UI and the preferences store, so it lives in
-// `lib/` (the same direction PointerInput already imports diagLog from). The
-// engine only needs the type to name it in setPressureCalibration.
-import type { PressureCalibration } from '../lib/input/pressureCalibration'
+import { PointerInput, type DiagLog, type PointerData, type PressureMap } from './src/input/PointerInput'
 import {
   PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
   type PencilGradeName, type PencilPreset,
@@ -122,6 +113,7 @@ import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
 
 export type { HapticGrainStats }
+export type { DiagLog, PressureMap } from './src/input/PointerInput'
 // (#574) What the filter dialog needs to draw a curve and to tell a no-op
 // from a real change — the same functions the engine applies, so the dialog's
 // graph is the curve that will actually be used.
@@ -254,6 +246,11 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 const PAPER_MIP_THRESHOLD = 2
 
 export interface PencilEngineOptions {
+  /** (#650) Where the engine's own diagnostic lines go — the on-device ring
+   *  buffer in the app (lib/observability/diagLog). Handed in rather than
+   *  imported, so engine code knows nothing of the app around it; omitted, the
+   *  lines are dropped. */
+  diagLog?: DiagLog
   // Infinite-canvas mode (#133 Phase 1, #142) — every room's layer storage
   // is the same TiledLayerBuffer regardless of this flag (see
   // _makeLayerBuffer); what `infinite` actually controls is the *visible*
@@ -816,9 +813,10 @@ export interface PencilEngineAPI {
    *  settings panel's curve is meant to be dragged while drawing. Nothing about
    *  it reaches the wire — by the time a dab exists the correction is already
    *  inside its `pressure`, which is the entire point (see
-   *  pressureCalibration.ts). Pass null (or an identity calibration) to run the
-   *  uncorrected path. */
-  setPressureCalibration(calibration: PressureCalibration | null): void
+   *  lib/input/pressureCalibration.ts). Takes the calibration already compiled
+   *  to a raw → corrected function — the model and its compiler are the app's,
+   *  not the engine's (#650). Pass null to run the uncorrected path. */
+  setPressureMap(map: PressureMap | null): void
   /** Ruler tool (#89): sets (or clears, with null) the straight-edge guide
    *  that live pointer input snaps to before it ever reaches DabSystem —
    *  see rulerSnap.ts's snapToRuler and the private _snapPoint/_onStart/
@@ -3066,6 +3064,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   // Infinite (tiled) canvas mode (#133 Phase 1) — see PencilEngineOptions.infinite.
   private readonly _infinite: boolean
+  // (#650) See PencilEngineOptions.diagLog.
+  private readonly _diagLog: DiagLog
 
   // Layer management
   private _layers: Map<string, ILayerBuffer>
@@ -3210,6 +3210,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
     // Bounded rooms never call setInfiniteCamera (only Room's infinite-mode
     // viewport-sync effect does) — #136: the below/above split-cache and
@@ -3287,7 +3288,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperTex = createPlaceholderPaperTexture(this.gl)
     this._paperMipsReady = generatePaperMipmaps(this.gl, this._paperTex)
     this._startPaperLoad(this._opts.paper)
-    this._pointer = new PointerInput(canvas)
+    this._pointer = new PointerInput(canvas, this._diagLog)
     this._dabs    = new DabSystem()
 
     this._layers          = new Map()
@@ -4281,8 +4282,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  the engine keeps no copy, because there is nothing downstream that should
    *  ever be able to ask what the calibration was: by then the number is
    *  already corrected. */
-  setPressureCalibration(calibration: PressureCalibration | null): void {
-    this._pointer.setPressureCalibration(calibration)
+  setPressureMap(map: PressureMap | null): void {
+    this._pointer.setPressureMap(map)
   }
 
   /** See PencilEngineAPI's doc comment. */
@@ -7135,14 +7136,14 @@ export class PencilEngine implements PencilEngineAPI {
       // (#517) Both refusals below are correct and both are silent, which is
       // indistinguishable from the input layer having dropped the stroke —
       // and telling those two apart is the whole question in the iPad report.
-      diagLog('[engine] stroke start REFUSED', {
+      this._diagLog('[engine] stroke start REFUSED', {
         locked: this._locked, paperTexLoaded: this._paperTexLoaded,
       })
       return
     }
     const layerId = this._activeId
     if (!layerId || !this._layers.has(layerId)) {
-      diagLog('[engine] stroke start REFUSED: no drawable layer', {
+      this._diagLog('[engine] stroke start REFUSED: no drawable layer', {
         activeId: this._activeId, known: this._layers.has(this._activeId ?? ''),
       })
       return
@@ -7550,7 +7551,7 @@ export class PencilEngine implements PencilEngineAPI {
     // through a normal session (and through the test suite) and speaks exactly
     // when the reported symptom happens.
     if (this._strokeDabs.length <= 2) {
-      diagLog('[engine] stroke ended with almost no ink', {
+      this._diagLog('[engine] stroke ended with almost no ink', {
         dabsBeforeFlush: this._strokeDabs.length, tool: this._strokeTool,
       })
     }
