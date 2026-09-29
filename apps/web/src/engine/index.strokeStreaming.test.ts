@@ -18,7 +18,7 @@
 //     across the seam rather than restarting there.
 //
 // Both already have their cross-operation carriers, built for chunked long
-// strokes: PencilEngine._replayRibbonChunk and ._smudgeReplayChunks, both keyed
+// strokes: PencilEngine._replayRibbonChunk and SmudgePainter's replayChunks, both keyed
 // by StrokeOperation.strokeId. This file checks they still hold at streaming
 // granularity — batches of a handful of dabs, not 800 — which is the property
 // #429 builds on, so a regression surfaces as a failing test rather than as a

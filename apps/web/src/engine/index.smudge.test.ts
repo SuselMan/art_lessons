@@ -1,6 +1,6 @@
 // Engine-level tests for the smudge tool (#14) — see SMUDGE_TRANSFER_FRAG's
-// own doc comment in shaders.ts, and _paintOneSmudgeDab's/_smudgeApplyDab's
-// in index.ts, for the algorithm this exercises: the stump carries a raster
+// own doc comment in shaders.ts, and SmudgePainter.paintOneDab's/SmudgePainter.applyDab's
+// in src/dabs/SmudgePainter.ts, for the algorithm this exercises: the stump carries a raster
 // *imprint* of what it has picked up, anchored to the dab's own position, and
 // every dab blends the imprint toward the canvas under it and the canvas
 // toward the imprint — both per pixel, both within the same dab (#416).
@@ -274,7 +274,7 @@ describe('smudge tool (#14)', () => {
     const before = alphaAt(readLayerPixels(engine, 'L')!, 120, 60, 60)
     expect(before).toBeGreaterThan(200)
 
-    // One single stroke (one makeStroke call — the dab chain _paintSmudgeDabs
+    // One single stroke (one makeStroke call — the dab chain SmudgePainter.paint
     // threads via `prev` is unbroken throughout), oscillating within x∈[45,75].
     const xs: number[] = []
     for (let pass = 0; pass < 12; pass++) {
@@ -417,6 +417,34 @@ describe('smudge tool (#14)', () => {
       for (let x = 0; x < 60; x += 5) {
         expect(withB[(30 * 120 + x) * 4 + 3]).toBe(withoutB[(30 * 120 + x) * 4 + 3])
       }
+    })
+
+    // (#494) A context restore rebuilds SmudgePainter's programs and drops
+    // its pool, imprints and replay chunks: every GL name in them is dead.
+    // The restore then replays the layer from the log, and a smudge after it
+    // must paint exactly what it paints on an engine that never lost its
+    // context. MockGL does not kill GL names on a loss, so this cannot catch
+    // a dead program or texture being reused — only that the restore path
+    // runs through the painter and leaves it painting the same picture.
+    it('paints identically after a context loss and restore', () => {
+      const restored = setupLayer()
+      const fresh = setupLayer()
+      const disc = fillStroke('user-a', 'L', 16, 32, 10)
+      const first = makeStroke('user-a', 'L', [16, 22, 28].map(x => dab(x, 32, { size: 16, pressure: 1, opacity: 1 })), { tool: 'smudge', strokeId: 'g1' })
+      const second = makeStroke('user-a', 'L', [28, 34, 40].map(x => dab(x, 32, { size: 16, pressure: 1, opacity: 1 })), { tool: 'smudge', strokeId: 'g2' })
+      for (const engine of [restored, fresh]) {
+        engine.appendOperation(disc)
+        engine.appendOperation(first)
+      }
+
+      const hooks = restored as unknown as { _handleContextLost(e: Event): void; _handleContextRestored(): void }
+      hooks._handleContextLost(new Event('webglcontextlost'))
+      hooks._handleContextRestored()
+      expectPixelsEqual(readLayerPixels(fresh, 'L'), readLayerPixels(restored, 'L'))
+
+      restored.appendOperation(second)
+      fresh.appendOperation(second)
+      expectPixelsEqual(readLayerPixels(fresh, 'L'), readLayerPixels(restored, 'L'))
     })
 
     // The imprint refresh (SMUDGE_PICKUP_FRAG) runs DISPLAY_VERT, whose quad
