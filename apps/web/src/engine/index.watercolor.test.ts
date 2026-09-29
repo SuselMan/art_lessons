@@ -99,7 +99,7 @@ describe('watercolor tool (#468, ADR 011)', () => {
     //
     // v4 runs the whole model on every batch and pads the rect each batch
     // recomposites instead, so the previous batch's guesses get fixed up as the
-    // brush moves on (see _paintRibbonStroke's compositeBounds). What this pins
+    // brush moves on (see _ribbonStrokeWork's compositeBounds). What this pins
     // is that no term is switched off mid-stroke any more.
     const engine = setupLayer()
     await paperReady(engine)
@@ -643,6 +643,8 @@ describe('a wash reaches every path that paints (#468)', () => {
   })
 
   it('drops the oldest wash rather than growing without bound', () => {
+    vi.useFakeTimers()
+    try {
     const engine = setupLayer()
     // Eight participants: one author's later wash retires their earlier one
     // outright (§17.57), so the LRU is only ever about different authors.
@@ -652,11 +654,14 @@ describe('a wash reaches every path that paints (#468)', () => {
       }), 'remote')
     }
     land(engine) // (§17.58) lands the queued ones
+    // (§17.70) Spilled over frames, one wash at a time.
+    vi.advanceTimersByTime(5000)
     // Bounded, and the survivors are the recent ones: an evicted wash goes back
     // to being a seam, which is what every ribbon tool did before washes.
     expect(markerReplayChunkCount(engine)).toBeLessThanOrEqual(4)
     expect(markerReplayChunkFor(engine, 'w7')).toBeTruthy()
     expect(markerReplayChunkFor(engine, 'w0')).toBeNull()
+    } finally { vi.useRealTimers() }
   })
 
   // A checkpoint bakes the layer's pixels. The strokes of a wash share an
@@ -1088,13 +1093,15 @@ describe('a history batch that undoes its own stroke (#536 §17.49)', () => {
   })
 })
 
-describe('the settle field is sized by this settle alone (#536 §17.49)', () => {
-  it('does not hand a small settle the big field an earlier one left', () => {
+describe('the settle field does not depend on earlier settles (#536 §17.49, §17.70)', () => {
+  it('is the one size for every settle, so a small one never sees what a big one left', () => {
     const engine = setupLayer()
     const e = engine as unknown as { _diffuseFieldFor: (w: number, h: number) => { w: number; h: number } }
-    expect(e._diffuseFieldFor(1500, 1500).w).toBe(1536)
+    const big = e._diffuseFieldFor(1500, 1500)
     const small = e._diffuseFieldFor(300, 200)
-    expect([small.w, small.h]).toEqual([512, 256])
+    expect([small.w, small.h]).toEqual([1536, 1536])
+    // (§17.70) The same textures, not made again: on the iPad that was a second.
+    expect(small).toBe(big)
   })
 })
 
@@ -1327,6 +1334,45 @@ describe('a gesture begun off the sheet (#536 §17.63)', () => {
     expect(spent(cut, 'w1')).toEqual(spent(whole, 'w1'))
   })
 
+  // (§17.64) The wet profile is one digit per dab of the operation, and the
+  // travel quantum drops a dab that has not moved. Read by position in what
+  // survived, every digit after the drop shifted - by the drops earlier in
+  // THIS call, so the same dab read different paper whole and cut.
+  it('reads the paper under each dab by its place in the operation, whatever was dropped', () => {
+    const dabs = [dab(8, 32, { size: 24, t: 0 }), dab(8.2, 32, { size: 24, t: 8 }),
+      ...Array.from({ length: 6 }, (_, i) => dab(20 + i * 8, 32, { size: 24, t: 16 + i * 8 }))]
+    const wet = 'f0f0f0f0'
+    const whole = setupLayer()
+    whole.appendOperation(makeStroke('user-b', 'L', dabs, { tool: 'watercolor', preset: PRESET, strokeId: 's2', washId: 'w2', wet }), 'remote')
+    land(whole)
+    const cut = setupLayer()
+    cut.appendOperation(makeStroke('user-b', 'L', dabs.slice(0, 3), { tool: 'watercolor', preset: PRESET, strokeId: 's2', washId: 'w2', wet: wet.slice(0, 3) }), 'remote')
+    cut.appendOperation(makeStroke('user-b', 'L', dabs.slice(3), { tool: 'watercolor', preset: PRESET, strokeId: 's2', washId: 'w2', wet: wet.slice(3) }), 'remote')
+    land(cut)
+    expect(spent(cut, 'w2')).toEqual(spent(whole, 'w2'))
+  })
+
+  // (§17.65) The rect the settle windows are cut from counts only dabs whose
+  // reach touches the sheet. A replay's one batch used to stretch it over a
+  // tail drawn far down past the sheet's edge; the author's live batches
+  // there painted nothing and added nothing.
+  it('leaves dabs whose reach misses the sheet out of the wash’s rect', () => {
+    const onSheet = Array.from({ length: 4 }, (_, i) => dab(8 + i * 12, 16, { size: 12, t: i * 8 }))
+    const tail = Array.from({ length: 8 }, (_, i) => dab(300, 16 + i * 40, { size: 12, t: 40 + i * 8 }))
+    type Fin = { scratch: { finishContext: { bounds: { minX: number; minY: number; maxX: number; maxY: number } } | null } }
+    const bounds = (engine: PencilEngine) =>
+      (engine as unknown as { _replayRibbonChunks: Map<string, Fin> })._replayRibbonChunks.get('w3')!.scratch.finishContext!.bounds
+    const whole = setupLayer()
+    whole.appendOperation(makeStroke('user-b', 'L', [...onSheet, ...tail], { tool: 'watercolor', preset: PRESET, strokeId: 's3', washId: 'w3' }), 'remote')
+    land(whole)
+    const cut = setupLayer()
+    cut.appendOperation(makeStroke('user-b', 'L', onSheet, { tool: 'watercolor', preset: PRESET, strokeId: 's3', washId: 'w3' }), 'remote')
+    cut.appendOperation(makeStroke('user-b', 'L', tail, { tool: 'watercolor', preset: PRESET, strokeId: 's3', washId: 'w3' }), 'remote')
+    land(cut)
+    expect(bounds(whole)).toEqual(bounds(cut))
+    expect(bounds(whole).maxY).toBeLessThan(100)
+  })
+
   // The chunk span doubles for a half-resolution settle, and the settle decides
   // that from the nib the dabs drew - pressure included - not from the size
   // slider. A 96 slider at a light touch settles at full resolution in a field
@@ -1347,5 +1393,154 @@ describe('a gesture begun off the sheet (#536 §17.63)', () => {
     expect(e._chunkSpanExceeded()).toBe(true)
     e._strokeChunkBox = { minX: 0, minY: 0, maxX: 1500, maxY: 10, half: 50 / mult }
     expect(e._chunkSpanExceeded()).toBe(false)
+  })
+})
+
+describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
+  const PRESET = 'normal:100:70:PB29:round'
+  type Chunk = { scratch: { dryCtx: { bounds: { minX: number; minY: number; maxX: number; maxY: number } } | null } }
+  type Internals = {
+    _replayRibbonChunks: Map<string, Chunk & { usedAt?: number }>; _spilledWashes: Map<string, unknown>; _lostWashes: Map<string, unknown>
+    _gpuBudget: number; _enforceGpuBudget: () => boolean; _completeSettle: () => void; _washActiveAt: number
+  }
+  const strokeIn = (user: string, wash: string, stroke: string, x: number, y: number) =>
+    makeStroke(user, 'L', [dab(x, y, { size: 8, t: 0 }), dab(x + 6, y, { size: 8, t: 8 }), dab(x + 12, y, { size: 8, t: 16 })],
+      { tool: 'watercolor', preset: PRESET, strokeId: stroke, washId: wash })
+  const washBounds = (engine: PencilEngine, wash: string) =>
+    (engine as unknown as Internals)._replayRibbonChunks.get(wash)!.scratch.dryCtx!.bounds
+
+  // The reference: u1's two strokes into w1 and nobody else painting.
+  function alone(): PencilEngine {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+    land(e)
+    return e
+  }
+
+  // Five participants with a wash open each overflow the replay cache's four
+  // slots: u1's wash used to be destroyed, and its second stroke started a new
+  // accumulation on this client only.
+  it('a fifth participant’s wash spills the oldest instead of destroying it', () => {
+    const e = setupLayer()
+    vi.useFakeTimers()
+    try {
+      e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+      for (const [i, u] of ['u2', 'u3', 'u4', 'u5'].entries()) e.appendOperation(strokeIn(u, 'w' + u, 's' + u, 20 + i * 8, 20), 'remote')
+      land(e)
+      vi.advanceTimersByTime(5000) // (§17.70) spilled over frames
+    } finally { vi.useRealTimers() }
+    const I = e as unknown as Internals
+    expect(I._replayRibbonChunks.has('w1')).toBe(false)
+    expect(I._spilledWashes.has('w1')).toBe(true)
+    e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+    land(e)
+    expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
+  })
+
+  it('the budget spills a resting wash, and its next stroke brings it back', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
+    for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
+    I._washActiveAt = -1e9
+    I._gpuBudget = 1
+    vi.useFakeTimers()
+    try {
+      I._enforceGpuBudget()
+      // (§17.70) Read back over several steps, not in the check itself.
+      expect(I._replayRibbonChunks.has('w1')).toBe(true)
+      vi.advanceTimersByTime(1000)
+    } finally { vi.useRealTimers() }
+    expect(I._replayRibbonChunks.has('w1')).toBe(false)
+    expect(I._spilledWashes.has('w1')).toBe(true)
+    I._gpuBudget = Infinity
+    e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+    land(e)
+    expect(I._spilledWashes.has('w1')).toBe(false)
+    expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
+  })
+
+  it('the budget leaves a wash painted into a moment ago', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    I._gpuBudget = 1
+    I._enforceGpuBudget()
+    expect(I._replayRibbonChunks.has('w1')).toBe(true)
+  })
+
+  it('a spill in progress is let go when the wash is painted into meanwhile (§17.70)', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
+    I._washActiveAt = -1e9
+    I._gpuBudget = 1
+    vi.useFakeTimers()
+    try {
+      I._enforceGpuBudget()
+      I._gpuBudget = Infinity
+      e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+      vi.advanceTimersByTime(1000)
+    } finally { vi.useRealTimers() }
+    land(e)
+    expect(I._spilledWashes.has('w1')).toBe(false)
+    expect(I._replayRibbonChunks.has('w1')).toBe(true)
+    expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
+  })
+
+  it('the author’s next wash closes the spilled one', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
+    for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
+    I._washActiveAt = -1e9
+    I._gpuBudget = 1
+    vi.useFakeTimers()
+    try {
+      I._enforceGpuBudget()
+      vi.advanceTimersByTime(1000)
+    } finally { vi.useRealTimers() }
+    expect(I._spilledWashes.has('w1')).toBe(true)
+    I._gpuBudget = Infinity
+    e.appendOperation(strokeIn('u1', 'w9', 's9', 4, 40), 'remote')
+    land(e)
+    expect(I._spilledWashes.has('w1')).toBe(false)
+  })
+})
+
+// (#536, §17.69) A room closed in the app, not by a page load: the canvas has
+// left the page before the engine is retired, and its WebGL context is let go
+// now rather than whenever the browser collects it. A board switch builds the
+// next engine on the same, still attached canvas - that context must live.
+describe('what destroy lets go of (#536 §17.69)', () => {
+  function withLoseContext(connected: boolean) {
+    const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 32, height: 32 })
+    const loseContext = vi.fn()
+    const gl = (engine as unknown as { gl: { getExtension: (n: string) => unknown } }).gl
+    const orig = gl.getExtension.bind(gl)
+    gl.getExtension = (n: string) => (n === 'WEBGL_lose_context' ? { loseContext } : orig(n))
+    Object.defineProperty(canvas, 'isConnected', { value: connected, configurable: true })
+    engine.destroy()
+    return loseContext
+  }
+
+  it('loses the context of a canvas that has left the page', () => {
+    expect(withLoseContext(false)).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the context of a canvas still on the page', () => {
+    expect(withLoseContext(true)).not.toHaveBeenCalled()
   })
 })

@@ -88,7 +88,7 @@ export function bakeDabOpacity(
     // it as its own term rather than folding it silently into "flow"):
     // same speed/tilt shape as liner (shared inkSpeed above), plus a mild
     // markerPressureFlow term liner doesn't have. `dab.opacity` here is
-    // *not yet* the final ink deposit — _paintRibbonStroke multiplies it
+    // *not yet* the final ink deposit — _ribbonStrokeWork multiplies it
     // by this dab's own segmentLength at paint time (distance-
     // normalization can't happen here: this function only ever sees one
     // dab at a time, with no notion of "distance since the previous

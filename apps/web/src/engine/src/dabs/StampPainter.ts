@@ -526,7 +526,7 @@ export class StampPainter {
  *  everything that dab can possibly rasterize) — the same per-dab quantity
  *  StampPainter's `worldBounds` unions across a whole batch, factored out so
  *  `paint`'s per-tile filter (see its own comment) and marker's own
- *  per-batch tile resolution (the engine's _paintRibbonStroke) can apply it to one dab at
+ *  per-batch tile resolution (the engine's _ribbonStrokeWork) can apply it to one dab at
  *  a time without duplicating the math.
  *
  *  Derived straight from DAB_VERT/DAB_VERT_INSTANCED's own geometry, which

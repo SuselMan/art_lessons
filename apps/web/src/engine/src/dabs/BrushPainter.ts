@@ -3,7 +3,7 @@
 // watercolor (the wet edge, blooms, granulation — all inside the composite),
 // and the bitmap tips and canvas-anchored textures they sample.
 //
-// The engine's _paintRibbonStroke hands a batch over with paint() once it
+// The engine's _ribbonStrokeWork hands a batch over with paint() once it
 // has seen `profile.brushStamp`: the brush keeps that machinery's per-stroke
 // scratch (the frozen layer, the stroke's coverage) and nothing else of it —
 // no wash, no ink film, no settle. The scratch arrives as an argument and is

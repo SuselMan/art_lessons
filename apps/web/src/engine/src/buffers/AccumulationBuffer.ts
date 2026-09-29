@@ -317,10 +317,12 @@ export class AccumulationBuffer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  readPixels(): Uint8Array {
+  /** (#536, §17.68) `into`, when big enough, is filled instead of a new array. */
+  readPixels(into?: Uint8Array): Uint8Array {
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
-    const pixels = new Uint8Array(width * height * 4)
+    const n = width * height * 4
+    const pixels = into && into.byteLength >= n ? into.subarray(0, n) : new Uint8Array(n)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     return pixels
@@ -331,6 +333,18 @@ export class AccumulationBuffer {
     const { gl, width, height } = this
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+  }
+
+  /** (#536, ADR 011 §17.68) The whole texture overwritten in place with
+   *  `pixels` - same content as restorePixels, but no new storage: a wash
+   *  brought back from main memory uploads dozens of these at once, and on
+   *  the iPad reallocating each one next to the storage still being freed was
+   *  the spike the tab did not survive. */
+  writePixels(pixels: Uint8Array): void {
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
   }
 
   /** (#425) Restores a payload that covers only the world-top-left `w`x`h` of

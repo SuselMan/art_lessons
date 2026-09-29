@@ -123,7 +123,7 @@ describe('digital brush, v1 strokes (#547, ADR 013 §7)', () => {
     // Per *stamp*, and therefore strictly below the brush's per-pass flow: the
     // engine converts one into the other against the distance travelled, so
     // that ~20 stamps covering a pixel add up to the authored number rather
-    // than to 1 (see _paintRibbonStroke's stampFlows). Asserting the two are
+    // than to 1 (see _ribbonStrokeWork's stampFlows). Asserting the two are
     // equal is what this test did first, and it was asserting the bug that made
     // every brush solid at every pressure.
     const perPass = digitalBrushFlow(brush, pressure)

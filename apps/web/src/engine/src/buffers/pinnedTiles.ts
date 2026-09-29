@@ -53,11 +53,15 @@ function isZeroPixel(pixels: Uint8Array, index: number): boolean {
  *  kept: the word version measured 11% better and needs an alignment branch,
  *  since a decoded snapshot's tiles are subarrays that need not start on a word
  *  boundary. Eleven percent of an idle-time pass is not worth a second path. */
-export function packTilePixels(pixels: Uint8Array): Uint8Array {
+export function packTilePixels(pixels: Uint8Array, work?: Uint8Array): Uint8Array {
   const total = pixels.byteLength >> 2
   // Sized to the raw payload plus its tag: the moment the encoding would need
   // more than that, raw is the better answer and the loop below says so.
-  const out = new Uint8Array(pixels.byteLength + 1)
+  // (#536, §17.68) `work`, when given and big enough, is that buffer reused -
+  // a caller packing many tiles in a row would otherwise allocate a tile's
+  // worth per call, faster than a phone's collector hands it back.
+  const out = work && work.byteLength >= pixels.byteLength + 1
+    ? work.subarray(0, pixels.byteLength + 1) : new Uint8Array(pixels.byteLength + 1)
   const view = new DataView(out.buffer)
   out[0] = FORMAT_RUNS
   let write = 1
@@ -89,10 +93,14 @@ function packRaw(pixels: Uint8Array): Uint8Array {
  *  Checkpoint already carries as width x height x 4 — the packed form does not
  *  repeat it, and a caller that passes the wrong one gets a wrong-sized tile
  *  rather than a corrupt one. */
-export function unpackTilePixels(packed: Uint8Array, byteLength: number): Uint8Array {
+export function unpackTilePixels(packed: Uint8Array, byteLength: number, into?: Uint8Array): Uint8Array {
   // A view rather than a copy: every caller reads these pixels and drops them.
   if (packed[0] === FORMAT_RAW) return packed.subarray(1)
-  const out = new Uint8Array(byteLength)
+  // (§17.68) `into`: a reused buffer, cleared here - blank runs are skipped,
+  // not written.
+  const reuse = !!into && into.byteLength >= byteLength
+  const out = reuse ? into!.subarray(0, byteLength) : new Uint8Array(byteLength)
+  if (reuse) out.fill(0)
   const view = new DataView(packed.buffer, packed.byteOffset, packed.byteLength)
   let read = 1
   let write = 0

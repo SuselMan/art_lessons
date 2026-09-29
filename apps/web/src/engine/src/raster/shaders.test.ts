@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  DAB_FRAG, DAB_VERT, RIBBON_FRAG, PAPER_COMPOSE_FRAG, WC_WATER_FRONT_FRAG, WC_FIELD_OP_FRAG,
+  DAB_FRAG, DAB_VERT, RIBBON_FRAG, PAPER_COMPOSE_FRAG, WC_WATER_FRONT_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG,
 } from './shaders'
 import { PIGMENT_DEPTH_SCALE } from '../watercolor/pigmentOptics'
 import { WC_STANDING_GATE_LO, WC_STANDING_GATE_HI } from '../presets/watercolorPresets'
@@ -28,6 +28,7 @@ import { WC_STANDING_GATE_LO, WC_STANDING_GATE_HI } from '../presets/watercolorP
 const PROGRAMS: Array<[string, string]> = [
   ['WC_WATER_FRONT_FRAG', WC_WATER_FRONT_FRAG],
   ['WC_FIELD_OP_FRAG', WC_FIELD_OP_FRAG],
+  ['WC_FIELD_OP_HIGH_FRAG', WC_FIELD_OP_HIGH_FRAG],
   ['DAB_VERT', DAB_VERT],
   ['DAB_FRAG', DAB_FRAG],
   ['RIBBON_FRAG', RIBBON_FRAG],

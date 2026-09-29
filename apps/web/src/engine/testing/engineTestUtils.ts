@@ -506,7 +506,7 @@ export function lastPaperDabUniform(engine: PencilEngine, name: string): Uniform
 
 /** Like lastPaperDabUniform, but reads only the non-batched per-dab program
  *  (_dabUni) — needed for marker (#250), whose own paint path
- *  (_paintRibbonStroke) always draws through _dabProg
+ *  (_ribbonStrokeWork) always draws through _dabProg
  *  directly and never StampPainter's paintInstanced/instProg (see
  *  _paintRibbonDabs' own doc comment on why marker dabs can't batch).
  *  lastPaperDabUniform's own "prefer the instanced location" order would

@@ -1,6 +1,6 @@
 // Engine-level tests for the marker tool (#250, ADR 004 section 3; rasterizer
 // rewritten in #330). The marker draws its stroke as one connected swept figure
-// — nib stamps at each sample plus the ribbon between them (_paintRibbonStroke
+// — nib stamps at each sample plus the ribbon between them (_ribbonStrokeWork
 // in index.ts, markerRibbon.ts for the geometry) — then composites it through
 // DAB_FRAG's u_inkMode>1.5 branch, which multiplies against whatever was
 // already there (or a flat paper-white constant over untouched content)
