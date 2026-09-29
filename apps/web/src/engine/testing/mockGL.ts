@@ -38,7 +38,7 @@ export type UniformValue = number | number[]
 
 interface MockProgram {
   fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'imageBlit' | 'smudge' | 'smudgePickup'
-    | 'areaTransform' | 'areaMask' | 'brushStamp' | 'brushComposite' | 'other'
+    | 'areaTransform' | 'areaMask' | 'shape' | 'brushStamp' | 'brushComposite' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
@@ -237,6 +237,10 @@ export class MockGL {
     // engine test would then watch a whole layer move and call it a passing
     // selection test.
     if (source.includes('u_srcOrigin')) return 'areaTransform'
+    // (#494) SHAPE_FRAG declares u_dstOrigin too, so it has to be caught
+    // before 'areaMask' — tagged as one, a shape would rasterize as a mask
+    // pass reading whatever texture happens to sit on unit 0.
+    if (source.includes('u_strokeContours')) return 'shape'
     if (source.includes('u_dstOrigin')) return 'areaMask'
     if (source.includes('u_matrixInv')) return 'transform'
     if (source.includes('u_imageRect')) return 'imageBlit'
@@ -259,6 +263,7 @@ export class MockGL {
   uniform1f(loc: MockLocation, v: number): void { loc.program.uniforms.set(loc.name, v) }
   uniform1i(loc: MockLocation, v: number): void { loc.program.uniforms.set(loc.name, v) }
   uniform2f(loc: MockLocation, a: number, b: number): void { loc.program.uniforms.set(loc.name, [a, b]) }
+  uniform3f(loc: MockLocation, a: number, b: number, c: number): void { loc.program.uniforms.set(loc.name, [a, b, c]) }
   uniform3fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
   uniform4f(loc: MockLocation, a: number, b: number, c: number, d: number): void { loc.program.uniforms.set(loc.name, [a, b, c, d]) }
   uniform4fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
@@ -727,6 +732,7 @@ export class MockGL {
       case 'transform': this._recordTransformDraw(prog.uniforms); this._rasterTransform(info, prog.uniforms); break
       case 'areaTransform': this._recordTransformDraw(prog.uniforms); this._rasterAreaTransform(info, prog.uniforms); break
       case 'areaMask': this._rasterAreaMask(info, prog.uniforms); break
+      case 'shape': this._rasterShape(info, prog.uniforms); break
       case 'imageBlit': this._rasterImageBlit(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
       case 'smudgePickup': this._rasterSmudgePickup(info, prog.uniforms); break
@@ -1206,6 +1212,113 @@ export class MockGL {
    *  (ZERO, SRC_ALPHA). Outside the mask rect the coverage is zero, which
    *  under 'erase' leaves the target untouched and under 'keep' clears it,
    *  exactly as the real shader does. */
+  /** (#494) SHAPE_FRAG, for the rectangle, the ellipse and the line — the
+   *  same distance fields and the same one-unit coverage ramp as the shader,
+   *  so a test can see which pixels a shape covers. Colour is dropped like
+   *  everywhere in this mock (one scalar per texel): what lands is the
+   *  shader's alpha, stroke over fill. The polystar is not rasterized — it
+   *  needs the shader's atan/mod folding and nothing asserts on it yet; a
+   *  star here draws nothing rather than something wrong. */
+  private _rasterShape(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const num = (name: string): number => (uniforms.get(name) as number) ?? 0
+    const vec = (name: string, n: number): number[] => (uniforms.get(name) as number[]) ?? Array(n).fill(0)
+    const [ox, oy] = vec('u_dstOrigin', 2)
+    const [cx, cy] = vec('u_center', 2)
+    const [rc, rs] = vec('u_rotCS', 2)
+    const kind = num('u_kind')
+    const base = vec('u_base', 3)
+    const outer = vec('u_outer', 3)
+    const inner = vec('u_inner', 3)
+    const hasInner = num('u_hasInner') > 0.5
+    const contours = num('u_strokeContours') > 0.5
+    const [bandCenter, bandHalf] = vec('u_band', 2)
+    const ringRatio = num('u_ringRatio')
+    const closePath = num('u_closePath') > 0.5
+    const sectorMode = num('u_sectorMode')
+    const [sdx, sdy] = vec('u_sectorDir', 2)
+    const [scc, scs] = vec('u_sectorCS', 2)
+    const [ldx, ldy] = vec('u_lineDir', 2)
+    const lineHalfLen = num('u_lineHalfLen')
+    const lineCap = num('u_lineCap')
+    const hasFill = num('u_hasFill')
+    const hasStroke = num('u_hasStroke') > 0.5
+    const sf = this._blendSrcFactor()
+
+    const cov = (d: number): number => clamp(0.5 - d, 0, 1)
+    const sdRoundBox = (px: number, py: number, bx: number, by: number, r: number): number => {
+      const qx = Math.abs(px) - bx + r
+      const qy = Math.abs(py) - by + r
+      return Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - r
+    }
+    const sdEllipse = (px: number, py: number, a: number, b: number): number => {
+      const qx = px / a, qy = py / b
+      const k = Math.hypot(qx, qy)
+      if (k < 1e-6) return -Math.min(a, b)
+      return (k - 1) / Math.max(Math.hypot(qx / a / k, qy / b / k), 1e-9)
+    }
+    const sdWedge = (px: number, py: number): number => {
+      if (sectorMode < 0.5) return -1e9
+      const n1x = sdx * scs + sdy * scc, n1y = sdy * scs - sdx * scc
+      const n2x = sdx * scs - sdy * scc, n2y = sdy * scs + sdx * scc
+      const w = Math.max(-(px * n1x + py * n1y), -(px * n2x + py * n2y))
+      return sectorMode > 1.5 ? -w : w
+    }
+    const sdEllipseBody = (px: number, py: number, prm: number[]): number => {
+      let d = sdEllipse(px, py, prm[0], prm[1])
+      if (ringRatio > 0) d = Math.max(d, -sdEllipse(px, py, prm[0] * ringRatio, prm[1] * ringRatio))
+      return d
+    }
+    const shapeDist = (px: number, py: number, prm: number[], wedge: number): number => {
+      if (kind === 0) return sdRoundBox(px, py, prm[0], prm[1], prm[2])
+      if (kind === 1) {
+        const d = sdEllipseBody(px, py, prm)
+        return sectorMode > 0.5 ? Math.max(d, wedge) : d
+      }
+      return 1e9 // polystar: see the docstring
+    }
+    const sdLineBand = (px: number, py: number): number => {
+      const halfW = Math.max(bandHalf, 0)
+      const t = px * ldx + py * ldy
+      const s = -px * ldy + py * ldx
+      if (lineCap > 0.5 && lineCap < 1.5) return Math.hypot(Math.max(Math.abs(t) - lineHalfLen, 0), s) - halfW
+      const ext = lineCap > 1.5 ? halfW : 0
+      return Math.max(Math.abs(t) - (lineHalfLen + ext), Math.abs(s) - halfW)
+    }
+
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const relX = px + 0.5 + ox - cx
+        const relY = py + 0.5 + oy - cy
+        const x = relX * rc + relY * rs
+        const y = -relX * rs + relY * rc
+        const wedge = sdWedge(x, y)
+        let fillA = 0
+        let strokeA = 0
+        if (kind === 3) {
+          strokeA = hasStroke ? cov(sdLineBand(x, y)) : 0
+        } else {
+          const dBase = shapeDist(x, y, base, wedge)
+          fillA = hasFill * cov(dBase)
+          if (hasStroke) {
+            if (kind === 1 && sectorMode > 0.5 && !closePath) {
+              strokeA = cov(Math.max(Math.abs(sdEllipseBody(x, y, base) - bandCenter) - bandHalf, wedge))
+            } else if (contours) {
+              let d = shapeDist(x, y, outer, wedge)
+              if (hasInner) d = Math.max(d, -shapeDist(x, y, inner, wedge))
+              strokeA = cov(d)
+            } else {
+              strokeA = cov(Math.abs(dBase - bandCenter) - bandHalf)
+            }
+          }
+        }
+        const a = strokeA + fillA * (1 - strokeA)
+        const idx = py * width + px
+        data[idx] = a * sf + data[idx] * this._blendDstWeight(a)
+      }
+    }
+  }
+
   private _rasterAreaMask(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
     const maskUnit = (uniforms.get('u_mask') as number) ?? 0
