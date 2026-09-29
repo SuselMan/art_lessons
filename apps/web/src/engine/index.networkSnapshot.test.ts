@@ -262,6 +262,25 @@ describe('absorbHistoricalOperations (#169)', () => {
     const undone = engine.undo()
     expect(undone?.id).toBe(historicalStroke.id)
   })
+
+  // (#536, §17.61) Room jExxU2EJ: no pixel snapshot for its one layer, so the
+  // join tail carried all 421 strokes, and the backfill page below the stored
+  // layerState's seq repeated 100 of them — then again on a reconnect. The
+  // rebuild an undo runs painted those 100 a second time.
+  it('drops what the log already holds, so a rebuild never paints a stroke twice', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.initLayer('L')
+    const first = makeStroke('user-b', 'L', [dab(2, 2, { size: 6, pressure: 1, opacity: 0.5 })])
+    const second = makeStroke('user-b', 'L', [dab(5, 5, { size: 6, pressure: 1, opacity: 0.5 })])
+    engine.appendOperation(first, 'remote')
+    engine.appendOperation(second, 'remote')
+
+    engine.absorbHistoricalOperations([first])
+    engine.absorbHistoricalOperations([first, second])
+
+    expect(engine.getOperations().map(op => op.id)).toEqual([first.id, second.id])
+    expect(engine.getOperationsSinceRestore().map(op => op.id)).toEqual([first.id, second.id])
+  })
 })
 
 describe('getOperationsSinceRestore (#169)', () => {

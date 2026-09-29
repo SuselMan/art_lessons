@@ -3136,8 +3136,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  rejoins the chunks through _replayChunkScratch, so the author and
    *  everyone else were looking at different marks. */
   private _strokeChunkTail: Dab | undefined
-  /** (#536, §17.43) The current chunk's dab bounds, for the span cut. */
-  private _strokeChunkBox: { minX: number; minY: number; maxX: number; maxY: number } | null = null
+  /** (#536, §17.43) The current chunk's dab bounds, for the span cut - and
+   *  (§17.63) its widest dab's half-size across the long axis, before the
+   *  preset's size multiplier. */
+  private _strokeChunkBox: { minX: number; minY: number; maxX: number; maxY: number; half: number } | null = null
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278/#489: the active tool's live nib angle — canvas-space radians (the
@@ -6692,7 +6694,16 @@ export class PencilEngine implements PencilEngineAPI {
    *  without ever touching a buffer — so the resulting entries' done/undone/
    *  gone states come from the exact same state machine, then merges them
    *  into the real log in one step. */
-  absorbHistoricalOperations(ops: Operation[]): void {
+  absorbHistoricalOperations(pageOps: Operation[]): void {
+    // (#536, §17.61) A backfill page is "everything below the snapshot's seq",
+    // but since #372 the join tail is judged per layer: a layer with no pixel
+    // snapshot of its own gets its whole history in the tail. So a page can
+    // repeat what the log already holds — in room jExxU2EJ all 100 of it, and
+    // again on every reconnect's restore. Prepended twice, a stroke is painted
+    // twice by every later rebuild: undo darkened the layer it rebuilt.
+    const held = new Set(this._log.entries.map(e => e.op.id))
+    const ops = pageOps.filter(op => !held.has(op.id))
+    if (ops.length === 0) return
     const scratch = new OperationLog()
     for (const op of ops) {
       scratch.append(op)
@@ -6796,6 +6807,7 @@ export class PencilEngine implements PencilEngineAPI {
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
       'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+      'u_rectComposite',
       // Liner only (#452, ADR 003 §4) — how far past its own radius a dab's
       // quad is grown so the absorbed band has somewhere to land, and the cap
       // on that. Set to 0 by every other draw through this program (marker's
@@ -8227,7 +8239,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _noteChunkDab(d: Dab): void {
     const b = this._strokeChunkBox
-    if (!b) { this._strokeChunkBox = { minX: d.x, minY: d.y, maxX: d.x, maxY: d.y }; return }
+    const half = d.size * 0.5 * Math.max(d.aspectRatio, 1)
+    if (!b) { this._strokeChunkBox = { minX: d.x, minY: d.y, maxX: d.x, maxY: d.y, half }; return }
+    if (half > b.half) b.half = half
     if (d.x < b.minX) b.minX = d.x
     if (d.x > b.maxX) b.maxX = d.x
     if (d.y < b.minY) b.minY = d.y
@@ -8239,7 +8253,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _chunkSpanExceeded(): boolean {
     const b = this._strokeChunkBox
     if (!b || this._strokeTool !== 'watercolor') return false
-    const span = WC_STROKE_CHUNK_SPAN_PX * (this._opts.size * 0.5 >= WC_HALF_RES_RADIUS_PX ? 2 : 1)
+    // (#536, §17.63) Doubled only when the settle will really run at half
+    // resolution, and that is decided by the nib the dabs drew (the settle's
+    // radiusPx: size under pressure, times the preset's multiplier, along the
+    // long axis) - not by the size slider. A 96 px brush at pressure 0.8 has a
+    // 43 px nib: full resolution, a field capped at 1536 px, and a 2200 px chunk
+    // settled in a window cut to the middle of it, a straight wall through the
+    // wash (the seam §17.43 cut chunks to prevent).
+    const nib = b.half * this._resolvePreset(this._strokeTool, this._strokePreset).sizeMultiplier
+    const span = WC_STROKE_CHUNK_SPAN_PX * (nib >= WC_HALF_RES_RADIUS_PX ? 2 : 1)
     return Math.max(b.maxX - b.minX, b.maxY - b.minY) + this._opts.size > span
   }
 
@@ -9898,7 +9920,8 @@ export class PencilEngine implements PencilEngineAPI {
     // tile, the film rebuild and composite are cut to the paint rect.
     const reachRect = { minX: rMinX, minY: rMinY, maxX: rMaxX, maxY: rMaxY }
     const targets = this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(reachRect) : reachRect)
-    if (!targets.length) return
+    // (#536, §17.63) Not yet: a batch with nothing on the sheet still spends
+    // the gesture's brush - see the return after the deposit loop.
 
     // (#468 v2/v4, ADR 011 §3.5) The stroke's typical radius decides how far its
     // water carries. Mean rather than max: one heavy dab at the end of an
@@ -10237,6 +10260,16 @@ export class PencilEngine implements PencilEngineAPI {
       }
       scratch.advanceWater(used, pigUsed)
     }
+    // (#536, §17.63) Only now. Everything above is the gesture's bookkeeping -
+    // the brush's water and pigment clocks, the landing and its dwell, the dab
+    // spacing, the direction, the composite's scalars from the first dab - and
+    // it has to advance per dab whether or not the batch lands on the sheet.
+    // Returning before it made the result depend on how the gesture was cut
+    // into batches: the author's live batches off the sheet spent nothing, and
+    // the brush came onto the paper fully loaded; a replay paints the operation
+    // as one batch that does reach the sheet, and it came on already spent -
+    // 30-40 % lighter over the whole mark (a V begun off the page at 32 %).
+    if (!targets.length) return
 
     // (#536, ADR 011 §17.10) The halo: a second, wider, weaker stamp for every
     // dab that landed on wet paper, into the same coverage and deposit buffers.
@@ -12880,7 +12913,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_tiltX, dab.tiltX)
     gl.uniform1f(u.u_tiltY, dab.tiltY)
     gl.uniform1f(u.u_opacity, dab.opacity)
+    // (§17.62) The whole quad, corners included - see u_rectComposite.
+    gl.uniform1f(u.u_rectComposite, 1)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.uniform1f(u.u_rectComposite, 0)
     gl.uniform1i(u.u_inkColor, 0)
 
     buffer.endDraw()

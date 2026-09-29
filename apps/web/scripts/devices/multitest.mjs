@@ -118,13 +118,17 @@ await round('D after undo + dry', dev => {
 })
 await compare('after D')
 // Some participants reload: their picture must come back as the others see it.
-for (const name of ['android', 'laptop']) {
-  const d = devices.find(x => x.name === name); if (!d) continue
-  await ev(d, `__devNavigate(location.pathname + '?r=' + Date.now()); return 'reloading'`).catch(() => {})
+// NORELOAD=1 keeps every page as drawn, to compare the author's live picture
+// with a rebuild afterwards.
+if (!process.env.NORELOAD) {
+  for (const name of ['android', 'laptop']) {
+    const d = devices.find(x => x.name === name); if (!d) continue
+    await ev(d, `__devNavigate(location.pathname + '?r=' + Date.now()); return 'reloading'`).catch(() => {})
+  }
+  await sleep(15000)
+  for (const name of ['android', 'laptop']) { const d = devices.find(x => x.name === name); if (d) log(name, await ensureJoined(d)) }
+  await compare('after reload')
 }
-await sleep(15000)
-for (const name of ['android', 'laptop']) { const d = devices.find(x => x.name === name); if (d) log(name, await ensureJoined(d)) }
-await compare('after reload')
 const logs = await Promise.all(devices.map(async d => [d.name, await call(`/logs?client=${encodeURIComponent(d.sel)}`)]))
 report.logs = Object.fromEntries(logs.map(([n, l]) => [n, Array.isArray(l) ? l.slice(-30) : l]))
 for (const [n, l] of logs) if (Array.isArray(l) && l.length) log(`logs ${n}:`, l.slice(-6).map(x => x.level + ' ' + x.text.slice(0, 140)).join(' | '))

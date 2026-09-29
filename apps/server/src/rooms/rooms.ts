@@ -521,7 +521,9 @@ export function getRoomSnapshot(
   const floor = lastKnownSeq ?? 0
   const tailOperations = record.operations.filter(op =>
     (op.seq ?? 0) > floor
-    && !isCoveredBySnapshot(record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds))
+    && !isCoveredBySnapshot(
+      record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds, undefined,
+      id => record.operationsById.get(id)))
   const lesson = lessonRecordOf(record)
   return {
     room: wireRoomOf(record, lesson),

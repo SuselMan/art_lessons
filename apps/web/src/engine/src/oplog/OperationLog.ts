@@ -437,9 +437,11 @@ export class OperationLog {
   }
 
   /** Prepends already-resolved historical entries — #169's background
-   *  backfill of pre-snapshot history, always chronologically older than
-   *  every entry already present (the live tail, applied right after a
-   *  network-snapshot restore). `entries` must arrive with correct
+   *  backfill of pre-snapshot history, older than the live tail applied right
+   *  after a network-snapshot restore. Not necessarily absent from it, though:
+   *  a layer with no pixel snapshot gets its whole history in that tail
+   *  (#372), so the caller drops whatever this log already holds (#536,
+   *  §17.61) — this method trusts it and does not check. `entries` must arrive with correct
    *  done/undone/gone states already resolved — see
    *  engine/index.ts's absorbHistoricalOperations, the one caller, which
    *  builds them by replaying the historical ops through a scratch
