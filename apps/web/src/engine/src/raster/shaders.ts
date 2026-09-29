@@ -119,7 +119,7 @@ ${WICK_EXPAND_GLSL}
 // stroke segment. Packed into 2 vec4 + 1 float (rather than 8 separate
 // scalar/vec2 attributes) to stay comfortably within WebGL1's guaranteed
 // minimum of 8 vertex attributes (a_position takes one of the 4 used here).
-// See engine/index.ts's _paintDabsInstanced for the buffer layout this
+// See dabs/StampPainter.ts's paintInstanced for the buffer layout this
 // expects (interleaved, stride 9 floats: cx,cy,radius,angle,aspect,
 // pressure,tiltX,tiltY,opacity) and for why this preserves the exact
 // sequential per-dab blend order the old per-dab loop relied on.
@@ -534,7 +534,7 @@ export const DAB_FRAG = `
   // ever touching the paper texture — (0,0) for a bounded room (world
   // space == canvas-pixel space there, see tileMath.ts) or a tile's own
   // world origin for an infinite room (Y pre-negated by the caller — see
-  // _paintDabsUniform/_paintDabsInstanced in engine/index.ts) — so two
+  // StampPainter's paintUniform/paintInstanced) — so two
   // dabs at the same true world position sample the exact same paper
   // texel regardless of which tile either one happens to land in. Before
   // this, paperUV came from raw gl_FragCoord/u_resolution alone: every
@@ -2272,7 +2272,7 @@ ${WC_NOISE_GLSL}
 
       // v_opacity, not a per-dab quantity smuggled through coverage: every dab
       // of a brush-pen stroke carries the same opacity (engine's own
-      // _bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
+      // bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
       // §9), so one uniform value describes the whole batch exactly. A tool
       // whose opacity varied per dab could not be composited from a coverage
       // buffer this way at all.
@@ -2398,7 +2398,7 @@ ${WC_NOISE_GLSL}
       // variant set graphite uses (u_grainMode) rather than a charcoal-only
       // dither — so the dev grain-variant selector can audition all eleven for
       // charcoal, and whichever wins becomes CHARCOAL_PRESETS' own grain field
-      // (see charcoalPresets.ts, and _resolveGrainMode in engine/index.ts for
+      // (see charcoalPresets.ts, and resolveGrainMode in presets/resolvePreset.ts for
       // how a preset default and a live override combine).
       //
       // Two charcoal-specific differences from how the graphite path below
@@ -2627,7 +2627,7 @@ ${WC_NOISE_GLSL}
       // solid interior to 1 right at the rim) instead of a second edge mask
       // - stronger on absorbent paper (paperCatch low) and on a slow/
       // dwelling stroke. v_opacity already bakes in the speed/dwell
-      // response deterministically at record time (_bakeDabOpacity's liner
+      // response deterministically at record time (bakeDabOpacity's liner
       // branch and _paintDwellDab, both in engine/index.ts) - no new
       // per-viewer-nondeterministic input here, and no fiber-direction bias
       // in v1 (ADR's own 'Потом' follow-up list - deliberately isotropic,

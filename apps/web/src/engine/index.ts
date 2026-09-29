@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { DAB_VERT, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paper/paperConstants'
 import {
@@ -19,14 +19,17 @@ import { ShapePass } from './src/raster/ShapePass'
 import { FilterPass } from './src/filters/FilterPass'
 import { Exporter } from './src/export/Exporter'
 import { SmudgePainter } from './src/dabs/SmudgePainter'
+import { StampPainter, dabWorldHalfExtents } from './src/dabs/StampPainter'
+import { bakeDabOpacity } from './src/dabs/dabOpacity'
+import { nibScallops, presetForTool, renderSizeScale, resolveGrainMode } from './src/presets/resolvePreset'
 import {
-  charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
+  charcoalNibFromPreset, charcoalPresetString,
   CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, isCharcoalNib,
   type CharcoalPreset, type CharcoalType, type CharcoalNib,
 } from './src/presets/charcoalPresets'
 import {
-  CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, charcoalBroadness, charcoalBroadDensity,
+  CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS,
   type CharcoalFeelConfig,
 } from './src/presets/charcoalFeel'
 import { DabSystem } from './src/dabs/DabSystem'
@@ -34,16 +37,12 @@ import {
   DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
 } from './src/presets/dabShaping'
 import { tipFootprint } from './src/dabs/tipFootprint'
+import { DEFAULT_DAB_SPACING_FACTOR, isFootprintSpacedTool } from './src/dabs/dabSpacing'
 import {
-  dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isDepositScaledTool, isFootprintSpacedTool,
-  type DabSpacingBounds,
-} from './src/dabs/dabSpacing'
-import {
-  PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
+  PENCIL_TILT, PENCIL_TILT_SLIDERS,
   type PencilTiltConfig,
 } from './src/presets/pencilTilt'
 import { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, type SmudgeGrainConfig } from './src/presets/smudgeGrain'
-import { tiltMagnitudeDeg } from './src/presets/tiltMath'
 import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/presets/tiltCurve'
@@ -53,19 +52,16 @@ import {
 } from './src/oplog/OperationLog'
 import { PointerInput, type DiagLog, type PointerData, type PressureMap } from './src/input/PointerInput'
 import {
-  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
+  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT,
   type PencilGradeName, type PencilPreset,
 } from './src/presets/pencilPresets'
 import {
-  LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper,
-  dwellConfigForTool, dwellFlow, linerWickPx,
-  LINER_WICK_PX, LINER_WICK_RADIUS_CAP,
+  LINER_SIZES_MM, linerTiltFlow, applyLinerEndTaper,
+  dwellConfigForTool, dwellFlow,
   type DwellConfig, type LinerSizeMm,
 } from './src/presets/linerPresets'
-import { markerNibFromPreset, markerPressureFlow } from './src/presets/markerPresets'
 import {
   brushStampsForDab, digitalBrushCeiling, digitalBrushFromPreset, digitalBrushMixer,
-  digitalBrushPresetFor, digitalBrushScallops,
   type BrushDescriptor, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
 export {
@@ -88,16 +84,16 @@ export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
 import {
-  BRUSH_PEN_PRESET, applyBrushPenEndTaper,
+  applyBrushPenEndTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/presets/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
+  applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
   watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
-  watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
+  watercolorTravelRadius, watercolorSpreadRadius,
   watercolorMixFromPreset,
 } from './src/presets/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
@@ -219,14 +215,6 @@ export function previewDabShape(
   // "the cursor is how a tool's settings are seen before a mark exists" is the
   // whole justification this function carries in its own doc comment.
   return { size: size * renderSizeScale(tool, presetName ?? ''), aspectRatio, angle }
-}
-
-// Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
-// uses (#123) — not in lib.dom.d.ts's WebGLRenderingContext, so this is typed
-// by hand instead of relying on an ambient DOM type.
-interface InstancedArraysExt {
-  vertexAttribDivisorANGLE(index: number, divisor: number): void
-  drawArraysInstancedANGLE(mode: number, first: number, count: number, primcount: number): void
 }
 
 // ─── Public types ──────────────────────────────────────────────────────────────
@@ -1391,30 +1379,6 @@ const WET_EDGE_MAX_PX = 14
 const WET_CLOUD_PERIOD_PX = 640
 const WET_GRAIN_PERIOD_PX = 224
 
-// Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
-// marker has no hardness *scale* the way graphite's grades do (same
-// reasoning LINER_PRESET's own comment gives: one physical material, not a
-// per-grade spread), but bullet and chisel are still two different
-// physical tips, not just two dab shapes — a chisel's own wider contact
-// area means the same opacity number would read as darker per pass than
-// bullet's, purely from covering more area per dab, not from actually
-// being "more marker." Still uncalibrated first-pass numbers (same "verify
-// by eye and retune" status every other first-pass constant in this
-// codebase carries):
-//  - opacity: moderate for both, well under liner's near-saturated 0.95 —
-//    ADR 004 §5 deliberately relies on the composite's own asymptotic
-//    darkening ("2-3 passes darkens toward a limit") rather than a single
-//    stroke reaching full coverage the way a fineliner's first pass does.
-//    Chisel's is lower than bullet's — same "wider contact, lower local
-//    dose" reasoning as MARKER_CHISEL_ASPECT_RATIO's own effect on area.
-//  - hardness: inert since #330. The marker's edge is geometry now, resolved
-//    over a fixed canvas-pixel ramp (MARKER_EDGE_AA_PX), so no branch it
-//    reaches ever reads this; PencilPreset simply requires the field.
-//  - sizeMultiplier: 1 for both — no calibrated size step to derive this
-//    from yet, same "no fudge factor" reasoning as LINER_PRESET's own.
-const MARKER_BULLET_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.78, sizeMultiplier: 1.0 }
-const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, sizeMultiplier: 1.0 }
-
 // The marker's own ribbon constants (edge ramp, curvature tolerance, chisel
 // corner radius, rim ink falloff) moved to src/dabs/ribbonProfile.ts in #454: they
 // describe how the ribbon rasterizer draws one tool, and there are two such
@@ -2437,6 +2401,9 @@ export class PencilEngine implements PencilEngineAPI {
   // (#494) Smudge and the mixer brush — their programs, scratch pool, per-user
   // imprints and replay chunks. See SmudgePainter.ts.
   private readonly _smudge: SmudgePainter
+  // (#494) Pencil/eraser/liner/charcoal dab stamps, plain and instanced — see
+  // StampPainter.ts. Its programs are built by _initGL, like every other one.
+  private readonly _stamps: StampPainter
 
   // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
   private _haptic: HapticGrain | null
@@ -2465,7 +2432,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _peerLiveStrokes = new Map<string, PeerLiveStroke>()
 
   // WebGL programs and uniforms — assigned in _initGL()
-  private _dabProg!: WebGLProgram
+  /** (#494) The plain dab program — StampPainter owns it (it is the stamps'
+   *  uniform fallback); the ribbon passes draw through it by these names. */
+  private get _dabProg(): WebGLProgram { return this._stamps.program }
+  private get _dabUni(): Record<string, WebGLUniformLocation | null> { return this._stamps.uniforms }
+  private get _dabPosLoc(): number { return this._stamps.positionLoc }
   private _compositeProg!: WebGLProgram
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
@@ -2582,11 +2553,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonInkStrengthLoc!: number
   private _ribbonPuddleLoc!: number
   private _ribbonBuf!: WebGLBuffer
-  private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _brushStampUni!: Record<string, WebGLUniformLocation | null>
   private _brushCompositeUni!: Record<string, WebGLUniformLocation | null>
-  private _dabPosLoc!: number
   private _compositePosLoc!: number
   private _brushStampPosLoc!: number
   private _brushCompositePosLoc!: number
@@ -2694,31 +2663,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperComposeUni!: Record<string, WebGLUniformLocation | null>
   private _paperComposePosLoc!: number
 
-  // Batched dab rendering (#123) — one instanced draw call per _paintDabs
-  // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
-  // _instancedArraysExt is null on the (today, vanishingly rare) WebGL1
-  // context without ANGLE_instanced_arrays, in which case _paintDabs falls
-  // back to the original per-dab-uniform loop via _dabProg/DAB_VERT
-  // unchanged. See _paintDabsInstanced for the correctness reasoning re:
-  // preserving sequential per-dab blend order.
-  private _dabProgInstanced!: WebGLProgram
-  private _dabInstUni!: Record<string, WebGLUniformLocation | null>
-  private _instPosLoc!: number
-  private _instALoc!: number
-  private _instBLoc!: number
-  private _instOpacityLoc!: number
-  private _dabInstBuf!: WebGLBuffer
   private _minmaxExt: { MAX_EXT: number } | null = null
-  private _instancedArraysExt: InstancedArraysExt | null = null
   private _blendMinMaxExt: { MAX_EXT: number } | null = null
   /** #573 — the digital brush's bitmap tips, uploaded on first use (tipMasks.ts
    *  generates them on the CPU, deterministically, with their full mip chain). */
   private _tipTextures = new Map<TipMaskId, WebGLTexture>()
   /** #573 — the brushes' canvas-anchored textures, tiled with REPEAT. */
   private _brushTextures = new Map<BrushTextureId, WebGLTexture>()
-  // Reused/grown scratch buffer for the per-dab instance data upload — no
-  // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
-  private _dabInstScratch: Float32Array = new Float32Array(0)
 
   // (#494) Floating layer previews — the scratch tiles a gesture shows in
   // place of a layer's own while it is being placed. Written by AreaOps,
@@ -3040,6 +2991,20 @@ export class PencilEngine implements PencilEngineAPI {
         fillThreshold: this._paperFillThreshold,
         fillCap: this._paperFillCap,
       }),
+    })
+    // (#494) The dab stamps — pencil, eraser, liner, charcoal. See
+    // StampPainter.ts; its programs are built by _initGL below too.
+    this._stamps = new StampPainter({
+      gl,
+      infinite: this._infinite,
+      quadBuf: () => this._quadBuf,
+      pageSize: () => this._pageSize(),
+      paperTex: () => this._paperTex,
+      paperWorldSize: () => this._paperWorldSize(),
+      paperScale: () => this._opts.paperScale,
+      paperFillThreshold: () => this._paperFillThreshold,
+      paperFillCap: () => this._paperFillCap,
+      grainMode: charcoal => this._resolveGrainMode(charcoal),
     })
 
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
@@ -4730,6 +4695,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._shapes.destroy()
     this._exporter.destroy()
     this._smudge.destroy()
+    this._stamps.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
@@ -6341,8 +6307,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _initGL(): void {
     const { gl, canvas } = this
 
-    this._dabProg             = createProgram(gl, DAB_VERT, DAB_FRAG)
-    this._dabProgInstanced    = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
+    // (#494) The dab stamp programs, plain and instanced — see StampPainter.ts.
+    // The ribbon passes draw through its plain one too (_dabProg).
+    this._stamps.initGL()
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
@@ -6361,66 +6328,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._brushStampProg      = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this._brushCompositeProg  = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
 
-    this._dabUni  = getUniforms(gl, this._dabProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
-      'u_rectComposite',
-      // Liner only (#452, ADR 003 §4) — how far past its own radius a dab's
-      // quad is grown so the absorbed band has somewhere to land, and the cap
-      // on that. Set to 0 by every other draw through this program (marker's
-      // two passes included), not just left unset: a program's uniforms
-      // persist across draws, so a liner stroke would otherwise leak its band
-      // into whatever drew next.
-      'u_wickPx', 'u_wickCap',
-      // Charcoal only (#304, ADR 005) — per-preset, so needed by both this
-      // program and the instanced one below (unlike marker's three samplers,
-      // which never draw through the batched path).
-      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
-      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
-      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
-      // Ribbon tools only (#250, follow-up; #454 widened this from "marker" to
-      // "marker and brush pen") — only ever set by their own draws, which
-      // always use this non-instanced program; not added to _dabInstUni below
-      // since nothing ever draws a ribbon stroke through it.
-      'u_original', 'u_strokeCoverage', 'u_inkLoad',
-      // #330 stage 2/3 — the ribbon nib's own geometry: edge ramp width in canvas
-      // px, which outline the nib is, its corner radius, and how much the ink
-      // eases off at the rim. #454: plus how strongly paper grain acts on a
-      // ribbon tool's rim — outward for the brush pen, inward for watercolor,
-      // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_puddle', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
-      // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
-      // branch alone, and set to 0 by every other ribbon composite (see
-      // _drawRibbonCompositeDab) rather than left unset, for the reason
-      // u_wickPx above already documents: uniforms persist across draws on a
-      // shared program.
-      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
-      // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
-      'u_spreadPx', 'u_cloud', 'u_fieldOffset',
-      // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
-      // the rest are read by the composite.
-      'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoft', 'u_edgeWander', 'u_strokeDir',
-      'u_tideLo', 'u_tideHi',
-      // #468 v5 — how covering the paint is (watercolorPigments.ts).
-      'u_pigmentOpacity',
-      // #468 v6 — the dab spacing, the period of the deposit's own ripple.
-      'u_inkSmoothPx',
-      // #468 v11 — pigment transport (ADR 011 §11).
-      'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
-    ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
       'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
       'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau',
-    ])
-    this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
-      'u_wickPx', 'u_wickCap', // #452 — see _dabUni's own comment
-      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
-      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
-      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
     ])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
@@ -6455,7 +6365,6 @@ export class PencilEngine implements PencilEngineAPI {
       'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
     ])
 
-    this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
@@ -6467,11 +6376,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._brushStampPosLoc     = gl.getAttribLocation(this._brushStampProg, 'a_position')
     this._brushCompositePosLoc = gl.getAttribLocation(this._brushCompositeProg, 'a_position')
-
-    this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
-    this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
-    this._instBLoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instB')
-    this._instOpacityLoc = gl.getAttribLocation(this._dabProgInstanced, 'a_opacity')
 
     this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
     this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
@@ -6487,10 +6391,8 @@ export class PencilEngine implements PencilEngineAPI {
     // (#494) The resampling blits (transform, selection, image) — see
     // blitPasses.ts. Rebuilt with everything else here on a context restore.
     this._passes = new BlitPasses(gl, this._screenBuf)
-    this._dabInstBuf = gl.createBuffer()!
     this._ribbonBuf  = gl.createBuffer()!
 
-    this._instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
     // (#536, s17.28) MAX blending for the watercolor film. Without it (rare -
     // the extension is in every WebGL1 that matters) the deposit falls back
     // to the additive sum of stamps.
@@ -7228,7 +7130,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._handlers.strokeEnd?.(e)
   }
 
-  /** Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
+  /** (#494) A one-line wrapper over presetForTool (presets/resolvePreset.ts,
+   *  where the marker presets named below live too); kept as a method because
+   *  the ribbon paths call it by this name.
+   *
+   *  Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
    *  hardness, sizeMultiplier} triple that drives both opacity baking
    *  (_bakeDabOpacity) and rendering (_paintDabs/_dabWorldHalfExtents). Liner has
    *  no hardness scale (see LINER_PRESET's own comment) — every calibrated
@@ -7264,212 +7170,23 @@ export class PencilEngine implements PencilEngineAPI {
     return renderSizeScale(tool, presetName)
   }
 
-  /** (#489/#501) Whether this stroke's nib takes #485's scallop bound — see
-   *  DabSystem.nibScallop for the whole argument, including why the marker's
-   *  own 5:1 chisel deliberately does not.
-   *
-   *  A property of the *nib*, not of the tool, which is why it is a lookup on
-   *  the preset string rather than a list of tool names: the same tool spaces
-   *  its round nib one way and its elongated one another, and the round ones
-   *  have shipped. Two stated here rather than one flag per tool for the reason
-   *  _resolvePreset's own inkMode comment gives: two switches for one question
-   *  drift apart. */
+  /** (#489/#501) See nibScallops (presets/resolvePreset.ts). */
   private _nibScallops(tool: ToolType, presetName: string): boolean {
-    if (tool === 'watercolor') return watercolorNibFromPreset(presetName) !== 'round'
-    if (tool === 'charcoal') return charcoalNibFromPreset(presetName) === 'chisel'
-    // #547 — asked of the brush rather than hardcoded, because here the answer
-    // is a property of the preset: the round four scallop no more than
-    // watercolor's round nib does, and 'flat' is a 4:1 tip whose silhouette dips
-    // between stamps exactly as every other elongated one here.
-    if (tool === 'digitalBrush') return digitalBrushScallops(presetName)
-    return false
+    return nibScallops(tool, presetName)
   }
 
-  /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use.
-   *
-   *  Each material carries its own shipped default — GRAPHITE_GRAIN_DEFAULT
-   *  (10, "Solid") for graphite, CHARCOAL_PRESETS.grain (3, "Streaky") per
-   *  charcoal type — and each has its own independent dev override
-   *  (`grainMode` / `charcoalGrainMode`), which is `undefined` when that
-   *  selector sits at "default". Two separate overrides rather than one shared
-   *  flag specifically so auditioning a variant on one material doesn't
-   *  disturb the other (#304 follow-up). */
+  /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use,
+   *  given this engine's two dev overrides — see resolveGrainMode
+   *  (presets/resolvePreset.ts). */
   private _resolveGrainMode(charcoal: CharcoalPreset | null): number {
-    return charcoal
-      ? this._charcoalGrainMode ?? charcoal.grain
-      : this._grainMode ?? GRAPHITE_GRAIN_DEFAULT
+    return resolveGrainMode(charcoal, this._grainMode, this._charcoalGrainMode)
   }
 
-  /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
-   *  by the real stroke path and the #92 prediction preview, so predicted
-   *  dabs render with visually consistent opacity to real ones. tool/
-   *  presetName/opacity are explicit params (rather than always reading this
-   *  user's own _strokeTool/_strokePreset/_opts.opacity) purely so both
-   *  callers can pass their own state through one shared implementation. */
+  /** Bakes final dab opacity in place — see bakeDabOpacity (dabs/dabOpacity.ts).
+   *  Shared by the real stroke path and the #92 prediction preview; tool/
+   *  presetName/opacity are explicit so both callers pass their own state. */
   private _bakeDabOpacity(dabs: Dab[], speed: number, tool: ToolType, presetName: string, opacity: number): void {
-    const preset      = this._resolvePreset(tool, presetName)
-    const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
-    // Marker (#250, ADR 004 §2) shares liner's exact speed-flow curve —
-    // "minimal influence" is the same physical justification ADR 004 gives
-    // (a real ink/dye tip doesn't compress the way graphite does), and
-    // reusing linerSpeedFlow rather than inventing a separate marker curve
-    // keeps this v1/uncalibrated (ADR 004 MVP scope) without adding a new
-    // unverified formula on top of an already-uncalibrated one.
-    const inkSpeed = (tool === 'liner' || tool === 'marker') ? linerSpeedFlow(speed) : 0
-    // #478: for a footprint-spaced tool the step between dabs is no longer a
-    // constant fraction of the brush size, so how many dabs land on a given
-    // pixel now varies with grade, pressure and tilt — and for these three
-    // tools the deposit is linear in `Dab.opacity` and normalized by nothing
-    // else, so denser dabs would simply paint a darker mark. This holds the
-    // tone where it is; see dabSpacing.ts's dabDepositScale for why the linear
-    // form is the accurate one here rather than a convenient one.
-    //
-    // Null (and therefore free) for every tool still on the old spacing rule,
-    // where the ratio would be exactly 1 by construction.
-    // #547: not isFootprintSpacedTool — the digital brush is spaced by that rule
-    // and deliberately excluded from this correction. See isDepositScaledTool.
-    const sizeScale = isDepositScaledTool(tool) ? this._dabSizeScale(tool, presetName) : null
-    // #501: which bounds actually shaped this stroke's step. The deposit is
-    // divided by the step the dabs were *really* spaced at, so this has to be
-    // the same pair DabSystem was given at _onStart — a chisel spaced by the
-    // scallop bound but normalised by the footprint rule alone would simply
-    // paint darker, in proportion to how much the extra bound tightened it.
-    const spacingBounds: DabSpacingBounds = { footprint: true, scallop: this._nibScallops(tool, presetName) }
-    // #501: the flat nib's elongation is a property of the cut, not of how far
-    // the stick is laid over — and its contact patch is *smaller* than the
-    // round end face, not larger, so charcoal's broad-side lightening reads it
-    // exactly backwards. Zero here, and 0 passed as u_charcoalBroadAspect at
-    // paint time, so the shader's own copy of the same derivation agrees
-    // (charcoalBroadness' comment on why the two must not disagree).
-    const chiselNib = tool === 'charcoal' && charcoalNibFromPreset(presetName) === 'chisel'
-    const baseSize  = this._physicalSize
-    for (const dab of dabs) {
-      if (tool === 'eraser') dab.opacity = opacity
-      // Smudge (#14) has no pencil preset to draw an opacity from (the
-      // opacity slider here is repurposed as "strength" — see toolSchemas'
-      // own smudge entry) — same speedFactor as pencil though: moving
-      // slower still means a firmer, more thorough blend, matching how a
-      // real blending stump behaves.
-      else if (tool === 'smudge') dab.opacity = opacity * speedFactor
-      // Liner (#241, ADR 003 §2-3, §7): pressure's own contribution to flow
-      // lives entirely in DabShapingProfile.depositPressure (dabShaping.ts),
-      // baked into dab.pressure before this ever runs — see linerPresets.ts's
-      // own comment on why it isn't re-derived here. Speed and tilt are the
-      // only two factors this branch adds on top of the flat preset opacity.
-      else if (tool === 'liner') {
-        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
-        dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg)
-      }
-      // Marker (#250, ADR 004 §2; explicit pressureFactor added in "Ревизия
-      // v1.5" §1 — the expert's own proposed
-      // `deposit = flowPerDistance * segmentLength * pressureFactor` names
-      // it as its own term rather than folding it silently into "flow"):
-      // same speed/tilt shape as liner (shared inkSpeed above), plus a mild
-      // markerPressureFlow term liner doesn't have. `dab.opacity` here is
-      // *not yet* the final ink deposit — _paintRibbonStroke multiplies it
-      // by this dab's own segmentLength at paint time (distance-
-      // normalization can't happen here: this function only ever sees one
-      // dab at a time, with no notion of "distance since the previous
-      // one" — see _markerSegmentLength).
-      else if (tool === 'marker') {
-        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
-        dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg) * markerPressureFlow(dab.pressure)
-      }
-      // Brush pen (#454, ADR 009 §5/§9): flat. Not "not tuned yet" — flat on
-      // purpose, and in two directions.
-      //
-      // No pressure term, because a tool where pressure moves width *and*
-      // alpha together reads as an airbrush rather than a pen; ADR 009 §9
-      // makes width the only thing pressure drives. No speed or tilt term
-      // either: the liner's inkSpeed models ink leaving a capillary tip at a
-      // rate per unit *time*, which is a fineliner's physics, not a flexing
-      // brush nib's — what speed does to this tool is sharpen the tail
-      // (applyBrushPenEndTaper), and that is the whole of it in v1.
-      //
-      // The flatness is also load-bearing downstream, not merely tidy: every
-      // dab of the stroke carrying the same opacity is exactly what lets the
-      // source-over composite reconstruct the finished pixel from a coverage
-      // buffer and one scalar (DAB_FRAG's u_inkMode=8 branch). A per-dab
-      // opacity could not be expressed there at all.
-      else if (tool === 'brushPen') dab.opacity = preset.opacity * opacity
-      // #547, ADR 013 §3 — flat, and for the composite's own reason stated for
-      // the brush pen directly above: this number is the *stroke's* opacity, and
-      // the source-over composite reconstructs each finished pixel from one
-      // coverage buffer and one scalar. A per-dab value could not be expressed
-      // there.
-      //
-      // What varies per dab for this tool is **flow**, and it deliberately does
-      // not live here: it is applied when the stamp is drawn into the coverage
-      // buffer (_paintRibbonDabs), where accumulating it is the whole point.
-      // Recomputed on replay from Dab.pressure and the frozen descriptor rather
-      // than recorded, so the payload gains nothing (digitalBrushFlow).
-      else if (tool === 'digitalBrush') dab.opacity = preset.opacity * opacity
-      // Watercolor (#468, ADR 011 §5): flat, for every reason the brush pen's
-      // is flat directly above, plus one of its own.
-      //
-      // The shared reasons: pressure drives the brush's width, not its
-      // transparency, and a flat per-stroke opacity is what lets the composite
-      // reconstruct a finished pixel from a coverage buffer and one scalar
-      // (DAB_FRAG's u_inkMode=9 branch reads u_opacity, not a per-dab value).
-      //
-      // Its own: how dark a wash comes out is already modelled, and modelled
-      // somewhere better — inkLoad accumulates distance-normalized deposit and
-      // the composite saturates it (WATERCOLOR_SATURATE_INK). Adding a speed or
-      // pressure term to alpha *as well* would be two mechanisms competing to
-      // express one physical quantity, which is how the marker's own density
-      // got hard to reason about before "Ревизия v1.5" separated them.
-      // (#468 v9) …times how much paint is in the water. This is pigment's one
-      // and only route to the finished pixel: the deposit is now a constant
-      // (watercolorPigmentEffects), so nothing else scales with it and the
-      // control stays linear. Constant across a stroke, which is what lets the
-      // composite reconstruct a finished pixel from a coverage buffer and one
-      // scalar at all.
-      // (#536) …and no longer times how much paint is in the water. That factor
-      // moved onto the deposit (DAB_FRAG's u_inkStrength), because a wash spans
-      // several strokes and they are allowed to carry different amounts of
-      // paint — that is precisely what "lay clean water, then take colour into
-      // it" is. With it here, the composite reconstructed the whole wash from
-      // one scalar taken from whichever stroke opened it, so a wash that began
-      // with clean water rendered every stroke after it invisible at pen-up.
-      else if (tool === 'watercolor') dab.opacity = preset.opacity * opacity
-      // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
-      // speed curve deliberately — "slower stroke -> denser deposit" is equally
-      // true of both materials — and adds one term graphite has no analogue
-      // for. Laid on its broad side, the stick spreads the same pressure over a
-      // far larger contact patch, so it must deposit lighter; without this, the
-      // broad regime just paints a much bigger *and* equally dark mark, which
-      // reads as a fat marker rather than a stick on its side. Derived from the
-      // dab's own baked aspectRatio rather than re-running the curve on tilt,
-      // so it can't disagree with the geometry actually being drawn (see
-      // charcoalBroadness' own comment).
-      else if (tool === 'charcoal') {
-        const broadness = chiselNib ? 0 : charcoalBroadness(dab.aspectRatio)
-        dab.opacity = preset.opacity * opacity * speedFactor * charcoalBroadDensity(broadness)
-      }
-      // Graphite (#389). The tilt term is the counterpart of charcoal's
-      // broad-side lightening just above, and arrives here the same way: from
-      // the dab's own baked aspectRatio, not by re-running the curve on tilt,
-      // so a slider moved between record time and here can't make the deposit
-      // disagree with the geometry it's shading (see pencilTiltness). Reduces
-      // to exactly the old expression when PENCIL_TILT.lightening is 0.
-      //
-      // Eraser and smudge share the tilt *geometry* but not this: their
-      // branches above never had a preset opacity to scale, and "erases less
-      // when tilted" is a change to how erasing works rather than a
-      // consequence of spreading graphite over more paper.
-      else dab.opacity = preset.opacity * opacity * speedFactor * pencilTiltDensity(pencilTiltness(dab.aspectRatio))
-      // Applied on top of whichever branch ran, not inside them: it is a
-      // property of how densely this dab's own footprint got sampled, and says
-      // nothing about which material is being deposited. Baked into the
-      // recorded Dab like every other term here, so a peer replaying the
-      // stroke reproduces the same tone without knowing anything about
-      // spacing (#478).
-      if (sizeScale !== null) {
-        dab.opacity *= dabDepositScale(
-          { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale, hardness: preset.hardness },
-          baseSize, this._dabs.spacingFactor, spacingBounds)
-      }
-    }
+    bakeDabOpacity(dabs, speed, tool, presetName, opacity, this._physicalSize, this._dabs.spacingFactor)
   }
 
   /** Bakes final dab opacity, stamps Dab.t, paints, and buffers the dabs for
@@ -7906,91 +7623,13 @@ export class PencilEngine implements PencilEngineAPI {
 
   // ─── Rendering ───────────────────────────────────────────────────────────────
 
-  /** Conservative world-space AABB covering every dab's full painted extent
-   *  (center +/- radius, padded for aspect ratio so an elongated/rotated
-   *  dab is never under-covered) — the rect whose overlapping tile(s) this
-   *  batch must be resolved against.
-   *
-   *  #142: clamped to the visible page for a bounded room (never for an
-   *  infinite one). A bounded room's tile size is its own canvas size (see
-   *  _makeLayerBuffer), so an *unclamped* rect here would resolve — and
-   *  lazily create — a whole extra full-page-sized adjacent tile for every
-   *  ordinary stroke whose brush radius merely overlaps the page edge by a
-   *  few pixels (extremely common: any stroke drawn near the border), each
-   *  one wasted memory that can never become visible again through normal
-   *  use. Real, deliberate off-page content only ever gets there through a
-   *  layer_transform (AreaOps.bakeLayerTransform/previewLayerTransform, both compute
-   *  their own unclamped rect straight from the transformed content's
-   *  actual bounds, independent of this method) — clamping here doesn't
-   *  lose anything a user could otherwise reach: pointer input can't even
-   *  put a dab's *center* past the visible canvas element's own edge,
-   *  same as a real sheet of paper — ink can bleed to the very edge, not
-   *  past it. */
-  private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset, wicking = false): WorldRect {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const d of dabs) {
-      const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset, wicking)
-      minX = Math.min(minX, d.x - hx); maxX = Math.max(maxX, d.x + hx)
-      minY = Math.min(minY, d.y - hy); maxY = Math.max(maxY, d.y + hy)
-    }
-    if (this._infinite) return { minX, minY, maxX, maxY }
-    // (#470) The *sheet*, not the canvas. These were the same number while the
-    // canvas was the sheet; once it became the viewport this clamped every
-    // stroke to the window's own size, so on a 4096 page nothing below the
-    // window's height painted at all — the dab's rect came back empty and no
-    // tile was ever resolved.
-    const { w: pageW, h: pageH } = this._pageSize()
-    return {
-      minX: Math.max(minX, 0), minY: Math.max(minY, 0),
-      maxX: Math.min(maxX, pageW), maxY: Math.min(maxY, pageH),
-    }
-  }
-
-  /** One dab's exact world-space half-extents (an axis-aligned box around
-   *  everything that dab can possibly rasterize) — the same per-dab quantity
-   *  `_dabsWorldBounds` unions across a whole batch, factored out so
-   *  `_paintDabs`'s per-tile filter (see its own comment) and marker's own
-   *  per-batch tile resolution (_paintRibbonStroke) can apply it to one dab at
-   *  a time without duplicating the math.
-   *
-   *  Derived straight from DAB_VERT/DAB_VERT_INSTANCED's own geometry, which
-   *  is the true clipping envelope no matter what DAB_FRAG's `discard` does
-   *  inside it: the unit quad spans ±0.5, gets stretched by `aspectRatio`
-   *  along local X, rotated by `angle`, then scaled by `dabRadius * 2` — so
-   *  the footprint is a rotated rectangle with half-extents
-   *  (aspectRatio * baseR, baseR), whose AABB is what's computed below.
-   *
-   *  This used to pad by `max(1, 1/aspectRatio)` instead, i.e. it padded for
-   *  the one direction aspect *doesn't* stretch in and ignored the one it
-   *  does. Harmless while aspectRatio was pencil/liner-only (1..1.15, a few
-   *  px of under-padding at most), but marker's chisel nib is a fixed 5:1
-   *  (MARKER_CHISEL_ASPECT_RATIO) at up to 120px width: a dab whose center
-   *  sat 60-300px from a tile boundary resolved only its own tile, so the
-   *  rest of the nib mark was clipped away by that tile's viewport and the
-   *  stroke visibly broke off along the tile edge (and, because the missing
-   *  side never accumulated into `coverage`/`inkLoad` either, resumed at a
-   *  different darkness on the far side once a later dab's center crossed
-   *  over). */
+  /** (#494) One dab's world-space half-extents — see dabWorldHalfExtents
+   *  (dabs/StampPainter.ts). Kept as a method for the ribbon paths, which
+   *  resolve their tiles one dab at a time with it. */
   private _dabWorldHalfExtents(
     d: Dab, erasing: boolean, preset: PencilPreset, wicking = false,
   ): { hx: number; hy: number } {
-    const baseR = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
-    // #452: the liner's absorbed band lives *outside* baseR, so it has to be
-    // padded in here too — this box picks which tiles a batch resolves and
-    // which rect gets marked dirty, and a band left out of it is a halo
-    // sheared off at a tile boundary (exactly the failure #330 hit with the
-    // chisel nib, described in this method's own doc comment above). Same
-    // absolute-with-a-cap rule the vertex shader applies per dab
-    // (WICK_EXPAND_GLSL); linerWickPx is the single statement of it, so the
-    // two can't drift apart. 0 for every other tool.
-    const r = baseR + (wicking ? linerWickPx(baseR) : 0)
-    // Rotated-rect AABB, not a `baseR * aspectRatio` circle: a 5:1 chisel dab
-    // is long *along the nib only*, and inflating the short axis to match
-    // would resolve (and so lazily create — 4MB each) whole tiles the dab
-    // never actually reaches.
-    const halfLong = r * Math.max(1, d.aspectRatio)
-    const c = Math.abs(Math.cos(d.angle)), s = Math.abs(Math.sin(d.angle))
-    return { hx: halfLong * c + r * s, hy: halfLong * s + r * c }
+    return dabWorldHalfExtents(d, erasing, preset, wicking)
   }
 
   /** `target` is usually a real layer's `ILayerBuffer`, but a few callers
@@ -8069,294 +7708,9 @@ export class PencilEngine implements PencilEngineAPI {
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
     if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
-    const erasing = tool === 'eraser'
-    // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
-    // table). Resolved once here as a number rather than one boolean flag per
-    // tool — #304 would otherwise have added a second `charcoalMode` boolean
-    // alongside `linerMode` and threaded both through the two paint methods
-    // below, which is exactly how two flags for one mutually-exclusive
-    // switch drift out of sync.
-    const inkMode = tool === 'liner' ? 1.0 : tool === 'charcoal' ? 5.0 : 0.0
-    // Charcoal's own three extra preset fields (#304) — null for every other
-    // tool, in which case the paint methods below leave their uniforms at 0
-    // (never read outside DAB_FRAG's u_inkMode>4.5 branch).
-    const charcoal: CharcoalPreset | null = tool === 'charcoal' ? charcoalPresetFor(presetName) : null
-    // #501: the aspect DAB_FRAG reads as "fully on its broad side", and 0 for a
-    // draw where elongation means nothing of the kind — every non-charcoal
-    // tool, as before, and now also charcoal's own chisel, whose 4:1 is the cut
-    // of the nib rather than a stick laid over. The shader already treats
-    // anything <= 1 as broadness 0, which is the hook this rides; the CPU side
-    // zeroes the same term in _bakeDabOpacity, and the two must agree.
-    const broadAspect = charcoal !== null && charcoalNibFromPreset(presetName) !== 'chisel'
-      ? CHARCOAL_FEEL.aspectMax
-      : 0
-    const preset  = this._resolvePreset(tool, presetName)
-    // #452 (ADR 003 §4): only the liner's dabs are grown past their own radius
-    // to hold the band of ink absorbed into the paper around the mark. Derived
-    // from `tool` alone rather than passed in by the caller, deliberately —
-    // see linerPresets.ts's note under linerWickPx on what happened to the
-    // version of this that carried a live per-draw multiplier.
-    const wicking = tool === 'liner'
-    const worldBounds = this._dabsWorldBounds(dabs, erasing, preset, wicking)
-    const targets: PaintTarget[] = target instanceof AccumulationBuffer
-      ? [{ buffer: target, originX: 0, originY: 0, contentRect: null }]
-      : target.resolveForPaint(worldBounds)
-
-    for (const { buffer, originX, originY } of targets) {
-      // A stroke's dab batch is resolved against every tile its *union*
-      // bounding box overlaps (resolveForPaint), but an individual dab
-      // rarely overlaps every one of those tiles itself — e.g. an infinite
-      // room's tile grid is rooted at world (0,0), exactly where the
-      // default camera centers the visible page, so ordinary drawing near
-      // the middle routinely resolves 2-4 tiles at once even though any
-      // given ~8px dab only ever lands in one of them. Before this filter,
-      // every target got the *entire* batch re-uploaded and redrawn
-      // (`_paintDabsInstanced`'s bufferData + drawArraysInstancedANGLE),
-      // regardless of overlap — harmless for final pixels (dabs outside a
-      // tile's viewport just get clipped by the rasterizer) but multiplied
-      // real GPU submission cost by the tile count on every pointermove.
-      // Skipped for the single-target case (the overwhelming common case:
-      // every bounded room, and most infinite strokes) to avoid the filter
-      // allocation on the hot path where it can only ever keep everything.
-      const tileDabs = targets.length === 1 ? dabs : dabs.filter(d => {
-        const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset, wicking)
-        return d.x + hx > originX && d.x - hx < originX + buffer.width &&
-               d.y + hy > originY && d.y - hy < originY + buffer.height
-      })
-      if (!tileDabs.length) continue
-
-      if (erasing) buffer.beginErase()
-      else buffer.beginDraw()
-
-      // #123: batch every dab in this call into one instanced draw call when
-      // the extension is available (effectively always, in practice) — see
-      // _paintDabsInstanced's docstring for why this preserves the exact
-      // sequential per-dab blend order the fallback loop below relies on.
-      if (this._instancedArraysExt) {
-        this._paintDabsInstanced(tileDabs, erasing, inkMode, charcoal, broadAspect, preset, color, buffer.width, buffer.height, originX, originY, wicking)
-      } else {
-        this._paintDabsUniform(tileDabs, erasing, inkMode, charcoal, broadAspect, preset, color, buffer.width, buffer.height, originX, originY, wicking)
-      }
-
-      buffer.endDraw()
-    }
-    // (#155 Tier 2) A plain AccumulationBuffer (live-tip/prediction/peer
-    // reveal) is transient/visual-only and never queried for content bounds
-    // — nothing to track. A real ILayerBuffer target tracks it so
-    // getContentBounds() never has to fall back to a readPixels scan.
-    if (!(target instanceof AccumulationBuffer)) target.markContentPainted(worldBounds)
+    // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
+    this._stamps.paint(target, dabs, tool, presetName, color)
     return undefined
-  }
-
-  /** Fallback path for a WebGL1 context without ANGLE_instanced_arrays: one
-   *  gl.drawArrays + ~9 gl.uniform* calls per dab, kept exactly as it was
-   *  before #123 (same shader math via DAB_VERT, same GL call count/order) —
-   *  the safety net on the rare device that lacks the extension.
-   *  `resW/resH` is the actual target buffer's size (bounded: canvas size,
-   *  same as before; tiled: one tile's TILE_SIZE) and `originX/originY`
-   *  translates each dab's world-space center into that buffer's local
-   *  space (bounded: always (0,0), so this is a no-op there). */
-  private _paintDabsUniform(
-    dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
-    broadAspect: number, preset: PencilPreset, color: [number, number, number],
-    resW: number, resH: number, originX: number, originY: number, wicking: boolean,
-  ): void {
-    const { gl } = this
-    gl.useProgram(this._dabProg)
-    const u = this._dabUni
-
-    gl.uniform2f(u.u_resolution, resW, resH)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    // #141: world-space paper sampling — see DAB_FRAG's own comment. Y is
-    // negated (defensively normalized away from -0 with `|| 0`, since
-    // JSON/toEqual-style equality checks — see this fix's own tests — can
-    // otherwise trip on -0 !== 0): DAB_VERT's own clip.y flip means a
-    // dab-buffer's local gl_FragCoord.y runs opposite to the tile origin's
-    // top-down world-Y convention, so origin must be *subtracted* (not
-    // added) there for the two to agree at every shared tile edge — see
-    // this fix's own tests for the boundary derivation. originX/Y are
-    // always (0,0) for a bounded room, so this is (0,0) there regardless.
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 0)
-    gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
-    gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
-    gl.uniform3fv(u.u_color, color)
-    gl.uniform1i(u.u_grainMode, this._resolveGrainMode(charcoal))
-    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
-    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, inkMode)
-    // #452: the shader applies the cap itself, per dab, because only it knows
-    // each dab's own radius on the batched path — these two carry the rule,
-    // linerWickPx() states the same one CPU-side for the dirty rect, and they
-    // must not drift. Both 0 for a non-liner draw, which makes the shader's
-    // wickExpand() return exactly 1.0 and this whole path a no-op.
-    gl.uniform1f(u.u_wickPx,  wicking ? LINER_WICK_PX : 0)
-    gl.uniform1f(u.u_wickCap, wicking ? LINER_WICK_RADIUS_CAP : 0)
-    gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
-    gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
-    gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
-    // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
-    // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
-    // tiltSmoothing is a getter. Still true of broadAspect, which the caller
-    // reads off the same live object one draw earlier (#501).
-    gl.uniform1f(u.u_charcoalBroadAspect, broadAspect)
-    gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
-    gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
-    gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
-    gl.uniform1f(u.u_charcoalSkipFloor,   charcoal ? CHARCOAL_FEEL.skipFloor : 1)
-    gl.uniform1f(u.u_charcoalGateRelief,  charcoal ? CHARCOAL_FEEL.gateRelief : 0)
-    gl.uniform1f(u.u_charcoalGrainDepth,  charcoal ? CHARCOAL_FEEL.grainDepth : 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    const posLoc = this._dabPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    for (const dab of dabs) {
-      gl.uniform2f(u.u_dabCenter, dab.x - originX, dab.y - originY)
-      gl.uniform1f(u.u_dabRadius, dab.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier))
-      gl.uniform1f(u.u_angle,      dab.angle)
-      gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
-      gl.uniform1f(u.u_pressure,   dab.pressure)
-      gl.uniform1f(u.u_tiltX,      dab.tiltX)
-      gl.uniform1f(u.u_tiltY,      dab.tiltY)
-      gl.uniform1f(u.u_opacity,    dab.opacity)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-    }
-  }
-
-  /** Batched hot path (#123): one interleaved instance-data upload + one
-   *  drawArraysInstancedANGLE call per _paintDabs invocation, replacing what
-   *  used to be one gl.drawArrays + ~9 gl.uniform* calls PER DAB (a fast/long
-   *  stroke can produce dozens of dabs from a single move-event).
-   *
-   *  Correctness constraint this must preserve exactly: dabs are NOT
-   *  independent/order-insensitive when they overlap — e.g. an eraser dab
-   *  must still correctly interact with ink laid down by an earlier dab in
-   *  the same batch. AccumulationBuffer.beginDraw()/beginErase() blend every
-   *  dab draw call (ONE, ONE_MINUS_SRC_ALPHA or ZERO, ONE_MINUS_SRC_ALPHA)
-   *  onto the accumulation of every previous one, so the per-dab paint order
-   *  is directly observable in the resulting pixels. ANGLE_instanced_arrays
-   *  processes instance 0, 1, 2, ... in strict submission order through the
-   *  same fixed-function blend stage a sequence of separate draw calls
-   *  would use — this is the same ordering guarantee every sorted-
-   *  transparency instancing technique (particle systems, decal stacks)
-   *  already depends on, so batching here doesn't change the accumulated
-   *  result. The fragment shader itself is completely unchanged (DAB_FRAG is
-   *  shared with the uniform path) — only how each dab's parameters reach
-   *  the shader changed, from one gl.uniform* call per dab to one instanced
-   *  vertex attribute read per dab out of a single buffer uploaded once. */
-  private _paintDabsInstanced(
-    dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
-    broadAspect: number, preset: PencilPreset, color: [number, number, number],
-    resW: number, resH: number, originX: number, originY: number, wicking: boolean,
-  ): void {
-    const { gl } = this
-    const ext = this._instancedArraysExt
-    if (!ext) return // only called when present; guards the type narrowing below
-    const u = this._dabInstUni
-
-    gl.useProgram(this._dabProgInstanced)
-    gl.uniform2f(u.u_resolution, resW, resH)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    // #141: see _paintDabsUniform's own comment for the world-space-paper /
-    // origin-sign reasoning — identical here, just for the batched path.
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 0)
-    gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
-    gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
-    gl.uniform3fv(u.u_color, color)
-    gl.uniform1i(u.u_grainMode, this._resolveGrainMode(charcoal))
-    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
-    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, inkMode)
-    // #452: the shader applies the cap itself, per dab, because only it knows
-    // each dab's own radius on the batched path — these two carry the rule,
-    // linerWickPx() states the same one CPU-side for the dirty rect, and they
-    // must not drift. Both 0 for a non-liner draw, which makes the shader's
-    // wickExpand() return exactly 1.0 and this whole path a no-op.
-    gl.uniform1f(u.u_wickPx,  wicking ? LINER_WICK_PX : 0)
-    gl.uniform1f(u.u_wickCap, wicking ? LINER_WICK_RADIUS_CAP : 0)
-    gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
-    gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
-    gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
-    // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
-    // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
-    // tiltSmoothing is a getter. Still true of broadAspect, which the caller
-    // reads off the same live object one draw earlier (#501).
-    gl.uniform1f(u.u_charcoalBroadAspect, broadAspect)
-    gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
-    gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
-    gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
-    gl.uniform1f(u.u_charcoalSkipFloor,   charcoal ? CHARCOAL_FEEL.skipFloor : 1)
-    gl.uniform1f(u.u_charcoalGateRelief,  charcoal ? CHARCOAL_FEEL.gateRelief : 0)
-    gl.uniform1f(u.u_charcoalGrainDepth,  charcoal ? CHARCOAL_FEEL.grainDepth : 0)
-
-    // Shared unit quad, divisor 0 — same 6 vertices/2 triangles per instance
-    // as the uniform path's per-dab quad.
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._instPosLoc)
-    gl.vertexAttribPointer(this._instPosLoc, 2, gl.FLOAT, false, 0, 0)
-    ext.vertexAttribDivisorANGLE(this._instPosLoc, 0)
-
-    // Interleaved per-dab instance data — stride 9 floats:
-    // [cx, cy, radius, angle, aspectRatio, pressure, tiltX, tiltY, opacity].
-    // Packed into 2 vec4 + 1 float attributes (see DAB_VERT_INSTANCED) to
-    // stay well within WebGL1's guaranteed minimum of 8 vertex attributes.
-    // Reused/grown scratch array — no per-stroke-segment allocation.
-    const STRIDE = 9
-    const need = dabs.length * STRIDE
-    if (this._dabInstScratch.length < need) {
-      this._dabInstScratch = new Float32Array(Math.max(need, this._dabInstScratch.length * 2, 256))
-    }
-    const data = this._dabInstScratch
-    for (let i = 0; i < dabs.length; i++) {
-      const d = dabs[i]
-      const o = i * STRIDE
-      data[o + 0] = d.x - originX
-      data[o + 1] = d.y - originY
-      data[o + 2] = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
-      data[o + 3] = d.angle
-      data[o + 4] = d.aspectRatio
-      data[o + 5] = d.pressure
-      data[o + 6] = d.tiltX
-      data[o + 7] = d.tiltY
-      data[o + 8] = d.opacity
-    }
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._dabInstBuf)
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, need), gl.DYNAMIC_DRAW)
-
-    const STRIDE_BYTES = STRIDE * 4
-    gl.enableVertexAttribArray(this._instALoc)
-    gl.vertexAttribPointer(this._instALoc, 4, gl.FLOAT, false, STRIDE_BYTES, 0)
-    ext.vertexAttribDivisorANGLE(this._instALoc, 1)
-
-    gl.enableVertexAttribArray(this._instBLoc)
-    gl.vertexAttribPointer(this._instBLoc, 4, gl.FLOAT, false, STRIDE_BYTES, 16)
-    ext.vertexAttribDivisorANGLE(this._instBLoc, 1)
-
-    gl.enableVertexAttribArray(this._instOpacityLoc)
-    gl.vertexAttribPointer(this._instOpacityLoc, 1, gl.FLOAT, false, STRIDE_BYTES, 32)
-    ext.vertexAttribDivisorANGLE(this._instOpacityLoc, 1)
-
-    ext.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, dabs.length)
-
-    // Defensive: divisor state belongs to WebGL1's one implicit vertex array
-    // (global, not per-program) — reset before any other program potentially
-    // reuses these location indices, so a leftover divisor=1 can never
-    // silently collapse an unrelated draw call onto a single instance.
-    ext.vertexAttribDivisorANGLE(this._instALoc, 0)
-    ext.vertexAttribDivisorANGLE(this._instBLoc, 0)
-    ext.vertexAttribDivisorANGLE(this._instOpacityLoc, 0)
   }
 
   // ─── Marker (#250, ADR 004 §3; compositing redesigned in a follow-up —
@@ -12916,42 +12270,4 @@ export class PencilEngine implements PencilEngineAPI {
     if (type === 'image/png' || (blob && (blob.type === type || blob.type === 'image/png'))) return blob
     return encode('image/png')
   }
-}
-
-
-/** Which `PencilPreset` a tool draws with, given the per-stroke preset string.
- *
- *  At module scope rather than on the engine (#547) because two callers need it
- *  and only one of them is the engine: `previewDabShape` is a pure query the
- *  brush cursor uses without a GL context, and it has to answer with the same
- *  numbers the renderer will use, or the outline and the mark disagree. */
-function presetForTool(tool: ToolType, presetName: string): PencilPreset {
-    if (tool === 'liner') return LINER_PRESET
-    if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
-    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
-    // — its presetName slot carries the pressure response, not a nib or a
-    // grade, so there is nothing here to branch on (brushPenPresets.ts).
-    if (tool === 'brushPen') return BRUSH_PEN_PRESET
-    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
-    // ladder and no hardness grade, so `presetName` carries the pressure
-    // response instead and there is nothing here to branch on
-    // (watercolorPresets.ts).
-    if (tool === 'watercolor') return WATERCOLOR_PRESET
-    // #547, ADR 013 — unlike every branch above, this one genuinely varies with
-    // the preset string: it *is* the brush. hardness comes out of the frozen
-    // descriptor and is read twice downstream — by the stamp shader and by the
-    // spacing rule — which is why it is resolved here once rather than parsed
-    // again at either site.
-    if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
-    if (tool === 'charcoal') return charcoalPresetFor(presetName)
-    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
-}
-
-/** The multiplier between `Dab.size` and the mark this tool actually leaves.
- *
- *  The eraser's 1.0 is not a default standing in for a missing preset: it is the
- *  value the renderer uses, because an eraser is sized as it is asked to be
- *  rather than carrying a grade's own width. */
-function renderSizeScale(tool: ToolType, presetName: string): number {
-  return tool === 'eraser' ? 1.0 : presetForTool(tool, presetName).sizeMultiplier
 }

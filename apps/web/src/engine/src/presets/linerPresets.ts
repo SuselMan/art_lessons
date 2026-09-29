@@ -27,7 +27,7 @@ export const LINER_PRESET: PencilPreset = { opacity: 0.95, hardness: 0.88, sizeM
 
 // ─── Flow (ADR 003 §3, §7, revised #245) ────────────────────────────────────
 // "Flow" here means the per-dab opacity multiplier baked in by
-// engine/index.ts's _bakeDabOpacity. Pressure's own contribution to flow
+// dabs/dabOpacity.ts's bakeDabOpacity. Pressure's own contribution to flow
 // lives in the shader instead (DAB_FRAG's u_inkMode branch derives its
 // deposit-pressure floor straight from the real per-fragment pressure — see
 // that branch's own comment) — this file only adds speed and tilt on top.

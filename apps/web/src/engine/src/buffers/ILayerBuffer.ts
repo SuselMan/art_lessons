@@ -28,7 +28,7 @@ export interface PaintTarget {
   // implementation (see markContentPainted/clearContentAt/restoreTileContent
   // below) — never computed by reading pixels back from the GPU. A
   // conservative axis-aligned approximation (e.g. a dab's full bounding box,
-  // or a rotated transform's AABB), same spirit as _dabsWorldBounds — never
+  // or a rotated transform's AABB), same spirit as StampPainter.worldBounds — never
   // smaller than the real content, occasionally a little bigger. Any caller
   // that cares about a layer's real content (getContentBounds,
   // AreaOps.bakeLayerTransform/previewLayerTransform's source-tile bounds) must skip a

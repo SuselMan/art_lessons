@@ -30,7 +30,7 @@
 // right per-dab values into the instance buffer in the right order; it does
 // NOT validate that real GPU hardware actually preserves cross-instance
 // blend order — that's a WebGL/OpenGL ES spec guarantee (see
-// _paintDabsInstanced's docstring in engine/index.ts), checked here by
+// StampPainter.paintInstanced's docstring), checked here by
 // construction (this mock always loops instances 0..N-1 in order) and,
 // ideally, by an actual browser run.
 

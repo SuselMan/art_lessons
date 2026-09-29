@@ -2,7 +2,7 @@
 // corrected tilt magnitude it is calibrated against (#388). Drives the real
 // pointer pipeline rather than appending pre-built dabs, so these exercise what
 // a live stroke uses: DabSystem's filtered tilt, PENCIL_DAB_SHAPING, and
-// _bakeDabOpacity's graphite branch — same basis as index.charcoal.test.ts.
+// bakeDabOpacity's graphite branch — same basis as index.charcoal.test.ts.
 import { strokeDabs } from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -104,7 +104,7 @@ describe('graphite tilt response (#389)', () => {
 
   it('does not apply graphite\'s tilt lightening to the eraser', async () => {
     // Erasing less the more you lean is a change to what the eraser does, not a
-    // consequence of spreading graphite — see _bakeDabOpacity's own comment.
+    // consequence of spreading graphite — see bakeDabOpacity's own comment.
     //
     // Stated over the whole stroke rather than on one dab, and #478 is what
     // forced that: per-dab opacity now also carries how densely this dab's own
