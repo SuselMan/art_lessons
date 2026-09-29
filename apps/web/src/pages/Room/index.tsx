@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { io, type Socket } from 'socket.io-client'
 import clsx from 'clsx'
-import { nanoid } from 'nanoid'
 import type {
   Operation, Participant,
   SendResult, ClientToServerEvents, ServerToClientEvents,
@@ -64,6 +63,7 @@ import { useZoomControls } from './useZoomControls'
 import { useRemoteOperations } from './useRemoteOperations'
 import { useSnapshotPublishing } from './useSnapshotPublishing'
 import { useLivePreviewBake } from './useLivePreviewBake'
+import { useLostWork } from './useLostWork'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -94,7 +94,6 @@ import { QuickSettingsBar } from './panels/QuickSettingsBar'
 import { ToolSettingsTab } from './panels/ToolSettingsTab'
 import { resolveDisplayName } from './participants/displayName'
 import { cameraTransformCss } from './viewport/cameraMath'
-import { createLostWorkBatcher, recoveryOperations, type LostContentOp } from './net/lostWork'
 import { Outbox } from './net/outbox'
 import { createSocketRevival } from './net/socketRevival'
 import { createIndexedDbOutboxStorage } from './net/outboxStorage'
@@ -145,14 +144,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
   grab: styles.viewportCursorGrab,
   default: styles.viewportCursorDefault,
 }
-
-// (#312) How long lost-work recovery waits for the outbox to stop producing
-// `target_gone` rejections before it mints replacement layers, and the hard
-// cap on that wait. Quiet period: rejections come back at the rate the
-// outbox drains, so a gap this long means the backlog is done. Cap: a large
-// enough backlog would otherwise keep re-arming the timer forever.
-const LOST_WORK_QUIET_MS = 800
-const LOST_WORK_MAX_WAIT_MS = 5000
 
 // (#313) How long a room may sit unloaded with no socket before the
 // preloader is replaced by an explicit "no connection" screen. Long enough
@@ -724,27 +715,6 @@ function RoomEditor() {
   // (see ConnectionBanner, which is what this is for). Latches once true — a
   // later drop is a drop, not a return to the opening state.
   const [everConnected, setEverConnected] = useState(false)
-  // (#289 §17, #312) Set when the server rejected an operation as
-  // `target_gone` — the only rejection that can read as "my work vanished"
-  // (drawn while offline/dropped onto a layer since deleted).
-  //
-  // `restoredLayerIds` non-empty means the content was actually recovered
-  // onto fresh layers (see recoverLostWork) and the banner offers to undo
-  // that; empty means there was nothing recoverable — a rejected
-  // merge/transform — and it stays the plain notice it has always been.
-  // Deliberately not an automatic room fork (see Outbox's onSettled).
-  const [lostWork, setLostWork] = useState<{ layerNames: string[]; restoredLayerIds: string[] } | null>(null)
-  // Assigned once recoverLostWork exists (it needs the engine and
-  // syncFromLog, both defined well below the Outbox this is called from).
-  const recoverLostWorkRef = useRef<((ops: LostContentOp[]) => void) | null>(null)
-  // (#312) Rejected content operations waiting to be recovered as a batch —
-  // see createLostWorkBatcher for the debounce and its cap.
-  const lostWorkBatchRef = useRef(createLostWorkBatcher({
-    onFlush: ops => recoverLostWorkRef.current?.(ops),
-    quietMs: LOST_WORK_QUIET_MS, maxWaitMs: LOST_WORK_MAX_WAIT_MS,
-    timers: { set: (fn, ms) => window.setTimeout(fn, ms), clear: id => window.clearTimeout(id) },
-    now: () => Date.now(),
-  }))
   // (#346) Same shape, same reason: `requestFullResync` is defined inside the
   // socket-wiring effect (it needs that effect's own `socket`), and the paper
   // retry below — a UI callback with no socket of its own — is what has to
@@ -921,6 +891,15 @@ function RoomEditor() {
   }, [])
   // (#537) Own operations' place in the room's order, and the #480 counter.
   const { noteOperationSeq, resetLayerSeqs, confirmOwnOperation, discardOwnOperation, syncFromLogRef } = useTrueOrder({ engineRef })
+  // (#148, #169, #386, #508) The store's layer state and annotations, derived
+  // from the engine's log — coalesced per burst, or now — see
+  // useLogDerivedState.
+  const { restoredLayerStateRef, syncFromLog, syncFromLogNow } = useLogDerivedState({ engineRef })
+  syncFromLogRef.current = syncFromLog
+  // (#289 §17, #312) Work the server refused as `target_gone`, brought back on
+  // fresh layers and reported — see useLostWork.
+  const { lostWork, setLostWork, scheduleLostWorkRecovery, resetLostWork } =
+    useLostWork({ engineRef, restoredLayerStateRef, syncFromLog })
   // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
   // client itself created but the server hasn't confirmed yet — the
   // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
@@ -1000,12 +979,6 @@ function RoomEditor() {
   // useOpenTimer.
   const { openTimerRef, startOpenTimer, finishOpenTimer } = useOpenTimer({ id, engineRef })
 
-  // (#312) Queues one rejected content operation for recovery — see
-  // createLostWorkBatcher.
-  const scheduleLostWorkRecovery = useCallback((op: LostContentOp) => {
-    lostWorkBatchRef.current.add(op)
-  }, [])
-
   // (#289 epic, reliable history spec v0.2 §9) Every outgoing operation goes
   // through here rather than a bare `socket.emit` — persisted to IndexedDB
   // first, retried with exponential backoff until a real `SendResult`
@@ -1059,7 +1032,10 @@ function RoomEditor() {
     // setState is safe from any callsite: React batches, and the Outbox
     // only ever calls this after a real size change.
     onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
-  }), [outboxBoardId, checkSnapshotBoundary, confirmOwnOperation, discardOwnOperation, scheduleLostWorkRecovery, resolveTransformCommit])
+  }), [
+    outboxBoardId, checkSnapshotBoundary, confirmOwnOperation, discardOwnOperation, scheduleLostWorkRecovery,
+    resolveTransformCommit, setLostWork,
+  ])
   // (#176) For the socket effect, which must not list `outbox` as a
   // dependency — see snapshotUploaderRef.
   const outboxRef = useRef(outbox)
@@ -1185,56 +1161,6 @@ function RoomEditor() {
     if (!id) navigate('/create')
   }, [id, navigate])
 
-  // ── operation log bridge ──────────────────────────────────────────────────────
-  // (#148, #169, #386, #508) The store's layer state and annotations, derived
-  // from the engine's log — coalesced per burst, or now — see
-  // useLogDerivedState.
-  const { restoredLayerStateRef, syncFromLog, syncFromLogNow } = useLogDerivedState({ engineRef })
-  syncFromLogRef.current = syncFromLog
-
-  // (#312) Mints one replacement layer per dead target and replays the
-  // rejected operations onto it, in their original draw order.
-  //
-  // A *new* layer rather than resurrecting the deleted one, deliberately:
-  // `aliveIds` on the server is a monotonic fold over the log, so un-deleting
-  // an id would break that invariant and leave every client to answer "what
-  // about the operations between the delete and the resurrection" on its
-  // own — the exact class of divergence #289 exists to remove. A fresh layer
-  // is an ordinary `layer_add` plus ordinary strokes: no new server
-  // semantics, and replay converges everywhere by construction.
-  //
-  // The content comes from this client's own rejected operations, never from
-  // a pixel bake of the dead layer. Those operations go through the same
-  // validation as any other, so the server is asked to trust nothing new —
-  // whereas uploading client-baked pixels as truth is exactly #287, which
-  // poisoned a room and is why snapshot pruning is still switched off. Worth
-  // noting this is also the only source that survives at all once pruning
-  // returns (#207): a snapshot taken after the deletion no longer contains
-  // the layer, and the strokes below it get pruned, so the author's own
-  // device is the last place this work exists.
-  const recoverLostWork = useCallback((lost: LostContentOp[]) => {
-    const engine = engineRef.current
-    if (!lost.length || !engine) return
-    const { layerState: live, userId } = useRoomStore.getState()
-    // (#493) Which operations bring it back — see recoveryOperations. Same
-    // optimistic path dispatchOp takes for local-island work: a brand-new
-    // layer and strokes onto it can't conflict with anything, since nobody
-    // else has heard of the id yet.
-    const { operations, layerNames, restoredLayerIds } = recoveryOperations({
-      lost, live, log: engine.getOperations(), restored: restoredLayerStateRef.current, userId,
-      unnamedLayer: t('room.lostWork.unnamedLayer'),
-      restoredName: name => t('room.lostWork.restoredLayerName', { name }),
-      newId: () => nanoid(10), now: () => Date.now(),
-    })
-    for (const op of operations) engine.appendOperation(op)
-    syncFromLog()
-    setLostWork({ layerNames, restoredLayerIds })
-  }, [syncFromLog, t, restoredLayerStateRef])
-
-  useEffect(() => {
-    recoverLostWorkRef.current = recoverLostWork
-  }, [recoverLostWork])
-
   // (#313) Surfaces a previous page load's unconfirmed work immediately,
   // without waiting for a join that may never come on this visit — the
   // offline screen's whole job is to report that number at exactly the
@@ -1308,10 +1234,6 @@ function RoomEditor() {
     setRestoreFailure(null)
     requestFullResyncRef.current?.()
   }, [])
-
-  // Any pending batch dies with the room — a timer firing after unmount would
-  // append to an engine that no longer exists.
-  useEffect(() => () => { lostWorkBatchRef.current.reset() }, [])
 
   // (#493) How the network's operations reach the engine — once each, deferred
   // until their target arrives, restored from a snapshot and backfilled behind
@@ -1402,8 +1324,7 @@ function RoomEditor() {
     pendingPreviewsRef.current = createPendingPreviews()
     streamedStrokeIdsRef.current = new Set()
     restoredLayerStateRef.current = null
-    lostWorkBatchRef.current.reset()
-    setLostWork(null)
+    resetLostWork()
     setRestoreFailure(null)
     // Blocked until the new engine's replay says otherwise — the same gate a
     // first join sits behind (see roomContentReady's own doc comment).
@@ -1421,7 +1342,7 @@ function RoomEditor() {
   // (#493) Stable: a `useCallback` with no dependencies inside useDrawingActivity,
   // so naming it keeps this callback exactly as stable as it was with the
   // bare state setter it replaces.
-  }, [resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs, appliedOpIdsRef, deferredOpsQueueRef])
+  }, [resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs, appliedOpIdsRef, deferredOpsQueueRef, resetLostWork])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1665,7 +1586,7 @@ function RoomEditor() {
     const ids = lostWork?.restoredLayerIds ?? []
     setLostWork(null)
     if (ids.length) dispatchOp({ type: 'layer_delete', layerIds: ids })
-  }, [lostWork, dispatchOp])
+  }, [lostWork, dispatchOp, setLostWork])
 
   // (#263/#608) LayerPanel has no direct engine access — the callbacks it
   // needs from the engine and the editor come through this bridge instead.
