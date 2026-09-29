@@ -9844,12 +9844,23 @@ export class PencilEngine implements PencilEngineAPI {
     // not rewrite what the operation says. Being a pure function of dab.size,
     // it lands identically on every replay anyway.
     const floorPx = profile.minHalfWidthPx
+    // (#536, §17.64) Each dab's place in `dabs`, which is what the recorded
+    // wet profile is indexed by - one digit per dab of the operation (or of
+    // the live batch's slice). The filters below drop dabs, and reading the
+    // profile by position in what is left shifted every digit after the first
+    // one dropped - by how many were dropped before it in THIS call, so a live
+    // stroke and its one-batch replay read different paper under the same dab.
+    const wetIndex = new Map<Dab, number>()
     let drawable = floorPx === null
-      ? dabs.filter(d => d.size * 0.5 * preset.sizeMultiplier >= 0.5)
-      : dabs.map(d => {
+      ? dabs.filter((d, i) => { wetIndex.set(d, i); return d.size * 0.5 * preset.sizeMultiplier >= 0.5 })
+      : dabs.map((d, i) => {
         const half = d.size * 0.5 * preset.sizeMultiplier
-        return half >= floorPx ? d : { ...d, size: (floorPx * 2) / preset.sizeMultiplier }
+        const out = half >= floorPx ? d : { ...d, size: (floorPx * 2) / preset.sizeMultiplier }
+        wetIndex.set(out, i)
+        return out
       })
+    // -1 for a dab not of this call (the bridging prevDab), as the loop below read it.
+    const wetOf = (d: Dab): number => wetAt(wetProfile, wetIndex.get(d) ?? -1)
     // (§17.28) The deposit as a FILM under MAX blending - see RibbonTileScratch.strokeInk.
     const film = profile.normalizeDeposit && !!this._minmaxExt && !!scratch
     // (§17.28) Only the dabs that MOVED deposit - see watercolorTravelQuantum.
@@ -9885,13 +9896,13 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) …and by the halo a wet-paper dab lays around itself, at the widest
     // it can be for that wetness — this is a bound, and erring outward is the
     // cheap direction. See watercolorHalo.
-    const haloBound = (i: number): number =>
-      profile.normalizeDeposit ? watercolorHalo(wetAt(wetProfile, i), 1).scale : 1
+    const haloBound = (d: Dab): number =>
+      profile.normalizeDeposit ? watercolorHalo(wetOf(d), 1).scale : 1
     // …and the reach the halo is allowed past the bloom, at the cap: the
     // gesture's own spread is not resolved until further down, and this is a
     // bound, so the ceiling stands in.
-    const haloPast = (i: number): number =>
-      profile.normalizeDeposit && wetAt(wetProfile, i) > 0
+    const haloPast = (d: Dab): number =>
+      profile.normalizeDeposit && wetOf(d) > 0
         ? WATERCOLOR_HALO_PAST_BLOOM * WATERCOLOR_SPREAD.cap : 0
     // (§17.46) Two rects. The REACH (halo bound included) is what the gesture
     // hands its settle as the window the wet-in-wet may move paint in - cut
@@ -9903,10 +9914,9 @@ export class PencilEngine implements PencilEngineAPI {
     // recomposite three to four times the area every frame, the tablet's one
     // dropped frame in six.
     let rMinX = Infinity, rMinY = Infinity, rMaxX = -Infinity, rMaxY = -Infinity
-    for (const [i, d] of (prevDab ? [prevDab, ...drawable] : drawable).entries()) {
+    for (const d of prevDab ? [prevDab, ...drawable] : drawable) {
       const { hx, hy } = this._dabWorldHalfExtents(d, false, preset)
-      const k = prevDab ? i - 1 : i
-      const g = haloBound(k), past = haloPast(k)
+      const g = haloBound(d), past = haloPast(d)
       rMinX = Math.min(rMinX, d.x - hx * g - past); rMaxX = Math.max(rMaxX, d.x + hx * g + past)
       rMinY = Math.min(rMinY, d.y - hy * g - past); rMaxY = Math.max(rMaxY, d.y + hy * g + past)
       const pg = WATERCOLOR_HALO_DRAWN ? g : 1, pp = WATERCOLOR_HALO_DRAWN ? past : 0
@@ -10060,9 +10070,9 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.23) …and the nib's own radius, without the halo's bound: what the
     // rim is scaled by.
     let nibRadius = 0
-    for (const [i, d] of drawable.entries()) {
+    for (const d of drawable) {
       const minor = d.size * 0.5 * preset.sizeMultiplier
-      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(i) + haloPast(i))
+      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(d) + haloPast(d))
       nibRadius = Math.max(nibRadius, minor * Math.max(d.aspectRatio, 1))
     }
     // Everything that can still change this pixel, **summed** rather than
@@ -10178,10 +10188,8 @@ export class PencilEngine implements PencilEngineAPI {
       let prev = prevDab
       let used = scratch.waterUsed
       let pigUsed = scratch.pigmentUsed
-      let idx = -1
       for (const dab of drawable) {
-        idx++
-        const wetHere = wetAt(wetProfile, idx)
+        const wetHere = wetOf(dab)
         paperWetByDab.set(dab, wetHere)
         // #489: travel measured in *this* nib's units, which for a flat one
         // depends on which way it is being dragged (watercolorTravelRadius).

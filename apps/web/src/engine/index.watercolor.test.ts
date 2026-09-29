@@ -1327,6 +1327,24 @@ describe('a gesture begun off the sheet (#536 §17.63)', () => {
     expect(spent(cut, 'w1')).toEqual(spent(whole, 'w1'))
   })
 
+  // (§17.64) The wet profile is one digit per dab of the operation, and the
+  // travel quantum drops a dab that has not moved. Read by position in what
+  // survived, every digit after the drop shifted - by the drops earlier in
+  // THIS call, so the same dab read different paper whole and cut.
+  it('reads the paper under each dab by its place in the operation, whatever was dropped', () => {
+    const dabs = [dab(8, 32, { size: 24, t: 0 }), dab(8.2, 32, { size: 24, t: 8 }),
+      ...Array.from({ length: 6 }, (_, i) => dab(20 + i * 8, 32, { size: 24, t: 16 + i * 8 }))]
+    const wet = 'f0f0f0f0'
+    const whole = setupLayer()
+    whole.appendOperation(makeStroke('user-b', 'L', dabs, { tool: 'watercolor', preset: PRESET, strokeId: 's2', washId: 'w2', wet }), 'remote')
+    land(whole)
+    const cut = setupLayer()
+    cut.appendOperation(makeStroke('user-b', 'L', dabs.slice(0, 3), { tool: 'watercolor', preset: PRESET, strokeId: 's2', washId: 'w2', wet: wet.slice(0, 3) }), 'remote')
+    cut.appendOperation(makeStroke('user-b', 'L', dabs.slice(3), { tool: 'watercolor', preset: PRESET, strokeId: 's2', washId: 'w2', wet: wet.slice(3) }), 'remote')
+    land(cut)
+    expect(spent(cut, 'w2')).toEqual(spent(whole, 'w2'))
+  })
+
   // The chunk span doubles for a half-resolution settle, and the settle decides
   // that from the nib the dabs drew - pressure included - not from the size
   // slider. A 96 slider at a light touch settles at full resolution in a field
