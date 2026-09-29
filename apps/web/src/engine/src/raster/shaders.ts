@@ -5121,7 +5121,7 @@ export const BRUSH_COMPOSITE_FRAG = `
   // Screentone pitch in world px, 0 = continuous tone.
   uniform float u_screentone;
   // This tile's world origin, already reduced modulo the screen's own period
-  // on the CPU — see _drawBrushComposite. Keeps every number this shader
+  // on the CPU — see BrushPainter.drawComposite. Keeps every number this shader
   // handles small, so a mediump fallback cannot shift the dots.
   uniform vec2 u_screenOrigin;
   // (#579) Digital watercolor — see BrushDescriptor.wet. u_wetEdgePx is a

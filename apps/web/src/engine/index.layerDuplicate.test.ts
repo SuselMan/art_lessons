@@ -53,7 +53,7 @@ describe('layer_duplicate: the copy carries the source pixels and the source sur
 })
 
 describe('layer_duplicate: rebuild from the log reproduces the live copy', () => {
-  it('rebuilds byte-for-byte through _replayDuplicateInto when no checkpoint is available', () => {
+  it('rebuilds byte-for-byte through StructuralOps.replayDuplicateInto when no checkpoint is available', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
 
     engine.appendOperation(makeLayerAdd('user-a', 'A'))
@@ -62,7 +62,7 @@ describe('layer_duplicate: rebuild from the log reproduces the live copy', () =>
 
     const liveCopy = readLayerPixels(engine, 'A-copy')!
     expect(liveCopy.some(v => v > 0)).toBe(true)
-    // The live path took its own immediate checkpoint (see _execDuplicateLive)
+    // The live path took its own immediate checkpoint (see StructuralOps.duplicateLive)
     // — which is exactly what would otherwise short-circuit the rebuild below
     // and hide the from-scratch replay path entirely.
     expect(checkpointCountFor(engine, 'A-copy')).toBe(1)

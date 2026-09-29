@@ -103,7 +103,7 @@ describe('layer_merge: undo restores sources, redo restores the merged result', 
   })
 })
 
-describe('layer_merge of a merge result: recursive _replayMergeInto reproduces the live composite exactly', () => {
+describe('layer_merge of a merge result: recursive StructuralOps.replayMergeInto reproduces the live composite exactly', () => {
   it('rebuilding a merge-of-a-merge from scratch (no checkpoints available) matches the original live composite bit-for-bit', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
 
@@ -120,7 +120,7 @@ describe('layer_merge of a merge result: recursive _replayMergeInto reproduces t
     const liveM2 = readLayerPixels(engine, 'M2')!
     expect(liveM2.some(v => v > 0)).toBe(true)
     // Sanity: the live merge path took its own immediate checkpoints for
-    // both M1 and M2 (see _execMergeLive) — that's what would normally
+    // both M1 and M2 (see StructuralOps.mergeLive) — that's what would normally
     // short-circuit a rebuild and hide the recursive replay path entirely.
     expect(checkpointCountFor(engine, 'M1')).toBe(1)
     expect(checkpointCountFor(engine, 'M2')).toBe(1)
@@ -134,7 +134,7 @@ describe('layer_merge of a merge result: recursive _replayMergeInto reproduces t
     // Simulate checkpoint eviction (the real trigger is CHECKPOINT_BUDGET_BYTES
     // pressure in a long real session with large canvases — impractical to
     // reach honestly with an 16x16 test canvas) so redoing M2 is forced
-    // through _replayMergeInto's from-scratch recursive path for both M2 and
+    // through StructuralOps.replayMergeInto's from-scratch recursive path for both M2 and
     // its M1 source, instead of the checkpoint fast path.
     clearCheckpoints(engine)
 

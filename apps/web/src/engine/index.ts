@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { DAB_VERT, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
+import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -8,6 +8,7 @@ import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchSlot } from './src/buffers/scratchPools'
 import { SnapshotLedger } from './src/oplog/snapshotLedger'
 import { SnapshotIO } from './src/oplog/SnapshotIO'
+import { StructuralOps } from './src/oplog/structuralOps'
 import { BlitPasses } from './src/raster/blitPasses'
 import { AreaOps, asImportRecord, type AreaImage, type AreaFillRequest, type AreaFillRaster } from './src/raster/AreaOps'
 import { LayerPreviews } from './src/raster/layerPreviews'
@@ -18,6 +19,7 @@ import { ShapePass } from './src/raster/ShapePass'
 import { FilterPass } from './src/filters/FilterPass'
 import { Exporter } from './src/export/Exporter'
 import { SmudgePainter } from './src/dabs/SmudgePainter'
+import { BrushPainter } from './src/dabs/BrushPainter'
 import { StampPainter, dabWorldHalfExtents } from './src/dabs/StampPainter'
 import { bakeDabOpacity } from './src/dabs/dabOpacity'
 import { nibScallops, presetForTool, renderSizeScale, resolveGrainMode } from './src/presets/resolvePreset'
@@ -60,7 +62,7 @@ import {
   type DwellConfig, type LinerSizeMm,
 } from './src/presets/linerPresets'
 import {
-  brushStampsForDab, digitalBrushCeiling, digitalBrushFromPreset, digitalBrushMixer,
+  digitalBrushFromPreset, digitalBrushMixer,
   type BrushDescriptor, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
 export {
@@ -68,7 +70,6 @@ export {
   digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset, digitalBrushPressureFromPreset,
   type BrushDescriptor, type BrushTip, type BrushCategory, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
-import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from './src/presets/tipMasks'
 import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/dabs/markerRibbon'
 import { markerThinNibInkGain } from './src/dabs/markerInkGain'
 
@@ -103,7 +104,7 @@ import {
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
-import { TILE_SIZE, coarseFactorFor, type WorldRect } from './src/buffers/tileMath'
+import { TILE_SIZE, coarseFactorFor } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
@@ -1330,19 +1331,6 @@ interface WashReveal {
 // wants to be 40 or 120.
 const LIVE_STROKE_EMIT_INTERVAL_MS = 60
 
-/** #579 — the digital watercolor's wet rim, as a fraction of the brush's size,
- *  clamped so a thin line still has one and a huge wash does not read its rim
- *  from half a tile away (each ring sample is one texture read either way). */
-const WET_EDGE_OF_SIZE = 0.06
-const WET_EDGE_MIN_PX = 1.5
-const WET_EDGE_MAX_PX = 14
-
-/** #579 — world size of one tile of the bloom and granulation textures. Large
- *  for the blooms, which are meant to be bigger than the brush; small for the
- *  grain, which is meant to be finer than anything the brush draws. */
-const WET_CLOUD_PERIOD_PX = 640
-const WET_GRAIN_PERIOD_PX = 224
-
 // The marker's own ribbon constants (edge ramp, curvature tolerance, chisel
 // corner radius, rim ink falloff) moved to src/dabs/ribbonProfile.ts in #454: they
 // describe how the ribbon rasterizer draws one tool, and there are two such
@@ -2146,10 +2134,6 @@ interface ScratchSnapshot {
   tiles: Array<{ originX: number; originY: number; width: number; height: number; bufs: Partial<Record<typeof SNAPSHOT_TILE_BUFFERS[number], AccumulationBuffer>> }>
 }
 
-function clampNum(x: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, x))
-}
-
 // ─── Engine ────────────────────────────────────────────────────────────────────
 
 export class PencilEngine implements PencilEngineAPI {
@@ -2487,9 +2471,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldCache: Array<SettleField> = []
   // (#494) The transform, selection and image blits — see blitPasses.ts.
   private _passes!: BlitPasses
-  // #573 — the digital brush's stamp model (BRUSH_STAMP_FRAG / BRUSH_COMPOSITE_FRAG).
-  private _brushStampProg!: WebGLProgram
-  private _brushCompositeProg!: WebGLProgram
   // Marker ribbon (#330 stage 2) — the bands between consecutive nib stamps
   // (markerRibbon.ts). Its own tiny program: unlike every other dab draw, the
   // vertices arrive already positioned by the CPU and carry a per-vertex
@@ -2516,11 +2497,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonPuddleLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
-  private _brushStampUni!: Record<string, WebGLUniformLocation | null>
-  private _brushCompositeUni!: Record<string, WebGLUniformLocation | null>
   private _compositePosLoc!: number
-  private _brushStampPosLoc!: number
-  private _brushCompositePosLoc!: number
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
@@ -2615,12 +2592,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperComposePosLoc!: number
 
   private _minmaxExt: { MAX_EXT: number } | null = null
-  private _blendMinMaxExt: { MAX_EXT: number } | null = null
-  /** #573 — the digital brush's bitmap tips, uploaded on first use (tipMasks.ts
-   *  generates them on the CPU, deterministically, with their full mip chain). */
-  private _tipTextures = new Map<TipMaskId, WebGLTexture>()
-  /** #573 — the brushes' canvas-anchored textures, tiled with REPEAT. */
-  private _brushTextures = new Map<BrushTextureId, WebGLTexture>()
+  // (#494) The digital brush's stamp model, its tips and textures — see
+  // BrushPainter.ts. Its programs are built by _initGL, like every other one.
+  private readonly _brush: BrushPainter
 
   // (#494) Floating layer previews — the scratch tiles a gesture shows in
   // place of a layer's own while it is being placed. Written by AreaOps,
@@ -2660,6 +2634,8 @@ export class PencilEngine implements PencilEngineAPI {
   // anything new to publish, what its restored pixels already contain, whether
   // it may be published at all. See snapshotLedger.ts.
   private readonly _snapshots = new SnapshotLedger()
+  // (#494) Layer merge and duplicate — see structuralOps.ts.
+  private readonly _structural: StructuralOps
   // (#494) Snapshot bake, restore, audit and history backfill over the ledger
   // above — see SnapshotIO.ts.
   private readonly _snapshotIO: SnapshotIO
@@ -2910,6 +2886,23 @@ export class PencilEngine implements PencilEngineAPI {
       applyPixelOp: (buf, id, op) => this._applyPixelOp(buf, id, op),
       preloadImages: ops => { void this.preloadImages(ops) },
     })
+    // (#494) Layer merge and duplicate — see structuralOps.ts. The layer map
+    // and the log are assigned further down, hence functions.
+    this._structural = new StructuralOps({
+      ledger: this._snapshots,
+      log: () => this._log,
+      layer: id => this._layers.get(id),
+      hasLayer: id => this._layers.has(id),
+      setLayer: (id, buf) => { this._layers.set(id, buf) },
+      makeLayerBuffer: id => this._makeLayerBuffer(id),
+      createBuffer: id => this._createBuffer(id),
+      destroyBuffer: id => this._destroyBuffer(id),
+      replayInto: (buf, id, ops) => this._replayInto(buf, id, ops),
+      compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
+      takeCheckpoint: id => this._takeCheckpoint(id),
+      invalidateSplitCache: () => this._invalidateSplitCache(),
+      displayIfNotSuspended: () => this._displayIfNotSuspended(),
+    })
     // (#494) Layer filters — see FilterPass.ts.
     this._filters = new FilterPass({
       gl,
@@ -2938,6 +2931,15 @@ export class PencilEngine implements PencilEngineAPI {
       quadBuf: () => this._quadBuf,
       paper: this._paper,
       grainMode: charcoal => this._resolveGrainMode(charcoal),
+    })
+
+    // (#494) The digital brush — see BrushPainter.ts; its programs are
+    // built by _initGL below too.
+    this._brush = new BrushPainter({
+      gl,
+      quadBuf: () => this._quadBuf,
+      paper: this._paper,
+      segmentLength: (dab, prev, radius) => this._markerSegmentLength(dab, prev, radius),
     })
 
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
@@ -3164,7 +3166,7 @@ export class PencilEngine implements PencilEngineAPI {
   retryPaper(): Promise<void> { return this._paper.retry() }
 
   /** (#147) What appendOperation's own branches and _applyHistoryChange/
-   *  _execMergeLive call instead of `this._display()` directly — a no-op
+   *  StructuralOps call instead of `this._display()` directly — a no-op
    *  while a suspendDisplay() span is active (see its own doc comment),
    *  otherwise identical to calling _display() right there. */
   private _displayIfNotSuspended(): void {
@@ -3330,22 +3332,10 @@ export class PencilEngine implements PencilEngineAPI {
         break
       }
       case 'layer_merge':
-        // (#374) A merge that a restored snapshot already accounts for still
-        // has to happen structurally — the result layer exists, its sources
-        // do not — but must not composite anything: the result's pixels came
-        // back from the snapshot, and `_execMergeLive` would replace that
-        // buffer with a freshly composited one, discarding them.
-        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execMergeStructuralOnly(op)
-        else this._execMergeLive(op)
+        this._structural.execMerge(op) // (#374) see StructuralOps.execMerge
         break
       case 'layer_duplicate':
-        // (#449) Same two-way split as layer_merge above and for the same
-        // reason: the copy's pixels can already have come back from a restored
-        // snapshot, and re-copying the source over them would be wrong twice —
-        // it discards whatever was painted on the copy after the duplicate, and
-        // the source itself has moved on since.
-        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execDuplicateStructuralOnly(op)
-        else this._execDuplicateLive(op)
+        this._structural.execDuplicate(op) // (#449)
         break
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
@@ -4461,6 +4451,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._exporter.destroy()
     this._smudge.destroy()
     this._stamps.destroy()
+    this._brush.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
@@ -4906,15 +4897,15 @@ export class PencilEngine implements PencilEngineAPI {
         buf.clear()
         break
       case 'layer_merge':
-        this._replayMergeInto(buf, op)
+        this._structural.replayMergeInto(buf, op)
         break
       case 'layer_duplicate':
-        this._replayDuplicateInto(buf, op)
+        this._structural.replayDuplicateInto(buf, op)
         break
       case 'image_import':
         // (#398) Same as appendOperation's own branch, minus the late-arrival
         // repair: this one can be replaying into a throwaway scratch buffer
-        // (see _replayMergeInto), which has no layer to rebuild. Every replay
+        // (see StructuralOps.replayMergeInto), which has no layer to rebuild. Every replay
         // that matters here reaches this with the image already decoded —
         // preloadImages on the join/reconnect paths, and the cache entry the
         // first paint left behind for undo/redo's later rebuilds.
@@ -4985,11 +4976,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  Camera.visibleWorldRect and _composeToFBO/_display, both
    *  unchanged in size), so this never changes what an on-page bounded room
    *  looks like. */
-  /** `layerId` given: this is (or is about to become, see _execMergeLive) a
+  /** `layerId` given: this is (or is about to become, see StructuralOps.mergeLive) a
    *  real, persistent layer buffer — wires up #144's rebuild-on-demand hook
    *  so it's eligible for byte-budget eviction (see TiledLayerBuffer's own
    *  docstring). Omitted: a short-lived scratch/temp buffer (a merge
-   *  source's replay target in _replayMergeInto, or _makeTileRebuilder's own
+   *  source's replay target in StructuralOps.replayMergeInto, or _makeTileRebuilder's own
    *  recovery-replay scratch below) that's destroyed the moment the one
    *  operation using it finishes and never queried again afterward — no
    *  rebuildTile is wired, which is also what keeps it from evicting at all
@@ -5037,7 +5028,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  Recovering one specific tile in isolation, without replaying (and
    *  therefore fully recreating, defeating eviction's own point) every
    *  *other* tile the layer has ever touched, isn't possible in general:
-   *  AreaOps.bakeLayerTransform/_replayMergeInto are inherently whole-layer, cross-tile
+   *  AreaOps.bakeLayerTransform/StructuralOps.replayMergeInto are inherently whole-layer, cross-tile
    *  operations (a bake's destination tile can draw from any source tile;
    *  a merge composites every one of a source layer's tiles) — replaying
    *  the tail of pixel ops into anything less than a real, full multi-tile
@@ -5108,149 +5099,6 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._infinite) return { w: TILE_SIZE, h: TILE_SIZE }
     const { w, h } = this._pageSize()
     return { w: Math.min(TILE_SIZE, w), h: Math.min(TILE_SIZE, h) }
-  }
-
-  /** Composites every buffer `source` currently holds into the
-   *  corresponding buffer(s) of `dest` at the same world position, at
-   *  `opacity` — the tile-generalized form of a single
-   *  `_compositeTextures([{texture: source.texture, opacity}], dest.fbo)`
-   *  call. Bounded mode: source/dest each have exactly one buffer at origin
-   *  (0,0), so this reduces to exactly that one call. Infinite mode: each
-   *  of source's resident tiles lands on the one dest tile at the same
-   *  world position (both use the same TILE_SIZE grid rooted at the same
-   *  origin, so tile boundaries always line up — no cross-tile blending
-   *  needed here, unlike a transform bake). */
-  private _compositeLayerInto(source: ILayerBuffer, dest: ILayerBuffer, opacity: number): void {
-    for (const src of source.allResident()) {
-      const rect: WorldRect = {
-        minX: src.originX, minY: src.originY,
-        maxX: src.originX + src.buffer.width, maxY: src.originY + src.buffer.height,
-      }
-      for (const destTarget of dest.resolveForPaint(rect)) {
-        this._compositeTextures(
-          [{ texture: src.buffer.texture, opacity }], destTarget.buffer.fbo,
-          destTarget.buffer.width, destTarget.buffer.height,
-        )
-      }
-      // (#155 Tier 2) Same grid, same origin (see this method's own doc
-      // comment) — src's real content rect lands on dest at the exact same
-      // world coordinates, no transform to reason about. null (src tile
-      // fully empty) means nothing to mark, same as skipping the composite
-      // itself would (the blend above is just a no-op in that case).
-      if (src.contentRect) dest.markContentPainted(src.contentRect)
-    }
-  }
-
-  /** Replays a merge: rebuilds each source as it was just before the merge
-   *  (done ops with lower seq) into a temp buffer and composites bottom→top
-   *  with the opacities captured in the operation. Recursive when a source is
-   *  itself a merge result. */
-  private _replayMergeInto(buf: ILayerBuffer, op: LayerMergeOperation): void {
-    buf.clear()
-    for (const src of op.sources) {
-      const temp = this._makeLayerBuffer()
-      this._replayInto(temp, src.id, this._log.layerPixelOps(src.id, op.seq))
-      this._compositeLayerInto(temp, buf, src.opacity)
-      temp.destroy()
-    }
-  }
-
-  /** (#449) Replays a duplicate: rebuilds the source as it was just before the
-   *  duplicate (done ops with lower seq) into a temp buffer and copies it in.
-   *  Recursive when the source is itself a merge or duplicate result.
-   *
-   *  Composited at 1, not at the source's opacity: the copy carries that
-   *  opacity as its own layer property (see applyContentOp's layer_duplicate
-   *  case), so applying it to the pixels as well would show it twice — a copy
-   *  of a 50% layer would land at 25%. This is the one place a duplicate
-   *  deliberately differs from a merge, which has no layer of its own left to
-   *  hold the source opacities and must bake them. */
-  private _replayDuplicateInto(buf: ILayerBuffer, op: LayerDuplicateOperation): void {
-    buf.clear()
-    const temp = this._makeLayerBuffer()
-    this._replayInto(temp, op.sourceId, this._log.layerPixelOps(op.sourceId, op.seq))
-    this._compositeLayerInto(temp, buf, 1)
-    temp.destroy()
-  }
-
-  /** (#374) The structural half of a merge, for one whose pixel result a
-   *  restored snapshot already holds.
-   *
-   *  Deliberately keeps the existing target buffer rather than making a new
-   *  one: that buffer is what `restoreLayerFromSnapshot` filled, and it is the
-   *  merge's result, arrived by a shorter route. Sources still have to go —
-   *  a merge consumes them, and leaving them alive would show every merged
-   *  layer twice, once inside the result and once beside it.
-   *
-   *  No checkpoint is taken: the restore already pinned one holding exactly
-   *  these pixels. */
-  private _execMergeStructuralOnly(op: LayerMergeOperation): void {
-    this._invalidateSplitCache()
-    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
-    for (const s of op.sources) this._destroyBuffer(s.id)
-    this._displayIfNotSuspended()
-  }
-
-  /** Live merge fast path: sources' buffers already hold replay state, so
-   *  composite them directly instead of rebuilding. The immediate checkpoint
-   *  spares the recursive source rebuild on any later undo above this layer. */
-  private _execMergeLive(op: LayerMergeOperation): void {
-    // #122: sources are destroyed and a new target buffer object takes their
-    // place — always structural, regardless of whether any of the ids
-    // involved happen to be the active layer.
-    this._invalidateSplitCache()
-    const target = this._makeLayerBuffer(op.layerId)
-    target.clear()
-    for (const s of op.sources) {
-      const buf = this._layers.get(s.id)
-      if (buf) this._compositeLayerInto(buf, target, s.opacity)
-    }
-    this._layers.set(op.layerId, target)
-    this._snapshots.markDirty(op.layerId)
-    for (const s of op.sources) this._destroyBuffer(s.id)
-    this._takeCheckpoint(op.layerId)
-    this._displayIfNotSuspended()
-  }
-
-  /** (#449) The structural half of a duplicate whose pixel result a restored
-   *  snapshot already holds — the copy is a layer in its own right by then,
-   *  restored like any other, so there is nothing left to copy into it.
-   *
-   *  Shorter than its merge counterpart because a duplicate consumes nothing:
-   *  no sources to destroy, and the source layer is meant to still be there. */
-  private _execDuplicateStructuralOnly(op: LayerDuplicateOperation): void {
-    this._invalidateSplitCache()
-    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
-    this._displayIfNotSuspended()
-  }
-
-  /** Live duplicate fast path, the counterpart of _execMergeLive: the source's
-   *  buffer already holds replay state, so copy it directly instead of
-   *  rebuilding its whole history into a scratch buffer.
-   *
-   *  A missing source buffer produces an empty copy rather than a refusal.
-   *  Operations apply in true seq order, and the server rejects a duplicate
-   *  naming a dead id (rooms.ts's getOperationRejectReason), so the only way to
-   *  reach that is a source this client has not built yet — the same condition
-   *  every other pixel branch here treats as "skip, the log is the truth" (see
-   *  appendOperation's own doc comment).
-   *
-   *  The immediate checkpoint matters more here than it does for a merge: a
-   *  duplicate's replay is a full from-scratch rebuild of *another* layer's
-   *  entire history into a temp buffer, which the checkpoint spares every
-   *  later undo above this one. */
-  private _execDuplicateLive(op: LayerDuplicateOperation): void {
-    this._invalidateSplitCache()
-    const target = this._makeLayerBuffer(op.layerId)
-    target.clear()
-    const source = this._layers.get(op.sourceId)
-    // Opacity 1 — see _replayDuplicateInto for why the source's own opacity
-    // must not be baked into the pixels here.
-    if (source) this._compositeLayerInto(source, target, 1)
-    this._layers.set(op.layerId, target)
-    this._snapshots.markDirty(op.layerId)
-    this._takeCheckpoint(op.layerId)
-    this._displayIfNotSuspended()
   }
 
   // ─── Context loss (#121) ─────────────────────────────────────────────────────
@@ -5813,11 +5661,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._shapes.initGL()
     // (#494) Export's transparent and thumbnail-downscale passes — see Exporter.ts.
     this._exporter.initGL()
+    this._brush.initGL() // (#494) see BrushPainter.ts
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
-    this._brushStampProg      = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
-    this._brushCompositeProg  = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
 
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
       'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
@@ -5840,21 +5687,6 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
       'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetPeak',
     ])
-    this._brushStampUni = getUniforms(gl, this._brushStampProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity',
-      'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure',
-      'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin',
-    ])
-    this._brushCompositeUni = getUniforms(gl, this._brushCompositeProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_original', 'u_strokeCoverage', 'u_color', 'u_opacity', 'u_useCeiling',
-      'u_screentone', 'u_screenOrigin',
-      'u_wetEdge', 'u_wetEdgePx', 'u_mottle', 'u_granulation', 'u_glaze',
-      'u_cloudTex', 'u_grainTex', 'u_cloudPeriod', 'u_cloudOrigin', 'u_grainPeriod', 'u_grainOrigin',
-      'u_wetModel', 'u_bloom', 'u_feather',
-      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-    ])
 
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
@@ -5865,8 +5697,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
-    this._brushStampPosLoc     = gl.getAttribLocation(this._brushStampProg, 'a_position')
-    this._brushCompositePosLoc = gl.getAttribLocation(this._brushCompositeProg, 'a_position')
 
     this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
     this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
@@ -5888,14 +5718,6 @@ export class PencilEngine implements PencilEngineAPI {
     // the extension is in every WebGL1 that matters) the deposit falls back
     // to the additive sum of stamps.
     this._minmaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
-    // #573 — the digital brush's opacity ceiling lives in the coverage buffer's
-    // alpha under a MAX blend. Universally supported in practice; without it
-    // the ceiling degrades to "off" (flow alone), never to a wrong picture.
-    this._blendMinMaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
-    // Built fresh on context restore like every other GL object here: the
-    // previous handles died with the old context.
-    this._tipTextures = new Map()
-    this._brushTextures = new Map()
 
     this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
@@ -8075,279 +7897,15 @@ export class PencilEngine implements PencilEngineAPI {
     target.markContentPainted(compositeBounds)
   }
 
-  /** #573, ADR 013 §11 — a digital brush stroke on the `stamp` model.
-   *
-   *  Same three-step shape as every stroke-scoped tool here — freeze the layer,
-   *  accumulate the stroke's own coverage, recompute the finished pixel — with
-   *  the brush's own programs in both halves:
-   *
-   *  1. every dab expands into its stamps (brushStampsForDab: scatter, size,
-   *     angle and flow jitter, all seeded by the dab itself);
-   *  2. BRUSH_STAMP_FRAG draws them into the coverage buffer — flow into rgb
-   *     as "over", the pressure ceiling into alpha as MAX;
-   *  3. BRUSH_COMPOSITE_FRAG recomputes every pixel this batch could have
-   *     changed from the frozen original and the coverage.
-   *
-   *  Pure in the dabs, the descriptor and the recorded switches — nothing is
-   *  carried between batches but the buffers — so a live stroke, a one-shot
-   *  replay and a chunked one come out the same. */
+  /** #573 — a digital brush stroke on the `stamp` model: see
+   *  BrushPainter.paint. Kept by this name for _paintRibbonStroke, which is
+   *  live on another branch. */
   private _paintBrushStroke(
     target: ILayerBuffer, dabs: Dab[], preset: PencilPreset,
     stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
     color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
   ): void {
-    const { gl } = this
-    const { brush, pressure } = stamp
-    interface Placed { x: number; y: number; radius: number; angle: number; aspect: number; flow: number; ceiling: number; pressure: number }
-    const placed: Placed[] = []
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    let prev = prevDab
-    for (const dab of dabs) {
-      const diameter = Math.max(dab.size * preset.sizeMultiplier, 0.5)
-      // Per-pass flow → per-stamp flow against the distance actually travelled
-      // (see BrushDescriptor.flow): after crossing one span, a pixel has been
-      // under enough stamps to hold exactly `flow`, whatever the spacing and
-      // however fast the hand moved.
-      let flow = brush.flow
-      if (brush.flowPer === 'pass' && flow < 1) {
-        const span = diameter * (brush.flowSpan ?? 1)
-        // (#581) Wet model 2 gives the stroke's first dab one ordinary step of
-        // travel, not the half radius every other tool's first dab gets: that
-        // extra flow made a dense disc at the start, and the wet edge drew its
-        // outline as a ring inside the stroke. Model 2 only — every brush
-        // already shipped keeps drawing its first dab as it always has.
-        const travel = !prev && brush.wet?.model === 2
-          ? diameter * brush.spacing
-          : this._markerSegmentLength(dab, prev, diameter * 0.5)
-        flow = 1 - Math.pow(1 - flow, Math.min(travel / span, 1))
-      }
-      const ceiling = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)
-      for (const st of brushStampsForDab(brush, dab)) {
-        const radius = st.size * 0.5 * preset.sizeMultiplier
-        if (radius < 0.25) continue
-        const reach = radius * Math.max(st.aspect, 1) + 1
-        minX = Math.min(minX, st.x - reach); maxX = Math.max(maxX, st.x + reach)
-        minY = Math.min(minY, st.y - reach); maxY = Math.max(maxY, st.y + reach)
-        placed.push({
-          x: st.x, y: st.y, radius, angle: st.angle, aspect: st.aspect,
-          flow: flow * st.flowScale, ceiling, pressure: dab.pressure,
-        })
-      }
-      prev = dab
-    }
-    if (!placed.length) return
-    const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
-    const targets = target.resolveForPaint(bounds)
-    if (!targets.length) return
-    // (#579) The wet edge reads coverage up to edgePx away, so a pixel's
-    // finished value depends on stamps that far off: the composite has to
-    // reach that much further than the stamps, or a later batch changes a
-    // pixel no composite ever revisits, and the stroke comes out different
-    // live and on replay.
-    const edgePx = brush.wet && brush.wet.edge > 0
-      ? scratch.noteBrushEdgePx(clampNum(dabs[0].size * preset.sizeMultiplier * WET_EDGE_OF_SIZE, WET_EDGE_MIN_PX, WET_EDGE_MAX_PX))
-      : 0
-    const pad = edgePx > 0 ? Math.ceil(edgePx) + 1 : 0
-    const compositeBounds = pad > 0
-      ? { minX: bounds.minX - pad, minY: bounds.minY - pad, maxX: bounds.maxX + pad, maxY: bounds.maxY + pad }
-      : bounds
-
-    const tipTex = brush.tip.kind === 'bitmap' && brush.tip.mask ? this._tipTexture(brush.tip.mask) : null
-    const grain = brush.texture ? { ...brush.texture, tex: this._brushTexture(brush.texture.id) } : null
-    const minmax = this._blendMinMaxExt
-    const useCeiling = pressure.opacity && !!minmax
-
-    for (const tile of targets) {
-      const { original, coverage } = scratch.getOrCreate(tile.buffer)
-
-      coverage.beginDraw()
-      if (minmax) {
-        gl.blendEquationSeparate(gl.FUNC_ADD, minmax.MAX_EXT)
-        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ONE, gl.ONE)
-      } else {
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR)
-      }
-      gl.useProgram(this._brushStampProg)
-      const u = this._brushStampUni
-      gl.uniform2f(u.u_resolution, coverage.width, coverage.height)
-      const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-      gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-      gl.uniform1i(u.u_paperHeightMap, 0)
-      // Bound even for a round tip: WebGL validates every sampler a linked
-      // program declares, and the paper is guaranteed not to be the target.
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, tipTex ?? this._paperTex)
-      gl.uniform1i(u.u_tip, 1)
-      gl.uniform1f(u.u_tipKind, tipTex ? 1 : 0)
-      gl.uniform1f(u.u_hardness, brush.tip.hardness)
-      gl.uniform1f(u.u_aaPx, 1)
-      gl.uniform1f(u.u_paper, brush.paperInteraction)
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, grain?.tex ?? this._paperTex)
-      gl.uniform1i(u.u_texture, 2)
-      gl.uniform1f(u.u_texStrength, grain?.strength ?? 0)
-      const period = grain?.periodPx ?? 1
-      gl.uniform1f(u.u_texPeriod, period)
-      // Reduced here, exactly, so the shader only ever adds small numbers.
-      const wrap = (v: number): number => ((v % period) + period) % period
-      gl.uniform2f(u.u_texOrigin, wrap(tile.originX), wrap(tile.originY))
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-      gl.enableVertexAttribArray(this._brushStampPosLoc)
-      gl.vertexAttribPointer(this._brushStampPosLoc, 2, gl.FLOAT, false, 0, 0)
-
-      const tx0 = tile.originX, ty0 = tile.originY
-      const tx1 = tx0 + tile.buffer.width, ty1 = ty0 + tile.buffer.height
-      for (const p of placed) {
-        const reach = p.radius * Math.max(p.aspect, 1) + 1
-        if (p.x + reach <= tx0 || p.x - reach >= tx1 || p.y + reach <= ty0 || p.y - reach >= ty1) continue
-        gl.uniform2f(u.u_dabCenter, p.x - tx0, p.y - ty0)
-        gl.uniform1f(u.u_dabRadius, p.radius)
-        gl.uniform1f(u.u_angle, p.angle)
-        gl.uniform1f(u.u_aspectRatio, p.aspect)
-        gl.uniform1f(u.u_opacity, p.flow)
-        gl.uniform1f(u.u_ceiling, p.ceiling)
-        gl.uniform1f(u.u_paperPressure, p.pressure)
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-      }
-      // Every other blend in the engine assumes FUNC_ADD and sets only the
-      // factors — leave the equation as it found it.
-      if (minmax) gl.blendEquation(gl.FUNC_ADD)
-      coverage.endDraw()
-
-      this._drawBrushComposite(tile, compositeBounds, brush, original, coverage, color, dabs[0].opacity, useCeiling, edgePx)
-    }
-    target.markContentPainted(compositeBounds)
-  }
-
-  /** #573 — BRUSH_COMPOSITE_FRAG over `bounds` in one tile: the finished pixel
-   *  from the frozen original and the stroke's coverage. A replace draw, since
-   *  the result is the answer rather than a contribution to it (see
-   *  AccumulationBuffer.beginReplaceDraw). */
-  private _drawBrushComposite(
-    tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
-    brush: BrushDescriptor, original: AccumulationBuffer, coverage: AccumulationBuffer,
-    color: [number, number, number], opacity: number, useCeiling: boolean, edgePx: number,
-  ): void {
-    const { gl } = this
-    const { buffer } = tile
-    buffer.beginReplaceDraw()
-    gl.useProgram(this._brushCompositeProg)
-    const u = this._brushCompositeUni
-    // (#579) Digital watercolor. Zeros for every other brush — uniforms outlive
-    // the draw that set them, and this program is shared by the whole set.
-    const wet = brush.wet
-    gl.uniform1f(u.u_wetEdge, wet && edgePx > 0 ? wet.edge : 0)
-    gl.uniform1f(u.u_wetEdgePx, edgePx)
-    gl.uniform1f(u.u_mottle, wet?.mottle ?? 0)
-    gl.uniform1f(u.u_granulation, wet?.granulation ?? 0)
-    gl.uniform1f(u.u_glaze, wet?.glaze ? 1 : 0)
-    // (#581) Model 2 and its two extra terms; a wet brush without a model is
-    // #579's, which is what every stroke recorded with those brushes says.
-    gl.uniform1f(u.u_wetModel, wet ? (wet.model ?? 1) : 0)
-    gl.uniform1f(u.u_bloom, wet?.bloom ?? 0)
-    gl.uniform1f(u.u_feather, wet?.feather ?? 0)
-    // The paper, for granulation — the same world-space sampling every dab
-    // shader here uses (#141).
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-    gl.activeTexture(gl.TEXTURE4)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 4)
-    // Bound whether read or not: WebGL validates every declared sampler.
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('cloud'))
-    gl.uniform1i(u.u_cloudTex, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('grit'))
-    gl.uniform1i(u.u_grainTex, 3)
-    const wrapBy = (period: number) => (v: number): number => ((v % period) + period) % period
-    const cloudWrap = wrapBy(WET_CLOUD_PERIOD_PX)
-    const grainWrap = wrapBy(WET_GRAIN_PERIOD_PX)
-    gl.uniform1f(u.u_cloudPeriod, WET_CLOUD_PERIOD_PX)
-    gl.uniform2f(u.u_cloudOrigin, cloudWrap(tile.originX), cloudWrap(tile.originY))
-    gl.uniform1f(u.u_grainPeriod, WET_GRAIN_PERIOD_PX)
-    gl.uniform2f(u.u_grainOrigin, grainWrap(tile.originX), grainWrap(tile.originY))
-    gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, original.texture)
-    gl.uniform1i(u.u_original, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
-    gl.uniform1i(u.u_strokeCoverage, 1)
-    gl.uniform3fv(u.u_color, color)
-    gl.uniform1f(u.u_opacity, opacity)
-    gl.uniform1f(u.u_useCeiling, useCeiling ? 1 : 0)
-    const pitch = brush.screentonePx ?? 0
-    gl.uniform1f(u.u_screentone, pitch)
-    // The screen repeats every 2 * pitch along both world axes (see the
-    // shader), so the tile's origin is reduced by exactly that here, in
-    // integers, and the GPU only ever sees numbers smaller than the period.
-    const period = pitch * 2
-    const wrap = (v: number): number => period > 0 ? ((v % period) + period) % period : 0
-    gl.uniform2f(u.u_screenOrigin, wrap(tile.originX), wrap(tile.originY))
-
-    // The rect is covered by a circumscribing dab quad, the same trick the
-    // ribbon composite uses (_drawRibbonCompositeRect).
-    const cx = (bounds.minX + bounds.maxX) * 0.5
-    const cy = (bounds.minY + bounds.maxY) * 0.5
-    const radius = 0.5 * Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) + 1
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._brushCompositePosLoc)
-    gl.vertexAttribPointer(this._brushCompositePosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.uniform2f(u.u_dabCenter, cx - tile.originX, cy - tile.originY)
-    gl.uniform1f(u.u_dabRadius, radius)
-    gl.uniform1f(u.u_angle, 0)
-    gl.uniform1f(u.u_aspectRatio, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    buffer.endDraw()
-  }
-
-  /** A brush texture (#573), tiled across the canvas — REPEAT rather than
-   *  CLAMP, and mipmapped from the CPU chain for the same reason the tips are. */
-  private _brushTexture(id: BrushTextureId): WebGLTexture {
-    const cached = this._brushTextures.get(id)
-    if (cached) return cached
-    const tex = this._uploadMips(brushTextureMips(id), this.gl.REPEAT)
-    this._brushTextures.set(id, tex)
-    return tex
-  }
-
-  /** One bitmap tip as a mipmapped LUMINANCE texture, uploaded on first use.
-   *
-   *  Every mip level comes from tipMaskMips on the CPU rather than from
-   *  gl.generateMipmap — see that function on why the driver's filter is not
-   *  trusted with a value every participant has to agree on. */
-  private _tipTexture(id: TipMaskId): WebGLTexture {
-    const cached = this._tipTextures.get(id)
-    if (cached) return cached
-    const tex = this._uploadMips(tipMaskMips(id), this.gl.CLAMP_TO_EDGE)
-    this._tipTextures.set(id, tex)
-    return tex
-  }
-
-  private _uploadMips(levels: Uint8Array[], wrapMode: number): WebGLTexture {
-    const { gl } = this
-    const tex = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    let size = Math.round(Math.sqrt(levels[0].length))
-    for (let level = 0; level < levels.length; level++) {
-      gl.texImage2D(gl.TEXTURE_2D, level, gl.LUMINANCE, size, size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, levels[level])
-      size = Math.max(1, size >> 1)
-    }
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
-    return tex
+    this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab)
   }
 
   /** (#468 v6) One composite over everything the finished gesture touched, with
@@ -10619,7 +10177,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  already-composited texture and blending *that* at opacity 1 produces
    *  the exact same result as blending every entry individually in order —
    *  same technique this file already uses for layer_merge
-   *  (_execMergeLive/_replayMergeInto).
+   *  (StructuralOps.mergeLive/replayMergeInto).
    *
    *  Bypassed entirely whenever a layer-transform gizmo preview (#120) is
    *  active: previewLayerTransform can substitute scratch content for *any*

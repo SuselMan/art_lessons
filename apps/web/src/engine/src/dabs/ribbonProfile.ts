@@ -318,7 +318,7 @@ export interface RibbonProfile {
   /** (#573, ADR 013 §11) Set for a digital brush on the `stamp` model: the
    *  frozen descriptor and the pressure switches its token recorded. The stroke
    *  then leaves the ribbon rasterizer at the door and is painted by the brush's
-   *  own stamp and composite programs (engine's _paintBrushStroke) — it keeps
+   *  own stamp and composite programs (BrushPainter.paint) — it keeps
    *  only this machinery's scratch buffers, the frozen pre-stroke layer and the
    *  coverage accumulated over the stroke. Absent for every other profile,
    *  including the digital brush's own v1 strokes, which must keep replaying

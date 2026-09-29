@@ -570,7 +570,7 @@ export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9 
  *  CHECKPOINT_BUDGET_BYTES pressure — impractical to reach honestly in a
  *  small-canvas unit test) so a rebuild is forced to fall back to full
  *  from-scratch replay instead of the checkpoint fast path. Used to exercise
- *  the recursive `_replayMergeInto` path for a merge-of-a-merge, which a live
+ *  the recursive `StructuralOps.replayMergeInto` path for a merge-of-a-merge, which a live
  *  merge's own immediate checkpoint would otherwise always short-circuit. */
 /** (#429) The live-stroke bookkeeping, one entry per in-flight gesture. White-box
  *  for the same reason the rest of this file is: the invariant that matters —
