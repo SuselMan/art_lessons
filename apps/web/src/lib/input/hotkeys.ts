@@ -1,5 +1,5 @@
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../browser/roomStorage'
-import type { TranslationKey } from '../../i18n'
+import type { TranslationKey } from '../../i18n/core/en'
 
 // Single source of truth for desktop keyboard shortcuts (#174): one registry
 // drives keydown handling, the hotkey hint shown in each tool's tooltip, and

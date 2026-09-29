@@ -1,5 +1,5 @@
 // Shared types for the translation layer (#208). Kept in their own module so
-// the dictionaries (en.ts/ru.ts) and the runtime (index.ts) can both import
+// the dictionaries (en.ts/ru.ts) and the runtime (translate.ts) can both import
 // them without importing each other.
 
 /** The plural categories `Intl.PluralRules` can return. A locale only ever

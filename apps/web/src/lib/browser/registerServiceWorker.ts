@@ -27,10 +27,7 @@
 // serving (#294 on 30.07, the join-request run recorded in #314 §6). Both
 // times the tab had `registration.waiting` set and nobody had clicked.
 import { decideUpdateAction, isInstalledApp, isResumeFromBackground } from '../../pwa/updatePolicy'
-import { translate } from '../../i18n/translate'
-import { pushNotice } from '../../stores/noticeStore'
 import { isReloadUnsafe, onReloadSafe } from './reloadSafety'
-import { useSettingsStore } from '../../stores/settingsStore'
 
 /** How often to ask the server whether sw.js changed. A conditional request
  *  for one small file, so the interval is set by how stale we are willing to
@@ -72,16 +69,14 @@ export function checkForUpdateNow(): Promise<UpdateCheckResult> {
   return checkNow ? checkNow() : Promise.resolve('unavailable')
 }
 
-// Not a React component and not inside the provider tree — this runs before
-// the app mounts — so the locale is read from the store directly rather than
-// through useT(), and read at push time rather than at registration: the
-// worker can find an update long after boot, by which point the user may have
-// changed language.
-function t(key: 'update.available' | 'update.reload'): string {
-  return translate(useSettingsStore.getState().locale, key)
-}
+/** How the app puts an update offer in front of the person. `apply` takes
+ *  the waiting build (and reloads); the caller decides what the offer looks
+ *  like. A callback rather than a notice pushed from here (#650): this module
+ *  sits below the stores, and the notice strip and the chosen language are
+ *  both store state. */
+export type ShowUpdateOffer = (apply: () => void) => void
 
-export function registerServiceWorker(): void {
+export function registerServiceWorker(showOffer: ShowUpdateOffer): void {
   // The dev loop has no service worker at all (devOptions.enabled: false), so
   // the virtual module's register is a no-op there — but importing it eagerly
   // would still pull workbox-window into the dev bundle for nothing.
@@ -118,19 +113,7 @@ export function registerServiceWorker(): void {
     function offer(): void {
       if (offered) return
       offered = true
-      pushNotice({
-        variant: 'neutral',
-        message: t('update.available'),
-        icon: 'cloud_sync',
-        // Stays until acted on. An update offer that times out is worse than
-        // none: it trains the user to ignore the strip, and the tab keeps
-        // running the old build either way.
-        durationMs: null,
-        // Collapses repeats — an installed app left open across two deploys
-        // would otherwise stack two identical offers.
-        key: 'sw-update',
-        action: { label: t('update.reload'), onClick: apply },
-      })
+      showOffer(apply)
     }
 
     /** Re-asks the policy. Cheap and idempotent, so it is called from every

@@ -13,8 +13,8 @@ import {
   ApiError, apiPath, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder, moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed,
 } from '../../lib/api/api'
 import { isLoggedIn, useAuth } from '../../lib/api/authState'
-import { preloadRoomPage } from '../../lib/api/roomChunk'
-import { useShareRoom } from '../../lib/api/useShareRoom'
+import { preloadRoomPage } from '../Room/roomChunk'
+import { useShareRoom } from '../../components/RoomAccessControl/useShareRoom'
 import { notifyError } from '../../stores/noticeStore'
 import { useSettingsStore, type LessonsView } from '../../stores/settingsStore'
 import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n'

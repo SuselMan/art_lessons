@@ -13,7 +13,7 @@ import {
 } from '../../../lib/browser/fullscreen'
 import { formatHotkeyLabel } from '../../../lib/input/hotkeys'
 import type { useDragToAdjust } from '../../../lib/input/useDragToAdjust'
-import { useShareRoom } from '../../../lib/api/useShareRoom'
+import { useShareRoom } from '../../../components/RoomAccessControl/useShareRoom'
 import { useRoomStore } from '../../../stores/roomStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { SyncIndicator } from '../status/SyncIndicator'

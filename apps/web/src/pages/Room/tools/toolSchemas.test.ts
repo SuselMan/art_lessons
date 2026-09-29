@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { en } from '../../../i18n/en'
-import { ru } from '../../../i18n/ru'
+import { en } from '../../../i18n/core/en'
+import { ru } from '../../../i18n/core/ru'
 
 import {
   loadToolSettings, saveToolSettings, defaultToolSettings,

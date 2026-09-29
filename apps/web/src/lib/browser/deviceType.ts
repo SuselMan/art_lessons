@@ -19,6 +19,13 @@ export type DeviceType = 'tablet' | 'desktop'
 
 export const DEVICE_TYPES: readonly DeviceType[] = ['tablet', 'desktop']
 
+/** Where settingsStore keeps a device type the person picked in Settings.
+ *  Detection alone never writes it, so its presence is the difference between
+ *  "chosen" and "guessed" — which lib/api/environment.ts reports. Here rather
+ *  than in the store so that module can read it without importing the store
+ *  (#650). */
+export const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
+
 export function isDeviceType(value: unknown): value is DeviceType {
   return value === 'tablet' || value === 'desktop'
 }
