@@ -93,17 +93,10 @@ import { ToolSettingsTab } from './panels/ToolSettingsTab'
 import { resolveDisplayName } from './participants/displayName'
 import { cameraTransformCss } from './viewport/cameraMath'
 import { connectRoomSocket } from './net/roomSocket'
-import { PeerCursors } from './overlays/PeerCursors'
-import { BrushCursor } from './overlays/BrushCursor'
 import { useCursor, type ViewportCursor } from './overlays/cursorController'
-import { RulerOverlay } from './overlays/RulerOverlay'
-import { GridOverlay, InfiniteGridOverlay } from './overlays/GridOverlay'
-import { TransformGizmo } from './overlays/TransformGizmo'
-import { SelectionOverlay } from './overlays/SelectionOverlay'
-import { AnnotationOverlay } from './overlays/AnnotationOverlay'
+import { CanvasOverlays } from './overlays/CanvasOverlays'
 import { useCompactLayout } from './useCompactLayout'
 import { useNarrowHeader } from '../../lib/input/useNarrowHeader'
-import { rotateAboutMatrix, type TransformMode } from '../../lib/transform/transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './panels/ParticipantsPanel'
 import { useJoinQueue } from './net/joinQueue'
 import { JoinGate } from './status/JoinGate'
@@ -436,57 +429,9 @@ function RoomEditor() {
   // not need it to. Where the finger *does* draw, two-finger pan follows
   // automatically rather than as a second setting: see toolActiveRef below.
   const annotateWithFinger = compact && annotateActive
-  // (#23) Backed by the store now, alongside the transform-preview fields
-  // below — moved for architectural consistency, but deliberately NEVER
-  // persisted (see layerSlice.ts's own comment: a ruler is for quickly
-  // comparing distances mid-drawing, not a saved setting).
-  //
-  // (#405) The line outlives the ruler being selected: nothing ever clears it,
-  // so the same straight edge is back the moment the ruler is picked up again
-  // rather than having to be laid a second time. Whether it is *on screen*
-  // meanwhile is `rulerVisible` below.
-  const rulerLine = useRoomStore(s => s.rulerLine)
-  // (#508/#511) The annotation projection and the two pieces of local view
-  // state around it. `annotationsHidden` is deliberately not an operation —
-  // see the slice's own comment for why hiding is private.
-  const annotations = useRoomStore(s => s.annotations)
-  const annotationsHidden = useRoomStore(s => s.annotationsHidden)
-  // (#557) The layer solo: the same kind of private view state as
-  // `annotationsHidden`, applied to the engine as a display filter below.
+  // (#557) The layer solo: private view state like `annotationsHidden`, applied to the engine as a display filter below.
   const soloIds = useRoomStore(s => s.soloIds)
   const setSoloIds = useRoomStore(s => s.setSoloIds)
-  const annotationDraft = useRoomStore(s => s.annotationDraft)
-  const collapsedAnnotationIds = useRoomStore(s => s.collapsedAnnotationIds)
-  const setAnnotationDraftText = useRoomStore(s => s.setAnnotationDraftText)
-  // Construction grid (#89, #405) — visibility is a setting on the grid tool
-  // now rather than a store flag toggled by the toolbar button, which is what
-  // lets it stay on screen under every other tool while its button selects it
-  // like any other. It still intercepts no pointer events and blocks nothing.
-  const gridVisible = toolSettings.grid.show as boolean
-  // Content bounding box (engine.getContentBounds, unioned across the
-  // current target(s)) — recomputed on activation/selection change and
-  // after every commit (see refreshTransformBounds below), not per drag
-  // frame. null while the tool is off, or before the first computation
-  // lands, or (edge case) an active target with no content bounds and no
-  // config to fall back to yet.
-  const transformBounds = useRoomStore(s => s.transformBounds)
-  // Custom rotation pivot (Adobe Animate-style draggable transform point) —
-  // null means "use the content bounds' own center". Reset on activation
-  // and after every commit: each drag already commits immediately (no
-  // multi-step Free-Transform session, see #120's scope notes), so treating
-  // a custom point as scoped to a single drag rather than trying to carry
-  // an absolute canvas-space point through a move/scale that just changed
-  // where the content actually is keeps this from silently pointing
-  // somewhere stale.
-  const transformCenterOverride = useRoomStore(s => s.transformCenterOverride)
-  // (#399) Every gesture of the open transform session, composed — fed to
-  // TransformGizmo so its handles ride along with the content, and to the
-  // engine's preview so the canvas shows the same thing. Null between
-  // sessions. This used to be per-*drag* and was nulled on release, which is
-  // what made the frame snap back to an upright box the moment you let go of
-  // a rotation: the bounds behind it are axis-aligned, so re-deriving them
-  // from pixels threw the rotation away (a 30° turn grew the box 32%x42%).
-  const transformSessionMatrix = useRoomStore(s => s.transformSessionMatrix)
   // The session itself. Authoritative (the store copy exists to drive
   // rendering), and a ref rather than state so the drag handlers don't have to
   // list a value that changes on every animation frame among their deps.
@@ -504,7 +449,6 @@ function RoomEditor() {
   // selection is what someone is about to do, and only what they did travels.
   const selection = useRoomStore(s => s.selection)
   const setSelection = useRoomStore(s => s.setSelection)
-  const pendingSelection = useRoomStore(s => s.pendingSelection)
   const setPendingSelection = useRoomStore(s => s.setPendingSelection)
   // (#399) Throws the open session's uncommitted gestures away and re-opens an
   // empty one on whatever the layer holds now. Assigned further down, where
@@ -815,7 +759,8 @@ function RoomEditor() {
       confirmOperation: confirmOwnOperationFromAck, discardOperation: discardOwnOperation,
       resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
     },
-  })  // The credentials a joiner's gate submission used, replayed verbatim on a
+  })
+  // The credentials a joiner's gate submission used, replayed verbatim on a
   // later reconnect (a fresh socket id always means a fresh join — see the
   // handleConnect reconnect branch below).
   const lastJoinAttemptRef = useRef<{ name: string; password?: string } | null>(null)
@@ -946,8 +891,8 @@ function RoomEditor() {
   // until their target arrives, restored from a snapshot and backfilled behind
   // it — see useRemoteOperations.
   const { applyRemoteOp, restoreFromSnapshot, backfillHistory } = useRemoteOperations({
-    engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq,
-    syncFromLog, checkSnapshotBoundary,
+    engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
+    confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,
   })
 
   // (#461) The three room fields the engine is actually built from, pulled out
@@ -1382,14 +1327,6 @@ function RoomEditor() {
     onPersonalBoard, isOwner, doubleTapArmedRef, pendingNoteRef,
   })
 
-  // (#391) The transform tool's mode, from the same TOOL_SCHEMAS store every
-  // other tool's settings live in (see settingsToolId below for how they reach
-  // the UI). `transient` there — a transform mode remembered from half an
-  // hour ago is a gizmo whose edge handles no longer do what the last person
-  // to touch them expects. The gestures read it (and the proportions toggle)
-  // themselves; see useTransformGizmoGestures.
-  const transformMode = toolSettings.transform.mode as TransformMode
-
   // (#493) The gizmo's pointer gestures — see useTransformGizmoGestures.
   const { handleTransformHandleDown, handleTransformCenterDown, handleTransformCenterReset } =
     useTransformGizmoGestures({ vpRef, vp, handActive, engineRef, transformSessionRef, pendingTransformCommitRef })
@@ -1541,133 +1478,24 @@ function RoomEditor() {
   // in an infinite one (#143); the two used to be the same hundred lines
   // twice, told apart only by a `config.infinite` guard on every element.
   const canvasOverlays = (
-    <>
-      <PeerCursors
-        key={boardId ?? ''}
-        socket={socketRef.current}
-        participants={participants}
-        zoom={vp.zoom}
-        angle={vp.angle}
-      />
-      {/* (#393) Mounted exactly while the cursor controller says a dab
-          preview belongs on screen — with the hand on, or with any of
-          the four non-painting tools selected, nothing is going to be
-          painted, and a ring that keeps following the pointer reads as
-          if it still would. (#405) `drawingTool` is what it draws: the
-          controller has already established that this is the tool in
-          hand, and `tool` is not narrowed to a ToolType. */}
-      {cursor.dabPreview && (
-        <BrushCursor
-          vpRef={vpRef}
-          tool={drawingTool}
-          presetName={cursorPresetName}
-          baseSize={sizePx}
-          vp={vp}
-          config={config}
-          nibAngleRadians={nibCanvasAngleRadians}
-          nibAnchor={nibAnchor}
-          tiltResponse={tiltResponse}
-        />
-      )}
-      {gridVisible && (config.infinite
-        ? (
-          <InfiniteGridOverlay
-            vp={vp}
-            viewportWidth={vpRef.current?.clientWidth ?? 0}
-            viewportHeight={vpRef.current?.clientHeight ?? 0}
-          />
-        )
-        : <GridOverlay width={config.width} height={config.height} />)}
-      {/* (#405, #445) On screen while the ruler is in hand, and under
-          every other tool too once it is locked — a straight edge you
-          can draw against is the point of one, but only while you asked
-          for it. It carries no pointer handlers at all; dragging it is
-          the catcher's job, and the catcher only exists while the ruler
-          is the selected tool. */}
-      {rulerVisible && rulerLine && (
-        <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
-      )}
-      {/* (#530) The shape's own handles are the transform gizmo's: same
-          component, same hit areas, same rotate zones. Only what a drag
-          *means* differs — a shape has no pixels yet, so a handle edits
-          the frame it will be drawn from (see shapeTool.ts). */}
-      {shapeFrame && (
-        <div className={styles.shapeGizmoLayer}>
-        <TransformGizmo
-          bounds={{
-            x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
-            y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
-            width: Math.abs(shapeFrame.width),
-            height: Math.abs(shapeFrame.height),
-          }}
-          center={{
-            x: shapeFrame.x + shapeFrame.width / 2,
-            y: shapeFrame.y + shapeFrame.height / 2,
-          }}
-          matrix={rotateAboutMatrix(
-            shapeFrame.angle,
-            shapeFrame.x + shapeFrame.width / 2,
-            shapeFrame.y + shapeFrame.height / 2,
-          )}
-          zoom={vp.zoom}
-          angleRad={vp.angle}
-          mode="free"
-          onHandleDown={shape.onHandleDown}
-          onCenterDown={e => shape.onHandleDown('body', e)}
-          onCenterDoubleClick={() => {}}
-        />
-        </div>
-      )}
-      {transformActive && transformBounds && (
-        <TransformGizmo
-          bounds={transformBounds}
-          center={transformCenterOverride ?? {
-            x: transformBounds.x + transformBounds.width / 2,
-            y: transformBounds.y + transformBounds.height / 2,
-          }}
-          matrix={transformSessionMatrix ?? undefined}
-          zoom={vp.zoom}
-          angleRad={vp.angle}
-          mode={transformMode}
-          onHandleDown={handleTransformHandleDown}
-          onCenterDown={handleTransformCenterDown}
-          onCenterDoubleClick={handleTransformCenterReset}
-        />
-      )}
-      {/* (#446) Drawn under every tool, not only the selection tool: a
-          selection persists until it is replaced or cleared, and the
-          transform tool needs to show what it is about to move. It takes
-          no pointer events in either case — see SelectionOverlay. */}
-      <SelectionOverlay
-        selection={selection}
-        pending={pendingSelection}
-        pendingClosed={selectionShapeKind === 'rectangle'}
-        cursor={selectionCursor}
-        zoom={vp.zoom}
-        matrix={areaSelection ? transformSessionMatrix : null}
-      />
-      {/* (#508, эпик #87) Above every other overlay, because an
-          annotation is above every other thing on screen — it is a
-          remark *about* the picture, including about the grid or the
-          selection someone left on it. */}
-      <AnnotationOverlay
-        annotations={annotations}
-        hidden={annotationsHidden}
-        draft={annotationDraft}
-        onDraftChange={setAnnotationDraftText}
-        onDraftCommit={commitAnnotationDraft}
-        onDraftCancel={cancelAnnotationDraft}
-        liveInk={liveInk}
-        collapsedIds={collapsedAnnotationIds}
-        erasingIds={erasingIds}
-        dragPreview={pinDrag}
-        zoom={vp.zoom}
-        angle={vp.angle}
-        hitTargets={annotationHitTargets}
-        layerRef={annotationLayerRef}
-        draftInputRef={annotationDraftInputRef}
-      />
-    </>
+    <CanvasOverlays
+      config={config} vp={vp} vpRef={vpRef} socket={socketRef.current}
+      dabPreview={cursor.dabPreview}
+      brush={{
+        presetName: cursorPresetName, baseSize: sizePx, nibAngleRadians: nibCanvasAngleRadians, nibAnchor,
+        tiltResponse,
+      }}
+      rulerVisible={rulerVisible} rulerMeasuring={rulerMeasuring}
+      shapeFrame={shapeFrame} onShapeHandleDown={shape.onHandleDown}
+      onTransformHandleDown={handleTransformHandleDown} onTransformCenterDown={handleTransformCenterDown}
+      onTransformCenterReset={handleTransformCenterReset}
+      selectionShapeKind={selectionShapeKind} selectionCursor={selectionCursor} areaSelection={areaSelection !== null}
+      annotation={{
+        onDraftCommit: commitAnnotationDraft, onDraftCancel: cancelAnnotationDraft, liveInk, erasingIds,
+        dragPreview: pinDrag, hitTargets: annotationHitTargets, layerRef: annotationLayerRef,
+        draftInputRef: annotationDraftInputRef,
+      }}
+    />
   )
 
   return (
