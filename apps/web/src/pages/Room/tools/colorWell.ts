@@ -1,7 +1,7 @@
 import {
   TOOL_SCHEMAS, getToolColor, isShapeTool,
   type ColorCapableTool, type ShapeSwatch, type ToolSettingsMap,
-} from './toolSchemas'
+} from '../../../lib/tools/toolSchemas'
 
 // (#542) The one rule for "what does the colour well show right now", read by
 // every place that shows one: the well pinned in the tool rail, the well at the

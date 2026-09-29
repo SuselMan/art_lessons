@@ -11,8 +11,8 @@
 // Dev-only for the usual reason and one specific one: this hands out a
 // reference that can append operations to the live log, which in a room with
 // other participants is a way to broadcast nonsense to them.
-import type { PencilEngineAPI } from '../../engine'
-import { useRoomStore } from '../../stores/roomStore'
+import type { PencilEngineAPI } from '../../../engine'
+import { useRoomStore } from '../../../stores/roomStore'
 
 declare global {
   // eslint-disable-next-line no-var

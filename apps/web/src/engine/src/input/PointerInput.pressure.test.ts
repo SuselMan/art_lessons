@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { IDENTITY_PRESSURE_CALIBRATION, type PressureCalibration } from '../../../lib/input/pressureCalibration'
-import { PointerInput, type PointerData } from './PointerInput'
+import { PointerInput, type PointerData, type PressureMap } from './PointerInput'
 
 // #475 — the calibration is applied here and nowhere else, because the value
 // leaving this file goes on to be baked into a Dab and replayed on every other
 // participant's screen. These tests pin the two halves of that: that pen input
 // really is corrected before anyone downstream sees it, and that nothing else
-// is.
+// is. (#650) The engine is handed the calibration already compiled to a
+// function, so these use a plain one; compiling a calibration is tested with
+// the model, in lib/input/pressureCalibration.test.ts.
 
 interface FakeCanvas {
   dispatch(type: string, event: Partial<PointerEvent>): void
@@ -63,12 +64,13 @@ function pressureSeenBy(input: PointerInput, fake: FakeCanvas, event: Partial<Po
 }
 
 describe('PointerInput pressure calibration', () => {
-  const cal: PressureCalibration = { inMin: 0.1, inMax: 0.5, points: [] }
+  // Stands in for a compiled calibration with inMin 0.1, inMax 0.5.
+  const cal: PressureMap = raw => Math.min(1, Math.max(0, (raw - 0.1) / 0.4))
 
   it('corrects pen pressure before anything downstream sees it', () => {
     const { canvas, fake } = fakeCanvas()
     const input = new PointerInput(canvas)
-    input.setPressureCalibration(cal)
+    input.setPressureMap(cal)
     // A press this person considers firm reported 0.5 by their driver, and
     // reaches the engine as a full 1.
     expect(pressureSeenBy(input, fake, { pressure: 0.5 })).toBeCloseTo(1, 6)
@@ -78,7 +80,7 @@ describe('PointerInput pressure calibration', () => {
   it('leaves the mouse alone', () => {
     const { canvas, fake } = fakeCanvas()
     const input = new PointerInput(canvas)
-    input.setPressureCalibration(cal)
+    input.setPressureMap(cal)
     // A mouse has no pressure to correct: it sits on the substituted 0.5, and
     // running a stylus's correction over that would silently change what
     // mouse drawing looks like on a calibrated machine.
@@ -91,18 +93,11 @@ describe('PointerInput pressure calibration', () => {
     const input = new PointerInput(canvas)
     expect(pressureSeenBy(input, fake, { pressure: 0.3 })).toBeCloseTo(0.3, 6)
 
-    input.setPressureCalibration(cal)
+    input.setPressureMap(cal)
     expect(pressureSeenBy(input, fake, { pressure: 0.3 })).toBeCloseTo(0.5, 6)
 
-    input.setPressureCalibration(null)
+    input.setPressureMap(null)
     expect(pressureSeenBy(input, fake, { pressure: 0.3 })).toBeCloseTo(0.3, 6)
-  })
-
-  it('treats an identity calibration as no calibration', () => {
-    const { canvas, fake } = fakeCanvas()
-    const input = new PointerInput(canvas)
-    input.setPressureCalibration({ ...IDENTITY_PRESSURE_CALIBRATION })
-    expect(pressureSeenBy(input, fake, { pressure: 0.37 })).toBeCloseTo(0.37, 6)
   })
 
   it('corrects every coalesced sample of a move, not just the reported one', () => {
@@ -111,7 +106,7 @@ describe('PointerInput pressure calibration', () => {
     // would leave the majority of a stroke uncalibrated.
     const { canvas, fake } = fakeCanvas()
     const input = new PointerInput(canvas)
-    input.setPressureCalibration(cal)
+    input.setPressureMap(cal)
 
     const seen: number[] = []
     input.on('move', data => { seen.push(data.pressure) })

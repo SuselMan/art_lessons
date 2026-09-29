@@ -11,7 +11,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { colorWellState, effectiveSwatch } from './tools/colorWell'
 import {
   getToolColor, isColorCapableTool, isShapeTool, toolColorField, type ColorCapableTool,
-} from './tools/toolSchemas'
+} from '../../lib/tools/toolSchemas'
 
 export interface ToolColorDeps {
   engineRef: RefObject<PencilEngineAPI | null>

@@ -18,7 +18,9 @@ import { setSentryDeviceType, setSentryUser } from './lib/observability/sentry'
 import './lib/browser/backNavigationGuard'
 import { exposeAppVersion } from './lib/browser/appVersion'
 import { registerServiceWorker } from './lib/browser/registerServiceWorker'
+import { translate } from './i18n/core/translate'
 import { syncDebugToolsFromUrl } from './lib/observability/debugTools'
+import { pushNotice } from './stores/noticeStore'
 import {
   syncDeviceTypeAttribute,
   syncDocumentLanguage,
@@ -110,7 +112,26 @@ queryClient.getQueryCache().subscribe(event => {
 // (#48) After the identity warm-up is queued, not before: registration opens
 // its own request for the worker script, and the cookie warm-up is the one
 // thing on this path that races (see the comment above it).
-registerServiceWorker()
+registerServiceWorker(apply => {
+  // Not inside the provider tree, so the locale is read from the store rather
+  // than through useT() — and read here, when the offer is shown, rather than
+  // at registration: the worker can find an update long after boot, by which
+  // point the user may have changed language.
+  const locale = useSettingsStore.getState().locale
+  pushNotice({
+    variant: 'neutral',
+    message: translate(locale, 'update.available'),
+    icon: 'cloud_sync',
+    // Stays until acted on. An update offer that times out is worse than
+    // none: it trains the user to ignore the strip, and the tab keeps
+    // running the old build either way.
+    durationMs: null,
+    // Collapses repeats — an installed app left open across two deploys
+    // would otherwise stack two identical offers.
+    key: 'sw-update',
+    action: { label: translate(locale, 'update.reload'), onClick: apply },
+  })
+})
 
 queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
   .catch(err => console.error('failed to warm up identity', err))
@@ -118,7 +139,9 @@ queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
     // (#589) Only once the identity (and device) cookies exist — the report
     // is stored against them. A failed or refused warm-up (e.g. a ban) sends
     // nothing.
-    if (queryClient.getQueryData(ME_QUERY_KEY)) reportEnvironment()
+    if (queryClient.getQueryData(ME_QUERY_KEY)) {
+      reportEnvironment(() => useSettingsStore.getState().deviceType)
+    }
     // (#177) React 19 routes render-time errors through these two hooks
     // instead of letting them reach window.onerror, so without them every
     // component crash — the blank-screen class of bug — would be invisible

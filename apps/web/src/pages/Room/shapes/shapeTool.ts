@@ -1,6 +1,6 @@
 import type { ShapeFrame, ShapeGeometry, ShapeFill, ShapeStroke } from '@grafetto/shared'
 import type { ShapeKind } from '@grafetto/shared'
-import type { ToolSettingsValue } from '../tools/toolSchemas'
+import type { ToolSettingsValue } from '../../../lib/tools/toolSchemas'
 
 // (#530) The arithmetic of drawing a shape: what a drag means, and how the
 // tool's settings become the geometry and paint an operation carries.

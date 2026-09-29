@@ -2,7 +2,7 @@ import { RadialDial } from '../../../components/RadialDial'
 import { useRoomStore } from '../../../stores/roomStore'
 import { useT } from '../../../i18n'
 import { PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from '../../../components/FloatingToolPanel/panelPosition'
-import { formatDegreesMinutes, type UiToolId } from '../tools/toolSchemas'
+import { formatDegreesMinutes, type UiToolId } from '../../../lib/tools/toolSchemas'
 
 interface ChiselAngleDialProps {
   // FloatingToolPanel's current position — null until this room's panel has

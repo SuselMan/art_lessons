@@ -16,7 +16,7 @@
 /** The one import specifier for the Room page. App.tsx's `lazy()` and every
  *  preload below go through it, so the bundler sees a single chunk and the ESM
  *  registry dedupes repeat calls to one fetch. */
-export const importRoomPage = () => import('../../pages/Room')
+export const importRoomPage = () => import('./index')
 
 /** Starts fetching the Room chunk, off any critical path.
  *

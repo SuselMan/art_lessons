@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { TranslationKey } from '../../../i18n/en'
-// ../../i18n/translate rather than the ../../i18n barrel: the barrel also
+import type { TranslationKey } from '../../../i18n/core/en'
+// ../../i18n/core/translate rather than the ../../i18n barrel: the barrel also
 // exports the React hooks, which pull in the settings store's localStorage
 // read — this test needs only the pure lookup.
-import { translate } from '../../../i18n/translate'
+import { translate } from '../../../i18n/core/translate'
 import { canRetryJoinLater, describeJoinError, joinAttemptOutcome, joinGateStateFor } from './joinError'
 
 // (#208) The mapping is reason-code → translation key → text now, so it's

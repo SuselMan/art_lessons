@@ -29,7 +29,7 @@ grafetto/
 │   │   │   ├── LayerPanel/
 │   │   │   └── PaperPreview/
 │   │   ├── engine/         # WebGL pencil engine
-│   │   ├── i18n/           # translation layer + per-locale dictionaries
+│   │   ├── i18n/           # useT/useLocale; dictionaries + translate() in i18n/core/
 │   │   ├── lib/            # small shared helpers (layers)
 │   │   ├── pages/
 │   │   │   ├── CreateRoom/

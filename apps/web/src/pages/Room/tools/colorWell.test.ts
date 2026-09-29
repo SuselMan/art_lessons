@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { colorWellState, effectiveSwatch } from './colorWell'
-import { defaultToolSettings, type ToolSettingsMap, type ToolSettingsValue } from './toolSchemas'
+import { defaultToolSettings, type ToolSettingsMap, type ToolSettingsValue } from '../../../lib/tools/toolSchemas'
 
 // (#542) The rule behind the one colour glyph. Everything visual about the well
 // is rendering, which this repo's node-run tests cannot reach — what they can

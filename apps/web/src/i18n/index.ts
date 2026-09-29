@@ -1,22 +1,23 @@
 import { useCallback } from 'react'
 
 import { useSettingsStore } from '../stores/settingsStore'
-import { translate, type TFunction } from './translate'
-import type { TranslationKey } from './en'
-import type { Locale } from './locale'
-import type { TranslationParams } from './types'
+import { translate, type TFunction } from './core/translate'
+import type { TranslationKey } from './core/en'
+import type { Locale } from './core/locale'
+import type { TranslationParams } from './core/types'
 
 // The React face of the translation layer (#208) — everything a component
 // needs, in one import. The lookup itself is store-free and lives in
-// `./translate.ts`; only the two hooks below subscribe to the chosen
-// language. See ADR 006 for why this exists instead of react-i18next.
+// `./core/` (#650: a layer below the store, so the store and lib/ can
+// translate without importing these hooks); only the two hooks below
+// subscribe to the chosen language. See ADR 006 for why this exists instead of react-i18next.
 
-export { LOCALES, LOCALE_NAMES, DEFAULT_LOCALE, isLocale, detectLocale } from './locale'
-export { translate, selectPluralForm } from './translate'
-export type { TFunction } from './translate'
-export type { Locale } from './locale'
-export type { TranslationKey } from './en'
-export type { PluralForms, TranslationParams } from './types'
+export { LOCALES, LOCALE_NAMES, DEFAULT_LOCALE, isLocale, detectLocale } from './core/locale'
+export { translate, selectPluralForm } from './core/translate'
+export type { TFunction } from './core/translate'
+export type { Locale } from './core/locale'
+export type { TranslationKey } from './core/en'
+export type { PluralForms, TranslationParams } from './core/types'
 
 /** The translation function for the currently selected language. Identity is
  *  stable per locale, so passing it into a `useMemo`/`useCallback` dependency

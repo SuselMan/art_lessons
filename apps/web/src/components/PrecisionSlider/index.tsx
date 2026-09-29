@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { clamp } from 'lodash-es'
 import clsx from 'clsx'
 import { advancePosition, distanceOutside, roundToStep } from './precisionSlider'
-import { linearScale, type SliderScale } from './sliderScale'
+import { linearScale, type SliderScale } from '../../lib/tools/sliderScale'
 import styles from './PrecisionSlider.module.css'
 
 interface PrecisionSliderProps {

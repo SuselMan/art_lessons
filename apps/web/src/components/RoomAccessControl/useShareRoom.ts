@@ -5,7 +5,7 @@ import { useT } from '../../i18n'
 import { pushNotice } from '../../stores/noticeStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 
-import { roomShareUrl, shareNoticeFor, shareOrCopy } from './shareRoom'
+import { roomShareUrl, shareNoticeFor, shareOrCopy } from '../../lib/api/shareRoom'
 
 /** What sharing needs to know about a project. Both call sites — the lesson
  *  list's ⋮ and the editor's own menu — have all three to hand. */

@@ -208,6 +208,17 @@ topics:
     why: CI → образ → VPS, миграции до старта сервера, бэкапы, и почему старый прогон откатывает прод.
     modules: [build-dist, apps/web]
 
+  - id: dependency-direction
+    level: 2
+    parent: client
+    title: 'Направление зависимостей: слои и «наверх — через колбэк»'
+    issue: 661
+    why: >-
+      Слой импортирует только то, что правее; если нижнему нужно верхнее, его передают
+      колбэком или аргументом, а общее перекладывают вниз (#650).
+    layers: [ui-kit, state, platform, engine-api]
+    modules: [apps/web/src/i18n, apps/web/src/lib/tools]
+
   - id: architecture-checks
     level: 2
     parent: infra

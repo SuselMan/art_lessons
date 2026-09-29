@@ -3,7 +3,7 @@ import clsx from 'clsx'
 
 import { useDragToAdjust } from '../../lib/input/useDragToAdjust'
 import { Icon } from '../Icon'
-import { parseNumberInput, snapToStep, stepValue } from './numberField'
+import { parseNumberInput, snapToStep, stepValue } from '../../lib/tools/numberInput'
 import styles from './NumberField.module.css'
 
 /** Pixels of vertical drag that cover the field's whole min…max range. Chosen

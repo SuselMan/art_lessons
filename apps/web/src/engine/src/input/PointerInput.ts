@@ -1,7 +1,11 @@
-import { diagLog } from '../../../lib/observability/diagLog'
-import {
-  compilePressureCalibration, isIdentityCalibration, type PressureCalibration,
-} from '../../../lib/input/pressureCalibration'
+/** (#650) An on-device diagnostic line — lib/observability/diagLog's shape.
+ *  The engine is handed one rather than importing it: engine code knows
+ *  nothing of the app around it. */
+export type DiagLog = (...args: unknown[]) => void
+
+/** (#475, #650) A raw → corrected pen pressure mapping — what the app compiles
+ *  the person's calibration to (lib/input/pressureCalibration.ts). */
+export type PressureMap = (raw: number) => number
 
 // Normalizes pointer events (mouse and stylus) to canvas physical coordinates.
 // Uses getCoalescedEvents() for smoother high-frequency stylus input.
@@ -168,12 +172,15 @@ export class PointerInput {
   // is loud without a hover-capable device filling the ring buffer.
   private _orphanMoveLogged: boolean
 
-  // (#475) The person's own pressure calibration, compiled once per change
-  // rather than per sample — see compilePressureCalibration. Null until one is
-  // set, and null again for an identity calibration, so an uncalibrated device
-  // runs the exact pre-#475 code path rather than a closure that happens to be
-  // the identity.
-  private _pressureMap: ((raw: number) => number) | null
+  // (#475) The person's own pressure calibration, as the function the app
+  // compiled it to (#650: the engine knows no calibration model — see
+  // setPressureMap). Null until one is set, and null for an identity
+  // calibration, so an uncalibrated device runs the exact pre-#475 code path
+  // rather than a closure that happens to be the identity.
+  private _pressureMap: PressureMap | null
+  // (#650) The on-device diagnostic log, handed in by whoever built the
+  // engine — see PencilEngineOptions.diagLog. A no-op when nobody did.
+  private readonly _log: DiagLog
 
   private _down: (e: PointerEvent) => void
   // (#517) See _handleCanvasTouchStart — a listener whose entire body is one
@@ -182,8 +189,9 @@ export class PointerInput {
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, log: DiagLog = () => {}) {
     this.canvas = canvas
+    this._log = log
     this._handlers = {}
     this._active = false
     this._lastT = 0
@@ -238,20 +246,20 @@ export class PointerInput {
     return this
   }
 
-  // (#475) Installs the person's pressure calibration. Takes effect on the
-  // next sample, including mid-stroke — which is what makes the settings
-  // panel's curve editor draggable while drawing, and is harmless because
-  // dab geometry is baked per dab, so earlier dabs of the same stroke keep
-  // what they were recorded with.
+  // (#475) Installs the person's pressure calibration, already compiled to a
+  // raw → corrected function (null: none). Takes effect on the next sample,
+  // including mid-stroke — which is what makes the settings panel's curve
+  // editor draggable while drawing, and is harmless because dab geometry is
+  // baked per dab, so earlier dabs of the same stroke keep what they were
+  // recorded with.
   //
   // This is the *only* place a calibration is applied. It has to be, because
   // the corrected value goes on to be recorded in the Operation Log and
   // replayed on every other participant's screen — see the module comment in
-  // pressureCalibration.ts.
-  setPressureCalibration(cal: PressureCalibration | null): void {
-    this._pressureMap = cal === null || isIdentityCalibration(cal)
-      ? null
-      : compilePressureCalibration(cal)
+  // lib/input/pressureCalibration.ts, which is where the model and its
+  // compiler live (#650: the app's, not the engine's).
+  setPressureMap(map: PressureMap | null): void {
+    this._pressureMap = map
   }
 
   // Supply a function that converts (clientX, clientY) → canvas physical {x, y}.
@@ -380,7 +388,7 @@ export class PointerInput {
     // one mark. A completely absent stroke therefore died here or never
     // arrived, and only a log can say which.
     if (e.button !== 0 || e.pointerType === 'touch') {
-      diagLog('[PointerInput] down IGNORED', {
+      this._log('[PointerInput] down IGNORED', {
         reason: e.button !== 0 ? 'button' : 'pointerType',
         pointerId: e.pointerId, pointerType: e.pointerType,
         button: e.button, buttons: e.buttons, pressure: e.pressure, isPrimary: e.isPrimary,
@@ -392,12 +400,12 @@ export class PointerInput {
     // once, which _handleMove's mismatch check below can't itself explain
     // (it only fires on *moves* from an unexpected pointer).
     if (this._active) {
-      diagLog('[PointerInput] pointerdown while a stroke is already active', {
+      this._log('[PointerInput] pointerdown while a stroke is already active', {
         newPointerId: e.pointerId, newPointerType: e.pointerType,
         activePointerId: this._activePointerId, activePointerType: this._activePointerType,
       })
     }
-    diagLog('[PointerInput] down', {
+    this._log('[PointerInput] down', {
       pointerId: e.pointerId, pointerType: e.pointerType,
       clientX: Math.round(e.clientX), clientY: Math.round(e.clientY),
       pressure: e.pressure, buttons: e.buttons, isPrimary: e.isPrimary,
@@ -435,7 +443,7 @@ export class PointerInput {
       // and stay silent; one line per run, not per event.
       if (e.buttons !== 0 && e.pointerType !== 'touch' && !this._orphanMoveLogged) {
         this._orphanMoveLogged = true
-        diagLog('[PointerInput] MOVE WITH NO ACTIVE STROKE — the pointerdown never arrived', {
+        this._log('[PointerInput] MOVE WITH NO ACTIVE STROKE — the pointerdown never arrived', {
           pointerId: e.pointerId, pointerType: e.pointerType,
           buttons: e.buttons, pressure: e.pressure,
         })
@@ -451,7 +459,7 @@ export class PointerInput {
     // only, no early return: behavior must stay exactly as before until
     // this is actually confirmed, so a reproduction here is trustworthy.
     if (e.pointerId !== this._activePointerId) {
-      diagLog('[PointerInput] MOVE FROM MISMATCHED POINTER — likely the "mouse conflict" (#187)', {
+      this._log('[PointerInput] MOVE FROM MISMATCHED POINTER — likely the "mouse conflict" (#187)', {
         movePointerId: e.pointerId, movePointerType: e.pointerType,
         activePointerId: this._activePointerId, activePointerType: this._activePointerType,
       })
@@ -467,13 +475,13 @@ export class PointerInput {
     // very differently at high zoom than at 100%).
     const dt = this._lastT - beforeT
     if (dt > 80) {
-      diagLog('[PointerInput] large gap since last move sample', {
+      this._log('[PointerInput] large gap since last move sample', {
         dtMs: Math.round(dt), pointerId: e.pointerId, pointerType: e.pointerType,
       })
     }
     const jumpPx = Math.hypot(this._lastX - beforeX, this._lastY - beforeY)
     if (jumpPx > 400) {
-      diagLog('[PointerInput] large coordinate jump since last move sample', {
+      this._log('[PointerInput] large coordinate jump since last move sample', {
         jumpPx: Math.round(jumpPx), dtMs: Math.round(dt), pointerId: e.pointerId, pointerType: e.pointerType,
         from: { x: beforeX, y: beforeY }, to: { x: this._lastX, y: this._lastY },
       })
@@ -493,7 +501,7 @@ export class PointerInput {
       // (#517) Same reasoning as the orphan-move probe: an up for a pen whose
       // down was never seen is the signature of a lost pointerdown.
       if (e.pointerType !== 'touch') {
-        diagLog('[PointerInput] up/cancel WITH NO ACTIVE STROKE', {
+        this._log('[PointerInput] up/cancel WITH NO ACTIVE STROKE', {
           type: e.type, pointerId: e.pointerId, pointerType: e.pointerType,
         })
       }
@@ -513,7 +521,7 @@ export class PointerInput {
     // the fix would be unfalsifiable. It is one line away once a capture shows
     // it firing.
     if (e.pointerId !== this._activePointerId) {
-      diagLog('[PointerInput] END FROM MISMATCHED POINTER — a foreign pointer is closing the stroke', {
+      this._log('[PointerInput] END FROM MISMATCHED POINTER — a foreign pointer is closing the stroke', {
         type: e.type, endPointerId: e.pointerId, endPointerType: e.pointerType,
         activePointerId: this._activePointerId, activePointerType: this._activePointerType,
         movesSoFar: this._moveCount, ageMs: Math.round(performance.now() - this._downAt),
@@ -524,7 +532,7 @@ export class PointerInput {
     // canceling the stylus's pointer mid-stroke (palm rejection, focus
     // switch) would end the stroke abruptly too, a distinct cause from the
     // mismatched-pointer theory above.
-    diagLog('[PointerInput] ' + (e.type === 'pointercancel' ? 'CANCEL' : 'up'), {
+    this._log('[PointerInput] ' + (e.type === 'pointercancel' ? 'CANCEL' : 'up'), {
       pointerId: e.pointerId, pointerType: e.pointerType,
       clientX: Math.round(e.clientX), clientY: Math.round(e.clientY),
       // (#517) The shape of the stroke that just ended. `moves: 0` next to a

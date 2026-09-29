@@ -1,6 +1,6 @@
 import type { RoomAccessMode } from '@grafetto/shared'
 
-import type { TranslationKey } from '../../i18n'
+import type { TranslationKey } from '../../i18n/core/en'
 
 import type { DeviceType } from '../browser/deviceType'
 
