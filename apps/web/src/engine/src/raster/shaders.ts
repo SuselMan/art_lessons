@@ -544,7 +544,7 @@ export const DAB_FRAG = `
   // already-fixed compositing rounding bug was #140).
   // u_paperTexSize is the world-space size the paper texture repeats
   // over: for a bounded room this is the canvas's own pixel size, which
-  // also happens to be the texture's own resolution (see _initPaper) —
+  // also happens to be the texture's own resolution (see PaperState.load) —
   // with u_paperOrigin always (0,0) there, the formula below reduces to
   // exactly the old screen-space one. For an infinite room this is a
   // fixed world constant (INFINITE_PAPER_WORLD_SIZE) — deliberately not

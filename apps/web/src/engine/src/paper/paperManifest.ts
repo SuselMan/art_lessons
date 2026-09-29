@@ -25,7 +25,7 @@ import { PAPER_CATCH_LUT_SIZE } from './paperCatch.js'
 //    can verify from the repo, and the bake is only reproducible for a fixed
 //    sharp/libvips build. Any drift means a 404, and a 404 here means no
 //    paper texture at all, which silently disables drawing (engine/index.ts's
-//    _paperTexLoaded gate).
+//    PaperState.loaded gate).
 //  - `npm run dev` does not run `prebuild`, so a generated-and-imported
 //    module would hard-fail a fresh checkout's dev server at *compile* time
 //    rather than at fetch time with a message that says what to run.

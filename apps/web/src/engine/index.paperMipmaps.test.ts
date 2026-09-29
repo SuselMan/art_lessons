@@ -59,7 +59,7 @@ describe('paper grain mip levels (#365)', () => {
 
   it('leaves it on a plain filter at 1:1 too, not just when zoomed out', async () => {
     // The switch is unconditional rather than zoom-gated (see
-    // _bindPaperForCompose — the grain is minified at every zoom), so the
+    // PaperState.bindForCompose — the grain is minified at every zoom), so the
     // restore has to hold at every zoom as well.
     const engine = await engineWithPaper(true)
     engine.setInfiniteCamera(0, 0, 1, 0)

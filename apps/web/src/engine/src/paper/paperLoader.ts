@@ -226,7 +226,7 @@ async function fetchPaperAsset(
  *  This is the half that getPaperManifest's own un-memoized rejection could
  *  not deliver on its own: nothing ever re-entered it, because both callers
  *  below sat behind caches that had already stored the rejection. Without
- *  this, one failed fetch left `_paperTexLoaded` false forever, and
+ *  this, one failed fetch left `PaperState.loaded` false forever, and
  *  engine/index.ts's paint guard turns that into a room that silently refuses
  *  to draw with nothing on screen to say why. */
 function cacheEvictingRejection<K>(

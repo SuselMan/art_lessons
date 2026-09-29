@@ -188,7 +188,7 @@ export function openParkedRoomState<Engine>(engine: Engine, {
   // Still gated on paperReady() even though there is nothing to replay:
   // "ready" is what takes the preloader down and lets the pencil through,
   // and the engine refuses to start a stroke until the real texture has
-  // loaded (see _paperTexLoaded). Marking ready before then hands over a
+  // loaded (see PaperState.loaded). Marking ready before then hands over a
   // room that looks open and silently ignores every stroke.
   return (async () => {
     openTimerRef.current?.stage('paper')

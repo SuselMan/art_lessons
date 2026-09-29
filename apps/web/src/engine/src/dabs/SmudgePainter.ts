@@ -22,6 +22,7 @@ import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { ScratchFreeList } from '../buffers/scratchPools'
 import type { WorldRect } from '../buffers/tileMath'
+import type { PaperSampling } from '../paper/PaperState'
 import { curveAt, type MixerPaint } from '../presets/digitalBrushPresets'
 import { smudgeGrainRelief } from '../presets/smudgeGrain'
 import { DAB_VERT, DISPLAY_VERT, SMUDGE_PICKUP_FRAG, SMUDGE_TRANSFER_FRAG } from '../raster/shaders'
@@ -75,28 +76,19 @@ const SMUDGE_DEPOSIT_RATE = 2.0
  *  another colour start *mixed* rather than as a clean patch of its own. */
 const MIXER_PRIME_LOAD = 0.85
 
-/** The paper a smudge deposit catches on — the same world-space sampling
- *  every other dab shader uses. */
-export interface SmudgePaper {
-  tex: WebGLTexture
-  /** See the engine's _paperWorldSize. */
-  worldSize: { w: number; h: number }
-  scale: number
-  fillThreshold: number
-  fillCap: number
-}
-
 /** What SmudgePainter may ask of the engine. Functions, not values, for
  *  everything the engine replaces: both quad buffers are rebuilt by its
- *  _initGL on a context restore, and the paper texture, scale and catch
- *  change whenever the paper does. */
+ *  _initGL on a context restore. The paper is the engine's one PaperState,
+ *  held by reference — its texture and catch change inside it. */
 export interface SmudgeContext {
   readonly gl: WebGLRenderingContext
   /** DAB_VERT's -0.5..0.5 dab quad. */
   quadBuf(): WebGLBuffer
   /** DISPLAY_VERT's -1..1 full-screen quad. */
   screenBuf(): WebGLBuffer
-  paper(): SmudgePaper
+  /** The paper a smudge deposit catches on — the same world-space sampling
+   *  every other dab shader uses. */
+  readonly paper: PaperSampling
 }
 
 /** The one gesture that must keep its carried state through a rebuild —
@@ -558,7 +550,7 @@ export class SmudgePainter {
   ): void {
     const { gl } = this
     const { buffer } = tile
-    const paper = this.ctx.paper()
+    const paper = this.ctx.paper
     if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
 
@@ -567,12 +559,12 @@ export class SmudgePainter {
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     // Same world-space paper sampling every other dab shader uses — see
     // DAB_FRAG's own #141 comment for the origin-sign/world-size reasoning.
-    const { w: paperTexW, h: paperTexH } = paper.worldSize
+    const { w: paperTexW, h: paperTexH } = paper.worldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
     gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
     gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, paper.tex)
+    gl.bindTexture(gl.TEXTURE_2D, paper.texture)
     gl.uniform1i(u.u_paperHeightMap, 0)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, carried.texture)

@@ -286,7 +286,7 @@ const manifestPath = join(outDir, PAPER_MANIFEST_FILENAME)
  *   - a file the manifest names is missing. This one is mandatory, not
  *     belt-and-braces: skipping on "the manifest exists" alone would ship a
  *     build where every paper fetch 404s, which does not fail visibly — it
- *     leaves _paperTexLoaded false forever and quietly disables drawing for
+ *     leaves PaperState.loaded false forever and quietly disables drawing for
  *     the whole room (see engine/index.ts);
  *   - a file's size differs from the manifest's, which is how a truncated or
  *     half-restored cache looks. O(1) per file, no read.

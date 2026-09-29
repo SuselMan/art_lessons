@@ -10,7 +10,7 @@ interface PaperFailedOverlayProps {
 /** (#346) Shown instead of the loading preloader once the paper texture has
  *  failed to load.
  *
- *  Without that texture the engine cannot draw at all: `_paperTexLoaded` stays
+ *  Without that texture the engine cannot draw at all: `PaperState.loaded` stays
  *  false and every pointer-down is dropped on the floor (see engine's
  *  `_onStart`). Until this existed the room opened anyway and simply did not
  *  respond to the pencil, with the actual error — which names the file, the

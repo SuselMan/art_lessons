@@ -8,7 +8,7 @@
 // bounded and infinite rooms now share the exact same fixed-resolution,
 // REPEAT-wrapped texture (see engine/index.ts's _paperWorldSize), and that
 // loading it is now asynchronous (a placeholder is bound synchronously,
-// swapped for the real texture once the load resolves — see _paperReady).
+// swapped for the real texture once the load resolves — see PaperState.ready()).
 //
 // Three original defects, all in engine/index.ts + src/raster/shaders.ts:
 //  1. _initPaper generated the paper texture at canvas.width x
@@ -191,7 +191,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
     // right after opening a room, before the paper texture finished its own
     // async load, permanently baked in the placeholder's flat response —
     // nothing later re-paints an already-applied pixel operation. _onStart
-    // now refuses to begin a stroke at all until _paperTexLoaded flips true
+    // now refuses to begin a stroke at all until PaperState.loaded flips true
     // (see engine/index.ts's own field comment), rather than risk that.
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 20, height: 20 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
@@ -208,7 +208,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
     expect(engine.getOperations().map(op => op.type)).toEqual(['layer_add', 'stroke'])
   })
 
-  it('the placeholder is swapped for the real texture once _paperReady resolves', async () => {
+  it('the placeholder is swapped for the real texture once PaperState.ready() resolves', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 20, height: 20 })
     expect(paperTextureSize(engine)).toEqual({ width: 1, height: 1 })
 

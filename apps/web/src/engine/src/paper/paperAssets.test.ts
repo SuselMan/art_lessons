@@ -66,7 +66,7 @@ const MAX_MEAN_JUMP = 16
 describe.skipIf(!baked)('baked paper assets', () => {
   // The invariant paperLoader.ts leans on at runtime: it looks a type up in
   // the manifest and fetches whatever it finds, with no fallback. A name that
-  // points at nothing is a 404, and a 404 leaves _paperTexLoaded false, which
+  // points at nothing is a 404, and a 404 leaves PaperState.loaded false, which
   // disables drawing for the whole room without an error anywhere near it.
   it('manifest names a file that exists for every paper type, and no others', () => {
     expect(Object.keys(manifest!.assets).sort()).toEqual([...PAPER_GRAIN_TYPES].sort())
