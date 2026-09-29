@@ -1,11 +1,11 @@
 // #123: batching dab draw calls via ANGLE_instanced_arrays.
 //
 // Ground truth for "did batching change any pixel" is the pre-#123
-// per-dab-uniform loop (_paintDabsUniform in engine/index.ts, unchanged
+// per-dab-uniform loop (StampPainter.paintUniform in src/dabs/StampPainter.ts, unchanged
 // call-for-call from `git show dev:apps/web/src/engine/index.ts`'s old
 // _paintDabs). MockGL's _rasterDab — the actual pixel math both paths
 // ultimately call — is untouched by #123 (see testing/mockGL.ts's module
-// docstring), so forcing an engine's cached `_instancedArraysExt` to null
+// docstring), so forcing its StampPainter's cached `instanced` extension to null
 // reproduces the exact pre-#123 code path: same GL call sequence, same
 // shader math (DAB_VERT's per-dab uniforms are forwarded to the same
 // varyings DAB_VERT_INSTANCED's per-instance attributes feed — a value
@@ -27,7 +27,7 @@ import {
 // Internals-only escape hatch (same spirit as engineTestUtils' `internals()`)
 // to force the pre-#123 fallback path for one engine instance.
 function forceUniformPath(engine: unknown): void {
-  (engine as { _instancedArraysExt: unknown })._instancedArraysExt = null
+  (engine as { _stamps: { instanced: unknown } })._stamps.instanced = null
 }
 
 /** A tight, self-overlapping spiral — dozens of dabs from a single stroke,

@@ -8,7 +8,7 @@
 // bounded and infinite rooms now share the exact same fixed-resolution,
 // REPEAT-wrapped texture (see engine/index.ts's _paperWorldSize), and that
 // loading it is now asynchronous (a placeholder is bound synchronously,
-// swapped for the real texture once the load resolves — see _paperReady).
+// swapped for the real texture once the load resolves — see PaperState.ready()).
 //
 // Three original defects, all in engine/index.ts + src/raster/shaders.ts:
 //  1. _initPaper generated the paper texture at canvas.width x
@@ -143,7 +143,7 @@ describe('paper texture: world-space grain sampling (#141)', () => {
       // DAB_VERT's own clip.y flip means a tile's local gl_FragCoord.y runs
       // opposite to the tile origin's top-down world-Y convention — origin
       // must be *subtracted*, not added, for the two to agree at a shared
-      // tile edge (see DAB_FRAG's / _paintDabsInstanced's own comment) —
+      // tile edge (see DAB_FRAG's / StampPainter.paintInstanced's own comment) —
       // i.e. u_paperOrigin.y is the *negation* of the tile's true world-Y
       // origin (TILE_SIZE for tile row 1), not the origin itself.
       expect(origin).toEqual([0, -TILE_SIZE])
@@ -191,7 +191,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
     // right after opening a room, before the paper texture finished its own
     // async load, permanently baked in the placeholder's flat response —
     // nothing later re-paints an already-applied pixel operation. _onStart
-    // now refuses to begin a stroke at all until _paperTexLoaded flips true
+    // now refuses to begin a stroke at all until PaperState.loaded flips true
     // (see engine/index.ts's own field comment), rather than risk that.
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 20, height: 20 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
@@ -208,7 +208,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
     expect(engine.getOperations().map(op => op.type)).toEqual(['layer_add', 'stroke'])
   })
 
-  it('the placeholder is swapped for the real texture once _paperReady resolves', async () => {
+  it('the placeholder is swapped for the real texture once PaperState.ready() resolves', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 20, height: 20 })
     expect(paperTextureSize(engine)).toEqual({ width: 1, height: 1 })
 

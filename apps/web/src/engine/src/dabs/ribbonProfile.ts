@@ -318,7 +318,7 @@ export interface RibbonProfile {
   /** (#573, ADR 013 §11) Set for a digital brush on the `stamp` model: the
    *  frozen descriptor and the pressure switches its token recorded. The stroke
    *  then leaves the ribbon rasterizer at the door and is painted by the brush's
-   *  own stamp and composite programs (engine's _paintBrushStroke) — it keeps
+   *  own stamp and composite programs (BrushPainter.paint) — it keeps
    *  only this machinery's scratch buffers, the frozen pre-stroke layer and the
    *  coverage accumulated over the stroke. Absent for every other profile,
    *  including the digital brush's own v1 strokes, which must keep replaying
@@ -639,7 +639,7 @@ const WATERCOLOR_PAPER_EDGE = 0.0 // (s17.27) the sheet's pits no longer bite th
 
 /** ADR 011 §3.5 — the **cap** on how far the wash may leave the brush's own
  *  footprint, in canvas px. The engine scales the actual reach with the
- *  stroke's own radius and clamps it here (see _paintRibbonStroke).
+ *  stroke's own radius and clamps it here (see _ribbonStrokeWork).
  *
  *  This is the correction that matters most in v2. Everything else in this
  *  profile is texture; this is geometry. A marker's mark *is* the swept outline
@@ -713,7 +713,7 @@ const WATERCOLOR_SPREAD_CAP_PX = 3.0
 
 /** (#536) How much further a wash travels through water already on the paper,
  *  as a multiplier on its reach at full soak. The cap moves with it (see
- *  _paintRibbonStroke) — leaving the cap put would have made this number do
+ *  _ribbonStrokeWork) — leaving the cap put would have made this number do
  *  nothing on any brush big enough to reach it, which is the failure mode of
  *  every capped multiplier. */
 //  #536 — 3.0, from 2. Ilya put a number on it: a 30 px dot dropped into
@@ -741,7 +741,7 @@ export const WATERCOLOR_BRISTLE_BUNDLE_PX = 3.5
  *  exact. Below roughly this the blur cannot displace anything at all. */
 const WATERCOLOR_SPREAD_MIN_PX = 2.5
 
-/** Read by engine/index.ts's _paintRibbonStroke, which is where the stroke's
+/** Read by engine/index.ts's _ribbonStrokeWork, which is where the stroke's
  *  own radius is known. Exported as a record rather than three constants so a
  *  caller cannot pick up two of the three and silently ignore the cap. */
 /** #468 v11 — how far pigment travels in one exchange, as a fraction of the

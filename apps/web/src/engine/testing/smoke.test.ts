@@ -27,7 +27,7 @@ describe('engine test harness smoke test', () => {
   // DISPLAY_TRANSPARENT_FRAG are tagged 'display' (they both reference
   // u_accumulation), so there's no real pixel output to assert on here.
   // What this *does* exercise under MockGL: the new program/uniform wiring
-  // (_dispTransparentProg, _composeToFBO, _displayTransparent) runs without
+  // (Exporter's transparent program, _composeToFBO, the fallback) runs without
   // throwing for both the default (paper) and transparent variants, and
   // getOperations() — session-save's data source — reflects an appended
   // stroke. Real transparency (alpha=0 outside strokes, alpha>0 inside) is

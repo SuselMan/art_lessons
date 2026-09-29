@@ -67,8 +67,8 @@ size/aspect.
 `effectiveBase = dst.a > 0 ? unpremultiply(dst) : paperWhite`, затем
 `result = mix(effectiveBase, effectiveBase * markerColor, coverage * flow)`
 — то есть тот же класс техники, что уже решала растушёвка (#14):
-ping-pong через scratch-буфер на каждый даб (`_paintOneSmudgeDab` в
-`engine/index.ts`), а не однопроходный shader, как у обычного "over"-блендинга
+ping-pong через scratch-буфер на каждый даб (`SmudgePainter.paintOneDab` в
+`engine/src/dabs/SmudgePainter.ts`), а не однопроходный shader, как у обычного "over"-блендинга
 графита/туши (`shaders.ts`, `gl_FragColor = vec4(u_color * deposit, deposit)`,
 `blendFunc(ONE, ONE_MINUS_SRC_ALPHA)`). Инженерно это ближе по трудозатратам к
 smudge, чем к "ещё одному пресету поверх текущего пайплайна" — стоит
@@ -243,7 +243,7 @@ banding/шевроны (issue #266). Диагноз: `coverage` из v1 — од
 `inkLoad` копится не "долей на даб", а `deposit = dab.opacity * segmentLength`,
 где `segmentLength = |dab - prevDab|` — реальное пройденное расстояние
 между соседними дабами (не время/не число pointer-событий/не spacing).
-`dab.opacity` уже несёт flow от скорости/наклона (`_bakeDabOpacity`'s
+`dab.opacity` уже несёт flow от скорости/наклона (`bakeDabOpacity`'s
 marker branch), так что итоговая формула эквивалентна
 `flowPerDistance(speed, tilt) * segmentLength * pressureFactor` из
 предложения эксперта — просто пересобрана из уже существующих кусков, а не

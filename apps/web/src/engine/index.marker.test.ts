@@ -234,7 +234,7 @@ describe('marker tool (#250, ADR 004)', () => {
   // #250, ADR 004 section 2: marker reuses liner's own weak speed/tilt flow
   // curve (linerSpeedFlow/linerTiltFlow) rather than pencil's speedFactor —
   // drives the real pointer pipeline (like index.liner.test.ts's own tests)
-  // so this exercises _bakeDabOpacity's actual marker branch, not a
+  // so this exercises bakeDabOpacity's actual marker branch, not a
   // reimplementation of the formula in the test.
   it('bakes dab opacity from the same weak liner-style speed/tilt flow, not pencil-style tapering to near-zero', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 160, height: 160 })

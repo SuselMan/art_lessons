@@ -81,7 +81,7 @@ describe('infinite canvas: tile-straddling strokes (#133)', () => {
     // Dab center right at the corner, radius well past every edge — a real
     // pointer can click exactly here (the corner is on-page), but the
     // brush's own radius overhangs off all four sides. Without clamping
-    // (_dabsWorldBounds, bounded-only), this would resolve — and lazily
+    // (StampPainter.worldBounds, bounded-only), this would resolve — and lazily
     // create — up to 9 full canvas-sized tiles (the 3x3 grid straddling the
     // corner) just to hold a few overflow pixels that could never become
     // visible again through normal use.

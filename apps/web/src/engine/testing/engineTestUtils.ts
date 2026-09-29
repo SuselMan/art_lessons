@@ -158,31 +158,36 @@ interface EngineInternals {
   _compositeFBO: AccumulationBuffer
   // #301 white-box access — see readCompositePixels below.
   _composeToFBO: (needCompositeFBO?: boolean) => void
-  // #145 white-box access — see buildExportComposite below.
-  _buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
-  // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
-  _assemblyPad: () => { padX: number; padY: number }
-  _compositeCenterX: number
-  _compositeCenterY: number
-  _compositeScale: number
-  // #301 white-box access — see screenToWorldFor/rotateMatrixInvFor below.
-  _screenToWorldMatrix: () => Matrix3
-  _infiniteRotateMatrixInv: () => Matrix3
-  // Live gizmo-drag preview (#120/#139) — see engine/index.ts's own
-  // PreviewTile. Structurally identical, redeclared here rather than
-  // exported from index.ts since there's no product reason a real caller
-  // would ever need this shape — same reasoning as the rest of this file's
-  // white-box access.
-  _transformPreview: Map<string, Array<{ originX: number; originY: number; buffer: AccumulationBuffer }>>
+  // #145 white-box access — see buildExportComposite below. (#494) Lives on
+  // Exporter (src/export/Exporter.ts) now.
+  _exporter: {
+    buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
+  }
+  // #134-follow-up / #301 white-box access — see assemblyPad/compositeCenterFor/
+  // screenToWorldFor/rotateMatrixInvFor below. (#494) The camera lives on
+  // Camera (src/raster/Camera.ts) now.
+  _camera: {
+    assemblyPad: () => { padX: number; padY: number }
+    liveFrame: () => { centerX: number; centerY: number; scale: number }
+    screenToWorldMatrix: () => Matrix3
+    rotateMatrixInv: () => Matrix3
+  }
+  // Live gizmo-drag preview (#120/#139) — see LayerPreviews and its
+  // PreviewTile (src/raster/layerPreviews.ts). Structurally identical,
+  // redeclared here rather than imported from the engine's internals since
+  // there's no product reason a real caller would ever need this shape —
+  // same reasoning as the rest of this file's white-box access.
+  _previews: { tiles: Map<string, Array<{ originX: number; originY: number; buffer: AccumulationBuffer }>> }
   // #141 white-box access — see paperTextureSize/paperTextureWrap/
   // lastPaperDabUniform below.
   gl: MockGL
-  _paperTex: object
-  // Resolves once _initPaper's async load has swapped the placeholder for
-  // the real baked texture — see engine/index.ts's own field comment.
-  _paperReady: Promise<void>
+  // (#494) The paper lives on PaperState (src/paper/PaperState.ts). ready()
+  // resolves once its async load has swapped the placeholder for the real
+  // baked texture — see that class's own field comments.
+  _paper: { readonly texture: object; ready(): Promise<void> }
   _dabUni: Record<string, MockLocation | null>
-  _dabInstUni: Record<string, MockLocation | null>
+  // (#494) The instanced stamp program's uniforms live on StampPainter now.
+  _stamps: { instUni: Record<string, MockLocation | null> }
   _handleContextRestored: () => void
   // #245 white-box access — see inProgressStrokeDabs below.
   _strokeDabs: Dab[]
@@ -307,30 +312,30 @@ export interface ExportComposite {
   width: number
   height: number
   // RGBA8, GL-row-order (bottom-up) — same convention readCompositePixels/
-  // AccumulationBuffer.readPixels already give; see _buildContentComposite's
-  // own doc comment in engine/index.ts.
+  // AccumulationBuffer.readPixels already give; see
+  // Exporter.buildContentComposite's own doc comment.
   pixels: Uint8Array
 }
 
 /** White-box hook into exportPNG's infinite-room composite-building step
- *  (#145) — _buildContentComposite() itself. Returns the union content-
+ *  (#145) — Exporter.buildContentComposite() itself. Returns the union content-
  *  bounds rect plus that rect's raw (unblended, premultiplied-color/
  *  coverage-alpha) pixels, or null if every layer is empty.
  *
  *  This is the layer these tests can actually assert on: exportPNG's own
  *  final output isn't mockable end-to-end — MockGL deliberately never
  *  rasterizes the paper-blend/display-transparent passes (see mockGL.ts's
- *  module docstring), and _exportInfinitePNG's PNG encoding step reaches for
+ *  module docstring), and the engine's PNG encoding step reaches for
  *  `document.createElement('canvas')`, which doesn't exist in vitest's
  *  'node' environment (see the root vitest.config.ts) — so a test exercising
  *  the full exportPNG() call with real content on an infinite-room engine
- *  would throw, not just fail an assertion. _buildContentComposite is the
+ *  would throw, not just fail an assertion. buildContentComposite is the
  *  exact boundary where "pixels MockGL can rasterize" ends and "the DOM-only
  *  PNG encoding step" begins, so that's what this reaches past — same
  *  documented, centralized reach-past-private-fields pattern as every other
  *  helper in this file. */
 export function buildExportComposite(engine: PencilEngine): ExportComposite | null {
-  const result = internals(engine)._buildContentComposite()
+  const result = internals(engine)._exporter.buildContentComposite()
   if (!result) return null
   const pixels = result.buffer.readPixels()
   result.buffer.destroy()
@@ -353,7 +358,7 @@ export interface PreviewTileSnapshot {
  *  the preview's own staged content (position + pixels) in isolation from
  *  whether the camera/viewport happens to have it on screen. */
 export function readTransformPreviewTiles(engine: PencilEngine, layerId: string): PreviewTileSnapshot[] {
-  const tiles = internals(engine)._transformPreview.get(layerId)
+  const tiles = internals(engine)._previews.tiles.get(layerId)
   if (!tiles) return []
   return tiles.map(({ originX, originY, buffer }) => ({ originX, originY, pixels: buffer.readPixels() }))
 }
@@ -368,7 +373,7 @@ export function readTransformPreviewTiles(engine: PencilEngine, layerId: string)
  *  compare identity for "the same tile" across two previewLayerTransform
  *  calls. */
 export function readTransformPreviewTextureIds(engine: PencilEngine, layerId: string): Map<string, unknown> {
-  const tiles = internals(engine)._transformPreview.get(layerId) ?? []
+  const tiles = internals(engine)._previews.tiles.get(layerId) ?? []
   return new Map(tiles.map(t => [`${t.originX},${t.originY}`, t.buffer.texture]))
 }
 
@@ -385,27 +390,26 @@ export function checkpointBytes(engine: PencilEngine): number {
 
 /** #134-follow-up white-box access: how much bigger the assembly buffer is
  *  than the real canvas, per axis, *rounded to the nearest whole pixel* —
- *  see _assemblyPad's own doc comment in engine/index.ts. Both components
+ *  see Camera.assemblyPad's own doc comment (src/raster/Camera.ts). Both components
  *  are integers by construction (Math.round always returns one); what a
  *  test actually wants to check is that the engine *uses* this padding
  *  (rather than the assembly buffer's raw half-size) when placing content
  *  and rotating it back — see index.tiledDisplay.test.ts's blur-regression
  *  test for that end-to-end check. */
 export function assemblyPad(engine: PencilEngine): { padX: number; padY: number } {
-  return internals(engine)._assemblyPad()
+  return internals(engine)._camera.assemblyPad()
 }
 
-/** #134-follow-up white-box access: the pixel position within the *current*
- *  composite target that the camera's own world point (wx, wy) maps to —
- *  only meaningful right after a real composite has run (setInfiniteCamera/
- *  a paint/etc. — anything that calls _display()), since it's set fresh by
- *  _runComposite every time. See engine/index.ts's _compositeCenterX field
- *  comment for why, for an infinite room, this must differ from
+/** #134-follow-up white-box access: the pixel position within the on-screen
+ *  composite target that the camera's own world point (wx, wy) maps to — the
+ *  live CameraFrame's centre, which every _composeToFBO derives fresh from the
+ *  current camera and canvas (#494). See CameraFrame.centerX in
+ *  src/raster/cameraFrame.ts for why, for an infinite room, this must differ from
  *  canvas.width/2 by an exact integer (not any fractional amount) to avoid
  *  a permanent, uniform bilinear-resample blur on every frame. */
 export function compositeCenterFor(engine: PencilEngine): { x: number; y: number } {
-  const i = internals(engine)
-  return { x: i._compositeCenterX, y: i._compositeCenterY }
+  const frame = internals(engine)._camera.liveFrame()
+  return { x: frame.centerX, y: frame.centerY }
 }
 
 /** #301 white-box access: the two destination-driven inverse mappings
@@ -417,18 +421,18 @@ export function compositeCenterFor(engine: PencilEngine): { x: number; y: number
  *  compare the matrices themselves against where the composite actually put
  *  content. See index.tiledDisplay.test.ts's paper-alignment test. */
 export function screenToWorldFor(engine: PencilEngine): Matrix3 {
-  return internals(engine)._screenToWorldMatrix()
+  return internals(engine)._camera.screenToWorldMatrix()
 }
 
 /** #301 white-box access: composite-target pixels per world unit — min(1,
- *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See the
- *  field's own comment in engine/index.ts. */
+ *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See
+ *  CameraFrame.scale in src/raster/cameraFrame.ts. */
 export function compositeScaleFor(engine: PencilEngine): number {
-  return internals(engine)._compositeScale
+  return internals(engine)._camera.liveFrame().scale
 }
 
 export function rotateMatrixInvFor(engine: PencilEngine): Matrix3 {
-  return internals(engine)._infiniteRotateMatrixInv()
+  return internals(engine)._camera.rotateMatrixInv()
 }
 
 // ─── Paper-texture white-box access (#141) ─────────────────────────────────
@@ -444,11 +448,11 @@ export function rotateMatrixInvFor(engine: PencilEngine): Matrix3 {
 // PencilEngine's private fields.
 
 /** The paper texture's own GL pixel dimensions — the same fixed, offline-
- *  baked resolution for both bounded and infinite rooms (see _initPaper);
- *  a 1x1 placeholder until `await internals(engine)._paperReady` resolves. */
+ *  baked resolution for both bounded and infinite rooms (see PaperState.load);
+ *  a 1x1 placeholder until `await paperReady(engine)` resolves. */
 export function paperTextureSize(engine: PencilEngine): { width: number; height: number } | null {
   const eng = internals(engine)
-  return eng.gl.getTextureSize(eng._paperTex)
+  return eng.gl.getTextureSize(eng._paper.texture)
 }
 
 /** (#365) The paper texture's mip state: how many chains have been built for
@@ -459,23 +463,23 @@ export function paperTextureSize(engine: PencilEngine): { width: number; height:
 export function paperMipState(engine: PencilEngine): { generations: number; askingForMips: boolean } {
   const eng = internals(engine)
   return {
-    generations: eng.gl.getMipmapGenerations(eng._paperTex),
-    askingForMips: eng.gl.getMinFilter(eng._paperTex) === eng.gl.LINEAR_MIPMAP_LINEAR,
+    generations: eng.gl.getMipmapGenerations(eng._paper.texture),
+    askingForMips: eng.gl.getMinFilter(eng._paper.texture) === eng.gl.LINEAR_MIPMAP_LINEAR,
   }
 }
 
 /** The paper texture's wrap mode — REPEAT for both bounded and infinite
- *  rooms (see _initPaper/paperLoader.ts). */
+ *  rooms (see PaperState.load/paperLoader.ts). */
 export function paperTextureWrap(engine: PencilEngine): { wrapS: number; wrapT: number } | null {
   const eng = internals(engine)
-  return eng.gl.getTextureWrap(eng._paperTex)
+  return eng.gl.getTextureWrap(eng._paper.texture)
 }
 
-/** Awaits _initPaper's in-flight (or already-settled) load — see
- *  engine/index.ts's own _paperReady field comment. Lets a test observe the
+/** Awaits PaperState's in-flight (or already-settled) load — see its own
+ *  _ready field comment. Lets a test observe the
  *  post-load texture deterministically instead of guessing tick counts. */
 export function paperReady(engine: PencilEngine): Promise<void> {
-  return internals(engine)._paperReady
+  return internals(engine)._paper.ready()
 }
 
 /** Simulates a WebGL context-restore (webglcontextrestored) without needing
@@ -489,21 +493,21 @@ export function triggerContextRestore(engine: PencilEngine): void {
 
 /** The last value a named dab-shader uniform (e.g. 'u_paperOrigin',
  *  'u_paperTexSize') was set to for the most recently painted dab —
- *  whichever of the batched (_dabInstUni) or per-dab-uniform (_dabUni) path
+ *  whichever of the batched (StampPainter's instUni) or per-dab-uniform (_dabUni) path
  *  actually ran last (MockGL always provides the ANGLE_instanced_arrays
  *  shim, so in practice this is always the batched path — see
- *  _paintDabsInstanced). Reads through the *instanced* program first since
+ *  StampPainter.paintInstanced). Reads through the *instanced* program first since
  *  that's the one every real dab paint in these tests actually uses. */
 export function lastPaperDabUniform(engine: PencilEngine, name: string): UniformValue | undefined {
   const eng = internals(engine)
-  const loc = eng._dabInstUni[name] ?? eng._dabUni[name]
+  const loc = eng._stamps.instUni[name] ?? eng._dabUni[name]
   return loc ? eng.gl.readUniform(loc) : undefined
 }
 
 /** Like lastPaperDabUniform, but reads only the non-batched per-dab program
  *  (_dabUni) — needed for marker (#250), whose own paint path
  *  (_ribbonStrokeWork) always draws through _dabProg
- *  directly and never _paintDabsInstanced/_dabProgInstanced (see
+ *  directly and never StampPainter's paintInstanced/instProg (see
  *  _paintRibbonDabs' own doc comment on why marker dabs can't batch).
  *  lastPaperDabUniform's own "prefer the instanced location" order would
  *  silently read whatever some *other*, unrelated tool's instanced draw
@@ -566,7 +570,7 @@ export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9 
  *  CHECKPOINT_BUDGET_BYTES pressure — impractical to reach honestly in a
  *  small-canvas unit test) so a rebuild is forced to fall back to full
  *  from-scratch replay instead of the checkpoint fast path. Used to exercise
- *  the recursive `_replayMergeInto` path for a merge-of-a-merge, which a live
+ *  the recursive `StructuralOps.replayMergeInto` path for a merge-of-a-merge, which a live
  *  merge's own immediate checkpoint would otherwise always short-circuit. */
 /** (#429) The live-stroke bookkeeping, one entry per in-flight gesture. White-box
  *  for the same reason the rest of this file is: the invariant that matters —
@@ -856,7 +860,7 @@ export function makeImageImport(
 
 /** (#398) Stands in for the browser's `Image` in vitest's 'node' environment,
  *  which has none — the engine decodes an imported reference image through it
- *  (see _loadImage), so without this the import path cannot run in a test at
+ *  (see the engine's _decodeImage), so without this the import path cannot run in a test at
  *  all. Deliberately per-test rather than process-wide like the rAF/paper
  *  stubs above: what a test of the *import* path usually needs to control is
  *  exactly this — whether a decode succeeds, and when.

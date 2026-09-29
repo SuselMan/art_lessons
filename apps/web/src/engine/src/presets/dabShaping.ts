@@ -14,7 +14,7 @@ import { tiltAzimuthRad } from './tiltMath'
 // Per-tool pressure→size and tilt→aspect response curves for DabSystem's
 // dab geometry (#240). Previously hardcoded directly in DabSystem._makeDab
 // as graphite-pencil curves shared by every tool — only per-dab *opacity*
-// branched by tool (see engine/index.ts's _bakeDabOpacity). The fineliner
+// branched by tool (see dabs/dabOpacity.ts's bakeDabOpacity). The fineliner
 // (#238) needs a fundamentally different response (±7-15%, not the
 // pencil's several-fold swing), so the curves themselves must be
 // selectable per tool instead.
@@ -107,7 +107,7 @@ export interface DabShapingProfile {
    * derived from do not agree on a frame: `pathAngle` is already world, while
    * `tiltX/tiltY` are reported by the device relative to the **screen**. So a
    * profile that reads tilt must convert, and `cameraAngle` (the viewport's
-   * own rotation, `_infiniteCamera.angle`) is what it converts with. A profile
+   * own rotation, `Camera.pose.angle`) is what it converts with. A profile
    * anchored to the canvas (a chisel's fixed angle) or to the stroke ignores it
    * — those frames need no conversion, which is the whole reason the anchor has
    * to be named rather than assumed.
@@ -357,7 +357,7 @@ export function anchoredAngleShaping(offset: number, anchor: NibAnchor): DabShap
 //
 // Still the default profile, so eraser and smudge ride it too (Ilya, 06.08:
 // the same response for everything that runs on a graphite-shaped tip). They
-// keep their own opacity branches in _bakeDabOpacity — only geometry is
+// keep their own opacity branches in bakeDabOpacity — only geometry is
 // shared.
 //
 // The ×90 undoes DabShapingProfile's own tiltNorm normalization, because the
@@ -579,7 +579,7 @@ export function offsetAngleShaping(angleRadians: number): DabShapingProfile['ang
 }
 
 // pencil/eraser/smudge never had their own geometry (only opacity branched
-// per-tool, see engine/index.ts's _bakeDabOpacity) — they all keep riding
+// per-tool, see dabs/dabOpacity.ts's bakeDabOpacity) — they all keep riding
 // PENCIL_DAB_SHAPING.
 //
 // #251: widened to also take the raw preset/presetName string so a 'marker'

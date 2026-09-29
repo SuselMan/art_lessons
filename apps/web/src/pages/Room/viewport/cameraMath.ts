@@ -26,7 +26,7 @@ import { clientToCanvas, type CanvasSize } from './pointerTransform'
 // site now just calls this instead of re-deriving it inline). worldToScreen
 // is its algebraic inverse, and was independently cross-checked against the
 // engine's own world->screen convention (see PencilEngine's
-// _finishInfiniteComposite/_worldToScreenEdgeX/Y doc comments): forward
+// _finishInfiniteComposite and the engine's frameEdgeX/Y doc comments): forward
 // mapping is screen = (vp.cx, vp.cy) + R(vp.angle) * vp.zoom * world, which
 // is exactly what worldToScreen computes.
 
@@ -283,7 +283,7 @@ export function cameraTransformCss(vp: Viewport): string {
 
 /** The world-space rect currently visible in the viewport — used by the
  *  infinite-room grid variant (see GridOverlay.tsx) to know how far to draw
- *  lines. Deliberately mirrors PencilEngine's own `_visibleWorldRect` (a
+ *  lines. Deliberately mirrors the engine's own `Camera.visibleWorldRect` (a
  *  generous axis-aligned bounding box of the rotated viewport rect, padded
  *  to the half-diagonal rather than tightened to the exact rotated quad) —
  *  the grid only needs to *at least* cover what's actually visible, and

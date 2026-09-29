@@ -8,7 +8,7 @@
 //
 // Why it exists. Restoring a room pins one checkpoint per layer holding that
 // layer's snapshot pixels, because the operations that painted them are below
-// the log window and will never arrive — see _pinSnapshotCheckpoint. Those
+// the log window and will never arrive — see SnapshotIO._pinSnapshotCheckpoint. Those
 // pinned checkpoints are exempt from the checkpoint byte budget, so they are
 // held in full, forever, *on top of* the GL textures holding the same pixels.
 // Measured on production room cdf314dd-153: 235 MB of pinned pixels beside

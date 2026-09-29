@@ -5,12 +5,12 @@
 //
 // Before #138, _composeToFBO returned early for infinite rooms *before* the
 // block that blends these previews in at all — so for infinite rooms they
-// never rendered, full stop. The fix (see PencilEngine._cameraCenteredOrigin/
-// _translateDabs/_drawTileComposite in engine/index.ts) routes them through
+// never rendered, full stop. The fix (see Camera.centeredOrigin/translateDabs
+// in engine/src/raster/Camera.ts and _drawTileComposite in engine/index.ts) routes them through
 // the same tile-positioning primitive real tile content uses, treating each
 // preview buffer as a "tile" whose world origin is wherever the camera was
 // when the buffer was created — so they now land at the correct screen
-// position for whatever the current _infiniteCamera happens to be, not just
+// position for whatever the current camera pose happens to be, not just
 // near world origin.
 //
 // Every test below deliberately anchors its camera far from world origin
@@ -32,9 +32,9 @@ function alphaAt(pixels: Uint8Array, width: number, x: number, y: number): numbe
 
 // An arbitrary world point far from the origin — every test below sets the
 // camera here *before* creating any preview buffer, so its world-origin
-// snapshot (_cameraCenteredOrigin) is centered here, not at (0,0). Preview
+// snapshot (Camera.centeredOrigin) is centered here, not at (0,0). Preview
 // content then stays within a small offset of BASE, well inside the fixed
-// canvas-sized buffer's own local range (see _cameraCenteredOrigin's doc
+// canvas-sized buffer's own local range (see Camera.centeredOrigin's doc
 // comment: it covers roughly canvas-size world units around wherever it was
 // snapshotted, not the whole infinite plane).
 const BASE = { x: 10_000, y: 5_000 }

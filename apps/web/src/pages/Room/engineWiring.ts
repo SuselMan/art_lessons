@@ -5,12 +5,17 @@ import { diagLog } from '../../lib/observability/diagLog'
 import type { PencilSound } from '../../lib/sound/PencilSound'
 import { computeCompositeOrder } from '../../lib/layers/layers'
 import { useRoomStore } from '../../stores/roomStore'
+import type { OpenTimer } from './diagnostics/openTiming'
 import { uploadThumbnail } from './net/snapshotSync'
+import type { RoomStatePayload } from './restoreRoomState'
 
 /** (#493) The pieces of the engine's mount effect that are about one thing
  *  each. What stays in the effect is the engine's construction and its
  *  network callbacks, which are the effect's reason to exist; these three are
  *  what it does around that.
+ *
+ *  (#493, later) Four now: what the new engine does with the `room_state`
+ *  parked for it went out too, as openParkedRoomState.
  *
  *  Plain functions rather than hooks, on purpose. Each runs exactly once per
  *  engine, from inside the one effect that owns that engine, so none of them
@@ -109,4 +114,84 @@ export function retireEngine(
   } else {
     engine.destroy()
   }
+}
+
+export interface ParkedRoomState<Engine> {
+  /** The `room_state` that arrived before this engine did, if any. Consumed. */
+  pendingSnapshotRef: RefObject<RoomStatePayload | null>
+  isCreator: boolean
+  openTimerRef: RefObject<OpenTimer | null>
+  latestKnownSeqRef: RefObject<number>
+  /** (#346) False when the paper texture did not arrive — see usePaperReadiness. */
+  awaitPaper: (engine: Engine) => Promise<boolean>
+  /** restoreRoomState in `join` mode, for this engine's board. */
+  restore: (pending: RoomStatePayload) => Promise<void>
+  setRoomContentReady: (ready: boolean) => void
+  finishOpenTimer: (engine: Engine) => void
+}
+
+/** What a freshly built engine does about the room's content.
+ *
+ *  Joiner path: the room_state that told us `config` (see the socket-wiring
+ *  effect) arrived before the engine existed to apply its operations to —
+ *  replay it now that it does. No-op for the creator, and for a joiner's
+ *  reconnect (appliedOpIdsRef already dedupes across a fresh room_state
+ *  reaching an already-mounted engine, but this path is specifically the
+ *  one-time first mount).
+ *
+ *  Returns at once; the paper wait and the restore run behind it, because the
+ *  mount effect still needs to register its cleanup synchronously. The promise
+ *  is only for tests to await. */
+export function openParkedRoomState<Engine>(engine: Engine, {
+  pendingSnapshotRef, isCreator, openTimerRef, latestKnownSeqRef, awaitPaper, restore, setRoomContentReady,
+  finishOpenTimer,
+}: ParkedRoomState<Engine>): Promise<void> {
+  const pending = pendingSnapshotRef.current
+  if (pending) {
+    pendingSnapshotRef.current = null
+    // Awaits engine.paperReady() first (see its own doc comment): a
+    // stroke replayed before the real paper texture has loaded would
+    // permanently bake in the placeholder's flat response, with nothing
+    // later to re-paint it once the real texture arrives.
+    return (async () => {
+      // (#487) Фазы входа. Отмечаются по факту перехода, вплотную к тому
+      // await'у, который их и стоит — иначе они меряют не то, что называют.
+      openTimerRef.current?.stage('paper')
+      openTimerRef.current?.note({
+        tailOperations: pending.tailOperations.length,
+        latestSeq: latestKnownSeqRef.current,
+        snapshotSeq: pending.latestSnapshotSeq,
+      })
+      // (#346) A failure here abandons the replay rather than running it
+      // against the placeholder: awaitPaper puts up the retry screen, and
+      // roomContentReady stays false so the room is not claimed to be open.
+      if (!(await awaitPaper(engine))) return
+      // (#493) The restore itself is shared with handleRoomState — see
+      // restoreRoomState for the whole of it and why there is one.
+      await restore(pending)
+    })()
+  }
+  if (isCreator) return Promise.resolve()
+  // Nothing to restore on this particular mount (e.g. a remount after
+  // the first join already completed) — don't leave a stale `false`
+  // from a prior mount stuck forever with nothing left to flip it.
+  // Creator excluded: `pending` is always null for a creator's very
+  // first mount too (its config is known synchronously, so
+  // handleRoomState never has a reason to populate pendingSnapshotRef
+  // the way a joiner's does — see its own doc comment), but at this
+  // point nothing has confirmed yet whether this is a genuinely new
+  // room or the creator's own reload of one with real content to
+  // restore. Marking ready here regardless used to race ahead of that
+  // answer; handleRoomState's first room_state is what actually knows,
+  // and sets this itself either way (see its own two branches).
+  //
+  // Still gated on paperReady() even though there is nothing to replay:
+  // "ready" is what takes the preloader down and lets the pencil through,
+  // and the engine refuses to start a stroke until the real texture has
+  // loaded (see PaperState.loaded). Marking ready before then hands over a
+  // room that looks open and silently ignores every stroke.
+  return (async () => {
+    openTimerRef.current?.stage('paper')
+    if (await awaitPaper(engine)) { setRoomContentReady(true); finishOpenTimer(engine) }
+  })()
 }

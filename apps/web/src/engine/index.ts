@@ -1,25 +1,36 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
+import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
-import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paper/paperConstants'
-import {
-  createPlaceholderPaperTexture, generatePaperMipmaps, getPaperBytes, uploadPaperTexture,
-} from './src/paper/paperLoader'
+import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
-import { ScratchFreeList, ScratchSlot } from './src/buffers/scratchPools'
+import { ScratchSlot } from './src/buffers/scratchPools'
 import { SnapshotLedger } from './src/oplog/snapshotLedger'
-import { previewDownscaleChain } from './src/raster/previewChain'
+import { SnapshotIO } from './src/oplog/SnapshotIO'
+import { StructuralOps } from './src/oplog/structuralOps'
+import { BlitPasses } from './src/raster/blitPasses'
+import { AreaOps, asImportRecord, type AreaImage, type AreaFillRequest, type AreaFillRaster } from './src/raster/AreaOps'
+import { LayerPreviews } from './src/raster/layerPreviews'
+import { frameEdgeX, frameEdgeY, type CameraFrame } from './src/raster/cameraFrame'
+import { Camera, translateDabs } from './src/raster/Camera'
+import { ImageImport } from './src/raster/ImageImport'
+import { ShapePass } from './src/raster/ShapePass'
+import { FilterPass } from './src/filters/FilterPass'
+import { Exporter } from './src/export/Exporter'
+import { SmudgePainter } from './src/dabs/SmudgePainter'
+import { BrushPainter } from './src/dabs/BrushPainter'
+import { StampPainter, dabWorldHalfExtents } from './src/dabs/StampPainter'
+import { bakeDabOpacity } from './src/dabs/dabOpacity'
+import { nibScallops, presetForTool, renderSizeScale, resolveGrainMode } from './src/presets/resolvePreset'
 import {
-  charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
+  charcoalNibFromPreset, charcoalPresetString,
   CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, isCharcoalNib,
   type CharcoalPreset, type CharcoalType, type CharcoalNib,
 } from './src/presets/charcoalPresets'
 import {
-  CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, charcoalBroadness, charcoalBroadDensity,
+  CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS,
   type CharcoalFeelConfig,
 } from './src/presets/charcoalFeel'
 import { DabSystem } from './src/dabs/DabSystem'
@@ -27,48 +38,38 @@ import {
   DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
 } from './src/presets/dabShaping'
 import { tipFootprint } from './src/dabs/tipFootprint'
+import { DEFAULT_DAB_SPACING_FACTOR, isFootprintSpacedTool } from './src/dabs/dabSpacing'
 import {
-  dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isDepositScaledTool, isFootprintSpacedTool,
-  type DabSpacingBounds,
-} from './src/dabs/dabSpacing'
-import {
-  PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
+  PENCIL_TILT, PENCIL_TILT_SLIDERS,
   type PencilTiltConfig,
 } from './src/presets/pencilTilt'
-import { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, smudgeGrainRelief, type SmudgeGrainConfig } from './src/presets/smudgeGrain'
-import { tiltMagnitudeDeg } from './src/presets/tiltMath'
+import { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, type SmudgeGrainConfig } from './src/presets/smudgeGrain'
 import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/presets/tiltCurve'
 import type { NibAngleConfig } from './src/presets/markerPresets'
-import { shapeDrawParams, type ShapeDrawParams } from './src/raster/shapeGeometry'
-import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerFilter } from './src/filters/layerFilters'
 import {
   OperationLog, pixelReadLayerIds, pixelWriteLayerIds, type LogEntry, type PixelOperation,
 } from './src/oplog/OperationLog'
 import { PointerInput, type DiagLog, type PointerData, type PressureMap } from './src/input/PointerInput'
 import {
-  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
+  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT,
   type PencilGradeName, type PencilPreset,
 } from './src/presets/pencilPresets'
 import {
-  LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper,
-  dwellConfigForTool, dwellFlow, linerWickPx,
-  LINER_WICK_PX, LINER_WICK_RADIUS_CAP,
+  LINER_SIZES_MM, linerTiltFlow, applyLinerEndTaper,
+  dwellConfigForTool, dwellFlow,
   type DwellConfig, type LinerSizeMm,
 } from './src/presets/linerPresets'
-import { markerNibFromPreset, markerPressureFlow } from './src/presets/markerPresets'
 import {
-  brushStampsForDab, digitalBrushCeiling, digitalBrushFromPreset, digitalBrushMixer,
-  digitalBrushPresetFor, digitalBrushScallops, curveAt,
-  type BrushDescriptor, type BrushPressureSettings, type MixerPaint,
+  digitalBrushFromPreset, digitalBrushMixer,
+  type BrushDescriptor, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
 export {
   DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, BRUSH_CATEGORIES,
   digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset, digitalBrushPressureFromPreset,
   type BrushDescriptor, type BrushTip, type BrushCategory, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
-import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from './src/presets/tipMasks'
 import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/dabs/markerRibbon'
 import { markerThinNibInkGain } from './src/dabs/markerInkGain'
 
@@ -83,34 +84,31 @@ export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
 import {
-  BRUSH_PEN_PRESET, applyBrushPenEndTaper,
+  applyBrushPenEndTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/presets/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
+  applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
   watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
-  watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
+  watercolorTravelRadius, watercolorSpreadRadius,
   watercolorMixFromPreset,
 } from './src/presets/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
 import {
-  applyMatrix, composeMatrix, invertMatrix, scaleRotateMatrix, toMat3, translationMatrix,
+  applyMatrix, invertMatrix, toMat3, translationMatrix,
   IDENTITY_MATRIX, type Matrix3,
 } from './src/raster/matrix'
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
-import { buildSelectionMask } from './src/raster/selectionMask'
-import { computeFill, coverageToRgba, FILL_MAX_DIM } from './src/raster/floodFill'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
-import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/buffers/tileMath'
-import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/buffers/retileSnapshot'
+import { TILE_SIZE, coarseFactorFor } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
-import { encodeLayerTiles, type SnapshotTile } from './src/oplog/snapshotCodec'
+import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
-import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
+import { packDabs, strokeDabs } from '@grafetto/shared'
 
 export type { HapticGrainStats }
 export type { DiagLog, PressureMap } from './src/input/PointerInput'
@@ -122,6 +120,7 @@ export { pixelWriteLayerIds } from './src/oplog/OperationLog'
 // (#345, #493) The paper download's progress, for the room's loading overlay.
 export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paper/paperLoader'
 export type { Matrix3 }
+export type { AreaImage, AreaFillRequest, AreaFillRaster } from './src/raster/AreaOps'
 export type { RulerLine }
 
 export { PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, type PencilGradeName, type PencilPreset }
@@ -217,14 +216,6 @@ export function previewDabShape(
   return { size: size * renderSizeScale(tool, presetName ?? ''), aspectRatio, angle }
 }
 
-// Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
-// uses (#123) — not in lib.dom.d.ts's WebGLRenderingContext, so this is typed
-// by hand instead of relying on an ambient DOM type.
-interface InstancedArraysExt {
-  vertexAttribDivisorANGLE(index: number, divisor: number): void
-  drawArraysInstancedANGLE(mode: number, first: number, count: number, primcount: number): void
-}
-
 // ─── Public types ──────────────────────────────────────────────────────────────
 
 export interface CompositeItem {
@@ -238,13 +229,6 @@ export interface CompositeItem {
  *  GL canvas and the page around it is invisible. */
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
-/** (#470) Paper texels per screen pixel past which the grain is sampled
- *  through its mip chain instead of straight. Two, because that is where
- *  straight bilinear stops having a sample for every output pixel and starts
- *  dropping them — below it the chain only blurs, above it the lack of one
- *  shimmers. */
-const PAPER_MIP_THRESHOLD = 2
-
 export interface PencilEngineOptions {
   /** (#650) Where the engine's own diagnostic lines go — the on-device ring
    *  buffer in the app (lib/observability/diagLog). Handed in rather than
@@ -255,10 +239,9 @@ export interface PencilEngineOptions {
   // is the same TiledLayerBuffer regardless of this flag (see
   // _makeLayerBuffer); what `infinite` actually controls is the *visible*
   // window and camera: false/omitted (default) keeps a fixed, non-panning
-  // canvas.width x canvas.height viewport (see _visibleWorldRect's bounded
-  // branch) with rotation handled by the DOM canvasWrap's own CSS
-  // transform; true hands the viewport to a free-roaming, rotatable
-  // world-space camera (setInfiniteCamera/_infiniteCamera). Fixed once at
+  // canvas.width x canvas.height viewport (see Camera.visibleWorldRect)
+  // with rotation handled by the DOM canvasWrap's own CSS transform; true hands the viewport to a free-roaming, rotatable
+  // world-space camera (setInfiniteCamera/Camera). Fixed once at
   // construction — an engine instance never switches modes mid-life.
   infinite?: boolean
   /** (#470) The sheet's size in world units, for a bounded room.
@@ -278,7 +261,8 @@ export interface PencilEngineOptions {
    *  surround; passed in so a theme can decide it rather than the engine. */
   deskColor?: [number, number, number]
   paper?: PaperType
-  // Overrides paperColorOf(paper)'s default background RGB for this room —
+  // Overrides paperColorOf(paper)'s default background RGB for this room
+  // (see src/paper/PaperState.ts) —
   // set from the creator's own pick (Room.paperColor, hex, converted via
   // hexToRgb) when present; omit to use the plain per-texture default.
   paperColor?: [number, number, number]
@@ -627,7 +611,7 @@ export interface PencilEngineAPI {
   suspendDisplay(): void
   resumeDisplay(): void
   // Resolves once the real paper-grain texture has replaced the placeholder
-  // bound at construction (see _initPaper/paperLoader.ts) — a network fetch
+  // bound at construction (see PaperState/paperLoader.ts) — a network fetch
   // + decompress, not instant. A caller about to replay a batch of
   // historical stroke operations (initial room join, reconnect — see
   // suspendDisplay's own doc comment for the same batch) should await this
@@ -639,7 +623,7 @@ export interface PencilEngineAPI {
   paperReady(): Promise<void>
   // (#346) Starts the same load again after `paperReady()` rejected, and
   // returns the new attempt. A failed texture leaves the engine permanently
-  // unable to draw (see _paperTexLoaded's own comment), and the only way out
+  // unable to draw (see PaperState's _loaded comment), and the only way out
   // used to be reloading the page — which for a room means throwing away
   // whatever the reload happens to catch mid-flight. The caches underneath
   // already evict a rejection rather than memoize it (see paperLoader's
@@ -1020,8 +1004,8 @@ export interface PencilEngineAPI {
   // so this exports the tightest rect containing every layer's actual
   // painted content (getContentBounds's own union, at exactly 1 world unit
   // = 1 pixel) instead of whatever the camera happens to be looking at right
-  // now. A bounded room's export is completely unaffected by this — see
-  // _exportInfinitePNG's own doc comment for the full reasoning.
+  // now. A bounded room exports its whole sheet (#470) — see
+  // Exporter.exportPNG (src/export/Exporter.ts) for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
@@ -1063,75 +1047,6 @@ export interface PencilEngineAPI {
   // every few seconds on a tablet that is drawing. Null if encoding failed.
   bakePreview(maxSide?: number): Promise<Blob | null>
   destroy(): void
-}
-
-/** (#446) A copied selection: the pixels, and where on the canvas they were.
- *  Shaped to drop straight into an `area_paste` operation — paste in place is
- *  the default (ADR 008), so the rect travels with the raster rather than
- *  being recomputed from wherever the camera happens to be. */
-export interface AreaImage {
-  image: string
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-/** (#453) What the caller asks a fill for. Coordinates are layer space (canvas
- *  pixels for a bounded room, world units for an infinite one), the same space
- *  `Dab.x/y` and `SelectionShape.points` already use; `color` is 0–1 per
- *  channel like every other tool colour. */
-export interface AreaFillRequest {
-  layerId: string
-  seedX: number
-  seedY: number
-  color: [number, number, number]
-  /** 0–1. How far from the tapped pixel still counts as the same area. */
-  tolerance: number
-  /** 0–3 px of gap closing — see floodFill.ts. */
-  gapClose: number
-  /** 0–3 px the paint creeps under the line it stopped at. */
-  expand: number
-  /** Read boundaries from the target layer alone, or from the composite of
-   *  every visible layer (paint still lands only in the target). */
-  source: FillSourceMode
-}
-
-/** (#453) A computed fill: the raster and where it goes, shaped to drop
- *  straight into an `AreaFillOperation`. */
-export type AreaFillRaster = AreaImage
-
-/** (#453) How far past the outermost mark an infinite room's fill domain
- *  reaches. Enough that paint can spread around a drawing rather than stopping
- *  on its bounding box, small enough that it does not meaningfully grow the
- *  readback. */
-const INFINITE_FILL_MARGIN = 256
-
-/** (#446) A selection's coverage mask on the GPU, with the world rect it
- *  spans — everything the two mask shaders need to place it. */
-interface MaskTexture {
-  tex: WebGLTexture
-  rect: WorldRect
-}
-
-/** Straight-alpha copy of premultiplied RGBA8 bytes. Layer buffers store
- *  colour premultiplied by coverage; PNG (and `<img>` decoding on the way back
- *  in) is straight alpha. Skipping this on the way out darkens every partly
- *  transparent pixel, which for a copied selection is precisely its
- *  antialiased rim — a dark outline that appears on paste and nowhere else. */
-function unpremultiply(pixels: Uint8Array): Uint8Array {
-  const out = new Uint8Array(pixels.length)
-  for (let i = 0; i < pixels.length; i += 4) {
-    const a = pixels[i + 3]
-    out[i + 3] = a
-    if (a === 0) continue
-    // Rounded, and clamped because a premultiplied buffer can hold rgb
-    // marginally above its own alpha after repeated blending.
-    out[i] = Math.min(255, Math.round(pixels[i] * 255 / a))
-    out[i + 1] = Math.min(255, Math.round(pixels[i + 1] * 255 / a))
-    out[i + 2] = Math.min(255, Math.round(pixels[i + 2] * 255 / a))
-  }
-  return out
 }
 
 function blobToDataUrl(blob: Blob): Promise<string | null> {
@@ -1251,15 +1166,12 @@ const MAX_LIVE_GESTURES_PER_PEER = 8
 
 interface EngineOpts {
   deskColor: [number, number, number]
-  /** (#470) The sheet's world size for a bounded room — see
-   *  PencilEngineOptions.pageWidth for why it cannot be read off the canvas
-   *  any more. Undefined for an infinite room. */
-  pageWidth?: number
-  pageHeight?: number
-  paper: PaperType
-  paperColor?: [number, number, number]
   pencilType: string
   size: number
+  /** (#494) The same immutable value as PaperState.scale: the paper itself —
+   *  type, colour, sheet — lives there now. Kept here only because the
+   *  ribbon/wash paths read `_opts.paperScale` directly and are being edited
+   *  on a live branch; fold into `_paper.scale` once that has landed. */
   paperScale: number
   graphiteColor: [number, number, number]
   tool: ToolType
@@ -1321,59 +1233,15 @@ interface RebuildJob {
   part: { opId: string; dabs: Dab[]; work: Generator<number, ReadonlyMap<Dab, number> | undefined, void> } | null
 }
 
-// One scratch tile of a live gizmo-drag preview (#120/#139) — shaped exactly
-// like a real PaintTarget (see ILayerBuffer.ts) so _drawCompositeItem can
-// draw it through the same _drawTileComposite call a real resident tile
-// goes through, just reading `buffer` instead of a real layer's own.
-interface PreviewTile {
-  originX: number
-  originY: number
-  buffer: AccumulationBuffer
-}
-
 // Pixel snapshot of a layer after its first `opIds.length` pixel operations.
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-// Default per-texture background, used when a room has no explicit
-// PencilEngineOptions.paperColor override (see EngineOpts.paperColor below).
-// Kept numerically identical to @grafetto/shared's DEFAULT_PAPER_COLORS
-// (hex there, since CreateRoom's color picker needs a hex/RGB string; RGB
-// float triple here, since that's what the shader uniform wants) — update
-// both together if these defaults ever change.
-// (#426) Derived from shared's hex rather than kept as a second hand-written
-// table, which is what this was. The comment above it said "update both
-// together if these defaults ever change" — and by the time anyone read that,
-// they already disagreed: 0.90 against 230/255 = 0.902, and the same rounding
-// on the other five channels. Nothing failed, because nothing compared them;
-// the shader just rendered a slightly different paper than the colour picker
-// previewed. One source of truth removes the class of bug rather than fixing
-// this instance of it.
-//
-// Safe under the cross-device determinism rule (.claude/rules.md): this is a
-// constant converted by exact integer arithmetic on every client, not a value
-// computed per-device on the GPU.
-function paperColorOf(type: PaperType): [number, number, number] {
-  const hex = defaultPaperColor(type)
-  const n = parseInt(hex.slice(1), 16)
-  return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255]
-}
-
 // Paper-grain texture: baked once, offline (see ../scripts/bakePaperTextures.ts
 // and src/paperNoise.ts), identical bytes shipped to every client — see
-// _initPaper/paperLoader.ts. PAPER_WORLD_SIZE (imported from paperNoise.ts,
-// which is also where the bake script gets it from) is the world-space size
-// the baked tile repeats over, used identically by bounded and infinite
-// rooms alike — see _paperWorldSize().
-
-// #145: hard clamp (per axis) on exportPNG's infinite-room "whole drawing"
-// render target — see _buildContentComposite's own doc comment for why this
-// is a fixed constant rather than a live gl.MAX_TEXTURE_SIZE query. Every
-// real device this app targets supports textures far bigger than this
-// already; a drawing that legitimately spans more than ~8 tiles across in
-// one axis (TILE_SIZE is 1024) is the one case this clips to a smaller rect,
-// anchored at the content bounds' own top-left, rather than exporting in
-// full — a known, deliberately-accepted limitation, not attempted here.
-const MAX_EXPORT_DIMENSION_PX = 8192
+// src/paper/PaperState.ts and paperLoader.ts. PAPER_WORLD_SIZE (imported from
+// paperNoise.ts, which is also where the bake script gets it from) is the
+// world-space size the baked tile repeats over, used identically by bounded
+// and infinite rooms alike — see PaperState.worldSize().
 
 export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
 
@@ -1466,91 +1334,6 @@ interface WashReveal {
 // guess with a number — it builds the instrument that can tell whether this
 // wants to be 40 or 120.
 const LIVE_STROKE_EMIT_INTERVAL_MS = 60
-
-// Smudge (#14) tuning constants — picked by eye, not exposed as settings
-// (the tool's user-facing knobs are just size/pressure/strength, reusing the
-// existing dab fields — see toolSchemas.ts's smudge entry and
-// _bakeDabOpacity's own smudge branch). See _paintOneSmudgeDab for how each
-// is used, and SMUDGE_TRANSFER_FRAG's own file comment in shaders.ts for the
-// algorithm they tune: as of #416 the stump carries a raster imprint of what
-// it picked up, and every dab is a per-pixel lerp of the canvas toward that
-// imprint.
-//
-// Dab radius relative to Dab.size — matches pencil's own sizeMultiplier
-// scale (see PENCIL_PRESETS) rather than a from-scratch tuning.
-const SMUDGE_SIZE_MULTIPLIER = 1.0
-// Fixed edge softness (DAB_FRAG/SMUDGE_TRANSFER_FRAG's u_hardness) — smudge
-// has no per-grade preset the way pencil does to pull this from.
-const SMUDGE_HARDNESS = 0.5
-// Scratch-patch size rounding, in px — a smudge stroke normally keeps a
-// constant brush size, so rounding to a coarse grid here means every dab
-// after the first reuses the same pooled buffers (the copied patch and,
-// since #416, the carried imprint, which is sized to match it) instead of
-// reallocating.
-const SMUDGE_PATCH_GRANULARITY = 8
-// Hard ceiling on the scratch patch's own side length, regardless of how
-// large a brush size requests — bounds a single dab's worst-case GPU
-// texture allocation.
-const SMUDGE_MAX_PATCH_SIZE = 512
-// How much of the carried imprint one dab refreshes from the canvas under
-// it, per brush radius travelled (see `travel` in _paintOneSmudgeDab — both
-// rates are scaled that way so what a stroke leaves behind depends on how
-// far it went, not on how many samples the tablet happened to report along
-// the way, the same report-rate independence #303 established for graphite
-// deposition). This is also what bounds how far graphite is dragged: the
-// imprint's own content decays by (1 - rate) per dab, so a lower value
-// smears further and a higher one keeps the blend local.
-const SMUDGE_PICKUP_RATE = 0.5
-// The lerp weight one dab applies at its own center, per brush radius
-// travelled, before the pressure / Strength-slider / shape / paper-catch
-// weighting SMUDGE_TRANSFER_FRAG applies per fragment. Above 1 because
-// every one of those terms is a fraction in practice (default Strength is
-// 0.6, pen pressure rarely sits at full) — at the shipped defaults this
-// lands near 0.35 at a dab's own center.
-const SMUDGE_DEPOSIT_RATE = 2.0
-
-/** #573 — how much of the mixer brush's own colour its imprint holds on the
- *  gesture's first dab. Not 1: a brush touching down on wet paint picks a
- *  little of it up at once, which is what makes a stroke that starts inside
- *  another colour start *mixed* rather than as a clean patch of its own. */
-const MIXER_PRIME_LOAD = 0.85
-
-/** #579 — the digital watercolor's wet rim, as a fraction of the brush's size,
- *  clamped so a thin line still has one and a huge wash does not read its rim
- *  from half a tile away (each ring sample is one texture read either way). */
-const WET_EDGE_OF_SIZE = 0.06
-const WET_EDGE_MIN_PX = 1.5
-const WET_EDGE_MAX_PX = 14
-
-/** #579 — world size of one tile of the bloom and granulation textures. Large
- *  for the blooms, which are meant to be bigger than the brush; small for the
- *  grain, which is meant to be finer than anything the brush draws. */
-const WET_CLOUD_PERIOD_PX = 640
-const WET_GRAIN_PERIOD_PX = 224
-
-// Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
-// marker has no hardness *scale* the way graphite's grades do (same
-// reasoning LINER_PRESET's own comment gives: one physical material, not a
-// per-grade spread), but bullet and chisel are still two different
-// physical tips, not just two dab shapes — a chisel's own wider contact
-// area means the same opacity number would read as darker per pass than
-// bullet's, purely from covering more area per dab, not from actually
-// being "more marker." Still uncalibrated first-pass numbers (same "verify
-// by eye and retune" status every other first-pass constant in this
-// codebase carries):
-//  - opacity: moderate for both, well under liner's near-saturated 0.95 —
-//    ADR 004 §5 deliberately relies on the composite's own asymptotic
-//    darkening ("2-3 passes darkens toward a limit") rather than a single
-//    stroke reaching full coverage the way a fineliner's first pass does.
-//    Chisel's is lower than bullet's — same "wider contact, lower local
-//    dose" reasoning as MARKER_CHISEL_ASPECT_RATIO's own effect on area.
-//  - hardness: inert since #330. The marker's edge is geometry now, resolved
-//    over a fixed canvas-pixel ramp (MARKER_EDGE_AA_PX), so no branch it
-//    reaches ever reads this; PencilPreset simply requires the field.
-//  - sizeMultiplier: 1 for both — no calibrated size step to derive this
-//    from yet, same "no fudge factor" reasoning as LINER_PRESET's own.
-const MARKER_BULLET_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.78, sizeMultiplier: 1.0 }
-const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, sizeMultiplier: 1.0 }
 
 // The marker's own ribbon constants (edge ramp, curvature tolerance, chisel
 // corner radius, rim ink falloff) moved to src/dabs/ribbonProfile.ts in #454: they
@@ -1743,7 +1526,7 @@ function ribbonBandPieces(bands: Float32Array, tris: number): Float32Array[] {
  *  removes the churn instead of waiting on it.
  *
  *  Every other scratch in this engine is already pooled for its own reasons
- *  (_previewBufPool, _tipBufPool, _transformScratchPool, _smudgeScratchPool) —
+ *  (_previewBufPool, _tipBufPool, AreaOps' scratchPool, SmudgePainter's scratchPool) —
  *  the marker's was the one that was not.
  *
  *  Capped per size rather than unbounded: an infinite room's gesture can span
@@ -2543,10 +2326,6 @@ interface SpilledScratch extends ScratchScalars {
   bytes: number
 }
 
-function clampNum(x: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, x))
-}
-
 // ─── Engine ────────────────────────────────────────────────────────────────────
 
 export class PencilEngine implements PencilEngineAPI {
@@ -2555,8 +2334,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _opts: EngineOpts
   private _grainMode: number | undefined
   private _charcoalGrainMode: number | undefined
-  private _paperFillThreshold: number
-  private _paperFillCap: number
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
@@ -2641,28 +2418,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _tipBufOrigin = { x: 0, y: 0 }
   // (#155) Same pooling as _previewBufPool above, see _acquireTipBuf.
   private _tipBufPool: ScratchSlot<AccumulationBuffer>
-
-  // (#155) Scratch buffers for _bakeTransform's per-destination-tile pass —
-  // unlike _tipBufPool/_previewBufPool (always exactly one buffer, canvas-
-  // sized), a single bake can need many alive at once (one per destination
-  // tile, see _bakeTransform's own docstring on why they can't be freed
-  // until every one has finished rendering). Kept as a size-keyed free list
-  // instead: idle between commits, reused instead of reallocated (and
-  // re-paying _makeFBO's checkFramebufferStatus GPU sync) on the next one.
-  // Every tile a single bake touches is the same size (a room's tile grid
-  // never changes shape after construction — see _tileSize), so in practice
-  // this settles into a pool of uniformly-sized buffers after the first bake.
-  private _transformScratchPool: ScratchFreeList<AccumulationBuffer>
-
-  // Smudge scratch patches (#14) — a small size-keyed free list, same
-  // pooling shape as _transformScratchPool above (see
-  // _acquireSmudgeScratchBuf/_releaseSmudgeScratchBuf), kept deliberately
-  // separate from it rather than sharing it: transform's scratch buffers
-  // are always LINEAR-filtered (its resample relies on that), smudge's are
-  // always NEAREST (see AccumulationBuffer's own 'nearest' filter comment
-  // for why) — sharing one pool would risk handing either caller a buffer
-  // filtered the wrong way for what it's about to do with it.
-  private _smudgeScratchPool: ScratchFreeList<AccumulationBuffer>
 
   // Marker's own per-stroke, per-tile scratch (original content + this
   // stroke's accumulated coverage — see RibbonStrokeScratch's own doc
@@ -2800,42 +2555,12 @@ export class PencilEngine implements PencilEngineAPI {
     usedAt?: number
   }>()
 
-  // Smudge's own carried imprint (#14; a raster texture per user since
-  // #416 — see SMUDGE_TRANSFER_FRAG's own file comment for what replaced the
-  // single carried scalar and why), keyed by userId — "the tool belongs to
-  // whoever's holding it": two users smudging at the same time in the same
-  // room must never share one imprint (an earlier, single-scalar version of
-  // this field could get clobbered mid-stroke by a remote peer's own smudge
-  // operation arriving through the same paint path).
-  //
-  // `buf` is the imprint itself: premultiplied RGBA covering the dab's own
-  // patch square, always the same side length as the patch this stroke
-  // copies (so it is pooled through _acquireSmudgeScratchBuf alongside the
-  // patches themselves, and a stroke that changes brush size resamples it
-  // through SMUDGE_PICKUP_FRAG's own normalized uv rather than needing a
-  // separate resize path). Null means "not primed yet" — the next dab
-  // copies the canvas under it wholesale instead of blending toward it, so
-  // a stroke never starts by laying a faded ghost of nothing over the
-  // canvas.
-  //
-  // `strokeId` is which gesture that imprint belongs to. A stump does not
-  // carry an imprint between gestures the way the old scalar carried a
-  // level: an imprint is *positional*, so re-using one across a pen-up
-  // would stamp a ghost of the previous stroke's content wherever the next
-  // one happens to start. Resetting at every gesture is also what makes a
-  // recorded operation self-sufficient again — replay reproduces a smudge
-  // stroke from its own dabs alone, with no cross-operation state to carry,
-  // which is why StrokeOperation.smudgeLoadAtStart/End stopped being
-  // written (see that field's own comment in packages/shared).
-  private _smudgeImprints = new Map<string, { buf: AccumulationBuffer | null; strokeId: string | null }>()
-  // The dab a replayed chunk should treat as its predecessor, per user: a
-  // gesture long enough to be split across several operations (see
-  // _flushStrokeChunk) must not restart its imprint at every chunk
-  // boundary, and the later chunks arrive with no prevDab of their own.
-  // Keyed by user (unlike marker's single _replayRibbonChunk slot) because
-  // smudge state is per-user by construction — two peers' chunked strokes
-  // interleaving in the log would otherwise each reset the other.
-  private _smudgeReplayChunks = new Map<string, { strokeId: string; lastDab: Dab }>()
+  // (#494) Smudge and the mixer brush — their programs, scratch pool, per-user
+  // imprints and replay chunks. See SmudgePainter.ts.
+  private readonly _smudge: SmudgePainter
+  // (#494) Pencil/eraser/liner/charcoal dab stamps, plain and instanced — see
+  // StampPainter.ts. Its programs are built by _initGL, like every other one.
+  private readonly _stamps: StampPainter
 
   // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
   private _haptic: HapticGrain | null
@@ -2864,11 +2589,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _peerLiveStrokes = new Map<string, PeerLiveStroke>()
 
   // WebGL programs and uniforms — assigned in _initGL()
-  private _dabProg!: WebGLProgram
-  // Transparent-export variant of _dispProg (#15) — see DISPLAY_TRANSPARENT_
-  // FRAG's comment for why this needs its own tiny program rather than a
-  // branch inside DISPLAY_FRAG.
-  private _dispTransparentProg!: WebGLProgram
+  /** (#494) The plain dab program — StampPainter owns it (it is the stamps'
+   *  uniform fallback); the ribbon passes draw through it by these names. */
+  private get _dabProg(): WebGLProgram { return this._stamps.program }
+  private get _dabUni(): Record<string, WebGLUniformLocation | null> { return this._stamps.uniforms }
+  private get _dabPosLoc(): number { return this._stamps.positionLoc }
   private _compositeProg!: WebGLProgram
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
@@ -2955,27 +2680,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** (§17.49) The settle's field: one entry, at exactly the size of the
    *  settle that asked for it last - see _diffuseFieldFor. */
   private _fieldCache: Array<SettleField> = []
-  private _blitProg!: WebGLProgram
-  private _transformProg!: WebGLProgram
-  // Selection (#446) — the masked transform blit and the one-shader-two-blend-
-  // modes mask pass (see AREA_TRANSFORM_FRAG/AREA_MASK_FRAG). Separate
-  // programs rather than branches inside the existing transform blit: the
-  // whole-layer path runs on every gizmo drag frame of every transform there
-  // has ever been, and a mask sampler it never uses has no business in it.
-  private _areaTransformProg!: WebGLProgram
-  private _areaMaskProg!: WebGLProgram
-  // (#527) The shape rasterizer — see SHAPE_FRAG.
-  private _shapeProg!: WebGLProgram
-  // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
-  // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
-  private _smudgeProg!: WebGLProgram
-  // The imprint-refresh pass (#416) — paired with DISPLAY_VERT (a plain
-  // full-screen quad over the imprint texture; it needs no dab-quad
-  // geometry, only the patch's own normalized square) rather than DAB_VERT.
-  private _smudgePickupProg!: WebGLProgram
-  // #573 — the digital brush's stamp model (BRUSH_STAMP_FRAG / BRUSH_COMPOSITE_FRAG).
-  private _brushStampProg!: WebGLProgram
-  private _brushCompositeProg!: WebGLProgram
+  // (#494) The transform, selection and image blits — see blitPasses.ts.
+  private _passes!: BlitPasses
   // Marker ribbon (#330 stage 2) — the bands between consecutive nib stamps
   // (markerRibbon.ts). Its own tiny program: unlike every other dab draw, the
   // vertices arrive already positioned by the CPU and carry a per-vertex
@@ -3001,53 +2707,16 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonInkStrengthLoc!: number
   private _ribbonPuddleLoc!: number
   private _ribbonBuf!: WebGLBuffer
-  private _dabUni!: Record<string, WebGLUniformLocation | null>
-  private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
-  private _blitUni!: Record<string, WebGLUniformLocation | null>
-  private _transformUni!: Record<string, WebGLUniformLocation | null>
-  private _areaTransformUni!: Record<string, WebGLUniformLocation | null>
-  private _areaMaskUni!: Record<string, WebGLUniformLocation | null>
-  private _shapeUni!: Record<string, WebGLUniformLocation | null>
-  private _smudgeUni!: Record<string, WebGLUniformLocation | null>
-  private _smudgePickupUni!: Record<string, WebGLUniformLocation | null>
-  private _brushStampUni!: Record<string, WebGLUniformLocation | null>
-  private _brushCompositeUni!: Record<string, WebGLUniformLocation | null>
-  private _dabPosLoc!: number
-  private _dispTransparentPosLoc!: number
   private _compositePosLoc!: number
-  private _blitPosLoc!: number
-  private _transformPosLoc!: number
-  private _areaTransformPosLoc!: number
-  private _areaMaskPosLoc!: number
-  private _shapePosLoc!: number
-  // Attribute locations are per-*program*, not per-shader-source — even
-  // though _smudgeProg shares DAB_VERT's exact source with _dabProg, it's a
-  // separately linked program, so 'a_position' can land at a different
-  // location number in it and _dabPosLoc must not be reused here.
-  private _smudgePosLoc!: number
-  private _smudgePickupPosLoc!: number
-  private _brushStampPosLoc!: number
-  private _brushCompositePosLoc!: number
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
 
-  // Infinite canvas (#133 Phase 1) — camera-relative on-screen rendering.
-  // _drawTileComposite draws one tile at its correct screen position (see
-  // its own comment); _infiniteCamera is the current world point at screen
-  // center, zoom, and rotation — set via setInfiniteCamera(), meaningless
-  // (never read) for a bounded-canvas engine. Unlike setViewport()'s
-  // {cx,cy}, which is a screen-space canvas-center position for the CSS-
-  // panned bounded-canvas path, this is a direct world-space reference
-  // point — there's no fixed canvas rect to recenter around once the
-  // canvas element itself just is "the viewport."
-  private _infiniteCamera = { wx: 0, wy: 0, zoom: 1, angle: 0 }
-
-  // (#155 follow-up) Cached canvas.getBoundingClientRect() for
-  // setInfiniteCamera's pointer-transform closure — see _getCanvasRect's own
-  // doc comment for why this is safe to cache and what invalidates it.
-  private _canvasRectCache: DOMRect | null = null
+  // (#494) Where the screen is looking — the pose (world point at screen
+  // centre, zoom, rotation), the cached on-screen canvas rect and every piece
+  // of math derived from them. See src/raster/Camera.ts.
+  private readonly _camera: Camera
 
   // (#147) See suspendDisplay/resumeDisplay's own doc comments.
   private _displaySuspendDepth = 0
@@ -3093,7 +2762,7 @@ export class PencilEngine implements PencilEngineAPI {
   // pixels (wrong blend order can look almost-right — see the issue).
   //
   // Bypassed entirely (not read, not written) whenever a layer-transform
-  // gizmo preview is active (_transformPreview.size > 0, #120): that path
+  // gizmo preview is active (_previews.tiles.size > 0, #120): that path
   // can substitute scratch content for *any* layer, active or not, on every
   // drag frame, and reasoning about invalidating a persistent cache through
   // it isn't worth it — drags aren't the hot path this exists for. See
@@ -3106,7 +2775,7 @@ export class PencilEngine implements PencilEngineAPI {
   // zoom-applied composite into this buffer instead of the real (canvas-
   // sized) target for infinite rooms; _finishInfiniteComposite then does
   // exactly one final rotate blit from here into the real target. Sized
-  // to _renderBufferExtent() — a square big enough (canvas's own half-
+  // to Camera.renderBufferExtent() — a square big enough (canvas's own half-
   // diagonal, doubled) that any rotation of the camera still finds the
   // whole screen covered by content this buffer actually holds. Bounded
   // rooms never read/write this (their rotation is the DOM canvasWrap's
@@ -3115,62 +2784,12 @@ export class PencilEngine implements PencilEngineAPI {
   // a mode branch; _runComposite is what actually skips it.
   private _assemblyFBO!: AccumulationBuffer
 
-  // #134-follow-up: the pixel position within the *current* composite
-  // target (the real canvas for bounded rooms; _assemblyFBO for infinite
-  // ones) that the camera's own world point (wx, wy) maps to — what
-  // _worldToScreenEdgeX/Y actually center on. Set once per _runComposite
-  // call, read by every _drawTileComposite call within it (all of them
-  // originate from that one _runComposite, synchronously, so this is safe
-  // shared state, same pattern _infiniteCamera itself already is).
-  //
-  // For a bounded room (or a canvas-sized buildFbo target generally) this
-  // is trivially canvas.width/2, canvas.height/2. For infinite rooms it is
-  // NOT _assemblyFBO's own half-size (ext/2) — that was the pre-fix bug:
-  // ext/2 - canvas.width/2 is only an integer by luck (ext and canvas.width
-  // rarely share the same parity), so the final rotate blit
-  // (_finishInfiniteComposite) was translating by a fractional pixel at
-  // *every* zoom/angle, even angle=0 — bilinear-resampling (bilinear is
-  // AccumulationBuffer's fixed filter mode) every single pixel against its
-  // neighbors on every frame, a constant, uniform softening any infinite
-  // room's whole image had that a bounded room's direct-to-screen
-  // _drawTileComposite path never does. Padding to _assemblyPad()'s
-  // *rounded* half-difference instead keeps the offset between this and
-  // canvas.width/2 an exact integer, so the angle=0 case (by far the
-  // common one) is a lossless, pixel-aligned copy — only an actively
-  // rotated camera still resamples, which is expected and unavoidable
-  // there regardless.
-  private _compositeCenterX = 0
-  private _compositeCenterY = 0
-
-  // (#301) Composite-target pixels per world unit — the scale
-  // _worldToScreenEdgeX/Y place tiles at, set alongside _compositeCenterX/Y
-  // and read by the same callers under the same "one _runComposite, all
-  // synchronous" contract.
-  //
-  // NOT simply the camera's zoom for an infinite room: it's min(1, zoom),
-  // with whatever's left over (zoom / this) applied by the single screen
-  // pass at the end instead. Above zoom 1 that's the difference between one
-  // resample and two. The old assembly-at-zoom arrangement magnified tiles
-  // into the assembly buffer (resample #1) and then rotated that (resample
-  // #2), and two chained bilinear passes over pencil texture visibly mush
-  // it. Drawing the assembly at world resolution instead makes the first
-  // step an exact 1:1 texel copy — tile origins are integers, so every
-  // rounded edge in _worldToScreenEdgeX/Y lands exactly on a texel boundary
-  // — leaving exactly one resample, in _composePaperToScreen, the same
-  // count a bounded room's CSS-transformed canvas has always had.
-  //
-  // Capped at 1 rather than following zoom upward because there is no
-  // information above world resolution to preserve: strokes are stored in
-  // world-space tiles, so an assembly buffer denser than that would just be
-  // an early magnification of the same texels. Below zoom 1 it does follow
-  // zoom (the screen genuinely holds fewer pixels than the world does), so
-  // that case keeps its existing behavior exactly.
-  //
-  // Costs nothing in memory: the assembly buffer stays its fixed
-  // half-diagonal square (see _renderBufferExtent) and a zoomed-in camera
-  // simply needs less of it — no reallocation on zoom, which would be GPU
-  // alloc churn on the one gesture that can least afford it.
-  private _compositeScale = 1
+  // (#494) Where the composite puts world space on its target — centre, scale,
+  // view — is no longer a set of fields _runComposite overwrites every frame
+  // (and the export used to swap out and restore): each pass builds a
+  // CameraFrame value and hands it down. See src/raster/cameraFrame.ts for the
+  // pixel-alignment (#134) and scale (#301) reasoning that used to live here,
+  // and Camera.liveFrame (src/raster/Camera.ts) for the on-screen one.
 
   // #141: infinite-only, camera-relative "paper peeking through" pass —
   // see PAPER_COMPOSE_FRAG's own comment for the full pipeline reasoning.
@@ -3183,95 +2802,36 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperComposeUni!: Record<string, WebGLUniformLocation | null>
   private _paperComposePosLoc!: number
 
-  // (#595) bakePreview's 2x box-downscale step — see DOWNSAMPLE_FRAG.
-  private _previewDownsampleProg!: WebGLProgram
-  private _previewDownsampleUni!: Record<string, WebGLUniformLocation | null>
-  private _previewDownsamplePosLoc!: number
-
-  // Batched dab rendering (#123) — one instanced draw call per _paintDabs
-  // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
-  // _instancedArraysExt is null on the (today, vanishingly rare) WebGL1
-  // context without ANGLE_instanced_arrays, in which case _paintDabs falls
-  // back to the original per-dab-uniform loop via _dabProg/DAB_VERT
-  // unchanged. See _paintDabsInstanced for the correctness reasoning re:
-  // preserving sequential per-dab blend order.
-  private _dabProgInstanced!: WebGLProgram
-  private _dabInstUni!: Record<string, WebGLUniformLocation | null>
-  private _instPosLoc!: number
-  private _instALoc!: number
-  private _instBLoc!: number
-  private _instOpacityLoc!: number
-  private _dabInstBuf!: WebGLBuffer
   private _minmaxExt: { MAX_EXT: number } | null = null
-  private _instancedArraysExt: InstancedArraysExt | null = null
-  private _blendMinMaxExt: { MAX_EXT: number } | null = null
-  /** #573 — the digital brush's bitmap tips, uploaded on first use (tipMasks.ts
-   *  generates them on the CPU, deterministically, with their full mip chain). */
-  private _tipTextures = new Map<TipMaskId, WebGLTexture>()
-  /** #573 — the brushes' canvas-anchored textures, tiled with REPEAT. */
-  private _brushTextures = new Map<BrushTextureId, WebGLTexture>()
-  // Reused/grown scratch buffer for the per-dab instance data upload — no
-  // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
-  private _dabInstScratch: Float32Array = new Float32Array(0)
+  // (#494) The digital brush's stamp model, its tips and textures — see
+  // BrushPainter.ts. Its programs are built by _initGL, like every other one.
+  private readonly _brush: BrushPainter
 
-  // Live layer-transform gizmo preview (#120, generalized to multiple tiles
-  // by #139) — one or more scratch tiles per layer currently being dragged,
-  // keyed by layerId. Same non-destructive pattern as _previewBuf/_tipBuf:
-  // the real layer buffer is never touched until the gizmo is released and
-  // a real layer_transform op lands via appendOperation —
-  // _drawCompositeItem substitutes these in for their layerId's real
-  // tile(s) while present. A layer spread across (or, post-transform,
-  // spread across) more than one tile needs more than one scratch buffer,
-  // each positioned like a real PaintTarget — see PreviewTile and
-  // previewLayerTransform/clearLayerTransformPreview.
-  private _transformPreview = new Map<string, PreviewTile[]>()
-  // (#446) Which of those previews are *selection* previews. The distinction
-  // matters exactly once, in _drawCompositeItem: a whole-layer preview is the
-  // entire layer and replaces it, while a selection preview covers only the
-  // tiles the selection passes through and the rest of the layer must keep
-  // drawing from its real buffer. A Set rather than a field on PreviewTile
-  // because it is a property of the gesture, not of any one tile.
-  private _areaPreviewLayers = new Set<string>()
-  // (#446) The one uploaded selection mask, cached by the identity of the
-  // selection it was built from — see _acquireMask.
-  private _maskCache: { selection: SelectionShape; mask: MaskTexture } | null = null
+  // (#494) Floating layer previews — the scratch tiles a gesture shows in
+  // place of a layer's own while it is being placed. Written by AreaOps,
+  // ShapePass and FilterPass, read by the composite; see layerPreviews.ts.
+  private readonly _previews = new LayerPreviews()
+  // (#494) Layer transform, selection, paste and fill — see AreaOps.ts.
+  private readonly _area: AreaOps
+  // (#494) Reference-image import and its decoded-image cache — see ImageImport.ts.
+  private readonly _images: ImageImport
+  // (#494) Shapes — see ShapePass.ts. Its program is built by _initGL.
+  private readonly _shapes: ShapePass
+  // (#494) Layer filters on the tiles — see FilterPass.ts.
+  private readonly _filters: FilterPass
+  // (#494) Export and the room thumbnail — see src/export/Exporter.ts. Its
+  // programs are built by _initGL.
+  private readonly _exporter: Exporter
 
-  // Reference-image import (#88) — keyed by the op's own data URL, so
-  // replaying the same room twice (e.g. undo/redo rebuilding a layer) never
-  // redecodes an image it's already decoded once this session.
-  private _imageCache = new Map<string, HTMLImageElement>()
-
-  // Paper texture — a placeholder set synchronously in the constructor (and
-  // on context-restore), swapped for the real baked texture once _initPaper's
-  // async load resolves. _paperReady lets a caller (tests, Room.tsx's
-  // history-replay sites) await that swap deterministically instead of
-  // guessing tick counts.
-  private _paperTex!: WebGLTexture
-  private _paperReady: Promise<void> = Promise.resolve()
-  // True once the real (non-placeholder) paper texture has loaded at least
-  // once — false right after construction and right after a context-restore
-  // (both rebind a genuinely-meaningless placeholder), but never reset by a
-  // later setPaper() type switch: that swaps between two already-loaded real
-  // textures (the previous type stays bound and valid until the new one is
-  // ready — see _initPaper), so there's nothing invalid to guard against
-  // there. Gates _onStart below: a stroke painted against the placeholder
-  // would bake in its flat, meaningless response permanently, with nothing
-  // later to re-paint it once the real texture arrives (only the display/
-  // composite step re-runs on demand, not already-applied pixel operations)
-  // — a real bug this closes, found via a live cross-device paper-grain
-  // comparison where the very first strokes of a freshly-opened room came
-  // out wrong on whichever device's network happened to be slower to load
-  // the (multi-MB) paper asset. Deliberately separate from `_locked` (a
-  // public, user-controlled room-lock feature) rather than reusing it —
-  // conflating the two would risk this auto-clearing a lock the user
-  // explicitly asked for.
-  private _paperTexLoaded = false
-  // (#365) Whether _paperTex currently carries a mip chain, i.e. whether the
-  // infinite-room display pass may switch to a mip filter for it. Re-decided
-  // every time _paperTex is replaced (initial placeholder, real bake, context
-  // restore) and never assumed — see generatePaperMipmaps for why a driver
-  // can legitimately refuse.
-  private _paperMipsReady = false
+  // (#494) The paper texture's lifecycle and the sheet's geometry — see
+  // src/paper/PaperState.ts. Built once; a paper switch or context restore
+  // swaps the texture inside it, so the passes hold it by reference.
+  private readonly _paper: PaperState
+  // (#494) Read-through for the ribbon/wash code, which is live on another
+  // branch and reads these names directly — see EngineOpts.paperScale.
+  private get _paperTex(): WebGLTexture { return this._paper.texture }
+  private get _paperFillThreshold(): number { return this._paper.fillThreshold }
+  private get _paperFillCap(): number { return this._paper.fillCap }
 
   // Infinite (tiled) canvas mode (#133 Phase 1) — see PencilEngineOptions.infinite.
   private readonly _infinite: boolean
@@ -3285,11 +2845,11 @@ export class PencilEngine implements PencilEngineAPI {
   // anything new to publish, what its restored pixels already contain, whether
   // it may be published at all. See snapshotLedger.ts.
   private readonly _snapshots = new SnapshotLedger()
-  // (#474) One record per restoreLayerFromSnapshot call since the last drain —
-  // see takeSnapshotRestoreAudit. Bounded by the number of layers in a room's
-  // snapshot index and emptied by every read, so it cannot grow with session
-  // length the way an event log would.
-  private _restoreAudit: SnapshotRestoreAudit[] = []
+  // (#494) Layer merge and duplicate — see structuralOps.ts.
+  private readonly _structural: StructuralOps
+  // (#494) Snapshot bake, restore, audit and history backfill over the ledger
+  // above — see SnapshotIO.ts.
+  private readonly _snapshotIO: SnapshotIO
   private _compositeOrder: CompositeItem[]
   /** (#557) See setDisplayFilter. `null` means the screen shows the whole of
    *  `_compositeOrder`. Never consulted by the export path. */
@@ -3302,20 +2862,12 @@ export class PencilEngine implements PencilEngineAPI {
   // everything else is a harmless no-op on a lost context per spec.
   private _contextLost = false
 
-  // Set at the top of destroy() — guards _initPaper's async continuation
-  // (its getPaperBytes() await can still resolve after destroy() ran) from
-  // touching a dead gl context.
+  // Set at the top of destroy().
   private _destroyed = false
 
   // Operation log — source of truth; buffers and checkpoints are derived caches
   private _log: OperationLog
   private _checkpoints: CheckpointStore
-  // (#169) Running total of entries absorbHistoricalOperations has ever
-  // prepended — see getOperationsSinceRestore's own doc comment. Entries at
-  // local seq < this value are the historical prefix; renumbering on every
-  // OperationLog.prependHistorical call keeps that boundary meaningful even
-  // across several backfill pages.
-  private _historicalEntryCount = 0
 
   // In-flight stroke, recorded as one StrokeOperation on pointer up
   private _strokeLayerId: string | null
@@ -3425,23 +2977,16 @@ export class PencilEngine implements PencilEngineAPI {
     this.canvas = canvas
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
-    // Bounded rooms never call setInfiniteCamera (only Room's infinite-mode
-    // viewport-sync effect does) — #136: the below/above split-cache and
-    // main composite now always go through the camera-relative tile-draw
-    // path (_drawTileComposite), so a bounded room needs a fixed "identity"
-    // camera here so world space (== canvas-pixel space for bounded rooms,
-    // see tileMath.ts) maps 1:1 onto screen space, matching the plain
-    // fullscreen-quad blit this replaces. Canvas size is fixed for a bounded
-    // room's lifetime (unlike infinite rooms' resizeCanvas), so this is the
-    // only assignment it ever needs.
-    // (#470) Centred on the sheet, not on the canvas: the canvas is the
-    // viewport now and its centre is an arbitrary corner of the page. The
-    // caller drives the camera from its own viewport state within a frame or
-    // two, so this only decides what the very first frame shows — but a first
-    // frame looking at the wrong place is a visible flash.
-    this._infiniteCamera = options.infinite
-      ? { wx: canvas.width / 2, wy: canvas.height / 2, zoom: 1, angle: 0 }
-      : { wx: (options.pageWidth ?? canvas.width) / 2, wy: (options.pageHeight ?? canvas.height) / 2, zoom: 1, angle: 0 }
+    // (#494) The first frame's pose (centred on the sheet for a bounded room)
+    // is decided inside — see Camera's constructor. The rect read is the
+    // engine's own DOM call, handed in so Camera.ts stays DOM-free.
+    this._camera = new Camera({
+      canvas,
+      infinite: this._infinite,
+      pageWidth: options.pageWidth,
+      pageHeight: options.pageHeight,
+      measureRect: () => canvas.getBoundingClientRect(),
+    })
 
     const gl = canvas.getContext('webgl', {
       premultipliedAlpha: false,
@@ -3450,26 +2995,172 @@ export class PencilEngine implements PencilEngineAPI {
     })
     if (!gl) throw new Error('WebGL not supported')
     this.gl = gl
+    // (#494) Built before the passes below, which hold it by reference; its
+    // texture only exists once init() runs after _initGL.
+    this._paper = new PaperState({
+      gl,
+      infinite: this._infinite,
+      type: options.paper ?? 'coarse',
+      color: options.paperColor,
+      scale: options.paperScale ?? 1.0,
+      fillThreshold: options.paperFillThreshold ?? 0,
+      fillCap: options.paperFillCap ?? 0.35,
+      pageWidth: options.pageWidth,
+      pageHeight: options.pageHeight,
+      canvas,
+      onLoaded: () => this._display(),
+    })
     this._ribbonScratchPool = new RibbonScratchPool(gl)
-    // (#494) See scratchPools.ts. What each buffer is set up for — transform's
-    // resample and smudge's patches sample differently — stays here.
+    // (#494) See scratchPools.ts. What each buffer is set up for stays with
+    // the pool's owner: here for these two, AreaOps and SmudgePainter for theirs.
     this._previewBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
     this._tipBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
-    this._transformScratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h))
-    this._smudgeScratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'))
+    // (#494) Layer transform, selection, paste and fill — see AreaOps.ts.
+    this._area = new AreaOps({
+      gl,
+      infinite: this._infinite,
+      previews: this._previews,
+      passes: () => this._passes,
+      layer: id => this._layers.get(id),
+      image: src => this._images.cached(src),
+      tileSize: () => this._tileSize(),
+      pageSize: () => this._paper.pageSize(),
+      displayOrder: () => this._displayOrder(),
+      paperColor: () => this._paper.color(),
+      compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
+      encodePng: async (pixels, w, h) => {
+        const blob = await this._pixelsToBlob(pixels, w, h)
+        return blob ? blobToDataUrl(blob) : null
+      },
+      display: () => this._display(),
+    })
+    // (#494) Reference-image import — see ImageImport.ts.
+    this._images = new ImageImport({
+      gl,
+      passes: () => this._passes,
+      decode: (src, onload, onerror) => this._decodeImage(src, onload, onerror),
+      drawThroughMatrix: (target, originX, originY, img, rect, matrix) =>
+        this._area.drawImageThroughMatrix(target, originX, originY, img, rect, matrix),
+      pageSize: () => this._paper.pageSize(),
+      layerPainted: id => { if (id !== this._activeId) this._invalidateSplitCache() },
+      display: () => this._display(),
+      displayIfNotSuspended: () => this._displayIfNotSuspended(),
+    })
+    // (#494) Shapes — see ShapePass.ts. Its program is built by _initGL
+    // below, like every other one.
+    this._shapes = new ShapePass({
+      gl,
+      infinite: this._infinite,
+      previews: this._previews,
+      screenBuf: () => this._screenBuf,
+      layer: id => this._layers.get(id),
+      tileSize: () => this._tileSize(),
+      pageSize: () => this._paper.pageSize(),
+      layerPainted: id => { if (id !== this._activeId) this._invalidateSplitCache() },
+      display: () => this._display(),
+    })
+    // (#494) Export and the thumbnail — see Exporter.ts. Its programs are
+    // built by _initGL below, like every other one.
+    this._exporter = new Exporter({
+      gl,
+      infinite: this._infinite,
+      screenBuf: () => this._screenBuf,
+      pageSize: () => this._paper.pageSize(),
+      compositeOrder: () => this._compositeOrder,
+      contentBounds: id => this.getContentBounds(id),
+      drawLayer: (frame, id, opacity, fbo, w, h) => this._drawCompositeItem(frame, id, opacity, fbo, w, h),
+      composePaper: (tex, fbo, w, h, origin) => this._renderPaperComposeInto(tex, fbo, w, h, origin),
+      composeScreen: () => {
+        this._composeToFBO()
+        return this._compositeFBO.texture
+      },
+      display: () => this._display(),
+      canvasSize: () => ({ w: this.canvas.width, h: this.canvas.height }),
+      cameraCenter: () => ({ wx: this._camera.pose.wx, wy: this._camera.pose.wy }),
+      canvasBlob: () => new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png')),
+      encode: (pixels, w, h, type, quality) => this._pixelsToBlob(pixels, w, h, type, quality),
+    })
+    // (#494) The room snapshot in and out — see SnapshotIO.ts. The log and
+    // the checkpoint store are assigned further down, hence functions.
+    this._snapshotIO = new SnapshotIO({
+      gl,
+      infinite: this._infinite,
+      ledger: this._snapshots,
+      pageSize: () => this._paper.pageSize(),
+      tileSize: () => this._tileSize(),
+      layer: id => this._layers.get(id),
+      log: () => this._log,
+      checkpoints: () => this._checkpoints,
+      quiet: id => this._snapshotQuiet(id),
+      settled: id => this._snapshotSettled(id),
+      scratchLayer: id => this._makeLayerBuffer(id),
+      applyPixelOp: (buf, id, op) => this._applyPixelOp(buf, id, op),
+      preloadImages: ops => { void this.preloadImages(ops) },
+    })
+    // (#494) Layer merge and duplicate — see structuralOps.ts. The layer map
+    // and the log are assigned further down, hence functions.
+    this._structural = new StructuralOps({
+      ledger: this._snapshots,
+      log: () => this._log,
+      layer: id => this._layers.get(id),
+      hasLayer: id => this._layers.has(id),
+      setLayer: (id, buf) => { this._layers.set(id, buf) },
+      makeLayerBuffer: id => this._makeLayerBuffer(id),
+      createBuffer: id => this._createBuffer(id),
+      destroyBuffer: id => this._destroyBuffer(id),
+      replayInto: (buf, id, ops) => this._replayInto(buf, id, ops),
+      compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
+      takeCheckpoint: id => this._takeCheckpoint(id),
+      invalidateSplitCache: () => this._invalidateSplitCache(),
+      displayIfNotSuspended: () => this._displayIfNotSuspended(),
+    })
+    // (#494) Layer filters — see FilterPass.ts.
+    this._filters = new FilterPass({
+      gl,
+      infinite: this._infinite,
+      previews: this._previews,
+      passes: () => this._passes,
+      layer: id => this._layers.get(id),
+      tileSize: () => this._tileSize(),
+      pageSize: () => this._paper.pageSize(),
+      layerPainted: id => { if (id !== this._activeId) this._invalidateSplitCache() },
+      display: () => this._display(),
+    })
+    // (#494) Smudge and the mixer — see SmudgePainter.ts. Its programs are
+    // built by _initGL below, like every other one.
+    this._smudge = new SmudgePainter({
+      gl,
+      quadBuf: () => this._quadBuf,
+      screenBuf: () => this._screenBuf,
+      paper: this._paper,
+    })
+    // (#494) The dab stamps — pencil, eraser, liner, charcoal. See
+    // StampPainter.ts; its programs are built by _initGL below too.
+    this._stamps = new StampPainter({
+      gl,
+      infinite: this._infinite,
+      quadBuf: () => this._quadBuf,
+      paper: this._paper,
+      grainMode: charcoal => this._resolveGrainMode(charcoal),
+    })
+
+    // (#494) The digital brush — see BrushPainter.ts; its programs are
+    // built by _initGL below too.
+    this._brush = new BrushPainter({
+      gl,
+      quadBuf: () => this._quadBuf,
+      paper: this._paper,
+      segmentLength: (dab, prev, radius) => this._markerSegmentLength(dab, prev, radius),
+    })
 
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
 
     this._opts = {
       deskColor:     options.deskColor     ?? DEFAULT_DESK_COLOR,
-      pageWidth:     options.pageWidth,
-      pageHeight:    options.pageHeight,
-      paper:         options.paper         ?? 'coarse',
-      paperColor:    options.paperColor,
       pencilType:    options.pencilType    ?? 'HB',
       size:          options.size          ?? 24,
-      paperScale:    options.paperScale    ?? 1.0,
+      paperScale:    this._paper.scale,
       graphiteColor: options.graphiteColor ?? DEFAULT_GRAPHITE_COLOR,
       tool:          'pencil',
       opacity:       options.opacity       ?? 1.0,
@@ -3491,16 +3182,10 @@ export class PencilEngine implements PencilEngineAPI {
     // belong in the "live, mutable tool state" struct _opts represents.
     this._grainMode = options.grainMode
     this._charcoalGrainMode = options.charcoalGrainMode
-    this._paperFillThreshold = options.paperFillThreshold ?? 0
-    this._paperFillCap = options.paperFillCap ?? 0.35
 
     this._initGL()
-    // A flat mid-gray texture bound immediately so every paint call between
-    // now and the real bake finishing loading still has something valid to
-    // sample — see paperLoader.ts's createPlaceholderPaperTexture.
-    this._paperTex = createPlaceholderPaperTexture(this.gl)
-    this._paperMipsReady = generatePaperMipmaps(this.gl, this._paperTex)
-    this._startPaperLoad(this._opts.paper)
+    // Placeholder now, the real bake once it has loaded — see PaperState.init.
+    this._paper.init()
     this._pointer = new PointerInput(canvas, this._diagLog)
     this._dabs    = new DabSystem()
 
@@ -3601,11 +3286,11 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setPaperFillThreshold(threshold: number): void {
-    this._paperFillThreshold = threshold
+    this._paper.fillThreshold = threshold
   }
 
   setPaperFillCap(cap: number): void {
-    this._paperFillCap = cap
+    this._paper.fillCap = cap
   }
 
   setCharcoalFeel(patch: Partial<CharcoalFeelConfig>): void {
@@ -3689,32 +3374,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See PencilEngineAPI's doc comment. */
-  paperReady(): Promise<void> { return this._paperReady }
+  paperReady(): Promise<void> { return this._paper.ready() }
 
   /** See PencilEngineAPI's doc comment. */
-  retryPaper(): Promise<void> {
-    // Not merely an optimization: re-running the load for a texture that is
-    // already bound would swap a live texture out from under whatever is
-    // mid-composite, to arrive at exactly the state it is already in.
-    if (this._paperTexLoaded) return this._paperReady
-    return this._startPaperLoad(this._opts.paper)
-  }
-
-  /** The one place `_paperReady` is assigned. Keeps a no-op handler attached
-   *  to every attempt: the real consumers (Room's replay sites) await it,
-   *  but they attach *later* — a creator's own await does not happen until a
-   *  socket round-trip has completed — and a rejection with no handler yet
-   *  attached is reported as an unhandled rejection, i.e. as a crash in
-   *  Sentry rather than as the handled failure it is. The returned promise is
-   *  the original, so every real caller still sees the rejection. */
-  private _startPaperLoad(type: PaperType): Promise<void> {
-    this._paperReady = this._initPaper(type)
-    void this._paperReady.catch(() => {})
-    return this._paperReady
-  }
+  retryPaper(): Promise<void> { return this._paper.retry() }
 
   /** (#147) What appendOperation's own branches and _applyHistoryChange/
-   *  _execMergeLive call instead of `this._display()` directly — a no-op
+   *  StructuralOps call instead of `this._display()` directly — a no-op
    *  while a suspendDisplay() span is active (see its own doc comment),
    *  otherwise identical to calling _display() right there. */
   private _displayIfNotSuspended(): void {
@@ -3880,22 +3546,10 @@ export class PencilEngine implements PencilEngineAPI {
         break
       }
       case 'layer_merge':
-        // (#374) A merge that a restored snapshot already accounts for still
-        // has to happen structurally — the result layer exists, its sources
-        // do not — but must not composite anything: the result's pixels came
-        // back from the snapshot, and `_execMergeLive` would replace that
-        // buffer with a freshly composited one, discarding them.
-        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execMergeStructuralOnly(op)
-        else this._execMergeLive(op)
+        this._structural.execMerge(op) // (#374) see StructuralOps.execMerge
         break
       case 'layer_duplicate':
-        // (#449) Same two-way split as layer_merge above and for the same
-        // reason: the copy's pixels can already have come back from a restored
-        // snapshot, and re-copying the source over them would be wrong twice —
-        // it discards whatever was painted on the copy after the duplicate, and
-        // the source itself has moved on since.
-        if (this._snapshots.isCovered(op.layerId, op.seq)) this._execDuplicateStructuralOnly(op)
-        else this._execDuplicateLive(op)
+        this._structural.execDuplicate(op) // (#449)
         break
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
@@ -3922,7 +3576,7 @@ export class PencilEngine implements PencilEngineAPI {
           // Smudge (#416) needs no seeding here anymore: an operation is
           // self-sufficient again, because the imprint the tool carries is
           // reset at every gesture boundary and rebuilt from this op's own
-          // dabs (see _smudgeResumeGesture, and
+          // dabs (see SmudgePainter.resumeGesture, and
           // StrokeOperation.smudgeLoadAtStart's own comment for what the
           // scalar it replaced had to carry across operations).
           //
@@ -3985,10 +3639,10 @@ export class PencilEngine implements PencilEngineAPI {
           // (#398) The image is already decoded on every replay path (see
           // preloadImages) — paint it here and now, so the operations after
           // it in this same loop see the pixels they were recorded against.
-          if (this._paintDecodedImage(buf, op)) {
+          if (this._images.paintDecoded(buf, op)) {
             this._maybeCheckpoint(op.layerId)
           } else {
-            this._paintImage(buf, op)
+            this._images.paint(buf, op)
               .then(() => { this._settleLateImage(op); this._maybeCheckpoint(op.layerId) })
               .catch(err => console.error('failed to paint imported image', err))
           }
@@ -4013,10 +3667,10 @@ export class PencilEngine implements PencilEngineAPI {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._snapshots.isCovered(op.layerId, op.seq)) { this._log.revoke(op.id); break }
-        if (op.type === 'layer_filter') this._applyFilter(buf, op.filter)
-        else if (op.type === 'shape') this._drawShape(buf, op)
-        else if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
-        else this._clearArea(buf, op.selection)
+        if (op.type === 'layer_filter') this._filters.apply(buf, op.filter)
+        else if (op.type === 'shape') this._shapes.draw(buf, op)
+        else if (op.type === 'area_transform') this._area.bakeAreaTransform(buf, op.selection, op.matrix)
+        else this._area.clearArea(buf, op.selection)
         this._snapshots.markDirty(op.layerId)
         this._maybeCheckpoint(op.layerId)
         if (op.layerId !== this._activeId) this._invalidateSplitCache()
@@ -4034,15 +3688,15 @@ export class PencilEngine implements PencilEngineAPI {
         if (!buf) { this._log.revoke(op.id); break }
         if (this._snapshots.isCovered(op.layerId, op.seq)) { this._log.revoke(op.id); break }
         this._snapshots.markDirty(op.layerId)
-        const record = this._asImportRecord(op)
+        const record = asImportRecord(op)
         const matrix = op.type === 'area_paste' ? op.matrix : undefined
         // Same decoded/late split as image_import above — see #398. A local
         // paste is always already decoded (the clipboard raster came from this
         // very engine); a peer's arrives cold and takes the async path.
-        if (this._paintDecodedImage(buf, record, matrix)) {
+        if (this._images.paintDecoded(buf, record, matrix)) {
           this._maybeCheckpoint(op.layerId)
         } else {
-          this._paintImage(buf, record, matrix)
+          this._images.paint(buf, record, matrix)
             .then(() => { this._settleLateImage(record); this._maybeCheckpoint(op.layerId) })
             .catch(err => console.error('failed to paint pasted image', err))
         }
@@ -4068,7 +3722,7 @@ export class PencilEngine implements PencilEngineAPI {
           // make a later undo unable to take it back off the layers it
           // genuinely still applies to.
           if (this._snapshots.isCovered(t.layerId, op.seq)) { appliedAny = true; continue }
-          this._bakeTransform(buf, t.matrix)
+          this._area.bakeLayerTransform(buf, t.matrix)
           this._snapshots.markDirty(t.layerId)
           this._maybeCheckpoint(t.layerId)
           // #122: layer_transform is pixel-only — it never changes
@@ -4383,8 +4037,7 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── Tool API ────────────────────────────────────────────────────────────────
 
   setPaper(type: PaperType): void {
-    this._opts.paper = type
-    this._startPaperLoad(type)
+    this._paper.setType(type)
     this._display()
   }
 
@@ -4531,7 +4184,7 @@ export class PencilEngine implements PencilEngineAPI {
    *      _applyHistoryChange; setPaper), and JS is single-threaded, so by the
    *      time a pointerdown handler can call pickColor the visible canvas
    *      already reflects the very last of those calls. Confirmed by reading
-   *      every _display()/_displayTransparent() call site in this file —
+   *      every _display() call site in this file (and Exporter's transparent fallback) —
    *      none of them defer to a rAF loop (the constructor's own
    *      requestAnimationFrame call is a one-time kickoff, not a per-frame
    *      loop). No code change needed here — see #145's issue thread for the
@@ -4547,7 +4200,7 @@ export class PencilEngine implements PencilEngineAPI {
       const { w: pageW, h: pageH } = this._pageSize()
       if (canvasX < 0 || canvasY < 0 || canvasX >= pageW || canvasY >= pageH) return null
     }
-    const [sx, sy] = applyMatrix(invertMatrix(this._screenToWorldMatrix()), canvasX, canvasY)
+    const [sx, sy] = applyMatrix(invertMatrix(this._camera.screenToWorldMatrix()), canvasX, canvasY)
     const x = Math.round(sx)
     const y = Math.round(sy)
     // Off-screen is unreadable rather than wrong: the colour lives in the
@@ -4580,10 +4233,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  every resident tile, on every call — cheap for a single-tile bounded
    *  room, but its cost scaled with resident tile count for an infinite
    *  room, and that count only ever grew across repeated non-tile-aligned
-   *  transform drags (see _bakeTransform's own docstring). Live traces
+   *  transform drags (see AreaOps.bakeLayerTransform's own docstring). Live traces
    *  showed this dominating a 22s `pointerup` INP (57% readPixels, 31%
    *  checkFramebufferStatus from the tile creation that came with it), with
-   *  _bakeTransform itself barely registering. Now a plain lookup —
+   *  AreaOps.bakeLayerTransform itself barely registering. Now a plain lookup —
    *  ILayerBuffer tracks each tile's real content bbox incrementally as it's
    *  painted/baked (see TiledLayerBuffer's contentRects), so this is a cheap
    *  union over however many tiles this layer has ever held content on, no
@@ -4605,7 +4258,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#421) See ILayerBuffer.tightenContentRects — this is the public door
    *  to it, and the transform gizmo is its only caller. Deliberately not
    *  folded into getContentBounds (which every export/fit-to-content path
-   *  also calls, per frame in some of them) nor into _bakeTransform (which
+   *  also calls, per frame in some of them) nor into AreaOps.bakeLayerTransform (which
    *  runs on every peer's transform during replay): both would put a
    *  synchronous GPU readback somewhere it must not be. A missing layer is a
    *  no-op, same as getContentBounds returning null for one. */
@@ -4622,83 +4275,19 @@ export class PencilEngine implements PencilEngineAPI {
     // #482: same reason as setInfiniteCamera's own assignment — a bounded room
     // rotates too, and the tilt reading is against the screen either way.
     this._dabs.cameraAngle = angle
-    const { canvas } = this
-    const cos = Math.cos(-angle)
-    const sin = Math.sin(-angle)
-    const hw  = canvas.width  / 2
-    const hh  = canvas.height / 2
-    this._pointer.setTransform((clientX, clientY) => {
-      const dx = clientX - cx
-      const dy = clientY - cy
-      const rx = dx * cos - dy * sin
-      const ry = dx * sin + dy * cos
-      return { x: rx / zoom + hw, y: ry / zoom + hh }
-    })
+    this._pointer.setTransform(this._camera.boundedPointerTransform(cx, cy, zoom, angle))
   }
 
-  /** (#155 follow-up) `canvas.getBoundingClientRect()`, cached — a real
-   *  synchronous layout read (a forced reflow if anything invalidated
-   *  layout earlier in the same task), and setInfiniteCamera's pointer-
-   *  transform closure below used to call it fresh on *every* real pointer
-   *  sample during a stroke (a fast stylus easily produces dozens of
-   *  coalesced samples per animation frame). Live profiling during a
-   *  drawing session confirmed this as the single largest actual
-   *  app-attributable CPU cost, and chrome-devtools-mcp's own
-   *  ForcedReflow insight independently named this exact call path
-   *  (`_handleMove` → `_extract` → this transform closure) as the top
-   *  forced-reflow culprit.
-   *
-   *  The canvas element's on-screen rect only changes on a genuine layout
-   *  event (window/container resize — see resizeCanvas, which invalidates
-   *  this), never merely from panning or drawing (a camera move
-   *  re-renders *content*, it never repositions the canvas element itself
-   *  — see setInfiniteCamera's own doc comment), so caching indefinitely
-   *  between resizes is safe. */
-  private _getCanvasRect(): DOMRect {
-    return this._canvasRectCache ??= this.canvas.getBoundingClientRect()
-  }
-
-  /** See PencilEngineAPI's doc comment. The pointer transform here is the
-   *  exact inverse of _worldToScreenTransform's world->screen math (solved
-   *  by hand, not matrix-inverted at runtime, since it's cheap and fixed
-   *  shape) — a raw client pointer event must land on the same world point
-   *  a tile rendered at (wx,wy,zoom,angle) currently shows there. Unlike
-   *  setViewport, this reads the canvas element's own on-screen rect
-   *  (via _getCanvasRect(), see its own doc comment) rather than trusting a
-   *  separate (cx,cy) screen-position parameter — infinite mode's canvas
-   *  has no CSS pan transform of its own (see resizeCanvas), it's simply
-   *  positioned to fill the viewport, so this is the same client->canvas-
-   *  local math PointerInput's own untransformed fallback already does,
-   *  composed with the inverse camera rotation/zoom on top. */
+  /** See PencilEngineAPI's doc comment. The pointer transform is the exact
+   *  inverse of the composite's world->screen math — see
+   *  Camera.pointerTransform. */
   setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void {
-    this._infiniteCamera = { wx, wy, zoom, angle }
+    this._camera.set(wx, wy, zoom, angle)
     // #482: the frame the device's tilt reading has to be converted out of —
     // see DabSystem.cameraAngle. Assigned here rather than at stroke start so
     // it tracks a canvas rotated with the pen still down.
     this._dabs.cameraAngle = angle
-    const { canvas } = this
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    // hw/hh must be read live inside the closure (like
-    // _worldToScreenTransform does), not captured here: resizeCanvas() can
-    // change canvas.width/height afterwards (the ResizeObserver's first
-    // firing normally lands after this is first called, while the canvas is
-    // still at its default 300x150) without this ever being called again,
-    // which left pointer input reading a stale size while every render used
-    // the live one — dabs landed tens/hundreds of px off from the visible
-    // stroke.
-    this._pointer.setTransform((clientX, clientY) => {
-      const rect = this._getCanvasRect()
-      const scaleX = canvas.width / (rect.width || canvas.width)
-      const scaleY = canvas.height / (rect.height || canvas.height)
-      const screenX = (clientX - rect.left) * scaleX
-      const screenY = (clientY - rect.top) * scaleY
-      const hw = canvas.width / 2
-      const hh = canvas.height / 2
-      const sx = (screenX - hw) / zoom
-      const sy = (screenY - hh) / zoom
-      return { x: wx + sx * cos + sy * sin, y: wy - sx * sin + sy * cos }
-    })
+    this._pointer.setTransform(this._camera.pointerTransform())
     // Unlike setViewport (bounded mode pans via a CSS transform the caller
     // owns — the engine's own pixels never change), a camera move here
     // genuinely changes what belongs on screen, so the engine must
@@ -4717,10 +4306,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
-  /** See PencilEngineAPI's doc comment. */
-  /** See PencilEngineAPI's doc comment. */
+  /** See PencilEngineAPI's doc comment, and Camera.canvasRect. */
   invalidateCanvasRect(): void {
-    this._canvasRectCache = null
+    this._camera.invalidateRect()
   }
 
   resizeCanvas(width: number, height: number): void {
@@ -4728,10 +4316,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (canvas.width === width && canvas.height === height) return
     canvas.width = width
     canvas.height = height
-    // (#155 follow-up) A genuine layout event — _getCanvasRect's cache is
+    // (#155 follow-up) A genuine layout event — Camera.canvasRect's cache is
     // stale from here on until re-queried.
-    this._canvasRectCache = null
-    const { w: ew, h: eh } = this._renderBufferExtent()
+    this._camera.invalidateRect()
+    const { w: ew, h: eh } = this._camera.renderBufferExtent()
     this._compositeFBO.destroy()
     this._belowCache.destroy()
     this._aboveCache.destroy()
@@ -4744,242 +4332,20 @@ export class PencilEngine implements PencilEngineAPI {
     // The paper texture itself is NOT recreated here (unlike
     // _belowCache/_assemblyFBO/etc. above, which are genuinely canvas-size-
     // dependent) — it's a fixed, baked-offline resolution (see
-    // _initPaper/paperLoader.ts), decoupled from canvas size entirely, so
+    // PaperState.load/paperLoader.ts), decoupled from canvas size entirely, so
     // there's nothing for a canvas resize to invalidate.
     this._display()
   }
 
-  /** Pixel size for _belowCache/_aboveCache/_assemblyFBO: a square padded to
-   *  the canvas's own half-diagonal, big enough that any camera rotation
-   *  still finds the whole screen covered once _finishInfiniteComposite
-   *  crops/rotates it back down to the real canvas size.
-   *
-   *  (#470) The same for both kinds of room now. A bounded room used to size
-   *  these to its *sheet*, because its canvas element was the sheet and the
-   *  browser did the panning with a CSS transform — so every buffer here grew
-   *  with the paper rather than with the screen. On a 4096x4096 sheet that was
-   *  four full-sheet buffers, 256 MiB, allocated before a single stroke, and
-   *  it killed the tab on an iPad. Now the sheet is a rectangle in the world
-   *  and these are all screen-sized, so the cost of a big sheet is nothing. */
-  private _renderBufferExtent(): { w: number; h: number } {
-    const { canvas } = this
-    const halfDiag = Math.sqrt((canvas.width / 2) ** 2 + (canvas.height / 2) ** 2)
-    const extent = Math.ceil(halfDiag * 2)
-    return { w: extent, h: extent }
-  }
 
-
-  /** How much bigger _assemblyFBO is than the real canvas,
-   *  split (roughly) evenly on each side, *rounded to the nearest whole
-   *  pixel* — see _compositeCenterX/Y's own field comment for why this
-   *  integer-ness is exactly the fix for infinite rooms always looking
-   *  faintly softer than bounded ones. Zero for bounded rooms (their
-   *  render-buffer extent is exactly canvas size — see _renderBufferExtent
-   *  — so there's nothing to pad).
-   *
-   *  (#470) That last sentence stopped being true when bounded rooms started
-   *  rendering through the camera: their extent is the same padded square now,
-   *  so they pad exactly like an infinite room and the early return that used
-   *  to sit here would have put every bounded frame half a buffer off. */
-  private _assemblyPad(): { padX: number; padY: number } {
-    const { canvas } = this
-    const { w: ew, h: eh } = this._renderBufferExtent()
-    return { padX: Math.round((ew - canvas.width) / 2), padY: Math.round((eh - canvas.height) / 2) }
-  }
-
-  /** (#301) The scale _runComposite draws the assembly buffer at — see
-   *  _compositeScale's own field comment for the full reasoning. A bounded
-   *  room's camera zoom is the constructor's fixed 1 for the engine's whole
-   *  lifetime (its real zoom is the DOM canvasWrap's CSS transform), so the
-   *  min() below leaves that path at exactly 1, unchanged. */
-  private _infiniteCompositeScale(): number {
-    return Math.min(1, this._infiniteCamera.zoom)
-  }
-
-  /** (#301) How much magnification the final screen pass still has to apply
-   *  on top of what the assembly buffer was already drawn at — 1 whenever
-   *  the camera is at or below zoom 1, and the zoom itself above that (the
-   *  assembly caps at world resolution). Also the flag for whether that pass
-   *  resamples at all: combined with a nonzero angle it decides between
-   *  Catmull-Rom and a plain bilinear tap (see PAPER_COMPOSE_FRAG). */
-  private _residualScale(): number {
-    return this._infiniteCamera.zoom / this._infiniteCompositeScale()
-  }
-
-  /** Live gizmo-drag preview (#120) — renders each entry's *current* layer
-   *  content through the requested transform into one or more scratch tiles
-   *  that _drawCompositeItem substitutes in for the real one, called on
-   *  every drag frame. Never touches the real layer buffer — the actual
-   *  bake only happens once via a real `layer_transform` op through
-   *  appendOperation (see clearLayerTransformPreview, which the caller must
-   *  call right after committing that op, so the now-stale preview doesn't
-   *  keep shadowing the freshly baked real buffer).
-   *
-   *  #139: generalized to multiple source/destination tiles — same shape as
-   *  _bakeTransform (read its docstring first): resolve the transformed
-   *  content's world bounds from every source tile's corners, then stitch
-   *  each overlapping destination tile from every overlapping source tile,
-   *  one alpha-blended _runTransformBlit pass per pair.
-   *
-   *  #142: every room (bounded or infinite) is backed by TiledLayerBuffer
-   *  now, so this is the same code path for both — a bounded layer just
-   *  usually has fewer resident tiles (often exactly one, for a canvas
-   *  smaller than TILE_SIZE in both dimensions) rather than a structurally
-   *  different single-buffer type. Dragging a bounded layer's content past
-   *  its visible canvas edge previews (and, on release, actually bakes)
-   *  correctly into whichever tile it now covers, the same #133 guarantee
-   *  infinite rooms already had — nothing is silently clipped.
-   *
-   *  Two differences from the real bake, both because this is a
-   *  non-destructive per-frame preview rather than a one-shot commit:
-   *  destination tiles are plain scratch AccumulationBuffers computed
-   *  straight from tileMath, never layerBuf.resolveForPaint() (which would
-   *  create real, permanent tiles on the *actual* layer just from a preview
-   *  reading it — leaking empty tiles into the layer's real tile map on
-   *  every drag frame, including ones the drag never ends up committing);
-   *  and there's no swap-into-the-real-tile second phase — the scratch tile
-   *  *is* the whole result, read directly by _drawCompositeItem. */
-  /** #142-follow-up perf fix: this runs on every single pointermove during a
-   *  gizmo drag — often well over 60/s, especially on a pen/touch
-   *  digitizer. The tile SET a drag touches is almost always identical
-   *  frame-to-frame (you only cross a tile boundary occasionally), so
-   *  destroying and recreating every scratch AccumulationBuffer (a real GPU
-   *  texture + framebuffer allocation, up to a full page's worth of bytes
-   *  for a bounded room — see _tileSize) on *every* frame, as this used to,
-   *  was the actual cause of the severe drag-stutter/hang reported testing
-   *  on a Surface: GPU alloc/dealloc churn at pointer-event frequency.
-   *  Instead this now keys the previous frame's tiles by world origin and
-   *  reuses (just gl.clear()s) any buffer whose tile is still needed this
-   *  frame — only genuinely new/vacated tiles allocate or free anything,
-   *  which is the rare case, not the every-frame one. */
+  /** Live gizmo-drag preview (#120) — see AreaOps.previewLayerTransform. */
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: LayerTransformMatrix }>): void {
-    for (const { layerId, matrix: wireMatrix } of transforms) {
-      // (#392) The one widening, at the boundary — see LayerTransformMatrix's
-      // docstring in packages/shared for why no consumer branches on length.
-      const matrix = toHomography(wireMatrix)
-      const source = this._layers.get(layerId)
-      if (!source) continue
-      const sourceTiles = source.allResident()
-      const oldByOrigin = new Map(
-        (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
-      )
-
-      if (!sourceTiles.length) {
-        // Nothing to preview (e.g. an empty layer) — drop any stale tiles
-        // from a previous frame rather than leaving them showing.
-        for (const t of oldByOrigin.values()) t.buffer.destroy()
-        this._transformPreview.delete(layerId)
-        continue
-      }
-
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      // (#155 Tier 2) Each source tile's own transformed world-space AABB —
-      // see _bakeTransform's identical precompute (and its doc comment on
-      // why this now uses each tile's real tracked contentRect, not its
-      // whole tileW x tileH extent) for the full reasoning; must stay in
-      // lockstep with it for the live preview to stay pixel-identical to
-      // what committing the drag will actually bake (reused below to skip
-      // (dest, src) pairs that can't overlap; this method runs every
-      // animation frame for the whole duration of a live drag, so avoiding
-      // that O(destTiles x sourceTiles) waste matters even more here).
-      const srcRects: Array<WorldRect | null> = []
-      for (const { contentRect } of sourceTiles) {
-        if (!contentRect) { srcRects.push(null); continue }
-        let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity
-        const corners: Array<[number, number]> = [
-          [contentRect.minX, contentRect.minY], [contentRect.maxX, contentRect.minY],
-          [contentRect.minX, contentRect.maxY], [contentRect.maxX, contentRect.maxY],
-        ]
-        for (const [x, y] of corners) {
-          const [tx, ty] = applyMatrix(matrix, x, y)
-          minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
-          minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
-          sMinX = Math.min(sMinX, tx); sMaxX = Math.max(sMaxX, tx)
-          sMinY = Math.min(sMinY, ty); sMaxY = Math.max(sMaxY, ty)
-        }
-        srcRects.push({ minX: sMinX, minY: sMinY, maxX: sMaxX, maxY: sMaxY })
-      }
-
-      if (maxX <= minX || maxY <= minY || !Number.isFinite(minX + minY + maxX + maxY)) {
-        // Degenerate (zero-scale transform, or every source tile empty) —
-        // content collapses to nothing, same as _bakeTransform's own
-        // degenerate-transform branch. The finiteness half is (#392): a
-        // homography sends the vanishing line to infinity, so a corner landing
-        // on it makes these bounds Infinity/NaN, and an infinite rect handed
-        // to tilesOverlappingRect below is not a wrong picture but a hang.
-        // Room never builds such a matrix (isFrameInFront), so this only
-        // guards a replayed op from somewhere else.
-        for (const t of oldByOrigin.values()) t.buffer.destroy()
-        this._transformPreview.delete(layerId)
-        continue
-      }
-
-      // #142: every room is tile-backed now, so this always resolves
-      // whichever tiles the transformed content actually lands in — a
-      // bounded room's live preview can show content dragged past its
-      // visible canvas edge just like the real bake (_bakeTransform)
-      // already could, instead of only ever previewing a single canvas-
-      // sized destination rect. Must use this room's own tile size (see
-      // _tileSize) — the default (TILE_SIZE) is only correct for infinite
-      // rooms; a bounded room's tiles are its own canvas size.
-      const { w: tw, h: th } = this._tileSize()
-      const destRects: WorldRect[] =
-        tilesOverlappingRect({ minX, minY, maxX, maxY }, tw, th)
-          .map(({ tileX, tileY }) => tileWorldRect(tileX, tileY, tw, th))
-
-      const matrixInv = invertMatrix(matrix)
-      const tiles: PreviewTile[] = []
-      const reused = new Set<string>()
-      for (const rect of destRects) {
-        const dw = rect.maxX - rect.minX
-        const dh = rect.maxY - rect.minY
-        const key = `${rect.minX},${rect.minY}`
-        const old = oldByOrigin.get(key)
-        // Same tile size is guaranteed for every reused key: a room's tile
-        // grid (_tileSize) never changes after construction, so an origin
-        // that existed last frame always had — and still needs — the same
-        // dw/dh here.
-        const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, dw, dh)
-        scratch.clear()
-        if (old) reused.add(key)
-        sourceTiles.forEach((srcTile, i) => {
-          // (#155) Skip pairs whose transformed bounding boxes don't
-          // overlap at all (including a source with no real content,
-          // srcRects[i] === null) — see _bakeTransform's identical check
-          // for why.
-          const r = srcRects[i]
-          if (!r || r.maxX <= rect.minX || r.minX >= rect.maxX || r.maxY <= rect.minY || r.minY >= rect.maxY) return
-          // dest-tile-local -> world (rect's own origin) -> source world
-          // (the transform's inverse) -> src-tile-local (srcTile's own
-          // origin) — exactly _bakeTransform's own composition; see there.
-          const toWorld = translationMatrix(rect.minX, rect.minY)
-          const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
-          const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-          this._runTransformBlit(srcTile.buffer, mc, dw, dh, scratch.fbo, 'add')
-        })
-        tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
-      }
-      // Anything from last frame that isn't part of this frame's tile set
-      // (a real, occasional event — the drag crossed a tile boundary) is
-      // genuinely done and must still be freed.
-      for (const [key, t] of oldByOrigin) {
-        if (!reused.has(key)) t.buffer.destroy()
-      }
-      this._transformPreview.set(layerId, tiles)
-    }
-    this._display()
+    this._area.previewLayerTransform(transforms)
   }
 
-  /** Ends a gizmo-drag preview — on commit (a real op just landed and
-   *  rebuilt the actual buffers) or on cancel (e.g. Escape, switching tools
-   *  mid-drag without releasing). */
+  /** Ends a gizmo-drag preview — see AreaOps.clearLayerTransformPreview. */
   clearLayerTransformPreview(): void {
-    for (const tiles of this._transformPreview.values()) {
-      for (const { buffer } of tiles) buffer.destroy()
-    }
-    this._transformPreview.clear()
-    this._areaPreviewLayers.clear()
-    this._display()
+    this._area.clearLayerTransformPreview()
   }
 
   /** See PencilEngineAPI's doc comment. Queues `op` for its author's reveal;
@@ -5099,7 +4465,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     // `strokeId` is what makes marker and smudge continuous across packets —
     // the same argument a chunked replay passes, reaching the same
-    // _replayChunkScratch / _smudgeResumeGesture bookkeeping. `prevDab` is
+    // _replayChunkScratch / SmudgePainter.resumeGesture bookkeeping. `prevDab` is
     // deliberately left undefined for the same reason it is on the replay
     // path: both tools recover it from their own gesture state, and passing a
     // second, independently-tracked copy is how the two get to disagree.
@@ -5242,98 +4608,32 @@ export class PencilEngine implements PencilEngineAPI {
     return this
   }
 
-  /** See PencilEngineAPI's doc comment. `canvas.toBlob()` snapshots the
-   *  drawing buffer synchronously at call time (encoding happens async, but
-   *  the pixels it encodes are fixed the moment it's called) — same
-   *  assumption the pre-existing paper variant already relied on by calling
-   *  `_display()` right before `toBlob()`. That's what makes it safe to
-   *  restore the normal on-screen paper view immediately after kicking off
-   *  toBlob() for the transparent variant, without waiting for its callback:
-   *  the visible canvas (this.canvas is the real, on-screen WebGL canvas —
-   *  there's no separate offscreen render target) never has to sit showing
-   *  the transparent frame past this synchronous call.
+  /** See PencilEngineAPI's doc comment; the work is Exporter's (#494).
    *
-   *  #145: this camera-viewport path is exactly right for a bounded room
-   *  (unchanged below) but is handed off to _exportInfinitePNG for an
-   *  infinite one instead — see that method's own doc comment.
-   *
-   *  Awaits _paperReady first: the paper texture loads asynchronously (see
-   *  _initPaper), and an export triggered in the brief window before it
+   *  Awaits paperReady() first: the paper texture loads asynchronously (see
+   *  PaperState.load), and an export triggered in the brief window before it
    *  resolves would otherwise bake in the flat placeholder gray instead of
    *  real paper grain. In practice this is a no-op wait almost always — the
    *  3 baked assets are small and prefetched from construction — but a
    *  slow/offline first load makes the gap real. */
   async exportPNG(transparent = false): Promise<Blob | null> {
-    await this._paperReady
-    // (#470) Both kinds of room render offscreen now. A bounded room used to
-    // export by calling _display() and grabbing canvas.toBlob(), which was
-    // exact only because its canvas *was* the sheet at 1:1; the canvas is the
-    // viewport now, so that would export whatever happened to be on screen,
-    // at whatever zoom, with the desk around it. The sheet's own rect through
-    // the offscreen path gives back exactly the old image.
-    const rect = this._infinite ? null : (() => {
-      const { w, h } = this._pageSize()
-      return { x: 0, y: 0, width: w, height: h }
-    })()
-    return this._exportOffscreenPNG(transparent, rect)
+    await this._paper.ready()
+    return this._exporter.exportPNG(transparent)
   }
 
-  /** See PencilEngineAPI's doc comment, and ADR 015 §5 for why it exists.
-   *
-   *  The old thumbnail path went exportPNG() -> decode -> 2D-canvas shrink ->
-   *  re-encode: a full-sheet readPixels (8.7 MB on A4) plus two PNG encodes
-   *  and a decode, all on the main thread of the device that is drawing.
-   *  Here the only full-size work is the GPU composite exportPNG already
-   *  does; the shrink is a chain of 2x box steps on the GPU
-   *  (previewDownscaleChain + DOWNSAMPLE_FRAG), and readPixels touches at
-   *  most maxSide x maxSide pixels.
-   *
-   *  Frame: identical to exportPNG — the bounded room's whole sheet, or an
-   *  infinite room's content bounds. An infinite room with nothing drawn has
-   *  no content bounds; exportPNG falls back to the on-screen view there, and
-   *  this falls back to blank paper of the viewport's size, which is the same
-   *  picture without touching the visible canvas. */
+  /** See PencilEngineAPI's doc comment, and ADR 015 §5 for why it exists;
+   *  the work is Exporter's (#494). */
   async bakePreview(maxSide = 320): Promise<Blob | null> {
-    await this._paperReady
+    await this._paper.ready()
     if (this._destroyed || this._contextLost) return null
-    const rect = this._infinite
-      ? (this._allVisibleContentBounds() ?? {
-        x: this._infiniteCamera.wx - this.canvas.width / 2,
-        y: this._infiniteCamera.wy - this.canvas.height / 2,
-        width: Math.max(1, this.canvas.width),
-        height: Math.max(1, this.canvas.height),
-      })
-      : (() => {
-        const { w, h } = this._pageSize()
-        return { x: 0, y: 0, width: w, height: h }
-      })()
-    const composite = this._buildContentComposite(rect)
-    if (!composite) return null
-
-    const { bounds, buffer } = composite
-    const { gl } = this
-    const { width: w, height: h } = buffer
-    let current = new AccumulationBuffer(gl, w, h)
-    this._renderPaperComposeInto(buffer.texture, current.fbo, w, h, bounds)
-    buffer.destroy()
-
-    for (const step of previewDownscaleChain(w, h, Math.max(1, Math.floor(maxSide)))) {
-      const next = new AccumulationBuffer(gl, step.width, step.height)
-      this._renderDownsampleInto(current.texture, next.fbo, step.width, step.height)
-      current.destroy()
-      current = next
-    }
-
-    const pixels = current.readPixels()
-    const { width: pw, height: ph } = current
-    current.destroy()
-    return this._pixelsToBlob(pixels, pw, ph, 'image/webp', 0.8)
+    return this._exporter.bakePreview(maxSide)
   }
 
   destroy(): void {
     this._opQueue = [] // (§17.58)
     if (this._opDrainRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._opDrainRaf)
     this._destroyed = true
+    this._paper.destroy()
     for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
     this._dropWashBoundaries() // (§17.55)
     // Dwell (#245): the one non-rAF timer this engine owns — must not
@@ -5351,6 +4651,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
+    this._passes.destroy()
     // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
     // are just a possibly-mid-stroke alias of the same object (see
     // ScratchSlot), so destroying via the pool alone avoids a
@@ -5359,8 +4660,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._previewBuf = null
     this._tipBufPool.destroy()
     this._tipBuf = null
-    this._transformScratchPool.destroy()
-    this._smudgeScratchPool.destroy()
+    this._area.destroy()
+    this._shapes.destroy()
+    this._exporter.destroy()
+    this._smudge.destroy()
+    this._stamps.destroy()
+    this._brush.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
@@ -5377,22 +4682,13 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._budgetTimer) { clearTimeout(this._budgetTimer); this._budgetTimer = 0 }
     if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null }
     this._paperWet.clear()
-    // A live imprint's buffer was spliced *out* of the scratch pool drained
-    // above and is held only here, so it needs destroying on its own.
-    for (const imprint of this._smudgeImprints.values()) imprint.buf?.destroy()
-    this._smudgeImprints.clear()
-    this._smudgeReplayChunks.clear()
     for (const { buf, timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
       buf.destroy()
     }
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
-    for (const tiles of this._transformPreview.values()) {
-      for (const { buffer } of tiles) buffer.destroy()
-    }
-    this._transformPreview.clear()
-    this._areaPreviewLayers.clear()
+    this._previews.clear()
     this._checkpoints.clear()
     // (#381) Nothing left to rebuild into — the buffers are gone.
     this._pendingRebuilds.clear()
@@ -5884,7 +5180,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  Both caches this drops exist to carry a gesture across the several
    *  operations it was chunked into — the ribbon's scratch and bridging
    *  `prevDab` (_replayChunkScratch), smudge's carried imprint
-   *  (_smudgeResumeGesture). Neither was ever evicted when a layer was rebuilt,
+   *  (SmudgePainter.resumeGesture). Neither was ever evicted when a layer was rebuilt,
    *  so a replay of a gesture that had already been replayed once found *its
    *  own last dab* waiting under its own id and bridged the mark's first dab
    *  onto it: a straight hairline joining the two ends of a stroke, appearing
@@ -5896,7 +5192,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  (a merge's temp buffer, a full-replay bake) holds its own and is not this
    *  replay's business. Smudge's are per user with no target to compare, so
    *  they all go except the local gesture actually in progress — that one is
-   *  still being painted live by _paintSmudgeDabs and must not have its imprint
+   *  still being painted live by SmudgePainter.paint and must not have its imprint
    *  reset under it by, say, a peer's undo arriving mid-stroke. */
   private _dropCarriedGestureState(buf: ILayerBuffer): void {
     if (this._settle) this._completeSettle() // (§17.52) before the scratch goes
@@ -5905,10 +5201,7 @@ export class PencilEngine implements PencilEngineAPI {
       chunk.scratch.destroy()
       this._replayRibbonChunks.delete(key)
     }
-    for (const [userId, chunk] of this._smudgeReplayChunks) {
-      const live = userId === this._userId && !!this._strokeId && chunk.strokeId === this._strokeId
-      if (!live) this._smudgeReplayChunks.delete(userId)
-    }
+    this._smudge.dropReplayChunks({ userId: this._userId, strokeId: this._strokeId })
   }
 
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
@@ -5936,20 +5229,20 @@ export class PencilEngine implements PencilEngineAPI {
         buf.clear()
         break
       case 'layer_merge':
-        this._replayMergeInto(buf, op)
+        this._structural.replayMergeInto(buf, op)
         break
       case 'layer_duplicate':
-        this._replayDuplicateInto(buf, op)
+        this._structural.replayDuplicateInto(buf, op)
         break
       case 'image_import':
         // (#398) Same as appendOperation's own branch, minus the late-arrival
         // repair: this one can be replaying into a throwaway scratch buffer
-        // (see _replayMergeInto), which has no layer to rebuild. Every replay
+        // (see StructuralOps.replayMergeInto), which has no layer to rebuild. Every replay
         // that matters here reaches this with the image already decoded —
         // preloadImages on the join/reconnect paths, and the cache entry the
         // first paint left behind for undo/redo's later rebuilds.
-        if (!this._paintDecodedImage(buf, op)) {
-          this._paintImage(buf, op).catch(err => console.error('failed to paint imported image', err))
+        if (!this._images.paintDecoded(buf, op)) {
+          this._images.paint(buf, op).catch(err => console.error('failed to paint imported image', err))
         }
         break
       case 'layer_transform': {
@@ -5958,33 +5251,33 @@ export class PencilEngine implements PencilEngineAPI {
         // `transforms` entries actually applies to the buffer being
         // rebuilt right now.
         const entry = op.transforms.find(t => t.layerId === layerId)
-        if (entry) this._bakeTransform(buf, entry.matrix)
+        if (entry) this._area.bakeLayerTransform(buf, entry.matrix)
         break
       }
       // (#446) `buf` is this operation's own layer by construction here (the
       // caller filters the log per layer), so unlike layer_transform there is
       // no entry to pick out.
       case 'area_transform':
-        this._bakeAreaTransform(buf, op.selection, op.matrix)
+        this._area.bakeAreaTransform(buf, op.selection, op.matrix)
         break
       case 'area_clear':
-        this._clearArea(buf, op.selection)
+        this._area.clearArea(buf, op.selection)
         break
       case 'shape':
-        this._drawShape(buf, op)
+        this._shapes.draw(buf, op)
         break
       case 'layer_filter':
-        this._applyFilter(buf, op.filter)
+        this._filters.apply(buf, op.filter)
         break
       case 'area_paste':
       case 'area_fill': {
-        const record = this._asImportRecord(op)
+        const record = asImportRecord(op)
         const matrix = op.type === 'area_paste' ? op.matrix : undefined
         // Same as image_import's own branch: a rebuild reaches this with the
         // raster already decoded in almost every case, and falls back to the
         // async path rather than dropping the paste when it doesn't.
-        if (!this._paintDecodedImage(buf, record, matrix)) {
-          this._paintImage(buf, record, matrix)
+        if (!this._images.paintDecoded(buf, record, matrix)) {
+          this._images.paint(buf, record, matrix)
             .catch(err => console.error('failed to paint pasted image', err))
         }
         break
@@ -6012,14 +5305,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  the same #133 guarantee infinite rooms already had — and transforming
    *  it back later recovers it correctly. The room's *visible/exported*
    *  extent is still exactly canvas.width x canvas.height regardless (see
-   *  _visibleWorldRect's bounded branch and _composeToFBO/_display, both
+   *  Camera.visibleWorldRect and _composeToFBO/_display, both
    *  unchanged in size), so this never changes what an on-page bounded room
    *  looks like. */
-  /** `layerId` given: this is (or is about to become, see _execMergeLive) a
+  /** `layerId` given: this is (or is about to become, see StructuralOps.mergeLive) a
    *  real, persistent layer buffer — wires up #144's rebuild-on-demand hook
    *  so it's eligible for byte-budget eviction (see TiledLayerBuffer's own
    *  docstring). Omitted: a short-lived scratch/temp buffer (a merge
-   *  source's replay target in _replayMergeInto, or _makeTileRebuilder's own
+   *  source's replay target in StructuralOps.replayMergeInto, or _makeTileRebuilder's own
    *  recovery-replay scratch below) that's destroyed the moment the one
    *  operation using it finishes and never queried again afterward — no
    *  rebuildTile is wired, which is also what keeps it from evicting at all
@@ -6067,7 +5360,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  Recovering one specific tile in isolation, without replaying (and
    *  therefore fully recreating, defeating eviction's own point) every
    *  *other* tile the layer has ever touched, isn't possible in general:
-   *  _bakeTransform/_replayMergeInto are inherently whole-layer, cross-tile
+   *  AreaOps.bakeLayerTransform/StructuralOps.replayMergeInto are inherently whole-layer, cross-tile
    *  operations (a bake's destination tile can draw from any source tile;
    *  a merge composites every one of a source layer's tiles) — replaying
    *  the tail of pixel ops into anything less than a real, full multi-tile
@@ -6098,7 +5391,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** This room's own tile dimensions — see _makeLayerBuffer's docstring for
    *  the full reasoning. Also used by previewLayerTransform, which resolves
-   *  destination tiles the same way _bakeTransform/TiledLayerBuffer itself
+   *  destination tiles the same way AreaOps.bakeLayerTransform/TiledLayerBuffer itself
    *  do and must agree with them on tile size.
    *
    *  (#469) The same square TILE_SIZE for both kinds of room now. It used to
@@ -6140,149 +5433,6 @@ export class PencilEngine implements PencilEngineAPI {
     return { w: Math.min(TILE_SIZE, w), h: Math.min(TILE_SIZE, h) }
   }
 
-  /** Composites every buffer `source` currently holds into the
-   *  corresponding buffer(s) of `dest` at the same world position, at
-   *  `opacity` — the tile-generalized form of a single
-   *  `_compositeTextures([{texture: source.texture, opacity}], dest.fbo)`
-   *  call. Bounded mode: source/dest each have exactly one buffer at origin
-   *  (0,0), so this reduces to exactly that one call. Infinite mode: each
-   *  of source's resident tiles lands on the one dest tile at the same
-   *  world position (both use the same TILE_SIZE grid rooted at the same
-   *  origin, so tile boundaries always line up — no cross-tile blending
-   *  needed here, unlike a transform bake). */
-  private _compositeLayerInto(source: ILayerBuffer, dest: ILayerBuffer, opacity: number): void {
-    for (const src of source.allResident()) {
-      const rect: WorldRect = {
-        minX: src.originX, minY: src.originY,
-        maxX: src.originX + src.buffer.width, maxY: src.originY + src.buffer.height,
-      }
-      for (const destTarget of dest.resolveForPaint(rect)) {
-        this._compositeTextures(
-          [{ texture: src.buffer.texture, opacity }], destTarget.buffer.fbo,
-          destTarget.buffer.width, destTarget.buffer.height,
-        )
-      }
-      // (#155 Tier 2) Same grid, same origin (see this method's own doc
-      // comment) — src's real content rect lands on dest at the exact same
-      // world coordinates, no transform to reason about. null (src tile
-      // fully empty) means nothing to mark, same as skipping the composite
-      // itself would (the blend above is just a no-op in that case).
-      if (src.contentRect) dest.markContentPainted(src.contentRect)
-    }
-  }
-
-  /** Replays a merge: rebuilds each source as it was just before the merge
-   *  (done ops with lower seq) into a temp buffer and composites bottom→top
-   *  with the opacities captured in the operation. Recursive when a source is
-   *  itself a merge result. */
-  private _replayMergeInto(buf: ILayerBuffer, op: LayerMergeOperation): void {
-    buf.clear()
-    for (const src of op.sources) {
-      const temp = this._makeLayerBuffer()
-      this._replayInto(temp, src.id, this._log.layerPixelOps(src.id, op.seq))
-      this._compositeLayerInto(temp, buf, src.opacity)
-      temp.destroy()
-    }
-  }
-
-  /** (#449) Replays a duplicate: rebuilds the source as it was just before the
-   *  duplicate (done ops with lower seq) into a temp buffer and copies it in.
-   *  Recursive when the source is itself a merge or duplicate result.
-   *
-   *  Composited at 1, not at the source's opacity: the copy carries that
-   *  opacity as its own layer property (see applyContentOp's layer_duplicate
-   *  case), so applying it to the pixels as well would show it twice — a copy
-   *  of a 50% layer would land at 25%. This is the one place a duplicate
-   *  deliberately differs from a merge, which has no layer of its own left to
-   *  hold the source opacities and must bake them. */
-  private _replayDuplicateInto(buf: ILayerBuffer, op: LayerDuplicateOperation): void {
-    buf.clear()
-    const temp = this._makeLayerBuffer()
-    this._replayInto(temp, op.sourceId, this._log.layerPixelOps(op.sourceId, op.seq))
-    this._compositeLayerInto(temp, buf, 1)
-    temp.destroy()
-  }
-
-  /** (#374) The structural half of a merge, for one whose pixel result a
-   *  restored snapshot already holds.
-   *
-   *  Deliberately keeps the existing target buffer rather than making a new
-   *  one: that buffer is what `restoreLayerFromSnapshot` filled, and it is the
-   *  merge's result, arrived by a shorter route. Sources still have to go —
-   *  a merge consumes them, and leaving them alive would show every merged
-   *  layer twice, once inside the result and once beside it.
-   *
-   *  No checkpoint is taken: the restore already pinned one holding exactly
-   *  these pixels. */
-  private _execMergeStructuralOnly(op: LayerMergeOperation): void {
-    this._invalidateSplitCache()
-    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
-    for (const s of op.sources) this._destroyBuffer(s.id)
-    this._displayIfNotSuspended()
-  }
-
-  /** Live merge fast path: sources' buffers already hold replay state, so
-   *  composite them directly instead of rebuilding. The immediate checkpoint
-   *  spares the recursive source rebuild on any later undo above this layer. */
-  private _execMergeLive(op: LayerMergeOperation): void {
-    // #122: sources are destroyed and a new target buffer object takes their
-    // place — always structural, regardless of whether any of the ids
-    // involved happen to be the active layer.
-    this._invalidateSplitCache()
-    const target = this._makeLayerBuffer(op.layerId)
-    target.clear()
-    for (const s of op.sources) {
-      const buf = this._layers.get(s.id)
-      if (buf) this._compositeLayerInto(buf, target, s.opacity)
-    }
-    this._layers.set(op.layerId, target)
-    this._snapshots.markDirty(op.layerId)
-    for (const s of op.sources) this._destroyBuffer(s.id)
-    this._takeCheckpoint(op.layerId)
-    this._displayIfNotSuspended()
-  }
-
-  /** (#449) The structural half of a duplicate whose pixel result a restored
-   *  snapshot already holds — the copy is a layer in its own right by then,
-   *  restored like any other, so there is nothing left to copy into it.
-   *
-   *  Shorter than its merge counterpart because a duplicate consumes nothing:
-   *  no sources to destroy, and the source layer is meant to still be there. */
-  private _execDuplicateStructuralOnly(op: LayerDuplicateOperation): void {
-    this._invalidateSplitCache()
-    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
-    this._displayIfNotSuspended()
-  }
-
-  /** Live duplicate fast path, the counterpart of _execMergeLive: the source's
-   *  buffer already holds replay state, so copy it directly instead of
-   *  rebuilding its whole history into a scratch buffer.
-   *
-   *  A missing source buffer produces an empty copy rather than a refusal.
-   *  Operations apply in true seq order, and the server rejects a duplicate
-   *  naming a dead id (rooms.ts's getOperationRejectReason), so the only way to
-   *  reach that is a source this client has not built yet — the same condition
-   *  every other pixel branch here treats as "skip, the log is the truth" (see
-   *  appendOperation's own doc comment).
-   *
-   *  The immediate checkpoint matters more here than it does for a merge: a
-   *  duplicate's replay is a full from-scratch rebuild of *another* layer's
-   *  entire history into a temp buffer, which the checkpoint spares every
-   *  later undo above this one. */
-  private _execDuplicateLive(op: LayerDuplicateOperation): void {
-    this._invalidateSplitCache()
-    const target = this._makeLayerBuffer(op.layerId)
-    target.clear()
-    const source = this._layers.get(op.sourceId)
-    // Opacity 1 — see _replayDuplicateInto for why the source's own opacity
-    // must not be baked into the pixels here.
-    if (source) this._compositeLayerInto(source, target, 1)
-    this._layers.set(op.layerId, target)
-    this._snapshots.markDirty(op.layerId)
-    this._takeCheckpoint(op.layerId)
-    this._displayIfNotSuspended()
-  }
-
   // ─── Context loss (#121) ─────────────────────────────────────────────────────
 
   // preventDefault() is required by spec for the context to be eligible for
@@ -6310,15 +5460,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._washBoundaries.clear() // (§17.55) their textures went with the context
     this._contextLost = false
     this._initGL()
-    // The dead gl context already took the previous _paperTex (placeholder
-    // or real) with it — rebind a fresh placeholder immediately, same as
-    // the constructor does, then re-upload from the byte cache (paperLoader
-    // caches by PaperType, not by gl context, so this never re-fetches over
-    // the network — see getPaperBytes).
-    this._paperTex = createPlaceholderPaperTexture(this.gl)
-    this._paperMipsReady = generatePaperMipmaps(this.gl, this._paperTex)
-    this._paperTexLoaded = false
-    this._startPaperLoad(this._opts.paper)
+    // The dead context took the paper texture with it: a fresh placeholder,
+    // then a re-upload from the byte cache — see PaperState.init.
+    this._paper.init()
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._washReveals.clear() // same — and the pool they came from is forgotten below
     this._cancelSettle()
@@ -6328,8 +5472,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._previewBufPool.forget() // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
     this._tipBufPool.forget()
-    this._transformScratchPool.forget() // (#155) pooled GL objects are dead too, not worth destroy()ing
-    this._smudgeScratchPool.forget() // same reasoning, see #14
+    this._area.forget() // (#155, #446) its scratch pool and selection mask died with the context
+    this._smudge.forget() // same reasoning, see #14 — its pool, imprints and replay chunks
     this._ribbonStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
     this._ribbonStrokeScratch = null
     // Context loss took the wash's buffers too; drop the handles without
@@ -6352,21 +5496,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._cancelSettle()
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     this._fieldCache = []
-    this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
-    this._smudgeReplayChunks.clear()
     for (const { timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
     }
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
-    this._transformPreview.clear() // handles dead too; a mid-drag gizmo just loses its live preview
-    this._areaPreviewLayers.clear()
-    // (#446) The mask texture died with the context. Dropping the cache entry
-    // rather than deleting the texture is the point: deleting a name from a
-    // lost context is meaningless, and *keeping* the entry would hand the
-    // first selection gesture after the restore a texture that no longer
-    // exists.
-    this._maskCache = null
+    this._previews.forget() // handles dead too; a mid-drag gizmo just loses its live preview
     // (#381) _syncBuffersToLog below replays every live layer from the log
     // outright, which is strictly more than any deferred rebuild was going to
     // do — keeping them queued would just repeat that work at the next resume.
@@ -6708,53 +5843,19 @@ export class PencilEngine implements PencilEngineAPI {
     this._checkpoints.add({ layerId, opIds: ops.map(o => o.id), tiles })
   }
 
-  /** See the PencilEngineAPI doc comment. Same allResident() gather as
-   *  _takeCheckpoint, just serialized (encodeLayerTiles) instead of kept as
-   *  an in-memory Checkpoint — this is for network upload (#149 epic), a
-   *  parallel, independent mechanism from the local checkpoint list above,
-   *  not a replacement for it. No _contextLost guard needed here the way
-   *  _takeCheckpoint has one: a caller only reaches this from Room's own
-   *  orchestration on a live seq boundary, never from a code path that could
-   *  race a context loss the way idle-scheduled local checkpointing can. */
-  /** (#425) This layer's resident tiles as a snapshot payload, with the part of
-   *  each tile that hangs off the sheet left out — see clipTileToPage for the
-   *  measurement and for the row arithmetic, which is the part that bites.
-   *
-   *  Infinite rooms are excluded on purpose: they have no sheet to clip to, and
-   *  their tile grid is the coordinate system rather than an overhang.
-   *
-   *  Shared with bakeLayerByFullReplay deliberately. That one is the oracle
-   *  these bytes are compared against (#168, #289), so any difference in
-   *  geometry between the two would read as a determinism violation on every
-   *  bounded room in existence. */
-  /** (#467) Fully transparent tiles are left out. Residency is not evidence of
-   *  content: `resolveForPaint` makes every tile a stroke's bounding rect
-   *  touches resident whether or not a dab darkens it, and an erase empties a
-   *  tile without releasing it. Storing those costs 4 MiB of somebody else's
-   *  memory each to say what their absence already says — a third of what
-   *  production room cdf314dd-153 makes a joiner materialise.
-   *
-   *  Note this changes what "no tiles" means coming out of here, which
-   *  `bakeNetworkSnapshot` is careful about — see its own comment. */
-  private _bakeTiles(buf: ILayerBuffer): SnapshotTile[] {
-    const page = this._infinite ? null : this._pageSize()
-    return buf.allResident().flatMap(({ buffer, originX, originY }) => {
-      const pixels = buffer.readPixels()
-      const tile = page
-        ? clipTileToPage(originX, originY, buffer.width, buffer.height, pixels, page)
-        : { originX, originY, width: buffer.width, height: buffer.height, pixels }
-      return isFullyTransparent(tile.pixels) ? [] : [tile]
-    })
+  // (#494) The room snapshot in and out — see SnapshotIO.ts. Whether a layer
+  // may be baked right now stays here (its quiet/settled context functions):
+  // that is the replay and wash machinery's question, not the snapshot's.
+  bakeNetworkSnapshot(layerId: string): Uint8Array | null {
+    return this._snapshotIO.bake(layerId)
   }
 
-
-  bakeNetworkSnapshot(layerId: string): Uint8Array | null {
+  /** SnapshotIO's first bake gate — pure, see SnapshotIOContext.quiet. */
+  private _snapshotQuiet(layerId: string): boolean {
     // (§17.58) Not with peers' operations still queued: landing them here was a
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.
-    if (this._opQueue.length) return null
-    const buf = this._layers.get(layerId)
-    if (!buf) return null
+    if (this._opQueue.length) return false
     // (#536, §17.59) Never with a wash on it that may still be continued. A
     // snapshot is what a late joiner starts from, and the rest of that wash
     // would then settle over pixels that already hold its beginning - a
@@ -6762,195 +5863,35 @@ export class PencilEngine implements PencilEngineAPI {
     // passed on in every snapshot they bake. Refusing costs nothing: the layer
     // is left out of this upload and the server keeps serving its operations.
     const washOps = this._log.doneOperations().filter(o => o.type === 'paper_dry' || (o.type === 'stroke' && o.layerId === layerId))
-    if (this._openWashes(washOps, Date.now()).open.length) return null
+    if (this._openWashes(washOps, Date.now()).open.length) return false
     // (§17.53) Mid-rebuild the buffer is the pre-undo picture: not this time.
     // The layer stays dirty and goes with the next boundary.
-    if (this._rebuildJobs.has(layerId)) return null
-    // (#522) See SnapshotLedger's refusals: publishing what this client holds would
-    // overwrite the room's own record of the layer with less than it has.
-    if (!this._snapshots.mayPublish(layerId)) return null
-    // (#537) A snapshot claims "these pixels are the room's history up to the
-    // watermark". Two ways a layer here can hold something else, and in both
-    // the layer is left out of this snapshot — it keeps whatever coverage it
-    // had, and a joiner replays its operations instead:
-    //  - painted out of order and not re-settled yet (live ink in the way);
-    //  - holding this client's own unconfirmed operations. Their seq is above
-    //    any watermark this client can have seen, so a joiner restoring these
-    //    pixels would then receive the same operations and paint them twice.
+    return !this._rebuildJobs.has(layerId)
+  }
+
+  /** SnapshotIO's second bake gate, reached only past the ledger's
+   *  mayPublish — see SnapshotIOContext.settled. (#537) Two ways a layer here
+   *  can hold something other than the room's history up to the watermark:
+   *   - painted out of order and not re-settled yet (live ink in the way);
+   *   - holding this client's own unconfirmed operations. Their seq is above
+   *     any watermark this client can have seen, so a joiner restoring these
+   *     pixels would then receive the same operations and paint them twice. */
+  private _snapshotSettled(layerId: string): boolean {
     if (this._unsettledLayers.has(layerId)) this._settleLayers()
-    if (this._unsettledLayers.has(layerId) || this._pendingRebuilds.has(layerId)) return null
-    if (this._log.hasPendingPixelOps(layerId)) return null
-    // (#373) Content is judged from the buffer, never from the log. It used to
-    // bail on `layerPixelOps(layerId).length === 0`, reading "no operations of
-    // mine mention this layer" as "this layer is empty" — but the log is a
-    // bounded window (HISTORY_BACKFILL_DEPTH), so a layer whose strokes had
-    // scrolled out of it, or that was restored from a snapshot rather than
-    // painted, looked empty while holding a full drawing. It was then left out
-    // of the snapshot entirely, and the next client to restore that snapshot
-    // saw a blank layer. That is #369, and this line is where it started.
-    const tiles = this._bakeTiles(buf)
-    // (#467) Since _bakeTiles drops fully transparent tiles, this now also
-    // catches a layer that is resident but holds nothing — painted and then
-    // erased away. Omitting it leaves it uncovered, so the server sends its
-    // operations and the next joiner replays them to the same empty result:
-    // more work than storing "it is empty", and never less content. Not
-    // storing an explicit empty snapshot instead is a deliberate limit on this
-    // change — "no tiles" has meant "nothing to publish" since #373, and
-    // giving it a second meaning is its own decision with its own blast
-    // radius. The layer keeps whatever older snapshot it already had.
-    if (!tiles.length) return null
-    // (#373) Whatever the caller does with these bytes, this layer's current
-    // pixels have now left the engine — anything that changes them after this
-    // point is what makes it dirty again.
-    this._snapshots.markPublished(layerId)
-    return encodeLayerTiles(tiles)
+    if (this._unsettledLayers.has(layerId) || this._pendingRebuilds.has(layerId)) return false
+    return !this._log.hasPendingPixelOps(layerId)
   }
 
-  /** See the PencilEngineAPI doc comment for the full reasoning on why this
-   *  exists alongside bakeNetworkSnapshot rather than sharing its code.
-   *
-   *  The independence is the entire point, so this deliberately does NOT
-   *  route through `_replayInto` (which consults `CheckpointStore.best` and would
-   *  reintroduce exactly the shared machinery being checked) — it walks the
-   *  done pixel ops itself, from an empty scratch buffer, applying each via
-   *  the same `_applyPixelOp` primitive a first-ever paint would. Any future
-   *  optimization added here would silently destroy its value as an oracle;
-   *  keep it dumb. */
   bakeLayerByFullReplay(layerId: string): Uint8Array | null {
-    if (!this._layers.has(layerId)) return null
-    const ops = this._log.layerPixelOps(layerId)
-    if (!ops.length) return null
-
-    const scratch = this._makeLayerBuffer(layerId)
-    try {
-      scratch.clear()
-      for (const op of ops) this._applyPixelOp(scratch, layerId, op)
-      // (#425) The same clipping as bakeNetworkSnapshot, and it has to be the
-      // same call: this is the oracle those bytes are compared against (#168,
-      // #289), so a difference in geometry here would read as a determinism
-      // violation on every room with a tile hanging off the sheet.
-      const tiles = this._bakeTiles(scratch)
-      if (!tiles.length) return null
-      return encodeLayerTiles(tiles)
-    } finally {
-      scratch.destroy()
-    }
+    return this._snapshotIO.bakeByFullReplay(layerId)
   }
 
-  /** See the PencilEngineAPI doc comment. Mirrors _replayInto's own
-   *  checkpoint-restore branch exactly (resolveForPaint + restorePixels +
-   *  restoreTileContent) — a network snapshot's tiles are structurally the
-   *  same kind of "exact historical pixels, not a fresh paint" data a local
-   *  checkpoint's tiles are, just sourced from the server instead of memory.
-   *
-   *  (#287) Also seeds a *pinned* local checkpoint from these same tiles —
-   *  without it, this layer's pre-snapshot content exists only in the buffer
-   *  itself, invisible to `CheckpointStore.best`/`_rebuildLayer`. The very next
-   *  undo/redo/revoke of a stroke/layer_clear/layer_transform on this layer
-   *  (this client's own, or any peer's — every replica applies the same
-   *  meta-op) would then find no matching checkpoint, `buf.clear()`, and
-   *  replay only whatever pixel ops this client's own OperationLog happens
-   *  to know about — the live tail plus whatever background backfill has
-   *  absorbed so far, which after a room-idle prune (rooms.ts's
-   *  pruneOperationsBeforeSnapshot) can permanently exclude everything this
-   *  snapshot was restoring in the first place. Pinning this exact state as
-   *  a checkpoint with an empty `opIds` prefix makes it the correct fallback
-   *  instead: `CheckpointStore.best` matches it trivially against any current
-   *  `ops` (an empty array prefixes anything), so replay restores these
-   *  tiles and then re-applies only the pixel ops this client actually
-   *  knows happened since — exactly what already happens for an ordinary
-   *  local checkpoint, just sourced from the network instead of a live
-   *  paint. Naturally superseded (never has to be invalidated by hand) once
-   *  real historical ops eventually get backfilled in front of it: their
-   *  presence shifts the current `ops` prefix, and the id-based prefix
-   *  match in `CheckpointStore.best` stops matching this checkpoint on its own. */
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
-    // (#474) Counted before anything can return early, so a dropped restore
-    // still reports the size of what it dropped.
-    const bytes = tiles.reduce((n, t) => n + t.pixels.byteLength, 0)
-    const buf = this._layers.get(layerId)
-    if (!buf) {
-      this._restoreAudit.push({
-        layerId, known: false, tilesIn: tiles.length, tilesUploaded: 0, bytes,
-        glError: 0, residentAfter: 0, withContentAfter: 0,
-      })
-      return
-    }
-    // (#469) A snapshot baked before bounded rooms were subdivided carries one
-    // page-sized tile; this room's buffer now wants TILE_SIZE ones. Re-slicing
-    // is not optional — uploading a 2480-wide array into a 1024-wide texture
-    // is silent corruption, not a near miss. Tiles already on the grid (every
-    // infinite room, and every bake after the change) pass through untouched.
-    const { w: tw, h: th } = this._tileSize()
-    // (#425) Лист передаётся, чтобы обрезанный по его краю тайл прошёл
-    // быстрым путём: он уже на сетке, просто кончается там же, где бумага.
-    const retiled = retileSnapshotTiles(tiles, tw, th, this._infinite ? undefined : this._pageSize())
-    // A tile carrying nothing costs 4 MiB of texture to say exactly what an
-    // absent tile already says.
-    //
-    // (#467) This used to run only on a re-sliced set, on the reasoning that
-    // "identity means every tile came off a real bake, which never stores a
-    // tile it did not paint". Measured on production room cdf314dd-153, that
-    // is false: **38 of its 107 stored tiles are fully transparent, 114 MB of
-    // the 349 MB a join materialises**, and every one of them came off an
-    // ordinary bake already on the grid. `resolveForPaint` makes every tile a
-    // stroke's *bounding rect* touches resident, whether or not a dab ever
-    // darkens it, and erasing empties a tile without releasing it — so real
-    // bakes produce these constantly. Worse, they ratchet: a client that
-    // materialised them re-bakes them for the next joiner, forever.
-    //
-    // The scan is not free, but it is cheap against what it prevents: it exits
-    // on the first non-zero alpha, and a tile it does not exit early on is one
-    // whose 4 MiB upload it has just cancelled.
-    const painted = retiled.filter(t => !isFullyTransparent(t.pixels))
-    // Blank tiles are dropped from the upload only while the layer is
-    // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
-    // an engine that already holds pixels — is the one case where an
-    // all-transparent tile is *doing* something: clearing what is under it.
-    // Nothing clears the layer ahead of this, so that distinction is ours to
-    // make, and one cheap check makes it without asking per tile.
-    const uploads = buf.allResident().length === 0 ? painted : retiled
-    // (#474) Any error already pending is drained first, so what this reads
-    // afterward is this restore's own — the same discipline generatePaperMipmaps
-    // uses, and for the same reason: an inherited error would accuse the wrong
-    // code, and inheriting *silence* is impossible, so only draining can be wrong.
-    this._drainGlErrors()
-    for (const t of uploads) {
-      const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-      // (#425) See the same call in _replayInto: the payload carries its own
-      // size because edge tiles are clipped to the sheet.
-      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
-      buf.restoreTileContent(rect, t.pixels)
-    }
-    // One getError for the whole layer rather than one per tile: the question a
-    // report has to answer is "did this layer land", and a per-tile scan would
-    // add a GPU sync point per tile to a path that runs at join time on the
-    // slowest devices we have.
-    const glError = this.gl.getError()
-    const resident = buf.allResident()
-    this._restoreAudit.push({
-      layerId, known: true, tilesIn: tiles.length, tilesUploaded: uploads.length, bytes, glError,
-      residentAfter: resident.length,
-      withContentAfter: resident.filter(t => t.contentRect !== null).length,
-    })
-    if (coveredSeq !== undefined) this._snapshots.setCoverage(layerId, coveredSeq)
-    // (#373) These pixels *are* what the server already stores, so the layer
-    // is marked changed (it is — the buffer was empty a moment ago) and
-    // immediately marked as known to the server. Otherwise every joining
-    // client would re-bake and re-upload the whole room it just downloaded.
-    this._snapshots.markDirty(layerId)
-    this._snapshots.markPublished(layerId)
-    // The *painted* set, not what arrived: a checkpoint restore clears the
-    // buffer before replaying its tiles (see _rebuildLayerFromLog), so a blank
-    // tile there can only ever cost memory, never carry meaning.
-    this._pinSnapshotCheckpoint(layerId, painted, coveredSeq)
+    this._snapshotIO.restore(layerId, tiles, coveredSeq)
   }
 
-  /** See the PencilEngineAPI doc comment. */
   takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
-    const audit = this._restoreAudit
-    this._restoreAudit = []
-    return audit
+    return this._snapshotIO.takeRestoreAudit()
   }
 
   /** See the PencilEngineAPI doc comment.
@@ -6973,16 +5914,6 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  /** Empties the GL error queue so the next `getError()` reports on its own
-   *  work. Capped rather than `while (…)`: a lost context is specified to
-   *  answer CONTEXT_LOST_WEBGL until it is restored, and a drain loop that
-   *  trusts the queue to empty would hang the join it is supposed to be
-   *  reporting on. GL keeps at most a handful of distinct flags, so anything
-   *  past this bound is a broken implementation, not a backlog. */
-  private _drainGlErrors(): void {
-    for (let i = 0; i < 16; i++) if (this.gl.getError() === this.gl.NO_ERROR) return
-  }
-
   /** (#373) Whether this layer holds pixels the server does not have.
    *
    *  A layer nobody has ever painted is not dirty, which is why a room's
@@ -6996,76 +5927,12 @@ export class PencilEngine implements PencilEngineAPI {
     return [...this._layers.keys()]
   }
 
-  /** See restoreLayerFromSnapshot's own doc comment for why this exists.
-   *  Replaces (rather than adds to) any pinned checkpoint this layer already
-   *  had — only relevant if restoreLayerFromSnapshot is ever called twice
-   *  for the same layer in one engine lifetime (e.g. a reconnect re-restoring
-   *  a still-mounted engine); the newer restore is always a superset, and
-   *  `CheckpointStore.best`'s "first checkpoint of the longest matching length
-   *  wins" tie-break would otherwise let a stale one linger and win ties
-   *  against the newer, more complete one at the same (empty) opIds length. */
-  private _pinSnapshotCheckpoint(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
-    if (!tiles.length) return
-    // These pixels are authoritative again, so whatever made this layer
-    // unpublishable no longer holds (#522).
-    this._snapshots.allowPublishing(layerId)
-    // (#467) Packed here rather than by the caller: this is the only place
-    // that knows these tiles are about to be held for the life of the room
-    // instead of read and dropped. See pinnedTiles.ts.
-    const held = tiles.map(t => ({
-      originX: t.originX, originY: t.originY, width: t.width, height: t.height,
-      packed: packTilePixels(t.pixels),
-    }))
-    // Replaces any snapshot checkpoint this layer already had — see
-    // CheckpointStore.pinSnapshot for why it is matched on `fromSnapshot`.
-    this._checkpoints.pinSnapshot(layerId, held, coveredSeq)
-  }
-
-  /** See the PencilEngineAPI doc comment and OperationLog.prependHistorical's
-   *  own doc comment for the full reasoning. Replays `ops` through a
-   *  throwaway scratch log using its normal public append/applyUndo/
-   *  applyRedo/revoke methods — exactly the same log-bookkeeping sequence
-   *  appendOperation's switch below drives for a live operation, just
-   *  without ever touching a buffer — so the resulting entries' done/undone/
-   *  gone states come from the exact same state machine, then merges them
-   *  into the real log in one step. */
   absorbHistoricalOperations(pageOps: Operation[]): void {
-    // (#536, §17.61) A backfill page is "everything below the snapshot's seq",
-    // but since #372 the join tail is judged per layer: a layer with no pixel
-    // snapshot of its own gets its whole history in the tail. So a page can
-    // repeat what the log already holds — in room jExxU2EJ all 100 of it, and
-    // again on every reconnect's restore. Prepended twice, a stroke is painted
-    // twice by every later rebuild: undo darkened the layer it rebuilt.
-    const held = new Set(this._log.entries.map(e => e.op.id))
-    const ops = pageOps.filter(op => !held.has(op.id))
-    if (ops.length === 0) return
-    const scratch = new OperationLog()
-    for (const op of ops) {
-      scratch.append(op)
-      if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
-      else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
-      else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
-    }
-    this._log.prependHistorical(scratch.entries)
-    this._historicalEntryCount += scratch.entries.length
-    // (#479) These operations are now in the log, and a restored layer's
-    // pinned checkpoint already holds the pixels of whichever of them predate
-    // its snapshot — record them so a later rebuild skips rather than repaints
-    // them. Read from `ops` rather than the log because only these copies
-    // still carry the server's seq: `OperationLog.append` renumbers entries to
-    // their array index (see SnapshotLedger.isCovered's own comment), so once they
-    // are in, "is this older than the snapshot?" is no longer answerable.
-    this._checkpoints.markCovered(ops)
-    // (#398) Nothing is painted here — but an undo/redo later rebuilds a
-    // layer from exactly these operations, and that rebuild is synchronous.
-    // Decoding in the background now is what lets it find the image ready;
-    // deliberately not awaited, since backfill itself never blocks anything.
-    void this.preloadImages(ops)
+    this._snapshotIO.absorbHistorical(pageOps)
   }
 
-  /** See the PencilEngineAPI doc comment. */
   getOperationsSinceRestore(): Operation[] {
-    return this._log.doneOperations().filter(op => (op.seq ?? 0) >= this._historicalEntryCount)
+    return this._snapshotIO.operationsSinceRestore()
   }
 
   // ─── Internal ────────────────────────────────────────────────────────────────
@@ -7115,96 +5982,34 @@ export class PencilEngine implements PencilEngineAPI {
   private _initGL(): void {
     const { gl, canvas } = this
 
-    this._dabProg             = createProgram(gl, DAB_VERT, DAB_FRAG)
-    this._dabProgInstanced    = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
-    this._dispTransparentProg = createProgram(gl, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG)
+    // (#494) The dab stamp programs, plain and instanced — see StampPainter.ts.
+    // The ribbon passes draw through its plain one too (_dabProg).
+    this._stamps.initGL()
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
-    this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
-    this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
-    this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
-    this._areaMaskProg        = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
-    this._shapeProg           = createProgram(gl, DISPLAY_VERT, SHAPE_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
-    this._previewDownsampleProg = createProgram(gl, DISPLAY_VERT, DOWNSAMPLE_FRAG)
-    this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
-    this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
+    // (#494) Smudge's transfer and imprint-refresh programs — see SmudgePainter.ts.
+    this._smudge.initGL()
+    // (#494) The shape rasterizer — see ShapePass.ts.
+    this._shapes.initGL()
+    // (#494) Export's transparent and thumbnail-downscale passes — see Exporter.ts.
+    this._exporter.initGL()
+    this._brush.initGL() // (#494) see BrushPainter.ts
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
-    this._brushStampProg      = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
-    this._brushCompositeProg  = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
 
-    this._dabUni  = getUniforms(gl, this._dabProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
-      'u_rectComposite',
-      // Liner only (#452, ADR 003 §4) — how far past its own radius a dab's
-      // quad is grown so the absorbed band has somewhere to land, and the cap
-      // on that. Set to 0 by every other draw through this program (marker's
-      // two passes included), not just left unset: a program's uniforms
-      // persist across draws, so a liner stroke would otherwise leak its band
-      // into whatever drew next.
-      'u_wickPx', 'u_wickCap',
-      // Charcoal only (#304, ADR 005) — per-preset, so needed by both this
-      // program and the instanced one below (unlike marker's three samplers,
-      // which never draw through the batched path).
-      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
-      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
-      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
-      // Ribbon tools only (#250, follow-up; #454 widened this from "marker" to
-      // "marker and brush pen") — only ever set by their own draws, which
-      // always use this non-instanced program; not added to _dabInstUni below
-      // since nothing ever draws a ribbon stroke through it.
-      'u_original', 'u_strokeCoverage', 'u_inkLoad',
-      // #330 stage 2/3 — the ribbon nib's own geometry: edge ramp width in canvas
-      // px, which outline the nib is, its corner radius, and how much the ink
-      // eases off at the rim. #454: plus how strongly paper grain acts on a
-      // ribbon tool's rim — outward for the brush pen, inward for watercolor,
-      // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_puddle', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
-      // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
-      // branch alone, and set to 0 by every other ribbon composite (see
-      // _drawRibbonCompositeDab) rather than left unset, for the reason
-      // u_wickPx above already documents: uniforms persist across draws on a
-      // shared program.
-      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
-      // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
-      'u_spreadPx', 'u_cloud', 'u_fieldOffset',
-      // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
-      // the rest are read by the composite.
-      'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoft', 'u_edgeWander', 'u_strokeDir',
-      'u_tideLo', 'u_tideHi',
-      // #468 v5 — how covering the paint is (watercolorPigments.ts).
-      'u_pigmentOpacity',
-      // #468 v6 — the dab spacing, the period of the deposit's own ripple.
-      'u_inkSmoothPx',
-      // #468 v11 — pigment transport (ADR 011 §11).
-      'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
-    ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
       'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
       'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau',
     ])
-    this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
-      'u_wickPx', 'u_wickCap', // #452 — see _dabUni's own comment
-      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
-      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
-      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
-    ])
-    this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
-    this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
       'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride',
@@ -7213,75 +6018,21 @@ export class PencilEngine implements PencilEngineAPI {
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
       'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
     ])
-    this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
-    this._areaTransformUni = getUniforms(gl, this._areaTransformProg, [
-      'u_source', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
-    ])
-    this._areaMaskUni = getUniforms(gl, this._areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
-    this._shapeUni = getUniforms(gl, this._shapeProg, [
-      'u_dstSize', 'u_dstOrigin', 'u_center', 'u_rotCS', 'u_half',
-      'u_kind', 'u_base', 'u_outer', 'u_inner', 'u_hasInner', 'u_strokeContours', 'u_band',
-      'u_ringRatio', 'u_closePath', 'u_sectorMode', 'u_sectorDir', 'u_sectorCS',
-      'u_starPoints', 'u_starRot', 'u_lineDir', 'u_lineHalfLen', 'u_lineCap',
-      'u_fillColor', 'u_hasFill', 'u_strokeColor', 'u_hasStroke',
-    ])
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
       'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetPeak',
     ])
-    this._smudgeUni = getUniforms(gl, this._smudgeProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
-      'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-    ])
-    this._smudgePickupUni = getUniforms(gl, this._smudgePickupProg, [
-      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup',
-    ])
-    this._brushStampUni = getUniforms(gl, this._brushStampProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity',
-      'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure',
-      'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin',
-    ])
-    this._brushCompositeUni = getUniforms(gl, this._brushCompositeProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_original', 'u_strokeCoverage', 'u_color', 'u_opacity', 'u_useCeiling',
-      'u_screentone', 'u_screenOrigin',
-      'u_wetEdge', 'u_wetEdgePx', 'u_mottle', 'u_granulation', 'u_glaze',
-      'u_cloudTex', 'u_grainTex', 'u_cloudPeriod', 'u_cloudOrigin', 'u_grainPeriod', 'u_grainOrigin',
-      'u_wetModel', 'u_bloom', 'u_feather',
-      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-    ])
 
-    this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
-    this._dispTransparentPosLoc = gl.getAttribLocation(this._dispTransparentProg, 'a_position')
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
     this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
     this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
-    this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
-    this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
-    this._areaTransformPosLoc  = gl.getAttribLocation(this._areaTransformProg, 'a_position')
-    this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
-    this._shapePosLoc          = gl.getAttribLocation(this._shapeProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
-    this._previewDownsampleUni = getUniforms(gl, this._previewDownsampleProg, ['u_src', 'u_tapOffset'])
-    this._previewDownsamplePosLoc = gl.getAttribLocation(this._previewDownsampleProg, 'a_position')
-    this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
-    this._smudgePickupPosLoc   = gl.getAttribLocation(this._smudgePickupProg, 'a_position')
-    this._brushStampPosLoc     = gl.getAttribLocation(this._brushStampProg, 'a_position')
-    this._brushCompositePosLoc = gl.getAttribLocation(this._brushCompositeProg, 'a_position')
-
-    this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
-    this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
-    this._instBLoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instB')
-    this._instOpacityLoc = gl.getAttribLocation(this._dabProgInstanced, 'a_opacity')
 
     this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
     this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
@@ -7294,98 +6045,31 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
-    this._dabInstBuf = gl.createBuffer()!
+    // (#494) The resampling blits (transform, selection, image) — see
+    // blitPasses.ts. Rebuilt with everything else here on a context restore.
+    this._passes = new BlitPasses(gl, this._screenBuf)
     this._ribbonBuf  = gl.createBuffer()!
 
-    this._instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
     // (#536, s17.28) MAX blending for the watercolor film. Without it (rare -
     // the extension is in every WebGL1 that matters) the deposit falls back
     // to the additive sum of stamps.
     this._minmaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
-    // #573 — the digital brush's opacity ceiling lives in the coverage buffer's
-    // alpha under a MAX blend. Universally supported in practice; without it
-    // the ceiling degrades to "off" (flow alone), never to a wrong picture.
-    this._blendMinMaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
-    // Built fresh on context restore like every other GL object here: the
-    // previous handles died with the old context.
-    this._tipTextures = new Map()
-    this._brushTextures = new Map()
 
     this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
     // previously baked content is gone either way, so the split cache must
     // be rebuilt before its next read regardless of why _initGL() ran.
-    const { w: ew, h: eh } = this._renderBufferExtent()
+    const { w: ew, h: eh } = this._camera.renderBufferExtent()
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
   }
 
-  // Awaits the shared byte cache (getPaperBytes — a network fetch only on
-  // the very first call for a given PaperType, an already-resolved promise
-  // on every later one, see paperLoader.ts), then uploads and swaps in the
-  // real texture, replacing whatever placeholder or previous paper texture
-  // was bound before. Guarded by _destroyed since the await can still
-  // resolve after destroy() ran. Both bounded and infinite rooms go through
-  // this same path and end up with the exact same 2048px REPEAT texture —
-  // see _paperWorldSize()'s own comment for why unifying them is safe.
-  private async _initPaper(type: PaperType): Promise<void> {
-    const bytes = await getPaperBytes(type)
-    if (this._destroyed) return
-    const gl = this.gl
-    const newTex = uploadPaperTexture(gl, bytes)
-    const mipsReady = generatePaperMipmaps(gl, newTex)
-    const old = this._paperTex
-    this._paperTex = newTex
-    this._paperMipsReady = mipsReady
-    this._paperTexLoaded = true
-    gl.deleteTexture(old)
-    this._display()
-  }
-
-  /** World-space size the baked paper texture repeats over — see
-   *  paperNoise.ts's PAPER_WORLD_SIZE for the full reasoning (coprimality
-   *  with TILE_SIZE, etc.). Both kinds of room read the exact same
-   *  fixed-resolution, offline-baked REPEAT texture (see _initPaper); they
-   *  differ only in how far it is stretched.
-   *
-   *  A bounded room maps the tile across its sheet exactly once, because
-   *  that is what DISPLAY_FRAG has always done for the blank-paper tint
-   *  (`paperUV = v_uv`, no repeat) and the two must agree: with the tile
-   *  repeating every PAPER_WORLD_SIZE (157) here while the tint spanned the
-   *  whole sheet, the grain a stroke bit into was an order of magnitude
-   *  finer than the grain visible underneath it — the same sheet rendered
-   *  at two different scales, which is exactly what it looked like.
-   *
-   *  Safe for cross-device determinism (the property .claude/rules.md guards
-   *  and #162/#165 were about) specifically because a bounded room's canvas
-   *  is fixed by its paper format — A2 is 2480x3508 on every device, never
-   *  DPR-scaled, unlike an infinite room's backing store (see cameraMath's
-   *  deviceNativeZoom). Two clients therefore derive the identical UV for
-   *  the identical buffer pixel, which is what feeds real dab deposit. An
-   *  infinite room has no sheet to span, so it keeps the world-space repeat.
-   *
-   *  Note this is not square for a bounded room: the square tile takes the
-   *  sheet's aspect ratio, so the grain stretches with it. That is inherited
-   *  from the tint's own mapping rather than chosen, and matching it is the
-   *  entire point here. */
-  /** (#470) The sheet, in world units — or a degenerate rect for an infinite
-   *  room, which has no sheet and whose paper therefore covers the screen
-   *  edge to edge. The shader reads the degenerate case as "paper everywhere",
-   *  which is exactly what an infinite room did before there was a rect at
-   *  all. */
-  /** (#536, ADR 011 §17.50) A watercolour rect cut to the sheet in a bounded
-   *  room. The wash's reach (halo bound, pads) ran past the page edge, and the
-   *  layer created tiles out there - with a wash's six to ten tile-sized
-   *  textures on each: a room of 2x3 tiles had 37 wash tiles alive on the
-   *  Android after an eight-round lesson soak, 888 MB, all for paint nobody
-   *  sees. The same clamp live and on replay, so both stay one function of
-   *  the log. Infinite rooms have no sheet and pass through. */
+  /** (#494) See PaperState.clampToSheet. Kept by this name for the ribbon
+   *  and wash code, which is live on another branch. */
   private _wcSheetClamp(r: { minX: number; minY: number; maxX: number; maxY: number }): { minX: number; minY: number; maxX: number; maxY: number } {
-    if (this._infinite) return r
-    const { w, h } = this._pageSize()
-    return { minX: Math.max(0, r.minX), minY: Math.max(0, r.minY), maxX: Math.min(w, r.maxX), maxY: Math.min(h, r.maxY) }
+    return this._paper.clampToSheet(r)
   }
 
   /** resolveForPaint, but nothing at all for an empty rect (a clamp can leave one). */
@@ -7393,25 +6077,14 @@ export class PencilEngine implements PencilEngineAPI {
     return r.maxX > r.minX && r.maxY > r.minY ? target.resolveForPaint(r) : []
   }
 
-  private _pageRect(): [number, number, number, number] {
-    if (this._infinite) return [0, 0, -1, -1]
-    const { w, h } = this._pageSize()
-    return [0, 0, w, h]
-  }
-
+  /** (#494) See PaperState.worldSize — kept by name like _wcSheetClamp. */
   private _paperWorldSize(): { w: number; h: number } {
-    if (this._infinite) return { w: PAPER_WORLD_SIZE, h: PAPER_WORLD_SIZE }
-    return this._pageSize()
+    return this._paper.worldSize()
   }
 
-  /** The sheet's size in world units. Falls back to the canvas for a caller
-   *  that never passed one — which is exactly the pre-#470 geometry, since
-   *  back then the canvas was the sheet. */
+  /** (#494) See PaperState.pageSize — kept by name like _wcSheetClamp. */
   private _pageSize(): { w: number; h: number } {
-    return {
-      w: this._opts.pageWidth ?? this.canvas.width,
-      h: this._opts.pageHeight ?? this.canvas.height,
-    }
+    return this._paper.pageSize()
   }
 
   /** The brush's nominal width in world units — what `setSize` was given, for
@@ -7474,18 +6147,18 @@ export class PencilEngine implements PencilEngineAPI {
     // one-second hitch on the iPad right at the pen's touch. It lands after
     // this stroke, one a frame - the same order this author already saw for
     // anything arriving mid-stroke (#289); everyone else paints by the log.
-    // See _paperTexLoaded's own field comment: painting before the real
+    // See PaperState's _loaded field comment: painting before the real
     // paper texture has loaded would bake in the placeholder's flat,
     // meaningless response permanently. Blocking the stroke from starting
     // at all (rather than trying to special-case the paint path) means
     // there is nothing to later "fix up" — matches how `_locked` already
     // blocks drawing for a different reason, just orthogonal to it.
-    if (this._locked || !this._paperTexLoaded) {
+    if (this._locked || !this._paper.loaded) {
       // (#517) Both refusals below are correct and both are silent, which is
       // indistinguishable from the input layer having dropped the stroke —
       // and telling those two apart is the whole question in the iPad report.
       this._diagLog('[engine] stroke start REFUSED', {
-        locked: this._locked, paperTexLoaded: this._paperTexLoaded,
+        locked: this._locked, paperTexLoaded: this._paper.loaded,
       })
       return
     }
@@ -7688,8 +6361,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's carried imprint resets at every gesture, but not from here:
-    // _paintSmudgeDabs does it off this stroke's own id, so the local and the
-    // replayed path go through exactly one rule (see _smudgeResumeGesture).
+    // SmudgePainter.paint does it off this stroke's own id, so the local and the
+    // replayed path go through exactly one rule (see SmudgePainter.resumeGesture).
     this._strokeDabs    = []
     this._strokeChunkTail = undefined
     this._strokeChunkBox = null
@@ -8035,7 +6708,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._handlers.strokeEnd?.(e)
   }
 
-  /** Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
+  /** (#494) A one-line wrapper over presetForTool (presets/resolvePreset.ts,
+   *  where the marker presets named below live too); kept as a method because
+   *  the ribbon paths call it by this name.
+   *
+   *  Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
    *  hardness, sizeMultiplier} triple that drives both opacity baking
    *  (_bakeDabOpacity) and rendering (_paintDabs/_dabWorldHalfExtents). Liner has
    *  no hardness scale (see LINER_PRESET's own comment) — every calibrated
@@ -8071,212 +6748,23 @@ export class PencilEngine implements PencilEngineAPI {
     return renderSizeScale(tool, presetName)
   }
 
-  /** (#489/#501) Whether this stroke's nib takes #485's scallop bound — see
-   *  DabSystem.nibScallop for the whole argument, including why the marker's
-   *  own 5:1 chisel deliberately does not.
-   *
-   *  A property of the *nib*, not of the tool, which is why it is a lookup on
-   *  the preset string rather than a list of tool names: the same tool spaces
-   *  its round nib one way and its elongated one another, and the round ones
-   *  have shipped. Two stated here rather than one flag per tool for the reason
-   *  _resolvePreset's own inkMode comment gives: two switches for one question
-   *  drift apart. */
+  /** (#489/#501) See nibScallops (presets/resolvePreset.ts). */
   private _nibScallops(tool: ToolType, presetName: string): boolean {
-    if (tool === 'watercolor') return watercolorNibFromPreset(presetName) !== 'round'
-    if (tool === 'charcoal') return charcoalNibFromPreset(presetName) === 'chisel'
-    // #547 — asked of the brush rather than hardcoded, because here the answer
-    // is a property of the preset: the round four scallop no more than
-    // watercolor's round nib does, and 'flat' is a 4:1 tip whose silhouette dips
-    // between stamps exactly as every other elongated one here.
-    if (tool === 'digitalBrush') return digitalBrushScallops(presetName)
-    return false
+    return nibScallops(tool, presetName)
   }
 
-  /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use.
-   *
-   *  Each material carries its own shipped default — GRAPHITE_GRAIN_DEFAULT
-   *  (10, "Solid") for graphite, CHARCOAL_PRESETS.grain (3, "Streaky") per
-   *  charcoal type — and each has its own independent dev override
-   *  (`grainMode` / `charcoalGrainMode`), which is `undefined` when that
-   *  selector sits at "default". Two separate overrides rather than one shared
-   *  flag specifically so auditioning a variant on one material doesn't
-   *  disturb the other (#304 follow-up). */
+  /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use,
+   *  given this engine's two dev overrides — see resolveGrainMode
+   *  (presets/resolvePreset.ts). */
   private _resolveGrainMode(charcoal: CharcoalPreset | null): number {
-    return charcoal
-      ? this._charcoalGrainMode ?? charcoal.grain
-      : this._grainMode ?? GRAPHITE_GRAIN_DEFAULT
+    return resolveGrainMode(charcoal, this._grainMode, this._charcoalGrainMode)
   }
 
-  /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
-   *  by the real stroke path and the #92 prediction preview, so predicted
-   *  dabs render with visually consistent opacity to real ones. tool/
-   *  presetName/opacity are explicit params (rather than always reading this
-   *  user's own _strokeTool/_strokePreset/_opts.opacity) purely so both
-   *  callers can pass their own state through one shared implementation. */
+  /** Bakes final dab opacity in place — see bakeDabOpacity (dabs/dabOpacity.ts).
+   *  Shared by the real stroke path and the #92 prediction preview; tool/
+   *  presetName/opacity are explicit so both callers pass their own state. */
   private _bakeDabOpacity(dabs: Dab[], speed: number, tool: ToolType, presetName: string, opacity: number): void {
-    const preset      = this._resolvePreset(tool, presetName)
-    const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
-    // Marker (#250, ADR 004 §2) shares liner's exact speed-flow curve —
-    // "minimal influence" is the same physical justification ADR 004 gives
-    // (a real ink/dye tip doesn't compress the way graphite does), and
-    // reusing linerSpeedFlow rather than inventing a separate marker curve
-    // keeps this v1/uncalibrated (ADR 004 MVP scope) without adding a new
-    // unverified formula on top of an already-uncalibrated one.
-    const inkSpeed = (tool === 'liner' || tool === 'marker') ? linerSpeedFlow(speed) : 0
-    // #478: for a footprint-spaced tool the step between dabs is no longer a
-    // constant fraction of the brush size, so how many dabs land on a given
-    // pixel now varies with grade, pressure and tilt — and for these three
-    // tools the deposit is linear in `Dab.opacity` and normalized by nothing
-    // else, so denser dabs would simply paint a darker mark. This holds the
-    // tone where it is; see dabSpacing.ts's dabDepositScale for why the linear
-    // form is the accurate one here rather than a convenient one.
-    //
-    // Null (and therefore free) for every tool still on the old spacing rule,
-    // where the ratio would be exactly 1 by construction.
-    // #547: not isFootprintSpacedTool — the digital brush is spaced by that rule
-    // and deliberately excluded from this correction. See isDepositScaledTool.
-    const sizeScale = isDepositScaledTool(tool) ? this._dabSizeScale(tool, presetName) : null
-    // #501: which bounds actually shaped this stroke's step. The deposit is
-    // divided by the step the dabs were *really* spaced at, so this has to be
-    // the same pair DabSystem was given at _onStart — a chisel spaced by the
-    // scallop bound but normalised by the footprint rule alone would simply
-    // paint darker, in proportion to how much the extra bound tightened it.
-    const spacingBounds: DabSpacingBounds = { footprint: true, scallop: this._nibScallops(tool, presetName) }
-    // #501: the flat nib's elongation is a property of the cut, not of how far
-    // the stick is laid over — and its contact patch is *smaller* than the
-    // round end face, not larger, so charcoal's broad-side lightening reads it
-    // exactly backwards. Zero here, and 0 passed as u_charcoalBroadAspect at
-    // paint time, so the shader's own copy of the same derivation agrees
-    // (charcoalBroadness' comment on why the two must not disagree).
-    const chiselNib = tool === 'charcoal' && charcoalNibFromPreset(presetName) === 'chisel'
-    const baseSize  = this._physicalSize
-    for (const dab of dabs) {
-      if (tool === 'eraser') dab.opacity = opacity
-      // Smudge (#14) has no pencil preset to draw an opacity from (the
-      // opacity slider here is repurposed as "strength" — see toolSchemas'
-      // own smudge entry) — same speedFactor as pencil though: moving
-      // slower still means a firmer, more thorough blend, matching how a
-      // real blending stump behaves.
-      else if (tool === 'smudge') dab.opacity = opacity * speedFactor
-      // Liner (#241, ADR 003 §2-3, §7): pressure's own contribution to flow
-      // lives entirely in DabShapingProfile.depositPressure (dabShaping.ts),
-      // baked into dab.pressure before this ever runs — see linerPresets.ts's
-      // own comment on why it isn't re-derived here. Speed and tilt are the
-      // only two factors this branch adds on top of the flat preset opacity.
-      else if (tool === 'liner') {
-        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
-        dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg)
-      }
-      // Marker (#250, ADR 004 §2; explicit pressureFactor added in "Ревизия
-      // v1.5" §1 — the expert's own proposed
-      // `deposit = flowPerDistance * segmentLength * pressureFactor` names
-      // it as its own term rather than folding it silently into "flow"):
-      // same speed/tilt shape as liner (shared inkSpeed above), plus a mild
-      // markerPressureFlow term liner doesn't have. `dab.opacity` here is
-      // *not yet* the final ink deposit — _ribbonStrokeWork multiplies it
-      // by this dab's own segmentLength at paint time (distance-
-      // normalization can't happen here: this function only ever sees one
-      // dab at a time, with no notion of "distance since the previous
-      // one" — see _markerSegmentLength).
-      else if (tool === 'marker') {
-        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
-        dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg) * markerPressureFlow(dab.pressure)
-      }
-      // Brush pen (#454, ADR 009 §5/§9): flat. Not "not tuned yet" — flat on
-      // purpose, and in two directions.
-      //
-      // No pressure term, because a tool where pressure moves width *and*
-      // alpha together reads as an airbrush rather than a pen; ADR 009 §9
-      // makes width the only thing pressure drives. No speed or tilt term
-      // either: the liner's inkSpeed models ink leaving a capillary tip at a
-      // rate per unit *time*, which is a fineliner's physics, not a flexing
-      // brush nib's — what speed does to this tool is sharpen the tail
-      // (applyBrushPenEndTaper), and that is the whole of it in v1.
-      //
-      // The flatness is also load-bearing downstream, not merely tidy: every
-      // dab of the stroke carrying the same opacity is exactly what lets the
-      // source-over composite reconstruct the finished pixel from a coverage
-      // buffer and one scalar (DAB_FRAG's u_inkMode=8 branch). A per-dab
-      // opacity could not be expressed there at all.
-      else if (tool === 'brushPen') dab.opacity = preset.opacity * opacity
-      // #547, ADR 013 §3 — flat, and for the composite's own reason stated for
-      // the brush pen directly above: this number is the *stroke's* opacity, and
-      // the source-over composite reconstructs each finished pixel from one
-      // coverage buffer and one scalar. A per-dab value could not be expressed
-      // there.
-      //
-      // What varies per dab for this tool is **flow**, and it deliberately does
-      // not live here: it is applied when the stamp is drawn into the coverage
-      // buffer (_paintRibbonDabs), where accumulating it is the whole point.
-      // Recomputed on replay from Dab.pressure and the frozen descriptor rather
-      // than recorded, so the payload gains nothing (digitalBrushFlow).
-      else if (tool === 'digitalBrush') dab.opacity = preset.opacity * opacity
-      // Watercolor (#468, ADR 011 §5): flat, for every reason the brush pen's
-      // is flat directly above, plus one of its own.
-      //
-      // The shared reasons: pressure drives the brush's width, not its
-      // transparency, and a flat per-stroke opacity is what lets the composite
-      // reconstruct a finished pixel from a coverage buffer and one scalar
-      // (DAB_FRAG's u_inkMode=9 branch reads u_opacity, not a per-dab value).
-      //
-      // Its own: how dark a wash comes out is already modelled, and modelled
-      // somewhere better — inkLoad accumulates distance-normalized deposit and
-      // the composite saturates it (WATERCOLOR_SATURATE_INK). Adding a speed or
-      // pressure term to alpha *as well* would be two mechanisms competing to
-      // express one physical quantity, which is how the marker's own density
-      // got hard to reason about before "Ревизия v1.5" separated them.
-      // (#468 v9) …times how much paint is in the water. This is pigment's one
-      // and only route to the finished pixel: the deposit is now a constant
-      // (watercolorPigmentEffects), so nothing else scales with it and the
-      // control stays linear. Constant across a stroke, which is what lets the
-      // composite reconstruct a finished pixel from a coverage buffer and one
-      // scalar at all.
-      // (#536) …and no longer times how much paint is in the water. That factor
-      // moved onto the deposit (DAB_FRAG's u_inkStrength), because a wash spans
-      // several strokes and they are allowed to carry different amounts of
-      // paint — that is precisely what "lay clean water, then take colour into
-      // it" is. With it here, the composite reconstructed the whole wash from
-      // one scalar taken from whichever stroke opened it, so a wash that began
-      // with clean water rendered every stroke after it invisible at pen-up.
-      else if (tool === 'watercolor') dab.opacity = preset.opacity * opacity
-      // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
-      // speed curve deliberately — "slower stroke -> denser deposit" is equally
-      // true of both materials — and adds one term graphite has no analogue
-      // for. Laid on its broad side, the stick spreads the same pressure over a
-      // far larger contact patch, so it must deposit lighter; without this, the
-      // broad regime just paints a much bigger *and* equally dark mark, which
-      // reads as a fat marker rather than a stick on its side. Derived from the
-      // dab's own baked aspectRatio rather than re-running the curve on tilt,
-      // so it can't disagree with the geometry actually being drawn (see
-      // charcoalBroadness' own comment).
-      else if (tool === 'charcoal') {
-        const broadness = chiselNib ? 0 : charcoalBroadness(dab.aspectRatio)
-        dab.opacity = preset.opacity * opacity * speedFactor * charcoalBroadDensity(broadness)
-      }
-      // Graphite (#389). The tilt term is the counterpart of charcoal's
-      // broad-side lightening just above, and arrives here the same way: from
-      // the dab's own baked aspectRatio, not by re-running the curve on tilt,
-      // so a slider moved between record time and here can't make the deposit
-      // disagree with the geometry it's shading (see pencilTiltness). Reduces
-      // to exactly the old expression when PENCIL_TILT.lightening is 0.
-      //
-      // Eraser and smudge share the tilt *geometry* but not this: their
-      // branches above never had a preset opacity to scale, and "erases less
-      // when tilted" is a change to how erasing works rather than a
-      // consequence of spreading graphite over more paper.
-      else dab.opacity = preset.opacity * opacity * speedFactor * pencilTiltDensity(pencilTiltness(dab.aspectRatio))
-      // Applied on top of whichever branch ran, not inside them: it is a
-      // property of how densely this dab's own footprint got sampled, and says
-      // nothing about which material is being deposited. Baked into the
-      // recorded Dab like every other term here, so a peer replaying the
-      // stroke reproduces the same tone without knowing anything about
-      // spacing (#478).
-      if (sizeScale !== null) {
-        dab.opacity *= dabDepositScale(
-          { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale, hardness: preset.hardness },
-          baseSize, this._dabs.spacingFactor, spacingBounds)
-      }
-    }
+    bakeDabOpacity(dabs, speed, tool, presetName, opacity, this._physicalSize, this._dabs.spacingFactor)
   }
 
   /** Bakes final dab opacity, stamps Dab.t, paints, and buffers the dabs for
@@ -8656,67 +7144,33 @@ export class PencilEngine implements PencilEngineAPI {
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
 
-  private _loadImage(src: string): Promise<HTMLImageElement> {
-    const cached = this._imageCache.get(src)
-    if (cached) return Promise.resolve(cached)
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => { this._imageCache.set(src, img); resolve(img) }
-      img.onerror = () => reject(new Error('failed to decode imported image'))
-      img.src = src
-    })
+  /** See the PencilEngineAPI doc comment. The decode, the cache and the blit
+   *  live in ImageImport (src/raster/ImageImport.ts). */
+  preloadImage(src: string): Promise<void> {
+    return this._images.preloadImage(src)
   }
 
   /** See the PencilEngineAPI doc comment. */
-  async preloadImage(src: string): Promise<void> {
-    await this._loadImage(src).catch(
-      // Same reasoning as preloadImages': a raster that will not decode is not
-      // a reason to throw at the caller, it is a float that draws nothing.
-      err => { console.error('failed to decode pasted image', err) },
-    )
+  preloadImages(ops: Operation[]): Promise<void> {
+    return this._images.preloadImages(ops)
   }
 
-  /** See the PencilEngineAPI doc comment. */
-  async preloadImages(ops: Operation[]): Promise<void> {
-    const sources = new Set<string>()
-    // (#446) `area_paste` carries a raster for the same reason image_import
-    // does, so it must be decoded ahead of a replay for the same reason too —
-    // an operation painted after its own async decode lands on top of
-    // whatever was drawn in the meantime.
-    for (const op of ops) {
-      if (op.type === 'image_import' || op.type === 'area_paste' || op.type === 'area_fill') sources.add(op.image)
-    }
-    if (sources.size === 0) return
-    await Promise.all([...sources].map(src => this._loadImage(src).catch(
-      // Deliberately not rethrown: this is a preparation step for a replay,
-      // and an image that cannot be decoded is not a reason to abandon
-      // everything else the room drew. The operation itself falls through to
-      // the async path and fails there exactly as it did before.
-      err => { console.error('failed to decode imported image', err) },
-    )))
-  }
-
-  /** (#398) Paints `op` immediately if its image is already decoded, leaving
-   *  the pixels in `buf` by the time this returns — which is what lets a
-   *  replay apply the operations that follow it against the content they
-   *  were recorded against. False means nothing was painted and the caller
-   *  must fall back to the async path. */
-  private _paintDecodedImage(
-    buf: ILayerBuffer, op: ImageImportOperation, matrix?: LayerTransformMatrix,
-  ): boolean {
-    const img = this._imageCache.get(op.image)
-    if (!img) return false
-    this._blitImage(buf, op, img, matrix)
-    this._displayIfNotSuspended()
-    return true
+  /** The one DOM object image import needs, kept here so nothing under
+   *  src/ constructs one — see ImageImportContext.decode. */
+  private _decodeImage(src: string, onload: (img: HTMLImageElement) => void, onerror: () => void): void {
+    const img = new Image()
+    img.onload = () => onload(img)
+    img.onerror = onerror
+    img.src = src
   }
 
   /** (#398) An image that had to be decoded *after* its operation was
    *  applied has just landed. Anything that painted this layer in the
    *  meantime is now wrongly underneath it — a peer's stroke arriving right
    *  behind the import, or the import's own undo. The image is in
-   *  `_imageCache` now, so rebuilding replays the whole layer synchronously
-   *  and in log order, putting everything back where the log says it goes.
+   *  ImageImport's cache now, so rebuilding replays the whole layer
+   *  synchronously and in log order, putting everything back where the log
+   *  says it goes.
    *
    *  Skipped in the ordinary case — an import that is still the newest pixel
    *  operation on its layer (a local import, a peer's with nothing behind
@@ -8728,477 +7182,25 @@ export class PencilEngine implements PencilEngineAPI {
     this._displayIfNotSuspended()
   }
 
-  /** Paints a reference image into `buf`, fit-centered ("contain") so the
-   *  whole image stays visible, letterboxed if its aspect ratio doesn't
-   *  match the canvas's. The decode is the only asynchronous step, and it is
-   *  the reason `preloadImages` exists: with the image already in
-   *  `_imageCache`, callers reach `_blitImage` below directly and this
-   *  operation lands synchronously like every other pixel op. This wrapper
-   *  is what remains for the cases where it cannot — a genuinely new import
-   *  (local, or a peer's arriving live), where nothing had a chance to
-   *  decode it in advance. */
-  private async _paintImage(
-    layerBuf: ILayerBuffer, op: ImageImportOperation, matrix?: LayerTransformMatrix,
-  ): Promise<void> {
-    const img = await this._loadImage(op.image)
-    this._blitImage(layerBuf, op, img, matrix)
-    // Unconditional, unlike _paintDecodedImage's: whatever suspendDisplay
-    // span was open when this operation was applied is long closed by the
-    // time a decode resolves, so there is nothing left to repaint later.
-    this._display()
-  }
+  // ─── Shapes (#527) and layer filters (#574, ADR 014) ───────────────────────
+  // Both live in their own files — src/raster/ShapePass.ts and
+  // src/filters/FilterPass.ts; these are the PencilEngineAPI entry points.
 
-  private _blitImage(
-    layerBuf: ILayerBuffer, op: ImageImportOperation, img: HTMLImageElement,
-    // (#446) Where the raster was moved to before it was dropped — see
-    // AreaPasteOperation.matrix. Absent (every image_import, and a paste
-    // dropped where it landed) takes the plain axis-aligned path below,
-    // byte-for-byte as before.
-    wireMatrix?: LayerTransformMatrix,
-  ): void {
-    const { gl } = this
-
-    const texture = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-    // Fixed-canvas rooms (op.x/op.y absent): unchanged fit-center-within-
-    // the-canvas behavior. Infinite-canvas rooms (op.x/op.y present, world-
-    // space top-left — see the shared type's doc comment): natural size,
-    // placed wherever the caller chose (current camera center at import
-    // time, today) — there's no fixed rect to fit-center within.
-    let drawX: number, drawY: number, drawW: number, drawH: number
-    if (op.x !== undefined && op.y !== undefined) {
-      drawX = op.x; drawY = op.y; drawW = op.width; drawH = op.height
-    } else {
-      // (#470) Fit-centred within the sheet, which is what this always meant
-      // — it read the canvas only because the canvas was the sheet.
-      const { w: pageW, h: pageH } = this._pageSize()
-      const scale = Math.min(pageW / op.width, pageH / op.height)
-      drawW = op.width * scale
-      drawH = op.height * scale
-      drawX = (pageW - drawW) / 2
-      drawY = (pageH - drawH) / 2
-    }
-
-    if (wireMatrix) {
-      const matrix = toHomography(wireMatrix)
-      const rect = { x: drawX, y: drawY, width: drawW, height: drawH }
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const [cx, cy] of [
-        [drawX, drawY], [drawX + drawW, drawY], [drawX, drawY + drawH], [drawX + drawW, drawY + drawH],
-      ] as Array<[number, number]>) {
-        const [tx, ty] = applyMatrix(matrix, cx, cy)
-        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
-        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
-      }
-      if (Number.isFinite(minX + minY + maxX + maxY) && maxX > minX && maxY > minY) {
-        const moved: WorldRect = { minX, minY, maxX, maxY }
-        for (const { buffer, originX, originY } of layerBuf.resolveForPaint(moved)) {
-          this._drawImageThroughMatrix(buffer, originX, originY, img, rect, matrix)
-        }
-        layerBuf.markContentPainted(moved)
-      }
-      gl.deleteTexture(texture)
-      if (op.layerId !== this._activeId) this._invalidateSplitCache()
-      return
-    }
-
-    const worldRect: WorldRect = { minX: drawX, minY: drawY, maxX: drawX + drawW, maxY: drawY + drawH }
-    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(worldRect)) {
-      buffer.beginDraw()
-      gl.useProgram(this._blitProg)
-      const u = this._blitUni
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.uniform1i(u.u_image, 0)
-      gl.uniform2f(u.u_bufferSize, buffer.width, buffer.height)
-      gl.uniform4f(u.u_imageRect, drawX - originX, drawY - originY, drawW, drawH)
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      const posLoc = this._blitPosLoc
-      gl.enableVertexAttribArray(posLoc)
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      buffer.endDraw()
-    }
-    // (#155 Tier 2) See _paintDabs' identical call for why.
-    layerBuf.markContentPainted(worldRect)
-
-    gl.deleteTexture(texture)
-    // #122: single choke point for both callers (appendOperation's live
-    // path and _applyPixelOp's replay path) — an image_import can target
-    // any layer, so only invalidate when it isn't the active one.
-    if (op.layerId !== this._activeId) this._invalidateSplitCache()
-  }
-
-  // ─── Shapes (#527) ───────────────────────────────────────────────────────────
-
-  /** The world rect a shape's pixels can reach, clamped to the sheet in a
-   *  bounded room.
-   *
-   *  The clamp is the same one `_dabsWorldBounds` applies and for the same
-   *  reason: a bounded room's tiles are lazily created, and a shape whose
-   *  frame merely touches the page edge would otherwise resolve — and keep
-   *  forever — a tile of off-page ground nothing can ever make visible again. */
-  private _shapeWorldRect(
-    geometry: ShapeGeometry, frame: ShapeFrame, stroke: ShapeStroke | null,
-  ): WorldRect {
-    const b = shapeWorldBounds(geometry, frame, stroke)
-    if (this._infinite) return b
-    const { w: pageW, h: pageH } = this._pageSize()
-    return {
-      minX: Math.max(b.minX, 0), minY: Math.max(b.minY, 0),
-      maxX: Math.min(b.maxX, pageW), maxY: Math.min(b.maxY, pageH),
-    }
-  }
-
-  /** One SHAPE_FRAG pass over one target buffer, whose world origin is
-   *  (originX, originY). The shader turns each pixel into a world position
-   *  itself, so a real tile, a scratch tile and a preview tile are all drawn
-   *  by the same call with nothing translated by the caller — the pattern
-   *  `_runAreaMaskPass` established. */
-  private _runShapePass(
-    target: AccumulationBuffer, originX: number, originY: number, params: ShapeDrawParams,
-    stroke: ShapeStroke | null, fill: ShapeFill | null,
-  ): void {
-    const { gl } = this
-    target.beginDraw()
-    gl.useProgram(this._shapeProg)
-    const u = this._shapeUni
-    gl.uniform2f(u.u_dstSize, target.width, target.height)
-    gl.uniform2f(u.u_dstOrigin, originX, originY)
-    gl.uniform2f(u.u_center, params.centerX, params.centerY)
-    gl.uniform2f(u.u_rotCS, params.cos, params.sin)
-    gl.uniform2f(u.u_half, Math.max(params.halfX, 1e-6), Math.max(params.halfY, 1e-6))
-    gl.uniform1i(u.u_kind, params.kind)
-    gl.uniform3f(u.u_base, params.base[0], params.base[1], params.base[2])
-    gl.uniform3f(u.u_outer, params.outer[0], params.outer[1], params.outer[2])
-    gl.uniform3f(u.u_inner, params.inner[0], params.inner[1], params.inner[2])
-    gl.uniform1f(u.u_hasInner, params.hasInner ? 1 : 0)
-    gl.uniform1f(u.u_strokeContours, params.strokeMode === 'contours' ? 1 : 0)
-    gl.uniform2f(u.u_band, params.bandCenter, params.bandHalf)
-    gl.uniform1f(u.u_ringRatio, params.ringRatio)
-    gl.uniform1f(u.u_closePath, params.closePath ? 1 : 0)
-    gl.uniform1f(u.u_sectorMode, params.sectorMode)
-    gl.uniform2f(u.u_sectorDir, params.sectorDirX, params.sectorDirY)
-    gl.uniform2f(u.u_sectorCS, params.sectorCos, params.sectorSin)
-    gl.uniform1f(u.u_starPoints, params.starPoints)
-    gl.uniform2f(u.u_starRot, params.starRotCos, params.starRotSin)
-    gl.uniform2f(u.u_lineDir, params.lineDirX, params.lineDirY)
-    gl.uniform1f(u.u_lineHalfLen, params.lineHalfLen)
-    gl.uniform1f(u.u_lineCap, params.lineCap)
-    gl.uniform3f(u.u_fillColor, fill ? fill.color[0] : 0, fill ? fill.color[1] : 0, fill ? fill.color[2] : 0)
-    gl.uniform1f(u.u_hasFill, fill ? 1 : 0)
-    gl.uniform3f(
-      u.u_strokeColor, stroke ? stroke.color[0] : 0, stroke ? stroke.color[1] : 0, stroke ? stroke.color[2] : 0,
-    )
-    gl.uniform1f(u.u_hasStroke, stroke && stroke.width > 0 ? 1 : 0)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._shapePosLoc)
-    gl.vertexAttribPointer(this._shapePosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    target.endDraw()
-  }
-
-  /** Draws one shape into a layer, touching only the tiles it covers. */
-  private _drawShape(layerBuf: ILayerBuffer, op: ShapeOperation): void {
-    if (!op.stroke && !op.fill) return
-    const rect = this._shapeWorldRect(op.geometry, op.frame, op.stroke)
-    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)) return
-    const params = shapeDrawParams(op.geometry, op.frame, op.stroke)
-    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(rect)) {
-      this._runShapePass(buffer, originX, originY, params, op.stroke, op.fill)
-    }
-    // (#155 Tier 2) Same as _blitImage's call: the content bounds have to grow
-    // to include what was just painted, or a later transform or export can cut
-    // the shape off at the layer's previously-known extent.
-    layerBuf.markContentPainted(rect)
-    if (op.layerId !== this._activeId) this._invalidateSplitCache()
-  }
-
-  /** See PencilEngineAPI. The editing session's live preview: the shape drawn
-   *  over the layer's own content into scratch tiles, exactly the way
-   *  `previewAreaPaste` floats a pasted raster, and cleared by the same
-   *  `clearLayerTransformPreview`.
-   *
-   *  A float rather than an overlay on top of the composite, deliberately: the
-   *  shape belongs to a layer, so it has to be hidden by the layers above it
-   *  while it is being placed. Drawing it over everything would mean a shape
-   *  that jumps behind them at the moment it is confirmed — the preview would
-   *  be lying about the one thing it exists to show. */
+  /** See PencilEngineAPI's doc comment. */
   previewShape(
     layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
     stroke: ShapeStroke | null, fill: ShapeFill | null,
   ): void {
-    const layerBuf = this._layers.get(layerId)
-    const oldByOrigin = new Map(
-      (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
-    )
-    const drop = (): void => {
-      for (const t of oldByOrigin.values()) t.buffer.destroy()
-      this._transformPreview.delete(layerId)
-      this._areaPreviewLayers.delete(layerId)
-      this._display()
-    }
-    if (!layerBuf || (!stroke && !fill)) { drop(); return }
-
-    const rect = this._shapeWorldRect(geometry, frame, stroke)
-    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)
-      || !Number.isFinite(rect.minX + rect.minY + rect.maxX + rect.maxY)) { drop(); return }
-
-    const params = shapeDrawParams(geometry, frame, stroke)
-    const { w: tw, h: th } = this._tileSize()
-    const tiles: PreviewTile[] = []
-    const reused = new Set<string>()
-    for (const { tileX, tileY } of tilesOverlappingRect(rect, tw, th)) {
-      const tileRect = tileWorldRect(tileX, tileY, tw, th)
-      const key = `${tileRect.minX},${tileRect.minY}`
-      const old = oldByOrigin.get(key)
-      const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, tw, th)
-      if (old) reused.add(key)
-      const existing = this._tileBufferAt(layerBuf, tileRect)
-      if (existing) existing.copyTo(scratch)
-      else scratch.clear()
-      this._runShapePass(scratch, tileRect.minX, tileRect.minY, params, stroke, fill)
-      tiles.push(old ?? { originX: tileRect.minX, originY: tileRect.minY, buffer: scratch })
-    }
-    for (const [key, t] of oldByOrigin) {
-      if (!reused.has(key)) t.buffer.destroy()
-    }
-
-    this._transformPreview.set(layerId, tiles)
-    this._areaPreviewLayers.add(layerId)
-    this._display()
-  }
-
-  // ─── Layer filters (#574, ADR 014) ─────────────────────────────────────────
-
-  /** Runs `filter` over every tile of `layerBuf` that has content — plus, for
-   *  a blur, the neighbouring tiles it spreads into — and returns the results
-   *  as fresh tile-sized buffers. Writes nothing into the layer: the caller
-   *  either copies these in (`_applyFilter`) or floats them as a preview.
-   *
-   *  Each tile is read with a margin of the filter's reach around it, from
-   *  whichever of the layer's tiles overlap that margin. That is what makes a
-   *  tile's result equal to filtering the whole layer in one piece, and
-   *  therefore independent of where this client's tile grid happens to cut —
-   *  the property the recipe-in-the-log design rests on (layerFilters.test.ts
-   *  checks it byte for byte).
-   *
-   *  The pixel math runs on the CPU, not in a shader, because every
-   *  participant runs it and all of them have to get the same answer; see the
-   *  cross-device determinism rule in `.claude/rules.md`. The price is time on
-   *  the main thread, measured in ADR 014.
-   *
-   *  Eviction must be suspended by the caller: the reads below touch every
-   *  content tile and their neighbours, and a trim in the middle would
-   *  destroy a tile about to be read. */
-  private _filterTiles(layerBuf: ILayerBuffer, rawFilter: LayerFilter): Array<PreviewTile & { contentRect: WorldRect }> {
-    if (!isKnownLayerFilter(rawFilter)) return []
-    const filter = normalizeLayerFilter(rawFilter)
-    const reach = layerFilterReach(filter)
-    const { w: tw, h: th } = this._tileSize()
-    const page = this._infinite ? null : this._pageSize()
-
-    // Which tiles the result can land on, and how far content reaches in each.
-    const targets = new Map<string, { rect: WorldRect; content: WorldRect }>()
-    const addTarget = (rect: WorldRect, content: WorldRect): void => {
-      const key = `${rect.minX},${rect.minY}`
-      const prev = targets.get(key)
-      targets.set(key, {
-        rect,
-        content: prev ? {
-          minX: Math.min(prev.content.minX, content.minX), minY: Math.min(prev.content.minY, content.minY),
-          maxX: Math.max(prev.content.maxX, content.maxX), maxY: Math.max(prev.content.maxY, content.maxY),
-        } : content,
-      })
-    }
-    for (const src of layerBuf.allResident()) {
-      if (!src.contentRect) continue
-      const srcRect = tileWorldRect(Math.floor(src.originX / tw), Math.floor(src.originY / th), tw, th)
-      if (reach === 0) { addTarget(srcRect, src.contentRect); continue }
-      const grown: WorldRect = {
-        minX: src.contentRect.minX - reach, minY: src.contentRect.minY - reach,
-        maxX: src.contentRect.maxX + reach, maxY: src.contentRect.maxY + reach,
-      }
-      for (const { tileX, tileY } of tilesOverlappingRect(grown, tw, th)) {
-        const rect = tileWorldRect(tileX, tileY, tw, th)
-        // A bounded room grows no new tiles past its sheet for a blur's
-        // spill: nothing could ever show them. Tiles that already exist
-        // there (a transform moved content off the page) are still filtered.
-        const isSource = rect.minX === srcRect.minX && rect.minY === srcRect.minY
-        if (page && !isSource && (rect.minX >= page.w || rect.minY >= page.h || rect.maxX <= 0 || rect.maxY <= 0)) continue
-        addTarget(rect, {
-          minX: Math.max(rect.minX, grown.minX), minY: Math.max(rect.minY, grown.minY),
-          maxX: Math.min(rect.maxX, grown.maxX), maxY: Math.min(rect.maxY, grown.maxY),
-        })
-      }
-    }
-    if (targets.size === 0) return []
-
-    const pw = tw + 2 * reach
-    const ph = th + 2 * reach
-    const patch = new AccumulationBuffer(this.gl, pw, ph)
-    const results: Array<PreviewTile & { contentRect: WorldRect }> = []
-    try {
-      for (const { rect, content } of targets.values()) {
-        const region: WorldRect = {
-          minX: rect.minX - reach, minY: rect.minY - reach, maxX: rect.maxX + reach, maxY: rect.maxY + reach,
-        }
-        patch.clear()
-        let any = false
-        for (const { buffer, originX, originY } of layerBuf.resolveVisible(region)) {
-          this._runTransformBlit(buffer, translationMatrix(region.minX - originX, region.minY - originY), pw, ph, patch.fbo)
-          any = true
-        }
-        if (!any) continue
-        const filtered = applyLayerFilter(
-          patch.readPixels(), pw, ph, filter, { originX: region.minX, originY: region.minY, rowsUp: true },
-        )
-        // The tile is the patch minus its margin — the same `reach` on every
-        // side, so the crop needs no flip even though the rows are bottom-up.
-        const tile = new Uint8Array(tw * th * 4)
-        let empty = true
-        for (let y = 0; y < th; y++) {
-          const from = ((y + reach) * pw + reach) * 4
-          const row = filtered.subarray(from, from + tw * 4)
-          if (empty) for (let i = 3; i < row.length; i += 4) if (row[i] !== 0) { empty = false; break }
-          tile.set(row, y * tw * 4)
-        }
-        // A blur's spill that rounded away to nothing does not earn a tile.
-        const existing = this._tileBufferAt(layerBuf, rect)
-        if (empty && !existing) continue
-        const buffer = new AccumulationBuffer(this.gl, tw, th)
-        buffer.restorePixels(tile)
-        results.push({ originX: rect.minX, originY: rect.minY, buffer, contentRect: content })
-      }
-    } finally {
-      patch.destroy()
-    }
-    return results
-  }
-
-  /** Bakes a `layer_filter` into a layer. */
-  private _applyFilter(layerBuf: ILayerBuffer, filter: LayerFilter): void {
-    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
-    tiled?.suspendEviction()
-    try {
-      // Everything is computed before anything is written: a tile's margin
-      // reads its neighbours, and a neighbour already filtered would be
-      // filtered twice at the seam.
-      const results = this._filterTiles(layerBuf, filter)
-      for (const { originX, originY, buffer, contentRect } of results) {
-        const rect = tileWorldRect(
-          Math.floor(originX / buffer.width), Math.floor(originY / buffer.height), buffer.width, buffer.height,
-        )
-        const target = layerBuf.resolveForPaint(rect).find(t => t.originX === originX && t.originY === originY)
-        if (target) {
-          buffer.copyTo(target.buffer)
-          layerBuf.markContentPainted(contentRect)
-        }
-        buffer.destroy()
-      }
-    } finally {
-      tiled?.resumeEviction()
-    }
+    this._shapes.preview(layerId, geometry, frame, stroke, fill)
   }
 
   /** See PencilEngineAPI's doc comment. */
   previewLayerFilter(layerId: string, filter: LayerFilter | null): void {
-    for (const t of this._transformPreview.get(layerId) ?? []) t.buffer.destroy()
-    this._transformPreview.delete(layerId)
-    this._areaPreviewLayers.delete(layerId)
-    const layerBuf = this._layers.get(layerId)
-    if (layerBuf && filter) {
-      const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
-      tiled?.suspendEviction()
-      try {
-        const tiles = this._filterTiles(layerBuf, filter)
-        this._transformPreview.set(layerId, tiles.map(({ originX, originY, buffer }) => ({ originX, originY, buffer })))
-        // Drawn in place of the real tiles where a preview tile exists, from
-        // the real ones everywhere else — see _drawCompositeItem.
-        this._areaPreviewLayers.add(layerId)
-      } finally {
-        tiled?.resumeEviction()
-      }
-    }
-    if (layerId !== this._activeId) this._invalidateSplitCache()
-    this._display()
+    this._filters.preview(layerId, filter)
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────────
 
-  /** Conservative world-space AABB covering every dab's full painted extent
-   *  (center +/- radius, padded for aspect ratio so an elongated/rotated
-   *  dab is never under-covered) — the rect whose overlapping tile(s) this
-   *  batch must be resolved against.
-   *
-   *  #142: clamped to the visible page for a bounded room (never for an
-   *  infinite one). A bounded room's tile size is its own canvas size (see
-   *  _makeLayerBuffer), so an *unclamped* rect here would resolve — and
-   *  lazily create — a whole extra full-page-sized adjacent tile for every
-   *  ordinary stroke whose brush radius merely overlaps the page edge by a
-   *  few pixels (extremely common: any stroke drawn near the border), each
-   *  one wasted memory that can never become visible again through normal
-   *  use. Real, deliberate off-page content only ever gets there through a
-   *  layer_transform (_bakeTransform/previewLayerTransform, both compute
-   *  their own unclamped rect straight from the transformed content's
-   *  actual bounds, independent of this method) — clamping here doesn't
-   *  lose anything a user could otherwise reach: pointer input can't even
-   *  put a dab's *center* past the visible canvas element's own edge,
-   *  same as a real sheet of paper — ink can bleed to the very edge, not
-   *  past it. */
-  private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset, wicking = false): WorldRect {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const d of dabs) {
-      const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset, wicking)
-      minX = Math.min(minX, d.x - hx); maxX = Math.max(maxX, d.x + hx)
-      minY = Math.min(minY, d.y - hy); maxY = Math.max(maxY, d.y + hy)
-    }
-    if (this._infinite) return { minX, minY, maxX, maxY }
-    // (#470) The *sheet*, not the canvas. These were the same number while the
-    // canvas was the sheet; once it became the viewport this clamped every
-    // stroke to the window's own size, so on a 4096 page nothing below the
-    // window's height painted at all — the dab's rect came back empty and no
-    // tile was ever resolved.
-    const { w: pageW, h: pageH } = this._pageSize()
-    return {
-      minX: Math.max(minX, 0), minY: Math.max(minY, 0),
-      maxX: Math.min(maxX, pageW), maxY: Math.min(maxY, pageH),
-    }
-  }
-
-  /** One dab's exact world-space half-extents (an axis-aligned box around
-   *  everything that dab can possibly rasterize) — the same per-dab quantity
-   *  `_dabsWorldBounds` unions across a whole batch, factored out so
-   *  `_paintDabs`'s per-tile filter (see its own comment) and marker's own
-   *  per-batch tile resolution (_ribbonStrokeWork) can apply it to one dab at
-   *  a time without duplicating the math.
-   *
-   *  Derived straight from DAB_VERT/DAB_VERT_INSTANCED's own geometry, which
-   *  is the true clipping envelope no matter what DAB_FRAG's `discard` does
-   *  inside it: the unit quad spans ±0.5, gets stretched by `aspectRatio`
-   *  along local X, rotated by `angle`, then scaled by `dabRadius * 2` — so
-   *  the footprint is a rotated rectangle with half-extents
-   *  (aspectRatio * baseR, baseR), whose AABB is what's computed below.
-   *
-   *  This used to pad by `max(1, 1/aspectRatio)` instead, i.e. it padded for
-   *  the one direction aspect *doesn't* stretch in and ignored the one it
-   *  does. Harmless while aspectRatio was pencil/liner-only (1..1.15, a few
-   *  px of under-padding at most), but marker's chisel nib is a fixed 5:1
-   *  (MARKER_CHISEL_ASPECT_RATIO) at up to 120px width: a dab whose center
-   *  sat 60-300px from a tile boundary resolved only its own tile, so the
-   *  rest of the nib mark was clipped away by that tile's viewport and the
-   *  stroke visibly broke off along the tile edge (and, because the missing
-   *  side never accumulated into `coverage`/`inkLoad` either, resumed at a
-   *  different darkness on the far side once a later dab's center crossed
-   *  over). */
   /** (§17.70) Rough tile pixels one ribbon nib pass of `dab` covers. */
   private _nibDrawCost(tile: PaintTarget, dab: Dab, preset: PencilPreset): number {
     const { hx, hy } = this._dabWorldHalfExtents(dab, false, preset)
@@ -9218,26 +7220,13 @@ export class PencilEngine implements PencilEngineAPI {
       && dab.y + hy + m > tile.originY && dab.y - hy - m < tile.originY + tile.buffer.height
   }
 
+  /** (#494) One dab's world-space half-extents — see dabWorldHalfExtents
+   *  (dabs/StampPainter.ts). Kept as a method for the ribbon paths, which
+   *  resolve their tiles one dab at a time with it. */
   private _dabWorldHalfExtents(
     d: Dab, erasing: boolean, preset: PencilPreset, wicking = false,
   ): { hx: number; hy: number } {
-    const baseR = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
-    // #452: the liner's absorbed band lives *outside* baseR, so it has to be
-    // padded in here too — this box picks which tiles a batch resolves and
-    // which rect gets marked dirty, and a band left out of it is a halo
-    // sheared off at a tile boundary (exactly the failure #330 hit with the
-    // chisel nib, described in this method's own doc comment above). Same
-    // absolute-with-a-cap rule the vertex shader applies per dab
-    // (WICK_EXPAND_GLSL); linerWickPx is the single statement of it, so the
-    // two can't drift apart. 0 for every other tool.
-    const r = baseR + (wicking ? linerWickPx(baseR) : 0)
-    // Rotated-rect AABB, not a `baseR * aspectRatio` circle: a 5:1 chisel dab
-    // is long *along the nib only*, and inflating the short axis to match
-    // would resolve (and so lazily create — 4MB each) whole tiles the dab
-    // never actually reaches.
-    const halfLong = r * Math.max(1, d.aspectRatio)
-    const c = Math.abs(Math.cos(d.angle)), s = Math.abs(Math.sin(d.angle))
-    return { hx: halfLong * c + r * s, hy: halfLong * s + r * c }
+    return dabWorldHalfExtents(d, erasing, preset, wicking)
   }
 
   /** `target` is usually a real layer's `ILayerBuffer`, but a few callers
@@ -9250,13 +7239,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  method was generalized for tiling.
    *
    *  `userId` (smudge only, #14): whose own carried imprint
-   *  (this._smudgeImprints) these dabs exchange with — every caller already
+   *  (SmudgePainter's imprints) these dabs exchange with — every caller already
    *  knows this (their own this._userId for a live/preview stroke, the
    *  StrokeOperation's own userId for a remote/replayed one); unused by
    *  every other tool.
    *
    *  `prevDab` (smudge only, #14): the dab immediately before `dabs[0]` in
-   *  the same stroke, if any — see _paintSmudgeDabs' own doc comment for
+   *  the same stroke, if any — see SmudgePainter.paint's own doc comment for
    *  why this is the one extra piece of context smudge needs that pencil/
    *  eraser don't (every other tool's dabs are independent of each other;
    *  smudge's aren't).
@@ -9274,7 +7263,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  `strokeId` (marker and smudge): which gesture these dabs belong to.
    *  Marker uses it to rejoin a chunked stroke's scratch (_replayChunkScratch);
    *  smudge, to decide whether the carried imprint continues or resets
-   *  (_smudgeResumeGesture). Both are no-ops without it — a stroke recorded
+   *  (SmudgePainter.resumeGesture). Both are no-ops without it — a stroke recorded
    *  before strokeId existed replays as several independent operations, with
    *  a seam at each boundary. */
   private _paintDabs(
@@ -9296,13 +7285,13 @@ export class PencilEngine implements PencilEngineAPI {
     spreadSettle = false,
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
-    if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return undefined }
+    if (tool === 'smudge') { this._smudge.paint(target, dabs, userId, prevDab, strokeId); return undefined }
     // #573 — the mixer brush paints through smudge's carried imprint with its
     // own colour loaded into it; every other digital brush is a ribbon-scratch
     // tool below.
     if (tool === 'digitalBrush') {
       const paint = digitalBrushMixer(presetName, color)
-      if (paint) { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId, paint); return undefined }
+      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
@@ -9316,669 +7305,9 @@ export class PencilEngine implements PencilEngineAPI {
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
     if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
-    const erasing = tool === 'eraser'
-    // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
-    // table). Resolved once here as a number rather than one boolean flag per
-    // tool — #304 would otherwise have added a second `charcoalMode` boolean
-    // alongside `linerMode` and threaded both through the two paint methods
-    // below, which is exactly how two flags for one mutually-exclusive
-    // switch drift out of sync.
-    const inkMode = tool === 'liner' ? 1.0 : tool === 'charcoal' ? 5.0 : 0.0
-    // Charcoal's own three extra preset fields (#304) — null for every other
-    // tool, in which case the paint methods below leave their uniforms at 0
-    // (never read outside DAB_FRAG's u_inkMode>4.5 branch).
-    const charcoal: CharcoalPreset | null = tool === 'charcoal' ? charcoalPresetFor(presetName) : null
-    // #501: the aspect DAB_FRAG reads as "fully on its broad side", and 0 for a
-    // draw where elongation means nothing of the kind — every non-charcoal
-    // tool, as before, and now also charcoal's own chisel, whose 4:1 is the cut
-    // of the nib rather than a stick laid over. The shader already treats
-    // anything <= 1 as broadness 0, which is the hook this rides; the CPU side
-    // zeroes the same term in _bakeDabOpacity, and the two must agree.
-    const broadAspect = charcoal !== null && charcoalNibFromPreset(presetName) !== 'chisel'
-      ? CHARCOAL_FEEL.aspectMax
-      : 0
-    const preset  = this._resolvePreset(tool, presetName)
-    // #452 (ADR 003 §4): only the liner's dabs are grown past their own radius
-    // to hold the band of ink absorbed into the paper around the mark. Derived
-    // from `tool` alone rather than passed in by the caller, deliberately —
-    // see linerPresets.ts's note under linerWickPx on what happened to the
-    // version of this that carried a live per-draw multiplier.
-    const wicking = tool === 'liner'
-    const worldBounds = this._dabsWorldBounds(dabs, erasing, preset, wicking)
-    const targets: PaintTarget[] = target instanceof AccumulationBuffer
-      ? [{ buffer: target, originX: 0, originY: 0, contentRect: null }]
-      : target.resolveForPaint(worldBounds)
-
-    for (const { buffer, originX, originY } of targets) {
-      // A stroke's dab batch is resolved against every tile its *union*
-      // bounding box overlaps (resolveForPaint), but an individual dab
-      // rarely overlaps every one of those tiles itself — e.g. an infinite
-      // room's tile grid is rooted at world (0,0), exactly where the
-      // default camera centers the visible page, so ordinary drawing near
-      // the middle routinely resolves 2-4 tiles at once even though any
-      // given ~8px dab only ever lands in one of them. Before this filter,
-      // every target got the *entire* batch re-uploaded and redrawn
-      // (`_paintDabsInstanced`'s bufferData + drawArraysInstancedANGLE),
-      // regardless of overlap — harmless for final pixels (dabs outside a
-      // tile's viewport just get clipped by the rasterizer) but multiplied
-      // real GPU submission cost by the tile count on every pointermove.
-      // Skipped for the single-target case (the overwhelming common case:
-      // every bounded room, and most infinite strokes) to avoid the filter
-      // allocation on the hot path where it can only ever keep everything.
-      const tileDabs = targets.length === 1 ? dabs : dabs.filter(d => {
-        const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset, wicking)
-        return d.x + hx > originX && d.x - hx < originX + buffer.width &&
-               d.y + hy > originY && d.y - hy < originY + buffer.height
-      })
-      if (!tileDabs.length) continue
-
-      if (erasing) buffer.beginErase()
-      else buffer.beginDraw()
-
-      // #123: batch every dab in this call into one instanced draw call when
-      // the extension is available (effectively always, in practice) — see
-      // _paintDabsInstanced's docstring for why this preserves the exact
-      // sequential per-dab blend order the fallback loop below relies on.
-      if (this._instancedArraysExt) {
-        this._paintDabsInstanced(tileDabs, erasing, inkMode, charcoal, broadAspect, preset, color, buffer.width, buffer.height, originX, originY, wicking)
-      } else {
-        this._paintDabsUniform(tileDabs, erasing, inkMode, charcoal, broadAspect, preset, color, buffer.width, buffer.height, originX, originY, wicking)
-      }
-
-      buffer.endDraw()
-    }
-    // (#155 Tier 2) A plain AccumulationBuffer (live-tip/prediction/peer
-    // reveal) is transient/visual-only and never queried for content bounds
-    // — nothing to track. A real ILayerBuffer target tracks it so
-    // getContentBounds() never has to fall back to a readPixels scan.
-    if (!(target instanceof AccumulationBuffer)) target.markContentPainted(worldBounds)
+    // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
+    this._stamps.paint(target, dabs, tool, presetName, color)
     return undefined
-  }
-
-  /** Fallback path for a WebGL1 context without ANGLE_instanced_arrays: one
-   *  gl.drawArrays + ~9 gl.uniform* calls per dab, kept exactly as it was
-   *  before #123 (same shader math via DAB_VERT, same GL call count/order) —
-   *  the safety net on the rare device that lacks the extension.
-   *  `resW/resH` is the actual target buffer's size (bounded: canvas size,
-   *  same as before; tiled: one tile's TILE_SIZE) and `originX/originY`
-   *  translates each dab's world-space center into that buffer's local
-   *  space (bounded: always (0,0), so this is a no-op there). */
-  private _paintDabsUniform(
-    dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
-    broadAspect: number, preset: PencilPreset, color: [number, number, number],
-    resW: number, resH: number, originX: number, originY: number, wicking: boolean,
-  ): void {
-    const { gl } = this
-    gl.useProgram(this._dabProg)
-    const u = this._dabUni
-
-    gl.uniform2f(u.u_resolution, resW, resH)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    // #141: world-space paper sampling — see DAB_FRAG's own comment. Y is
-    // negated (defensively normalized away from -0 with `|| 0`, since
-    // JSON/toEqual-style equality checks — see this fix's own tests — can
-    // otherwise trip on -0 !== 0): DAB_VERT's own clip.y flip means a
-    // dab-buffer's local gl_FragCoord.y runs opposite to the tile origin's
-    // top-down world-Y convention, so origin must be *subtracted* (not
-    // added) there for the two to agree at every shared tile edge — see
-    // this fix's own tests for the boundary derivation. originX/Y are
-    // always (0,0) for a bounded room, so this is (0,0) there regardless.
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 0)
-    gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
-    gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
-    gl.uniform3fv(u.u_color, color)
-    gl.uniform1i(u.u_grainMode, this._resolveGrainMode(charcoal))
-    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
-    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, inkMode)
-    // #452: the shader applies the cap itself, per dab, because only it knows
-    // each dab's own radius on the batched path — these two carry the rule,
-    // linerWickPx() states the same one CPU-side for the dirty rect, and they
-    // must not drift. Both 0 for a non-liner draw, which makes the shader's
-    // wickExpand() return exactly 1.0 and this whole path a no-op.
-    gl.uniform1f(u.u_wickPx,  wicking ? LINER_WICK_PX : 0)
-    gl.uniform1f(u.u_wickCap, wicking ? LINER_WICK_RADIUS_CAP : 0)
-    gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
-    gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
-    gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
-    // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
-    // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
-    // tiltSmoothing is a getter. Still true of broadAspect, which the caller
-    // reads off the same live object one draw earlier (#501).
-    gl.uniform1f(u.u_charcoalBroadAspect, broadAspect)
-    gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
-    gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
-    gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
-    gl.uniform1f(u.u_charcoalSkipFloor,   charcoal ? CHARCOAL_FEEL.skipFloor : 1)
-    gl.uniform1f(u.u_charcoalGateRelief,  charcoal ? CHARCOAL_FEEL.gateRelief : 0)
-    gl.uniform1f(u.u_charcoalGrainDepth,  charcoal ? CHARCOAL_FEEL.grainDepth : 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    const posLoc = this._dabPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    for (const dab of dabs) {
-      gl.uniform2f(u.u_dabCenter, dab.x - originX, dab.y - originY)
-      gl.uniform1f(u.u_dabRadius, dab.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier))
-      gl.uniform1f(u.u_angle,      dab.angle)
-      gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
-      gl.uniform1f(u.u_pressure,   dab.pressure)
-      gl.uniform1f(u.u_tiltX,      dab.tiltX)
-      gl.uniform1f(u.u_tiltY,      dab.tiltY)
-      gl.uniform1f(u.u_opacity,    dab.opacity)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-    }
-  }
-
-  /** Batched hot path (#123): one interleaved instance-data upload + one
-   *  drawArraysInstancedANGLE call per _paintDabs invocation, replacing what
-   *  used to be one gl.drawArrays + ~9 gl.uniform* calls PER DAB (a fast/long
-   *  stroke can produce dozens of dabs from a single move-event).
-   *
-   *  Correctness constraint this must preserve exactly: dabs are NOT
-   *  independent/order-insensitive when they overlap — e.g. an eraser dab
-   *  must still correctly interact with ink laid down by an earlier dab in
-   *  the same batch. AccumulationBuffer.beginDraw()/beginErase() blend every
-   *  dab draw call (ONE, ONE_MINUS_SRC_ALPHA or ZERO, ONE_MINUS_SRC_ALPHA)
-   *  onto the accumulation of every previous one, so the per-dab paint order
-   *  is directly observable in the resulting pixels. ANGLE_instanced_arrays
-   *  processes instance 0, 1, 2, ... in strict submission order through the
-   *  same fixed-function blend stage a sequence of separate draw calls
-   *  would use — this is the same ordering guarantee every sorted-
-   *  transparency instancing technique (particle systems, decal stacks)
-   *  already depends on, so batching here doesn't change the accumulated
-   *  result. The fragment shader itself is completely unchanged (DAB_FRAG is
-   *  shared with the uniform path) — only how each dab's parameters reach
-   *  the shader changed, from one gl.uniform* call per dab to one instanced
-   *  vertex attribute read per dab out of a single buffer uploaded once. */
-  private _paintDabsInstanced(
-    dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
-    broadAspect: number, preset: PencilPreset, color: [number, number, number],
-    resW: number, resH: number, originX: number, originY: number, wicking: boolean,
-  ): void {
-    const { gl } = this
-    const ext = this._instancedArraysExt
-    if (!ext) return // only called when present; guards the type narrowing below
-    const u = this._dabInstUni
-
-    gl.useProgram(this._dabProgInstanced)
-    gl.uniform2f(u.u_resolution, resW, resH)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    // #141: see _paintDabsUniform's own comment for the world-space-paper /
-    // origin-sign reasoning — identical here, just for the batched path.
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 0)
-    gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
-    gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
-    gl.uniform3fv(u.u_color, color)
-    gl.uniform1i(u.u_grainMode, this._resolveGrainMode(charcoal))
-    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
-    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, inkMode)
-    // #452: the shader applies the cap itself, per dab, because only it knows
-    // each dab's own radius on the batched path — these two carry the rule,
-    // linerWickPx() states the same one CPU-side for the dirty rect, and they
-    // must not drift. Both 0 for a non-liner draw, which makes the shader's
-    // wickExpand() return exactly 1.0 and this whole path a no-op.
-    gl.uniform1f(u.u_wickPx,  wicking ? LINER_WICK_PX : 0)
-    gl.uniform1f(u.u_wickCap, wicking ? LINER_WICK_RADIUS_CAP : 0)
-    gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
-    gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
-    gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
-    // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
-    // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
-    // tiltSmoothing is a getter. Still true of broadAspect, which the caller
-    // reads off the same live object one draw earlier (#501).
-    gl.uniform1f(u.u_charcoalBroadAspect, broadAspect)
-    gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
-    gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
-    gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
-    gl.uniform1f(u.u_charcoalSkipFloor,   charcoal ? CHARCOAL_FEEL.skipFloor : 1)
-    gl.uniform1f(u.u_charcoalGateRelief,  charcoal ? CHARCOAL_FEEL.gateRelief : 0)
-    gl.uniform1f(u.u_charcoalGrainDepth,  charcoal ? CHARCOAL_FEEL.grainDepth : 0)
-
-    // Shared unit quad, divisor 0 — same 6 vertices/2 triangles per instance
-    // as the uniform path's per-dab quad.
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._instPosLoc)
-    gl.vertexAttribPointer(this._instPosLoc, 2, gl.FLOAT, false, 0, 0)
-    ext.vertexAttribDivisorANGLE(this._instPosLoc, 0)
-
-    // Interleaved per-dab instance data — stride 9 floats:
-    // [cx, cy, radius, angle, aspectRatio, pressure, tiltX, tiltY, opacity].
-    // Packed into 2 vec4 + 1 float attributes (see DAB_VERT_INSTANCED) to
-    // stay well within WebGL1's guaranteed minimum of 8 vertex attributes.
-    // Reused/grown scratch array — no per-stroke-segment allocation.
-    const STRIDE = 9
-    const need = dabs.length * STRIDE
-    if (this._dabInstScratch.length < need) {
-      this._dabInstScratch = new Float32Array(Math.max(need, this._dabInstScratch.length * 2, 256))
-    }
-    const data = this._dabInstScratch
-    for (let i = 0; i < dabs.length; i++) {
-      const d = dabs[i]
-      const o = i * STRIDE
-      data[o + 0] = d.x - originX
-      data[o + 1] = d.y - originY
-      data[o + 2] = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
-      data[o + 3] = d.angle
-      data[o + 4] = d.aspectRatio
-      data[o + 5] = d.pressure
-      data[o + 6] = d.tiltX
-      data[o + 7] = d.tiltY
-      data[o + 8] = d.opacity
-    }
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._dabInstBuf)
-    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, need), gl.DYNAMIC_DRAW)
-
-    const STRIDE_BYTES = STRIDE * 4
-    gl.enableVertexAttribArray(this._instALoc)
-    gl.vertexAttribPointer(this._instALoc, 4, gl.FLOAT, false, STRIDE_BYTES, 0)
-    ext.vertexAttribDivisorANGLE(this._instALoc, 1)
-
-    gl.enableVertexAttribArray(this._instBLoc)
-    gl.vertexAttribPointer(this._instBLoc, 4, gl.FLOAT, false, STRIDE_BYTES, 16)
-    ext.vertexAttribDivisorANGLE(this._instBLoc, 1)
-
-    gl.enableVertexAttribArray(this._instOpacityLoc)
-    gl.vertexAttribPointer(this._instOpacityLoc, 1, gl.FLOAT, false, STRIDE_BYTES, 32)
-    ext.vertexAttribDivisorANGLE(this._instOpacityLoc, 1)
-
-    ext.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, dabs.length)
-
-    // Defensive: divisor state belongs to WebGL1's one implicit vertex array
-    // (global, not per-program) — reset before any other program potentially
-    // reuses these location indices, so a leftover divisor=1 can never
-    // silently collapse an unrelated draw call onto a single instance.
-    ext.vertexAttribDivisorANGLE(this._instALoc, 0)
-    ext.vertexAttribDivisorANGLE(this._instBLoc, 0)
-    ext.vertexAttribDivisorANGLE(this._instOpacityLoc, 0)
-  }
-
-  /** See _paintOneSmudgeDab's own doc comment for the algorithm and
-   *  _paintDabs' doc comment for `prevDab`/`strokeId`. Never batched (unlike
-   *  pencil/eraser's _paintDabsInstanced): every dab both reads the canvas
-   *  under it and writes to it, through an imprint threaded dab-to-dab, so
-   *  dab N+1's own passes can't be submitted until dab N's have actually
-   *  been issued in order. A real cost pencil/eraser don't pay (their dabs
-   *  are independent, safely batched), but smudge strokes are a deliberate,
-   *  comparatively low-frequency gesture (blending a shaded area), not fast
-   *  scribbling — not the same hot path #123 batched. */
-  private _paintSmudgeDabs(
-    target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], userId: string, prevDab: Dab | undefined,
-    strokeId: string | undefined,
-    /** (#573) Set for the digital brush's mixer: the colour the brush is
-     *  loaded with and how it lays it down. Absent for the smudge tool. */
-    paint?: MixerPaint,
-  ): void {
-    // Transient scratch targets (live-tip/prediction preview, a peer's
-    // reveal buffer) are a single un-tiled buffer, freshly cleared before
-    // every refresh — nothing meaningful to pick up, and reading it back
-    // while it's also the render target would need the same same-texture
-    // read+write WebGL1 forbids. A harmless no-op: the real dabs below
-    // always paint straight into the real layer regardless (see
-    // _paintDabs' own doc comment on this parameter).
-    if (target instanceof AccumulationBuffer) return
-    // An explicit prevDab means the caller *is* the continuation (the live
-    // stroke's own next incremental batch), and nothing needs resolving.
-    let prev = prevDab ?? this._smudgeResumeGesture(userId, strokeId, dabs)
-    for (const dab of dabs) {
-      // No predecessor: this is the gesture's first dab, so there is no
-      // travel to smear along yet — it only primes the imprint with what
-      // sits under it (see _smudgeApplyDab's `priming` branch), which is
-      // also why a one-dab smudge stroke leaves the canvas untouched.
-      if (prev) this._paintOneSmudgeDab(target, prev, dab, userId, paint)
-      else this._smudgeApplyDab(target, dab, 0, userId, paint)
-      prev = dab
-    }
-  }
-
-  /** Resolves what the first dab of this call should treat as its
-   *  predecessor, and resets the imprint when this call starts a *new*
-   *  gesture (see _smudgeImprints' own field comment for why an imprint
-   *  never crosses a pen-up).
-   *
-   *  The continuation case is a gesture long enough to have been recorded
-   *  as several operations (_flushStrokeChunk): live, they were one
-   *  unbroken run of dabs through one imprint, and replay has to rejoin
-   *  them or every chunk boundary would restart the smear from scratch —
-   *  visible as a seam. Both halves of the check matter: the imprint must
-   *  still belong to this gesture *and* a previous chunk of it must have
-   *  gone through here, so an operation arriving on its own (a peer's
-   *  stroke, a replay that begins mid-gesture because the earlier chunk is
-   *  already inside a restored snapshot) correctly starts clean instead of
-   *  smearing from wherever this user's tool last happened to be. */
-  private _smudgeResumeGesture(userId: string, strokeId: string | undefined, dabs: Dab[]): Dab | undefined {
-    const imprint = this._smudgeImprintFor(userId)
-    const chunk = strokeId ? this._smudgeReplayChunks.get(userId) : undefined
-    const continuing = !!strokeId && chunk?.strokeId === strokeId && imprint.strokeId === strokeId
-    if (!continuing) {
-      if (imprint.buf) this._releaseSmudgeScratchBuf(imprint.buf)
-      imprint.buf = null
-    }
-    imprint.strokeId = strokeId ?? null
-    if (strokeId) this._smudgeReplayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1] })
-    else this._smudgeReplayChunks.delete(userId)
-    return continuing ? chunk?.lastDab : undefined
-  }
-
-  /** One smudge dab (#416): the canvas under it is blended toward the
-   *  imprint the stump carries, and the imprint is blended toward the
-   *  canvas — both per pixel, both in the same dab. See
-   *  SMUDGE_TRANSFER_FRAG's own file comment in shaders.ts for the full
-   *  algorithm and for what this replaced (a single carried scalar, which
-   *  forced every dab to be *either* a pickup or a deposit across its whole
-   *  footprint and left a scrubbed-clean halo around every line it worked).
-   *
-   *  There are no separate rear/center/front contacts anymore. The imprint
-   *  is anchored to the dab's own position in normalized patch space, so it
-   *  travels with the brush by construction and the offset between
-   *  consecutive dabs is itself the smear — the thing three hand-offset
-   *  contacts were approximating.
-   *
-   *  `travel` (distance since the previous dab, in brush radii) scales both
-   *  rates so a stroke's result follows how far it went rather than how
-   *  many samples arrived along the way — see SMUDGE_PICKUP_RATE. It also
-   *  makes standing still a true no-op rather than something that slowly
-   *  eats the drawing. */
-  private _paintOneSmudgeDab(target: ILayerBuffer, prev: Dab, dab: Dab, userId: string, paint?: MixerPaint): void {
-    const radius = this._smudgeRadius(dab, paint)
-    if (radius < 0.5) return
-
-    const len = Math.hypot(dab.x - prev.x, dab.y - prev.y)
-    if (len < 1e-3) return // stationary/duplicate sample — nothing moved, so nothing smears
-    this._smudgeApplyDab(target, dab, clampNum(len / radius, 0, 1), userId, paint)
-  }
-
-  /** The stump's radius — or, for the mixer brush (#573), the brush's, which
-   *  follows the digital brush's own size normalization rather than smudge's. */
-  private _smudgeRadius(dab: Dab, paint?: MixerPaint): number {
-    return dab.size * 0.5 * (paint ? paint.sizeMultiplier : SMUDGE_SIZE_MULTIPLIER)
-  }
-
-  /** The two GPU phases of one smudge dab, against `userId`'s own imprint:
-   *  copy the canvas patch under the dab, refresh the imprint from it
-   *  (SMUDGE_PICKUP_FRAG), then lay the imprint back down as a per-pixel
-   *  lerp (two SMUDGE_TRANSFER_FRAG draws — see that shader's own comment
-   *  for why the pair is exactly `dst*(1-a) + carried*a` and why both must
-   *  keep computing `a` identically).
-   *
-   *  `travel` of 0 means there is no imprint to lay down yet: the dab only
-   *  primes it (rate 1 — take the canvas wholesale rather than blending
-   *  toward it from nothing, which would otherwise lay a faded ghost of the
-   *  canvas over itself on the gesture's first dab) and paints nothing.
-   *  Same branch covers an imprint that never got primed because an earlier
-   *  dab bailed out below.
-   *
-   *  (#514) Both phases span as many tiles as the dab actually overlaps —
-   *  up to four. Until then a dab whose patch didn't fit inside a single
-   *  tile was dropped whole, which was written off as "only bites right at
-   *  a boundary": true of nothing. Tiles are TILE_SIZE in a bounded room
-   *  too (_tileSize), so an A4 sheet has a seam cross straight through it at
-   *  x=1024/y=1024, and the dead band around each seam is as wide as the
-   *  brush is — a 100px stump had a 100px stripe where the tool did
-   *  literally nothing, measured, with the imprint going stale across it and
-   *  then dumping pre-seam content on the far side. The dab is the same dab
-   *  either way; only which tile's pixel space each piece of it is expressed
-   *  in changes, which is exactly how pencil and eraser have always crossed
-   *  a seam. */
-  private _smudgeApplyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string, paint?: MixerPaint): void {
-    const radius = this._smudgeRadius(dab, paint)
-    if (radius < 0.5) return
-    const patchWorld = Math.ceil(radius * 2)
-    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
-    if (patchSize < 1) return
-    const half = patchSize / 2
-
-    // Whole world texels, not the dab's own fractional center: the imprint
-    // and the canvas have to agree to the texel, or the lerp mixes a shifted
-    // copy of the same content into itself and blurs the canvas on every
-    // dab, including a standing-still one. Rounded in *world* space (it used
-    // to be rounded in the one tile's local space) because every tile below
-    // maps this same world rect into its own pixels — which is what makes
-    // the two halves of a seam-straddling patch line up with each other.
-    const patchX = Math.round(dab.x - half)
-    const patchY = Math.round(dab.y - half)
-    const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSize, maxY: patchY + patchSize }
-
-    const targets = target.resolveForPaint(patchRect)
-    if (!targets.length) return // degenerate rect only — tilesOverlappingRect never returns empty otherwise
-
-    const patch = this._acquireSmudgeScratchBuf(patchSize)
-    this._gatherSmudgePatch(patch, targets, patchRect, patchSize)
-
-    const imprint = this._smudgeImprintFor(userId)
-    const priming = imprint.buf === null
-    const rate = priming ? 1 : clampNum(SMUDGE_PICKUP_RATE * travel, 0, 1)
-    // Ping-pong rather than in-place: WebGL1 forbids reading and writing the
-    // same texture in one draw, the same two-phase commit every other
-    // scratch-then-copy in this file already follows. Priming has no
-    // previous imprint to read, so it reads the patch on both inputs —
-    // mix(patch, patch, 1) is the patch either way.
-    const next = this._acquireSmudgeScratchBuf(patchSize)
-    // (#573) The mixer folds its own colour back into what it carries, per
-    // radius travelled — and nearly in full on the first dab, because a brush
-    // arrives on the canvas loaded with paint, not with whatever is under it.
-    const paintLoad = !paint ? 0 : priming ? MIXER_PRIME_LOAD : clampNum(paint.load * travel, 0, 1)
-    // The mixer picks up at its own rate — slower than the stump's, which is
-    // what lets it drag a colour a couple of brush widths rather than one.
-    const pickRate = paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
-    this._smudgeRunPickup(patch, imprint.buf ?? patch, next, pickRate, paint?.color ?? null, paintLoad)
-    this._releaseSmudgeScratchBuf(patch)
-    if (imprint.buf) this._releaseSmudgeScratchBuf(imprint.buf)
-    imprint.buf = next
-    if (priming) return
-
-    // dab.opacity is the UI's "Strength" slider for this tool (see
-    // _bakeDabOpacity's own smudge branch); pressure and travel are the two
-    // physical terms on top of it.
-    // The mixer lays paint down at its own rate, and pressure acts through the
-    // brush's opacity curve when that switch is on — the same meaning pressure
-    // has for every other digital brush.
-    const strength = paint
-      ? paint.strength * travel * (paint.pressure ? curveAt(paint.curve, dab.pressure) : 1) * dab.opacity
-      : SMUDGE_DEPOSIT_RATE * travel * dab.pressure * dab.opacity
-    if (strength <= 0) return
-    for (const tile of targets) {
-      // The brush's own circle, not the patch square: patchSize is rounded up
-      // to SMUDGE_PATCH_GRANULARITY, so a patch can reach into a tile the
-      // stump itself never touches, where both draws below would discard
-      // every fragment for nothing.
-      if (dab.x + radius <= tile.originX || dab.x - radius >= tile.originX + tile.buffer.width
-        || dab.y + radius <= tile.originY || dab.y - radius >= tile.originY + tile.buffer.height) continue
-      // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
-      // (bottom-up) — the same flip every other app-space/GL boundary in this
-      // file applies (DAB_VERT's clip.y flip, pickColor). The patch's own
-      // lower-left corner *in this tile's* pixel space, which is how
-      // SMUDGE_TRANSFER_FRAG maps a fragment back into the imprint
-      // (u_patchOrigin); negative for the tile on the far side of a seam,
-      // which the shader's plain `(gl_FragCoord.xy - u_patchOrigin)` handles
-      // as-is — every fragment it actually shades still lands inside the
-      // patch, since the dab quad is contained in it by construction.
-      const originX = patchX - tile.originX
-      const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSize
-      this._drawSmudgeTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'clear', strength)
-      this._drawSmudgeTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'lay', strength)
-    }
-
-    target.markContentPainted({ minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius })
-  }
-
-  /** Assembles the canvas patch under one dab out of every tile it overlaps
-   *  (#514) — one `copyTexSubImage2D` per tile, each writing only the part of
-   *  the patch that tile actually covers, so a patch straddling a seam comes
-   *  out as one continuous image of the canvas rather than being abandoned.
-   *
-   *  Cleared first because the buffers are pooled: a tile covering only part
-   *  of this patch leaves the remainder holding whatever the previous dab put
-   *  there, and the imprint would pick that stale square up and lay it
-   *  straight back onto the canvas — the same class of bug as the
-   *  wrong-vertex-buffer one _smudgeRunPickup's own comment describes. In an
-   *  infinite room resolveForPaint has already created every tile the rect
-   *  touches, so the clear is belt-and-braces there; it is load-bearing for
-   *  a bounded room, whose grid stops at the sheet's own last tile, and cheap
-   *  next to the two full-quad passes each dab already runs. */
-  private _gatherSmudgePatch(
-    patch: AccumulationBuffer, targets: PaintTarget[], patchRect: WorldRect, patchSize: number,
-  ): void {
-    patch.clear()
-    for (const { buffer, originX, originY } of targets) {
-      // The overlap between this tile and the patch, in world space.
-      const x0 = Math.max(patchRect.minX, originX)
-      const y0 = Math.max(patchRect.minY, originY)
-      const x1 = Math.min(patchRect.maxX, originX + buffer.width)
-      const y1 = Math.min(patchRect.maxY, originY + buffer.height)
-      if (x1 <= x0 || y1 <= y0) continue
-      // Top-down world -> bottom-up GL on both sides of the copy, so `y1` (the
-      // overlap's world *bottom*) is what each origin is measured back from.
-      // Columns need no such care: x runs the same way in both conventions.
-      buffer.copyRegionInto(
-        patch,
-        x0 - originX, buffer.height - (y1 - originY),
-        x0 - patchRect.minX, patchSize - (y1 - patchRect.minY),
-        x1 - x0, y1 - y0,
-      )
-    }
-  }
-
-  /** `userId`'s own imprint slot, created empty (never primed) on first use.
-   *  Never removed once created — the entry itself is two fields and a
-   *  possibly-null buffer handle, and the buffer goes back to the shared
-   *  pool at every gesture boundary (see _smudgeResumeGesture), so a room
-   *  full of people who each smudged once holds nothing but map entries. */
-  private _smudgeImprintFor(userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
-    let entry = this._smudgeImprints.get(userId)
-    if (!entry) {
-      entry = { buf: null, strokeId: null }
-      this._smudgeImprints.set(userId, entry)
-    }
-    return entry
-  }
-
-  /** One SMUDGE_PICKUP_FRAG draw: writes `mix(carried, patch, rate)` into
-   *  `target`, per texel. GL blending must stay disabled — this replaces
-   *  the imprint outright rather than accumulating onto whatever the pooled
-   *  buffer happened to hold before. */
-  private _smudgeRunPickup(
-    patch: AccumulationBuffer, carried: AccumulationBuffer, target: AccumulationBuffer, rate: number,
-    paintColor: [number, number, number] | null = null, paintLoad = 0,
-  ): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo)
-    gl.viewport(0, 0, target.width, target.height)
-    gl.disable(gl.BLEND)
-    gl.useProgram(this._smudgePickupProg)
-    const u = this._smudgePickupUni
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, patch.texture)
-    gl.uniform1i(u.u_patch, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, carried.texture)
-    gl.uniform1i(u.u_carried, 1)
-    gl.uniform1f(u.u_rate, rate)
-    // Opaque and premultiplied: the colour is its own premultiplied value at
-    // alpha 1. Set on every pickup, smudge's included (load 0), because a
-    // program's uniforms outlive the draw that set them.
-    const [pr, pg, pb] = paintColor ?? [0, 0, 0]
-    gl.uniform4f(u.u_paint, pr, pg, pb, 1)
-    gl.uniform1f(u.u_paintLoad, paintLoad)
-    gl.uniform1f(u.u_alphaPickup, paintColor ? 1 : 0)
-
-    // _screenBuf, not _quadBuf: this pass runs DISPLAY_VERT, whose "quad"
-    // convention is the -1..1 fullscreen one, while _quadBuf is DAB_VERT's
-    // own -0.5..0.5 dab quad. Handing DAB_VERT's buffer to DISPLAY_VERT
-    // covered only the imprint's middle quarter (and sampled the patch's
-    // middle half, magnified), so the imprint's outer ring kept whatever
-    // stale patch the pooled buffer last held and got laid straight back
-    // onto the canvas — the square blocks a wide smudge stroke used to
-    // stamp out (see index.smudge.test.ts's own square-block test).
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._smudgePickupPosLoc)
-    gl.vertexAttribPointer(this._smudgePickupPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** One half of a smudge dab's transfer — `clear` is `dst *= (1-a)` under
-   *  beginErase()'s (ZERO, ONE_MINUS_SRC_ALPHA), `lay` is
-   *  `dst += carried*a*tooth` under beginAdditiveDraw()'s (ONE, ONE). Issued
-   *  as a pair, with identical uniforms apart from u_mode, so the two
-   *  together are exactly `dst' = dst*(1-a) + carried*a*tooth` — a plain
-   *  lerp wherever the deposit's own grain term is neutral (see
-   *  SMUDGE_TRANSFER_FRAG's own file comment and smudgeGrain.ts). `patchX`/`patchGlY`/`patchSize` are the copied patch's own
-   *  rect in this tile's GL pixel space, which is how a fragment finds
-   *  itself in the imprint. */
-  private _drawSmudgeTransferDab(
-    tile: PaintTarget, dab: Dab, radius: number, carried: AccumulationBuffer,
-    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay', strength: number,
-  ): void {
-    const { gl } = this
-    const { buffer } = tile
-    if (mode === 'lay') buffer.beginAdditiveDraw()
-    else buffer.beginErase()
-
-    gl.useProgram(this._smudgeProg)
-    const u = this._smudgeUni
-    gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
-    // Same world-space paper sampling every other dab shader uses — see
-    // DAB_FRAG's own #141 comment for the origin-sign/world-size reasoning.
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, carried.texture)
-    gl.uniform1i(u.u_carried, 1)
-    gl.uniform2f(u.u_patchOrigin, patchX, patchGlY)
-    gl.uniform1f(u.u_patchSize, patchSize)
-    gl.uniform1f(u.u_hardness, SMUDGE_HARDNESS)
-    gl.uniform1f(u.u_mode, mode === 'lay' ? 1.0 : 0.0)
-    gl.uniform1f(u.u_strength, strength)
-    gl.uniform1f(u.u_pressure, dab.pressure)
-    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
-    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    // Both halves of the lerp read the same value, like every other uniform
-    // here — see this method's own doc comment on why they must agree.
-    gl.uniform1f(u.u_grainRelief, smudgeGrainRelief(dab.pressure))
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._smudgePosLoc)
-    gl.vertexAttribPointer(this._smudgePosLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.uniform2f(u.u_dabCenter, dab.x - tile.originX, dab.y - tile.originY)
-    gl.uniform1f(u.u_dabRadius, radius)
-    gl.uniform1f(u.u_angle, 0)
-    gl.uniform1f(u.u_aspectRatio, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    buffer.endDraw()
-  }
-
-  /** Smudge's own size-keyed free list (patches *and* imprints — both are
-   *  square, patch-sized and LINEAR-filtered, and a stroke cycles two or
-   *  three of them per dab). Kept separate from _transformScratchPool so
-   *  neither caller can be handed a buffer set up for the other's sampling. */
-  private _acquireSmudgeScratchBuf(size: number): AccumulationBuffer {
-    return this._smudgeScratchPool.acquire(size, size)
-  }
-
-  private _releaseSmudgeScratchBuf(buf: AccumulationBuffer): void {
-    this._smudgeScratchPool.release(buf)
   }
 
   // ─── Marker (#250, ADR 004 §3; compositing redesigned in a follow-up —
@@ -9991,7 +7320,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  running total) — see RibbonStrokeScratch's own doc comment for why
    *  this replaced the original single-pass patch-copy-then-multiply
    *  design. Still not batchable the way pencil/eraser's independent dabs
-   *  are (see _paintSmudgeDabs' own doc comment for the identical
+   *  are (see SmudgePainter.paint's own doc comment for the identical
    *  justification: marker strokes are a comparatively low-frequency
    *  "shading pass" gesture, not fast scribbling, so paying two draw
    *  calls' worth of overhead per dab is an accepted cost, not a
@@ -10042,7 +7371,7 @@ export class PencilEngine implements PencilEngineAPI {
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
     // does — see _ribbonStrokeWork below, which needs it to find the
     // tile), so there's nothing this path can paint into there anyway —
-    // same early-return _paintSmudgeDabs' own doc comment documents for
+    // same early-return SmudgePainter.paint's own doc comment documents for
     // the identical structural reason. The real dabs always paint straight
     // into the real layer regardless (see _paintDabs' own doc comment on
     // `target`).
@@ -10059,7 +7388,7 @@ export class PencilEngine implements PencilEngineAPI {
     const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, profile)
     const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     // `prevDab` is threaded the same way smudge threads its own
-    // (_paintSmudgeDabs): the dab immediately before dabs[0] may come from a
+    // (SmudgePainter.paint): the dab immediately before dabs[0] may come from a
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
@@ -11076,279 +8405,15 @@ export class PencilEngine implements PencilEngineAPI {
     target.markContentPainted(compositeBounds)
   }
 
-  /** #573, ADR 013 §11 — a digital brush stroke on the `stamp` model.
-   *
-   *  Same three-step shape as every stroke-scoped tool here — freeze the layer,
-   *  accumulate the stroke's own coverage, recompute the finished pixel — with
-   *  the brush's own programs in both halves:
-   *
-   *  1. every dab expands into its stamps (brushStampsForDab: scatter, size,
-   *     angle and flow jitter, all seeded by the dab itself);
-   *  2. BRUSH_STAMP_FRAG draws them into the coverage buffer — flow into rgb
-   *     as "over", the pressure ceiling into alpha as MAX;
-   *  3. BRUSH_COMPOSITE_FRAG recomputes every pixel this batch could have
-   *     changed from the frozen original and the coverage.
-   *
-   *  Pure in the dabs, the descriptor and the recorded switches — nothing is
-   *  carried between batches but the buffers — so a live stroke, a one-shot
-   *  replay and a chunked one come out the same. */
+  /** #573 — a digital brush stroke on the `stamp` model: see
+   *  BrushPainter.paint. Kept by this name for _ribbonStrokeWork, which is
+   *  live on another branch. */
   private _paintBrushStroke(
     target: ILayerBuffer, dabs: Dab[], preset: PencilPreset,
     stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
     color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
   ): void {
-    const { gl } = this
-    const { brush, pressure } = stamp
-    interface Placed { x: number; y: number; radius: number; angle: number; aspect: number; flow: number; ceiling: number; pressure: number }
-    const placed: Placed[] = []
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    let prev = prevDab
-    for (const dab of dabs) {
-      const diameter = Math.max(dab.size * preset.sizeMultiplier, 0.5)
-      // Per-pass flow → per-stamp flow against the distance actually travelled
-      // (see BrushDescriptor.flow): after crossing one span, a pixel has been
-      // under enough stamps to hold exactly `flow`, whatever the spacing and
-      // however fast the hand moved.
-      let flow = brush.flow
-      if (brush.flowPer === 'pass' && flow < 1) {
-        const span = diameter * (brush.flowSpan ?? 1)
-        // (#581) Wet model 2 gives the stroke's first dab one ordinary step of
-        // travel, not the half radius every other tool's first dab gets: that
-        // extra flow made a dense disc at the start, and the wet edge drew its
-        // outline as a ring inside the stroke. Model 2 only — every brush
-        // already shipped keeps drawing its first dab as it always has.
-        const travel = !prev && brush.wet?.model === 2
-          ? diameter * brush.spacing
-          : this._markerSegmentLength(dab, prev, diameter * 0.5)
-        flow = 1 - Math.pow(1 - flow, Math.min(travel / span, 1))
-      }
-      const ceiling = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)
-      for (const st of brushStampsForDab(brush, dab)) {
-        const radius = st.size * 0.5 * preset.sizeMultiplier
-        if (radius < 0.25) continue
-        const reach = radius * Math.max(st.aspect, 1) + 1
-        minX = Math.min(minX, st.x - reach); maxX = Math.max(maxX, st.x + reach)
-        minY = Math.min(minY, st.y - reach); maxY = Math.max(maxY, st.y + reach)
-        placed.push({
-          x: st.x, y: st.y, radius, angle: st.angle, aspect: st.aspect,
-          flow: flow * st.flowScale, ceiling, pressure: dab.pressure,
-        })
-      }
-      prev = dab
-    }
-    if (!placed.length) return
-    const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
-    const targets = target.resolveForPaint(bounds)
-    if (!targets.length) return
-    // (#579) The wet edge reads coverage up to edgePx away, so a pixel's
-    // finished value depends on stamps that far off: the composite has to
-    // reach that much further than the stamps, or a later batch changes a
-    // pixel no composite ever revisits, and the stroke comes out different
-    // live and on replay.
-    const edgePx = brush.wet && brush.wet.edge > 0
-      ? scratch.noteBrushEdgePx(clampNum(dabs[0].size * preset.sizeMultiplier * WET_EDGE_OF_SIZE, WET_EDGE_MIN_PX, WET_EDGE_MAX_PX))
-      : 0
-    const pad = edgePx > 0 ? Math.ceil(edgePx) + 1 : 0
-    const compositeBounds = pad > 0
-      ? { minX: bounds.minX - pad, minY: bounds.minY - pad, maxX: bounds.maxX + pad, maxY: bounds.maxY + pad }
-      : bounds
-
-    const tipTex = brush.tip.kind === 'bitmap' && brush.tip.mask ? this._tipTexture(brush.tip.mask) : null
-    const grain = brush.texture ? { ...brush.texture, tex: this._brushTexture(brush.texture.id) } : null
-    const minmax = this._blendMinMaxExt
-    const useCeiling = pressure.opacity && !!minmax
-
-    for (const tile of targets) {
-      const { original, coverage } = scratch.getOrCreate(tile.buffer)
-
-      coverage.beginDraw()
-      if (minmax) {
-        gl.blendEquationSeparate(gl.FUNC_ADD, minmax.MAX_EXT)
-        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ONE, gl.ONE)
-      } else {
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR)
-      }
-      gl.useProgram(this._brushStampProg)
-      const u = this._brushStampUni
-      gl.uniform2f(u.u_resolution, coverage.width, coverage.height)
-      const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-      gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-      gl.uniform1i(u.u_paperHeightMap, 0)
-      // Bound even for a round tip: WebGL validates every sampler a linked
-      // program declares, and the paper is guaranteed not to be the target.
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, tipTex ?? this._paperTex)
-      gl.uniform1i(u.u_tip, 1)
-      gl.uniform1f(u.u_tipKind, tipTex ? 1 : 0)
-      gl.uniform1f(u.u_hardness, brush.tip.hardness)
-      gl.uniform1f(u.u_aaPx, 1)
-      gl.uniform1f(u.u_paper, brush.paperInteraction)
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, grain?.tex ?? this._paperTex)
-      gl.uniform1i(u.u_texture, 2)
-      gl.uniform1f(u.u_texStrength, grain?.strength ?? 0)
-      const period = grain?.periodPx ?? 1
-      gl.uniform1f(u.u_texPeriod, period)
-      // Reduced here, exactly, so the shader only ever adds small numbers.
-      const wrap = (v: number): number => ((v % period) + period) % period
-      gl.uniform2f(u.u_texOrigin, wrap(tile.originX), wrap(tile.originY))
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-      gl.enableVertexAttribArray(this._brushStampPosLoc)
-      gl.vertexAttribPointer(this._brushStampPosLoc, 2, gl.FLOAT, false, 0, 0)
-
-      const tx0 = tile.originX, ty0 = tile.originY
-      const tx1 = tx0 + tile.buffer.width, ty1 = ty0 + tile.buffer.height
-      for (const p of placed) {
-        const reach = p.radius * Math.max(p.aspect, 1) + 1
-        if (p.x + reach <= tx0 || p.x - reach >= tx1 || p.y + reach <= ty0 || p.y - reach >= ty1) continue
-        gl.uniform2f(u.u_dabCenter, p.x - tx0, p.y - ty0)
-        gl.uniform1f(u.u_dabRadius, p.radius)
-        gl.uniform1f(u.u_angle, p.angle)
-        gl.uniform1f(u.u_aspectRatio, p.aspect)
-        gl.uniform1f(u.u_opacity, p.flow)
-        gl.uniform1f(u.u_ceiling, p.ceiling)
-        gl.uniform1f(u.u_paperPressure, p.pressure)
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-      }
-      // Every other blend in the engine assumes FUNC_ADD and sets only the
-      // factors — leave the equation as it found it.
-      if (minmax) gl.blendEquation(gl.FUNC_ADD)
-      coverage.endDraw()
-
-      this._drawBrushComposite(tile, compositeBounds, brush, original, coverage, color, dabs[0].opacity, useCeiling, edgePx)
-    }
-    target.markContentPainted(compositeBounds)
-  }
-
-  /** #573 — BRUSH_COMPOSITE_FRAG over `bounds` in one tile: the finished pixel
-   *  from the frozen original and the stroke's coverage. A replace draw, since
-   *  the result is the answer rather than a contribution to it (see
-   *  AccumulationBuffer.beginReplaceDraw). */
-  private _drawBrushComposite(
-    tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
-    brush: BrushDescriptor, original: AccumulationBuffer, coverage: AccumulationBuffer,
-    color: [number, number, number], opacity: number, useCeiling: boolean, edgePx: number,
-  ): void {
-    const { gl } = this
-    const { buffer } = tile
-    buffer.beginReplaceDraw()
-    gl.useProgram(this._brushCompositeProg)
-    const u = this._brushCompositeUni
-    // (#579) Digital watercolor. Zeros for every other brush — uniforms outlive
-    // the draw that set them, and this program is shared by the whole set.
-    const wet = brush.wet
-    gl.uniform1f(u.u_wetEdge, wet && edgePx > 0 ? wet.edge : 0)
-    gl.uniform1f(u.u_wetEdgePx, edgePx)
-    gl.uniform1f(u.u_mottle, wet?.mottle ?? 0)
-    gl.uniform1f(u.u_granulation, wet?.granulation ?? 0)
-    gl.uniform1f(u.u_glaze, wet?.glaze ? 1 : 0)
-    // (#581) Model 2 and its two extra terms; a wet brush without a model is
-    // #579's, which is what every stroke recorded with those brushes says.
-    gl.uniform1f(u.u_wetModel, wet ? (wet.model ?? 1) : 0)
-    gl.uniform1f(u.u_bloom, wet?.bloom ?? 0)
-    gl.uniform1f(u.u_feather, wet?.feather ?? 0)
-    // The paper, for granulation — the same world-space sampling every dab
-    // shader here uses (#141).
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-    gl.activeTexture(gl.TEXTURE4)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 4)
-    // Bound whether read or not: WebGL validates every declared sampler.
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('cloud'))
-    gl.uniform1i(u.u_cloudTex, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, this._brushTexture('grit'))
-    gl.uniform1i(u.u_grainTex, 3)
-    const wrapBy = (period: number) => (v: number): number => ((v % period) + period) % period
-    const cloudWrap = wrapBy(WET_CLOUD_PERIOD_PX)
-    const grainWrap = wrapBy(WET_GRAIN_PERIOD_PX)
-    gl.uniform1f(u.u_cloudPeriod, WET_CLOUD_PERIOD_PX)
-    gl.uniform2f(u.u_cloudOrigin, cloudWrap(tile.originX), cloudWrap(tile.originY))
-    gl.uniform1f(u.u_grainPeriod, WET_GRAIN_PERIOD_PX)
-    gl.uniform2f(u.u_grainOrigin, grainWrap(tile.originX), grainWrap(tile.originY))
-    gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, original.texture)
-    gl.uniform1i(u.u_original, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
-    gl.uniform1i(u.u_strokeCoverage, 1)
-    gl.uniform3fv(u.u_color, color)
-    gl.uniform1f(u.u_opacity, opacity)
-    gl.uniform1f(u.u_useCeiling, useCeiling ? 1 : 0)
-    const pitch = brush.screentonePx ?? 0
-    gl.uniform1f(u.u_screentone, pitch)
-    // The screen repeats every 2 * pitch along both world axes (see the
-    // shader), so the tile's origin is reduced by exactly that here, in
-    // integers, and the GPU only ever sees numbers smaller than the period.
-    const period = pitch * 2
-    const wrap = (v: number): number => period > 0 ? ((v % period) + period) % period : 0
-    gl.uniform2f(u.u_screenOrigin, wrap(tile.originX), wrap(tile.originY))
-
-    // The rect is covered by a circumscribing dab quad, the same trick the
-    // ribbon composite uses (_drawRibbonCompositeRect).
-    const cx = (bounds.minX + bounds.maxX) * 0.5
-    const cy = (bounds.minY + bounds.maxY) * 0.5
-    const radius = 0.5 * Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) + 1
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._brushCompositePosLoc)
-    gl.vertexAttribPointer(this._brushCompositePosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.uniform2f(u.u_dabCenter, cx - tile.originX, cy - tile.originY)
-    gl.uniform1f(u.u_dabRadius, radius)
-    gl.uniform1f(u.u_angle, 0)
-    gl.uniform1f(u.u_aspectRatio, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    buffer.endDraw()
-  }
-
-  /** A brush texture (#573), tiled across the canvas — REPEAT rather than
-   *  CLAMP, and mipmapped from the CPU chain for the same reason the tips are. */
-  private _brushTexture(id: BrushTextureId): WebGLTexture {
-    const cached = this._brushTextures.get(id)
-    if (cached) return cached
-    const tex = this._uploadMips(brushTextureMips(id), this.gl.REPEAT)
-    this._brushTextures.set(id, tex)
-    return tex
-  }
-
-  /** One bitmap tip as a mipmapped LUMINANCE texture, uploaded on first use.
-   *
-   *  Every mip level comes from tipMaskMips on the CPU rather than from
-   *  gl.generateMipmap — see that function on why the driver's filter is not
-   *  trusted with a value every participant has to agree on. */
-  private _tipTexture(id: TipMaskId): WebGLTexture {
-    const cached = this._tipTextures.get(id)
-    if (cached) return cached
-    const tex = this._uploadMips(tipMaskMips(id), this.gl.CLAMP_TO_EDGE)
-    this._tipTextures.set(id, tex)
-    return tex
-  }
-
-  private _uploadMips(levels: Uint8Array[], wrapMode: number): WebGLTexture {
-    const { gl } = this
-    const tex = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    let size = Math.round(Math.sqrt(levels[0].length))
-    for (let level = 0; level < levels.length; level++) {
-      gl.texImage2D(gl.TEXTURE_2D, level, gl.LUMINANCE, size, size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, levels[level])
-      size = Math.max(1, size >> 1)
-    }
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
-    return tex
+    this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab)
   }
 
   /** (#468 v6) One composite over everything the finished gesture touched, with
@@ -11425,7 +8490,7 @@ export class PencilEngine implements PencilEngineAPI {
     const x1 = Math.min(Math.ceil(bounds.maxX), originX + buffer.width)
     const y1 = Math.min(Math.ceil(bounds.maxY), originY + buffer.height)
     if (x1 <= x0 || y1 <= y0) return null
-    // Top-down world → bottom-up GL, as _gatherSmudgePatch does it.
+    // Top-down world → bottom-up GL, as SmudgePainter.gatherPatch does it.
     return [x0 - originX, buffer.height - (y1 - originY), x1 - x0, y1 - y0]
   }
 
@@ -11614,17 +8679,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  wash: same rect, same blend, but the tile's pixels are mixed with the
    *  kept picture by the reveal's current hold. */
   private _drawTileReveal(
-    reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
+    frame: CameraFrame, reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
     opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number, minifying: boolean,
   ): void {
     const { gl } = this
     // Sampled exactly as the tile is — see _revealWash on why the copy is
     // mip-capable at all.
     reveal.before.setMipSampling(minifying && reveal.before.ensureMipmaps())
-    const leftEdge   = this._worldToScreenEdgeX(originX)
-    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
-    const topEdge    = this._worldToScreenEdgeY(originY)
-    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
+    const leftEdge   = frameEdgeX(frame, originX)
+    const rightEdge  = frameEdgeX(frame, originX + bw)
+    const topEdge    = frameEdgeY(frame, originY)
+    const bottomEdge = frameEdgeY(frame, originY + bh)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(leftEdge, targetH - bottomEdge, rightEdge - leftEdge, bottomEdge - topEdge)
@@ -11836,7 +8901,7 @@ export class PencilEngine implements PencilEngineAPI {
     // chunk's settle may land after the next chunk's film has begun.
     const gesture = scratch.gesture
     // Stitch: every tile's overlap with the rect, top-down world → bottom-up
-    // GL on both sides, exactly as _gatherSmudgePatch does it. `a` takes the
+    // GL on both sides, exactly as SmudgePainter.gatherPatch does it. `a` takes the
     // deposit, `b` what was settled, `coverage` the silhouette.
     ops.push(() => {
       field.a.clear()
@@ -13567,28 +10632,29 @@ export class PencilEngine implements PencilEngineAPI {
    *  tile) composite correctly instead of only ever showing one tile's
    *  worth. */
   private _drawCompositeItem(
-    id: string, opacity: number, targetFbo: WebGLFramebuffer, viewRect: WorldRect,
+    frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
     targetW: number, targetH: number,
   ): void {
+    const viewRect = frame.view
     // (#365) Whether this pass is shrinking tiles on the way to its target.
     // Only then is a mip chain worth having: at or above 1:1 the base level
     // is already the right size, and generating levels nobody samples would
     // be pure cost on the one path (drawing at 100%) that must stay fast.
-    // The export path sets _compositeScale to exactly 1 for the same reason
-    // — see _buildContentComposite.
-    const minifying = this._compositeScale < 1
+    // The export's frame is exactly 1:1 for the same reason — see
+    // exactFrame.
+    const minifying = frame.scale < 1
 
-    const preview = this._transformPreview.get(id)
+    const preview = this._previews.tiles.get(id)
     // (#446) A selection preview shadows only the tiles it holds — the rest of
     // the layer is standing still and must still be drawn. A whole-layer
     // preview keeps the original behaviour of replacing the layer outright:
     // every pixel of it moved, so there is nothing left to draw underneath.
-    const areaPreview = preview ? this._areaPreviewLayers.has(id) : false
+    const areaPreview = preview ? this._previews.areaLayers.has(id) : false
     if (preview) {
       for (const { originX, originY, buffer } of preview) {
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
         this._drawTileComposite(
-          buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
       }
       if (!areaPreview) return
@@ -13607,7 +10673,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (shadowed.has(`${originX},${originY}`)) continue
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
         this._drawTileComposite(
-          buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
       }
       return
@@ -13621,7 +10687,7 @@ export class PencilEngine implements PencilEngineAPI {
     // fine tiles it fell back to had been evicted while the coarse level was
     // on screen, and recovering hundreds of them at once costs an Operation
     // Log replay plus a readback and re-upload each.
-    const factor = coarseFactorFor(this._compositeScale)
+    const factor = coarseFactorFor(frame.scale)
     const coarse = factor === null ? null : buf.resolveCoarse(viewRect, factor)
     // (#503) `coarse.length`, not just `coarse`: an empty array is truthy, so
     // a level holding nothing here used to end the draw outright — the layer
@@ -13636,7 +10702,7 @@ export class PencilEngine implements PencilEngineAPI {
       for (const { buffer, originX, originY } of coarse) {
         buffer.setMipSampling(false)
         this._drawTileComposite(
-          buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
+          frame, buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
         )
       }
       return
@@ -13651,37 +10717,37 @@ export class PencilEngine implements PencilEngineAPI {
       const reveal = this._washReveals.get(buffer)
       if (reveal) {
         this._drawTileReveal(
-          reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+          frame, reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
           minifying,
         )
         continue
       }
       this._drawTileComposite(
-        buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+        frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
       )
     }
   }
 
   /** Rebuilds both cache halves from scratch iff _splitCacheDirty — see the
    *  _belowCache/_aboveCache field comment for what "dirty" tracks. Only
-   *  ever called with _transformPreview empty (_runComposite bypasses this
+   *  ever called with _previews empty (_runComposite bypasses this
    *  entirely otherwise), so _drawCompositeItem always resolves to a real
    *  layer's own current buffer here, never a scratch preview. */
   private _rebuildSplitCacheIfDirty(
-    belowItems: CompositeItem[], aboveItems: CompositeItem[], viewRect: WorldRect,
+    frame: CameraFrame, belowItems: CompositeItem[], aboveItems: CompositeItem[],
     targetW: number, targetH: number,
   ): void {
     if (!this._splitCacheDirty) return
-    this._rebuildCacheHalf(this._belowCache, belowItems, viewRect, targetW, targetH)
-    this._rebuildCacheHalf(this._aboveCache, aboveItems, viewRect, targetW, targetH)
+    this._rebuildCacheHalf(frame, this._belowCache, belowItems, targetW, targetH)
+    this._rebuildCacheHalf(frame, this._aboveCache, aboveItems, targetW, targetH)
     this._splitCacheDirty = false
   }
 
   private _rebuildCacheHalf(
-    target: AccumulationBuffer, items: CompositeItem[], viewRect: WorldRect, targetW: number, targetH: number,
+    frame: CameraFrame, target: AccumulationBuffer, items: CompositeItem[], targetW: number, targetH: number,
   ): void {
     target.clear()
-    for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, target.fbo, viewRect, targetW, targetH)
+    for (const { id, opacity } of items) this._drawCompositeItem(frame, id, opacity, target.fbo, targetW, targetH)
   }
 
   /** #122: normally recomposites *every* visible layer/folder-child from
@@ -13699,7 +10765,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  already-composited texture and blending *that* at opacity 1 produces
    *  the exact same result as blending every entry individually in order —
    *  same technique this file already uses for layer_merge
-   *  (_execMergeLive/_replayMergeInto).
+   *  (StructuralOps.mergeLive/replayMergeInto).
    *
    *  Bypassed entirely whenever a layer-transform gizmo preview (#120) is
    *  active: previewLayerTransform can substitute scratch content for *any*
@@ -13709,157 +10775,18 @@ export class PencilEngine implements PencilEngineAPI {
    *  (pre-#122) per-frame full recompute for as long as any preview exists.
    *
    *  (#136) Same split-cache technique now backs both bounded and infinite
-   *  rooms — see _drawCompositeItem and the constructor's _infiniteCamera
-   *  init. No per-mode branch left here. */
-  /** The world-space rect currently visible on screen — what determines
-   *  which tiles resolveVisible()/composite bother reading (never creates
-   *  them, so a few extra out-of-view tiles considered here costs a bit of
-   *  redundant compositing, never correctness).
-   *
-   *  #142: a bounded room's viewport is exactly its fixed canvas.width x
-   *  canvas.height, full stop — its rotation is the DOM canvasWrap's own
-   *  CSS transform, never this camera's `angle` (always 0 for it, see the
-   *  constructor), so there's no rotated footprint to pad for the way an
-   *  infinite room's camera-relative view needs. Padding it anyway would
-   *  cost real, needless compositing work on every frame (large canvas
-   *  presets like A4 already span several tiles) for tiles that can never
-   *  actually be visible.
-   *
-   *  An infinite room's camera can point anywhere and rotate freely, so
-   *  this generously pads to an axis-aligned bounding box of the (rotated)
-   *  viewport rect — tightening this to the exact rotated quad instead of
-   *  its bounding box is a nicety, not a correctness fix. */
-  private _visibleWorldRect(): WorldRect {
-    const { canvas } = this
-    // (#470) Camera-derived for a bounded room too: what is on screen is now
-    // decided by where the camera is, not by the sheet being the canvas.
-    const { wx, wy, zoom } = this._infiniteCamera
-    const halfW = canvas.width / 2 / zoom
-    const halfH = canvas.height / 2 / zoom
-    const halfDiag = Math.sqrt(halfW * halfW + halfH * halfH)
-    return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
-  }
-
-  // (#155) _transformScratchPool's acquire/release pair — see the field's
-  // own comment for why this is a free list rather than a single slot.
-  private _acquireScratchBuf(width: number, height: number): AccumulationBuffer {
-    return this._transformScratchPool.acquire(width, height)
-  }
-
-  private _releaseScratchBuf(buf: AccumulationBuffer): void {
-    this._transformScratchPool.release(buf)
-  }
-
-  /** (#138) World point that a live-tip/predicted/peer-reveal preview
-   *  buffer's own pixel (0,0) represents. These buffers are always plain,
-   *  fixed-size (canvas.width x canvas.height) AccumulationBuffers — unlike
-   *  a real layer's tiles, which resolveForPaint() dynamically positions to
-   *  cover wherever a batch of dabs actually falls, these never grow or
-   *  move once created, so *some* origin has to be chosen up front for
-   *  their dabs (genuine world coordinates for infinite rooms, arbitrarily
-   *  far from world origin depending on where the camera happens to be) to
-   *  land inside their fixed small pixel range at all.
-   *
-   *  Centering on the current camera's own world position is the natural
-   *  choice: the whole point of these previews is to show something
-   *  happening on screen right now, and (per _invalidateSplitCache's own
-   *  note on setInfiniteCamera) panning and painting are mutually exclusive
-   *  gestures in this app, so the camera is guaranteed not to move for as
-   *  long as a single stroke/prediction/reveal buffer stays alive — one
-   *  snapshot at creation time (stroke start / previewOperation's first
-   *  queued op for a peer) stays valid for that buffer's whole lifetime.
-   *
-   *  Reduces to exactly (0,0) for a bounded room: its _infiniteCamera is
-   *  the constructor's fixed {wx: canvas.width/2, wy: canvas.height/2}
-   *  identity (see its own comment), so this cancels out — the plain
-   *  (0,0)-anchored behavior every one of these buffers already had before
-   *  #138 is preserved exactly. */
+   *  rooms — see _drawCompositeItem and Camera's constructor
+   *  pose. No per-mode branch left here. */
+  /** (#138) See Camera.centeredOrigin. Kept by this name for the stroke
+   *  lifecycle code, which is live on another branch. */
   private _cameraCenteredOrigin(): { x: number; y: number } {
-    const { wx, wy } = this._infiniteCamera
-    return { x: wx - this.canvas.width / 2, y: wy - this.canvas.height / 2 }
+    return this._camera.centeredOrigin()
   }
 
-  /** (#138) Translates `dabs` from world coordinates into one of the
-   *  preview buffers' own local coordinate space (buffer pixel (0,0) ==
-   *  world `origin` — see _cameraCenteredOrigin), mirroring what
-   *  ILayerBuffer.resolveForPaint's originX/originY subtraction already
-   *  does for a real tile in _paintDabs. Never mutates its input: dabs may
-   *  still be read afterward by their real caller (_strokeDabs, in
-   *  particular, must keep the untranslated *world* coordinates for the
-   *  eventual recorded Operation). A no-op array identity when `origin` is
-   *  exactly (0,0) (every bounded-room call, see _cameraCenteredOrigin) —
-   *  skips the allocation on the hot path that never needed it. */
+  /** (#138) See translateDabs (src/raster/Camera.ts). Kept by this name for
+   *  the same reason as _cameraCenteredOrigin. */
   private _translateDabs(dabs: Dab[], origin: { x: number; y: number }): Dab[] {
-    if (origin.x === 0 && origin.y === 0) return dabs
-    return dabs.map(d => ({ ...d, x: d.x - origin.x, y: d.y - origin.y }))
-  }
-
-  /** Infinite canvas (#133 Phase 1) — draws one tile's texture into
-   *  `targetFbo` at its camera-relative screen position, blended over
-   *  whatever's already there (same (ONE, ONE_MINUS_SRC_ALPHA) "over" every
-   *  other composite pass in this file uses) — the tile-aware counterpart
-   *  to _compositeTextures' fullscreen-quad draw.
-   *
-   *  Positions the tile via gl.viewport() instead of a per-tile clip-space
-   *  computation in a shader — deliberately, and not for simplicity: an
-   *  earlier version computed each tile's destination quad and/or source-UV
-   *  sub-rect in the shader (a uniform mat3, a dynamically-reuploaded vertex
-   *  buffer, even a compile-time constant — every variant tried), and
-   *  reproducibly sampled as fully transparent black on a real ANGLE/D3D
-   *  backend (confirmed: Chrome/Windows) — but *only* on some draws, not
-   *  others, in a pattern that tracked draw-call position within the
-   *  composite pass rather than which values were used (bisection ruled out
-   *  clip-space magnitude, branching, uniform-vs-attribute-vs-constant, and
-   *  program identity in turn). Whatever the underlying driver quirk is,
-   *  routing the tile's position through gl.viewport — ordinary WebGL state,
-   *  not a shader computation — sidesteps it entirely: this reuses
-   *  _compositeProg/DISPLAY_VERT completely unmodified (the same program
-   *  every *other* composite pass in this file already relies on) with its
-   *  plain full quad, and lets the fixed-function rasterizer do the
-   *  positioning instead. Verified stable across a full stroke crossing all
-   *  four tile boundaries — no dropout, no seam.
-   *
-   *  Doesn't itself account for camera rotation (_infiniteCamera.angle) —
-   *  the viewport is always an axis-aligned rect, so a rotated view would
-   *  misplace tiles if this drew straight to the real screen. It doesn't:
-   *  for infinite rooms _runComposite always targets the unrotated
-   *  _assemblyFBO here (see targetW/targetH, always that buffer's own
-   *  size in that case) and _finishInfiniteComposite applies the actual
-   *  rotation exactly once, afterwards, on the assembled result — see its
-   *  own comment (#134).
-   *
-   *  Rounds each of the tile's four EDGES individually (via
-   *  _worldToScreenEdgeX/Y below), rather than rounding a position and a
-   *  size independently — two tiles sharing a world-space edge (adjacent
-   *  tile origins are always exactly TILE_SIZE apart) compute that shared
-   *  edge from the exact same formula and thus the exact same rounded
-   *  pixel, however the camera/zoom fraction falls. Rounding position and
-   *  size separately (the pre-#140 version of this method) doesn't have
-   *  that guarantee — `round(pos) + round(size)` and `round(pos + size)`
-   *  disagree for plenty of real zoom/pan combinations (confirmed: e.g.
-   *  zoom 1.01 with the camera offset a few hundred world units from a
-   *  tile boundary), producing a 1px transparent gap or a 1px overlap
-   *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
-   *  case for a concrete reproduction.
-   *
-   *  Centers on _compositeCenterX/Y — the current composite target's own
-   *  pixel position for the camera's world point — rather than this
-   *  target's own half-size (targetW/2): see that field's own comment for
-   *  why the two aren't the same thing for infinite rooms, and why that
-   *  distinction is what keeps an unrotated infinite-room frame pixel-
-   *  aligned (no blur) instead of resampled through a fractional offset.
-   *
-   *  (#301) Scales by _compositeScale, not the camera's raw zoom — above
-   *  zoom 1 the two differ, and the leftover magnification is applied later,
-   *  by the same pass that applies the rotation. See that field's comment. */
-  private _worldToScreenEdgeX(worldX: number): number {
-    const { wx } = this._infiniteCamera
-    return Math.round((worldX - wx) * this._compositeScale + this._compositeCenterX)
-  }
-
-  private _worldToScreenEdgeY(worldY: number): number {
-    const { wy } = this._infiniteCamera
-    return Math.round((worldY - wy) * this._compositeScale + this._compositeCenterY)
+    return translateDabs(dabs, origin)
   }
 
   /** (#365) Draws one fine tile, shrunk, into its slot of a coarse tile —
@@ -13911,15 +10838,73 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
+  /** Infinite canvas (#133 Phase 1) — draws one tile's texture into
+   *  `targetFbo` at its camera-relative screen position, blended over
+   *  whatever's already there (same (ONE, ONE_MINUS_SRC_ALPHA) "over" every
+   *  other composite pass in this file uses) — the tile-aware counterpart
+   *  to _compositeTextures' fullscreen-quad draw.
+   *
+   *  Positions the tile via gl.viewport() instead of a per-tile clip-space
+   *  computation in a shader — deliberately, and not for simplicity: an
+   *  earlier version computed each tile's destination quad and/or source-UV
+   *  sub-rect in the shader (a uniform mat3, a dynamically-reuploaded vertex
+   *  buffer, even a compile-time constant — every variant tried), and
+   *  reproducibly sampled as fully transparent black on a real ANGLE/D3D
+   *  backend (confirmed: Chrome/Windows) — but *only* on some draws, not
+   *  others, in a pattern that tracked draw-call position within the
+   *  composite pass rather than which values were used (bisection ruled out
+   *  clip-space magnitude, branching, uniform-vs-attribute-vs-constant, and
+   *  program identity in turn). Whatever the underlying driver quirk is,
+   *  routing the tile's position through gl.viewport — ordinary WebGL state,
+   *  not a shader computation — sidesteps it entirely: this reuses
+   *  _compositeProg/DISPLAY_VERT completely unmodified (the same program
+   *  every *other* composite pass in this file already relies on) with its
+   *  plain full quad, and lets the fixed-function rasterizer do the
+   *  positioning instead. Verified stable across a full stroke crossing all
+   *  four tile boundaries — no dropout, no seam.
+   *
+   *  Doesn't itself account for camera rotation (Camera.pose.angle) —
+   *  the viewport is always an axis-aligned rect, so a rotated view would
+   *  misplace tiles if this drew straight to the real screen. It doesn't:
+   *  for infinite rooms _runComposite always targets the unrotated
+   *  _assemblyFBO here (see targetW/targetH, always that buffer's own
+   *  size in that case) and _finishInfiniteComposite applies the actual
+   *  rotation exactly once, afterwards, on the assembled result — see its
+   *  own comment (#134).
+   *
+   *  Rounds each of the tile's four EDGES individually (via
+   *  frameEdgeX/Y, src/raster/cameraFrame.ts), rather than rounding a position and a
+   *  size independently — two tiles sharing a world-space edge (adjacent
+   *  tile origins are always exactly TILE_SIZE apart) compute that shared
+   *  edge from the exact same formula and thus the exact same rounded
+   *  pixel, however the camera/zoom fraction falls. Rounding position and
+   *  size separately (the pre-#140 version of this method) doesn't have
+   *  that guarantee — `round(pos) + round(size)` and `round(pos + size)`
+   *  disagree for plenty of real zoom/pan combinations (confirmed: e.g.
+   *  zoom 1.01 with the camera offset a few hundred world units from a
+   *  tile boundary), producing a 1px transparent gap or a 1px overlap
+   *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
+   *  case for a concrete reproduction.
+   *
+   *  Centers on `frame`'s centerX/Y — the current composite target's own
+   *  pixel position for the camera's world point — rather than this
+   *  target's own half-size (targetW/2): see CameraFrame.centerX for
+   *  why the two aren't the same thing for infinite rooms, and why that
+   *  distinction is what keeps an unrotated infinite-room frame pixel-
+   *  aligned (no blur) instead of resampled through a fractional offset.
+   *
+   *  (#301) Scales by frame.scale, not the camera's raw zoom — above
+   *  zoom 1 the two differ, and the leftover magnification is applied later,
+   *  by the same pass that applies the rotation. See CameraFrame.scale. */
   private _drawTileComposite(
-    texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
+    frame: CameraFrame, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
     opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
   ): void {
     const { gl } = this
-    const leftEdge   = this._worldToScreenEdgeX(originX)
-    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
-    const topEdge    = this._worldToScreenEdgeY(originY)
-    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
+    const leftEdge   = frameEdgeX(frame, originX)
+    const rightEdge  = frameEdgeX(frame, originX + bw)
+    const topEdge    = frameEdgeY(frame, originY)
+    const bottomEdge = frameEdgeY(frame, originY + bh)
     const glX = leftEdge
     // gl.viewport's y is measured from the bottom of the target, unlike the
     // top-down (topEdge, bottomEdge) this file uses everywhere else.
@@ -13966,15 +10951,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  leaves populated, so _composeToFBO now owns the single call to
    *  _finishInfiniteComposite once everything (real content + previews) is
    *  in place. */
-  private _runComposite(items: CompositeItem[], partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null): void {
-    const viewRect = this._visibleWorldRect()
+  private _runComposite(
+    frame: CameraFrame, items: CompositeItem[],
+    partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null,
+  ): void {
     const buildFbo = this._assemblyFBO.fbo
     const targetW  = this._assemblyFBO.width
     const targetH  = this._assemblyFBO.height
-    const { padX, padY } = this._assemblyPad()
-    this._compositeCenterX = this.canvas.width / 2 + padX
-    this._compositeCenterY = this.canvas.height / 2 + padY
-    this._compositeScale = this._infiniteCompositeScale()
 
     const idx = this._activeId !== null ? items.findIndex(it => it.id === this._activeId) : -1
     // idx === -1 (no active layer, or it's not currently composited — e.g.
@@ -13986,19 +10969,19 @@ export class PencilEngine implements PencilEngineAPI {
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
     // (§17.46) The split caches are rebuilt (in full) before any scissor.
-    if (this._transformPreview.size === 0) this._rebuildSplitCacheIfDirty(belowItems, aboveItems, viewRect, targetW, targetH)
+    if (this._previews.tiles.size === 0) this._rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
     // (§17.46) A frame whose only change is the live stroke reassembles only
     // its rect (unrotated camera: the assembly is then the screen, padded):
     // clearing and redrawing the whole assembly - the caches and every
     // resident tile of the active layer - was the second-dearest thing in a
     // big stroke's frame on the tablet.
     let scissored = false
-    if (partialWorld && this._infiniteCamera.angle === 0 && this._transformPreview.size === 0) {
+    if (partialWorld && frame.angle === 0 && this._previews.tiles.size === 0) {
       const pad = 8
-      const x0 = Math.max(0, this._worldToScreenEdgeX(partialWorld.minX) - pad)
-      const x1 = Math.min(targetW, this._worldToScreenEdgeX(partialWorld.maxX) + pad)
-      const top = Math.max(0, this._worldToScreenEdgeY(partialWorld.minY) - pad)
-      const bottom = Math.min(targetH, this._worldToScreenEdgeY(partialWorld.maxY) + pad)
+      const x0 = Math.max(0, frameEdgeX(frame, partialWorld.minX) - pad)
+      const x1 = Math.min(targetW, frameEdgeX(frame, partialWorld.maxX) + pad)
+      const top = Math.max(0, frameEdgeY(frame, partialWorld.minY) - pad)
+      const bottom = Math.min(targetH, frameEdgeY(frame, partialWorld.maxY) + pad)
       if (x1 > x0 && bottom > top) {
         this.gl.enable(this.gl.SCISSOR_TEST)
         this.gl.scissor(x0, targetH - bottom, x1 - x0, bottom - top)
@@ -14007,8 +10990,8 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._assemblyFBO.clear()
 
-    if (this._transformPreview.size > 0) {
-      for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, buildFbo, viewRect, targetW, targetH)
+    if (this._previews.tiles.size > 0) {
+      for (const { id, opacity } of items) this._drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH)
       return
     }
 
@@ -14016,7 +10999,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._compositeTextures([{ texture: this._belowCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
     }
     if (activeItem) {
-      this._drawCompositeItem(activeItem.id, activeItem.opacity, buildFbo, viewRect, targetW, targetH)
+      this._drawCompositeItem(frame, activeItem.id, activeItem.opacity, buildFbo, targetW, targetH)
     }
     if (aboveItems.length) {
       this._compositeTextures([{ texture: this._aboveCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
@@ -14032,7 +11015,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  world point as the real camera, just padded bigger — see its field
    *  comment) into the real `targetFbo`, rotating by -angle: forward,
    *  screen = canvasCenter + R(angle)*(assemblyPx - assemblyCenter) is the
-   *  same world->screen convention _worldToScreenEdgeX/Y and the old
+   *  same world->screen convention frameEdgeX/Y and the old
    *  (pre-#136) _worldToScreenTransform used (scale baked in via zoom,
    *  here already applied when the assembly buffer itself was drawn, so
    *  only the rotation is left) — this needs that mapping's inverse,
@@ -14040,130 +11023,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  inversion required. */
   private _finishInfiniteComposite(targetFbo: WebGLFramebuffer): void {
     const { canvas } = this
-    this._runTransformBlit(
-      this._assemblyFBO, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, targetFbo,
+    this._passes.transform(
+      this._assemblyFBO, this._camera.rotateMatrixInv(), canvas.width, canvas.height, targetFbo,
     )
-  }
-
-  /** The destination(canvas)->source(assembly) matrix _finishInfiniteComposite
-   *  rotates through — factored out so the on-screen pass
-   *  (_composePaperToScreen, #301) can apply the exact same rotation
-   *  without duplicating the math.
-   *
-   *  Uses _assemblyPad()'s *rounded* half-difference as the assembly
-   *  buffer's own center, not its literal half-size (ext/2) — see
-   *  _compositeCenterX/Y's field comment for why that distinction is what
-   *  keeps an unrotated (angle 0, by far the common case) frame an exact,
-   *  lossless pixel copy instead of a permanently-blurred bilinear
-   *  resample.
-   *
-   *  (#301) Carries the residual magnification too, not just the rotation:
-   *  above zoom 1 the assembly buffer is drawn at world resolution rather
-   *  than at zoom, and this pass is where the rest of the zoom gets applied
-   *  — which is the point, since doing both here means one resample instead
-   *  of two. At or below zoom 1 the residual is exactly 1 and this reduces
-   *  to the pure rotation it has always been. */
-  private _infiniteRotateMatrixInv(): Matrix3 {
-    const { canvas } = this
-    const { angle } = this._infiniteCamera
-    const { padX, padY } = this._assemblyPad()
-    return composeMatrix(
-      translationMatrix(canvas.width / 2 + padX, canvas.height / 2 + padY),
-      composeMatrix(
-        scaleRotateMatrix(1 / this._residualScale(), -angle),
-        translationMatrix(-canvas.width / 2, -canvas.height / 2),
-      ),
-    )
-  }
-
-  /** Screen(canvas)-pixel -> world-unit mapping for the live camera — the
-   *  full inverse of the forward chain the composite actually draws
-   *  through, carried one step further than _infiniteRotateMatrixInv (which
-   *  stops at assembly pixels). Forward, that chain is
-   *  screenPx = canvasCenter + R(angle) * (world - camera) * zoom
-   *  — composed of _worldToScreenEdgeX/Y (world -> assembly px, zoom and
-   *  _compositeCenterX/Y) and _infiniteRotateMatrixInv (assembly px ->
-   *  screen px, rotation about canvasCenter); the assembly buffer's own
-   *  padding cancels out between the two, which is why it doesn't appear
-   *  here at all. Inverting gives world = camera + R(-angle) * (screenPx -
-   *  canvasCenter) / zoom, i.e. exactly the composition below.
-   *
-   *  (#301) What lets PAPER_COMPOSE_FRAG sample paper at a screen pixel's
-   *  true world position *after* the rotation instead of before it — see
-   *  that shader's own comment for why doing it after is the whole point. */
-  private _screenToWorldMatrix(): Matrix3 {
-    const { canvas } = this
-    const { wx, wy, zoom, angle } = this._infiniteCamera
-    return composeMatrix(
-      translationMatrix(wx, wy),
-      composeMatrix(scaleRotateMatrix(1 / zoom, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
-    )
-  }
-
-  /** (#365) Binds the paper texture to TEXTURE1 for a PAPER_COMPOSE_FRAG
-   *  draw, switching it to a mip filter for the duration.
-   *
-   *  The baked grain is ~13 texels per world unit (PAPER_BAKE_RESOLUTION over
-   *  PAPER_WORLD_SIZE), and this shader takes one tap per output pixel at
-   *  that pixel's world position — so it reads a single texel out of a
-   *  ~13-wide footprint even at 1 world unit = 1 pixel, and out of a
-   *  hundreds-wide one when the camera is zoomed out. That is the grain
-   *  crawl that makes an infinite room read worse than a bounded one at the
-   *  same on-screen size.
-   *
-   *  Switched per draw rather than set once at load because this texture is
-   *  shared with the paint path (DAB_FRAG), where mip levels must never be
-   *  used: level selection is implementation-defined, graphite deposit
-   *  depends on the grain, and that deposit is baked into content every
-   *  participant sees. See .claude/rules.md, "Cross-device pixel
-   *  determinism". Callers must pair this with _releasePaperFromCompose.
-   *
-   *  Applied to the export path as well as the live one, both of which go
-   *  through this shader: filtering only the screen would leave an exported
-   *  image visibly grainier than the room it was exported from.
-   *
-   *  Bounded rooms never reach either path — they display through
-   *  DISPLAY_FRAG (see _display) and are scaled by the browser's compositor,
-   *  so their paper is untouched by all of this. */
-  /** (#470) How much the paper is being shrunk on the way to this pass's
-   *  target, in texels per output pixel. Below PAPER_MIP_THRESHOLD the mip
-   *  chain is left off on purpose — see _bindPaperForCompose. */
-  private _paperTexelsPerPixel(zoom: number): number {
-    const { w } = this._paperWorldSize()
-    return (PAPER_BAKE_RESOLUTION / w) / Math.max(zoom, 1e-6) * this._opts.paperScale
-  }
-
-  private _bindPaperForCompose(texelsPerPixel: number): void {
-    const { gl } = this
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    // (#470) Mips only once the paper is genuinely being shrunk past two
-    // texels a pixel. This used to switch them on for every composed frame,
-    // and with viewport rendering that meant every frame at any zoom below
-    // 100% — where the grain is minified less than 2x and trilinear blending
-    // costs far more than it buys. Measured at 27% zoom on a 4096 page,
-    // scanning blank paper: grain energy 78 with the chain against 148
-    // without, i.e. mip sampling was removing half the texture. The paper is
-    // the largest surface on screen and its grain is what reads as sharpness,
-    // so that halving is what "everything looks soft" actually was.
-    //
-    // Past the threshold the chain goes back on, and it has to: a genuinely
-    // small zoom undersamples the grain into shimmer, which is worse than
-    // soft because it crawls when the camera moves.
-    const useMips = this._paperMipsReady && texelsPerPixel > PAPER_MIP_THRESHOLD
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, useMips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR)
-  }
-
-  /** Restores the plain LINEAR filter the paint path requires — see
-   *  _bindPaperForCompose. Must run after the draw that used it, before any
-   *  dab can sample this texture again. */
-  private _releasePaperFromCompose(): void {
-    const { gl } = this
-    if (!this._paperMipsReady) return
-    // Always back to plain LINEAR, whichever filter the bind above chose.
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
   }
 
   /** (#301) The entire infinite-room display pass: rotates _assemblyFBO
@@ -14175,7 +11037,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  _finishPaperBlend pair — one pass, one buffer less.
    *
    *  Writes opaque paper everywhere (alpha 1.0, blending off), so unlike
-   *  _runTransformBlit there's nothing underneath for it to blend against
+   *  BlitPasses.transform there's nothing underneath for it to blend against
    *  and no need to pre-clear the screen. */
   /** (#536) Rebuilds the display-side wetness texture, at most a few times a
    *  second — the field changes slowly and this runs inside the frame loop.
@@ -14384,7 +11246,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.46) The screen rect (GL, bottom-up) a world rect covers, padded. */
   private _damageScreenRect(b: { minX: number; minY: number; maxX: number; maxY: number }): [number, number, number, number] | null {
     const { canvas } = this
-    const m = invertMatrix(this._screenToWorldMatrix())
+    const m = invertMatrix(this._camera.screenToWorldMatrix())
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
     for (const [wx, wy] of [[b.minX, b.minY], [b.maxX, b.minY], [b.minX, b.maxY], [b.maxX, b.maxY]] as const) {
       const [sx, sy] = applyMatrix(m, wx, wy)
@@ -14408,7 +11270,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._screenCache = new AccumulationBuffer(gl, canvas.width, canvas.height, 'nearest')
       this._paperCacheKey = ''
     }
-    const cam = this._infiniteCamera
+    const cam = this._camera.pose
     const key = `${cam.wx},${cam.wy},${cam.zoom},${cam.angle},${canvas.width},${canvas.height}`
     const partial = this._paperPartialOK && this._paperDamage && key === this._paperCacheKey ? this._paperDamage : null
     this._paperPartialOK = false
@@ -14443,7 +11305,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._assemblyFBO.texture)
     gl.uniform1i(u.u_accumulation, 0)
-    this._bindPaperForCompose(this._paperTexelsPerPixel(this._infiniteCamera.zoom))
+    this._paper.bindForCompose(this._paper.texelsPerPixel(this._camera.pose.zoom))
     gl.uniform1i(u.u_paperMap, 1)
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
@@ -14454,22 +11316,22 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_wetPeak, Math.max(this._paperWet.peak(performance.now()), 0.05))
     gl.activeTexture(gl.TEXTURE0)
 
-    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform3fv(u.u_paperColor, this._paper.color())
+    gl.uniform2f(u.u_paperScale, this._paper.scale, this._paper.scale)
+    const { w: paperTexW, h: paperTexH } = this._paper.worldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
     gl.uniform2f(u.u_dstSize, canvas.width, canvas.height)
     gl.uniform2f(u.u_srcSize, ext, ext)
-    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(this._infiniteRotateMatrixInv()))
-    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(this._screenToWorldMatrix()))
+    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(this._camera.rotateMatrixInv()))
+    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(this._camera.screenToWorldMatrix()))
     // Catmull-Rom only when this pass genuinely resamples. An unrotated
     // camera at or below zoom 1 maps screen pixels onto assembly texels one
     // for one, offset by an exact integer (that integer-ness is what
-    // _assemblyPad/_compositeCenterX exist to guarantee) — a plain bilinear
+    // Camera.assemblyPad/CameraFrame.centerX exist to guarantee) — a plain bilinear
     // tap is then already lossless and 9x cheaper. See PAPER_COMPOSE_FRAG.
-    const resamples = this._infiniteCamera.angle !== 0 || this._residualScale() !== 1
+    const resamples = this._camera.pose.angle !== 0 || this._camera.residualScale() !== 1
     gl.uniform1f(u.u_sharpResample, resamples ? 1 : 0)
-    gl.uniform4fv(u.u_pageRect, this._pageRect())
+    gl.uniform4fv(u.u_pageRect, this._paper.pageRect())
     gl.uniform3fv(u.u_deskColor, this._opts.deskColor)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
@@ -14477,7 +11339,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    this._releasePaperFromCompose()
+    this._paper.releaseFromCompose()
     if (partial) gl.disable(gl.SCISSOR_TEST)
     this._screenCache!.endDraw()
     // The copy to the canvas.
@@ -14494,989 +11356,35 @@ export class PencilEngine implements PencilEngineAPI {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
   }
 
-  /** Low-level transform-blit draw call — renders `source` through
-   *  `matrixInv` (already inverted: maps destination buffer-local px to
-   *  source buffer-local px, both top-down) into `targetFbo` (sized
-   *  `dstW x dstH`) — source and destination sizes are independent (#134:
-   *  the final rotate blit reads the padded, bigger _assemblyFBO and writes
-   *  the real, smaller canvas-sized target; every other caller happens to
-   *  use matching sizes, which this reduces to exactly as before).
-   *
-   *  Never plain-replaces: every caller's target is either freshly cleared
-   *  (transparent) before its first draw here, or already holds content this
-   *  draw belongs on top of. Which of the two blends applies is the `blend`
-   *  argument, and the distinction is not cosmetic —
-   *
-   *  - 'over' (ONE, ONE_MINUS_SRC_ALPHA), the default: one source, drawn onto
-   *    whatever is already there. The image/paste blit (`_drawImageThroughMatrix`)
-   *    genuinely lands on existing layer content; the world-aligned patch
-   *    copies (`_copyArea`, `_composeAreaFillPatch`) and the export rotate
-   *    (`_finishInfiniteComposite`) draw disjoint regions onto a cleared
-   *    target, where the two blends agree anyway.
-   *  - 'add' (ONE, ONE): several *source tiles of one layer* stitched into
-   *    one destination tile — the live gizmo preview (`previewLayerTransform`)
-   *    and the bake (`_bakeTransform`). Their contributions are disjoint
-   *    except in the half-texel band along each source-tile boundary, where
-   *    each pass carries its own share of one bilinear kernel (see
-   *    TILE_BILINEAR in shaders.ts) and the shares have to sum to one. "Over"
-   *    would scale the second pass down by the first's coverage and lose part
-   *    of it, which is exactly the seam #507 was.
-   *
-   *  Every caller targets a buffer another pass reads from afterwards — since
-   *  #301 the frame's last drawing step is _composePaperToScreen, which writes
-   *  the screen through its own program rather than this one. */
-  private _runTransformBlit(
-    source: AccumulationBuffer, matrixInv: Matrix3,
-    dstW: number, dstH: number, targetFbo: WebGLFramebuffer | null,
-    blend: 'over' | 'add' = 'over',
-  ): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, dstW, dstH)
-    gl.enable(gl.BLEND)
-    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
-    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    gl.useProgram(this._transformProg)
-    const tu = this._transformUni
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._transformPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.activeTexture(gl.TEXTURE0)
-    // (#507) The shader does its own bilinear from exact texel centres — the
-    // sampler must not interpolate underneath it, and must not be left on a
-    // mip filter by an earlier composite. See setPointSampling.
-    source.setPointSampling(true)
-    gl.bindTexture(gl.TEXTURE_2D, source.texture)
-    gl.uniform1i(tu.u_source, 0)
-    gl.uniform2f(tu.u_dstSize, dstW, dstH)
-    gl.uniform2f(tu.u_srcSize, source.width, source.height)
-    gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    source.setPointSampling(false)
-
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** Bakes a transform into a layer's content, in place (#133 fix) —
-   *  destination tiles are resolved from the *transformed* content's world
-   *  bounds and created on demand, so content moved/scaled past wherever
-   *  its old tile(s) ended is never clipped the way a single fixed-size
-   *  buffer would clip it — it simply lands on whichever tile(s) now cover
-   *  it. Bounded mode (single tile at origin (0,0), both before and after)
-   *  reduces to exactly the old single-buffer bake.
-   *
-   *  Two-phase to stay WebGL1-safe (can't read and write the same texture
-   *  in one draw call, same reasoning AccumulationBuffer.copyTo's read-
-   *  into-temp-then-copy pattern exists for — see _execMergeLive/
-   *  _replayMergeInto): every destination tile that overlaps at least one
-   *  source tile's transformed bounds is rendered into its own fresh scratch
-   *  buffer first, reading only from the untouched original source tiles
-   *  (one pass per overlapping source tile, alpha-blended — see
-   *  _runTransformBlit — since a destination tile's content can come from
-   *  more than one source tile when the transform includes rotation/scale);
-   *  only once every scratch is fully rendered are the original source tiles
-   *  cleared and the scratches copied into their real destination tiles
-   *  (which can safely be the very same tile objects — the scratch render
-   *  already finished reading from them by then). A vacated source tile
-   *  stays resident-but-empty rather than being dropped from the tile map —
-   *  #155 tried dropping provably-empty tiles here to bound resident count
-   *  for a room dragged across a wide area, but reverted it: resolveForPaint
-   *  resolves destinations from each source tile's *whole* tileW x tileH
-   *  extent rather than its real content, so a realistic non-tile-aligned
-   *  drag already spills into several tiles nothing was ever painted on —
-   *  dropping only genuinely-empty ones barely reduced growth in practice,
-   *  and interacted badly with #144's own eviction/recovery replay cost once
-   *  a repeated-drag session crossed the eviction budget. Bounding this for
-   *  real needs resolveForPaint (or _bakeTransform's own bounds math) to
-   *  work from real content, not full-tile extent — left as a follow-up. */
-  private _bakeTransform(layerBuf: ILayerBuffer, wireMatrix: LayerTransformMatrix): void {
-    // (#392) Widened here, once, for the same reason previewLayerTransform
-    // does it: the two must stay pixel-identical, and a bake that read the
-    // six-number form differently from the preview would show one thing during
-    // the drag and another after it.
-    const matrix = toHomography(wireMatrix)
-    const sourceTiles = layerBuf.allResident()
-    if (!sourceTiles.length) return
-
-    // (#155) Suspended for the whole bake, same hazard and same fix as
-    // _replayInto's own suspendEviction (see its doc comment): resolveForPaint
-    // below can create several new destination tiles in one call, pushing
-    // this layer's resident count over budget mid-bake — without suspending,
-    // its own evictIfOverBudget could then destroy a tile still captured in
-    // `sourceTiles` above, moments before the blit loop reads
-    // srcTile.buffer.texture from it (a real, reproducible "attempt to use a
-    // deleted object" GPU error → silently-wrong/missing pixels, not a
-    // thrown exception, so it fails silently rather than loudly). Swept once
-    // at the end against the final, settled tile count instead.
-    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
-    tiled?.suspendEviction()
-    try {
-      this._bakeTransformUnsuspended(layerBuf, matrix, sourceTiles)
-    } finally {
-      tiled?.resumeEviction()
-    }
-  }
-
-  private _bakeTransformUnsuspended(layerBuf: ILayerBuffer, matrix: Matrix3, sourceTiles: PaintTarget[]): void {
-    // (#155 Tier 2) Every source tile's buffer is unconditionally cleared at
-    // the end of this method (see below) regardless of whether it ends up
-    // rewritten as a destination — reset tracked content up front so it
-    // can never fall out of sync with that real GPU clear. `contentRect`
-    // was already captured above (in `sourceTiles`, from allResident()) at
-    // this call's start, so resetting the live tracking now doesn't affect
-    // the srcRects computation just below. Any tile that *does* end up a
-    // destination gets its real post-bake content re-established via
-    // markContentPainted further down, layered on top of this empty
-    // baseline.
-    for (const s of sourceTiles) layerBuf.clearContentAt(s.originX, s.originY)
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    // (#155 Tier 2) Each source tile's own transformed world-space AABB,
-    // computed once here alongside the overall bounding box below — reused
-    // in the destTargets loop to skip (dest, src) pairs that can't possibly
-    // overlap, instead of unconditionally blitting every combination. Built
-    // from each source's *real tracked content* (contentRect), not its
-    // whole tileW x tileH extent — a tile that's been fully vacated by an
-    // earlier bake (contentRect null) contributes nothing here and is
-    // skipped entirely (srcRects[i] stays null), rather than forever
-    // dragging the overall bounds (and therefore resident tile footprint)
-    // wider on every subsequent drag — see _bakeTransform's own docstring
-    // for the growing-footprint bug this fixes.
-    const srcRects: Array<WorldRect | null> = []
-    for (const { contentRect } of sourceTiles) {
-      if (!contentRect) { srcRects.push(null); continue }
-      let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity
-      const corners: Array<[number, number]> = [
-        [contentRect.minX, contentRect.minY], [contentRect.maxX, contentRect.minY],
-        [contentRect.minX, contentRect.maxY], [contentRect.maxX, contentRect.maxY],
-      ]
-      for (const [x, y] of corners) {
-        const [tx, ty] = applyMatrix(matrix, x, y)
-        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
-        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
-        sMinX = Math.min(sMinX, tx); sMaxX = Math.max(sMaxX, tx)
-        sMinY = Math.min(sMinY, ty); sMaxY = Math.max(sMaxY, ty)
-      }
-      srcRects.push({ minX: sMinX, minY: sMinY, maxX: sMaxX, maxY: sMaxY })
-    }
-    if (maxX <= minX || maxY <= minY || !Number.isFinite(minX + minY + maxX + maxY)) {
-      // Degenerate (zero-scale transform, or every source tile empty) —
-      // content collapses to nothing. See previewLayerTransform's identical
-      // check for why non-finite bounds are refused here too (#392).
-      for (const s of sourceTiles) s.buffer.clear()
-      return
-    }
-
-    const destTargets = layerBuf.resolveForPaint({ minX, minY, maxX, maxY })
-    const matrixInv = invertMatrix(matrix)
-    const scratches: Array<{ target: PaintTarget; scratch: AccumulationBuffer }> = []
-    for (const destTarget of destTargets) {
-      const destMinX = destTarget.originX, destMinY = destTarget.originY
-      const destMaxX = destMinX + destTarget.buffer.width, destMaxY = destMinY + destTarget.buffer.height
-      // (#155) resolveForPaint resolves every tile touching the *union* of
-      // every source tile's own real-content transformed bounds — for a
-      // scale/rotate that union can span tiles no individual source tile's
-      // content ever actually reaches (its own transformed rect just
-      // happens to pass near, not through, that particular cell). Checking
-      // for any overlap at all before acquiring a scratch, rather than after
-      // finding none of the per-tile blits below fired, means a destination
-      // like that never gets a scratch (or a wasted GPU copy) in the first
-      // place — it's already a blank tile fresh out of resolveForPaint, so
-      // skipping straight past it leaves it exactly as correct as copying an
-      // all-transparent scratch onto it would have.
-      if (!srcRects.some(r => r && !(r.maxX <= destMinX || r.minX >= destMaxX || r.maxY <= destMinY || r.minY >= destMaxY))) continue
-      // (#155) Pooled rather than `new AccumulationBuffer` + destroy() every
-      // commit — see _transformScratchPool's own comment. A bake that
-      // touches N tiles otherwise pays N fresh _makeFBO calls (each a real
-      // checkFramebufferStatus GPU sync) on every single commit, which
-      // dominated an 8s pointerup INP on a room with ~20 resident tiles.
-      const scratch = this._acquireScratchBuf(destTarget.buffer.width, destTarget.buffer.height)
-      scratch.clear()
-      sourceTiles.forEach((srcTile, i) => {
-        // (#155) Skip pairs whose transformed bounding boxes don't overlap
-        // at all (including a source with no real content, srcRects[i] ===
-        // null) — TRANSFORM_BLIT_FRAG would just sample out-of-[0,1] UV and
-        // draw fully transparent for every fragment in that case, so the
-        // blit call itself is pure waste. Left unconditional, this is
-        // O(destTiles x sourceTiles) real GPU draw calls every bake — fine
-        // for a fresh layer (usually 1 tile each side) but blows up as a
-        // room accumulates more resident tiles from repeated far-off drags:
-        // measured a 5.6s `pointerup` INP from exactly this (see #155).
-        const r = srcRects[i]
-        if (!r || r.maxX <= destMinX || r.minX >= destMaxX || r.maxY <= destMinY || r.minY >= destMaxY) return
-        // dest-tile-local -> world (destTarget's own origin) -> source
-        // world (the transform's inverse) -> src-tile-local (srcTile's own
-        // origin). Bounded mode: both origins are (0,0), so this reduces to
-        // exactly matrixInv, unchanged from before this was generalized.
-        const toWorld = translationMatrix(destTarget.originX, destTarget.originY)
-        const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
-        const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-        this._runTransformBlit(
-          srcTile.buffer, mc, destTarget.buffer.width, destTarget.buffer.height, scratch.fbo, 'add',
-        )
-        // (#155 Tier 2) The real content this pair just contributed to
-        // destTarget is exactly r (the source's transformed content AABB)
-        // intersected with destTarget's own world rect — mark it so
-        // getContentBounds() reflects reality without ever reading pixels
-        // back. Unioned across every contributing source (markContentPainted
-        // is monotonic), so call order/count doesn't matter.
-        layerBuf.markContentPainted({
-          minX: Math.max(r.minX, destMinX), minY: Math.max(r.minY, destMinY),
-          maxX: Math.min(r.maxX, destMaxX), maxY: Math.min(r.maxY, destMaxY),
-        })
-      })
-      scratches.push({ target: destTarget, scratch })
-    }
-
-    // (#155 follow-up: dropTile was tried here and reverted — see its own
-    // removal note below the class for why) — every source tile is cleared
-    // once every scratch has finished reading from it, same as before this
-    // whole optimization pass; a tile that's *also* a destination target
-    // gets fully overwritten by scratch.copyTo right after anyway (a full
-    // replace, not a blend), so clearing it first is harmless, just as it
-    // always was.
-    for (const s of sourceTiles) s.buffer.clear()
-    for (const { target, scratch } of scratches) {
-      scratch.copyTo(target.buffer)
-      this._releaseScratchBuf(scratch)
-    }
-  }
-
-  // ─── Selection (#446) ────────────────────────────────────────────────────────
-
-  /** Uploads a selection's coverage mask (selectionMask.ts) as an ALPHA
-   *  texture, with a one-entry cache keyed by the *identity* of the selection
-   *  object.
-   *
-   *  The cache is what makes a gizmo drag affordable: previewAreaTransform
-   *  runs on every pointer move, the selection does not change during a drag,
-   *  and rasterizing a canvas-sized lasso is milliseconds of CPU that would
-   *  otherwise be spent per frame. Room holds the selection in the store, so
-   *  every frame of one drag really does pass the same object; a replayed
-   *  operation brings its own, which correctly misses and is released as soon
-   *  as the next caller arrives.
-   *
-   *  Null when the selection has no inside (a tap, a zero-width drag) — every
-   *  caller treats that as "nothing to do" rather than as an error, which is
-   *  also what makes a stray tap with the selection tool harmless. */
-  private _acquireMask(selection: SelectionShape): MaskTexture | null {
-    if (this._maskCache && this._maskCache.selection === selection) return this._maskCache.mask
-    this._releaseMask()
-    const built = buildSelectionMask(selection)
-    if (!built) return null
-
-    const { gl } = this
-    const tex = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    // Rows are single-byte and the width is whatever the selection happened to
-    // be, so the default 4-byte row alignment would shear every mask whose
-    // width isn't a multiple of four — a diagonal tear that looks like a
-    // rasterizer bug and isn't one.
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    gl.texImage2D(
-      gl.TEXTURE_2D, 0, gl.ALPHA, built.width, built.height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, built.data,
-    )
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-    const mask: MaskTexture = { tex, rect: built.rect }
-    this._maskCache = { selection, mask }
-    return mask
-  }
-
-  private _releaseMask(): void {
-    if (!this._maskCache) return
-    this.gl.deleteTexture(this._maskCache.mask.tex)
-    this._maskCache = null
-  }
-
-  /** One AREA_MASK_FRAG pass over a whole buffer — see that shader's comment
-   *  for why the two modes are one program: 'erase' punches the selection out
-   *  (`dst *= 1 - coverage`), 'keep' throws away everything outside it
-   *  (`dst *= coverage`). `originX/originY` is the target's world origin, so
-   *  the caller never has to translate the mask. */
-  private _runAreaMaskPass(
-    target: AccumulationBuffer, originX: number, originY: number, mask: MaskTexture, mode: 'erase' | 'keep',
-  ): void {
-    const { gl } = this
-    if (mode === 'erase') target.beginErase()
-    else target.beginKeepDraw()
-    gl.useProgram(this._areaMaskProg)
-    const u = this._areaMaskUni
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, mask.tex)
-    gl.uniform1i(u.u_mask, 0)
-    gl.uniform2f(u.u_dstSize, target.width, target.height)
-    gl.uniform2f(u.u_dstOrigin, originX, originY)
-    gl.uniform4f(
-      u.u_maskRect, mask.rect.minX, mask.rect.minY,
-      mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
-    )
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._areaMaskPosLoc)
-    gl.vertexAttribPointer(this._areaMaskPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** The masked twin of _runTransformBlit: draws one source tile's *selected*
-   *  pixels through `matrixInv` into `targetFbo`.
-   *
-   *  `blend` carries the same meaning as _runTransformBlit's (read it there):
-   *  'over' lands the piece on a destination that already holds the part of
-   *  the layer that isn't moving, and is only correct when this is the single
-   *  source tile; 'add' sums several source tiles' shares of one bilinear
-   *  kernel into a transparent buffer of their own, which _composeAreaTiles
-   *  then composites over the tile in one go (#507). */
-  private _runAreaTransformBlit(
-    source: AccumulationBuffer, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,
-    dstW: number, dstH: number, targetFbo: WebGLFramebuffer, blend: 'over' | 'add',
-  ): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, dstW, dstH)
-    gl.enable(gl.BLEND)
-    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
-    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    gl.useProgram(this._areaTransformProg)
-    const u = this._areaTransformUni
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._areaTransformPosLoc)
-    gl.vertexAttribPointer(this._areaTransformPosLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.activeTexture(gl.TEXTURE0)
-    // (#507) Same reason as _runTransformBlit's: the shader filters by hand
-    // from exact texel centres. See setPointSampling.
-    source.setPointSampling(true)
-    gl.bindTexture(gl.TEXTURE_2D, source.texture)
-    gl.uniform1i(u.u_source, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, mask.tex)
-    gl.uniform1i(u.u_mask, 1)
-    gl.activeTexture(gl.TEXTURE0)
-
-    gl.uniform2f(u.u_dstSize, dstW, dstH)
-    gl.uniform2f(u.u_srcSize, source.width, source.height)
-    gl.uniform2f(u.u_srcOrigin, srcOriginX, srcOriginY)
-    gl.uniform4f(
-      u.u_maskRect, mask.rect.minX, mask.rect.minY,
-      mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
-    )
-    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(matrixInv))
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    source.setPointSampling(false)
-
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** The whole of an `area_transform`, rendered into scratch tiles — shared
-   *  verbatim by the live drag preview and the committed bake, which is the
-   *  point: what you see while dragging and what lands when you let go are
-   *  the same pixels because they are the same code, not two implementations
-   *  kept in step by hand (the failure #392 called out for the whole-layer
-   *  path).
-   *
-   *  Each scratch is one tile of the layer's own grid, holding that tile as it
-   *  will look afterwards: its current content, minus the selection (the hole
-   *  the lift leaves), plus whatever part of the lifted region lands in it.
-   *  Tiles that neither region touches are not built at all — the caller draws
-   *  them from the real layer.
-   *
-   *  Every read happens before any write: the scratches are computed from the
-   *  untouched layer, and only the bake copies them back afterwards. Same
-   *  two-phase shape as _bakeTransformUnsuspended, and for the same WebGL1
-   *  reason — a texture cannot be read and written in one draw. */
-  private _composeAreaTiles(
-    layerBuf: ILayerBuffer, mask: MaskTexture, matrix: Matrix3,
-    tileRects: WorldRect[], acquire: (w: number, h: number) => AccumulationBuffer,
-  ): Array<{ rect: WorldRect; scratch: AccumulationBuffer }> {
-    const src = mask.rect
-    const corners: Array<[number, number]> = [
-      [src.minX, src.minY], [src.maxX, src.minY], [src.minX, src.maxY], [src.maxX, src.maxY],
-    ]
-    let dstMinX = Infinity, dstMinY = Infinity, dstMaxX = -Infinity, dstMaxY = -Infinity
-    for (const [x, y] of corners) {
-      const [tx, ty] = applyMatrix(matrix, x, y)
-      dstMinX = Math.min(dstMinX, tx); dstMaxX = Math.max(dstMaxX, tx)
-      dstMinY = Math.min(dstMinY, ty); dstMaxY = Math.max(dstMaxY, ty)
-    }
-    // A degenerate or projectively-inverted matrix collapses the selection to
-    // nothing — the lift still happens (the hole is real), only nothing lands.
-    // Same reasoning as _bakeTransform's own degenerate branch, including the
-    // finiteness half (#392: a homography can send a corner to infinity, and
-    // an infinite rect is a hang, not a wrong picture).
-    const lands = Number.isFinite(dstMinX + dstMinY + dstMaxX + dstMaxY) && dstMaxX > dstMinX && dstMaxY > dstMinY
-    const dst = { minX: dstMinX, minY: dstMinY, maxX: dstMaxX, maxY: dstMaxY }
-
-    // Read-only: the source tiles the selection actually covers. Never
-    // resolveForPaint — lifting reads, and a read must not create tiles.
-    const sourceTiles = layerBuf.resolveVisible(src)
-    const matrixInv = invertMatrix(matrix)
-    const out: Array<{ rect: WorldRect; scratch: AccumulationBuffer }> = []
-
-    for (const rect of tileRects) {
-      const overlapsSrc = !(src.maxX <= rect.minX || src.minX >= rect.maxX || src.maxY <= rect.minY || src.minY >= rect.maxY)
-      const overlapsDst = lands
-        && !(dst.maxX <= rect.minX || dst.minX >= rect.maxX || dst.maxY <= rect.minY || dst.minY >= rect.maxY)
-      if (!overlapsSrc && !overlapsDst) continue
-
-      const w = rect.maxX - rect.minX
-      const h = rect.maxY - rect.minY
-      const scratch = acquire(w, h)
-      const existing = this._tileBufferAt(layerBuf, rect)
-      if (existing) existing.copyTo(scratch)
-      else scratch.clear()
-
-      if (overlapsSrc) this._runAreaMaskPass(scratch, rect.minX, rect.minY, mask, 'erase')
-      if (overlapsDst) {
-        // (#507) A selection lying inside one tile can be drawn straight onto
-        // that tile's remaining content. A selection spanning several cannot:
-        // along each source-tile boundary every pass carries only its own
-        // share of one bilinear kernel (see TILE_BILINEAR in shaders.ts), and
-        // those shares have to sum before anything is composited — "over"
-        // against a destination that already holds the layer scales each
-        // share by the previous one's coverage and leaves a hairline through
-        // the lifted piece. So the piece is accumulated on its own,
-        // transparent, and laid down in one pass.
-        //
-        // Pooled through the engine's own scratch pool rather than the
-        // caller's `acquire`: this buffer never leaves this method, and the
-        // preview's acquire deliberately allocates fresh every time (see its
-        // own comment there).
-        const lift = sourceTiles.length > 1 ? this._acquireScratchBuf(w, h) : null
-        lift?.clear()
-        for (const srcTile of sourceTiles) {
-          const toWorld = translationMatrix(rect.minX, rect.minY)
-          const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
-          const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-          this._runAreaTransformBlit(
-            srcTile.buffer, srcTile.originX, srcTile.originY, mc, mask,
-            w, h, lift ? lift.fbo : scratch.fbo, lift ? 'add' : 'over',
-          )
-        }
-        if (lift) {
-          this._compositeTextures([{ texture: lift.texture, opacity: 1 }], scratch.fbo, w, h)
-          this._releaseScratchBuf(lift)
-        }
-      }
-      out.push({ rect, scratch })
-    }
-    return out
-  }
-
-  /** The resident buffer whose world origin is this tile rect's, or null.
-   *  resolveVisible is already "never create", so this is only picking the one
-   *  exact tile out of what it returns. */
-  private _tileBufferAt(layerBuf: ILayerBuffer, rect: WorldRect): AccumulationBuffer | null {
-    for (const t of layerBuf.resolveVisible(rect)) {
-      if (t.originX === rect.minX && t.originY === rect.minY) return t.buffer
-    }
-    return null
-  }
-
-  /** Every tile of this room's grid that the selection, or where it is going,
-   *  touches. */
-  private _areaTileRects(mask: MaskTexture, matrix: Matrix3): WorldRect[] {
-    const { w: tw, h: th } = this._tileSize()
-    const r = mask.rect
-    const corners: Array<[number, number]> = [
-      [r.minX, r.minY], [r.maxX, r.minY], [r.minX, r.maxY], [r.maxX, r.maxY],
-    ]
-    let minX = r.minX, minY = r.minY, maxX = r.maxX, maxY = r.maxY
-    for (const [x, y] of corners) {
-      const [tx, ty] = applyMatrix(matrix, x, y)
-      if (Number.isFinite(tx) && Number.isFinite(ty)) {
-        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
-        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
-      }
-    }
-    return tilesOverlappingRect({ minX, minY, maxX, maxY }, tw, th)
-      .map(({ tileX, tileY }) => tileWorldRect(tileX, tileY, tw, th))
-  }
-
-  /** Bakes an `area_transform` into a layer for real. Mirrors _bakeTransform's
-   *  eviction suspension for the same reason: resolveForPaint below can create
-   *  several tiles at once and push this layer over its resident budget
-   *  mid-bake, and an eviction firing then could destroy a tile the blit loop
-   *  is still reading from — a silent GPU error, not a thrown one. */
-  private _bakeAreaTransform(layerBuf: ILayerBuffer, selection: SelectionShape, wireMatrix: LayerTransformMatrix): void {
-    const mask = this._acquireMask(selection)
-    if (!mask) return
-    const matrix = toHomography(wireMatrix)
-    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
-    tiled?.suspendEviction()
-    try {
-      const rects = this._areaTileRects(mask, matrix)
-      // resolveForPaint per rect rather than once over the union: the union of
-      // "where it was" and "where it went" can cover tiles neither region
-      // actually reaches (a long diagonal drag), and creating those would leak
-      // permanently empty tiles into the layer.
-      for (const rect of rects) layerBuf.resolveForPaint(rect)
-      const composed = this._composeAreaTiles(
-        layerBuf, mask, matrix, rects, (w, h) => this._acquireScratchBuf(w, h),
-      )
-      for (const { rect, scratch } of composed) {
-        const target = this._tileBufferAt(layerBuf, rect)
-        if (target) {
-          scratch.copyTo(target)
-          // Conservative, like every other tracker update here: the moved
-          // content's own AABB clipped to this tile. The hole the lift leaves
-          // is deliberately not subtracted — markContentPainted only ever
-          // grows, and tightenContentRects (#421) is what corrects it, on the
-          // transform gizmo's own schedule.
-          layerBuf.markContentPainted(rect)
-        }
-        this._releaseScratchBuf(scratch)
-      }
-    } finally {
-      tiled?.resumeEviction()
-    }
-  }
-
-  /** `area_clear`: erases the selection from a layer, touching only the tiles
-   *  it covers. No scratch and no two-phase dance — nothing is read from the
-   *  layer here, every pixel is multiplied in place.
-   *
-   *  (#503) resolveExistingForPaint, not resolveVisible: this writes. It used
-   *  to reach for the read resolver — correct about not creating tiles, wrong
-   *  about saying nothing — so the erase landed on the fine tiles and no
-   *  coarse level ever heard about it. The layer went on showing the erased
-   *  content at every zoom that draws from a level. */
-  private _clearArea(layerBuf: ILayerBuffer, selection: SelectionShape): void {
-    const mask = this._acquireMask(selection)
-    if (!mask) return
-    for (const target of layerBuf.resolveExistingForPaint(mask.rect)) {
-      this._runAreaMaskPass(target.buffer, target.originX, target.originY, mask, 'erase')
-    }
-  }
-
-  /** Draws a decoded raster into `target` — whose world origin is
-   *  (originX, originY) — placed at `rect` and then moved by `matrix`.
-   *
-   *  Two passes rather than one, and the intermediate buffer is the reason:
-   *  the image arrives with straight alpha and everything downstream works in
-   *  premultiplied, so it goes through IMAGE_BLIT_FRAG (which premultiplies)
-   *  into a scratch the size of its own rect, and only then through the
-   *  ordinary transform blit, which resamples premultiplied content correctly.
-   *  Sampling the raw image through the transform blit directly would blend
-   *  straight-alpha texels at every filtered edge — a dark rim around
-   *  everything pasted, which is precisely what un-premultiplied filtering
-   *  looks like. */
-  private _drawImageThroughMatrix(
-    target: AccumulationBuffer, originX: number, originY: number,
-    img: HTMLImageElement, rect: { x: number; y: number; width: number; height: number },
-    matrix: Matrix3,
-  ): void {
-    const { gl } = this
-    const w = Math.max(1, Math.round(rect.width))
-    const h = Math.max(1, Math.round(rect.height))
-    const scratch = this._acquireScratchBuf(w, h)
-    scratch.clear()
-
-    const texture = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-    scratch.beginDraw()
-    gl.useProgram(this._blitProg)
-    const u = this._blitUni
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.uniform1i(u.u_image, 0)
-    gl.uniform2f(u.u_bufferSize, w, h)
-    gl.uniform4f(u.u_imageRect, 0, 0, w, h)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._blitPosLoc)
-    gl.vertexAttribPointer(this._blitPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    scratch.endDraw()
-    gl.deleteTexture(texture)
-
-    // target-local -> world -> pre-matrix world -> scratch-local (the rect's
-    // own origin). Same composition the masked transform builds, with the
-    // raster's rect standing in for a source tile.
-    const toWorld = translationMatrix(originX, originY)
-    const toRectLocal = translationMatrix(-rect.x, -rect.y)
-    const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
-    this._runTransformBlit(scratch, mc, target.width, target.height, target.fbo)
-    this._releaseScratchBuf(scratch)
-  }
-
   /** See PencilEngineAPI's doc comment. */
   previewAreaPaste(
     layerId: string, image: string,
     rect: { x: number; y: number; width: number; height: number },
     wireMatrix: LayerTransformMatrix,
   ): void {
-    const layerBuf = this._layers.get(layerId)
-    const img = this._imageCache.get(image)
-    const oldByOrigin = new Map(
-      (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
-    )
-    if (!layerBuf || !img) {
-      for (const t of oldByOrigin.values()) t.buffer.destroy()
-      this._transformPreview.delete(layerId)
-      this._areaPreviewLayers.delete(layerId)
-      this._display()
-      return
-    }
-
-    const matrix = toHomography(wireMatrix)
-    // Which tiles the piece covers *now* — its rect through the matrix. The
-    // layer's own content is untouched by a paste, so unlike the lift there is
-    // no second region (the hole) to account for.
-    const { w: tw, h: th } = this._tileSize()
-    const corners: Array<[number, number]> = [
-      [rect.x, rect.y], [rect.x + rect.width, rect.y],
-      [rect.x, rect.y + rect.height], [rect.x + rect.width, rect.y + rect.height],
-    ]
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const [x, y] of corners) {
-      const [tx, ty] = applyMatrix(matrix, x, y)
-      minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
-      minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
-    }
-    if (!(maxX > minX) || !(maxY > minY) || !Number.isFinite(minX + minY + maxX + maxY)) {
-      for (const t of oldByOrigin.values()) t.buffer.destroy()
-      this._transformPreview.delete(layerId)
-      this._areaPreviewLayers.delete(layerId)
-      this._display()
-      return
-    }
-
-    const tiles: PreviewTile[] = []
-    const reused = new Set<string>()
-    for (const { tileX, tileY } of tilesOverlappingRect({ minX, minY, maxX, maxY }, tw, th)) {
-      const tileRect = tileWorldRect(tileX, tileY, tw, th)
-      const key = `${tileRect.minX},${tileRect.minY}`
-      const old = oldByOrigin.get(key)
-      const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, tw, th)
-      if (old) reused.add(key)
-      const existing = this._tileBufferAt(layerBuf, tileRect)
-      if (existing) existing.copyTo(scratch)
-      else scratch.clear()
-      this._drawImageThroughMatrix(scratch, tileRect.minX, tileRect.minY, img, rect, matrix)
-      tiles.push(old ?? { originX: tileRect.minX, originY: tileRect.minY, buffer: scratch })
-    }
-    for (const [key, t] of oldByOrigin) {
-      if (!reused.has(key)) t.buffer.destroy()
-    }
-
-    this._transformPreview.set(layerId, tiles)
-    this._areaPreviewLayers.add(layerId)
-    this._display()
-  }
-
-  /** An `area_paste` in `image_import` clothing. Paste and import differ in
-   *  where the pixels come from and what they are allowed to land on — not in
-   *  how a straight-alpha raster becomes premultiplied layer content, nor in
-   *  what has to happen when its decode finishes after the operations behind
-   *  it were already applied. So the whole decoded/undecoded/late-arrival
-   *  dance (#398: _paintDecodedImage, _paintImage, _settleLateImage) is
-   *  reused as-is rather than reimplemented for a second raster operation.
-   *
-   *  Placement rides the `x`/`y` fields image_import added for infinite rooms:
-   *  present means "natural size at this world position", which is exactly
-   *  what paste-in-place means. */
-  private _asImportRecord(op: AreaPasteOperation | AreaFillOperation): ImageImportOperation {
-    return {
-      id: op.id, userId: op.userId, timestamp: op.timestamp, seq: op.seq,
-      type: 'image_import', layerId: op.layerId, image: op.image,
-      x: op.x, y: op.y, width: op.width, height: op.height,
-    }
-  }
-
-  /** See PencilEngineAPI's doc comment. Same lifecycle as
-   *  previewLayerTransform — call per drag frame, then
-   *  clearLayerTransformPreview once the operation is appended or the drag is
-   *  abandoned.
-   *
-   *  The tile buffers here are plain AccumulationBuffers keyed by origin and
-   *  reused between frames, exactly as the whole-layer preview does it and for
-   *  the same measured reason: allocating a tile-sized texture + FBO per
-   *  pointer move is what made dragging stutter on a Surface (#142
-   *  follow-up). */
-  previewAreaTransform(layerId: string, selection: SelectionShape, matrix: LayerTransformMatrix): void {
-    const layerBuf = this._layers.get(layerId)
-    const mask = layerBuf ? this._acquireMask(selection) : null
-    const oldByOrigin = new Map(
-      (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
-    )
-    if (!layerBuf || !mask) {
-      for (const t of oldByOrigin.values()) t.buffer.destroy()
-      this._transformPreview.delete(layerId)
-      this._areaPreviewLayers.delete(layerId)
-      this._display()
-      return
-    }
-
-    const reused = new Set<string>()
-    const composed = this._composeAreaTiles(
-      layerBuf, mask, toHomography(matrix), this._areaTileRects(mask, toHomography(matrix)),
-      (w, h) => {
-        // Keyed on size alone would be wrong if a room could change its tile
-        // grid mid-session; it cannot (see _tileSize), so the origin key below
-        // is enough and this only has to hand back *a* buffer of the right
-        // size. The origin match happens in the loop that consumes this.
-        void w; void h
-        return new AccumulationBuffer(this.gl, w, h)
-      },
-    )
-
-    // The acquire callback above cannot see which origin it is being called
-    // for, so reuse is settled here: a tile that existed last frame keeps its
-    // buffer and the freshly allocated one is thrown away. Wasteful only on
-    // the frames where nothing changed — and those are precisely the frames
-    // where the *content* changed, which is why the buffer has to be redrawn
-    // anyway.
-    const tiles: PreviewTile[] = []
-    for (const { rect, scratch } of composed) {
-      const key = `${rect.minX},${rect.minY}`
-      const old = oldByOrigin.get(key)
-      if (old) {
-        scratch.copyTo(old.buffer)
-        scratch.destroy()
-        reused.add(key)
-        tiles.push(old)
-      } else {
-        tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
-      }
-    }
-    for (const [key, t] of oldByOrigin) {
-      if (!reused.has(key)) t.buffer.destroy()
-    }
-
-    this._transformPreview.set(layerId, tiles)
-    // The flag that makes _drawCompositeItem draw the rest of this layer from
-    // its real tiles instead of treating the preview as the whole layer.
-    this._areaPreviewLayers.add(layerId)
-    this._display()
-  }
-
-  /** See PencilEngineAPI's doc comment.
-   *
-   *  Flattens the selection's bounding box out of the layer's tiles into one
-   *  patch, cuts it down to the selection's own shape (AREA_MASK_FRAG in
-   *  'keep' mode), un-premultiplies on the way out and encodes a PNG. The
-   *  un-premultiply is not optional: layer buffers store premultiplied colour
-   *  and PNG is straight alpha, so skipping it would darken every partly
-   *  transparent pixel — i.e. exactly the antialiased rim of every lasso. */
-  async readAreaImage(layerId: string, selection: SelectionShape): Promise<AreaImage | null> {
-    const layerBuf = this._layers.get(layerId)
-    if (!layerBuf) return null
-    const mask = this._acquireMask(selection)
-    if (!mask) return null
-
-    const { gl } = this
-    const { minX, minY, maxX, maxY } = mask.rect
-    const w = maxX - minX, h = maxY - minY
-    if (w <= 0 || h <= 0) return null
-
-    const patch = new AccumulationBuffer(gl, w, h)
-    patch.clear()
-    // Straight world-aligned copies rather than _drawTileComposite, which
-    // reads the live camera (and would need _buildContentComposite's whole
-    // save/override/restore dance to be told to ignore it). A pure
-    // translation through the transform blit is the same pixels with none of
-    // that: patch-local (0,0) is world (minX, minY) by construction.
-    for (const { buffer, originX, originY } of layerBuf.resolveVisible(mask.rect)) {
-      this._runTransformBlit(buffer, translationMatrix(minX - originX, minY - originY), w, h, patch.fbo)
-    }
-    this._runAreaMaskPass(patch, minX, minY, mask, 'keep')
-
-    const pixels = patch.readPixels()
-    patch.destroy()
-    const blob = await this._pixelsToBlob(unpremultiply(pixels), w, h)
-    if (!blob) return null
-    const image = await blobToDataUrl(blob)
-    return image ? { image, x: minX, y: minY, width: w, height: h } : null
-  }
-
-  /** (#453) The rect a fill is allowed to spread over.
-   *
-   *  A flood fill needs an edge to stop at, and on this canvas that is not a
-   *  given: layer storage is a sparse map of tiles that come into existence
-   *  when something is painted on them, so "outward from an untouched pixel"
-   *  has no end. A room with a sheet has the obvious answer and uses it — the
-   *  sheet, exactly as a bucket behaves in every editor with a page. An
-   *  infinite room (#436 took those off the create screen, but rooms made
-   *  before it are still in production) has no page, so the drawing itself
-   *  stands in for one: the content bounds of whatever the fill is reading,
-   *  with a margin so paint can spread a little past the outermost mark.
-   *
-   *  Capped to a `FILL_MAX_DIM` box centred on the seed in both cases. That
-   *  cap is a real limit on what a single fill can cover, and it is deliberate
-   *  rather than defensive: the alternative on a drawing spanning tens of
-   *  thousands of world units is a readback and a scan nobody's tablet
-   *  finishes. A fill poured into an outline that is not closed stops at the
-   *  cap rather than at the drawing, and that is the intended behaviour: it
-   *  fills, and the way back is undo. */
-  private _fillDomain(items: CompositeItem[], seedX: number, seedY: number): WorldRect {
-    const half = FILL_MAX_DIM / 2
-    const cap: WorldRect = {
-      minX: Math.floor(seedX - half), minY: Math.floor(seedY - half),
-      maxX: Math.ceil(seedX + half), maxY: Math.ceil(seedY + half),
-    }
-    let rect: WorldRect
-    if (!this._infinite) {
-      // (#607) The sheet, not the canvas element. Until #470 those were the
-      // same size; since then the canvas is the on-screen surface (the size
-      // of the window), and a domain read off it left every tap below or
-      // right of that rectangle with no region at all — the fill silently did
-      // nothing on most of an A4 page.
-      const page = this._pageSize()
-      rect = { minX: 0, minY: 0, maxX: page.w, maxY: page.h }
-    } else {
-      // Union of what the source layers actually hold. Tracked per tile and
-      // never read back from the GPU (see ILayerBuffer.getContentBoundsWorld),
-      // so this costs nothing even on a long room.
-      let union: WorldRect | null = null
-      for (const { id } of items) {
-        const bounds = this._layers.get(id)?.getContentBoundsWorld()
-        if (!bounds) continue
-        union = union === null ? bounds : {
-          minX: Math.min(union.minX, bounds.minX), minY: Math.min(union.minY, bounds.minY),
-          maxX: Math.max(union.maxX, bounds.maxX), maxY: Math.max(union.maxY, bounds.maxY),
-        }
-      }
-      // A tap outside the drawing (or on a blank canvas) still has to fill
-      // *something*, so the seed's own neighbourhood joins the domain rather
-      // than the fill silently doing nothing.
-      const margin = INFINITE_FILL_MARGIN
-      rect = union === null ? cap : {
-        minX: Math.min(union.minX - margin, seedX - margin), minY: Math.min(union.minY - margin, seedY - margin),
-        maxX: Math.max(union.maxX + margin, seedX + margin), maxY: Math.max(union.maxY + margin, seedY + margin),
-      }
-    }
-    return {
-      minX: Math.max(Math.floor(rect.minX), cap.minX), minY: Math.max(Math.floor(rect.minY), cap.minY),
-      maxX: Math.min(Math.ceil(rect.maxX), cap.maxX), maxY: Math.min(Math.ceil(rect.maxY), cap.maxY),
-    }
-  }
-
-  /** (#453) Flattens `items` (bottom→top, each at its own effective opacity)
-   *  over `rect` into one premultiplied RGBA8 buffer — the pixels a fill reads
-   *  its boundaries from.
-   *
-   *  World-aligned blits rather than the real composite path, for the reason
-   *  readAreaImage gives: `_runComposite` is written against the live camera,
-   *  and a fill's domain has nothing to do with where the camera is looking.
-   *  It also must not include the paper pass — paper is composited at display
-   *  time and is not in any layer, and sampling it back in would hand the fill
-   *  the grain as if it were drawing, which is exactly how a naive bucket
-   *  shatters a region into islands.
-   *
-   *  Rows come back in GL order (bottom-up); see computeAreaFill for where
-   *  that is undone. */
-  private _readFillSource(rect: WorldRect, items: CompositeItem[]): Uint8Array | null {
-    const { gl } = this
-    const w = rect.maxX - rect.minX
-    const h = rect.maxY - rect.minY
-    if (w <= 0 || h <= 0) return null
-
-    const patch = new AccumulationBuffer(gl, w, h)
-    patch.clear()
-    const single = items.length === 1 && items[0].opacity >= 1
-    const layerPatch = single ? null : new AccumulationBuffer(gl, w, h)
-    for (const { id, opacity } of items) {
-      const layerBuf = this._layers.get(id)
-      if (!layerBuf || opacity <= 0) continue
-      // One layer at full opacity is the common case (filling against the
-      // active layer alone) and needs no intermediate at all.
-      const dest = layerPatch ?? patch
-      if (layerPatch) layerPatch.clear()
-      for (const { buffer, originX, originY } of layerBuf.resolveVisible(rect)) {
-        this._runTransformBlit(buffer, translationMatrix(rect.minX - originX, rect.minY - originY), w, h, dest.fbo)
-      }
-      if (layerPatch) this._compositeTextures([{ texture: layerPatch.texture, opacity }], patch.fbo, w, h)
-    }
-    const pixels = patch.readPixels()
-    patch.destroy()
-    layerPatch?.destroy()
-    return pixels
+    this._area.previewAreaPaste(layerId, image, rect, wireMatrix)
   }
 
   /** See PencilEngineAPI's doc comment. */
-  async computeAreaFill(request: AreaFillRequest): Promise<AreaFillRaster | null> {
-    const { layerId, seedX, seedY, color, tolerance, gapClose, expand, source } = request
-    if (!this._layers.has(layerId)) return null
-    // 'visible' reads the composite of every visible layer — lineart on top,
-    // colour going into the layer underneath, which is the whole reason the
-    // mode exists (ADR 010). 'layer' reads only the target. (#557) "Visible"
-    // means what is on this screen, so it goes through the display filter: a
-    // fill that read layers the solo has put out of view would flood past
-    // edges the user cannot see.
-    const items = source === 'visible'
-      ? this._displayOrder().filter(it => this._layers.has(it.id))
-      : [{ id: layerId, opacity: 1 }]
-    if (items.length === 0) return null
+  previewAreaTransform(layerId: string, selection: SelectionShape, matrix: LayerTransformMatrix): void {
+    this._area.previewAreaTransform(layerId, selection, matrix)
+  }
 
-    const rect = this._fillDomain(items, seedX, seedY)
-    const w = rect.maxX - rect.minX
-    const h = rect.maxY - rect.minY
-    if (w <= 0 || h <= 0) return null
-    const pixels = this._readFillSource(rect, items)
-    if (!pixels) return null
+  /** See PencilEngineAPI's doc comment. */
+  readAreaImage(layerId: string, selection: SelectionShape): Promise<AreaImage | null> {
+    return this._area.readAreaImage(layerId, selection)
+  }
 
-    // readPixels hands back rows bottom-up, and flipping a domain-sized buffer
-    // to fix that would be a pointless copy of up to 64 MB: the fill itself is
-    // orientation-blind, so it runs in GL rows and only the two y coordinates
-    // that leave this method are converted back. `_pixelsToBlob` flips on
-    // the way out, so the cropped raster is already in the order it wants.
-    const seedCol = Math.floor(seedX) - rect.minX
-    const seedRow = (h - 1) - (Math.floor(seedY) - rect.minY)
-    const paper = this._opts.paperColor ?? paperColorOf(this._opts.paper)
-    const result = computeFill(
-      {
-        pixels, width: w, height: h,
-        background: [
-          Math.round(paper[0] * 255), Math.round(paper[1] * 255), Math.round(paper[2] * 255),
-        ],
-      },
-      { seedX: seedCol, seedY: seedRow, tolerance, gapClose, expand },
-    )
-    if (!result.bounds) return null
-
-    const rgb: [number, number, number] = [
-      Math.round(color[0] * 255), Math.round(color[1] * 255), Math.round(color[2] * 255),
-    ]
-    const cropped = coverageToRgba(result.coverage, w, result.bounds, rgb)
-    const blob = await this._pixelsToBlob(cropped.pixels, cropped.width, cropped.height)
-    if (!blob) return null
-    const image = await blobToDataUrl(blob)
-    if (!image) return null
-    return {
-      image,
-      x: rect.minX + result.bounds.minX,
-      // GL rows counted from the bottom of the domain, world y counted from
-      // its top: the crop's *last* row is the one nearest the top edge.
-      y: rect.minY + (h - result.bounds.maxY),
-      width: cropped.width,
-      height: cropped.height,
-    }
+  /** See PencilEngineAPI's doc comment. */
+  computeAreaFill(request: AreaFillRequest): Promise<AreaFillRaster | null> {
+    return this._area.computeAreaFill(request)
   }
 
   /** Rebuilds `_compositeFBO` from every live layer plus whatever preview
    *  buffers are currently active (live-tip, speculative-prediction, peer
    *  reveals) — the shared first half of both `_display()` (paper-blended,
-   *  drawn to the visible canvas) and `_displayTransparent()` (#15, no
-   *  paper). Stores premultiplied graphite color in `.rgb`, coverage in
+   *  drawn to the visible canvas) and Exporter's transparent fallback (#15,
+   *  no paper). Stores premultiplied graphite color in `.rgb`, coverage in
    *  `.a` (see DISPLAY_FRAG's comment) — neither downstream pass re-renders
    *  any dab or layer, they only differ in how they read this buffer back.
    *
@@ -15502,7 +11410,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#301) An infinite room's on-screen path never reads _compositeFBO —
     // _composePaperToScreen goes straight from _assemblyFBO to the screen,
     // and the only consumers of the rotated, unblended canvas-sized copy
-    // (_displayTransparent, which is bounded-only in practice) ask for it
+    // (Exporter's transparent empty-drawing fallback) ask for it
     // explicitly. So for the every-frame display case this skips both a
     // full-canvas clear and the rotate blit at the bottom of this method —
     // two screen-sized passes per frame that were being rendered and thrown
@@ -15523,8 +11431,9 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     // (#557) The on-screen composite is the one place the display filter
-    // applies; _buildContentComposite (export) walks _compositeOrder itself.
-    this._runComposite(this._displayOrder(), needCompositeFBO ? null : partialWorld)
+    // applies; Exporter.buildContentComposite walks _compositeOrder itself.
+    const frame = this._camera.liveFrame()
+    this._runComposite(frame, this._displayOrder(), needCompositeFBO ? null : partialWorld)
 
     const buildFbo = this._assemblyFBO.fbo
     const buildW   = this._assemblyFBO.width
@@ -15533,7 +11442,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Camera-relative blend of one preview buffer, world rect [origin,
     // origin+(w,h)] — see this method's own doc comment above.
     const blendPreview = (texture: WebGLTexture, origin: { x: number; y: number }): void => {
-      this._drawTileComposite(texture, origin.x, origin.y, w, h, 1, buildFbo, buildW, buildH)
+      this._drawTileComposite(frame, texture, origin.x, origin.y, w, h, 1, buildFbo, buildW, buildH)
     }
 
     // #104 live-tip preview: blended in before the #92 preview below so the
@@ -15607,7 +11516,7 @@ export class PencilEngine implements PencilEngineAPI {
     // only worked because its canvas *was* the sheet; now that the camera
     // decides what is on screen, the world-space paper pass an infinite room
     // already used is the correct one for both, and the sheet is expressed to
-    // it as a rectangle (see _pageRect).
+    // it as a rectangle (see PaperState.pageRect).
     // (#536, §17.12) Reveals that ran out go before the frame, not after: the
     // frame that ends one draws the tile plain.
     const perfT0 = performance.now()
@@ -15642,185 +11551,10 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  /** Transparent-background export variant (#15) — draws to the same visible
-   *  canvas as `_display()` (there's no separate offscreen target), but
-   *  through DISPLAY_TRANSPARENT_FRAG instead of the paper-blend DISPLAY_
-   *  FRAG: un-premultiplies `_compositeFBO`'s stored color and writes
-   *  coverage straight through as alpha, so untouched canvas is transparent
-   *  rather than opaque paper. Only ever called from exportPNG(true), which
-   *  restores the normal paper view via `_display()` right after grabbing
-   *  the blob (see its docstring). */
-  private _displayTransparent(): void {
-    const { gl, canvas } = this
-    const w = canvas.width, h = canvas.height
-
-    this._composeToFBO()
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    gl.viewport(0, 0, w, h)
-    gl.disable(gl.BLEND)
-
-    gl.useProgram(this._dispTransparentProg)
-    const u = this._dispTransparentUni
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._compositeFBO.texture)
-    gl.uniform1i(u.u_accumulation, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._dispTransparentPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-  }
-
-  // ─── Infinite-room export (#145) ───────────────────────────────────────────
-  //
-  // exportPNG's camera-viewport path (_display()/_displayTransparent() +
-  // canvas.toBlob(), above) is exactly right for a bounded room — its canvas
-  // literally is the whole drawing — but for an infinite room "whatever the
-  // camera currently frames" isn't "the whole drawing" at all, just an
-  // arbitrary crop. The methods below build a *second*, camera-independent
-  // render of the tightest rect containing every layer's actual content
-  // (getContentBounds's own union, at 1 world unit = 1 pixel) and read that
-  // back directly, rather than reusing _compositeFBO/the real canvas (both
-  // are fixed at canvas.width x canvas.height, which has no necessary
-  // relationship to the content bounds' own size).
-
-  /** Union of getContentBounds() across every layer currently in
-   *  _compositeOrder — i.e. every layer that actually participates in the
-   *  on-screen composite right now, same set _runComposite itself draws
-   *  (a hidden layer's content is no more "part of the drawing" here than
-   *  it is on screen). The tightest world-space rect containing all of it;
-   *  null if every one of them is empty (or there are no layers at all).
-   *  Used by _buildContentComposite for exportPNG's infinite-room path. */
-  private _allVisibleContentBounds(): { x: number; y: number; width: number; height: number } | null {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const { id } of this._compositeOrder) {
-      const b = this.getContentBounds(id)
-      if (!b) continue
-      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
-      maxX = Math.max(maxX, b.x + b.width); maxY = Math.max(maxY, b.y + b.height)
-    }
-    if (maxX <= minX) return null
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-  }
-
-  /** Builds one unblended (premultiplied-color/coverage-alpha — exactly
-   *  _compositeFBO's own convention, see _composeToFBO's doc comment)
-   *  accumulation buffer covering every layer's ENTIRE resident content,
-   *  positioned by a synthetic, fixed (zoom 1, angle 0) camera centered on
-   *  the union content bounds instead of the live, on-screen
-   *  `_infiniteCamera`.
-   *
-   *  Reuses _drawCompositeItem/_drawTileComposite completely unmodified
-   *  rather than inventing a second rendering path to keep in sync with the
-   *  real one: passing a viewRect that exactly encloses the whole target
-   *  buffer makes resolveVisible() return every resident tile anyway (a
-   *  tile only gets excluded if it falls entirely outside viewRect — see
-   *  ILayerBuffer's own doc comment), and _drawTileComposite's screen-
-   *  position math only ever reads `this._infiniteCamera` and the target
-   *  size/fbo it's given — nothing specific to the real on-screen canvas —
-   *  so temporarily swapping the camera field is enough to retarget the
-   *  exact same drawing code at an arbitrary offscreen buffer instead of the
-   *  screen. This runs fully synchronously (no draw call here can yield to
-   *  other engine code), so the swap is safe without any observer noticing
-   *  the camera "moved"; the try/finally is just cheap insurance against a
-   *  thrown error leaving it swapped.
-   *
-   *  Content bounds are integers (see getContentBounds), so this camera
-   *  placement makes every tile origin land on an exact integer screen
-   *  position with zero rounding — no seam risk the way a fractional-zoom
-   *  on-screen camera has (see _drawTileComposite's own docstring).
-   *
-   *  Clamped to MAX_EXPORT_DIMENSION_PX per axis — see that constant's own
-   *  comment. Caller owns the returned buffer's lifetime (destroy() once
-   *  read). Returns null if every layer is empty — see exportPNG's own
-   *  fallback for that case. */
-  private _buildContentComposite(
-    rect: { x: number; y: number; width: number; height: number } | null = null,
-  ): { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null {
-    // (#470) An explicit rect is the bounded room's sheet — export it whole,
-    // blank margins and all, because the sheet's own edges are part of the
-    // picture there. Without one (an infinite room) the drawing's content
-    // bounds are the only rect that means anything.
-    const raw = rect ?? this._allVisibleContentBounds()
-    if (!raw) return null
-
-    const width  = Math.min(Math.ceil(raw.width),  MAX_EXPORT_DIMENSION_PX)
-    const height = Math.min(Math.ceil(raw.height), MAX_EXPORT_DIMENSION_PX)
-    const bounds = { x: raw.x, y: raw.y, width, height }
-
-    const { gl } = this
-    const buffer = new AccumulationBuffer(gl, width, height)
-    buffer.clear()
-
-    const savedCamera = this._infiniteCamera
-    const savedCenterX = this._compositeCenterX
-    const savedCenterY = this._compositeCenterY
-    const savedScale = this._compositeScale
-    this._infiniteCamera = { wx: bounds.x + width / 2, wy: bounds.y + height / 2, zoom: 1, angle: 0 }
-    // #134-follow-up: _drawTileComposite/_worldToScreenEdgeX/Y center on
-    // _compositeCenterX/Y, not this target's own half-size, since #136 —
-    // this buffer is a plain, direct 1:1 target (no assembly-buffer padding
-    // concept applies here at all), so that center is simply its own
-    // width/2, height/2, exactly matching the synthetic camera above.
-    this._compositeCenterX = width / 2
-    this._compositeCenterY = height / 2
-    // (#301) Same story for the scale those two are paired with: this target
-    // is 1 world unit = 1 pixel by construction (see the synthetic camera's
-    // zoom above), which is what min(1, zoom) yields here anyway — set
-    // explicitly rather than left at whatever the last on-screen frame used,
-    // since nothing calls _runComposite on this path to refresh it.
-    this._compositeScale = 1
-    const viewRect: WorldRect = { minX: bounds.x, minY: bounds.y, maxX: bounds.x + width, maxY: bounds.y + height }
-    try {
-      for (const { id, opacity } of this._compositeOrder) {
-        this._drawCompositeItem(id, opacity, buffer.fbo, viewRect, width, height)
-      }
-    } finally {
-      this._infiniteCamera = savedCamera
-      this._compositeCenterX = savedCenterX
-      this._compositeCenterY = savedCenterY
-      this._compositeScale = savedScale
-    }
-
-    return { bounds, buffer }
-  }
-
-  /** Transparent-export variant (#15/#145) of DISPLAY_TRANSPARENT_FRAG,
-   *  parameterized to read an arbitrary source texture into an arbitrary
-   *  target instead of hardcoding _compositeFBO -> the real canvas the way
-   *  _displayTransparent() does — the un-premultiply math itself is
-   *  unchanged, just retargeted. See _displayTransparent's own comment for
-   *  what this shader does and why. */
-  private _renderDisplayTransparentInto(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, w, h)
-    gl.disable(gl.BLEND)
-
-    gl.useProgram(this._dispTransparentProg)
-    const u = this._dispTransparentUni
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
-    gl.uniform1i(u.u_accumulation, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._dispTransparentPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
   /** Paper-baked export variant (#145) — the same PAPER_COMPOSE_FRAG the
    *  live screen pass uses, just pointed at an arbitrary source/target
-   *  instead of _assemblyFBO/the screen, like _renderDisplayTransparentInto
-   *  above. The export camera _buildContentComposite sets up is never
+   *  instead of _assemblyFBO/the screen — Exporter's context `composePaper`
+   *  (#494). The exactFrame Exporter.buildContentComposite draws through is never
    *  rotated and always renders at exactly 1 world unit = 1 pixel, so both
    *  of that shader's mappings degenerate here: the accumulation lookup is
    *  the identity (source and target are the same size, pixel for pixel),
@@ -15845,12 +11579,12 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, sourceTex)
     gl.uniform1i(u.u_accumulation, 0)
     // 1:1 — an export is never minified, so the chain is never wanted here.
-    this._bindPaperForCompose(this._paperTexelsPerPixel(1))
+    this._paper.bindForCompose(this._paper.texelsPerPixel(1))
     gl.uniform1i(u.u_paperMap, 1)
 
-    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform3fv(u.u_paperColor, this._paper.color())
+    gl.uniform2f(u.u_paperScale, this._paper.scale, this._paper.scale)
+    const { w: paperTexW, h: paperTexH } = this._paper.worldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
     gl.uniform2f(u.u_dstSize, w, h)
     gl.uniform2f(u.u_srcSize, w, h)
@@ -15876,41 +11610,17 @@ export class PencilEngine implements PencilEngineAPI {
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    this._releasePaperFromCompose()
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** (#595) One step of bakePreview's downscale chain: `sourceTex` shrunk
-   *  into the whole of `targetFbo` (w x h) through DOWNSAMPLE_FRAG. The tap
-   *  offset is a quarter of a destination pixel — see the shader's comment for
-   *  why that is an exact 2x2 box on a halving step. */
-  private _renderDownsampleInto(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number): void {
-    const { gl } = this
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, w, h)
-    gl.disable(gl.BLEND)
-    gl.useProgram(this._previewDownsampleProg)
-    const u = this._previewDownsampleUni
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
-    gl.uniform1i(u.u_src, 0)
-    gl.uniform2f(u.u_tapOffset, 0.25 / w, 0.25 / h)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._previewDownsamplePosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    this._paper.releaseFromCompose()
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
   /** Hand-builds an image Blob from raw RGBA8 bytes read back via
    *  gl.readPixels — needed because the export render targets are never the
-   *  real on-screen canvas (see _exportOffscreenPNG's own doc comment for
-   *  why), so there's no canvas.toBlob() of the GL canvas to lean on.
+   *  real on-screen canvas (see Exporter.exportPNG's doc comment for why), so
+   *  there's no canvas.toBlob() of the GL canvas to lean on. Stays in the
+   *  engine because it needs the DOM; Exporter and AreaOps get it through
+   *  their contexts.
    *  gl.readPixels' rows come out GL/window-bottom-first (the same convention
    *  getContentBounds' own doc comment explains and corrects for) — flipped
    *  here so row 0 of the image is the visual top.
@@ -15944,100 +11654,4 @@ export class PencilEngine implements PencilEngineAPI {
     if (type === 'image/png' || (blob && (blob.type === type || blob.type === 'image/png'))) return blob
     return encode('image/png')
   }
-
-  /** exportPNG's infinite-room path (#145) — see PencilEngineAPI.exportPNG's
-   *  own doc comment. A bounded room's canvas literally *is* the whole
-   *  drawing, so the plain camera-viewport `_display()`/`_displayTransparent()`
-   *  + `canvas.toBlob()` path (still used verbatim for bounded rooms, and as
-   *  this method's own empty-drawing fallback below) is already exactly
-   *  right there. An infinite room has no such fixed rect — "export the
-   *  current camera viewport" is what the pre-#145 code did (it never had a
-   *  tile-aware alternative), and is no more useful for an infinite canvas
-   *  than a screenshot: whatever isn't currently on screen just isn't in the
-   *  file. This instead exports the tightest rect containing every layer's
-   *  actual painted content (see _buildContentComposite/
-   *  _allVisibleContentBounds), rendered at exactly 1 world unit = 1 pixel —
-   *  "give me my whole drawing" being a far more useful default for a real
-   *  user than "give me whatever I happened to be looking at," and the
-   *  tightest-bbox framing (rather than e.g. padding to some arbitrary
-   *  margin) needs no further judgment call about how much blank space to
-   *  include.
-   *
-   *  Renders through an *offscreen* framebuffer sized to the content bounds
-   *  rather than resizing the real on-screen canvas to match (which would
-   *  briefly glitch the live view, or race a concurrent ResizeObserver-
-   *  driven resizeCanvas() call) — gl.readPixels works against whichever
-   *  framebuffer is currently bound, not just the canvas's own default one,
-   *  so there's no need to touch `this.canvas` at all. The visible on-screen
-   *  frame is never disturbed by any of this — unlike the bounded/transparent
-   *  path above, there's nothing to restore via _display() afterward. */
-  private _exportOffscreenPNG(
-    transparent: boolean, rect: { x: number; y: number; width: number; height: number } | null,
-  ): Promise<Blob | null> {
-    const composite = this._buildContentComposite(rect)
-    if (!composite) {
-      // Nothing painted on any layer — no content rect to speak of. Falls
-      // back to the plain camera-viewport export (blank paper, or fully
-      // transparent either way) rather than producing a 0x0 image; this is
-      // the one case where "export the current view" and "export the whole
-      // drawing" agree — there's no drawing either way.
-      if (transparent) this._displayTransparent()
-      else this._display()
-      const blob = new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png'))
-      if (transparent) this._display()
-      return blob
-    }
-
-    const { bounds, buffer } = composite
-    const { gl } = this
-    const { width: w, height: h } = buffer
-
-    const out = new AccumulationBuffer(gl, w, h)
-    if (transparent) this._renderDisplayTransparentInto(buffer.texture, out.fbo, w, h)
-    else this._renderPaperComposeInto(buffer.texture, out.fbo, w, h, bounds)
-
-    const pixels = out.readPixels()
-    buffer.destroy()
-    out.destroy()
-
-    return this._pixelsToBlob(pixels, w, h)
-  }
-}
-
-
-/** Which `PencilPreset` a tool draws with, given the per-stroke preset string.
- *
- *  At module scope rather than on the engine (#547) because two callers need it
- *  and only one of them is the engine: `previewDabShape` is a pure query the
- *  brush cursor uses without a GL context, and it has to answer with the same
- *  numbers the renderer will use, or the outline and the mark disagree. */
-function presetForTool(tool: ToolType, presetName: string): PencilPreset {
-    if (tool === 'liner') return LINER_PRESET
-    if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
-    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
-    // — its presetName slot carries the pressure response, not a nib or a
-    // grade, so there is nothing here to branch on (brushPenPresets.ts).
-    if (tool === 'brushPen') return BRUSH_PEN_PRESET
-    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
-    // ladder and no hardness grade, so `presetName` carries the pressure
-    // response instead and there is nothing here to branch on
-    // (watercolorPresets.ts).
-    if (tool === 'watercolor') return WATERCOLOR_PRESET
-    // #547, ADR 013 — unlike every branch above, this one genuinely varies with
-    // the preset string: it *is* the brush. hardness comes out of the frozen
-    // descriptor and is read twice downstream — by the stamp shader and by the
-    // spacing rule — which is why it is resolved here once rather than parsed
-    // again at either site.
-    if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
-    if (tool === 'charcoal') return charcoalPresetFor(presetName)
-    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
-}
-
-/** The multiplier between `Dab.size` and the mark this tool actually leaves.
- *
- *  The eraser's 1.0 is not a default standing in for a missing preset: it is the
- *  value the renderer uses, because an eraser is sized as it is asked to be
- *  rather than carrying a grade's own width. */
-function renderSizeScale(tool: ToolType, presetName: string): number {
-  return tool === 'eraser' ? 1.0 : presetForTool(tool, presetName).sizeMultiplier
 }

@@ -286,7 +286,7 @@ const FOOTPRINT_BOUNDS_ONLY: DabSpacingBounds = Object.freeze({ footprint: true,
  * curvature limit where it has one).
  *
  * One expression rather than one per call site specifically because two of them
- * have to agree: DabSystem spaces the dabs by this, and _bakeDabOpacity divides
+ * have to agree: DabSystem spaces the dabs by this, and bakeDabOpacity divides
  * the deposit by the same number to hold the mark's tone (dabDepositScale right
  * above). A tool whose spacing tightened without its deposit following would
  * simply paint darker, which is the regression #478 was careful about and the

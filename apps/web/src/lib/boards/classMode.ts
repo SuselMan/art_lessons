@@ -92,6 +92,24 @@ export function isForeignPersonalBoard(
   return !!board?.ownerId && board.ownerId !== userId && !isTeacher
 }
 
+/** (#595, ADR 015 §5) Whether this client bakes the class grid's live picture
+ *  of `board` — the board it is on. Only a personal board in the round that is
+ *  running, and one baker per board: its student, or, while the student is not
+ *  on it, the teacher, whose corrections must reach the grid too. */
+export function bakesLivePreview(
+  board: Pick<BoardSummary, 'id' | 'ownerId' | 'assignmentId'> | undefined,
+  activeAssignmentId: string | null,
+  userId: string,
+  isTeacher: boolean,
+  participants: readonly Pick<Participant, 'userId' | 'boardId'>[],
+): boolean {
+  if (!board || !isPersonalBoard(board) || activeAssignmentId === null) return false
+  if (board.assignmentId !== activeAssignmentId) return false
+  if (board.ownerId === userId) return true
+  const ownerHere = participants.some(p => p.userId === board.ownerId && p.boardId === board.id)
+  return isTeacher && !ownerHere
+}
+
 /** (#595) Whether the store's own roster names this client the lesson's
  *  teacher. For the socket handlers, which can run between the roster
  *  arriving and the render that refreshes `isOwnerRef`. */

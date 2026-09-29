@@ -119,7 +119,7 @@ ${WICK_EXPAND_GLSL}
 // stroke segment. Packed into 2 vec4 + 1 float (rather than 8 separate
 // scalar/vec2 attributes) to stay comfortably within WebGL1's guaranteed
 // minimum of 8 vertex attributes (a_position takes one of the 4 used here).
-// See engine/index.ts's _paintDabsInstanced for the buffer layout this
+// See dabs/StampPainter.ts's paintInstanced for the buffer layout this
 // expects (interleaved, stride 9 floats: cx,cy,radius,angle,aspect,
 // pressure,tiltX,tiltY,opacity) and for why this preserves the exact
 // sequential per-dab blend order the old per-dab loop relied on.
@@ -534,7 +534,7 @@ export const DAB_FRAG = `
   // ever touching the paper texture — (0,0) for a bounded room (world
   // space == canvas-pixel space there, see tileMath.ts) or a tile's own
   // world origin for an infinite room (Y pre-negated by the caller — see
-  // _paintDabsUniform/_paintDabsInstanced in engine/index.ts) — so two
+  // StampPainter's paintUniform/paintInstanced) — so two
   // dabs at the same true world position sample the exact same paper
   // texel regardless of which tile either one happens to land in. Before
   // this, paperUV came from raw gl_FragCoord/u_resolution alone: every
@@ -544,7 +544,7 @@ export const DAB_FRAG = `
   // already-fixed compositing rounding bug was #140).
   // u_paperTexSize is the world-space size the paper texture repeats
   // over: for a bounded room this is the canvas's own pixel size, which
-  // also happens to be the texture's own resolution (see _initPaper) —
+  // also happens to be the texture's own resolution (see PaperState.load) —
   // with u_paperOrigin always (0,0) there, the formula below reduces to
   // exactly the old screen-space one. For an infinite room this is a
   // fixed world constant (INFINITE_PAPER_WORLD_SIZE) — deliberately not
@@ -652,7 +652,7 @@ export const DAB_FRAG = `
   // ADR 004 "Ревизия v1.5": how much ink this stroke has actually deposited
   // at each pixel, distance-normalized (engine/index.ts computes each dab's
   // own contribution as dab.opacity * segmentLength, not a flat per-dab
-  // amount — see _paintRibbonStroke) and accumulated *additively*
+  // amount — see _ribbonStrokeWork) and accumulated *additively*
   // (AccumulationBuffer.beginAdditiveDraw — no per-accumulation ceiling,
   // unlike u_strokeCoverage's saturating splat). Separating this from
   // u_strokeCoverage is what lets scribbling back and forth over an
@@ -1656,7 +1656,7 @@ ${WC_NOISE_GLSL}
         // footprint the deposit used to be zero — which made this term zero
         // precisely where growth has to happen, measured as 15 px against 15.
         // The fix is not here: the halo pass now lays a real, wider deposit
-        // wherever the paper was wet (see _paintRibbonStroke), so the per-pixel
+        // wherever the paper was wet (see _ribbonStrokeWork), so the per-pixel
         // value exists out there and this reads it as it always did.
         push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
         // …and the front follows the sheet. In the photographs the spread half
@@ -2272,7 +2272,7 @@ ${WC_NOISE_GLSL}
 
       // v_opacity, not a per-dab quantity smuggled through coverage: every dab
       // of a brush-pen stroke carries the same opacity (engine's own
-      // _bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
+      // bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
       // §9), so one uniform value describes the whole batch exactly. A tool
       // whose opacity varied per dab could not be composited from a coverage
       // buffer this way at all.
@@ -2398,7 +2398,7 @@ ${WC_NOISE_GLSL}
       // variant set graphite uses (u_grainMode) rather than a charcoal-only
       // dither — so the dev grain-variant selector can audition all eleven for
       // charcoal, and whichever wins becomes CHARCOAL_PRESETS' own grain field
-      // (see charcoalPresets.ts, and _resolveGrainMode in engine/index.ts for
+      // (see charcoalPresets.ts, and resolveGrainMode in presets/resolvePreset.ts for
       // how a preset default and a live override combine).
       //
       // Two charcoal-specific differences from how the graphite path below
@@ -2627,7 +2627,7 @@ ${WC_NOISE_GLSL}
       // solid interior to 1 right at the rim) instead of a second edge mask
       // - stronger on absorbent paper (paperCatch low) and on a slow/
       // dwelling stroke. v_opacity already bakes in the speed/dwell
-      // response deterministically at record time (_bakeDabOpacity's liner
+      // response deterministically at record time (bakeDabOpacity's liner
       // branch and _paintDwellDab, both in engine/index.ts) - no new
       // per-viewer-nondeterministic input here, and no fiber-direction bias
       // in v1 (ADR's own 'Потом' follow-up list - deliberately isotropic,
@@ -2739,7 +2739,7 @@ ${WC_NOISE_GLSL}
 //
 //   1. The patch of canvas under the dab is copied out — since #514, out of
 //      every tile the dab overlaps rather than only out of a dab that fit
-//      inside one (see _gatherSmudgePatch).
+//      inside one (see SmudgePainter.gatherPatch).
 //   2. SMUDGE_PICKUP_FRAG (below) refreshes the imprint toward that patch:
 //      `carried' = mix(carried, patch, rate)`, per texel. Because both are
 //      addressed in the dab's own normalized square and the imprint is
@@ -2822,7 +2822,7 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform sampler2D u_carried;
   // The copied patch's lower-left corner and side length, in this tile's
   // own GL pixel space, so a fragment can map itself back into the imprint
-  // exactly. Derived from the same rounded world rect _gatherSmudgePatch was
+  // exactly. Derived from the same rounded world rect SmudgePainter.gatherPatch was
   // handed rather than from the dab's own center: half a pixel of
   // disagreement between the two would blur the canvas on every dab even when
   // the brush is standing still, because the lerp would be mixing a shifted
@@ -2842,7 +2842,7 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform float u_mode;
   // This dab's own share of the transfer, before the per-pixel weighting
   // below: SMUDGE_DEPOSIT_RATE * pressure * strength * travel (see
-  // _paintOneSmudgeDab).
+  // SmudgePainter.paintOneDab).
   uniform float u_strength;
   uniform float u_pressure;
   uniform float u_paperFillThreshold;
@@ -2857,7 +2857,7 @@ export const SMUDGE_TRANSFER_FRAG = `
 
   void main() {
     // Circular only (v1) — DAB_VERT always sets u_aspectRatio=1/u_angle=0
-    // for a smudge dab (see _paintOneSmudgeDab), so v_localUV is already
+    // for a smudge dab (see SmudgePainter.paintOneDab), so v_localUV is already
     // exactly the unit-circle-space DAB_FRAG's own uv would be for a
     // circular dab; no aspect-ratio divide needed here.
     float dist = length(v_localUV);
@@ -3890,7 +3890,7 @@ export const IMAGE_BLIT_FRAG = `
 //
 // A layer is stored as a grid of separate tile textures, and one destination
 // tile is stitched from every source tile that overlaps it — one pass each
-// (see previewLayerTransform/_bakeTransform). The obvious implementation, a
+// (see previewLayerTransform/AreaOps.bakeLayerTransform). The obvious implementation, a
 // single `texture2D(u_source, srcUV)` guarded by an in-[0,1] test, is subtly
 // wrong at every tile boundary and was: hardware bilinear needs the four
 // texels around the sample point, and at a tile's edge two of them live in
@@ -3910,12 +3910,12 @@ export const IMAGE_BLIT_FRAG = `
 // that tap with exactly its weight. Summed over the passes, the four weights
 // add back to one and the result is the same bilinear filter a single
 // untiled buffer would have produced. That summing is why the tiled callers
-// blend additively (`_runTransformBlit`'s 'add' mode) rather than "over":
+// blend additively (`BlitPasses.transform`'s 'add' mode) rather than "over":
 // Porter-Duff would scale the second pass's contribution by the first's
 // coverage and lose part of it.
 //
 // Taps are read at exact texel centres, so the sampler's own filter never
-// interpolates anything — `_runTransformBlit` puts the source on NEAREST for
+// interpolates anything — `BlitPasses.transform` puts the source on NEAREST for
 // the draw, which also keeps a stale mip filter (setMipSampling, #365) from
 // quietly turning these taps into blurred coarse-level reads.
 //
@@ -3977,7 +3977,7 @@ export const TRANSFORM_BLIT_FRAG = `
 // (#507) Reads the source through the same bounded four-tap sampleSource as
 // TRANSFORM_BLIT_FRAG, for the same reason and with the same requirement on
 // the caller: a selection that spans more than one tile is stitched from one
-// pass per source tile, and those passes have to *sum* (see _composeAreaTiles,
+// pass per source tile, and those passes have to *sum* (see AreaOps.composeAreaTiles,
 // which accumulates the lifted piece additively into its own buffer before
 // compositing it over the tile's remaining content).
 //
@@ -4498,7 +4498,7 @@ export const PAPER_COMPOSE_FRAG = `
     vec2 srcUV = vec2(srcPx.x / u_srcSize.x, 1.0 - srcPx.y / u_srcSize.y);
     // Outside the accumulation buffer reads as "no strokes here", not as a
     // transparent hole: the assembly buffer is sized so any rotation still
-    // covers the screen (see _renderBufferExtent), but if that ever fails
+    // covers the screen (see Camera.renderBufferExtent), but if that ever fails
     // at a corner the honest fallback is bare paper, not a punched-out gap.
     bool inside = srcUV.x >= 0.0 && srcUV.x <= 1.0 && srcUV.y >= 0.0 && srcUV.y <= 1.0;
     vec4 acc = vec4(0.0);
@@ -5121,7 +5121,7 @@ export const BRUSH_COMPOSITE_FRAG = `
   // Screentone pitch in world px, 0 = continuous tone.
   uniform float u_screentone;
   // This tile's world origin, already reduced modulo the screen's own period
-  // on the CPU — see _drawBrushComposite. Keeps every number this shader
+  // on the CPU — see BrushPainter.drawComposite. Keeps every number this shader
   // handles small, so a mediump fallback cannot shift the dots.
   uniform vec2 u_screenOrigin;
   // (#579) Digital watercolor — see BrushDescriptor.wet. u_wetEdgePx is a
