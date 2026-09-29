@@ -8,7 +8,9 @@ import type {
   ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
-import { PencilEngine, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage } from '../../engine'
+import {
+  PencilEngine, type PencilEngineAPI, type PencilGradeName, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage,
+} from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { FilterPanel } from '../../components/FilterPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -24,7 +26,6 @@ import {
   eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers/layers'
 import { hexToRgb } from '../../lib/browser/color'
-import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/observability/featureFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/browser/uiPreferences'
 import { diagLog } from '../../lib/observability/diagLog'
 import { formatHotkeyLabel } from '../../lib/input/hotkeys'
@@ -65,6 +66,7 @@ import { useLivePreviewBake } from './useLivePreviewBake'
 import { useLostWork } from './useLostWork'
 import { useBoardOutbox } from './useBoardOutbox'
 import { useBoardStream } from './useBoardStream'
+import { useEngineDevOptions } from './useEngineDevOptions'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -276,17 +278,11 @@ function RoomEditor() {
    *  the disagreement would be a screen explaining the wrong failure. */
   const [restoreFailure, setRestoreFailure] = useState<RestoreFailureReason | null>(null)
 
-  // Device performance investigation (#91) — shows a live per-stroke input/
-  // render timing readout. Controlled by the "Debug overlay" feature flag
-  // (#100) — VITE_DEBUG_OVERLAY in apps/web/.env.local as the default, or the
-  // gear-icon settings panel to override per-browser via localStorage.
-  const debugEnabled = getFeatureFlag('debugOverlay')
-  const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
-
-  // Optional pointer-prediction experiment (#92) — same feature-flag pattern
-  // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
-  // before deciding whether to keep it.
-  const predictEnabled = getFeatureFlag('predictPointer')
+  // (#493) The developer switches the engine is built with and the readouts
+  // they report into — see useEngineDevOptions.
+  const {
+    engineDevOptions, debugEnabled, strokeStats, hapticGrainEnabled, hapticStats, pencilSoundTuningEnabled,
+  } = useEngineDevOptions()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // The editor root — the stroke-active attribute goes on it, and the panels
@@ -388,29 +384,6 @@ function RoomEditor() {
   // put an English stats overlay in the corner of their lesson.
   const [tapDebug, setTapDebug] = useState<TapDebugInfo | null>(null)
   const tapDebugEnabled = debugEnabled && tapToHideEnabled
-
-  // (#321) One sound setting for the whole app — the graphite-on-paper
-  // recipes here and the interface's own clicks (RadialDial) read the same
-  // pair of values. (#493) The volume half moved into usePencilSound with the
-  // effects that used it; what is left here gates the tuning panel below.
-  const soundEnabled = useSettingsStore(s => s.soundEnabled)
-
-  // Live-tuning debug panel for every PencilSound knob (#153 round 13, see
-  // PencilSoundTuningPanel.tsx) — nothing to tune while the sound is off,
-  // same feature-flag pattern as debugEnabled/hapticGrain above.
-  const pencilSoundTuningEnabled = getFeatureFlag('pencilSoundTuning') && soundEnabled
-
-  // Haptic paper-grain experiment: same feature-flag pattern as the ones
-  // above. Off by default — for-fun prototype, Android Chrome only.
-  const hapticGrainEnabled = getFeatureFlag('hapticGrain')
-  const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
-
-  // Dev-only grain A/B (see SettingsPanel / DAB_FRAG's computeGrain) — live
-  // shader mode, applies to every paper type. One per material (#304
-  // follow-up): 'off' leaves it undefined, and the engine falls back to that
-  // material's own shipped default rather than to a shared one.
-  const grainMode = grainVariantToMode(getGraphiteGrainVariant())
-  const charcoalGrainMode = grainVariantToMode(getCharcoalGrainVariant())
 
   // (#24) Backed by the store now — same one-shot seeding timing the old
   // useState(() => creatorDraft?.room ? toRoomConfig(...) : null) had.
@@ -1206,15 +1179,8 @@ function RoomEditor() {
       }),
       // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
       onInvariant: reportInvariant,
-      debug: debugEnabled,
-      onStrokeDebugStats: debugEnabled ? stats => {
-        setStrokeStats(stats)
-      } : undefined,
-      predictPointer: predictEnabled,
-      hapticGrain: hapticGrainEnabled,
-      onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
-      grainMode,
-      charcoalGrainMode,
+      // (#493) The developer switches — see useEngineDevOptions.
+      ...engineDevOptions,
     })
     engineRef.current = engine
     exposeEngineForDev(engine)
@@ -1252,9 +1218,8 @@ function RoomEditor() {
     }
   }, [
     boardId, enginePaper, enginePaperColor, engineInfinite,
-    markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled,
-    hapticGrainEnabled, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
-    grainMode, charcoalGrainMode, isCreator, snapshotUploader, outbox,
+    markActive, applyRemoteOp, syncFromLog, engineDevOptions, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
+    isCreator, snapshotUploader, outbox,
     awaitPaper,
     // (#493) The ref *object* — stable for the component's life, so naming it
     // costs nothing. Never `.current`: that would rebuild the engine every
