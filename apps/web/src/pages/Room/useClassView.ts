@@ -104,10 +104,10 @@ export function useClassView({
   const canOpenGrid = !compact && (isOwner || classVisibility === 'class')
   /** "Учитель смотрит вашу работу": the teacher is on this student's own board. */
   const teacherOnMyBoard = !isOwner && onPersonalBoard && currentBoardSummary?.ownerId === myUserId
+    && participants.some(p => p.role === 'owner' && p.boardId === boardId)
   // (#595, ADR 015 §5) Whether this client is the one keeping the grid's live
   // picture of this board fresh — see bakesLivePreview and useLivePreviewBake.
   const bakesPreviewHere = bakesLivePreview(currentBoardSummary, activeAssignmentId, myUserId, isOwner, participants)
-    && participants.some(p => p.role === 'owner' && p.boardId === boardId)
   /** The strip is the lesson's pages only — personal boards live in the Class tab. */
   const stripList = useMemo(() => stripBoards(boards), [boards])
 
