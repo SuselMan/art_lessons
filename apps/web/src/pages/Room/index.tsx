@@ -18,7 +18,6 @@ import { Notice } from '../../components/Notice'
 import { BoardStrip, TeacherChip } from './panels/BoardStrip'
 import { ClassBar, ClassGrid } from './panels/ClassGrid'
 import { ClassPlaces } from './panels/ClassPlaces'
-import { createPreviewSchedule } from './net/previewSchedule'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
@@ -63,6 +62,8 @@ import { useToolColor } from './useToolColor'
 import { useToolChoice } from './useToolChoice'
 import { useZoomControls } from './useZoomControls'
 import { useRemoteOperations } from './useRemoteOperations'
+import { useSnapshotPublishing } from './useSnapshotPublishing'
+import { useLivePreviewBake } from './useLivePreviewBake'
 import { useLessonActions } from './useLessonActions'
 import { useBoardActions } from './useBoardActions'
 import { useClassView } from './useClassView'
@@ -124,7 +125,6 @@ import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import { createPendingPreviews } from './net/pendingPreviews'
 import { createSnapshotGate } from './net/snapshotGate'
-import { createSnapshotUploader, uploadThumbnail } from './net/snapshotSync'
 import { restoreRoomState } from './restoreRoomState'
 import { useTransformSession, type TransformSession } from './useTransformSession'
 import { initLayersFromStore, retireEngine, wireLocalStrokeEvents } from './engineWiring'
@@ -844,7 +844,7 @@ function RoomEditor() {
   const {
     teacherBoard, gridAssignmentId, setGridAssignmentId, assignmentBusy, currentBoardSummary, onPersonalBoard,
     ownAssignmentBoardId, gridAssignment, gridTiles, barTiles, ownBoards, workOf, readOnlyBoard, myHandRaised,
-    handsUp, canOpenGrid, teacherOnMyBoard, stripList, stripAvailable, showTeacherChip, chipText,
+    handsUp, canOpenGrid, teacherOnMyBoard, bakesPreviewHere, stripList, stripAvailable, showTeacherChip, chipText,
     openClassBoard, startAssignment, setClassLocation, setSpotlight, setHandRaised, setClassVisibility,
     stepInGrid,
   } = useClassView({
@@ -987,115 +987,18 @@ function RoomEditor() {
   // the server can trim room_state's tailOperations instead of resending
   // everything already known. 0 means "nothing yet," same as omitting it.
   const latestKnownSeqRef = useRef(0)
-  // Bakes+uploads a full-room snapshot every time latestKnownSeqRef crosses
-  // a SNAPSHOT_SEQ_INTERVAL boundary (#149/#167) — see snapshotSync.ts. One
-  // instance per board (#176): a snapshot is content, and a fresh `attempted`
-  // set per page is what lets the same boundary be baked on each.
-  //
-  // Read through a ref by everything the socket effect registers: that effect
-  // is keyed on the lesson and must not be torn down by a page turn, so
-  // nothing per-board may sit in its dependency list.
-  const snapshotUploader = useMemo(() => (boardId ? createSnapshotUploader(boardId) : null), [boardId])
-
-  // (#595, ADR 015 §5) The class grid's live picture of a student's board:
-  // re-baked a few seconds after the pen comes to rest, never during a stroke,
-  // only when something changed, and no more often than every five seconds —
-  // see previewSchedule.ts. One baker per board: its student, or, while the
-  // student is not on it, the teacher (whose corrections must reach the grid
-  // too). Annotations never reach a preview, so a teacher who only remarks
-  // changes nothing to bake.
-  const previewScheduleRef = useRef<ReturnType<typeof createPreviewSchedule> | null>(null)
-  const boardOwnerHere = currentBoardSummary?.ownerId !== undefined
-    && participants.some(p => p.userId === currentBoardSummary.ownerId && p.boardId === boardId)
-  const bakesLivePreview = onPersonalBoard && activeAssignmentId !== null
-    && currentBoardSummary?.assignmentId === activeAssignmentId
-    && (currentBoardSummary.ownerId === myUserId || (isOwner && !boardOwnerHere))
-  useEffect(() => {
-    if (!bakesLivePreview || !boardId) return
-    const schedule = createPreviewSchedule()
-    previewScheduleRef.current = schedule
-    const unsubscribe = useRoomStore.subscribe((next, prev) => {
-      if (next.strokeActive === prev.strokeActive) return
-      if (next.strokeActive) schedule.notePenDown(Date.now())
-      else schedule.notePenUp(Date.now())
-    })
-    const timer = window.setInterval(() => {
-      const now = Date.now()
-      const engine = engineRef.current
-      if (!engine || !schedule.shouldBake(now)) return
-      schedule.noteBaked(now)
-      void uploadThumbnail(boardId, engine).then(ok => {
-        if (ok) useRoomStore.getState().applyBoardsAction({ type: 'thumbnail_baked', boardId, at: new Date().toISOString() })
-      })
-    }, 500)
-    return () => {
-      window.clearInterval(timer)
-      unsubscribe()
-      if (previewScheduleRef.current === schedule) previewScheduleRef.current = null
-    }
-  }, [bakesLivePreview, boardId])
-  const snapshotUploaderRef = useRef(snapshotUploader)
-  snapshotUploaderRef.current = snapshotUploader
-  // Highest seq the engine buffer has actually *committed* (painted) up to —
-  // deliberately decoupled from latestKnownSeqRef's "arrived" tracking.
-  // A peer stroke doesn't commit on arrival: it reveals progressively
-  // (previewOperation/onPreviewApplied, paced by the stroke's own recorded
-  // dab timing — see PencilEngineOptions.onPreviewApplied), and two peers'
-  // reveals can finish out of order (a short stroke's reveal completing
-  // before a longer, earlier-seq one that's still animating). Baking a
-  // network snapshot the moment a seq merely *arrives* could therefore miss
-  // an earlier op that hasn't actually painted yet. pendingPreviewsRef above
-  // holds every stroke seq that has arrived but not yet committed; the
-  // watermark can only advance past the smallest still-pending one — see
-  // snapshotGate.ts, which owns that rule along with the rest of the
-  // may-this-client-bake decision.
-  // (#462) Holds the watermark and the "has this client's catch-up finished"
-  // gate — see snapshotGate.ts for what it refuses and why. Per mount, like
-  // replayIncompleteRef below: a fresh mount is a fresh, empty engine, and so
-  // a client that has to earn the right to speak for the room again.
-  const snapshotGateRef = useRef(createSnapshotGate(reportInvariant))
-  /** (#385) Set when the join-time replay did not finish — an operation threw
-   *  and the canvas therefore shows less than the log says the room contains.
-   *
-   *  The editor deliberately stays usable in that case (see the `finally`
-   *  around the replay for why unblocking is the lesser harm), but what must
-   *  *not* happen is this client writing its incomplete canvas back as the
-   *  room's own state. A snapshot is authoritative — the next joiner restores
-   *  from it and the server then withholds the operations it covers — so
-   *  baking one here would turn "this session rendered the room wrong" into
-   *  "the room is now actually missing that content", permanently, for
-   *  everyone. The thumbnail is the same mistake in miniature: a blank preview
-   *  on the lesson list, republished from a client that never managed to draw
-   *  the lesson.
-   *
-   *  Never cleared for the life of this mount: nothing that happens after a
-   *  half-applied replay can make the buffer whole again short of a reload,
-   *  which is a fresh mount and a fresh attempt anyway. */
+  // (#493) Whether and when this client writes its canvas back as the room's
+  // snapshot — the per-board uploader, the gate, the replay-incomplete flag —
+  // see useSnapshotPublishing.
+  const {
+    snapshotUploader, snapshotUploaderRef, snapshotGateRef, replayIncompleteRef, checkSnapshotBoundary,
+    markJoinRestoreDone,
+  } = useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, pendingPreviewsRef })
+  // (#595) The class grid's live picture of this board — see useLivePreviewBake.
+  const previewScheduleRef = useLivePreviewBake({ engineRef, boardId, active: bakesPreviewHere })
   // (#487) The open's own measurement and its slow-open alarm — see
   // useOpenTimer.
   const { openTimerRef, startOpenTimer, finishOpenTimer } = useOpenTimer({ id, engineRef })
-
-  const replayIncompleteRef = useRef(false)
-  const checkSnapshotBoundary = useCallback(() => {
-    const engine = engineRef.current
-    const uploader = snapshotUploaderRef.current
-    if (!engine || !uploader) return
-    const plan = snapshotGateRef.current.observe({
-      latestKnownSeq: latestKnownSeqRef.current,
-      pendingCommitSeqs: pendingPreviewsRef.current.commitSeqs(),
-      replayIncomplete: replayIncompleteRef.current,
-    })
-    if (!plan) return
-    uploader.onSeqObserved(plan.previous, plan.watermark, engine, useRoomStore.getState().layerState)
-  }, [])
-  /** (#462) Opens the snapshot path for this client, once its canvas actually
-   *  holds the room — called from every catch-up that ran to completion: the
-   *  mount effect's replay, `handleRoomState`'s restore, and the brand-new-room
-   *  branch that has nothing to restore and is therefore caught up by
-   *  definition. See snapshotGate.ts for what this is guarding. */
-  const markJoinRestoreDone = useCallback(() => {
-    snapshotGateRef.current.restoreCompleted(latestKnownSeqRef.current)
-  }, [])
 
   // (#312) Queues one rejected content operation for recovery — see
   // createLostWorkBatcher.
@@ -1664,7 +1567,7 @@ function RoomEditor() {
     // (#493) The ref *object* — stable for the component's life, so naming it
     // costs nothing. Never `.current`: that would rebuild the engine every
     // time the sound instance changed. openTimerRef likewise (useOpenTimer).
-    pencilSoundRef, openTimerRef, appliedOpIdsRef,
+    pencilSoundRef, openTimerRef, appliedOpIdsRef, snapshotGateRef, replayIncompleteRef,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -2135,10 +2038,12 @@ function RoomEditor() {
     // see lib/api/queryClient.ts), so listing it here can never tear the socket
     // down and rebuild it.
     queryClient,
-    // (#493) From useJoinGate and useRemoteOperations now, so the lint rule
+    // (#493) From useJoinGate, useRemoteOperations, useSnapshotPublishing and
+    // useLivePreviewBake now, so the lint rule
     // asks for them: a useState setter and useRef objects, all stable for the
     // component's life — naming them can never tear the socket down.
     setJoinState, retryJoinRef, openTimerRef, appliedOpIdsRef, deferredOpsQueueRef,
+    previewScheduleRef, replayIncompleteRef, snapshotGateRef, snapshotUploaderRef,
     // (#176) Deliberately absent: `outbox` and `snapshotUploader` (per board,
     // read through refs), `navigate` (changes with the URL this effect itself
     // rewrites) and `boardId` (a page turn is not a new socket).
