@@ -16,8 +16,9 @@ export class AccumulationBuffer {
   _texture: WebGLTexture
   _fbo: WebGLFramebuffer
 
-  // Smudge's scratch "picked up patch" buffers (engine/index.ts's
-  // _paintOneSmudgeDab) request 'nearest': the patch is later sampled at a
+  // Smudge's scratch "picked up patch" buffers requested 'nearest' until #416
+  // (they are LINEAR since — see SmudgePainter's scratchPool; the ribbon's
+  // scratch still asks for it). The original reasoning: the patch is later sampled at a
   // dab-quad's fragment positions, which don't generally land on exact
   // texel centers, so LINEAR would blend between texels there — the same
   // cross-GPU bilinear-filtering precision risk flagged in .claude/rules.md
@@ -386,7 +387,7 @@ export class AccumulationBuffer {
   /** Like copyTo, but from an arbitrary sub-rect of this buffer into an
    *  arbitrary sub-rect of `dest` — smudge's own "pick up whatever's
    *  currently under/behind the dab" step (engine/index.ts's
-   *  _gatherSmudgePatch), copied into an independent scratch texture so it
+   *  SmudgePainter.gatherPatch), copied into an independent scratch texture so it
    *  can be sampled while this buffer's own tile keeps being the render
    *  target (WebGL1 forbids reading and writing the same texture in one
    *  draw call — same reasoning AreaOps.bakeLayerTransform's scratch-then-copyTo

@@ -2739,7 +2739,7 @@ ${WC_NOISE_GLSL}
 //
 //   1. The patch of canvas under the dab is copied out — since #514, out of
 //      every tile the dab overlaps rather than only out of a dab that fit
-//      inside one (see _gatherSmudgePatch).
+//      inside one (see SmudgePainter.gatherPatch).
 //   2. SMUDGE_PICKUP_FRAG (below) refreshes the imprint toward that patch:
 //      `carried' = mix(carried, patch, rate)`, per texel. Because both are
 //      addressed in the dab's own normalized square and the imprint is
@@ -2822,7 +2822,7 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform sampler2D u_carried;
   // The copied patch's lower-left corner and side length, in this tile's
   // own GL pixel space, so a fragment can map itself back into the imprint
-  // exactly. Derived from the same rounded world rect _gatherSmudgePatch was
+  // exactly. Derived from the same rounded world rect SmudgePainter.gatherPatch was
   // handed rather than from the dab's own center: half a pixel of
   // disagreement between the two would blur the canvas on every dab even when
   // the brush is standing still, because the lerp would be mixing a shifted
@@ -2842,7 +2842,7 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform float u_mode;
   // This dab's own share of the transfer, before the per-pixel weighting
   // below: SMUDGE_DEPOSIT_RATE * pressure * strength * travel (see
-  // _paintOneSmudgeDab).
+  // SmudgePainter.paintOneDab).
   uniform float u_strength;
   uniform float u_pressure;
   uniform float u_paperFillThreshold;
@@ -2857,7 +2857,7 @@ export const SMUDGE_TRANSFER_FRAG = `
 
   void main() {
     // Circular only (v1) — DAB_VERT always sets u_aspectRatio=1/u_angle=0
-    // for a smudge dab (see _paintOneSmudgeDab), so v_localUV is already
+    // for a smudge dab (see SmudgePainter.paintOneDab), so v_localUV is already
     // exactly the unit-circle-space DAB_FRAG's own uv would be for a
     // circular dab; no aspect-ratio divide needed here.
     float dist = length(v_localUV);
