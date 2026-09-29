@@ -34,7 +34,16 @@ function Fallback({ resetError }: { resetError: () => void }) {
 
 export function AppErrorBoundary({ children }: { children: ReactNode }) {
   return (
-    <Sentry.ErrorBoundary fallback={({ resetError }) => <Fallback resetError={resetError} />}>
+    <Sentry.ErrorBoundary
+      fallback={({ resetError }) => <Fallback resetError={resetError} />}
+      // (#536) Where no Sentry is configured - a dev build on a test device -
+      // this screen used to be the only trace of what threw. The console is
+      // what the dev bridge collects; the global is for a look afterwards.
+      onError={(error, componentStack) => {
+        console.error('[app-error]', error, componentStack)
+        Object.assign(window, { __lastAppError: { error: String(error), stack: error instanceof Error ? error.stack : undefined, componentStack } })
+      }}
+    >
       {children}
     </Sentry.ErrorBoundary>
   )

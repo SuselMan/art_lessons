@@ -334,6 +334,18 @@ export class AccumulationBuffer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
   }
 
+  /** (#536, ADR 011 §17.68) The whole texture overwritten in place with
+   *  `pixels` - same content as restorePixels, but no new storage: a wash
+   *  brought back from main memory uploads dozens of these at once, and on
+   *  the iPad reallocating each one next to the storage still being freed was
+   *  the spike the tab did not survive. */
+  writePixels(pixels: Uint8Array): void {
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+  }
+
   /** (#425) Restores a payload that covers only the world-top-left `w`x`h` of
    *  this buffer, leaving the rest transparent.
    *

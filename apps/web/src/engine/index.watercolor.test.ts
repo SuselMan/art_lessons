@@ -1393,7 +1393,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
   const PRESET = 'normal:100:70:PB29:round'
   type Chunk = { scratch: { dryCtx: { bounds: { minX: number; minY: number; maxX: number; maxY: number } } | null } }
   type Internals = {
-    _replayRibbonChunks: Map<string, Chunk>; _spilledWashes: Map<string, unknown>; _lostWashes: Map<string, unknown>
+    _replayRibbonChunks: Map<string, Chunk & { usedAt?: number }>; _spilledWashes: Map<string, unknown>; _lostWashes: Map<string, unknown>
     _gpuBudget: number; _enforceGpuBudget: () => boolean; _completeSettle: () => void
   }
   const strokeIn = (user: string, wash: string, stroke: string, x: number, y: number) =>
@@ -1433,6 +1433,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     land(e)
     const I = e as unknown as Internals
     I._completeSettle()
+    // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
+    for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._gpuBudget = 1
     I._enforceGpuBudget()
     expect(I._replayRibbonChunks.has('w1')).toBe(false)
@@ -1444,7 +1446,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
   })
 
-  it('the author’s next wash closes the spilled one', () => {
+  it('the budget leaves a wash painted into a moment ago', () => {
     const e = setupLayer()
     e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
     land(e)
@@ -1452,6 +1454,20 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     I._completeSettle()
     I._gpuBudget = 1
     I._enforceGpuBudget()
+    expect(I._replayRibbonChunks.has('w1')).toBe(true)
+  })
+
+  it('the author’s next wash closes the spilled one', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
+    for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
+    I._gpuBudget = 1
+    I._enforceGpuBudget()
+    expect(I._spilledWashes.has('w1')).toBe(true)
     I._gpuBudget = Infinity
     e.appendOperation(strokeIn('u1', 'w9', 's9', 4, 40), 'remote')
     land(e)

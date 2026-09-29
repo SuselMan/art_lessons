@@ -1689,6 +1689,8 @@ const REPLAY_RIBBON_CHUNK_SLOTS = 4
  *  packed. A wash is mostly empty buffers outside its silhouette, so this is
  *  many washes; past it the oldest are marked lost (a rebuild if they go on). */
 const SPILLED_WASHES_MAX_BYTES = 128 * 1024 * 1024
+/** (§17.68) How long a wash has to rest before the budget may spill it. */
+const SPILL_IDLE_MS = 5000
 
 /** (#536) Hair bundles across the mark, from the mark's own half-width, so a
  *  hair stays a fixed few pixels wide whatever brush is held — see
@@ -2352,7 +2354,7 @@ class RibbonStrokeScratch {
         const own = pool.acquire(t.width, t.height)
         const n = t.width * t.height * 4
         if (!into || into.byteLength < n) into = new Uint8Array(n)
-        own.restorePixels(unpackTilePixels(p, n, into))
+        own.writePixels(unpackTilePixels(p, n, into))
         return own
       }
       const original = take(t.bufs.original), coverage = take(t.bufs.coverage)
@@ -2691,6 +2693,8 @@ export class PencilEngine implements PencilEngineAPI {
     target: ILayerBuffer
     scratch: RibbonStrokeScratch
     lastDab: Dab
+    /** (§17.68) performance.now() of its last operation - see _enforceGpuBudget. */
+    usedAt?: number
   }>()
 
   // Smudge's own carried imprint (#14; a raster texture per user since
@@ -5267,6 +5271,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._lostWashes.clear()
     this._ribbonScratchPool.destroy()
     if (this._dryingTimer) { clearTimeout(this._dryingTimer); this._dryingTimer = 0 }
+    if (this._budgetTimer) { clearTimeout(this._budgetTimer); this._budgetTimer = 0 }
     if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null }
     this._paperWet.clear()
     // A live imprint's buffer was spliced *out* of the scratch pool drained
@@ -9890,6 +9895,7 @@ export class PencilEngine implements PencilEngineAPI {
       // the one thrown away.
       this._replayRibbonChunks.delete(key)
       this._replayRibbonChunks.set(key, cached)
+      cached.usedAt = performance.now()
       return { scratch: cached.scratch, prevDab }
     }
     // A stale entry under the same key but a *different* layer buffer is not a
@@ -9918,9 +9924,10 @@ export class PencilEngine implements PencilEngineAPI {
     const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     scratch.beginStroke()
     this._replayRibbonChunks.set(key, {
-      strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1],
+      strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1], usedAt: performance.now(),
     })
     this._trimChunkCache()
+    this._scheduleBudgetCheck()
     return { scratch }
   }
 
@@ -12437,6 +12444,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the last settle landed; the next settle simply allocates it again. */
   private _scheduleFieldRelease(): void {
     if (this._fieldReleaseTimer) clearTimeout(this._fieldReleaseTimer)
+    this._scheduleBudgetCheck()
     // (§17.57) Past the device's budget the field goes now, not in 45 s.
     if (this._enforceGpuBudget()) return
     this._fieldReleaseTimer = setTimeout(() => {
@@ -12445,6 +12453,23 @@ export class PencilEngine implements PencilEngineAPI {
       for (const f of this._fieldCache) destroyField(f)
       this._fieldCache = []
     }, WET_FIELD_RELEASE_MS) as unknown as number
+  }
+
+  /** (#536, §17.68) The budget checked once more a second after the washes
+   *  go quiet. The check at a settle's end finds the wash it just settled
+   *  still busy, and a peer's next operation grows the cache after it: on
+   *  the iPad four resting washes sat at 472 MB against a 400 MB budget with
+   *  nothing left to call it. */
+  private _budgetTimer = 0
+  private _scheduleBudgetCheck(): void {
+    if (this._gpuBudget === Infinity) return
+    if (this._budgetTimer) clearTimeout(this._budgetTimer)
+    this._budgetTimer = setTimeout(() => {
+      this._budgetTimer = 0
+      if (this._destroyed || this._contextLost) return
+      if (this._settle || this._strokeLayerId) { this._scheduleBudgetCheck(); return }
+      this._enforceGpuBudget()
+    }, 1000) as unknown as number
   }
 
   /** (#536, §17.57) What the watercolour holds on the GPU beyond the layers
@@ -12487,6 +12512,11 @@ export class PencilEngine implements PencilEngineAPI {
       for (const [key, c] of [...this._replayRibbonChunks]) {
         if (this._washGpuBytes() <= this._gpuBudget * 0.8) break
         if (c.scratch === this._settle?.scratch || c.scratch.diffusePending) continue
+        // Not a wash painted into in the last few seconds: its author is
+        // mid-session, the next operation would bring it straight back, and
+        // on the iPad the round trip was 214 ms of spill and an unspill 51 ms
+        // later (flight recorder, vyIPuYyi).
+        if (performance.now() - (c.usedAt ?? 0) < SPILL_IDLE_MS) continue
         const author = this._chunkAuthors.get(key)
         if (author && [...this._peerLiveStrokes.values()].some(l => l.peerId === author)) continue
         this._evictChunk(key, true)
