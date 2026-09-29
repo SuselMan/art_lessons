@@ -389,7 +389,7 @@ export class AccumulationBuffer {
    *  _gatherSmudgePatch), copied into an independent scratch texture so it
    *  can be sampled while this buffer's own tile keeps being the render
    *  target (WebGL1 forbids reading and writing the same texture in one
-   *  draw call — same reasoning _bakeTransform's scratch-then-copyTo
+   *  draw call — same reasoning AreaOps.bakeLayerTransform's scratch-then-copyTo
    *  two-phase commit exists for).
    *
    *  Both `srcGl*` and `destGl*` are bottom-up (native GL framebuffer

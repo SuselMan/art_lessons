@@ -713,7 +713,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
       // A tile tracked as empty has nothing to tighten, and this is the
       // common case for the layer this exists for: a repeatedly-dragged
       // layer's resident set is mostly tiles an earlier bake vacated (see
-      // _bakeTransform's own docstring on why they stay resident), so
+      // AreaOps.bakeLayerTransform's own docstring on why they stay resident), so
       // skipping them is what keeps the readback count near the number of
       // tiles that actually hold paint rather than near the resident count.
       if (!this.contentRects.get(key)) continue
