@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { PaperType } from '@grafetto/shared'
 
 import { useT } from '../../i18n'
-import { getPaperPreviewBytes, PAPER_PREVIEW_RESOLUTION } from '../../engine/src/paperLoader'
-import { PAPER_TONE_AMPLITUDE_VALUE } from '../../engine/src/shaders'
+import { getPaperPreviewBytes, PAPER_PREVIEW_RESOLUTION } from '../../engine/src/paper/paperLoader'
+import { PAPER_TONE_AMPLITUDE_VALUE } from '../../engine/src/raster/shaders'
 
 interface Props {
   type: PaperType

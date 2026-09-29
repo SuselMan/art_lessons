@@ -13,7 +13,7 @@ import type { OperationBase } from './operationBase.js'
 // function of its input, so two clients whose layers already differ by a bit
 // still differ by about a bit afterwards. What keeps the function itself
 // identical everywhere is where it runs — on the CPU, in integer arithmetic,
-// with no trigonometry on the replay path (see engine/src/layerFilters.ts).
+// with no trigonometry on the replay path (see engine/src/filters/layerFilters.ts).
 // A raster would instead be the whole layer, base64, in a log kept forever.
 //
 // Every number here is an integer on purpose. The log is permanent, and a

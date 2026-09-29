@@ -15,7 +15,7 @@ import {
   alphaAt as alphaAtIn, createTestEngine, fillStroke, installFakeImageDecoder, makeAreaClear,
   makeAreaPaste, makeAreaTransform, makeLayerAdd, readLayerPixels,
 } from './testing/engineTestUtils'
-import { rectangleSelection } from './src/selectionMask'
+import { rectangleSelection } from './src/raster/selectionMask'
 
 const CANVAS = { width: 40, height: 40 }
 

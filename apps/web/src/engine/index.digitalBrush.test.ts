@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
-import { digitalBrushFlow, digitalBrushFromPreset, digitalBrushPreset } from './src/digitalBrushPresets'
+import { digitalBrushFlow, digitalBrushFromPreset, digitalBrushPreset } from './src/presets/digitalBrushPresets'
 import {
   createTestEngine, dab, makeLayerAdd, makeStroke,
   readLayerPixels, expectPixelsEqual,

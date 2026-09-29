@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createTestEngine, dab, fillStroke, makeLayerAdd, makeLayerMerge, makeLayerTransform, makeStroke,
 } from './testing/engineTestUtils'
-import { decodeLayerTiles } from './src/snapshotCodec'
+import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
 function freshEngine() {
   const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })

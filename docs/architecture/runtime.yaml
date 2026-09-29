@@ -64,7 +64,7 @@ nodes:
     owns: >-
       PencilEngine в том же JS-потоке, что и интерфейс. Держит лог операций, тайлы слоёв и
       конвейер от события пера до даба. Интерфейс видит его только через PencilEngineAPI.
-    modules: [apps/web/src/engine, engine-input, engine-dabs, engine-oplog, engine-buffers, engine-presets]
+    modules: [apps/web/src/engine, apps/web/src/engine/src/input, apps/web/src/engine/src/dabs, apps/web/src/engine/src/oplog, apps/web/src/engine/src/buffers, apps/web/src/engine/src/presets]
 
   - id: gpu
     title: GPU (WebGL1)
@@ -74,7 +74,7 @@ nodes:
     owns: >-
       Текстуры тайлов, буфер штриха и шейдеры. Сюда уезжает всё, что видно на холсте;
       обратно — только через readPixels, дорого и редко.
-    modules: [engine-raster, engine-paper, engine-buffers]
+    modules: [apps/web/src/engine/src/raster, apps/web/src/engine/src/paper, apps/web/src/engine/src/buffers]
 
   - id: idb
     title: IndexedDB
@@ -190,7 +190,7 @@ links:
       - { dir: '→', name: appendOperation, type: 'Operation', note: 'чужая или восстановленная операция' }
       - { dir: '→', name: 'setTool / setColor / setSize …', type: 'ToolType', note: 'текущее состояние инструмента' }
       - { dir: '→', name: setViewport, type: 'cx, cy, zoom, angle', note: 'вьюпорт у каждого свой' }
-      - { dir: '→', name: restoreLayerFromSnapshot, type: 'SnapshotTile[]', decl: [apps/web/src/engine/src/snapshotCodec.ts] }
+      - { dir: '→', name: restoreLayerFromSnapshot, type: 'SnapshotTile[]', decl: [apps/web/src/engine/src/oplog/snapshotCodec.ts] }
       - { dir: '→', name: appendPeerLiveDabs, type: 'PeerLivePacket', decl: [apps/web/src/engine/index.ts], note: 'чужой штрих, пока он ещё рисуется' }
       - { dir: '←', name: onLocalOperation, type: 'Operation', note: 'свой завершённый штрих — дальше он уедет в outbox' }
       - { dir: '←', name: 'undo() / redo()', type: 'Operation', note: 'обратная операция, её тоже отправляют' }

@@ -12,7 +12,7 @@ import {
   makeLayerAdd,
   makeStroke, readLayerPixels, readTilePixels, residentTileCount,
 } from './testing/engineTestUtils'
-import { decodeLayerTiles } from './src/snapshotCodec'
+import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
 describe('bakeNetworkSnapshot (#149)', () => {
   it('returns null for a layer with no pixel content yet', () => {

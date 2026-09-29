@@ -3,7 +3,7 @@
 //
 // The buffer-level half of this — that resolveExistingForPaint marks what it
 // hands back and resolveVisible does not — lives in
-// src/TiledLayerBuffer.coarse.test.ts. This file is the consequence: erase a
+// src/buffers/TiledLayerBuffer.coarse.test.ts. This file is the consequence: erase a
 // region while the camera is far enough out that the composite draws from a
 // coarse level, and read what actually comes out. Before the fix the erased
 // pixels were still there, and stayed there until someone zoomed in far
@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createTestEngine, fillStroke, makeAreaClear, makeLayerAdd, readCompositePixels,
 } from './testing/engineTestUtils'
-import { COARSE_FACTORS } from './src/tileMath'
+import { COARSE_FACTORS } from './src/buffers/tileMath'
 
 const RADIUS = 15
 

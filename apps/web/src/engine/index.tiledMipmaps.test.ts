@@ -1,7 +1,7 @@
 // (#365) Engine-level wiring for tile mip chains: that the composite actually
 // asks for them, and only when it is shrinking tiles. The mechanics of a
 // chain (generate-then-filter ordering, invalidation on every write path) are
-// covered on the buffer itself in src/AccumulationBuffer.mipmaps.test.ts;
+// covered on the buffer itself in src/buffers/AccumulationBuffer.mipmaps.test.ts;
 // this file is about the decision — which is where a regression would hide,
 // since a mip chain nobody requests is invisible to every other test in the
 // suite.
@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { MockGL } from './testing/mockGL'
 import { createTestEngine, fillStroke, layerTileTextures, makeLayerAdd, readCompositePixels } from './testing/engineTestUtils'
-import { COARSE_FACTORS } from './src/tileMath'
+import { COARSE_FACTORS } from './src/buffers/tileMath'
 
 function paintedInfiniteEngine() {
   const { engine, canvas } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })

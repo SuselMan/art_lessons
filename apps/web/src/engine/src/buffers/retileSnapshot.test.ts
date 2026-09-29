@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { isFullyTransparent, retileSnapshotTiles } from './retileSnapshot'
-import type { SnapshotTile } from './snapshotCodec'
+import type { SnapshotTile } from '../oplog/snapshotCodec'
 
 // (#469) These tests are about one thing: an old snapshot, baked when a bounded
 // room's tile was its whole page, landing correctly on the TILE_SIZE grid that

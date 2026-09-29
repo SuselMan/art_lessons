@@ -9,7 +9,7 @@
 // Two claims to hold, and they pull against each other, which is why they are
 // tested together: the mark must have no gaps in it, and it must not get any
 // darker in the process (2.65x the dabs at unchanged per-dab opacity would
-// have made every hard grade 2.65x heavier). See src/dabSpacing.ts.
+// have made every hard grade 2.65x heavier). See src/dabs/dabSpacing.ts.
 //
 // Driven through the real pointer pipeline rather than by appending dabs, so
 // these run through DabSystem's own spacing and _bakeDabOpacity's real
@@ -21,8 +21,8 @@ import { describe, expect, it } from 'vitest'
 import type { Dab, StrokeOperation, ToolType } from '@grafetto/shared'
 
 import { PENCIL_PRESETS, type PencilEngine } from './index'
-import { footprintSpacingStrength } from './src/dabSpacing'
-import { pencilTiltDensity, pencilTiltness } from './src/pencilTilt'
+import { footprintSpacingStrength } from './src/dabs/dabSpacing'
+import { pencilTiltDensity, pencilTiltness } from './src/presets/pencilTilt'
 import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './testing/engineTestUtils'
 
 const BRUSH_PX = 60

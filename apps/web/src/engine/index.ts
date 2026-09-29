@@ -1,52 +1,52 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/shaders'
-import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
-import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
+import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paper/paperConstants'
 import {
   createPlaceholderPaperTexture, generatePaperMipmaps, getPaperBytes, uploadPaperTexture,
-} from './src/paperLoader'
-import { AccumulationBuffer } from './src/AccumulationBuffer'
-import { CheckpointStore, type Checkpoint } from './src/checkpointStore'
-import { ScratchFreeList, ScratchSlot } from './src/scratchPools'
-import { SnapshotLedger } from './src/snapshotLedger'
-import { previewDownscaleChain } from './src/previewChain'
+} from './src/paper/paperLoader'
+import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
+import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
+import { ScratchFreeList, ScratchSlot } from './src/buffers/scratchPools'
+import { SnapshotLedger } from './src/oplog/snapshotLedger'
+import { previewDownscaleChain } from './src/raster/previewChain'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
   CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, isCharcoalNib,
   type CharcoalPreset, type CharcoalType, type CharcoalNib,
-} from './src/charcoalPresets'
+} from './src/presets/charcoalPresets'
 import {
   CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, charcoalBroadness, charcoalBroadDensity,
   type CharcoalFeelConfig,
-} from './src/charcoalFeel'
-import { DabSystem } from './src/DabSystem'
+} from './src/presets/charcoalFeel'
+import { DabSystem } from './src/dabs/DabSystem'
 import {
   DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
-} from './src/dabShaping'
-import { tipFootprint } from './src/tipFootprint'
+} from './src/presets/dabShaping'
+import { tipFootprint } from './src/dabs/tipFootprint'
 import {
   dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isDepositScaledTool, isFootprintSpacedTool,
   type DabSpacingBounds,
-} from './src/dabSpacing'
+} from './src/dabs/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
   type PencilTiltConfig,
-} from './src/pencilTilt'
-import { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, smudgeGrainRelief, type SmudgeGrainConfig } from './src/smudgeGrain'
-import { tiltMagnitudeDeg } from './src/tiltMath'
+} from './src/presets/pencilTilt'
+import { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, smudgeGrainRelief, type SmudgeGrainConfig } from './src/presets/smudgeGrain'
+import { tiltMagnitudeDeg } from './src/presets/tiltMath'
 import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
-} from './src/tiltCurve'
-import type { NibAngleConfig } from './src/markerPresets'
-import { shapeDrawParams, type ShapeDrawParams } from './src/shapeGeometry'
-import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerFilter } from './src/layerFilters'
+} from './src/presets/tiltCurve'
+import type { NibAngleConfig } from './src/presets/markerPresets'
+import { shapeDrawParams, type ShapeDrawParams } from './src/raster/shapeGeometry'
+import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerFilter } from './src/filters/layerFilters'
 import {
   OperationLog, pixelReadLayerIds, pixelWriteLayerIds, type LogEntry, type PixelOperation,
-} from './src/OperationLog'
-import { PointerInput, type PointerData } from './src/PointerInput'
+} from './src/oplog/OperationLog'
+import { PointerInput, type PointerData } from './src/input/PointerInput'
 // (#517) Same on-device ring buffer PointerInput writes to — the stroke
 // pipeline's two silent refusals below are only diagnosable from a tablet
 // with no inspector attached, which is what diagLog exists for.
@@ -59,43 +59,43 @@ import type { PressureCalibration } from '../lib/input/pressureCalibration'
 import {
   PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
   type PencilGradeName, type PencilPreset,
-} from './src/pencilPresets'
+} from './src/presets/pencilPresets'
 import {
   LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper,
   dwellConfigForTool, dwellFlow, linerWickPx,
   LINER_WICK_PX, LINER_WICK_RADIUS_CAP,
   type DwellConfig, type LinerSizeMm,
-} from './src/linerPresets'
-import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
+} from './src/presets/linerPresets'
+import { markerNibFromPreset, markerPressureFlow } from './src/presets/markerPresets'
 import {
   brushStampsForDab, digitalBrushCeiling, digitalBrushFromPreset, digitalBrushMixer,
   digitalBrushPresetFor, digitalBrushScallops, curveAt,
   type BrushDescriptor, type BrushPressureSettings, type MixerPaint,
-} from './src/digitalBrushPresets'
+} from './src/presets/digitalBrushPresets'
 export {
   DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, BRUSH_CATEGORIES,
   digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset, digitalBrushPressureFromPreset,
   type BrushDescriptor, type BrushTip, type BrushCategory, type BrushPressureSettings,
-} from './src/digitalBrushPresets'
-import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from './src/tipMasks'
-import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
-import { markerThinNibInkGain } from './src/markerInkGain'
+} from './src/presets/digitalBrushPresets'
+import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from './src/presets/tipMasks'
+import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/dabs/markerRibbon'
+import { markerThinNibInkGain } from './src/dabs/markerInkGain'
 
 /** #547 — the band vertex array a stamps-only tool hands the two band passes,
  *  which both no-op on a zero length. Shared and frozen in size rather than a
  *  fresh `new Float32Array(0)` per batch: this is on the per-pointer-event path. */
 const EMPTY_BANDS = new Float32Array(0)
-import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
-import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, type WetDiffuseStep } from './src/wetDiffusion'
-export { WATERCOLOR_ROUND } from './src/watercolorPresets'
-import { pigmentAbsorption } from './src/pigmentOptics'
-import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
+import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
+import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
+export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
+import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
+import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
-} from './src/brushPenPresets'
+} from './src/presets/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
@@ -103,32 +103,32 @@ import {
   watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_DWELL_RADIUS, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
-} from './src/watercolorPresets'
-import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
+} from './src/presets/watercolorPresets'
+import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
 import {
   applyMatrix, composeMatrix, invertMatrix, scaleRotateMatrix, toMat3, translationMatrix,
   IDENTITY_MATRIX, type Matrix3,
-} from './src/matrix'
-import { snapToRuler, type RulerLine } from './src/rulerSnap'
-import { buildSelectionMask } from './src/selectionMask'
-import { computeFill, coverageToRgba, FILL_MAX_DIM } from './src/floodFill'
-import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
-import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
-import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
-import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
-import { packTilePixels, unpackTilePixels } from './src/pinnedTiles'
-import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
-import type { SnapshotRestoreAudit } from './src/snapshotAudit'
+} from './src/raster/matrix'
+import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
+import { buildSelectionMask } from './src/raster/selectionMask'
+import { computeFill, coverageToRgba, FILL_MAX_DIM } from './src/raster/floodFill'
+import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
+import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
+import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/buffers/tileMath'
+import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/buffers/retileSnapshot'
+import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
+import { encodeLayerTiles, type SnapshotTile } from './src/oplog/snapshotCodec'
+import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
 
 export type { HapticGrainStats }
 // (#574) What the filter dialog needs to draw a curve and to tell a no-op
 // from a real change — the same functions the engine applies, so the dialog's
 // graph is the curve that will actually be used.
-export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/layerFilters'
-export { pixelWriteLayerIds } from './src/OperationLog'
+export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/filters/layerFilters'
+export { pixelWriteLayerIds } from './src/oplog/OperationLog'
 // (#345, #493) The paper download's progress, for the room's loading overlay.
-export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paperLoader'
+export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paper/paperLoader'
 export type { Matrix3 }
 export type { RulerLine }
 
@@ -166,12 +166,12 @@ export {
   // #489: the nib list, for the settings panel that offers it.
   WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, isWatercolorNib, watercolorNibFromPreset,
   type WatercolorMix, type WatercolorMixPreset, type WatercolorNib,
-} from './src/watercolorPresets'
+} from './src/presets/watercolorPresets'
 export {
   WATERCOLOR_PIGMENTS, WATERCOLOR_PIGMENT_CODES, WATERCOLOR_PIGMENT_SWATCHES,
   DEFAULT_WATERCOLOR_PIGMENT, watercolorPigmentByCode, isWatercolorPigmentCode,
   type WatercolorPigment,
-} from './src/watercolorPigments'
+} from './src/presets/watercolorPigments'
 export { PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth, type PressureResponse }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
@@ -1551,7 +1551,7 @@ const MARKER_BULLET_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.78, size
 const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, sizeMultiplier: 1.0 }
 
 // The marker's own ribbon constants (edge ramp, curvature tolerance, chisel
-// corner radius, rim ink falloff) moved to src/ribbonProfile.ts in #454: they
+// corner radius, rim ink falloff) moved to src/dabs/ribbonProfile.ts in #454: they
 // describe how the ribbon rasterizer draws one tool, and there are two such
 // tools now. See that file.
 

@@ -45,7 +45,7 @@ Proposed (2026-07-22). Определяет скоуп эпика «Маркер
 ### Почему это не укладывается в текущий движок как есть
 
 **1. Форма/ориентация даба.** `DabSystem._makeDab`
-(`apps/web/src/engine/src/DabSystem.ts:306-309`) уже считает per-dab `angle`
+(`apps/web/src/engine/src/dabs/DabSystem.ts:306-309`) уже считает per-dab `angle`
 (`tiltMag > 15 ? atan2(tiltY, tiltX) : pathAngle`) и `aspectRatio` через уже
 per-tool-конфигурируемый `DabShapingProfile.aspect` (обобщено для линера в
 #240). Но сам `angle` всё ещё захардкожен в одну формулу для всех

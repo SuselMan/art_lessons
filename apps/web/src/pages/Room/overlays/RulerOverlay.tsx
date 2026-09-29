@@ -32,7 +32,7 @@ const ENDPOINT_RADIUS = 7
 
 /** Ruler tool (#89): a persistent straight-edge guide — a pencil stroke drawn
  *  near it snaps to its line while snapping is on (see engine.setRuler /
- *  engine/src/rulerSnap.ts for the actual snapping math, applied in the
+ *  engine/src/input/rulerSnap.ts for the actual snapping math, applied in the
  *  pointer pipeline before dabs are generated, not here).
  *
  *  (#405) Purely presentational, and now *entirely* so: it used to own the

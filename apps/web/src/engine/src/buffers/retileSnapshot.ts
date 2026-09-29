@@ -1,5 +1,5 @@
 import { tilesOverlappingRect } from './tileMath'
-import type { SnapshotTile } from './snapshotCodec'
+import type { SnapshotTile } from '../oplog/snapshotCodec'
 
 /** (#425) The sheet a bounded room's tiles are clipped to. Absent for an
  *  infinite room, which has no sheet and whose tiles are never clipped. */

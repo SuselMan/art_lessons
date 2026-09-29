@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
-import { linerWickPx, LINER_WICK_PX, LINER_WICK_RADIUS_CAP } from './src/linerPresets'
+import { linerWickPx, LINER_WICK_PX, LINER_WICK_RADIUS_CAP } from './src/presets/linerPresets'
 import {
   createTestEngine, dab, makeLayerAdd, makeStroke, lastPaperDabUniform, paperReady, simulateStroke,
   simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd, inProgressStrokeDabs,

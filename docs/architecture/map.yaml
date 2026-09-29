@@ -320,162 +320,6 @@ groupings:
       adr: [006-i18n]
       tags: [zustand, настройки]
 
-  apps/web/src/engine/src:
-    - id: engine-buffers
-      title: Буферы слоёв и тайлы
-      owns: >-
-        Хранение пикселей: аккумуляционный буфер штриха, тайловый буфер слоя с вытеснением и
-        мип-уровнями, математика тайлов, ретайлинг снапшота. Обычная комната — сетка тайлов с
-        границами по 1024, а не одна текстура.
-      files:
-        - apps/web/src/engine/src/AccumulationBuffer*.ts
-        - apps/web/src/engine/src/TiledLayerBuffer*.ts
-        - apps/web/src/engine/src/ILayerBuffer.ts
-        - apps/web/src/engine/src/tileMath*.ts
-        - apps/web/src/engine/src/retileSnapshot*.ts
-        - apps/web/src/engine/src/pinnedTiles*.ts
-        - apps/web/src/engine/src/scratchPools*.ts
-      notes:
-        - >-
-          Формат приколотых чекпойнтов (#467) намеренно живёт только в памяти процесса: на диск
-          не пишется, на сервер не едет, в снапшот не входит. Проводной формат — за
-          snapshotCodec.ts, и совместимость держать обязан он.
-      tags: [тайлы, память]
-
-    - id: engine-dabs
-      title: Дабы и геометрия следа
-      owns: >-
-        Как штрих превращается в дабы: сплайн Catmull-Rom, шаг между дабами, форма даба,
-        отпечаток кончика, профиль ленты для маркера и линера.
-      files:
-        - apps/web/src/engine/src/DabSystem*.ts
-        - apps/web/src/engine/src/dabShaping*.ts
-        - apps/web/src/engine/src/dabSpacing.ts
-        - apps/web/src/engine/src/tipFootprint.ts
-        - apps/web/src/engine/src/ribbonProfile.ts
-        - apps/web/src/engine/src/markerRibbon*.ts
-        - apps/web/src/engine/src/markerInkGain*.ts
-        - apps/web/src/engine/src/brushPenTip.test.ts
-      adr: [012-tip-footprint-geometry, 004-marker-tool, 003-liner-tool]
-      notes:
-        - >-
-          «Штрих выглядит не так» → сначала расшифруй записанные дабы, потом строй теорию.
-      tags: [геометрия, штрих]
-
-    - id: engine-presets
-      title: Пресеты инструментов
-      owns: >-
-        Числовые характеры инструментов: карандаш и его грифели, уголь, маркер, линер,
-        кисть-перо, акварель с пигментами, цифровая кисть и её набор — вместе с растровыми
-        кончиками и текстурами кисти, которые генерируются на CPU одинаково на любом устройстве
-        (tipMasks), наклон и его кривые, тактильное зерно, зерно растушёвки.
-      files:
-        - apps/web/src/engine/src/pencilPresets*.ts
-        - apps/web/src/engine/src/charcoalPresets*.ts
-        - apps/web/src/engine/src/charcoalFeel*.ts
-        - apps/web/src/engine/src/markerPresets*.ts
-        - apps/web/src/engine/src/linerPresets*.ts
-        - apps/web/src/engine/src/brushPenPresets.ts
-        - apps/web/src/engine/src/digitalBrushPresets*.ts
-        - apps/web/src/engine/src/tipMasks*.ts
-        - apps/web/src/engine/src/watercolorPresets*.ts
-        - apps/web/src/engine/src/watercolorPigments.ts
-        - apps/web/src/engine/src/pencilTilt*.ts
-        - apps/web/src/engine/src/tiltCurve*.ts
-        - apps/web/src/engine/src/tiltMath*.ts
-        - apps/web/src/engine/src/smudgeGrain.ts
-        - apps/web/src/engine/src/HapticGrain.ts
-      adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 011-watercolor, 013-digital-brush]
-      tags: [инструменты, характер]
-
-    - id: engine-paper
-      title: Бумага
-      owns: >-
-        Зерно бумаги: загрузка запечённых текстур, манифест вариантов, константы, «зацеп»
-        грифеля за зерно. Живая GPU-запечка, общий PNG и аналитический шейдер были испробованы и
-        отброшены.
-      files:
-        - apps/web/src/engine/src/paper*.ts
-      tags: [бумага, текстуры]
-
-    - id: engine-input
-      title: Указатель и линейка
-      owns: >-
-        Приём событий указателя: нажим, скорость по часам сэмпла, наклон, аналитический перевод
-        координат через `setTransform()`, притяжение к линейке.
-      files:
-        - apps/web/src/engine/src/PointerInput*.ts
-        - apps/web/src/engine/src/rulerSnap*.ts
-      notes:
-        - >-
-          iPad терял примерно один штрих штриховки из пятнадцати, пока канвас не начал
-          preventDefault на touchstart непассивно — `touch-action: none` было недостаточно.
-      tags: [перо, ввод]
-
-    - id: engine-oplog
-      title: Операционный лог и снапшоты
-      owns: >-
-        Лог операций внутри движка, кодек снапшотов, аудит покрытия снапшота, gzip, хранилище
-        чекпойнтов (бюджет, вытеснение, закреплённый снапшотный чекпойнт, поиск по префиксу —
-        первый шов декомпозиции движка, #494), учёт публикации снапшота (что нового публиковать,
-        что уже покрыто восстановлением, что публиковать нельзя). То, из чего комната собирается
-        заново после перезахода и с чего начинается пересборка слоя при отмене.
-      files:
-        - apps/web/src/engine/src/OperationLog*.ts
-        - apps/web/src/engine/src/checkpointStore*.ts
-        - apps/web/src/engine/src/snapshotLedger*.ts
-        - apps/web/src/engine/src/snapshotCodec*.ts
-        - apps/web/src/engine/src/snapshotAudit.ts
-        - apps/web/src/engine/src/gzip*.ts
-      adr: [002-collaborative-undo]
-      issues: [375, 494]
-      notes:
-        - >-
-          Полные логи операций хранятся сознательно, как актив для обучения моделей (#375).
-          Сырой ввод пера при этом не сохраняется.
-      tags: [операции, восстановление]
-
-    - id: engine-raster
-      title: Шейдеры и растровые операции
-      owns: >-
-        GLSL-программы движка и растровые алгоритмы поверх них: заливка, маска выделения,
-        матрицы, мелкие утилиты. WebGL1 — никаких возможностей только из WebGL2.
-      files:
-        - apps/web/src/engine/src/shaders.ts
-        - apps/web/src/engine/src/floodFill*.ts
-        - apps/web/src/engine/src/shapeGeometry*.ts
-        - apps/web/src/engine/src/selectionMask*.ts
-        - apps/web/src/engine/src/matrix*.ts
-        - apps/web/src/engine/src/previewChain*.ts
-        - apps/web/src/engine/src/utils.ts
-      adr: [010-fill-tool]
-      notes:
-        - >-
-          Шейдерные программы независимы: константа, объявленная не в той программе, роняет
-          приложение в чёрный экран. Это ловит shaders.test.ts.
-        - >-
-          Симптом «шейдеры компилируются, программа не линкуется, лог пуст» уже случался —
-          причиной была функция, вызванная из двух мест.
-      tags: [glsl, webgl1]
-
-    - id: engine-filters
-      title: Фильтры слоя
-      owns: >-
-        Арифметика пяти фильтров слоя — размытия, тон/насыщенность, кривые, цветовой баланс — на
-        CPU, целочисленно и без тригонометрии: фильтр пересчитывает каждый участник, и число
-        должно совпасть на любом устройстве.
-      files:
-        - apps/web/src/engine/src/layerFilters*.ts
-      adr: [014-layer-filters]
-      issues: [574]
-      notes:
-        - >-
-          Слой фильтруется по тайлам, каждый — с полем шириной в радиус действия фильтра;
-          поэтому результат не зависит от того, где у клиента прошла сетка тайлов.
-          layerFilters.test.ts проверяет это побайтно — сломать это свойство значит разойтись с
-          остальными участниками.
-      tags: [фильтры, детерминизм]
-
   packages/shared:
     - id: shared-contract
       title: Общие типы и операции
@@ -555,28 +399,28 @@ flows:
     steps:
       - id: pointer
         title: Событие указателя
-        module: engine-input
+        module: apps/web/src/engine/src/input
         side: client
         detail: >-
           PointerInput принимает нажим, наклон и скорость (по часам сэмпла, не обработчика)
           и переводит экранные координаты в координаты холста аналитически, через setTransform.
       - id: dabs
         title: Сплайн и дабы
-        module: engine-dabs
+        module: apps/web/src/engine/src/dabs
         side: client
         detail: >-
           Точки укладываются на сплайн Catmull-Rom, по нему с нужным шагом расставляются дабы,
           форма каждого берётся из пресета инструмента и отпечатка кончика.
       - id: raster
         title: Растеризация в буфер
-        module: engine-buffers
+        module: apps/web/src/engine/src/buffers
         side: client
         detail: >-
           Дабы рисуются в аккумуляционный буфер штриха, затем — в тайлы слоя. Пользователь видит
           линию здесь, до всякой сети.
       - id: op
         title: Операция
-        module: engine-oplog
+        module: apps/web/src/engine/src/oplog
         side: client
         detail: >-
           Завершённый штрих становится сериализуемой Operation. Это же значение потом уедет
@@ -662,7 +506,7 @@ flows:
           это не едет.
       - id: decode
         title: Раскодирование и ретайлинг
-        module: engine-oplog
+        module: apps/web/src/engine/src/oplog
         side: client
         detail: >-
           Блобы распаковываются и раскладываются по тайлам слоёв — при этом сетка тайлов может

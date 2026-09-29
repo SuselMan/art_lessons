@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MockGL } from '../testing/mockGL'
+import { MockGL } from '../../testing/mockGL'
 import { TiledLayerBuffer } from './TiledLayerBuffer'
 import { TILE_SIZE } from './tileMath'
 

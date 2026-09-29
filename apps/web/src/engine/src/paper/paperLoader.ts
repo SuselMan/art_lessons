@@ -1,6 +1,6 @@
 import type { PaperGrainType, PaperType } from '@grafetto/shared'
 
-import { gunzipStream } from './gzip'
+import { gunzipStream } from '../oplog/gzip'
 import { buildPaperCatch } from './paperCatch'
 import { PAPER_MANIFEST_FILENAME, parsePaperManifest, type PaperManifest } from './paperManifest'
 

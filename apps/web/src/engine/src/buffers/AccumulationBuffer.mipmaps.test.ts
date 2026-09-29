@@ -11,7 +11,7 @@
 // set only while a chain that matches level 0 actually exists.
 import { describe, expect, it } from 'vitest'
 
-import { MockGL } from '../testing/mockGL'
+import { MockGL } from '../../testing/mockGL'
 import { AccumulationBuffer } from './AccumulationBuffer'
 
 function ctx(): { gl: WebGLRenderingContext; mock: MockGL } {

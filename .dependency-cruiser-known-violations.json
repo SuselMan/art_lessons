@@ -2,8 +2,8 @@
   {
     "type": "dependency",
     "from": "apps/web/scripts/bakePaperTextures.ts",
-    "to": "apps/web/src/engine/src/paperCatch.ts",
-    "unresolvedTo": "../src/engine/src/paperCatch.js",
+    "to": "apps/web/src/engine/src/paper/paperCatch.ts",
+    "unresolvedTo": "../src/engine/src/paper/paperCatch.js",
     "dependencyTypes": [
       "local",
       "import"
@@ -16,8 +16,8 @@
   {
     "type": "dependency",
     "from": "apps/web/scripts/bakePaperTextures.ts",
-    "to": "apps/web/src/engine/src/paperConstants.ts",
-    "unresolvedTo": "../src/engine/src/paperConstants.js",
+    "to": "apps/web/src/engine/src/paper/paperConstants.ts",
+    "unresolvedTo": "../src/engine/src/paper/paperConstants.js",
     "dependencyTypes": [
       "local",
       "import"
@@ -30,8 +30,8 @@
   {
     "type": "dependency",
     "from": "apps/web/scripts/bakePaperTextures.ts",
-    "to": "apps/web/src/engine/src/paperManifest.ts",
-    "unresolvedTo": "../src/engine/src/paperManifest.js",
+    "to": "apps/web/src/engine/src/paper/paperManifest.ts",
+    "unresolvedTo": "../src/engine/src/paper/paperManifest.js",
     "dependencyTypes": [
       "local",
       "import"
@@ -44,8 +44,8 @@
   {
     "type": "dependency",
     "from": "apps/web/scripts/paperAssetIO.ts",
-    "to": "apps/web/src/engine/src/paperConstants.ts",
-    "unresolvedTo": "../src/engine/src/paperConstants.js",
+    "to": "apps/web/src/engine/src/paper/paperConstants.ts",
+    "unresolvedTo": "../src/engine/src/paper/paperConstants.js",
     "dependencyTypes": [
       "local",
       "import"
@@ -58,8 +58,8 @@
   {
     "type": "dependency",
     "from": "apps/web/scripts/paperAssetIO.ts",
-    "to": "apps/web/src/engine/src/paperManifest.ts",
-    "unresolvedTo": "../src/engine/src/paperManifest.js",
+    "to": "apps/web/src/engine/src/paper/paperManifest.ts",
+    "unresolvedTo": "../src/engine/src/paper/paperManifest.js",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -73,8 +73,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/App.tsx",
-    "to": "apps/web/src/engine/src/paperLoader.ts",
-    "unresolvedTo": "./engine/src/paperLoader",
+    "to": "apps/web/src/engine/src/paper/paperLoader.ts",
+    "unresolvedTo": "./engine/src/paper/paperLoader",
     "dependencyTypes": [
       "local",
       "import"
@@ -87,8 +87,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/components/PaperPreview/index.tsx",
-    "to": "apps/web/src/engine/src/paperLoader.ts",
-    "unresolvedTo": "../../engine/src/paperLoader",
+    "to": "apps/web/src/engine/src/paper/paperLoader.ts",
+    "unresolvedTo": "../../engine/src/paper/paperLoader",
     "dependencyTypes": [
       "local",
       "import"
@@ -101,8 +101,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/components/PaperPreview/index.tsx",
-    "to": "apps/web/src/engine/src/shaders.ts",
-    "unresolvedTo": "../../engine/src/shaders",
+    "to": "apps/web/src/engine/src/raster/shaders.ts",
+    "unresolvedTo": "../../engine/src/raster/shaders",
     "dependencyTypes": [
       "local",
       "import"
@@ -115,8 +115,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/pages/Room/diagnostics/reportRestore.ts",
-    "to": "apps/web/src/engine/src/snapshotAudit.ts",
-    "unresolvedTo": "../../../engine/src/snapshotAudit",
+    "to": "apps/web/src/engine/src/oplog/snapshotAudit.ts",
+    "unresolvedTo": "../../../engine/src/oplog/snapshotAudit",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -130,8 +130,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/pages/Room/diagnostics/restoreReport.ts",
-    "to": "apps/web/src/engine/src/snapshotAudit.ts",
-    "unresolvedTo": "../../../engine/src/snapshotAudit",
+    "to": "apps/web/src/engine/src/oplog/snapshotAudit.ts",
+    "unresolvedTo": "../../../engine/src/oplog/snapshotAudit",
     "dependencyTypes": [
       "local",
       "import"
@@ -144,8 +144,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/pages/Room/net/snapshotRestore.ts",
-    "to": "apps/web/src/engine/src/snapshotCodec.ts",
-    "unresolvedTo": "../../../engine/src/snapshotCodec",
+    "to": "apps/web/src/engine/src/oplog/snapshotCodec.ts",
+    "unresolvedTo": "../../../engine/src/oplog/snapshotCodec",
     "dependencyTypes": [
       "local",
       "import"
@@ -158,8 +158,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/pages/Room/net/snapshotSync.ts",
-    "to": "apps/web/src/engine/src/snapshotCodec.ts",
-    "unresolvedTo": "../../../engine/src/snapshotCodec",
+    "to": "apps/web/src/engine/src/oplog/snapshotCodec.ts",
+    "unresolvedTo": "../../../engine/src/oplog/snapshotCodec",
     "dependencyTypes": [
       "local",
       "import"
@@ -172,8 +172,8 @@
   {
     "type": "dependency",
     "from": "apps/web/src/pages/Room/status/RoomLoadingOverlay.tsx",
-    "to": "apps/web/src/engine/src/paperLoader.ts",
-    "unresolvedTo": "../../../engine/src/paperLoader",
+    "to": "apps/web/src/engine/src/paper/paperLoader.ts",
+    "unresolvedTo": "../../../engine/src/paper/paperLoader",
     "dependencyTypes": [
       "local",
       "type-only",
@@ -215,9 +215,9 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/engine/src/PointerInput.ts",
+    "from": "apps/web/src/engine/src/input/PointerInput.ts",
     "to": "apps/web/src/lib/input/pressureCalibration.ts",
-    "unresolvedTo": "../../lib/input/pressureCalibration",
+    "unresolvedTo": "../../../lib/input/pressureCalibration",
     "dependencyTypes": [
       "local",
       "import"
@@ -229,9 +229,9 @@
   },
   {
     "type": "dependency",
-    "from": "apps/web/src/engine/src/PointerInput.ts",
+    "from": "apps/web/src/engine/src/input/PointerInput.ts",
     "to": "apps/web/src/lib/observability/diagLog.ts",
-    "unresolvedTo": "../../lib/observability/diagLog",
+    "unresolvedTo": "../../../lib/observability/diagLog",
     "dependencyTypes": [
       "local",
       "import"
@@ -637,8 +637,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/engine/src/brushPenPresets.ts",
-    "to": "apps/web/src/engine/src/dabShaping.ts",
+    "from": "apps/web/src/engine/src/presets/brushPenPresets.ts",
+    "to": "apps/web/src/engine/src/presets/dabShaping.ts",
     "unresolvedTo": "./dabShaping",
     "dependencyTypes": [
       "local",
@@ -650,14 +650,14 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "name": "apps/web/src/engine/src/presets/dabShaping.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/brushPenPresets.ts",
+        "name": "apps/web/src/engine/src/presets/brushPenPresets.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -667,8 +667,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/engine/src/dabShaping.ts",
-    "to": "apps/web/src/engine/src/digitalBrushPresets.ts",
+    "from": "apps/web/src/engine/src/presets/dabShaping.ts",
+    "to": "apps/web/src/engine/src/presets/digitalBrushPresets.ts",
     "unresolvedTo": "./digitalBrushPresets",
     "dependencyTypes": [
       "local",
@@ -680,14 +680,14 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/engine/src/digitalBrushPresets.ts",
+        "name": "apps/web/src/engine/src/presets/digitalBrushPresets.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "name": "apps/web/src/engine/src/presets/dabShaping.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -697,8 +697,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/engine/src/dabShaping.ts",
-    "to": "apps/web/src/engine/src/markerPresets.ts",
+    "from": "apps/web/src/engine/src/presets/dabShaping.ts",
+    "to": "apps/web/src/engine/src/presets/markerPresets.ts",
     "unresolvedTo": "./markerPresets",
     "dependencyTypes": [
       "local",
@@ -710,14 +710,14 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/engine/src/markerPresets.ts",
+        "name": "apps/web/src/engine/src/presets/markerPresets.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "name": "apps/web/src/engine/src/presets/dabShaping.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -727,8 +727,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/engine/src/dabShaping.ts",
-    "to": "apps/web/src/engine/src/watercolorPresets.ts",
+    "from": "apps/web/src/engine/src/presets/dabShaping.ts",
+    "to": "apps/web/src/engine/src/presets/watercolorPresets.ts",
     "unresolvedTo": "./watercolorPresets",
     "dependencyTypes": [
       "local",
@@ -740,14 +740,14 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/engine/src/watercolorPresets.ts",
+        "name": "apps/web/src/engine/src/presets/watercolorPresets.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "name": "apps/web/src/engine/src/presets/dabShaping.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -757,8 +757,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/engine/src/linerPresets.ts",
-    "to": "apps/web/src/engine/src/markerPresets.ts",
+    "from": "apps/web/src/engine/src/presets/linerPresets.ts",
+    "to": "apps/web/src/engine/src/presets/markerPresets.ts",
     "unresolvedTo": "./markerPresets",
     "dependencyTypes": [
       "local",
@@ -770,14 +770,14 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/engine/src/markerPresets.ts",
+        "name": "apps/web/src/engine/src/presets/markerPresets.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/linerPresets.ts",
+        "name": "apps/web/src/engine/src/presets/linerPresets.ts",
         "dependencyTypes": [
           "local",
           "type-only",
@@ -788,8 +788,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/engine/src/watercolorPresets.ts",
-    "to": "apps/web/src/engine/src/brushPenPresets.ts",
+    "from": "apps/web/src/engine/src/presets/watercolorPresets.ts",
+    "to": "apps/web/src/engine/src/presets/brushPenPresets.ts",
     "unresolvedTo": "./brushPenPresets",
     "dependencyTypes": [
       "local",
@@ -801,21 +801,21 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/engine/src/brushPenPresets.ts",
+        "name": "apps/web/src/engine/src/presets/brushPenPresets.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "name": "apps/web/src/engine/src/presets/dabShaping.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/watercolorPresets.ts",
+        "name": "apps/web/src/engine/src/presets/watercolorPresets.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -825,8 +825,8 @@
   },
   {
     "type": "cycle",
-    "from": "apps/web/src/engine/src/watercolorPresets.ts",
-    "to": "apps/web/src/engine/src/markerPresets.ts",
+    "from": "apps/web/src/engine/src/presets/watercolorPresets.ts",
+    "to": "apps/web/src/engine/src/presets/markerPresets.ts",
     "unresolvedTo": "./markerPresets",
     "dependencyTypes": [
       "local",
@@ -839,7 +839,7 @@
     },
     "cycle": [
       {
-        "name": "apps/web/src/engine/src/markerPresets.ts",
+        "name": "apps/web/src/engine/src/presets/markerPresets.ts",
         "dependencyTypes": [
           "local",
           "type-only",
@@ -847,14 +847,14 @@
         ]
       },
       {
-        "name": "apps/web/src/engine/src/dabShaping.ts",
+        "name": "apps/web/src/engine/src/presets/dabShaping.ts",
         "dependencyTypes": [
           "local",
           "import"
         ]
       },
       {
-        "name": "apps/web/src/engine/src/watercolorPresets.ts",
+        "name": "apps/web/src/engine/src/presets/watercolorPresets.ts",
         "dependencyTypes": [
           "local",
           "import"

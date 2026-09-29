@@ -6,7 +6,7 @@
 // parts that decide what a mark looks like can be tested without a canvas.
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_DAB_SPACING_FACTOR } from './dabSpacing'
+import { DEFAULT_DAB_SPACING_FACTOR } from '../dabs/dabSpacing'
 import {
   brushDabRandom, brushDabSeed, brushStampsForDab, brushStrokeSeed, curveAt, digitalBrushCeiling,
   digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset, digitalBrushPressureFromPreset,

@@ -6,7 +6,7 @@
 // does this exact analytic transform in `PencilEngine.setViewport()` (see
 // engine/index.ts), but only to feed its *own* internal PointerInput, whose
 // 'move'/'pointer' events are gated by `_active` (true only while a stroke's
-// pointer button is held — see engine/src/PointerInput.ts). #37 needs the
+// pointer button is held — see engine/src/input/PointerInput.ts). #37 needs the
 // local cursor position while just hovering too, so Room listens to the raw
 // DOM pointermove itself and needs this transform independently rather than
 // widening PointerInput's gating (a broader engine behavior change than this

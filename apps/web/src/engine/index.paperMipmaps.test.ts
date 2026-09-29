@@ -18,8 +18,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { createTestEngine, fillStroke, makeLayerAdd, paperMipState, paperReady, readCompositePixels } from './testing/engineTestUtils'
-import { __resetPaperLoaderForTesting, __setPaperLoaderForTesting } from './src/paperLoader'
-import { PAPER_BAKE_RESOLUTION } from './src/paperConstants'
+import { __resetPaperLoaderForTesting, __setPaperLoaderForTesting } from './src/paper/paperLoader'
+import { PAPER_BAKE_RESOLUTION } from './src/paper/paperConstants'
 
 async function engineWithPaper(infinite: boolean) {
   __setPaperLoaderForTesting(async () =>

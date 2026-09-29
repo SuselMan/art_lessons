@@ -19,7 +19,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { buildExportComposite, createTestEngine, fillStroke, makeLayerAdd } from './testing/engineTestUtils'
-import { TILE_SIZE } from './src/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 // Same convention index.tiledDisplay.test.ts's own alphaAt uses: MockGL's
 // internal texel storage is already app-space row-major top-down (real GL's

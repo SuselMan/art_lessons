@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createTestEngine, fillStroke, makeLayerAdd, readLayerPixels, readTilePixels, residentTileCount,
 } from './testing/engineTestUtils'
-import { TILE_SIZE } from './src/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 describe('infinite canvas: tile-straddling strokes (#133)', () => {
   it('a dab painted well inside one tile only creates that one tile', () => {

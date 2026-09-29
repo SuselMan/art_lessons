@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { BRUSH_PEN_HEAD_TAPER, BRUSH_PEN_PRESSURE_SMOOTHING_PX, shapingForBrushPenPreset } from './brushPenPresets'
-import { createTipState, tipFootprint } from './tipFootprint'
+import { createTipState, tipFootprint } from '../dabs/tipFootprint'
 import type { DabShapingProfile } from './dabShaping'
 
 import type { Dab } from '@grafetto/shared'
@@ -27,7 +27,7 @@ import {
 } from './watercolorPresets'
 import { watercolorPigmentByCode, WATERCOLOR_PIGMENTS, DEFAULT_WATERCOLOR_PIGMENT } from './watercolorPigments'
 import { brushPenWidth } from './brushPenPresets'
-import { ribbonProfileFor } from './ribbonProfile'
+import { ribbonProfileFor } from '../dabs/ribbonProfile'
 
 function dabAt(x: number, y: number, size = 30): Dab {
   return { x, y, pressure: 0.5, tiltX: 0, tiltY: 0, size, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }

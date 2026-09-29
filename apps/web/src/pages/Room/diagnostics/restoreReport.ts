@@ -1,5 +1,5 @@
 import type { LayerState } from '@grafetto/shared'
-import { GL_OUT_OF_MEMORY, type SnapshotRestoreAudit } from '../../../engine/src/snapshotAudit'
+import { GL_OUT_OF_MEMORY, type SnapshotRestoreAudit } from '../../../engine/src/oplog/snapshotAudit'
 import type { SnapshotRestoreOutcome } from '../net/snapshotRestore'
 
 // (#474) Turns a finished restore into a verdict and a report.

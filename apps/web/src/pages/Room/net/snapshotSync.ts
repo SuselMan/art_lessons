@@ -1,7 +1,7 @@
 import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../../engine'
-import { compressLayerTiles } from '../../../engine/src/snapshotCodec'
+import { compressLayerTiles } from '../../../engine/src/oplog/snapshotCodec'
 import { api, ApiError } from '../../../lib/api/api'
 import { reportInvariant } from '../../../lib/observability/reportInvariant'
 

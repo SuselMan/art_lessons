@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react'
-import type { SnapshotRestoreAudit } from '../../../engine/src/snapshotAudit'
+import type { SnapshotRestoreAudit } from '../../../engine/src/oplog/snapshotAudit'
 import { buildRestoreReport, reportProblems, restoreReportTitle, type RestoreReport } from './restoreReport'
 import type { SnapshotRestoreOutcome } from '../net/snapshotRestore'
 

@@ -1,7 +1,7 @@
-import { diagLog } from '../../lib/observability/diagLog'
+import { diagLog } from '../../../lib/observability/diagLog'
 import {
   compilePressureCalibration, isIdentityCalibration, type PressureCalibration,
-} from '../../lib/input/pressureCalibration'
+} from '../../../lib/input/pressureCalibration'
 
 // Normalizes pointer events (mouse and stylus) to canvas physical coordinates.
 // Uses getCoalescedEvents() for smoother high-frequency stylus input.

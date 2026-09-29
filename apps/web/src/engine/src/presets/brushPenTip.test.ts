@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { brushPenWidth, PRESSURE_RESPONSES, shapingForBrushPenPreset } from './brushPenPresets'
-import { createTipState, tipFootprint } from './tipFootprint'
-import { DabSystem } from './DabSystem'
+import { createTipState, tipFootprint } from '../dabs/tipFootprint'
+import { DabSystem } from '../dabs/DabSystem'
 import { shapingForTool } from './dabShaping'
 
 // #472, ADR 009 §13 — the flexible nib: a contact patch that is elongated by

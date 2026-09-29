@@ -23,7 +23,7 @@ import {
   readLayerPixels, readTilePixels, expectPixelsEqual,
 } from './testing/engineTestUtils'
 import type { PencilEngine } from './index'
-import { TILE_SIZE } from './src/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 
 function alphaAt(pixels: Uint8Array, width: number, x: number, y: number): number {
   return pixels[(y * width + x) * 4 + 3]

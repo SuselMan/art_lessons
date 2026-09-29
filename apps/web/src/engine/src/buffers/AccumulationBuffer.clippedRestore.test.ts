@@ -18,7 +18,7 @@
 // all a mock can honestly say here.
 import { describe, expect, it } from 'vitest'
 
-import { MockGL } from '../testing/mockGL'
+import { MockGL } from '../../testing/mockGL'
 import { AccumulationBuffer } from './AccumulationBuffer'
 import { clipTileToPage } from './retileSnapshot'
 

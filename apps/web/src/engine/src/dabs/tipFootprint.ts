@@ -1,5 +1,5 @@
-import type { DabShapingProfile, TipBendProfile } from './dabShaping'
-import { tiltMagnitudeDeg } from './tiltMath'
+import type { DabShapingProfile, TipBendProfile } from '../presets/dabShaping'
+import { tiltMagnitudeDeg } from '../presets/tiltMath'
 
 // #482, ADR 012 — the one place the contact patch of a drawing tool is worked
 // out. Before this it was worked out in three:

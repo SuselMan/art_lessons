@@ -13,7 +13,11 @@ import { slow } from '../support/pace'
  *  room up without a reload. */
 test('a paper that fails to load keeps the room closed, and Try again opens it', async ({ page }) => {
   await page.addInitScript(() => { localStorage.setItem('al_locale', 'en') })
-  await page.route('**/paper/**', route => route.abort())
+  // Only the baked textures under /paper/ — not every URL with a `paper` segment: in dev,
+  // Vite serves the engine's own source from /src/engine/src/paper/, and blocking that
+  // leaves a blank page instead of the failure screen this spec is about (#647).
+  const isPaperAsset = (url: URL): boolean => url.pathname.startsWith('/paper/')
+  await page.route(isPaperAsset, route => route.abort())
 
   await createRoom(page)
   await expect(page.getByText("The paper didn't load")).toBeVisible({ timeout: slow(20_000) })
@@ -23,7 +27,7 @@ test('a paper that fails to load keeps the room closed, and Try again opens it',
     return canvas ? getComputedStyle(canvas).pointerEvents : null
   })).toBe('none')
 
-  await page.unroute('**/paper/**')
+  await page.unroute(isPaperAsset)
   await page.getByRole('button', { name: 'Try again' }).click()
 
   await waitForRoomReady(page)

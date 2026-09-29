@@ -26,8 +26,8 @@ import {
 
 const recorded = vi.hoisted(() => ({ prevDabs: [] as Array<Dab | undefined> }))
 
-vi.mock('./src/markerRibbon', async importOriginal => {
-  const actual = await importOriginal<typeof import('./src/markerRibbon')>()
+vi.mock('./src/dabs/markerRibbon', async importOriginal => {
+  const actual = await importOriginal<typeof import('./src/dabs/markerRibbon')>()
   return {
     ...actual,
     buildRibbonBands: (...args: Parameters<typeof actual.buildRibbonBands>) => {

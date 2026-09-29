@@ -1504,7 +1504,7 @@ function RoomEditor() {
   // join_room and gets the *entire* history back in a fresh room_state,
   // without this guard every op already applied before the drop would be
   // appended to the engine's log a second time (OperationLog.append() does
-  // not dedupe by id — see engine/src/OperationLog.ts), corrupting pixel
+  // not dedupe by id — see engine/src/oplog/OperationLog.ts), corrupting pixel
   // state and undo. It does not attempt to reconcile a divergent history.
   const applyRemoteOp = useCallback((op: Operation) => {
     if (appliedOpIdsRef.current.has(op.id)) {
