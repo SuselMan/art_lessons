@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { shapeWorldBounds } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, SHAPE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, BRUSH_STAMP_FRAG, BRUSH_COMPOSITE_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, DOWNSAMPLE_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paper/paperConstants'
 import {
@@ -14,7 +13,10 @@ import { SnapshotLedger } from './src/oplog/snapshotLedger'
 import { previewDownscaleChain } from './src/raster/previewChain'
 import { BlitPasses } from './src/raster/blitPasses'
 import { AreaOps, asImportRecord, type AreaImage, type AreaFillRequest, type AreaFillRaster } from './src/raster/AreaOps'
-import { LayerPreviews, tileBufferAt, type PreviewTile } from './src/raster/layerPreviews'
+import { LayerPreviews } from './src/raster/layerPreviews'
+import { ImageImport } from './src/raster/ImageImport'
+import { ShapePass } from './src/raster/ShapePass'
+import { FilterPass } from './src/filters/FilterPass'
 import { SmudgePainter } from './src/dabs/SmudgePainter'
 import {
   charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
@@ -45,8 +47,6 @@ import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/presets/tiltCurve'
 import type { NibAngleConfig } from './src/presets/markerPresets'
-import { shapeDrawParams, type ShapeDrawParams } from './src/raster/shapeGeometry'
-import { applyLayerFilter, isKnownLayerFilter, layerFilterReach, normalizeLayerFilter } from './src/filters/layerFilters'
 import {
   OperationLog, pixelReadLayerIds, pixelWriteLayerIds, type LogEntry, type PixelOperation,
 } from './src/oplog/OperationLog'
@@ -107,12 +107,12 @@ import {
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
-import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/buffers/tileMath'
+import { TILE_SIZE, coarseFactorFor, type WorldRect } from './src/buffers/tileMath'
 import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/buffers/retileSnapshot'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
 import { encodeLayerTiles, type SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
-import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
+import { defaultPaperColor, packDabs, strokeDabs } from '@grafetto/shared'
 
 export type { HapticGrainStats }
 export type { DiagLog, PressureMap } from './src/input/PointerInput'
@@ -2567,8 +2567,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldCache: Array<SettleField> = []
   // (#494) The transform, selection and image blits — see blitPasses.ts.
   private _passes!: BlitPasses
-  // (#527) The shape rasterizer — see SHAPE_FRAG.
-  private _shapeProg!: WebGLProgram
   // #573 — the digital brush's stamp model (BRUSH_STAMP_FRAG / BRUSH_COMPOSITE_FRAG).
   private _brushStampProg!: WebGLProgram
   private _brushCompositeProg!: WebGLProgram
@@ -2600,13 +2598,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
-  private _shapeUni!: Record<string, WebGLUniformLocation | null>
   private _brushStampUni!: Record<string, WebGLUniformLocation | null>
   private _brushCompositeUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
   private _dispTransparentPosLoc!: number
   private _compositePosLoc!: number
-  private _shapePosLoc!: number
   private _brushStampPosLoc!: number
   private _brushCompositePosLoc!: number
   private _quadBuf!: WebGLBuffer
@@ -2795,17 +2791,17 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabInstScratch: Float32Array = new Float32Array(0)
 
   // (#494) Floating layer previews — the scratch tiles a gesture shows in
-  // place of a layer's own while it is being placed. Written by AreaOps and
-  // by previewShape/previewLayerFilter below, read by the composite; see
-  // layerPreviews.ts.
+  // place of a layer's own while it is being placed. Written by AreaOps,
+  // ShapePass and FilterPass, read by the composite; see layerPreviews.ts.
   private readonly _previews = new LayerPreviews()
   // (#494) Layer transform, selection, paste and fill — see AreaOps.ts.
   private readonly _area: AreaOps
-
-  // Reference-image import (#88) — keyed by the op's own data URL, so
-  // replaying the same room twice (e.g. undo/redo rebuilding a layer) never
-  // redecodes an image it's already decoded once this session.
-  private _imageCache = new Map<string, HTMLImageElement>()
+  // (#494) Reference-image import and its decoded-image cache — see ImageImport.ts.
+  private readonly _images: ImageImport
+  // (#494) Shapes — see ShapePass.ts. Its program is built by _initGL.
+  private readonly _shapes: ShapePass
+  // (#494) Layer filters on the tiles — see FilterPass.ts.
+  private readonly _filters: FilterPass
 
   // Paper texture — a placeholder set synchronously in the constructor (and
   // on context-restore), swapped for the real baked texture once _initPaper's
@@ -3028,7 +3024,7 @@ export class PencilEngine implements PencilEngineAPI {
       previews: this._previews,
       passes: () => this._passes,
       layer: id => this._layers.get(id),
-      image: src => this._imageCache.get(src),
+      image: src => this._images.cached(src),
       tileSize: () => this._tileSize(),
       pageSize: () => this._pageSize(),
       displayOrder: () => this._displayOrder(),
@@ -3038,6 +3034,43 @@ export class PencilEngine implements PencilEngineAPI {
         const blob = await this._pixelsToBlob(pixels, w, h)
         return blob ? blobToDataUrl(blob) : null
       },
+      display: () => this._display(),
+    })
+    // (#494) Reference-image import — see ImageImport.ts.
+    this._images = new ImageImport({
+      gl,
+      passes: () => this._passes,
+      decode: (src, onload, onerror) => this._decodeImage(src, onload, onerror),
+      drawThroughMatrix: (target, originX, originY, img, rect, matrix) =>
+        this._area.drawImageThroughMatrix(target, originX, originY, img, rect, matrix),
+      pageSize: () => this._pageSize(),
+      layerPainted: id => { if (id !== this._activeId) this._invalidateSplitCache() },
+      display: () => this._display(),
+      displayIfNotSuspended: () => this._displayIfNotSuspended(),
+    })
+    // (#494) Shapes — see ShapePass.ts. Its program is built by _initGL
+    // below, like every other one.
+    this._shapes = new ShapePass({
+      gl,
+      infinite: this._infinite,
+      previews: this._previews,
+      screenBuf: () => this._screenBuf,
+      layer: id => this._layers.get(id),
+      tileSize: () => this._tileSize(),
+      pageSize: () => this._pageSize(),
+      layerPainted: id => { if (id !== this._activeId) this._invalidateSplitCache() },
+      display: () => this._display(),
+    })
+    // (#494) Layer filters — see FilterPass.ts.
+    this._filters = new FilterPass({
+      gl,
+      infinite: this._infinite,
+      previews: this._previews,
+      passes: () => this._passes,
+      layer: id => this._layers.get(id),
+      tileSize: () => this._tileSize(),
+      pageSize: () => this._pageSize(),
+      layerPainted: id => { if (id !== this._activeId) this._invalidateSplitCache() },
       display: () => this._display(),
     })
     // (#494) Smudge and the mixer — see SmudgePainter.ts. Its programs are
@@ -3579,10 +3612,10 @@ export class PencilEngine implements PencilEngineAPI {
           // (#398) The image is already decoded on every replay path (see
           // preloadImages) — paint it here and now, so the operations after
           // it in this same loop see the pixels they were recorded against.
-          if (this._paintDecodedImage(buf, op)) {
+          if (this._images.paintDecoded(buf, op)) {
             this._maybeCheckpoint(op.layerId)
           } else {
-            this._paintImage(buf, op)
+            this._images.paint(buf, op)
               .then(() => { this._settleLateImage(op); this._maybeCheckpoint(op.layerId) })
               .catch(err => console.error('failed to paint imported image', err))
           }
@@ -3607,8 +3640,8 @@ export class PencilEngine implements PencilEngineAPI {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._snapshots.isCovered(op.layerId, op.seq)) { this._log.revoke(op.id); break }
-        if (op.type === 'layer_filter') this._applyFilter(buf, op.filter)
-        else if (op.type === 'shape') this._drawShape(buf, op)
+        if (op.type === 'layer_filter') this._filters.apply(buf, op.filter)
+        else if (op.type === 'shape') this._shapes.draw(buf, op)
         else if (op.type === 'area_transform') this._area.bakeAreaTransform(buf, op.selection, op.matrix)
         else this._area.clearArea(buf, op.selection)
         this._snapshots.markDirty(op.layerId)
@@ -3633,10 +3666,10 @@ export class PencilEngine implements PencilEngineAPI {
         // Same decoded/late split as image_import above — see #398. A local
         // paste is always already decoded (the clipboard raster came from this
         // very engine); a peer's arrives cold and takes the async path.
-        if (this._paintDecodedImage(buf, record, matrix)) {
+        if (this._images.paintDecoded(buf, record, matrix)) {
           this._maybeCheckpoint(op.layerId)
         } else {
-          this._paintImage(buf, record, matrix)
+          this._images.paint(buf, record, matrix)
             .then(() => { this._settleLateImage(record); this._maybeCheckpoint(op.layerId) })
             .catch(err => console.error('failed to paint pasted image', err))
         }
@@ -4789,6 +4822,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBufPool.destroy()
     this._tipBuf = null
     this._area.destroy()
+    this._shapes.destroy()
     this._smudge.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
@@ -5247,8 +5281,8 @@ export class PencilEngine implements PencilEngineAPI {
         // that matters here reaches this with the image already decoded —
         // preloadImages on the join/reconnect paths, and the cache entry the
         // first paint left behind for undo/redo's later rebuilds.
-        if (!this._paintDecodedImage(buf, op)) {
-          this._paintImage(buf, op).catch(err => console.error('failed to paint imported image', err))
+        if (!this._images.paintDecoded(buf, op)) {
+          this._images.paint(buf, op).catch(err => console.error('failed to paint imported image', err))
         }
         break
       case 'layer_transform': {
@@ -5270,10 +5304,10 @@ export class PencilEngine implements PencilEngineAPI {
         this._area.clearArea(buf, op.selection)
         break
       case 'shape':
-        this._drawShape(buf, op)
+        this._shapes.draw(buf, op)
         break
       case 'layer_filter':
-        this._applyFilter(buf, op.filter)
+        this._filters.apply(buf, op.filter)
         break
       case 'area_paste':
       case 'area_fill': {
@@ -5282,8 +5316,8 @@ export class PencilEngine implements PencilEngineAPI {
         // Same as image_import's own branch: a rebuild reaches this with the
         // raster already decoded in almost every case, and falls back to the
         // async path rather than dropping the paste when it doesn't.
-        if (!this._paintDecodedImage(buf, record, matrix)) {
-          this._paintImage(buf, record, matrix)
+        if (!this._images.paintDecoded(buf, record, matrix)) {
+          this._images.paint(buf, record, matrix)
             .catch(err => console.error('failed to paint pasted image', err))
         }
         break
@@ -6409,11 +6443,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
-    this._shapeProg           = createProgram(gl, DISPLAY_VERT, SHAPE_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._previewDownsampleProg = createProgram(gl, DISPLAY_VERT, DOWNSAMPLE_FRAG)
     // (#494) Smudge's transfer and imprint-refresh programs — see SmudgePainter.ts.
     this._smudge.initGL()
+    // (#494) The shape rasterizer — see ShapePass.ts.
+    this._shapes.initGL()
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
@@ -6494,13 +6529,6 @@ export class PencilEngine implements PencilEngineAPI {
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
       'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
     ])
-    this._shapeUni = getUniforms(gl, this._shapeProg, [
-      'u_dstSize', 'u_dstOrigin', 'u_center', 'u_rotCS', 'u_half',
-      'u_kind', 'u_base', 'u_outer', 'u_inner', 'u_hasInner', 'u_strokeContours', 'u_band',
-      'u_ringRatio', 'u_closePath', 'u_sectorMode', 'u_sectorDir', 'u_sectorCS',
-      'u_starPoints', 'u_starRot', 'u_lineDir', 'u_lineHalfLen', 'u_lineCap',
-      'u_fillColor', 'u_hasFill', 'u_strokeColor', 'u_hasStroke',
-    ])
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
@@ -6532,7 +6560,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
-    this._shapePosLoc          = gl.getAttribLocation(this._shapeProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._previewDownsampleUni = getUniforms(gl, this._previewDownsampleProg, ['u_src', 'u_tapOffset'])
     this._previewDownsamplePosLoc = gl.getAttribLocation(this._previewDownsampleProg, 'a_position')
@@ -7920,67 +7947,33 @@ export class PencilEngine implements PencilEngineAPI {
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
 
-  private _loadImage(src: string): Promise<HTMLImageElement> {
-    const cached = this._imageCache.get(src)
-    if (cached) return Promise.resolve(cached)
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => { this._imageCache.set(src, img); resolve(img) }
-      img.onerror = () => reject(new Error('failed to decode imported image'))
-      img.src = src
-    })
+  /** See the PencilEngineAPI doc comment. The decode, the cache and the blit
+   *  live in ImageImport (src/raster/ImageImport.ts). */
+  preloadImage(src: string): Promise<void> {
+    return this._images.preloadImage(src)
   }
 
   /** See the PencilEngineAPI doc comment. */
-  async preloadImage(src: string): Promise<void> {
-    await this._loadImage(src).catch(
-      // Same reasoning as preloadImages': a raster that will not decode is not
-      // a reason to throw at the caller, it is a float that draws nothing.
-      err => { console.error('failed to decode pasted image', err) },
-    )
+  preloadImages(ops: Operation[]): Promise<void> {
+    return this._images.preloadImages(ops)
   }
 
-  /** See the PencilEngineAPI doc comment. */
-  async preloadImages(ops: Operation[]): Promise<void> {
-    const sources = new Set<string>()
-    // (#446) `area_paste` carries a raster for the same reason image_import
-    // does, so it must be decoded ahead of a replay for the same reason too —
-    // an operation painted after its own async decode lands on top of
-    // whatever was drawn in the meantime.
-    for (const op of ops) {
-      if (op.type === 'image_import' || op.type === 'area_paste' || op.type === 'area_fill') sources.add(op.image)
-    }
-    if (sources.size === 0) return
-    await Promise.all([...sources].map(src => this._loadImage(src).catch(
-      // Deliberately not rethrown: this is a preparation step for a replay,
-      // and an image that cannot be decoded is not a reason to abandon
-      // everything else the room drew. The operation itself falls through to
-      // the async path and fails there exactly as it did before.
-      err => { console.error('failed to decode imported image', err) },
-    )))
-  }
-
-  /** (#398) Paints `op` immediately if its image is already decoded, leaving
-   *  the pixels in `buf` by the time this returns — which is what lets a
-   *  replay apply the operations that follow it against the content they
-   *  were recorded against. False means nothing was painted and the caller
-   *  must fall back to the async path. */
-  private _paintDecodedImage(
-    buf: ILayerBuffer, op: ImageImportOperation, matrix?: LayerTransformMatrix,
-  ): boolean {
-    const img = this._imageCache.get(op.image)
-    if (!img) return false
-    this._blitImage(buf, op, img, matrix)
-    this._displayIfNotSuspended()
-    return true
+  /** The one DOM object image import needs, kept here so nothing under
+   *  src/ constructs one — see ImageImportContext.decode. */
+  private _decodeImage(src: string, onload: (img: HTMLImageElement) => void, onerror: () => void): void {
+    const img = new Image()
+    img.onload = () => onload(img)
+    img.onerror = onerror
+    img.src = src
   }
 
   /** (#398) An image that had to be decoded *after* its operation was
    *  applied has just landed. Anything that painted this layer in the
    *  meantime is now wrongly underneath it — a peer's stroke arriving right
    *  behind the import, or the import's own undo. The image is in
-   *  `_imageCache` now, so rebuilding replays the whole layer synchronously
-   *  and in log order, putting everything back where the log says it goes.
+   *  ImageImport's cache now, so rebuilding replays the whole layer
+   *  synchronously and in log order, putting everything back where the log
+   *  says it goes.
    *
    *  Skipped in the ordinary case — an import that is still the newest pixel
    *  operation on its layer (a local import, a peer's with nothing behind
@@ -7992,397 +7985,21 @@ export class PencilEngine implements PencilEngineAPI {
     this._displayIfNotSuspended()
   }
 
-  /** Paints a reference image into `buf`, fit-centered ("contain") so the
-   *  whole image stays visible, letterboxed if its aspect ratio doesn't
-   *  match the canvas's. The decode is the only asynchronous step, and it is
-   *  the reason `preloadImages` exists: with the image already in
-   *  `_imageCache`, callers reach `_blitImage` below directly and this
-   *  operation lands synchronously like every other pixel op. This wrapper
-   *  is what remains for the cases where it cannot — a genuinely new import
-   *  (local, or a peer's arriving live), where nothing had a chance to
-   *  decode it in advance. */
-  private async _paintImage(
-    layerBuf: ILayerBuffer, op: ImageImportOperation, matrix?: LayerTransformMatrix,
-  ): Promise<void> {
-    const img = await this._loadImage(op.image)
-    this._blitImage(layerBuf, op, img, matrix)
-    // Unconditional, unlike _paintDecodedImage's: whatever suspendDisplay
-    // span was open when this operation was applied is long closed by the
-    // time a decode resolves, so there is nothing left to repaint later.
-    this._display()
-  }
+  // ─── Shapes (#527) and layer filters (#574, ADR 014) ───────────────────────
+  // Both live in their own files — src/raster/ShapePass.ts and
+  // src/filters/FilterPass.ts; these are the PencilEngineAPI entry points.
 
-  private _blitImage(
-    layerBuf: ILayerBuffer, op: ImageImportOperation, img: HTMLImageElement,
-    // (#446) Where the raster was moved to before it was dropped — see
-    // AreaPasteOperation.matrix. Absent (every image_import, and a paste
-    // dropped where it landed) takes the plain axis-aligned path below,
-    // byte-for-byte as before.
-    wireMatrix?: LayerTransformMatrix,
-  ): void {
-    const { gl } = this
-
-    const texture = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-    // Fixed-canvas rooms (op.x/op.y absent): unchanged fit-center-within-
-    // the-canvas behavior. Infinite-canvas rooms (op.x/op.y present, world-
-    // space top-left — see the shared type's doc comment): natural size,
-    // placed wherever the caller chose (current camera center at import
-    // time, today) — there's no fixed rect to fit-center within.
-    let drawX: number, drawY: number, drawW: number, drawH: number
-    if (op.x !== undefined && op.y !== undefined) {
-      drawX = op.x; drawY = op.y; drawW = op.width; drawH = op.height
-    } else {
-      // (#470) Fit-centred within the sheet, which is what this always meant
-      // — it read the canvas only because the canvas was the sheet.
-      const { w: pageW, h: pageH } = this._pageSize()
-      const scale = Math.min(pageW / op.width, pageH / op.height)
-      drawW = op.width * scale
-      drawH = op.height * scale
-      drawX = (pageW - drawW) / 2
-      drawY = (pageH - drawH) / 2
-    }
-
-    if (wireMatrix) {
-      const matrix = toHomography(wireMatrix)
-      const rect = { x: drawX, y: drawY, width: drawW, height: drawH }
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const [cx, cy] of [
-        [drawX, drawY], [drawX + drawW, drawY], [drawX, drawY + drawH], [drawX + drawW, drawY + drawH],
-      ] as Array<[number, number]>) {
-        const [tx, ty] = applyMatrix(matrix, cx, cy)
-        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
-        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
-      }
-      if (Number.isFinite(minX + minY + maxX + maxY) && maxX > minX && maxY > minY) {
-        const moved: WorldRect = { minX, minY, maxX, maxY }
-        for (const { buffer, originX, originY } of layerBuf.resolveForPaint(moved)) {
-          this._area.drawImageThroughMatrix(buffer, originX, originY, img, rect, matrix)
-        }
-        layerBuf.markContentPainted(moved)
-      }
-      gl.deleteTexture(texture)
-      if (op.layerId !== this._activeId) this._invalidateSplitCache()
-      return
-    }
-
-    const worldRect: WorldRect = { minX: drawX, minY: drawY, maxX: drawX + drawW, maxY: drawY + drawH }
-    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(worldRect)) {
-      buffer.beginDraw()
-      this._passes.image(texture, buffer.width, buffer.height, drawX - originX, drawY - originY, drawW, drawH)
-      buffer.endDraw()
-    }
-    // (#155 Tier 2) See _paintDabs' identical call for why.
-    layerBuf.markContentPainted(worldRect)
-
-    gl.deleteTexture(texture)
-    // #122: single choke point for both callers (appendOperation's live
-    // path and _applyPixelOp's replay path) — an image_import can target
-    // any layer, so only invalidate when it isn't the active one.
-    if (op.layerId !== this._activeId) this._invalidateSplitCache()
-  }
-
-  // ─── Shapes (#527) ───────────────────────────────────────────────────────────
-
-  /** The world rect a shape's pixels can reach, clamped to the sheet in a
-   *  bounded room.
-   *
-   *  The clamp is the same one `_dabsWorldBounds` applies and for the same
-   *  reason: a bounded room's tiles are lazily created, and a shape whose
-   *  frame merely touches the page edge would otherwise resolve — and keep
-   *  forever — a tile of off-page ground nothing can ever make visible again. */
-  private _shapeWorldRect(
-    geometry: ShapeGeometry, frame: ShapeFrame, stroke: ShapeStroke | null,
-  ): WorldRect {
-    const b = shapeWorldBounds(geometry, frame, stroke)
-    if (this._infinite) return b
-    const { w: pageW, h: pageH } = this._pageSize()
-    return {
-      minX: Math.max(b.minX, 0), minY: Math.max(b.minY, 0),
-      maxX: Math.min(b.maxX, pageW), maxY: Math.min(b.maxY, pageH),
-    }
-  }
-
-  /** One SHAPE_FRAG pass over one target buffer, whose world origin is
-   *  (originX, originY). The shader turns each pixel into a world position
-   *  itself, so a real tile, a scratch tile and a preview tile are all drawn
-   *  by the same call with nothing translated by the caller — the pattern
-   *  `BlitPasses.areaMask` established. */
-  private _runShapePass(
-    target: AccumulationBuffer, originX: number, originY: number, params: ShapeDrawParams,
-    stroke: ShapeStroke | null, fill: ShapeFill | null,
-  ): void {
-    const { gl } = this
-    target.beginDraw()
-    gl.useProgram(this._shapeProg)
-    const u = this._shapeUni
-    gl.uniform2f(u.u_dstSize, target.width, target.height)
-    gl.uniform2f(u.u_dstOrigin, originX, originY)
-    gl.uniform2f(u.u_center, params.centerX, params.centerY)
-    gl.uniform2f(u.u_rotCS, params.cos, params.sin)
-    gl.uniform2f(u.u_half, Math.max(params.halfX, 1e-6), Math.max(params.halfY, 1e-6))
-    gl.uniform1i(u.u_kind, params.kind)
-    gl.uniform3f(u.u_base, params.base[0], params.base[1], params.base[2])
-    gl.uniform3f(u.u_outer, params.outer[0], params.outer[1], params.outer[2])
-    gl.uniform3f(u.u_inner, params.inner[0], params.inner[1], params.inner[2])
-    gl.uniform1f(u.u_hasInner, params.hasInner ? 1 : 0)
-    gl.uniform1f(u.u_strokeContours, params.strokeMode === 'contours' ? 1 : 0)
-    gl.uniform2f(u.u_band, params.bandCenter, params.bandHalf)
-    gl.uniform1f(u.u_ringRatio, params.ringRatio)
-    gl.uniform1f(u.u_closePath, params.closePath ? 1 : 0)
-    gl.uniform1f(u.u_sectorMode, params.sectorMode)
-    gl.uniform2f(u.u_sectorDir, params.sectorDirX, params.sectorDirY)
-    gl.uniform2f(u.u_sectorCS, params.sectorCos, params.sectorSin)
-    gl.uniform1f(u.u_starPoints, params.starPoints)
-    gl.uniform2f(u.u_starRot, params.starRotCos, params.starRotSin)
-    gl.uniform2f(u.u_lineDir, params.lineDirX, params.lineDirY)
-    gl.uniform1f(u.u_lineHalfLen, params.lineHalfLen)
-    gl.uniform1f(u.u_lineCap, params.lineCap)
-    gl.uniform3f(u.u_fillColor, fill ? fill.color[0] : 0, fill ? fill.color[1] : 0, fill ? fill.color[2] : 0)
-    gl.uniform1f(u.u_hasFill, fill ? 1 : 0)
-    gl.uniform3f(
-      u.u_strokeColor, stroke ? stroke.color[0] : 0, stroke ? stroke.color[1] : 0, stroke ? stroke.color[2] : 0,
-    )
-    gl.uniform1f(u.u_hasStroke, stroke && stroke.width > 0 ? 1 : 0)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._shapePosLoc)
-    gl.vertexAttribPointer(this._shapePosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    target.endDraw()
-  }
-
-  /** Draws one shape into a layer, touching only the tiles it covers. */
-  private _drawShape(layerBuf: ILayerBuffer, op: ShapeOperation): void {
-    if (!op.stroke && !op.fill) return
-    const rect = this._shapeWorldRect(op.geometry, op.frame, op.stroke)
-    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)) return
-    const params = shapeDrawParams(op.geometry, op.frame, op.stroke)
-    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(rect)) {
-      this._runShapePass(buffer, originX, originY, params, op.stroke, op.fill)
-    }
-    // (#155 Tier 2) Same as _blitImage's call: the content bounds have to grow
-    // to include what was just painted, or a later transform or export can cut
-    // the shape off at the layer's previously-known extent.
-    layerBuf.markContentPainted(rect)
-    if (op.layerId !== this._activeId) this._invalidateSplitCache()
-  }
-
-  /** See PencilEngineAPI. The editing session's live preview: the shape drawn
-   *  over the layer's own content into scratch tiles, exactly the way
-   *  `previewAreaPaste` floats a pasted raster, and cleared by the same
-   *  `clearLayerTransformPreview`.
-   *
-   *  A float rather than an overlay on top of the composite, deliberately: the
-   *  shape belongs to a layer, so it has to be hidden by the layers above it
-   *  while it is being placed. Drawing it over everything would mean a shape
-   *  that jumps behind them at the moment it is confirmed — the preview would
-   *  be lying about the one thing it exists to show. */
+  /** See PencilEngineAPI's doc comment. */
   previewShape(
     layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
     stroke: ShapeStroke | null, fill: ShapeFill | null,
   ): void {
-    const layerBuf = this._layers.get(layerId)
-    const oldByOrigin = new Map(
-      (this._previews.tiles.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
-    )
-    const drop = (): void => {
-      for (const t of oldByOrigin.values()) t.buffer.destroy()
-      this._previews.tiles.delete(layerId)
-      this._previews.areaLayers.delete(layerId)
-      this._display()
-    }
-    if (!layerBuf || (!stroke && !fill)) { drop(); return }
-
-    const rect = this._shapeWorldRect(geometry, frame, stroke)
-    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)
-      || !Number.isFinite(rect.minX + rect.minY + rect.maxX + rect.maxY)) { drop(); return }
-
-    const params = shapeDrawParams(geometry, frame, stroke)
-    const { w: tw, h: th } = this._tileSize()
-    const tiles: PreviewTile[] = []
-    const reused = new Set<string>()
-    for (const { tileX, tileY } of tilesOverlappingRect(rect, tw, th)) {
-      const tileRect = tileWorldRect(tileX, tileY, tw, th)
-      const key = `${tileRect.minX},${tileRect.minY}`
-      const old = oldByOrigin.get(key)
-      const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, tw, th)
-      if (old) reused.add(key)
-      const existing = tileBufferAt(layerBuf, tileRect)
-      if (existing) existing.copyTo(scratch)
-      else scratch.clear()
-      this._runShapePass(scratch, tileRect.minX, tileRect.minY, params, stroke, fill)
-      tiles.push(old ?? { originX: tileRect.minX, originY: tileRect.minY, buffer: scratch })
-    }
-    for (const [key, t] of oldByOrigin) {
-      if (!reused.has(key)) t.buffer.destroy()
-    }
-
-    this._previews.tiles.set(layerId, tiles)
-    this._previews.areaLayers.add(layerId)
-    this._display()
-  }
-
-  // ─── Layer filters (#574, ADR 014) ─────────────────────────────────────────
-
-  /** Runs `filter` over every tile of `layerBuf` that has content — plus, for
-   *  a blur, the neighbouring tiles it spreads into — and returns the results
-   *  as fresh tile-sized buffers. Writes nothing into the layer: the caller
-   *  either copies these in (`_applyFilter`) or floats them as a preview.
-   *
-   *  Each tile is read with a margin of the filter's reach around it, from
-   *  whichever of the layer's tiles overlap that margin. That is what makes a
-   *  tile's result equal to filtering the whole layer in one piece, and
-   *  therefore independent of where this client's tile grid happens to cut —
-   *  the property the recipe-in-the-log design rests on (layerFilters.test.ts
-   *  checks it byte for byte).
-   *
-   *  The pixel math runs on the CPU, not in a shader, because every
-   *  participant runs it and all of them have to get the same answer; see the
-   *  cross-device determinism rule in `.claude/rules.md`. The price is time on
-   *  the main thread, measured in ADR 014.
-   *
-   *  Eviction must be suspended by the caller: the reads below touch every
-   *  content tile and their neighbours, and a trim in the middle would
-   *  destroy a tile about to be read. */
-  private _filterTiles(layerBuf: ILayerBuffer, rawFilter: LayerFilter): Array<PreviewTile & { contentRect: WorldRect }> {
-    if (!isKnownLayerFilter(rawFilter)) return []
-    const filter = normalizeLayerFilter(rawFilter)
-    const reach = layerFilterReach(filter)
-    const { w: tw, h: th } = this._tileSize()
-    const page = this._infinite ? null : this._pageSize()
-
-    // Which tiles the result can land on, and how far content reaches in each.
-    const targets = new Map<string, { rect: WorldRect; content: WorldRect }>()
-    const addTarget = (rect: WorldRect, content: WorldRect): void => {
-      const key = `${rect.minX},${rect.minY}`
-      const prev = targets.get(key)
-      targets.set(key, {
-        rect,
-        content: prev ? {
-          minX: Math.min(prev.content.minX, content.minX), minY: Math.min(prev.content.minY, content.minY),
-          maxX: Math.max(prev.content.maxX, content.maxX), maxY: Math.max(prev.content.maxY, content.maxY),
-        } : content,
-      })
-    }
-    for (const src of layerBuf.allResident()) {
-      if (!src.contentRect) continue
-      const srcRect = tileWorldRect(Math.floor(src.originX / tw), Math.floor(src.originY / th), tw, th)
-      if (reach === 0) { addTarget(srcRect, src.contentRect); continue }
-      const grown: WorldRect = {
-        minX: src.contentRect.minX - reach, minY: src.contentRect.minY - reach,
-        maxX: src.contentRect.maxX + reach, maxY: src.contentRect.maxY + reach,
-      }
-      for (const { tileX, tileY } of tilesOverlappingRect(grown, tw, th)) {
-        const rect = tileWorldRect(tileX, tileY, tw, th)
-        // A bounded room grows no new tiles past its sheet for a blur's
-        // spill: nothing could ever show them. Tiles that already exist
-        // there (a transform moved content off the page) are still filtered.
-        const isSource = rect.minX === srcRect.minX && rect.minY === srcRect.minY
-        if (page && !isSource && (rect.minX >= page.w || rect.minY >= page.h || rect.maxX <= 0 || rect.maxY <= 0)) continue
-        addTarget(rect, {
-          minX: Math.max(rect.minX, grown.minX), minY: Math.max(rect.minY, grown.minY),
-          maxX: Math.min(rect.maxX, grown.maxX), maxY: Math.min(rect.maxY, grown.maxY),
-        })
-      }
-    }
-    if (targets.size === 0) return []
-
-    const pw = tw + 2 * reach
-    const ph = th + 2 * reach
-    const patch = new AccumulationBuffer(this.gl, pw, ph)
-    const results: Array<PreviewTile & { contentRect: WorldRect }> = []
-    try {
-      for (const { rect, content } of targets.values()) {
-        const region: WorldRect = {
-          minX: rect.minX - reach, minY: rect.minY - reach, maxX: rect.maxX + reach, maxY: rect.maxY + reach,
-        }
-        patch.clear()
-        let any = false
-        for (const { buffer, originX, originY } of layerBuf.resolveVisible(region)) {
-          this._passes.transform(buffer, translationMatrix(region.minX - originX, region.minY - originY), pw, ph, patch.fbo)
-          any = true
-        }
-        if (!any) continue
-        const filtered = applyLayerFilter(
-          patch.readPixels(), pw, ph, filter, { originX: region.minX, originY: region.minY, rowsUp: true },
-        )
-        // The tile is the patch minus its margin — the same `reach` on every
-        // side, so the crop needs no flip even though the rows are bottom-up.
-        const tile = new Uint8Array(tw * th * 4)
-        let empty = true
-        for (let y = 0; y < th; y++) {
-          const from = ((y + reach) * pw + reach) * 4
-          const row = filtered.subarray(from, from + tw * 4)
-          if (empty) for (let i = 3; i < row.length; i += 4) if (row[i] !== 0) { empty = false; break }
-          tile.set(row, y * tw * 4)
-        }
-        // A blur's spill that rounded away to nothing does not earn a tile.
-        const existing = tileBufferAt(layerBuf, rect)
-        if (empty && !existing) continue
-        const buffer = new AccumulationBuffer(this.gl, tw, th)
-        buffer.restorePixels(tile)
-        results.push({ originX: rect.minX, originY: rect.minY, buffer, contentRect: content })
-      }
-    } finally {
-      patch.destroy()
-    }
-    return results
-  }
-
-  /** Bakes a `layer_filter` into a layer. */
-  private _applyFilter(layerBuf: ILayerBuffer, filter: LayerFilter): void {
-    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
-    tiled?.suspendEviction()
-    try {
-      // Everything is computed before anything is written: a tile's margin
-      // reads its neighbours, and a neighbour already filtered would be
-      // filtered twice at the seam.
-      const results = this._filterTiles(layerBuf, filter)
-      for (const { originX, originY, buffer, contentRect } of results) {
-        const rect = tileWorldRect(
-          Math.floor(originX / buffer.width), Math.floor(originY / buffer.height), buffer.width, buffer.height,
-        )
-        const target = layerBuf.resolveForPaint(rect).find(t => t.originX === originX && t.originY === originY)
-        if (target) {
-          buffer.copyTo(target.buffer)
-          layerBuf.markContentPainted(contentRect)
-        }
-        buffer.destroy()
-      }
-    } finally {
-      tiled?.resumeEviction()
-    }
+    this._shapes.preview(layerId, geometry, frame, stroke, fill)
   }
 
   /** See PencilEngineAPI's doc comment. */
   previewLayerFilter(layerId: string, filter: LayerFilter | null): void {
-    for (const t of this._previews.tiles.get(layerId) ?? []) t.buffer.destroy()
-    this._previews.tiles.delete(layerId)
-    this._previews.areaLayers.delete(layerId)
-    const layerBuf = this._layers.get(layerId)
-    if (layerBuf && filter) {
-      const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
-      tiled?.suspendEviction()
-      try {
-        const tiles = this._filterTiles(layerBuf, filter)
-        this._previews.tiles.set(layerId, tiles.map(({ originX, originY, buffer }) => ({ originX, originY, buffer })))
-        // Drawn in place of the real tiles where a preview tile exists, from
-        // the real ones everywhere else — see _drawCompositeItem.
-        this._previews.areaLayers.add(layerId)
-      } finally {
-        tiled?.resumeEviction()
-      }
-    }
-    if (layerId !== this._activeId) this._invalidateSplitCache()
-    this._display()
+    this._filters.preview(layerId, filter)
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────────
