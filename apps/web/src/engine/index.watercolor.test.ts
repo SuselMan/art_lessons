@@ -1345,6 +1345,27 @@ describe('a gesture begun off the sheet (#536 §17.63)', () => {
     expect(spent(cut, 'w2')).toEqual(spent(whole, 'w2'))
   })
 
+  // (§17.65) The rect the settle windows are cut from counts only dabs whose
+  // reach touches the sheet. A replay's one batch used to stretch it over a
+  // tail drawn far down past the sheet's edge; the author's live batches
+  // there painted nothing and added nothing.
+  it('leaves dabs whose reach misses the sheet out of the wash’s rect', () => {
+    const onSheet = Array.from({ length: 4 }, (_, i) => dab(8 + i * 12, 16, { size: 12, t: i * 8 }))
+    const tail = Array.from({ length: 8 }, (_, i) => dab(300, 16 + i * 40, { size: 12, t: 40 + i * 8 }))
+    type Fin = { scratch: { finishContext: { bounds: { minX: number; minY: number; maxX: number; maxY: number } } | null } }
+    const bounds = (engine: PencilEngine) =>
+      (engine as unknown as { _replayRibbonChunks: Map<string, Fin> })._replayRibbonChunks.get('w3')!.scratch.finishContext!.bounds
+    const whole = setupLayer()
+    whole.appendOperation(makeStroke('user-b', 'L', [...onSheet, ...tail], { tool: 'watercolor', preset: PRESET, strokeId: 's3', washId: 'w3' }), 'remote')
+    land(whole)
+    const cut = setupLayer()
+    cut.appendOperation(makeStroke('user-b', 'L', onSheet, { tool: 'watercolor', preset: PRESET, strokeId: 's3', washId: 'w3' }), 'remote')
+    cut.appendOperation(makeStroke('user-b', 'L', tail, { tool: 'watercolor', preset: PRESET, strokeId: 's3', washId: 'w3' }), 'remote')
+    land(cut)
+    expect(bounds(whole)).toEqual(bounds(cut))
+    expect(bounds(whole).maxY).toBeLessThan(100)
+  })
+
   // The chunk span doubles for a half-resolution settle, and the settle decides
   // that from the nib the dabs drew - pressure included - not from the size
   // slider. A 96 slider at a light touch settles at full resolution in a field

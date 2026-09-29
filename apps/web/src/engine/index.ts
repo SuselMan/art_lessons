@@ -9914,9 +9914,19 @@ export class PencilEngine implements PencilEngineAPI {
     // recomposite three to four times the area every frame, the tablet's one
     // dropped frame in six.
     let rMinX = Infinity, rMinY = Infinity, rMaxX = -Infinity, rMaxY = -Infinity
+    // (#536, §17.65) A dab whose reach misses the sheet adds nothing to either
+    // rect. Judged per dab, so how the gesture was cut into batches cannot
+    // matter: a live batch off the sheet contributed nothing (it paints
+    // nothing), while a replay's one batch stretched its rect - and the settle
+    // window after it - over the whole off-sheet run. A tail drawn down past
+    // the sheet's right edge pulled the window 900 px lower, past the field's
+    // cap, and the crop left the wash's own top out of the dry tide.
+    const sheet = profile.normalizeDeposit && !this._infinite ? this._pageSize() : null
     for (const d of prevDab ? [prevDab, ...drawable] : drawable) {
       const { hx, hy } = this._dabWorldHalfExtents(d, false, preset)
       const g = haloBound(d), past = haloPast(d)
+      if (sheet && (d.x + hx * g + past <= 0 || d.y + hy * g + past <= 0
+        || d.x - hx * g - past >= sheet.w || d.y - hy * g - past >= sheet.h)) continue
       rMinX = Math.min(rMinX, d.x - hx * g - past); rMaxX = Math.max(rMaxX, d.x + hx * g + past)
       rMinY = Math.min(rMinY, d.y - hy * g - past); rMaxY = Math.max(rMaxY, d.y + hy * g + past)
       const pg = WATERCOLOR_HALO_DRAWN ? g : 1, pp = WATERCOLOR_HALO_DRAWN ? past : 0
