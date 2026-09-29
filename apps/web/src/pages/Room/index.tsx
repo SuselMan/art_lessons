@@ -84,6 +84,7 @@ import { RoomLoadingOverlay } from './status/RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './status/OfflineRoomOverlay'
 import { PaperFailedOverlay } from './status/PaperFailedOverlay'
 import { RestoreFailedOverlay, type RestoreFailureReason } from './status/RestoreFailedOverlay'
+import { notOpenScreen, useOfflineGrace } from './status/notOpenScreen'
 import { FrozenBanner } from './status/FrozenBanner'
 import { ClosedBanner } from './status/ClosedBanner'
 import { LostWorkBanner } from './status/LostWorkBanner'
@@ -142,12 +143,6 @@ const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
   grab: styles.viewportCursorGrab,
   default: styles.viewportCursorDefault,
 }
-
-// (#313) How long a room may sit unloaded with no socket before the
-// preloader is replaced by an explicit "no connection" screen. Long enough
-// that an ordinary slow load or a brief blip never trips it, short enough
-// that nobody watches a spinner wondering whether their work survived.
-const OFFLINE_OVERLAY_GRACE_MS = 6000
 
 /** (#570) The route component. The editor below assumes a WebGL context is
  *  there for the taking — `new PencilEngine` throws otherwise, from a mount
@@ -1095,33 +1090,10 @@ function RoomEditor() {
   const { paperProgress, paperFailed, paperRetrying, awaitPaper, retryPaper } =
     usePaperReadiness({ engineRef, requestFullResyncRef })
 
-  // (#313) A disconnected socket alone isn't enough to give up on loading —
-  // socket.io reconnects on its own, and a slow network looks identical for
-  // the first moments. Only after this grace period does a still-absent
-  // connection get reported as offline rather than as "still loading".
-  const [offlineGraceElapsed, setOfflineGraceElapsed] = useState(false)
-  useEffect(() => {
-    if (connected) { setOfflineGraceElapsed(false); return }
-    const id = window.setTimeout(() => setOfflineGraceElapsed(true), OFFLINE_OVERLAY_GRACE_MS)
-    return () => window.clearTimeout(id)
-  }, [connected])
-  // Deliberately gated on `roomContentReady`, not on `connected` alone: a
-  // mid-session reconnect blip also flips roomContentReady false (see
-  // handleRoomState), and covering a room the user has already loaded — and
-  // can still pan and zoom — with "no connection" would be a lie about what
-  // they're looking at. This is only for a room that never opened.
-  const showOfflineOverlay = !roomContentReady && !connected && offlineGraceElapsed
-  // (#346) Offline wins the tie. With no socket the paper fetch fails too, so
-  // both are true at once — and "no connection" is the diagnosis that explains
-  // the other one, while a retry button that cannot possibly succeed is just
-  // an invitation to press it.
-  const showPaperFailedOverlay = !roomContentReady && paperFailed && !showOfflineOverlay
-  // (#533) Behind both of those. Offline explains itself and a retry cannot
-  // work without a socket; a missing paper texture is the more total failure of
-  // the two, since without it the engine would refuse to draw even on a room
-  // that did restore.
-  const showRestoreFailedOverlay =
-    !roomContentReady && restoreFailure !== null && !showOfflineOverlay && !showPaperFailedOverlay
+  // (#313, #346, #533) Which screen covers a room that has not opened — see
+  // notOpenScreen for the order and why.
+  const offlineGraceElapsed = useOfflineGrace(connected)
+  const notOpen = notOpenScreen({ roomContentReady, connected, offlineGraceElapsed, paperFailed, restoreFailure })
 
   /** (#533) Ask for the room's content again.
    *
@@ -2706,19 +2678,13 @@ function RoomEditor() {
             .layerPanelWrap 2) so it genuinely covers the whole screen, not
             just the canvas — an earlier version lived inside .viewport
             (z-index 1) and could never rise above those. */}
-        {/* Four ways a room can be not-open, in order of how much they know:
-            no socket at all (#313), the paper texture failed (#346), the
-            room's own pixels never arrived (#533), or it is simply still
-            loading. Each replaces the one below it. */}
-        {!roomContentReady && (
-          showOfflineOverlay
-            ? <OfflineRoomOverlay pending={outboxState.pending} />
-            : showPaperFailedOverlay
-              ? <PaperFailedOverlay retrying={paperRetrying} onRetry={() => void retryPaper()} />
-              : showRestoreFailedOverlay
-                ? <RestoreFailedOverlay reason={restoreFailure ?? 'transfer'} onRetry={retryRestore} />
-                : <RoomLoadingOverlay paper={paperProgress} />
+        {/* See notOpenScreen for the four and their order. */}
+        {notOpen === 'offline' && <OfflineRoomOverlay pending={outboxState.pending} />}
+        {notOpen === 'paperFailed' && <PaperFailedOverlay retrying={paperRetrying} onRetry={() => void retryPaper()} />}
+        {notOpen === 'restoreFailed' && (
+          <RestoreFailedOverlay reason={restoreFailure ?? 'transfer'} onRetry={retryRestore} />
         )}
+        {notOpen === 'loading' && <RoomLoadingOverlay paper={paperProgress} />}
       </div>
 
       {glLost && <GlLostOverlay />}
