@@ -54,7 +54,7 @@ export function invertMatrix(m: Matrix3): Matrix3 {
 /** Applies the transform to a single point, dividing through by w. For an
  *  affine matrix w is exactly 1 and this is the plain multiply it always was.
  *  A point on the vanishing line (w = 0) comes back as Infinity — the gesture
- *  side keeps the frame off that line (see isFrameInFront in Room's
+ *  side keeps the frame off that line (see isFrameInFront in lib/transform's
  *  transformMath), which is the only place a projective matrix is authored. */
 export function applyMatrix(m: Matrix3, x: number, y: number): [number, number] {
   const w = m[2] * x + m[5] * y + m[8]
