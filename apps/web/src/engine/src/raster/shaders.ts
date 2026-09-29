@@ -3890,7 +3890,7 @@ export const IMAGE_BLIT_FRAG = `
 //
 // A layer is stored as a grid of separate tile textures, and one destination
 // tile is stitched from every source tile that overlaps it — one pass each
-// (see previewLayerTransform/_bakeTransform). The obvious implementation, a
+// (see previewLayerTransform/AreaOps.bakeLayerTransform). The obvious implementation, a
 // single `texture2D(u_source, srcUV)` guarded by an in-[0,1] test, is subtly
 // wrong at every tile boundary and was: hardware bilinear needs the four
 // texels around the sample point, and at a tile's edge two of them live in
@@ -3910,12 +3910,12 @@ export const IMAGE_BLIT_FRAG = `
 // that tap with exactly its weight. Summed over the passes, the four weights
 // add back to one and the result is the same bilinear filter a single
 // untiled buffer would have produced. That summing is why the tiled callers
-// blend additively (`_runTransformBlit`'s 'add' mode) rather than "over":
+// blend additively (`BlitPasses.transform`'s 'add' mode) rather than "over":
 // Porter-Duff would scale the second pass's contribution by the first's
 // coverage and lose part of it.
 //
 // Taps are read at exact texel centres, so the sampler's own filter never
-// interpolates anything — `_runTransformBlit` puts the source on NEAREST for
+// interpolates anything — `BlitPasses.transform` puts the source on NEAREST for
 // the draw, which also keeps a stale mip filter (setMipSampling, #365) from
 // quietly turning these taps into blurred coarse-level reads.
 //
@@ -3977,7 +3977,7 @@ export const TRANSFORM_BLIT_FRAG = `
 // (#507) Reads the source through the same bounded four-tap sampleSource as
 // TRANSFORM_BLIT_FRAG, for the same reason and with the same requirement on
 // the caller: a selection that spans more than one tile is stitched from one
-// pass per source tile, and those passes have to *sum* (see _composeAreaTiles,
+// pass per source tile, and those passes have to *sum* (see AreaOps.composeAreaTiles,
 // which accumulates the lifted piece additively into its own buffer before
 // compositing it over the tile's remaining content).
 //

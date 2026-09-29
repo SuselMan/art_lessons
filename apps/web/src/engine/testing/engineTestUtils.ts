@@ -168,12 +168,12 @@ interface EngineInternals {
   // #301 white-box access — see screenToWorldFor/rotateMatrixInvFor below.
   _screenToWorldMatrix: () => Matrix3
   _infiniteRotateMatrixInv: () => Matrix3
-  // Live gizmo-drag preview (#120/#139) — see engine/index.ts's own
-  // PreviewTile. Structurally identical, redeclared here rather than
-  // exported from index.ts since there's no product reason a real caller
-  // would ever need this shape — same reasoning as the rest of this file's
-  // white-box access.
-  _transformPreview: Map<string, Array<{ originX: number; originY: number; buffer: AccumulationBuffer }>>
+  // Live gizmo-drag preview (#120/#139) — see LayerPreviews and its
+  // PreviewTile (src/raster/layerPreviews.ts). Structurally identical,
+  // redeclared here rather than imported from the engine's internals since
+  // there's no product reason a real caller would ever need this shape —
+  // same reasoning as the rest of this file's white-box access.
+  _previews: { tiles: Map<string, Array<{ originX: number; originY: number; buffer: AccumulationBuffer }>> }
   // #141 white-box access — see paperTextureSize/paperTextureWrap/
   // lastPaperDabUniform below.
   gl: MockGL
@@ -353,7 +353,7 @@ export interface PreviewTileSnapshot {
  *  the preview's own staged content (position + pixels) in isolation from
  *  whether the camera/viewport happens to have it on screen. */
 export function readTransformPreviewTiles(engine: PencilEngine, layerId: string): PreviewTileSnapshot[] {
-  const tiles = internals(engine)._transformPreview.get(layerId)
+  const tiles = internals(engine)._previews.tiles.get(layerId)
   if (!tiles) return []
   return tiles.map(({ originX, originY, buffer }) => ({ originX, originY, pixels: buffer.readPixels() }))
 }
@@ -368,7 +368,7 @@ export function readTransformPreviewTiles(engine: PencilEngine, layerId: string)
  *  compare identity for "the same tile" across two previewLayerTransform
  *  calls. */
 export function readTransformPreviewTextureIds(engine: PencilEngine, layerId: string): Map<string, unknown> {
-  const tiles = internals(engine)._transformPreview.get(layerId) ?? []
+  const tiles = internals(engine)._previews.tiles.get(layerId) ?? []
   return new Map(tiles.map(t => [`${t.originX},${t.originY}`, t.buffer.texture]))
 }
 

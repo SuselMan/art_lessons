@@ -31,7 +31,7 @@ export interface PaintTarget {
   // or a rotated transform's AABB), same spirit as _dabsWorldBounds — never
   // smaller than the real content, occasionally a little bigger. Any caller
   // that cares about a layer's real content (getContentBounds,
-  // _bakeTransform/previewLayerTransform's source-tile bounds) must skip a
+  // AreaOps.bakeLayerTransform/previewLayerTransform's source-tile bounds) must skip a
   // target entirely when this is null rather than falling back to "assume
   // the whole tile" — that fallback is exactly the unbounded resident-tile-
   // footprint-growth bug #155 diagnosed (a vacated tile kept contributing
@@ -113,7 +113,7 @@ export interface ILayerBuffer {
   /** (#155 Tier 2) Resets the one resident tile whose local (0,0) texel is
    *  at world position (originX, originY) back to "no content" — used right
    *  before a transform bake's unconditional per-source-tile buffer clear()
-   *  (see _bakeTransform), so tracked content state never lies about a tile
+   *  (see AreaOps.bakeLayerTransform), so tracked content state never lies about a tile
    *  that's about to genuinely become empty. A no-op if no tile exists at
    *  that origin. */
   clearContentAt(originX: number, originY: number): void
@@ -139,7 +139,7 @@ export interface ILayerBuffer {
    *
    *  It exists because the tracker's conservatism compounds under repeated
    *  transforms: a bake marks each destination tile with the *axis-aligned
-   *  box of its source's rotated content rect* (see _bakeTransform), so a
+   *  box of its source's rotated content rect* (see AreaOps.bakeLayerTransform), so a
    *  45° rotation inflates the tracked box by up to ~1.41x per side, and the
    *  next rotation starts from the inflated one. Nothing else ever shrinks
    *  it, so the transform gizmo's frame — which is exactly this union, via
