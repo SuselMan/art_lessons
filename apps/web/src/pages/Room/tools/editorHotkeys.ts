@@ -8,7 +8,7 @@ import { useRoomStore } from '../../../stores/roomStore'
 import type { DrawingTool, EditorTool } from '../../../stores/slices/toolSlice'
 import { ZOOM_KEY_STEP } from '../viewport/cameraMath'
 import { editorOwnsKey, isTypingTarget } from './editorKeys'
-import { stepEnumOption, stepLinerSize, toolGradeOptions, toolSizeRange } from './toolSchemas'
+import { stepEnumOption, stepLinerSize, toolGradeOptions, toolSizeRange } from '../../../lib/tools/toolSchemas'
 
 type SetToolSetting = ReturnType<typeof useRoomStore.getState>['setToolSetting']
 

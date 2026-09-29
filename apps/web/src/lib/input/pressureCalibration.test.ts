@@ -4,7 +4,7 @@ import {
   IDENTITY_PRESSURE_CALIBRATION, LOW_CEILING, MIN_CALIBRATION_SAMPLES, MIN_USABLE_RANGE,
   PRESSURE_CURVE_PRESET_POINTS, applyPressureCalibration, calibrationFromMeasurement,
   compilePressureCurve, isIdentityCalibration, isPressureCalibration, matchingCurvePreset,
-  measurePressure, normalizeCurvePoints,
+  measurePressure, normalizeCurvePoints, pressureMapOf,
   type PressureCalibration,
 } from './pressureCalibration'
 
@@ -266,5 +266,20 @@ describe('isPressureCalibration', () => {
     ]) {
       expect(isPressureCalibration(bad)).toBe(false)
     }
+  })
+})
+
+// (#650) What the engine is handed. It used to compile the calibration itself;
+// now it gets a function, and this is where the calibration becomes one.
+describe('pressureMapOf', () => {
+  it('gives no map for none, and none for an identity calibration', () => {
+    expect(pressureMapOf(null)).toBeNull()
+    expect(pressureMapOf({ ...IDENTITY_PRESSURE_CALIBRATION })).toBeNull()
+  })
+
+  it('compiles a real calibration to the correction the engine applies', () => {
+    const map = pressureMapOf({ inMin: 0.1, inMax: 0.5, points: [] })!
+    expect(map(0.5)).toBeCloseTo(1, 6)
+    expect(map(0.3)).toBeCloseTo(0.5, 6)
   })
 })

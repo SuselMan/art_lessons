@@ -29,7 +29,7 @@ grafetto/
 │   │   │   ├── LayerPanel/
 │   │   │   └── PaperPreview/
 │   │   ├── engine/         # WebGL pencil engine
-│   │   ├── i18n/           # translation layer + per-locale dictionaries
+│   │   ├── i18n/           # useT/useLocale; dictionaries + translate() in i18n/core/
 │   │   ├── lib/            # small shared helpers (layers)
 │   │   ├── pages/
 │   │   │   ├── CreateRoom/
@@ -57,7 +57,7 @@ grafetto/
   - `lib/layers/layers.ts` for layer-state helpers (`computeCompositeOrder`).
 - **Types**: import shared types from `@grafetto/shared`. Avoid redefining them locally. Avoid `as any` and `as` casts when a type guard or narrowing works.
 - **CSS**: CSS Modules + CSS variables from `styles/tokens.css`. Touch targets minimum 40–48 px on tablet.
-- **Engine**: public API surface is `PencilEngineAPI` from `engine/index.ts`. Internal classes live in `engine/src/`.
+- **Engine**: public API surface is `PencilEngineAPI` from `engine/index.ts`, plus the light entries `engine/paper.ts`, `engine/paperBake.ts` and `engine/snapshots.ts` (see `engine/README.md` for why each exists). Internal classes live in `engine/src/`; nothing outside the engine imports them.
 
 ## Key Architectural Decisions
 

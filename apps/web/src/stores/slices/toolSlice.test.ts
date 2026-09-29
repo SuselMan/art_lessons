@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 
 import { useRoomStore, resetRoomStore } from '../roomStore'
+import { TOOL_SCHEMAS } from '../../lib/tools/toolSchemas'
 import { DRAWING_TOOLS, NON_DRAWING_TOOLS, PRIMARY_DRAWING_TOOLS, isDrawingTool } from './toolSlice'
 
 // #245 follow-up: lastDrawingTool lets a "return to drawing" toggle
@@ -210,5 +211,18 @@ describe('recent tool lists', () => {
     const after = useRoomStore.getState().recentDrawingTools
     useRoomStore.getState().setTool('marker')
     expect(useRoomStore.getState().recentDrawingTools).toBe(after)
+  })
+})
+
+// (#405) Everything selectable draws its settings panel straight from
+// TOOL_SCHEMAS (Room's `settingsToolId` is just the selected tool), so every
+// tool this slice lets you select needs a schema entry. Here rather than in
+// toolSchemas.test.ts since #650: the registry sits below the store and does
+// not import it.
+describe('the selectable tools all have a panel to show (#405)', () => {
+  it('gives every selectable tool a schema entry', () => {
+    for (const toolId of [...DRAWING_TOOLS, ...NON_DRAWING_TOOLS]) {
+      expect(TOOL_SCHEMAS[toolId], toolId).toBeTruthy()
+    }
   })
 })

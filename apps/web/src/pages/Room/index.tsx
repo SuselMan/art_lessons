@@ -25,7 +25,7 @@ import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingTo
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
 import type { PickerOption } from '../../components/OptionPicker/types'
-import { exposeEngineForDev } from '../../lib/observability/devEngineHandle'
+import { exposeEngineForDev } from './diagnostics/devEngineHandle'
 import {
   computeCompositeOrder, eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers/layers'
@@ -107,7 +107,7 @@ import { GridOverlay, InfiniteGridOverlay } from './overlays/GridOverlay'
 import { TransformGizmo } from './overlays/TransformGizmo'
 import { SelectionOverlay } from './overlays/SelectionOverlay'
 import { AnnotationOverlay } from './overlays/AnnotationOverlay'
-import { useCompactLayout } from '../../lib/input/useCompactLayout'
+import { useCompactLayout } from './useCompactLayout'
 import { useNarrowHeader } from '../../lib/input/useNarrowHeader'
 import { rotateAboutMatrix, type TransformMode } from '../../lib/transform/transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './panels/ParticipantsPanel'
@@ -118,12 +118,13 @@ import { probeWebGL } from '../../lib/browser/webgl'
 import {
   loadToolSettings, saveToolSettings,
   isShapeTool, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS,
-} from './tools/toolSchemas'
+} from '../../lib/tools/toolSchemas'
 import { loadPanelPosition, type PanelPosition } from '../../components/FloatingToolPanel/panelPosition'
-import { TOOL_PHOTOS } from './tools/toolTypeImages'
+import { TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { loadActiveLayerId, saveActiveLayerId } from './editing/activeLayer'
 import { ChiselAngleDial } from './overlays/ChiselAngleDial'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
+import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import { createPendingPreviews } from './net/pendingPreviews'
 import { createSnapshotGate } from './net/snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './net/snapshotSync'
@@ -1780,6 +1781,7 @@ function RoomEditor() {
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
+      diagLog,
       infinite: engineInfinite,
       // (#470) The sheet, in world units. The canvas is the viewport now, so
       // the engine can no longer read this off it the way it used to.
@@ -1818,14 +1820,12 @@ function RoomEditor() {
     // before this existed.
     setEngineEpoch(n => n + 1)
     // (#475) The pen calibration this device already has, handed over at
-    // birth. The effect that pushes later changes (further down, next to the
-    // tilt response) only runs when the *setting* changes, so without this a
-    // freshly built engine — this effect re-runs on a paper change, and on
-    // every room mount — would draw uncalibrated until the person happened to
-    // touch the setting again. Read straight off the store rather than through
-    // a dependency, because a calibration in this list would tear the WebGL
-    // context down and rebuild it every time the curve is dragged.
-    engine.setPressureCalibration(useSettingsStore.getState().pressureCalibration)
+    // birth: useToolSync pushes later changes only when the *setting* changes,
+    // so a freshly built engine (a paper change, every room mount) would draw
+    // uncalibrated until the person touched it again. Read off the store, not
+    // through a dependency: a calibration in this list would rebuild the WebGL
+    // context every time the curve is dragged.
+    engine.setPressureMap(pressureMapOf(useSettingsStore.getState().pressureCalibration))
 
     // (#493) What happens around this person's own strokes, and the layer
     // structure the store already holds — see engineWiring.

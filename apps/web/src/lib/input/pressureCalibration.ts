@@ -235,6 +235,15 @@ export function isIdentityCalibration(cal: PressureCalibration): boolean {
   return cal.inMin === 0 && cal.inMax === 1 && cal.points.length === 0
 }
 
+/** (#650) What the engine is handed: the calibration compiled to a raw →
+ *  corrected function, or null for none or an identity one — so an
+ *  uncalibrated device runs the uncorrected path rather than a closure that
+ *  happens to be the identity. The engine knows no calibration model; this is
+ *  the one place it is turned into something the engine can apply. */
+export function pressureMapOf(cal: PressureCalibration | null): ((raw: number) => number) | null {
+  return cal === null || isIdentityCalibration(cal) ? null : compilePressureCalibration(cal)
+}
+
 // ─── Measuring ───────────────────────────────────────────────────────────────
 
 export type PressureVerdict =

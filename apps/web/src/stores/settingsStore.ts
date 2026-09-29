@@ -10,12 +10,12 @@ import {
   DEFAULT_COLOR_PICKER_MODE,
   isColorPickerMode,
   type ColorPickerMode,
-} from '../components/ColorPicker/pickerModes'
+} from '../lib/browser/colorPickerMode'
 import {
   DEFAULT_PANEL_LAYOUT, parsePanelLayout, serializePanelLayout, type PanelLayout,
-} from '../components/FloatingToolPanel/slots'
+} from '../lib/browser/panelLayout'
 import {
-  detectDeviceType, isCompactPreference, isDeviceType,
+  DEVICE_TYPE_STORAGE_KEY, detectDeviceType, isCompactPreference, isDeviceType,
   type CompactPreference, type DeviceType,
 } from '../lib/browser/deviceType'
 import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/input/hotkeys'
@@ -24,7 +24,7 @@ import {
   isFloatingPanelMode, isMinimalUiTapMode, type FloatingPanelMode, type MinimalUiTapMode,
 } from '../lib/browser/uiPreferences'
 import { detectTheme, isTheme, type Theme } from '../lib/browser/theme'
-import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
+import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/core/locale'
 
 // App-wide user preferences (#208) — settings that belong to the person, not
 // to a drawing: language today, likely theme and similar later.
@@ -40,7 +40,6 @@ import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/loc
 // this app (hotkeys, panel position, one-time hints).
 const LOCALE_STORAGE_KEY = 'al_locale'
 const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
-export const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
 const COMPACT_STORAGE_KEY = 'al_compact_layout'
 const COLOR_PICKER_MODE_STORAGE_KEY = 'al_color_picker_mode'
 const LAST_PAPER_TYPE_STORAGE_KEY = 'al_last_paper_type'

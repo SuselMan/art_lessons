@@ -8,22 +8,22 @@ import {
   DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, type BrushCategory,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, type CharcoalNib,
   NIB_ANCHORS, type NibAnchor,
-} from '../../../engine'
+} from '../../engine'
 import {
   SHAPE_KINDS, SHAPE_STROKE_ALIGNS, SHAPE_STROKE_JOINS, SHAPE_STROKE_CAPS, MIN_POLYSTAR_POINTS,
   type ShapeKind, type ShapeStrokeAlign, type ShapeStrokeJoin, type ShapeStrokeCap,
 } from '@grafetto/shared'
-import { parseNumberInput } from '../../../components/NumberField/numberField'
-import { expScale, type SliderScale } from '../../../components/PrecisionSlider/sliderScale'
-import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../../lib/browser/roomStorage'
+import { parseNumberInput } from './numberInput'
+import { expScale, type SliderScale } from './sliderScale'
+import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../browser/roomStorage'
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
 import { DIGITAL_BRUSH_IMAGES } from './toolTypeImages'
-import { TRANSFORM_MODES, type TransformMode } from '../../../lib/transform/transformMath'
-import { SELECTION_SHAPES, type SelectionShapeKind } from '../gestures/selectionGesture'
-import type { TranslationKey } from '../../../i18n'
-import type { IconName } from '../../../icons/iconNames'
+import { TRANSFORM_MODES, type TransformMode } from '../transform/transformMath'
+import { SELECTION_SHAPES, type SelectionShapeKind } from './selectionShapes'
+import type { TranslationKey } from '../../i18n/core/en'
+import type { IconName } from '../../icons/iconNames'
 
 // Unified, extensible tool-settings registry (#196). Replaces the old
 // hand-typed `RoomToolSettings{pencil,eraser}` (toolSettings.ts) — adding a

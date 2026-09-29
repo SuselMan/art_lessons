@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BIG_STEP_MULTIPLIER, parseNumberInput, snapToStep, stepValue } from './numberField'
+import { BIG_STEP_MULTIPLIER, parseNumberInput, snapToStep, stepValue } from './numberInput'
 
 describe('snapToStep', () => {
   it('snaps to the step grid and clamps to the range', () => {

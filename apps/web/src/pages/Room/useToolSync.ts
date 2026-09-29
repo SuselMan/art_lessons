@@ -1,5 +1,6 @@
 import { useEffect, useMemo, type RefObject } from 'react'
 
+import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import {
   charcoalPresetString, DEFAULT_CHARCOAL_TYPE, DEFAULT_NIB_ANCHOR, DEFAULT_TILT_RESPONSE, digitalBrushFromPreset,
   digitalBrushPreset, isCharcoalNib, isCharcoalType, isNibAnchor, isPressureResponse, isTiltResponse,
@@ -8,7 +9,7 @@ import {
 } from '../../engine'
 import { useRoomStore } from '../../stores/roomStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { linerSizeToPx } from './tools/toolSchemas'
+import { linerSizeToPx } from '../../lib/tools/toolSchemas'
 
 export interface ToolSyncDeps {
   engineRef: RefObject<PencilEngineAPI | null>
@@ -155,7 +156,7 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
   const pressureCalibration = useSettingsStore(s => s.pressureCalibration)
   useEffect(() => {
     const engine = engineRef.current
-    engine?.setPressureCalibration(pressureCalibration)
+    engine?.setPressureMap(pressureMapOf(pressureCalibration))
   }, [pressureCalibration, engineRef])
   useEffect(() => {
     const engine = engineRef.current

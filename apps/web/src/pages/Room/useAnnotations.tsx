@@ -10,7 +10,7 @@ import { useRoomStore } from '../../stores/roomStore'
 import type { EditorTool } from '../../stores/slices/toolSlice'
 import { annotationAt } from './editing/annotationHitTest'
 import { clientToRoomPoint } from './viewport/cameraMath'
-import { getToolColor } from './tools/toolSchemas'
+import { getToolColor } from '../../lib/tools/toolSchemas'
 import { useCatcherHole } from './editing/useCatcherHole'
 import type { DispatchedOp } from './useTransformSession'
 

@@ -5,6 +5,7 @@
 // read a world-space size where it needed a texel count). paperNoise is a
 // leaf module — no engine internals come with it.
 import { PAPER_WORLD_SIZE } from '../paper/paperConstants'
+import { PAPER_TONE_AMPLITUDE } from '../paper/paperTone'
 
 // Per-dab varying parameters (pressure/tilt/opacity/aspect ratio) are
 // forwarded from vertex to fragment stage as `varying`s rather than read
@@ -4118,30 +4119,8 @@ export const DOWNSAMPLE_FRAG = `
 // samples paper via true world position, camera-relative. The two must be
 // kept in sync by hand (no #include in GLSL ES1.0/WebGL1) whenever this
 // blend's math changes.
-// (#300) How far the paper's height map pushes its base colour, as an
-// absolute amount — deliberately NOT scaled by the colour itself.
-//
-// Two earlier shapes both failed, in opposite directions:
-//
-//   colour * (1 - r + r*h)   — proportional to brightness. Fine on white,
-//                              weak on dark, exactly zero on black.
-//   colour + r*signed*headroom — scaled by the room left in the direction
-//                              it's heading. Better, but the height
-//                              distribution leans to one side, so the
-//                              dominant direction got the big headroom on
-//                              light paper (too strong) and the crushed one
-//                              on dark paper (invisible). Same number,
-//                              opposite failure at each end.
-//
-// A fixed absolute swing is the only shape that reads the same on any paper
-// colour, which is the actual requirement. The midpoint is clamped away from
-// the ends so the full swing always fits: on near-black paper the texture
-// sits just above black rather than half-clipped into it.
-const PAPER_TONE_AMPLITUDE = 0.035
-
-// Exported for the paper picker, which paints its miniatures with the same
-// maths (see PaperPreview) so a card cannot drift from the canvas.
-export const PAPER_TONE_AMPLITUDE_VALUE = PAPER_TONE_AMPLITUDE
+// (#300) The tone swing itself is PAPER_TONE_AMPLITUDE in paper/paperTone.ts,
+// shared with the paper picker's miniatures (#663).
 
 /** Shared GLSL turning `u_paperColor` + a height sample into rendered tone.
  *  Emitted from one place because DISPLAY_FRAG (bounded rooms, screen-locked

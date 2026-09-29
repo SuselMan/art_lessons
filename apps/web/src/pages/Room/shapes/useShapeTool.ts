@@ -8,7 +8,7 @@ import {
   frameFromDrag, frameFromHandleDrag, isDrawableFrame, shapeGeometryFrom, shapePaintFrom,
   type ShapeHandle,
 } from './shapeTool'
-import { shapeKindOf } from '../tools/toolSchemas'
+import { shapeKindOf } from '../../../lib/tools/toolSchemas'
 
 // (#530) The shape tool's session: the drag that starts a shape, the handles
 // that keep editing it, and the commit that finally writes one operation.

@@ -5,9 +5,9 @@ import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ConfirmDialogProvider } from './components/ConfirmDialog'
 import { NoticeStack } from './components/Notice'
 import { StatusCard } from './components/StatusCard'
-import { prefetchPaper } from './engine/src/paper/paperLoader'
+import { prefetchPaper } from './engine/paper'
 import { queryClient } from './lib/api/queryClient'
-import { importRoomPage } from './lib/api/roomChunk'
+import { importRoomPage } from './pages/Room/roomChunk'
 import { useSettingsStore } from './stores/settingsStore'
 import { useT } from './i18n'
 import { useBanned } from './lib/api/banned'
@@ -45,11 +45,11 @@ function RouteFallback() {
  *  the same ones the room would have fetched; byteCache hands the in-flight
  *  promise straight to it.
  *
- *  Imported from `engine/src/paper/paperLoader` rather than the engine's public
+ *  Imported from `engine/paper` rather than the engine's main entry
  *  `engine/index` on purpose: Room is a lazy route precisely so the WebGL
  *  engine stays out of the initial bundle (#130), and pulling the whole engine
- *  in here to start a download would undo that. paperLoader's own imports are
- *  the shared types and the manifest parser, nothing else.
+ *  in here to start a download would undo that. engine/paper is the light
+ *  door (#663): the loader, the manifest parser and constants, nothing else.
  *
  *  Fires once for the tab. A wrong guess is cancelled by the room that
  *  disagrees, not re-guessed here — see prefetchPaper/claimSpeculative. */

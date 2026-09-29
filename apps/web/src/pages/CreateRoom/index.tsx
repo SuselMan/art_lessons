@@ -7,7 +7,7 @@ import {
   type ClassVisibility, type PaperCoarseness, type PaperType, type ToggleableTool,
 } from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/browser/color'
-import { preloadRoomPage } from '../../lib/api/roomChunk'
+import { preloadRoomPage } from '../Room/roomChunk'
 import { useDismissOnOutside } from '../../lib/input/useDismissOnOutside'
 import { probeWebGL } from '../../lib/browser/webgl'
 import { useT, type TFunction, type TranslationKey } from '../../i18n'

@@ -2,7 +2,7 @@ import type { ClientEnvironment } from '@grafetto/shared'
 
 import { api } from './api'
 import { APP_VERSION } from '../browser/appVersion'
-import { DEVICE_TYPE_STORAGE_KEY, useSettingsStore } from '../../stores/settingsStore'
+import { DEVICE_TYPE_STORAGE_KEY, type DeviceType } from '../browser/deviceType'
 
 /** (#589) What this browser tells the server about itself, once per page load
  *  — the first thing asked about almost every bug here (which build, tablet or
@@ -61,11 +61,11 @@ function deviceTypeChosen(): boolean {
   }
 }
 
-export function collectEnvironment(): ClientEnvironment {
+export function collectEnvironment(deviceType: DeviceType): ClientEnvironment {
   const nav = navigator as Navigator & { deviceMemory?: number }
   return {
     appVersion: APP_VERSION,
-    deviceType: useSettingsStore.getState().deviceType,
+    deviceType,
     deviceTypeChosen: deviceTypeChosen(),
     screenW: screen.width,
     screenH: screen.height,
@@ -85,8 +85,8 @@ export function collectEnvironment(): ClientEnvironment {
   }
 }
 
-function send(): void {
-  api('POST /api/me/environment', { body: collectEnvironment() })
+function send(deviceType: () => DeviceType): void {
+  api('POST /api/me/environment', { body: collectEnvironment(deviceType()) })
     .catch(() => {
       // Diagnostics only. A failure here must never surface to the person.
     })
@@ -95,9 +95,13 @@ function send(): void {
 /** Reports once now, and once more the first time a pen with pressure
  *  touches the page — that is the field most worth having and the one a
  *  fresh load cannot know yet. Call after the identity warm-up, so the report
- *  lands on this browser's identity and device cookies. */
-export function reportEnvironment(): void {
-  send()
+ *  lands on this browser's identity and device cookies.
+ *
+ *  `deviceType` is asked at each send rather than passed as a value, since the
+ *  second report can come much later, and passed in at all rather than read
+ *  from settingsStore because this module sits below the stores (#650). */
+export function reportEnvironment(deviceType: () => DeviceType): void {
+  send(deviceType)
   if (readPenSeen()) return
   const onPointer = (event: PointerEvent) => {
     if (event.pointerType !== 'pen' || event.pressure <= 0) return
@@ -107,7 +111,7 @@ export function reportEnvironment(): void {
     } catch {
       // Private mode: this load still reports it, the next one asks again.
     }
-    send()
+    send(deviceType)
   }
   window.addEventListener('pointerdown', onPointer, true)
 }
