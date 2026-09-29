@@ -4,7 +4,7 @@ import type { BoardSummary } from '@grafetto/shared'
 
 import { followDestination, followTarget } from './boards'
 import {
-  classGrid, followChip, isForeignPersonalBoard, neighbourInGrid, ownBoardIn, stripBoards,
+  bakesLivePreview, classGrid, followChip, isForeignPersonalBoard, neighbourInGrid, ownBoardIn, stripBoards,
 } from './classMode'
 
 const lesson: BoardSummary = { id: 'L', name: 'Cube', order: 0 }
@@ -65,5 +65,30 @@ describe('class mode on the client (#595)', () => {
     expect(isForeignPersonalBoard(alice1, 'alice', false)).toBe(false)
     expect(isForeignPersonalBoard(alice1, 'teacher', true)).toBe(false)
     expect(isForeignPersonalBoard(lesson, 'bob', false)).toBe(false)
+  })
+})
+
+describe('bakesLivePreview (#595, ADR 015 §5)', () => {
+  const aliceThere = [{ userId: 'alice', boardId: 'A1' }]
+  const aliceAway = [{ userId: 'alice', boardId: 'L' }]
+
+  it('is the student on their own board in the running round', () => {
+    expect(bakesLivePreview(alice1, 'R1', 'alice', false, aliceThere)).toBe(true)
+  })
+
+  it('is nobody outside the running round, and nobody on a lesson page', () => {
+    expect(bakesLivePreview(alice2, 'R1', 'alice', false, aliceThere)).toBe(false)
+    expect(bakesLivePreview(alice1, null, 'alice', false, aliceThere)).toBe(false)
+    expect(bakesLivePreview(lesson, 'R1', 'teacher', true, [])).toBe(false)
+    expect(bakesLivePreview(undefined, 'R1', 'alice', false, [])).toBe(false)
+  })
+
+  it('is the teacher only while the student is not on the board', () => {
+    expect(bakesLivePreview(alice1, 'R1', 'teacher', true, aliceThere)).toBe(false)
+    expect(bakesLivePreview(alice1, 'R1', 'teacher', true, aliceAway)).toBe(true)
+  })
+
+  it('is never a classmate', () => {
+    expect(bakesLivePreview(alice1, 'R1', 'bob', false, aliceAway)).toBe(false)
   })
 })
