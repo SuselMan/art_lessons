@@ -99,7 +99,7 @@ describe('watercolor tool (#468, ADR 011)', () => {
     //
     // v4 runs the whole model on every batch and pads the rect each batch
     // recomposites instead, so the previous batch's guesses get fixed up as the
-    // brush moves on (see _paintRibbonStroke's compositeBounds). What this pins
+    // brush moves on (see _ribbonStrokeWork's compositeBounds). What this pins
     // is that no term is switched off mid-stroke any more.
     const engine = setupLayer()
     await paperReady(engine)
@@ -1088,13 +1088,15 @@ describe('a history batch that undoes its own stroke (#536 §17.49)', () => {
   })
 })
 
-describe('the settle field is sized by this settle alone (#536 §17.49)', () => {
-  it('does not hand a small settle the big field an earlier one left', () => {
+describe('the settle field does not depend on earlier settles (#536 §17.49, §17.70)', () => {
+  it('is the one size for every settle, so a small one never sees what a big one left', () => {
     const engine = setupLayer()
     const e = engine as unknown as { _diffuseFieldFor: (w: number, h: number) => { w: number; h: number } }
-    expect(e._diffuseFieldFor(1500, 1500).w).toBe(1536)
+    const big = e._diffuseFieldFor(1500, 1500)
     const small = e._diffuseFieldFor(300, 200)
-    expect([small.w, small.h]).toEqual([512, 256])
+    expect([small.w, small.h]).toEqual([1536, 1536])
+    // (§17.70) The same textures, not made again: on the iPad that was a second.
+    expect(small).toBe(big)
   })
 })
 
