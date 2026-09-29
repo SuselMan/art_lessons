@@ -160,18 +160,18 @@ describe('createSnapshotUploader', () => {
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1))
   })
 
-  it('only attempts the latest boundary when several are skipped over in one jump', async () => {
+  // (#536, §17.66) The buffers hold the state at newSeq. Stored under an
+  // earlier boundary, every restore painted the ops in between twice - the
+  // join bootstrap did exactly that, 0 → 113 stored as seq 100.
+  it('bakes no snapshot when the watermark jumps past a boundary instead of landing on it', async () => {
     const uploader = createSnapshotUploader('room-1')
-    const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+    const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
 
-    // Jumps straight from before the first boundary to past the third —
-    // baking every intermediate one would mislabel *current* buffer state
-    // (which only really reflects the endpoint) under an earlier seq.
     uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL * 3 + 5, engine, layerState())
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1))
-
-    const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body)
-    expect(body.seq).toBe(SNAPSHOT_SEQ_INTERVAL * 3)
+    await new Promise(r => setTimeout(r, 20))
+    const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls.filter(c => !String(c[0]).includes('thumbnail'))).toEqual([])
+    expect(bakeCalls).toEqual([])
   })
 
   describe('thumbnail (#210)', () => {

@@ -245,6 +245,10 @@ export async function restoreRoomState(
     // moment a checkpoint boundary is crossed for a room like that.
     // Bootstrapping one here, only when latestSnapshotSeq is still null, fixes
     // that without changing anything for a room that already has one.
+    // (#536, §17.66) ...but only when the room happens to stand exactly on a
+    // boundary: the uploader refuses a jump past one, since the buffers hold
+    // the latest seq and not the boundary's. Such a room gets its snapshot at
+    // the next boundary somebody crosses while drawing.
     const uploader = deps.getSnapshotUploader()
     if (engine && latestSnapshotSeq === null && uploader) {
       uploader.onSeqObserved(

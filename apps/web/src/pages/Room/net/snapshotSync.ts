@@ -103,6 +103,21 @@ export function createSnapshotUploader(roomId: string) {
       if (toBoundary <= fromBoundary) return
       const boundarySeq = toBoundary * SNAPSHOT_SEQ_INTERVAL
       if (boundarySeq === 0 || attempted.has(boundarySeq)) return
+      // (#536, ADR 011 §17.66) Only when the canvas stands exactly ON the
+      // boundary. The buffers baked below hold everything up to newSeq, and
+      // labelling that boundarySeq made every restore paint boundarySeq+1..newSeq
+      // a second time - over the pixels that already had them. The join's
+      // bootstrap (restoreRoomState) reached here with 0 → 113 and stored the
+      // 113 picture as seq 100; everyone who joined after drew ops 101-113
+      // twice, and a watercolour wash across 100 came back wrong. A live
+      // client crosses a boundary one confirmed op at a time, so the next
+      // boundary is still baked - by whoever is drawing when it is crossed.
+      // The thumbnail does not carry a seq and still goes.
+      if (newSeq !== boundarySeq) {
+        attempted.add(boundarySeq)
+        void uploadThumbnail(roomId, engine)
+        return
+      }
 
       // Baked synchronously, right here — deliberately NOT deferred to idle
       // time the way the engine's own local undo checkpointing is (see
