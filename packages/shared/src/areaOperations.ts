@@ -92,8 +92,8 @@ export type AreaClearOperation = OperationBase & {
  *  gets its own type instead of widening it.
  *
  *  `image` is a PNG data URL with straight (un-premultiplied) alpha, the same
- *  encoding `image_import` uses and the same one `_blitImage` premultiplies
- *  on the way into a layer buffer. `x`/`y` are the world-space top-left
+ *  encoding `image_import` uses and the same one the engine's ImageImport
+ *  blit premultiplies on the way into a layer buffer. `x`/`y` are the world-space top-left
  *  corner and `width`/`height` the rect it covers — always the raster's own
  *  natural size.
  *

@@ -131,7 +131,7 @@ export interface AreaOpsContext {
  *  how a straight-alpha raster becomes premultiplied layer content, nor in
  *  what has to happen when its decode finishes after the operations behind
  *  it were already applied. So the whole decoded/undecoded/late-arrival
- *  dance (#398: _paintDecodedImage, _paintImage, _settleLateImage) is
+ *  dance (#398: ImageImport.paintDecoded/paint, the engine's _settleLateImage) is
  *  reused as-is rather than reimplemented for a second raster operation.
  *
  *  Placement rides the `x`/`y` fields image_import added for infinite rooms:
