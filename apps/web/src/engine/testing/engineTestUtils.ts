@@ -162,9 +162,8 @@ interface EngineInternals {
   _buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
   // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
   _assemblyPad: () => { padX: number; padY: number }
-  _compositeCenterX: number
-  _compositeCenterY: number
-  _compositeScale: number
+  // (#494) The on-screen composite's CameraFrame — see src/raster/cameraFrame.ts.
+  _liveCameraFrame: () => { centerX: number; centerY: number; scale: number }
   // #301 white-box access — see screenToWorldFor/rotateMatrixInvFor below.
   _screenToWorldMatrix: () => Matrix3
   _infiniteRotateMatrixInv: () => Matrix3
@@ -395,17 +394,16 @@ export function assemblyPad(engine: PencilEngine): { padX: number; padY: number 
   return internals(engine)._assemblyPad()
 }
 
-/** #134-follow-up white-box access: the pixel position within the *current*
- *  composite target that the camera's own world point (wx, wy) maps to —
- *  only meaningful right after a real composite has run (setInfiniteCamera/
- *  a paint/etc. — anything that calls _display()), since it's set fresh by
- *  _runComposite every time. See engine/index.ts's _compositeCenterX field
- *  comment for why, for an infinite room, this must differ from
+/** #134-follow-up white-box access: the pixel position within the on-screen
+ *  composite target that the camera's own world point (wx, wy) maps to — the
+ *  live CameraFrame's centre, which every _composeToFBO derives fresh from the
+ *  current camera and canvas (#494). See CameraFrame.centerX in
+ *  src/raster/cameraFrame.ts for why, for an infinite room, this must differ from
  *  canvas.width/2 by an exact integer (not any fractional amount) to avoid
  *  a permanent, uniform bilinear-resample blur on every frame. */
 export function compositeCenterFor(engine: PencilEngine): { x: number; y: number } {
-  const i = internals(engine)
-  return { x: i._compositeCenterX, y: i._compositeCenterY }
+  const frame = internals(engine)._liveCameraFrame()
+  return { x: frame.centerX, y: frame.centerY }
 }
 
 /** #301 white-box access: the two destination-driven inverse mappings
@@ -421,10 +419,10 @@ export function screenToWorldFor(engine: PencilEngine): Matrix3 {
 }
 
 /** #301 white-box access: composite-target pixels per world unit — min(1,
- *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See the
- *  field's own comment in engine/index.ts. */
+ *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See
+ *  CameraFrame.scale in src/raster/cameraFrame.ts. */
 export function compositeScaleFor(engine: PencilEngine): number {
-  return internals(engine)._compositeScale
+  return internals(engine)._liveCameraFrame().scale
 }
 
 export function rotateMatrixInvFor(engine: PencilEngine): Matrix3 {

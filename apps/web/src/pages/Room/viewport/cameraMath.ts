@@ -26,7 +26,7 @@ import { clientToCanvas, type CanvasSize } from './pointerTransform'
 // site now just calls this instead of re-deriving it inline). worldToScreen
 // is its algebraic inverse, and was independently cross-checked against the
 // engine's own world->screen convention (see PencilEngine's
-// _finishInfiniteComposite/_worldToScreenEdgeX/Y doc comments): forward
+// _finishInfiniteComposite and the engine's frameEdgeX/Y doc comments): forward
 // mapping is screen = (vp.cx, vp.cy) + R(vp.angle) * vp.zoom * world, which
 // is exactly what worldToScreen computes.
 
