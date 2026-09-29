@@ -1388,3 +1388,73 @@ describe('a gesture begun off the sheet (#536 §17.63)', () => {
     expect(e._chunkSpanExceeded()).toBe(false)
   })
 })
+
+describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
+  const PRESET = 'normal:100:70:PB29:round'
+  type Chunk = { scratch: { dryCtx: { bounds: { minX: number; minY: number; maxX: number; maxY: number } } | null } }
+  type Internals = {
+    _replayRibbonChunks: Map<string, Chunk>; _spilledWashes: Map<string, unknown>; _lostWashes: Map<string, unknown>
+    _gpuBudget: number; _enforceGpuBudget: () => boolean; _completeSettle: () => void
+  }
+  const strokeIn = (user: string, wash: string, stroke: string, x: number, y: number) =>
+    makeStroke(user, 'L', [dab(x, y, { size: 8, t: 0 }), dab(x + 6, y, { size: 8, t: 8 }), dab(x + 12, y, { size: 8, t: 16 })],
+      { tool: 'watercolor', preset: PRESET, strokeId: stroke, washId: wash })
+  const washBounds = (engine: PencilEngine, wash: string) =>
+    (engine as unknown as Internals)._replayRibbonChunks.get(wash)!.scratch.dryCtx!.bounds
+
+  // The reference: u1's two strokes into w1 and nobody else painting.
+  function alone(): PencilEngine {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+    land(e)
+    return e
+  }
+
+  // Five participants with a wash open each overflow the replay cache's four
+  // slots: u1's wash used to be destroyed, and its second stroke started a new
+  // accumulation on this client only.
+  it('a fifth participant’s wash spills the oldest instead of destroying it', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    for (const [i, u] of ['u2', 'u3', 'u4', 'u5'].entries()) e.appendOperation(strokeIn(u, 'w' + u, 's' + u, 20 + i * 8, 20), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    expect(I._replayRibbonChunks.has('w1')).toBe(false)
+    expect(I._spilledWashes.has('w1')).toBe(true)
+    e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+    land(e)
+    expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
+  })
+
+  it('the budget spills a resting wash, and its next stroke brings it back', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    I._gpuBudget = 1
+    I._enforceGpuBudget()
+    expect(I._replayRibbonChunks.has('w1')).toBe(false)
+    expect(I._spilledWashes.has('w1')).toBe(true)
+    I._gpuBudget = Infinity
+    e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+    land(e)
+    expect(I._spilledWashes.has('w1')).toBe(false)
+    expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
+  })
+
+  it('the author’s next wash closes the spilled one', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    I._gpuBudget = 1
+    I._enforceGpuBudget()
+    I._gpuBudget = Infinity
+    e.appendOperation(strokeIn('u1', 'w9', 's9', 4, 40), 'remote')
+    land(e)
+    expect(I._spilledWashes.has('w1')).toBe(false)
+  })
+})

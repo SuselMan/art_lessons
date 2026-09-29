@@ -316,10 +316,12 @@ export class AccumulationBuffer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  readPixels(): Uint8Array {
+  /** (#536, §17.68) `into`, when big enough, is filled instead of a new array. */
+  readPixels(into?: Uint8Array): Uint8Array {
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
-    const pixels = new Uint8Array(width * height * 4)
+    const n = width * height * 4
+    const pixels = into && into.byteLength >= n ? into.subarray(0, n) : new Uint8Array(n)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     return pixels
