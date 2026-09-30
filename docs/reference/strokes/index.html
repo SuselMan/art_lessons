@@ -37,8 +37,19 @@ dialog::backdrop{background:#000a}
 .dhead .lab{color:var(--muted)}
 .dhead button{margin-left:auto}
 .btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
-.dbody{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
-@media (max-width:800px){.dbody{grid-template-columns:1fr}}
+.dbody{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
+@media (max-width:1000px){.dbody{grid-template-columns:1fr 1fr}}
+@media (max-width:700px){.dbody{grid-template-columns:1fr}}
+.appbar{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.appbar select{font:inherit;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.comments{grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}
+.comments h4{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.cm{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+.cm .when{font-size:12px;color:var(--muted)}
+.cm .ver{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 6px;margin-left:6px}
+.newc{display:flex;gap:8px;align-items:flex-start}
+.newc textarea{flex:1;min-height:64px;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.hint{font-size:12px;color:var(--muted)}
 .pane h4{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600}
 .stage{background:var(--paper);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
 .stage img{width:100%;height:100%;object-fit:contain;display:block}
@@ -74,6 +85,17 @@ dialog::backdrop{background:#000a}
       <h4>Сухой</h4>
       <div class="stage" id="dryStage"></div>
     </div>
+    <div class="pane">
+      <h4>Графетто — повтор</h4>
+      <div class="stage" id="appStage"></div>
+      <div class="appbar"><label for="appVer" class="hint">версия движка</label><select id="appVer"></select></div>
+    </div>
+    <div class="comments">
+      <h4>Комментарии к мазку</h4>
+      <div id="cmList"></div>
+      <div class="newc"><textarea id="cmText" placeholder="Что не так, что похоже — к выбранной версии"></textarea><button class="btn" id="cmSend">Отправить</button></div>
+      <div class="hint" id="cmHint"></div>
+    </div>
   </div>
 </dialog>
 
@@ -83,6 +105,8 @@ const A = window.STROKE_ARCHIVE || { pxPerMm: 12, sheets: [] }
 const $ = id => document.getElementById(id)
 let current = 'all'
 let timer = null, stopPlay = () => {}
+let comments = []
+fetch('comments').then(r => r.ok ? r.json() : []).then(c => { comments = c }).catch(() => {})
 try { current = localStorage.getItem('strokes.sheet') || 'all' } catch (e) {}
 
 function fmtAge(s) {
@@ -214,6 +238,39 @@ function open(s, st) {
   play.style.display = seq.length > 1 ? '' : 'none'
   show(0)
   stage($('dryStage'), st.dry)
+  // Grafetto: the repeat, one picture per engine version; newest first.
+  const vers = (A.versions || []).filter(v => st.app && st.app[v.id]).slice().reverse()
+  const sel = $('appVer'); sel.innerHTML = ''
+  for (const v of vers) {
+    const o = document.createElement('option'); o.value = v.id
+    o.textContent = `${v.id} · ${v.date} · ${v.subject.slice(0, 60)}`; sel.appendChild(o)
+  }
+  const showApp = () => stage($('appStage'), vers.length ? st.app[sel.value] : null)
+  sel.onchange = () => { showApp(); renderComments() }
+  showApp()
+  const renderComments = () => {
+    const mine = comments.filter(c => c.sheet === s.id && c.n === st.n)
+    const list = $('cmList'); list.innerHTML = mine.length ? '' : '<div class="hint">пока нет</div>'
+    for (const c of mine) {
+      const d = document.createElement('div'); d.className = 'cm'
+      const head = document.createElement('div'); head.className = 'when'
+      head.textContent = c.at.replace('T', ' ')
+      if (c.version) { const v = document.createElement('span'); v.className = 'ver'; v.textContent = c.version; head.appendChild(v) }
+      const body = document.createElement('div'); body.textContent = c.text
+      d.appendChild(head); d.appendChild(body); list.appendChild(d)
+    }
+  }
+  $('cmSend').onclick = async () => {
+    const text = $('cmText').value.trim()
+    if (!text) return
+    try {
+      const r = await fetch('comments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheet: s.id, n: st.n, version: sel.value || null, text }) })
+      if (!r.ok) throw new Error(r.status)
+      comments.push(await r.json()); $('cmText').value = ''; $('cmHint').textContent = ''; renderComments()
+    } catch (e) { $('cmHint').textContent = 'Не сохранилось: комментарии пишутся только через scripts/strokes/serve.py' }
+  }
+  renderComments()
   $('dlg').showModal()
 }
 
