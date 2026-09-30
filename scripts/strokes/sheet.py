@@ -119,8 +119,12 @@ def main(spec_path):
                 os.remove(p)
         st['wet'] = []
     for n, fr in sorted(frames.items()):
-        wmm = max(x[5][0] for x in fr) + 2 * MARGIN_MM
-        hmm = max(x[5][1] for x in fr) + 2 * MARGIN_MM
+        # A drop into clear water: the paint is a speck in a puddle the photo
+        # does not show - `minBoxMm` keeps the puddle (and the bloom to come)
+        # in the frame.
+        mw, mh = spec.get('minBoxMm', (0, 0))
+        wmm = max(max(x[5][0] for x in fr) + 2 * MARGIN_MM, mw)
+        hmm = max(max(x[5][1] for x in fr) + 2 * MARGIN_MM, mh)
         st = refs.stroke_of(sheet, n)
         first = None
         for i, (photo, im, t, k, (cx, cy), _) in enumerate(sorted(fr, key=lambda x: x[2] or ''), 1):
