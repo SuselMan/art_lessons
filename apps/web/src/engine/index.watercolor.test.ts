@@ -1401,7 +1401,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
   type Chunk = { scratch: { dryCtx: { bounds: { minX: number; minY: number; maxX: number; maxY: number } } | null } }
   type Internals = {
     _replayRibbonChunks: Map<string, Chunk & { usedAt?: number }>; _spilledWashes: Map<string, unknown>; _lostWashes: Map<string, unknown>
-    _gpuBudget: number; _enforceGpuBudget: () => boolean; _completeSettle: () => void; _washActiveAt: number
+    _gpuBudget: number; _enforceGpuBudget: () => boolean; _completeSettle: () => void; _washActiveAt: number; _washGpuBytes: () => number; _fieldCache: unknown[]
   }
   const strokeIn = (user: string, wash: string, stroke: string, x: number, y: number) =>
     makeStroke(user, 'L', [dab(x, y, { size: 8, t: 0 }), dab(x + 6, y, { size: 8, t: 8 }), dab(x + 12, y, { size: 8, t: 16 })],
@@ -1469,7 +1469,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
-    I._gpuBudget = 1
+    I._fieldCache = [] // the washes alone decide it
+    I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     vi.useFakeTimers()
     try {
       I._enforceGpuBudget()
@@ -1492,7 +1493,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     land(e)
     const I = e as unknown as Internals
     I._completeSettle()
-    I._gpuBudget = 1
+    I._fieldCache = [] // the washes alone decide it
+    I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     I._enforceGpuBudget()
     expect(I._replayRibbonChunks.has('w1')).toBe(true)
   })
@@ -1505,7 +1507,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     I._completeSettle()
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
-    I._gpuBudget = 1
+    I._fieldCache = [] // the washes alone decide it
+    I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     vi.useFakeTimers()
     try {
       I._enforceGpuBudget()
@@ -1519,6 +1522,18 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
   })
 
+  it('past the hard ceiling even a wash painted into a moment ago is spilled (§17.73)', () => {
+    const e = setupLayer()
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    land(e)
+    const I = e as unknown as Internals
+    I._completeSettle()
+    I._gpuBudget = 1
+    I._enforceGpuBudget()
+    expect(I._replayRibbonChunks.has('w1')).toBe(false)
+    expect(I._spilledWashes.has('w1')).toBe(true)
+  })
+
   it('the author’s next wash closes the spilled one', () => {
     const e = setupLayer()
     e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
@@ -1528,7 +1543,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     // Rested past SPILL_IDLE_MS: the budget leaves a wash painted a moment ago.
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
-    I._gpuBudget = 1
+    I._fieldCache = [] // the washes alone decide it
+    I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     vi.useFakeTimers()
     try {
       I._enforceGpuBudget()

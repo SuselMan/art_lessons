@@ -1037,10 +1037,12 @@ export interface PencilEngineAPI {
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
   getWatercolorPerf(): WatercolorPerf
-  /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
-   *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
-   *  second by the HUD. */
-  getWatercolorPerf(): WatercolorPerf
+
+  /** (#536, §17.73) The page is going away - maybe only into the browser's
+   *  page cache, where Safari keeps it, GPU memory and all, next to the room
+   *  opened after it. Lets the WebGL context go now; the engine is unusable
+   *  afterwards, and a page brought back from the cache must reload. */
+  releaseForPageHide(): void
 
   // (#595, ADR 015 §5) A small picture of the drawing for board thumbnails
   // and the class grid: the same frame and content as exportPNG() (paper
@@ -1401,6 +1403,8 @@ const WASH_STATE_CHECKPOINT_MAX_BYTES = 96 * 1024 * 1024
 /** (#536, §17.57) The watercolour's GPU memory on a touch device - see
  *  PencilEngine._enforceGpuBudget. The iPad's tab died near 600 MB of it. */
 const GPU_BUDGET_TOUCH_BYTES = 300 * 1024 * 1024
+/** (§17.73) Past this multiple of the budget, spilled even if busy. */
+const GPU_HARD_CEILING = 1.35
 /** (§17.70) A rebuild's watercolour replay slice: the GPU time one aims at,
  *  and the dab counts it starts from and never grows past. */
 const REBUILD_SLICE_MS = 12
@@ -4131,6 +4135,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  different spatial scales and different origins — one is the deposit, one
    *  is a blur-and-rethreshold of the silhouette — so a single look at each
    *  settles it. Dev-only, on the Debug tab. */
+  /** See PencilEngineAPI's doc comment. */
+  releaseForPageHide(): void {
+    if (this._destroyed) return
+    this.gl.getExtension('WEBGL_lose_context')?.loseContext()
+  }
+
   getWatercolorPerf(): WatercolorPerf {
     const now = performance.now()
     const WINDOW = 2000
@@ -10017,7 +10027,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._budgetTimer = setTimeout(() => {
       this._budgetTimer = 0
       if (this._destroyed || this._contextLost) return
-      if (this._settle || this._strokeLayerId) { this._scheduleBudgetCheck(); return }
+      if ((this._settle || this._strokeLayerId) && !this._overHardCeiling()) { this._scheduleBudgetCheck(); return }
       this._enforceGpuBudget()
     }, 1000) as unknown as number
   }
@@ -10060,7 +10070,12 @@ export class PencilEngine implements PencilEngineAPI {
     // making a tile's buffer is up to a second on the iPad once its memory is
     // full (922 of them in one rebuild, 46 s). The pool keeps at most
     // SCRATCH_POOL_FREE_BYTES idle anyway.
-    const idle = performance.now() - this._washActiveAt >= SPILL_IDLE_MS
+    // (§17.73) Past the hard ceiling these courtesies, and the ones in the
+    // spill below, give way: four people painting kept every wash "recently
+    // used" and a settle always in flight, the budget never acted, and the
+    // iPad died at 474 MB of washes.
+    const hard = this._overHardCeiling()
+    const idle = hard || performance.now() - this._washActiveAt >= SPILL_IDLE_MS
     if (idle) this._ribbonScratchPool.trimFree()
     if (this._washGpuBytes() > this._gpuBudget && !this._settle && this._fieldCache.length && idle) {
       if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
@@ -10088,17 +10103,19 @@ export class PencilEngine implements PencilEngineAPI {
         // mid-session, the next operation would bring it straight back, and
         // on the iPad the round trip was 214 ms of spill and an unspill 51 ms
         // later (flight recorder, vyIPuYyi).
-        if (performance.now() - (c.usedAt ?? 0) < SPILL_IDLE_MS) continue
+        if (!hard && performance.now() - (c.usedAt ?? 0) < SPILL_IDLE_MS) continue
         const author = this._chunkAuthors.get(key)
-        if (author && [...this._peerLiveStrokes.values()].some(l => l.peerId === author)) continue
+        if (!hard && author && [...this._peerLiveStrokes.values()].some(l => l.peerId === author)) continue
         // (§17.70) A wash of a layer being rebuilt is thrown away at the swap,
         // its rebuilt twin taking its place: reading it back first (up to
         // 1.4 s on the iPad) bought nothing.
         if (this._rebuildTargets().has(c.target)) continue
         // (§17.70) Over several frames, one wash at a time; the next check
         // comes when it lands.
-        if (this._spillJob || typeof setTimeout !== 'function') {
-          if (!this._spillJob) { this._evictChunk(key, true); this._ribbonScratchPool.trimFree(); spilled++; continue }
+        // (§17.73) Over the hard ceiling at once: a wash busy enough to have
+        // kept it there would abandon a spill spread over frames every time.
+        if (hard || this._spillJob || typeof setTimeout !== 'function') {
+          if (hard || !this._spillJob) { this._evictChunk(key, true); this._ribbonScratchPool.trimFree(); spilled++; continue }
           break
         }
         this._startSpill(key)
@@ -10106,6 +10123,11 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     return true
+  }
+
+  /** (§17.73) Watercolour's GPU memory past GPU_HARD_CEILING of the budget. */
+  private _overHardCeiling(): boolean {
+    return this._gpuBudget !== Infinity && this._washGpuBytes() > this._gpuBudget * GPU_HARD_CEILING
   }
 
   /** Drops the settle in flight without landing it — the field is gone. */
