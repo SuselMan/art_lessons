@@ -136,7 +136,7 @@ export class StampPainter {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_puddle', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_puddle', 'u_poolBlot', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason

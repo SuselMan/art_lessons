@@ -953,9 +953,11 @@ describe('the touch-down surplus (#536)', () => {
     // Heavier as the brush lands…
     // (s17.37) A touch with no pause: a little; with a two-second dwell:
     // about twice the body, as the dwell test photographed.
-    expect(watercolorStartExcess(0, 0)).toBeGreaterThan(1.1)
-    expect(watercolorStartExcess(0, 0)).toBeLessThan(1.5)
-    expect(watercolorStartExcess(0, 0, 2000)).toBeGreaterThan(2)
+    // (#680, s17.79) ...and no longer "a little": in the archive's photos the
+    // landing is the darkest patch of a loaded stroke even where Ilya's touch
+    // stood 30-120 ms, under the dwell's floor. The dwell still adds on top.
+    expect(watercolorStartExcess(0, 0)).toBeGreaterThan(1.5)
+    expect(watercolorStartExcess(0, 0, 2000)).toBeGreaterThan(watercolorStartExcess(0, 0) + 1)
     expect(watercolorStartExcess(0, 0, 500)).toBeGreaterThan(watercolorStartExcess(0, 0))
     expect(watercolorStartExcess(0, 0, 500)).toBeLessThan(watercolorStartExcess(0, 0, 2000))
     // ...and the puddle seed only with a dwell: a landing that moves on at

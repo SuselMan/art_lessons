@@ -52,7 +52,7 @@ describe('the carried surplus against the landing-only model it generalises', ()
   it('with no surplus the excess is the landing base alone', () => {
     // the base term of watercolorStartExcess at no dwell
     const a = watercolorExcessFromSurplus(0, 0, 0)
-    const b = watercolorExcessFromSurplus(5 * WC_START_EXCESS_RADII, 0, 0)
+    const b = watercolorExcessFromSurplus(8 * WC_START_EXCESS_RADII, 0, 0)
     expect(a).toBeGreaterThan(1)
     expect(b).toBeCloseTo(1, 2)
   })

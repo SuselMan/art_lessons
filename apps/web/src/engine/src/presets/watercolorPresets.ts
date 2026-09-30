@@ -691,8 +691,13 @@ const PIGMENT_RUN_WET_RADII = 80
 // (s17.37) Split by the dwell test: a touch with no pause is only a little
 // darker than the body (base), a pause unloads the reservoir (dwell part,
 // at full saturation). The photograph's dwell puddle is ~2x the body.
-const WATERCOLOR_START_EXCESS_BASE = 0.3
-const WATERCOLOR_START_EXCESS_DWELL = 1.8
+//  (#680, s17.79) 1.0, from 0.3: in the photographs the landing is the darkest
+//  patch of a loaded stroke, and Ilya's touch-downs stand 30-120 ms - under the
+//  dwell's floor - so the landing had only this base, and the stroke's END
+//  (braking before the lift) out-darkened its start.
+const WATERCOLOR_START_EXCESS_BASE = 1.0
+//  (#680, s17.79) 2.8, from 1.8: Ilya, "скопление стало лучше, но ты стесняешься".
+const WATERCOLOR_START_EXCESS_DWELL = 2.8
 
 /** How fast that surplus is spent, in the brush's own radii. Under one radius
  *  on purpose. Two to four radii — the first number reached for — is a
@@ -846,7 +851,9 @@ export function watercolorSlowdown(v: number, vPeak: number): number {
 }
 export const WC_SLOW_V0 = 0.2
 /** Weight of the slowdown next to the dwell (both 0..1 levels of the reservoir). */
-export const WC_SLOW_GAIN = 0.6
+//  (#680, s17.79) 0.8, from 0.6: bolder, as the dwell's. 1.0 over-darkened
+//  the body of a wavy stroke, which brakes at every turn (sheet 1, 9-15).
+export const WC_SLOW_GAIN = 0.8
 /** (#680) A braking pool is compact - the photographs' turn-back pools are a
  *  nib's footprint, not a wide cap: its surplus is spent over this many radii
  *  of travel, not the landing's WC_START_EXCESS_RADII / WC_PUDDLE_RADII

@@ -244,6 +244,20 @@ const WC_NOISE_GLSL = `
     return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
   }
 
+  // (#680, s17.79) A pool is not the brush's print made darker. Where the
+  // brush left its surplus (the stamp's and band's puddle depth over the
+  // film's level - watercolorPuddleFromSurplus: landing, stop, braking), the
+  // surplus paint lies in blots: the dose there is multiplied by a coarse
+  // field that averages about one, so the pool keeps its mass but loses the
+  // nib's shape - Ilya's "повторяет форму кисти, выглядит стерильно". Off
+  // on wet paper, where the puddle depth is the paper's water, not a pool.
+  float wcPoolBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on) {
+    float pool = on * smoothstep(0.5, 0.95, puddle) * (1.0 - clamp(paperWet, 0.0, 1.0));
+    if (pool <= 0.0) return 1.0;
+    float n = wcFbm(wp * 0.03 + seed * 1.7 + vec2(13.0, 5.0));
+    return mix(1.0, 0.25 + 1.5 * smoothstep(0.3, 0.7, n), pool);
+  }
+
   // (#536, ADR 011 §17.4) The wash's own coarse unevenness — where the water
   // pooled, where the brush unloaded — applied where the paint is **laid**
   // rather than where it is shown.
@@ -450,6 +464,8 @@ export const RIBBON_FRAG = `
   uniform vec2 u_mottleSeed;
   uniform float u_cloudDeposit;
   uniform float u_granDeposit;
+  // (#680, s17.79) 1 for the watercolor's ink passes only - see wcPoolBlot.
+  uniform float u_poolBlot;
 
 ${WC_NOISE_GLSL}
 
@@ -468,6 +484,7 @@ ${WC_NOISE_GLSL}
     float mottle = u_mode > 0.5
       ? wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
         * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
+        * wcPoolBlot(mottleWp, u_mottleSeed, v_puddle, v_ink > 1e-6 ? v_inkWet / v_ink : 0.0, u_poolBlot)
       : 1.0;
     float amount = u_mode > 0.5 ? cov * v_ink * mottle : cov;
     // (#468 v4) Same two-channel deposit the nib stamps write: .a is how much
@@ -697,6 +714,8 @@ export const DAB_FRAG = `
   uniform float u_washWater;
   // (s17.27) How deep the water stands under this stamp - see markerRibbon.ts.
   uniform float u_puddle;
+  // (#680, s17.79) 1 for the watercolor's ink stamps only - see wcPoolBlot.
+  uniform float u_poolBlot;
   uniform float u_waterRetain;
   // (#536) How strong the paint in the brush was for this dab — the pigment
   // slider, resolved per stroke. Rides the deposit for the reason
@@ -1355,7 +1374,8 @@ ${WC_NOISE_GLSL}
       // disagree about where the field is.
       vec2 mottleWp = gl_FragCoord.xy + u_paperOrigin;
       amount *= wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
-              * wcSettling(mottleWp, u_mottleSeed, u_granDeposit);
+              * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
+              * wcPoolBlot(mottleWp, u_mottleSeed, u_puddle, u_paperWet, u_poolBlot);
       // .a is the deposit; .rgb the same deposit weighted by how wet the brush
       // was for this dab. Both accumulate additively, so the composite's r/a is
       // the deposit-weighted mean water over everything that landed here — see

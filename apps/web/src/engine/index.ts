@@ -6163,7 +6163,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
 
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
-      'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
+      'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit', 'u_poolBlot',
       'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau',
     ])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
@@ -8312,7 +8312,10 @@ export class PencilEngine implements PencilEngineAPI {
         if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
         const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, landedWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
         excessByDab.set(dab, excess)
-        puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(Math.max(scratch.surplusWater, scratch.brakePigment), wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
+        // (#680, s17.79) ...and the landing's own surplus, which needs no dwell:
+        // the touch-down's pool is a pool too, broken into blots like the others.
+        const landingPool = (1 - Math.min(Math.max(landedWet, 0), 1)) * Math.exp(-pigUsed / WC_START_EXCESS_RADII)
+        puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(Math.max(scratch.surplusWater, scratch.brakePigment, landingPool), wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
         if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
@@ -8529,6 +8532,8 @@ export class PencilEngine implements PencilEngineAPI {
       const colorDest = fb ? fb.strokeColor : inkColor
       const beginInk = (buf: AccumulationBuffer): void => { if (fb) buf.beginMaxDraw(this._minmaxExt!); else buf.beginAdditiveDraw() }
       const bandMode = fb ? 'ink-max' as const : 'ink' as const
+      // (#680, s17.79) The watercolor's surplus lies in blots — see wcPoolBlot.
+      const poolBlot = profile.waterDepletion ? 1 : 0
       if (inkDest) {
         for (let i = 0; i < drawable.length; i++) {
           if (!this._nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
@@ -8538,6 +8543,7 @@ export class PencilEngine implements PencilEngineAPI {
             deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
             paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk,
+            null, puddleByDab.get(drawable[i]) ?? 1, poolBlot,
           )
           inkDest.endDraw()
           yield pieceTris ? this._nibDrawCost(tile, drawable[i], preset) : 0
@@ -8548,7 +8554,7 @@ export class PencilEngine implements PencilEngineAPI {
             if (pieceTris && !px) continue
             this._drawRibbonBands(
               inkDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-              0, 0, combs, profile.bristleInk,
+              0, 0, combs, profile.bristleInk, null, poolBlot,
             )
             yield px
           }
@@ -8565,6 +8571,7 @@ export class PencilEngine implements PencilEngineAPI {
               deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
               waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
               paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk, tau,
+              puddleByDab.get(drawable[i]) ?? 1, poolBlot,
             )
             colorDest.endDraw()
             yield pieceTris ? this._nibDrawCost(tile, drawable[i], preset) : 0
@@ -8575,7 +8582,7 @@ export class PencilEngine implements PencilEngineAPI {
               if (pieceTris && !px) continue
               this._drawRibbonBands(
                 colorDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-                0, 0, combs, profile.bristleInk, tau,
+                0, 0, combs, profile.bristleInk, tau, poolBlot,
               )
               yield px
             }
@@ -10528,8 +10535,12 @@ export class PencilEngine implements PencilEngineAPI {
      *  per channel; null writes the deposit as always. */
     depthTau: readonly [number, number, number] | null = null,
     /** (s17.27) How deep the water stands under this dab — see
-     *  watercolorPuddleDepth. Only the coverage stamp reads it. */
+     *  watercolorPuddleDepth. The coverage stamp reads it, and (s17.79) the
+     *  watercolor's ink stamp where poolBlot is on. */
     puddle = 1,
+    /** (#680, s17.79) Break the brush's surplus into blots (wcPoolBlot):
+     *  the watercolor's own ink stamps only. */
+    poolBlot = 0,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -10594,6 +10605,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
     gl.uniform1f(u.u_paperWet, paperWet)
     gl.uniform1f(u.u_puddle, puddle)
+    gl.uniform1f(u.u_poolBlot, poolBlot)
     // (#536, s17.11/13) What this stroke delivers and what dry paper keeps of
     // it — the mix's water, not this dab's depleted load — into the record of
     // standing water the diffusion pass gates on. See u_washWater.
@@ -10627,6 +10639,8 @@ export class PencilEngine implements PencilEngineAPI {
     bristleCombs = 0, bristleInk = 0,
     /** (#536, s17.19) Ink mode into the colour record — see _drawRibbonNibPass. */
     depthTau: readonly [number, number, number] | null = null,
+    /** (#680, s17.79) See _drawRibbonNibPass's poolBlot. */
+    poolBlot = 0,
   ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
@@ -10650,6 +10664,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(this._ribbonUni.u_worldOrigin, tile.originX, -tile.originY || 0)
     gl.uniform1f(this._ribbonUni.u_cloudDeposit, cloud)
     gl.uniform1f(this._ribbonUni.u_granDeposit, gran)
+    gl.uniform1f(this._ribbonUni.u_poolBlot, poolBlot)
     gl.uniform2f(this._ribbonUni.u_mottleSeed, mottleSeed[0], mottleSeed[1])
     gl.uniform1f(this._ribbonUni.u_washWater, washWater)
     gl.uniform1f(this._ribbonUni.u_waterRetain, waterRetain)
