@@ -27,7 +27,8 @@
   #err { color: #b00; white-space: pre-wrap; }
   select { font: inherit; width: 100%; }
   details summary { cursor: pointer; color: var(--muted); margin-top: 10px; }
-  @media (max-width: 700px) { #side { position: absolute; z-index: 2; height: 100%; transform: translateX(-100%); } #side.open { transform: none; } }
+  #toggle { display: none; position: absolute; top: 8px; left: 8px; z-index: 3; }
+  @media (max-width: 700px) { #side { position: absolute; z-index: 2; height: 100%; transform: translateX(-100%); } #side.open { transform: none; } #toggle { display: block; } }
 </style>
 </head>
 <body>
@@ -58,7 +59,7 @@
       </select></label>
     <details id="phys"><summary>Физика (для подстройки)</summary><div id="physBody"></div></details>
   </div>
-  <div id="stage"><canvas id="c"></canvas><div id="hud"></div></div>
+  <div id="stage"><button id="toggle">Панель</button><canvas id="c"></canvas><div id="hud"></div></div>
 </div>
 <script type="module" src="./main.js"></script>
 </body>

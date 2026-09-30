@@ -80,6 +80,7 @@ async function init() {
   $('pause').onclick = () => { paused = !paused; $('pause').classList.toggle('on', paused) }
   $('script').onclick = () => startScript()
   $('view').onchange = (e) => { view = +e.target.value }
+  $('toggle').onclick = () => $('side').classList.toggle('open')
 
   // physics knobs, generated from DEFAULTS
   const body = $('physBody')

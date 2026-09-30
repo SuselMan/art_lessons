@@ -36,7 +36,7 @@ function blobPath(cx, cy, rad, turns = 3) {
   for (let i = 0; i <= n; i++) {
     const t = i / n
     const a = t * turns * Math.PI * 2
-    const r = rad * (1 - t * 0.7)
+    const r = rad * (0.3 + t * 0.7) // inside out: the brush leaves at the rim, not parked in the middle
     pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r * 1.05, 0.85])
   }
   return pts
@@ -67,7 +67,11 @@ export function buildScript(opts = {}) {
     // backrun close-up: one wash, a drop of clean water once it is damp,
     // frames every 800 steps while the drop spreads
     const r = { x0: 0.2, y0: 0.2, x1: 0.8, y1: 0.8 }
-    stroke({ slot: 0, water: 0.7, pigment: 0.5, size: 30 }, washPath(r.x0, r.y0, r.x1, r.y1, 0.05))
+    // three loads of the brush, like a painter would dip between bands
+    for (let k = 0; k < 3; k++) {
+      const y0 = r.y0 + k * 0.2, y1 = y0 + 0.2
+      stroke({ slot: 0, water: 0.7, pigment: 0.5, size: 30 }, washPath(r.x0, y0, r.x1, y1, 0.05))
+    }
     wait(300)
     mark('wet')
     A.push({ type: 'waitDamp', rect: r, frac: opts.dampFrac ?? 0.02, maxSteps: 60000 })
@@ -122,7 +126,7 @@ export function buildScript(opts = {}) {
   // 1. single wash left to dry on its own — a very wet rose puddle (tideline)
   {
     const p = panel(0, 0)
-    stroke({ slot: 1, water: 0.9, pigment: 0.4, size: 26 }, blobPath((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, 0.1))
+    stroke({ slot: 1, water: 0.9, pigment: 0.4, size: 26 }, blobPath((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, 0.08))
   }
   // 2. wet-in-wet — yellow wash, ultramarine charged in right away, overlapping
   {

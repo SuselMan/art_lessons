@@ -115,8 +115,9 @@ void main(){
   float w=c.r+inflow-(f.x+f.y+f.z+f.w);
   w+=brushDW(fc,c.r);
   // absorption into the paper (capillary layer), capacity follows the fibres
-  float h=paperRaw(fc);
-  float cap=mix(u_cap.x,u_cap.y,h);
+  // capacity from the blurred sheet: raw per-texel capacity made the wicking
+  // front run along single high texels and the edges grew needles
+  float cap=mix(u_cap.x,u_cap.y,paperSm(fc));
   float s=c.g;
   float a=min(u_cap.z,min(w,max(0.0,cap-s)));
   w-=a; s+=a;

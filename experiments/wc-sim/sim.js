@@ -9,19 +9,19 @@ export const DEFAULTS = {
   kFlow: 0.24,       // pipe conductance
   damp: 0.98,         // pipe flux memory (momentum)
   hScale: 0.004,      // how tall the paper grain is for the water
-  breach: 0.25,      // height step that lets water jump onto dry paper
+  breach: 0.35,      // height step that lets water jump onto dry paper
   tilt: 0.0,         // board tilt (gravity along −y), total drop over the sheet
   wFlow: 0.004,      // thinner surface films are pinned (no flow)
   wEps: 0.004,       // surface water counts as "wet" above this
   sWet: 0.09,        // capillary water counts as "wet" above this
   creepLo: 0.05, creepHi: 0.06, // damp paper lets new water in above this capillary level
   sPin: 0.01,        // pinned contact line lets go once the paper is this dry
-  capMin: 0.04, capMax: 0.12, absorb: 0.004, kCap: 0.008, sSrc: 0.08,
+  capMin: 0.04, capMax: 0.12, absorb: 0.004, kCap: 0.004, sSrc: 0.08,
   evap: 0.000006,     // surface evaporation per step
-  edgeBoost: 40.0,    // extra evaporation on the rim of the wet area
+  edgeBoost: 20.0,    // extra evaporation on the rim of the wet area
   evapS: 0.00002,    // capillary evaporation once the surface is dry
   blurK: 0.02,       // wet-mask blur (smaller = wider rim)
-  settle: 0.0004, lift: 0.001, w0: 0.03, wDry: 0.0015, wLift: 0.05,
+  settle: 0.0006, lift: 0.001, w0: 0.03, wDry: 0.0015, wLift: 0.05,
   loose: 8.0,        // lift ×this while the pigment has not been through a full drying
   kDiff: 0.02,       // Brownian pigment mixing
   granMul: 1.5,

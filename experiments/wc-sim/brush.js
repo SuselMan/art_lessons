@@ -67,7 +67,9 @@ export class Brush {
     const p = Math.max(0.05, b.p)
     const radius = Math.max(1.5, this.size * this.scale * (0.35 + 0.65 * p))
     const lvl = (0.02 + 0.98 * Math.pow(this.water, 1.5)) * (0.6 + 0.4 * p) * (0.25 + 0.75 * this.reservoir)
-    const dryness = Math.min(1, Math.max(0, 1 - lvl / 0.18))
+    // a starving brush only touches the tops of the grain; ramps in below lvl≈0.25
+    const tt = Math.min(1, Math.max(0, (0.25 - lvl) / 0.19))
+    const dryness = tt * tt * (3 - 2 * tt)
     const segLen = Math.hypot(b.x - a.x, b.y - a.y) / this.scale
     // drain: moving lays down a band of water, standing still keeps soaking
     const r1024 = radius / this.scale
