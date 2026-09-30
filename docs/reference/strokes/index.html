@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Архив мазков акварели</title>
+<style>
+:root{--bg:#f5f3ee;--fg:#1d1d1f;--muted:#6b6b70;--card:#fff;--line:#e2dfd8;--accent:#2a5bd7;--paper:#fbfaf7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#18181a;--fg:#ececee;--muted:#9a9aa0;--card:#232326;--line:#35353a;--accent:#7aa2ff;--paper:#fbfaf7}}
+:root[data-theme="dark"]{--bg:#18181a;--fg:#ececee;--muted:#9a9aa0;--card:#232326;--line:#35353a;--accent:#7aa2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+h1{font-size:18px;margin:0 8px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:4px 12px;cursor:pointer;font:inherit}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.count{color:var(--muted);margin-left:auto}
+main{max-width:1400px;margin:0 auto;padding:16px}
+.sheet{margin:0 0 28px}
+.sheet h2{font-size:16px;margin:0 0 2px}
+.sheet p{margin:0 0 12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;text-align:left;padding:0;color:inherit;font:inherit}
+.card:focus-visible{outline:2px solid var(--accent)}
+.thumb{height:180px;background:var(--paper);display:flex;align-items:center;justify-content:center}
+.thumb img{max-width:100%;max-height:100%;object-fit:contain}
+.card .meta{padding:8px 10px}
+.card .n{font-weight:600}
+.card .lab{color:var(--muted);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.badges{display:flex;gap:6px;margin-top:6px;font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);padding:48px 0;text-align:center}
+dialog{border:none;border-radius:12px;padding:0;width:min(1300px,96vw);max-height:94vh;background:var(--card);color:var(--fg)}
+dialog::backdrop{background:#000a}
+.dhead{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dhead h3{margin:0;font-size:17px}
+.dhead .lab{color:var(--muted)}
+.dhead button{margin-left:auto}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
+.dbody{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
+@media (max-width:800px){.dbody{grid-template-columns:1fr}}
+.pane h4{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600}
+.stage{background:var(--paper);border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:260px;position:relative}
+.stage img{max-width:100%;max-height:62vh;display:block}
+.scalebar{position:absolute;left:10px;bottom:10px;height:4px;background:#111;border-radius:2px}
+.scalebar span{position:absolute;left:0;bottom:6px;font-size:11px;color:#111;white-space:nowrap}
+.timeline{display:flex;align-items:center;gap:10px;margin-top:10px}
+.timeline input{flex:1}
+.ticks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tick{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer;background:var(--card);color:var(--fg)}
+.tick[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.none{color:var(--muted);padding:40px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Архив мазков акварели</h1>
+  <div class="chips" id="sheets" role="group" aria-label="Лист"></div>
+  <div class="count" id="count"></div>
+</header>
+<main id="main"></main>
+
+<dialog id="dlg">
+  <div class="dhead"><h3 id="dTitle"></h3><span class="lab" id="dLabel"></span><button class="btn" id="dClose">Закрыть</button></div>
+  <div class="dbody">
+    <div class="pane">
+      <h4 id="wetTitle">Мокрый — серия высыхания</h4>
+      <div class="stage" id="wetStage"></div>
+      <div class="timeline" id="wetTimeline"><input type="range" id="wetRange" min="0" max="0" value="0" aria-label="Кадр серии"><span id="wetAge"></span></div>
+      <div class="ticks" id="wetTicks"></div>
+    </div>
+    <div class="pane">
+      <h4>Сухой</h4>
+      <div class="stage" id="dryStage"></div>
+    </div>
+  </div>
+</dialog>
+
+<script src="archive.js"></script>
+<script>
+const A = window.STROKE_ARCHIVE || { pxPerMm: 12, sheets: [] }
+const $ = id => document.getElementById(id)
+let current = 'all'
+try { current = localStorage.getItem('strokes.sheet') || 'all' } catch (e) {}
+
+function fmtAge(s) {
+  if (s == null) return ''
+  if (s < 60) return Math.round(s) + ' с'
+  const m = Math.floor(s / 60), r = Math.round(s % 60)
+  return r ? `${m} мин ${r} с` : `${m} мин`
+}
+
+function chips() {
+  const box = $('sheets'); box.innerHTML = ''
+  const opts = [['all', 'Все листы'], ...A.sheets.map(s => [s.id, s.id])]
+  for (const [id, name] of opts) {
+    const b = document.createElement('button')
+    b.className = 'chip'; b.textContent = name
+    b.setAttribute('aria-pressed', String(current === id))
+    b.onclick = () => { current = id; try { localStorage.setItem('strokes.sheet', id) } catch (e) {}; render() }
+    box.appendChild(b)
+  }
+}
+
+function render() {
+  chips()
+  const main = $('main'); main.innerHTML = ''
+  const sheets = A.sheets.filter(s => current === 'all' || s.id === current)
+  let total = 0
+  for (const s of sheets) {
+    const sec = document.createElement('section'); sec.className = 'sheet'
+    const coin = { '1rub': '1 ₽', '2rub': '2 ₽', '5rub': '5 ₽', '10rub': '10 ₽' }[s.coin] || s.coin
+    sec.innerHTML = `<h2>Лист ${s.id}</h2><p>${[s.paper, s.note, 'масштаб по монете ' + coin].filter(Boolean).join(' · ')}</p>`
+    const grid = document.createElement('div'); grid.className = 'grid'
+    for (const st of s.strokes) {
+      total++
+      const pic = st.dry || st.wet[st.wet.length - 1]
+      const c = document.createElement('button'); c.className = 'card'
+      c.innerHTML = `<div class="thumb">${pic ? `<img loading="lazy" src="${pic.src}" alt="">` : ''}</div>
+        <div class="meta"><div class="n">№ ${st.n}</div><div class="lab"></div>
+        <div class="badges"><span>мокрых: ${st.wet.length}</span><span>${st.dry ? 'сухой ✓' : 'сухого нет'}</span></div></div>`
+      c.querySelector('.lab').textContent = st.label || ''
+      c.onclick = () => open(s, st)
+      grid.appendChild(c)
+    }
+    if (!s.strokes.length) grid.innerHTML = '<div class="empty">Пока пусто</div>'
+    sec.appendChild(grid); main.appendChild(sec)
+  }
+  if (!A.sheets.length) main.innerHTML = '<div class="empty">Архив пуст. Мазки добавляются скриптом scripts/strokes/refs.py.</div>'
+  $('count').textContent = total ? `мазков: ${total}` : ''
+}
+
+function stage(el, pic) {
+  el.innerHTML = ''
+  if (!pic) { el.innerHTML = '<div class="none">нет снимка</div>'; return }
+  const img = new Image(); img.src = pic.src; img.alt = ''
+  const bar = document.createElement('div'); bar.className = 'scalebar'
+  const lab = document.createElement('span'); lab.textContent = '1 см'; bar.appendChild(lab)
+  img.onload = () => { bar.style.width = (A.pxPerMm * 10 * img.clientWidth / img.naturalWidth) + 'px' }
+  el.appendChild(img); el.appendChild(bar)
+}
+
+function open(s, st) {
+  $('dTitle').textContent = `Лист ${s.id} · № ${st.n}`
+  $('dLabel').textContent = st.label || ''
+  const wet = st.wet, range = $('wetRange'), ticks = $('wetTicks')
+  $('wetTimeline').style.display = wet.length > 1 ? '' : 'none'
+  range.max = Math.max(0, wet.length - 1); range.value = 0
+  ticks.innerHTML = ''
+  const show = i => {
+    stage($('wetStage'), wet[i])
+    $('wetAge').textContent = wet[i] ? fmtAge(wet[i].ageS) : ''
+    ;[...ticks.children].forEach((t, k) => t.setAttribute('aria-pressed', String(k === i)))
+    range.value = i
+  }
+  wet.forEach((w, i) => {
+    const t = document.createElement('button'); t.className = 'tick'
+    t.textContent = w.ageS != null ? fmtAge(w.ageS) : `кадр ${i + 1}`
+    t.onclick = () => show(i); ticks.appendChild(t)
+  })
+  range.oninput = () => show(+range.value)
+  show(0)
+  stage($('dryStage'), st.dry)
+  $('dlg').showModal()
+}
+
+$('dClose').onclick = () => $('dlg').close()
+$('dlg').addEventListener('click', e => { if (e.target === $('dlg')) $('dlg').close() })
+render()
+</script>
+</body>
+</html>
