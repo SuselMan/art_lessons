@@ -264,11 +264,59 @@ def main(spec_path):
         if spec.get('labels', {}).get(str(n)):
             st['label'] = spec['labels'][str(n)]
         print(n, f'{wet_i} frames + dry', f'{wmm:.0f}x{hmm:.0f} mm', flush=True)
+    if spec.get('dryMatch'):
+        print('dry matched to the last wet frame, exponents', match_dry(sheet), flush=True)
     a = refs.load()
     a['sheets'] = [sheet if s['id'] == sid else s for s in a['sheets']]
     if not any(s['id'] == sid for s in a['sheets']):
         a['sheets'].append(sheet)
     refs.save(a)
+
+
+# What drying itself does to a stroke's colour, as the archive's other sheets
+# measured it (sheets 1-8): the dry shot's paper-normalised transmittance per
+# channel raised to about this gives the last wet frame's - a stroke dries a
+# little lighter, not greyer.
+DRY_EXPONENT = (0.92, 0.9, 0.97)
+
+
+def match_dry(sheet):
+    """(spec `dryMatch`) The dry shot taken in other light: sheets 9-10's came
+    out washed - the red of a blue stroke at 3-4x its wet transmittance, as if
+    laid over white at half opacity (Ilya: "блеклый, как будто с прозрачностью").
+    Fit, over every stroke of the sheet, the per-channel exponent that maps the
+    dry crop's transmittance (pixel / paper, paper is 250 after whitening) onto
+    the last wet frame's, take out what drying itself does (DRY_EXPONENT) and
+    rewrite the dry crops with the rest. One mapping for the whole photo: it is
+    the photo's light that is off, the same for every stroke on it."""
+    num, den = np.zeros(3), np.zeros(3)
+    pairs = []
+    for st in sheet['strokes']:
+        if not st.get('dry') or not st['wet']:
+            continue
+        w = np.asarray(Image.open(os.path.join(refs.ROOT, st['wet'][-1]['src'])).convert('RGB')).astype(float)
+        d = np.asarray(Image.open(os.path.join(refs.ROOT, st['dry']['src'])).convert('RGB')).astype(float)
+        pairs.append(st)
+        if w.shape != d.shape:
+            continue
+        for c in range(3):
+            tw = np.clip(w[..., c] / 250, 1e-3, 1)
+            td = np.clip(d[..., c] / 250, 1e-3, 1)
+            m = (tw < 0.85) & (td < 0.92)
+            if m.sum() < 50:
+                continue
+            q = np.linspace(0.05, 0.6, 12)
+            lw, ld = np.log(np.quantile(tw[m], q)), np.log(np.quantile(td[m], q))
+            num[c] += (lw * ld).sum()
+            den[c] += (ld * ld).sum()
+    k = np.where(den > 0, num / np.maximum(den, 1e-9), 1.0) / np.array(DRY_EXPONENT)
+    k = np.maximum(k, 1.0)  # only ever deepen: a dry shot is never corrected paler
+    for st in pairs:
+        path = os.path.join(refs.ROOT, st['dry']['src'])
+        d = np.asarray(Image.open(path).convert('RGB')).astype(float)
+        t = np.clip(d / 250, 1e-4, 1) ** k
+        Image.fromarray(np.clip(t * 250 + np.maximum(d - 250, 0), 0, 255).astype(np.uint8)).save(path, quality=refs.JPEG_QUALITY)
+    return [round(float(v), 2) for v in k]
 
 
 def coarse_roi(roi, photo, guess):
