@@ -26,7 +26,7 @@ describe('infinite canvas: tile-aware undo checkpointing (#137)', () => {
     for (let i = 0; i < CHECKPOINT_INTERVAL; i++) engine.appendOperation(strokeAt())
     // Checkpointing is deferred off the stroke-completion path (#121) — flush
     // the pending macrotask so the checkpoint actually bakes.
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise(resolve => setTimeout(resolve, 60)) // (§17.72) a checkpoint reads a tile per step
 
     expect(checkpointCountFor(engine, 'L')).toBe(1)
   })
@@ -42,7 +42,7 @@ describe('infinite canvas: tile-aware undo checkpointing (#137)', () => {
 
     const totalStrokes = CHECKPOINT_INTERVAL + 5 // 25: crosses one checkpoint boundary
     for (let i = 0; i < CHECKPOINT_INTERVAL; i++) engine.appendOperation(strokeAt())
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise(resolve => setTimeout(resolve, 60)) // (§17.72) a checkpoint reads a tile per step
     for (let i = 0; i < totalStrokes - CHECKPOINT_INTERVAL; i++) engine.appendOperation(strokeAt())
 
     expect(checkpointCountFor(engine, 'L')).toBe(1)
@@ -84,7 +84,7 @@ describe('infinite canvas: tile-aware undo checkpointing (#137)', () => {
       makeStroke('user-a', 'L', [dab(50, 50, { size: 6, pressure: 1, opacity: 0.2 })])
 
     for (let i = 0; i < CHECKPOINT_INTERVAL; i++) engine.appendOperation(strokeNear())
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise(resolve => setTimeout(resolve, 60)) // (§17.72) a checkpoint reads a tile per step
     expect(checkpointCountFor(engine, 'L')).toBe(1)
     expect(residentTileCount(engine, 'L')).toBe(1) // only tile(0,0) — the checkpoint only ever saw this one
 

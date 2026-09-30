@@ -1037,10 +1037,12 @@ export interface PencilEngineAPI {
    *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
    *  second by the HUD. */
   getWatercolorPerf(): WatercolorPerf
-  /** (#536, §17.22) Live performance numbers of the watercolor tool, for the
-   *  dev readout — see WatercolorPerf. Cheap to call; polled a few times a
-   *  second by the HUD. */
-  getWatercolorPerf(): WatercolorPerf
+
+  /** (#536, §17.73) The page is going away - maybe only into the browser's
+   *  page cache, where Safari keeps it, GPU memory and all, next to the room
+   *  opened after it. Lets the WebGL context go now; the engine is unusable
+   *  afterwards, and a page brought back from the cache must reload. */
+  releaseForPageHide(): void
 
   // (#595, ADR 015 §5) A small picture of the drawing for board thumbnails
   // and the class grid: the same frame and content as exportPNG() (paper
@@ -1401,6 +1403,8 @@ const WASH_STATE_CHECKPOINT_MAX_BYTES = 96 * 1024 * 1024
 /** (#536, §17.57) The watercolour's GPU memory on a touch device - see
  *  PencilEngine._enforceGpuBudget. The iPad's tab died near 600 MB of it. */
 const GPU_BUDGET_TOUCH_BYTES = 300 * 1024 * 1024
+/** (§17.73) Past this multiple of the budget, spilled even if busy. */
+const GPU_HARD_CEILING = 1.35
 /** (§17.70) A rebuild's watercolour replay slice: the GPU time one aims at,
  *  and the dab counts it starts from and never grows past. */
 const REBUILD_SLICE_MS = 12
@@ -1410,29 +1414,35 @@ const WC_FIELD_PX = 1536
 /** (§17.70) Ribbon band triangles per draw in a rebuild: one whole-operation
  *  band draw was 1 s of GPU on the Surface. */
 const REBUILD_BAND_PIECE_TRIS = 256
-/** (§17.70) How much of a rebuild's watercolour one slice may draw: at most
- *  `draws` draws and `px` tile pixels, whichever comes first. A slice that
- *  ran long shrinks both by as much as it overran; one that ran short lets
- *  the limit it stopped at grow a quarter. A least-squares fit of a cost per
- *  draw and per pixel was tried first: the two go together in every slice,
- *  the fit put the pixel price at its floor on the Surface, and the slices
- *  heavy in pixels ran to 0.35 s. */
-class SliceLimits {
-  draws = 64
-  px = 1 << 20
+/** (§17.72) How a slice of a stroke's drawing is cut: draws go in groups,
+ *  each waited out on the GPU, and the slice ends once REBUILD_SLICE_MS has
+ *  passed - so it overruns by one group at most, whatever the draws cost. A
+ *  group that alone ran past the budget halves the group; a quick one doubles
+ *  it. Limits decided up front (draws and pixels, grown on quick slices) were
+ *  run through by the first heavy slice after a cheap stretch: 223 draws,
+ *  0.45 s on the Surface. */
+class SliceGroups {
+  /** A group ends at this many draws or this many tile pixels, whichever
+   *  first: draws off the tile cost next to nothing and pile up, and then
+   *  one group meets the heavy ones (239 draws, 0.47 s on the Surface). */
+  size = 8
+  px = 1 << 18
+  budgetMs = REBUILD_SLICE_MS
   /** The worst slice so far, for _wcPerf. */
   worst = { ms: 0, draws: 0, px: 0 }
 
-  note(draws: number, px: number, ms: number, byDraws: boolean): void {
-    if (ms > this.worst.ms) this.worst = { ms: Math.round(ms), draws, px }
-    if (ms > REBUILD_SLICE_MS * 1.5) {
-      const f = Math.max(0.1, REBUILD_SLICE_MS / ms)
-      this.draws = Math.max(1, Math.floor(Math.min(this.draws, draws) * f))
-      this.px = Math.max(1 << 12, Math.floor(Math.min(this.px, Math.max(px, 1)) * f))
-    } else if (ms < REBUILD_SLICE_MS * 0.5) {
-      if (byDraws) this.draws = Math.min(4096, Math.ceil(this.draws * 1.25))
-      else this.px = Math.min(1 << 26, Math.ceil(this.px * 1.25))
+  noteGroup(ms: number, byPx: boolean): void {
+    if (ms > this.budgetMs) {
+      this.size = Math.max(1, this.size >> 1)
+      this.px = Math.max(1 << 12, this.px >> 1)
+    } else if (ms < this.budgetMs / 8) {
+      if (byPx) this.px = Math.min(1 << 21, this.px * 2)
+      else this.size = Math.min(16, this.size * 2)
     }
+  }
+
+  noteSlice(draws: number, px: number, ms: number): void {
+    if (ms > this.worst.ms) this.worst = { ms: Math.round(ms), draws, px: Math.round(px) }
   }
 }
 
@@ -3474,7 +3484,12 @@ export class PencilEngine implements PencilEngineAPI {
     // Behind a queue, every peer operation waits - order kept without a
     // synchronous landing of everything ahead of it.
     if (this._opQueue.length > 0) return true
-    return op.type === 'stroke' && op.tool === 'watercolor' && (!!this._settle || !!this._strokeLayerId)
+    // (§17.72) Any stroke behind a settle in flight, not only watercolour:
+    // landing it first was a synchronous settle, up to half a second on the
+    // Surface, for a pencil line arriving at the wrong moment. The rare
+    // structural operations (a dry, a layer change) still land it now.
+    if (op.type !== 'stroke') return false
+    return !!this._settle || (op.tool === 'watercolor' && !!this._strokeLayerId)
   }
 
   /** (§17.58) Applies every queued operation now, in order. */
@@ -3617,12 +3632,17 @@ export class PencilEngine implements PencilEngineAPI {
           // (§17.52) A peer's operation arriving live settles over frames;
           // a history batch (the display suspended) stays synchronous.
           const spread = source === 'remote' && this._displaySuspendDepth === 0
-          const standing = dabs.length
-            ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread)
-            : undefined
-          // (#536) The same dabs, and the same slice: whatever the live stream
-          // already delivered has already wet the paper here.
-          this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing)
+          if (spread && op.tool === 'watercolor' && dabs.length && (op.washId ?? op.strokeId)
+            && typeof requestAnimationFrame === 'function') {
+            this._paintOpOverFrames(buf, op, dabs) // (§17.72)
+          } else {
+            const standing = dabs.length
+              ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread)
+              : undefined
+            // (#536) The same dabs, and the same slice: whatever the live stream
+            // already delivered has already wet the paper here.
+            this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing)
+          }
           this._snapshots.markDirty(op.layerId)
           // (#468) Never mid-wash, the same rule the local path follows one
           // stroke over. A checkpoint bakes the layer's pixels, and the strokes
@@ -4115,6 +4135,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  different spatial scales and different origins — one is the deposit, one
    *  is a blur-and-rethreshold of the silhouette — so a single look at each
    *  settles it. Dev-only, on the Debug tab. */
+  /** See PencilEngineAPI's doc comment. */
+  releaseForPageHide(): void {
+    if (this._destroyed) return
+    this.gl.getExtension('WEBGL_lose_context')?.loseContext()
+  }
+
   getWatercolorPerf(): WatercolorPerf {
     const now = performance.now()
     const WINDOW = 2000
@@ -5004,6 +5030,9 @@ export class PencilEngine implements PencilEngineAPI {
     // Never under this user's own pen: one watercolour operation replays in
     // up to 2 s of GPU on the iPad, which the stroke in hand would stutter by.
     if (this._strokeLayerId) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
+    // (§17.72) Nor over somebody else's settle still spreading: the next
+    // operation's finish would land it here in one piece (0.5 s on the Surface).
+    if (this._settle && !this._jobOwnsSettle(job)) { job.timer = setTimeout(() => this._stepRebuildJob(job), 16); return }
     // The slice is bounded in GPU time, not only CPU: one settle of a
     // lesson-sized wash is 0.6 s of GPU on the laptop, queued by a few ms of
     // script - enough, on the Surface, for Windows to reset the GPU. So the
@@ -5066,34 +5095,82 @@ export class PencilEngine implements PencilEngineAPI {
         ),
       }
     }
-    const lim = this._sliceLimits
-    const t0 = performance.now()
-    let draws = 0, px = 0, byDraws = false
-    let r = p.work.next()
-    while (!r.done) {
-      draws++
-      px += r.value
-      if (draws >= lim.draws) { byDraws = true; break }
-      if (px >= lim.px) break
-      r = p.work.next()
-    }
-    this.gl.finish()
-    // The last slice also finishes the stroke - not a draw's cost, not counted.
-    if (!r.done) {
-      lim.note(draws, px, performance.now() - t0, byDraws)
-      this._wcPerf.sliceWorst = lim.worst
-    }
+    let r = this._runSlice(p.work)
+    if (!r.done && r.value === -1) r = p.work.next() // the finish, in this step
     if (!r.done) return false
     this._wetFromForeignStroke(job.layerId, op.tool, op.preset, p.dabs, op.timestamp, r.value)
     job.part = null
     return true
   }
 
+  /** (§17.70) One slice of a stroke's drawing, within _sliceLimits and waited
+   *  out on the GPU; stops early at the drawing's end (a yield of -1). */
+  private _runSlice(work: Generator<number, ReadonlyMap<Dab, number> | undefined, void>): IteratorResult<number, ReadonlyMap<Dab, number> | undefined> {
+    const g = this._sliceLimits
+    const t0 = performance.now()
+    let groupAt = t0
+    let draws = 0, px = 0, groupDraws = 0, groupPx = 0
+    let r = work.next()
+    while (!r.done && r.value >= 0) {
+      draws++
+      px += r.value
+      groupDraws++
+      groupPx += r.value
+      const byPx = groupPx >= g.px
+      if (byPx || groupDraws >= g.size) {
+        this.gl.finish()
+        const now = performance.now()
+        g.noteGroup(now - groupAt, byPx)
+        groupAt = now
+        groupDraws = 0
+        groupPx = 0
+        if (now - t0 >= g.budgetMs) break
+      }
+      r = work.next()
+    }
+    this.gl.finish()
+    if (draws) {
+      g.noteSlice(draws, px, performance.now() - t0)
+      this._wcPerf.sliceWorst = g.worst
+    }
+    return r
+  }
+
+  /** (§17.72) A peer's watercolour operation arriving live, drawn over frames
+   *  the way a rebuild draws it: as a settle whose first entries are slices of
+   *  the drawing, so everything that already waits for a settle in flight (the
+   *  next operation, the author's own pen, a snapshot) waits for this too. Its
+   *  landing runs the stroke's finish, which starts the operation's own settle
+   *  - spread as before. One operation drawn in one piece was up to 0.94 s of
+   *  GPU on the Surface. */
+  private _paintOpOverFrames(buf: ILayerBuffer, op: StrokeOperation, dabs: Dab[]): void {
+    const work = this._ribbonDabsWork(
+      buf, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet,
+      mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS,
+    )
+    const land = (): void => {
+      let r = work.next()
+      while (!r.done) r = work.next()
+      this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, r.value)
+    }
+    const first = this._runSlice(work)
+    if (first.done) { this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, first.value); return }
+    const scratch = first.value === -1 ? null : this._replayRibbonChunks.get(op.washId ?? op.strokeId ?? '')?.scratch
+    if (!scratch) { land(); return }
+    const ops: Array<() => void> = [() => {}]
+    const step = (): void => {
+      const r = this._runSlice(work)
+      if (!r.done && r.value !== -1) ops.push(step)
+    }
+    ops.push(step)
+    this._startSettle(scratch, ops, land)
+  }
+
   /** (§17.70) How much a rebuild's watercolour slice may draw on this
    *  device. Both limits matter and differ by device: on the iPad every draw
    *  into its own target is a render pass, a few hundred in a slice cost more
    *  than their pixels, while on a desktop GPU the pixels dominate. */
-  private readonly _sliceLimits = new SliceLimits()
+  private readonly _sliceLimits = new SliceGroups()
 
   /** (§17.70) The buffers rebuild jobs are about to replace. */
   private _rebuildTargets(): Set<ILayerBuffer> {
@@ -5866,12 +5943,33 @@ export class PencilEngine implements PencilEngineAPI {
     // memory problem a pinned one is, but there is only one Checkpoint shape
     // and giving it two would be the more expensive mistake — and a budget
     // that buys ten times the undo depth for the same bytes is worth having.
-    const tiles = buf.allResident().map(({ buffer, originX, originY }) => ({
+    const resident = buf.allResident()
+    if (!resident.length) return
+    const read = ({ buffer, originX, originY }: PaintTarget) => ({
       originX, originY, width: buffer.width, height: buffer.height,
       packed: packTilePixels(buffer.readPixels()),
-    }))
-    if (!tiles.length) return
-    this._checkpoints.add({ layerId, opIds: ops.map(o => o.id), tiles })
+    })
+    const opIds = ops.map(o => o.id)
+    if (resident.length === 1 || typeof document === 'undefined') {
+      this._checkpoints.add({ layerId, opIds, tiles: resident.map(read) })
+      return
+    }
+    // (§17.72) A tile a step: reading back a six-tile layer at once was a
+    // half-second stall on the Surface. Given up - it is only a shortcut for
+    // undo and replay - if anything touches the layer between two steps.
+    const tiles: ReturnType<typeof read>[] = []
+    const last = opIds[opIds.length - 1]
+    const step = (): void => {
+      if (this._destroyed || this._contextLost || this._layers.get(layerId) !== buf) return
+      const now = this._log.layerPixelOps(layerId)
+      if (now.length !== opIds.length || now[now.length - 1]?.id !== last || this._settle
+        || this._washReveals.size || this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)
+        || this._unsettledLayers.has(layerId) || this._hasUnrecordedInk(layerId)) return
+      tiles.push(read(resident[tiles.length]))
+      if (tiles.length < resident.length) setTimeout(step, 16)
+      else this._checkpoints.add({ layerId, opIds, tiles })
+    }
+    step()
   }
 
   // (#494) The room snapshot in and out — see SnapshotIO.ts. Whether a layer
@@ -5887,6 +5985,8 @@ export class PencilEngine implements PencilEngineAPI {
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.
     if (this._opQueue.length) return false
+    // (§17.72) Nor with an operation still being drawn or settled.
+    if (this._settle) return false
     // (#536, §17.59) Never with a wash on it that may still be continued. A
     // snapshot is what a late joiner starts from, and the rest of that wash
     // would then settle over pixels that already hold its beginning - a
@@ -7391,7 +7491,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  `pieceTris`: ribbon bands are drawn this many triangles at a time, in
    *  their own order (0: whole); set, each yield also says roughly how many
    *  tile pixels the draw just queued covered, which is what its GPU time
-   *  follows (a dab off the tile is clipped for nothing). */
+   *  follows (a dab off the tile is clipped for nothing), and a last yield of
+   *  -1 comes between the drawing and the stroke's finish. */
   private *_ribbonDabsWork(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number],
@@ -7439,6 +7540,10 @@ export class PencilEngine implements PencilEngineAPI {
     // over larger bounds, when the next chunk arrives — the composite is a pure
     // recomputation, so repeating it is a no-op by construction.
     if (!ribbonScratch) {
+      // (§17.72) The drawing is done; what follows is the stroke's finish,
+      // which may start a settle - a caller spreading the drawing over frames
+      // must have closed its own spread first.
+      if (pieceTris) yield -1
       this._finishRibbonStroke(scratch, false, false, spreadSettle && !!chunk)
       // (§17.43) A chunk's end is a film's end, as at the live chunk flush;
       // for a gesture's last operation the next stroke begins a new film
@@ -9887,6 +9992,10 @@ export class PencilEngine implements PencilEngineAPI {
     s.complete()
     this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
     this._scheduleFieldRelease()
+    // (§17.72) A peer's operation drawn over frames lands by finishing its
+    // stroke, which starts that stroke's own settle: "nothing in flight" is
+    // what every caller of this is after.
+    if (this._settle) this._completeSettle()
   }
 
   /** (#536, §17.22) The diffusion field is freed WET_FIELD_RELEASE_MS after
@@ -9918,7 +10027,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._budgetTimer = setTimeout(() => {
       this._budgetTimer = 0
       if (this._destroyed || this._contextLost) return
-      if (this._settle || this._strokeLayerId) { this._scheduleBudgetCheck(); return }
+      if ((this._settle || this._strokeLayerId) && !this._overHardCeiling()) { this._scheduleBudgetCheck(); return }
       this._enforceGpuBudget()
     }, 1000) as unknown as number
   }
@@ -9961,7 +10070,12 @@ export class PencilEngine implements PencilEngineAPI {
     // making a tile's buffer is up to a second on the iPad once its memory is
     // full (922 of them in one rebuild, 46 s). The pool keeps at most
     // SCRATCH_POOL_FREE_BYTES idle anyway.
-    const idle = performance.now() - this._washActiveAt >= SPILL_IDLE_MS
+    // (§17.73) Past the hard ceiling these courtesies, and the ones in the
+    // spill below, give way: four people painting kept every wash "recently
+    // used" and a settle always in flight, the budget never acted, and the
+    // iPad died at 474 MB of washes.
+    const hard = this._overHardCeiling()
+    const idle = hard || performance.now() - this._washActiveAt >= SPILL_IDLE_MS
     if (idle) this._ribbonScratchPool.trimFree()
     if (this._washGpuBytes() > this._gpuBudget && !this._settle && this._fieldCache.length && idle) {
       if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
@@ -9976,7 +10090,13 @@ export class PencilEngine implements PencilEngineAPI {
     // settle does not bring it straight back. Spilled, not dropped: the next
     // stroke of one brings it back from main memory, bit for bit. Only in a
     // quiet room - see _washesQuiet; the timer comes back until it is one.
-    if (this._washGpuBytes() > this._gpuBudget) {
+    // (§17.73) Not from inside a rebuild's step: the cache in hand is then
+    // the job's, and its washes spilled into the one table the live ones use,
+    // keyed by wash alone - a job's copy and the live copy of one wash could
+    // take each other's place. Seen as the iPad's live picture drifting from
+    // everyone else's until a reload, once the hard ceiling let it spill
+    // washes just painted.
+    if (this._washGpuBytes() > this._gpuBudget && !this._inJobStep) {
       // (§17.69) One wash a check while the room is busy - the check comes
       // back a second later - and as many as it takes in a quiet one.
       const quiet = this._washesQuiet()
@@ -9989,17 +10109,19 @@ export class PencilEngine implements PencilEngineAPI {
         // mid-session, the next operation would bring it straight back, and
         // on the iPad the round trip was 214 ms of spill and an unspill 51 ms
         // later (flight recorder, vyIPuYyi).
-        if (performance.now() - (c.usedAt ?? 0) < SPILL_IDLE_MS) continue
+        if (!hard && performance.now() - (c.usedAt ?? 0) < SPILL_IDLE_MS) continue
         const author = this._chunkAuthors.get(key)
-        if (author && [...this._peerLiveStrokes.values()].some(l => l.peerId === author)) continue
+        if (!hard && author && [...this._peerLiveStrokes.values()].some(l => l.peerId === author)) continue
         // (§17.70) A wash of a layer being rebuilt is thrown away at the swap,
         // its rebuilt twin taking its place: reading it back first (up to
         // 1.4 s on the iPad) bought nothing.
         if (this._rebuildTargets().has(c.target)) continue
         // (§17.70) Over several frames, one wash at a time; the next check
         // comes when it lands.
-        if (this._spillJob || typeof setTimeout !== 'function') {
-          if (!this._spillJob) { this._evictChunk(key, true); this._ribbonScratchPool.trimFree(); spilled++; continue }
+        // (§17.73) Over the hard ceiling at once: a wash busy enough to have
+        // kept it there would abandon a spill spread over frames every time.
+        if (hard || this._spillJob || typeof setTimeout !== 'function') {
+          if (hard || !this._spillJob) { this._evictChunk(key, true); this._ribbonScratchPool.trimFree(); spilled++; continue }
           break
         }
         this._startSpill(key)
@@ -10007,6 +10129,11 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     return true
+  }
+
+  /** (§17.73) Watercolour's GPU memory past GPU_HARD_CEILING of the budget. */
+  private _overHardCeiling(): boolean {
+    return this._gpuBudget !== Infinity && this._washGpuBytes() > this._gpuBudget * GPU_HARD_CEILING
   }
 
   /** Drops the settle in flight without landing it — the field is gone. */

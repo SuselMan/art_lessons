@@ -83,6 +83,23 @@ export function initLayersFromStore(engine: PencilEngineAPI): void {
   engine.setCompositeOrder(computeCompositeOrder(ls))
 }
 
+/** (#536, §17.73) A room left by a full page load - another room's link, a
+ *  reload - may go into Safari's page cache whole, WebGL memory included,
+ *  while the next room fills the iPad's: it died within a minute and a half
+ *  of such a move in two runs of four. The context goes at `pagehide`, and a
+ *  page brought back from the cache (its context gone) reloads. Returns the
+ *  cleanup. */
+export function releaseOnPageHide(engine: PencilEngineAPI): () => void {
+  const onHide = (): void => engine.releaseForPageHide()
+  const onShow = (e: PageTransitionEvent): void => { if (e.persisted) location.reload() }
+  window.addEventListener('pagehide', onHide)
+  window.addEventListener('pageshow', onShow)
+  return () => {
+    window.removeEventListener('pagehide', onHide)
+    window.removeEventListener('pageshow', onShow)
+  }
+}
+
 /** Lets the engine go when the room does.
  *
  *  (#211 epic follow-up) Best-effort final thumbnail bake on room exit — see
@@ -98,7 +115,10 @@ export function initLayersFromStore(engine: PencilEngineAPI): void {
  *  room is left*, so only the latest value is correct. */
 export function retireEngine(
   engine: PencilEngineAPI, boardId: string, replayIncompleteRef: RefObject<boolean>,
+  /** (§17.73) releaseOnPageHide's cleanup: the room is going, not the page. */
+  unhookPageHide?: () => void,
 ): void {
+  unhookPageHide?.()
   if (!replayIncompleteRef.current) {
     void uploadThumbnail(boardId, engine)
       .then(uploaded => {

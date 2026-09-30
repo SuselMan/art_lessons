@@ -13,7 +13,7 @@ const ROOMFILE = DIR + 'laptoppeer.room'
 const BASE = (session.url ?? 'https://localhost:5173/').replace(/\/$/, '')
 mkdirSync(DIR, { recursive: true })
 rmSync(STOP, { force: true })
-const browser = await chromium.launch({ headless: false, channel: 'chrome', args: ['--ignore-certificate-errors', '--window-position=0,0'] })
+const browser = await chromium.launch({ headless: false, channel: 'chrome', args: ['--ignore-certificate-errors', '--window-position=0,0', '--remote-debugging-port=9333'] })
 const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1500, height: 900 }, deviceScaleFactor: 1 })
 const page = await ctx.newPage()
 page.on('pageerror', e => console.log('PAGEERROR', e.message))

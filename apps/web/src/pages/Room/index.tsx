@@ -106,7 +106,7 @@ import { createSnapshotGate } from './net/snapshotGate'
 import type { RoomStatePayload } from './restoreRoomState'
 import { useRoomRestore } from './useRoomRestore'
 import { useTransformSession, type TransformSession } from './useTransformSession'
-import { initLayersFromStore, openParkedRoomState, retireEngine, wireLocalStrokeEvents } from './engineWiring'
+import { initLayersFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
 import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
 import { useT } from '../../i18n'
 import { isHandActive } from '../../stores/slices/viewportSlice'
@@ -1016,11 +1016,11 @@ function RoomEditor() {
       }),
     })
 
+    const unhookPageHide = releaseOnPageHide(engine) // (§17.73)
     return () => {
       engineRef.current = null
-      // (#493) Final thumbnail, then destroy — see retireEngine. `engine` is
-      // this closure's local, not engineRef.current, which is already null.
-      retireEngine(engine, boardId, replayIncompleteRef)
+      // (#493) Final thumbnail, then destroy: `engine`, not the nulled ref.
+      retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
     }
   }, [
     boardId, enginePaper, enginePaperColor, engineInfinite,

@@ -296,3 +296,48 @@ Traps:
   MessageChannel instead (restoreRoomState / replayGate.ts).
 - Safari kills a tab's WebGL context under memory pressure with little
   warning; forwarded `webglcontextlost` / console errors show up in `logs`.
+
+# Restarting the devices without a person at them (#536, 29.09.2026)
+
+## Android: Chrome over adb
+
+The pairing survives in `~/.android`; only the connect port changes. Ask
+Ilya for the port shown under «Отладка по Wi-Fi» rather than scanning the
+LAN; take the tablet's IP from the dev server's peers
+(`ss -tnH state established | grep :5277`), it moves.
+
+```sh
+temp/device-runs/android-chrome.sh <room> [ip:port]   # force-stop Chrome, reopen the room, stayon
+~/tools/platform-tools/adb -s <ip:port> shell svc power stayon false   # at the end
+```
+
+"Drawing won't work in this browser" means Chrome blocked WebGL after its GPU
+process crashed twice; only a Chrome restart brings it back. Find out why
+before restarting:
+
+```sh
+adb -s <ip:port> logcat -d | grep -E "GPU process exited|QGLCLinkProgram|F DEBUG"
+```
+
+A crash inside `QGLCLinkProgram` is the Adreno shader compiler (ADR 011
+§17.71). Chrome's program cache hides it — a page that opens proves nothing.
+Compile for real with a salted source: `temp/device-runs/androidstress.sh`,
+or every engine program in turn with `linkeach.mjs`. The dev link spy
+(`localStorage.__linkSpy = '1'`, `src/dev/linkSpy.ts`) records each link in
+localStorage before it runs, so after a crash `__linkLast` names the program.
+
+## Surface: Chrome over ssh
+
+One-time setup is `temp/device-runs/surface/surface-setup.bat`, run once on
+the Surface as administrator: OpenSSH server (with an MSI fallback), this
+machine's key, a boot task that starts sshd, and the `GrafettoChrome` task
+that restarts Chrome on the interactive desktop with
+`--disable-gpu-process-crash-limit`. `ssh surface` is set up in
+`~/.ssh/config` (see `~/linux-setup/docs/dev.md`).
+
+```sh
+ssh surface 'echo https://192.168.1.70:5277/room/<id> > C:\ProgramData\grafetto\url.txt & schtasks /run /tn GrafettoChrome'
+```
+
+A cold Chrome start on the dev server can show "Failed to fetch dynamically
+imported module Room/index.tsx": dev only, reload the page.
