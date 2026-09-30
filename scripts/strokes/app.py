@@ -32,6 +32,11 @@ HOST = 'deploy@80.209.232.109'
 
 
 def version():
+    if os.environ.get('STROKES_VERSION'):
+        # A working-tree render, to iterate before committing: not a version
+        # of record (do not commit its images).
+        v = os.environ['STROKES_VERSION']
+        return {'id': v, 'commit': v, 'date': datetime.date.today().isoformat(), 'subject': 'working tree'}
     h, date, subj = subprocess.check_output(
         ['git', '-C', REPO, 'log', '-1', '--format=%h%x09%cs%x09%s', '--', 'apps/web/src/engine', 'packages/shared/src'],
         text=True).strip().split('\t', 2)

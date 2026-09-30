@@ -830,6 +830,27 @@ export function watercolorPuddleFromSurplus(surplusWater: number, paperWet: numb
   return 1 - (1 - WC_FILM_STAND) * (1 - clamp01(surplusWater)) * (1 - w)
 }
 export { WATERCOLOR_START_EXCESS_RADII as WC_START_EXCESS_RADII }
+/** (#680, s17.74) A slowdown the pen does not stop for. Ilya's repeats run
+ *  at ~1 m/s of paper and turn back in 40-190 ms - far under the dwell's
+ *  time constants - yet the photographs pool at every turn-back: the brush
+ *  decelerates to zero there and lays its water over less travel. So the
+ *  speed counts relative to the stroke's own pace (`vPeak`, the fastest it
+ *  has recently gone): 0 at its pace, 1 standing still. Relative, because
+ *  one hand's slow is another's fast, and a pool is where THIS stroke
+ *  braked. */
+export function watercolorSlowdown(v: number, vPeak: number): number {
+  if (!(vPeak > 0)) return 0
+  const rel = Math.max(v, 0) / vPeak
+  const at = (x: number) => WC_SLOW_V0 / (x + WC_SLOW_V0)
+  return clamp01((at(rel) - at(1)) / (at(0) - at(1)))
+}
+export const WC_SLOW_V0 = 0.2
+/** Weight of the slowdown next to the dwell (both 0..1 levels of the reservoir). */
+export const WC_SLOW_GAIN = 0.6
+/** The smoothing of the pen's speed, and how fast its remembered peak fades. */
+export const WC_SPEED_TAU_MS = 20
+export const WC_PEAK_FADE_MS = 800
+
 
 // ─── The landing dwell (#536, ADR 011 s17.37) ───────────────────────────────
 //
