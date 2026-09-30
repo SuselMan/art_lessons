@@ -31,7 +31,7 @@ from PIL import Image, ImageOps
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'reference', 'strokes'))
 ARCHIVE = os.path.join(ROOT, 'archive.json')
 PX_PER_MM = 12
-COINS_MM = {'1rub': 20.5, '2rub': 23.0, '5rub': 25.0, '10rub': 22.0}
+COINS_MM = {'1rub': 20.5, '2rub': 23.0, '5rub': 25.0, '10rub': 22.0, '50eurocent': 24.25}
 JPEG_QUALITY = 88
 
 

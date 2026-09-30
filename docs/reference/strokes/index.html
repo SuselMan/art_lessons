@@ -109,7 +109,7 @@ function render() {
   let total = 0
   for (const s of sheets) {
     const sec = document.createElement('section'); sec.className = 'sheet'
-    const coin = { '1rub': '1 ₽', '2rub': '2 ₽', '5rub': '5 ₽', '10rub': '10 ₽' }[s.coin] || s.coin
+    const coin = { '1rub': '1 ₽', '2rub': '2 ₽', '5rub': '5 ₽', '10rub': '10 ₽', '50eurocent': '50 евроцентов' }[s.coin] || s.coin
     sec.innerHTML = `<h2>Лист ${s.id}</h2><p>${[s.paper, s.note, 'масштаб по монете ' + coin].filter(Boolean).join(' · ')}</p>`
     const grid = document.createElement('div'); grid.className = 'grid'
     for (const st of s.strokes) {
