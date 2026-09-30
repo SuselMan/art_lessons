@@ -6,20 +6,23 @@ import { PIGMENTS } from './pigments.js'
 // Tunable physics, per substep. Units: water depth in "brush levels" (a fully
 // loaded brush lays ~1), pigment mass in the same units × concentration.
 export const DEFAULTS = {
-  kFlow: 0.12,       // pipe conductance
-  damp: 0.9,         // pipe flux memory (momentum)
+  kFlow: 0.24,       // pipe conductance
+  damp: 0.98,         // pipe flux memory (momentum)
   hScale: 0.004,      // how tall the paper grain is for the water
   breach: 0.25,      // height step that lets water jump onto dry paper
   tilt: 0.0,         // board tilt (gravity along −y), total drop over the sheet
-  wFlow: 0.012,      // thinner surface films are pinned (no flow)
+  wFlow: 0.004,      // thinner surface films are pinned (no flow)
   wEps: 0.004,       // surface water counts as "wet" above this
-  sWet: 0.07,        // capillary water counts as "wet" above this
-  capMin: 0.04, capMax: 0.12, absorb: 0.004, kCap: 0.015, sSrc: 0.05,
-  evap: 0.00006,     // surface evaporation per step
-  edgeBoost: 8.0,    // extra evaporation on the rim of the wet area
+  sWet: 0.09,        // capillary water counts as "wet" above this
+  creepLo: 0.05, creepHi: 0.06, // damp paper lets new water in above this capillary level
+  sPin: 0.01,        // pinned contact line lets go once the paper is this dry
+  capMin: 0.04, capMax: 0.12, absorb: 0.004, kCap: 0.008, sSrc: 0.08,
+  evap: 0.000006,     // surface evaporation per step
+  edgeBoost: 40.0,    // extra evaporation on the rim of the wet area
   evapS: 0.00002,    // capillary evaporation once the surface is dry
-  blurK: 0.08,       // wet-mask blur (smaller = wider rim)
-  settle: 0.00012, lift: 0.005, w0: 0.03, wDry: 0.0015, wLift: 0.05,
+  blurK: 0.02,       // wet-mask blur (smaller = wider rim)
+  settle: 0.0004, lift: 0.001, w0: 0.03, wDry: 0.0015, wLift: 0.05,
+  loose: 8.0,        // lift ×this while the pigment has not been through a full drying
   kDiff: 0.02,       // Brownian pigment mixing
   granMul: 1.5,
   thick: 3.0,        // display: pigment mass → KM layer thickness
@@ -137,12 +140,15 @@ export class Sim {
   step() {
     const gl = this.gl, P = this.P, n = this.n
     if (this.brush) {
-      const b = this.brush, r = b.radius + 2
+      // margin: the brush footprint plus what the water can cover before the
+      // next scan (≤1 cell per step)
+      const b = this.brush, r = b.radius + this.scanEvery + 8
       this.touch(Math.min(b.a[0], b.b[0]) - r, Math.min(b.a[1], b.b[1]) - r, Math.max(b.a[0], b.b[0]) + r, Math.max(b.a[1], b.b[1]) + r)
     }
     if (!this.useRegion) this.region = [0, 0, n, n]
     if (!this.region) return
     if (this.steps % this.scanEvery === 0 && this.useRegion && !this.brush) this._scan()
+    // (while the brush is down the rectangle only grows; the scan resumes after)
     gl.viewport(0, 0, n, n)
     const R = this.region
     gl.enable(gl.SCISSOR_TEST)
@@ -158,6 +164,7 @@ export class Sim {
     gl.uniform2f(u.u_mask, P.wEps, P.sWet)
     gl.uniform1f(u.u_tilt, P.tilt)
     gl.uniform1f(u.u_wFlow, P.wFlow)
+    gl.uniform2f(u.u_creep, P.creepLo, P.creepHi)
     gl.drawArrays(gl.TRIANGLES, 0, 3)
     this.F.swap()
 
@@ -165,7 +172,7 @@ export class Sim {
     u = this._bind(this.progs.water, this.W.write, { u_paper: pap, u_W: this.W.read.tex, u_F: this.F.read.tex })
     gl.uniform4f(u.u_cap, P.capMin, P.capMax, P.absorb, P.kCap)
     gl.uniform4f(u.u_evap, P.evap, P.edgeBoost, P.evapS, P.sSrc)
-    gl.uniform3f(u.u_mk, P.wEps, P.sWet, P.blurK)
+    gl.uniform4f(u.u_mk, P.wEps, P.sWet, P.blurK, P.sPin)
     this._brushUniforms(u)
     gl.drawArrays(gl.TRIANGLES, 0, 3)
 
@@ -177,6 +184,7 @@ export class Sim {
     gl.uniform4fv(u.u_stain, pg('stain'))
     gl.uniform4f(u.u_ex, P.settle, P.lift, P.w0, P.wDry)
     gl.uniform1f(u.u_wLift, P.wLift)
+    gl.uniform1f(u.u_loose, P.loose)
     gl.drawArrays(gl.TRIANGLES, 0, 3)
 
     // 4. pigment transport
@@ -206,13 +214,15 @@ export class Sim {
     this._bind(this.progs.dryAll, this.D.write, { u_G: this.G.read.tex, u_D: this.D.read.tex })
     gl.drawArrays(gl.TRIANGLES, 0, 3)
     this.D.swap()
-    gl.clearColor(0, 0, 0, 0)
     for (const pp of [this.W, this.F, this.G]) {
+      // everything is now "dried once": fix = 1 (W.a = 2), so it lifts like dry paint
+      gl.clearColor(0, 0, 0, pp === this.W ? 2 : 0)
       for (const t of [pp.a, pp.b]) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb)
         gl.clear(gl.COLOR_BUFFER_BIT)
       }
     }
+    gl.clearColor(0, 0, 0, 0)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     this.region = null
     this.pendingRegion = undefined
@@ -243,6 +253,38 @@ export class Sim {
     const px = new Uint8Array(4)
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
     this.gl.readPixels(0, 0, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, px)
+  }
+
+  // Largest surface-water depth inside a rectangle of cells (float readback).
+  maxSurface(x0, y0, x1, y1) {
+    const gl = this.gl
+    x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0))
+    const w = Math.min(this.n, Math.ceil(x1)) - x0, h = Math.min(this.n, Math.ceil(y1)) - y0
+    const buf = new Float32Array(w * h * 4)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.W.read.fb)
+    gl.readPixels(x0, y0, w, h, gl.RGBA, gl.FLOAT, buf)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    let m = 0, wetCount = 0
+    for (let i = 0; i < buf.length; i += 4) { m = Math.max(m, buf[i]); if (buf[i] > this.P.wFlow) wetCount++ }
+    return { max: m, wetFrac: wetCount / (w * h) }
+  }
+
+  // Debug: sums over the whole grid (float readback, slow — dev only).
+  totals() {
+    const gl = this.gl, n = this.n
+    const buf = new Float32Array(n * n * 4)
+    const sum = (t) => {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb)
+      gl.readPixels(0, 0, n, n, gl.RGBA, gl.FLOAT, buf)
+      const s = [0, 0, 0, 0]
+      let wet = 0
+      for (let i = 0; i < buf.length; i += 4) { s[0] += buf[i]; s[1] += buf[i + 1]; s[2] += buf[i + 2]; s[3] += buf[i + 3]; if (buf[i] > this.P.wEps) wet++ }
+      return { s, wet }
+    }
+    const W = sum(this.W.read), G = sum(this.G.read), D = sum(this.D.read)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    const r = (v) => +v.toFixed(1)
+    return { w: r(W.s[0]), s: r(W.s[1]), wetCells: W.wet, pinned: r(W.s[3]), g: G.s.map(r), d: D.s.map(r) }
   }
 
   shaderSizes() {

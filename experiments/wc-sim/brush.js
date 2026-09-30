@@ -71,7 +71,7 @@ export class Brush {
     const segLen = Math.hypot(b.x - a.x, b.y - a.y) / this.scale
     // drain: moving lays down a band of water, standing still keeps soaking
     const r1024 = radius / this.scale
-    this.reservoir = Math.max(0, this.reservoir - (segLen * r1024 * 2 * lvl) / 90000 - (r1024 * r1024 * lvl) / 4e6)
+    this.reservoir = Math.max(0, this.reservoir - (segLen * r1024 * 2 * lvl) / 400000 - (r1024 * r1024 * lvl) / 4e6)
     const pig = [0, 0, 0, 0]
     pig[this.slot] = this.pigment * 0.9 * (1 + 4 * dryness) // dry brush = thick paint
     return { a: [a.x, a.y], b: [b.x, b.y], radius, level: lvl, dryness, pressure: p, pig, seed: this.seed }

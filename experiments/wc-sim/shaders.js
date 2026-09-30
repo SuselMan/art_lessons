@@ -5,7 +5,12 @@
 // address cells by gl_FragCoord (cell centre = integer + 0.5).
 //
 // Textures:
-//   W  = (w surface water, s capillary water, mb blurred wet-mask, unused)
+//   W  = (w surface water, s capillary water, mb blurred wet-mask, pin + 2·fix)
+//        pin = 1 while this cell has been wet and its paper is still damp: the
+//        contact line stays where the wash reached, it does not recede.
+//        fix = 1 once the cell has dried out completely: pigment that has been
+//        through a full drying is bound to the fibres and lifts much less (the
+//        difference between a backrun into a damp wash and rewetting a dry one)
 //   F  = outflow flux to (−x, +x, −y, +y) — the "virtual pipes"
 //   G  = suspended pigment mass, 4 pigment slots
 //   D  = deposited pigment mass, 4 pigment slots
@@ -63,15 +68,22 @@ uniform vec4 u_flow;   // kFlow, damping, paper-height scale, breach height
 uniform vec2 u_mask;   // wEps, sWet
 uniform float u_tilt;
 uniform float u_wFlow; // films thinner than this are pinned and don't flow
+uniform vec2 u_creep;  // damp (pinned, surface-dry) paper conducts once s is between these
 float H(vec2 fc, vec4 c){ return c.r + paperSm(fc)*u_flow.z + u_tilt*fc.y*u_px.y; }
-float M(vec4 c){ return max(step(u_mask.x,c.r), step(u_mask.y,c.g)); }
+float M(vec4 c){ return max(max(step(u_mask.x,c.r), step(u_mask.y,c.g)), mod(c.a,2.0)); }
 float pipe(vec2 fc, vec2 dir, float hi, float fold){
   vec2 q=fc+dir;
   vec4 n=texture2D(u_W,q*u_px);
   float dh=hi-H(q,n);
   // surface water only moves into paper that is already wet (the wet-area
   // mask of Curtis); a tall enough bead breaks through anyway
-  float ok=max(M(n), step(u_flow.w,dh))*inb(q);
+  // standing water or saturated paper conducts fully; paper that is only damp
+  // (pinned, no standing water) conducts by how damp it still is. A wash dries
+  // unevenly, so new water finds a ragged edge where the paper got too dry to
+  // carry it — this is what turns a drop into a backrun
+  float open=max(step(u_mask.x,n.r), step(u_mask.y,n.g));
+  float creep=mod(n.a,2.0)*smoothstep(u_creep.x,u_creep.y,n.g);
+  float ok=max(max(open,creep), step(u_flow.w,dh))*inb(q);
   return ok*max(0.0, u_flow.y*fold + u_flow.x*dh);
 }
 void main(){
@@ -90,7 +102,7 @@ export const WATER = HEAD + BRUSH + `
 uniform sampler2D u_W, u_F;
 uniform vec4 u_cap;    // capMin, capMax, absorb rate, capillary conductance
 uniform vec4 u_evap;   // evap surface, edge boost, evap capillary, capillary source threshold
-uniform vec3 u_mk;     // wEps, sWet, mask blur k
+uniform vec4 u_mk;     // wEps, sWet, mask blur k, sPin (paper drier than this releases the pin)
 float T(float a, float b){ return u_cap.w*max(0.0,a-b)*step(u_evap.w,a); }
 void main(){
   vec2 fc=gl_FragCoord.xy;
@@ -113,14 +125,18 @@ void main(){
   float sl=nl.g*inb(L), sr=nr.g*inb(R), sd=nd.g*inb(Dn), su=nu.g*inb(Up);
   s += T(sl,c.g)+T(sr,c.g)+T(sd,c.g)+T(su,c.g) - T(c.g,sl)-T(c.g,sr)-T(c.g,sd)-T(c.g,su);
   // wet mask and its blur (screened-Poisson blur, one Jacobi sweep per step)
-  float m=max(step(u_mk.x,w),step(u_mk.y,s));
+  float pin0=mod(c.a,2.0), fix=floor(c.a*0.5+0.25);
+  float pin=pin0;
+  if(w>u_mk.x) pin=1.0; else if(s<u_mk.w) pin=0.0;
+  if(pin0>0.5 && pin<0.5) fix=1.0;
+  float m=max(max(step(u_mk.x,w),step(u_mk.y,s)),pin);
   float mb=mix(0.25*(nl.b+nr.b+nd.b+nu.b), m, u_mk.z);
   float edge=m*clamp(1.0-mb,0.0,1.0);
   // evaporation: faster at the rim of the wet area (Deegan), this is what
   // drives water - and pigment with it - outwards to the edge
   w=max(0.0, w-u_evap.x*(1.0+u_evap.y*edge));
   s=max(0.0, s-u_evap.z*(1.0-step(u_mk.x,w)));
-  gl_FragColor=vec4(w,s,mb,0.0);
+  gl_FragColor=vec4(w,s,mb,pin+2.0*fix);
 }`
 
 export const PIG_D = HEAD + `
@@ -128,10 +144,13 @@ uniform sampler2D u_W, u_G, u_D;
 uniform vec4 u_gran, u_dens, u_stain;  // per pigment slot
 uniform vec4 u_ex;      // settle, lift, w0, wDry
 uniform float u_wLift;
+uniform float u_loose;  // lift multiplier for pigment that has never dried
 void main(){
   vec2 fc=gl_FragCoord.xy; vec2 uv=fc*u_px;
   vec4 g=texture2D(u_G,uv), d=texture2D(u_D,uv);
-  float w=texture2D(u_W,uv).r;
+  vec4 wt=texture2D(u_W,uv);
+  float w=wt.r;
+  float fix=floor(wt.a*0.5+0.25);
   float h=paperRaw(fc);
   // settling out of suspension: heavy (dens) pigments fall faster, granulating
   // ones prefer the valleys of the grain (1-gran*h), thin water settles faster
@@ -140,7 +159,7 @@ void main(){
   // lifting back into the water: only under standing water, less for staining
   // pigments, more on the peaks for granulating ones
   float wet=smoothstep(u_ex.w,u_wLift,w);
-  vec4 up=min(d, d*u_ex.y*wet*(1.0+(h-1.0)*u_gran)/u_stain);
+  vec4 up=min(d, d*u_ex.y*mix(u_loose,1.0,fix)*wet*(1.0+(h-1.0)*u_gran)/u_stain);
   gl_FragColor=max(vec4(0.0), d+down-up);
 }`
 

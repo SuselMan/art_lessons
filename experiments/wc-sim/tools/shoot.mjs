@@ -4,20 +4,33 @@
 // Playwright is borrowed from the main checkout (the sandbox has no node_modules):
 //   PW_FROM=/path/to/package.json (default: ~/projects/pencil/package.json)
 import { createRequire } from 'node:module'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const { chromium } = createRequire(process.env.PW_FROM || '/home/suselman/projects/pencil/package.json')('playwright')
 const [mode = 'shots', out = '.', size = '1024', extra = ''] = process.argv.slice(2)
-const base = process.env.WC_URL || 'http://localhost:8679/'
+// Without WC_URL the rig serves the sandbox itself (page.route), no server needed.
+const base = process.env.WC_URL || 'http://wc.local/'
+const root = new URL('..', import.meta.url).pathname
 mkdirSync(out, { recursive: true })
 
 const browser = await chromium.launch({
   headless: false,
   channel: 'chrome',
-  args: ['--window-position=0,0', '--window-size=1500,1150', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'],
+  args: ['--window-position=0,0', mode === 'bench' ? '--window-size=1500,1150' : '--window-size=520,420', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
 })
-const page = await browser.newPage({ viewport: { width: 1480, height: 1080 } })
+const page = await browser.newPage({ viewport: mode === 'bench' ? { width: 1480, height: 1080 } : { width: 500, height: 330 } })
+page.setDefaultTimeout(180000)
+if (!process.env.WC_URL) {
+  const types = { html: 'text/html', js: 'text/javascript', png: 'image/png', json: 'application/json' }
+  await page.route('http://wc.local/**', async (route) => {
+    let p = new URL(route.request().url()).pathname.replace(/^\/+/, '') || 'index.html'
+    try {
+      const body = readFileSync(join(root, p))
+      await route.fulfill({ status: 200, body, contentType: types[p.split('.').pop()] || 'application/octet-stream' })
+    } catch { await route.fulfill({ status: 404, body: 'not found' }) }
+  })
+}
 page.on('console', (m) => { if (m.type() === 'error') console.log('console:', m.text()) })
 page.on('pageerror', (e) => console.log('pageerror:', e.message))
 await page.bringToFront()
@@ -35,7 +48,7 @@ async function open(q) {
 }
 
 async function saveCanvas(file) {
-  const url = await page.evaluate(() => document.getElementById('c').toDataURL('image/png'))
+  const url = await page.evaluate(() => { window.__wc.renderNow(); return document.getElementById('c').toDataURL('image/png') })
   writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'))
 }
 
@@ -46,7 +59,8 @@ if (mode === 'watch') {
   const secs = +(process.env.WC_SECS || 10)
   for (let i = 0; i < secs / 2; i++) {
     await page.waitForTimeout(2000)
-    console.log(JSON.stringify(await page.evaluate(() => ({ ...window.__wc.stats, err: window.__wc.error, marks: window.__wc.marks }))))
+    console.log(JSON.stringify(await page.evaluate(() => ({ ...window.__wc.stats, err: window.__wc.error, marks: window.__wc.marks, paused: window.__wc.runner && window.__wc.runner.paused, tot: window.__wc.totals() }))))
+    if (process.env.WC_RESUME) await page.evaluate(() => window.__wc.resume())
   }
   await saveCanvas(join(out, 'watch.png'))
 } else if (mode === 'shots') {
@@ -55,27 +69,31 @@ if (mode === 'watch') {
  for (const [label, vq] of variants) {
   const dir = join(out, label)
   mkdirSync(dir, { recursive: true })
-  const info = await open(`script=${process.env.WC_SCRIPT || 'all'}&shots=1&fast=${process.env.WC_FAST || 48}&${extra}&${vq}`)
+  const info = await open(`drive=1&script=${process.env.WC_SCRIPT || "all"}&shots=1&fast=${process.env.WC_FAST || 48}&${extra}&${vq}`)
   console.log(label, JSON.stringify(info).slice(0, 200))
   const t0 = Date.now()
-  for (;;) {
-    await page.waitForFunction(() => {
-      const w = window.__wc
-      return w.stats.mark === 'done' || (w.runner && w.runner.paused)
-    }, null, { timeout: 600000, polling: 100 })
-    const { mark, steps } = await page.evaluate(() => ({ mark: window.__wc.stats.mark, steps: window.__wc.sim.steps }))
+  for (let seen = 0; ; seen++) {
+    // the (seen+1)-th mark has fired and the runner is holding for us
+    // drive the script ourselves until the next mark holds it
+    for (;;) {
+      const tq = Date.now()
+      const r = await page.evaluate(() => window.__wc.runScriptSteps(1500))
+      if (process.env.WC_DEBUG) console.log('chunk', Date.now() - tq, 'ms', JSON.stringify(r), await page.evaluate(() => JSON.stringify(window.__wc.sim.region)))
+      if (r.done || r.paused) break
+    }
+    const nm = await page.evaluate(() => (window.__wc.marks || []).length)
+    if (nm <= seen) { console.log('no new mark?', seen, nm, JSON.stringify(await page.evaluate(() => ({ i: window.__wc.runner.i, cur: window.__wc.runner.cur, done: window.__wc.runner.done, paused: window.__wc.runner.paused })))); seen--; continue }
+    const { mark, steps, marks } = await page.evaluate((k) => ({ mark: window.__wc.marks[k].name, steps: window.__wc.sim.steps, marks: (window.__wc.marks || []).map((m) => m.name).join(',') }), seen)
     await page.waitForTimeout(100)
     if (mark === 'done') break
     await saveCanvas(join(dir, `${mark}.png`))
     for (const [v, nm] of (process.env.WC_VIEWS ? [[1, 'water'], [2, 'cap'], [4, 'susp']] : [])) {
       await page.evaluate((v) => window.__wc.setView(v), v)
-      await page.waitForTimeout(80)
       await saveCanvas(join(dir, `${mark}_${nm}.png`))
     }
     await page.evaluate(() => window.__wc.setView(0))
-    console.log(`mark ${mark} at step ${steps}, ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+    console.log(`mark ${mark} at step ${steps}, ${((Date.now() - t0) / 1000).toFixed(1)}s [${marks}]`)
     await page.evaluate(() => window.__wc.resume())
-    await page.waitForFunction((m) => window.__wc.stats.mark !== m || !window.__wc.runner.paused, mark)
   }
  }
 } else if (mode === 'bench') {
@@ -84,7 +102,9 @@ if (mode === 'watch') {
   const readStats = () => page.evaluate(() => ({ ...window.__wc.stats }))
   // raw cost of one substep, GPU-synchronous
   await page.waitForTimeout(500)
-  res.msPerStepEmpty = await page.evaluate(() => window.__wc.benchSteps(200))
+  await page.evaluate(() => window.__wc.benchSteps(50)) // warm-up
+  res.msPerStepFull = await page.evaluate(() => window.__wc.benchSteps(300))
+  res.msRender = await page.evaluate(() => window.__wc.benchRender(60))
   for (const sub of [4, 8, 16]) {
     await page.evaluate((s) => window.__wc.setSub(s), sub)
     await page.waitForTimeout(2200)
@@ -111,7 +131,7 @@ if (mode === 'watch') {
     }
     await page.evaluate(() => window.__wc.clear())
   }
-  res.msPerStepAfter = await page.evaluate(() => window.__wc.benchSteps(200))
+  res.msPerStepFullAgain = await page.evaluate(() => window.__wc.benchSteps(300))
   console.log(JSON.stringify(res, null, 1))
   writeFileSync(join(out, `bench_${size}.json`), JSON.stringify(res, null, 1))
 }

@@ -115,6 +115,7 @@ async function init() {
   }
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault()
+    if (driven) return // the rig is driving a script; a stray click must not kill it
     canvas.setPointerCapture(e.pointerId)
     runner = null
     brush.pointerDown(...toCell(e))
@@ -134,6 +135,8 @@ async function init() {
     sim.clear()
     const opts = {}
     if (q.has('bloomAt')) opts.bloomAt = parseInt(q.get('bloomAt'), 10)
+    if (q.has('dampFrac')) opts.dampFrac = parseFloat(q.get('dampFrac'))
+    if (q.has('dropDelay')) opts.dropDelay = parseInt(q.get('dropDelay'), 10)
     opts.name = q.get('script') || 'all'
     runner = new ScriptRunner(sim, brush, buildScript(opts), (name) => {
       stats.mark = name
@@ -148,15 +151,46 @@ async function init() {
   window.__wc.setScriptSub = (v) => { scriptSub = v }
   window.__wc.setView = (v) => { view = v }
   window.__wc.dryAll = () => sim.dryAll()
+  window.__wc.totals = () => sim.totals()
   window.__wc.clear = () => sim.clear()
   // GPU cost of one substep, synchronous (gl.finish-style via readPixels)
+  // (whole canvas active: the worst case, every cell simulated)
   window.__wc.benchSteps = (n = 200) => {
+    const keep = sim.useRegion
+    sim.useRegion = false
     sim.finish()
     const t0 = performance.now()
     for (let i = 0; i < n; i++) sim.step()
     sim.finish()
+    const ms = (performance.now() - t0) / n
+    sim.useRegion = keep
+    if (keep) sim.region = null
+    return ms
+  }
+  window.__wc.benchRender = (n = 60) => {
+    sim.finish()
+    const t0 = performance.now()
+    for (let i = 0; i < n; i++) sim.render(N, N, view)
+    sim.finish()
     return (performance.now() - t0) / n
   }
+
+  // Headless-style driving for the rig: step the script synchronously from
+  // page.evaluate, independent of rAF (which a hidden/occluded window stops).
+  var driven = q.has('drive')
+  window.__wc.runScriptSteps = (n) => {
+    driven = true
+    if (!runner) return { done: true }
+    for (let i = 0; i < n && !runner.done && !runner.paused; i++) {
+      sim.brush = runner.tick()
+      if (runner.paused || runner.done) break
+      sim.step()
+      if (i % 256 === 255) sim.finish()
+    }
+    sim.finish()
+    return { done: runner.done, paused: runner.paused, steps: sim.steps }
+  }
+  window.__wc.renderNow = () => { sim.render(N, N, view); sim.finish() }
 
   // ---------- loop ----------
   let last = performance.now(), acc = 0, frames = 0, simAcc = 0, lastHud = last
@@ -164,7 +198,7 @@ async function init() {
   function frame(now) {
     const dt = now - last
     last = now
-    if (!paused) {
+    if (!paused && !driven) {
       const t0 = performance.now()
       const nSub = runner && !runner.done && scriptSub ? scriptSub : sub
       brush.beginFrame()
