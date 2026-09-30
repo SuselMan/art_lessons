@@ -38,3 +38,4 @@ apps/web/public/paper/
 # HTML report when CI asks for one. All of it is per-run debris.
 test-results/
 playwright-report/
+__pycache__/
