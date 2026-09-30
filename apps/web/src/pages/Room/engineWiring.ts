@@ -115,7 +115,10 @@ export function releaseOnPageHide(engine: PencilEngineAPI): () => void {
  *  room is left*, so only the latest value is correct. */
 export function retireEngine(
   engine: PencilEngineAPI, boardId: string, replayIncompleteRef: RefObject<boolean>,
+  /** (§17.73) releaseOnPageHide's cleanup: the room is going, not the page. */
+  unhookPageHide?: () => void,
 ): void {
+  unhookPageHide?.()
   if (!replayIncompleteRef.current) {
     void uploadThumbnail(boardId, engine)
       .then(uploaded => {
