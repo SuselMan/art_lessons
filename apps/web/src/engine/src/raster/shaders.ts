@@ -3801,6 +3801,18 @@ export const WC_WATER_FRONT_FRAG = `
   varying vec2 v_uv;
   const float WC_FILM_LO = 0.02;
   const float WC_FILM_HI = 0.15;
+  // (#680, s17.78) Where the front runs into the fibres: coarse patches of
+  // the sheet (cycles per field texel, an fbm band that opens a minority of
+  // it) in which climbing the relief costs WC_FRONT_FEATHER times more, so
+  // the front stalls on the ridges there and runs on along the valleys in
+  // threads - Ilya's "паутинки", "не всегда". Elsewhere the front is as
+  // before. A price, not a mask: the front stays a min-plus relaxation,
+  // live and replay agree to the bit, and the hash is the portable one.
+  const float WC_FRONT_FEATHER = 4.0;
+  const float WC_FRONT_FEATHER_SCALE = 0.025;
+  const float WC_FRONT_FEATHER_LO = 0.5;
+  const float WC_FRONT_FEATHER_HI = 0.64;
+${WC_NOISE_GLSL}
 
   float wcFrontHeightAt(vec2 px) {
     vec2 paperUV = (px + u_paperOrigin) / u_paperTexSize * u_paperScale;
@@ -3812,6 +3824,8 @@ export const WC_WATER_FRONT_FRAG = `
     vec2 px = v_uv * u_resolution;
     float best = texture2D(u_cost, v_uv).r * u_costMax;
     float hj = wcFrontHeightAt(px);
+    float climb = u_climb * (1.0 + WC_FRONT_FEATHER * smoothstep(WC_FRONT_FEATHER_LO, WC_FRONT_FEATHER_HI,
+      wcFbm((px + u_paperOrigin) * WC_FRONT_FEATHER_SCALE + vec2(41.0, 7.0))));
     for (int k = 0; k < 8; k++) {
       vec2 o;
       if (k == 0) o = vec2( 1.0,  0.0);
@@ -3834,7 +3848,7 @@ export const WC_WATER_FRONT_FRAG = `
       // Two cells, or half the budget on a mark whose water runs further
       // (u_costMax is the budget plus four): a big wet blob's lobes stay at
       // half its spread, a drop's front keeps its fingers.
-      float relief = max(u_floor * u_stride, u_stride + u_climb * (hj - wcFrontHeightAt(px + o * u_stride)));
+      float relief = max(u_floor * u_stride, u_stride + climb * (hj - wcFrontHeightAt(px + o * u_stride)));
       // Thresholded: the silhouette's antialiased ramp is two or three
       // texels wide, and read raw it priced the film's own edge like dry
       // paper - the inward pass could not enter, and the tideline was gone.

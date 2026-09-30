@@ -107,6 +107,28 @@ export const WET_DIFFUSE_PUDDLE_SCHEDULE: readonly WetDiffuseStep[] = [
   { radius: 21, knight: true }, { radius: 32, knight: false }, { radius: 14, knight: true },
   { radius: 16, knight: false }, { radius: 7, knight: true }, { radius: 8, knight: false },
 ]
+/** (#680, s17.78) How the puddle's paint settles while it mixes: `core`
+ *  grips the paper before the first step, and after every step `step` of
+ *  what is still afloat. Late-settling paint has travelled far and is little
+ *  of the whole - a core, a nearer halo and a wide faint one, instead of the
+ *  schedule evening all of it out into one pale cloud. */
+export const WET_SETTLE_CORE = 0.45
+export const WET_SETTLE_STEP = 0.2
+/** Two fine steps the core is smoothed by before it settles (see index.ts);
+ *  an even count, so the ping-pong's parity stays. */
+export const WET_SETTLE_SMOOTH: ReadonlyArray<readonly [number, boolean]> = [[3, false], [2, true]]
+/** The weights the engine adds the mobile field's slices at: `slices[0]`
+ *  before any step, `slices[k]` after step k, and `afloat` on what is still
+ *  mobile after the last one. The diffusion is linear in the paint for a
+ *  given gate, so settling a share of a depleting field at every step is
+ *  the same as adding the undepleted field's slices at these weights - one
+ *  pass per step and no extra buffer. They sum to one: mass conserved. */
+export function watercolorPuddleSettleWeights(steps: number, core = WET_SETTLE_CORE, step = WET_SETTLE_STEP): { slices: number[]; afloat: number } {
+  const slices = [core]
+  let left = 1 - core
+  for (let k = 0; k < steps; k++) { slices.push(left * step); left *= 1 - step }
+  return { slices, afloat: left }
+}
 /** The plain radii, for callers that only need a length or a count. */
 export const WET_DIFFUSE_RADII: readonly number[] = WET_DIFFUSE_SCHEDULE.map(s => s.radius)
 export const WET_DIFFUSE_STEPS = WET_DIFFUSE_SCHEDULE.length
@@ -114,7 +136,7 @@ export const WET_DIFFUSE_STEPS = WET_DIFFUSE_SCHEDULE.length
  *  the steps' reaches (a knight step reaches radius·√5, rounded up). The
  *  engine pads the field it diffuses by this, so nothing ever reaches the
  *  field's edge and the edge is never a wall anyone can see. */
-export const WET_DIFFUSE_REACH = [...WET_DIFFUSE_PUDDLE_SCHEDULE, ...WET_DIFFUSE_SCHEDULE].reduce(
+export const WET_DIFFUSE_REACH = [...WET_SETTLE_SMOOTH.map(([radius, knight]) => ({ radius, knight })), ...WET_DIFFUSE_PUDDLE_SCHEDULE, ...WET_DIFFUSE_SCHEDULE].reduce(
   (a, s) => a + (s.knight ? Math.ceil(s.radius * Math.SQRT2 * 1.582) : s.radius), 0,
 )
 /** The share of a deposit that is MOBILE — that the schedule moves at all.

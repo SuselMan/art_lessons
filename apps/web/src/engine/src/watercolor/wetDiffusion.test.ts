@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   makeWetGrid, wetDiffuse, wetDiffuseStep, wetDiffuseScheduled, totalPigment, centreOfMass,
-  WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_STENCIL, WET_DIFFUSE_RADII,
+  WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_STENCIL, WET_DIFFUSE_RADII, watercolorPuddleSettleWeights, WET_SETTLE_CORE,
 } from './wetDiffusion'
 
 // #536, ADR 011 §17.11. The four invariants agreed with the design thread
@@ -171,5 +171,22 @@ describe('wet diffusion oracle (#536, ADR 011 §17.11)', () => {
     // K(D + B) <= 1 is what keeps concentrations non-negative without a clamp,
     // and a clamp is what would break the antisymmetry.
     expect(WET_DIFFUSE_STENCIL.length * (WET_DIFFUSE_D + WET_DIFFUSE_B)).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('watercolorPuddleSettleWeights (#680, s17.78)', () => {
+  it('sums to one - the settle moves paint, never makes or loses it', () => {
+    const w = watercolorPuddleSettleWeights(6)
+    expect(w.slices.reduce((a, b) => a + b, 0) + w.afloat).toBeCloseTo(1, 12)
+  })
+  it('keeps the core where the brush put it and gives later, farther slices less', () => {
+    const w = watercolorPuddleSettleWeights(6)
+    expect(w.slices[0]).toBe(WET_SETTLE_CORE)
+    for (let k = 2; k < w.slices.length; k++) expect(w.slices[k]).toBeLessThan(w.slices[k - 1])
+  })
+  it('with no settling is the old schedule: everything afloat to the end', () => {
+    const w = watercolorPuddleSettleWeights(6, 0, 0)
+    expect(w.afloat).toBe(1)
+    expect(w.slices.every(s => s === 0)).toBe(true)
   })
 })

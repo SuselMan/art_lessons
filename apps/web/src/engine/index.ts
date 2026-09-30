@@ -79,7 +79,7 @@ import { markerThinNibInkGain } from './src/dabs/markerInkGain'
 const EMPTY_BANDS = new Float32Array(0)
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
@@ -9489,20 +9489,68 @@ export class PencilEngine implements PencilEngineAPI {
       // taken from it ("область между штрихом и рваным краем"). The gate
       // texture is built once into `pressure`, free after the carry.
       if (first && merge > 0) ops.push(() => this._fieldOp(field.pressure, field.coverage, field.coverage, 17, 0, { d: field.band }))
-      for (const { radius, knight } of merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []) {
-        ops.push(() => {
-          diffuseStep(st.src, st.dst, radius, knight, field.pressure)
-          const t = st.src; st.src = st.dst; st.dst = t
-        })
-      }
       // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
       // footprint goes to the footprint's edge — the light patch with the
       // dark ragged ring. Only as much as the recorded wetness says the wash
       // was damp (watercolorBloomStrength); `a` and `spare` are free here.
+      // (#680, §17.78) BEFORE the puddle settles into `b`: after it, the
+      // bloom took this mark's own settled core out to the footprint's edge
+      // too and left a light ring in the middle of the drop.
       if (bloom > 0) {
         ops.push(() => {
           rim(b, WC_BLOOM_SHARE * bloom, a, spare)
           fieldOp(b, spare, spare, 1, 0)
+        })
+      }
+      // (#680, §17.78) ...and it SETTLES as it mixes: a share of the paint
+      // grips the paper before the puddle moves it at all (the core), and of
+      // what is still afloat a share more after every step - so the paint
+      // that settles late has gone far and is little. A core, a nearer halo,
+      // a wide faint one (Ilya: "белое пятно почти без размытия, градиент
+      // побольше и прозрачнее, и огромный очень прозрачный"), where the
+      // schedule alone evened the whole of it out into one pale cloud.
+      // The diffusion is linear in the paint for a given gate, so the
+      // mobile field is left undepleted and each step's slice is added to
+      // the fixed one at its weight (watercolorPuddleSettleWeights); the
+      // rest is scaled down once at the end. The fixed field ping-pongs
+      // with `spare`, free here, and comes back into `b` before the bloom.
+      const puddleSteps = merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []
+      if (puddleSteps.length) {
+        const w = watercolorPuddleSettleWeights(puddleSteps.length)
+        const acc = { fixed: b, free: spare }
+        const settleSlice = (k: number): void => {
+          if (!(w.slices[k] > 0)) return
+          fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k])
+          const t = acc.fixed; acc.fixed = acc.free; acc.free = t
+        }
+        // The core is taken off a SMOOTHED field: straight after the carry
+        // the mobile paint has a pale line along the footprint's contour (the
+        // carry leaves the film's own contour ring out), which the whole
+        // schedule used to even out - settled raw, it stayed as a light ring
+        // round the middle of every drop. Two fine steps, gated by the
+        // coverage and not the dome (the line IS the dome's edge), an even
+        // count so the pair's parity stays.
+        for (const [radius, knight] of WET_SETTLE_SMOOTH) {
+          ops.push(() => {
+            diffuseStep(st.src, st.dst, radius, knight)
+            const t = st.src; st.src = st.dst; st.dst = t
+          })
+        }
+        ops.push(() => settleSlice(0))
+        puddleSteps.forEach(({ radius, knight }, i) => {
+          ops.push(() => {
+            diffuseStep(st.src, st.dst, radius, knight, field.pressure)
+            const t = st.src; st.src = st.dst; st.dst = t
+            settleSlice(i + 1)
+          })
+        })
+        ops.push(() => {
+          if (acc.fixed !== b) fieldOp(b, acc.fixed, acc.fixed, 1, 0)
+          // What is still afloat, at its weight: into the free one of the
+          // pair and back, so the pair's parity (which the colour settle's
+          // spare is chosen by) does not change.
+          fieldOp(st.dst, st.src, st.src, 1, w.afloat - 1)
+          fieldOp(st.src, st.dst, st.dst, 1, 0)
         })
       }
       for (const { radius, knight } of diffuseSteps) {
