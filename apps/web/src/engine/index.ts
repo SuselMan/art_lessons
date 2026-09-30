@@ -10090,7 +10090,13 @@ export class PencilEngine implements PencilEngineAPI {
     // settle does not bring it straight back. Spilled, not dropped: the next
     // stroke of one brings it back from main memory, bit for bit. Only in a
     // quiet room - see _washesQuiet; the timer comes back until it is one.
-    if (this._washGpuBytes() > this._gpuBudget) {
+    // (§17.73) Not from inside a rebuild's step: the cache in hand is then
+    // the job's, and its washes spilled into the one table the live ones use,
+    // keyed by wash alone - a job's copy and the live copy of one wash could
+    // take each other's place. Seen as the iPad's live picture drifting from
+    // everyone else's until a reload, once the hard ceiling let it spill
+    // washes just painted.
+    if (this._washGpuBytes() > this._gpuBudget && !this._inJobStep) {
       // (§17.69) One wash a check while the room is busy - the check comes
       // back a second later - and as many as it takes in a quiet one.
       const quiet = this._washesQuiet()
