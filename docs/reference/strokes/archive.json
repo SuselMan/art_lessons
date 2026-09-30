@@ -53,7 +53,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/001-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1450,
+      "h": 335,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 2,
@@ -101,7 +107,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/002-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1217,
+      "h": 382,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 3,
@@ -149,7 +161,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/003-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1334,
+      "h": 372,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 4,
@@ -197,7 +215,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/004-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1171,
+      "h": 343,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 5,
@@ -245,7 +269,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/005-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1287,
+      "h": 324,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 6,
@@ -293,7 +323,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/006-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1257,
+      "h": 353,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 7,
@@ -341,7 +377,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/007-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1187,
+      "h": 406,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 8,
@@ -389,7 +431,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/008-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 1143,
+      "h": 378,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 9,
@@ -437,7 +485,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/009-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 908,
+      "h": 408,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 10,
@@ -485,7 +539,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/010-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 938,
+      "h": 397,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 11,
@@ -533,7 +593,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/011-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 941,
+      "h": 383,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 12,
@@ -581,7 +647,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/012-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 836,
+      "h": 328,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 13,
@@ -629,7 +701,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/013-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 828,
+      "h": 342,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 14,
@@ -677,7 +755,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/014-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 792,
+      "h": 347,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 15,
@@ -725,7 +809,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/015-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 863,
+      "h": 385,
+      "photo": "68ef739d-image.jpg"
+     }
     },
     {
      "n": 17,
@@ -773,7 +863,13 @@
        "photo": "428e4c15-image.jpg"
       }
      ],
-     "dry": null
+     "dry": {
+      "src": "img/1/017-dry.jpg",
+      "t": "2026-09-30T13:27:49",
+      "w": 816,
+      "h": 343,
+      "photo": "68ef739d-image.jpg"
+     }
     }
    ]
   },
