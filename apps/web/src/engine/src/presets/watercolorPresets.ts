@@ -779,6 +779,58 @@ export function watercolorStartExcess(usedRadii: number, landedWet: number, dwel
   const dose = WATERCOLOR_START_EXCESS_BASE + WATERCOLOR_START_EXCESS_DWELL * watercolorDwellPigment(dwellMs)
   return 1 + dose * gate * Math.exp(-usedRadii / WATERCOLOR_START_EXCESS_RADII)
 }
+// ─── Dwell along the whole stroke (#680, ADR 011 s17.74) ─────────────────────
+//
+// s17.37 gave the reservoir to the landing only: the time the nib stood where
+// it came down. The photographs (archive sheets 1, 2, 8) put the same pooling
+// wherever the brush slowed - a stop, a sharp turn, the turn-back of a stroke
+// laid back and forth - and never where it only started and then moved on
+// through its own start (sheet 8: the landing pool is smeared by the return
+// pass, the dark ends stand at the turn-backs). So the dwell is read at every
+// kept dab: how long the nib has been within WC_DWELL_RADIUS of where it is
+// now, walking back over the stroke's recent kept dabs - the landing is the
+// first case of it. Causal and on the dabs' own clock, so a live stroke and
+// its replay count the same.
+export interface WcTrailDab { x: number; y: number; t: number }
+/** How long (ms) the nib has stayed within `radius` of (x, y) up to time t:
+ *  back over `trail` (oldest first) while the dabs stay inside. */
+export function watercolorTrailDwell(trail: readonly WcTrailDab[], x: number, y: number, t: number, radius: number): number {
+  let since = t
+  for (let i = trail.length - 1; i >= 0; i--) {
+    const d = trail[i]
+    if (Math.hypot(d.x - x, d.y - y) > radius) break
+    since = d.t
+  }
+  return Math.max(0, t - since)
+}
+/** The dwell a normal stroke has anyway: crossing WC_DWELL_RADIUS at a steady
+ *  hand takes some tens of ms, and counting it would darken every body - D_body
+ *  is calibrated without it. Only the time beyond this is a slowdown. */
+export const WC_DWELL_FLOOR_MS = 60
+/** The trail the dwell walks back over, at most this many kept dabs. */
+export const WC_TRAIL_LEN = 64
+/** The brush's surplus after a slowdown, carried along the stroke and spent
+ *  over `runRadii` of travel - the pool is laid just past where the brush
+ *  stood, and the next slowdown raises it again. `level` is the dwell's
+ *  saturation at this dab (0..1, already gated by the paper). */
+export function watercolorSurplus(prev: number, spentRadii: number, level: number, runRadii: number): number {
+  return Math.max(prev * Math.exp(-Math.max(spentRadii, 0) / runRadii), level)
+}
+/** watercolorStartExcess with the dwell's share from the carried surplus
+ *  (watercolorSurplus of watercolorDwellPigment) instead of the landing's. */
+export function watercolorExcessFromSurplus(usedRadii: number, landedWet: number, surplusPigment: number): number {
+  const gate = 1 - clamp01(landedWet)
+  return 1 + WATERCOLOR_START_EXCESS_BASE * gate * Math.exp(-usedRadii / WATERCOLOR_START_EXCESS_RADII)
+    + WATERCOLOR_START_EXCESS_DWELL * surplusPigment
+}
+/** watercolorPuddleDepth with the dwell's share from the carried surplus of
+ *  watercolorDwellWater. */
+export function watercolorPuddleFromSurplus(surplusWater: number, paperWet: number): number {
+  const w = clamp01(paperWet / WC_PUDDLE_WET_FULL)
+  return 1 - (1 - WC_FILM_STAND) * (1 - clamp01(surplusWater)) * (1 - w)
+}
+export { WATERCOLOR_START_EXCESS_RADII as WC_START_EXCESS_RADII }
+
 // ─── The landing dwell (#536, ADR 011 s17.37) ───────────────────────────────
 //
 // How long the brush stood at its landing before it moved (t_eff: the time
