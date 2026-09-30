@@ -137,6 +137,11 @@ export function createTestEngine(
   const { width = 8, height = 8 } = size
   const canvas = createMockCanvas(width, height)
   const engine = new PencilEngine(canvas as unknown as HTMLCanvasElement, options)
+  // (#536, §17.72) Drawing spread over frames stops at a slice's time budget,
+  // which a slow CI runner reaches where a laptop does not - and a test then
+  // reads a stroke that is half drawn. Without a budget every slice runs to
+  // the drawing's end; a test of the spreading sets its own.
+  ;(engine as unknown as { _sliceLimits: { budgetMs: number } })._sliceLimits.budgetMs = Infinity
   return { engine, canvas }
 }
 
