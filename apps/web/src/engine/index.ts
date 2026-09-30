@@ -2502,6 +2502,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536) Where the paper is still wet — live, local, ephemeral, never
    *  replayed. See paperWetness.ts for why that is the design rather than a
    *  shortcut. */
+  /** (#680, s17.81) Each watercolor dab's pool (its surplus over the film,
+   *  0..1), by the dab object the wetness field is fed with - display only,
+   *  the bead's gate. See PaperWetness's WetCell.p. */
+  private readonly _dabPool = new WeakMap<Dab, number>()
   private readonly _paperWet = new PaperWetness()
   /** The quantized profile of what *this* gesture has seen so far, built as it
    *  is drawn and recorded on the operation. Read back by the painting path
@@ -7030,7 +7034,7 @@ export class PencilEngine implements PencilEngineAPI {
         // the mark cannot come to different conclusions about how wet it was.
         const drained = watercolorPaperDrained(wetAt(batchWet, i), water)
         if (drained > 0) this._paperWet.drain(layerId, dab.x, dab.y, dab.size * 0.5, drained)
-        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now, true)
+        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, standing?.get(dab) ?? water, now, true, this._dabPool.get(dab) ?? 0)
       }
       this._scheduleDryingRepaint()
     }
@@ -8316,6 +8320,7 @@ export class PencilEngine implements PencilEngineAPI {
         // the touch-down's pool is a pool too, broken into blots like the others.
         const landingPool = (1 - Math.min(Math.max(landedWet, 0), 1)) * Math.exp(-pigUsed / WC_START_EXCESS_RADII)
         puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(Math.max(scratch.surplusWater, scratch.brakePigment, landingPool), wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
+        if (profile.waterDepletion) this._dabPool.set(dab, Math.min(Math.max(scratch.surplusWater, scratch.brakePigment, landingPool), 1))
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
         if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
@@ -11446,7 +11451,7 @@ export class PencilEngine implements PencilEngineAPI {
     // arc off each cap that read as an outline of nothing.
     const sizeMul = this._resolvePreset(tool, preset).sizeMultiplier
     for (const dab of dabs) {
-      this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5 * sizeMul * Math.max(dab.aspectRatio, 1), standing?.get(dab) ?? water, now)
+      this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5 * sizeMul * Math.max(dab.aspectRatio, 1), standing?.get(dab) ?? water, now, false, this._dabPool.get(dab) ?? 0)
     }
     this._scheduleDryingRepaint()
   }
@@ -11528,7 +11533,13 @@ export class PencilEngine implements PencilEngineAPI {
     const raster = this._paperWet.raster(b.minCx, b.minCy, step, inW, inH, now)
     const cells = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) cells.set(raster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
-    const data = new Uint8Array(w * h * 2)
+    // (#680, s17.81) The pool share, for the bead's gate: its 5x5 max like the
+    // body's, so the bead's ring on the edge ramp reads the pool it rings.
+    const poolRaster = this._paperWet.rasterPool(b.minCx, b.minCy, step, inW, inH, now)
+    const pools = new Float32Array(w * h)
+    for (let ty = 0; ty < inH; ty++) pools.set(poolRaster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
+    const poolAt = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : pools[y * w + x]
+    const data = new Uint8Array(w * h * 4)
     const at = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : cells[y * w + x]
     const rowMax = new Float32Array(w * h)
     for (let y = 0; y < h; y++) {
@@ -11547,8 +11558,12 @@ export class PencilEngine implements PencilEngineAPI {
         ) * 0.0625
         let body = 0
         for (let j = -2; j <= 2; j++) { const yy = y + j; if (yy < 0 || yy >= h) continue; const v = rowMax[yy * w + x]; if (v > body) body = v }
-        data[(y * w + x) * 2] = Math.round(Math.min(tent, 1) * 255)
-        data[(y * w + x) * 2 + 1] = Math.round(Math.min(body, 1) * 255)
+        let pool = 0
+        for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const v = poolAt(x + i, y + j); if (v > pool) pool = v }
+        const o = (y * w + x) * 4
+        data[o] = data[o + 2] = Math.round(Math.min(tent, 1) * 255)
+        data[o + 1] = Math.round(Math.min(pool, 1) * 255)
+        data[o + 3] = Math.round(Math.min(body, 1) * 255)
       }
     }
     const { gl } = this
@@ -11563,7 +11578,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, w, h, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, data)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
     // Bilinear and clamped: the map is deliberately coarse, and the one thing
     // it must not do is show its own texels as squares of wet paper.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)

@@ -4735,7 +4735,12 @@ export const PAPER_COMPOSE_FRAG = `
         // ramp, where raw is a fifth of the body by construction (t =
         // 0.16..0.20), so gating on the local value switched every bead off -
         // "ты лужу сломал, где блик".
-        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, body);
+        // (#680, s17.81) ...and only where a POOL stands (.g, the brush's
+        // surplus over the film: landing, stop, braking - the places that
+        // dry to the dark patch), not wherever the paper is wet: the bead
+        // stood beside the stroke at no size of its own. The grey of wet
+        // paper is unchanged.
+        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, body) * smoothstep(0.15, 0.45, texture2D(u_wetMap, wetUV).g);
         rim *= bead;
         rimDark *= bead;
         rimCast *= bead;

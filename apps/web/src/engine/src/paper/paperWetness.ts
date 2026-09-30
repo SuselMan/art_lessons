@@ -78,7 +78,11 @@ export const WET_DRY_FILM_SHARE = 0.2
 
 /** (#536, §17.44) cx, cy: the cell's own indices, so a pass over the field
  *  (raster) never parses its key. */
-interface WetCell { w: number; at: number; cx: number; cy: number }
+/** `p` (#680, s17.81): how much of the water here is a POOL - the brush's
+ *  surplus over the film (landing, stop, braking), 0..1. Display only: the
+ *  bead (blik and meniscus) shows where a pool stands, not wherever the
+ *  paper is wet. Never read by sample() or the model. */
+interface WetCell { w: number; at: number; cx: number; cy: number; p?: number }
 
 /** (#536, §17.44) A NUMBER, not the "cx,cy" string it was: a 400 px nib
  *  visits a few thousand cells per dab (sampleUnderNib, deposit), and a
@@ -139,6 +143,8 @@ export class PaperWetness {
     /** True while the gesture is still down: visible at once, invisible to
      *  sample() until commitPending. See _pending. */
     pending = false,
+    /** (#680, s17.81) The dab's pool, 0..1 - see WetCell.p. */
+    pool = 0,
   ): void {
     if (amount <= 0) return
     const into = pending ? this._pending : this._layers
@@ -165,7 +171,7 @@ export class PaperWetness {
         const k = key(cx, cy)
         const prev = cells.get(k)
         const held = prev ? PaperWetness._decayed(prev, now) : 0
-        cells.set(k, { w: Math.max(held, amount), at: now, cx, cy })
+        cells.set(k, { w: Math.max(held, amount), at: now, cx, cy, p: Math.max(held > 0 ? prev?.p ?? 0 : 0, pool) })
         this._grow(cx, cy)
       }
     }
@@ -266,7 +272,7 @@ export class PaperWetness {
         const prev = dst.get(k)
         const held = prev ? PaperWetness._decayed(prev, now) : 0
         const w = Math.max(held, cell.w)
-        dst.set(k, { w, at: cell.at, cx: cell.cx, cy: cell.cy })
+        dst.set(k, { w, at: cell.at, cx: cell.cx, cy: cell.cy, p: Math.max(held > 0 ? prev?.p ?? 0 : 0, cell.p ?? 0) })
         // The committed cell can be *wetter than it was* on a clock that has
         // just been restarted — a stroke laid inside a standing puddle carries
         // the puddle's own level forward with a fresh drying window. The peak
@@ -444,6 +450,25 @@ export class PaperWetness {
         const w = PaperWetness._decayed(cell, now)
         const i = ty * inW + tx
         if (w > out[i]) out[i] = w
+      }
+    }
+    for (const cells of this._layers.values()) pass(cells)
+    for (const cells of this._pending.values()) pass(cells)
+    return out
+  }
+
+  /** (#680, s17.81) raster()'s twin for the pool share (WetCell.p) of every
+   *  cell still wet - the display's bead gate. */
+  rasterPool(minCx: number, minCy: number, step: number, inW: number, inH: number, now: number): Float32Array {
+    const out = new Float32Array(inW * inH)
+    const pass = (cells: Map<number, WetCell>): void => {
+      for (const cell of cells.values()) {
+        if (!cell.p) continue
+        const tx = Math.floor((cell.cx - minCx) / step), ty = Math.floor((cell.cy - minCy) / step)
+        if (tx < 0 || ty < 0 || tx >= inW || ty >= inH) continue
+        if (PaperWetness._decayed(cell, now) <= 0) continue
+        const i = ty * inW + tx
+        if (cell.p > out[i]) out[i] = cell.p
       }
     }
     for (const cells of this._layers.values()) pass(cells)
