@@ -34,7 +34,22 @@ async function init() {
   if (!pick) throw new Error('Нет рендерящегося float/half-float формата: ' + JSON.stringify(probe))
   stats.type = pick.name + (pick.precise ? '' : ' (fp16-точность)')
 
-  const paper = await loadPaperTexture(gl, './paper-coarse.png')
+  // Paper exactly as Grafetto has it: the same baked 2048² tile, the default
+  // colour of that grade, and the grain scale of a bounded room, where the tile
+  // spans the sheet's width once (engine/index.ts _paperWorldSize). The sandbox
+  // canvas is then a piece of that sheet at zoom 1.
+  const PAPER_COLORS = { coarse: '#faf8f4', medium: '#fcfbf9', fine: '#fdfdfc' }
+  const SHEET_WIDTHS = { a4: 1240, a3: 1754, a2: 2480 }
+  const paperName = q.get('paper') in PAPER_COLORS ? q.get('paper') : 'coarse'
+  const sheet = q.get('sheet') in SHEET_WIDTHS || q.get('sheet') === 'raw' ? q.get('sheet') : 'a4'
+  const paper = await loadPaperTexture(gl, './paper-' + paperName + '.png')
+  paper.scale = sheet === 'raw' ? 1 : paper.size / SHEET_WIDTHS[sheet]
+  const hex = parseInt(PAPER_COLORS[paperName].slice(1), 16)
+  paper.color = [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255]
+  for (const [id, val] of [['paper', paperName], ['sheet', sheet]]) {
+    $(id).value = val
+    $(id).onchange = () => { q.set(id, $(id).value); location.search = q.toString() }
+  }
   const sim = new Sim(gl, quad, N, pick.type, paper)
   for (const [k, v] of q) if (k.startsWith('p.') && k.slice(2) in sim.P) sim.P[k.slice(2)] = parseFloat(v)
   const brush = new Brush(N)

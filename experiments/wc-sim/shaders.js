@@ -247,12 +247,13 @@ void main(){
   vec3 sh=sinh3(bS), ch=cosh3(bS);
   vec3 c=a*sh+b*ch;
   vec3 R=sh/c, Tr=b/c;
-  // paper: white with a little relief shading from the grain
+  // paper: Grafetto's tone (paperToneGLSL in raster/shaders.ts) — the grade's
+  // colour plus a fixed ±0.035 swing by height; optional relief shading on top
   float h=texture2D(u_paper,fc*u_paperInv).r;
   float hx=texture2D(u_paper,(fc+vec2(1.0,0.0))*u_paperInv).r;
   float hy=texture2D(u_paper,(fc+vec2(0.0,1.0))*u_paperInv).r;
   float shade=clamp(1.0+u_shade*((hx-h)-(hy-h)),0.85,1.1);
-  vec3 Rg=u_paperCol*shade;
+  vec3 Rg=(clamp(u_paperCol,0.035,0.965)+0.035*(h*2.0-1.0))*shade;
   vec3 Rt=R+Tr*Tr*Rg/(1.0-R*Rg);
   // wet paper is a touch darker and more saturated than dry
   float wet=smoothstep(0.0,0.15,wt.r)*0.07+smoothstep(0.0,0.1,wt.g)*0.03;

@@ -26,7 +26,7 @@ export const DEFAULTS = {
   kDiff: 0.02,       // Brownian pigment mixing
   granMul: 1.5,
   thick: 3.0,        // display: pigment mass → KM layer thickness
-  shade: 0.15,        // display: paper relief shading
+  shade: 0,           // display: extra relief shading on top of Grafetto's paper tone (0 = as in the app)
   brushRate: 0.25, brushMix: 0.03,
 }
 
@@ -95,7 +95,7 @@ export class Sim {
     const u = prog.uni
     if (u.u_px) gl.uniform2f(u.u_px, 1 / this.n, 1 / this.n)
     if (u.u_n) gl.uniform1f(u.u_n, this.n)
-    if (u.u_paperInv) gl.uniform1f(u.u_paperInv, 1 / this.paper.size)
+    if (u.u_paperInv) gl.uniform1f(u.u_paperInv, (this.paper.scale || 1) / this.paper.size)
     return u
   }
 
@@ -240,7 +240,7 @@ export class Sim {
     gl.uniform1f(u.u_thick, this.P.thick)
     gl.uniform1f(u.u_shade, this.P.shade)
     gl.uniform1f(u.u_view, view)
-    gl.uniform3f(u.u_paperCol, 0.965, 0.955, 0.93)
+    gl.uniform3fv(u.u_paperCol, this.paper.color || [0.965, 0.955, 0.93])
     PIGMENTS.forEach((p, i) => {
       gl.uniform3fv(u['u_K' + i], p.K)
       gl.uniform3fv(u['u_S' + i], p.S)

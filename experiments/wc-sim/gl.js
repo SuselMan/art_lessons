@@ -199,8 +199,10 @@ export function loadPaperTexture(gl, url) {
       gl.bindTexture(gl.TEXTURE_2D, t)
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, n, n, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, packed)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+      // LINEAR: at a sheet scale (A4 = 1.65 texels per cell) NEAREST aliases;
+      // at 1 texel per cell the samples land on texel centres and both agree
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
       resolve({ tex: t, size: img.width })
