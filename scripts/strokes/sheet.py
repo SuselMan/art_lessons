@@ -13,7 +13,9 @@ told from the paper and from the ink of the labels by colour). Its box is the
 same size in millimetres in every photo - the largest the stroke is anywhere
 in the series, plus a margin - and centred on the stroke, so the viewer's
 slider shows it drying rather than jumping. The sheet's wet series are
-rebuilt from scratch on every run; dry shots are left alone.
+rebuilt from scratch on every run. The spec's `dry`, one photo in the same
+form, gives each stroke its dry shot in the same box; without it the dry
+shots already in the archive are left alone.
 """
 import json
 import math
@@ -94,7 +96,8 @@ def main(spec_path):
     a = refs.load()
     sheet = refs.sheet_of(a, spec['sheet'])
     frames = {}  # n -> [(photo, t, px_per_mm, (cx, cy) px, (w, h) mm)]
-    for photo in spec['photos']:
+    dry = spec.get('dry')
+    for photo in spec['photos'] + ([dry] if dry else []):
         photo.setdefault('coinKind', sheet['coin'])
         im, t = refs.open_photo(photo['file'])
         if photo.get('rotate'):
@@ -128,14 +131,21 @@ def main(spec_path):
         hmm = max(max(x[5][1] for x in fr) + 2 * MARGIN_MM, mh)
         st = refs.stroke_of(sheet, n)
         first = None
-        for i, (photo, im, t, k, (cx, cy), _) in enumerate(sorted(fr, key=lambda x: x[2] or ''), 1):
+        wet = [x for x in fr if x[0] is not dry]
+        for photo, im, t, k, (cx, cy), _ in (x for x in fr if x[0] is dry):
+            # The dry shot: the same box, so it lines up with the series.
+            box = (cx - wmm * k / 2, cy - hmm * k / 2, cx + wmm * k / 2, cy + hmm * k / 2)
+            out = os.path.join(refs.ROOT, 'img', sheet['id'], f'{n:03d}-dry.jpg')
+            w, h = refs.cut(im, box, k, out)
+            st['dry'] = {'src': refs.rel(out), 't': t, 'w': w, 'h': h, 'photo': os.path.basename(photo['file'])}
+        for i, (photo, im, t, k, (cx, cy), _) in enumerate(sorted(wet, key=lambda x: x[2] or ''), 1):
             box = (cx - wmm * k / 2, cy - hmm * k / 2, cx + wmm * k / 2, cy + hmm * k / 2)
             out = os.path.join(refs.ROOT, 'img', sheet['id'], f'{n:03d}-wet-{i:02d}.jpg')
             w, h = refs.cut(im, box, k, out)
             first = first or t
             age = (np.datetime64(t) - np.datetime64(first)).astype('timedelta64[s]').astype(int).item() if t and first else None
             st['wet'].append({'src': refs.rel(out), 't': t, 'ageS': age, 'w': w, 'h': h, 'photo': os.path.basename(photo['file'])})
-        print(n, f'{len(fr)} frames', f'{wmm:.0f}x{hmm:.0f} mm')
+        print(n, f'{len(wet)} frames', '+ dry' if len(wet) < len(fr) else '', f'{wmm:.0f}x{hmm:.0f} mm')
     refs.save(a)
 
 
