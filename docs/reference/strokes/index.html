@@ -37,9 +37,7 @@ dialog::backdrop{background:#000a}
 .dhead .lab{color:var(--muted)}
 .dhead button{margin-left:auto}
 .btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
-.dbody{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
-@media (max-width:1000px){.dbody{grid-template-columns:1fr 1fr}}
-@media (max-width:700px){.dbody{grid-template-columns:1fr}}
+.dbody{display:grid;grid-template-columns:1fr;gap:14px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
 .appbar{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
 .appbar select{font:inherit;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
 .comments{grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}
@@ -54,8 +52,9 @@ dialog::backdrop{background:#000a}
 .hint{font-size:12px;color:var(--muted)}
 .pane h4{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600}
 .stage{background:var(--paper);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-.stage img{width:100%;height:100%;object-fit:contain;display:block}
-.stage{max-height:62vh}
+.stage img{display:block;flex:none}
+.pane{min-width:0}
+.pane h4{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .scalebar{position:absolute;left:10px;bottom:10px;height:4px;background:#111;border-radius:2px}
 .scalebar span{position:absolute;left:0;bottom:6px;font-size:11px;color:#111;white-space:nowrap}
 .timeline{display:flex;align-items:center;gap:10px;margin-top:10px}
@@ -88,9 +87,8 @@ dialog::backdrop{background:#000a}
       <div class="stage" id="dryStage"></div>
     </div>
     <div class="pane">
-      <h4>Графетто — повтор</h4>
+      <h4>Графетто — повтор <span class="appbar" style="margin:0"><label for="appVer" class="hint">версия</label><select id="appVer"></select></span></h4>
       <div class="stage" id="appStage"></div>
-      <div class="appbar"><label for="appVer" class="hint">версия движка</label><select id="appVer"></select></div>
     </div>
     <div class="comments">
       <h4>Комментарии к мазку</h4>
@@ -192,7 +190,8 @@ function preload(pics) {
   for (const p of pics) if (p && !cache.has(p.src)) { const i = new Image(); i.src = p.src; cache.set(p.src, i) }
 }
 function stage(el, pic) {
-  if (!pic) { el.innerHTML = '<div class="none">нет снимка</div>'; el.style.aspectRatio = ''; return }
+  el._pic = pic
+  if (!pic) { el.innerHTML = '<div class="none">нет снимка</div>'; layout(); return }
   let img = el.querySelector('img'), bar = el.querySelector('.scalebar')
   if (!img) {
     el.innerHTML = ''
@@ -202,9 +201,31 @@ function stage(el, pic) {
     el.appendChild(img); el.appendChild(bar)
     new ResizeObserver(() => { if (img.naturalWidth) bar.style.width = (A.pxPerMm * 10 * img.clientWidth / img.naturalWidth) + 'px' }).observe(img)
   }
-  el.style.aspectRatio = pic.w + ' / ' + pic.h
   img.src = pic.src
+  layout()
 }
+
+// The three panes stacked, one frame size and one scale for all: every
+// picture is cut at the archive's px/mm, so the same factor on each keeps
+// the photo and the repeats the same physical size. The frame is the largest
+// of the three at that scale; the scale is what lets all three fit the dialog
+// width and, together, its height.
+const STAGES = ['wetStage', 'dryStage', 'appStage']
+function layout() {
+  const els = STAGES.map($), pics = els.map(e => e._pic).filter(Boolean)
+  if (!pics.length) return
+  const mw = Math.max(...pics.map(p => p.w)), mh = Math.max(...pics.map(p => p.h))
+  const width = $('dryStage').parentElement.clientWidth || 800
+  const height = Math.max(120, (window.innerHeight * 0.94 - 330) / 3)
+  const k = Math.min(width / mw, height / mh)
+  for (const e of els) {
+    e.style.width = Math.round(mw * k) + 'px'; e.style.height = Math.round(mh * k) + 'px'
+    const img = e.querySelector('img')
+    if (img && e._pic) { img.style.width = Math.round(e._pic.w * k) + 'px'; img.style.height = Math.round(e._pic.h * k) + 'px' }
+  }
+}
+window.addEventListener('resize', layout)
+new ResizeObserver(() => layout()).observe(document.querySelector('.dbody'))
 
 function open(s, st) {
   $('dTitle').textContent = `Лист ${s.id} · № ${st.n}`
@@ -285,6 +306,7 @@ function open(s, st) {
   }
   renderComments()
   $('dlg').showModal()
+  requestAnimationFrame(layout)
 }
 
 $('dClose').onclick = () => $('dlg').close()
