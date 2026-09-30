@@ -3059,6 +3059,20 @@ export const WC_FIELD_OP_FRAG = `
   // rim magenta and cyan, texel by texel. Scaling the whole vec4 keeps the
   // colour (and water, paper, strength ratios) and loses only the mass
   // past the ceiling.
+  // (#680, s17.80) The field's corner and scale in world px: x, y in field
+  // texels as the paper maps them, z world px per texel (0: no world, the
+  // tideline's patches off).
+  uniform vec3 u_world;
+  float wcRimHash(vec2 p) {
+    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
+    return fract(p.x * p.y * (p.x + p.y));
+  }
+  float wcRimNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 w = f * f * (3.0 - 2.0 * f);
+    return mix(mix(wcRimHash(i), wcRimHash(i + vec2(1.0, 0.0)), w.x), mix(wcRimHash(i + vec2(0.0, 1.0)), wcRimHash(i + vec2(1.0, 1.0)), w.x), w.y);
+  }
   #define WC_FIELD_FIT(v) ((v) / max(1.0, max(max((v).r, (v).g), max((v).b, (v).a))))
   // (s17.25) The rim's deposition profile: the tail's weight against the
   // sharp peak, its floor on a paper crest, and the height window that
@@ -3082,6 +3096,16 @@ export const WC_FIELD_OP_FRAG = `
   // gives lands on the nearest cap within the kernel's reach.
   const float WC_TIDE_SIDE = 0.3;
   const float WC_TIDE_RING_TX = 10.0;
+  // (#680, s17.80) The tideline in patches, not all round: a coarse field of
+  // the sheet (world px, u_world) opens it over a minority of the contour
+  // and leaves WC_RIM_PATCH_FLOOR of it elsewhere. On the band's take (.g)
+  // AND its profile (.b): the landing is normalised by the gathered profile,
+  // so a weaker profile alone came back as the same rim - scaling what is
+  // taken leaves the paint in the body where there is no rim.
+  const float WC_RIM_PATCH_SCALE = 0.012;
+  const float WC_RIM_PATCH_LO = 0.45;
+  const float WC_RIM_PATCH_HI = 0.6;
+  const float WC_RIM_PATCH_FLOOR = 0.1;
   // (s17.27) The share of the mark's standing level below which its water
   // did not stand: the front's seed ends there.
   const float WC_SEED_FILM_LO = 0.15;
@@ -3505,7 +3529,13 @@ export const WC_FIELD_OP_FRAG = `
       // new pass's fringe, where no new paint made up for it, a flat wash
       // showed a light seam along every pass (band 43 against 60 of the
       // earlier pass alone, two-pass rig).
-      gl_FragColor = vec4(profileBloom * stoodW, inside * (1.0 - over), profileTide * stoodW * convexW * (1.0 - over), dome);
+      float rimPatch = 1.0;
+      if (u_world.z > 0.0) {
+        vec2 wp = (gl_FragCoord.xy + u_world.xy) * u_world.z * WC_RIM_PATCH_SCALE;
+        float n = 0.63 * wcRimNoise(wp) + 0.37 * wcRimNoise(wp * 2.7 + vec2(31.4, 17.9));
+        rimPatch = mix(WC_RIM_PATCH_FLOOR, 1.0, smoothstep(WC_RIM_PATCH_LO, WC_RIM_PATCH_HI, n));
+      }
+      gl_FragColor = vec4(profileBloom * stoodW, inside * (1.0 - over) * rimPatch, profileTide * stoodW * convexW * (1.0 - over) * rimPatch, dome);
       return;
     }
     if (u_mode > 4.5) {

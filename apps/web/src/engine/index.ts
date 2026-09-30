@@ -6168,8 +6168,8 @@ export class PencilEngine implements PencilEngineAPI {
     ])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
-    this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
@@ -8797,7 +8797,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number] } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number] } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -8832,6 +8832,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_size, opts.size ? opts.size[0] : out.width, opts.size ? opts.size[1] : out.height)
     gl.uniform2f(u.u_band, opts.band ? opts.band[0] : 0, opts.band ? opts.band[1] : 0)
     gl.uniform3fv(u.u_tau, opts.tau ?? [0, 0, 0])
+    gl.uniform3fv(u.u_world, opts.world ?? [0, 0, 0])
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
     out.endDraw()
@@ -9343,7 +9344,7 @@ export class PencilEngine implements PencilEngineAPI {
       ops.push(() => {
         this._fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
         this._fieldOp(field.coverage, tmp, tmp, 1, 0)
-        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1], tau: [watercolorDwellWater(dwellMs), 0, 0] })
+        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1], tau: [watercolorDwellWater(dwellMs), 0, 0], world: [x0 / S, -(y0 / S + field.h), S] })
         this._fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
         let gs = tmp, gd = field.mask
         for (let i = 1; i < gather.length; i++) { this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
@@ -9831,7 +9832,7 @@ export class PencilEngine implements PencilEngineAPI {
       // the band gathered by the rim's kernel, into `mask`.
       this._fieldOp(field.band, field.pressure, field.coverage, 6, 0, {
         c: field.mask, d: field.pressure, band: [0.5, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn],
-        origin: [standing, 0], dir: [1, 1], tau: [0, 0, 0],
+        origin: [standing, 0], dir: [1, 1], tau: [0, 0, 0], world: [x0 / scale, -(y0 / scale + field.h), scale],
       })
       blurTo(field.mask, field.band, t1, t3)
     })
