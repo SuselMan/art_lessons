@@ -251,6 +251,12 @@ const WC_NOISE_GLSL = `
   // field that averages about one, so the pool keeps its mass but loses the
   // nib's shape - Ilya's "повторяет форму кисти, выглядит стерильно". Off
   // on wet paper, where the puddle depth is the paper's water, not a pool.
+  // (#680, s17.84) The pool share a coverage pass records in its .g (over
+  // .a): where the brush left its surplus - the same gate as wcPoolBlot's.
+  // The settle combs the paint there along the travel (field-op mode 1).
+  float wcPoolness(float puddle, float paperWet, float on) {
+    return on * smoothstep(0.5, 0.95, puddle) * (1.0 - clamp(paperWet, 0.0, 1.0));
+  }
   float wcPoolBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on) {
     float pool = on * smoothstep(0.5, 0.95, puddle) * (1.0 - clamp(paperWet, 0.0, 1.0));
     if (pool <= 0.0) return 1.0;
@@ -534,9 +540,9 @@ ${WC_NOISE_GLSL}
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
       ? (u_depthWrite > 0.5
-          ? vec4(amount * v_inkStrength * u_tau / WC_DEPTH_SCALE, amount * v_inkStrength)
-          : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount))
-      : vec4(acrossEncoded * amount, amount, amount * max(bandWet, v_puddle * u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
+          ? vec4(amount * abs(v_inkStrength) * u_tau / WC_DEPTH_SCALE, amount * abs(v_inkStrength))
+          : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * abs(v_inkStrength) * mottle, amount))
+      : vec4(acrossEncoded * amount, amount * wcPoolness(v_puddle, bandWet, u_poolBlot) * step(0.0, v_inkStrength), amount * max(bandWet, v_puddle * u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
   }
 `;
 
@@ -1320,7 +1326,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
 
@@ -3396,7 +3402,9 @@ export const WC_FIELD_OP_FRAG = `
       // built and the band can read the standing water it records.
       float inside = 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, texture2D(u_d, v_uv).r);
       float r = a.a > 0.002 ? a.r : 0.5 * inside;
-      gl_FragColor = vec4(r, max(a.g, inside), max(a.b, inside * u_k), max(a.a, inside));
+      // (#680, s17.84) .g is the pool share now (premultiplied like .r):
+      // the texels the front reaches past the coverage carry none.
+      gl_FragColor = vec4(r, a.a > 0.002 ? a.g : 0.0, max(a.b, inside * u_k), max(a.a, inside));
       return;
     }
     if (u_mode > 9.5) {
@@ -3585,6 +3593,41 @@ export const WC_FIELD_OP_FRAG = `
     }
     // (#680, s17.82) Mode 1 with a world (u_world.z > 0): the added field
     // through the paper's fibres - the puddle settle's far slices.
+    // (#680, s17.84) Mode 1 with a world and u_origin.x > 0: the settled
+    // paint combed by the hairs where the brush left its surplus - streaks
+    // along the travel ("щетинка утащила пигмент за собой"). After the
+    // settle, not in the dose: the settle smooths anything finer than about
+    // ten px out of the dose (s17.28, s17.82). From the coverage record only
+    // (u_c: .r the across-brush coordinate, .g the pool share, both over
+    // .a), so the deposit and its colour record take the same factor. The
+    // comb averages about one: the pool's paint is regrouped, not added.
+    // u_size.x is the hair bundles across the half-width (as the composite
+    // counts them), u_origin.x the strength; a = b = the paint, u_k = 1.
+    if (u_mode > 0.5 && u_world.z > 0.0 && u_origin.x > 0.0) {
+      vec4 cv = texture2D(u_c, v_uv);
+      float across = cv.a > 0.004 ? clamp(cv.r / cv.a, 0.0, 1.0) * 2.0 - 1.0 : 0.0;
+      float poolHere = cv.a > 0.004 ? clamp(cv.g / cv.a, 0.0, 1.0) : 0.0;
+      vec2 wp = (gl_FragCoord.xy + u_world.xy) * u_world.z;
+      float drift = wcRimNoise(wp * 0.0012 + vec2(71.0, 13.0));
+      vec2 hq = vec2(across * u_size.x, drift * 3.0) + vec2(3.0, 29.0);
+      float hair = 0.63 * wcRimNoise(hq) + 0.37 * wcRimNoise(hq * 2.7 + vec2(31.4, 17.9));
+      // Only where the across coordinate runs smoothly: at a stop the brush
+      // lays stamp over stamp, each with its own centre, the last one wins
+      // per texel, and the comb broke into arcs along every seam ("отпечаток
+      // пальца"). A jump of the coordinate between neighbours two texels
+      // apart, far over what a mark's own width gives, turns the comb off.
+      float jump = 0.0;
+      for (int k = 0; k < 4; k++) {
+        vec2 o = k == 0 ? vec2(2.0, 0.0) : k == 1 ? vec2(-2.0, 0.0) : k == 2 ? vec2(0.0, 2.0) : vec2(0.0, -2.0);
+        vec4 cn = texture2D(u_c, v_uv + o * u_dir);
+        float an = cn.a > 0.004 ? clamp(cn.r / cn.a, 0.0, 1.0) * 2.0 - 1.0 : across;
+        jump = max(jump, abs(an - across));
+      }
+      float smoothAcross = 1.0 - smoothstep(0.08, 0.2, jump);
+      float comb = mix(1.0, 2.0 * smoothstep(0.3, 0.7, hair), u_origin.x * smoothstep(0.08, 0.4, poolHere) * smoothAcross);
+      gl_FragColor = WC_FIELD_FIT(a + b * u_k * (comb - 1.0));
+      return;
+    }
     float fibre = 1.0;
     if (u_mode > 0.5 && u_world.z > 0.0) {
       vec2 radial = vec2(

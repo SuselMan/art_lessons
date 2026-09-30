@@ -854,6 +854,14 @@ export const WC_SLOW_V0 = 0.2
 //  (#680, s17.79) 0.8, from 0.6: bolder, as the dwell's. 1.0 over-darkened
 //  the body of a wavy stroke, which brakes at every turn (sheet 1, 9-15).
 export const WC_SLOW_GAIN = 0.8
+/** (#680, s17.84) How strongly the brush's surplus is combed along the
+ *  travel by the hairs, over the settled paint where a pool stood (field-op
+ *  mode 1's streak branch): 0 off, 1 the full comb (0..2x, mean one).
+ *  OFF for now: the pools of Ilya's repeats sit where the brush all but
+ *  stopped, and the direction there is the last dabs' jitter - the comb came
+ *  out as a crease across the stroke's end, not streaks along it. Needs the
+ *  arrival direction carried on the gesture's scratch first (ADR s17.84). */
+export const WC_POOL_STREAK = 0
 /** (#680) A braking pool is compact - the photographs' turn-back pools are a
  *  nib's footprint, not a wide cap: its surplus is spent over this many radii
  *  of travel, not the landing's WC_START_EXCESS_RADII / WC_PUDDLE_RADII

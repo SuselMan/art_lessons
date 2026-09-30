@@ -92,7 +92,7 @@ import {
   applyWatercolorEndTaper, watercolorWashSignature, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, WC_SLOW_GAIN, WC_SLOW_RUN_RADII, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SLOW_RUN_RADII, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
   watercolorTravelRadius, watercolorSpreadRadius,
   watercolorMixFromPreset,
 } from './src/presets/watercolorPresets'
@@ -8199,6 +8199,8 @@ export class PencilEngine implements PencilEngineAPI {
     // that already resolves each dab's travel direction, so there is exactly
     // one reading of it and the stamps cannot disagree with the bands.
     const acrossByDab = new Map<Dab, [number, number]>()
+    // (#680, s17.84) The dabs whose direction is the travel's - see below.
+    const movingByDab = new Set<Dab>()
     // (#536) …and how wet the paper under each dab already was. Straight out of
     // the recorded profile, indexed by position within this call's own dabs —
     // which is why the profile is one digit per dab and why every place a
@@ -8253,6 +8255,11 @@ export class PencilEngine implements PencilEngineAPI {
         const radius = Math.max(watercolorTravelRadius(
           minor * Math.max(dab.aspectRatio, 1), minor, dab.angle, travelAngle,
         ), 0.5)
+        // (#680, s17.84) A dab that really moved (a fifth of its radius): its
+        // direction is the travel's. The last dabs before a lift move by a
+        // pixel or less and their direction jitters - combed along it, the
+        // pool's streaks came out as arcs and waves at every stroke's end.
+        if (Math.hypot(dx, dy) > 0.2 * minor) movingByDab.add(dab)
         if (travelAngle !== null) {
           // Perpendicular of travel, rotated out of world space into the nib's
           // frame. Null travel is a tap or a dwell tick with no direction to
@@ -8431,7 +8438,11 @@ export class PencilEngine implements PencilEngineAPI {
             * (1 - (haloShedByDab.get(d1) ?? 0)),
           water: waterByDab.get(d1) ?? 0,
           paperWet: paperWetByDab.get(d1) ?? 0,
-          strength: inkStrength,
+          // (#680, s17.84) Negative on a segment the brush barely moved
+          // along: its direction jitters, and the coverage pass leaves the
+          // pool mark (.g) off there - see movingByDab. The ink pass reads
+          // the magnitude.
+          strength: Math.hypot(bdx, bdy) > 0.2 * minor ? inkStrength : -inkStrength,
           puddle: puddleByDab.get(d1) ?? 1,
         }
       }
@@ -8501,6 +8512,10 @@ export class PencilEngine implements PencilEngineAPI {
           coverage, tile, dab, preset, profile, profile.coverageInkMode,
           stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
           paperWetByDab.get(dab) ?? 0, 1, [0, 0], null, 0, 0, null, puddleByDab.get(dab) ?? 1,
+          // (s17.84) ...and the pool share into the coverage's .g - where
+          // the brush was moving: a standing dab has no direction to comb
+          // along (its across is the default, not the travel's).
+          profile.waterDepletion && movingByDab.has(dab) ? 1 : 0,
         )
         yield pieceTris ? this._nibDrawCost(tile, dab, preset) : 0
       }
@@ -8515,6 +8530,7 @@ export class PencilEngine implements PencilEngineAPI {
           this._drawRibbonBands(
             coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
             ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
+            0, 0, null, profile.waterDepletion ? 1 : 0,
           )
           yield px
         }
@@ -9399,6 +9415,16 @@ export class PencilEngine implements PencilEngineAPI {
     // turns "dry A, then dissolve A with B" into "wet A + wet B, dried
     // together". The r17 behaviour stays as the wcOpDry A/B.
     const mobileShare = groupDry ? 1 : WET_DIFFUSE_MOBILE
+    // (#680, s17.84) The pool's paint combed along the travel by the hairs,
+    // over the settled result (the settle erases it from the dose): through
+    // `free` and back into `paint`. The factor comes from the coverage
+    // alone, so the deposit and the colour record take the same one.
+    const streakCombs = Math.max(1.5, Math.min(50, radiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
+    const poolStreaks = (paint: AccumulationBuffer, free: AccumulationBuffer): void => {
+      if (!(WC_POOL_STREAK > 0)) return
+      this._fieldOp(free, paint, paint, 1, 1, { c: field.coverage, world: [x0 / S, -(y0 / S + field.h), S], size: [streakCombs, 0], origin: [WC_POOL_STREAK, 0], dir: [1, 1] })
+      fieldOp(paint, free, free, 1, 0)
+    }
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
       const st = { src: c, dst: a, out: a }
       if (!follow) ops.push(() => {
@@ -9590,11 +9616,13 @@ export class PencilEngine implements PencilEngineAPI {
           fieldOp(spare, b, st.src, 1, 1)
           fieldOp(st.src, spare, spare, 1, 0)
           st.out = st.src
+          poolStreaks(st.src, spare)
           return
         }
         rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusC, width) * tideWater, st.dst, spare, true)
         st.out = st.src
         fieldOp(st.out, b, spare, 1, 1)
+        poolStreaks(st.out, spare)
       })
       return st
     }
