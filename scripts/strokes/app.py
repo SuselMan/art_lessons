@@ -65,7 +65,16 @@ def main(sheets):
         pull(room, ops)
         png = os.path.join(WORK, f'render_{s["id"]}_{v["id"]}.png')
         env = dict(os.environ, DISPLAY=os.environ.get('DISPLAY', ':0'))
-        print(s['id'], subprocess.check_output(['node', os.path.join(os.path.dirname(__file__), 'app_render.mjs'), ops, png], env=env, text=True).strip(), flush=True)
+        for attempt in range(3):
+            # The stand's room form now and then misses its fill under load:
+            # a fresh try, not a lost run.
+            try:
+                print(s['id'], subprocess.check_output(['node', os.path.join(os.path.dirname(__file__), 'app_render.mjs'), ops, png], env=env, text=True).strip(), flush=True)
+                break
+            except subprocess.CalledProcessError:
+                if attempt == 2:
+                    raise
+                print(s['id'], 'render failed, retrying', flush=True)
         im = Image.open(png).convert('RGB')
         k = refs.PX_PER_MM / b['pxPerMm']
         for n, (x0, y0, x1, y1) in b['slots'].items():
@@ -75,6 +84,7 @@ def main(sheets):
             out = os.path.join(refs.ROOT, 'img', s['id'], f'{int(n):03d}-app-{v["id"]}.jpg')
             crop.save(out, quality=refs.JPEG_QUALITY)
             st.setdefault('app', {})[v['id']] = {'src': refs.rel(out), 'w': crop.width, 'h': crop.height}
+        refs.save(a)  # per sheet: a later sheet's failure keeps this one
     vs = a.setdefault('versions', [])
     if not any(x['id'] == v['id'] for x in vs):
         vs.append(dict(v, rendered=datetime.date.today().isoformat()))

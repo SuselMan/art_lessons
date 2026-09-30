@@ -1143,7 +1143,10 @@ export const WC_BLOOM_SHARE = 0.65
  *  line get the same rim rather than the broad one drowning in it. */
 //  (s17.30) 1.6, from 2.0: on Ilya's layer of circles and blots the line
 //  read as a drawn outline - "слишком контрастный".
-export const WC_TIDE_RIM = 0.9
+//  (#680, s17.76) 0.4, from 0.9: the share moved made a line all round every
+//  mark and a light band just inside it (the interior the band drew from) -
+//  all four reviewers of the stroke archive, sheet after sheet.
+export const WC_TIDE_RIM = 0.4
 /** (s17.41) How much of the earlier paint a wet landing re-mobilises across
  *  the puddle it joined, at the dome's full (WC_FIELD_OP_FRAG mode 18).
  *  (s17.42) Under the group-dry oracle the floor is 1: the earlier paint

@@ -40,9 +40,20 @@ await page.waitForTimeout(2500)
 let n = 0
 for (const op of ops) {
   await page.evaluate(op => { window.__engine.appendOperation(op, 'remote') }, op)
-  if (op.type === 'stroke') { n++; await page.waitForTimeout(+(process.env.APP_STEP || 400)) }
+  if (op.type === 'stroke') n++
+  // Every operation, not only strokes, gets its step: an undo landing while
+  // the stroke before it is still settling made the same log paint
+  // differently run to run (sheet 1, slot 12 - #681).
+  await page.waitForTimeout(+(process.env.APP_STEP || 400))
 }
 await page.waitForTimeout(+(process.env.APP_WAIT || 15000))
+// The photographs are of DRY paint, and a wash lays its tideline only when it
+// dries (ADR 011 §17.42): dry everything, as the paper_dry operation would,
+// and let the settle land before the export.
+if (process.env.APP_DRY !== '0') {
+  await page.evaluate(() => window.__engine.watercolorDryAll())
+  await page.waitForTimeout(+(process.env.APP_DRY_WAIT || 8000))
+}
 const png = await page.evaluate(async ids => {
   const e = window.__engine
   e.setCompositeOrder(ids.map(id => ({ id, opacity: 1 })))

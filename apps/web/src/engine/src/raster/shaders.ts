@@ -3052,6 +3052,16 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_RIM_DRY_FLOOR = 0.15;
   // (s17.37) The landing puddle's edge against the stroke's contour, per length.
   const float WC_BACKRUN_GAIN = 2.5;
+  // (#680, s17.76) The tideline gathers at the CONVEX stretches of the edge -
+  // a stroke's ends, the outside of a turn - where evaporation runs fastest
+  // and the capillary flow carries the paint; along a straight side it is
+  // faint (the archive's photographs; "не по всему контуру"). Convexity is
+  // the share of the domain in a ring around the texel: half on a straight
+  // side, less at a cap. The side keeps WC_TIDE_SIDE of the weight; the
+  // relocation is normalised by the gathered profile, so the mass a side
+  // gives lands on the nearest cap within the kernel's reach.
+  const float WC_TIDE_SIDE = 0.3;
+  const float WC_TIDE_RING_TX = 10.0;
   // (s17.27) The share of the mark's standing level below which its water
   // did not stand: the front's seed ends there.
   const float WC_SEED_FILM_LO = 0.15;
@@ -3448,6 +3458,13 @@ export const WC_FIELD_OP_FRAG = `
       for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) bb = max(bb, texture2D(u_b, v_uv + vec2(float(i), float(j)) * u_dir).b);
       float stood = clamp(bb / max(u_origin.x, 1e-3), 0.0, 1.0);
       float stoodW = mix(WC_RIM_DRY_FLOOR, 1.0, stood);
+      float ring = 0.0;
+      for (int k = 0; k < 8; k++) {
+        float ang = float(k) * 0.7853982;
+        vec2 o = vec2(cos(ang), sin(ang)) * WC_TIDE_RING_TX * u_dir;
+        ring += 1.0 - smoothstep(u_band.x, u_band.x + u_size.x, texture2D(u_d, v_uv + o).r);
+      }
+      float convexW = mix(WC_TIDE_SIDE, 1.0, smoothstep(0.5, 0.25, ring / 8.0));
       // The bloom's band (.r): the wash's paint the drop pushed lands here,
       // wherever the water reached. The tide's band (.b): this mark's own
       // line of stoppage - none where the mark lies over an earlier mark
@@ -3468,7 +3485,7 @@ export const WC_FIELD_OP_FRAG = `
       // new pass's fringe, where no new paint made up for it, a flat wash
       // showed a light seam along every pass (band 43 against 60 of the
       // earlier pass alone, two-pass rig).
-      gl_FragColor = vec4(profileBloom * stoodW, inside * (1.0 - over), profileTide * stoodW * (1.0 - over), dome);
+      gl_FragColor = vec4(profileBloom * stoodW, inside * (1.0 - over), profileTide * stoodW * convexW * (1.0 - over), dome);
       return;
     }
     if (u_mode > 4.5) {
