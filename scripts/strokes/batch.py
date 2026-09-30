@@ -46,6 +46,7 @@ COARSE_PX = 1.0  # px/mm of the coarse search
 FINE_PX = 3  # px/mm of the fine registration
 PRESENT = 0.04  # share of paint pixels in a stroke's box that says it is there
 MIN_FIT = 0.5  # a photo registered worse than this is left out
+GOOD_FIT = 0.85  # ...and one registered better is matched against by the next
 
 
 def upright(path, rotate=0):
@@ -58,8 +59,9 @@ def feat(im, f):
     w, h = im.size
     small = im.resize((max(8, round(w * f)), max(8, round(h * f))), Image.BILINEAR)
     a = np.asarray(small).astype(np.float32)
-    d = np.clip((a[..., 0] + a[..., 2]) / 2 - a[..., 1], 0, None)
-    return d
+    if align.MODE == 'chroma':
+        return np.clip(a.max(axis=2) - a.min(axis=2) - 25, 0, None)
+    return np.clip((a[..., 0] + a[..., 2]) / 2 - a[..., 1], 0, None)
 
 
 def ncc_map(F, t, mask):
@@ -94,7 +96,10 @@ def coarse(tpl, photo, guess):
     # little on it (the first, one stroke of clear water) matched a sheet
     # turned and shrunk otherwise.
     same = (photo.width >= photo.height) == (tw >= th)
-    quarters = (0, 2) if same else (1, 3)
+    # ...unless the sheet's part is near square (sheet 7): then its shape says
+    # nothing, all four.
+    squarish = 0.8 < tw / th < 1.25
+    quarters = (0, 1, 2, 3) if squarish else (0, 2) if same else (1, 3)
     for sc in np.exp(np.linspace(math.log(0.75), math.log(1.35), 11)):
         f = 1 / (guess * sc)  # the photo brought to the template's scale
         F = feat(photo, f)
@@ -123,6 +128,7 @@ def coarse(tpl, photo, guess):
 
 def main(spec_path):
     spec = json.load(open(spec_path, encoding='utf-8'))
+    align.MODE = spec.get('feature', 'violet')
     a = refs.load()
     sid = spec['sheet']
     if not any(s['id'] == sid for s in a['sheets']):
@@ -171,21 +177,36 @@ def main(spec_path):
     # neighbour.
     i0 = photos.index(rp)
     photos_dropped = []
+    def match(p, target):
+        A = T[id(target)] @ refP
+        placed = target['im'].transform(size, Image.AFFINE, tuple(A[:2].ravel()), Image.BILINEAR, fillcolor=(255, 255, 255))
+        # Photo pixels per ROI pixel, roughly: as for the target, if both
+        # photos take in the same field.
+        guess = max(p['im'].size) / max(target['im'].size) * math.hypot(*A[:2, 0])
+        T0, cs, csc, cang = coarse_roi(placed, p['im'], guess)
+        # Fine: the photo laid over the ROI by T0, registered onto it.
+        over = p['im'].transform(size, Image.AFFINE, tuple(T0[:2].ravel()), Image.BILINEAR, fillcolor=(255, 255, 255))
+        M, score, ang, sc = align.align(placed, over, src_px=G, levels=(G / 2, G))
+        return T0 @ np.vstack([M, [0, 0, 1]]) @ np.linalg.inv(refP), score, cs, csc, cang
+
     for order in (range(i0 - 1, -1, -1), range(i0 + 1, len(photos))):
-        prev = rp
+        good = [rp]  # placed photos solid enough to match against, newest first last
         for i in order:
             p = photos[i]
-            A = T[id(prev)] @ refP
-            placed = prev['im'].transform(size, Image.AFFINE, tuple(A[:2].ravel()), Image.BILINEAR, fillcolor=(255, 255, 255))
-            # Photo pixels per ROI pixel, roughly: as for the neighbour, if
-            # both photos take in the same field.
-            guess = max(p['im'].size) / max(prev['im'].size) * math.hypot(*A[:2, 0])
-            T0, cs, csc, cang = coarse_roi(placed, p['im'], guess)
-            # Fine: the photo laid over the ROI by T0, registered onto it.
-            B = T0
-            over = p['im'].transform(size, Image.AFFINE, tuple(B[:2].ravel()), Image.BILINEAR, fillcolor=(255, 255, 255))
-            M, score, ang, sc = align.align(placed, over, src_px=G, levels=(G / 2, G))
-            Tp = B @ np.vstack([M, [0, 0, 1]]) @ np.linalg.inv(refP)
+            # The neighbour first; if it does not hold (a photo taken from an
+            # odd angle, sheet 7's 16:10, breaks the chain), the ones placed
+            # before it, then the reference itself.
+            best = None
+            targets = good[::-1][:3]
+            if rp not in targets:
+                targets.append(rp)
+            for target in targets:
+                r = match(p, target)
+                if best is None or r[1] > best[1]:
+                    best = r
+                if r[1] >= GOOD_FIT:
+                    break
+            Tp, score, cs, csc, cang = best
             if score < MIN_FIT:
                 # Nothing to hold on to: dropped rather than shown off place.
                 print(f"  {os.path.basename(p['file'])}: fit {score:.2f} - dropped", flush=True)
@@ -193,7 +214,8 @@ def main(spec_path):
                 continue
             T[id(p)] = Tp
             print(f"  {os.path.basename(p['file'])}: found {cs:.2f} (turn {cang:+.0f}°, scale x{csc:.2f}), fit {score:.2f}", flush=True)
-            prev = p
+            if score >= GOOD_FIT:
+                good.append(p)  # a weak fit is kept, but not built upon
 
     photos = [p for p in photos if p not in photos_dropped]
     # Presence, per stroke per photo.
@@ -209,7 +231,8 @@ def main(spec_path):
     for p in photos:
         for n, (c, wmm, hmm) in geo.items():
             crop = sh.render(p, T[id(p)], c, wmm, hmm, rk)
-            m = sh.paint_mask(np.asarray(crop.resize((crop.width // 4, crop.height // 4))), *thr)
+            small = np.asarray(crop.resize((crop.width // 4, crop.height // 4))).astype(int)
+            m = (small.max(axis=2) - small.min(axis=2) > 45) if align.MODE == 'chroma' else sh.paint_mask(small, *thr)
             shows[(id(p), n)] = float(m.mean()) > PRESENT
     last = photos[-1]
     for st in sheet['strokes']:

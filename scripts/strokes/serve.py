@@ -6,7 +6,8 @@
 Serves docs/reference/strokes as files, plus
 
   GET  /comments        -> the comments, JSON list
-  POST /comments        {sheet, n, version, text} -> appended, with time
+  POST /comments        {sheet, n, version, text, author} -> appended, with time
+                        (author defaults to Илья: the page is his; the others are written by Claude)
 
 Comments live in docs/reference/strokes/comments.json, in the repo, where
 Claude reads them: a comment is on one stroke of one sheet and on the engine
@@ -64,7 +65,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not text:
                 return self._json(400, {'error': 'empty'})
             c = {'id': uuid.uuid4().hex[:10], 'sheet': str(body.get('sheet', '')), 'n': body.get('n'),
-                 'version': body.get('version'), 'text': text[:4000],
+                 'version': body.get('version'), 'author': str(body.get('author') or 'Илья')[:40], 'text': text[:4000],
                  'at': datetime.datetime.now().isoformat(timespec='seconds')}
         except (ValueError, TypeError):
             return self._json(400, {'error': 'bad json'})

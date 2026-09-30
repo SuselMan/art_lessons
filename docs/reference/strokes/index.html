@@ -46,6 +46,8 @@ dialog::backdrop{background:#000a}
 .comments h4{margin:0 0 8px;font-size:14px;color:var(--muted)}
 .cm{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
 .cm .when{font-size:12px;color:var(--muted)}
+.cm > div:last-child{white-space:pre-wrap}
+.sheet > details{margin:0 0 12px}
 .cm .ver{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 6px;margin-left:6px}
 .newc{display:flex;gap:8px;align-items:flex-start}
 .newc textarea{flex:1;min-height:64px;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
@@ -106,7 +108,7 @@ const $ = id => document.getElementById(id)
 let current = 'all'
 let timer = null, stopPlay = () => {}
 let comments = []
-fetch('comments').then(r => r.ok ? r.json() : []).then(c => { comments = c }).catch(() => {})
+fetch('comments').then(r => r.ok ? r.json() : []).then(c => { comments = c; render() }).catch(() => {})
 try { current = localStorage.getItem('strokes.sheet') || 'all' } catch (e) {}
 
 function fmtAge(s) {
@@ -138,6 +140,17 @@ function render() {
     const coin = { '1rub': '1 ₽', '2rub': '2 ₽', '5rub': '5 ₽', '10rub': '10 ₽', '50eurocent': '50 евроцентов' }[s.coin] || s.coin
     const room = s.board && s.board.room ? ` · <a href="${s.board.room}" target="_blank" rel="noopener">комната для повтора</a>` : ''
     sec.innerHTML = `<h2>Лист ${s.id}</h2><p>${[s.paper, s.note, 'масштаб по монете ' + coin].filter(Boolean).join(' · ')}${room}</p>`
+    // Comments on the whole sheet (n empty) and on everything ('*'): under the heading.
+    const general = comments.filter(c => c.n == null && (c.sheet === s.id || (c.sheet === '*' && s === sheets[0])))
+    if (general.length) {
+      const det = document.createElement('details'); det.className = 'cm'
+      det.innerHTML = `<summary>Общие комментарии (${general.length})</summary>`
+      for (const c of general) {
+        const d = document.createElement('div'); d.style.marginTop = '8px'; d.style.whiteSpace = 'pre-wrap'
+        d.textContent = `${c.author || 'Илья'}${c.sheet === '*' ? ' (по всем листам)' : ''}: ${c.text}`; det.appendChild(d)
+      }
+      sec.appendChild(det)
+    }
     const grid = document.createElement('div'); grid.className = 'grid'
     for (const st of s.strokes) {
       total++
@@ -145,7 +158,7 @@ function render() {
       const c = document.createElement('button'); c.className = 'card'
       c.innerHTML = `<div class="thumb">${pic ? `<img loading="lazy" src="${pic.src}" alt="">` : ''}</div>
         <div class="meta"><div class="n">№ ${st.n}</div><div class="lab"></div>
-        <div class="badges"><span>мокрых: ${st.wet.length}</span><span>${st.dry ? 'сухой ✓' : 'сухого нет'}</span></div></div>`
+        <div class="badges"><span>мокрых: ${st.wet.length}</span><span>${st.dry ? 'сухой ✓' : 'сухого нет'}</span><span>${comments.filter(c => c.sheet === s.id && c.n === st.n).length || ''} ${comments.some(c => c.sheet === s.id && c.n === st.n) ? '💬' : ''}</span></div></div>`
       c.querySelector('.lab').textContent = st.label || ''
       c.onclick = () => open(s, st)
       // Hover: the series plays in the card itself, dry shot last.
@@ -254,7 +267,7 @@ function open(s, st) {
     for (const c of mine) {
       const d = document.createElement('div'); d.className = 'cm'
       const head = document.createElement('div'); head.className = 'when'
-      head.textContent = c.at.replace('T', ' ')
+      head.textContent = (c.author || 'Илья') + ' · ' + c.at.replace('T', ' ')
       if (c.version) { const v = document.createElement('span'); v.className = 'ver'; v.textContent = c.version; head.appendChild(v) }
       const body = document.createElement('div'); body.textContent = c.text
       d.appendChild(head); d.appendChild(body); list.appendChild(d)

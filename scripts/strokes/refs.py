@@ -120,7 +120,8 @@ def whiten(crop):
     # Paper: not paint (paint is bluer than green and redder than green, even
     # a pale wash), not ink or shadow (dark).
     lum = a.mean(axis=2)
-    paper = ~((b - g > 3) & (r - g > 14)) & (lum > np.percentile(lum, 20))
+    chroma = a.max(axis=2) - a.min(axis=2)
+    paper = ~((b - g > 3) & (r - g > 14)) & (chroma < 40) & (lum > np.percentile(lum, 20))
     ys, xs = np.mgrid[0:h, 0:w]
     u, v = xs / w - 0.5, ys / h - 0.5
     basis = np.stack([np.ones_like(u), u, v, u * u, u * v, v * v], axis=-1)

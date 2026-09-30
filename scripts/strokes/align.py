@@ -21,6 +21,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 PX_PER_MM = 12
+MODE = 'violet'  # the paint feature: 'violet' (red+blue over green) or 'chroma' (any colour)
 
 
 def feature(im, px_per_mm, src_px=PX_PER_MM):
@@ -31,7 +32,11 @@ def feature(im, px_per_mm, src_px=PX_PER_MM):
     small = im.resize((max(8, round(w * f)), max(8, round(h * f))), Image.BILINEAR)
     small = small.filter(ImageFilter.GaussianBlur(1.0))  # PIL blurs RGB, not float
     a = np.asarray(small).astype(np.float32)
-    d = np.clip((a[..., 0] + a[..., 2]) / 2 - a[..., 1], 0, None)
+    if MODE == 'chroma':
+        # Any colour (sheet 7: yellow and green): how far from grey.
+        d = np.clip(a.max(axis=2) - a.min(axis=2) - 25, 0, None)
+    else:
+        d = np.clip((a[..., 0] + a[..., 2]) / 2 - a[..., 1], 0, None)
     return d - d.mean()
 
 
