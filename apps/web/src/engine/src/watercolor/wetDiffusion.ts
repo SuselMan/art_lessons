@@ -114,6 +114,9 @@ export const WET_DIFFUSE_PUDDLE_SCHEDULE: readonly WetDiffuseStep[] = [
  *  schedule evening all of it out into one pale cloud. */
 export const WET_SETTLE_CORE = 0.45
 export const WET_SETTLE_STEP = 0.2
+/** (#680, s17.82) From which slice on the settled paint goes down through
+ *  the paper's fibres (field-op wcFibre): the late slices, the far halo. */
+export const WET_SETTLE_FIBRE_FROM = 3
 /** Two fine steps the core is smoothed by before it settles (see index.ts);
  *  an even count, so the ping-pong's parity stays. */
 export const WET_SETTLE_SMOOTH: ReadonlyArray<readonly [number, boolean]> = [[3, false], [2, true]]

@@ -79,7 +79,7 @@ import { markerThinNibInkGain } from './src/dabs/markerInkGain'
 const EMPTY_BANDS = new Float32Array(0)
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
@@ -9531,9 +9531,14 @@ export class PencilEngine implements PencilEngineAPI {
       if (puddleSteps.length) {
         const w = watercolorPuddleSettleWeights(puddleSteps.length)
         const acc = { fixed: b, free: spare }
+        // (§17.82) The far slices - settled after the long steps, the faint
+        // outer halo - go down through the paper's fibres (wcFibre).
+        const fibreFrom = WET_SETTLE_FIBRE_FROM
+        const world: [number, number, number] = [x0 / S, -(y0 / S + field.h), S]
         const settleSlice = (k: number): void => {
           if (!(w.slices[k] > 0)) return
-          fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k])
+          if (k >= fibreFrom) this._fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k], { world, d: field.band, dir: [1, 1] })
+          else fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k])
           const t = acc.fixed; acc.fixed = acc.free; acc.free = t
         }
         // The core is taken off a SMOOTHED field: straight after the carry
@@ -11533,8 +11538,7 @@ export class PencilEngine implements PencilEngineAPI {
     const raster = this._paperWet.raster(b.minCx, b.minCy, step, inW, inH, now)
     const cells = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) cells.set(raster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
-    // (#680, s17.81) The pool share, for the bead's gate: its 5x5 max like the
-    // body's, so the bead's ring on the edge ramp reads the pool it rings.
+    // (#680, s17.81) The pool share, for the pool's tone (s17.83).
     const poolRaster = this._paperWet.rasterPool(b.minCx, b.minCy, step, inW, inH, now)
     const pools = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) pools.set(poolRaster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
@@ -11558,8 +11562,13 @@ export class PencilEngine implements PencilEngineAPI {
         ) * 0.0625
         let body = 0
         for (let j = -2; j <= 2; j++) { const yy = y + j; if (yy < 0 || yy >= h) continue; const v = rowMax[yy * w + x]; if (v > body) body = v }
-        let pool = 0
-        for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const v = poolAt(x + i, y + j); if (v > pool) pool = v }
+        // The pool as the tint's own tent, not the body's 5x5 max: the pool is
+        // drawn as a tone now (s17.83), and its edge must be the grey's.
+        const pool = (
+          poolAt(x, y) * 4
+          + (poolAt(x, y + 1) + poolAt(x, y - 1) + poolAt(x + 1, y) + poolAt(x - 1, y)) * 2
+          + poolAt(x + 1, y + 1) + poolAt(x - 1, y + 1) + poolAt(x + 1, y - 1) + poolAt(x - 1, y - 1)
+        ) * 0.0625
         const o = (y * w + x) * 4
         data[o] = data[o + 2] = Math.round(Math.min(tent, 1) * 255)
         data[o + 1] = Math.round(Math.min(pool, 1) * 255)

@@ -3073,6 +3073,22 @@ export const WC_FIELD_OP_FRAG = `
     vec2 w = f * f * (3.0 - 2.0 * f);
     return mix(mix(wcRimHash(i), wcRimHash(i + vec2(1.0, 0.0)), w.x), mix(wcRimHash(i + vec2(0.0, 1.0)), wcRimHash(i + vec2(1.0, 1.0)), w.x), w.y);
   }
+  // (#680, s17.82) The paper's fibres for the far halo: thin streaks a few
+  // world px wide and tens long, their direction turning slowly across the
+  // sheet (a fibre mat, not parallel lines). Averages about one, so what it
+  // multiplies keeps its mass: the late-settling paint gathers into threads
+  // - Ilya's "паутинки" - instead of an even haze.
+  // (s17.82) radial: the dome's slope here (u_d .a, full under the drop,
+  // none at the front) - the threads run out from the core as on the
+  // photographs; where the dome is flat the direction wanders on its own.
+  float wcFibre(vec2 wp, vec2 radial) {
+    float ang = 6.2831853 * wcRimNoise(wp * 0.004 + vec2(17.0, 3.0));
+    float r = length(radial);
+    vec2 d = normalize(mix(vec2(cos(ang), sin(ang)), radial / max(r, 1e-6), smoothstep(0.004, 0.02, r)) + vec2(1e-5));
+    vec2 q = vec2(dot(wp, d) * 0.03, dot(wp, vec2(-d.y, d.x)) * 0.35);
+    float n = wcRimNoise(q) * 0.65 + wcRimNoise(q * 2.3 + vec2(5.0, 9.0)) * 0.35;
+    return 0.4 + 1.9 * smoothstep(0.58, 0.85, n);
+  }
   #define WC_FIELD_FIT(v) ((v) / max(1.0, max(max((v).r, (v).g), max((v).b, (v).a))))
   // (s17.25) The rim's deposition profile: the tail's weight against the
   // sharp peak, its floor on a paper crest, and the height window that
@@ -3567,7 +3583,16 @@ export const WC_FIELD_OP_FRAG = `
       gl_FragColor = vec4(a.b * u_tau / 4.0, a.b);
       return;
     }
-    gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : WC_FIELD_FIT(a + b * u_k);
+    // (#680, s17.82) Mode 1 with a world (u_world.z > 0): the added field
+    // through the paper's fibres - the puddle settle's far slices.
+    float fibre = 1.0;
+    if (u_mode > 0.5 && u_world.z > 0.0) {
+      vec2 radial = vec2(
+        texture2D(u_d, v_uv - vec2(3.0 * u_dir.x, 0.0)).a - texture2D(u_d, v_uv + vec2(3.0 * u_dir.x, 0.0)).a,
+        texture2D(u_d, v_uv - vec2(0.0, 3.0 * u_dir.y)).a - texture2D(u_d, v_uv + vec2(0.0, 3.0 * u_dir.y)).a);
+      fibre = wcFibre((gl_FragCoord.xy + u_world.xy) * u_world.z, radial);
+    }
+    gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : WC_FIELD_FIT(a + b * u_k * fibre);
 #endif
   }
 `;
@@ -4373,6 +4398,14 @@ export const PAPER_COMPOSE_FRAG = `
   // high. Damp paper is tinted and still gates the diffusion of the next
   // stroke; it just has no valley of water to catch the light.
   const float WC_BEAD_LO = 0.45;
+  // (#680, s17.83) The glossy bead - blik, meniscus ring, cast - is OFF:
+  // Ilya, "как щас мне не нравится" and, before, "каёмку лужи рисовать так
+  // же, как серую зону при намокании". A pool is drawn as the wet paper
+  // is, a deeper wet tone (WC_POOL_SHADE, WC_POOL_DEEPEN) with the same
+  // soft edge. 1.0 brings the rings back.
+  const float WC_BEAD_ON = 0.0;
+  const float WC_POOL_SHADE = 0.08;
+  const float WC_POOL_DEEPEN = 0.45;
   const float WC_BEAD_HI = 0.70;
   const float WC_RIM_LO  = 0.158;
   const float WC_RIM_MID = 0.177;
@@ -4640,6 +4673,7 @@ export const PAPER_COMPOSE_FRAG = `
     // (#536) The faint all-over tint of damp paper — see its use below.
     float damp = 0.0;
     float fresh = 0.0;
+    float pool = 0.0;
     if (u_wetRect.z > u_wetRect.x) {
       vec2 wetSpan = max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
       vec2 wetUV = (worldPos - u_wetRect.xy) / wetSpan;
@@ -4692,6 +4726,11 @@ export const PAPER_COMPOSE_FRAG = `
         held = WC_WET_RELAX * pow(clamp(raw / WC_RELAX_REF, 0.0, 1.0), WC_RELAX_EASE);
         damp = inWater * smoothstep(WC_EDGE_OUT, 0.42, t) * smoothstep(0.04, 0.30, raw);
         fresh = inWater * smoothstep(WC_FRESH_LO, 1.0, raw);
+        // (#680, s17.83) Where a pool stands (the map's .g, the brush's
+        // surplus over the film - landing, stop, braking), fading with the
+        // water under it.
+        pool = inWater * smoothstep(0.08, 0.45, texture2D(u_wetMap, wetUV).g) * smoothstep(0.1, 0.5, raw);
+        wet = max(wet, pool);
         // The rim, as a *window on the wetness value* rather than as a
         // derivative of it.
         //
@@ -4740,7 +4779,7 @@ export const PAPER_COMPOSE_FRAG = `
         // dry to the dark patch), not wherever the paper is wet: the bead
         // stood beside the stroke at no size of its own. The grey of wet
         // paper is unchanged.
-        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, body) * smoothstep(0.15, 0.45, texture2D(u_wetMap, wetUV).g);
+        float bead = WC_BEAD_ON * smoothstep(WC_BEAD_LO, WC_BEAD_HI, body) * smoothstep(0.15, 0.45, texture2D(u_wetMap, wetUV).g);
         rim *= bead;
         rimDark *= bead;
         rimCast *= bead;
@@ -4836,6 +4875,9 @@ export const PAPER_COMPOSE_FRAG = `
     float onPaint = smoothstep(0.02, 0.25, graphite);
     color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh * (1.0 - onPaint));
     color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_FRESH_DEEPEN * fresh * onPaint));
+    // (#680, s17.83) ...and a pool one step deeper again, the same two ways.
+    color *= mix(1.0, 1.0 - WC_POOL_SHADE, pool * (1.0 - onPaint));
+    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_POOL_DEEPEN * pool * onPaint));
     color += vec3(gloss);
     color *= 1.0 - shade;
 
