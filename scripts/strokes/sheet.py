@@ -31,10 +31,11 @@ MARGIN_MM = 4
 WORK_WIDTH = 1000  # the mask is searched at about this width
 
 
-def paint_mask(rgb):
+def paint_mask(rgb, bg=18, rg=8):
     r, g, b = rgb[..., 0].astype(int), rgb[..., 1].astype(int), rgb[..., 2].astype(int)
     # Pale washes too: a light lavender is only ~20 above the paper in blue.
-    return (b - g > 18) & (r - g > 8)
+    # A paler, pinker one (sheet 4) needs the spec's `paint: [bg, rg]`.
+    return (b - g > bg) & (r - g > rg)
 
 
 def region(mask, seed):
@@ -102,7 +103,7 @@ def main(spec_path):
         W, H = im.size
         f = max(1, W // WORK_WIDTH)
         small = np.asarray(im.resize((W // f, H // f), Image.BILINEAR))
-        m = paint_mask(small)
+        m = paint_mask(small, *spec.get('paint', (18, 8)))
         m = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5))) > 0
         k = scale(photo, im)
         print(os.path.basename(photo['file']), f'{k:.2f} px/mm', f"coin {photo['coinPx']:.0f} px" if 'coinPx' in photo else '')
