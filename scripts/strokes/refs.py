@@ -146,6 +146,10 @@ def cut(im, b, px_per_mm, out):
     crop = im.crop((int(x0), int(y0), int(x1), int(y1)))
     k = PX_PER_MM / px_per_mm
     crop = crop.resize((max(1, round(crop.width * k)), max(1, round(crop.height * k))), Image.LANCZOS)
+    return save_crop(crop, out)
+
+
+def save_crop(crop, out):
     crop = whiten(crop)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     crop.save(out, quality=JPEG_QUALITY)

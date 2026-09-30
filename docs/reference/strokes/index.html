@@ -40,8 +40,9 @@ dialog::backdrop{background:#000a}
 .dbody{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
 @media (max-width:800px){.dbody{grid-template-columns:1fr}}
 .pane h4{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600}
-.stage{background:var(--paper);border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:260px;position:relative}
-.stage img{max-width:100%;max-height:62vh;display:block}
+.stage{background:var(--paper);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.stage img{width:100%;height:100%;object-fit:contain;display:block}
+.stage{max-height:62vh}
 .scalebar{position:absolute;left:10px;bottom:10px;height:4px;background:#111;border-radius:2px}
 .scalebar span{position:absolute;left:0;bottom:6px;font-size:11px;color:#111;white-space:nowrap}
 .timeline{display:flex;align-items:center;gap:10px;margin-top:10px}
@@ -66,7 +67,7 @@ dialog::backdrop{background:#000a}
     <div class="pane">
       <h4 id="wetTitle">Мокрый — серия высыхания</h4>
       <div class="stage" id="wetStage"></div>
-      <div class="timeline" id="wetTimeline"><input type="range" id="wetRange" min="0" max="0" value="0" aria-label="Кадр серии"><span id="wetAge"></span></div>
+      <div class="timeline" id="wetTimeline"><button class="btn" id="play" aria-label="Проиграть высыхание">▶</button><input type="range" id="wetRange" min="0" max="0" value="0" aria-label="Кадр серии"><span id="wetAge"></span></div>
       <div class="ticks" id="wetTicks"></div>
     </div>
     <div class="pane">
@@ -81,6 +82,7 @@ dialog::backdrop{background:#000a}
 const A = window.STROKE_ARCHIVE || { pxPerMm: 12, sheets: [] }
 const $ = id => document.getElementById(id)
 let current = 'all'
+let timer = null, stopPlay = () => {}
 try { current = localStorage.getItem('strokes.sheet') || 'all' } catch (e) {}
 
 function fmtAge(s) {
@@ -121,6 +123,19 @@ function render() {
         <div class="badges"><span>мокрых: ${st.wet.length}</span><span>${st.dry ? 'сухой ✓' : 'сухого нет'}</span></div></div>`
       c.querySelector('.lab').textContent = st.label || ''
       c.onclick = () => open(s, st)
+      // Hover: the series plays in the card itself, dry shot last.
+      const seq = st.dry ? [...st.wet, st.dry] : st.wet
+      if (seq.length > 1) {
+        let t = null
+        const img = c.querySelector('.thumb img')
+        c.onmouseenter = () => {
+          preload(seq)
+          let i = 0
+          const step = () => { img.src = seq[i].src; i = (i + 1) % seq.length; t = setTimeout(step, i === 0 ? 1200 : 400) }
+          step()
+        }
+        c.onmouseleave = () => { clearTimeout(t); img.src = pic.src }
+      }
       grid.appendChild(c)
     }
     if (!s.strokes.length) grid.innerHTML = '<div class="empty">Пока пусто</div>'
@@ -130,21 +145,34 @@ function render() {
   $('count').textContent = total ? `мазков: ${total}` : ''
 }
 
+// One <img> per stage, its src swapped in place: rebuilding it on every
+// frame let the stage collapse while the next frame loaded, and the whole
+// dialog jumped. The stage keeps the frames' aspect ratio (all frames of a
+// stroke are cut the same size).
+const cache = new Map()
+function preload(pics) {
+  for (const p of pics) if (p && !cache.has(p.src)) { const i = new Image(); i.src = p.src; cache.set(p.src, i) }
+}
 function stage(el, pic) {
-  el.innerHTML = ''
-  if (!pic) { el.innerHTML = '<div class="none">нет снимка</div>'; return }
-  const img = new Image(); img.src = pic.src; img.alt = ''
-  const bar = document.createElement('div'); bar.className = 'scalebar'
-  const lab = document.createElement('span'); lab.textContent = '1 см'; bar.appendChild(lab)
-  img.onload = () => { bar.style.width = (A.pxPerMm * 10 * img.clientWidth / img.naturalWidth) + 'px' }
-  el.appendChild(img); el.appendChild(bar)
+  if (!pic) { el.innerHTML = '<div class="none">нет снимка</div>'; el.style.aspectRatio = ''; return }
+  let img = el.querySelector('img'), bar = el.querySelector('.scalebar')
+  if (!img) {
+    el.innerHTML = ''
+    img = document.createElement('img'); img.alt = ''
+    bar = document.createElement('div'); bar.className = 'scalebar'
+    const lab = document.createElement('span'); lab.textContent = '1 см'; bar.appendChild(lab)
+    el.appendChild(img); el.appendChild(bar)
+    new ResizeObserver(() => { if (img.naturalWidth) bar.style.width = (A.pxPerMm * 10 * img.clientWidth / img.naturalWidth) + 'px' }).observe(img)
+  }
+  el.style.aspectRatio = pic.w + ' / ' + pic.h
+  img.src = pic.src
 }
 
 function open(s, st) {
   $('dTitle').textContent = `Лист ${s.id} · № ${st.n}`
   $('dLabel').textContent = st.label || ''
   const wet = st.wet, range = $('wetRange'), ticks = $('wetTicks')
-  $('wetTimeline').style.display = wet.length > 1 ? '' : 'none'
+  $('wetTimeline').style.display = wet.length > 1 || st.dry ? '' : 'none'
   range.max = Math.max(0, wet.length - 1); range.value = 0
   ticks.innerHTML = ''
   const show = i => {
@@ -158,13 +186,38 @@ function open(s, st) {
     t.textContent = w.ageS != null ? fmtAge(w.ageS) : `кадр ${i + 1}`
     t.onclick = () => show(i); ticks.appendChild(t)
   })
-  range.oninput = () => show(+range.value)
+  range.oninput = () => { stop(); show(+range.value) }
+  // Play: the wet frames in order, then the dry shot in the same pane - the
+  // frames are registered onto each other, so the stroke holds still and
+  // only the paint changes.
+  const seq = st.dry ? [...wet, st.dry] : wet
+  preload(seq)
+  const play = $('play')
+  const frame = i => {
+    if (i < wet.length) show(i)
+    else { stage($('wetStage'), st.dry); $('wetAge').textContent = 'сухой'; [...ticks.children].forEach(t => t.setAttribute('aria-pressed', 'false')) }
+  }
+  const stop = () => { clearTimeout(timer); timer = null; play.textContent = '▶' }
+  play.onclick = () => {
+    if (timer) { stop(); return }
+    play.textContent = '❚❚'
+    let i = 0
+    const step = () => {
+      frame(i)
+      const last = i === seq.length - 1
+      timer = setTimeout(() => { if (last) { stop(); return } i++; step() }, last ? 0 : 450)
+    }
+    step()
+  }
+  stopPlay = stop
+  play.style.display = seq.length > 1 ? '' : 'none'
   show(0)
   stage($('dryStage'), st.dry)
   $('dlg').showModal()
 }
 
 $('dClose').onclick = () => $('dlg').close()
+$('dlg').addEventListener('close', () => stopPlay())
 $('dlg').addEventListener('click', e => { if (e.target === $('dlg')) $('dlg').close() })
 render()
 </script>
