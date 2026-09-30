@@ -60,6 +60,22 @@ export const WET_CELL_PX = 8
 //  Defined in @grafetto/shared since s17.48: the server ages paper_dry by it.
 export const WET_DRY_MS = WATERCOLOR_WET_DRY_MS
 
+/** (#680, ADR 011 §17.75) How long a patch of paper stays wet, by how much
+ *  water was laid on it: a puddle keeps the whole WET_DRY_MS window, a thin
+ *  film from a nearly dry brush gives up in a fraction of it. One window for
+ *  everything had a dry-brush touch "wet" for two minutes, and every next
+ *  touch within reach merged into it - the lace of separate touches on the
+ *  archive's sheets 5-6 came out as one pale slab. The puddle end stays at
+ *  WET_DRY_MS: that length was set by Ilya working into puddles (s17.43,
+ *  s17.47), and nothing here shortens it. Monotone in `w`, so a cell never
+ *  outlives the tracked peak (_notePeak's over-estimate stays one). */
+export function wetDryMsFor(w: number): number {
+  const x = Math.min(Math.max(w, 0), 1)
+  return WET_DRY_MS * (WET_DRY_FILM_SHARE + (1 - WET_DRY_FILM_SHARE) * Math.pow(x, 1.5))
+}
+/** The share of WET_DRY_MS the thinnest film keeps. */
+export const WET_DRY_FILM_SHARE = 0.2
+
 /** (#536, §17.44) cx, cy: the cell's own indices, so a pass over the field
  *  (raster) never parses its key. */
 interface WetCell { w: number; at: number; cx: number; cy: number }
@@ -108,8 +124,9 @@ export class PaperWetness {
     // same sign error that made the tracked peak collapse (see _notePeak), one
     // level further down.
     const age = Math.max(now - cell.at, 0)
-    if (age >= WET_DRY_MS) return 0
-    return cell.w * (1 - age / WET_DRY_MS)
+    const dry = wetDryMsFor(cell.w)
+    if (age >= dry) return 0
+    return cell.w * (1 - age / dry)
   }
 
   /** Water laid down by one dab. `amount` is how wet the brush was, 0..1.

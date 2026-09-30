@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import {
-  PaperWetness, WET_CELL_PX, WET_DRY_MS,
+  PaperWetness, WET_CELL_PX, WET_DRY_MS, wetDryMsFor,
   quantizeWet, dequantizeWet, wetAt, wetPeak, isDryProfile,
 } from './paperWetness'
 
@@ -89,9 +89,15 @@ describe('a brush drinking from the paper (#536)', () => {
     const f = new PaperWetness()
     f.deposit('L', 0, 0, 10, 1, 0)
     f.drain('L', 0, 0, 10, 0.5)
-    // Half spent, then half taken: a quarter left, and bone dry on the original
-    // schedule rather than half a window later.
-    expect(f.sample('L', 0, 0, WET_DRY_MS * 0.5)).toBeCloseTo(0.25, 5)
+    const left = new PaperWetness()
+    left.deposit('L', 0, 0, 10, 1, 0)
+    // (#680, §17.75) Less water dries sooner (wetDryMsFor), so a drunk patch
+    // is at every moment drier than one left alone, and bone dry no later
+    // than the original schedule.
+    for (const k of [0.1, 0.3, 0.5, 0.8]) {
+      expect(f.sample('L', 0, 0, WET_DRY_MS * k)).toBeLessThanOrEqual(left.sample('L', 0, 0, WET_DRY_MS * k))
+    }
+    expect(f.sample('L', 0, 0, WET_DRY_MS * 0.2)).toBeCloseTo(Math.max(0, 0.5 * (1 - 0.2 * WET_DRY_MS / wetDryMsFor(0.5))), 5)
     expect(f.sample('L', 0, 0, WET_DRY_MS)).toBe(0)
   })
 
@@ -178,10 +184,12 @@ describe('the peak may only ever over-estimate (#536)', () => {
     const late = WET_DRY_MS * 0.8
     f.deposit('L', 0, 0, 10, 0.05, late, true)
     f.commitPending(late)
-    // The cell under the stroke is wet well past where the original puddle
-    // would have dried…
-    const after = WET_DRY_MS * 1.2
-    expect(f.sample('L', 0, 0, after)).toBeGreaterThan(0.05)
+    // The cell under the stroke is wet past where the original puddle would
+    // have dried… (#680: the carried level is low by then, so its own window
+    // is short - wetDryMsFor - and "past" is measured in it.)
+    const after = late + 0.5 * wetDryMsFor(f.sample('L', 0, 0, late))
+    expect(after).toBeGreaterThan(wetDryMsFor(0.9))
+    expect(f.sample('L', 0, 0, after)).toBeGreaterThan(0.01)
     // …and the watcher still knows it.
     expect(f.peak(after) + 1e-9).toBeGreaterThanOrEqual(wettestCell(f, after))
     expect(f.peak(after)).toBeGreaterThan(0.01)
@@ -241,5 +249,23 @@ describe('the recorded profile (#536)', () => {
     expect(isDryProfile('0000')).toBe(true)
     expect(isDryProfile('')).toBe(true)
     expect(isDryProfile('0010')).toBe(false)
+  })
+})
+
+describe('drying by the water laid (#680, ADR 011 §17.75)', () => {
+  it('a puddle keeps the whole window, a thin film a fraction of it', () => {
+    expect(wetDryMsFor(1)).toBe(WET_DRY_MS)
+    expect(wetDryMsFor(0)).toBeLessThan(WET_DRY_MS * 0.3)
+  })
+  it('more water never dries sooner', () => {
+    for (let w = 0; w < 1; w += 0.1) expect(wetDryMsFor(w + 0.1)).toBeGreaterThanOrEqual(wetDryMsFor(w))
+  })
+  it('a thin film is dry while a puddle laid at the same moment is still wet', () => {
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 10, 0.15, 0)
+    f.deposit('L', 500, 0, 10, 1, 0)
+    const t = WET_DRY_MS * 0.4
+    expect(f.sample('L', 0, 0, t)).toBe(0)
+    expect(f.sample('L', 500, 0, t)).toBeGreaterThan(0.5)
   })
 })
