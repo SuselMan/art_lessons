@@ -92,10 +92,17 @@ def box(s):
     return v
 
 
-def scale_of(sheet, coin_edge):
-    x0, y0, x1, y1 = box(coin_edge)
-    diameter_px = math.hypot(x1 - x0, y1 - y0)
-    return diameter_px / COINS_MM[sheet['coin']]  # photo px per mm
+def scale_of(sheet, args):
+    """Photo px per mm: from the coin's diameter, or - a photo without the
+    coin - from any segment of known length (`--ref-edge`, `--ref-mm`), e.g.
+    the A4 sheet's short side, 210 mm."""
+    if getattr(args, 'coin_edge', None):
+        x0, y0, x1, y1 = box(args.coin_edge)
+        return math.hypot(x1 - x0, y1 - y0) / COINS_MM[sheet['coin']]
+    if getattr(args, 'ref_edge', None) and getattr(args, 'ref_mm', None):
+        x0, y0, x1, y1 = box(args.ref_edge)
+        return math.hypot(x1 - x0, y1 - y0) / args.ref_mm
+    sys.exit('need --coin-edge, or --ref-edge with --ref-mm')
 
 
 def cut(im, b, px_per_mm, out):
@@ -130,7 +137,7 @@ def cmd_wet(args):
     s = sheet_of(a, args.sheet)
     st = stroke_of(s, args.stroke)
     im, t = open_photo(args.photo)
-    k = scale_of(s, args.coin_edge)
+    k = scale_of(s, args)
     i = len(st['wet']) + 1
     out = os.path.join(ROOT, 'img', s['id'], f'{args.stroke:03d}-wet-{i:02d}.jpg')
     w, h = cut(im, box(args.box), k, out)
@@ -147,7 +154,7 @@ def cmd_dry(args):
     a = load()
     s = sheet_of(a, args.sheet)
     im, t = open_photo(args.photo)
-    k = scale_of(s, args.coin_edge)
+    k = scale_of(s, args)
     s['dryPhotoT'] = t
     for spec in args.stroke:
         n, b = spec.split(':', 1)
@@ -173,9 +180,9 @@ def main():
     sub = p.add_subparsers(dest='cmd', required=True)
     q = sub.add_parser('sheet'); q.add_argument('sheet'); q.add_argument('--coin', required=True); q.add_argument('--paper'); q.add_argument('--note')
     q = sub.add_parser('wet'); q.add_argument('sheet'); q.add_argument('stroke', type=int); q.add_argument('photo')
-    q.add_argument('--box', required=True); q.add_argument('--coin-edge', required=True); q.add_argument('--label')
+    q.add_argument('--box', required=True); q.add_argument('--coin-edge'); q.add_argument('--ref-edge'); q.add_argument('--ref-mm', type=float); q.add_argument('--label')
     q = sub.add_parser('dry'); q.add_argument('sheet'); q.add_argument('photo')
-    q.add_argument('--coin-edge', required=True); q.add_argument('--stroke', action='append', required=True)
+    q.add_argument('--coin-edge'); q.add_argument('--ref-edge'); q.add_argument('--ref-mm', type=float); q.add_argument('--stroke', action='append', required=True)
     q = sub.add_parser('label'); q.add_argument('sheet'); q.add_argument('stroke', type=int); q.add_argument('label'); q.add_argument('--tags')
     sub.add_parser('build')
     args = p.parse_args()
