@@ -319,7 +319,7 @@ function RoomEditor() {
   const {
     toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool,
     drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
-  } = useToolChoice()
+  } = useToolChoice(id)
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
   // there is no second "mode" axis over it any more.
