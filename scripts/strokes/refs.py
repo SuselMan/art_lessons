@@ -26,6 +26,7 @@ import os
 import sys
 from datetime import datetime
 
+import numpy as np
 from PIL import Image, ImageOps
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'reference', 'strokes'))
@@ -105,11 +106,47 @@ def scale_of(sheet, args):
     sys.exit('need --coin-edge, or --ref-edge with --ref-mm')
 
 
+PAPER = 250  # what the paper is brought to: white, a hair under so its grain survives
+
+
+def whiten(crop):
+    """The paper made white and even: each channel divided by a smooth fit of
+    the paper under it. The photos are warm and lit from one side; a stroke
+    compared with the app's white canvas has to sit on white too, and one gain
+    for the whole crop would leave the side-light's gradient in."""
+    a = np.asarray(crop).astype(np.float32)
+    h, w, _ = a.shape
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    # Paper: not paint (paint is bluer than green and redder than green, even
+    # a pale wash), not ink or shadow (dark).
+    lum = a.mean(axis=2)
+    paper = ~((b - g > 3) & (r - g > 14)) & (lum > np.percentile(lum, 20))
+    ys, xs = np.mgrid[0:h, 0:w]
+    u, v = xs / w - 0.5, ys / h - 0.5
+    basis = np.stack([np.ones_like(u), u, v, u * u, u * v, v * v], axis=-1)
+    step = max(1, int(math.sqrt(h * w / 40000)))
+    out = np.empty_like(a)
+    for c in range(3):
+        keep = paper.copy()
+        for _ in range(3):
+            # Refit without what the fit calls an outlier: a pale wash the
+            # colour test let through, a shadow of the relief.
+            sel = keep[::step, ::step]
+            A = basis[::step, ::step][sel]
+            coef = np.linalg.lstsq(A, a[::step, ::step, c][sel], rcond=None)[0]
+            fit = basis @ coef
+            res = a[..., c] - fit
+            keep = paper & (np.abs(res) < 2.5 * max(1.0, float(np.std(res[keep]))))
+        out[..., c] = a[..., c] * PAPER / np.maximum(fit, 1)
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
 def cut(im, b, px_per_mm, out):
     x0, y0, x1, y1 = b
     crop = im.crop((int(x0), int(y0), int(x1), int(y1)))
     k = PX_PER_MM / px_per_mm
     crop = crop.resize((max(1, round(crop.width * k)), max(1, round(crop.height * k))), Image.LANCZOS)
+    crop = whiten(crop)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     crop.save(out, quality=JPEG_QUALITY)
     return crop.size
