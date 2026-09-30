@@ -1438,6 +1438,28 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
   })
 
+  it('a peer’s operation is drawn over frames and lands as in one piece (§17.72)', () => {
+    const e = setupLayer()
+    const I = e as unknown as Internals & {
+      _sliceLimits: { size: number; budgetMs: number }; _settle: unknown; _runSlice: (...a: unknown[]) => unknown
+    }
+    I._sliceLimits.size = 1
+    I._sliceLimits.budgetMs = 0
+    let slices = 0
+    const run = I._runSlice.bind(e)
+    I._runSlice = (...a: unknown[]) => { slices++; return run(...a) }
+    e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
+    expect(I._settle).toBeTruthy()
+    expect(slices).toBe(1)
+    I._completeSettle()
+    expect(I._settle).toBeNull()
+    expect(slices).toBeGreaterThan(2)
+    e.appendOperation(strokeIn('u1', 'w1', 's2', 4, 40), 'remote')
+    land(e)
+    I._completeSettle()
+    expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
+  })
+
   it('the budget spills a resting wash, and its next stroke brings it back', () => {
     const e = setupLayer()
     e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
