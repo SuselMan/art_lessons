@@ -847,6 +847,11 @@ export function watercolorSlowdown(v: number, vPeak: number): number {
 export const WC_SLOW_V0 = 0.2
 /** Weight of the slowdown next to the dwell (both 0..1 levels of the reservoir). */
 export const WC_SLOW_GAIN = 0.6
+/** (#680) A braking pool is compact - the photographs' turn-back pools are a
+ *  nib's footprint, not a wide cap: its surplus is spent over this many radii
+ *  of travel, not the landing's WC_START_EXCESS_RADII / WC_PUDDLE_RADII
+ *  (ChatGPT on the first render: "slowdown -> dark blob", too wide). */
+export const WC_SLOW_RUN_RADII = 0.5
 /** The smoothing of the pen's speed, and how fast its remembered peak fades. */
 export const WC_SPEED_TAU_MS = 20
 export const WC_PEAK_FADE_MS = 800
