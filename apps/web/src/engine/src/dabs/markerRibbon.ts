@@ -324,7 +324,7 @@ export function buildRibbonBands(
     // m = centre-line vertex (edge = full half-width), t = tangent-line vertex
     // (edge = 0, i.e. exactly on the outer boundary).
     push(m0.x, m0.y, e0, 0); push(t0.x, t0.y, 0, side); push(t1.x, t1.y, 0, side, endPressure)
-    push(m0.x, m0.y, e0, 0); push(t1.x, t1.y, 0, side, endPressure); push(m1.x, m1.y, e1, side, endPressure)
+    push(m0.x, m0.y, e0, 0); push(t1.x, t1.y, 0, side, endPressure); push(m1.x, m1.y, e1, 0, endPressure)
   }
 
   /** One nib body, as an antialiased polygon: a ring of triangles carrying the
@@ -402,8 +402,8 @@ export function buildRibbonBands(
       const ra = nibSupport(ga, -nx, -ny), rb = nibSupport(gb, -nx, -ny)
       const ca = { x: a.x, y: a.y }, cb = { x: b.x, y: b.y }
 
-      quad(ca, la.value, { x: a.x + la.x, y: a.y + la.y }, cb, lb.value, { x: b.x + lb.x, y: b.y + lb.y }, -1)
-      quad(ca, ra.value, { x: a.x + ra.x, y: a.y + ra.y }, cb, rb.value, { x: b.x + rb.x, y: b.y + rb.y }, +1)
+      quad(ca, la.value, { x: a.x + la.x, y: a.y + la.y }, cb, lb.value, { x: b.x + lb.x, y: b.y + lb.y }, +1)
+      quad(ca, ra.value, { x: a.x + ra.x, y: a.y + ra.y }, cb, rb.value, { x: b.x + rb.x, y: b.y + rb.y }, -1)
 
       // Interior sub-poses only: the endpoints already have their own exact,
       // shader-drawn nib stamp.

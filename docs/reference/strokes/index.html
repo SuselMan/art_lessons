@@ -35,7 +35,10 @@ dialog::backdrop{background:#000a}
 .dhead{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
 .dhead h3{margin:0;font-size:17px}
 .dhead .lab{color:var(--muted)}
-.dhead button{margin-left:auto}
+.dhead .dnav{margin-left:auto;display:flex;gap:8px;align-items:center}
+.dnav button{min-width:44px;min-height:44px}
+.dnav button:disabled{opacity:.35;cursor:default}
+@media(max-width:600px){.dhead{flex-wrap:wrap}.dhead .dnav{width:100%;margin-left:0}}
 .btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
 .dbody{display:grid;grid-template-columns:1fr;gap:14px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
 .appbar{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
@@ -74,7 +77,7 @@ dialog::backdrop{background:#000a}
 <main id="main"></main>
 
 <dialog id="dlg">
-  <div class="dhead"><h3 id="dTitle"></h3><span class="lab" id="dLabel"></span><button class="btn" id="dClose">Закрыть</button></div>
+  <div class="dhead"><h3 id="dTitle"></h3><span class="lab" id="dLabel"></span><div class="dnav"><button class="btn" id="dPrev" aria-label="Предыдущий мазок" title="Предыдущий мазок (←)">←</button><span id="dPosition" class="hint"></span><button class="btn" id="dNext" aria-label="Следующий мазок" title="Следующий мазок (→)">→</button><button class="btn" id="dClose">Закрыть</button></div></div>
   <div class="dbody">
     <div class="pane">
       <h4 id="wetTitle">Мокрый — серия высыхания</h4>
@@ -105,6 +108,9 @@ const A = window.STROKE_ARCHIVE || { pxPerMm: 12, sheets: [] }
 const $ = id => document.getElementById(id)
 let current = 'all'
 let timer = null, stopPlay = () => {}
+let activeStroke = null, preferredVersion = null
+const drafts = new Map()
+const strokeKey = (s, st) => s.id + ":" + st.n
 let comments = []
 fetch('comments').then(r => r.ok ? r.json() : []).then(c => { comments = c; render() }).catch(() => {})
 try { current = localStorage.getItem('strokes.sheet') || 'all' } catch (e) {}
@@ -227,7 +233,31 @@ function layout() {
 window.addEventListener('resize', layout)
 new ResizeObserver(() => layout()).observe(document.querySelector('.dbody'))
 
+function visibleStrokes() {
+  return A.sheets.filter(s => current === 'all' || s.id === current)
+    .flatMap(s => s.strokes.map(st => ({ s, st })))
+}
+function saveDraft() {
+  if (activeStroke) drafts.set(strokeKey(activeStroke.s, activeStroke.st), $('cmText').value)
+}
+function moveStroke(delta) {
+  if (!activeStroke) return
+  const items = visibleStrokes()
+  const i = items.findIndex(x => x.s === activeStroke.s && x.st === activeStroke.st)
+  const next = items[i + delta]
+  if (next) open(next.s, next.st)
+}
 function open(s, st) {
+  saveDraft()
+  stopPlay()
+  activeStroke = { s, st }
+  const items = visibleStrokes()
+  const i = items.findIndex(x => x.s === s && x.st === st)
+  $('dPrev').disabled = i <= 0
+  $('dNext').disabled = i < 0 || i >= items.length - 1
+  $('dPosition').textContent = `${i + 1} / ${items.length}`
+  $('cmText').value = drafts.get(strokeKey(s, st)) || ''
+  $('cmHint').textContent = ''
   $('dTitle').textContent = `Лист ${s.id} · № ${st.n}`
   $('dLabel').textContent = st.label || ''
   const wet = st.wet, range = $('wetRange'), ticks = $('wetTicks')
@@ -279,8 +309,9 @@ function open(s, st) {
     const o = document.createElement('option'); o.value = v.id
     o.textContent = `${v.id} · ${v.date} · ${v.subject.slice(0, 60)}`; sel.appendChild(o)
   }
+  if (vers.some(v => v.id === preferredVersion)) sel.value = preferredVersion
   const showApp = () => stage($('appStage'), vers.length ? st.app[sel.value] : null)
-  sel.onchange = () => { showApp(); renderComments() }
+  sel.onchange = () => { preferredVersion = sel.value; showApp(); renderComments() }
   showApp()
   const renderComments = () => {
     const mine = comments.filter(c => c.sheet === s.id && c.n === st.n)
@@ -301,16 +332,23 @@ function open(s, st) {
       const r = await fetch('comments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sheet: s.id, n: st.n, version: sel.value || null, text }) })
       if (!r.ok) throw new Error(r.status)
-      comments.push(await r.json()); $('cmText').value = ''; $('cmHint').textContent = ''; renderComments()
+      comments.push(await r.json()); drafts.delete(strokeKey(s, st));
+      if (activeStroke?.s === s && activeStroke?.st === st) { $('cmText').value = ''; $('cmHint').textContent = ''; renderComments() }
     } catch (e) { $('cmHint').textContent = 'Не сохранилось: комментарии пишутся только через scripts/strokes/serve.py' }
   }
   renderComments()
-  $('dlg').showModal()
+  if (!$('dlg').open) $('dlg').showModal()
   requestAnimationFrame(layout)
 }
 
 $('dClose').onclick = () => $('dlg').close()
-$('dlg').addEventListener('close', () => stopPlay())
+$('dlg').addEventListener('close', () => { saveDraft(); stopPlay(); activeStroke = null })
+$('dPrev').onclick = () => moveStroke(-1)
+$('dNext').onclick = () => moveStroke(1)
+document.addEventListener('keydown', e => {
+  if (!$('dlg').open || e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, textarea, select, [contenteditable]')) return
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); moveStroke(e.key === 'ArrowLeft' ? -1 : 1) }
+})
 $('dlg').addEventListener('click', e => { if (e.target === $('dlg')) $('dlg').close() })
 render()
 </script>

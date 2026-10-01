@@ -368,11 +368,12 @@ const WC_NOISE_GLSL = `
   float wcTipContact(float across, float combs, vec2 wp, float pressure) {
     if (combs <= 0.0) return 1.0;
     float hair = wcHairField(across, combs, wp);
-    float lift = 1.0 - smoothstep(0.05, 0.45, pressure);
-    float threshold = mix(0.18, 0.68, lift);
-    float opening = 1.0 - smoothstep(0.18, 0.32, wcNoise(wp * 0.008 + vec2(37.0, 91.0)));
-    float contact = mix(1.0, smoothstep(threshold - 0.035, threshold + 0.035, hair), max(opening, lift));
-    return contact * smoothstep(0.0, 0.06, pressure);
+    float light = 1.0 - smoothstep(0.12, 0.70, pressure);
+    float release = 1.0 - smoothstep(0.012, 0.060, pressure);
+    float threshold = mix(mix(0.34, 0.39, light), 0.62, release);
+    float opening = smoothstep(0.55, 0.72, wcNoise(wp * 0.009 + vec2(37.0, 91.0)));
+    float contact = mix(1.0, smoothstep(threshold - 0.02, threshold + 0.02, hair), max(opening, release));
+    return contact * smoothstep(0.0, 0.012, pressure);
   }
 
 `;

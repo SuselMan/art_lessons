@@ -70,6 +70,7 @@ export {
   digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset, digitalBrushPressureFromPreset,
   type BrushDescriptor, type BrushTip, type BrushCategory, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
+import { appendWatercolorLift } from './src/presets/watercolorLift'
 import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/dabs/markerRibbon'
 import { markerThinNibInkGain } from './src/dabs/markerInkGain'
 
@@ -6762,6 +6763,7 @@ export class PencilEngine implements PencilEngineAPI {
       // purpose: the repeats copy the already-tapered last dab, so the pool
       // sits at the tip's real width instead of re-widening it.
       applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
+      appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
@@ -10683,17 +10685,11 @@ export class PencilEngine implements PencilEngineAPI {
     poolBlot = 0,
   ): void {
     const { gl } = this
-    const local = new Float32Array(bands.length)
+    const local = bands.slice()
     for (let i = 0; i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
       local[i]     = bands[i]     - tile.originX
       local[i + 1] = bands[i + 1] - tile.originY
-      local[i + 2] = bands[i + 2]
-      local[i + 3] = bands[i + 3]
-      local[i + 4] = bands[i + 4]
-      local[i + 5] = bands[i + 5]
-      local[i + 6] = bands[i + 6]
-      local[i + 7] = bands[i + 7]
-      local[i + 8] = bands[i + 8]
+
     }
 
     if (mode === 'ink-max') dest.beginMaxDraw(this._minmaxExt!); else if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()

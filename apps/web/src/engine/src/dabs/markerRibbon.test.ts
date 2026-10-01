@@ -128,6 +128,13 @@ describe('nibArea / nibMeanChord (#559)', () => {
 })
 
 describe('buildRibbonBands', () => {
+  it('keeps the across coordinate continuous through both triangles of a straight band', () => {
+    const data = buildRibbonBands([dab(0, 0), dab(40, 0)], 1)
+    for (let i = 0; i < data.length; i += RIBBON_FLOATS_PER_VERTEX) {
+      expect(data[i + 5]).toBeCloseTo(data[i + 1] / 10, 6)
+    }
+  })
+
   it('keeps endpoint pressure and batch boundaries identical for a lifting tip', () => {
     const dabs = [dab(0, 0, { pressure: 1 }), dab(40, 0, { pressure: 0.2 }), dab(80, 0, { pressure: 0 })]
     const whole = buildRibbonBands(dabs, 1)
