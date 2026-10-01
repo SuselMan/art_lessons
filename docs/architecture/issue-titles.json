@@ -14,5 +14,6 @@
   "646": "[Refactor] UI: Room: разложить pages/Room по модулям",
   "647": "[Refactor] Engine: разложить engine/src по модулям",
   "648": "[Refactor] UI: разложить lib по модулям",
-  "649": "[Refactor] Server: разложить server/src по модулям"
+  "649": "[Refactor] Server: разложить server/src по модулям",
+  "680": "Акварель: похожесть на настоящую — план по архиву мазков"
 }

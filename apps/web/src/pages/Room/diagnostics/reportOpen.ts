@@ -27,6 +27,8 @@ const reportedRooms = new Set<string>()
  *  открывалась. Ровно этот вопрос пришлось задавать в разборе #486, и ответа
  *  на него не было. */
 export function reportRoomOpen(roomId: string, report: OpenReport, gpu?: unknown): void {
+  // #686: complete statistics are saved separately by useOpenTimer. This
+  // function retains Sentry's slow-open-only quota and warning deduplication.
   // Всегда, а не только когда медленно, и именно через diagLog: на планшете
   // девтулзов нет, а этот буфер уезжает в кнопку «скопировать логи». Когда
   // преподаватель говорит «открывалось долго», ответ должен уже лежать на

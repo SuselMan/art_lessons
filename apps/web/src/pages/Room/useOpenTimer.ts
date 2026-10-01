@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
-import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './diagnostics/openTiming'
+import { APP_VERSION } from '../../lib/browser/appVersion'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer, type OpenReport } from './diagnostics/openTiming'
 import { reportRoomOpen } from './diagnostics/reportOpen'
+import { saveRoomOpenMeasurement } from './diagnostics/saveOpen'
 
 export interface OpenTimerDeps {
   /** The URL id the report is filed under — whatever it is at report time. */
@@ -23,6 +26,16 @@ export function useOpenTimer({ id, engineRef }: OpenTimerDeps) {
   // которой всё и делается — вход, который не заканчивается, не сообщает о
   // себе ничем, см. openTiming.ts.
   const openAlarmRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const attemptIdRef = useRef<string | null>(null)
+  const wasHiddenRef = useRef(false)
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (openTimerRef.current && !openTimerRef.current.done && document.hidden) wasHiddenRef.current = true
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
 
   // Будильник переживает смену экрана внутри комнаты, но не сам уход из неё:
   // отчёт «вход не закончился» от размонтированной страницы — это отчёт о
@@ -45,14 +58,27 @@ export function useOpenTimer({ id, engineRef }: OpenTimerDeps) {
   // whatever the id is at finish time is the right one to file it under.
   const urlIdRef = useRef(id)
   urlIdRef.current = id
+  const reportOpen = useCallback((report: OpenReport, engine: PencilEngineAPI | null) => {
+    const roomId = urlIdRef.current
+    const attemptId = attemptIdRef.current
+    if (!roomId || !attemptId) return
+    saveRoomOpenMeasurement({
+      attemptId, roomId, appVersion: APP_VERSION,
+      deviceType: useSettingsStore.getState().deviceType, wasHidden: wasHiddenRef.current,
+      report: {
+        ...report, totalMs: Math.round(report.totalMs),
+        stages: Object.fromEntries(Object.entries(report.stages).map(([key, ms]) => [key, Math.round(ms)])),
+      },
+    })
+    reportRoomOpen(roomId, report, engine?.gpuInfo())
+  }, [])
   const finishOpenTimer = useCallback((engine: PencilEngineAPI | null) => {
     const timer = openTimerRef.current
     if (!timer || timer.done) return
     if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
     if (engine) timer.note({ layers: engine.liveLayerIds().length })
-    const reportId = urlIdRef.current
-    if (reportId) reportRoomOpen(reportId, timer.finish(), engine?.gpuInfo())
-  }, [])
+    reportOpen(timer.finish(), engine)
+  }, [reportOpen])
 
   /** (#487) Пускает замер входа и заводит будильник. Вызывается там, где
    *  человек нажал «войти», а не там, где сокет что-то отправил: меряем то,
@@ -60,16 +86,17 @@ export function useOpenTimer({ id, engineRef }: OpenTimerDeps) {
   const startOpenTimer = useCallback(() => {
     if (openAlarmRef.current !== null) clearTimeout(openAlarmRef.current)
     const timer = createOpenTimer(() => performance.now())
+    attemptIdRef.current = crypto.randomUUID()
+    wasHiddenRef.current = document.hidden
     openTimerRef.current = timer
     openAlarmRef.current = setTimeout(() => {
       openAlarmRef.current = null
       // Не гасит замер: вход продолжается, и если он всё-таки дойдёт до конца,
       // финиш об этом скажет. Дедуп по комнате в reportOpen следит, чтобы из
       // двух отчётов об одном входе уехал только первый.
-      const reportId = urlIdRef.current
-      if (!timer.done && reportId) reportRoomOpen(reportId, timer.stalled(), engineRef.current?.gpuInfo())
+      if (!timer.done) reportOpen(timer.stalled(), engineRef.current)
     }, SLOW_OPEN_MS)
-  }, [engineRef])
+  }, [engineRef, reportOpen])
 
   return { openTimerRef, startOpenTimer, finishOpenTimer }
 }
