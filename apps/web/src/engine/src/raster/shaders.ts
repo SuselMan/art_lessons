@@ -363,6 +363,18 @@ const WC_NOISE_GLSL = `
     float drift = wcFbm(wp * WC_HAIR_DRIFT_SCALE + vec2(71.0, 13.0));
     return wcFbm(vec2(across * combs, drift * WC_HAIR_DRIFT_GAIN) + vec2(3.0, 29.0));
   }
+  // #680: sparse openings in the loaded tip; less pressure separates bundles.
+  // Same contact for water, pigment and silhouette, in stamps and bands.
+  float wcTipContact(float across, float combs, vec2 wp, float pressure) {
+    if (combs <= 0.0) return 1.0;
+    float hair = wcHairField(across, combs, wp);
+    float lift = 1.0 - smoothstep(0.05, 0.45, pressure);
+    float threshold = mix(0.18, 0.68, lift);
+    float opening = 1.0 - smoothstep(0.18, 0.32, wcNoise(wp * 0.008 + vec2(37.0, 91.0)));
+    float contact = mix(1.0, smoothstep(threshold - 0.035, threshold + 0.035, hair), max(opening, lift));
+    return contact * smoothstep(0.0, 0.06, pressure);
+  }
+
 `;
 
 export const RIBBON_VERT = `
@@ -387,7 +399,7 @@ export const RIBBON_VERT = `
   // the composite has to be able to tell them apart per pixel.
   attribute float a_inkWet;
   attribute float a_inkStrength;
-  attribute float a_puddle;
+  attribute vec2 a_contact; // puddle, pressure (one attribute slot)
 
   uniform vec2 u_resolution;
 
@@ -397,6 +409,7 @@ export const RIBBON_VERT = `
   varying float v_across;
   varying float v_inkWet;
   varying float v_puddle;
+  varying float v_tipPressure;
   varying float v_inkStrength;
 
   void main() {
@@ -406,7 +419,8 @@ export const RIBBON_VERT = `
     v_across = a_across;
     v_inkWet = a_inkWet;
     v_inkStrength = a_inkStrength;
-    v_puddle = a_puddle;
+    v_puddle = a_contact.x;
+    v_tipPressure = a_contact.y;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -460,6 +474,7 @@ export const RIBBON_FRAG = `
   varying float v_across;
   varying float v_inkWet;
   varying float v_puddle;
+  varying float v_tipPressure;
   varying float v_inkStrength;
 
   // (#536) The band half of the deposited mottling. The world origin has to be
@@ -492,7 +507,8 @@ ${WC_NOISE_GLSL}
         * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
         * wcPoolBlot(mottleWp, u_mottleSeed, v_puddle, v_ink > 1e-6 ? v_inkWet / v_ink : 0.0, u_poolBlot)
       : 1.0;
-    float amount = u_mode > 0.5 ? cov * v_ink * mottle : cov;
+    float tip = wcTipContact(v_across, u_bristleCombs, mottleWp, v_tipPressure);
+    float amount = (u_mode > 0.5 ? cov * v_ink * mottle : cov) * tip;
     // (#468 v4) Same two-channel deposit the nib stamps write: .a is how much
     // paint landed, .rgb the same amount weighted by how wet the brush was, so
     // the composite can recover a per-pixel water level. One value for the
@@ -1326,6 +1342,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
+      cov *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, v_pressure);
       gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
@@ -1368,6 +1385,14 @@ ${WC_NOISE_GLSL}
         vec2 hairWp = gl_FragCoord.xy + u_paperOrigin;
         float hair = wcHairField(acrossN, u_bristleCombs, hairWp);
         amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, u_inkWater));
+      }
+      {
+        float bAx = max(v_radius, 1e-4);
+        float aAx = bAx * max(v_aspectRatio, 1.0);
+        vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
+        float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
+        float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
+        amount *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, v_pressure);
       }
       if (u_inkClip > 0.5) {
         // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
@@ -3404,7 +3429,10 @@ export const WC_FIELD_OP_FRAG = `
       float r = a.a > 0.002 ? a.r : 0.5 * inside;
       // (#680, s17.84) .g is the pool share now (premultiplied like .r):
       // the texels the front reaches past the coverage carry none.
-      gl_FragColor = vec4(r, a.a > 0.002 ? a.g : 0.0, max(a.b, inside * u_k), max(a.a, inside));
+      // #680: preserve the brush's uneven water within its footprint.
+      // Only newly reached paper receives the front's standing level.
+      float standing = a.a > 0.002 ? a.b : inside * u_k;
+      gl_FragColor = vec4(r, a.a > 0.002 ? a.g : 0.0, standing, max(a.a, inside));
       return;
     }
     if (u_mode > 9.5) {

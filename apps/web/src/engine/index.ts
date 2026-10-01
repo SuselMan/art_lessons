@@ -6207,7 +6207,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonAcrossLoc = gl.getAttribLocation(this._ribbonProg, 'a_across')
     this._ribbonInkWetLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWet')
     this._ribbonInkStrengthLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkStrength')
-    this._ribbonPuddleLoc = gl.getAttribLocation(this._ribbonProg, 'a_puddle')
+    this._ribbonPuddleLoc = gl.getAttribLocation(this._ribbonProg, 'a_contact')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -8511,7 +8511,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._drawRibbonNibPass(
           coverage, tile, dab, preset, profile, profile.coverageInkMode,
           stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
-          paperWetByDab.get(dab) ?? 0, 1, [0, 0], null, 0, 0, null, puddleByDab.get(dab) ?? 1,
+          paperWetByDab.get(dab) ?? 0, 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
           // (s17.84) ...and the pool share into the coverage's .g - where
           // the brush was moving: a standing dab has no direction to comb
           // along (its across is the default, not the travel's).
@@ -8530,7 +8530,7 @@ export class PencilEngine implements PencilEngineAPI {
           this._drawRibbonBands(
             coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
             ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
-            0, 0, null, profile.waterDepletion ? 1 : 0,
+            combs, 0, null, profile.waterDepletion ? 1 : 0,
           )
           yield px
         }
@@ -10638,6 +10638,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_dabRadius, radius)
     gl.uniform1f(u.u_angle, dab.angle)
     gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
+    gl.uniform1f(u.u_pressure, dab.pressure)
     gl.uniform1f(u.u_opacity, opacity)
     // #468 v4 — weights the deposit written into the texture's colour channels.
     gl.uniform1f(u.u_inkWater, inkWater)
@@ -10730,7 +10731,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.enableVertexAttribArray(this._ribbonInkStrengthLoc)
     gl.vertexAttribPointer(this._ribbonInkStrengthLoc, 1, gl.FLOAT, false, stride, 28)
     gl.enableVertexAttribArray(this._ribbonPuddleLoc)
-    gl.vertexAttribPointer(this._ribbonPuddleLoc, 1, gl.FLOAT, false, stride, 32)
+    gl.vertexAttribPointer(this._ribbonPuddleLoc, 2, gl.FLOAT, false, stride, 32)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 

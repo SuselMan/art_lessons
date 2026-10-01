@@ -27,13 +27,13 @@ const errors = []
 page.on('pageerror', e => errors.push(e.message))
 await page.goto(`${base}/create`)
 await page.waitForTimeout(2500) // the form fills its saved defaults after load
-await page.locator('form input[type="text"]').first().fill('strokes-app')
+await page.locator('input[type="text"]').first().fill('strokes-app')
 await page.getByRole('button', { name: /Medium/ }).first().click()
 // A2, then once more to turn it landscape (3508 x 2480, the boards' size).
 const a2 = page.getByText('A2', { exact: true }).first()
 await a2.click()
 await a2.click()
-await page.locator('form button[type="submit"]').click()
+await page.getByRole('button', { name: /Create project|Создать проект/ }).click()
 await page.waitForURL(/\/room\/[^/]+$/)
 await page.waitForFunction(() => !!window.__engine, undefined, { timeout: 60_000 })
 await page.waitForTimeout(2500)

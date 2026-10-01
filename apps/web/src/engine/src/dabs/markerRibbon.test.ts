@@ -128,6 +128,17 @@ describe('nibArea / nibMeanChord (#559)', () => {
 })
 
 describe('buildRibbonBands', () => {
+  it('keeps endpoint pressure and batch boundaries identical for a lifting tip', () => {
+    const dabs = [dab(0, 0, { pressure: 1 }), dab(40, 0, { pressure: 0.2 }), dab(80, 0, { pressure: 0 })]
+    const whole = buildRibbonBands(dabs, 1)
+    const split = [...buildRibbonBands(dabs.slice(0, 2), 1), ...buildRibbonBands(dabs.slice(2), 1, dabs[1])]
+    expect([...whole]).toEqual(split)
+    for (let i = 0; i < whole.length; i += RIBBON_FLOATS_PER_VERTEX) {
+      const expected = whole[i] === 0 ? 1 : whole[i] === 40 ? 0.2 : 0
+      expect(whole[i + 9]).toBeCloseTo(expected, 6)
+    }
+  })
+
   it('emits nothing for a single dab (the nib stamp alone covers it)', () => {
     expect(buildRibbonBands([dab(0, 0)], 1).length).toBe(0)
   })

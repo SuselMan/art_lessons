@@ -69,7 +69,9 @@ import type { Dab } from '@grafetto/shared'
 // the puddle a brush leaves where it lands (and in a wet wash), less for the
 // film it lays along the stroke. The photographs: a stroke's puddle dries
 // last and leaves a ragged front inside the stroke where it met the film.
-const FLOATS_PER_VERTEX = 9 // …, across, inkDeposit*paperWet, inkDeposit*strength, puddle
+// #680: endpoint pressure follows each sub-pose, independent of event batching.
+// Puddle and pressure share a vec2 attribute to stay within WebGL1's 8 slots.
+const FLOATS_PER_VERTEX = 10 // …, across, inkDeposit*paperWet, inkDeposit*strength, puddle, pressure
 
 /** Which shape the nib actually is. Mirrors DAB_FRAG's markerNibDistPx —
  *  the two must agree, or the bands and the stamps they connect would be built
@@ -307,9 +309,11 @@ export function buildRibbonBands(
   let inkWater = 0 // the same deposit, weighted by that segment's own water
   let inkWet = 0 // …and by how wet the paper under it already was (#536)
   let inkStrength = 0 // …and by how strong the paint was (#536)
+  let pressure = 1
+  let endPressure = 1
   let puddle = 1 // (s17.27) how deep the water stands here
-  const push = (x: number, y: number, edge: number, across: number): void => {
-    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength, puddle)
+  const push = (x: number, y: number, edge: number, across: number, press = pressure): void => {
+    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength, puddle, press)
   }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
@@ -319,8 +323,8 @@ export function buildRibbonBands(
   ): void => {
     // m = centre-line vertex (edge = full half-width), t = tangent-line vertex
     // (edge = 0, i.e. exactly on the outer boundary).
-    push(m0.x, m0.y, e0, 0); push(t0.x, t0.y, 0, side); push(t1.x, t1.y, 0, side)
-    push(m0.x, m0.y, e0, 0); push(t1.x, t1.y, 0, side); push(m1.x, m1.y, e1, side)
+    push(m0.x, m0.y, e0, 0); push(t0.x, t0.y, 0, side); push(t1.x, t1.y, 0, side, endPressure)
+    push(m0.x, m0.y, e0, 0); push(t1.x, t1.y, 0, side, endPressure); push(m1.x, m1.y, e1, side, endPressure)
   }
 
   /** One nib body, as an antialiased polygon: a ring of triangles carrying the
@@ -390,6 +394,8 @@ export function buildRibbonBands(
       if (len < 1e-6) continue
       const nx = -dy / len, ny = dx / len
 
+      pressure = a.pressure
+      endPressure = b.pressure
       const ga = nibGeometry(a, sizeMultiplier, shape, cornerFraction)
       const gb = nibGeometry(b, sizeMultiplier, shape, cornerFraction)
       const la = nibSupport(ga, nx, ny), lb = nibSupport(gb, nx, ny)
