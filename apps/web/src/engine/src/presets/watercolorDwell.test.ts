@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  WC_DWELL_FLOOR_MS, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown,
+  watercolorTurnLoad, WC_DWELL_FLOOR_MS, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown,
   watercolorBrakeSurplus, watercolorSurplus, watercolorTrailDwell, watercolorPuddleDepth, WC_START_EXCESS_RADII,
 } from './watercolorPresets'
 
@@ -81,5 +81,17 @@ describe('the carried surplus against the landing-only model it generalises', ()
     let held = 0
     for (let i = 0; i < 10; i++) held = watercolorBrakeSurplus(held, 0, 0.8, 20)
     expect(held).toBeCloseTo(watercolorBrakeSurplus(0, 0, 0.8, 200), 10)
+  })
+})
+
+ describe('geometric turning', () => {
+  it('does not invent a turn on landing, straight travel or jitter', () => {
+    expect(watercolorTurnLoad(null, 1, 0)).toBe(0)
+    expect(watercolorTurnLoad([1, 0], 8, 0)).toBe(0)
+    expect(watercolorTurnLoad([1, 0], 0.001, 0)).toBe(0)
+  })
+  it('gives the same unloading to a subdivided return corner', () => {
+    expect(watercolorTurnLoad([1, 0], -1, 0)).toBeCloseTo(1)
+    expect(watercolorTurnLoad([1, 0], 0, 1) + watercolorTurnLoad([0, 1], -1, 0)).toBeCloseTo(1)
   })
 })

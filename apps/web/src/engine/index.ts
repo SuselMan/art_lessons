@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -82,6 +82,7 @@ import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
+import { brushDragField, type BrushTravel } from './src/watercolor/brushDrag'
 import { foreignWaterStencil, type WaterFootprint, type WaterSource } from './src/watercolor/foreignWater'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
@@ -94,7 +95,7 @@ import {
   applyWatercolorEndTaper, watercolorWashSignature, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, watercolorTurnLoad, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
   watercolorTravelRadius, watercolorSpreadRadius,
   watercolorMixFromPreset,
 } from './src/presets/watercolorPresets'
@@ -1981,6 +1982,9 @@ class RibbonStrokeScratch {
    *  WC_TRAIL_LEN), the dwell at every dab is read back over; and the brush's
    *  surplus the slowdowns left - pigment and water - with the pigment clock
    *  it was last carried to. Per gesture, a pure function of its dabs. */
+  turnOffset: [number, number] = [0, 0]
+  turnDirection: [number, number] | null = null
+  brushTravel: BrushTravel[] = []
   foreignSources: WaterSource[] | null = null
   wetContacts: WaterFootprint[] = []
   trail: WcTrailDab[] = []
@@ -2003,6 +2007,7 @@ class RibbonStrokeScratch {
    *  chunk's settle away — live only sometimes, by frame timing, so a long
    *  stroke came back different after a reload. */
   newFilm(): void {
+    this.brushTravel = []
     this.gesture++
   }
 
@@ -2026,6 +2031,8 @@ class RibbonStrokeScratch {
   beginStroke(): void {
     this.lastKept = undefined
     this.gesture++
+    this.turnOffset = [0, 0]
+    this.turnDirection = null
     this.landing = null
     this.dwellMs = 0
     this.dwellDone = false
@@ -2034,6 +2041,7 @@ class RibbonStrokeScratch {
     this.speedPeak = 0
     this.speedAt = -1
     this.speedTravel = 0
+    this.brushTravel = []
     this.foreignSources = null
     this.wetContacts = []
     this.brakePigment = 0
@@ -2208,7 +2216,7 @@ class RibbonStrokeScratch {
       dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
       lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
       landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
-      foreignSources: this.foreignSources, wetContacts: this.wetContacts.map(d => ({ ...d })),
+      turnOffset: [...this.turnOffset], turnDirection: this.turnDirection ? [...this.turnDirection] : null, brushTravel: this.brushTravel.map(d => ({ ...d })), foreignSources: this.foreignSources, wetContacts: this.wetContacts.map(d => ({ ...d })),
       trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, speedAt: this.speedAt, speedTravel: this.speedTravel, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
     }
   }
@@ -2229,6 +2237,9 @@ class RibbonStrokeScratch {
     this.landing = snap.landing ? { ...snap.landing } : null
     this.dwellMs = snap.dwellMs
     this.dwellDone = snap.dwellDone
+    this.turnOffset = [...snap.turnOffset]
+    this.turnDirection = snap.turnDirection ? [...snap.turnDirection] : null
+    this.brushTravel = snap.brushTravel.map(d => ({ ...d }))
     this.foreignSources = snap.foreignSources
     this.wetContacts = snap.wetContacts.map(d => ({ ...d }))
     this.trail = snap.trail.map(d => ({ ...d }))
@@ -2379,7 +2390,7 @@ interface ScratchScalars {
   dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
   lastKept: Dab | undefined; gesture: number
   landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
-  foreignSources: WaterSource[] | null; wetContacts: WaterFootprint[]
+  turnOffset: [number, number]; turnDirection: [number, number] | null; brushTravel: BrushTravel[]; foreignSources: WaterSource[] | null; wetContacts: WaterFootprint[]
   trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number
 }
 
@@ -2785,6 +2796,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
   private _diffuseProg!: WebGLProgram
   /** (#536, §17.24) The water front's relaxation — see WC_WATER_FRONT_FRAG. */
+  private _brushFlowTex: WebGLTexture | null = null
+  private _brushDragProg!: WebGLProgram
+  private _brushDragUni!: Record<string, WebGLUniformLocation | null>
+  private _brushDragPosLoc = -1
   private _foreignWaterTex: WebGLTexture | null = null
   private _waterFrontProg!: WebGLProgram
   private _waterFrontUni!: Record<string, WebGLUniformLocation | null>
@@ -4817,6 +4832,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._washReveals.clear()
     for (const b of this._revealPool) b.destroy()
     this._revealPool = []
+    this.gl.deleteTexture(this._brushFlowTex)
     this.gl.deleteTexture(this._foreignWaterTex)
     this.gl.deleteTexture(this._paperTex)
     // (#536, §17.69) And the context itself, when its canvas has already left
@@ -5610,6 +5626,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
+    this._brushFlowTex = null
     this._foreignWaterTex = null
     this._contextLost = true
   }
@@ -6194,6 +6211,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._brush.initGL() // (#494) see BrushPainter.ts
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
+    this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
+    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step'])
+    this._brushDragPosLoc = gl.getAttribLocation(this._brushDragProg, 'a_position')
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
 
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
@@ -8374,6 +8394,7 @@ export class PencilEngine implements PencilEngineAPI {
         // and the surplus is spent over the travel after it.
         const tau = Math.max(0, watercolorTrailDwell(scratch.trail, dab.x, dab.y, dab.t, WC_DWELL_RADIUS * minor * Math.max(dab.aspectRatio, 1)) - WC_DWELL_FLOOR_MS)
         const gateHere = 1 - Math.min(Math.max(wetHere, 0), 1)
+        const pigmentGate = 0.45 + 0.55 * gateHere
         // …and the slowdown relative to this stroke's own pace (watercolorSlowdown).
         const last = scratch.trail.length ? scratch.trail[scratch.trail.length - 1] : null
         let slow = 0
@@ -8399,9 +8420,16 @@ export class PencilEngine implements PencilEngineAPI {
         const spent = pigUsed - scratch.surplusAt
         // Two reservoirs, spent at their own lengths: a stop's (the dwell) lays
         // the landing's long pool, a braking's a compact one (WC_SLOW_RUN_RADII).
-        scratch.surplusPigment = watercolorSurplus(scratch.surplusPigment, spent, watercolorDwellPigment(tau) * gateHere, WC_START_EXCESS_RADII)
+        scratch.surplusPigment = watercolorSurplus(scratch.surplusPigment, spent, watercolorDwellPigment(tau) * pigmentGate, WC_START_EXCESS_RADII)
         scratch.surplusWater = watercolorSurplus(scratch.surplusWater, spent, watercolorDwellWater(tau) * gateHere, WC_PUDDLE_RADII)
-        scratch.brakePigment = watercolorBrakeSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * gateHere, speedElapsed)
+        scratch.brakePigment = watercolorBrakeSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * pigmentGate, speedElapsed)
+        scratch.turnOffset[0] += dx; scratch.turnOffset[1] += dy
+        if (Math.hypot(...scratch.turnOffset) >= Math.max(1.5, minor * 0.12)) {
+          scratch.brakePigment = Math.min(1.5, scratch.brakePigment + 0.55 * watercolorTurnLoad(scratch.turnDirection, ...scratch.turnOffset) * pigmentGate)
+          const direction = scratch.turnOffset
+          scratch.turnDirection = [...direction]
+          scratch.turnOffset = [0, 0]
+        }
         scratch.surplusAt = pigUsed
         scratch.trail.push({ x: dab.x, y: dab.y, t: dab.t })
         if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
@@ -8415,6 +8443,9 @@ export class PencilEngine implements PencilEngineAPI {
         const waterPool = Math.max(scratch.surplusWater, landingPool)
         puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(waterPool, wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
         if (profile.waterDepletion) this._dabPool.set(dab, Math.min(waterPool, 1))
+        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && water > 0.1) scratch.brushTravel.push({
+          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water,
+        })
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
         if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
@@ -8582,6 +8613,8 @@ export class PencilEngine implements PencilEngineAPI {
         return Math.max(0, Math.min(1, 1 - Math.pow(1 - full, Math.min(travel / diameter, 1))))
       })
       : null
+
+
 
     for (const tile of targets) {
       const { original, coverage, inkLoad, inkColor } = scratch.getOrCreate(tile.buffer)
@@ -9280,8 +9313,21 @@ export class PencilEngine implements PencilEngineAPI {
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    const flow = brushDragField(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
+    if (flow) ops.push(() => {
+      this._brushFlowTex ??= gl.createTexture()
+      flowTexture = this._brushFlowTex
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, flowTexture)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, flow.width, flow.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, flow.pixels)
+    })
     if (foreign) ops.push(() => {
       this._foreignWaterTex ??= gl.createTexture()
       foreignTexture = this._foreignWaterTex
@@ -9625,6 +9671,31 @@ export class PencilEngine implements PencilEngineAPI {
           fieldOp(colour.c, a, a, 1, 0)
           fieldOp(colour.b, spare, spare, 1, 0)
         }
+      })
+      // #680: move the newly mobile paint along recorded brush contact.
+      // Colour and pigment read the SAME donor amount before either is changed.
+      if (first && flow) for (let i = 0; i < 12; i++) ops.push(() => {
+        if (!flowTexture) return
+        const drag = (source: AccumulationBuffer, out: AccumulationBuffer): void => {
+          out.beginReplaceDraw()
+          gl.useProgram(this._brushDragProg)
+          const u = this._brushDragUni
+          gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+          gl.enableVertexAttribArray(this._brushDragPosLoc)
+          gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
+          const textures = [source.texture, flowTexture, field.coverage.texture, c.texture]
+          const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment']
+          for (let j = 0; j < textures.length; j++) {
+            gl.activeTexture(gl.TEXTURE0 + j); gl.bindTexture(gl.TEXTURE_2D, textures[j]); gl.uniform1i(u[names[j]], j)
+          }
+          gl.uniform2f(u.u_step, Math.max(1, Math.round(radiusPx * 0.2 / S)) / field.w, Math.max(1, Math.round(radiusPx * 0.2 / S)) / field.h)
+          gl.drawArrays(gl.TRIANGLES, 0, 6)
+          out.endDraw(); gl.activeTexture(gl.TEXTURE0)
+        }
+        if (colour) drag(colour.c, spare)
+        drag(c, a)
+        fieldOp(c, a, a, 1, 0)
+        if (colour) fieldOp(colour.c, spare, spare, 1, 0)
       })
       // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
       // and the wash under it are one liquid, and the paint in it - the

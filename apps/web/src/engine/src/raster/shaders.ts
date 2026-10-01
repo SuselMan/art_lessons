@@ -5621,3 +5621,41 @@ export const BRUSH_COMPOSITE_FRAG = `
                         alpha + (1.0 - alpha) * dst.a);
   }
 `;
+
+/** #680: donor-form brush advection. The same fractions move optical depth.
+ * Separate small program: never grow the Adreno bookkeeping shader. */
+export const WC_BRUSH_DRAG_FRAG = `
+  precision highp float;
+  varying vec2 v_uv;
+  uniform sampler2D u_paint, u_flow, u_water, u_pigment;
+  uniform vec2 u_step;
+  vec2 axis(int k) {
+    if (k == 0) return vec2(1.0, 0.0);
+    if (k == 1) return vec2(-1.0, 0.0);
+    if (k == 2) return vec2(0.0, 1.0);
+    return vec2(0.0, -1.0);
+  }
+  float flux(vec2 from, vec2 to, vec2 direction) {
+    if (min(min(to.x, to.y), min(1.0-to.x, 1.0-to.y)) < 0.0 || min(min(from.x, from.y), min(1.0-from.x, 1.0-from.y)) < 0.0) return 0.0;
+    vec3 flow = texture2D(u_flow, from).rgb;
+    vec2 velocity = flow.rg * 2.0 - 1.0;
+    velocity /= max(length(velocity), 0.01);
+    float contact = min(texture2D(u_water, from).b, texture2D(u_water, to).b);
+    float donor = texture2D(u_pigment, from).a;
+    float receiver = texture2D(u_pigment, to).a;
+    // Pull a pool's excess along the brush, not the whole even film.
+    float surplus = max(donor - receiver, 0.0) / max(donor, 1e-4);
+    float amount = 0.30 * (0.2 + max(dot(velocity, direction), 0.0)) * flow.b * contact * surplus;
+    float room = max(0.0, 1.0 - texture2D(u_pigment, to).a);
+    return min(amount, room / max(4.0 * texture2D(u_pigment, from).a, 1e-4));
+  }
+  void main() {
+    vec4 own = texture2D(u_paint, v_uv), result = own;
+    for (int k=0; k<4; k++) {
+      vec2 dir = axis(k), neighbour = v_uv + dir * u_step;
+      result -= own * flux(v_uv, neighbour, dir);
+      result += texture2D(u_paint, neighbour) * flux(neighbour, v_uv, -dir);
+    }
+    gl_FragColor = max(result, vec4(0.0));
+  }
+`;
