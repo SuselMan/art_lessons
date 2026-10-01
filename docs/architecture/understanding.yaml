@@ -242,6 +242,7 @@ topics:
     adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 012-tip-footprint-geometry, 013-digital-brush]
 
   - id: watercolor
+    issue: 687
     level: 3
     parent: dab-pipeline
     title: Акварель

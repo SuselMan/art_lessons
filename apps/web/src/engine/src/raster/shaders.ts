@@ -3958,6 +3958,8 @@ export const WC_WATER_FRONT_FRAG = `
   // stroke where its puddle met its drier body, and in a wet wash.
   uniform sampler2D u_film;
   uniform float u_dryCost;
+  uniform sampler2D u_foreignFilm;
+  uniform float u_foreignWet;
   // (s17.44) The step's length in texels. 1 is the plain relaxation; a
   // longer one is a JUMP of that many cells in one pass, costed as the sum
   // of the single steps it stands for - the climb terms telescope along a
@@ -4019,7 +4021,7 @@ ${WC_NOISE_GLSL}
       // Thresholded: the silhouette's antialiased ramp is two or three
       // texels wide, and read raw it priced the film's own edge like dry
       // paper - the inward pass could not enter, and the tideline was gone.
-      float film = smoothstep(WC_FILM_LO, WC_FILM_HI, texture2D(u_film, v_uv).a);
+      float film = smoothstep(WC_FILM_LO, WC_FILM_HI, max(texture2D(u_film, v_uv).a, u_foreignWet * texture2D(u_foreignFilm, v_uv).r));
       float edge = len * relief * mix(u_dryCost, 1.0, film);
       best = min(best, ci * u_costMax + edge);
     }

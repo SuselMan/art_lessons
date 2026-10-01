@@ -72,8 +72,9 @@ describe('the carried surplus against the landing-only model it generalises', ()
     expect(watercolorBrakeSurplus(0, 0, 0.8, 0)).toBe(0)
     expect(watercolorBrakeSurplus(0.4, 0, 0.8, 0)).toBe(0.4)
   })
-  it('keeps a brief turn weak and a sustained stop stronger', () => {
-    expect(watercolorBrakeSurplus(0, 0, 0.8, 20)).toBeLessThan(0.025)
+  it('unloads visibly during a short turn, with a sustained stop stronger', () => {
+    expect(watercolorBrakeSurplus(0, 0, 0.8, 20)).toBeGreaterThan(0.45)
+    expect(watercolorBrakeSurplus(0, 0, 0.8, 20)).toBeLessThan(0.6)
     expect(watercolorBrakeSurplus(0, 0, 0.8, 600)).toBeGreaterThan(0.45)
   })
   it('integrates the same stationary slowdown across different batch sizes', () => {

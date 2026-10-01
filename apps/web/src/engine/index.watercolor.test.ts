@@ -73,6 +73,27 @@ function wcStroke(x0 = 16, y0 = 32, x1 = 48, y1 = 32, size = 24) {
 }
 
 describe('watercolor tool (#468, ADR 011)', () => {
+  it('finds a preceding foreign puddle during live drawing before this gesture has an operation id', async () => {
+    const engine = setupLayer()
+    await paperReady(engine)
+    engine.appendOperation(makeStroke('user-b', 'L', wcStroke(32, 16, 32, 48, 24), {
+      tool: 'watercolor', preset: 'normal:100:0:PB29:round',
+      strokeId: 'water', washId: 'puddle', timestamp: Date.now() - 10,
+    }), 'remote')
+    land(engine)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil('normal:100:100:PB29:round')
+    engine.setSize(8)
+    simulateStrokeStart(engine, 8, 32)
+    simulateStrokeMove(engine, 32, 32)
+    simulateStrokeMove(engine, 40, 32)
+    const scratch = engine['_ribbonStrokeScratch']!
+    expect(scratch.foreignSources?.map(s => s.gesture)).toEqual(['water'])
+    expect(scratch.wetContacts.length).toBeGreaterThan(0)
+    simulateStrokeEnd(engine, 48, 32)
+  })
+
   it('records the tool tag on the operation', () => {
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', wcStroke(), { tool: 'watercolor' }))

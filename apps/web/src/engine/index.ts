@@ -82,6 +82,7 @@ import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
+import { foreignWaterStencil, type WaterFootprint, type WaterSource } from './src/watercolor/foreignWater'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
 import {
@@ -1980,6 +1981,8 @@ class RibbonStrokeScratch {
    *  WC_TRAIL_LEN), the dwell at every dab is read back over; and the brush's
    *  surplus the slowdowns left - pigment and water - with the pigment clock
    *  it was last carried to. Per gesture, a pure function of its dabs. */
+  foreignSources: WaterSource[] | null = null
+  wetContacts: WaterFootprint[] = []
   trail: WcTrailDab[] = []
   /** (#680) The pen's smoothed speed (px/ms) and its recent peak. */
   speed = 0
@@ -2031,6 +2034,8 @@ class RibbonStrokeScratch {
     this.speedPeak = 0
     this.speedAt = -1
     this.speedTravel = 0
+    this.foreignSources = null
+    this.wetContacts = []
     this.brakePigment = 0
     this.surplusPigment = 0
     this.surplusWater = 0
@@ -2203,6 +2208,7 @@ class RibbonStrokeScratch {
       dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
       lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
       landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
+      foreignSources: this.foreignSources, wetContacts: this.wetContacts.map(d => ({ ...d })),
       trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, speedAt: this.speedAt, speedTravel: this.speedTravel, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
     }
   }
@@ -2223,6 +2229,8 @@ class RibbonStrokeScratch {
     this.landing = snap.landing ? { ...snap.landing } : null
     this.dwellMs = snap.dwellMs
     this.dwellDone = snap.dwellDone
+    this.foreignSources = snap.foreignSources
+    this.wetContacts = snap.wetContacts.map(d => ({ ...d }))
     this.trail = snap.trail.map(d => ({ ...d }))
     this.speed = snap.speed
     this.speedPeak = snap.speedPeak
@@ -2371,6 +2379,7 @@ interface ScratchScalars {
   dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
   lastKept: Dab | undefined; gesture: number
   landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
+  foreignSources: WaterSource[] | null; wetContacts: WaterFootprint[]
   trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number
 }
 
@@ -2776,6 +2785,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
   private _diffuseProg!: WebGLProgram
   /** (#536, §17.24) The water front's relaxation — see WC_WATER_FRONT_FRAG. */
+  private _foreignWaterTex: WebGLTexture | null = null
   private _waterFrontProg!: WebGLProgram
   private _waterFrontUni!: Record<string, WebGLUniformLocation | null>
   private _waterFrontPosLoc = -1
@@ -4807,6 +4817,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._washReveals.clear()
     for (const b of this._revealPool) b.destroy()
     this._revealPool = []
+    this.gl.deleteTexture(this._foreignWaterTex)
     this.gl.deleteTexture(this._paperTex)
     // (#536, §17.69) And the context itself, when its canvas has already left
     // the page (the room was closed; React removes the element before the
@@ -5599,6 +5610,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
+    this._foreignWaterTex = null
     this._contextLost = true
   }
 
@@ -6197,7 +6209,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
-      'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride',
+      'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride', 'u_foreignFilm', 'u_foreignWet',
     ])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
@@ -7574,9 +7586,42 @@ export class PencilEngine implements PencilEngineAPI {
     // the pen landed. Index 0 is the gesture's first dab on both paths — live
     // batches slice their own digits, and the batch that decides the gesture's
     // cached scalars and its final recomposite is the first one.
-    const profile = ribbonProfileFor(tool, presetName, wetAt(wetProfile, 0))
-    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, profile)
-    const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
+    const initialProfile = ribbonProfileFor(tool, presetName, wetAt(wetProfile, 0))
+    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, initialProfile)
+    const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, initialProfile.ink, initialProfile.normalizeDeposit)
+    const profile = ribbonProfileFor(tool, presetName, scratch.finishContext?.landedWet ?? wetAt(wetProfile, 0))
+    if (profile.normalizeDeposit && wetPeak(wetProfile) > 0 && scratch.foreignSources === null) {
+      // A prior wet region is geometry, not another pigment accumulation.
+      // Keep wash ids intact; the recorded contacts alone permit entry into it.
+      const entries = this._log.entries
+      const own = ribbonScratch === this._ribbonStrokeScratch
+      const gestureId = strokeId ?? (own ? this._strokeId : undefined)
+      const sourceWashId = washId ?? (own ? this._washId : undefined)
+      const current = gestureId ? entries.find(e => e.op.type === 'stroke' && e.op.strokeId === gestureId)?.op : undefined
+      const layerId = current && 'layerId' in current ? current.layerId : own ? this._strokeLayerId : undefined
+      const at = current?.timestamp ?? Date.now()
+      const sources: WaterSource[] = []
+      for (const e of entries) {
+        const op = e.op
+        if (gestureId && op.type === 'stroke' && op.strokeId === gestureId) break
+        if (e.state !== 'done') continue
+        if (op.type === 'paper_dry' || (op.type === 'layer_clear' && op.layerId === layerId)) sources.length = 0
+        if (op.type !== 'stroke' || op.tool !== 'watercolor' || op.layerId !== layerId
+          || op.washId === sourceWashId || at - op.timestamp > WET_DRY_MS || at < op.timestamp) continue
+        const mix = watercolorMixFromPreset(op.preset)
+        if (mix.water < 0.5) continue
+        const mul = this._resolvePreset('watercolor', op.preset).sizeMultiplier
+        const gesture = op.strokeId ?? op.id
+        let source = sources.find(s => s.gesture === gesture)
+        if (!source) { source = { gesture, footprints: [] }; sources.push(source) }
+        for (const d of strokeDabs(op)) source.footprints.push({
+          x: d.x, y: d.y, radius: d.size * 0.5 * mul, aspect: Math.max(1, d.aspectRatio), angle: d.angle,
+        })
+      }
+      // A peer preview has no committed operation yet. Do not cache a miss:
+      // its final recorded op supplies the authoritative layer and timestamp.
+      if (layerId) scratch.foreignSources = sources
+    }
     // `prevDab` is threaded the same way smudge threads its own
     // (SmudgePainter.paint): the dab immediately before dabs[0] may come from a
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
@@ -8017,8 +8062,13 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) How wet the paper was where this gesture came down. Read once,
     // above everything that needs it — the composite's cached scalars want it
     // as much as the deposit does.
-    const landedWet = wetAt(wetProfile, 0)
+    // Landing belongs to the gesture, not to the next pointer batch.
+    const landedWet = scratch.finishContext?.landedWet ?? wetAt(wetProfile, 0)
     const wetPeakHere = wetPeak(wetProfile)
+    for (const d of drawable) if (wetOf(d) >= 0.3) scratch.wetContacts.push({
+      x: d.x, y: d.y, radius: d.size * 0.5 * preset.sizeMultiplier,
+      aspect: Math.max(1, d.aspectRatio), angle: d.angle,
+    })
     const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = scratch.compositeScalars(() => {
       // #489: the bloom is isotropic, so a nib that is not round is measured by
       // the circle with its area rather than by either axis. Identical to the
@@ -8908,7 +8958,7 @@ export class PencilEngine implements PencilEngineAPI {
     field: SettleField, x0: number, y0: number, dryCost: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
     /** (§17.44) World px per field cell. */
-    scale = 1,
+    scale = 1, foreignWater: WebGLTexture | null = null,
   ): void {
     const { gl } = this
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
@@ -8927,6 +8977,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
     gl.uniform1i(u.u_film, 2)
+    gl.activeTexture(gl.TEXTURE3)
+    gl.bindTexture(gl.TEXTURE_2D, foreignWater ?? this._paperTex)
+    gl.uniform1i(u.u_foreignFilm, 3)
+    gl.uniform1f(u.u_foreignWet, foreignWater ? 1 : 0)
     gl.uniform1f(u.u_dryCost, dryCost)
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform2f(u.u_resolution, field.w, field.h)
@@ -9224,7 +9278,23 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if (!overlaps.length) return null
 
+    const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
+      { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
+    if (foreign) ops.push(() => {
+      this._foreignWaterTex ??= gl.createTexture()
+      foreignTexture = this._foreignWaterTex
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, foreignTexture)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, foreign.width, foreign.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, foreign.pixels)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    })
     // (§17.44) The gesture whose film this settle consumes, fixed now: a
     // chunk's settle may land after the next chunk's film has begun.
     const gesture = scratch.gesture
@@ -9365,7 +9435,7 @@ export class PencilEngine implements PencilEngineAPI {
     // a cell, the run on dry paper is two cells whatever the budget.
     const dryCost = Math.max(WC_FRONT_DRY_COST, budgetPx * WC_FRONT_DRY_SHARE)
     const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR, stride = 1): void =>
-      this._waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S)
+      this._waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S, foreignTexture)
     // The front as entries of `ops`, a few relaxation steps per entry so no
     // frame runs the whole field thirty times: the outward cost from the
     // footprint into `pressure`, the inward cost from past-the-budget into

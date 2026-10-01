@@ -75,7 +75,10 @@ def main(sheets):
                 if attempt == 2:
                     raise
                 print(s['id'], 'render failed, retrying', flush=True)
-        im = Image.open(png).convert('RGB')
+        im = Image.open(png)
+        if im.mode == 'RGBA' and im.getextrema()[3][1] == 0:
+            raise RuntimeError(f'Sheet {s["id"]}: export is entirely transparent')
+        im = im.convert('RGB')
         k = refs.PX_PER_MM / b['pxPerMm']
         for n, (x0, y0, x1, y1) in b['slots'].items():
             st = refs.stroke_of(s, int(n))
