@@ -92,7 +92,12 @@ describe('brush pen: the nib is not a circle (#472)', () => {
     // to track pressure by roughly the pressure curve's own ratio. If
     // elongation had leaked into width this would come out inflated.
     const ratio = heavy[0].size / light[0].size
-    const expected = brushPenWidth(0.9, 'normal') / brushPenWidth(0.15, 'normal')
+    const shaping = shapingForTool('brushPen', 'normal')
+    const restSize = (pressure: number) => tipFootprint(shaping, {
+      x: 0, y: 0, ds: 0, speed: 0, baseSize: BASE_SIZE, pressure,
+      tiltX: 0, tiltY: 0, pathAngle: 0, cameraAngle: 0,
+    }, null).size
+    const expected = restSize(0.9) / restSize(0.15)
     expect(ratio).toBeCloseTo(expected, 5)
   })
 

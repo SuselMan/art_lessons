@@ -249,6 +249,23 @@ function strokeDirection(
   return state.strokeAngle
 }
 
+/** Flexible fibres meet the paper at their point, regardless of brush size.
+ * Keep the profile's pressure response, but map its usable range onto an
+ * absolute hairline through nominal width rather than scaling its width floor.
+ * Shared by drawing, hover/dwell and the sampling reach bound. */
+function contactSize(shaping: DabShapingProfile, pressure: number, tiltNorm: number, baseSize: number): number {
+  const width = shaping.size(pressure, tiltNorm)
+  if (!shaping.tipBend) return baseSize * width
+  // Both flexible profiles floor noisy contact pressure at 0.05.
+  const rest = shaping.size(0.05, tiltNorm)
+  const full = shaping.size(1, tiltNorm)
+  const opening = Math.max(0, Math.min(1, (width - rest) / (full - rest)))
+  // A 1px ribbon can put both pixel centres on its zero-coverage edges.
+  // Two world pixels keep feather strokes visible under the existing AA.
+  const hairline = Math.min(2, baseSize)
+  return hairline + (baseSize - hairline) * opening
+}
+
 /**
  * The footprint this tool leaves for this sample.
  *
@@ -267,7 +284,7 @@ export function tipFootprint(
   // tiltMath.ts.
   const tiltMag  = tiltMagnitudeDeg(tiltX, tiltY)
   const tiltNorm = tiltMag / 90
-  let size       = input.baseSize * shaping.size(pressure, tiltNorm)
+  let size       = contactSize(shaping, pressure, tiltNorm, input.baseSize)
 
   // #482, ADR 012 §8: both of these used to run *after* the footprint was
   // worked out, as post-passes over `dab.size` in PencilEngine. That was not
@@ -283,7 +300,9 @@ export function tipFootprint(
     if (contact) {
       const k = 1 - Math.exp(-input.ds / contact.smoothingPx)
       state.contactFactor += (contact.factor(input.speed) - state.contactFactor) * k
-      size *= state.contactFactor
+      // Speed lightens the opened nib without erasing its point contact.
+      const pointSize = shaping.tipBend ? Math.min(2, input.baseSize) : 0
+      size = pointSize + (size - pointSize) * state.contactFactor
     }
     const head = shaping.headTaper
     if (head && state.arcFromStart < head.lengthPx) {
@@ -371,6 +390,6 @@ export function maxNibReach(
   shaping: DabShapingProfile, pressure: number, tiltNorm: number, baseSize: number,
 ): number {
   const elongation = shaping.tipBend ? shaping.tipBend.elongation(pressure) : 1
-  return baseSize * 0.5 * shaping.size(pressure, tiltNorm)
+  return 0.5 * contactSize(shaping, pressure, tiltNorm, baseSize)
     * Math.max(shaping.aspect(tiltNorm, pressure) * elongation, 1)
 }
