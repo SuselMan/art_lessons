@@ -3105,21 +3105,26 @@ export const WC_FIELD_OP_FRAG = `
     vec2 w = f * f * (3.0 - 2.0 * f);
     return mix(mix(wcRimHash(i), wcRimHash(i + vec2(1.0, 0.0)), w.x), mix(wcRimHash(i + vec2(0.0, 1.0)), wcRimHash(i + vec2(1.0, 1.0)), w.x), w.y);
   }
-  // (#680, s17.82) The paper's fibres for the far halo: thin streaks a few
-  // world px wide and tens long, their direction turning slowly across the
-  // sheet (a fibre mat, not parallel lines). Averages about one, so what it
-  // multiplies keeps its mass: the late-settling paint gathers into threads
-  // - Ilya's "паутинки" - instead of an even haze.
-  // (s17.82) radial: the dome's slope here (u_d .a, full under the drop,
-  // none at the front) - the threads run out from the core as on the
-  // photographs; where the dome is flat the direction wanders on its own.
+  // (#680, s17.87) Sample fixed world-space fibre fields. Rotating wp by
+  // the local dome gradient warped the noise into concentric arcs inside
+  // merged washes. The gradient now only weights three fixed orientations;
+  // it never changes their sampling coordinates.
   float wcFibre(vec2 wp, vec2 radial) {
-    float ang = 6.2831853 * wcRimNoise(wp * 0.004 + vec2(17.0, 3.0));
+    vec2 d0 = vec2(1.0, 0.0);
+    vec2 d1 = vec2(0.5, 0.8660254);
+    vec2 d2 = vec2(-0.5, 0.8660254);
+    vec3 n = vec3(
+      wcRimNoise(vec2(dot(wp, d0) * 0.03, dot(wp, vec2(-d0.y, d0.x)) * 0.35)),
+      wcRimNoise(vec2(dot(wp, d1) * 0.03, dot(wp, vec2(-d1.y, d1.x)) * 0.35) + vec2(5.0, 9.0)),
+      wcRimNoise(vec2(dot(wp, d2) * 0.03, dot(wp, vec2(-d2.y, d2.x)) * 0.35) + vec2(17.0, 3.0)));
     float r = length(radial);
-    vec2 d = normalize(mix(vec2(cos(ang), sin(ang)), radial / max(r, 1e-6), smoothstep(0.004, 0.02, r)) + vec2(1e-5));
-    vec2 q = vec2(dot(wp, d) * 0.03, dot(wp, vec2(-d.y, d.x)) * 0.35);
-    float n = wcRimNoise(q) * 0.65 + wcRimNoise(q * 2.3 + vec2(5.0, 9.0)) * 0.35;
-    return 0.4 + 1.9 * smoothstep(0.58, 0.85, n);
+    vec2 direction = radial / max(r, 1e-6);
+    vec3 weights = vec3(dot(direction, d0), dot(direction, d1), dot(direction, d2));
+    weights *= weights;
+    weights *= weights;
+    weights = mix(vec3(1.0), weights, smoothstep(0.004, 0.02, r));
+    vec3 fibres = vec3(0.4) + 1.9 * smoothstep(vec3(0.58), vec3(0.85), n);
+    return dot(fibres, weights) / max(dot(weights, vec3(1.0)), 1e-6);
   }
   #define WC_FIELD_FIT(v) ((v) / max(1.0, max(max((v).r, (v).g), max((v).b, (v).a))))
   // (s17.25) The rim's deposition profile: the tail's weight against the
@@ -3662,7 +3667,10 @@ export const WC_FIELD_OP_FRAG = `
       vec2 radial = vec2(
         texture2D(u_d, v_uv - vec2(3.0 * u_dir.x, 0.0)).a - texture2D(u_d, v_uv + vec2(3.0 * u_dir.x, 0.0)).a,
         texture2D(u_d, v_uv - vec2(0.0, 3.0 * u_dir.y)).a - texture2D(u_d, v_uv + vec2(0.0, 3.0 * u_dir.y)).a);
-      fibre = wcFibre((gl_FragCoord.xy + u_world.xy) * u_world.z, radial);
+      // Late slices also contain remobilised core paint in merged washes.
+      // Fibre texture belongs to the far halo, outside the core dome.
+      float halo = 1.0 - smoothstep(0.02, 0.20, texture2D(u_d, v_uv).a);
+      fibre = mix(1.0, wcFibre((gl_FragCoord.xy + u_world.xy) * u_world.z, radial), halo);
     }
     gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : WC_FIELD_FIT(a + b * u_k * fibre);
 #endif
