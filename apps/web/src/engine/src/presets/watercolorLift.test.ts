@@ -10,13 +10,14 @@ describe('watercolor pen-up', () => {
     expect(recorded).toEqual([dab(0, 0), dab(30, 0)])
     expect(pending[0]).toEqual(dab(40, 0))
     expect(pending.at(-1)?.pressure).toBe(0)
-    expect(pending.at(-1)?.x).toBe(52)
+    expect(pending.slice(1, -1).every(d => d.pressure > 0 && d.pressure < 0.06)).toBe(true)
+    expect(pending.at(-1)?.x).toBe(76)
     expect(pending.slice(1).every(d => d.y === 0 && d.t > 40)).toBe(true)
   })
   it('uses the incoming path through a stationary pause and works without pending dabs', () => {
     const pending: Dab[] = []
     appendWatercolorLift(pending, [dab(0, 0), dab(30, 0), dab(40, 0), dab(40, 0), dab(40, 0)])
-    expect(pending.at(-1)?.x).toBe(52)
+    expect(pending.at(-1)?.x).toBe(76)
     expect(pending.every(d => d.y === 0)).toBe(true)
   })
   it('never re-inflates a tip narrowed by real pressure and the end taper', () => {
@@ -28,7 +29,7 @@ describe('watercolor pen-up', () => {
       expect(pending[i].pressure).toBeLessThan(pending[i - 1].pressure)
       expect(pending[i].aspectRatio).toBe(5)
     }
-    expect(pending.at(-1)?.x).toBeCloseTo(43.84)
+    expect(pending.at(-1)?.x).toBeCloseTo(94)
   })
   it('does not invent a direction for a tap or an empty stroke', () => {
     const tap = [dab(5, 5)]

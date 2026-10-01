@@ -8348,8 +8348,11 @@ export class PencilEngine implements PencilEngineAPI {
         // (#680, s17.79) ...and the landing's own surplus, which needs no dwell:
         // the touch-down's pool is a pool too, broken into blots like the others.
         const landingPool = (1 - Math.min(Math.max(landedWet, 0), 1)) * Math.exp(-pigUsed / WC_START_EXCESS_RADII)
-        puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(Math.max(scratch.surplusWater, scratch.brakePigment, landingPool), wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
-        if (profile.waterDepletion) this._dabPool.set(dab, Math.min(Math.max(scratch.surplusWater, scratch.brakePigment, landingPool), 1))
+        // Braking pigment is not extra water: a sharp turn must not invent a
+        // deep visible puddle merely because it unloads a little more colour.
+        const waterPool = Math.max(scratch.surplusWater, landingPool)
+        puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(waterPool, wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
+        if (profile.waterDepletion) this._dabPool.set(dab, Math.min(waterPool, 1))
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
         if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))

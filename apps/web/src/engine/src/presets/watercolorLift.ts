@@ -19,14 +19,19 @@ export function appendWatercolorLift(pending: Dab[], recorded: readonly Dab[]): 
   }
   if (length < threshold) return
   const size = last.size
-  const travel = Math.min(12, Math.max(2, size * 0.16))
+  const along = (dx * Math.cos(last.angle) + dy * Math.sin(last.angle)) / length
+  const across = (-dx * Math.sin(last.angle) + dy * Math.cos(last.angle)) / length
+  const forwardRadius = size * 0.5 * Math.hypot(Math.max(last.aspectRatio, 1) * along, across)
+  const travel = Math.max(3, forwardRadius * 0.9)
   // Continue from the actual final footprint: never re-widen a tapered tip.
-  // Width and contact fall together instead of attaching a full-size oval.
+  // Reach beyond the last footprint: otherwise its already-painted cap hides
+  // the sparse hairs. Width still falls, so no full-size oval is attached.
+  // A lift separates bundles immediately, even if hardware pressure stays high.
   // The final zero-contact dab makes this a complete lift in the stored log.
   for (let i = 1; i <= 8; i++) {
     const u = i / 8
     pending.push({ ...last, size: size * (1 - 0.55 * u), x: last.x + dx / length * travel * u,
-      y: last.y + dy / length * travel * u, pressure: last.pressure * (1 - u),
+      y: last.y + dy / length * travel * u, pressure: Math.min(last.pressure, 0.055) * (1 - u),
       t: last.t + i * 2 })
   }
 }
