@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -2631,10 +2631,16 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
   private _fieldOpProg!: WebGLProgram
   private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
-  /** (§17.70) Modes 10-20 - see WC_FIELD_OP_HIGH_FRAG. */
+  /** (#685) Modes 10-20 except the carry (15/16), linked separately. */
   private _fieldOpHighProg!: WebGLProgram
   private _fieldOpHighUni!: Record<string, WebGLUniformLocation | null>
   private _fieldOpHighPosLoc!: number
+  private _fieldOpCarryProg!: WebGLProgram
+  private _fieldOpCarryUni!: Record<string, WebGLUniformLocation | null>
+  private _fieldOpCarryPosLoc!: number
+  private _fieldOpCarryColourProg!: WebGLProgram
+  private _fieldOpCarryColourUni!: Record<string, WebGLUniformLocation | null>
+  private _fieldOpCarryColourPosLoc!: number
   private _fieldOpPosLoc = -1
   /** (#536, §17.46) The paper composite's own copy of the screen, so a frame
    *  that changed only the brush's rect recomposes that rect alone. */
@@ -6120,6 +6126,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
+    this._fieldOpCarryProg    = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_FRAG)
+    this._fieldOpCarryColourProg = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_COLOUR_FRAG)
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
@@ -6142,6 +6150,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
     this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
+    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
+    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
@@ -6161,6 +6171,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
     this._fieldOpHighPosLoc    = gl.getAttribLocation(this._fieldOpHighProg, 'a_position')
+    this._fieldOpCarryPosLoc   = gl.getAttribLocation(this._fieldOpCarryProg, 'a_position')
+    this._fieldOpCarryColourPosLoc = gl.getAttribLocation(this._fieldOpCarryColourProg, 'a_position')
     this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
     this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
@@ -8745,10 +8757,13 @@ export class PencilEngine implements PencilEngineAPI {
       gl.enable(gl.SCISSOR_TEST)
       gl.scissor(opts.scissor[0], opts.scissor[1], opts.scissor[2], opts.scissor[3])
     }
-    const high = mode > 9.5 // (§17.70)
-    gl.useProgram(high ? this._fieldOpHighProg : this._fieldOpProg)
-    const u = high ? this._fieldOpHighUni : this._fieldOpUni
-    const pos = high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
+    // (#685) Carry modes must never enter the bookkeeping program: its
+    // combined control flow crashes the Galaxy Tab's Adreno linker.
+    const high = mode >= 10
+    const prog = mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
+    const u = mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
+    const pos = mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
+    gl.useProgram(prog)
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     gl.enableVertexAttribArray(pos)
     gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0)
