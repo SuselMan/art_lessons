@@ -326,6 +326,16 @@ or every engine program in turn with `linkeach.mjs`. The dev link spy
 (`localStorage.__linkSpy = '1'`, `src/dev/linkSpy.ts`) records each link in
 localStorage before it runs, so after a crash `__linkLast` names the program.
 
+01.10.2026, #685: the production high half (`WC_FIELD_OP_HIGH_FRAG`) still
+crashed Adreno 650 in `QGLCLinkProgram`. Modes 15/16 now have separate deposit
+and colour carry programs; high bookkeeping excludes both, and the carry's
+colour choice is compile-time. Check **all four** field programs with a unique
+source comment to miss Chrome's cache. Verified three cold-compilation rounds
+on SM-T970, then cold-linked every engine program and drew/undid/redid two
+watercolour strokes. Desktop A/B: all 21 modes, four input/uniform cases each,
+identical RGBA bytes. A successful cached room load alone remains insufficient.
+
+
 ## Surface: Chrome over ssh
 
 One-time setup is `temp/device-runs/surface/surface-setup.bat`, run once on

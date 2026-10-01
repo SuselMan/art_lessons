@@ -14,11 +14,13 @@ import {
   isPrimaryDrawingTool, PRIMARY_DRAWING_TOOLS, type EditorTool, type PrimaryDrawingTool,
 } from '../../stores/slices/toolSlice'
 import { drawingGroupToolFor, fallbackToolFor, toggledTool } from './tools/toolChoice'
+import { useRememberedTool } from './useRememberedTool'
 
 /** (#493) Which tools this room offers, every way a tool gets into a hand, and
  *  the two groups (materials, shapes) the rail and the floating panel show.
  *  Out of Room. Everything here is the store's — the room's toolset, the tool
- *  in hand, its settings — so the hook takes no arguments at all.
+ *  in hand, its settings — except the room id, which only the tool this device
+ *  last held here needs (#682, see useRememberedTool).
  *
  *  (#548) `selectTool` and `toggleTool` are the one gate on the room's toolset:
  *  every way a tool gets into a hand routes through one of them, so refusing a
@@ -26,7 +28,11 @@ import { drawingGroupToolFor, fallbackToolFor, toggledTool } from './tools/toolC
  *  does not render those buttons at all; this is the backstop for the paths
  *  with no button to hide — a hotkey, a floating-panel slot assigned before the
  *  tool was switched off. */
-export function useToolChoice() {
+export function useToolChoice(roomId: string | undefined) {
+  // (#682) First, before the reads below: a remembered tool has to be in the
+  // store by the time this render — and Room's, which builds the engine from
+  // it — reads `tool`.
+  useRememberedTool(roomId)
   const t = useT()
   // (#548) `undefined` for all tools, which is what every room says until
   // someone restricts it. Read straight off the room rather than mirrored into
@@ -92,14 +98,24 @@ export function useToolChoice() {
   // joiner something else before they have touched anything, and announcing
   // that would be telling someone their tool was taken when they never had it.
   // Only an actual change during the session is worth a word.
+  //
+  // (#682) "First run" means the first run with the room known. A joiner's
+  // `room` is null until `room_state`, and null reads as "every tool" — so the
+  // run at mount saw nothing, and the room's real toolset then arrived looking
+  // like a change. That was invisible while every room opened on the pencil
+  // (which a toolset can exclude, but rarely does); with the tool now restored
+  // per room, the one the teacher has since switched off would be announced as
+  // taken on every entry.
+  const roomKnown = useRoomStore(s => s.room !== null)
   const toolsetSeenRef = useRef(false)
   useEffect(() => {
+    if (!roomKnown) return
     const announce = toolsetSeenRef.current
     toolsetSeenRef.current = true
     if (isToolEnabledInRoom(enabledTools, tool)) return
     setTool(fallbackTool)
     if (announce) notifyWarning(t('toolset.withdrawn'), { key: 'toolset-withdrawn' })
-  }, [enabledTools, tool, fallbackTool, setTool, t])
+  }, [roomKnown, enabledTools, tool, fallbackTool, setTool, t])
 
   // (#544) The three things the rail's one drawing button needs: its options,
   // what it wears (see drawingGroupToolFor), and whether it is lit.

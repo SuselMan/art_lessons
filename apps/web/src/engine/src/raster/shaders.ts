@@ -3243,6 +3243,7 @@ export const WC_FIELD_OP_FRAG = `
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
 #ifdef FIELD_OP_HIGH
+#ifndef FIELD_OP_CARRY
     if (u_mode > 19.5) {
       // (s17.44) max(a, b) per channel: the settle's extended coverage merged
       // into a tile's coverage that the gesture may have gone on stamping
@@ -3289,7 +3290,8 @@ export const WC_FIELD_OP_FRAG = `
       gl_FragColor = vec4(a.r, a.g, a.b * texture2D(u_d, v_uv).a, a.a);
       return;
     }
-    if (u_mode > 14.5) {
+#else
+    {
       // (s17.29) One carry step. What moves is the mobile paint (a, all
       // four channels, in the texel's own proportions); what the flow
       // EQUALISES is the total pigment, mobile plus fixed (a.a + b.a): a
@@ -3327,7 +3329,11 @@ export const WC_FIELD_OP_FRAG = `
       // fingers are the balance, not the rate.
       float ci = texture2D(u_d, v_uv).r;
       vec4 out4 = a;
-      bool colour = u_mode > 15.5;
+#ifdef FIELD_OP_COLOUR
+      const bool colour = true;
+#else
+      const bool colour = false;
+#endif
       vec4 m = colour ? texture2D(u_c, v_uv) : a;
       float trav = u_origin.y;
       // (s17.43) The sheet's capacity for the carried paint falls toward the
@@ -3388,6 +3394,8 @@ export const WC_FIELD_OP_FRAG = `
       gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));
       return;
     }
+#endif
+#ifndef FIELD_OP_CARRY
     if (u_mode > 13.5) {
       // Mode 8 for the tide: the band is the texture's .b, its gather c.b.
       vec4 bd = texture2D(u_d, v_uv);
@@ -3475,6 +3483,7 @@ export const WC_FIELD_OP_FRAG = `
       return;
     }
     gl_FragColor = vec4(0.0);
+#endif
 #else
     if (u_mode > 5.5) {
       if (u_mode > 8.5) {
@@ -3675,15 +3684,20 @@ export const WC_FIELD_OP_FRAG = `
   }
 `;
 
-/** (#536, §17.70) WC_FIELD_OP_FRAG's modes 10-20, a program of their own; the
- *  plain constant is modes 0-9. As one program the whole of it crashed the
- *  Galaxy Tab's shader compiler (Adreno, SIGSEGV in QGLCLinkProgram) every
- *  time it was really compiled - usually Chrome served it from its program
- *  cache, and a miss took the GPU process down, twice, and WebGL with it.
- *  Dropping any one mode compiled; the halves are well clear of whatever
- *  limit that is. */
+/** (#536, #685) Field bookkeeping without the carry's nested neighbour loops.
+ *  The Adreno compiler still crashed on the high half when modes 15/16 shared
+ *  a program with modes 10-20. Compile each carry record separately as well:
+ *  its deposit/colour choice is static, keeping the linked program small.
+ *  The arithmetic and input uniforms are identical to the original modes. */
 export const WC_FIELD_OP_HIGH_FRAG = `#define FIELD_OP_HIGH
 ${WC_FIELD_OP_FRAG}`
+
+export const WC_FIELD_OP_CARRY_FRAG = `#define FIELD_OP_HIGH
+#define FIELD_OP_CARRY
+${WC_FIELD_OP_FRAG}`
+
+export const WC_FIELD_OP_CARRY_COLOUR_FRAG = `#define FIELD_OP_COLOUR
+${WC_FIELD_OP_CARRY_FRAG}`
 
 export const LAYER_COMPOSITE_FRAG = `
   precision mediump float;
