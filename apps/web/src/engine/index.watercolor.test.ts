@@ -23,19 +23,31 @@
 // function of its own dabs — which is the property the whole Operation Log
 // rests on (ADR 011 §2).
 import { strokeDabs } from '@grafetto/shared'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
 import {
-  createTestEngine, dab, makeLayerAdd, makeStroke,
+  createTestEngine as makeTestEngine, dab, makeLayerAdd, makeStroke,
   readLayerPixels, expectPixelsEqual,
   lastMarkerDabUniform, markerPassDraw, markerReplayChunk, markerReplayChunkCount,
   markerReplayChunkFor, paperReady,
   simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd,
 } from './testing/engineTestUtils'
 import type { PeerLivePacket } from './index'
+
+// Release every test engine: its drying timers otherwise retain the canonical
+// settle fields across the whole file (several GiB), even after the test ends.
+const testEngines: PencilEngine[] = []
+function createTestEngine(...args: Parameters<typeof makeTestEngine>) {
+  const result = makeTestEngine(...args)
+  testEngines.push(result.engine)
+  return result
+}
+afterEach(() => {
+  for (const engine of testEngines.splice(0)) if (!engine['_destroyed']) engine.destroy()
+})
 
 /** (§17.58) Lands the queue of peers' watercolour operations now. */
 function land(engine: PencilEngine): void {
@@ -1317,6 +1329,24 @@ describe('a gesture begun off the sheet (#536 §17.63)', () => {
   // Off the 64 px sheet to the left, then onto it.
   const off = Array.from({ length: 12 }, (_, i) => dab(-400 + i * 16, 32, { size: 24, t: i * 8 }))
   const on = Array.from({ length: 4 }, (_, i) => dab(8 + i * 12, 32, { size: 24, t: 96 + i * 8 }))
+
+  it('retains wet paper reached after the first batch when settling a stroke', () => {
+    const dabs = [dab(8, 32, { size: 12, t: 0 }), dab(20, 32, { size: 12, t: 8 }),
+      dab(32, 32, { size: 12, t: 16 }), dab(44, 32, { size: 12, t: 24 })]
+    type Fin = { scratch: { finishContext: { wetPeak: number } | null } }
+    const peak = (engine: PencilEngine) =>
+      (engine as unknown as { _replayRibbonChunks: Map<string, Fin> })._replayRibbonChunks.get('wet-crossing')!.scratch.finishContext!.wetPeak
+    const whole = setupLayer()
+    whole.appendOperation(makeStroke('user-b', 'L', dabs, { tool: 'watercolor', preset: PRESET, strokeId: 'cross', washId: 'wet-crossing', wet: '00ff' }), 'remote')
+    land(whole)
+    const cut = setupLayer()
+    cut.appendOperation(makeStroke('user-b', 'L', dabs.slice(0, 2), { tool: 'watercolor', preset: PRESET, strokeId: 'cross', washId: 'wet-crossing', wet: '00' }), 'remote')
+    land(cut)
+    cut.appendOperation(makeStroke('user-b', 'L', dabs.slice(2), { tool: 'watercolor', preset: PRESET, strokeId: 'cross', washId: 'wet-crossing', wet: 'ff' }), 'remote')
+    land(cut)
+    expect(peak(whole)).toBe(1)
+    expect(peak(cut)).toBe(peak(whole))
+  })
 
   // The author paints a gesture in small batches and a batch with nothing on
   // the sheet used to return before spending the brush; a replay paints the

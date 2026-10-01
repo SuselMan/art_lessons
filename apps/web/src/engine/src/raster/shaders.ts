@@ -975,18 +975,16 @@ export const DAB_FRAG = `
   // a speckle at the grain; at 2.5 px the mark read as a solid film with a
   // fine roughness over it.
   const float WC_DRY_TOOTH_PX = 9.0;
-  // (s17.29) All of the contact from the tooth's scale, none from the
-  // grain: at 0.75 the grain's quarter set the threshold's texture and the
-  // gaps came out as a speckle over a film, where the photographs have
-  // islands the size of the tooth with a plain film between.
-  const float WC_DRY_COARSE = 1.0;
-  const float WC_DRY_LIFT = 0.5;
+  // (#680) Most contact follows smoothed height crests; retain some local
+  // relief so neighbouring paper pits do not become a regular soft grid.
+  const float WC_DRY_COARSE = 0.65;
+  const float WC_DRY_LIFT = 0.42;
   // (s17.29) The water at which the contact starts breaking - 0.6, from
   // 0.45: the series' strokes at 0.21-0.36 water are all broken in the
   // photograph, and at 0.45 the gate had them nearly closed.
   const float WC_DRY_WATER_LO = 0.15;
   const float WC_DRY_WATER_HI = 0.5;
-  const float WC_DRY_CONTACT_W = 0.3;
+  const float WC_DRY_CONTACT_W = 0.12;
   // (#536, s17.26) The ink stamp's profile: 1 = a cone to the centre, 3 = a
   // plateau with a ramp over the outer half of the nib.
   const float WC_STAMP_PLATEAU = 2.0;
@@ -1862,15 +1860,15 @@ ${WC_NOISE_GLSL}
         // pattern); nine taps a third of the scale apart are a low-pass.
         vec2 dTex = (WC_DRY_TOOTH_PX / 3.0) / u_paperTexSize * u_paperScale;
         float coarse = 0.0;
-        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) coarse += texture2D(u_paperHeightMap, paperUV + vec2(float(i), float(j)) * dTex).a;
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) coarse += texture2D(u_paperHeightMap, paperUV + vec2(float(i), float(j)) * dTex).r;
         coarse /= 9.0;
-        float catchTooth = mix(paperCatch, coarse, WC_DRY_COARSE);
-        // (s17.29) The hair's say on the contact 0.55-1.45 -> 0.8-1.2: at
-        // the old swing the hair field, read through the across coordinate
-        // the stamps write, drew a ladder of straight corridors along and
-        // across the mark; the photographs' gaps are the sheet's islands
-        // with a light grain of the hairs over them, not the other way.
-        float reach = catchTooth * mix(0.8, 1.2, bristle);
+        // Dry hairs touch height crests, not the graphite catch channel:
+        // catch is an amplified directional slope, which printed a woven
+        // hatch instead of islands of contact on the paper's actual relief.
+        float catchTooth = mix(texture2D(u_paperHeightMap, paperUV).r, coarse, WC_DRY_COARSE);
+        // (#680) Bristles perturb crest contact only slightly. A strong
+        // modulation made the across field dominate the photographed relief.
+        float reach = catchTooth * (1.0 + 0.08 * (bristle - 1.0));
         // The threshold climbs with dryness: at 0 it sits below every catch
         // value and nothing is cut, at 1 only the highest crests under a bundle
         // survive.

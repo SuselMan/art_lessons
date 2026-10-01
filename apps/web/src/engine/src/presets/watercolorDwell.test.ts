@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   WC_DWELL_FLOOR_MS, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown,
-  watercolorSurplus, watercolorTrailDwell, watercolorPuddleDepth, WC_START_EXCESS_RADII,
+  watercolorBrakeSurplus, watercolorSurplus, watercolorTrailDwell, watercolorPuddleDepth, WC_START_EXCESS_RADII,
 } from './watercolorPresets'
 
 describe('watercolorTrailDwell', () => {
@@ -64,5 +64,21 @@ describe('the carried surplus against the landing-only model it generalises', ()
   })
   it('the dwell floor is what a steady hand spends crossing the radius anyway', () => {
     expect(WC_DWELL_FLOOR_MS).toBeGreaterThan(0)
+  })
+})
+
+ describe('braking duration', () => {
+  it('does not unload extra pigment without elapsed time', () => {
+    expect(watercolorBrakeSurplus(0, 0, 0.8, 0)).toBe(0)
+    expect(watercolorBrakeSurplus(0.4, 0, 0.8, 0)).toBe(0.4)
+  })
+  it('keeps a brief turn weak and a sustained stop stronger', () => {
+    expect(watercolorBrakeSurplus(0, 0, 0.8, 20)).toBeLessThan(0.025)
+    expect(watercolorBrakeSurplus(0, 0, 0.8, 600)).toBeGreaterThan(0.45)
+  })
+  it('integrates the same stationary slowdown across different batch sizes', () => {
+    let held = 0
+    for (let i = 0; i < 10; i++) held = watercolorBrakeSurplus(held, 0, 0.8, 20)
+    expect(held).toBeCloseTo(watercolorBrakeSurplus(0, 0, 0.8, 200), 10)
   })
 })

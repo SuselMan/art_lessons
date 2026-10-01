@@ -821,6 +821,12 @@ export const WC_TRAIL_LEN = 64
 export function watercolorSurplus(prev: number, spentRadii: number, level: number, runRadii: number): number {
   return Math.max(prev * Math.exp(-Math.max(spentRadii, 0) / runRadii), level)
 }
+/** Braking unloads over time, rather than instantly stamping the maximum
+ *  surplus at every turn. Dabs sharing one timestamp cannot add dwell. */
+export function watercolorBrakeSurplus(prev: number, spentRadii: number, level: number, elapsedMs: number): number {
+  const held = watercolorSurplus(prev, spentRadii, 0, WC_SLOW_RUN_RADII)
+  return held + Math.max(level - held, 0) * watercolorDwellPigment(elapsedMs)
+}
 /** watercolorStartExcess with the dwell's share from the carried surplus
  *  (watercolorSurplus of watercolorDwellPigment) instead of the landing's. */
 export function watercolorExcessFromSurplus(usedRadii: number, landedWet: number, surplusPigment: number): number {

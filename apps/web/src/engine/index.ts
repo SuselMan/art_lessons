@@ -93,7 +93,7 @@ import {
   applyWatercolorEndTaper, watercolorWashSignature, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SLOW_RUN_RADII, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
   watercolorTravelRadius, watercolorSpreadRadius,
   watercolorMixFromPreset,
 } from './src/presets/watercolorPresets'
@@ -1891,6 +1891,9 @@ class RibbonStrokeScratch {
       maxY: Math.max(prev.bounds.maxY, ctx.bounds.maxY),
     }
     prev.radiusPx = Math.max(prev.radiusPx, ctx.radiusPx)
+    // A stroke can enter a puddle after its first live batch. Retain the
+    // wettest landing across every batch, just as a single-batch replay does.
+    prev.wetPeak = Math.max(prev.wetPeak, ctx.wetPeak)
   }
 
   get finishContext(): RibbonStrokeScratch['_finish'] {
@@ -1981,6 +1984,8 @@ class RibbonStrokeScratch {
   /** (#680) The pen's smoothed speed (px/ms) and its recent peak. */
   speed = 0
   speedPeak = 0
+  speedAt = -1
+  speedTravel = 0
   brakePigment = 0
   surplusPigment = 0
   surplusWater = 0
@@ -2024,6 +2029,8 @@ class RibbonStrokeScratch {
     this.trail = []
     this.speed = 0
     this.speedPeak = 0
+    this.speedAt = -1
+    this.speedTravel = 0
     this.brakePigment = 0
     this.surplusPigment = 0
     this.surplusWater = 0
@@ -2196,7 +2203,7 @@ class RibbonStrokeScratch {
       dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
       lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
       landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
-      trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
+      trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, speedAt: this.speedAt, speedTravel: this.speedTravel, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
     }
   }
 
@@ -2219,6 +2226,8 @@ class RibbonStrokeScratch {
     this.trail = snap.trail.map(d => ({ ...d }))
     this.speed = snap.speed
     this.speedPeak = snap.speedPeak
+    this.speedAt = snap.speedAt
+    this.speedTravel = snap.speedTravel
     this.brakePigment = snap.brakePigment
     this.surplusPigment = snap.surplusPigment
     this.surplusWater = snap.surplusWater
@@ -2362,7 +2371,7 @@ interface ScratchScalars {
   dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
   lastKept: Dab | undefined; gesture: number
   landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
-  trail: WcTrailDab[]; speed: number; speedPeak: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number
+  trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number
 }
 
 /** (#536, §17.56) See RibbonStrokeScratch.snapshot. */
@@ -8306,12 +8315,23 @@ export class PencilEngine implements PencilEngineAPI {
         // …and the slowdown relative to this stroke's own pace (watercolorSlowdown).
         const last = scratch.trail.length ? scratch.trail[scratch.trail.length - 1] : null
         let slow = 0
+        let speedElapsed = 0
+        if (scratch.speedAt < 0) scratch.speedAt = dab.t
         if (last) {
-          const dt = Math.max(dab.t - last.t, 1)
-          const v = Math.hypot(dab.x - last.x, dab.y - last.y) / dt
-          const a = 1 - Math.exp(-dt / WC_SPEED_TAU_MS)
-          scratch.speed += (v - scratch.speed) * a
-          scratch.speedPeak = Math.max(scratch.speed, scratch.speedPeak * Math.exp(-dt / WC_PEAK_FADE_MS))
+          scratch.speedTravel += Math.hypot(dab.x - last.x, dab.y - last.y)
+          const dt = dab.t - scratch.speedAt
+          if (dt > 0) {
+            // One pointer batch gives several dabs the same timestamp. Keep
+            // their travel until the next real time interval; dt=1 invented
+            // high speeds and a braking pool at the next batch boundary.
+            const v = scratch.speedTravel / dt
+            const a = 1 - Math.exp(-dt / WC_SPEED_TAU_MS)
+            scratch.speed += (v - scratch.speed) * a
+            scratch.speedPeak = Math.max(scratch.speed, scratch.speedPeak * Math.exp(-dt / WC_PEAK_FADE_MS))
+            scratch.speedAt = dab.t
+            scratch.speedTravel = 0
+            speedElapsed = dt
+          }
           slow = watercolorSlowdown(scratch.speed, scratch.speedPeak)
         }
         const spent = pigUsed - scratch.surplusAt
@@ -8319,7 +8339,7 @@ export class PencilEngine implements PencilEngineAPI {
         // the landing's long pool, a braking's a compact one (WC_SLOW_RUN_RADII).
         scratch.surplusPigment = watercolorSurplus(scratch.surplusPigment, spent, watercolorDwellPigment(tau) * gateHere, WC_START_EXCESS_RADII)
         scratch.surplusWater = watercolorSurplus(scratch.surplusWater, spent, watercolorDwellWater(tau) * gateHere, WC_PUDDLE_RADII)
-        scratch.brakePigment = watercolorSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * gateHere, WC_SLOW_RUN_RADII)
+        scratch.brakePigment = watercolorBrakeSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * gateHere, speedElapsed)
         scratch.surplusAt = pigUsed
         scratch.trail.push({ x: dab.x, y: dab.y, t: dab.t })
         if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
