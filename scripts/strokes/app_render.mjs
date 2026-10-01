@@ -21,9 +21,10 @@ const ops = JSON.parse(readFileSync(opsFile, 'utf8')).filter(o => o.type !== 'im
 const strokeLayers = [...new Set(ops.filter(o => o.type === 'stroke').map(o => o.layerId))]
 
 const browser = await chromium.launch({ headless: false, channel: 'chrome', args: ['--ignore-certificate-errors', '--window-position=0,0'] })
+let page
 try {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 })
-  const page = await ctx.newPage()
+  page = await ctx.newPage()
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   await page.goto(`${base}/create`)
@@ -66,6 +67,10 @@ try {
   }, strokeLayers)
   writeFileSync(out, Buffer.from(png, 'base64'))
   console.log(JSON.stringify({ strokes: n, layers: strokeLayers, errors: errors.slice(0, 3) }))
+} catch (error) {
+  console.error('render failed', JSON.stringify({ url: page?.url() }))
+  if (page) await page.screenshot({ path: out + '.failed.png', timeout: 5000 }).catch(() => {})
+  throw error
 } finally {
   await browser.close()
 }
