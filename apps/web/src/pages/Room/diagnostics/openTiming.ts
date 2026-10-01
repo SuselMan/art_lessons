@@ -26,51 +26,21 @@
 /** Порог, после которого вход перестаёт быть нормальным. Не «страшно», а
  *  «дальше это уже не похоже на загрузку»: на исправной комнате всё, кроме
  *  первой загрузки бумаги, укладывается в секунды. */
+import type { RoomOpenFacts, RoomOpenReport, RoomOpenStage } from '@grafetto/shared'
+
 export const SLOW_OPEN_MS = 10_000
 
 /** Фазы в порядке прохождения. Имена — стабильные идентификаторы, по которым
  *  это группируется в Sentry месяцами, а не сообщения для человека. */
-export type OpenStage =
-  /** Нажали «войти» → `join_room` подтверждён и `room_state` приехал. Здесь
-   *  живёт вес непокрытого хвоста: у `U68gWoq-` он дорос до 43 МБ JSON. */
-  | 'join'
-  /** Ожидание текстуры бумаги. Движок отказывается начинать штрих, пока её
-   *  нет (`PaperState.loaded`), так что это честная часть открытия, а не фон. */
-  | 'paper'
-  /** Индекс снапшота и по блобу на слой. */
-  | 'snapshot'
-  /** Реплей хвоста операций поверх восстановленных пикселей. */
-  | 'replay'
+export type OpenStage = RoomOpenStage
 
 const STAGE_ORDER: readonly OpenStage[] = ['join', 'paper', 'snapshot', 'replay']
 
 /** Всё, что объясняет число. Каждое поле необязательно на своих правах: на
  *  застрявшем входе половина из них ещё не известна, и это само по себе
  *  сведение — «встали, не дойдя до снапшота» видно по тому, каких фактов нет. */
-export interface OpenFacts {
-  /** Операций в хвосте, который пришлось проигрывать. */
-  tailOperations?: number
-  /** Последний seq комнаты и seq последнего снапшота — их разрыв это ровно то,
-   *  что меряет серверный сторож из #480 §1, только с этой стороны. */
-  latestSeq?: number
-  snapshotSeq?: number | null
-  restoredFromSnapshot?: boolean
-  /** Слоёв в комнате: восстановление поднимает их все разом (#467). */
-  layers?: number
-}
-
-export interface OpenReport {
-  /** `ready` — вход дошёл до конца. `stalled` — снимок по будильнику, вход в
-   *  этот момент ещё шёл. */
-  outcome: 'ready' | 'stalled'
-  totalMs: number
-  /** Миллисекунды по фазам. Незавершённая фаза попадает сюда с тем, что
-   *  накопила к моменту снимка. */
-  stages: Partial<Record<OpenStage, number>>
-  /** Фаза, на которой вход стоял в момент отчёта. Для `ready` — последняя. */
-  reached: OpenStage
-  facts: OpenFacts
-}
+export type OpenFacts = RoomOpenFacts
+export type OpenReport = RoomOpenReport
 
 export interface OpenTimer {
   /** Открывает фазу, закрывая предыдущую. Вызывается по факту перехода, а не
