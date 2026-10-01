@@ -18,14 +18,15 @@ export function appendWatercolorLift(pending: Dab[], recorded: readonly Dab[]): 
     if (length >= threshold) break
   }
   if (length < threshold) return
-  const size = Math.max(last.size, recorded.at(-1)?.size ?? last.size)
-  const travel = Math.min(24, Math.max(2, size * 0.3))
-  // Contact falls through the release range, independently of the last sample.
+  const size = last.size
+  const travel = Math.min(12, Math.max(2, size * 0.16))
+  // Continue from the actual final footprint: never re-widen a tapered tip.
+  // Width and contact fall together instead of attaching a full-size oval.
   // The final zero-contact dab makes this a complete lift in the stored log.
   for (let i = 1; i <= 8; i++) {
     const u = i / 8
-    pending.push({ ...last, size, x: last.x + dx / length * travel * u,
-      y: last.y + dy / length * travel * u, pressure: Math.min(last.pressure, 0.045) * (1 - u),
+    pending.push({ ...last, size: size * (1 - 0.55 * u), x: last.x + dx / length * travel * u,
+      y: last.y + dy / length * travel * u, pressure: last.pressure * (1 - u),
       t: last.t + i * 2 })
   }
 }

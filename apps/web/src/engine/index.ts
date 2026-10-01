@@ -8664,8 +8664,10 @@ export class PencilEngine implements PencilEngineAPI {
           pending.bounds.maxY = Math.max(pending.bounds.maxY, compositeBounds.maxY)
         } else {
           scratch.pendingComposite.set(tile.buffer, { tile, bounds: { ...compositeBounds } })
-          this._markPaperDamage(compositeBounds)
         }
+        // Every coalesced batch grows both the layer and paper damage, even
+        // when this tile already has a pending composite for the frame.
+        this._markPaperDamage(compositeBounds)
         this._liveComposite = {
           scratch, preset, profile, color, opacity: drawable[0].opacity, fieldSeed, spreadPx, fringeWater, migratePx,
           inkSmoothPx: profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
@@ -11666,6 +11668,19 @@ export class PencilEngine implements PencilEngineAPI {
       this._screenCache?.destroy()
       this._screenCache = new AccumulationBuffer(gl, canvas.width, canvas.height, 'nearest')
       this._paperCacheKey = ''
+    }
+    // The wet texture is global: its decay, drainage and changing raster
+    // bounds affect more than the rectangle under the current brush. Upload
+    // it before choosing the scissor and include both its old and new extent.
+    const previousWetRect = this._wetRect
+    const previousWetAt = this._wetTexAt
+    this._updateWetTexture(performance.now())
+    if (this._paperPartialOK && this._paperDamage && previousWetAt !== this._wetTexAt) {
+      for (const rect of [previousWetRect, this._wetRect]) {
+        if (rect[2] > rect[0] && rect[3] > rect[1]) {
+          this._markPaperDamage({ minX: rect[0], minY: rect[1], maxX: rect[2], maxY: rect[3] })
+        }
+      }
     }
     const cam = this._camera.pose
     const key = `${cam.wx},${cam.wy},${cam.zoom},${cam.angle},${canvas.width},${canvas.height}`
