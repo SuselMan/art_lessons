@@ -1,6 +1,6 @@
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
-  TILT_RESPONSES, DEFAULT_TILT_RESPONSE, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
+  TILT_RESPONSES, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
   WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_DEFAULT,
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
@@ -235,7 +235,7 @@ const TILT_RESPONSE_LABEL_KEYS = {
 
 const tiltResponseField = (
   curves: Readonly<Record<TiltResponse, readonly number[]>>,
-  defaultResponse: TiltResponse = DEFAULT_TILT_RESPONSE,
+  defaultResponse: TiltResponse = 'restrained',
 ): SettingDescriptor => ({
   nameKey: 'tool.field.tiltResponse',
   valueType: { kind: 'enumOptions', options: TILT_RESPONSES },
@@ -283,14 +283,7 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
     quickAccess: true,
     default: defaultColor,
   },
-  // The one tool that does *not* ship on DEFAULT_TILT_RESPONSE (Ilya, 18.08):
-  // a pencil starts on 'restrained', i.e. the pre-#389 graphite ramp — cubed,
-  // against a 90° no stylus reaches — so an ordinary working grip keeps a
-  // near-round point instead of opening into a broad flat. That is what a
-  // graphite pencil is expected to do out of the box; 'smooth' is still one
-  // pick away in the same select, and stays the default everywhere the field
-  // is offered on a material that was calibrated for it.
-  tiltResponse: tiltResponseField(GRAPHITE_TILT_CURVES, 'restrained'),
+  tiltResponse: tiltResponseField(GRAPHITE_TILT_CURVES),
 })
 
 // Liner (#243, ADR 003): fixed calibrated width steps are the primary

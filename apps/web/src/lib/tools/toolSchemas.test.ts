@@ -24,6 +24,15 @@ function memoryStorage(): KeyValueStorage {
 }
 
 describe('toolSchemas load/save', () => {
+  it('starts every tool with restrained tilt response where available', () => {
+    const defaults = defaultToolSettings()
+    for (const [tool, schema] of Object.entries(TOOL_SCHEMAS)) {
+      if ('tiltResponse' in schema) {
+        expect(defaults[tool as UiToolId].tiltResponse).toBe('restrained')
+      }
+    }
+  })
+
   it('falls back to schema defaults when nothing is stored', () => {
     expect(loadToolSettings(memoryStorage(), 'room1')).toEqual(defaultToolSettings())
   })
