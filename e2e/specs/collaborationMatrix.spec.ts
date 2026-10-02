@@ -153,6 +153,21 @@ test(`${tools.length} mixed-tool authors (${tools.join(', ')}) converge after dr
       }
     })))
     await test.info().attach('mixed-tool diagnostics', { body: JSON.stringify(diagnostics, null, 2), contentType: 'application/json' })
+    const snapshotChecks = await Promise.allSettled(pages.map(p => p.evaluate(async () => {
+      const engine = window.__engine!
+      const layer = window.__roomStore!.getState().layerState.activeId
+      const hash = async (bytes: Uint8Array | null) => bytes
+        ? [...new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(bytes)))].map(v => v.toString(16).padStart(2, '0')).join('') : null
+      return { incremental: await hash(engine.bakeNetworkSnapshot(layer)), fullReplay: await hash(engine.bakeLayerByFullReplay(layer)) }
+    })))
+    await test.info().attach('mixed-tool snapshot hashes', { body: JSON.stringify(snapshotChecks, null, 2), contentType: 'application/json' })
+    const diagnosticBounds = await contentBounds(page, await activeLayerId(page))
+    const frameChecks = await Promise.allSettled(pages.map(p => p.evaluate(rect => {
+      const e = window.__engine! as unknown as { _camera: { screenToWorldMatrix(): unknown }; _display(): void; _paperWet: { peak(t: number): number }; canvas: HTMLCanvasElement }
+      const sample = () => { const out: number[] = []; for (let x = 0; x <= 12; x++) for (let y = 0; y <= 12; y++) out.push(...(window.__engine!.pickColor(rect.x + rect.width * x / 12, rect.y + rect.height * y / 12) ?? [])); return out }
+      const before = sample(); e._display(); return { before, after: sample(), camera: e._camera.screenToWorldMatrix(), canvas: [e.canvas.width, e.canvas.height], wetPeak: e._paperWet.peak(performance.now()) }
+    }, diagnosticBounds ?? { x: 0, y: 0, width: 1, height: 1 })))
+    await test.info().attach('mixed-tool frame checks', { body: JSON.stringify(frameChecks, null, 2), contentType: 'application/json' })
     throw error
   } finally {
     for (const context of contexts) await context.close()

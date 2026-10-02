@@ -94,3 +94,15 @@ pencil/marker/WC/eraser/smudge одновременно пересекают see
 Автоматизация: mixed-tool cases в `collaborationMatrix.spec.ts`. Run2026-10-02:
 WC+eraserFAIL after120sec (max17/255, journals equal, caches settled), #691.
 5authorsFAIL at45sec, after-wash state не подтверждён; RAM budget учесть отдельно.
+
+## QA-018 — финальный кадр акварели на уменьшенном холсте
+
+Масштаб32% либо ниже50%. Нарисовать акварель и показать live frame, пока
+asynchronous settle ещё выполняется. Дождаться финального composite: coarse
+копия обязана обновиться, без zoom/reload/экспорта/snapshot. Сравнить цвет с
+полным replay и другим браузером. Snapshot hash alone недостаточен: bake
+сам объявляет resident tiles dirty и может скрыть stale LOD при следующем кадре.
+
+Автоматизация: `index.watercolorCoarseSettle.test.ts` — первый fold есть, после
+завершения settle следующий frame обязан fold снова. До исправления1FAIL,
+послеPASS. СвязанныеWC/replay tests83PASS. Дефект #700; linked #691.

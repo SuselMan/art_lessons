@@ -10445,7 +10445,10 @@ export class PencilEngine implements PencilEngineAPI {
     // (settled base + that film), not the dry target, which has no film in it.
     const runningFilm = (entry: RibbonTileScratch): boolean => entry.filmGesture !== settledGesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk
     const composite = (): void => {
-      for (const tile of targets) {
+      // (#700) The final settle can land several frames after targets were
+      // first resolved. A live frame may already have folded their coarse
+      // copies; resolve again at this write so the next frame folds anew.
+      for (const tile of this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(bounds) : bounds)) {
         const entry = scratch.peek(tile.buffer)
         if (!entry) continue
         // (§17.23) No deposit smoothing at the settle: the live batches
