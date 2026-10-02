@@ -47,6 +47,22 @@ describe('isRecoverableContentOp', () => {
     })).toBe(true)
   })
 
+  it('recovers self-contained shapes, pastes and fills without losing their payload', () => {
+    const base = { id: 'new-content', userId: 'u', timestamp: 10, layerId: 'deleted' }
+    const paste = { ...base, type: 'area_paste' as const, image: 'data:image/png;base64,pixels', x: 4, y: 6, width: 8, height: 9, matrix: [1, 0, 0, 1, 20, 30] as [number, number, number, number, number, number] }
+    const shape: Operation = { ...base, type: 'shape', geometry: { kind: 'rectangle', cornerRadius: 3 }, frame: { x: 4, y: 6, width: 80, height: 90, angle: 0.2 }, stroke: null, fill: { color: [1, 0, 0] } }
+    const fill: Operation = { ...base, type: 'area_fill', image: paste.image, x: 4, y: 6, width: 8, height: 9, seedX: 5, seedY: 7, color: [1, 0, 0], tolerance: 10, gapClose: 2, expand: 1, source: 'visible' }
+    for (const op of [shape, paste, fill]) {
+      expect(isRecoverableContentOp(op)).toBe(true)
+      if (!isRecoverableContentOp(op)) throw new Error('content not recoverable')
+      expect(retargetToLayer(op, 'recovered', 'new-id', 20)).toEqual({ ...op, layerId: 'recovered', id: 'new-id', timestamp: 20 })
+    }
+  })
+
+  it('does not invent missing source pixels for a rejected region transform', () => {
+    expect(isRecoverableContentOp({ id: 'move', userId: 'u', timestamp: 0, type: 'area_transform', layerId: 'deleted', selection: { points: [0, 0, 10, 0, 10, 10] }, matrix: [1, 0, 0, 1, 5, 5] })).toBe(false)
+  })
+
   // A rejected opacity change costs one click to redo — recovering it into a
   // whole new layer would be noise, not help.
   it('rejects property-only and structural types', () => {

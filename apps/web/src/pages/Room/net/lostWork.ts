@@ -10,16 +10,19 @@ import type { LayerState, Operation } from '@grafetto/shared'
 // (minting ids, appending to the engine, the banner state).
 
 /** Operation types that carry content a user would perceive as lost. The
- *  server gates exactly this set on a destroyed target (see
- *  `hasMissingAliveTarget` in apps/server/src/rooms/rooms.ts) — property-only
- *  operations are deliberately not in it, since a rejected opacity change
- *  costs nothing to redo. */
-const CONTENT_OP_TYPES = new Set(['stroke', 'image_import', 'layer_clear'])
+ *  Shapes, fills and pastes carry their own pixels or geometry and can be
+ *  replayed on a new layer. Transforms and filters depend on the deleted
+ *  layer's existing pixels and cannot reconstruct them. */
+const CONTENT_OP_TYPES: ReadonlySet<Operation['type']> = new Set([
+  'stroke', 'image_import', 'layer_clear', 'shape', 'area_paste', 'area_fill',
+])
 
 /** An operation that both targets a single layer and carries content — what
  *  `isRecoverableContentOp` narrows to, and the only thing recovery ever
  *  re-emits. */
-export type LostContentOp = Extract<Operation, { layerId: string }>
+export type LostContentOp = Extract<Operation, {
+  type: 'stroke' | 'image_import' | 'layer_clear' | 'shape' | 'area_paste' | 'area_fill'
+}>
 
 type ContentOp = LostContentOp
 
