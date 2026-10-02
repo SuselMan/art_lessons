@@ -15,7 +15,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 10139
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 const origin = {}
-for (const d of devices) { await joinAndInstall(d.sel); origin[d.name] = await ev(d.sel, 'return Math.round(performance.timeOrigin)') }
+for (const d of devices) { await joinAndInstall(d.sel, room); origin[d.name] = await ev(d.sel, 'return Math.round(performance.timeOrigin)') }
 console.log('room', room, 'devices', devices.map(d => d.name).join(', '))
 
 for (let round = 1; round <= +roundsArg; round++) {
