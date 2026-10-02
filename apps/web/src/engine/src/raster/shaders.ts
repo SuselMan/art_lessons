@@ -190,7 +190,7 @@ ${WICK_EXPAND_GLSL}
 // brush size, instead of the old normalized-space falloff whose width was a
 // fixed fraction of the dab (36-40% of the mark's half-width at any size — see
 // docs/marker-edge-problem.md).
-/** (#536) The portable noise family, emitted into every shader that needs it.
+/** (#536, #691) The shared noise family, emitted into every shader that needs it.
  *
  *  Extracted because the deposit is written by *two* shaders — the nib stamps
  *  in DAB_FRAG and the ribbon bands in RIBBON_FRAG — and moving the wash's
@@ -216,12 +216,15 @@ const WC_NOISE_GLSL = `
   // two coarser scales a real wash has, and make the mark's own boundary stop
   // coinciding with the brush's path.
   //
-  // All of it is built on hash() above, which is the project's portable
-  // fract/floor hash - no sin(), no finite differences, nothing that has ever
-  // diverged between a desktop and a tablet GPU (see paperCatch's comment and
-  // .claude/rules.md). Value noise is an interpolation of four hash samples,
-  // which is contractive: a per-GPU difference in one lattice value is damped,
-  // never amplified.
+  // Value noise interpolates four identical, offline lattice values. The
+  // old fract/floor hash diverged across GPUs despite avoiding sin().
+
+  uniform sampler2D u_wcNoiseTex;
+  // #691: float fract hashes differ across GPU compilers (including FMA).
+  // The lattice itself is baked; only its smooth interpolation remains here.
+  float wcLattice(vec2 p) {
+    return texture2D(u_wcNoiseTex, (mod(p, 251.0) + 0.5) / 251.0).r;
+  }
 
   /** Value noise, one lattice cell per unit of p. */
   float wcNoise(vec2 p) {
@@ -229,10 +232,10 @@ const WC_NOISE_GLSL = `
     vec2 f = fract(p);
     // Smoothstep interpolant, so the field has no visible lattice creases.
     vec2 u = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
+    float a = wcLattice(i);
+    float b = wcLattice(i + vec2(1.0, 0.0));
+    float c = wcLattice(i + vec2(0.0, 1.0));
+    float d = wcLattice(i + vec2(1.0, 1.0));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
   }
 

@@ -33,6 +33,7 @@ import type { PencilPreset } from '../presets/pencilPresets'
 import { presetForTool } from '../presets/resolvePreset'
 import { DAB_FRAG, DAB_VERT, DAB_VERT_INSTANCED } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
+import { createWatercolorNoiseTexture } from '../raster/watercolorNoise'
 
 // Minimal surface of the ANGLE_instanced_arrays extension paintInstanced
 // uses (#123) — not in lib.dom.d.ts's WebGLRenderingContext, so this is typed
@@ -67,6 +68,8 @@ export class StampPainter {
 
   // The plain per-dab program (DAB_VERT + DAB_FRAG) — shared with the ribbon
   // passes, see the file comment and program/uniforms/positionLoc below.
+  private noiseTexture!: WebGLTexture
+
   private dabProg!: WebGLProgram
   private dabUni!: Uniforms
   private dabPosLoc!: number
@@ -104,12 +107,13 @@ export class StampPainter {
    *  from the engine's _initGL, at construction and on a context restore. */
   initGL(): void {
     const { gl } = this
+    this.noiseTexture = createWatercolorNoiseTexture(gl)
     this.dabProg  = createProgram(gl, DAB_VERT, DAB_FRAG)
     this.instProg = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
 
     this.dabUni = getUniforms(gl, this.dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
+      'u_wcNoiseTex', 'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
       'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
       'u_rectComposite',
@@ -157,7 +161,7 @@ export class StampPainter {
       'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
     ])
     this.instUni = getUniforms(gl, this.instProg, [
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
+      'u_wcNoiseTex', 'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
       'u_wickPx', 'u_wickCap', // #452 — see dabUni's own comment
       'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
@@ -175,8 +179,19 @@ export class StampPainter {
     this.instanced = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
   }
 
+  /** Shared with the ribbon and water-front programs, like the dab program.
+   * Unit seven is unused by their other inputs; WebGL1 guarantees eight. */
+  bindNoise(location: WebGLUniformLocation | null): void {
+    const { gl } = this
+    gl.activeTexture(gl.TEXTURE7)
+    gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture)
+    gl.uniform1i(location, 7)
+    gl.activeTexture(gl.TEXTURE0)
+  }
+
   destroy(): void {
     const { gl } = this
+    gl.deleteTexture(this.noiseTexture)
     gl.deleteProgram(this.dabProg)
     gl.deleteProgram(this.instProg)
     gl.deleteBuffer(this.instBuf)
@@ -322,6 +337,7 @@ export class StampPainter {
   ): void {
     const { gl } = this
     gl.useProgram(this.dabProg)
+    this.bindNoise(this.dabUni.u_wcNoiseTex)
     const u = this.dabUni
 
     gl.uniform2f(u.u_resolution, resW, resH)
@@ -421,6 +437,7 @@ export class StampPainter {
     const u = this.instUni
 
     gl.useProgram(this.instProg)
+    this.bindNoise(this.instUni.u_wcNoiseTex)
     gl.uniform2f(u.u_resolution, resW, resH)
     const paper = this.ctx.paper
     gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)

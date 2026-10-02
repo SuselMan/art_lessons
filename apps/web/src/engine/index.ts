@@ -6196,7 +6196,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
 
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
-      'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit', 'u_poolBlot',
+      'u_wcNoiseTex', 'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit', 'u_poolBlot',
       'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau',
     ])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
@@ -6207,7 +6207,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
-      'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
+      'u_wcNoiseTex', 'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
       'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride',
     ])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
@@ -8955,6 +8955,7 @@ export class PencilEngine implements PencilEngineAPI {
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     dst.beginReplaceDraw()
     gl.useProgram(this._waterFrontProg)
+    this._stamps.bindNoise(this._waterFrontUni.u_wcNoiseTex)
     const u = this._waterFrontUni
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     gl.enableVertexAttribArray(this._waterFrontPosLoc)
@@ -10671,6 +10672,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (ownTarget) dest.beginDraw()
 
     gl.useProgram(this._dabProg)
+    this._stamps.bindNoise(this._dabUni.u_wcNoiseTex)
     const u = this._dabUni
     gl.uniform2f(u.u_resolution, dest.width, dest.height)
     for (const [unit, loc] of [[0, u.u_paperHeightMap], [1, u.u_original], [2, u.u_strokeCoverage], [3, u.u_inkLoad]] as const) {
@@ -10778,6 +10780,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     if (mode === 'ink-max') dest.beginMaxDraw(this._minmaxExt!); else if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
     gl.useProgram(this._ribbonProg)
+    this._stamps.bindNoise(this._ribbonUni.u_wcNoiseTex)
     gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
     gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
     gl.uniform1f(this._ribbonUni.u_mode, mode === 'coverage' ? 0 : 1)
@@ -10893,6 +10896,7 @@ export class PencilEngine implements PencilEngineAPI {
     buffer.beginReplaceDraw()
 
     gl.useProgram(this._dabProg)
+    this._stamps.bindNoise(this._dabUni.u_wcNoiseTex)
     const u = this._dabUni
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
