@@ -82,3 +82,15 @@ Peer удаляет целевой слой: dialog/preview должны зак�
 `index.peerLiveStroke.test.ts` «retiring unrecorded live ink», control handler units.
 Дефект #699. До правки FAIL (teacher bounds476×16 после15сек, student=null);
 после все3 browser casesPASS и accepted-prefix pixel comparisonPASS.
+
+## QA-017 — разные инструменты на одной области
+
+Seed pencil;2authors watercolor+eraser либо watercolor+smudge, а также5authors
+pencil/marker/WC/eraser/smudge одновременно пересекают seed. Ждать совпадения
+полных journals, замерять реальные пиксели, состояние wash/unsettled/rebuild/live.
+Сравнить после expiry100сек, затем author undo/redo и late join. Не скрывать
+несовпадение journals/pixels увеличением threshold; сохранить actual max и diagnostics.
+
+Автоматизация: mixed-tool cases в `collaborationMatrix.spec.ts`. Run2026-10-02:
+WC+eraserFAIL after120sec (max17/255, journals equal, caches settled), #691.
+5authorsFAIL at45sec, after-wash state не подтверждён; RAM budget учесть отдельно.
