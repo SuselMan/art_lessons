@@ -67,6 +67,10 @@ test('five watercolor authors survive undo, late continuation, redo and fresh re
     await Promise.all(donors.map((_, i) => paint(i, 1100 + i * 30)))
     await Promise.all([page, peer].map(p => waitForOperations(p, 'stroke', 6)))
     await Promise.all([page, peer].map(settled))
+    const firstWash = await page.evaluate(() => window.__engine!.getOperations().find(o => o.type === 'stroke' && o.tool === 'watercolor')!)
+    if (firstWash.type !== 'stroke') throw new Error('missing watercolor')
+    const firstDonor = donors.findIndex(d => d.washId === firstWash.washId)
+    expect(firstDonor).toBeGreaterThanOrEqual(0)
     for (const p of [page, peer]) await p.evaluate(() => {
       const e = window.__engine as unknown as { gl: WebGLRenderingContext; _inJobStep: boolean }
       const read = e.gl.readPixels.bind(e.gl)
@@ -74,6 +78,27 @@ test('five watercolor authors survive undo, late continuation, redo and fresh re
       Object.assign(window, { __qaSpill: probe })
       e.gl.readPixels = (...args: Parameters<WebGLRenderingContext['readPixels']>) => { if (e._inJobStep) probe.readsInRebuild++; return read(...args) }
     })
+    // Hold one renderer after the first wash has been retired, then deliver
+    // its continuation through the real server while that rebuild is live.
+    await page.evaluate(washId => {
+      const e = window.__engine as unknown as {
+        _stepRebuildJob(job: { timer: ReturnType<typeof setTimeout> }): void;
+        _swapRebuiltLayer(job: { timer: ReturnType<typeof setTimeout> }): void;
+        _lostWashes: Map<string, unknown>; _rebuildJobs: Map<string, unknown>;
+      }
+      const swap = e._swapRebuiltLayer.bind(e)
+      const gate = { held: false, released: false }
+      Object.assign(window, { __qaRebuildGate: gate })
+      e._swapRebuiltLayer = job => {
+        if (!gate.released) {
+          if (!e._lostWashes.has(washId)) throw new Error('fixture did not retire the first wash')
+          gate.held = true
+          job.timer = setTimeout(() => e._stepRebuildJob(job), 16)
+          return
+        }
+        swap(job)
+      }
+    }, donors[firstDonor].washId)
     const undo = await page.evaluate(() => {
       const e = window.__engine! as typeof window.__engine & { _rebuildJobs: Map<string, unknown> }
       const target = e!.undo()
@@ -82,11 +107,12 @@ test('five watercolor authors survive undo, late continuation, redo and fresh re
     expect(undo.type).toBe('stroke')
     expect(undo.jobs).toBeGreaterThan(0)
     await Promise.all([page, peer].map(p => waitForOperations(p, 'operation_undo')))
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __qaRebuildGate: { held: boolean } }).__qaRebuildGate.held), { timeout: 30_000 }).toBe(true)
+    await paint(firstDonor, 1350)
+    await Promise.all([page, peer].map(p => waitForOperations(p, 'stroke', 6)))
+    await page.evaluate(() => { (window as unknown as { __qaRebuildGate: { released: boolean } }).__qaRebuildGate.released = true })
     await Promise.all([page, peer].map(settled))
     for (const p of [page, peer]) expect(await p.evaluate(() => (window as unknown as { __qaSpill: { readsInRebuild: number } }).__qaSpill.readsInRebuild)).toBe(0)
-    await paint(0, 1350)
-    await Promise.all([page, peer].map(p => waitForOperations(p, 'stroke', 6)))
-    await Promise.all([page, peer].map(settled))
     const reference = await hashes(page, layerId)
     expect(reference.length).toBeGreaterThan(0)
     expect(await hashes(peer, layerId)).toEqual(reference)

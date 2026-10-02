@@ -86,6 +86,7 @@ it('restarts from history when a retired wash continues while its rebuild is sti
     ], { tool: 'watercolor', preset: 'normal:100:70:PB29:round', strokeId: `gesture-${i}`, washId: `wash-${i}`, seq: i + 1, timestamp: Date.now() }), 'remote')
     internal._flushOpQueue(); internal._completeSettle()
     internal._gpuBudget = 400 * 1024 * 1024
+    const originalBounds = { ...internal._replayRibbonChunks.get('wash-1')!.scratch.dryCtx.bounds }
     let clock = performance.now()
     vi.spyOn(performance, 'now').mockImplementation(() => clock += 16)
     expect(engine.undo()?.type).toBe('stroke')
@@ -102,7 +103,7 @@ it('restarts from history when a retired wash continues while its rebuild is sti
     for (let i = 0; i < 2000 && internal._rebuildJobs.size; i++) { step(); await Promise.resolve() }
     expect(internal._rebuildJobs.size).toBe(0)
     const bounds = internal._replayRibbonChunks.get('wash-1')!.scratch.dryCtx.bounds
-    expect(bounds.minY).toBeLessThan(24)
+    expect(bounds.minY).toBeLessThanOrEqual(originalBounds.minY)
     expect(bounds.maxY).toBeGreaterThan(42)
   } finally { engine.destroy() }
 })

@@ -7861,6 +7861,16 @@ export class PencilEngine implements PencilEngineAPI {
       queueMicrotask(() => { if (!this._destroyed && this._layers.get(id) === target) this._rebuildLayerOrDefer(id) })
       return
     }
+    // (#701) A continuation may grow the journal while a sliced rebuild is
+    // still painting its fresh buffer. That buffer is not in _layers yet;
+    // restart its job too, after the current slice has relinquished it.
+    for (const [id, job] of this._rebuildJobs) {
+      if (job.fresh !== target) continue
+      queueMicrotask(() => {
+        if (!this._destroyed && (this._rebuildJobs.get(id) === job || this._layers.get(id) === target)) this._rebuildLayerOrDefer(id)
+      })
+      return
+    }
   }
 
   /** (§17.68) Spilled and lost washes of `target` are about a buffer that is
