@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
 import {
-  activeLayerId, contentBounds, createRoom, drawStroke, maxDarknessOverRect, operations,
+  activeLayerId, contentBounds, createRoom, drawStroke, joinRoom, maxDarknessOverRect, operations,
   waitForOperations, waitForRoomReady, type Rect,
 } from '../support/room'
 
@@ -102,3 +102,79 @@ test.describe('layer filters', () => {
     expect(await maxDarknessOverRect(page, stroke)).toBeLessThan(before / 2)
   })
 })
+
+// QA-007: a remote stroke arrives while the author is considering a filter.
+// Cancel must leave it intact; Apply, author undo/redo and history replay
+// must all converge on the same actual framebuffer.
+for (const [kind, label, field, value] of [
+  ['gaussian_blur', 'Gaussian Blur', 'Radius', 6],
+  ['motion_blur', 'Motion Blur', 'Distance', 12],
+  ['hsl', 'Hue / Saturation', 'Lightness', 30],
+  ['curves', 'Curves', '', 0],
+  ['color_balance', 'Color Balance', 'Cyan — Red', 40],
+] as const) {
+  test(`${kind}: remote drawing during preview survives Cancel, Apply and undo/redo`, { tag: '@two-browsers' }, async ({ page, browser }) => {
+    test.setTimeout(120_000)
+    const roomId = await createRoom(page, `QA concurrent ${kind}`)
+    await waitForRoomReady(page)
+    const layerId = await activeLayerId(page)
+    const peerContext = await browser.newContext({ ignoreHTTPSErrors: true })
+    const lateContext = await browser.newContext({ ignoreHTTPSErrors: true })
+    try {
+      const peer = await peerContext.newPage()
+      await joinRoom(peer, roomId)
+      await drawStroke(page, [[450, 300], [650, 300]], { size: 60 })
+      await waitForOperations(peer, 'stroke')
+      const sample = async (p: Page) => p.evaluate(() => {
+        const room = window.__roomStore!.getState().room!
+        const out: number[] = []
+        for (let x = 0; x < 24; x++) for (let y = 0; y < 24; y++) out.push(...(window.__engine!.pickColor(room.width * (x + 0.5) / 24, room.height * (y + 0.5) / 24) ?? []))
+        return out
+      })
+      const converge = async (p: Page) => {
+        await expect.poll(async () => {
+          const a = await sample(page), b = await sample(p)
+          expect(b.length).toBe(a.length)
+          return Math.max(...b.map((v, i) => Math.abs(v - a[i])))
+        }, { timeout: 30_000 }).toBeLessThan(0.02)
+      }
+      const edit = async () => {
+        await chooseFilter(page, label)
+        if (field) await setNumber(page, field, value)
+        else {
+          const graph = page.getByRole('dialog', { name: 'Filter' }).getByRole('img')
+          const box = await graph.boundingBox()
+          if (!box) throw new Error('curve editor missing')
+          await page.mouse.click(box.x + box.width * 0.45, box.y + box.height * 0.3)
+        }
+      }
+      await openFilters(page, layerId)
+      await edit()
+      await drawStroke(peer, [[450, 450], [650, 450]], { size: 60 })
+      await waitForOperations(page, 'stroke', 2)
+      expect((await operations(peer)).filter(o => o.type === 'layer_filter')).toHaveLength(0)
+      await page.getByRole('dialog', { name: 'Filter' }).getByRole('button', { name: 'Cancel' }).click()
+      await converge(peer)
+      await openFilters(page, layerId)
+      await edit()
+      await page.getByRole('dialog', { name: 'Filter' }).getByRole('button', { name: 'Apply' }).click()
+      await waitForOperations(peer, 'layer_filter')
+      expect((await operations(peer)).filter(o => o.type === 'layer_filter')).toHaveLength(1)
+      expect((await operations(peer)).find(o => o.type === 'layer_filter')).toMatchObject({ filter: { kind } })
+      await converge(peer)
+      await page.evaluate(() => window.__engine!.undo())
+      await waitForOperations(peer, 'operation_undo')
+      await converge(peer)
+      await page.evaluate(() => window.__engine!.redo())
+      await waitForOperations(peer, 'operation_redo')
+      await converge(peer)
+      const late = await lateContext.newPage()
+      await joinRoom(late, roomId, 'Filter history witness')
+      await waitForOperations(late, 'layer_filter')
+      await converge(late)
+    } finally {
+      await peerContext.close()
+      await lateContext.close()
+    }
+  })
+}
