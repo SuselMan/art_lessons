@@ -377,3 +377,35 @@ describe('#429 a streamed peer stroke lands on exactly the pixels its operation 
     engine.destroy(); settled.destroy()
   })
 })
+
+// #699: resetting claims alone is not a repair. The layer still contains ink
+// streamed ahead of a record, including ink whose operation was refused.
+describe('#699 retiring unrecorded live ink', () => {
+  it('removes an orphaned gesture and lets a later accepted operation paint once', async () => {
+    const dabs = await recordGestureDabs('pencil')
+    const engine = await receiver('pencil')
+    const reference = await receiver('pencil')
+    const before = readLayerPixels(reference, 'L')!
+    for (const p of packetsFor('pencil', dabs)) engine.appendPeerLiveDabs(PEER, p)
+    expect(readLayerPixels(engine, 'L')).not.toEqual(before)
+    engine.resetPeerLiveStrokes()
+    expectPixelsEqual(readLayerPixels(engine, 'L')!, before)
+    commit(engine, 'pencil', dabs)
+    commit(reference, 'pencil', dabs)
+    expectPixelsEqual(readLayerPixels(engine, 'L')!, readLayerPixels(reference, 'L')!)
+    engine.destroy(); reference.destroy()
+  })
+
+  it('preserves the accepted chunk and removes only the unrecorded tail', async () => {
+    const dabs = await recordGestureDabs('pencil')
+    const engine = await receiver('pencil')
+    const reference = await receiver('pencil')
+    const prefix = dabs.slice(0, 12)
+    for (const p of packetsFor('pencil', dabs)) engine.appendPeerLiveDabs(PEER, p)
+    commit(engine, 'pencil', prefix)
+    commit(reference, 'pencil', prefix)
+    engine.resetPeerLiveStrokes()
+    expectPixelsEqual(readLayerPixels(engine, 'L')!, readLayerPixels(reference, 'L')!)
+    engine.destroy(); reference.destroy()
+  })
+})

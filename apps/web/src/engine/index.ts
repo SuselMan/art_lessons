@@ -4623,8 +4623,17 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   resetPeerLiveStrokes(): void {
+    // (#699) A reset retires the pixels as well as their claims. A gesture
+    // with no accepted operation never marked its layer out of order, so
+    // merely clearing this map left its ink behind forever (freeze/reject,
+    // disconnect or gap catch-up). Replay only layers with an unrecorded
+    // tail; the accepted prefix remains in the log/checkpoint. The existing
+    // settle gates protect this user's own unfinished gesture.
+    for (const live of this._peerLiveStrokes.values()) {
+      if (live.paintedTotal > live.committedOffset) this._unsettledLayers.add(live.layerId)
+    }
     this._peerLiveStrokes.clear()
-    // (#537) Nothing is unrecorded any more, so nothing holds a settle back.
+    // (#537) Nothing foreign is unrecorded now, so its settle can proceed.
     this._settleLayers()
   }
 

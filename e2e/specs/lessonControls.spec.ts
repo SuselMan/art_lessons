@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { createRoom, joinRoom, waitForRoomReady } from '../support/room'
+import { activeLayerId, contentBounds, createRoom, drawStroke, joinRoom, operations, setBrushSize, waitForOperations, waitForRoomReady } from '../support/room'
 
 /** (#493) What the owner switches on a live lesson, and the two ways out of a
  *  closed one — written before these left Room. Each goes through the button a
@@ -114,3 +114,67 @@ test.describe('a closed lesson', () => {
     }
   })
 })
+
+// QA-016: a freeze can arrive between the live packet and pen-up. Refusing
+// the eventual operation must retire ink already streamed to a watching peer.
+for (const mode of ['room freeze', 'point freeze', 'closed lesson']) {
+test(`${mode} mid-gesture removes refused live ink on every viewer`, { tag: '@two-browsers' }, async ({ page, browser }) => {
+  const roomId = await createRoom(page, 'QA freeze during live stroke')
+  await waitForRoomReady(page)
+  const context = await browser.newContext({ ignoreHTTPSErrors: true })
+  try {
+    const student = await context.newPage()
+    await joinRoom(student, roomId, 'Freeze mid-stroke')
+    const layerId = await activeLayerId(student)
+    await setBrushSize(student, 24)
+    const box = (await student.locator('canvas').first().boundingBox())!
+    await student.mouse.move(box.x + box.width * .4, box.y + box.height * .5)
+    await student.mouse.down()
+    for (let i = 1; i <= 8; i++) {
+      await student.mouse.move(box.x + box.width * (.4 + i * .015), box.y + box.height * .5)
+      await student.waitForTimeout(45)
+    }
+    await expect.poll(() => contentBounds(page, layerId)).not.toBeNull()
+    expect((await operations(page)).filter(op => op.type === 'stroke')).toHaveLength(0)
+    await openParticipants(page)
+    if (mode === 'room freeze') {
+      await page.getByRole('button', { name: 'Freeze project' }).click()
+      await expect.poll(() => roomFrozen(student)).toBe(true)
+    } else if (mode === 'point freeze') {
+      await page.getByRole('button', { name: 'More actions' }).first().click()
+      await page.getByRole('menuitem', { name: /freeze/i }).first().click()
+      await expect.poll(() => student.evaluate(() => {
+        const s = window.__roomStore!.getState()
+        return s.participants.find(p => p.userId === s.userId)?.frozen
+      })).toBe(true)
+    } else {
+      await closeLesson(page, roomId)
+      await expect.poll(() => student.evaluate(() => !!window.__roomStore!.getState().room?.closedAt)).toBe(true)
+    }
+    await student.mouse.up()
+    await expect.poll(() => contentBounds(student, layerId)).toBeNull()
+    await expect.poll(() => contentBounds(page, layerId)).toBeNull()
+    expect((await operations(page)).filter(op => op.type === 'stroke')).toHaveLength(0)
+    if (mode === 'room freeze') {
+      await page.getByRole('button', { name: 'Unfreeze project' }).click()
+      await expect.poll(() => roomFrozen(student)).toBe(false)
+    } else if (mode === 'point freeze') {
+      await page.getByRole('button', { name: 'More actions' }).first().click()
+      await page.getByRole('menuitem', { name: /unfreeze/i }).first().click()
+      await expect.poll(() => student.evaluate(() => {
+        const s = window.__roomStore!.getState()
+        return s.participants.find(p => p.userId === s.userId)?.frozen
+      })).toBe(false)
+    } else {
+      await page.getByRole('button', { name: 'Reopen' }).click()
+      await expect.poll(() => student.evaluate(() => !!window.__roomStore!.getState().room?.closedAt)).toBe(false)
+    }
+    await waitForRoomReady(student)
+    await drawStroke(student, [[400, 300], [520, 300]])
+    await waitForOperations(page, 'stroke')
+    expect((await operations(page)).filter(op => op.type === 'stroke')).toHaveLength(1)
+  } finally {
+    await context.close()
+  }
+})
+}

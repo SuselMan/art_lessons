@@ -68,3 +68,17 @@ Peer удаляет целевой слой: dialog/preview должны зак�
 
 Автоматизация: `layerFilter.spec.ts` «a deleted filter target stays dismissed…».
 Дефект #698, запуск2026-10-02. До правкиFAIL; послеPASS.
+
+## QA-016 — запрет редактирования посреди живого жеста
+
+Два независимых участника. Student рисует native pointer gesture и не отпускает
+кнопку; teacher уже видит live ink, stroke operation ещё отсутствует. Teacher
+замораживает комнату, только student, либо закрывает lesson. Student отпускает
+кнопку: отказанный хвост не должен оставаться ни у автора, ни у наблюдателя.
+Уже принятые части большого жеста сохраняются. Снять запрет, нарисовать новый
+штрих: он должен появиться ровно один раз у обоих, без старого призрака.
+
+Автоматизация: `lessonControls.spec.ts` «mid-gesture…»3cases,
+`index.peerLiveStroke.test.ts` «retiring unrecorded live ink», control handler units.
+Дефект #699. До правки FAIL (teacher bounds476×16 после15сек, student=null);
+после все3 browser casesPASS и accepted-prefix pixel comparisonPASS.
