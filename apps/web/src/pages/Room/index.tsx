@@ -593,6 +593,14 @@ function RoomEditor() {
   // Everything that would write to the room goes through this one condition.
   // (#595) A classmate's work opened to look at is closed to this pen too.
   const editingBlocked = isBlockedByFreeze || roomClosed || readOnlyBoard
+  // (#698) Losing the target ends the dialog, rather than hiding a live
+  // request that would reopen itself when a peer undoes the deletion.
+  useEffect(() => {
+    if (!filterLayerId) return
+    const item = layerState.items[filterLayerId]
+    if (!item || item.kind !== 'layer' || editingBlocked || compact) setFilterLayerId(null)
+  }, [filterLayerId, layerState.items, editingBlocked, compact])
+
   // (#429) Mirrored into a ref because the engine's own callbacks are wired
   // once, when the engine is constructed, and would otherwise close over
   // whatever this was at mount — a freeze arriving mid-lesson would never

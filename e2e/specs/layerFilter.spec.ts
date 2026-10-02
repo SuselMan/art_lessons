@@ -178,3 +178,30 @@ for (const [kind, label, field, value] of [
     }
   })
 }
+
+// QA-015: deleting the target ends a dialog, rather than merely hiding it
+// until another participant restores the layer with their own undo.
+test('a deleted filter target stays dismissed when its owner undoes the deletion', { tag: '@two-browsers' }, async ({ page, browser }) => {
+  const { layerId } = await strokedLayer(page)
+  const roomId = page.url().split('/room/')[1]
+  const context = await browser.newContext({ ignoreHTTPSErrors: true })
+  try {
+    const peer = await context.newPage()
+    await joinRoom(peer, roomId)
+    await openFilters(page, layerId)
+    await setNumber(page, 'Radius', 6)
+    await peer.evaluate(id => window.__engine!.appendOperation({
+      id: crypto.randomUUID(), type: 'layer_delete', layerIds: [id],
+      userId: window.__roomStore!.getState().userId, timestamp: Date.now(),
+    }), layerId)
+    await waitForOperations(page, 'layer_delete')
+    await expect(page.getByRole('dialog', { name: 'Filter' })).toBeHidden()
+    await peer.evaluate(() => window.__engine!.undo())
+    await waitForOperations(page, 'operation_undo')
+    await expect.poll(() => page.evaluate(id => !!window.__roomStore!.getState().layerState.items[id], layerId)).toBe(true)
+    await expect(page.getByRole('dialog', { name: 'Filter' })).toBeHidden()
+    expect((await operations(page)).filter(op => op.type === 'layer_filter')).toHaveLength(0)
+  } finally {
+    await context.close()
+  }
+})

@@ -57,3 +57,14 @@ identities; каждый peer присылает timed legacy stroke с неск
 
 Автоматизация: `index.peerPreviewFrames.test.ts`, `contextLoss.spec.ts`,
 `peer.spec.ts`, `trueOrder.spec.ts`. Реальная нагрузка: run2026-10-02, #697.
+
+## QA-015 — удаление слоя во время настройки фильтра
+
+Два участника. Автор открывает Filters на нарисованном слое и меняет Radius.
+Peer удаляет целевой слой: dialog/preview должны закрыться. Peer отменяет своё
+удаление: слой возвращается, dialog остаётся закрытым. Никакой filter operation
+без нового явного Apply; обычное рисование доступно. Повторить с блокировкой
+редактирования: окончание блокировки не открывает завершённый диалог само.
+
+Автоматизация: `layerFilter.spec.ts` «a deleted filter target stays dismissed…».
+Дефект #698, запуск2026-10-02. До правкиFAIL; послеPASS.
