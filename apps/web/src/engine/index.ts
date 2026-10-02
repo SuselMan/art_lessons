@@ -11235,6 +11235,12 @@ export class PencilEngine implements PencilEngineAPI {
     // regardless of what the camera is doing.
     source.setMipSampling(source.ensureMipmaps())
 
+    // A partial screen composite may have a screen-space scissor active.
+    // Coarse-cache slots have their own coordinates; folding must replace
+    // the whole slot before restoring the caller's clipping state.
+    const scissored = gl.isEnabled(gl.SCISSOR_TEST)
+    if (scissored) gl.disable(gl.SCISSOR_TEST)
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, dest.fbo)
     // gl.viewport's y is bottom-up; slot coordinates are top-down like every
     // other buffer-pixel value in this file.
@@ -11257,6 +11263,8 @@ export class PencilEngine implements PencilEngineAPI {
     // so leaving mip sampling on here would quietly make the 1:1 on-screen
     // composite trilinear too — where it is meant to be an exact texel copy.
     source.setMipSampling(false)
+
+    if (scissored) gl.enable(gl.SCISSOR_TEST)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
