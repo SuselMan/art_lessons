@@ -404,6 +404,9 @@ export class PointerInput {
         newPointerId: e.pointerId, newPointerType: e.pointerType,
         activePointerId: this._activePointerId, activePointerType: this._activePointerType,
       })
+      // (#696) A second source must not replace the pointer owning the stroke.
+      // A fresh down from that same pointer still recovers a missed up.
+      if (e.pointerId !== this._activePointerId) return
     }
     this._log('[PointerInput] down', {
       pointerId: e.pointerId, pointerType: e.pointerType,
@@ -450,23 +453,24 @@ export class PointerInput {
       }
       return
     }
-    this._moveCount++
-    // (#187) The working theory was: a
-    // second input source (mouse hover, a secondary touch) sends its own
-    // pointermove while a stylus stroke is active, and — since nothing
-    // before this ever checked pointerId — gets silently misattributed to
-    // that stroke, producing the reported mid-stroke jump/break. Logging
-    // only, no early return: behavior must stay exactly as before until
-    // this is actually confirmed, so a reproduction here is trustworthy.
+    // (#696) A native mouse hover can arrive while a pen owns this gesture.
+    // Keep the diagnostic, but never record another pointer's coordinates.
     if (e.pointerId !== this._activePointerId) {
       this._log('[PointerInput] MOVE FROM MISMATCHED POINTER — likely the "mouse conflict" (#187)', {
         movePointerId: e.pointerId, movePointerType: e.pointerType,
         activePointerId: this._activePointerId, activePointerType: this._activePointerType,
       })
+      return
     }
+    // A hover may precede pointerup; it is not another contact sample.
+    if (e.buttons === 0 && e.pressure === 0) return
+    this._moveCount++
     const beforeX = this._lastX, beforeY = this._lastY, beforeT = this._lastT
     const events = e.getCoalescedEvents?.() ?? [e]
-    for (const ev of events) this._emit('move', this._extract(ev))
+    for (const ev of events) {
+      if (ev.pointerId !== this._activePointerId || (ev.buttons === 0 && ev.pressure === 0)) continue
+      this._emit('move', this._extract(ev))
+    }
     // A big time gap since the last real sample, or an implausibly large
     // jump in canvas-pixel coordinates, could independently produce a
     // visible break — logging both to see whether either actually happens,
@@ -507,25 +511,16 @@ export class PointerInput {
       }
       return
     }
-    // (#517) The other way a stroke can vanish: something that is not the pen
-    // ends it. _handleDown ignores touch outright, but this handler never
-    // checked either the pointer type or the id — so a palm contact's own
-    // pointerup/pointercancel (iPadOS delivers a palm and then cancels it)
-    // closes the pen's stroke instead. Killed one sample in, that leaves a
-    // single touch-down dab and reads as a stroke that never happened; killed
-    // later it truncates, which is #187's mid-stroke break.
-    //
-    // Logged rather than filtered, deliberately, for the reason #187's own
-    // probes give: turning this into an early return before it has been seen
-    // once on the device would remove the evidence along with the symptom, and
-    // the fix would be unfalsifiable. It is one line away once a capture shows
-    // it firing.
+    // (#696) A palm or mouse ending its own contact cannot finish the pen.
+    // Its diagnostic remains useful, while the drawing pointer's own cancel
+    // below still ends the gesture normally.
     if (e.pointerId !== this._activePointerId) {
       this._log('[PointerInput] END FROM MISMATCHED POINTER — a foreign pointer is closing the stroke', {
         type: e.type, endPointerId: e.pointerId, endPointerType: e.pointerType,
         activePointerId: this._activePointerId, activePointerType: this._activePointerType,
         movesSoFar: this._moveCount, ageMs: Math.round(performance.now() - this._downAt),
       })
+      return
     }
     // (#187) Distinguishes a normal
     // pointerup from a pointercancel (both routed here) — e.g. a tablet OS
