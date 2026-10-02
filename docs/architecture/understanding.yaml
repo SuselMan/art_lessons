@@ -69,6 +69,7 @@ topics:
     level: 1
     parent: product-shape
     title: Движок
+    issue: 703
     why: От события пера до пикселя на экране; лог операций и тайлы слоёв.
     layers: [engine-api, engine-internals]
 

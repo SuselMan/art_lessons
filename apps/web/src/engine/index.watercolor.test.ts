@@ -1491,7 +1491,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
   })
 
   it('the budget spills a resting wash, and its next stroke brings it back', () => {
-    const e = setupLayer()
+    const e = setupLayer(512, 512)
     e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
     land(e)
     const I = e as unknown as Internals
@@ -1552,7 +1552,7 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     expect(washBounds(e, 'w1')).toEqual(washBounds(alone(), 'w1'))
   })
 
-  it('past the hard ceiling even a wash painted into a moment ago is spilled (§17.73)', () => {
+  it('an impossible GPU budget discards parked state for journal recovery (#702)', () => {
     const e = setupLayer()
     e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
     land(e)
@@ -1561,11 +1561,12 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     I._gpuBudget = 1
     I._enforceGpuBudget()
     expect(I._replayRibbonChunks.has('w1')).toBe(false)
-    expect(I._spilledWashes.has('w1')).toBe(true)
+    expect(I._spilledWashes.has('w1')).toBe(false)
+    expect(I._lostWashes.has('w1')).toBe(true)
   })
 
   it('the author’s next wash closes the spilled one', () => {
-    const e = setupLayer()
+    const e = setupLayer(512, 512)
     e.appendOperation(strokeIn('u1', 'w1', 's1', 4, 8), 'remote')
     land(e)
     const I = e as unknown as Internals
