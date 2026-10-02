@@ -202,11 +202,6 @@ ${WICK_EXPAND_GLSL}
  *  interpolations is the enforcement — the same trick paperToneGLSL uses for
  *  the paper tone. */
 const WC_NOISE_GLSL = `
-  float hash(vec2 p) {
-    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
-    return fract(p.x * p.y * (p.x + p.y));
-  }
-
   // ── Watercolor fields (#468 v2, ADR 011 §3.5-3.7) ────────────────────────
   //
   // Everything below exists to answer one criticism of v1: the wash was a
@@ -224,6 +219,13 @@ const WC_NOISE_GLSL = `
   // The lattice itself is baked; only its smooth interpolation remains here.
   float wcLattice(vec2 p) {
     return texture2D(u_wcNoiseTex, (mod(p, 251.0) + 0.5) / 251.0).r;
+  }
+
+  // #691: charcoal amplifies the same float-hash error in its grain and
+  // dust. A quarter-unit lattice preserves fine per-pixel variation while
+  // fetching identical baked values on every GPU.
+  float hash(vec2 p) {
+    return wcLattice(floor(p * 4.0));
   }
 
   /** Value noise, one lattice cell per unit of p. */
@@ -425,7 +427,11 @@ export const RIBBON_VERT = `
     v_inkStrength = a_inkStrength;
     v_puddle = a_contact.x;
     v_tipPressure = a_contact.y;
-    vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
+    // #691: skinny ribbon triangles may straddle a hardware subpixel tie.
+    // Use the same binary grid before the GPU's own rasterization. The
+    // maximum displacement is 1/128px, below the existing 1px AA ramp.
+    vec2 position = floor(a_position * 64.0 + 0.5) / 64.0;
+    vec2 clip = (position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
   }
@@ -1222,11 +1228,11 @@ ${WC_NOISE_GLSL}
     return vec2(arriving, leaving);
   }
 
-  // Interpolated value noise built on the same portable hash() above — only
+  // Interpolated value noise built on the same baked hash() above — only
   // needed by the experimental grain candidates below (u_grainMode>0); the
   // real shipped default (mode 0) never calls this. No seamless/tiling wrap
   // (unlike paperNoise.ts's own vnoise) — this is live per-fragment, per-
-  // dab noise, never baked into a texture that has to repeat.
+  // dab noise. The lattice wraps; its interpolant remains continuous.
   float vnoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
