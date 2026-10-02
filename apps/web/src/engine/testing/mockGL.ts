@@ -650,8 +650,16 @@ export class MockGL {
   // real dab draw with blending genuinely off, whose output *overwrites* the
   // destination. Left untracked, this mock would keep silently modelling it as
   // the "over" blend the fix exists to remove.
-  enable(cap: number): void { if (cap === ENUM.BLEND) this._blendEnabled = true }
-  disable(cap: number): void { if (cap === ENUM.BLEND) this._blendEnabled = false }
+  private readonly _enabledCapabilities = new Set<number>([ENUM.BLEND])
+  isEnabled(cap: number): boolean { return this._enabledCapabilities.has(cap) }
+  enable(cap: number): void {
+    this._enabledCapabilities.add(cap)
+    if (cap === ENUM.BLEND) this._blendEnabled = true
+  }
+  disable(cap: number): void {
+    this._enabledCapabilities.delete(cap)
+    if (cap === ENUM.BLEND) this._blendEnabled = false
+  }
 
   /** True when the last draw call ran with blending on. Exposed for tests that
    *  assert *which* blend mode a pass uses (see index.marker.test.ts) — the

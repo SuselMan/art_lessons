@@ -105,6 +105,7 @@ test.describe('true operation order', () => {
       await selectTool(studentPage, 'e', 'eraser')
       await drawStroke(studentPage, [[cx, cy - 150], [cx, cy], [cx, cy + 150]])
       await waitForOperations(studentPage, 'stroke', 1)
+      expect((await operations(studentPage)).find(op => op.type === 'stroke')).toMatchObject({ tool: 'eraser' })
       // The erase has reached the teacher — confirmed, applied, and (before
       // the fix) painted over her own not-yet-sent line.
       await waitForOperations(page, 'stroke', 2)
