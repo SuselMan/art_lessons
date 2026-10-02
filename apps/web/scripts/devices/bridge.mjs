@@ -33,7 +33,41 @@ export async function ev(sel, code, timeoutMs = 120000) {
 export const pageLib = readFileSync(new URL('./pageLib.js', import.meta.url), 'utf8')
 
 /** Clicks through the join form if it is up, waits for the engine, installs pageLib. */
-export async function joinAndInstall(sel) {
-  await ev(sel, `for (let i = 0; i < 60 && !window.__engine; i++) { const b = [...document.querySelectorAll('button')].find(b => /Войти|Join/i.test(b.textContent)); if (b) b.click(); await new Promise(r => setTimeout(r, 1000)) } await new Promise(r => setTimeout(r, 2000)); return location.pathname`)
+export async function joinAndInstall(sel, roomId) {
+  // (#692) A new room's join gate has an empty required name. A disabled Join
+  // button never reaches the engine, however many times the rig clicks it.
+  // Poll with short bridge calls: Safari may suspend a long timer while the
+  // page navigates, and a single 60-second eval used to expire at 120 seconds.
+  const deadline = Date.now() + 90000
+  for (;;) {
+    let ready = false
+    try {
+      ready = await ev(sel, `
+      if (${JSON.stringify(roomId ?? null)} && location.pathname !== '/room/' + ${JSON.stringify(roomId ?? null)}) return false;
+      const canvas = document.querySelector('canvas');
+      if (window.__engine && canvas && getComputedStyle(canvas).pointerEvents !== 'none') return true;
+      const form = document.querySelector('form');
+      const input = form?.querySelector('input[type="text"]');
+      if (input && !input.value.trim()) {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'QA device');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const button = form?.querySelector('button[type="submit"]');
+      // Reply before submitting: joining can replace the page's bridge
+      // listener during React refresh, otherwise the successful click loses
+      // its acknowledgement and the rig reports a timeout.
+      if (button && !button.disabled) setTimeout(() => button.click(), 0);
+      return false;
+      `, Math.min(10000, Math.max(1, deadline - Date.now())))
+    } catch (error) {
+      // Navigation briefly removes the page from the bridge registry. A
+      // timed-out eval can also have completed its submit during a refresh.
+      // Retry these observations, but keep the original bounded deadline.
+      if (!/no live page matches|timeout after/.test(String(error))) throw error
+    }
+    if (ready) break
+    if (Date.now() >= deadline) throw new Error(`${sel}: room did not become drawable within 90 seconds`)
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
   return ev(sel, pageLib)
 }

@@ -619,3 +619,31 @@ model IpBan {
   @@index([ip])
   @@index([expiresAt])
 }
+
+// #686: one row per attempt, including fast opens. Plain diagnostic identifiers
+// outlive deleted rooms; retention is 90 days, independently of room history.
+model RoomOpenMeasurement {
+  userId      String
+  attemptId   String
+  roomId      String
+  deviceId    String
+  appVersion  String
+  deviceType  String
+  platform    String
+  browser     String
+  wasHidden   Boolean
+  outcome     String
+  totalMs     Int
+  joinMs      Int?
+  paperMs     Int?
+  snapshotMs  Int?
+  replayMs    Int?
+  reached     String
+  facts       Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@id([userId, attemptId])
+  @@index([createdAt])
+  @@index([roomId, createdAt])
+}

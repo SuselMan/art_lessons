@@ -3,6 +3,7 @@ import type {
   AdminUserList, ClientEnvironment, IpBanDurationHours,
 } from './admin.js'
 import type { Operation } from './operations.js'
+import type { RoomOpenMeasurement } from './roomOpen.js'
 import type {
   BoardSummary, Room, RoomAccessInfo, RoomAccessMode, RoomFolder, RoomInvite,
 } from './room.js'
@@ -124,6 +125,7 @@ export interface ApiRoutes {
   'POST /api/auth/code/verify': { body: { email: string; code: string }; response: Me }
   'POST /api/auth/logout': { response: Me }
   'POST /api/me/environment': { body: ClientEnvironment; response: ApiOk }
+  'POST /api/me/room-open': { body: RoomOpenMeasurement; response: ApiOk }
 
   // ── rooms (roomRoutes.ts) ───────────────────────────────────────────────
   'GET /api/rooms/mine': { response: MyRooms }

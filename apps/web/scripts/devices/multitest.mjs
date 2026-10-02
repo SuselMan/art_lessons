@@ -30,7 +30,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 10139
 const COLORS = { android: [0.75, 0.2, 0.15], ipad: [0.15, 0.35, 0.7], surface: [0.9, 0.7, 0.1], laptop: [0.2, 0.55, 0.3] }
 const PRESETS = ['normal:100:0:PB29:round', 'normal:100:70:PB29:round', 'normal:60:100:PB29:round', 'normal:100:100:PB29:flex']
 
-const ensureJoined = dev => joinAndInstall(dev.sel)
+const ensureJoined = dev => joinAndInstall(dev.sel, room)
 
 async function round(name, plan) {
   // plan: dev -> { layerId, strokes: [{ pts, ms, size, preset }], gapMs }

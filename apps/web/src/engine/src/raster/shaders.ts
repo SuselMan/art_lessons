@@ -190,7 +190,7 @@ ${WICK_EXPAND_GLSL}
 // brush size, instead of the old normalized-space falloff whose width was a
 // fixed fraction of the dab (36-40% of the mark's half-width at any size — see
 // docs/marker-edge-problem.md).
-/** (#536) The portable noise family, emitted into every shader that needs it.
+/** (#536, #691) The shared noise family, emitted into every shader that needs it.
  *
  *  Extracted because the deposit is written by *two* shaders — the nib stamps
  *  in DAB_FRAG and the ribbon bands in RIBBON_FRAG — and moving the wash's
@@ -202,11 +202,6 @@ ${WICK_EXPAND_GLSL}
  *  interpolations is the enforcement — the same trick paperToneGLSL uses for
  *  the paper tone. */
 const WC_NOISE_GLSL = `
-  float hash(vec2 p) {
-    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
-    return fract(p.x * p.y * (p.x + p.y));
-  }
-
   // ── Watercolor fields (#468 v2, ADR 011 §3.5-3.7) ────────────────────────
   //
   // Everything below exists to answer one criticism of v1: the wash was a
@@ -216,12 +211,22 @@ const WC_NOISE_GLSL = `
   // two coarser scales a real wash has, and make the mark's own boundary stop
   // coinciding with the brush's path.
   //
-  // All of it is built on hash() above, which is the project's portable
-  // fract/floor hash - no sin(), no finite differences, nothing that has ever
-  // diverged between a desktop and a tablet GPU (see paperCatch's comment and
-  // .claude/rules.md). Value noise is an interpolation of four hash samples,
-  // which is contractive: a per-GPU difference in one lattice value is damped,
-  // never amplified.
+  // Value noise interpolates four identical, offline lattice values. The
+  // old fract/floor hash diverged across GPUs despite avoiding sin().
+
+  uniform sampler2D u_wcNoiseTex;
+  // #691: float fract hashes differ across GPU compilers (including FMA).
+  // The lattice itself is baked; only its smooth interpolation remains here.
+  float wcLattice(vec2 p) {
+    return texture2D(u_wcNoiseTex, (mod(p, 251.0) + 0.5) / 251.0).r;
+  }
+
+  // #691: charcoal amplifies the same float-hash error in its grain and
+  // dust. A quarter-unit lattice preserves fine per-pixel variation while
+  // fetching identical baked values on every GPU.
+  float hash(vec2 p) {
+    return wcLattice(floor(p * 4.0));
+  }
 
   /** Value noise, one lattice cell per unit of p. */
   float wcNoise(vec2 p) {
@@ -229,10 +234,10 @@ const WC_NOISE_GLSL = `
     vec2 f = fract(p);
     // Smoothstep interpolant, so the field has no visible lattice creases.
     vec2 u = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
+    float a = wcLattice(i);
+    float b = wcLattice(i + vec2(1.0, 0.0));
+    float c = wcLattice(i + vec2(0.0, 1.0));
+    float d = wcLattice(i + vec2(1.0, 1.0));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
   }
 
@@ -422,7 +427,11 @@ export const RIBBON_VERT = `
     v_inkStrength = a_inkStrength;
     v_puddle = a_contact.x;
     v_tipPressure = a_contact.y;
-    vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
+    // #691: skinny ribbon triangles may straddle a hardware subpixel tie.
+    // Use the same binary grid before the GPU's own rasterization. The
+    // maximum displacement is 1/128px, below the existing 1px AA ramp.
+    vec2 position = floor(a_position * 64.0 + 0.5) / 64.0;
+    vec2 clip = (position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
   }
@@ -1219,11 +1228,11 @@ ${WC_NOISE_GLSL}
     return vec2(arriving, leaving);
   }
 
-  // Interpolated value noise built on the same portable hash() above — only
+  // Interpolated value noise built on the same baked hash() above — only
   // needed by the experimental grain candidates below (u_grainMode>0); the
   // real shipped default (mode 0) never calls this. No seamless/tiling wrap
   // (unlike paperNoise.ts's own vnoise) — this is live per-fragment, per-
-  // dab noise, never baked into a texture that has to repeat.
+  // dab noise. The lattice wraps; its interpolant remains continuous.
   float vnoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);

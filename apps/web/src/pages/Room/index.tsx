@@ -68,6 +68,7 @@ import { useCanvasViewport } from './useCanvasViewport'
 import { useAnnotations } from './useAnnotations'
 import { useCursorBroadcast } from './useCursorBroadcast'
 import { useLayerStateSync } from './useLayerStateSync'
+import { useFilterTarget } from './useFilterTarget'
 import { useLayerPanelBridge } from './useLayerPanelBridge'
 import { useSpaceToPan } from './useSpaceToPan'
 import { useDrawingActivity } from './useDrawingActivity'
@@ -492,10 +493,6 @@ function RoomEditor() {
   // (#542) 'color' is back in this list, but it is no longer a tab with its own
   // contents — it renders the very same body the colour popover does.
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
-  // (#574) The layer the filter dialog is open on, or null. Local like
-  // activePanel above: which dialog is open is this viewer's business, not the
-  // room's.
-  const [filterLayerId, setFilterLayerId] = useState<string | null>(null)
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
@@ -593,6 +590,7 @@ function RoomEditor() {
   // Everything that would write to the room goes through this one condition.
   // (#595) A classmate's work opened to look at is closed to this pen too.
   const editingBlocked = isBlockedByFreeze || roomClosed || readOnlyBoard
+  const [filterLayerId, setFilterLayerId] = useFilterTarget(editingBlocked, compact)
   // (#429) Mirrored into a ref because the engine's own callbacks are wired
   // once, when the engine is constructed, and would otherwise close over
   // whatever this was at mount — a freeze arriving mid-lesson would never

@@ -18,6 +18,8 @@ const t: TFunction = key => key
 function setup(overrides: Partial<RoomControlEventDeps> = {}) {
   const deps = {
     sessionId: 'L',
+    engineRef: { current: { endPeerLiveStroke: vi.fn(() => 0) } },
+    requestFullResync: vi.fn(),
     queryClient: new QueryClient(),
     hasJoinedRef: { current: false },
     retryJoinRef: { current: vi.fn() },
@@ -125,5 +127,44 @@ describe('the rest are the store', () => {
     const request = { id: 'r1', userId: 'u1', name: 'Ann', email: null, requestedAt: '2026-09-25T00:00:00Z' }
     on.join_request_created({ roomId: 'L', request })
     expect(applyJoinRequestCreated).toHaveBeenCalledWith(deps.queryClient, 'L', request)
+  })
+})
+
+
+describe('#699 blocking a gesture whose live ink was already painted', () => {
+  beforeEach(() => {
+    useRoomStore.getState().applyParticipantAction({
+      type: 'room_state', participants: ['a', 'b'].map(userId => ({
+        userId, name: userId, role: 'member', color: '#000', frozen: false, boardId: 'L',
+      })),
+    })
+  })
+
+  for (const mode of ['room freeze', 'closed lesson', 'point freeze']) {
+    it(`repairs orphaned ink after ${mode}`, () => {
+      const endPeerLiveStroke = vi.fn((id: string) => id === 'a' ? 12 : 0)
+      const { deps, on } = setup({ engineRef: { current: { endPeerLiveStroke } } })
+      if (mode === 'room freeze') on.room_frozen_changed({ frozen: true })
+      else if (mode === 'closed lesson') on.room_closed_changed({ closedAt: '2026-10-02T13:00:00Z' })
+      else on.participant_frozen_changed({ userId: 'a', frozen: true })
+      expect(endPeerLiveStroke).toHaveBeenCalledWith('a')
+      expect(endPeerLiveStroke).toHaveBeenCalledTimes(mode === 'point freeze' ? 1 : 2)
+      expect(deps.requestFullResync).toHaveBeenCalledOnce()
+    })
+  }
+
+  it('does not resync a room with no unrecorded live ink', () => {
+    const { deps, on } = setup()
+    on.room_frozen_changed({ frozen: true })
+    expect(deps.requestFullResync).not.toHaveBeenCalled()
+  })
+
+  it('unblocking does not retire a new, allowed gesture', () => {
+    const { deps, on } = setup()
+    on.room_frozen_changed({ frozen: false })
+    on.participant_frozen_changed({ userId: 'a', frozen: false })
+    on.room_closed_changed({ closedAt: null })
+    expect(deps.engineRef.current?.endPeerLiveStroke).not.toHaveBeenCalled()
+    expect(deps.requestFullResync).not.toHaveBeenCalled()
   })
 })

@@ -294,7 +294,8 @@ links:
       именами полей из таблицы, но значениями unknown, и проверяет сам.
     messages:
       - { dir: '→', name: 'GET /api/me', type: 'Me' }
-      - { dir: '→', name: 'POST /api/me/environment', type: 'ClientEnvironment', runtime: 'сервер прогоняет тело через sanitizeClientEnvironment — единственная ручка с настоящей проверкой' }
+      - { dir: '→', name: 'POST /api/me/environment', type: 'ClientEnvironment', runtime: 'сервер прогоняет тело через sanitizeClientEnvironment' }
+      - { dir: '→', name: 'POST /api/me/room-open', type: 'RoomOpenMeasurement', runtime: 'parseRoomOpenMeasurement проверяет тело; один итог на попытку, хранение 90 дней' }
       - { dir: '→', name: 'POST /api/auth/code/request', type: 'RequestedLoginCode' }
       - { dir: '→', name: 'POST /api/auth/code/verify', type: 'Me' }
       - { dir: '→', name: 'POST /api/auth/logout', type: 'Me' }

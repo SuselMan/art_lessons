@@ -5,6 +5,7 @@ import {
   operations, waitForOperations, waitForRoomReady,
 } from '../support/room'
 import { slow } from '../support/pace'
+import { interruptTransport } from '../support/network'
 
 /** (#491) Drawing through a dropped connection, and what happens to it after.
  *
@@ -21,6 +22,7 @@ import { slow } from '../support/pace'
  *  reached the server is a question only somebody else can answer. */
 test.describe('a connection that drops mid-lesson', () => {
   test('work drawn offline reaches the server once the connection returns', { tag: '@two-browsers' }, async ({ page, browser, context }) => {
+    const transport = await interruptTransport(page)
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -28,6 +30,8 @@ test.describe('a connection that drops mid-lesson', () => {
     await waitForOperations(page, 'stroke', 1)
 
     await context.setOffline(true)
+    await transport.cut()
+    await expect(page.getByRole('status').filter({ hasText: 'No connection' })).toBeVisible()
 
     // Painted locally with no server in reach — the optimistic local island.
     // If this stopped working, a dropped wifi would mean a pen that does
@@ -37,6 +41,7 @@ test.describe('a connection that drops mid-lesson', () => {
     const layer = await activeLayerId(page)
     expect(await maxDarknessOverContent(page, layer)).toBeGreaterThan(INK)
 
+    transport.restore()
     await context.setOffline(false)
 
     // Somebody else's browser, arriving after the reconnection. What it can
@@ -76,6 +81,7 @@ test.describe('a connection that drops mid-lesson', () => {
 
     const student = await browser.newContext()
     const studentPage = await student.newPage()
+    const transport = await interruptTransport(studentPage)
     try {
       await joinRoom(studentPage, roomId)
       await drawStroke(page, [[320, 260], [640, 260]])
@@ -83,6 +89,8 @@ test.describe('a connection that drops mid-lesson', () => {
       await waitForOperations(studentPage, 'stroke', 1)
 
       await student.setOffline(true)
+      await transport.cut()
+      await expect(studentPage.getByRole('status').filter({ hasText: 'No connection' })).toBeVisible()
       // Drawn while the student cannot hear about it: no live packet, no
       // `operation_confirmed`. The only way it reaches them is the tail of the
       // `room_state` their rejoin will be answered with.
@@ -93,6 +101,7 @@ test.describe('a connection that drops mid-lesson', () => {
       await studentPage.waitForTimeout(3000)
       expect((await operations(studentPage)).filter(op => op.type === 'stroke')).toHaveLength(1)
 
+      transport.restore()
       await student.setOffline(false)
       await expect.poll(
         async () => (await operations(studentPage)).filter(op => op.type === 'stroke').length,
@@ -112,6 +121,7 @@ test.describe('a connection that drops mid-lesson', () => {
   // moved on. The branch lives in dispatchOp and nothing reached it until the
   // dispatch code was about to move out of Room.
   test('deleting a shared layer offline is refused, visibly, and nothing is queued', async ({ page, context }) => {
+    const transport = await interruptTransport(page)
     await createRoom(page)
     await waitForRoomReady(page)
     await page.getByRole('button', { name: 'Add layer' }).click()
@@ -123,6 +133,7 @@ test.describe('a connection that drops mid-lesson', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
 
     await context.setOffline(true)
+    await transport.cut()
     await expect(page.getByRole('status').filter({ hasText: 'No connection' })).toBeVisible({ timeout: slow(20_000) })
 
     const name = await page.evaluate(id => window.__roomStore!.getState().layerState.items[id]?.name, upper)
@@ -138,6 +149,7 @@ test.describe('a connection that drops mid-lesson', () => {
     expect((await operations(page)).filter(op => op.type === 'layer_delete')).toHaveLength(0)
     expect(await page.evaluate(id => !!window.__roomStore!.getState().layerState.items[id], upper)).toBe(true)
 
+    transport.restore()
     await context.setOffline(false)
   })
 })

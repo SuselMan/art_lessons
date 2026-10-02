@@ -142,7 +142,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // table below still lists every event this page answers.
   const peer = createPeerEventHandlers({ ...deps, requestFullResync })
   const board = createBoardEventHandlers({ ...deps, maybeFollow })
-  const control = createRoomControlEventHandlers({ ...deps, sessionId: id })
+  const control = createRoomControlEventHandlers({ ...deps, sessionId: id, requestFullResync })
 
   socket.on('lesson_state',               board.lesson_state)
   socket.on('participant_hand_changed',   board.participant_hand_changed)

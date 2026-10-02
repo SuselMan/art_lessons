@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import type { ServerToClientEvents } from '@grafetto/shared'
 
+import type { PencilEngineAPI } from '../../../engine'
 import type { TFunction } from '../../../i18n'
 import { notifyError } from '../../../stores/noticeStore'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -14,6 +15,8 @@ export type RoomControlEventHandlers = Pick<ServerToClientEvents,
   | 'participant_frozen_changed' | 'join_request_resolved' | 'join_request_created' | 'kicked'>
 
 export interface RoomControlEventDeps {
+  engineRef: RefObject<Pick<PencilEngineAPI, 'endPeerLiveStroke'> | null>
+  requestFullResync: () => void
   /** The id this socket was opened for — the lesson's until the first
    *  room_state says otherwise. */
   sessionId: string
@@ -34,8 +37,17 @@ export interface RoomControlEventDeps {
  *  Out of Room's socket effect; handlers come back rather than a
  *  registration, for the same reason as createBoardEventHandlers. */
 export function createRoomControlEventHandlers({
-  sessionId, queryClient, hasJoinedRef, retryJoinRef, setJoinState, tRef,
+  sessionId, queryClient, hasJoinedRef, retryJoinRef, setJoinState, tRef, engineRef, requestFullResync,
 }: RoomControlEventDeps): RoomControlEventHandlers {
+  // (#699) Blocking ends the possibility of an outstanding gesture being
+  // accepted. Like a peer leaving mid-stroke, live ink without a log record
+  // needs the existing authoritative catch-up; pen-up alone cannot fix it.
+  const repairBlockedLiveInk = (userIds: readonly string[]) => {
+    const orphaned = userIds.reduce((n, id) => n + (engineRef.current?.endPeerLiveStroke(id) ?? 0), 0)
+    if (orphaned > 0) requestFullResync()
+  }
+  const repairAllBlockedLiveInk = () => repairBlockedLiveInk(useRoomStore.getState().participants.map(p => p.userId))
+
   return {
     palette_updated: ({ palette }) => {
       useRoomStore.getState().setPalette(palette)
@@ -47,6 +59,7 @@ export function createRoomControlEventHandlers({
     // above.
     room_frozen_changed: ({ frozen }) => {
       useRoomStore.getState().setRoomFrozen(frozen)
+      if (frozen) repairAllBlockedLiveInk()
     },
 
     // (#548) The owner changed which tools this room offers. Broadcast to
@@ -62,6 +75,7 @@ export function createRoomControlEventHandlers({
     // out when it happens rather than on the rejection of their next stroke.
     room_closed_changed: ({ closedAt }) => {
       useRoomStore.getState().setRoomClosedAt(closedAt)
+      if (closedAt) repairAllBlockedLiveInk()
     },
 
     // (#254/#257/#259) One participant's freeze toggled — broadcast to the
@@ -69,6 +83,7 @@ export function createRoomControlEventHandlers({
     // not just the target themselves.
     participant_frozen_changed: ({ userId, frozen }) => {
       useRoomStore.getState().applyParticipantAction({ type: 'participant_frozen_changed', userId, frozen })
+      if (frozen) repairBlockedLiveInk([userId])
     },
 
     // (#227/#231) The owner answered someone waiting on the join screen. On

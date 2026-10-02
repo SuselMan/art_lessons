@@ -543,11 +543,26 @@ export const LayerPanel = memo(function LayerPanel({
   // row: `activeId` is where strokes land, and a folder holds no pixels of its
   // own (the same reason its row menu disables Clear — see #329).
   const handleAddFolder = useCallback(() => {
+    const folderId = nanoid(8)
+    const selection = new Set(selectedIds.filter(id => id !== BACKGROUND_LAYER_ID && items[id]))
+    // Walk the whole tree, including collapsed folders, so click order never
+    // changes stacking order and selected descendants ride with their folder.
+    const ordered = rootOrder.flatMap(id => collectDescendants(layerState, id))
+    const movingIds = normalizeMoveSet(layerState, ordered.filter(id => selection.has(id)))
+    const placement = movingIds.length > 0
+      ? placementAbove(layerState, movingIds[0])
+      : placeAbove()
     onOp({
-      type: 'folder_add', layerId: nanoid(8), name: t('layers.defaultFolderName'),
-      ...placeAbove(),
+      type: 'folder_add', layerId: folderId, name: t('layers.defaultFolderName'),
+      ...placement,
     })
-  }, [placeAbove, onOp, t])
+    if (movingIds.length > 0) {
+      onOp({ type: 'layer_move', layerIds: movingIds, parentId: folderId, index: 0 })
+      onChange(p => placement.parentId === null
+        ? p
+        : patchItem(placement.parentId, { collapsed: false })(p))
+    }
+  }, [selectedIds, items, rootOrder, layerState, placeAbove, onOp, onChange, t])
 
   // Reference image import (#88) — always its own new layer (never onto an
   // existing one), so image_import can assume a blank target with nothing

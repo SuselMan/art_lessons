@@ -314,6 +314,7 @@ function LayerRowImpl({
           className={styles.nameInput}
           defaultValue={item.name}
           autoFocus
+          onFocus={e => e.currentTarget.select()}
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onStopEditing?.() }}
           onClick={e => e.stopPropagation()}

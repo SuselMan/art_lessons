@@ -35,6 +35,7 @@ import { registerThumbnailRoutes } from './roomRoutes/thumbnailRoutes.js'
 import { adminEmails, registerAdminRoutes } from './admin/adminRoutes.js'
 import { loadBans, loadIpBans, loadRevocations } from './auth/bans.js'
 import { pruneSightings, registerSessionRoutes } from './auth/sessions.js'
+import { pruneRoomOpenMeasurements, registerRoomOpenMetrics } from './health/roomOpenMetrics.js'
 
 // `trustProxy: 1` — trust exactly one hop, the host's nginx, which is the
 // sole public entry point (docker-compose.prod.yml binds this process to
@@ -190,6 +191,7 @@ registerAdminRoutes(app, {
   },
 })
 registerSessionRoutes(app)
+registerRoomOpenMetrics(app)
 
 // (#497) Сколько у выключения есть времени. Меньше десяти секунд не по вкусу:
 // `docker stop` шлёт SIGTERM и добивает SIGKILL'ом через свой grace period, а
@@ -203,6 +205,8 @@ const SHUTDOWN_DEADLINE_MS = 8000
  *  then every six hours; `unref` so it never holds a shutdown open. */
 function startSightingPrune(): void {
   const prune = () => {
+    pruneRoomOpenMeasurements()
+      .catch(err => app.log.error({ err }, 'failed to prune room open measurements'))
     pruneSightings()
       .then(removed => { if (removed.devices + removed.ips > 0) app.log.info(removed, 'pruned old sightings') })
       .catch(err => app.log.error({ err }, 'failed to prune sightings'))

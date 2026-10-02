@@ -111,6 +111,7 @@ groupings:
         коммитится, поэтому сборка не зависит ни от GPU, ни от сети.
       files:
         - apps/web/scripts/bakePaperTextures.ts
+        - apps/web/scripts/bakeWatercolorNoise.ts
         - apps/web/scripts/bakeAppIcons.ts
         - apps/web/scripts/bakeIconFont.ts
         - apps/web/scripts/bakeBrushSamples.ts
