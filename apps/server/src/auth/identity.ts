@@ -99,9 +99,14 @@ export async function identityHook(request: FastifyRequest, reply: FastifyReply)
     // endpoints respect is a list of the ones that don't. `/api/me` included
     // — that refusal is how the client learns to show the banned screen.
     if (isBanned(userId)) return reply.code(403).send({ error: 'banned' })
-    request.userId = userId
-    recordSighting({ userId, deviceId, ip, userAgent: request.headers['user-agent'] })
-    return
+    // A signed cookie can outlive its User row (for example after a database
+    // restore). Using that id creates rooms whose owner FK cannot persist.
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
+    if (user) {
+      request.userId = userId
+      recordSighting({ userId, deviceId, ip, userAgent: request.headers['user-agent'] })
+      return
+    }
   }
   const freshUserId = await createGuestUser()
   request.userId = freshUserId
@@ -122,7 +127,10 @@ export async function resolveSocketIdentity(cookieHeader: string | undefined): P
   const deviceId = readDeviceId(extractCookie(cookieHeader, DEVICE_COOKIE)) ?? newDeviceId()
   const existing = extractCookie(cookieHeader, IDENTITY_COOKIE)
   const userId = existing && verifyIdentityToken(existing)
-  if (userId) return { userId, deviceId }
+  if (userId) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
+    if (user) return { userId, deviceId }
+  }
   return { userId: await createGuestUser(), deviceId }
 }
 
