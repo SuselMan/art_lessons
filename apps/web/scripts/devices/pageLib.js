@@ -28,7 +28,7 @@
     for (let i = 1; i < P.length; i++) { const d = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); seg.push(d); L += d }
     const at = (f) => { let s = f * L; for (let i = 0; i < seg.length; i++) { if (s <= seg[i] || i === seg.length - 1) { const k = seg[i] ? Math.min(1, s / seg[i]) : 0; return [P[i][0] + (P[i + 1][0] - P[i][0]) * k, P[i][1] + (P[i + 1][1] - P[i][1]) * k] } s -= seg[i] } return P[P.length - 1] }
     const mk = (x, y, ts, buttons) => { const ev = { clientX: x, clientY: y, pressure: 0.8, tiltX: 0, tiltY: 0, twist: 0, width: 1, height: 1, pointerType: 'pen', pointerId: 7, isPrimary: true, button: 0, buttons, timeStamp: ts, target: c, currentTarget: c, preventDefault() {}, stopPropagation() {}, getCoalescedEvents() { return [ev] }, getPredictedEvents() { return [] } }; return ev }
-    const frames = []; const t0 = performance.now(); let last = t0
+    const t0 = performance.now(); const frames = [t0]; let last = t0, penUpAt = t0
     p._handleDown(mk(P[0][0], P[0][1], t0, 1))
     const tick = (now) => {
       frames.push(now)
@@ -37,13 +37,21 @@
       const ev = samples[samples.length - 1]; ev.getCoalescedEvents = () => samples
       p._handleMove(ev); last = now
       if (now - t0 < ms) { requestAnimationFrame(tick); return }
-      const [x, y] = at(1); p._handleUp(mk(x, y, now, 0)); c.setPointerCapture = origCapture
+      const [x, y] = at(1); penUpAt = now; p._handleUp(mk(x, y, now, 0)); c.setPointerCapture = origCapture
       const tail = (t) => { frames.push(t); if (t - now < 1500) requestAnimationFrame(tail); else done() }
       requestAnimationFrame(tail)
     }
     const done = () => {
-      const d = []; for (let i = 1; i < frames.length; i++) d.push(frames[i] - frames[i - 1])
-      resolve(JSON.stringify({ n: d.length, over33: d.filter(v => v > 33).length, over100: d.filter(v => v > 100).length, max: Math.round(Math.max(0, ...d)) }))
+      const d = [], active = [], tail = []
+      for (let i = 1; i < frames.length; i++) {
+        const gap = frames[i] - frames[i - 1]
+        d.push(gap); (frames[i] <= penUpAt ? active : tail).push(gap)
+      }
+      resolve(JSON.stringify({ n: d.length, over33: d.filter(v => v > 33).length, over100: d.filter(v => v > 100).length, max: Math.round(Math.max(0, ...d)),
+        activeMs: Math.round(penUpAt - t0), activeN: active.length, activeMax: Math.round(Math.max(0, ...active)),
+        activeOver33: active.filter(v => v > 33).length, activeOver100: active.filter(v => v > 100).length,
+        tailMax: Math.round(Math.max(0, ...tail)),
+      }))
     }
     requestAnimationFrame(tick)
   })

@@ -39,3 +39,21 @@ WebGL context, готовность холста и отсутствие оши�
 Автоматизация: `inputOwnership.spec.ts` (generated pen + native CDP mouse),
 `PointerInput.ownership.test.ts`. Bug #696. Синтетическое перо не выдавать за ручной
 прогон аппаратным стилусом.
+
+## QA-014 — одновременная анимация входящих штрихов
+
+Предусловия: настоящие AMD/Intel устройства в одной комнате,18 независимых peer
+identities; каждый peer присылает timed legacy stroke с несколькими dab times.
+
+Шаги: отправить18 операций одновременно; в то же время рисовать локальный жест
+1сек. Измерить RAF gaps отдельно до pen-up и после него. Повторить для9 tools.
+Сравнить operation ids/order, raw layer pixel grids после settling и late join.
+Проверить author undo/redo, WebGL context loss во время peer reveal.
+
+Ожидание: preview каждого peer виден, каждый operation committed ровно один раз;
+показ всех previews объединён в один frame, не18 full composites в один tick.
+Фиксировать actual active frame count/maxGap по device/GPU, отдельно tail gaps.
+Не считать HMR/remount промежутки сравнением готовых рисунков.
+
+Автоматизация: `index.peerPreviewFrames.test.ts`, `contextLoss.spec.ts`,
+`peer.spec.ts`, `trueOrder.spec.ts`. Реальная нагрузка: run2026-10-02, #697.

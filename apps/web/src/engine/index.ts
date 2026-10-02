@@ -4688,7 +4688,9 @@ export class PencilEngine implements PencilEngineAPI {
       // #138: translated into this peer's buffer's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
       this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color, op.userId)
-      this._display()
+      // (#697) Every peer owns a reveal timer, but all peers share one
+      // screen. Coalesce their composites without delaying log commits.
+      this._scheduleDisplay()
     }
 
     if (state.dabIdx >= dabs.length) {
@@ -4696,7 +4698,7 @@ export class PencilEngine implements PencilEngineAPI {
       state.queue.shift()
       state.buf.clear()
       if (state.queue.length) this._startPeerPreviewHead(peerId)
-      else { state.timer = null; state.buf.destroy(); this._peerPreviews.delete(peerId); this._display() }
+      else { state.timer = null; state.buf.destroy(); this._peerPreviews.delete(peerId); this._scheduleDisplay() }
       return
     }
     state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
