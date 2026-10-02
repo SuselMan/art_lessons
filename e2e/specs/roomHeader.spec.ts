@@ -14,6 +14,37 @@ async function inEnglish(page: Page): Promise<void> {
 }
 
 test.describe('the room header', () => {
+  test('Share for review sends the current board link and opens annotation mode', async ({ page }) => {
+    await inEnglish(page)
+    const roomId = await createRoom(page)
+    await waitForRoomReady(page)
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (text: string) => { sessionStorage.setItem('review-link', text) } },
+      })
+    })
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Share for review', exact: true }).click()
+    let expected = new URL(`/room/${roomId}?preview`, page.url()).href
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('review-link'))).toBe(expected)
+    await expect(page.getByText('Link copied', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Boards', exact: true }).click()
+    await page.getByRole('button', { name: 'New board', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.__roomStore!.getState().boardId)).not.toBe(roomId)
+    await waitForRoomReady(page)
+    const boardId = await page.evaluate(() => window.__roomStore!.getState().boardId)
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Share for review', exact: true }).click()
+    expected = new URL(`/room/${boardId}?preview`, page.url()).href
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('review-link'))).toBe(expected)
+    await page.goto(expected)
+    await page.locator('form button[type="submit"]').click()
+    await waitForRoomReady(page)
+    await expect(page.getByRole('button', { name: 'Annotations', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('annotateText')
+  })
+
   test('the owner renames the lesson in place, and the server keeps it', async ({ page }) => {
     await inEnglish(page)
     await createRoom(page, 'Cube')
@@ -79,6 +110,6 @@ test.describe('the room header', () => {
     await page.getByRole('button', { name: 'Menu' }).click()
     // A toggle folds in as a checkable item, carrying the pressed state.
     await expect(page.getByRole('menuitemcheckbox', { name: 'Annotations' })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: 'Share' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Share', exact: true })).toBeVisible()
   })
 })

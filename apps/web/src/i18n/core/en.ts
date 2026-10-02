@@ -252,6 +252,7 @@ export const en = {
   // sheet, everywhere else it copies; the strings only describe the result, so
   // they read the same either way.
   'share.action': 'Share',
+  'share.review': 'Share for review',
   'share.copied': 'Link copied',
   // Said even though the link went out fine: an invite-only project does not
   // admit anyone the owner hasn't listed, and finding that out from a student

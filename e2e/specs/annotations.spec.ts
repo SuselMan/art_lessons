@@ -31,6 +31,28 @@ async function pickTool(page: Page, tool: 'annotatePen' | 'annotateText' | 'anno
 }
 
 test.describe('annotations', () => {
+  test('preview links enter annotation mode once and allow returning to drawing', async ({ page }) => {
+    const roomId = await createRoom(page)
+    await waitForRoomReady(page)
+    expect(await page.evaluate(() => window.__roomStore!.getState().annotationMode)).toBe(false)
+    await page.goto(`/room/${roomId}?preview`)
+    await page.locator('form button[type="submit"]').click()
+    await waitForRoomReady(page)
+    const mode = page.getByRole('button', { name: 'Annotations', exact: true })
+    await expect(mode).toHaveAttribute('aria-pressed', 'true')
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('annotateText')
+    await mode.click()
+    await expect(mode).toHaveAttribute('aria-pressed', 'false')
+    await page.getByRole('button', { name: 'Add layer', exact: true }).click()
+    await waitForOperations(page, 'layer_add', 1)
+    await expect(mode).toHaveAttribute('aria-pressed', 'false')
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('pencil')
+    await page.reload()
+    await page.locator('form button[type="submit"]').click()
+    await waitForRoomReady(page)
+    await expect(mode).toHaveAttribute('aria-pressed', 'true')
+  })
+
   test('the annotation pen records a mark, and leaves the drawing alone', async ({ page }) => {
     await createRoom(page)
     await waitForRoomReady(page)
