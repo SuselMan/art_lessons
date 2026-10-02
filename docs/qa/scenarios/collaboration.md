@@ -106,3 +106,23 @@ asynchronous settle ещё выполняется. Дождаться финал
 Автоматизация: `index.watercolorCoarseSettle.test.ts` — первый fold есть, после
 завершения settle следующий frame обязан fold снова. До исправления1FAIL,
 послеPASS. СвязанныеWC/replay tests83PASS. Дефект #700; linked #691.
+
+## QA-019 — cache overflow при повторном построении акварели
+
+Пять независимых авторов с5washId. Отменить seed другого участника: слой
+rebuild из истории, cache всего4slots. Законченные wash, которые не
+продолжаются в оставшемся журнале, не должны синхронно readback только ради
+eviction. Продолжающиеся wash сохраняются. Если continuation приходит после
+eviction, existing lost-wash recovery должен восстановить целую заливку.
+
+Автоматизация: `index.rebuildSpill.test.ts`3cases (finished, known continuation,
+journal grows mid-rebuild). Публичныйnative-browser scenario
+`rebuildSpill.spec.ts`:5Socket.IO authors,2realGPU witnesses, undo/late
+continuation/redo/thirdGPUlatejoin; raw per-tileSHA256 identical. During
+rebuild synchronous GLreadPixels count0. Дооптимизацииenginevalidregression
+FAIL, послеPASS; related117PASS/full3417PASS/browser1PASS22.4sec. #701.
+
+Не путать с QA rig: creation layer должно быть confirmed. Первыйstand
+отменял layer_add вместоstroke; исправлен иповторен baseline. Browser first
+run ждал7done strokes послеundo+continuation вместо6; corrected repeatPASS.
+Этиrig failures не являются дополнительнымиproduct bugs.

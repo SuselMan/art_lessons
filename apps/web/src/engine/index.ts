@@ -7737,6 +7737,26 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
+      if (this._inJobStep) {
+        // (#701) A sliced rebuild already knows which gestures its remaining
+        // journal continues. Reading a finished one back only to evict it can
+        // block a frame for seconds. Keep the existing lost-wash fallback for
+        // any continuation that arrives later, outside this known history.
+        const finished = [...this._replayRibbonChunks].find(([key, chunk]) => {
+          const job = [...this._rebuildJobs.values()].find(j => j.fresh === chunk.target)
+          if (!job) return false
+          const remaining = this._log.layerPixelOps(job.layerId).slice(job.start + job.applied.length)
+          return !remaining.some(op => op.type === 'stroke' && (op.washId ?? op.strokeId) === key)
+        })
+        if (finished) {
+          const [key, chunk] = finished
+          if (this._settle?.scratch === chunk.scratch) this._completeSettle()
+          this._replayRibbonChunks.delete(key)
+          this._lostWashes.set(key, chunk.target)
+          chunk.scratch.destroy()
+          continue
+        }
+      }
       this._evictChunk(this._replayRibbonChunks.keys().next().value as string, true)
     }
   }
