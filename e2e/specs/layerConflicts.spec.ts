@@ -68,3 +68,53 @@ test('opposing folder moves never create a cycle and converge after author undo/
     await lateContext.close()
   }
 })
+
+for (const kind of ['rename', 'opacity', 'visibility'] as const) {
+  test(`concurrent layer ${kind} follows confirmed order through undo/redo and late join`, { tag: '@two-browsers' }, async ({ page, browser }) => {
+    const room = await createRoom(page, `QA concurrent ${kind}`)
+    await waitForRoomReady(page)
+    const peerContext = await browser.newContext({ ignoreHTTPSErrors: true })
+    const lateContext = await browser.newContext({ ignoreHTTPSErrors: true })
+    try {
+      const peer = await peerContext.newPage()
+      await joinRoom(peer, room)
+      const delta = (second: boolean): Delta => kind === 'rename'
+        ? { type: 'layer_rename', layerId: 'layer-1', name: second ? 'Peer name' : 'Owner name' }
+        : kind === 'opacity'
+          ? { type: 'layer_opacity', layerIds: ['layer-1'], opacity: second ? 0.25 : 0.75 }
+          : { type: 'layer_visibility', layerIds: ['layer-1'], visible: second }
+      const type = delta(false).type
+      await Promise.all([emit(page, delta(false)), emit(peer, delta(true))])
+      await waitForOperations(page, type, 2)
+      await waitForOperations(peer, type, 2)
+      const confirmed = (await operations(page)).filter(o => o.type === type)
+      expect(confirmed.every(o => typeof o.seq === 'number')).toBe(true)
+      const winner = confirmed.at(-1)!
+      const property = kind === 'rename' ? 'name' : kind === 'opacity' ? 'opacity' : 'visible'
+      const value = kind === 'rename' ? (winner as Extract<Operation, { type: 'layer_rename' }>).name
+        : kind === 'opacity' ? (winner as Extract<Operation, { type: 'layer_opacity' }>).opacity
+          : (winner as Extract<Operation, { type: 'layer_visibility' }>).visible
+      await expect.poll(async () => (await tree(page)).items['layer-1'][property]).toBe(value)
+      await expect.poll(() => tree(peer)).toEqual(await tree(page))
+      const finalState = await tree(page)
+      await Promise.all([page.evaluate(() => window.__engine!.undo()), peer.evaluate(() => window.__engine!.undo())])
+      await waitForOperations(page, 'operation_undo', 2)
+      await expect.poll(() => tree(peer)).toEqual(await tree(page))
+      const original = (await tree(page)).items['layer-1']
+      expect(original.name).not.toMatch(/Owner name|Peer name/)
+      expect(original.opacity).toBe(1)
+      expect(original.visible).toBe(true)
+      await Promise.all([page.evaluate(() => window.__engine!.redo()), peer.evaluate(() => window.__engine!.redo())])
+      await waitForOperations(page, 'operation_redo', 2)
+      await expect.poll(() => tree(page)).toEqual(finalState)
+      await expect.poll(() => tree(peer)).toEqual(finalState)
+      const late = await lateContext.newPage()
+      await joinRoom(late, room, 'Layer property witness')
+      await waitForOperations(late, 'operation_redo', 2)
+      await expect.poll(() => tree(late)).toEqual(finalState)
+    } finally {
+      await peerContext.close()
+      await lateContext.close()
+    }
+  })
+}
