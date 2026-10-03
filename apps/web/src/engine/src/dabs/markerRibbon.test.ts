@@ -128,6 +128,15 @@ describe('nibArea / nibMeanChord (#559)', () => {
 })
 
 describe('buildRibbonBands', () => {
+  it('keeps a feather-pressure hairline in contact without filling a lifted or wide tip', () => {
+    for (const [size, pressure, expected] of [[2, 0.02, 0.06], [20, 0.02, 0.02], [2, 0, 0]]) {
+      const points = [dab(0, 0, { size, pressure }), dab(40, 0, { size, pressure }), dab(80, 0, { size, pressure })]
+      const whole = buildRibbonBands(points, 1)
+      const split = [...buildRibbonBands(points.slice(0, 2), 1), ...buildRibbonBands(points.slice(2), 1, points[1])]
+      expect([...whole]).toEqual(split)
+      for (let i = 0; i < whole.length; i += RIBBON_FLOATS_PER_VERTEX) expect(whole[i + 9]).toBeCloseTo(expected, 6)
+    }
+  })
   it('keeps the across coordinate continuous through both triangles of a straight band', () => {
     const data = buildRibbonBands([dab(0, 0), dab(40, 0)], 1)
     for (let i = 0; i < data.length; i += RIBBON_FLOATS_PER_VERTEX) {

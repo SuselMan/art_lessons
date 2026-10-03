@@ -370,6 +370,11 @@ const WC_NOISE_GLSL = `
   }
   // #680: sparse openings in the loaded tip; less pressure separates bundles.
   // Same contact for water, pigment and silhouette, in stamps and bands.
+  float wcTipPressure(float pressure, float radius) {
+    // Same resolution floor as markerRibbon.ts, without changing real pressure.
+    if (pressure <= 0.0) return 0.0;
+    return max(pressure, 0.06 * (1.0 - smoothstep(1.0, 2.0, radius)));
+  }
   float wcTipContact(float across, float combs, vec2 wp, float pressure) {
     if (combs <= 0.0) return 1.0;
     float hair = wcHairField(across, combs, wp);
@@ -1350,7 +1355,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      cov *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, v_pressure);
+      cov *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
       gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
@@ -1400,7 +1405,7 @@ ${WC_NOISE_GLSL}
         vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
         float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
         float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-        amount *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, v_pressure);
+        amount *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
       }
       if (u_inkClip > 0.5) {
         // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
@@ -3967,6 +3972,8 @@ export const WC_WATER_FRONT_FRAG = `
   // stroke where its puddle met its drier body, and in a wet wash.
   uniform sampler2D u_film;
   uniform float u_dryCost;
+  uniform sampler2D u_foreignFilm;
+  uniform float u_foreignWet;
   // (s17.44) The step's length in texels. 1 is the plain relaxation; a
   // longer one is a JUMP of that many cells in one pass, costed as the sum
   // of the single steps it stands for - the climb terms telescope along a
@@ -4028,7 +4035,7 @@ ${WC_NOISE_GLSL}
       // Thresholded: the silhouette's antialiased ramp is two or three
       // texels wide, and read raw it priced the film's own edge like dry
       // paper - the inward pass could not enter, and the tideline was gone.
-      float film = smoothstep(WC_FILM_LO, WC_FILM_HI, texture2D(u_film, v_uv).a);
+      float film = smoothstep(WC_FILM_LO, WC_FILM_HI, max(texture2D(u_film, v_uv).a, u_foreignWet * texture2D(u_foreignFilm, v_uv).r));
       float edge = len * relief * mix(u_dryCost, 1.0, film);
       best = min(best, ci * u_costMax + edge);
     }
@@ -5626,5 +5633,60 @@ export const BRUSH_COMPOSITE_FRAG = `
     // Textbook premultiplied "over" onto the frozen pre-stroke pixel.
     gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
                         alpha + (1.0 - alpha) * dst.a);
+  }
+`;
+
+/** #680: donor-form brush advection. The same fractions move optical depth.
+ * Separate small program: never grow the Adreno bookkeeping shader. */
+export const WC_BRUSH_DRAG_FRAG = `
+  precision highp float;
+  varying vec2 v_uv;
+  uniform sampler2D u_paint, u_flow, u_water, u_pigment, u_base;
+  uniform float u_mode;
+  uniform vec2 u_step;
+  vec2 axis(int k) {
+    if (k == 0) return vec2(1.0, 0.0);
+    if (k == 1) return vec2(-1.0, 0.0);
+    if (k == 2) return vec2(0.0, 1.0);
+    return vec2(0.0, -1.0);
+  }
+  float flux(vec2 from, vec2 to, vec2 direction) {
+    if (min(min(to.x, to.y), min(1.0-to.x, 1.0-to.y)) < 0.0 || min(min(from.x, from.y), min(1.0-from.x, 1.0-from.y)) < 0.0) return 0.0;
+    vec3 flow = texture2D(u_flow, from).rgb;
+    vec2 velocity = flow.rg * 2.0 - 1.0;
+    // Keep directional confidence: opposite passes can cancel. Normalising
+    // a tiny residual amplified byte rounding into a full-strength flow.
+    float contact = smoothstep(0.015, 0.15, min(texture2D(u_water, from).b, texture2D(u_water, to).b));
+    float donor = texture2D(u_pigment, from).a;
+    // Carry the pool's surplus independently of the receiver's concentration.
+    // Outgoing axial fractions sum to at most 0.4 * sqrt(2).
+    float amount = 0.4 * max(dot(velocity, direction), 0.0) * min(flow.b, texture2D(u_flow, to).b) * contact;
+    float room = max(0.0, 1.0 - texture2D(u_pigment, to).a - texture2D(u_base, to).a);
+    return min(amount, room / max(4.0 * donor, 1e-4));
+  }
+  void main() {
+    if (u_mode > 0.5) {
+      float donor = texture2D(u_pigment, v_uv).a;
+      // Estimate the surrounding coat over a wider neighbourhood. Dry samples
+      // cannot turn the normal silhouette into a false pigment surplus.
+      float background = donor;
+      for (int k=0; k<4; k++) {
+        vec2 probe = v_uv + axis(k) * u_step * 10.0;
+        if (min(min(probe.x, probe.y), min(1.0-probe.x, 1.0-probe.y)) >= 0.0
+            && texture2D(u_water, probe).b > 0.015)
+          background = min(background, texture2D(u_pigment, probe).a);
+      }
+      float surplus = max(donor - background, 0.0) / max(donor, 1e-4);
+      // A share of the pool grips the paper; only half of the excess moves.
+      gl_FragColor = texture2D(u_paint, v_uv) * (0.5 * surplus);
+      return;
+    }
+    vec4 own = texture2D(u_paint, v_uv), result = own;
+    for (int k=0; k<4; k++) {
+      vec2 dir = axis(k), neighbour = v_uv + dir * u_step;
+      result -= own * flux(v_uv, neighbour, dir);
+      result += texture2D(u_paint, neighbour) * flux(neighbour, v_uv, -dir);
+    }
+    gl_FragColor = max(result, vec4(0.0));
   }
 `;

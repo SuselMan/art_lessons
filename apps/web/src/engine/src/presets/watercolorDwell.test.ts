@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  WC_DWELL_FLOOR_MS, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown,
+  watercolorTurnLoad, WC_DWELL_FLOOR_MS, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown,
   watercolorBrakeSurplus, watercolorSurplus, watercolorTrailDwell, watercolorPuddleDepth, WC_START_EXCESS_RADII,
 } from './watercolorPresets'
 
@@ -72,13 +72,26 @@ describe('the carried surplus against the landing-only model it generalises', ()
     expect(watercolorBrakeSurplus(0, 0, 0.8, 0)).toBe(0)
     expect(watercolorBrakeSurplus(0.4, 0, 0.8, 0)).toBe(0.4)
   })
-  it('keeps a brief turn weak and a sustained stop stronger', () => {
-    expect(watercolorBrakeSurplus(0, 0, 0.8, 20)).toBeLessThan(0.025)
+  it('unloads visibly during a short turn, with a sustained stop stronger', () => {
+    expect(watercolorBrakeSurplus(0, 0, 0.8, 20)).toBeGreaterThan(0.45)
+    expect(watercolorBrakeSurplus(0, 0, 0.8, 20)).toBeLessThan(0.6)
     expect(watercolorBrakeSurplus(0, 0, 0.8, 600)).toBeGreaterThan(0.45)
   })
   it('integrates the same stationary slowdown across different batch sizes', () => {
     let held = 0
     for (let i = 0; i < 10; i++) held = watercolorBrakeSurplus(held, 0, 0.8, 20)
     expect(held).toBeCloseTo(watercolorBrakeSurplus(0, 0, 0.8, 200), 10)
+  })
+})
+
+ describe('geometric turning', () => {
+  it('does not invent a turn on landing, straight travel or jitter', () => {
+    expect(watercolorTurnLoad(null, 1, 0)).toBe(0)
+    expect(watercolorTurnLoad([1, 0], 8, 0)).toBe(0)
+    expect(watercolorTurnLoad([1, 0], 0.001, 0)).toBe(0)
+  })
+  it('gives the same unloading to a subdivided return corner', () => {
+    expect(watercolorTurnLoad([1, 0], -1, 0)).toBeCloseTo(1)
+    expect(watercolorTurnLoad([1, 0], 0, 1) + watercolorTurnLoad([0, 1], -1, 0)).toBeCloseTo(1)
   })
 })

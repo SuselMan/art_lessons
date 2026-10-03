@@ -26,6 +26,8 @@ try {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 })
   page = await ctx.newPage()
   const errors = []
+  const glWarnings = []
+  page.on('console', m => { if (/WebGL|GL_|context lost|GPU/i.test(m.text()) && glWarnings.length < 10) glWarnings.push(m.text()) })
   page.on('pageerror', e => errors.push(e.message))
   await page.goto(`${base}/create`)
   await page.waitForTimeout(2500) // the form fills its saved defaults after load
@@ -66,7 +68,9 @@ try {
     return btoa(s)
   }, strokeLayers)
   writeFileSync(out, Buffer.from(png, 'base64'))
-  console.log(JSON.stringify({ strokes: n, layers: strokeLayers, errors: errors.slice(0, 3) }))
+  const gpu = await page.evaluate(() => ({ lost: window.__engine.gl.isContextLost(), error: window.__engine.gl.getError() }))
+  console.log(JSON.stringify({ strokes: n, layers: strokeLayers, errors: errors.slice(0, 3), gpu, glWarnings }))
+  if (gpu.lost || gpu.error) throw new Error('GPU render failed')
 } catch (error) {
   console.error('render failed', JSON.stringify({ url: page?.url() }))
   if (page) await page.screenshot({ path: out + '.failed.png', timeout: 5000 }).catch(() => {})

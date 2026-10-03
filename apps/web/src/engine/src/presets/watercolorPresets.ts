@@ -695,7 +695,7 @@ const PIGMENT_RUN_WET_RADII = 80
 //  patch of a loaded stroke, and Ilya's touch-downs stand 30-120 ms - under the
 //  dwell's floor - so the landing had only this base, and the stroke's END
 //  (braking before the lift) out-darkened its start.
-const WATERCOLOR_START_EXCESS_BASE = 1.0
+const WATERCOLOR_START_EXCESS_BASE = 2.0
 //  (#680, s17.79) 2.8, from 1.8: Ilya, "скопление стало лучше, но ты стесняешься".
 const WATERCOLOR_START_EXCESS_DWELL = 2.8
 
@@ -821,12 +821,20 @@ export const WC_TRAIL_LEN = 64
 export function watercolorSurplus(prev: number, spentRadii: number, level: number, runRadii: number): number {
   return Math.max(prev * Math.exp(-Math.max(spentRadii, 0) / runRadii), level)
 }
-/** Braking unloads over time, rather than instantly stamping the maximum
+/** Braking unloads on the short time scale of a turn, rather than stamping the maximum
  *  surplus at every turn. Dabs sharing one timestamp cannot add dwell. */
+export const WC_BRAKE_TAU_MS = 20
 export function watercolorBrakeSurplus(prev: number, spentRadii: number, level: number, elapsedMs: number): number {
   const held = watercolorSurplus(prev, spentRadii, 0, WC_SLOW_RUN_RADII)
-  return held + Math.max(level - held, 0) * watercolorDwellPigment(elapsedMs)
+  return held + Math.max(level - held, 0) * (1 - Math.exp(-Math.max(elapsedMs, 0) / WC_BRAKE_TAU_MS))
 }
+/** A geometrical turn unloads pigment even when coalesced points have the
+ * same time. Integrated turning angle is independent of corner subdivision. */
+export function watercolorTurnLoad(before: readonly [number, number] | null, dx: number, dy: number): number {
+  if (!before || Math.hypot(dx, dy) < 0.01) return 0
+  return Math.abs(Math.atan2(before[0] * dy - before[1] * dx, before[0] * dx + before[1] * dy)) / Math.PI
+}
+
 /** watercolorStartExcess with the dwell's share from the carried surplus
  *  (watercolorSurplus of watercolorDwellPigment) instead of the landing's. */
 export function watercolorExcessFromSurplus(usedRadii: number, landedWet: number, surplusPigment: number): number {
@@ -872,7 +880,7 @@ export const WC_POOL_STREAK = 0
  *  nib's footprint, not a wide cap: its surplus is spent over this many radii
  *  of travel, not the landing's WC_START_EXCESS_RADII / WC_PUDDLE_RADII
  *  (ChatGPT on the first render: "slowdown -> dark blob", too wide). */
-export const WC_SLOW_RUN_RADII = 0.5
+export const WC_SLOW_RUN_RADII = 0.8
 /** The smoothing of the pen's speed, and how fast its remembered peak fades. */
 export const WC_SPEED_TAU_MS = 20
 export const WC_PEAK_FADE_MS = 800
