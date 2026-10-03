@@ -16,6 +16,7 @@ import type { useDragToAdjust } from '../../../lib/input/useDragToAdjust'
 import { useShareRoom } from '../../../components/RoomAccessControl/useShareRoom'
 import { useRoomStore } from '../../../stores/roomStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
+import { useReviewSharing } from './useReviewSharing'
 import { SyncIndicator } from '../status/SyncIndicator'
 import type { Viewport } from '../viewport/useViewport'
 import styles from '../Room.module.css'
@@ -34,6 +35,7 @@ export interface RoomHeaderProps {
   /** The phone-sized "annotations only" shell (#512). */
   compact: boolean
   leaveRoom: () => Promise<void>
+  roomContentReady: boolean
   connected: boolean
   /** Operations not yet confirmed — the sync indicator's number. */
   pending: number
@@ -74,7 +76,7 @@ export interface RoomHeaderProps {
  *  export and session save, the share action, and the toggles that fold into
  *  the menu when the header is narrow. */
 export function RoomHeader({
-  engineRef, lessonId, isOwner, uiHidden, narrowHeader, compact, leaveRoom, connected, pending,
+  engineRef, lessonId, isOwner, uiHidden, narrowHeader, compact, leaveRoom, connected, pending, roomContentReady,
   angleDeg, onAngleDragDown, setVp, zoomPercent, onZoomDragDown, resetZoom, fitCanvas,
   handleUndo, handleRedo,
   toggleAnnotationMode, handleAnnotationPeekDown, handleAnnotationPeekUp, handleAnnotationsToggle,
@@ -84,7 +86,6 @@ export function RoomHeader({
   const t = useT()
   const { alert: showAlert } = useConfirmDialog()
   const config = useRoomStore(s => s.room)
-  const boardId = useRoomStore(s => s.boardId)
   const hotkeys = useSettingsStore(s => s.hotkeys)
   const annotationMode = useRoomStore(s => s.annotationMode)
   const annotations = useRoomStore(s => s.annotations)
@@ -93,6 +94,7 @@ export function RoomHeader({
 
   // (#460) The header menu's "Share" — same helper the lesson list's ⋮ uses.
   const shareRoom = useShareRoom()
+  const reviewShare = useReviewSharing(engineRef)
 
   // #93: fullscreen toggle for the whole page — removes tablet browser chrome
   // (address bar/nav), which eats real estate especially in landscape. iOS
@@ -521,8 +523,8 @@ export function RoomHeader({
             {
               label: t('share.review'),
               icon: 'share',
-              onClick: () => { if (config) shareRoom({ ...config, id: boardId ?? config.id }, true) },
-              disabled: config === null,
+              onClick: () => { void reviewShare.shareForReview() },
+              disabled: !roomContentReady || reviewShare.busy,
             },
             { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
             { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },

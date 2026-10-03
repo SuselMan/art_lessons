@@ -23,7 +23,7 @@ export type RoomSocketDeps =
     | 'isCreator' | 'creatorDraft' | 'applyIdentity' | 'setRoomContentReady' | 'hasJoinedRef' | 'lastJoinAttemptRef'
     | 'myDisplayNameRef' | 'outboxRef' | 'wantedBoardRef' | 'boardIdRef' | 'socketBoardRef' | 'isOwnerRef' | 'tRef'>
   & Pick<RoomStateDeps<PencilEngineAPI>,
-    | 'replaceUrl' | 'enterBoard' | 'awaitPaper' | 'markJoinRestoreDone' | 'clearRestoreFailure' | 'restoreCatchup'
+    | 'holdReviewArrivals' | 'replaceUrl' | 'enterBoard' | 'awaitPaper' | 'markJoinRestoreDone' | 'clearRestoreFailure' | 'restoreCatchup'
     | 'firstRoomStateReceivedRef' | 'awaitingSeededBoardStateRef' | 'pendingSnapshotRef' | 'snapshotGateRef'>
   & Omit<ConfirmedStreamDeps, 'engineRef' | 'confirmOwnOperation' | 'requestFullResync'>
   & Pick<PeerEventDeps, 'roomContentReadyRef' | 'markActive' | 'forgetDrawingActivity'>

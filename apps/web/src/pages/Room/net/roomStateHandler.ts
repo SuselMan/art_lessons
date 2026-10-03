@@ -36,6 +36,7 @@ export interface RoomStateDeps<Engine> {
   enterBoard: (board: string, stash: RoomStateStash) => void
   /** Waits for the paper texture; false means it failed and the room says so. */
   awaitPaper: (engine: Engine | null) => Promise<boolean>
+  holdReviewArrivals?: () => void
   markJoinRestoreDone: () => void
   setRoomContentReady: (ready: boolean) => void
   clearRestoreFailure: () => void
@@ -67,7 +68,7 @@ export interface RoomStateDeps<Engine> {
 export function createRoomStateHandler<Engine>({
   id, isCreator, replaceUrl, joinRoom, joinCredentials, applyIdentity, reportJoinFailure,
   requestFullResync, maybeFollow, enterBoard, awaitPaper, markJoinRestoreDone, setRoomContentReady,
-  clearRestoreFailure, restoreCatchup,
+  clearRestoreFailure, restoreCatchup, holdReviewArrivals,
   socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
   pendingSnapshotRef, latestKnownSeqRef, isOwnerRef, engineRef, snapshotGateRef,
 }: RoomStateDeps<Engine>): ServerToClientEvents['room_state'] {
@@ -82,6 +83,10 @@ export function createRoomStateHandler<Engine>({
     store.setRoomFrozen(frozen)
     const arrivedBoard = room.id
     socketBoardRef.current = arrivedBoard
+    if (store.reviewBoardId === arrivedBoard) {
+      holdReviewArrivals?.()
+      store.seedReviewHistory(arrivedBoard, tailOperations)
+    }
 
     if (!firstRoomStateReceivedRef.current) {
       firstRoomStateReceivedRef.current = true
@@ -113,7 +118,7 @@ export function createRoomStateHandler<Engine>({
       // the teacher may well be on another. Ask for that one now and let
       // *its* room_state be the one that builds the engine — this one's
       // content is for a page we are not going to look at.
-      const entry = entryBoard({ arrivedBoardId: arrivedBoard, enteredByBoardUrl, lesson })
+      const entry = entryBoard({ arrivedBoardId: arrivedBoard, enteredByBoardUrl: enteredByBoardUrl || store.reviewBoardId === arrivedBoard, lesson })
       store.setFollowing(entry.following)
       if (entry.target !== arrivedBoard && store.boardId === null) {
         wantedBoardRef.current = entry.target
@@ -148,6 +153,7 @@ export function createRoomStateHandler<Engine>({
       const evacuated = wantedBoardRef.current === null && store.boardId !== null
       if (evacuated && !isOwnerRef.current) store.setFollowing(true)
       enterBoard(arrivedBoard, { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen })
+      useRoomStore.getState().seedReviewHistory(arrivedBoard, tailOperations)
       maybeFollow()
       return
     }

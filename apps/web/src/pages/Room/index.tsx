@@ -65,6 +65,7 @@ import { useSelection } from './useSelection'
 import { DebugStack } from './panels/DebugStack'
 import { usePencilSound } from './usePencilSound'
 import { useCanvasViewport } from './useCanvasViewport'
+import { useReviewImage } from './useReviewImage'
 import { useAnnotations } from './useAnnotations'
 import { useCursorBroadcast } from './useCursorBroadcast'
 import { useLayerStateSync } from './useLayerStateSync'
@@ -115,7 +116,6 @@ import { createReplayGate } from './replayGate'
 import { GlLostOverlay, useGlContextLost } from './status/GlLostOverlay'
 import { useWatercolorDevFlags } from './useWatercolorDevFlags'
 import styles from './Room.module.css'
-
 // (#393) The one place a ViewportCursor becomes a class name. The decision
 // itself is cursorController's; this is only the CSS-Modules lookup, kept
 // exhaustive by the Record so a new cursor value cannot ship without one.
@@ -159,7 +159,7 @@ function RoomEditor() {
   // intermediate /create stop between two different rooms) never leaks a
   // previous room's stale data into this fresh mount. See resetRoomStore's
   // own doc comment.
-  useState(resetRoomStore)
+  useState(() => resetRoomStore(new URLSearchParams(location.search).has('preview') ? id : undefined))
 
   // (#176, ADR 014 §4) Two keys where there used to be one. The socket lives
   // per *lesson* — one `io()` for the whole visit, kept across page turns —
@@ -828,7 +828,8 @@ function RoomEditor() {
   // (#313, #346, #533) Which screen covers a room that has not opened — see
   // notOpenScreen for the order and why.
   const offlineGraceElapsed = useOfflineGrace(connected)
-  const notOpen = notOpenScreen({ roomContentReady, connected, offlineGraceElapsed, paperFailed, restoreFailure })
+  const reviewImage = useReviewImage(engineRef, roomContentReady, connected, vpEl, setVp)
+  const notOpen = reviewImage ? null : notOpenScreen({ roomContentReady, connected, offlineGraceElapsed, paperFailed, restoreFailure })
 
   /** (#533) Ask for the room's content again.
    *
@@ -1327,6 +1328,7 @@ function RoomEditor() {
       hasJoinedRef, lastJoinAttemptRef, myDisplayNameRef, tRef, retryJoinRef, setJoinState, queryClient,
       firstRoomStateReceivedRef, awaitingSeededBoardStateRef, pendingSnapshotRef, snapshotGateRef, previewScheduleRef,
       replaceUrl: path => navigateRef.current(path, { replace: true }),
+      holdReviewArrivals: () => replayGateRef.current.begin(),
       applyIdentity, setRoomContentReady, enterBoard, awaitPaper, markJoinRestoreDone,
       clearRestoreFailure: () => setRestoreFailure(null),
       // Shared with the engine's mount effect — see useRoomRestore. The open
@@ -1434,7 +1436,7 @@ function RoomEditor() {
   // in an infinite one (#143); the two used to be the same hundred lines
   // twice, told apart only by a `config.infinite` guard on every element.
   const canvasOverlays = (
-    <CanvasOverlays
+    <CanvasOverlays reviewImage={reviewImage}
       config={config} vp={vp} vpRef={vpRef} socket={socketRef.current}
       dabPreview={cursor.dabPreview}
       brush={{
@@ -1471,7 +1473,7 @@ function RoomEditor() {
 
       {/* ── Header ── (#493: RoomHeader) */}
       <RoomHeader
-        engineRef={engineRef} lessonId={lessonId} isOwner={isOwner}
+        roomContentReady={roomContentReady} engineRef={engineRef} lessonId={lessonId} isOwner={isOwner}
         uiHidden={uiHidden} narrowHeader={narrowHeader} compact={compact}
         leaveRoom={leaveRoom} connected={connected} pending={outboxState.pending}
         angleDeg={angleDeg} onAngleDragDown={onAngleDragDown} setVp={setVp}

@@ -201,6 +201,11 @@ export const ru: Dictionary = {
   // комнаты. На планшете открывается системное «поделиться», в остальных
   // случаях ссылка копируется.
   'share.action': 'Поделиться',
+  'room.reviewImage': 'Рисунок для проверки',
+  'share.preparingReview': 'Готовим ссылку для проверки…',
+  'share.reviewFailed': 'Не удалось подготовить картинку для проверки',
+  'share.reviewReadyMessage': 'Рисунок готов к отправке на проверку.',
+  'share.reviewReady': 'Ссылка для проверки готова',
   'share.review': 'Поделиться для проверки',
   'share.copied': 'Ссылка скопирована',
   'share.copiedInviteOnly':

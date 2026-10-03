@@ -1,0 +1,11 @@
+CREATE TABLE "RoomReviewImage" (
+  "roomId" TEXT NOT NULL,
+  "data" BYTEA NOT NULL,
+  "x" DOUBLE PRECISION NOT NULL,
+  "y" DOUBLE PRECISION NOT NULL,
+  "width" INTEGER NOT NULL,
+  "height" INTEGER NOT NULL,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "RoomReviewImage_pkey" PRIMARY KEY ("roomId"),
+  CONSTRAINT "RoomReviewImage_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "Room"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

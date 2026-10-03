@@ -1,3 +1,5 @@
+import { useT } from '../../../i18n'
+import type { fetchReviewImage } from '../../../lib/api/reviewImage'
 import type { ComponentProps, RefObject } from 'react'
 
 import type { ShapeFrame } from '@grafetto/shared'
@@ -19,6 +21,7 @@ type GizmoProps = ComponentProps<typeof TransformGizmo>
 type AnnotationProps = ComponentProps<typeof AnnotationOverlay>
 
 export interface CanvasOverlaysProps {
+  reviewImage: Awaited<ReturnType<typeof fetchReviewImage>> | null
   config: RoomInfo
   vp: Viewport
   vpRef: RefObject<HTMLDivElement | null>
@@ -56,10 +59,12 @@ export interface CanvasOverlaysProps {
  *  the selection, the annotations — is read here; what Room derives from its
  *  own hooks comes in as props. */
 export function CanvasOverlays({
+  reviewImage,
   config, vp, vpRef, socket, dabPreview, brush, rulerVisible, rulerMeasuring, shapeFrame, onShapeHandleDown,
   onTransformHandleDown, onTransformCenterDown, onTransformCenterReset, selectionShapeKind, selectionCursor,
   areaSelection, annotation,
 }: CanvasOverlaysProps) {
+  const t = useT()
   const boardId = useRoomStore(s => s.boardId)
   const participants = useRoomStore(s => s.participants)
   const drawingTool = useRoomStore(s => s.drawingTool)
@@ -112,6 +117,8 @@ export function CanvasOverlays({
 
   return (
     <>
+      {reviewImage && <img alt={t('room.reviewImage')} src={reviewImage.url} draggable={false}
+        style={{ position: 'absolute', left: reviewImage.bounds.x, top: reviewImage.bounds.y, width: reviewImage.bounds.width, height: reviewImage.bounds.height }} />}
       <PeerCursors
         key={boardId ?? ''}
         socket={socket}

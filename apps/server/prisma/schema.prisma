@@ -235,6 +235,7 @@ model Room {
   layerState         RoomLayerState?
   palette            RoomPalette?
   thumbnail          RoomThumbnail?
+  reviewImage        RoomReviewImage?
   createdAt          DateTime            @default(now())
 
   // (#595) One personal board per student per assignment — what makes the
@@ -442,6 +443,18 @@ model RoomPalette {
 // show a preview. Not to be confused with RoomLayerSnapshot (#149 epic): those are
 // opaque per-layer tile blobs for fast rejoin, this is a single flat image
 // meant to be displayed directly.
+// One latest full export per board, independent of small live thumbnails.
+model RoomReviewImage {
+  roomId    String   @id
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  data      Bytes
+  x         Float
+  y         Float
+  width     Int
+  height    Int
+  updatedAt DateTime @updatedAt
+}
+
 model RoomThumbnail {
   id          String   @id @default(uuid())
   roomId      String   @unique

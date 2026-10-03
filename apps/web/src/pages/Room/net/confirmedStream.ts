@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import type { Operation, ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
+import { useRoomStore } from '../../../stores/roomStore'
 import { reportInvariant } from '../../../lib/observability/reportInvariant'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { commitRevealsBelow as commitRevealsBelowShared, type PendingPreviews } from './pendingPreviews'
@@ -69,6 +70,7 @@ export function createConfirmedStreamHandler({
     commitRevealsBelowShared(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
 
   const handler: ServerToClientEvents['operation_confirmed'] = ({ seq, operation: op }) => {
+    useRoomStore.getState().observeReviewOperation({ ...op, seq })
     if (replayGate?.hold({ seq, operation: op })) return
     // (#289 §12) A gap in this stream is impossible on an unbroken
     // connection (TCP never silently drops or reorders within one), so

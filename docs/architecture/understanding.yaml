@@ -170,6 +170,16 @@ topics:
     modules: [apps/server/src/rooms, apps/server/src, apps/server/src/db]
     links: [ui-socket, server-peer, server-pg]
 
+  - id: review-bootstrap
+    level: 2
+    parent: client
+    title: Быстрое review и восстановление комнаты в фоне
+    adr: [016-review-bootstrap]
+    issue: 705
+    why: Картинка даёт ранний просмотр, журнал сохраняет замечания, настоящий движок восстанавливается отдельно.
+    modules: [apps/web/src/pages/Room, apps/server/src/roomRoutes, apps/web/src/lib/annotations]
+    flows: [join]
+
   - id: snapshots
     level: 2
     parent: server

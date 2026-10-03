@@ -327,6 +327,8 @@ links:
       - { dir: '→', name: 'GET /api/rooms/:roomId/operations', type: 'Operation[]', note: 'страница истории до seq' }
       - { dir: '→', name: 'POST /api/rooms/:roomId/thumbnail', type: 'base64', note: 'миниатюру печёт клиент' }
       - { dir: '→', name: 'GET /api/rooms/:roomId/thumbnail', type: 'png' }
+      - { dir: '→', name: 'POST /api/rooms/:roomId/review', type: 'base64 PNG, world bounds', note: 'полный экспорт текущей доски для быстрого review' }
+      - { dir: '→', name: 'GET /api/rooms/:roomId/review', type: 'PNG + bounds headers', note: 'тот же контроль доступа, что у миниатюр; слои восстанавливаются отдельно' }
       - { dir: '→', name: 'GET /api/health', type: 'здоровье процесса', note: 'читает uptime-проверка, не клиент' }
       - { dir: '→', name: 'GET /health', type: 'ok', note: 'снаружи недоступна: nginx проксирует только /api/' }
 

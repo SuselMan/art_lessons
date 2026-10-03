@@ -5,6 +5,7 @@ import type { Operation, OperationDraft } from '@grafetto/shared'
 
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import type { PencilEngineAPI } from '../../engine'
+import { isReviewAnnotationDraft, reviewEntries } from '../../lib/annotations/reviewHistory'
 import { isLockedAgainst } from '../../lib/layers/layers'
 import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
@@ -78,7 +79,9 @@ export function useOperationDispatch({
   // their own stroke/undo/redo apply locally before silently failing to ever
   // reach anyone else — "drawing into the void" (see its own doc comment).
   const dispatchOp = useCallback((draft: OperationDraft): DispatchedOp | null => {
-    if (!roomContentReady || editingBlocked) return null
+    const review = useRoomStore.getState().reviewAnnotationHistory
+    const earlyAnnotation = !roomContentReady && review !== null && isReviewAnnotationDraft(draft, review)
+    if ((!roomContentReady && !earlyAnnotation) || editingBlocked) return null
     // (#518) The one gate on the lock, for every operation that paints.
     //
     // Before this there was exactly one, and it sat on the *pointer* path
@@ -106,6 +109,14 @@ export function useOperationDispatch({
     // it yesterday, once, permanently, on every client at the same moment.
     if (isLockedAgainst(useRoomStore.getState().layerState, draft, isOwnerRef.current)) return null
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
+
+    if (earlyAnnotation) {
+      if (!connected) return null
+      // Confirmed arrivals project the note immediately, even while held by
+      // the pixel replay gate. The engine receives it once restoration ends.
+      void outbox.enqueue(op)
+      return { op, applied: false }
+    }
 
     if (isLocalIslandSafe(op, pendingIdsRef.current)) {
       engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
@@ -155,6 +166,12 @@ export function useOperationDispatch({
   // only decides whether to *ask*: undo()/redo() re-resolve their own target
   // when they actually run, so a confirmed undo still acts on current state.
   const handleUndo = useCallback(async () => {
+    const store = useRoomStore.getState()
+    if (!roomContentReady && store.reviewAnnotationHistory !== null && store.annotationMode) {
+      const target = reviewEntries(store.reviewAnnotationHistory).filter(entry => entry.state === 'done' && entry.op.userId === store.userId).at(-1)
+      if (target) dispatchOp({ type: 'operation_undo', targetOpId: target.op.id })
+      return
+    }
     if (!roomContentReady || editingBlocked) return
     // (#405) An open session with gestures in it is what "undo" means right
     // now, and it is undone by throwing it away — nothing was committed, so
@@ -181,10 +198,16 @@ export function useOperationDispatch({
     const undone = engineRef.current?.undo()
     resetTransformSessionRef.current()
     if (undone) syncFromLog()
-  }, [syncFromLog, roomContentReady, editingBlocked, t, confirm,
+  }, [dispatchOp, syncFromLog, roomContentReady, editingBlocked, t, confirm,
       engineRef, transformSessionRef, resetTransformSessionRef])
 
   const handleRedo = useCallback(async () => {
+    const store = useRoomStore.getState()
+    if (!roomContentReady && store.reviewAnnotationHistory !== null && store.annotationMode) {
+      const target = reviewEntries(store.reviewAnnotationHistory).filter(entry => entry.state === 'undone' && entry.op.userId === store.userId).at(-1)
+      if (target) dispatchOp({ type: 'operation_redo', targetOpId: target.op.id })
+      return
+    }
     if (!roomContentReady || editingBlocked) return
     const peek = engineRef.current?.peekRedo()
     if (peek?.hasOtherContent && !await confirm({
@@ -197,7 +220,7 @@ export function useOperationDispatch({
     const redone = engineRef.current?.redo()
     resetTransformSessionRef.current()
     if (redone) syncFromLog()
-  }, [syncFromLog, roomContentReady, editingBlocked, t, confirm,
+  }, [dispatchOp, syncFromLog, roomContentReady, editingBlocked, t, confirm,
       engineRef, resetTransformSessionRef])
 
   return { dispatchOp, handleUndo, handleRedo }

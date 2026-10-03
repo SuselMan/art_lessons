@@ -13,7 +13,9 @@ import { createAnnotationSlice, type AnnotationSlice } from './slices/annotation
 // Store state is always a *reflection* of what's already been applied to
 // the engine via an imperative call (e.g. engine.setTool(tool)), never the
 // engine's own source of truth — the operation log + engine buffers stay
-// exactly where they are today.
+// exactly where they are today. Quick review temporarily projects only
+// annotations from the confirmed server stream while the engine restores;
+// when pixels are ready that projection returns to engine.getOperations().
 //
 // Every consumer should read via a single-field selector
 // (useRoomStore(s => s.tool)), never whole-store destructuring
@@ -51,8 +53,8 @@ const initialRoomStoreState = useRoomStore.getState()
  *  functions are restored to the same stable references (they close over
  *  this store's own set/get, never over stale data), only the data fields
  *  actually reset. */
-export function resetRoomStore(): void {
-  useRoomStore.setState(initialRoomStoreState, true)
+export function resetRoomStore(reviewBoardId?: string): void {
+  useRoomStore.setState({ ...initialRoomStoreState, reviewBoardId: reviewBoardId ?? null }, true)
 }
 
 /** (#176, ADR 014 §4) The content slices' keys — what a page turn resets.
@@ -79,7 +81,7 @@ const CONTENT_SLICE_KEYS = new Set<string>([
  *  those slices is derived from one board's operation log or is a gesture in
  *  progress on it. */
 const SURVIVES_PAGE_TURN: ReadonlySet<keyof RoomStore> = new Set<keyof RoomStore>([
-  'viewport', 'rotationLocked', 'annotationMode', 'annotationsHidden',
+  'viewport', 'rotationLocked', 'annotationMode', 'annotationsHidden', 'reviewBoardId',
 ])
 
 /** (#176, ADR 014 §4) Resets the content slices — layers, selection, stroke,
