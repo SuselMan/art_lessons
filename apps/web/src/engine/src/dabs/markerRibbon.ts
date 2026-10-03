@@ -71,7 +71,7 @@ import type { Dab } from '@grafetto/shared'
 // last and leaves a ragged front inside the stroke where it met the film.
 // #680: endpoint pressure follows each sub-pose, independent of event batching.
 // Puddle and pressure share a vec2 attribute to stay within WebGL1's 8 slots.
-const FLOATS_PER_VERTEX = 10 // …, across, inkDeposit*paperWet, inkDeposit*strength, puddle, pressure
+const FLOATS_PER_VERTEX = 11 // …, across, inkDeposit*paperWet, inkDeposit*strength, puddle, pressure
 
 /** Which shape the nib actually is. Mirrors DAB_FRAG's markerNibDistPx —
  *  the two must agree, or the bands and the stamps they connect would be built
@@ -297,7 +297,7 @@ export function buildRibbonBands(
    *  Watercolor passes one so its bands share the stamps' normalization and
    *  water depletion — the two overlap almost everywhere, so leaving the bands
    *  on the old scale would let them swamp whatever the stamps expressed. */
-  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number; strength: number; puddle?: number },
+  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number; strength: number; puddle?: number; pigmentPool?: number },
   /** (#536, s17.30) Emit the nib body at EVERY pose, the real samples too,
    *  not only the interpolated ones. Under the watercolour film's MAX blend
    *  the band and the sample's shader stamp do not add: the stamp is a
@@ -319,9 +319,10 @@ export function buildRibbonBands(
   let inkStrength = 0 // …and by how strong the paint was (#536)
   let pressure = 1
   let endPressure = 1
+  let pigmentPool = 0.5
   let puddle = 1 // (s17.27) how deep the water stands here
   const push = (x: number, y: number, edge: number, across: number, press = pressure): void => {
-    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength, puddle, press)
+    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength, puddle, press, pigmentPool)
   }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
@@ -381,12 +382,14 @@ export function buildRibbonBands(
       inkWet = ink * got.paperWet
       inkStrength = ink * got.strength
       puddle = got.puddle ?? 1
+      pigmentPool = got.pigmentPool ?? 0.5
     } else {
       ink = d1.opacity * travel * 0.5
       inkWater = 0
       inkWet = 0
       inkStrength = 0
       puddle = 1
+      pigmentPool = 0.5
     }
 
     const steps = poseSubdivisions(

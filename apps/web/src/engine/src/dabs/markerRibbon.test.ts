@@ -128,6 +128,18 @@ describe('nibArea / nibMeanChord (#559)', () => {
 })
 
 describe('buildRibbonBands', () => {
+  it('carries pigment pooling without changing water, contact or geometry', () => {
+    const points = [dab(0, 0), dab(40, 0), dab(80, 0)]
+    const make = (pigmentPool: number) => buildRibbonBands(points, 1, undefined, 'ellipse', 0, 1,
+      () => ({ ink: 0.3, water: 0.8, paperWet: 0, strength: 1, puddle: 0.4, pigmentPool }))
+    const a = make(0.5), b = make(0.9)
+    expect(a.length).toBeGreaterThan(0)
+    for (let i=0; i<a.length; i+=RIBBON_FLOATS_PER_VERTEX) {
+      expect([...a.slice(i,i+10)]).toEqual([...b.slice(i,i+10)])
+      expect(a[i+10]).toBeCloseTo(0.5)
+      expect(b[i+10]).toBeCloseTo(0.9)
+    }
+  })
   it('keeps a feather-pressure hairline in contact without filling a lifted or wide tip', () => {
     for (const [size, pressure, expected] of [[2, 0.02, 0.06], [20, 0.02, 0.02], [2, 0, 0]]) {
       const points = [dab(0, 0, { size, pressure }), dab(40, 0, { size, pressure }), dab(80, 0, { size, pressure })]

@@ -82,7 +82,7 @@ import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
-import { brushDragField, type BrushTravel } from './src/watercolor/brushDrag'
+import { brushDragContacts, type BrushTravel } from './src/watercolor/brushDrag'
 import { foreignWaterStencil, type WaterFootprint, type WaterSource } from './src/watercolor/foreignWater'
 import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
@@ -95,7 +95,7 @@ import {
   applyWatercolorEndTaper, watercolorWashSignature, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
   watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, watercolorTurnLoad, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
+  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, watercolorTurnLoad, watercolorTurnSurplus, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
   watercolorTravelRadius, watercolorSpreadRadius,
   watercolorMixFromPreset,
 } from './src/presets/watercolorPresets'
@@ -6310,7 +6310,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
-    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base', 'u_step', 'u_mode'])
+    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect'])
     this._brushDragPosLoc = gl.getAttribLocation(this._brushDragProg, 'a_position')
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
 
@@ -8449,6 +8449,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the composite's single opacity — see _bakeDabOpacity's own note.
     const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1
     const mottleSeed = strokeSeed ?? [0, 0]
+    const pigmentPoolByDab = new Map<Dab, number>()
     const excessByDab = new Map<Dab, number>()
     const puddleByDab = new Map<Dab, number>()
     // #559 — how much to raise this dab's deposit for being dragged thin-side
@@ -8567,7 +8568,7 @@ export class PencilEngine implements PencilEngineAPI {
         scratch.brakePigment = watercolorBrakeSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * pigmentGate, speedElapsed)
         scratch.turnOffset[0] += dx; scratch.turnOffset[1] += dy
         if (Math.hypot(...scratch.turnOffset) >= Math.max(1.5, minor * 0.12)) {
-          scratch.brakePigment = Math.min(1.5, scratch.brakePigment + 0.55 * watercolorTurnLoad(scratch.turnDirection, ...scratch.turnOffset) * pigmentGate)
+          scratch.brakePigment = watercolorTurnSurplus(scratch.brakePigment, watercolorTurnLoad(scratch.turnDirection, ...scratch.turnOffset), pigmentGate)
           const direction = scratch.turnOffset
           scratch.turnDirection = [...direction]
           scratch.turnOffset = [0, 0]
@@ -8582,11 +8583,14 @@ export class PencilEngine implements PencilEngineAPI {
         const landingPool = (1 - Math.min(Math.max(landedWet, 0), 1)) * Math.exp(-pigUsed / WC_START_EXCESS_RADII)
         // Braking pigment is not extra water: a sharp turn must not invent a
         // deep visible puddle merely because it unloads a little more colour.
+        // Pigment pooling is independent of standing water: turns must not
+        // invent a water puddle to receive a nonuniform pigment deposit.
+        pigmentPoolByDab.set(dab, 0.5 + 0.5 * Math.min(1, Math.max(landingPool, scratch.surplusPigment, scratch.brakePigment)))
         const waterPool = Math.max(scratch.surplusWater, landingPool)
         puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(waterPool, wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
         if (profile.waterDepletion) this._dabPool.set(dab, Math.min(waterPool, 1))
-        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && water > 0.1) scratch.brushTravel.push({
-          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water,
+        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && profile.waterLevel > 0) scratch.brushTravel.push({
+          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water: profile.waterLevel,
         })
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
@@ -8654,6 +8658,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (across) acrossByDab.set(grown, across)
         waterByDab.set(grown, waterByDab.get(dab) ?? 0)
         pigmentByDab.set(grown, pigmentByDab.get(dab) ?? 1)
+        pigmentPoolByDab.set(grown, pigmentPoolByDab.get(dab) ?? 0.5)
         excessByDab.set(grown, excessByDab.get(dab) ?? 1)
         puddleByDab.set(grown, puddleByDab.get(dab) ?? 1)
         paperWetByDab.set(grown, paperWetByDab.get(dab) ?? 0)
@@ -8668,12 +8673,12 @@ export class PencilEngine implements PencilEngineAPI {
     // formula back in with the thin-nib gain on it, so its bands and stamps
     // stay on one scale — a gain of 1 reproduces the omitted case exactly.
     const inkFor = profile.thinNibInkRefPx > 0 && !profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number } => ({
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number; pigmentPool?: number } => ({
         ink: d1.opacity * travel * 0.5 * thinNibGain(d1, d0.x, d0.y),
         water: 0, paperWet: 0, strength: 0, puddle: 1,
       })
       : profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number } => {
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number; pigmentPool?: number } => {
         // #489: same measure the stamps use, and it has to be the same one —
         // the bands overlap the stamps almost everywhere, so two different
         // readings of "how far in nib units" would show up as a seam.
@@ -8704,6 +8709,7 @@ export class PencilEngine implements PencilEngineAPI {
           // the magnitude.
           strength: Math.hypot(bdx, bdy) > 0.2 * minor ? inkStrength : -inkStrength,
           puddle: puddleByDab.get(d1) ?? 1,
+          pigmentPool: pigmentPoolByDab.get(d1) ?? 0.5,
         }
       }
       : undefined
@@ -8826,7 +8832,7 @@ export class PencilEngine implements PencilEngineAPI {
             deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
             paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk,
-            null, puddleByDab.get(drawable[i]) ?? 1, poolBlot,
+            null, pigmentPoolByDab.get(drawable[i]) ?? 0.5, poolBlot,
           )
           inkDest.endDraw()
           yield pieceTris ? this._nibDrawCost(tile, drawable[i], preset) : 0
@@ -9457,7 +9463,8 @@ export class PencilEngine implements PencilEngineAPI {
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const flow = brushDragField(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    const contacts = brushDragContacts(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    const flow = contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
@@ -9986,50 +9993,34 @@ export class PencilEngine implements PencilEngineAPI {
       col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
     }
 
-    // #680: split the concentration surplus once, then carry that field.
-    // The surrounding coat stays fixed; colour uses the same dose fraction.
-    // All temporaries are existing settle fields, free after both settles.
-    const brushPass = (source: AccumulationBuffer, out: AccumulationBuffer,
-      pigment: AccumulationBuffer, base: AccumulationBuffer, mode: number): void => {
+    // #680: sweep the wet material in recorded order. Return passes act on
+    // the previous contact's result, rather than a single averaged vector.
+    // Patch-sized draws/copies reuse the two free settle buffers.
+    for (const contact of contacts) ops.push(() => {
       if (!flowTexture) return
-      out.beginReplaceDraw()
-      gl.useProgram(this._brushDragProg)
-      const u = this._brushDragUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._brushDragPosLoc)
-      gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
-      const textures = [source.texture, flowTexture, field.coverage.texture, pigment.texture, base.texture]
-      const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base']
-      for (let j = 0; j < textures.length; j++) {
-        gl.activeTexture(gl.TEXTURE0 + j); gl.bindTexture(gl.TEXTURE_2D, textures[j]); gl.uniform1i(u[names[j]], j)
+      const cf = contact.field, cr = contact.rect
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, flowTexture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cf.width, cf.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, cf.pixels)
+      const rect: [number, number, number, number] = [(cr.x-x0)/(field.w*S), 1-(cr.y+cr.h-y0)/(field.h*S), cr.w/(field.w*S), cr.h/(field.h*S)]
+      const left = Math.max(0, Math.floor((cr.x-x0)/S)), right = Math.min(field.w, Math.ceil((cr.x+cr.w-x0)/S))
+      const bottom = Math.max(0, Math.floor(field.h-(cr.y+cr.h-y0)/S)), top = Math.min(field.h, Math.ceil(field.h-(cr.y-y0)/S))
+      const move = (src: AccumulationBuffer, dst: AccumulationBuffer) => {
+        dst.beginReplaceDraw(); gl.useProgram(this._brushDragProg)
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf); gl.enableVertexAttribArray(this._brushDragPosLoc)
+        gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
+        const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment']
+        const textures = [src.texture, flowTexture, field.coverage.texture, dep.out.texture]
+        for (let j=0;j<textures.length;j++) { gl.activeTexture(gl.TEXTURE0+j); gl.bindTexture(gl.TEXTURE_2D,textures[j]); gl.uniform1i(this._brushDragUni[names[j]],j) }
+        gl.uniform4fv(this._brushDragUni.u_flowRect,rect)
+        const step = Math.max(1, Math.round(contact.radius * 0.65/S))
+        gl.uniform2f(this._brushDragUni.u_step,step/field.w,step/field.h)
+        gl.enable(gl.SCISSOR_TEST); gl.scissor(left,bottom,right-left,top-bottom)
+        gl.drawArrays(gl.TRIANGLES,0,6); gl.disable(gl.SCISSOR_TEST); dst.endDraw(); gl.activeTexture(gl.TEXTURE0)
       }
-      const step = Math.max(1, Math.round(radiusPx * 0.2 / S))
-      gl.uniform2f(u.u_step, step / field.w, step / field.h)
-      gl.uniform1f(u.u_mode, mode)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      out.endDraw(); gl.activeTexture(gl.TEXTURE0)
-    }
-    if (flow) {
-      let fixedInk = field.c, fixedColour = field.cc
-      ops.push(() => {
-        fixedInk = dep.out === field.a ? field.c : field.a
-        fixedColour = col.out === field.ca ? field.cc : field.ca
-        brushPass(col.out, field.cb, dep.out, dep.out, 1)
-        brushPass(dep.out, field.b, dep.out, dep.out, 1)
-        fieldOp(fixedInk, dep.out, field.b, 1, -1)
-        fieldOp(fixedColour, col.out, field.cb, 1, -1)
-      })
-      for (let i = 0; i < 12; i++) ops.push(() => {
-        brushPass(field.cb, field.band, field.b, fixedInk, 0)
-        brushPass(field.b, field.pressure, field.b, fixedInk, 0)
-        fieldOp(field.b, field.pressure, field.pressure, 1, 0)
-        fieldOp(field.cb, field.band, field.band, 1, 0)
-      })
-      ops.push(() => {
-        fieldOp(dep.out, fixedInk, field.b, 1, 1)
-        fieldOp(col.out, fixedColour, field.cb, 1, 1)
-      })
-    }
+      move(col.out,field.band); move(dep.out,field.pressure)
+      field.pressure.copyRegionInto(dep.out,left,bottom,left,bottom,right-left,top-bottom)
+      field.band.copyRegionInto(col.out,left,bottom,left,bottom,right-left,top-bottom)
+    })
 
     // (§17.42) The provisional dry target: the wet result with the one tide
     // along the whole wash's contour, into the deposit and colour buffers
@@ -11079,7 +11070,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.enableVertexAttribArray(this._ribbonInkStrengthLoc)
     gl.vertexAttribPointer(this._ribbonInkStrengthLoc, 1, gl.FLOAT, false, stride, 28)
     gl.enableVertexAttribArray(this._ribbonPuddleLoc)
-    gl.vertexAttribPointer(this._ribbonPuddleLoc, 2, gl.FLOAT, false, stride, 32)
+    gl.vertexAttribPointer(this._ribbonPuddleLoc, 3, gl.FLOAT, false, stride, 32)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 

@@ -835,6 +835,12 @@ export function watercolorTurnLoad(before: readonly [number, number] | null, dx:
   return Math.abs(Math.atan2(before[0] * dy - before[1] * dx, before[0] * dx + before[1] * dy)) / Math.PI
 }
 
+/** A moving corner unloads less than the fresh landing, even after repeated
+ * turns. A stationary dwell remains a separate source and may grow stronger. */
+export function watercolorTurnSurplus(previous: number, turn: number, pigmentGate: number): number {
+  return Math.min(0.65, previous + 0.2 * turn * pigmentGate)
+}
+
 /** watercolorStartExcess with the dwell's share from the carried surplus
  *  (watercolorSurplus of watercolorDwellPigment) instead of the landing's. */
 export function watercolorExcessFromSurplus(usedRadii: number, landedWet: number, surplusPigment: number): number {
