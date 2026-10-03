@@ -101,6 +101,14 @@ export function nibGeometry(dab: Dab, sizeMultiplier: number, shape: NibShape = 
   }
 }
 
+// A 2px hairline cannot resolve separated bundles. Match wcTipPressure in
+// shaders.ts; preserve actual zero pressure and the release of wider tips.
+function tipContactPressure(pressure: number, radius: number): number {
+  if (pressure <= 0) return 0
+  const t = Math.max(0, Math.min(1, radius - 1))
+  return Math.max(pressure, 0.06 * (1 - t * t * (3 - 2 * t)))
+}
+
 /**
  * Support point of the nib in world direction (nx, ny), relative to its own
  * centre, plus the support *value* — the distance from the centre to the
@@ -394,10 +402,10 @@ export function buildRibbonBands(
       if (len < 1e-6) continue
       const nx = -dy / len, ny = dx / len
 
-      pressure = a.pressure
-      endPressure = b.pressure
       const ga = nibGeometry(a, sizeMultiplier, shape, cornerFraction)
       const gb = nibGeometry(b, sizeMultiplier, shape, cornerFraction)
+      pressure = tipContactPressure(a.pressure, ga.semiMinor)
+      endPressure = tipContactPressure(b.pressure, gb.semiMinor)
       const la = nibSupport(ga, nx, ny), lb = nibSupport(gb, nx, ny)
       const ra = nibSupport(ga, -nx, -ny), rb = nibSupport(gb, -nx, -ny)
       const ca = { x: a.x, y: a.y }, cb = { x: b.x, y: b.y }

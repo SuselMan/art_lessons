@@ -370,6 +370,11 @@ const WC_NOISE_GLSL = `
   }
   // #680: sparse openings in the loaded tip; less pressure separates bundles.
   // Same contact for water, pigment and silhouette, in stamps and bands.
+  float wcTipPressure(float pressure, float radius) {
+    // Same resolution floor as markerRibbon.ts, without changing real pressure.
+    if (pressure <= 0.0) return 0.0;
+    return max(pressure, 0.06 * (1.0 - smoothstep(1.0, 2.0, radius)));
+  }
   float wcTipContact(float across, float combs, vec2 wp, float pressure) {
     if (combs <= 0.0) return 1.0;
     float hair = wcHairField(across, combs, wp);
@@ -1350,7 +1355,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      cov *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, v_pressure);
+      cov *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
       gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
@@ -1400,7 +1405,7 @@ ${WC_NOISE_GLSL}
         vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
         float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
         float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-        amount *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, v_pressure);
+        amount *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
       }
       if (u_inkClip > 0.5) {
         // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
