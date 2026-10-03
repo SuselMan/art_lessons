@@ -6302,7 +6302,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
-    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step'])
+    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base', 'u_step', 'u_mode'])
     this._brushDragPosLoc = gl.getAttribLocation(this._brushDragProg, 'a_position')
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
 
@@ -9808,31 +9808,6 @@ export class PencilEngine implements PencilEngineAPI {
           fieldOp(colour.b, spare, spare, 1, 0)
         }
       })
-      // #680: move the newly mobile paint along recorded brush contact.
-      // Colour and pigment read the SAME donor amount before either is changed.
-      if (first && flow) for (let i = 0; i < 12; i++) ops.push(() => {
-        if (!flowTexture) return
-        const drag = (source: AccumulationBuffer, out: AccumulationBuffer): void => {
-          out.beginReplaceDraw()
-          gl.useProgram(this._brushDragProg)
-          const u = this._brushDragUni
-          gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-          gl.enableVertexAttribArray(this._brushDragPosLoc)
-          gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
-          const textures = [source.texture, flowTexture, field.coverage.texture, c.texture]
-          const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment']
-          for (let j = 0; j < textures.length; j++) {
-            gl.activeTexture(gl.TEXTURE0 + j); gl.bindTexture(gl.TEXTURE_2D, textures[j]); gl.uniform1i(u[names[j]], j)
-          }
-          gl.uniform2f(u.u_step, Math.max(1, Math.round(radiusPx * 0.2 / S)) / field.w, Math.max(1, Math.round(radiusPx * 0.2 / S)) / field.h)
-          gl.drawArrays(gl.TRIANGLES, 0, 6)
-          out.endDraw(); gl.activeTexture(gl.TEXTURE0)
-        }
-        if (colour) drag(colour.c, spare)
-        drag(c, a)
-        fieldOp(c, a, a, 1, 0)
-        if (colour) fieldOp(colour.c, spare, spare, 1, 0)
-      })
       // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
       // and the wash under it are one liquid, and the paint in it - the
       // new, and the wash's re-mobilised under it - evens out across the
@@ -10001,6 +9976,51 @@ export class PencilEngine implements PencilEngineAPI {
       // holding the deposit's result as the colour's spare - the A/B render
       // came out with the colour record and the deposit out of step.
       col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
+    }
+
+    // #680: split the concentration surplus once, then carry that field.
+    // The surrounding coat stays fixed; colour uses the same dose fraction.
+    // All temporaries are existing settle fields, free after both settles.
+    const brushPass = (source: AccumulationBuffer, out: AccumulationBuffer,
+      pigment: AccumulationBuffer, base: AccumulationBuffer, mode: number): void => {
+      if (!flowTexture) return
+      out.beginReplaceDraw()
+      gl.useProgram(this._brushDragProg)
+      const u = this._brushDragUni
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      gl.enableVertexAttribArray(this._brushDragPosLoc)
+      gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
+      const textures = [source.texture, flowTexture, field.coverage.texture, pigment.texture, base.texture]
+      const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base']
+      for (let j = 0; j < textures.length; j++) {
+        gl.activeTexture(gl.TEXTURE0 + j); gl.bindTexture(gl.TEXTURE_2D, textures[j]); gl.uniform1i(u[names[j]], j)
+      }
+      const step = Math.max(1, Math.round(radiusPx * 0.2 / S))
+      gl.uniform2f(u.u_step, step / field.w, step / field.h)
+      gl.uniform1f(u.u_mode, mode)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      out.endDraw(); gl.activeTexture(gl.TEXTURE0)
+    }
+    if (flow) {
+      let fixedInk = field.c, fixedColour = field.cc
+      ops.push(() => {
+        fixedInk = dep.out === field.a ? field.c : field.a
+        fixedColour = col.out === field.ca ? field.cc : field.ca
+        brushPass(col.out, field.cb, dep.out, dep.out, 1)
+        brushPass(dep.out, field.b, dep.out, dep.out, 1)
+        fieldOp(fixedInk, dep.out, field.b, 1, -1)
+        fieldOp(fixedColour, col.out, field.cb, 1, -1)
+      })
+      for (let i = 0; i < 12; i++) ops.push(() => {
+        brushPass(field.cb, field.band, field.b, fixedInk, 0)
+        brushPass(field.b, field.pressure, field.b, fixedInk, 0)
+        fieldOp(field.b, field.pressure, field.pressure, 1, 0)
+        fieldOp(field.cb, field.band, field.band, 1, 0)
+      })
+      ops.push(() => {
+        fieldOp(dep.out, fixedInk, field.b, 1, 1)
+        fieldOp(col.out, fixedColour, field.cb, 1, 1)
+      })
     }
 
     // (§17.42) The provisional dry target: the wet result with the one tide

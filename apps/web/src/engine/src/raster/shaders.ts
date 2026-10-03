@@ -5636,7 +5636,8 @@ export const BRUSH_COMPOSITE_FRAG = `
 export const WC_BRUSH_DRAG_FRAG = `
   precision highp float;
   varying vec2 v_uv;
-  uniform sampler2D u_paint, u_flow, u_water, u_pigment;
+  uniform sampler2D u_paint, u_flow, u_water, u_pigment, u_base;
+  uniform float u_mode;
   uniform vec2 u_step;
   vec2 axis(int k) {
     if (k == 0) return vec2(1.0, 0.0);
@@ -5648,17 +5649,33 @@ export const WC_BRUSH_DRAG_FRAG = `
     if (min(min(to.x, to.y), min(1.0-to.x, 1.0-to.y)) < 0.0 || min(min(from.x, from.y), min(1.0-from.x, 1.0-from.y)) < 0.0) return 0.0;
     vec3 flow = texture2D(u_flow, from).rgb;
     vec2 velocity = flow.rg * 2.0 - 1.0;
-    velocity /= max(length(velocity), 0.01);
-    float contact = min(texture2D(u_water, from).b, texture2D(u_water, to).b);
+    // Keep directional confidence: opposite passes can cancel. Normalising
+    // a tiny residual amplified byte rounding into a full-strength flow.
+    float contact = smoothstep(0.015, 0.15, min(texture2D(u_water, from).b, texture2D(u_water, to).b));
     float donor = texture2D(u_pigment, from).a;
-    float receiver = texture2D(u_pigment, to).a;
-    // Pull a pool's excess along the brush, not the whole even film.
-    float surplus = max(donor - receiver, 0.0) / max(donor, 1e-4);
-    float amount = 0.30 * (0.2 + max(dot(velocity, direction), 0.0)) * flow.b * contact * surplus;
-    float room = max(0.0, 1.0 - texture2D(u_pigment, to).a);
-    return min(amount, room / max(4.0 * texture2D(u_pigment, from).a, 1e-4));
+    // Carry the pool's surplus independently of the receiver's concentration.
+    // Outgoing axial fractions sum to at most 0.4 * sqrt(2).
+    float amount = 0.4 * max(dot(velocity, direction), 0.0) * min(flow.b, texture2D(u_flow, to).b) * contact;
+    float room = max(0.0, 1.0 - texture2D(u_pigment, to).a - texture2D(u_base, to).a);
+    return min(amount, room / max(4.0 * donor, 1e-4));
   }
   void main() {
+    if (u_mode > 0.5) {
+      float donor = texture2D(u_pigment, v_uv).a;
+      // Estimate the surrounding coat over a wider neighbourhood. Dry samples
+      // cannot turn the normal silhouette into a false pigment surplus.
+      float background = donor;
+      for (int k=0; k<4; k++) {
+        vec2 probe = v_uv + axis(k) * u_step * 10.0;
+        if (min(min(probe.x, probe.y), min(1.0-probe.x, 1.0-probe.y)) >= 0.0
+            && texture2D(u_water, probe).b > 0.015)
+          background = min(background, texture2D(u_pigment, probe).a);
+      }
+      float surplus = max(donor - background, 0.0) / max(donor, 1e-4);
+      // A share of the pool grips the paper; only half of the excess moves.
+      gl_FragColor = texture2D(u_paint, v_uv) * (0.5 * surplus);
+      return;
+    }
     vec4 own = texture2D(u_paint, v_uv), result = own;
     for (int k=0; k<4; k++) {
       vec2 dir = axis(k), neighbour = v_uv + dir * u_step;

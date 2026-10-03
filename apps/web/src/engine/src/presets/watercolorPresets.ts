@@ -695,8 +695,7 @@ const PIGMENT_RUN_WET_RADII = 80
 //  patch of a loaded stroke, and Ilya's touch-downs stand 30-120 ms - under the
 //  dwell's floor - so the landing had only this base, and the stroke's END
 //  (braking before the lift) out-darkened its start.
-// (§17.95) Stronger but shorter landing, per archive review.
-const WATERCOLOR_START_EXCESS_BASE = 3.5
+const WATERCOLOR_START_EXCESS_BASE = 2.0
 //  (#680, s17.79) 2.8, from 1.8: Ilya, "скопление стало лучше, но ты стесняешься".
 const WATERCOLOR_START_EXCESS_DWELL = 2.8
 
@@ -706,7 +705,7 @@ const WATERCOLOR_START_EXCESS_DWELL = 2.8
  *  bands, so at that length the wash would grow a periodic dark head at every
  *  stroke instead of a gradient down each one: the same spatial structure v9
  *  removed, just shorter. */
-const WATERCOLOR_START_EXCESS_RADII = 1.0
+const WATERCOLOR_START_EXCESS_RADII = 1.2
 
 /** The multiplier on the deposit at `usedRadii` into the stroke.
  *
