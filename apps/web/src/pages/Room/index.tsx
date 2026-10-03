@@ -401,7 +401,7 @@ function RoomEditor() {
   const compact = useCompactLayout()
   // (#575) Below 1200px the header packs tighter: the "g" instead of the
   // wordmark, the save status as a dot, and the mode toggles (annotations,
-  // boards, fullscreen) folded into the ≡ menu as checkable items.
+  // boards) folded into the ≡ menu as checkable items.
   const narrowHeader = useNarrowHeader()
   /** (#509 v4) Whether the left rail is showing annotation tools instead of
    *  drawing ones. Two routes in and they are deliberately different things:
@@ -808,7 +808,7 @@ function RoomEditor() {
   const canvasTapClaimed = transformActive || (selectionActive && selection !== null)
   // (#99, #189, #321, #509) Minimal UI: the tap that hides the chrome, and the
   // annotation gestures' side of it — see useMinimalUi.
-  const { uiHidden, toggleUI, tapToHideEnabled, tapDebug, tapDebugEnabled, doubleTapArmedRef, pendingNoteRef } =
+  const { uiHidden, tapDebug, tapDebugEnabled, doubleTapArmedRef, pendingNoteRef } =
     useMinimalUi({ vpEl, canvasTapClaimed, debugEnabled, hideViewportToast })
 
   // ── require a room id ────────────────────────────────────────────────────────
@@ -1484,7 +1484,7 @@ function RoomEditor() {
         handleAnnotationsToggle={handleAnnotationsToggle}
         stripAvailable={stripAvailable} boardsOpen={boardsOpen} setBoardsOpen={setBoardsOpen}
         knownLessonId={knownLessonId} myHandRaised={myHandRaised} setHandRaised={setHandRaised}
-        tapToHideEnabled={tapToHideEnabled} toggleUI={toggleUI} setSettingsOpen={setSettingsOpen}
+        setSettingsOpen={setSettingsOpen}
       />
 
       {/* (#176, #595) The board strip, the teacher chip, the teacher's bar

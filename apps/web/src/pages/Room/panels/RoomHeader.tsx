@@ -60,17 +60,14 @@ export interface RoomHeaderProps {
   knownLessonId: string | null
   myHandRaised: boolean
   setHandRaised: (raised: boolean) => void
-  /** Minimal UI is on for this device (#321). */
-  tapToHideEnabled: boolean
-  toggleUI: () => void
   setSettingsOpen: (open: boolean) => void
 }
 
 /** (#493) The editor's header: the way out, the lesson's name (renamed in
  *  place by its owner, #216), whether work is reaching the server (#376),
  *  and the controls needed *while drawing* (#320) — rotation and its lock,
- *  zoom, undo/redo, annotations, the board strip, a raised hand, minimal UI,
- *  fullscreen — with the ≡ menu for everything reached for between strokes.
+ *  zoom, undo/redo, annotations, the board strip, a raised hand
+ *  — with fullscreen in the ≡ menu for everything reached for between strokes.
  *
  *  Out of Room's render with what only it uses: the rename draft, fullscreen,
  *  export and session save, the share action, and the toggles that fold into
@@ -81,7 +78,7 @@ export function RoomHeader({
   handleUndo, handleRedo,
   toggleAnnotationMode, handleAnnotationPeekDown, handleAnnotationPeekUp, handleAnnotationsToggle,
   stripAvailable, boardsOpen, setBoardsOpen, knownLessonId, myHandRaised, setHandRaised,
-  tapToHideEnabled, toggleUI, setSettingsOpen,
+  setSettingsOpen,
 }: RoomHeaderProps): React.JSX.Element | null {
   const t = useT()
   const { alert: showAlert } = useConfirmDialog()
@@ -228,16 +225,10 @@ export function RoomHeader({
       checked: myHandRaised,
       onClick: () => setHandRaised(!myHandRaised),
     }] : []),
-    ...(fullscreenSupported ? [{
-      label: t('room.fullscreen'),
-      icon: 'fullscreen' as const,
-      checked: isFullscreen,
-      onClick: toggleFullscreen,
-    }] : []),
   ]
 
   return (
-    <header className={clsx(styles.header, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+    <header className={clsx(styles.header, compact && styles.headerCompact, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
       {/* The wordmark is the way out of the editor, same as on every other
           page — it replaced an arrow_back that went to /create rather than
           anywhere back, and left without asking. */}
@@ -285,7 +276,7 @@ export function RoomHeader({
       <SyncIndicator connected={connected} pending={pending} dotOnly={narrowHeader} />
 
       {/* (#329) Four sections, divider-separated, in the order they're
-          reached for: rotation | zoom + fit | undo/redo | fullscreen | ≡.
+          reached for: rotation | zoom + fit | undo/redo | ≡.
           Everything that isn't a per-second viewport or history action moved
           out — export/save/settings into the ≡ menu, Clear into the layer's
           own "⋮" (it always cleared *a layer*, never the canvas), the
@@ -302,52 +293,56 @@ export function RoomHeader({
             wrapping 270 back to 0; from any other angle (a free rotation
             gesture, or a drag) it resets straight to 0 rather than rounding
             up to the next multiple. */}
-        <button
-          className={clsx(
-            styles.angleLabel,
-            angleDeg !== 0 && styles.angleLabelActive,
-            rotationLocked && styles.angleLabelLocked,
-          )}
-          onPointerDown={rotationLocked ? undefined : onAngleDragDown}
-          // `aria-disabled`, not `disabled`: a disabled button shows no
-          // tooltip in any browser, and the tooltip is the only place the
-          // readout gets to say *why* it stopped responding.
-          aria-disabled={rotationLocked}
-          onClick={() => {
-            if (rotationLocked) return
-            setVp(v => {
-              const deg = Math.round(v.angle * 180 / Math.PI)
-              const normalizedDeg = ((deg % 360) + 360) % 360
-              const isAtCanonicalAngle = normalizedDeg % 90 === 0
-              const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
-              return { ...v, angle: nextDeg * Math.PI / 180 }
-            })
-          }}
-          title={rotationLocked
-            ? t('room.rotationLockedHint', { angle: String(angleDeg) })
-            : t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
-        >
-          <Icon name="screen_rotation_alt" />
-          {angleDeg}°
-        </button>
-        {/* (#458) Beside the number it pins, not in the ⋮ menu: on a tablet
-            the canvas gets turned by accident — a two-finger pan almost
-            always carries a little twist with it — so the way to stop that
-            has to be reachable in the moment it happens, which is the same
-            "needed while drawing" test the rest of this panel is held to
-            (#320). It is also where the person is already looking, because
-            the angle they didn't ask for is displayed right there. */}
-        <button
-          className={clsx(styles.rotationLockBtn, rotationLocked && styles.rotationLockBtnOn)}
-          onClick={() => setRotationLocked(!rotationLocked)}
-          aria-pressed={rotationLocked}
-          title={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
-          aria-label={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
-        >
-          <Icon name={rotationLocked ? 'lock' : 'lock_open'} />
-        </button>
+        {!compact && (
+          <>
+            <button
+              className={clsx(
+                styles.angleLabel,
+                angleDeg !== 0 && styles.angleLabelActive,
+                rotationLocked && styles.angleLabelLocked,
+              )}
+              onPointerDown={rotationLocked ? undefined : onAngleDragDown}
+              // `aria-disabled`, not `disabled`: a disabled button shows no
+              // tooltip in any browser, and the tooltip is the only place the
+              // readout gets to say *why* it stopped responding.
+              aria-disabled={rotationLocked}
+              onClick={() => {
+                if (rotationLocked) return
+                setVp(v => {
+                  const deg = Math.round(v.angle * 180 / Math.PI)
+                  const normalizedDeg = ((deg % 360) + 360) % 360
+                  const isAtCanonicalAngle = normalizedDeg % 90 === 0
+                  const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
+                  return { ...v, angle: nextDeg * Math.PI / 180 }
+                })
+              }}
+              title={rotationLocked
+                ? t('room.rotationLockedHint', { angle: String(angleDeg) })
+                : t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
+            >
+              <Icon name="screen_rotation_alt" />
+              {angleDeg}°
+            </button>
+            {/* (#458) Beside the number it pins, not in the ⋮ menu: on a tablet
+                the canvas gets turned by accident — a two-finger pan almost
+                always carries a little twist with it — so the way to stop that
+                has to be reachable in the moment it happens, which is the same
+                "needed while drawing" test the rest of this panel is held to
+                (#320). It is also where the person is already looking, because
+                the angle they didn't ask for is displayed right there. */}
+            <button
+              className={clsx(styles.rotationLockBtn, rotationLocked && styles.rotationLockBtnOn)}
+              onClick={() => setRotationLocked(!rotationLocked)}
+              aria-pressed={rotationLocked}
+              title={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
+              aria-label={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
+            >
+              <Icon name={rotationLocked ? 'lock' : 'lock_open'} />
+            </button>
 
-        <div className={styles.headerDivider} />
+            <div className={styles.headerDivider} />
+          </>
+        )}
 
         {/* Infinite rooms display (and reset to) zoom relative to the
             device-native 1-world-unit-per-physical-pixel scale, so "100%"
@@ -400,7 +395,7 @@ export function RoomHeader({
             interface is annotation mode and there is nothing to switch to.
 
             (#575) In a narrow header both live in the ≡ menu instead — as do
-            the boards and fullscreen toggles below. */}
+            the boards toggle below. */}
         {!narrowHeader && (!compact || annotations.order.length > 0) && <div className={styles.headerDivider} />}
         {!narrowHeader && !compact && (
           <button
@@ -469,34 +464,6 @@ export function RoomHeader({
           </button>
         )}
 
-        {tapToHideEnabled && (
-          <>
-            <div className={styles.headerDivider} />
-            <button
-              className={styles.headerIconBtn}
-              onClick={toggleUI}
-              title={t('room.minimalUi')}
-              aria-label={t('room.minimalUi')}
-            >
-              <Icon name="visibility_off" />
-            </button>
-          </>
-        )}
-
-        {!narrowHeader && fullscreenSupported && (
-          <>
-            <div className={styles.headerDivider} />
-            <button
-              className={styles.headerIconBtn}
-              onClick={toggleFullscreen}
-              title={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
-              aria-label={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
-            >
-              <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
-            </button>
-          </>
-        )}
-
         <div className={styles.headerDivider} />
 
         {/* Everything you reach for between strokes rather than during
@@ -508,6 +475,12 @@ export function RoomHeader({
           trigger={<Icon name="menu" />}
           actions={[
             ...foldedHeaderToggles,
+            ...(fullscreenSupported ? [{
+              label: t('room.fullscreen'),
+              icon: 'fullscreen' as const,
+              checked: isFullscreen,
+              onClick: toggleFullscreen,
+            }] : []),
             // (#460) First of the menu's own items: inviting someone into
             // the project you already have open is the one thing here that
             // is about other people. Disabled until the room itself has
@@ -518,7 +491,7 @@ export function RoomHeader({
               icon: 'share',
               onClick: () => { if (config) shareRoom(config) },
               disabled: config === null,
-              separatorBefore: foldedHeaderToggles.length > 0,
+              separatorBefore: foldedHeaderToggles.length > 0 || fullscreenSupported,
             },
             {
               label: t('share.review'),
