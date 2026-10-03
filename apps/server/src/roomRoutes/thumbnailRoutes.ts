@@ -104,6 +104,12 @@ async function hasPersistedUploadAccess(roomId: string, userId: string): Promise
   return !blocked && membership.participates
 }
 
+/** Full review exports obey the board's visibility and block rules too. */
+export async function hasBoardImageAccess(roomId: string, userId: string): Promise<boolean> {
+  return (getParticipant(roomId, userId) !== undefined && canSeeResidentBoard(roomId, userId))
+    || await hasPersistedUploadAccess(roomId, userId)
+}
+
 // Base64 JSON, matching snapshotRoutes.ts's POST /snapshots — kept
 // consistent with the existing upload route's style rather than accepting a
 // raw octet-stream body.

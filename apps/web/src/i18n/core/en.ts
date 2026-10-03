@@ -252,6 +252,11 @@ export const en = {
   // sheet, everywhere else it copies; the strings only describe the result, so
   // they read the same either way.
   'share.action': 'Share',
+  'room.reviewImage': 'Drawing for review',
+  'share.preparingReview': 'Preparing review link…',
+  'share.reviewFailed': 'Could not prepare the review image',
+  'share.reviewReadyMessage': 'The drawing is ready to send for review.',
+  'share.reviewReady': 'Review link ready',
   'share.review': 'Share for review',
   'share.copied': 'Link copied',
   // Said even though the link went out fine: an invite-only project does not

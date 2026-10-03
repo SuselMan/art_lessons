@@ -119,6 +119,7 @@ export type { DiagLog, PressureMap } from './src/input/PointerInput'
 // from a real change — the same functions the engine applies, so the dialog's
 // graph is the curve that will actually be used.
 export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/filters/layerFilters'
+export type { ReviewExport } from './src/export/Exporter'
 export { pixelWriteLayerIds } from './src/oplog/OperationLog'
 // (#345, #493) The paper download's progress, for the room's loading overlay.
 export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paper/paperLoader'
@@ -1014,6 +1015,7 @@ export interface PencilEngineAPI {
   // now. A bounded room exports its whole sheet (#470) — see
   // Exporter.exportPNG (src/export/Exporter.ts) for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
+  exportReviewImage(): Promise<import('./src/export/Exporter').ReviewExport | null>
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
   /** (#536, §17.24) Dev-only A/B: composite spread and migration off.
@@ -4830,6 +4832,12 @@ export class PencilEngine implements PencilEngineAPI {
   async exportPNG(transparent = false): Promise<Blob | null> {
     await this._paper.ready()
     return this._exporter.exportPNG(transparent)
+  }
+
+  async exportReviewImage(): Promise<import('./src/export/Exporter').ReviewExport | null> {
+    await this._paper.ready()
+    if (this._destroyed || this._contextLost) return null
+    return this._exporter.exportReviewImage()
   }
 
   /** See PencilEngineAPI's doc comment, and ADR 015 §5 for why it exists;

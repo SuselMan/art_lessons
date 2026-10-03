@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import type { Operation } from '@grafetto/shared'
 
+import { mergeReviewHistory, reviewDoneOperations } from '../../lib/annotations/reviewHistory'
 import { makeInitialAnnotationState, replayAnnotations, type AnnotationState } from '../../lib/annotations/annotations'
 
 /** An open text annotation — the caret is in it and nothing has been recorded
@@ -28,6 +29,14 @@ export interface AnnotationDraft {
 }
 
 export interface AnnotationSlice {
+  /** The board named by a preview link. Early annotations are projected from
+   *  the confirmed server history while the engine restores pixels. */
+  reviewBoardId: string | null
+  reviewAnnotationHistory: Operation[] | null
+  seedReviewHistory: (boardId: string, ops: readonly Operation[]) => void
+  observeReviewOperation: (op: Operation) => void
+  finishReviewHistory: (doneOps: readonly Operation[]) => void
+
   /** Derived from the operation log, never written directly — the projection
    *  described in lib/annotations/annotations.ts. */
   annotations: AnnotationState
@@ -82,8 +91,23 @@ export interface AnnotationSlice {
 }
 
 export const createAnnotationSlice: StateCreator<AnnotationSlice> = set => ({
+  reviewBoardId: null,
+  reviewAnnotationHistory: null,
+  seedReviewHistory: (boardId, ops) => set(state => {
+    if (state.reviewBoardId !== boardId) return {}
+    const history = mergeReviewHistory(state.reviewAnnotationHistory ?? [], ops)
+    return { reviewAnnotationHistory: history, annotations: replayAnnotations(reviewDoneOperations(history)) }
+  }),
+  observeReviewOperation: op => set(state => {
+    if (state.reviewAnnotationHistory === null) return {}
+    const history = mergeReviewHistory(state.reviewAnnotationHistory, [op])
+    if (history.length === state.reviewAnnotationHistory.length && history.every((op, i) => op === state.reviewAnnotationHistory?.[i])) return {}
+    return { reviewAnnotationHistory: history, annotations: replayAnnotations(reviewDoneOperations(history)) }
+  }),
+  finishReviewHistory: doneOps => set({ reviewAnnotationHistory: null, annotations: replayAnnotations(doneOps) }),
   annotations: makeInitialAnnotationState(),
-  syncAnnotationsFromLog: ops => set({ annotations: replayAnnotations(ops) }),
+  syncAnnotationsFromLog: ops => set(state => state.reviewAnnotationHistory === null
+    ? { annotations: replayAnnotations(ops) } : {}),
 
   annotationsHidden: false,
   setAnnotationsHidden: hidden => set({ annotationsHidden: hidden }),

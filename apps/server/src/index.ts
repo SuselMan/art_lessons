@@ -31,6 +31,7 @@ import { registerRoomFolderRoutes } from './roomRoutes/roomFolderRoutes.js'
 import { registerForkRoutes } from './roomRoutes/forkRoutes.js'
 import { registerBoardRoutes } from './roomRoutes/boardRoutes.js'
 import { registerSnapshotRoutes } from './roomRoutes/snapshotRoutes.js'
+import { registerReviewRoutes } from './roomRoutes/reviewRoutes.js'
 import { registerThumbnailRoutes } from './roomRoutes/thumbnailRoutes.js'
 import { adminEmails, registerAdminRoutes } from './admin/adminRoutes.js'
 import { loadBans, loadIpBans, loadRevocations } from './auth/bans.js'
@@ -175,6 +176,7 @@ registerBoardRoutes(app, {
 registerSnapshotRoutes(app)
 // (#595) A stored preview is announced live to whoever may see that board —
 // the strip and the class grid both refresh from it.
+registerReviewRoutes(app)
 registerThumbnailRoutes(app, (boardId, updatedAt) => {
   const lessonId = noteBoardThumbnail(boardId, updatedAt)
   if (!lessonId) return

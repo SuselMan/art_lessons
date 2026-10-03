@@ -190,6 +190,14 @@ export interface ApiRoutes {
     params: { roomId: string }; query: { beforeSeq: number; limit?: number }; response: Operation[]
   }
 
+  // A review image is a view of the board, never a layer snapshot.
+  'POST /api/rooms/:roomId/review': {
+    params: { roomId: string }
+    body: { data: string; bounds: { x: number; y: number; width: number; height: number } }
+    response: ApiOk
+  }
+  'GET /api/rooms/:roomId/review': { params: { roomId: string }; response: ApiBinary }
+
   // ── thumbnails (thumbnailRoutes.ts) ─────────────────────────────────────
   'POST /api/rooms/:roomId/thumbnail': { params: { roomId: string }; body: { data: string }; response: ApiOk }
   'GET /api/rooms/:roomId/thumbnail': { params: { roomId: string }; query: { v?: string }; response: ApiBinary }

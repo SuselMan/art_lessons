@@ -105,6 +105,7 @@ export async function restoreRoomState(
   // из `catch` по второму поводу заново позвал бы `_display()` на той же
   // нехватке памяти, уже внутри обработчика.
   let displaySuspended = false
+  deps.replayGate.begin()
   try {
     // (#147) A room's history can be hundreds/thousands of ops — without this,
     // appendOperation's own per-op _display() (full composite + paper-blend)
@@ -196,7 +197,6 @@ export async function restoreRoomState(
     }
     // (#536, §17.49) In slices, yielding between them, behind the gate - see
     // replayGate.ts on why it is not one piece any more, and why the gate.
-    deps.replayGate.begin()
     engine?.setUnpaintedInBatch(undoneInBatch(tailOperations))
     try {
       let sliceStart = performance.now()
@@ -209,7 +209,6 @@ export async function restoreRoomState(
       }
     } finally {
       engine?.setUnpaintedInBatch(null)
-      deps.replayGate.end()
     }
 
     if (failed > 0) {
@@ -225,6 +224,7 @@ export async function restoreRoomState(
       deps.replayIncompleteRef.current = true
       deps.notifyReplayIncomplete()
     }
+    deps.replayGate.end()
     displaySuspended = false
     engine?.resumeDisplay()
     // (#386) Now, not on the next microtask: the bootstrap below reads the

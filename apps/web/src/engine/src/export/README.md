@@ -1,7 +1,7 @@
 ---
 layer: engine-internals
 summary: экспорт и миниатюра
-adr: [015-class-mode]
+adr: [015-class-mode, 016-review-bootstrap]
 issues: [494]
 tags: [экспорт, webgl1]
 ---
@@ -26,3 +26,6 @@ tags: [экспорт, webgl1]
   то, что не даёт экспорту и экрану разойтись (#301).
 - MockGL не растеризует ни бумагу, ни прозрачный проход, поэтому тесты движка проверяют
   сырые пиксели `buildContentComposite` (`index.tiledExport.test.ts`, `index.bakePreview.test.ts`).
+
+- (#704) `exportReviewImage` отдаёт PNG с бумагой вместе с точным мировым прямоугольником.
+  GPU-буферы освобождаются до async-кодирования; review не создаёт слой в движке.

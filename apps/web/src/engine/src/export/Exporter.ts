@@ -29,6 +29,8 @@ export interface ExportRect {
   height: number
 }
 
+export interface ReviewExport { blob: Blob; bounds: ExportRect }
+
 /** What Exporter may ask of the engine. */
 export interface ExporterContext {
   readonly gl: WebGLRenderingContext
@@ -174,6 +176,26 @@ export class Exporter {
     out.destroy()
 
     return this.ctx.encode(pixels, w, h)
+  }
+
+  /** Full-resolution paper composite and its exact world rect, captured in
+   *  one synchronous GPU pass so the image and coordinates cannot disagree. */
+  async exportReviewImage(): Promise<ReviewExport | null> {
+    const rect = this.ctx.infinite ? (this.allContentBounds() ?? this.viewRect()) : this.sheetRect()
+    const composite = this.buildContentComposite(rect)
+    if (!composite) return null
+    const { bounds, buffer } = composite
+    const out = new AccumulationBuffer(this.gl, buffer.width, buffer.height)
+    let pixels: Uint8Array
+    try {
+      this.ctx.composePaper(buffer.texture, out.fbo, buffer.width, buffer.height, bounds)
+      pixels = out.readPixels()
+    } finally {
+      buffer.destroy()
+      out.destroy()
+    }
+    const blob = await this.ctx.encode(pixels, bounds.width, bounds.height)
+    return blob ? { blob, bounds } : null
   }
 
   /** PencilEngineAPI.bakePreview, after the paper has loaded and with a live
