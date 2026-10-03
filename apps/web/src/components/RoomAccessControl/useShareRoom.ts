@@ -28,12 +28,12 @@ const INVITE_ONLY_NOTICE_MS = 8000
  *  share sheet opens either — `navigator.share` has to be reached from the
  *  click's own transient activation, so a network round trip in front of it
  *  would get the call rejected on iOS. */
-export function useShareRoom(): (room: ShareableRoom) => void {
+export function useShareRoom(): (room: ShareableRoom, forReview?: boolean) => void {
   const t = useT()
   const deviceType = useSettingsStore(s => s.deviceType)
 
-  return useCallback((room: ShareableRoom) => {
-    const url = roomShareUrl(room.id, window.location.origin)
+  return useCallback((room: ShareableRoom, forReview = false) => {
+    const url = roomShareUrl(room.id, window.location.origin, forReview)
     void shareOrCopy({ url, title: room.name, deviceType }).then(outcome => {
       const notice = shareNoticeFor(outcome, room.accessMode)
       if (!notice) return

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { useLocation } from 'react-router-dom'
 import { nanoid } from 'nanoid'
 
 import type { AnnotationShape, OperationDraft } from '@grafetto/shared'
@@ -669,6 +670,16 @@ export function useAnnotations({
     selectTool(toolBeforeAnnotationRef.current ?? 'pencil')
     toolBeforeAnnotationRef.current = null
   }, [setAnnotationMode, selectTool, commitAnnotationDraft])
+
+  // Preview links start in annotation mode once. A later render must not
+  // turn it back on after the viewer deliberately returns to drawing.
+  const { search } = useLocation()
+  const previewEnteredRef = useRef(false)
+  useEffect(() => {
+    if (previewEnteredRef.current || !new URLSearchParams(search).has('preview')) return
+    previewEnteredRef.current = true
+    toggleAnnotationMode(true)
+  }, [search, toggleAnnotationMode])
 
   // (#595, ADR 015 §6) The teacher arriving on a student's board picks up
   // the annotation pen: a remark over the work is the default, correcting in

@@ -22,6 +22,11 @@ function abortError(): Error {
 }
 
 describe('roomShareUrl', () => {
+  it('adds preview for review links', () => {
+    expect(roomShareUrl('board-id', 'https://grafetto.com', true))
+      .toBe('https://grafetto.com/room/board-id?preview')
+  })
+
   it('points at the same route the lesson list links to', () => {
     expect(roomShareUrl('hWc6QM7h', 'https://grafetto.com')).toBe('https://grafetto.com/room/hWc6QM7h')
   })

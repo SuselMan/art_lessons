@@ -84,6 +84,7 @@ export function RoomHeader({
   const t = useT()
   const { alert: showAlert } = useConfirmDialog()
   const config = useRoomStore(s => s.room)
+  const boardId = useRoomStore(s => s.boardId)
   const hotkeys = useSettingsStore(s => s.hotkeys)
   const annotationMode = useRoomStore(s => s.annotationMode)
   const annotations = useRoomStore(s => s.annotations)
@@ -516,6 +517,12 @@ export function RoomHeader({
               onClick: () => { if (config) shareRoom(config) },
               disabled: config === null,
               separatorBefore: foldedHeaderToggles.length > 0,
+            },
+            {
+              label: t('share.review'),
+              icon: 'share',
+              onClick: () => { if (config) shareRoom({ ...config, id: boardId ?? config.id }, true) },
+              disabled: config === null,
             },
             { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
             { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },
