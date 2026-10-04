@@ -34,6 +34,43 @@ class PublishTest(unittest.TestCase):
         self.patch.start()
         self.addCleanup(self.patch.stop)
 
+    def test_report_index_preserves_source_hash_and_rejects_bad_mappings(self):
+        directory = self.artifacts/'baseline'
+        original = (directory/'report.json').read_bytes()
+        (directory/'reports').mkdir()
+        source = directory/'reports/source.json'
+        source.write_bytes(original)
+        (directory/'report.json').unlink()
+        index = directory/'report-index.json'
+        index.write_text(json.dumps({'cases': {'s2-n1': 'reports/source.json'}}))
+        batch = publish(self.artifacts, self.gallery, 'indexed', 'Индекс',
+                        {'comparisons': [{'case': 's2-n1', 'candidate': 'next'}]})
+        self.assertEqual(source.read_bytes(), original)
+        self.assertEqual(batch['cases'][0]['baselineReportSha256'], hashlib.sha256(original).hexdigest())
+        invalid = [
+            '{"cases": {"s2-n1":"reports/source.json", "s2-n1":"reports/source.json"}}',
+            '{"cases": {}}',
+            json.dumps({'cases': {'s2-n1': '../next/report.json'}}),
+            json.dumps({'cases': {'s2-n1': str(source.resolve())}}),
+        ]
+        for value in invalid:
+            index.write_text(value)
+            with self.assertRaises(ValueError):
+                publish(self.artifacts, self.gallery, 'invalid', 'Ошибка',
+                        {'comparisons': [{'case': 's2-n1', 'candidate': 'next'}]})
+        index.write_text(json.dumps({'cases': {'s2-n1': 'reports/source.json'}}))
+        report = json.loads(original)
+        for change in [lambda r: r.update(base='wrong'),
+                       lambda r: r['cases'].append(dict(r['cases'][0])),
+                       lambda r: r['cases'][0].update(pngSha256='wrong')]:
+            report = json.loads(original)
+            change(report)
+            source.write_text(json.dumps(report))
+            with self.assertRaises(ValueError):
+                publish(self.artifacts, self.gallery, 'invalid', 'Ошибка',
+                        {'comparisons': [{'case': 's2-n1', 'candidate': 'next'}]})
+        self.assertFalse((self.gallery/'previews/search-invalid').exists())
+
     def test_rounds_append_without_changing_prior_images_or_votes(self):
         first = publish(self.artifacts,self.gallery)
         image = self.gallery/'previews/search-round1/s2-n1-landing-rich-candidate.png'

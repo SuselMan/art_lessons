@@ -38,6 +38,44 @@ def atomic_json(path, value):
     os.replace(temporary, path)
 
 
+def source_report(root, variant, case_id):
+    directory = root/variant
+    direct = directory/'report.json'
+    index = directory/'report-index.json'
+    if direct.exists() and index.exists():
+        raise ValueError('Ambiguous report source '+variant)
+    if direct.exists():
+        path = direct
+    else:
+        def unique_pairs(items):
+            result = {}
+            for key, value in items:
+                if key in result:
+                    raise ValueError('Duplicate report index key '+key)
+                result[key] = value
+            return result
+        mapping = json.loads(index.read_text(), object_pairs_hook=unique_pairs)['cases']
+        if not isinstance(mapping, dict) or case_id not in mapping:
+            raise ValueError('Missing report mapping '+variant+' '+case_id)
+        relative = mapping[case_id]
+        if not isinstance(relative, str) or Path(relative).is_absolute():
+            raise ValueError('Invalid report path')
+        path = directory/relative
+        try:
+            path.resolve().relative_to(directory.resolve())
+        except ValueError:
+            raise ValueError('Report path escapes variant directory') from None
+    try:
+        path.resolve().relative_to(directory.resolve())
+    except ValueError:
+        raise ValueError('Report path escapes variant directory') from None
+    report = json.loads(path.read_text())
+    ids = [row['id'] for row in report['cases']]
+    if len(ids) != len(set(ids)):
+        raise ValueError('Duplicate render case '+variant)
+    return report, path
+
+
 def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None):
     identifier(batch_id)
     description = config.get('description', '') if config else ''
@@ -69,16 +107,16 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
         selected.append((tests[case], baseline, candidate))
     if not selected:
         raise ValueError('Empty selection')
-    variants = {variant for _, baseline, candidate in selected for variant in (baseline, candidate)}
-    reports = {variant: json.loads((root/variant/'report.json').read_text()) for variant in variants}
-    for variant, report in reports.items():
+    reports = {(variant, test['id']): source_report(root, variant, test['id'])
+               for test, baseline, candidate in selected for variant in (baseline, candidate)}
+    for (variant, case_id), (report, report_path) in reports.items():
         if report['errors'] or report.get('complete', True) is not True:
             raise ValueError('Incomplete/error render '+variant)
         if report.get('base') != inputs['base'] or report.get('variant') != variant:
             raise ValueError('Render identity mismatch '+variant)
         rows = {row['id']: row for row in report['cases']}
         for test, baseline, candidate in selected:
-            if variant not in (baseline, candidate):
+            if variant not in (baseline, candidate) or test['id'] != case_id:
                 continue
             row = rows.get(test['id'])
             if not row or row['lost'] or row['error'] or not row['draws'] or row.get('variant') != variant:
@@ -135,9 +173,9 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
                 for key, name in [('candidateImageSha256', candidate_name), ('baselineImageSha256', baseline_name),
                                   ('referenceImageSha256', reference_name)]:
                     case[key] = hashlib.sha256((stage/name).read_bytes()).hexdigest()
-                case['candidateReportSha256'] = hashlib.sha256((root/candidate/'report.json').read_bytes()).hexdigest()
-                case['baselineReportSha256'] = hashlib.sha256((root/baseline_variant/'report.json').read_bytes()).hexdigest()
-                candidate_report = reports[candidate]
+                case['candidateReportSha256'] = hashlib.sha256(reports[(candidate, test['id'])][1].read_bytes()).hexdigest()
+                case['baselineReportSha256'] = hashlib.sha256(reports[(baseline_variant, test['id'])][1].read_bytes()).hexdigest()
+                candidate_report = reports[(candidate, test['id'])][0]
                 candidate_row = next(row for row in candidate_report['cases'] if row['id'] == test['id'])
                 case['patchProof'] = {'compiledReplacements': candidate_report.get('replacements', 0),
                                       'shaderReplacements': candidate_row.get('shaderReplacements', 0),
