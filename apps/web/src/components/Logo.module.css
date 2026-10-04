@@ -1,11 +1,4 @@
-/* (#426) `color` is what paints the wordmark now that the SVG uses
-   currentColor — --color-text-bright rather than plain --color-text because
-   the mark is the app naming itself and should sit at the top of the type
-   hierarchy on whichever surface it lands. The glyph keeps its own purple
-   regardless.
-
-   The height still comes from the call site; the inline <svg> is sized by the
-   rule below rather than by the <img> box it used to have. */
+/* The wordmark follows the theme; the brush letter keeps its own colors. */
 .mark {
   display: block;
   height: 100%;

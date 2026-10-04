@@ -1,8 +1,8 @@
-// Rasterizes the app icon (#47) from src/assets/logo-icon.svg into the PNG
+// Rasterizes the app icon (#47) from src/assets/logo.svg into the PNG
 // sizes an installable PWA actually needs, writing them to public/.
 //
-// Unlike the paper bake next door, the output IS committed: it is ~30 KB
-// total, it changes only when the logo does, and having it in the repo means
+// Unlike the paper bake next door, the output IS committed: it changes only
+// when the logo does, and having it in the repo means
 // neither CI nor a fresh clone needs a native image toolchain to produce a
 // working build. Re-run by hand with `npm run bake:icons` after touching the
 // logo — nothing runs this automatically.
@@ -25,37 +25,18 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const SOURCE = join(HERE, '../src/assets/logo-icon.svg')
+const SOURCE = join(HERE, '../src/assets/logo.svg')
 const OUT_DIR = join(HERE, '../public')
 
-// The logo's own plate. The source SVG already paints a black background
-// rect, but that rect misses the left edge of the viewBox by ~0.4 units, so
-// a naive render leaves a sub-pixel transparent sliver down one side. Every
-// output here is flattened onto this colour, which closes that seam and
-// guarantees opacity — `apple-touch-icon` must be opaque (iOS composites a
-// transparent icon over black, which would put a dark logo on dark), and a
-// maskable icon must be opaque to the corners or the launcher's crop shows
-// through.
+// Opaque plates are required by iOS and Android maskable icons.
 const PLATE = '#000000'
 
-// Rasterization DPI for the SVG. The source declares a viewBox but no
-// width/height, so librsvg renders it at ~407 px at the default 72 dpi —
-// upscaling that to 512 would visibly soften the curves. 600 dpi gives
-// ~3.4k px, which then downsamples cleanly to every size below.
-const DENSITY = 600
+// The 316-unit crop renders at 632 px, enough for the largest PNG.
+const DENSITY = 144
 
-// How much of the icon the artwork occupies in the maskable variant.
-//
-// The spec's safe zone is a circle of diameter 80% of the icon, i.e. radius
-// 0.8 of the half-side. Measured against this artwork, the mark's farthest
-// point from centre (the tip of the pencil tail, lower right) sits at 0.967
-// of the half-side — so it would need to shrink to 0.827 to land exactly on
-// the safe circle. 0.80 leaves a little margin on top of that.
-//
-// Note this is a *radial* measurement, not the bounding box: the bounding
-// box's diagonal would have demanded a much harsher 0.78 to fit, wasting
-// room the round-ish mark does not actually use out at its corners.
-const MASKABLE_SCALE = 0.8
+// Every nontransparent source pixel is inside radius 1.273 (half-side units).
+// At 62% it fits Android's circular safe zone of radius 0.8, including flecks.
+const MASKABLE_SCALE = 0.62
 
 interface IconSpec {
   file: string
@@ -87,10 +68,6 @@ async function bakeIcon(svg: Buffer, { file, size, scale }: IconSpec): Promise<v
   const left = Math.floor((size - inner) / 2)
   const top = Math.floor((size - inner) / 2)
 
-  // `fit: 'contain'` rather than 'fill': the source viewBox is 407.1 x 403.7,
-  // very nearly but not exactly square, and stretching it to square would
-  // distort the mark by ~0.8% for no reason. The letterbox it produces
-  // instead is the plate colour, so it is invisible.
   let img = sharp(svg, { density: DENSITY })
     .resize(inner, inner, { fit: 'contain', background: PLATE })
 
@@ -104,15 +81,22 @@ async function bakeIcon(svg: Buffer, { file, size, scale }: IconSpec): Promise<v
 }
 
 async function main(): Promise<void> {
-  const svg = readFileSync(SOURCE)
+  // Crop the same source artwork to the letter and embed the original PNG
+  // so favicon.svg works as a standalone image (SVG images cannot fetch it).
+  const mark = readFileSync(join(HERE, '../public/brand/grafetto-g.png'))
+  const svg = Buffer.from(readFileSync(SOURCE, 'utf8')
+    .replace('viewBox="0.00 0.00 1130.00 388.00"', 'viewBox="40 42 316 316"')
+    .replace('href="/brand/grafetto-g.png"', `href="data:image/png;base64,${mark.toString('base64')}"`))
   mkdirSync(OUT_DIR, { recursive: true })
   console.log(`Baking app icons from ${SOURCE}`)
   for (const spec of ICONS) await bakeIcon(svg, spec)
 
-  // The SVG favicon is the same artwork, served straight from public/ so a
-  // browser that supports it gets the crisp vector at any tab density.
-  writeFileSync(join(OUT_DIR, 'favicon.svg'), svg)
-  console.log(`  ${'favicon.svg'.padEnd(24)} vector    (copied from source)`)
+  // An SVG favicon is an image document: external PNG references are blocked.
+  // Embed a 192px copy instead of making every tab fetch the 1.2MB original.
+  const faviconMark = await sharp(mark).resize(192, 192).png().toBuffer()
+  const favicon = svg.toString().replace(mark.toString('base64'), faviconMark.toString('base64'))
+  writeFileSync(join(OUT_DIR, 'favicon.svg'), favicon)
+  console.log('  favicon.svg              standalone embedded artwork')
 }
 
 main().catch((err: unknown) => {

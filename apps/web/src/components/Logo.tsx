@@ -1,41 +1,22 @@
 import logoSvg from '../assets/logo.svg?raw'
-import logoMarkSvg from '../assets/logo-mark.svg?raw'
 
 import styles from './Logo.module.css'
 
-/** The Grafetto wordmark, used wherever the app names itself — auth, room
- *  list, create-room, settings, join gate.
- *
- *  (#426) Inlined rather than an <img src>, which is what it used to be. The
- *  comment here previously argued that the mark has fixed brand colors and
- *  that a light theme would therefore need a second asset — that was half
- *  right, and the wrong half is the expensive one. The glyph's purple is a
- *  brand color and stays a literal in the file; the wordmark's cream was never
- *  a brand color, it was "light, because the background is dark", and as an
- *  <img> it had no way to find out that the background had changed. It is
- *  `currentColor` in the SVG now, so the wordmark follows the surface it is
- *  drawn on and there is still exactly one asset to keep in step.
- *
- *  Inlining is also the house pattern rather than a new one — `Icon` reads its
- *  custom glyphs the same way, via `?raw` and the same requirement that they
- *  use currentColor.
- *
- *  Size comes from the call site: the wrapper sets a height, and the SVG fills
- *  it while keeping its own aspect ratio. `role="img"` plus the label replaces
- *  the `alt` the <img> carried.
- *
- *  (#575) `mark` is the purple "g" alone, for a header too narrow to spend
- *  ~80px on the name. It is the same two shapes cut out of logo.svg with the
- *  same 388-unit viewBox height, so at a given height the "g" is exactly the
- *  size it is inside the full wordmark — switching variants doesn't make the
- *  glyph jump. Not logo-icon.svg: that one carries the favicon's black tile. */
+/** One artwork for every app logo. The compact view crops the wordmark,
+ * keeping the letter at the same size as in the full version. The wordmark
+ * follows currentColor; the supplied brush lettering keeps its own colors.
+ * Landing and app icons also read src/assets/logo.svg. */
 export function Logo({ variant = 'full' }: { variant?: 'full' | 'mark' }) {
+  const svg = variant === 'mark'
+    ? logoSvg.replace('viewBox="0.00 0.00 1130.00 388.00"', 'viewBox="40 0 316 388"')
+    : logoSvg
+
   return (
     <span
       className={styles.mark}
       role="img"
       aria-label="Grafetto"
-      dangerouslySetInnerHTML={{ __html: variant === 'mark' ? logoMarkSvg : logoSvg }}
+      dangerouslySetInnerHTML={{ __html: svg }}
     />
   )
 }

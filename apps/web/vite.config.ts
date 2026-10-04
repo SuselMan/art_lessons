@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -135,6 +136,14 @@ export default defineConfig(({ mode }) => {
     // comes to that.
     define: { __SENTRY_DEBUG__: false, __SENTRY_TRACING__: false },
     plugins: [
+      {
+        name: 'grafetto-landing-logo',
+        transformIndexHtml(html) {
+          // The static landing uses the same artwork without loading React.
+          const logo = readFileSync(new URL('./src/assets/logo.svg', import.meta.url), 'utf8')
+          return html.replace('<!-- grafetto-logo -->', logo.replace('<svg ', '<svg aria-hidden="true" '))
+        },
+      },
       react(),
       pwa,
       ...(useHttps ? [mkcert()] : []),
