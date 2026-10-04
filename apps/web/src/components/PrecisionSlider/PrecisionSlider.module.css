@@ -1,22 +1,24 @@
+/* The rail reserves half a capsule at each end, keeping the round thumb
+   inside the fill at both limits. The full 48px control captures touch. */
 .track {
   position: relative;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
   cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .trackVertical {
-  width: 28px;
+  width: 48px;
+  min-height: 32px;
 }
 
 .trackHorizontal {
   width: 100%;
-  height: 28px;
-  min-width: 0;
+  height: 48px;
+  min-width: 32px;
 }
 
 .track:focus-visible {
@@ -24,45 +26,70 @@
   outline-offset: 1px;
 }
 
-.fill {
+.rail {
   position: absolute;
-  border-radius: var(--radius-sm);
-  background: var(--color-accent);
   pointer-events: none;
 }
 
+.rail::before {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+}
+
+.trackHorizontal .rail {
+  inset: 50% 16px auto;
+}
+
+.trackVertical .rail {
+  inset: 16px auto 16px 50%;
+}
+
+.trackHorizontal .rail::before {
+  height: 16px;
+  inset: -8px -16px auto;
+}
+
+.trackVertical .rail::before {
+  width: 16px;
+  inset: -16px auto -16px -8px;
+}
+
+.fill {
+  position: absolute;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+
 .trackVertical .fill {
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: -16px;
+  left: -16px;
+  width: 32px;
 }
 
 .trackHorizontal .fill {
-  top: 0;
-  bottom: 0;
-  left: 0;
+  top: -16px;
+  left: -16px;
+  height: 32px;
 }
 
 .thumb {
   position: absolute;
-  border-radius: var(--radius-sm);
-  background: var(--color-knob);
-  border: 1px solid var(--color-knob-border);
-  box-shadow: var(--shadow-sm);
-  pointer-events: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-knob);
 }
 
 .trackVertical .thumb {
-  left: 50%;
-  width: 20px;
-  height: 8px;
+  left: 0;
   transform: translate(-50%, 50%);
 }
 
 .trackHorizontal .thumb {
-  top: 50%;
-  width: 8px;
-  height: 20px;
+  top: 0;
   transform: translate(-50%, -50%);
 }
 

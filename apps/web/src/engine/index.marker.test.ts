@@ -61,7 +61,7 @@ describe('marker tool (#250, ADR 004)', () => {
   // #250: DAB_FRAG's marker branch (multiply-with-coverage) is gated by
   // u_inkMode>1.5 — verifies the engine actually sets it for marker's own
   // draw. Unlike liner (index.liner.test.ts's identical-in-spirit test),
-  // marker's own draw always goes through the non-batched _dabProg (see
+  // marker's own draw always goes through the non-batched StampPainter.program (see
   // _paintRibbonDabs' own doc comment on why it can't batch), so this reads
   // through lastMarkerDabUniform (the non-instanced program) rather than
   // lastPaperDabUniform (which prefers the instanced program pencil/liner
@@ -72,7 +72,7 @@ describe('marker tool (#250, ADR 004)', () => {
     expect(lastMarkerDabUniform(engine, 'u_inkMode')).toBe(2)
   })
 
-  // A pencil stroke never touches _dabProg's u_inkMode via marker's own
+  // A pencil stroke never touches StampPainter.program's u_inkMode via marker's own
   // path (MockGL always provides the ANGLE_instanced_arrays shim, so a real
   // pencil dab paints through the *instanced* program instead — see
   // lastPaperDabUniform's own comment) — confirms marker's u_inkMode=2.0

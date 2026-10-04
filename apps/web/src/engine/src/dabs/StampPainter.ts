@@ -535,6 +535,13 @@ export class StampPainter {
     ext.vertexAttribDivisorANGLE(this.instALoc, 0)
     ext.vertexAttribDivisorANGLE(this.instBLoc, 0)
     ext.vertexAttribDivisorANGLE(this.instOpacityLoc, 0)
+    // (#715) Enabled arrays also belong to the context, not the program.
+    // Retiring a board deletes this painter's instance buffer while the next
+    // engine reuses the canvas/context. Leaving these enabled then makes even
+    // its fullscreen draws fail with "no buffer is bound to enabled attribute".
+    gl.disableVertexAttribArray(this.instALoc)
+    gl.disableVertexAttribArray(this.instBLoc)
+    gl.disableVertexAttribArray(this.instOpacityLoc)
   }
 
 }

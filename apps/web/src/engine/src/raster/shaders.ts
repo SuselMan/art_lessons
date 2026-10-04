@@ -253,7 +253,8 @@ const WC_NOISE_GLSL = `
   // brush left its surplus (the stamp's and band's puddle depth over the
   // film's level - watercolorPuddleFromSurplus: landing, stop, braking), the
   // surplus paint lies in blots: the dose there is multiplied by a coarse
-  // field that averages about one, so the pool keeps its mass but loses the
+  // field that averages about one statistically (not normalized per mark),
+  // so the pool loses the
   // nib's shape - Ilya's "повторяет форму кисти, выглядит стерильно". Off
   // on wet paper, where the puddle depth is the paper's water, not a pool.
   // (#680, s17.84) The pool share a coverage pass records in its .g (over
@@ -263,10 +264,12 @@ const WC_NOISE_GLSL = `
     return on * smoothstep(0.5, 0.95, puddle) * (1.0 - clamp(paperWet, 0.0, 1.0));
   }
   float wcPoolBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on) {
-    float pool = on * smoothstep(0.5, 0.95, puddle) * (1.0 - clamp(paperWet, 0.0, 1.0));
+    // puddle carries the surplus fraction on ink/depth draws, independent
+    // of standing water; multiplying the full dose preserves its body.
+    float pool = on * clamp(puddle, 0.0, 1.0);
     if (pool <= 0.0) return 1.0;
     float n = wcFbm(wp * 0.03 + seed * 1.7 + vec2(13.0, 5.0));
-    return mix(1.0, 0.25 + 1.5 * smoothstep(0.3, 0.7, n), pool);
+    return mix(1.0, 0.4 + 1.2 * smoothstep(0.3, 0.7, n), pool);
   }
 
   // (#536, ADR 011 §17.4) The wash's own coarse unevenness — where the water
@@ -3778,6 +3781,9 @@ export const LAYER_COMPOSITE_FRAG = `
 export const WC_DIFFUSE_FRAG = `
   precision highp float;
   uniform sampler2D u_ink;
+  // Both pigment and absorption records read the same pre-step mobile
+  // pigment here. Never derive mobility from the colour record itself.
+  uniform sampler2D u_density;
   uniform sampler2D u_coverage;
   uniform sampler2D u_paperHeightMap;
   uniform vec2 u_resolution;
@@ -3808,11 +3814,12 @@ export const WC_DIFFUSE_FRAG = `
   // (#536, s17.19) From the coverage alone, on purpose: the pass now runs
   // over two fields - the deposit and its optical depth - and both must move
   // by the same fractions, so the gate may not read the field it moves. The
-  // coverage's .b already carries the wetter of the recorded paper wetness
-  // and the standing water the stroke left (see u_washWater).
+  // Accepted covered-film mobility uses the connected coverage .a domain;
+  // higher pre-step pigment density slows the same pairwise transfer for
+  // both records. Standing-water appearance remains a separate record.
   float wcWaterAt(vec4 cov) {
     if (cov.a <= 0.002) return 0.0;
-    return clamp(cov.b, 0.0, cov.a);
+    return clamp(cov.a, 0.0, 1.0);
   }
 
   float wcHeightAt(vec2 px) {
@@ -3869,7 +3876,8 @@ export const WC_DIFFUSE_FRAG = `
         vec4 inkj = texture2D(u_ink, uvj);
         vec4 covj = texture2D(u_coverage, uvj);
         float wj = wcWaterAt(covj);
-        float gate = min(wi, wj);
+        float density = max(texture2D(u_density, v_uv).a / max(cov.a, 0.002), texture2D(u_density, uvj).a / max(covj.a, 0.002));
+        float gate = min(wi, wj) / (1.0 + 8.0 * density * density);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);
         // On .a, give * ink.a - take * inkj.a is gate * (D (ci - cj)
@@ -5664,8 +5672,8 @@ export const WC_BRUSH_DRAG_FRAG = `
     vec2 velocity = flow.rg * 2.0 - 1.0;
     // Keep directional confidence: opposite passes can cancel. Normalising
     // a tiny residual amplified byte rounding into a full-strength flow.
-    float contact = smoothstep(0.015, 0.15, min(texture2D(u_water, from).b, texture2D(u_water, to).b));
-    contact *= step(0.015, texture2D(u_water, (from + to) * 0.5).b);
+    float contact = smoothstep(0.015, 0.15, min(texture2D(u_water, from).a, texture2D(u_water, to).a));
+    contact *= step(0.015, texture2D(u_water, (from + to) * 0.5).a);
     float donor = texture2D(u_pigment, from).a;
     // Move wet material, with a conservative exchange down concentration.
     // At most 0.18*sqrt(2) advection + 4*0.18 mixing leaves a donor.

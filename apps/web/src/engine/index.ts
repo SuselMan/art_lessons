@@ -1,11 +1,24 @@
+import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
+export type { CompositeItem } from './src/raster/LayerCompositor'
+import { WatercolorSettlePlan } from './src/raster/WatercolorSettlePlan'
+import { WatercolorSettleQueue } from './src/watercolor/WatercolorSettleQueue'
+import { destroyField, type SettleField } from './src/buffers/SettleField'
+import { WC_HALF_RES_RADIUS_PX } from './src/watercolor/settleResolution'
+import { WatercolorPasses } from './src/raster/WatercolorPasses'
+import { RibbonPasses } from './src/raster/RibbonPasses'
+import { RibbonStrokePainter, type RibbonLiveComposite } from './src/dabs/RibbonStrokePainter'
+import { rectOnTile, ribbonWaterDelivery } from './src/dabs/ribbonStrokeMath'
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { RIBBON_VERT, RIBBON_FRAG, DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchSlot } from './src/buffers/scratchPools'
+import { RibbonReplayCache, type ReplayRibbonChunk } from './src/buffers/RibbonReplayCache'
+import { RibbonScratchPool } from './src/buffers/RibbonScratchPool'
+import { RibbonStrokeScratch, scratchSnapshotBytes, freeScratchSnapshot, type RibbonTileScratch, type ScratchSnapshot } from './src/buffers/RibbonStrokeScratch'
 import { SnapshotLedger } from './src/oplog/snapshotLedger'
 import { SnapshotIO } from './src/oplog/SnapshotIO'
 import { StructuralOps } from './src/oplog/structuralOps'
@@ -71,34 +84,22 @@ export {
   type BrushDescriptor, type BrushTip, type BrushCategory, type BrushPressureSettings,
 } from './src/presets/digitalBrushPresets'
 import { appendWatercolorLift } from './src/presets/watercolorLift'
-import { buildRibbonBands, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './src/dabs/markerRibbon'
-import { markerThinNibInkGain } from './src/dabs/markerInkGain'
 
-/** #547 — the band vertex array a stamps-only tool hands the two band passes,
- *  which both no-op on a zero length. Shared and frozen in size rather than a
- *  fresh `new Float32Array(0)` per batch: this is on the per-pointer-event path. */
-const EMPTY_BANDS = new Float32Array(0)
-import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
+
+
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
+
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
-import { brushDragContacts, type BrushTravel } from './src/watercolor/brushDrag'
-import { foreignWaterStencil, type WaterFootprint, type WaterSource } from './src/watercolor/foreignWater'
-import { pigmentAbsorption } from './src/watercolor/pigmentOptics'
-import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/dabs/ribbonProfile'
+
+import { type WaterSource } from './src/watercolor/foreignWater'
+
+import { isRibbonTool, ribbonProfileFor, type RibbonProfile } from './src/dabs/ribbonProfile'
 import {
   applyBrushPenEndTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/presets/brushPenPresets'
-import {
-  applyWatercolorEndTaper, watercolorWashSignature, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry,
-  watercolorBloomStrength, watercolorBloomPush, watercolorDampOver, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME,
-  watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, watercolorTurnLoad, watercolorTurnSurplus, WC_SLOW_GAIN, WC_POOL_STREAK, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, type WcTrailDab, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN,
-  watercolorTravelRadius, watercolorSpreadRadius,
-  watercolorMixFromPreset,
-} from './src/presets/watercolorPresets'
+import { applyWatercolorEndTaper, watercolorWashSignature, mottleSeedFromStrokeId, applyWatercolorPooling, watercolorBloomStrength, watercolorBloomPush, watercolorPuddleMerge, WC_RIM_BAND_PX, watercolorPaperDrained, watercolorMixFromPreset } from './src/presets/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
 import {
   applyMatrix, invertMatrix, toMat3, translationMatrix,
@@ -107,7 +108,7 @@ import {
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
-import { TILE_SIZE, coarseFactorFor } from './src/buffers/tileMath'
+import { TILE_SIZE } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
@@ -218,13 +219,6 @@ export function previewDabShape(
   // "the cursor is how a tool's settings are seen before a mark exists" is the
   // whole justification this function carries in its own doc comment.
   return { size: size * renderSizeScale(tool, presetName ?? ''), aspectRatio, angle }
-}
-
-// ─── Public types ──────────────────────────────────────────────────────────────
-
-export interface CompositeItem {
-  id: string
-  opacity: number
 }
 
 /** (#470) The neutral the sheet sits on when a caller names no theme colour.
@@ -1262,21 +1256,6 @@ const CHECKPOINT_INTERVAL = 20
 /** (#536, §17.43) ...and every fifth while painting watercolour: see _maybeCheckpoint. */
 const CHECKPOINT_INTERVAL_WATERCOLOR = 5
 
-/** (#536) The settle's working textures - see PencilEngine._diffuseFieldFor. */
-type SettleField = {
-  w: number; h: number
-  a: AccumulationBuffer; b: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer
-  /** (#536, §17.19) The colour record's own trio, moved by the same gate. */
-  ca: AccumulationBuffer; cb: AccumulationBuffer; cc: AccumulationBuffer
-    mask: AccumulationBuffer; pressure: AccumulationBuffer
-    band: AccumulationBuffer
-}
-
-
-function destroyField(f: SettleField): void {
-  for (const b of [f.a, f.b, f.c, f.coverage, f.ca, f.cb, f.cc, f.mask, f.pressure, f.band]) b.destroy()
-}
-
 const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 /** (#480) Сколько отказов _takeCheckpoint подряд по одному слою считаем не
  *  штатным «перо ещё внизу», а залипанием. Двадцать границ чекпойнта — это
@@ -1306,12 +1285,6 @@ const STROKE_DAB_CHUNK_LIMIT = 800
  *  (Ilya's room HcpkzwNX: vertical seams through every big wash). Cut at a
  *  span that leaves room for the field's pad on both sides. */
 const WC_STROKE_CHUNK_SPAN_PX = 1100
-/** (#536, §17.44) From this brush radius up the settle runs at half
- *  resolution (_diffuseWashOps), and its window - and the chunk span with
- *  it - is twice as wide in the world. */
-const WC_HALF_RES_RADIUS_PX = 48
-/** (#536, §17.44) ...and a settle window wider than this. */
-const WC_HALF_RES_SPAN_PX = 1024
 
 /** (#536, ADR 011 §17.12) How long the screen takes to converge on a wash's
  *  settled picture after pen-up. Presentation only: the layer holds the dry
@@ -1319,15 +1292,6 @@ const WC_HALF_RES_SPAN_PX = 1024
  *  there. Eased fast-then-slow, which is how Ilya described the real thing:
  *  "сначала быстро, потом замедляется". */
 const WC_REVEAL_MS = 1500
-
-/** One layer tile whose wash just settled (see _revealWash). `before` is a
- *  pooled copy of what the tile showed at that moment; the composite mixes it
- *  back over the tile's real pixels by a hold that runs 1 → 0. */
-interface WashReveal {
-  layerId: string
-  before: AccumulationBuffer
-  startedAt: number
-}
 
 // (#429) How long dabs may sit in the live queue before going out as a packet.
 //
@@ -1450,1042 +1414,20 @@ class SliceGroups {
     if (ms > this.worst.ms) this.worst = { ms: Math.round(ms), draws, px: Math.round(px) }
   }
 }
-
-function rectOnTile(tile: PaintTarget, r: { minX: number; minY: number; maxX: number; maxY: number }): number {
-  const w = Math.min(r.maxX, tile.originX + tile.buffer.width) - Math.max(r.minX, tile.originX)
-  const h = Math.min(r.maxY, tile.originY + tile.buffer.height) - Math.max(r.minY, tile.originY)
-  return w > 0 && h > 0 ? w * h : 0
-}
-
-/** (§17.70) Tile pixels one piece of ribbon bands covers, counting overlap:
- *  the triangles whose box meets the tile, by area. 0 means none of them can
- *  put a fragment on it (a box ending at the tile's edge covers no pixel
- *  centre of it). */
-function ribbonBandPieceCost(piece: Float32Array, tile: PaintTarget): number {
-  const x0 = tile.originX, y0 = tile.originY, x1 = x0 + tile.buffer.width, y1 = y0 + tile.buffer.height
-  const V = RIBBON_FLOATS_PER_VERTEX
-  let px = 0
-  for (let i = 0; i + 3 * V <= piece.length; i += 3 * V) {
-    const ax = piece[i], ay = piece[i + 1], bx = piece[i + V], by = piece[i + V + 1], cx = piece[i + 2 * V], cy = piece[i + 2 * V + 1]
-    if (Math.max(ax, bx, cx) <= x0 || Math.min(ax, bx, cx) >= x1 || Math.max(ay, by, cy) <= y0 || Math.min(ay, by, cy) >= y1) continue
-    px += Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) * 0.5
-  }
-  return px
-}
-
-/** (§17.70) `bands` as consecutive whole-triangle pieces of `tris` triangles
- *  (0: the whole array). Drawn in order they blend exactly as one draw does -
- *  blending follows primitive order either way. */
-function ribbonBandPieces(bands: Float32Array, tris: number): Float32Array[] {
-  const step = tris * 3 * RIBBON_FLOATS_PER_VERTEX
-  if (tris <= 0 || bands.length <= step) return [bands]
-  const out: Float32Array[] = []
-  for (let i = 0; i < bands.length; i += step) out.push(bands.subarray(i, Math.min(bands.length, i + step)))
-  return out
-}
-
-/** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
- *  original per-dab patch-copy-then-multiply design compounded darker at
- *  every dab overlap, since it multiplied whatever the *previous dab of
- *  this same stroke* had already written — and multiply has no natural
- *  ceiling the way normal "over" accumulation does, so a dense, heavily-
- *  overlapping stroke showed regular dark banding/chevrons at the dab-
- *  spacing interval, worst on the elongated chisel nib. See #251/QA — real
- *  reproduction on both desktop and a tablet). Fixed by separating two
- *  concerns that used to be conflated into one "read the live layer" step:
- *
- *  - `original`: this tile's content exactly as it was *before* this stroke
- *    touched it, frozen the first time the stroke reaches this tile and
- *    never updated again for the rest of the stroke.
- *  - `coverage`: this stroke's silhouette/alpha only — how much of the tile
- *    this stroke has visually touched so far, a perfectly ordinary
- *    saturating "over" splat (DAB_FRAG's u_inkMode>2.5 branch), so densely
- *    overlapping dabs converge to one smooth flat value instead of
- *    compounding.
- *  - `inkLoad` (ADR 004 "Ревизия v1.5"): how much ink this stroke has
- *    actually *deposited* so far — accumulated *additively*
- *    (AccumulationBuffer.beginAdditiveDraw, no per-splat ceiling), by
- *    `dab.opacity * segmentLength` per dab (distance-normalized — see
- *    _ribbonStrokeWork), not a flat per-dab amount. Deliberately separate
- *    from `coverage`: conflating the two into one saturating value (v1's
- *    own design) meant a spot that had already reached full coverage
- *    stopped darkening on further overlapping passes within the same
- *    stroke — wrong, a real marker keeps darkening (toward its own
- *    asymptote) if you scribble back over the same spot without lifting.
- *
- *  DAB_FRAG's u_inkMode>1.5 branch multiplies `original` by a darkness
- *  derived from the *total* accumulated `inkLoad` (saturating only at read
- *  time, `1 - exp(-inkLoad*rate)`) every time it redraws a dab's footprint,
- *  and separately blends alpha toward 1 by `coverage` — always against the
- *  same frozen base, never the previous dab's own already-multiplied
- *  output.
- *
- *  Lives for exactly one stroke, never reused across strokes (unlike
- *  smudge's own per-user reservoir, a real carried physical resource) —
- *  see engine._onStart/_onEnd for the live-drawing lifecycle, and
- *  _paintRibbonDabs' own doc comment for the one-shot-replay case (which
- *  just creates and destroys its own throwaway instance within one call,
- *  needing no cross-call lifecycle at all). */
-/** (#385) Free list for RibbonStrokeScratch's buffers, so a gesture ending and
- *  the next one starting reuses GL objects instead of deleting three and
- *  allocating three more.
- *
- *  Not a micro-optimisation — it is what makes a long room openable at all. The
- *  scratch is three buffers *the size of the tile it mirrors*, and a bounded
- *  room's "tile" is the whole canvas: on A2 that is 3 × 34.8 MB per marker
- *  gesture. Replaying a real 2001-operation room churned 166 such textures
- *  through the driver in one batch, and the 167th allocation failed with
- *  `Framebuffer incomplete` — not from volume (live texture memory peaked at
- *  281 MB, and 2.1 GB allocates fine from cold) but from the churn itself:
- *  deleted textures stay charged to the context until the GPU service side
- *  processes them, which it does not do in the middle of one synchronous
- *  replay. Forcing a gl.finish() after every marker stroke also made the room
- *  open, which is what identified churn rather than size as the cause; pooling
- *  removes the churn instead of waiting on it.
- *
- *  Every other scratch in this engine is already pooled for its own reasons
- *  (_previewBufPool, _tipBufPool, AreaOps' scratchPool, SmudgePainter's scratchPool) —
- *  the marker's was the one that was not.
- *
- *  Capped per size rather than unbounded: an infinite room's gesture can span
- *  several tiles at once, and holding every tile a session ever touched would
- *  trade this bug for a memory one. Over the cap, release really does delete.
- *  Six is two tiles' worth, which covers a bounded room (always exactly one
- *  tile) with room to spare. */
-/** (#468) How many ribbon gestures/washes the replay side keeps open at once.
- *
- *  Four, because each holds three pooled buffers per tile it touches, and
- *  because the thing it has to survive is other people painting between two
- *  strokes of one wash. Past that the oldest goes back to being a seam. */
-const REPLAY_RIBBON_CHUNK_SLOTS = 4
-/** #702: compact GPU states retain the former spill storage cap, and also
- *  count towards the device GPU budget. No cache or memory limit is raised. */
-const SPILLED_WASHES_MAX_BYTES = 128 * 1024 * 1024
 /** (§17.68) How long a wash has to rest before the budget may spill it. */
 const SPILL_IDLE_MS = 8000
 /** (§17.68) ...and how long the whole room has to be still first. */
 const WASH_QUIET_MS = 2000
 
-/** (#536) Hair bundles across the mark, from the mark's own half-width, so a
- *  hair stays a fixed few pixels wide whatever brush is held — see
- *  WATERCOLOR_BRISTLE_BUNDLE_PX. The coordinate this scales runs -1..+1 across
- *  the whole width, so the count of bundles laid across the mark is twice this.
- *  One function for the ink pass (§17.13, where the hairs vary the delivery)
- *  and the composite (where they break the contact dry), so both count the
- *  same hair. */
-function ribbonBristleCombs(profile: RibbonProfile, bristleRadiusPx: number): number {
-  return profile.bristleCombs > 0
-    ? Math.max(1.5, Math.min(50, bristleRadiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
-    : 0
-}
-
-/** (#536, ADR 011 §17.11/13) The water a stroke delivers to the sheet — its
- *  nominal mix water — and how much of it dry paper keeps standing. See
- *  watercolorWaterRetention, and u_washWater in RIBBON_FRAG for how the two
- *  become the wash's standing-water record; watercolorStandingWater is the
- *  same rule on the CPU, feeding the live wetness field (§17.21). */
-function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: number } {
-  if (!profile.normalizeDeposit) return { water: 0, retain: 0 }
-  // The nominal mix for every stroke — a long puddle laid from a depleting
-  // load read patchy, and a pigment stroke's own puddle read far weaker than
-  // a clean one's — kept whole for clean water and by the load's retention
-  // for pigment; the shader cuts it only where the brush has run dry.
-  return {
-    water: profile.waterLevel,
-    retain: profile.pigmentStrength <= 0 ? 1 : watercolorWaterRetention(profile.waterLevel),
-  }
-}
-
-// (#536, §17.44) 14, from 6: the half-resolution settle takes and gives back
-// a snapshot pair and a temporary per tile of a big wash (six tiles on a
-// sheet) around every chunk, and past six free the pool destroyed them and
-// made them again - a texture, an FBO and a framebuffer-status check that
-// stalls the tablet's GPU, 430 ms of a zigzag's CPU time.
-const MARKER_SCRATCH_POOL_PER_SIZE = 24
-/** (#536, §17.50) Ceiling on idle pooled scratch, all sizes. */
-const SCRATCH_POOL_FREE_BYTES = 64 * 1024 * 1024
 /** (#536, §17.22) How long after a settle the diffusion field is kept. */
 // (§17.44) 45 s, from 8: remaking ten field buffers - a texture, an FBO
 // and a GPU-stalling status check each - was a 100 ms hitch on the first
 // chunk of the first stroke after any pause longer than eight seconds.
 const WET_FIELD_RELEASE_MS = 45000
 
-class RibbonScratchPool {
-  private _free = new Map<string, AccumulationBuffer[]>()
-  private readonly gl: WebGLRenderingContext
-  /** (#536, §17.22) Bytes of every buffer this pool has created and not yet
-   *  destroyed, and of those, the ones sitting free — for the perf readout. */
-  private _allocatedBytes = 0
-  private _freeBytes = 0
-
-  constructor(gl: WebGLRenderingContext) {
-    this.gl = gl
-  }
-
-  /** Live (handed out) and free bytes. */
-  get bytes(): { live: number; free: number } {
-    return { live: this._allocatedBytes - this._freeBytes, free: this._freeBytes }
-  }
-
-  acquire(width: number, height: number): AccumulationBuffer {
-    const list = this._free.get(`${width}x${height}`)
-    const reused = list?.pop()
-    if (reused) { this._freeBytes -= width * height * 4; return reused }
-    // 'nearest' matches what RibbonStrokeScratch has always asked for — see
-    // its getOrCreate comment. The pool must never hand back a buffer built
-    // with a different filter, which is why it is keyed by size alone and
-    // used by this one caller.
-    this._allocatedBytes += width * height * 4
-    return new AccumulationBuffer(this.gl, width, height, 'nearest')
-  }
-
-  /** (§17.70) While set, released buffers are all kept: a rebuild on a
-   *  low-memory device lets go of the rebuilt layer's old washes so that its
-   *  own can be made from them, not from new textures. */
-  holding = false
-
-  /** (§17.70) Back to the usual ceilings once `holding` ends. */
-  trimToCeiling(): void {
-    for (const [key, list] of this._free) {
-      while (list.length && (list.length > MARKER_SCRATCH_POOL_PER_SIZE || this._freeBytes > SCRATCH_POOL_FREE_BYTES)) {
-        const b = list.pop()!
-        const bytes = b.width * b.height * 4
-        b.destroy()
-        this._freeBytes -= bytes
-        this._allocatedBytes -= bytes
-      }
-      if (!list.length) this._free.delete(key)
-    }
-  }
-
-  release(buf: AccumulationBuffer): void {
-    const key = `${buf.width}x${buf.height}`
-    const bytes = buf.width * buf.height * 4
-    const list = this._free.get(key)
-    if (this.holding) {
-      if (list) list.push(buf); else this._free.set(key, [buf])
-      this._freeBytes += bytes
-      return
-    }
-    if (!list && this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
-    if (!list) { this._free.set(key, [buf]); this._freeBytes += bytes; return }
-    // (#536, ADR 011 §17.50) ...and never more than SCRATCH_POOL_FREE_BYTES
-    // held idle in all: on the iPad (Safari, 3 GB) 151 MB of idle buffers on
-    // top of the live wash was enough for the tab to be killed and reloaded
-    // at the next stroke.
-    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE || this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
-    list.push(buf)
-    this._freeBytes += bytes
-  }
-
-  destroy(): void {
-    for (const list of this._free.values()) for (const b of list) b.destroy()
-    this._free.clear()
-    this._allocatedBytes = 0
-    this._freeBytes = 0
-  }
-
-  /** (#536, §17.57) Gives every idle buffer back to the driver. */
-  trimFree(): void {
-    for (const list of this._free.values()) for (const b of list) b.destroy()
-    this._free.clear()
-    this._allocatedBytes -= this._freeBytes
-    this._freeBytes = 0
-  }
-
-  /** Context loss took every GL object with it — drop the handles without
-   *  calling destroy() on them, same as every other pool in this file does. */
-  forget(): void {
-    this._free.clear()
-    this._allocatedBytes = 0
-    this._freeBytes = 0
-  }
-}
-
-/** One tile's worth of a ribbon stroke's scratch state. `inkLoad` is null for a
- *  tool whose composite doesn't read one — see RibbonStrokeScratch's ctor. */
-interface RibbonTileScratch {
-  original: AccumulationBuffer
-  coverage: AccumulationBuffer
-  inkLoad: AccumulationBuffer | null
-  /** (#536, §17.17) The deposit as it stood after the wash's last settle —
-   *  the FIXED paint. What the diffusion moves is inkLoad minus this: the
-   *  paint laid since, and only that. Null when inkLoad is. */
-  inkSettled: AccumulationBuffer | null
-  /** (#536, §17.19) The optical depth of the paint per texel, .rgb, and its
-   *  mass in .a — the wash's colour record (pigmentOptics.ts). Written by the
-   *  ink pass beside inkLoad, moved by the diffusion by the same fractions. */
-  inkColor: AccumulationBuffer | null
-  /** Its settled counterpart, as inkSettled is to inkLoad. */
-  colorSettled: AccumulationBuffer | null
-  /** (#536, s17.28) The gesture's FILM: its stamps and bands under MAX, so a
-   *  texel holds the thickest thing the brush left there and never the
-   *  count of overlapping stamps. inkLoad is rebuilt per batch as
-   *  inkBase + strokeInk, inkBase being the wash as it stood when this
-   *  gesture began (refreshed on the first batch of each gesture). The
-   *  colour record has the same pair. Null until a gesture with film draws. */
-  strokeInk: AccumulationBuffer | null
-  inkBase: AccumulationBuffer | null
-  strokeColor: AccumulationBuffer | null
-  colorBase: AccumulationBuffer | null
-  /** Which gesture the film buffers belong to (RibbonStrokeScratch.gesture). */
-  filmGesture: number
-  /** (#536, §17.42) The wash's PROVISIONAL DRY TARGET: inkLoad - the wet
-   *  state, which is what the next operation of the wash starts from - with
-   *  the one tide laid along the outer contour of the wash's whole coverage,
-   *  recomputed at every pen-up. The composite reads this, never inkLoad,
-   *  once it exists; the live batches composite inkLoad (wet plus film), so
-   *  a brush touching the wash shows it wet again until the pen lifts. Null
-   *  under the per-operation drying A/B (wcOpDry). */
-  inkDry: AccumulationBuffer | null
-  colorDry: AccumulationBuffer | null
-}
-
-/** Parked state is zero-padded in full, regardless of a display's scissor. */
-function clearParkedBuffer(buffer: AccumulationBuffer): void {
-  const gl = buffer.gl, scissor = gl.isEnabled(gl.SCISSOR_TEST)
-  if (scissor) gl.disable(gl.SCISSOR_TEST)
-  buffer.clear()
-  if (scissor) gl.enable(gl.SCISSOR_TEST)
-}
-
-type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
-
-class RibbonStrokeScratch {
-  // #702: every rectangle written to the non-original buffers, including
-  // diffusion's halo. Undefined means an older carried state has no proof
-  // of its empty exterior and must be kept whole.
-  private _storageBounds: ScratchBounds | null | undefined = null
-
-  noteStorageBounds(bounds: ScratchBounds): void {
-    const old = this._storageBounds
-    if (old === undefined) return
-    this._storageBounds = old ? {
-      minX: Math.min(old.minX, bounds.minX), minY: Math.min(old.minY, bounds.minY),
-      maxX: Math.max(old.maxX, bounds.maxX), maxY: Math.max(old.maxY, bounds.maxY),
-    } : { ...bounds }
-  }
-  private _tiles = new Map<AccumulationBuffer, RibbonTileScratch>()
-  private readonly pool: RibbonScratchPool
-  /** (#536, §17.19) Whether tiles carry inkColor — watercolor only. */
-  private readonly needsColor: boolean
-  /** (#536, §17.20) Every paint laid into this wash, as colour keys. While it
-   *  is one paint, the colour record is the deposit times one absorption and
-   *  the diffusion need not carry it — see _diffuseWash. */
-  readonly paints = new Set<string>()
-  /** (#536, §17.21) What each dab of the batch just painted left standing on
-   *  the sheet (watercolorStandingWater) — the ribbon build writes it, and
-   *  whoever feeds the live wetness field reads it, so the field and the
-   *  wash's coverage .b are fed one number. Cleared per batch; the keys are
-   *  the batch's own dab objects. */
-  readonly standing = new Map<Dab, number>()
-  /** (#536, §17.22) Live batches no longer composite one by one: each adds
-   *  its rect here, and the engine composites the union once per displayed
-   *  frame (_flushLiveComposite). Keyed by tile buffer. */
-  readonly pendingComposite = new Map<AccumulationBuffer, { tile: PaintTarget; bounds: { minX: number; minY: number; maxX: number; maxY: number } }>()
-  private readonly needsInk: boolean
-  /** (#468 v3) How much of the brush's load this gesture has spent so far,
-   *  measured in brush radii of travel (ADR 011 §3.8).
-   *
-   *  Lives on the scratch rather than on the engine because that is the one
-   *  object all three paths already share for the length of exactly one
-   *  gesture: a live stroke's batches, a one-shot replay's single call, and a
-   *  chunked replay's several operations. Put it on the engine and replay would
-   *  either carry it between unrelated strokes or reset it at every chunk
-   *  boundary — and a seam in the depletion is a visible band across the mark. */
-  private _waterUsed = 0
-  /** (#536, ADR 011 §17.11) Whether deposit has been laid since the wash's
-   *  pigment was last diffused. The diffusion is the one pass in this tool
-   *  that is *not* idempotent — every run is N more steps — so it may run
-   *  exactly once per operation, on every path alike: a live chunk flush, the
-   *  pen-up, a replayed chunk, a peer's operation. This flag is what makes
-   *  that true whichever path calls _finishRibbonStroke and however often. */
-  diffusePending = false
-  /** (#536) The same clock for pigment, and the reason it is a second number
-   *  rather than the same one is the brush drinking from wet paper.
-   *
-   *  Picking up water rewinds the water clock (watercolorWaterClock). Pigment
-   *  must not come back with it: dragging a brush through a puddle of clean
-   *  water does not reload it with paint, it dilutes what is left. So travel
-   *  advances both, and only water is ever given back.
-   *
-   *  On dry paper the two are the same number to the last bit, which is what
-   *  keeps every stroke that never meets water behaving exactly as it did. */
-  private _pigmentUsed = 0
-
-  /** (#468 v6) The composite's scalar uniforms, fixed for the whole gesture.
-   *
-   *  They cannot be per batch. The composite is a *recomputation* over a whole
-   *  rect, so whichever batch wrote a pixel last decides its scalars — and with
-   *  per-batch values that showed up immediately as rectangular tone blocks
-   *  along a live stroke, one per pointer event, which is precisely what
-   *  "штрих постоянно странно меняется" was.
-   *
-   *  Derived from the gesture's *first* dab, which is the one thing a live
-   *  stroke and a replay of it are guaranteed to agree on: live sees it as the
-   *  first dab of its first batch, a one-shot replay as the first dab of the
-   *  only batch. Anything averaged over a batch would differ between the two. */
-  private _composite: {
-    spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; bristleRadiusPx: number
-    /** (#468 v10) Where the noise fields are anchored.
-     *
-     *  A constant of the gesture, and that is a bug fix rather than tidiness.
-     *  It used to be *this batch's* first dab, so the whole texture shifted by
-     *  a few pixels on every pointer event — the mark's grain visibly crawled
-     *  backwards under the pen as it was drawn, and then landed somewhere else
-     *  again at pen-up, because the final pass anchored on the gesture's first
-     *  dab instead. On a long straight stroke the same shifting showed up as a
-     *  row of discs at the batch pitch. */
-    fieldSeed: [number, number]
-  } | null = null
-
-  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number]; bristleRadiusPx: number }): { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number]; bristleRadiusPx: number } {
-    if (!this._composite) this._composite = make()
-    return this._composite
-  }
-
-  /** (#468 v6) The gesture's dab spacing, cached the first time two consecutive
-   *  dabs are actually available.
-   *
-   *  Measured rather than derived, because what it has to match is
-   *  DabSystem's `baseSize * spacingFactor` — and `baseSize` is the tool's
-   *  *nominal* size, which no operation records: dabs carry their post-pressure,
-   *  post-taper sizes instead. The distance between the stroke's own first two
-   *  dabs is that spacing, and it is the same pair of dabs whether they arrive
-   *  in one replayed batch or across two live ones (the second case reaches
-   *  them through prevDab), so both paths measure the identical number.
-   *
-   *  Zero until a pair exists — a first batch of exactly one dab covers a few
-   *  px at the stroke's start, and the next batch's padded rect recomposites it
-   *  anyway. */
-  private _dabSpacing = 0
-  /** (#468 v6) Everything the gesture's final recomposite needs, plus the union
-   *  of every batch's bounds.
-   *
-   *  It exists because reasoning about whether the incremental per-batch
-   *  composites are *sufficient* turned out to be a trap: three plausible
-   *  arguments that they were, and a measured 26% of the mark still differing
-   *  between a live stroke and a replay of it. So the last thing a gesture does
-   *  is now exactly what a replay does — one composite over the whole mark with
-   *  the finished buffers — and the two agree by construction rather than by
-   *  argument.
-   *
-   *  This is not the old settle pass. That one *introduced* terms the live
-   *  batches had switched off, and re-read scalars from the first batch, which
-   *  is why the mark jumped at pen-up. Every scalar here is already a constant
-   *  of the gesture, so the final pass recomputes the same values the batches
-   *  did — it only fixes pixels that were composited before all their ink had
-   *  arrived. */
-  private _finish: {
-    target: ILayerBuffer; preset: PencilPreset; profile: RibbonProfile
-    color: [number, number, number]; opacity: number
-    bounds: { minX: number; minY: number; maxX: number; maxY: number }
-    fieldSeed: [number, number]
-    /** (#536, §17.23) The recorded wetness of the paper where this operation
-     *  LANDED — its first dab's digit — so the settle can tell a drop into a
-     *  damp wash (a bloom) from one into a wet or a dry one. The first dab,
-     *  as everything else the gesture decides once (see _paintRibbonDabs):
-     *  it is the one sample a live stroke and its replay are sure to share,
-     *  and the profile after it is strided and trimmed. */
-    landedWet: number
-    /** (#536, §17.25) The wettest paper the operation ran over (wetPeak):
-     *  whether its water joined a puddle already there. */
-    wetPeak: number
-    /** (#536, §17.23) The widest dab radius of the operation, px. */
-    radiusPx: number
-    /** (#536, §17.37) How long the brush stood on landing, ms. */
-    dwellMs: number
-  } | null = null
-
-  /** (#536, §17.42) What the group tide needs when the wash dries as one
-   *  component (watercolorDryWash): the composite's constants from the LAST
-   *  settled operation, the widest radius and the wettest standing level
-   *  of any, and the union of every settle's bounds. Set by the settle. */
-  dryCtx: {
-    target: ILayerBuffer; preset: PencilPreset; profile: RibbonProfile
-    color: [number, number, number]; opacity: number; fieldSeed: [number, number]
-    bounds: { minX: number; minY: number; maxX: number; maxY: number }
-    radiusPx: number; standing: number
-  } | null = null
-
-  noteFinish(ctx: NonNullable<RibbonStrokeScratch['_finish']>): void {
-    this.noteStorageBounds(ctx.bounds)
-    const prev = this._finish
-    if (!prev) { this._finish = ctx; return }
-    prev.dwellMs = Math.max(prev.dwellMs, ctx.dwellMs)
-    prev.bounds = {
-      minX: Math.min(prev.bounds.minX, ctx.bounds.minX),
-      minY: Math.min(prev.bounds.minY, ctx.bounds.minY),
-      maxX: Math.max(prev.bounds.maxX, ctx.bounds.maxX),
-      maxY: Math.max(prev.bounds.maxY, ctx.bounds.maxY),
-    }
-    prev.radiusPx = Math.max(prev.radiusPx, ctx.radiusPx)
-    // A stroke can enter a puddle after its first live batch. Retain the
-    // wettest landing across every batch, just as a single-batch replay does.
-    prev.wetPeak = Math.max(prev.wetPeak, ctx.wetPeak)
-  }
-
-  get finishContext(): RibbonStrokeScratch['_finish'] {
-    return this._finish
-  }
-
-  /** The scratch this tile already has, or null — deliberately not getOrCreate:
-   *  a tile inside the gesture's bounding box that its dabs never reached has
-   *  nothing to recomposite, and snapshotting one would spend three pooled
-   *  buffers writing it back unchanged. */
-  peek(tile: AccumulationBuffer): RibbonTileScratch | null {
-    return this._tiles.get(tile) ?? null
-  }
-
-  /** (#579) The digital watercolor's wet-edge reach, fixed by the gesture's
-   *  first dab — the same "first dab is what live and replay agree on" rule
-   *  as the spacing below. A per-batch value would draw a rim of a different
-   *  width across every batch boundary. */
-  private _brushEdgePx = 0
-
-  noteBrushEdgePx(px: number): number {
-    if (this._brushEdgePx === 0 && px > 0) this._brushEdgePx = px
-    return this._brushEdgePx
-  }
-
-  noteDabSpacing(gap: number): number {
-    if (this._dabSpacing === 0 && gap > 0.01) this._dabSpacing = gap
-    return this._dabSpacing
-  }
-
-  /** (#468 v8) The gesture's opening direction, cached the first time a real
-   *  segment exists. Same first-two-dabs rule the spacing follows, and for the
-   *  same reason: it is the one measurement a live stroke and a replay of it
-   *  are guaranteed to agree on. */
-  private _dir: [number, number] = [1, 0]
-  private _dirSet = false
-
-  noteDirection(dx: number, dy: number): [number, number] {
-    if (!this._dirSet) {
-      const len = Math.hypot(dx, dy)
-      if (len > 0.01) { this._dir = [dx / len, dy / len]; this._dirSet = true }
-    }
-    return this._dir
-  }
-
-  get waterUsed(): number {
-    return this._waterUsed
-  }
-
-  get pigmentUsed(): number {
-    return this._pigmentUsed
-  }
-
-  advanceWater(water: number, pigment: number): void {
-    this._waterUsed = water
-    this._pigmentUsed = pigment
-  }
-
-  /** (#468 v7) A new stroke joins this wash. Only the brush's own load resets —
-   *  lifting the brush and putting it back down means a freshly charged brush,
-   *  but the paint already on the paper is still there and still wet.
-   *
-   *  Everything else deliberately survives: the frozen pre-wash content, the
-   *  accumulated coverage and deposit, the noise field's seed and the composite
-   *  scalars. That is what makes a second band laid beside the first merge with
-   *  it instead of arriving as another mark on top — the two share one
-   *  silhouette, so there is no boundary between them to draw, and only the
-   *  outer perimeter of the whole wash gets a tideline. */
-  /** (§17.28) The last dab that deposited — the anchor the travel quantum
-   *  measures from (watercolorTravelQuantum). Per gesture. */
-  lastKept: Dab | undefined = undefined
-  /** (§17.28) Counts the gestures of this wash; the film buffers of a tile
-   *  are refreshed when a batch arrives from a gesture they were not made for. */
-  gesture = 0
-  /** (#536, §17.37) The gesture's landing: where the nib came down and its
-   *  radius there, and how long it stood within WC_DWELL_RADIUS of it before
-   *  moving on (the dabs' own clock, Dab.t). Frozen once a dab leaves. Per
-   *  gesture, and a pure function of the operation's dabs, so a replay
-   *  counts the same dwell to the millisecond. */
-  landing: { x: number; y: number; r: number; t: number } | null = null
-  dwellMs = 0
-  dwellDone = false
-  /** (#680, §17.74) The gesture's recent kept dabs (oldest first, at most
-   *  WC_TRAIL_LEN), the dwell at every dab is read back over; and the brush's
-   *  surplus the slowdowns left - pigment and water - with the pigment clock
-   *  it was last carried to. Per gesture, a pure function of its dabs. */
-  turnOffset: [number, number] = [0, 0]
-  turnDirection: [number, number] | null = null
-  brushTravel: BrushTravel[] = []
-  foreignSources: WaterSource[] | null = null
-  wetContacts: WaterFootprint[] = []
-  trail: WcTrailDab[] = []
-  /** (#680) The pen's smoothed speed (px/ms) and its recent peak. */
-  speed = 0
-  speedPeak = 0
-  speedAt = -1
-  speedTravel = 0
-  brakePigment = 0
-  surplusPigment = 0
-  surplusWater = 0
-  surplusAt = 0
-  /** (#536, §17.43) Ends the gesture's FILM without ending the gesture: the
-   *  next batch starts a fresh film over the wash as the settle just left
-   *  it. Called at a chunk boundary, live and on replay alike, right after
-   *  the chunk's settle has landed — the film's base is refreshed from
-   *  inkLoad on the next batch (filmBuffers), so the settled chunk is what
-   *  the rest of the stroke paints over. Without this the next batch rebuilt
-   *  inkLoad as the PRE-gesture base plus the whole film and threw the
-   *  chunk's settle away — live only sometimes, by frame timing, so a long
-   *  stroke came back different after a reload. */
-  newFilm(): void {
-    this.brushTravel = []
-    this.gesture++
-  }
-
-  /** (#536, §17.43) Gives the film buffers back once a settle has landed:
-   *  four tile-sized textures per tile that are only read between the first
-   *  batch of a gesture and its settle, and were held for the life of the
-   *  wash - with the replay cache's four washes that was 384 MB of scratch
-   *  on a two-tile layer, and the rebuild behind an undo on top of it. The
-   *  next gesture (or chunk) acquires them again from the pool. */
-  releaseFilm(gesture = this.gesture): void {
-    for (const entry of this._tiles.values()) {
-      // Only the film the landed settle consumed: a chunk's settle lands
-      // while the next chunk's film is being painted.
-      if (entry.filmGesture !== gesture) continue
-      for (const b of [entry.strokeInk, entry.inkBase, entry.strokeColor, entry.colorBase]) if (b) this.pool.release(b)
-      entry.strokeInk = null; entry.inkBase = null; entry.strokeColor = null; entry.colorBase = null
-      entry.filmGesture = -1
-    }
-  }
-
-  beginStroke(): void {
-    this.lastKept = undefined
-    this.gesture++
-    this.turnOffset = [0, 0]
-    this.turnDirection = null
-    this.landing = null
-    this.dwellMs = 0
-    this.dwellDone = false
-    this.trail = []
-    this.speed = 0
-    this.speedPeak = 0
-    this.speedAt = -1
-    this.speedTravel = 0
-    this.brushTravel = []
-    this.foreignSources = null
-    this.wetContacts = []
-    this.brakePigment = 0
-    this.surplusPigment = 0
-    this.surplusWater = 0
-    this.surplusAt = 0
-    this._waterUsed = 0
-    // (#536) Including everything the brush drank from the paper last stroke.
-    // The exchange is intra-stroke by decision — see watercolorWaterClock's own
-    // note on why the brush is not allowed hidden state that outlives a mark.
-    this._pigmentUsed = 0
-    // (#536, §17.23) The finish context is the GESTURE's: its bounds, its
-    // landing wetness, its radius. It used to outlive the stroke, so every
-    // pen-up of a wash recomposited the union of every stroke so far and
-    // read the first stroke's landing for the bloom of the last.
-    this._finish = null
-  }
-
-  /** `needsInk` false skips the third buffer entirely (#454): a covering,
-   *  source-over ink has no per-pixel pigment quantity for the composite to
-   *  read, so allocating and clearing one per tile would be a buffer and two
-   *  draw calls spent on a value nothing samples. See RibbonProfile.ink. */
-  constructor(pool: RibbonScratchPool, needsInk = true, needsColor = false) {
-    this.pool = pool
-    this.needsInk = needsInk
-    this.needsColor = needsColor
-  }
-
-  /** Keyed by the tile's own AccumulationBuffer identity — stable across
-   *  repeated resolveForPaint calls for the same resident tile (see
-   *  TiledLayerBuffer.getOrCreateTile), so no tile-coordinate bookkeeping is
-   *  needed here. 'nearest' filtering: all three buffers are always sampled
-   *  1:1 (same size and pixel alignment as the tile they mirror — see
-   *  DAB_FRAG's own u_original/u_strokeCoverage/u_inkLoad comment), so
-   *  'linear' would buy nothing and 'nearest' keeps this deterministic
-   *  across GPU vendors, same reasoning every other scratch-texture pool in
-   *  this file already follows (paper grain's own hard-won lesson — see
-   *  .claude/rules.md).
-   *
-   *  v1 accepted gap: if this tile gets evicted (TiledLayerBuffer's memory
-   *  budget) mid-stroke and later recovered as a *new* AccumulationBuffer
-   *  instance, this map won't recognize it as the same tile and will
-   *  silently re-snapshot — a fresh (still correct, just not maximally
-   *  "original") base rather than a crash or a wrong result. Not worth
-   *  guarding against for v1: a single marker gesture spans very few tiles,
-   *  nowhere near what it'd take to force an eviction on its own. */
-  /** (§17.28) The gesture's film buffers for a tile, made or refreshed for
-   *  the current gesture: the base is the deposit as it stands now, the film
-   *  starts empty. */
-  filmBuffers(tile: AccumulationBuffer): { strokeInk: AccumulationBuffer; inkBase: AccumulationBuffer; strokeColor: AccumulationBuffer | null; colorBase: AccumulationBuffer | null } | null {
-    const entry = this.getOrCreate(tile)
-    if (!entry.inkLoad) return null
-    if (entry.filmGesture !== this.gesture) {
-      entry.strokeInk ??= this.pool.acquire(tile.width, tile.height)
-      entry.inkBase ??= this.pool.acquire(tile.width, tile.height)
-      entry.strokeInk.clear()
-      entry.inkLoad.copyTo(entry.inkBase)
-      if (entry.inkColor) {
-        entry.strokeColor ??= this.pool.acquire(tile.width, tile.height)
-        entry.colorBase ??= this.pool.acquire(tile.width, tile.height)
-        entry.strokeColor.clear()
-        entry.inkColor.copyTo(entry.colorBase)
-      }
-      entry.filmGesture = this.gesture
-    }
-    return { strokeInk: entry.strokeInk!, inkBase: entry.inkBase!, strokeColor: entry.strokeColor, colorBase: entry.colorBase }
-  }
-
-  getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
-    let entry = this._tiles.get(tile)
-    if (!entry) {
-      // (#385) From the pool, and every one of them is fully written before it
-      // is read — copyTo overwrites `original` outright, the others are
-      // cleared — so a reused buffer carries nothing of whatever gesture had
-      // it last.
-      const original = this.pool.acquire(tile.width, tile.height)
-      tile.copyTo(original)
-      const coverage = this.pool.acquire(tile.width, tile.height)
-      coverage.clear()
-      let inkLoad: AccumulationBuffer | null = null
-      let inkColor: AccumulationBuffer | null = null
-      if (this.needsInk) {
-        inkLoad = this.pool.acquire(tile.width, tile.height)
-        inkLoad.clear()
-        if (this.needsColor) {
-          inkColor = this.pool.acquire(tile.width, tile.height)
-          inkColor.clear()
-        }
-      }
-      // The settled pair is taken on the first settle, by the pass that needs
-      // it — a marker gesture never does, and three buffers a tile was already
-      // the churn #385 is about.
-      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1, inkDry: null, colorDry: null }
-      this._tiles.set(tile, entry)
-    }
-    return entry
-  }
-
-  /** Ends this gesture's use of its buffers. Named as it always was, and it
-   *  still means "this scratch is finished with" — what changed (#385) is that
-   *  the buffers go back to the pool instead of to the driver. */
-  destroy(): void {
-    this._storageBounds = null
-    this._waterUsed = 0
-    this._pigmentUsed = 0
-    this.diffusePending = false
-    this.pendingComposite.clear()
-    this._composite = null
-    this._dabSpacing = 0
-    this._brushEdgePx = 0
-    this._dirSet = false
-    this._dir = [1, 0]
-    this._finish = null
-    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled, strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry } of this._tiles.values()) {
-      for (const b of [strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry]) if (b) this.pool.release(b)
-      this.pool.release(original); this.pool.release(coverage)
-      if (inkLoad) this.pool.release(inkLoad)
-      if (inkSettled) this.pool.release(inkSettled)
-      if (inkColor) this.pool.release(inkColor)
-      if (colorSettled) this.pool.release(colorSettled)
-    }
-    this._tiles.clear()
-  }
-
-  /** Context loss: the GL objects are already dead, so neither release nor
-   *  destroy is meaningful — just let go of them. */
-  forget(): void {
-    this._tiles.clear()
-    this.pendingComposite.clear()
-  }
-
-  /** (#536, §17.22) Whether this scratch still holds its tiles — false once
-   *  destroyed or forgotten, which is how a settle in flight learns that the
-   *  wash it was settling is gone. */
-  get live(): boolean {
-    return this._tiles.size > 0
-  }
-
-  /** (#536, §17.56) The wash as the next operation of it will find it, at an
-   *  operation boundary: every texture that outlives a gesture's film, copied
-   *  into buffers of its own (the checkpoint keeps them; this scratch goes on
-   *  being painted), and every number the next operation reads. The film is
-   *  not taken — at a boundary it is released or about to be refreshed for a
-   *  new gesture (filmBuffers), so the restored tile starts without one.
-   *  `originOf` names each tile by its place on the sheet: the replay that
-   *  restores this paints into another buffer. */
-  snapshot(gl: WebGLRenderingContext, originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): ScratchSnapshot | null {
-    const tiles: ScratchSnapshot['tiles'] = []
-    for (const [tile, entry] of this._tiles) {
-      const at = originOf(tile)
-      if (!at) return null
-      const bufs: ScratchSnapshot['tiles'][number]['bufs'] = {}
-      for (const k of SNAPSHOT_TILE_BUFFERS) {
-        const b = entry[k]
-        if (!b) continue
-        const copy = new AccumulationBuffer(gl, b.width, b.height, 'nearest')
-        b.copyTo(copy)
-        bufs[k] = copy
-      }
-      tiles.push({ ...at, width: tile.width, height: tile.height, bufs })
-    }
-    return { ...this._scalars(), tiles }
-  }
-
-  /** Every number the next operation of this wash reads - see snapshot. */
-  private _scalars(): ScratchScalars {
-    return {
-      needsInk: this.needsInk, needsColor: this.needsColor,
-      storageBounds: this._storageBounds ? { ...this._storageBounds } : this._storageBounds,
-      paints: [...this.paints], waterUsed: this._waterUsed, pigmentUsed: this._pigmentUsed,
-      composite: this._composite ? { ...this._composite, fieldSeed: [...this._composite.fieldSeed] } : null,
-      dabSpacing: this._dabSpacing, brushEdgePx: this._brushEdgePx, dir: [...this._dir], dirSet: this._dirSet,
-      finish: this._finish ? { ...this._finish, bounds: { ...this._finish.bounds }, fieldSeed: [...this._finish.fieldSeed] } : null,
-      dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
-      lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
-      landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
-      turnOffset: [...this.turnOffset], turnDirection: this.turnDirection ? [...this.turnDirection] : null, brushTravel: this.brushTravel.map(d => ({ ...d })), foreignSources: this.foreignSources, wetContacts: this.wetContacts.map(d => ({ ...d })),
-      trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, speedAt: this.speedAt, speedTravel: this.speedTravel, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
-    }
-  }
-
-  private _applyScalars(snap: ScratchScalars, target: ILayerBuffer): void {
-    this._storageBounds = snap.storageBounds ? { ...snap.storageBounds } : snap.storageBounds
-    for (const p of snap.paints) this.paints.add(p)
-    this._waterUsed = snap.waterUsed
-    this._pigmentUsed = snap.pigmentUsed
-    this._composite = snap.composite ? { ...snap.composite, fieldSeed: [...snap.composite.fieldSeed] } : null
-    this._dabSpacing = snap.dabSpacing
-    this._brushEdgePx = snap.brushEdgePx
-    this._dir = [snap.dir[0], snap.dir[1]]
-    this._dirSet = snap.dirSet
-    this._finish = snap.finish ? { ...snap.finish, target, bounds: { ...snap.finish.bounds }, fieldSeed: [...snap.finish.fieldSeed] } : null
-    this.dryCtx = snap.dryCtx ? { ...snap.dryCtx, target, bounds: { ...snap.dryCtx.bounds }, fieldSeed: [...snap.dryCtx.fieldSeed] } : null
-    this.lastKept = snap.lastKept ? { ...snap.lastKept } : undefined
-    this.gesture = snap.gesture
-    this.landing = snap.landing ? { ...snap.landing } : null
-    this.dwellMs = snap.dwellMs
-    this.dwellDone = snap.dwellDone
-    this.turnOffset = [...snap.turnOffset]
-    this.turnDirection = snap.turnDirection ? [...snap.turnDirection] : null
-    this.brushTravel = snap.brushTravel.map(d => ({ ...d }))
-    this.foreignSources = snap.foreignSources
-    this.wetContacts = snap.wetContacts.map(d => ({ ...d }))
-    this.trail = snap.trail.map(d => ({ ...d }))
-    this.speed = snap.speed
-    this.speedPeak = snap.speedPeak
-    this.speedAt = snap.speedAt
-    this.speedTravel = snap.speedTravel
-    this.brakePigment = snap.brakePigment
-    this.surplusPigment = snap.surplusPigment
-    this.surplusWater = snap.surplusWater
-    this.surplusAt = snap.surplusAt
-  }
-
-  /** #702: park a resting wash in compact GPU buffers. CPU readback waits
-   * for the whole context's queue, even for 1x1, so it cannot be a background
-   * memory operation. Keep original whole: a continuation may enter a new
-   * area whose pre-wash picture must still be the same. Other buffers start
-   * clear and only receive writes inside storageBounds. GPU sub-rect copies
-   * preserve every byte; unpark clears the missing exterior. */
-  spill(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): SpilledScratch | null {
-    const work = this.spillWork(originOf)
-    let r = work.next()
-    while (!r.done) r = work.next()
-    return r.value
-  }
-
-  *spillWork(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): Generator<void, SpilledScratch | null, void> {
-    if (this.diffusePending || this.pendingComposite.size) return null
-    const tiles: SpilledScratch['tiles'] = []
-    const owned = new Set<AccumulationBuffer>(), moved = new Set<AccumulationBuffer>()
-    let bytes = 0, committed = false
-    const takeBuffer = (b: AccumulationBuffer): void => { owned.delete(b) }
-    const releaseBuffer = (b: AccumulationBuffer): void => { if (owned.delete(b)) this.pool.release(b) }
-    const dispose = (): void => { for (const b of owned) this.pool.release(b); owned.clear() }
-    try {
-      for (const [tile, entry] of this._tiles) {
-        if (entry.strokeInk || entry.inkBase || entry.strokeColor || entry.colorBase) return null
-        const at = originOf(tile)
-        if (!at) return null
-        const bufs: SpilledScratch['tiles'][number]['bufs'] = {}
-        const whole = (b: AccumulationBuffer): ParkedScratchBuffer => {
-          moved.add(b); bytes += b.width * b.height * 4
-          return { buffer: b, glX: 0, glY: 0, srcX: 0, srcY: 0, w: b.width, h: b.height, whole: true }
-        }
-        bufs.original = whole(entry.original)
-        const parts = SPILL_TILE_BUFFERS.filter(k => k !== 'original' && entry[k])
-        const bounds = this._storageBounds
-        const x0 = bounds ? Math.max(0, Math.floor(bounds.minX - at.originX)) : 0
-        const y0 = bounds ? Math.max(0, Math.floor(bounds.minY - at.originY)) : 0
-        const x1 = bounds ? Math.min(tile.width, Math.ceil(bounds.maxX - at.originX)) : tile.width
-        const y1 = bounds ? Math.min(tile.height, Math.ceil(bounds.maxY - at.originY)) : tile.height
-        const w = Math.max(1, x1 - x0), h = Math.max(1, y1 - y0)
-        const columns = Math.max(1, Math.floor(tile.width / w)), rows = Math.max(1, Math.floor(tile.height / h))
-        const capacity = columns * rows
-        const atlasCount = Math.ceil(parts.length / capacity)
-        // Tile-sized atlases reuse the film's released buffers. Arbitrarily
-        // sized small textures were themselves 100ms allocations on Safari.
-        // When packing saves no memory, move the original buffers instead.
-        if (atlasCount >= parts.length) {
-          for (const k of parts) bufs[k] = whole(entry[k]!)
-        } else {
-          let atlas: AccumulationBuffer | undefined
-          for (const [i, k] of parts.entries()) {
-            if (i % capacity === 0) {
-              atlas = this.pool.acquire(tile.width, tile.height)
-              owned.add(atlas); bytes += tile.width * tile.height * 4
-            }
-            const srcX = (i % capacity % columns) * w, srcY = Math.floor(i % capacity / columns) * h
-            const glX = Math.min(tile.width - 1, x0), glY = Math.min(tile.height - 1, Math.max(0, tile.height - y1))
-            if (x1 > x0 && y1 > y0) entry[k]!.copyRegionInto(atlas!, glX, glY, srcX, srcY, w, h)
-            else {
-              // A present-but-empty field must remain present after restore.
-              // Empty intersects are rare, so a full clear is safe and cheap.
-              clearParkedBuffer(atlas!)
-            }
-            bufs[k] = { buffer: atlas!, glX, glY, srcX, srcY, w, h, whole: false }
-            yield
-          }
-        }
-        tiles.push({ ...at, width: tile.width, height: tile.height, bufs })
-      }
-      const result = { ...this._scalars(), tiles, bytes, dispose, takeBuffer, releaseBuffer }
-      // Ownership moves only on successful completion. Until now the active
-      // scratch was untouched and cancellation can simply release its copies.
-      for (const b of moved) owned.add(b)
-      for (const entry of this._tiles.values()) for (const k of SPILL_TILE_BUFFERS) {
-        const b = entry[k]
-        if (b && !moved.has(b)) this.pool.release(b)
-      }
-      this._tiles.clear()
-      committed = true
-      return result
-    } finally { if (!committed) dispose() }
-  }
-
-  /** A parked wash back in full-sized, zero-padded scratch buffers. */
-  static unspill(pool: RibbonScratchPool, sp: SpilledScratch, target: ILayerBuffer): RibbonStrokeScratch | null {
-    const s = new RibbonStrokeScratch(pool, sp.needsInk, sp.needsColor)
-    s._applyScalars(sp, target)
-    const references = new Map<AccumulationBuffer, number>()
-    for (const t of sp.tiles) for (const p of Object.values(t.bufs)) if (p) {
-      references.set(p.buffer, (references.get(p.buffer) ?? 0) + 1)
-    }
-    try {
-      for (const t of sp.tiles) {
-        const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-        const tile = target.resolveForPaint(rect).find(r => r.originX === t.originX && r.originY === t.originY)?.buffer
-        if (!tile) { s.destroy(); return null }
-        const take = (p: ParkedScratchBuffer | undefined): AccumulationBuffer | null => {
-          if (!p) return null
-          if (p.whole) { sp.takeBuffer(p.buffer); return p.buffer }
-          const own = pool.acquire(t.width, t.height)
-          clearParkedBuffer(own)
-          p.buffer.copyRegionInto(own, p.srcX, p.srcY, p.glX, p.glY, p.w, p.h)
-          const left = references.get(p.buffer)! - 1
-          references.set(p.buffer, left)
-          // Reuse a consumed atlas for later full-sized fields rather than
-          // allocating a texture while continuing the wash.
-          if (left === 0) sp.releaseBuffer(p.buffer)
-          return own
-        }
-        const original = take(t.bufs.original), coverage = take(t.bufs.coverage)
-        if (!original || !coverage) { if (original) pool.release(original); if (coverage) pool.release(coverage); s.destroy(); return null }
-        s._tiles.set(tile, {
-          original, coverage, inkLoad: take(t.bufs.inkLoad), inkSettled: take(t.bufs.inkSettled),
-          inkColor: take(t.bufs.inkColor), colorSettled: take(t.bufs.colorSettled),
-          strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1,
-          inkDry: take(t.bufs.inkDry), colorDry: take(t.bufs.colorDry),
-        })
-      }
-      return s
-    } finally { sp.dispose() }
-  }
-
-  /** (#536, §17.56) A scratch as `snap` describes it, its tiles copied into
-   *  pooled buffers and keyed by `target`'s own tiles at the same places. */
-  static restore(pool: RibbonScratchPool, snap: ScratchSnapshot, target: ILayerBuffer): RibbonStrokeScratch {
-    const s = new RibbonStrokeScratch(pool, snap.needsInk, snap.needsColor)
-    s._applyScalars(snap, target)
-    for (const t of snap.tiles) {
-      const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-      const tile = target.resolveForPaint(rect).find(r => r.originX === t.originX && r.originY === t.originY)?.buffer
-      if (!tile) continue
-      const take = (b: AccumulationBuffer | undefined): AccumulationBuffer | null => {
-        if (!b) return null
-        const own = pool.acquire(b.width, b.height)
-        b.copyTo(own)
-        return own
-      }
-      const original = take(t.bufs.original), coverage = take(t.bufs.coverage)
-      if (!original || !coverage) continue
-      s._tiles.set(tile, {
-        original, coverage, inkLoad: take(t.bufs.inkLoad), inkSettled: take(t.bufs.inkSettled),
-        inkColor: take(t.bufs.inkColor), colorSettled: take(t.bufs.colorSettled),
-        strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1,
-        inkDry: null, colorDry: null,
-      })
-    }
-    return s
-  }
-}
-
-/** (#536, §17.56) The tile textures of a wash that outlive a gesture. Not
- *  the provisional dry picture (inkDry/colorDry): the next operation's settle
- *  lays it again before the composite reads it, and leaving it out was the
- *  same to a level on the devices and a quarter less memory (80 MB of
- *  carried washes on the iPad instead of 96). */
-const SNAPSHOT_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled'] as const
-
 /** (#536, §17.56) A checkpoint's carried wash: its scratch as the replay cache
  *  would hold it at the checkpoint. */
 interface CarriedWash { key: string; userId: string; washStrokeId: string | undefined; lastDab: Dab; snap: ScratchSnapshot }
-
-function scratchSnapshotBytes(snap: ScratchSnapshot): number {
-  let n = 0
-  for (const t of snap.tiles) for (const b of Object.values(t.bufs)) if (b) n += b.width * b.height * 4
-  return n
-}
-
-function freeScratchSnapshot(snap: ScratchSnapshot): void {
-  for (const t of snap.tiles) for (const b of Object.values(t.bufs)) b?.destroy()
-}
-
-/** (#536, §17.56) Every number of a RibbonStrokeScratch the next operation
- *  of its wash reads. */
-interface ScratchScalars {
-  storageBounds?: ScratchBounds | null
-  needsInk: boolean; needsColor: boolean
-  paints: string[]; waterUsed: number; pigmentUsed: number
-  composite: { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; bristleRadiusPx: number; fieldSeed: [number, number] } | null
-  dabSpacing: number; brushEdgePx: number; dir: [number, number]; dirSet: boolean
-  finish: Omit<NonNullable<RibbonStrokeScratch['finishContext']>, 'target'> | null
-  dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
-  lastKept: Dab | undefined; gesture: number
-  landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
-  turnOffset: [number, number]; turnDirection: [number, number] | null; brushTravel: BrushTravel[]; foreignSources: WaterSource[] | null; wetContacts: WaterFootprint[]
-  trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number
-}
-
-/** (#536, §17.56) See RibbonStrokeScratch.snapshot. */
-interface ScratchSnapshot extends ScratchScalars {
-  tiles: Array<{ originX: number; originY: number; width: number; height: number; bufs: Partial<Record<typeof SNAPSHOT_TILE_BUFFERS[number], AccumulationBuffer>> }>
-}
-
-/** (#536, §17.68) Every tile buffer of an open wash at rest. */
-const SPILL_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled', 'inkDry', 'colorDry'] as const
-
-/** (§17.68) See RibbonStrokeScratch.spill. */
-interface ParkedScratchBuffer { buffer: AccumulationBuffer; glX: number; glY: number; srcX: number; srcY: number; w: number; h: number; whole: boolean }
-interface SpilledScratch extends ScratchScalars {
-  tiles: Array<{ originX: number; originY: number; width: number; height: number; bufs: Partial<Record<typeof SPILL_TILE_BUFFERS[number], ParkedScratchBuffer>> }>
-  bytes: number
-  dispose(): void
-  takeBuffer(buffer: AccumulationBuffer): void
-  releaseBuffer(buffer: AccumulationBuffer): void
-}
 
 // ─── Engine ────────────────────────────────────────────────────────────────────
 
@@ -2692,38 +1634,43 @@ export class PencilEngine implements PencilEngineAPI {
   private _gpuBudget = typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 1
     && ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 0) <= 4
     ? GPU_BUDGET_TOUCH_BYTES : Infinity
-  /** (#536, §17.57) Who painted each replay-cache key - see _retireWashesOf. */
-  private _chunkAuthors = new Map<string, string>()
-  /** (#702) Resting washes parked in compact GPU buffers. Their bytes are
-   *  included in the same pool/device budget as active scratch. The next
-   *  operation restores zero padding and continues the exact stored state.
-   *  Keyed as the cache is; `target` is the layer buffer it mirrors. */
-  private _spilledWashes = new Map<string, {
-    target: ILayerBuffer; userId: string | undefined; washStrokeId?: string; lastDab: Dab; spill: SpilledScratch
-  }>()
-  /** (§17.68) Open washes whose state could be neither kept nor spilled. Their
-   *  next operation cannot be painted as everyone else paints it - so it
-   *  rebuilds the layer instead, which replays the wash from its start. */
-  private _lostWashes = new Map<string, ILayerBuffer>()
-  /** (§17.70) The spill in progress, a buffer per step, and the washes the
-   *  cache's slots are waiting to see spilled after it. */
-  private _spillJob: { work: Generator<void, SpilledScratch | null, void>; key: string; scratch: RibbonStrokeScratch; usedAt: number; timer: ReturnType<typeof setTimeout> | 0 } | null = null
-  private _spillPumpTimer: ReturnType<typeof setTimeout> | 0 = 0
   /** (§17.70) A rebuild's step is running: the cache is the job's own. */
   private _inJobStep = false
-  private _replayRibbonChunks = new Map<string, {
-    /** The grouping key: a wash id where the stroke has one, its gesture id
-     *  otherwise (#468 v7). */
-    strokeId: string
-    /** Which *gesture* the last chunk belonged to, so a wash can tell one of
-     *  its strokes ending from a gesture's chunk boundary. */
-    washStrokeId?: string
-    target: ILayerBuffer
-    scratch: RibbonStrokeScratch
-    lastDab: Dab
-    /** (§17.68) performance.now() of its last operation - see _enforceGpuBudget. */
-    usedAt?: number
-  }>()
+
+  private readonly _ribbonCache = new RibbonReplayCache({
+    ribbonScratchPool: () => this._ribbonScratchPool,
+    destroyed: () => this._destroyed,
+    contextLost: () => this._contextLost,
+    inJobStep: () => this._inJobStep,
+    gpuBudget: () => this._gpuBudget,
+    settlingScratch: () => this._settle?.scratch,
+    completeSettle: () => this._completeSettle(),
+    finishedChunk: () => [...this._replayRibbonChunks].find(([key, chunk]) => {
+      const job = [...this._rebuildJobs.values()].find(j => j.fresh === chunk.target)
+      if (!job) return false
+      const remaining = this._log.layerPixelOps(job.layerId).slice(job.start + job.applied.length)
+      return !remaining.some(op => op.type === 'stroke' && (op.washId ?? op.strokeId) === key)
+    }),
+    rebuildLostWash: target => this._rebuildLostWash(target),
+    scheduleBudgetCheck: () => this._scheduleBudgetCheck(),
+    washGpuBytes: () => this._washGpuBytes(),
+  })
+  private get _replayRibbonChunks() { return this._ribbonCache.chunks }
+  private set _replayRibbonChunks(chunks: Map<string, ReplayRibbonChunk>) { this._ribbonCache.chunks = chunks }
+  private get _chunkAuthors() { return this._ribbonCache.authors }
+  private get _spilledWashes() { return this._ribbonCache.spilled }
+  private get _lostWashes() { return this._ribbonCache.lost }
+  private get _spillJob() { return this._ribbonCache.spillJob }
+  private _retireWashesOf(op: StrokeOperation): void { this._ribbonCache.retireWashesOf(op) }
+  private _replayChunkScratch(target: ILayerBuffer, strokeId: string | undefined, washId: string | undefined, dabs: Dab[], profile: RibbonProfile) {
+    return this._ribbonCache.replayChunkScratch(target, strokeId, washId, dabs, profile)
+  }
+  private _trimChunkCache(): void { this._ribbonCache.trimChunkCache() }
+  private _evictChunk(key: string, keep: boolean): void { this._ribbonCache.evictChunk(key, keep) }
+  private _cancelSpillJob(): void { this._ribbonCache.cancelSpillJob() }
+  private _startSpill(key: string): void { this._ribbonCache.startSpill(key) }
+  private _forgetWashesOf(target: ILayerBuffer): void { this._ribbonCache.forgetWashesOf(target) }
+
 
   // (#494) Smudge and the mixer brush — their programs, scratch pool, per-user
   // imprints and replay chunks. See SmudgePainter.ts.
@@ -2757,31 +1704,9 @@ export class PencilEngine implements PencilEngineAPI {
   // stroke at a time, and a packet carrying a new strokeId retires the old
   // entry.
   private _peerLiveStrokes = new Map<string, PeerLiveStroke>()
-
-  // WebGL programs and uniforms — assigned in _initGL()
-  /** (#494) The plain dab program — StampPainter owns it (it is the stamps'
-   *  uniform fallback); the ribbon passes draw through it by these names. */
-  private get _dabProg(): WebGLProgram { return this._stamps.program }
-  private get _dabUni(): Record<string, WebGLUniformLocation | null> { return this._stamps.uniforms }
-  private get _dabPosLoc(): number { return this._stamps.positionLoc }
-  private _compositeProg!: WebGLProgram
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
   private _revealProg!: WebGLProgram
-  /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
-  private _fieldOpProg!: WebGLProgram
-  private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
-  /** (#685) Modes 10-20 except the carry (15/16), linked separately. */
-  private _fieldOpHighProg!: WebGLProgram
-  private _fieldOpHighUni!: Record<string, WebGLUniformLocation | null>
-  private _fieldOpHighPosLoc!: number
-  private _fieldOpCarryProg!: WebGLProgram
-  private _fieldOpCarryUni!: Record<string, WebGLUniformLocation | null>
-  private _fieldOpCarryPosLoc!: number
-  private _fieldOpCarryColourProg!: WebGLProgram
-  private _fieldOpCarryColourUni!: Record<string, WebGLUniformLocation | null>
-  private _fieldOpCarryColourPosLoc!: number
-  private _fieldOpPosLoc = -1
   /** (#536, §17.46) The paper composite's own copy of the screen, so a frame
    *  that changed only the brush's rect recomposes that rect alone. */
   private _screenCache: AccumulationBuffer | null = null
@@ -2795,29 +1720,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperDamage: { minX: number; minY: number; maxX: number; maxY: number } | null = null
   private _paperPartialOK = false
   private _paperCacheKey = ''
-  /** (#536, §17.44) WC_RESAMPLE_FRAG - tile <-> half-resolution settle field. */
-  private _resampleProg!: WebGLProgram
-  private _resampleUni!: Record<string, WebGLUniformLocation | null>
-  private _resamplePosLoc = -1
   private _revealUni!: Record<string, WebGLUniformLocation | null>
   private _revealPosLoc = -1
   /** Keyed by the layer tile the wash settled into. Presentation state only:
    *  never read by any paint pass, never serialised, dropped with the tile. */
   private _washReveals = new Map<AccumulationBuffer, WashReveal>()
   private _revealTimer = 0
-  /** (#536, §17.22) The author's pen-up settle in flight: the diffusion's
-   *  GPU steps, run a few per animation frame under the reveal instead of
-   *  all at once — 89 ms in one go for a 400 px brush on a desktop GPU, a
-   *  visible hitch at every pen-up on a tablet. One at a time, by design:
-   *  the steps run over the shared _diffuseField, so anything that needs the
-   *  field (another settle, a replay's) drains this one first. */
-  private _settle: {
-    scratch: RibbonStrokeScratch
-    ops: Array<() => void>
-    next: number
-    complete: () => void
-    raf: number
-  } | null = null
+  private get _settle(): WatercolorSettleQueue['current'] { return this._settleQueue.current }
   /** (#536, §17.22) The live gesture's composite, deferred to the frame: the
    *  per-gesture scalars every batch would have passed, kept from the first
    *  deferred batch. Null while no live ribbon gesture has a rect pending.
@@ -2828,20 +1737,75 @@ export class PencilEngine implements PencilEngineAPI {
    *  screen shows sixty of them at most. The composite is a pure recomputation
    *  of a rect from the deposit, so the union of the batches since the last
    *  frame gives the same pixels as the batches one by one. */
-  private _liveComposite: {
-    scratch: RibbonStrokeScratch
-    preset: PencilPreset
-    profile: RibbonProfile
-    color: [number, number, number]
-    opacity: number
-    fieldSeed: [number, number]
-    spreadPx: number
-    fringeWater: number
-    migratePx: number
-    inkSmoothPx: number
-    strokeDir: [number, number]
-    bristleRadiusPx: number
-  } | null = null
+
+  private readonly _settlePlan = new WatercolorSettlePlan({
+    gl: () => this.gl,
+    fieldFor: (w, h) => this._diffuseFieldFor(w, h),
+    paperWorldSize: () => this._paperWorldSize(),
+    pool: () => this._ribbonScratchPool,
+    minmaxExt: () => this._minmaxExt,
+    ab: () => this._wcAb,
+    passes: () => this._watercolorPasses,
+  })
+  private readonly _settleQueue = new WatercolorSettleQueue({
+    beforeStart: () => {
+      if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
+    },
+    perf: () => this._wcPerf,
+    isDrawing: () => !!this._strokeLayerId,
+    backlogSize: () => this._opQueue.length,
+    backlogMax: () => this.settleBacklogMax,
+    noteActivity: now => { this._washActiveAt = now },
+    scheduleFieldRelease: () => this._scheduleFieldRelease(),
+  })
+
+  private readonly _watercolorPasses = new WatercolorPasses({
+    gl: () => this.gl,
+    screenBuf: () => this._screenBuf,
+    paperTex: () => this._paperTex,
+    paperScale: () => this._opts.paperScale,
+    paperWorldSize: () => this._paperWorldSize(),
+    stamps: () => this._stamps,
+  })
+
+  private readonly _ribbonPasses = new RibbonPasses({
+    gl: () => this.gl,
+    stamps: () => this._stamps,
+    paperTex: () => this._paperTex,
+    quadBuf: () => this._quadBuf,
+    minmaxExt: () => this._minmaxExt,
+    paperFillThreshold: () => this._paperFillThreshold,
+    paperFillCap: () => this._paperFillCap,
+    wcDebugView: () => this._wcDebugView,
+    wcAb: () => this._wcAb,
+    paperScale: () => this._opts.paperScale,
+    paperWorldSize: () => this._paperWorldSize(),
+  })
+
+  private readonly _ribbonPainter = new RibbonStrokePainter({
+    dabPool: () => this._dabPool,
+    infinite: () => this._infinite,
+    minmaxExt: () => this._minmaxExt,
+    setLiveComposite: value => { this._liveComposite = value },
+    dabWorldHalfExtents: (d, erasing, preset, wicking) => this._dabWorldHalfExtents(d, erasing, preset, wicking),
+    drawRibbonBands: (dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot) => this._drawRibbonBands(dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot),
+    drawRibbonCompositeRect: (tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx) => this._drawRibbonCompositeRect(tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx),
+    drawRibbonNibPass: (dest, tile, dab, preset, profile, inkMode, opacity, ownTarget, inkWater, acrossLocal, paperWet, inkStrength, mottleSeed, clipTo, bristleCombs, bristleInk, depthTau, puddle, poolBlot) => this._drawRibbonNibPass(dest, tile, dab, preset, profile, inkMode, opacity, ownTarget, inkWater, acrossLocal, paperWet, inkStrength, mottleSeed, clipTo, bristleCombs, bristleInk, depthTau, puddle, poolBlot),
+    fieldOp: (out, a, b, mode, k, opts) => this._fieldOp(out, a, b, mode, k, opts),
+    markPaperDamage: (b) => this._markPaperDamage(b),
+    markerSegmentLength: (dab, prevDab, radius) => this._markerSegmentLength(dab, prevDab, radius),
+    nibDrawCost: (tile, dab, preset) => this._nibDrawCost(tile, dab, preset),
+    nibTouchesTile: (tile, dab, preset) => this._nibTouchesTile(tile, dab, preset),
+    pageSize: () => this._pageSize(),
+    paintBrushStroke: (target, dabs, preset, stamp, color, scratch, prevDab) => this._paintBrushStroke(target, dabs, preset, stamp, color, scratch, prevDab),
+    resolveWithinSheet: (target, r) => this._resolveWithinSheet(target, r),
+    revealAfterBatch: (tile, bounds, prev) => this._revealAfterBatch(tile, bounds, prev),
+    revealBeforeBatch: (tile, bounds) => this._revealBeforeBatch(tile, bounds),
+    revealRect: (tile, bounds) => this._revealRect(tile, bounds),
+    wcSheetClamp: (r) => this._wcSheetClamp(r),
+  })
+
+  private _liveComposite: RibbonLiveComposite | null = null
   /** (#536, §17.22) Frees the diffusion field a while after the last settle:
    *  seven buffers of up to 1536² are a hundred megabytes a tablet should not
    *  hold between washes. */
@@ -2863,41 +1827,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldCache: Array<SettleField> = []
   // (#494) The transform, selection and image blits — see blitPasses.ts.
   private _passes!: BlitPasses
-  // Marker ribbon (#330 stage 2) — the bands between consecutive nib stamps
-  // (markerRibbon.ts). Its own tiny program: unlike every other dab draw, the
-  // vertices arrive already positioned by the CPU and carry a per-vertex
-  // distance-to-edge, so neither DAB_VERT's uniforms nor DAB_FRAG's branches
-  // apply.
-  private _ribbonProg!: WebGLProgram
-  private _ribbonUni!: Record<string, WebGLUniformLocation | null>
-  /** (#536) One step of pigment diffusion in standing water — see
-   *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
-  private _diffuseProg!: WebGLProgram
-  /** (#536, §17.24) The water front's relaxation — see WC_WATER_FRONT_FRAG. */
-  private _brushFlowTex: WebGLTexture | null = null
-  private _brushDragProg!: WebGLProgram
-  private _brushDragUni!: Record<string, WebGLUniformLocation | null>
-  private _brushDragPosLoc = -1
-  private _foreignWaterTex: WebGLTexture | null = null
-  private _waterFrontProg!: WebGLProgram
-  private _waterFrontUni!: Record<string, WebGLUniformLocation | null>
-  private _waterFrontPosLoc = -1
-  private _diffuseUni!: Record<string, WebGLUniformLocation | null>
-  private _diffusePosLoc = -1
-  private _ribbonPosLoc!: number
-  private _ribbonEdgeLoc!: number
-  private _ribbonInkLoc!: number
-  private _ribbonInkWaterLoc!: number
-  private _ribbonAcrossLoc!: number
-  private _ribbonInkWetLoc!: number
-  private _ribbonInkStrengthLoc!: number
-  private _ribbonPuddleLoc!: number
-  private _ribbonBuf!: WebGLBuffer
-  private _compositeUni!: Record<string, WebGLUniformLocation | null>
-  private _compositePosLoc!: number
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
+  // Layer composition reads the current buffers on every call: resize and
+  // context restore replace their GL handles without changing this owner.
+  private readonly _compositor: LayerCompositor
+
 
   // (#494) Where the screen is looking — the pose (world point at screen
   // centre, zoom, rotation), the cached on-screen canvas rect and every piece
@@ -2955,7 +1891,6 @@ export class PencilEngine implements PencilEngineAPI {
   // _runComposite.
   private _belowCache!: AccumulationBuffer
   private _aboveCache!: AccumulationBuffer
-  private _splitCacheDirty = true
 
   // Infinite canvas rotation (#134) — _runComposite builds the unrotated,
   // zoom-applied composite into this buffer instead of the real (canvas-
@@ -3181,6 +2116,18 @@ export class PencilEngine implements PencilEngineAPI {
     })
     if (!gl) throw new Error('WebGL not supported')
     this.gl = gl
+  this._compositor = new LayerCompositor({
+    gl,
+    screenBuf: () => this._screenBuf,
+    layers: () => this._layers,
+    previews: () => this._previews,
+    reveals: () => this._washReveals,
+    drawReveal: (...args) => this._drawTileReveal(...args),
+    activeId: () => this._activeId,
+    assembly: () => this._assemblyFBO,
+    below: () => this._belowCache,
+    above: () => this._aboveCache,
+  })
     // (#494) Built before the passes below, which hold it by reference; its
     // texture only exists once init() runs after _initGL.
     this._paper = new PaperState({
@@ -3197,6 +2144,7 @@ export class PencilEngine implements PencilEngineAPI {
       onLoaded: () => this._display(),
     })
     this._ribbonScratchPool = new RibbonScratchPool(gl)
+
     // (#494) See scratchPools.ts. What each buffer is set up for stays with
     // the pool's owner: here for these two, AreaOps and SmudgePainter for theirs.
     this._previewBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
@@ -4530,7 +3478,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
-    this._splitCacheDirty = true
+    this._compositor.invalidateSplitCache()
     // The paper texture itself is NOT recreated here (unlike
     // _belowCache/_assemblyFBO/etc. above, which are genuinely canvas-size-
     // dependent) — it's a fixed, baked-offline resolution (see
@@ -4886,6 +3834,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudge.destroy()
     this._stamps.destroy()
     this._brush.destroy()
+    this._ribbonPasses.destroy()
+    this._watercolorPasses.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
@@ -4929,8 +3879,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._washReveals.clear()
     for (const b of this._revealPool) b.destroy()
     this._revealPool = []
-    this.gl.deleteTexture(this._brushFlowTex)
-    this.gl.deleteTexture(this._foreignWaterTex)
+    this._settlePlan.destroyTextures()
     this.gl.deleteTexture(this._paperTex)
     // (#536, §17.69) And the context itself, when its canvas has already left
     // the page (the room was closed; React removes the element before the
@@ -5723,8 +4672,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
-    this._brushFlowTex = null
-    this._foreignWaterTex = null
+    this._settlePlan.forgetTextures()
     this._contextLost = true
     this._cancelSpillJob()
   }
@@ -6291,13 +5239,10 @@ export class PencilEngine implements PencilEngineAPI {
     // (#494) The dab stamp programs, plain and instanced — see StampPainter.ts.
     // The ribbon passes draw through its plain one too (_dabProg).
     this._stamps.initGL()
-    this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
+    this._compositor.initProgram()
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
-    this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
-    this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
-    this._fieldOpCarryProg    = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_FRAG)
-    this._fieldOpCarryColourProg = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_COLOUR_FRAG)
-    this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
+    this._watercolorPasses.initFieldPrograms()
+
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     // (#494) Smudge's transfer and imprint-refresh programs — see SmudgePainter.ts.
@@ -6307,66 +5252,38 @@ export class PencilEngine implements PencilEngineAPI {
     // (#494) Export's transparent and thumbnail-downscale passes — see Exporter.ts.
     this._exporter.initGL()
     this._brush.initGL() // (#494) see BrushPainter.ts
-    this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
-    this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
-    this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
-    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect'])
-    this._brushDragPosLoc = gl.getAttribLocation(this._brushDragProg, 'a_position')
-    this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
+    this._ribbonPasses.initProgram()
+    this._watercolorPasses.initSettlePrograms()
 
-    this._ribbonUni = getUniforms(gl, this._ribbonProg, [
-      'u_wcNoiseTex', 'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit', 'u_poolBlot',
-      'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau',
-    ])
-    this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
+    this._ribbonPasses.initUniforms()
+    this._compositor.initUniforms()
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
-    this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
-      'u_wcNoiseTex', 'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
-      'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride', 'u_foreignFilm', 'u_foreignWet',
-    ])
-    this._diffuseUni = getUniforms(gl, this._diffuseProg, [
-      'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
-      'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
-    ])
+    this._watercolorPasses.initFieldUniforms()
+
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
       'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetPeak',
     ])
 
-    this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
+    this._compositor.initAttributes()
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
-    this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
-    this._fieldOpHighPosLoc    = gl.getAttribLocation(this._fieldOpHighProg, 'a_position')
-    this._fieldOpCarryPosLoc   = gl.getAttribLocation(this._fieldOpCarryProg, 'a_position')
-    this._fieldOpCarryColourPosLoc = gl.getAttribLocation(this._fieldOpCarryColourProg, 'a_position')
-    this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
+    this._watercolorPasses.initFieldAttributes()
+
     this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
-    this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
-    this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
+    this._watercolorPasses.initDiffusionAttributes()
+
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
 
-    this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
-    this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
-    this._ribbonInkLoc  = gl.getAttribLocation(this._ribbonProg, 'a_ink')
-    this._ribbonInkWaterLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWater')
-    this._ribbonAcrossLoc = gl.getAttribLocation(this._ribbonProg, 'a_across')
-    this._ribbonInkWetLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWet')
-    this._ribbonInkStrengthLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkStrength')
-    this._ribbonPuddleLoc = gl.getAttribLocation(this._ribbonProg, 'a_contact')
+    this._ribbonPasses.initAttributes()
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
     // (#494) The resampling blits (transform, selection, image) — see
     // blitPasses.ts. Rebuilt with everything else here on a context restore.
     this._passes = new BlitPasses(gl, this._screenBuf)
-    this._ribbonBuf  = gl.createBuffer()!
+    this._ribbonPasses.initBuffer()
 
     // (#536, s17.28) MAX blending for the watercolor film. Without it (rare -
     // the extension is in every WebGL1 that matters) the deposit falls back
@@ -6381,7 +5298,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
-    this._splitCacheDirty = true
+    this._compositor.invalidateSplitCache()
   }
 
   /** (#494) See PaperState.clampToSheet. Kept by this name for the ribbon
@@ -7777,247 +6694,6 @@ export class PencilEngine implements PencilEngineAPI {
     return standing
   }
 
-  /** The scratch this replayed operation should paint through, given the
-   *  gesture it belongs to — see _replayRibbonChunk. Returns null for an
-   *  operation with no gesture id (a stroke recorded before strokeId existed),
-   *  which then falls back to a throwaway scratch, exactly as before. */
-  /** (#536, §17.57) A participant's stroke closes every wash and gesture of
-   *  theirs but its own: a wash is only ever joined by its author's NEXT
-   *  stroke (the author's single open `_wash`), and a gesture's chunks are
-   *  that author's consecutive operations. So the cache entries of their
-   *  earlier washes can never be read again, and they go now instead of when
-   *  the LRU gets to them - four whole-sheet washes held that way were most
-   *  of the 600 MB the iPad died at (multitest, CJoiem15). A fact of the log
-   *  order, the same live and on every replay, so what is painted does not
-   *  change - only an open wash is no longer evicted to make room for them. */
-  private _retireWashesOf(op: StrokeOperation): void {
-    const key = op.washId ?? op.strokeId
-    for (const [k, chunk] of this._replayRibbonChunks) {
-      if (k === key || this._chunkAuthors.get(k) !== op.userId) continue
-      if (this._settle?.scratch === chunk.scratch) this._completeSettle()
-      chunk.scratch.destroy()
-      this._replayRibbonChunks.delete(k)
-      this._chunkAuthors.delete(k)
-    }
-    // (§17.68) ...and the ones spilled or lost: closed just the same.
-    for (const [k, w] of this._spilledWashes) {
-      if (k !== key && w.userId === op.userId) { w.spill.dispose(); this._spilledWashes.delete(k); this._lostWashes.delete(k) }
-    }
-    for (const k of [...this._lostWashes.keys()]) {
-      if (k !== key && this._chunkAuthors.get(k) === op.userId) { this._lostWashes.delete(k); this._chunkAuthors.delete(k) }
-    }
-    if (key) this._chunkAuthors.set(key, op.userId)
-  }
-
-  private _replayChunkScratch(
-    target: ILayerBuffer, strokeId: string | undefined, washId: string | undefined,
-    dabs: Dab[], profile: RibbonProfile,
-  ): { scratch: RibbonStrokeScratch; prevDab?: Dab } | null {
-    // (#468 v7) A wash groups more strongly than a gesture: several strokes
-    // share one accumulation, so the key is the wash where there is one and the
-    // gesture otherwise. Grouping by the recorded id rather than by anything
-    // measured here is what keeps replay a pure function of the log — the live
-    // client already decided, using wall-clock timing replay must never see.
-    const key = washId ?? strokeId
-    if (!key || !dabs.length) return null
-    const cached = this._replayRibbonChunks.get(key)
-    if (cached && cached.target === target) {
-      // `prevDab` bridges the ribbon across a *gesture's* chunks. Across two
-      // strokes of one wash there is nothing to bridge — the brush was lifted —
-      // so the band builder must not stitch them into one swept figure.
-      const sameGesture = cached.washStrokeId === strokeId
-      const prevDab = washId && !sameGesture ? undefined : cached.lastDab
-      cached.lastDab = dabs[dabs.length - 1]
-      cached.washStrokeId = strokeId
-      // Only when a *new* stroke of the wash starts. This read the flag it had
-      // just overwritten, so it fired on every operation — including the chunks
-      // one long gesture is split into, which live never does. The brush was
-      // getting recharged mid-stroke on replay and not while drawing, so a long
-      // enough stroke came back different after a reload.
-      if (washId && !sameGesture) cached.scratch.beginStroke()
-      // Re-inserted so the map's own order is least-recently-used: the eviction
-      // below takes the front, and a wash still being painted into must not be
-      // the one thrown away.
-      this._replayRibbonChunks.delete(key)
-      this._replayRibbonChunks.set(key, cached)
-      cached.usedAt = performance.now()
-      return { scratch: cached.scratch, prevDab }
-    }
-    // A stale entry under the same key but a *different* layer buffer is not a
-    // hit — the scratch mirrors the tiles of one target and nothing else.
-    if (cached && this._settle?.scratch === cached.scratch) this._completeSettle() // (§17.52)
-    cached?.scratch.destroy()
-    this._replayRibbonChunks.delete(key)
-    // #702: an open wash this client parked on the GPU, continued as a hit.
-    const spilled = this._spilledWashes.get(key)
-    if (spilled && spilled.target !== target) { spilled.spill.dispose(); this._spilledWashes.delete(key) }
-    if (spilled && spilled.target === target) {
-      this._spilledWashes.delete(key)
-      const back = RibbonStrokeScratch.unspill(this._ribbonScratchPool, spilled.spill, target)
-      if (back) {
-        this._replayRibbonChunks.set(key, { strokeId: key, washStrokeId: spilled.washStrokeId, target, scratch: back, lastDab: spilled.lastDab })
-        if (spilled.userId) this._chunkAuthors.set(key, spilled.userId)
-        this._trimChunkCache()
-        return this._replayChunkScratch(target, strokeId, washId, dabs, profile)
-      }
-      this._lostWashes.set(key, target)
-    }
-    if (this._lostWashes.get(key) === target) {
-      this._lostWashes.delete(key)
-      this._rebuildLostWash(target)
-    }
-    const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
-    scratch.beginStroke()
-    this._replayRibbonChunks.set(key, {
-      strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1], usedAt: performance.now(),
-    })
-    this._trimChunkCache()
-    this._scheduleBudgetCheck()
-    return { scratch }
-  }
-
-  /** (§17.68) The cache back to REPLAY_RIBBON_CHUNK_SLOTS, least recently used
-   *  first - spilled, not destroyed: a fifth participant's wash used to push
-   *  out an open one, whose next stroke then started over in a fresh scratch
-   *  on this client only. */
-  private _trimChunkCache(): void {
-    // #702: park resting washes in slices. The cache may temporarily
-    // exceed its slot count while copies are queued.
-    if (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS && !this._inJobStep && typeof setTimeout === 'function') {
-      this._pumpSpills()
-      return
-    }
-    while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
-      if (this._inJobStep) {
-        // (#701) A sliced rebuild already knows which gestures its remaining
-        // journal continues. Reading a finished one back only to evict it can
-        // block a frame for seconds. Keep the existing lost-wash fallback for
-        // any continuation that arrives later, outside this known history.
-        const finished = [...this._replayRibbonChunks].find(([key, chunk]) => {
-          const job = [...this._rebuildJobs.values()].find(j => j.fresh === chunk.target)
-          if (!job) return false
-          const remaining = this._log.layerPixelOps(job.layerId).slice(job.start + job.applied.length)
-          return !remaining.some(op => op.type === 'stroke' && (op.washId ?? op.strokeId) === key)
-        })
-        if (finished) {
-          const [key, chunk] = finished
-          if (this._settle?.scratch === chunk.scratch) this._completeSettle()
-          this._replayRibbonChunks.delete(key)
-          this._lostWashes.set(key, chunk.target)
-          chunk.scratch.destroy()
-          continue
-        }
-      }
-      this._evictChunk(this._replayRibbonChunks.keys().next().value as string, true)
-    }
-  }
-
-  /** (#702) Removes cache entry `key` from active scratch. `keep`: the wash may still
-   *  be joined, so it is spilled - or, where it cannot be (mid-gesture, past
-   *  the memory cap), marked lost. */
-  private _evictChunk(key: string, keep: boolean): void {
-    const c = this._replayRibbonChunks.get(key)
-    if (!c) return
-    if (this._settle?.scratch === c.scratch) this._completeSettle() // (§17.52)
-    if (this._spillJob?.key === key) this._cancelSpillJob()
-    this._replayRibbonChunks.delete(key)
-    if (keep) {
-      const origins = new Map<AccumulationBuffer, { originX: number; originY: number }>()
-      for (const t of c.target.allResident()) origins.set(t.buffer, { originX: t.originX, originY: t.originY })
-      const spill = c.scratch.spill(tile => origins.get(tile) ?? null)
-      if (spill) {
-        this._spilledWashes.get(key)?.spill.dispose()
-        this._spilledWashes.set(key, { target: c.target, userId: this._chunkAuthors.get(key), washStrokeId: c.washStrokeId, lastDab: c.lastDab, spill })
-      } else {
-        this._lostWashes.set(key, c.target)
-      }
-    }
-    c.scratch.destroy()
-    this._trimSpilled()
-  }
-
-  /** #702: cancelling a park returns its partial GPU copies to the pool. */
-  private _cancelSpillJob(): void {
-    const job = this._spillJob
-    if (!job) return
-    this._spillJob = null
-    if (job.timer) clearTimeout(job.timer)
-    job.work.return(null)
-  }
-
-  /** GPU copies over frames; no readPixels or GPU fence in this job. */
-  private _startSpill(key: string): void {
-    const c = this._replayRibbonChunks.get(key)
-    if (!c) return
-    const origins = new Map<AccumulationBuffer, { originX: number; originY: number }>()
-    for (const t of c.target.allResident()) origins.set(t.buffer, { originX: t.originX, originY: t.originY })
-    const work = c.scratch.spillWork(tile => origins.get(tile) ?? null)
-    const job = { work, key, scratch: c.scratch, usedAt: c.usedAt ?? 0, timer: 0 as ReturnType<typeof setTimeout> | 0 }
-    this._spillJob = job
-    const step = (): void => {
-      job.timer = 0
-      if (this._spillJob !== job) return
-      const now = this._replayRibbonChunks.get(key)
-      if (this._destroyed || this._contextLost || now !== c || (c.usedAt ?? 0) !== job.usedAt
-        || c.scratch.diffusePending || this._settle?.scratch === c.scratch) { work.return(null); this._spillJob = null; this._pumpSpillsLater(); return }
-      const t0 = performance.now()
-      let r = work.next()
-      while (!r.done && performance.now() - t0 < 4) r = work.next()
-      if (!r.done) { job.timer = setTimeout(step, 16); return }
-      this._spillJob = null
-      this._replayRibbonChunks.delete(key)
-      if (r.value) {
-        this._spilledWashes.get(key)?.spill.dispose()
-        this._spilledWashes.set(key, { target: c.target, userId: this._chunkAuthors.get(key), washStrokeId: c.washStrokeId, lastDab: c.lastDab, spill: r.value })
-      } else {
-        this._lostWashes.set(key, c.target)
-      }
-      c.scratch.destroy()
-      this._trimSpilled()
-      if (this._gpuBudget !== Infinity) this._ribbonScratchPool.trimFree()
-      this._scheduleBudgetCheck()
-      this._pumpSpillsLater()
-    }
-    job.timer = setTimeout(step, 0)
-  }
-
-  /** (§17.70) While the cache is over its slots and nothing is being
-   *  spilled, spills the least recently used wash that is at rest (the map's
-   *  order is its use order). One busy just now is tried again a little later. */
-  private _pumpSpills(): void {
-    if (this._destroyed || this._spillJob || this._inJobStep) return
-    if (this._replayRibbonChunks.size <= REPLAY_RIBBON_CHUNK_SLOTS) return
-    for (const [key, c] of this._replayRibbonChunks) {
-      if (c.scratch.diffusePending || this._settle?.scratch === c.scratch) continue
-      this._startSpill(key)
-      return
-    }
-    this._pumpSpillsLater()
-  }
-
-  private _pumpSpillsLater(): void {
-    if (this._spillPumpTimer || this._destroyed) return
-    this._spillPumpTimer = setTimeout(() => { this._spillPumpTimer = 0; this._pumpSpills() }, 100)
-  }
-
-  /** #702: parked GPU storage is bounded by the existing 128 MiB cap AND
-   *  the device budget. Past either, the existing journal-rebuild fallback
-   *  replaces the oldest parked state. */
-  private _trimSpilled(): void {
-    // Release idle allocations before sacrificing any recoverable wash.
-    if (this._washGpuBytes() > this._gpuBudget) this._ribbonScratchPool.trimFree()
-    let bytes = 0
-    for (const w of this._spilledWashes.values()) bytes += w.spill.bytes
-    for (const [k, w] of this._spilledWashes) {
-      if (bytes <= SPILLED_WASHES_MAX_BYTES && this._washGpuBytes() <= this._gpuBudget) break
-      bytes -= w.spill.bytes
-      w.spill.dispose()
-      this._ribbonScratchPool.trimFree()
-      this._spilledWashes.delete(k)
-      this._lostWashes.set(k, w.target)
-    }
-  }
-
   /** (§17.68) A lost wash's next operation: the layer is rebuilt, which replays
    *  the wash from its first stroke. After the current operation, which is
    *  being painted the only way it can be. */
@@ -8038,46 +6714,7 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
   }
-
-  /** (§17.68) Spilled and lost washes of `target` are about a buffer that is
-   *  going away. */
-  private _forgetWashesOf(target: ILayerBuffer): void {
-    for (const [k, w] of this._spilledWashes) if (w.target === target) { w.spill.dispose(); this._spilledWashes.delete(k) }
-    for (const [k, t] of this._lostWashes) if (t === target) this._lostWashes.delete(k)
-  }
-
-  /** #330 — the marker's rasterizer: the stroke as one connected swept figure.
-   *
-   *  Three fields (coverage / inkLoad / composite, see RibbonStrokeScratch):
-   *
-   *  - **coverage** is plain geometry, not an accumulation of soft profiles: a
-   *    nib stamp at every sample (DAB_FRAG's u_inkMode=6, an analytic in-pixel
-   *    distance to the nib's outline) plus the bands between consecutive
-   *    samples (markerRibbon.ts + RIBBON_FRAG). Both resolve their edge over a
-   *    fixed ~1 canvas px ramp, so the mark's edge no longer widens with the
-   *    brush — the complaint that started all of this. Their union is exact:
-   *    for a convex nib, sweeping it along a segment is precisely the convex
-   *    hull of its two endpoint copies, which stamp+band+stamp reproduces with
-   *    nothing missing and nothing extra (see markerRibbon.ts, including what
-   *    it does when the nib also turns between samples).
-   *  - **inkLoad** rides the *same* geometry, both the stamps (u_inkMode=7) and
-   *    the ribbon (RIBBON_FRAG's ink mode), each carrying half the deposit.
-   *    Splatting it only at the stamps is what left rounded white notches on
-   *    turns: between stamps the ribbon still made the mark opaque, but with no
-   *    ink there the composite multiplied by nothing and the paper showed
-   *    through.
-   *  - **composite** runs *once per batch* over the batch's own dirty rect
-   *    rather than once per dab. It was always a pure recomputation from
-   *    (original, coverage, inkLoad); with coverage now coming from geometry
-   *    that reaches between the dabs, a per-dab quad would no longer cover
-   *    everything the other two passes just wrote.
-   *
-   *  Blending for coverage stays the ordinary saturating "over" rather than
-   *  needing EXT_blend_minmax: interior coverage here is a flat 1.0, and
-   *  over(x, 1) == 1, so a stamp's antialiased rim landing inside a band (or
-   *  vice versa) resolves to solid either way. The two only ever meet at a
-   *  tangent point, where both are ramping, and the difference between max and
-   *  over there is a fraction of one pixel. */
+  /** Ribbon batch deposition is owned by RibbonStrokePainter. */
   private *_ribbonStrokeWork(
     target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, presetName: string, profile: RibbonProfile,
     color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
@@ -8091,871 +6728,7 @@ export class PencilEngine implements PencilEngineAPI {
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
   ): Generator<number, void, void> {
-    // Two different treatments of a dab too thin to resolve, and which one a
-    // tool gets is the whole of RibbonProfile.minHalfWidthPx (#454). The
-    // marker drops it: a sub-half-pixel marker dab is degenerate. The brush
-    // pen widens it to the floor instead, because for a tool whose width
-    // floor is 0.15 of a size the user may set to 3px, "drop it" means
-    // deleting the thin end of every stroke — the first thing ADR 009 asks
-    // the tool to be able to draw.
-    //
-    // Copies rather than mutating: these Dab objects are the ones recorded on
-    // the StrokeOperation and streamed to peers, and a draw-time clamp must
-    // not rewrite what the operation says. Being a pure function of dab.size,
-    // it lands identically on every replay anyway.
-    const floorPx = profile.minHalfWidthPx
-    // (#536, §17.64) Each dab's place in `dabs`, which is what the recorded
-    // wet profile is indexed by - one digit per dab of the operation (or of
-    // the live batch's slice). The filters below drop dabs, and reading the
-    // profile by position in what is left shifted every digit after the first
-    // one dropped - by how many were dropped before it in THIS call, so a live
-    // stroke and its one-batch replay read different paper under the same dab.
-    const wetIndex = new Map<Dab, number>()
-    let drawable = floorPx === null
-      ? dabs.filter((d, i) => { wetIndex.set(d, i); return d.size * 0.5 * preset.sizeMultiplier >= 0.5 })
-      : dabs.map((d, i) => {
-        const half = d.size * 0.5 * preset.sizeMultiplier
-        const out = half >= floorPx ? d : { ...d, size: (floorPx * 2) / preset.sizeMultiplier }
-        wetIndex.set(out, i)
-        return out
-      })
-    // -1 for a dab not of this call (the bridging prevDab), as the loop below read it.
-    const wetOf = (d: Dab): number => wetAt(wetProfile, wetIndex.get(d) ?? -1)
-    // (§17.28) The deposit as a FILM under MAX blending - see RibbonTileScratch.strokeInk.
-    const film = profile.normalizeDeposit && !!this._minmaxExt && !!scratch
-    // (§17.28) Only the dabs that MOVED deposit - see watercolorTravelQuantum.
-    // The anchor is the last dab kept, carried on the scratch across the
-    // gesture's batches so a live stroke and its replay keep the same dabs.
-    if (profile.normalizeDeposit && scratch) {
-      // …and the ribbon bridges from the last kept dab, never from a dropped
-      // one, so the bands' geometry is the same set of dabs live and replayed.
-      if (scratch.lastKept) prevDab = scratch.lastKept
-      const kept: Dab[] = []
-      let anchor = prevDab
-      for (const d of drawable) {
-        const q = watercolorTravelQuantum(d.size * 0.5 * preset.sizeMultiplier)
-        if (!anchor || Math.hypot(d.x - anchor.x, d.y - anchor.y) >= q) { kept.push(d); anchor = d }
-      }
-      if (kept.length) scratch.lastKept = kept[kept.length - 1]
-      drawable = kept
-    }
-    if (!drawable.length) return
-    // #573 — a digital brush on the stamp model keeps this machinery's scratch
-    // (the frozen layer, the stroke's coverage) and nothing else of it.
-    if (profile.brushStamp) {
-      this._paintBrushStroke(target, drawable, preset, profile.brushStamp, color, scratch, prevDab)
-      return
-    }
-
-    const { nibShape, cornerFraction } = profile
-
-    // One bounds box for the whole batch: the tiles to paint, and the rect the
-    // single composite pass covers. Padded per dab by the same half-extents the
-    // ordinary graphite path uses, so a chisel nib's 5x reach is accounted for.
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    // (#536) …and by the halo a wet-paper dab lays around itself, at the widest
-    // it can be for that wetness — this is a bound, and erring outward is the
-    // cheap direction. See watercolorHalo.
-    const haloBound = (d: Dab): number =>
-      profile.normalizeDeposit ? watercolorHalo(wetOf(d), 1).scale : 1
-    // …and the reach the halo is allowed past the bloom, at the cap: the
-    // gesture's own spread is not resolved until further down, and this is a
-    // bound, so the ceiling stands in.
-    const haloPast = (d: Dab): number =>
-      profile.normalizeDeposit && wetOf(d) > 0
-        ? WATERCOLOR_HALO_PAST_BLOOM * WATERCOLOR_SPREAD.cap : 0
-    // (§17.46) Two rects. The REACH (halo bound included) is what the gesture
-    // hands its settle as the window the wet-in-wet may move paint in - cut
-    // to the dabs, the settle's field ended at the brush's own footprint and
-    // left hard straight edges through the wash (replay of HcpkzwNX). The
-    // PAINT rect - tiles, film rebuild, live composite - only needs what is
-    // actually laid, and with the halo stamp off (WATERCOLOR_HALO_DRAWN) that
-    // is the dabs: the reach made a big brush in its own wet wash repaint and
-    // recomposite three to four times the area every frame, the tablet's one
-    // dropped frame in six.
-    let rMinX = Infinity, rMinY = Infinity, rMaxX = -Infinity, rMaxY = -Infinity
-    // (#536, §17.65) A dab whose reach misses the sheet adds nothing to either
-    // rect. Judged per dab, so how the gesture was cut into batches cannot
-    // matter: a live batch off the sheet contributed nothing (it paints
-    // nothing), while a replay's one batch stretched its rect - and the settle
-    // window after it - over the whole off-sheet run. A tail drawn down past
-    // the sheet's right edge pulled the window 900 px lower, past the field's
-    // cap, and the crop left the wash's own top out of the dry tide.
-    const sheet = profile.normalizeDeposit && !this._infinite ? this._pageSize() : null
-    for (const d of prevDab ? [prevDab, ...drawable] : drawable) {
-      const { hx, hy } = this._dabWorldHalfExtents(d, false, preset)
-      const g = haloBound(d), past = haloPast(d)
-      if (sheet && (d.x + hx * g + past <= 0 || d.y + hy * g + past <= 0
-        || d.x - hx * g - past >= sheet.w || d.y - hy * g - past >= sheet.h)) continue
-      rMinX = Math.min(rMinX, d.x - hx * g - past); rMaxX = Math.max(rMaxX, d.x + hx * g + past)
-      rMinY = Math.min(rMinY, d.y - hy * g - past); rMaxY = Math.max(rMaxY, d.y + hy * g + past)
-      const pg = WATERCOLOR_HALO_DRAWN ? g : 1, pp = WATERCOLOR_HALO_DRAWN ? past : 0
-      minX = Math.min(minX, d.x - hx * pg - pp); maxX = Math.max(maxX, d.x + hx * pg + pp)
-      minY = Math.min(minY, d.y - hy * pg - pp); maxY = Math.max(maxY, d.y + hy * pg + pp)
-    }
-    const bounds = { minX, minY, maxX, maxY }
-    // The tiles over the REACH, as before: a tile the settle is to spread
-    // into needs its wash entry, and the paint rect alone left a drop across
-    // the bounded room's x=1024 seam unable to run into the next tile. Per
-    // tile, the film rebuild and composite are cut to the paint rect.
-    const reachRect = { minX: rMinX, minY: rMinY, maxX: rMaxX, maxY: rMaxY }
-    const targets = this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(reachRect) : reachRect)
-    // (#536, §17.63) Not yet: a batch with nothing on the sheet still spends
-    // the gesture's brush - see the return after the deposit loop.
-
-    // (#468 v2/v4, ADR 011 §3.5) The stroke's typical radius decides how far its
-    // water carries. Mean rather than max: one heavy dab at the end of an
-    // otherwise light stroke should not widen the whole mark's boundary
-    // treatment.
-    // (#468 v6) The deposit's ripple has exactly the dab spacing for a period,
-    // so that is what it must be read back over. The first attempt guessed it
-    // from the first dab's radius and landed at a quarter of the true value —
-    // the ring came out 3.8px wide against a 15.4px period and cancelled
-    // essentially nothing, which is why the circles survived the first fix.
-    const firstGap = drawable.length >= 2
-      ? Math.hypot(drawable[1].x - drawable[0].x, drawable[1].y - drawable[0].y)
-      : (prevDab ? Math.hypot(drawable[0].x - prevDab.x, drawable[0].y - prevDab.y) : 0)
-    const dabSpacing = scratch.noteDabSpacing(firstGap)
-    const dirFrom = drawable.length >= 2 ? drawable[0] : prevDab
-    const dirTo = drawable.length >= 2 ? drawable[1] : drawable[0]
-    const strokeDir = scratch.noteDirection(
-      dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
-    )
-    // (#536) How wet the paper was where this gesture came down. Read once,
-    // above everything that needs it — the composite's cached scalars want it
-    // as much as the deposit does.
-    // Landing belongs to the gesture, not to the next pointer batch.
-    const landedWet = scratch.finishContext?.landedWet ?? wetAt(wetProfile, 0)
-    const wetPeakHere = wetPeak(wetProfile)
-    for (const d of drawable) if (wetOf(d) >= 0.3) scratch.wetContacts.push({
-      x: d.x, y: d.y, radius: d.size * 0.5 * preset.sizeMultiplier,
-      aspect: Math.max(1, d.aspectRatio), angle: d.angle,
-    })
-    const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = scratch.compositeScalars(() => {
-      // #489: the bloom is isotropic, so a nib that is not round is measured by
-      // the circle with its area rather than by either axis. Identical to the
-      // old `size * 0.5` for a round nib.
-      const first = drawable[0]
-      const firstMinor = first.size * 0.5 * preset.sizeMultiplier
-      const firstRadius = Math.max(
-        watercolorSpreadRadius(firstMinor * Math.max(first.aspectRatio, 1), firstMinor), 0.5,
-      )
-      return {
-        // (#536) No longer gated by the wetness under the landing point, and
-        // that gate was the single worst thing about wet-in-wet.
-        //
-        // The bloom used to be baked into this gesture-wide number out of the
-        // one digit under the first dab. So a brush set down *in* a puddle
-        // spread three times as far for the whole of its travel, including the
-        // dry paper it went on to cross, and a brush that started on dry paper
-        // and ran through the puddle got no bloom anywhere — "если веду с
-        // сухого через лужу на сухое, штрих ложится полностью сухим". Worse, at
-        // a 16 px cell the first dab landing in a wet cell or a dry one near the
-        // edge is close to a coin toss, which is the "иногда" in every one of
-        // those reports.
-        //
-        // The bloom is now applied per pixel in the composite, off the deposit's
-        // own record of what the paper under it was carrying (DAB_FRAG's
-        // paperWetHere). This stays the *dry* reach, i.e. the ceiling the
-        // shader scales up from where the paper was actually wet — so a stroke
-        // blooms in the puddle and stays tight either side of it, inside one
-        // mark.
-        spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
-          ? Math.min(
-            profile.spreadPx,
-            Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius),
-          )
-          : 0,
-        inkSmoothPx: 0, // resolved separately, see noteDabSpacing
-        // (#468 v11) How far one exchange moves pigment. A constant of the
-        // gesture for exactly the reason every other scalar here is one: the
-        // composite recomputes whole rects, so whichever batch wrote a pixel
-        // last would otherwise decide how far its paint had travelled.
-        migratePx: profile.migrate > 0 && profile.migrateOfRadius > 0
-          ? Math.min(
-            WATERCOLOR_MIGRATION.maxPx,
-            Math.max(WATERCOLOR_MIGRATION.minPx, firstRadius * profile.migrateOfRadius),
-          )
-          : 0,
-        // The fallback the composite uses outside the mark, where there is no
-        // deposit to read a per-pixel level from. The stroke's starting load,
-        // not its current one, for the same no-seams reason.
-        water: profile.waterLevel,
-        fieldSeed: [drawable[0].x, drawable[0].y],
-        // (#536) A constant of the gesture like every other scalar here, so
-        // the hair does not change frequency between a live batch and the
-        // final recomposite.
-        // The nib's *long* axis, not the equal-area radius. A flat brush is a
-        // row of hairs held in a ferrule, and the ferrule's width is the long
-        // axis: measured by area it came out as a couple of bundles and read
-        // as broad waves rather than as hair, which is what "на chisel не вижу
-        // щетинки" was. For a round nib the two are the same number.
-        //
-        // (#536) …and the ferrule, not this footprint: the first dab of a
-        // gesture carries both the pressure it was begun with and the head
-        // taper, and on a small brush those two together cost most of the hair.
-        // See watercolorFerrulePx.
-        bristleRadiusPx: watercolorFerrulePx(
-          firstMinor, first.aspectRatio, first.pressure, presetName,
-        ),
-      }
-    })
-
-    // (#468 v4, ADR 011 §4.4) The composite rect a *live* batch redraws, padded
-    // past the dabs it just painted.
-    //
-    // v2 and v3 ran the spread and the tideline only at pen-up, because both
-    // read a neighbourhood the moving brush front has not finished writing. The
-    // cost was a visible jump: the artist drew one shape and watched it become
-    // another the instant the stylus lifted. Correct by the model, and bad —
-    // real paint keeps moving, it does not swap geometry in a single frame.
-    //
-    // The fix is that both terms are *local*: they reach at most spread +
-    // tideline radius from any pixel. So a batch that recomposites its own
-    // dabs plus that much margin fixes up everything the previous batch could
-    // only guess at, and the only region still provisional is the margin around
-    // the live front — which is where the brush is, and which the next batch
-    // corrects. The settle pass at pen-up then has nothing left to do but the
-    // final margin, so the mark barely changes when the pen comes up.
-    //
-    // Costs a larger rect per batch. Bounded by the padding, not by the stroke:
-    // this stays proportional to what the batch painted, unlike recompositing
-    // the whole stroke every event, which is what made deferral necessary in
-    // the first place.
-    // The pad has to cover *everything that can still change this pixel*, and
-    // that is not just how far the composite reaches sideways — it is also how
-    // long the brush keeps depositing into a pixel it has already passed.
-    //
-    // Ink and coverage keep arriving until the nib has travelled a full radius
-    // beyond a spot. Pad by less than that and a live batch composites from an
-    // inkLoad that is still missing the dabs behind the front, and no later
-    // batch's rect ever reaches back to correct it. Replay, which composites
-    // once with the whole stroke in the buffers, has no such gap — so the two
-    // disagreed, and a reload silently redrew the stroke differently. Measured
-    // at 26% of the mark's area before this, 9% of it strongly.
-    //
-    // That is a determinism bug, not a cosmetic one: two people in one room
-    // were looking at different pictures.
-    let maxRadius = 0
-    // #489: the nib's *reach*, not its short axis — this term is a bound, and a
-    // flat nib deposits a long semi-axis past a spot rather than a short one.
-    // Erring outward costs a slightly larger rect; erring inward composites
-    // from buffers that are still filling, which is the determinism bug this
-    // whole block exists to prevent.
-    // (§17.23) …and the nib's own radius, without the halo's bound: what the
-    // rim is scaled by.
-    let nibRadius = 0
-    for (const d of drawable) {
-      const minor = d.size * 0.5 * preset.sizeMultiplier
-      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(d) + haloPast(d))
-      nibRadius = Math.max(nibRadius, minor * Math.max(d.aspectRatio, 1))
-    }
-    // Everything that can still change this pixel, **summed** rather than
-    // maxed — each term is a separate hop outward and they compose:
-    //
-    //   maxRadius   the nib keeps depositing into a spot until it has travelled
-    //               its own radius past it;
-    //   spreadPx    the boundary is decided from a blur of coverage that far away;
-    //   wetEdge     the tideline reads the same blur;
-    //   dabSpacing  the deposit is read back averaged over one spacing, so a
-    //               pixel's value depends on its neighbours' deposits too;
-    //   migratePx   (#468 v11) pigment is exchanged with a ring that far out,
-    //               so a pixel's tone depends on deposits that far away — and
-    //               unlike the terms above this one is symmetric, since paint
-    //               arriving is as much a change as paint leaving.
-    //
-    // Getting this wrong does not merely blur something: a live batch then
-    // composites from buffers that are still filling, no later batch's rect
-    // reaches back to correct it, and the mark ends up different from what a
-    // replay of the same operation produces.
-    // (#536) Twice the reach, because the mark can end up that much wider than
-    // the brush: the re-threshold displaces the boundary outward by about
-    // 2 * reach * push, and push is capped at WC_WET_PUSH, which is 0.5. Under-
-    // padding here does not soften a mark, it cuts it off square at the rect's
-    // edge — so this is a bound, not an estimate.
-    //
-    // It used to pad for the bloom multiplied into the *radius*. That factor is
-    // gone (see the reach's own note in DAB_FRAG: an eighty-pixel radius on a
-    // twelve-tap ring is not a blur), and padding for it was costing two and a
-    // half times the composite fill it needed.
-    // (#536, §17.22) No maxRadius here any more: `bounds` is built from the
-    // dabs' world half-extents (and the previous dab's), so the nib's own
-    // radius is already inside it, and adding it again put a 400 px brush's
-    // rect at 1136 px a side where 740 would do — 2.4 times the fill. The
-    // pad is the composite's READ reach only, plus the stamps' edge AA.
-    const compositePad = spreadPx > 0
-      ? Math.ceil(
-        spreadPx * 2 + profile.wetEdgeRadiusPx + dabSpacing + migratePx + profile.aaPx,
-      ) + 1
-      : 0
-    const compositeBounds = compositePad > 0
-      ? {
-        minX: bounds.minX - compositePad, minY: bounds.minY - compositePad,
-        maxX: bounds.maxX + compositePad, maxY: bounds.maxY + compositePad,
-      }
-      : bounds
-    const reachBounds = {
-      minX: rMinX - compositePad, minY: rMinY - compositePad,
-      maxX: rMaxX + compositePad, maxY: rMaxY + compositePad,
-    }
-
-    // (#468 v3, ADR 011 §3.8) Every dab's ink deposit, resolved once for the
-    // batch — *before* the tile loop, because the depletion clock must advance
-    // once per batch and not once per tile a batch happens to straddle.
-    //
-    // Two things happen here that did not before, both watercolor-only:
-    //
-    //  - the deposit is divided by the dab's own radius, turning it from a
-    //    quantity per unit *length* into one per unit *area*. Unnormalized it
-    //    scaled with brush size and saturated the 8-bit inkLoad buffer on the
-    //    first dab of any real wash, which pinned the composite's saturation
-    //    curve at 1 and made `density` dead code (see normalizeDeposit);
-    //  - it decays as the brush unloads along the stroke, which is only
-    //    expressible *because* of the normalization above.
-    //
-    // The marker takes neither and must not: its strokes are permanent and its
-    // constants were calibrated against the old scale. What it does take
-    // (#559) is a gain of >= 1 on that same legacy deposit wherever the nib is
-    // too thin along the travel to have reached the film's knee at all — see
-    // markerInkGain.ts. Exactly 1 for every nib that saturated already.
-    // (#468 v4, ADR 011 §4) Water and pigment run down at *different* rates,
-    // and that difference is the whole behaviour: water soaks away fast while
-    // pigment stays on the hairs, so one long stroke walks itself from a wet
-    // saturated start, through an ordinary middle, to a dry but still strongly
-    // coloured end — and finally to a broken dry-brush tail. A single "wetness"
-    // scalar cannot produce that arc at all.
-    const deposits: number[] = []
-    const waterByDab = new Map<Dab, number>()
-    const pigmentByDab = new Map<Dab, number>()
-    const delivery = ribbonWaterDelivery(profile)
-    scratch.standing.clear()
-    // (#536) Which way "across the brush" points for each dab, in the nib's own
-    // local axes — the stamps' half of the hair comb. Filled in the same loop
-    // that already resolves each dab's travel direction, so there is exactly
-    // one reading of it and the stamps cannot disagree with the bands.
-    const acrossByDab = new Map<Dab, [number, number]>()
-    // (#680, s17.84) The dabs whose direction is the travel's - see below.
-    const movingByDab = new Set<Dab>()
-    // (#536) …and how wet the paper under each dab already was. Straight out of
-    // the recorded profile, indexed by position within this call's own dabs —
-    // which is why the profile is one digit per dab and why every place a
-    // gesture is cut takes its own substring (paperWetness.ts).
-    const paperWetByDab = new Map<Dab, number>()
-    // (#536) The touch-down surplus, per dab — see watercolorStartExcess. Gated
-    // by the wetness under the gesture's *landing point*, not per dab: a brush
-    // dumps its load when it is set down, so what matters is what was under it
-    // then, not what it has run over since.
-    // (#536) How strong this stroke's paint is, on the deposit rather than on
-    // the composite's single opacity — see _bakeDabOpacity's own note.
-    const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1
-    const mottleSeed = strokeSeed ?? [0, 0]
-    const pigmentPoolByDab = new Map<Dab, number>()
-    const excessByDab = new Map<Dab, number>()
-    const puddleByDab = new Map<Dab, number>()
-    // #559 — how much to raise this dab's deposit for being dragged thin-side
-    // first. Shared by the stamps and the bands, which must agree: the two
-    // overlap almost everywhere, and a band on a different scale from the
-    // stamps it connects would show as a seam at every sample.
-    const thinNibGain = (dab: Dab, fromX: number, fromY: number): number => profile.thinNibInkRefPx > 0
-      ? markerThinNibInkGain(
-        nibGeometry(dab, preset.sizeMultiplier, nibShape, cornerFraction),
-        dab.x - fromX, dab.y - fromY, profile.thinNibInkRefPx,
-      )
-      : 1
-    {
-      let prev = prevDab
-      let used = scratch.waterUsed
-      let pigUsed = scratch.pigmentUsed
-      for (const dab of drawable) {
-        const wetHere = wetOf(dab)
-        paperWetByDab.set(dab, wetHere)
-        // #489: travel measured in *this* nib's units, which for a flat one
-        // depends on which way it is being dragged (watercolorTravelRadius).
-        // `prev` is undefined on the stroke's first dab and sits at the same
-        // point for a dwell tick — both are "no direction", and both are what
-        // the null branch answers.
-        const minor = dab.size * 0.5 * preset.sizeMultiplier
-        // (§17.37) The landing dwell: the time the nib has stayed within
-        // WC_DWELL_RADIUS of where it came down, on the dabs' own clock.
-        // Read per dab as it stands so far, so a live stroke's landing
-        // dabs and a replay's see the same values in the same order.
-        if (!scratch.landing) scratch.landing = { x: dab.x, y: dab.y, r: minor * Math.max(dab.aspectRatio, 1), t: dab.t }
-        else if (!scratch.dwellDone) {
-          const L = scratch.landing
-          if (Math.hypot(dab.x - L.x, dab.y - L.y) <= WC_DWELL_RADIUS * L.r) scratch.dwellMs = Math.max(scratch.dwellMs, dab.t - L.t)
-          else scratch.dwellDone = true
-        }
-        const dx = prev ? dab.x - prev.x : 0
-        const dy = prev ? dab.y - prev.y : 0
-        const travelAngle = Math.hypot(dx, dy) > 0.01 ? Math.atan2(dy, dx) : null
-        const radius = Math.max(watercolorTravelRadius(
-          minor * Math.max(dab.aspectRatio, 1), minor, dab.angle, travelAngle,
-        ), 0.5)
-        // (#680, s17.84) A dab that really moved (a fifth of its radius): its
-        // direction is the travel's. The last dabs before a lift move by a
-        // pixel or less and their direction jitters - combed along it, the
-        // pool's streaks came out as arcs and waves at every stroke's end.
-        if (Math.hypot(dx, dy) > 0.2 * minor) movingByDab.add(dab)
-        if (travelAngle !== null) {
-          // Perpendicular of travel, rotated out of world space into the nib's
-          // frame. Null travel is a tap or a dwell tick with no direction to
-          // speak of; the minor axis is the isotropic answer and is what the
-          // uniform already defaults to.
-          const la = travelAngle + Math.PI / 2 - dab.angle
-          acrossByDab.set(dab, [Math.cos(la), Math.sin(la)])
-        }
-        const seg = this._markerSegmentLength(dab, prev, radius)
-        if (profile.waterDepletion) {
-          const step = watercolorWaterStep(seg, radius)
-          // (#536) Travel spends both clocks; only water is ever given back,
-          // and only by paper this stroke *recorded* as wet. See
-          // watercolorWaterClock, and RibbonStrokeScratch._pigmentUsed on why
-          // the two are separate numbers at all.
-          pigUsed += step
-          used = watercolorWaterClock(used, step, wetHere)
-        }
-        // The profile's levels are the *initial* load; the two curves say how
-        // much of each is left after that much travel. depositPerRadius already
-        // carries the nominal pigment setting, so only the remaining *fraction*
-        // multiplies it here.
-        // (#536, §17.21) …and a clean-water brush does not run down at all.
-        const load = profile.waterDepletion && watercolorBrushRunsDry(profile.pigmentStrength) ? watercolorWaterLoad(used) : 1
-        const water = profile.waterDepletion ? profile.waterLevel * load : 1
-        // (#536, §17.14) …by the brush's water: a wet brush spends the same
-        // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
-        // (§17.26) …and a wet sheet pulls more of it out (watercolorWetPull).
-        const pigmentLeft = profile.waterDepletion
-          ? watercolorPigmentLoad(pigUsed, profile.waterLevel) * watercolorPigmentRate(profile.waterLevel) * watercolorWetPull(wetHere)
-          : 1
-        // The gesture's own travel clock, carried on the scratch, so this decays
-        // from the *stroke's* start rather than from each batch's. The pigment
-        // one: a brush that drank from a puddle halfway along has not gone back
-        // to being freshly set down, and the touch-down surplus is about the
-        // moment of landing.
-        // (#680, §17.74) The dwell at THIS dab, not only at the landing: a
-        // stop, a sharp turn, a turn-back unload the reservoir the same way,
-        // and the surplus is spent over the travel after it.
-        const tau = Math.max(0, watercolorTrailDwell(scratch.trail, dab.x, dab.y, dab.t, WC_DWELL_RADIUS * minor * Math.max(dab.aspectRatio, 1)) - WC_DWELL_FLOOR_MS)
-        const gateHere = 1 - Math.min(Math.max(wetHere, 0), 1)
-        const pigmentGate = 0.45 + 0.55 * gateHere
-        // …and the slowdown relative to this stroke's own pace (watercolorSlowdown).
-        const last = scratch.trail.length ? scratch.trail[scratch.trail.length - 1] : null
-        let slow = 0
-        let speedElapsed = 0
-        if (scratch.speedAt < 0) scratch.speedAt = dab.t
-        if (last) {
-          scratch.speedTravel += Math.hypot(dab.x - last.x, dab.y - last.y)
-          const dt = dab.t - scratch.speedAt
-          if (dt > 0) {
-            // One pointer batch gives several dabs the same timestamp. Keep
-            // their travel until the next real time interval; dt=1 invented
-            // high speeds and a braking pool at the next batch boundary.
-            const v = scratch.speedTravel / dt
-            const a = 1 - Math.exp(-dt / WC_SPEED_TAU_MS)
-            scratch.speed += (v - scratch.speed) * a
-            scratch.speedPeak = Math.max(scratch.speed, scratch.speedPeak * Math.exp(-dt / WC_PEAK_FADE_MS))
-            scratch.speedAt = dab.t
-            scratch.speedTravel = 0
-            speedElapsed = dt
-          }
-          slow = watercolorSlowdown(scratch.speed, scratch.speedPeak)
-        }
-        const spent = pigUsed - scratch.surplusAt
-        // Two reservoirs, spent at their own lengths: a stop's (the dwell) lays
-        // the landing's long pool, a braking's a compact one (WC_SLOW_RUN_RADII).
-        scratch.surplusPigment = watercolorSurplus(scratch.surplusPigment, spent, watercolorDwellPigment(tau) * pigmentGate, WC_START_EXCESS_RADII)
-        scratch.surplusWater = watercolorSurplus(scratch.surplusWater, spent, watercolorDwellWater(tau) * gateHere, WC_PUDDLE_RADII)
-        scratch.brakePigment = watercolorBrakeSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * pigmentGate, speedElapsed)
-        scratch.turnOffset[0] += dx; scratch.turnOffset[1] += dy
-        if (Math.hypot(...scratch.turnOffset) >= Math.max(1.5, minor * 0.12)) {
-          scratch.brakePigment = watercolorTurnSurplus(scratch.brakePigment, watercolorTurnLoad(scratch.turnDirection, ...scratch.turnOffset), pigmentGate)
-          const direction = scratch.turnOffset
-          scratch.turnDirection = [...direction]
-          scratch.turnOffset = [0, 0]
-        }
-        scratch.surplusAt = pigUsed
-        scratch.trail.push({ x: dab.x, y: dab.y, t: dab.t })
-        if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
-        const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, landedWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
-        excessByDab.set(dab, excess)
-        // (#680, s17.79) ...and the landing's own surplus, which needs no dwell:
-        // the touch-down's pool is a pool too, broken into blots like the others.
-        const landingPool = (1 - Math.min(Math.max(landedWet, 0), 1)) * Math.exp(-pigUsed / WC_START_EXCESS_RADII)
-        // Braking pigment is not extra water: a sharp turn must not invent a
-        // deep visible puddle merely because it unloads a little more colour.
-        // Pigment pooling is independent of standing water: turns must not
-        // invent a water puddle to receive a nonuniform pigment deposit.
-        pigmentPoolByDab.set(dab, 0.5 + 0.5 * Math.min(1, Math.max(landingPool, scratch.surplusPigment, scratch.brakePigment)))
-        const waterPool = Math.max(scratch.surplusWater, landingPool)
-        puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(waterPool, wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
-        if (profile.waterDepletion) this._dabPool.set(dab, Math.min(waterPool, 1))
-        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && profile.waterLevel > 0) scratch.brushTravel.push({
-          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water: profile.waterLevel,
-        })
-        waterByDab.set(dab, water)
-        pigmentByDab.set(dab, pigmentLeft)
-        if (profile.normalizeDeposit) scratch.standing.set(dab, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
-        // The stamps' share of the dose, doubled back up because the legacy
-        // formula's 0.5 assumed an even split with the bands.
-        const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
-        // (§17.28) Under MAX the stamp's value IS the film: spacing-free.
-        deposits.push(profile.normalizeDeposit
-          ? (film
-            ? profile.depositPerRadius * WC_FILM_DOSE * pigmentLeft * excess
-            : profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft * excess)
-          : dab.opacity * seg * 0.5 * thinNibGain(dab, prev?.x ?? dab.x, prev?.y ?? dab.y))
-        prev = dab
-      }
-      scratch.advanceWater(used, pigUsed)
-    }
-    // (#536, §17.63) Only now. Everything above is the gesture's bookkeeping -
-    // the brush's water and pigment clocks, the landing and its dwell, the dab
-    // spacing, the direction, the composite's scalars from the first dab - and
-    // it has to advance per dab whether or not the batch lands on the sheet.
-    // Returning before it made the result depend on how the gesture was cut
-    // into batches: the author's live batches off the sheet spent nothing, and
-    // the brush came onto the paper fully loaded; a replay paints the operation
-    // as one batch that does reach the sheet, and it came on already spent -
-    // 30-40 % lighter over the whole mark (a V begun off the page at 32 %).
-    if (!targets.length) return
-
-    // (#536, ADR 011 §17.10) The halo: a second, wider, weaker stamp for every
-    // dab that landed on wet paper, into the same coverage and deposit buffers.
-    // This is where wet-in-wet growth lives now, and the reason it lives here
-    // rather than in the composite is spelled out at watercolorHalo. Grown
-    // copies carry over every per-dab reading of the original, so the bands
-    // and stamps of the halo agree with the mark's own about water, hair
-    // direction and paper.
-    const haloDabs: Dab[] = []
-    const haloDoseByDab = new Map<Dab, number>()
-    /** What each ORIGINAL dab gave up to its halo, so the core is laid lighter
-     *  by exactly that share — conservation, and the "dissolves in water" feel. */
-    const haloShedByDab = new Map<Dab, number>()
-    let anyHalo = false
-    // A flat disc, not the tool's cone. The ink stamp is a cone that is zero at
-    // the nib's rim (inkEdgeFalloff 0 — see the shader's mix(u_inkEdge, 1, depth)),
-    // so a stamp merely made wider puts only the cone's outer slope over the
-    // ring that is the halo: measured on a replay of Ilya's own stroke through
-    // the density view, a halo 2.9x wider at nearly full dose registered at a
-    // few per cent of the core. The halo is a plateau of migrated pigment, and
-    // a plateau is what this profile lays.
-    const haloProfile: RibbonProfile = { ...profile, inkEdgeFalloff: 1 }
-    if (profile.normalizeDeposit) {
-      for (const dab of drawable) {
-        const { scale, shed, wet } = watercolorHalo(paperWetByDab.get(dab) ?? 0, waterByDab.get(dab) ?? 0)
-        // Past the composite's bloom, not merely past the dab — see
-        // WATERCOLOR_HALO_PAST_BLOOM. spreadPx is the gesture's reach in world
-        // px and dab.size is a diameter, hence the factor of two.
-        const grown: Dab = { ...dab, size: dab.size * scale + 2 * WATERCOLOR_HALO_PAST_BLOOM * spreadPx * wet }
-        haloDabs.push(grown)
-        // The shed share as the halo stamp's dose, un-compensated for the wider
-        // radius on purpose — see watercolorHalo on why per pixel it comes out
-        // as shed / scale, a ring's worth rather than a disc's.
-        haloDoseByDab.set(grown, shed)
-        haloShedByDab.set(dab, shed)
-        if (shed > 0) anyHalo = true
-        const across = acrossByDab.get(dab)
-        if (across) acrossByDab.set(grown, across)
-        waterByDab.set(grown, waterByDab.get(dab) ?? 0)
-        pigmentByDab.set(grown, pigmentByDab.get(dab) ?? 1)
-        pigmentPoolByDab.set(grown, pigmentPoolByDab.get(dab) ?? 0.5)
-        excessByDab.set(grown, excessByDab.get(dab) ?? 1)
-        puddleByDab.set(grown, puddleByDab.get(dab) ?? 1)
-        paperWetByDab.set(grown, paperWetByDab.get(dab) ?? 0)
-      }
-    }
-
-    // Bands share the stamps' scale, or they would swamp it: the two overlap
-    // almost everywhere and each carries half a dose, so a band still on the
-    // legacy scale would drown whatever the normalized stamps expressed.
-    // Omitting the callback leaves buildRibbonBands' own formula untouched,
-    // which is what the brush pen gets. The marker (#559) passes that same
-    // formula back in with the thin-nib gain on it, so its bands and stamps
-    // stay on one scale — a gain of 1 reproduces the omitted case exactly.
-    const inkFor = profile.thinNibInkRefPx > 0 && !profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number; pigmentPool?: number } => ({
-        ink: d1.opacity * travel * 0.5 * thinNibGain(d1, d0.x, d0.y),
-        water: 0, paperWet: 0, strength: 0, puddle: 1,
-      })
-      : profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number; pigmentPool?: number } => {
-        // #489: same measure the stamps use, and it has to be the same one —
-        // the bands overlap the stamps almost everywhere, so two different
-        // readings of "how far in nib units" would show up as a seam.
-        const minor = d1.size * 0.5 * preset.sizeMultiplier
-        const bdx = d1.x - d0.x
-        const bdy = d1.y - d0.y
-        const bandAngle = Math.hypot(bdx, bdy) > 0.01 ? Math.atan2(bdy, bdx) : null
-        const radius = Math.max(watercolorTravelRadius(
-          minor * Math.max(d1.aspectRatio, 1), minor, d1.angle, bandAngle,
-        ), 0.5)
-        // Per segment, not per batch: the water weighting rides the vertex now
-        // (markerRibbon.ts's FLOATS_PER_VERTEX) precisely so that how the
-        // stroke was cut into pointer events cannot change the result.
-        return {
-          ink: (film
-            ? profile.depositPerRadius * WC_FILM_DOSE * 2
-            : profile.depositPerRadius * (travel / radius) * 0.5 * ((1 - profile.stampInkShare) * 2))
-            * (pigmentByDab.get(d1) ?? 1)
-            * (excessByDab.get(d1) ?? 1)
-            // (#536) …less what this dab shed into standing water — see the
-            // halo, which is made of exactly this share.
-            * (1 - (haloShedByDab.get(d1) ?? 0)),
-          water: waterByDab.get(d1) ?? 0,
-          paperWet: paperWetByDab.get(d1) ?? 0,
-          // (#680, s17.84) Negative on a segment the brush barely moved
-          // along: its direction jitters, and the coverage pass leaves the
-          // pool mark (.g) off there - see movingByDab. The ink pass reads
-          // the magnitude.
-          strength: Math.hypot(bdx, bdy) > 0.2 * minor ? inkStrength : -inkStrength,
-          puddle: puddleByDab.get(d1) ?? 1,
-          pigmentPool: pigmentPoolByDab.get(d1) ?? 0.5,
-        }
-      }
-      : undefined
-    // #547 — not merely unused for a stamps-only tool but not built at all:
-    // the band builder walks every consecutive pair and allocates a vertex
-    // buffer per segment, which on a densely-spaced brush stroke is the larger
-    // half of the CPU work in this method.
-    const bands = profile.stampsOnly ? EMPTY_BANDS : buildRibbonBands(
-      drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor, film,
-    )
-
-    // (#536, s17.13) The hairs' bundle count, for the ink pass below and the
-    // composite alike - see ribbonBristleCombs.
-    const combs = ribbonBristleCombs(profile, bristleRadiusPx)
-    // (#536, §17.19) This stroke's paint as absorption, for the colour record.
-    const tau = pigmentAbsorption(color)
-    scratch.paints.add(color.join(','))
-
-    // #547 — flow, normalized against how far the brush travelled between
-    // stamps, computed once for the batch rather than per tile.
-    //
-    // Why it has to be normalized at all, and this is the correction to the
-    // first version: the coverage buffer accumulates as plain "over", and the
-    // stamps of this tool are spaced a *twentieth* of the footprint apart. A
-    // pixel is therefore under ~20 of them in a single pass, so even a flow of
-    // 0.12 reaches 1 - 0.88^20 = 0.92 — and every brush, at every pressure, came
-    // out at full density. The setting existed and could not be seen ("нажим
-    // меняет плотность вообще не работает, всё время максимальная плотность").
-    //
-    // The fix makes `flow` mean what a painter means by it: **how much one full
-    // pass of the brush lays down**, rather than how much one stamp does. Per
-    // stamp that is
-    //
-    //     f' = 1 - (1 - f) ^ (travel / diameter)
-    //
-    // so that after travelling one diameter — i.e. after the ~diameter/travel
-    // stamps that cover a given pixel — the accumulated coverage is exactly f,
-    // whatever the spacing. Two consequences worth naming: the density stops
-    // depending on how fast the stroke was drawn (fast strokes used to be
-    // sparser and therefore paler), and it stops depending on the brush's
-    // authored spacing, which is now free to be chosen for smoothness alone.
-    const stampFlows = profile.stampFlow
-      ? drawable.map((dab, i) => {
-        const prevOne = i === 0 ? prevDab : drawable[i - 1]
-        const diameter = Math.max(dab.size * preset.sizeMultiplier, 0.5)
-        const travel = this._markerSegmentLength(dab, prevOne, diameter * 0.5)
-        const full = profile.stampFlow!(dab.pressure)
-        if (full >= 1) return 1
-        return Math.max(0, Math.min(1, 1 - Math.pow(1 - full, Math.min(travel / diameter, 1))))
-      })
-      : null
-
-
-
-    for (const tile of targets) {
-      const { original, coverage, inkLoad, inkColor } = scratch.getOrCreate(tile.buffer)
-
-      // #547, ADR 013 §3 — the stamp's own `opacity` argument is this dab's
-      // **flow** for the digital brush, and a plain 0 for the three tools whose
-      // coverage pass only needs a silhouette (their mode-6 branch ignores it).
-      // (#536, s17.11) For the watercolor the recorded paper wetness rides
-      // along into the coverage stamp too: its .b is the standing-water
-      // record the diffusion pass gates on. See u_washWater.
-      for (let i = 0; i < drawable.length; i++) {
-        const dab = drawable[i]
-        if (!this._nibTouchesTile(tile, dab, preset)) continue // (§17.70)
-        this._drawRibbonNibPass(
-          coverage, tile, dab, preset, profile, profile.coverageInkMode,
-          stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
-          paperWetByDab.get(dab) ?? 0, 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
-          // (s17.84) ...and the pool share into the coverage's .g - where
-          // the brush was moving: a standing dab has no direction to comb
-          // along (its across is the default, not the travel's).
-          profile.waterDepletion && movingByDab.has(dab) ? 1 : 0,
-        )
-        yield pieceTris ? this._nibDrawCost(tile, dab, preset) : 0
-      }
-      // #547 — a brush's mark is a repeated stamp, not a swept smear, so the
-      // bands that fill between samples are switched off for it (ADR 013 §4).
-      // The three older tools keep them: on a turn the bands reach places the
-      // stamps miss, and with nothing there the composite paints bare paper.
-      if (!profile.stampsOnly && bands.length) {
-        for (const piece of ribbonBandPieces(bands, pieceTris)) {
-          const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
-          if (pieceTris && !px) continue // (§17.70) nothing of it on this tile
-          this._drawRibbonBands(
-            coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
-            ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
-            combs, 0, null, profile.waterDepletion ? 1 : 0,
-          )
-          yield px
-        }
-      }
-
-      // Ink follows the *same* figure as the silhouette. Depositing it only at
-      // the sample stamps is what produced the rounded white notches on turns:
-      // between stamps the ribbon still made the mark fully opaque, but with an
-      // ink load of zero the composite multiplies by nothing and the paper
-      // shows straight through. Both halves carry half a dose each (see
-      // buildRibbonBands) so their overlap sums to the calibrated amount.
-      //
-      // Skipped entirely for a covering ink, which has no such quantity — see
-      // RibbonProfile.ink.
-      // (§17.28) With the film on, the stamps and bands go into the gesture's
-      // own buffers under MAX and inkLoad/inkColor are rebuilt as base + film
-      // over the batch's rect; without it, straight into inkLoad additively.
-      const fb = film && inkLoad ? scratch.filmBuffers(tile.buffer) : null
-      const inkDest = fb ? fb.strokeInk : inkLoad
-      const colorDest = fb ? fb.strokeColor : inkColor
-      const beginInk = (buf: AccumulationBuffer): void => { if (fb) buf.beginMaxDraw(this._minmaxExt!); else buf.beginAdditiveDraw() }
-      const bandMode = fb ? 'ink-max' as const : 'ink' as const
-      // (#680, s17.79) The watercolor's surplus lies in blots — see wcPoolBlot.
-      const poolBlot = profile.waterDepletion ? 1 : 0
-      if (inkDest) {
-        for (let i = 0; i < drawable.length; i++) {
-          if (!this._nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
-          beginInk(inkDest)
-          this._drawRibbonNibPass(
-            inkDest, tile, drawable[i], preset, profile, 7,
-            deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
-            waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-            paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk,
-            null, pigmentPoolByDab.get(drawable[i]) ?? 0.5, poolBlot,
-          )
-          inkDest.endDraw()
-          yield pieceTris ? this._nibDrawCost(tile, drawable[i], preset) : 0
-        }
-        if (bands.length) {
-          for (const piece of ribbonBandPieces(bands, pieceTris)) {
-            const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
-            if (pieceTris && !px) continue
-            this._drawRibbonBands(
-              inkDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-              0, 0, combs, profile.bristleInk, null, poolBlot,
-            )
-            yield px
-          }
-        }
-        // (#536, §17.19) …and the same figure once more, into the colour
-        // record: the paint's optical depth per texel. Same dose, same hairs,
-        // same mottling, so depth and deposit agree to the texel.
-        if (colorDest) {
-          for (let i = 0; i < drawable.length; i++) {
-            if (!this._nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
-            beginInk(colorDest)
-            this._drawRibbonNibPass(
-              colorDest, tile, drawable[i], preset, profile, 7,
-              deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
-              waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-              paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk, tau,
-              puddleByDab.get(drawable[i]) ?? 1, poolBlot,
-            )
-            colorDest.endDraw()
-            yield pieceTris ? this._nibDrawCost(tile, drawable[i], preset) : 0
-          }
-          if (bands.length) {
-            for (const piece of ribbonBandPieces(bands, pieceTris)) {
-              const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
-              if (pieceTris && !px) continue
-              this._drawRibbonBands(
-                colorDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-                0, 0, combs, profile.bristleInk, tau, poolBlot,
-              )
-              yield px
-            }
-          }
-        }
-      }
-
-      if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
-      // (#536, ADR 011 §17.10) The halo, after the mark itself: ink only, and
-      // only where the wash already has coverage. The pigment a wet-in-wet dab
-      // sheds travels as far as the standing water and no further, and the
-      // water is this wash's own silhouette — the puddle is a stroke of the
-      // same wash — so clipping the stamp by the coverage buffer is what keeps
-      // a halo from ever leaving the puddle ("пигмент за пределы лужи может
-      // уйти, такого быть не может"). No coverage stamp for the halo for the
-      // same reason: it must not grow the silhouette. Skipped outright on dry
-      // paper: no wet dab, no second pass, no cost.
-      if (anyHalo && inkDest) {
-        for (let i = 0; i < haloDabs.length; i++) {
-          const dose = haloDoseByDab.get(haloDabs[i]) ?? 0
-          if (dose <= 0 || !this._nibTouchesTile(tile, haloDabs[i], preset)) continue // (§17.70)
-          beginInk(inkDest)
-          this._drawRibbonNibPass(
-            inkDest, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
-            waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
-            paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage, combs, profile.bristleInk,
-          )
-          inkDest.endDraw()
-          yield pieceTris ? this._nibDrawCost(tile, haloDabs[i], preset) : 0
-        }
-      }
-      // (§17.28) The deposit the composite and the settle read: the wash as it
-      // stood before this gesture plus the gesture's film, over this batch's
-      // rect (the film outside it is unchanged since the last batch).
-      if (fb && inkLoad) {
-        const rect = this._revealRect(tile, compositeBounds)
-        if (rect) {
-          this._fieldOp(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
-          if (inkColor && fb.strokeColor && fb.colorBase) this._fieldOp(inkColor, fb.colorBase, fb.strokeColor, 1, 1, { scissor: rect })
-        }
-      }
-
-      // `drawable[0].opacity` rather than a per-dab value: only a tool whose
-      // dabs all share one opacity can be composited from a coverage buffer at
-      // all, which for the brush pen is guaranteed by _bakeDabOpacity (ADR 009
-      // §9 — pressure drives width, never alpha). The marker's branch ignores
-      // this argument entirely and reads its own inkLoad texture instead.
-      if (deferComposite) {
-        // (#536, §17.22) The live gesture: the rect joins this frame's union
-        // and the composite runs once, in _display, before the frame is drawn.
-        const pending = scratch.pendingComposite.get(tile.buffer)
-        if (pending) {
-          pending.bounds.minX = Math.min(pending.bounds.minX, compositeBounds.minX)
-          pending.bounds.minY = Math.min(pending.bounds.minY, compositeBounds.minY)
-          pending.bounds.maxX = Math.max(pending.bounds.maxX, compositeBounds.maxX)
-          pending.bounds.maxY = Math.max(pending.bounds.maxY, compositeBounds.maxY)
-        } else {
-          scratch.pendingComposite.set(tile.buffer, { tile, bounds: { ...compositeBounds } })
-        }
-        // Every coalesced batch grows both the layer and paper damage, even
-        // when this tile already has a pending composite for the frame.
-        this._markPaperDamage(compositeBounds)
-        this._liveComposite = {
-          scratch, preset, profile, color, opacity: drawable[0].opacity, fieldSeed, spreadPx, fringeWater, migratePx,
-          inkSmoothPx: profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
-        }
-        continue
-      }
-      const revealPrev = this._revealBeforeBatch(tile, compositeBounds)
-      this._drawRibbonCompositeRect(
-        tile, compositeBounds, preset, profile, original, coverage, inkLoad, inkColor, color, drawable[0].opacity,
-        fieldSeed, spreadPx, fringeWater, migratePx,
-        profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
-      )
-      this._revealAfterBatch(tile, compositeBounds, revealPrev)
-      yield pieceTris ? rectOnTile(tile, compositeBounds) : 0
-    }
-
-    scratch.noteFinish({
-      target, preset, profile, color, opacity: drawable[0].opacity,
-      bounds: reachBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius, dwellMs: scratch.dwellMs,
-    })
-
-    target.markContentPainted(compositeBounds)
+    yield* this._ribbonPainter.paint(target, dabs, preset, presetName, profile, color, scratch, prevDab, wetProfile, strokeSeed, deferComposite, pieceTris)
   }
 
   /** #573 — a digital brush stroke on the `stamp` model: see
@@ -9082,137 +6855,11 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._ribbonScratchPool.release(prev)
   }
-
-  /** One WC_FIELD_OP_FRAG step between same-sized buffers — see the shader
-   *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
-   *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number] } = {},
   ): void {
-    const { gl } = this
-    out.beginReplaceDraw()
-    if (opts.scissor) {
-      gl.enable(gl.SCISSOR_TEST)
-      gl.scissor(opts.scissor[0], opts.scissor[1], opts.scissor[2], opts.scissor[3])
-    }
-    // (#685) Carry modes must never enter the bookkeeping program: its
-    // combined control flow crashes the Galaxy Tab's Adreno linker.
-    const high = mode >= 10
-    const prog = mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
-    const u = mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
-    const pos = mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
-    gl.useProgram(prog)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(pos)
-    gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, a.texture)
-    gl.uniform1i(u.u_a, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, b.texture)
-    gl.uniform1i(u.u_b, 1)
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, (opts.c ?? b).texture)
-    gl.uniform1i(u.u_c, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, (opts.d ?? b).texture)
-    gl.uniform1i(u.u_d, 3)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform1f(u.u_k, k)
-    gl.uniform1f(u.u_mode, mode)
-    gl.uniform2f(u.u_dir, opts.dir ? opts.dir[0] / out.width : 0, opts.dir ? opts.dir[1] / out.height : 0)
-    gl.uniform2f(u.u_origin, opts.origin ? opts.origin[0] : 0, opts.origin ? opts.origin[1] : 0)
-    gl.uniform2f(u.u_size, opts.size ? opts.size[0] : out.width, opts.size ? opts.size[1] : out.height)
-    gl.uniform2f(u.u_band, opts.band ? opts.band[0] : 0, opts.band ? opts.band[1] : 0)
-    gl.uniform3fv(u.u_tau, opts.tau ?? [0, 0, 0])
-    gl.uniform3fv(u.u_world, opts.world ?? [0, 0, 0])
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
-    out.endDraw()
-  }
-
-  /** (#536, §17.24) One relaxation step of the water front's cost (WC_WATER_FRONT_FRAG)
-   *  over a settle field whose top-left is at world (x0, y0): src → dst. Shared by
-   *  the settle's outward and inward passes and the group tide's inward one. */
-  private _waterFrontStep(
-    field: SettleField, x0: number, y0: number, dryCost: number,
-    src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
-    /** (§17.44) World px per field cell. */
-    scale = 1, foreignWater: WebGLTexture | null = null,
-  ): void {
-    const { gl } = this
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    dst.beginReplaceDraw()
-    gl.useProgram(this._waterFrontProg)
-    this._stamps.bindNoise(this._waterFrontUni.u_wcNoiseTex)
-    const u = this._waterFrontUni
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._waterFrontPosLoc)
-    gl.vertexAttribPointer(this._waterFrontPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, src.texture)
-    gl.uniform1i(u.u_cost, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 1)
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
-    gl.uniform1i(u.u_film, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, foreignWater ?? this._paperTex)
-    gl.uniform1i(u.u_foreignFilm, 3)
-    gl.uniform1f(u.u_foreignWet, foreignWater ? 1 : 0)
-    gl.uniform1f(u.u_dryCost, dryCost)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform2f(u.u_resolution, field.w, field.h)
-    gl.uniform2f(u.u_paperOrigin, x0 / scale, -(y0 / scale + field.h))
-    gl.uniform2f(u.u_paperTexSize, paperTexW / scale, paperTexH / scale)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    gl.uniform1f(u.u_climb, climb)
-    gl.uniform1f(u.u_floor, floor)
-    gl.uniform1f(u.u_costMax, max)
-    gl.uniform1f(u.u_stride, stride)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    dst.endDraw()
-  }
-
-  /** (#536, §17.44) One WC_RESAMPLE_FRAG draw into `dst` over the GL rect
-   *  (dx, dy, dw, dh). Mode 0 averages `src` down (ratio 2), mode 1 writes
-   *  base + up(src) - up(old), mode 2 max(base, up(src)) (ratio 1/2). `dst`
-   *  must not be `base`: modes 1 and 2 go through a temporary. */
-  private _wcResample(
-    dst: AccumulationBuffer, dx: number, dy: number, dw: number, dh: number,
-    src: AccumulationBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2,
-    old: AccumulationBuffer | null = null, base: AccumulationBuffer | null = null,
-    /** The source texels the draw may read: [x0, y0, x1, y1). The whole source by default. */
-    clampRect: [number, number, number, number] | null = null,
-  ): void {
-    if (dw <= 0 || dh <= 0) return
-    const { gl } = this
-    dst.beginReplaceDraw()
-    gl.enable(gl.SCISSOR_TEST)
-    gl.scissor(dx, dy, dw, dh)
-    gl.useProgram(this._resampleProg)
-    const u = this._resampleUni
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._resamplePosLoc)
-    gl.vertexAttribPointer(this._resamplePosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.texture); gl.uniform1i(u.u_src, 0)
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, (old ?? src).texture); gl.uniform1i(u.u_old, 1)
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, (base ?? src).texture); gl.uniform1i(u.u_base, 2)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform2f(u.u_srcSize, src.width, src.height)
-    gl.uniform2f(u.u_baseSize, (base ?? dst).width, (base ?? dst).height)
-    gl.uniform2f(u.u_dstOrigin, dx, dy)
-    gl.uniform2f(u.u_srcOrigin, sx, sy)
-    gl.uniform1f(u.u_ratio, ratio)
-    gl.uniform1f(u.u_mode, mode)
-    const cr = clampRect ?? [0, 0, src.width, src.height]
-    gl.uniform4f(u.u_clamp, cr[0], cr[1], cr[2], cr[3])
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    gl.disable(gl.SCISSOR_TEST)
-    dst.endDraw()
+    this._watercolorPasses.fieldOp(out, a, b, mode, k, opts)
   }
 
   /** (#536, §17.44) The reveal's copies, pooled: a new tile-sized texture per
@@ -9280,39 +6927,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.viewport(0, 0, targetW, targetH)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
-
-  /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
-   *  laid (the deposit less what was settled before it) is split into a
-   *  fixed and a mobile share (WET_DIFFUSE_MOBILE); the mobile share runs
-   *  WET_DIFFUSE_RADII steps of WC_DIFFUSE_FRAG, ping-ponged; and the sum —
-   *  settled + fixed + moved — goes back to the tiles and becomes the new
-   *  settled deposit.
-   *
-   *  Only this operation's paint, deliberately. The first version moved the
-   *  whole wash at every settle, so the first stroke of a wash was diffused
-   *  again by every later stroke in it — thinner each time — while the
-   *  latest sat where it was laid: "пигмента в луже катастрофически мало, а
-   *  повторный штрих ложится слишком сильно". Paint moves once, at the
-   *  settle that laid it, then it is fixed; lifting fixed paint with clean
-   *  water is the remobilization round (§17.9). The flux is linear in the
-   *  concentration for a given gate, so moving the mobile share of the new
-   *  paint alone is exact, and each part is conserved on its own.
-   *
-   *  Over ONE field, not per tile. Per tile, everything off the tile was dry
-   *  paper, so a puddle across x = 1024 kept its paint on each side — a
-   *  straight seam, visible the moment the reveal let go ("при высыхании я
-   *  вижу линии склейки тайлов"). The wash's tiles are stitched into a rect —
-   *  the settle bounds padded by the schedule's whole reach, so no texel with
-   *  paint can ever see the rect's edge — and copied back. The paper's height
-   *  is sampled at the WORLD position, so where the rect starts (a live
-   *  gesture's bounds and a replay's differ by a batch's padding) cannot move
-   *  a pit. Nothing here reads a clock; the schedule is a constant of the
-   *  tool, and the eight-bit write between steps is the one measured leak. */
-  /** (#536, ADR 011 §17.11, §17.22) The wet diffusion over this wash's
-   *  tiles stitched into one field, as a list of GPU steps plus the copy-back
-   *  — a list so that the author's pen-up can spread it over frames under
-   *  the reveal (see _startSettle) while a replay runs it in one go. Null
-   *  when the wash holds no deposit here. */
   private _diffuseWashOps(
     scratch: RibbonStrokeScratch, targets: PaintTarget[],
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
@@ -9334,821 +6948,8 @@ export class PencilEngine implements PencilEngineAPI {
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
   ): { ops: Array<() => void>; finish: () => void } | null {
-    const { gl } = this
-    const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
-    if (!tiles.length) return null
-    // The rect: the settle's bounds plus the reach, clipped to the tiles that
-    // actually hold this wash. Capped — a wash wider than the cap diffuses
-    // in a window around its centre and sees a wall at the window's edge.
-    // (#536, §17.22) 1536, from 2048: seven buffers of 2048² are 117 MB, which
-    // a tablet does not have to spare; at 1536 the field is 66 MB and a 400 px
-    // brush's whole gesture still fits it with its reach.
-    // (§17.44) A big brush settles at HALF resolution: every pass of the
-    // settle over a field a quarter the size, and a window twice as wide in
-    // the world. The field holds cells of S px; what goes back to the tiles
-    // is the field's change, brought up and added to the full-resolution
-    // record (_wcResample), so the grain and the brush's texture are the
-    // tile's own and only the movement is coarse. On the tablet a 400 px
-    // zigzag's settle was 70 ms an entry and ~40 entries a chunk.
-    // ...and only a big mark over a big window: a drop into a puddle or a
-    // patch of a few hundred pixels settles in a small field anyway, and at
-    // half resolution its paint spread softer and paler than it does.
-    let S = 1
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const t of tiles) {
-      minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY)
-      maxX = Math.max(maxX, t.originX + t.buffer.width); maxY = Math.max(maxY, t.originY + t.buffer.height)
-    }
-    // (§17.38) ...padded by the further of the diffusion's reach and the
-    // water front's run: the front's budget is in cost units and a cell
-    // costs at least WC_FRONT_FLOOR, so budget / floor px is the furthest
-    // the domain can lie past the footprint. With the diffusion trimmed
-    // to a few texels the pad shrank to six, a flooded landing's front
-    // (budget up to 160) ran into the field's edge, and the domain - and
-    // the coverage it extends - came out cut to the rect: a wash on the
-    // rig turned into a lopsided polygon.
-    const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, Math.max(landedWet, wetPeak)) / WC_FRONT_FLOOR)
-    // (§17.42) ...plus, when the wash dries as one component, the margin
-    // the group tide needs around what changed: its band is read off an
-    // inward relaxation of `inSteps` cells from the coverage's edge and its
-    // kernel gathers about a radius, so a texel closer than that to the
-    // field's edge could be missing a contour that lies just outside the
-    // field. The dry target is copied back over the field LESS this margin;
-    // the wet state over all of it.
-    const groupDry = !this._wcAb.opDry
-    const dryMargin = groupDry ? Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5))) + 2 + Math.ceil(radiusPx) + 2 : 0
-    const pad = Math.max(WET_DIFFUSE_REACH, frontReachPx) + 1 + dryMargin
-    let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
-    let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
-    if (radiusPx >= WC_HALF_RES_RADIUS_PX && Math.max(x1 - x0, y1 - y0) > WC_HALF_RES_SPAN_PX) S = 2
-    const CAP = 1536 * S
-    if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
-    if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
-    if (S > 1) {
-      // Cell-aligned: tile edges are multiples of 1024, so a rect on even
-      // coordinates maps every tile overlap onto whole cells.
-      x0 = Math.max(minX, Math.floor(x0 / S) * S); y0 = Math.max(minY, Math.floor(y0 / S) * S)
-      x1 = Math.min(maxX, Math.ceil(x1 / S) * S); y1 = Math.min(maxY, Math.ceil(y1 / S) * S)
-      // (§17.49) ...and back under the cap: the alignment could push a capped
-      // window one field texel past it - 1537, which the field rounds up to
-      // the next size, so a big wash's chunk settle (1536) and its pen-up
-      // settle (1537) re-made the whole field in turn, every stroke.
-      if (x1 - x0 > CAP) x1 = x0 + CAP
-      if (y1 - y0 > CAP) y1 = y0 + CAP
-    }
-    const w = x1 - x0, h = y1 - y0
-    if (w <= 0 || h <= 0) return null
-    scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
-    const field = this._diffuseFieldFor(w / S, h / S)
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    // (§17.44) At half resolution what goes home is the SETTLED wash at full
-    // resolution plus the field's result less its own settled part: the
-    // wash already on the paper keeps its grain and texture to the pixel,
-    // and the operation's own wet paint comes back from the field whole -
-    // smoothed, as wet paint is. Returning the whole deposit plus the
-    // field's change kept the new film's one-pixel edge, which the half-
-    // resolution field cannot see, and every pass of a big brush left a
-    // thin line where its edge had been. So: the settled part in the field
-    // (b0, cb0) and at full resolution per tile (snapshots, taken at the
-    // stitch - a running gesture's next batch refreshes the film's base).
-    const a0 = S > 1 ? this._ribbonScratchPool.acquire(field.w, field.h) : null
-    const ca0 = S > 1 ? this._ribbonScratchPool.acquire(field.w, field.h) : null
-    const snapshots = new Map<AccumulationBuffer, { ink: AccumulationBuffer; color: AccumulationBuffer | null }>()
-    // The settle's rect in the field's GL cells, for the interpolation's clamp.
-    const fieldRect: [number, number, number, number] = [0, field.h - h / S, w / S, field.h]
-    // A world rect of a tile into the field (S = 1: a copy; else the 2x2 mean).
-    const toField = (src: AccumulationBuffer, tile: PaintTarget, wx0: number, wy0: number, wx1: number, wy1: number, dst: AccumulationBuffer): void => {
-      const tx = wx0 - tile.originX, ty = tile.buffer.height - (wy1 - tile.originY)
-      const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
-      if (S === 1) src.copyRegionInto(dst, tx, ty, fx, fy, wx1 - wx0, wy1 - wy0)
-      else this._wcResample(dst, fx, fy, (wx1 - wx0) / S, (wy1 - wy0) / S, src, tx, ty, S, 0)
-    }
-    // ...and back: S = 1, the field's value; else base + up(new - old). The
-    // target may be the base: the draw goes through a pooled temporary.
-    const fromField = (fNew: AccumulationBuffer, fOld: AccumulationBuffer | null, tile: PaintTarget, wx0: number, wy0: number, wx1: number, wy1: number, target: AccumulationBuffer, base: AccumulationBuffer): void => {
-      const tx = wx0 - tile.originX, ty = tile.buffer.height - (wy1 - tile.originY)
-      const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
-      if (S === 1 || !fOld) { fNew.copyRegionInto(target, fx, fy, tx, ty, wx1 - wx0, wy1 - wy0); return }
-      const tmp = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-      this._wcResample(tmp, tx, ty, wx1 - wx0, wy1 - wy0, fNew, fx, fy, 1 / S, 1, fOld, base, fieldRect)
-      tmp.copyRegionInto(target, tx, ty, tx, ty, wx1 - wx0, wy1 - wy0)
-      this._ribbonScratchPool.release(tmp)
-    }
-
-    // Every tile's overlap with the rect, and the settled records the tiles
-    // still lack — acquired now so the steps below can assume them.
-    const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
-    for (const tile of tiles) {
-      const entry = scratch.peek(tile.buffer)
-      if (!entry?.inkLoad) continue
-      // (§17.44) The settled records are only needed without the film: with
-      // it, the film's base (inkBase/colorBase, refreshed on the gesture's
-      // first batch) IS the wash as it stood before the operation, and a
-      // second pair of tile-sized textures per tile holding the same thing
-      // was a quarter of the gigabyte of scratch the tablet carried.
-      if (!this._minmaxExt && !entry.inkSettled) {
-        entry.inkSettled = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-        entry.inkSettled.clear()
-      }
-      if (!this._minmaxExt && entry.inkColor && !entry.colorSettled) {
-        entry.colorSettled = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-        entry.colorSettled.clear()
-      }
-      const ox0 = Math.max(x0, tile.originX), oy0 = Math.max(y0, tile.originY)
-      const ox1 = Math.min(x1, tile.originX + tile.buffer.width), oy1 = Math.min(y1, tile.originY + tile.buffer.height)
-      if (ox1 <= ox0 || oy1 <= oy0) continue
-      overlaps.push({ tile, ox0, oy0, ox1, oy1 })
-    }
-    if (!overlaps.length) return null
-
-    const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
-      { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const contacts = brushDragContacts(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const flow = contacts[0]?.field
-    let flowTexture: WebGLTexture | null = null
-    let foreignTexture: WebGLTexture | null = null
-    const ops: Array<() => void> = []
-    if (flow) ops.push(() => {
-      this._brushFlowTex ??= gl.createTexture()
-      flowTexture = this._brushFlowTex
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, flowTexture)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, flow.width, flow.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, flow.pixels)
-    })
-    if (foreign) ops.push(() => {
-      this._foreignWaterTex ??= gl.createTexture()
-      foreignTexture = this._foreignWaterTex
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, foreignTexture)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, foreign.width, foreign.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, foreign.pixels)
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    })
-    // (§17.44) The gesture whose film this settle consumes, fixed now: a
-    // chunk's settle may land after the next chunk's film has begun.
-    const gesture = scratch.gesture
-    // Stitch: every tile's overlap with the rect, top-down world → bottom-up
-    // GL on both sides, exactly as SmudgePainter.gatherPatch does it. `a` takes the
-    // deposit, `b` what was settled, `coverage` the silhouette.
-    ops.push(() => {
-      field.a.clear()
-      field.b.clear()
-      field.coverage.clear()
-      field.ca.clear()
-      field.cb.clear()
-      for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
-        const entry = scratch.peek(tile.buffer)
-        if (!entry?.inkLoad) continue
-        // The settled wash: the film's base where this operation's gesture
-        // laid paint on the tile, the deposit itself where it did not (no new
-        // paint there, nothing mobile), the old record without a film.
-        const settledInk = (entry.filmGesture === gesture ? entry.inkBase : null) ?? entry.inkSettled ?? entry.inkLoad
-        toField(entry.inkLoad, tile, ox0, oy0, ox1, oy1, field.a)
-        toField(settledInk, tile, ox0, oy0, ox1, oy1, field.b)
-        if (S > 1) {
-          const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
-          const ink = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-          settledInk.copyRegionInto(ink, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
-          let color: AccumulationBuffer | null = null
-          if (entry.inkColor) {
-            const sc = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
-            color = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-            sc.copyRegionInto(color, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
-          }
-          snapshots.set(tile.buffer, { ink, color })
-        }
-        toField(entry.coverage, tile, ox0, oy0, ox1, oy1, field.coverage)
-        if (entry.inkColor) {
-          const settledColor = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
-          toField(entry.inkColor, tile, ox0, oy0, ox1, oy1, field.ca)
-          toField(settledColor, tile, ox0, oy0, ox1, oy1, field.cb)
-        }
-      }
-      if (a0) field.b.copyTo(a0)
-      if (ca0) field.cb.copyTo(ca0)
-    })
-
-    const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
-      this._fieldOp(out, a, b, mode, k)
-    const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage): void => {
-      dst.beginReplaceDraw()
-      gl.useProgram(this._diffuseProg)
-      const u = this._diffuseUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._diffusePosLoc)
-      gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, src.texture)
-      gl.uniform1i(u.u_ink, 0)
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, gate.texture)
-      gl.uniform1i(u.u_coverage, 1)
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-      gl.uniform1i(u.u_paperHeightMap, 2)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.uniform2f(u.u_resolution, field.w, field.h)
-      // The paper at the world position of a texel. A tile passes
-      // (originX, -originY) and lets its height of 1024 fold into the paper's
-      // period; a rect of any height has to say where its bottom row is.
-      gl.uniform2f(u.u_paperOrigin, x0 / S, -(y0 / S + field.h))
-      gl.uniform2f(u.u_paperTexSize, paperTexW / S, paperTexH / S)
-      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-      gl.uniform1f(u.u_d, WET_DIFFUSE_D)
-      gl.uniform1f(u.u_b, WET_DIFFUSE_B)
-      gl.uniform1f(u.u_radius, Math.max(1, Math.round(radius / S)))
-      gl.uniform1f(u.u_stencil, knight ? 1 : 0)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      dst.endDraw()
-    }
-    // (§17.23) The operation's footprint — where its own deposit lies, which
-    // is the mobile field before anything moves — and the dome over it: the
-    // mask blurred at falling strides, 1 deep inside, 0.5 on the edge, 0
-    // outside. Then the band just inside the edge, blurred by the rim's
-    // kernel, kept in `mask` for both rims below. Once per settle.
-    // (§17.24) The water front, once per settle: the operation's footprint
-    // (its mobile deposit before anything moves) seeds a cost field, the
-    // relaxation runs it out over the paper, and the texels within the
-    // budget are the domain the water wets. From the cost: the band texture
-    // (r the last `width` cells inside the front, g the domain), and the
-    // stitched coverage extended over the domain, so the silhouette and the
-    // diffusion's gate reach as far as the water did. Then the band
-    // gathered by the rim's kernel, kept in `mask`.
-    // (§17.29) ...by the WETTEST paper the mark ran over, not where it
-    // landed: Ilya's series 5 lays the second stroke from dry paper into
-    // the first, and its front has to run where the first stroke is.
-    const runWet = Math.max(landedWet, wetPeak)
-    // (§17.44) In the field's cells from here on: budget and radius over S.
-    const budgetPx = watercolorSpreadBudget(radiusPx, water, runWet) / S
-    const radiusC = radiusPx / S
-    const costMax = budgetPx + 4
-    // (§17.27) …plus the mark's radius: the puddle's front starts inside
-    // the footprint and has to cross it before it runs its budget into the
-    // film. At nine steps for a 6 px budget it stopped a third of the way
-    // across a 20 px puddle and the backrun never reached the film.
-    const frontSteps = watercolorFrontSteps(budgetPx, radiusC, runWet)
-    // A fifth of the radius (the photo's ring: FWHM 0.2 R_front), capped:
-    // the mass sits at the front, the tail behind it is what the valleys
-    // carry, so the band's depth is what survives a blur, not its darkness.
-    // (§17.44) The band's width is a WORLD width (a fifth of the radius, at
-    // most WC_RIM_BAND_PX px), in cells: capped in cells, a half-resolution
-    // band was twice as wide, the tide took twice the share, and every big
-    // mark dried paler with a heavier rim.
-    const width = Math.max(1, Math.round(Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx / 5))) / S))
-    // The band is the last `width` cells inside the front, measured by a
-    // second relaxation run INWARD from everything past the budget, over the
-    // same paper: a band from the outward cost alone cannot reach into the
-    // footprint, whose cost is zero throughout. Its own scale, so the 8 bits
-    // resolve a cell.
-    const costMaxIn = width + 3
-    const inSteps = width + 2
-    const merge = watercolorPuddleMerge(wetPeak)
-    // (§17.26) A mark laid over an earlier mark that was still damp has no
-    // dry paper to stop at there: its own tideline stands down over it (the
-    // bloom ring is the edge), fully on wet.
-    const damp = watercolorDampOver(wetPeak)
-    // …and a rim wants free water to dry out of: none from a brush that
-    // carried none.
-    const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
-    // (§17.27) Dyadic strides, 1, 2, 4, 8… up to the mark's radius: a 3x3
-    // binomial at each is the à-trous B-spline, a smooth kernel of reach
-    // ~radius. The old r/2, r/4, r/8, 1 was the same reach with a bumpy
-    // kernel, and on a band one or two texels wide the bumps of the
-    // gathered band divided the moved paint into DOTS along the line.
-    const gather: Array<[number, number]> = []
-    for (let st = 1; st <= Math.max(1, radiusC / 2) && gather.length < 6; st *= 2) gather.push([st, st])
-    // (s17.40) The dry cost never less than a share of the budget: a stroke
-    // that lands in a puddle carries the puddle's budget (up to 160) out
-    // onto dry paper, and at a flat 24 a cell its front ran four cells past
-    // the brush there - Ilya's "рваный край вне лужи". At half the budget
-    // a cell, the run on dry paper is two cells whatever the budget.
-    const dryCost = Math.max(WC_FRONT_DRY_COST, budgetPx * WC_FRONT_DRY_SHARE)
-    const frontStep = (src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb = WC_FRONT_CLIMB, floor = WC_FRONT_FLOOR, stride = 1): void =>
-      this._waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S, foreignTexture)
-    // The front as entries of `ops`, a few relaxation steps per entry so no
-    // frame runs the whole field thirty times: the outward cost from the
-    // footprint into `pressure`, the inward cost from past-the-budget into
-    // `mask`, then the band texture, the coverage extended over the domain,
-    // and the band gathered into `mask` for the rims.
-    const frontOps = (mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
-      const pp = { src: field.pressure, dst: tmp }
-      const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number, strides?: readonly number[]): void => {
-        const list = strides ?? Array.from({ length: steps }, () => 1)
-        for (let i = 0; i < list.length; i += 4) {
-          const chunk = list.slice(i, i + 4)
-          const last = i + chunk.length >= list.length
-          ops.push(() => {
-            for (const st of chunk) { frontStep(pp.src, pp.dst, max, climb, floor, st); const t = pp.src; pp.src = pp.dst; pp.dst = t }
-            if (last && pp.src !== home) this._fieldOp(home, pp.src, pp.src, 1, 0)
-          })
-        }
-      }
-      ops.push(() => { this._fieldOp(field.pressure, mobile, field.coverage, 10, 0.003, { band: [1 / costMax, standing], size: [(budgetPx - 1) / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
-      // (§17.44) Jumps, then unit passes - see WC_WATER_FRONT_FRAG's u_stride.
-      // (§17.44) Unit passes: the dyadic jumps (watercolorFrontStrides) were
-      // six times cheaper and measurably wrong - a jump sums the climb along
-      // its path but loses the per-cell floor, so the cost came out low, the
-      // puddles ran wider and every drop dried paler (124 -> 133 of 255 on
-      // Ilya's circles). The big sweeps get their speed from the
-      // half-resolution field instead, exactly.
-      run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
-      ops.push(() => { this._fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax, { d: field.band }); pp.src = field.mask; pp.dst = tmp })
-      // Inward over a gentler relief: the band's inner edge follows the
-      // valleys a few cells in (the photo's streaks pointing into the light
-      // centre), not a third of the way to the middle.
-      // The first two cells in from the front flat, so the sharp peak of
-      // the deposition profile (mode 6) is a continuous line along the
-      // front - with the relief from the first cell it broke into dots
-      // (the photographs' tideline is a thin unbroken line); the tail
-      // behind it takes the relief and its fingers.
-      run(2, costMaxIn, field.mask, 0, 1)
-      run(inSteps - 2, costMaxIn, field.mask, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN)
-      ops.push(() => {
-        this._fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
-        this._fieldOp(field.coverage, tmp, tmp, 1, 0)
-        this._fieldOp(field.band, field.pressure, field.coverage, 6, merge, { c: field.mask, d: field.pressure, band: [budgetPx / costMax, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn], origin: [standing, damp], dir: [1, 1], tau: [watercolorDwellWater(dwellMs), 0, 0], world: [x0 / S, -(y0 / S + field.h), S] })
-        this._fieldOp(tmp, field.band, field.band, 5, 0, { dir: gather[0] })
-        let gs = tmp, gd = field.mask
-        for (let i = 1; i < gather.length; i++) { this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
-        if (gs !== field.mask) this._fieldOp(field.mask, gs, gs, 1, 0)
-      })
-    }
-    // (§17.23) The rim: `share` of `paint` inside the footprint goes to the
-    // band. Two free buffers; the result lands in `t2`.
-    const rim = (paint: AccumulationBuffer, share: number, t1: AccumulationBuffer, t2: AccumulationBuffer, tide = false): void => {
-      // (s17.30) The bloom lifts the wash's paint by the DOME over the drop
-      // (band .a: all of it under the centre, none at the front), the tide
-      // the mark's own paint over the whole domain (band .g). A uniform lift
-      // left a hard-edged hole the size of the drop's footprint - Ilya's
-      // "слишком резко обеляет лужу в месте касания".
-      this._fieldOp(t1, paint, paint, tide ? 7 : 9, share, { d: field.band })
-      let gs = t1, gd = t2
-      for (let i = 0; i < gather.length; i++) { this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] }); const t = gs; gs = gd; gd = t }
-      // The gathered paint is in gs; the sum lands in t2, so the other is
-      // its scratch.
-      if (gs === t2) { this._fieldOp(t1, gs, gs, 1, 0); gs = t1 }
-      this._fieldOp(t2, paint, gs, tide ? 14 : 8, share, { c: field.mask, d: field.band })
-    }
-    // One record: c = mobile share of (laid − settled); b = laid − c, the part
-    // that stays put (settled paint plus the fixed share of the new); the
-    // schedule over c; the sum back into whichever of the pair is free.
-    // The gate is the coverage alone (wcWaterAt), so the deposit and its
-    // colour record — two records, one suspension — move by identical
-    // fractions, to the bit. Each step is one entry of `ops`.
-    const diffuseSteps: readonly WetDiffuseStep[] = this._wcAb.noDiffuse ? [] : WET_DIFFUSE_SCHEDULE
-    // (§17.29) The colour record, when there is one (two paints or more),
-    // is split and carried in LOCKSTEP with the deposit inside the
-    // deposit's own settle: the carry's fractions depend on the deposit's
-    // mobile and fixed amounts at every step, so the colour cannot be
-    // carried on its own afterwards. `follow` is the colour settle that
-    // then runs the rest (bloom, diffusion, tide) on the carried record.
-    const colour = scratch.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
-    const singlePaint = [...scratch.paints][0]
-    const singleTau: [number, number, number] = !colour && singlePaint ? pigmentAbsorption(singlePaint.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
-    // (§17.42) The wash dries as ONE component: nothing of an operation is
-    // fixed at its pen-up - the whole of its paint is mobile, the earlier
-    // paint under the dome all of it too, and no tide is laid into the wet
-    // state; the tide goes, once, along the outer contour of the wash's
-    // whole coverage, into the PROVISIONAL dry target (inkDry) the
-    // composite shows, recomputed at every pen-up (_groupTideOps below).
-    // The design thread's diagnosis of the wet-on-wet pairs: each operation
-    // dried to the end before the next arrived, and no re-mobilisation
-    // turns "dry A, then dissolve A with B" into "wet A + wet B, dried
-    // together". The r17 behaviour stays as the wcOpDry A/B.
-    const mobileShare = groupDry ? 1 : WET_DIFFUSE_MOBILE
-    // (#680, s17.84) The pool's paint combed along the travel by the hairs,
-    // over the settled result (the settle erases it from the dose): through
-    // `free` and back into `paint`. The factor comes from the coverage
-    // alone, so the deposit and the colour record take the same one.
-    const streakCombs = Math.max(1.5, Math.min(50, radiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
-    const poolStreaks = (paint: AccumulationBuffer, free: AccumulationBuffer): void => {
-      if (!(WC_POOL_STREAK > 0)) return
-      this._fieldOp(free, paint, paint, 1, 1, { c: field.coverage, world: [x0 / S, -(y0 / S + field.h), S], size: [streakCombs, 0], origin: [WC_POOL_STREAK, 0], dir: [1, 1] })
-      fieldOp(paint, free, free, 1, 0)
-    }
-    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
-      const st = { src: c, dst: a, out: a }
-      if (!follow) ops.push(() => {
-        fieldOp(c, a, b, 0, mobileShare)
-        // (§17.25) A mark that landed in a puddle wets the paint already
-        // lying under its footprint: that paint is as mobile as the new -
-        // it never dried - so the same mobile share of it joins c and runs,
-        // settles and relocates with the new paint, to the MERGED front.
-        // Without this the earlier pass's tideline stayed put under the
-        // next pass, and a flat wash came out as a ladder of inner rims.
-        // (§17.41) ...and it happens AFTER the front is known, over the
-        // dome of the puddle the landing joined - see below.
-        // Where earlier marks' SETTLED deposit lies, before b is overwritten
-        // with the fixed part - kept in `band` until the front reads it: the
-        // puddle this mark's water may have joined.
-        if (first) this._fieldOp(field.band, b, b, 4, 0.002)
-        fieldOp(b, a, c, 1, -1)
-        // The colour record's split, by the same gate.
-        if (colour && first) {
-          fieldOp(colour.c, colour.a, colour.b, 0, mobileShare)
-          fieldOp(colour.b, colour.a, colour.c, 1, -1)
-        }
-      })
-      // The water front, its band and the extended coverage come from the
-      // deposit's mobile field, once; the colour record rides the same.
-      if (first) frontOps(c, a)
-      // (§17.29) The front carries the paint: the mobile field runs along
-      // the front's cost, from the footprint out to where the water
-      // stopped, in strided steps of WC_FIELD_OP_FRAG's mode 15 - so a
-      // loaded mark into a wet wash sends its own pigment into the wash in
-      // the fingers the front cut, at near the body's density (Ilya's
-      // series 5), instead of leaving it inside its own contour with only
-      // the water gone on. The film's own contour ring (the last cell and
-      // a half of the budget) is left out of the domain here: on dry paper
-      // the whole film sits one cell short of its budget, and with the
-      // ring in, every stroke piled its outer texels into a hard line.
-      // What the flow equalises is the TOTAL pigment - mobile plus fixed
-      // (b): the wash's settled paint lying in the domain counts, or a
-      // mark over a wet wash sent its own paint and the re-mobilised wash
-      // under it out into fingers denser than its body, and the body went
-      // pale. The deposit ping-pongs c and a; the colour record cc and ca,
-      // in lockstep, taking the deposit's fractions (mode 16).
-      if (first && !this._wcAb.noCarry) {
-        const carry = watercolorCarryStrides(budgetPx)
-        let src = c, dst = a
-        let csrc = colour?.c, cdst = colour?.a
-        for (let i = 0; i < carry.length; i += 4) {
-          const n = Math.min(4, carry.length - i)
-          const plan: Array<{ s: number; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
-          for (let j = 0; j < n; j++) {
-            plan.push({ s: carry[i + j], src, dst, csrc, cdst })
-            const t = src; src = dst; dst = t
-            const ct = csrc; csrc = cdst; cdst = ct
-          }
-          ops.push(() => {
-            for (const p of plan) {
-              const opts = { d: field.pressure, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, 0] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
-              if (p.csrc && p.cdst) this._fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
-              this._fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
-            }
-          })
-        }
-        if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
-        if (colour && csrc && csrc !== colour.c) { const from = csrc, to = colour.c; ops.push(() => fieldOp(to, from, from, 1, 0)) }
-      }
-      // (§17.41) The wet landing re-mobilises the earlier paint over the
-      // DOME of the puddle it joined (band .a, from the front just run),
-      // (§17.43) AFTER the carry: re-mobilised before it, the earlier paint
-      // rode the new paint's front out of the footprint and piled in a line
-      // at the domain's edge; now only the new paint travels with the
-      // front, and the two paints mix by the puddle diffusion below, both
-      // ways and without a direction.
-      // not only under its footprint: the two paints then mix both ways in
-      // the puddle diffusion below. The moved share leaves the fixed field
-      // (b) as it joins the mobile one (c), for the deposit and the colour
-      // record alike. `a` and `spare` are the temporaries.
-      const remobFloor = groupDry ? 1 : WC_REMOB_DOME
-      if (first && merge > 0) ops.push(() => {
-        this._fieldOp(a, c, b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
-        this._fieldOp(spare, b, c, 3, 0, { c: a })
-        fieldOp(c, a, a, 1, 0)
-        fieldOp(b, spare, spare, 1, 0)
-        if (colour) {
-          this._fieldOp(a, colour.c, colour.b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
-          this._fieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
-          fieldOp(colour.c, a, a, 1, 0)
-          fieldOp(colour.b, spare, spare, 1, 0)
-        }
-      })
-      // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
-      // and the wash under it are one liquid, and the paint in it - the
-      // new, and the wash's re-mobilised under it - evens out across the
-      // footprint over tens of texels, as the coarse diffusion did for
-      // every mark before §17.29 took it out (it erased the fingers at the
-      // front). Back for the wet landing only, gated by the DOME over the
-      // footprint (band .a: full inside, none at the front), so the fingers
-      // the carry cut past the footprint keep their edges. Without it the
-      // earlier mark's paint stopped at its own contour under the new mark
-      // - Ilya's "жёлтый проникает ровной линией" - and the new mark's
-      // footprint over the wash stayed a paler band where the carry had
-      // taken from it ("область между штрихом и рваным краем"). The gate
-      // texture is built once into `pressure`, free after the carry.
-      if (first && merge > 0) ops.push(() => this._fieldOp(field.pressure, field.coverage, field.coverage, 17, 0, { d: field.band }))
-      // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
-      // footprint goes to the footprint's edge — the light patch with the
-      // dark ragged ring. Only as much as the recorded wetness says the wash
-      // was damp (watercolorBloomStrength); `a` and `spare` are free here.
-      // (#680, §17.78) BEFORE the puddle settles into `b`: after it, the
-      // bloom took this mark's own settled core out to the footprint's edge
-      // too and left a light ring in the middle of the drop.
-      if (bloom > 0) {
-        ops.push(() => {
-          rim(b, WC_BLOOM_SHARE * bloom, a, spare)
-          fieldOp(b, spare, spare, 1, 0)
-        })
-      }
-      // (#680, §17.78) ...and it SETTLES as it mixes: a share of the paint
-      // grips the paper before the puddle moves it at all (the core), and of
-      // what is still afloat a share more after every step - so the paint
-      // that settles late has gone far and is little. A core, a nearer halo,
-      // a wide faint one (Ilya: "белое пятно почти без размытия, градиент
-      // побольше и прозрачнее, и огромный очень прозрачный"), where the
-      // schedule alone evened the whole of it out into one pale cloud.
-      // The diffusion is linear in the paint for a given gate, so the
-      // mobile field is left undepleted and each step's slice is added to
-      // the fixed one at its weight (watercolorPuddleSettleWeights); the
-      // rest is scaled down once at the end. The fixed field ping-pongs
-      // with `spare`, free here, and comes back into `b` before the bloom.
-      const puddleSteps = merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []
-      if (puddleSteps.length) {
-        const w = watercolorPuddleSettleWeights(puddleSteps.length)
-        const acc = { fixed: b, free: spare }
-        // (§17.82) The far slices - settled after the long steps, the faint
-        // outer halo - go down through the paper's fibres (wcFibre).
-        const fibreFrom = WET_SETTLE_FIBRE_FROM
-        const world: [number, number, number] = [x0 / S, -(y0 / S + field.h), S]
-        const settleSlice = (k: number): void => {
-          if (!(w.slices[k] > 0)) return
-          if (k >= fibreFrom) this._fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k], { world, d: field.band, dir: [1, 1] })
-          else fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k])
-          const t = acc.fixed; acc.fixed = acc.free; acc.free = t
-        }
-        // The core is taken off a SMOOTHED field: straight after the carry
-        // the mobile paint has a pale line along the footprint's contour (the
-        // carry leaves the film's own contour ring out), which the whole
-        // schedule used to even out - settled raw, it stayed as a light ring
-        // round the middle of every drop. Two fine steps, gated by the
-        // coverage and not the dome (the line IS the dome's edge), an even
-        // count so the pair's parity stays.
-        for (const [radius, knight] of WET_SETTLE_SMOOTH) {
-          ops.push(() => {
-            diffuseStep(st.src, st.dst, radius, knight)
-            const t = st.src; st.src = st.dst; st.dst = t
-          })
-        }
-        ops.push(() => settleSlice(0))
-        puddleSteps.forEach(({ radius, knight }, i) => {
-          ops.push(() => {
-            diffuseStep(st.src, st.dst, radius, knight, field.pressure)
-            const t = st.src; st.src = st.dst; st.dst = t
-            settleSlice(i + 1)
-          })
-        })
-        ops.push(() => {
-          if (acc.fixed !== b) fieldOp(b, acc.fixed, acc.fixed, 1, 0)
-          // What is still afloat, at its weight: into the free one of the
-          // pair and back, so the pair's parity (which the colour settle's
-          // spare is chosen by) does not change.
-          fieldOp(st.dst, st.src, st.src, 1, w.afloat - 1)
-          fieldOp(st.src, st.dst, st.dst, 1, 0)
-        })
-      }
-      for (const { radius, knight } of diffuseSteps) {
-        ops.push(() => {
-          diffuseStep(st.src, st.dst, radius, knight)
-          const t = st.src; st.src = st.dst; st.dst = t
-        })
-      }
-      // (§17.23) The tideline: after the paint has run, its puddle carries a
-      // share of it to the rim as it dries. The moved field lands in `dst`,
-      // the sum with the fixed paint in `src`.
-      // (§17.42) ...or not: under the group-dry oracle the tide waits for
-      // the whole wash (watercolorDryWash), and the operation's result is
-      // its moved paint over the fixed field, all of it still mobile.
-      ops.push(() => {
-        if (groupDry) {
-          // Through the spare and back, so the result lands where the rim's
-          // would (st.src): the colour settle's spare is chosen by that.
-          fieldOp(spare, b, st.src, 1, 1)
-          fieldOp(st.src, spare, spare, 1, 0)
-          st.out = st.src
-          poolStreaks(st.src, spare)
-          return
-        }
-        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusC, width) * tideWater, st.dst, spare, true)
-        st.out = st.src
-        fieldOp(st.out, b, spare, 1, 1)
-        poolStreaks(st.out, spare)
-      })
-      return st
-    }
-    // The deposit's settle borrows a colour buffer as its spare; the colour
-    // settle, when it runs, borrows a deposit one (both are done by then).
-    // The deposit's spare: the colour record's deposit buffer once the
-    // record is split (its mobile part lives in cc from the first op on),
-    // else the unused cc.
-    const dep = settle(field.a, field.b, field.c, true, colour ? field.ca : field.cc)
-    // (#536, §17.20) One paint so far: its colour record is its deposit's
-    // mass times one absorption everywhere, so it is rebuilt from the moved
-    // deposit in a single pass instead of carried through the schedule
-    // again — half the settle's cost, which was "всё это дело притормаживает".
-    let col: { out: AccumulationBuffer }
-    if (scratch.paints.size <= 1) {
-      const only = [...scratch.paints][0]
-      const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
-      col = { out: field.cc }
-      ops.push(() => {
-        const outColor = field.cc
-        outColor.beginReplaceDraw()
-        gl.useProgram(this._fieldOpProg)
-        const fu = this._fieldOpUni
-        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-        gl.enableVertexAttribArray(this._fieldOpPosLoc)
-        gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_a, 0)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_b, 1)
-        // Units 2 and 3 too: the program samples u_c and u_d, and whatever
-        // the last field op left on those units — the rim's spare buffer,
-        // which is this very output — would be a feedback loop.
-        gl.activeTexture(gl.TEXTURE2)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_c, 2)
-        gl.activeTexture(gl.TEXTURE3)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_d, 3)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.uniform1f(fu.u_k, 1)
-        gl.uniform1f(fu.u_mode, 2)
-        gl.uniform3fv(fu.u_tau, [tau[0], tau[1], tau[2]])
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-        outColor.endDraw()
-      })
-    } else {
-      // Its spare is whichever deposit buffer the deposit's settle will NOT
-      // leave its result in: the schedule ping-pongs c and a, so an even
-      // count of steps (none, under the wcNoDiffuse A/B) lands in c. Read
-      // at plan time, dep.out is still its initial value - that was a
-      // settle with no steps copying the colour rim over its own deposit.
-      // (s17.43) ...counting the puddle schedule only when it runs: under
-      // wcNoDiffuse it is skipped, and counting it anyway picked the buffer
-      // holding the deposit's result as the colour's spare - the A/B render
-      // came out with the colour record and the deposit out of step.
-      col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 && !this._wcAb.noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
-    }
-
-    // #680: sweep the wet material in recorded order. Return passes act on
-    // the previous contact's result, rather than a single averaged vector.
-    // Patch-sized draws/copies reuse the two free settle buffers.
-    for (const contact of contacts) ops.push(() => {
-      if (!flowTexture) return
-      const cf = contact.field, cr = contact.rect
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, flowTexture)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cf.width, cf.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, cf.pixels)
-      const rect: [number, number, number, number] = [(cr.x-x0)/(field.w*S), 1-(cr.y+cr.h-y0)/(field.h*S), cr.w/(field.w*S), cr.h/(field.h*S)]
-      const left = Math.max(0, Math.floor((cr.x-x0)/S)), right = Math.min(field.w, Math.ceil((cr.x+cr.w-x0)/S))
-      const bottom = Math.max(0, Math.floor(field.h-(cr.y+cr.h-y0)/S)), top = Math.min(field.h, Math.ceil(field.h-(cr.y-y0)/S))
-      const move = (src: AccumulationBuffer, dst: AccumulationBuffer) => {
-        dst.beginReplaceDraw(); gl.useProgram(this._brushDragProg)
-        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf); gl.enableVertexAttribArray(this._brushDragPosLoc)
-        gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
-        const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment']
-        const textures = [src.texture, flowTexture, field.coverage.texture, dep.out.texture]
-        for (let j=0;j<textures.length;j++) { gl.activeTexture(gl.TEXTURE0+j); gl.bindTexture(gl.TEXTURE_2D,textures[j]); gl.uniform1i(this._brushDragUni[names[j]],j) }
-        gl.uniform4fv(this._brushDragUni.u_flowRect,rect)
-        const step = Math.max(1, Math.round(contact.radius * 0.65/S))
-        gl.uniform2f(this._brushDragUni.u_step,step/field.w,step/field.h)
-        gl.enable(gl.SCISSOR_TEST); gl.scissor(left,bottom,right-left,top-bottom)
-        gl.drawArrays(gl.TRIANGLES,0,6); gl.disable(gl.SCISSOR_TEST); dst.endDraw(); gl.activeTexture(gl.TEXTURE0)
-      }
-      move(col.out,field.band); move(dep.out,field.pressure)
-      field.pressure.copyRegionInto(dep.out,left,bottom,left,bottom,right-left,top-bottom)
-      field.band.copyRegionInto(col.out,left,bottom,left,bottom,right-left,top-bottom)
-    })
-
-    // (§17.42) The provisional dry target: the wet result with the one tide
-    // along the whole wash's contour, into the deposit and colour buffers
-    // the settle left free. The wash's own standing level and radius are
-    // the widest and wettest of its operations (dryCtx), not this one's.
-    let dry: { dep: AccumulationBuffer; col: AccumulationBuffer } | null = null
-    if (groupDry) {
-      const dryDep = dep.out === field.a ? field.c : field.a
-      const dryCol = col.out === field.ca ? field.cc : field.ca
-      const dc = scratch.dryCtx
-      this._groupTideOps(
-        ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0) / S, Math.max(standing, dc?.standing ?? 0), scratch.paints,
-        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S,
-      )
-      dry = { dep: dryDep, col: dryCol }
-    }
-
-    // …and home, tile by tile — and this is the new settled deposit.
-    const finish = (): void => {
-      // (§17.43) The dry target first catches up with the deposit over the
-      // WHOLE gesture, window or no window: a stroke wider than the field
-      // (a replayed sheet-wide sweep from before the span cut) has paint
-      // outside the rect that no settle touched, and the composite reads
-      // the dry target - that paint had simply vanished from the picture.
-      if (groupDry) {
-        const bx0 = Math.floor(bounds.minX) - pad, by0 = Math.floor(bounds.minY) - pad
-        const bx1 = Math.ceil(bounds.maxX) + pad, by1 = Math.ceil(bounds.maxY) + pad
-        for (const tile of targets) {
-          const entry = scratch.peek(tile.buffer)
-          if (!entry?.inkLoad) continue
-          const rx0 = Math.max(bx0, tile.originX), ry0 = Math.max(by0, tile.originY)
-          const rx1 = Math.min(bx1, tile.originX + tile.buffer.width), ry1 = Math.min(by1, tile.originY + tile.buffer.height)
-          if (rx1 <= rx0 || ry1 <= ry0) continue
-          const tx = rx0 - tile.originX, ty = tile.buffer.height - (ry1 - tile.originY)
-          if (!entry.inkDry) { entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); entry.inkLoad.copyTo(entry.inkDry) }
-          else entry.inkLoad.copyRegionInto(entry.inkDry, tx, ty, tx, ty, rx1 - rx0, ry1 - ry0)
-          if (entry.inkColor) {
-            if (!entry.colorDry) { entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); entry.inkColor.copyTo(entry.colorDry) }
-            else entry.inkColor.copyRegionInto(entry.colorDry, tx, ty, tx, ty, rx1 - rx0, ry1 - ry0)
-          }
-        }
-      }
-      for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
-        const entry = scratch.peek(tile.buffer)
-        if (!entry?.inkLoad) continue
-        const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY), tw = ox1 - ox0, th = oy1 - oy0
-        // (§17.44) A film that began while the settle ran (the next chunk's,
-        // see newFilm) sits on a base copied before it landed: the settled
-        // result goes onto that BASE, and the deposit is rebuilt as base +
-        // film below - or the next chunk's paint vanished from the overlap
-        // until the gesture ended. Otherwise it goes onto the deposit.
-        const runningFilm = entry.filmGesture !== gesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk && !!entry.inkBase
-        const settledInk = runningFilm ? entry.inkBase! : entry.inkLoad
-        const snap = snapshots.get(tile.buffer)
-        fromField(dep.out, a0, tile, ox0, oy0, ox1, oy1, settledInk, snap?.ink ?? settledInk)
-        if (entry.inkSettled) settledInk.copyRegionInto(entry.inkSettled, tx, ty, tx, ty, tw, th)
-        // (§17.24) …and the coverage the water front extended - MERGED by
-        // max (§17.44): the gesture may have gone on stamping the next
-        // chunk's coverage while the settle ran.
-        if (S === 1) {
-          const sx = ox0 - x0, sy = field.h - (oy1 - y0)
-          entry.coverage.copyRegionInto(field.mask, tx, ty, sx, sy, tw, th)
-          this._fieldOp(field.band, field.coverage, field.mask, 20, 0)
-          field.band.copyRegionInto(entry.coverage, sx, sy, tx, ty, tw, th)
-        } else {
-          const tmp = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
-          this._wcResample(tmp, tx, ty, tw, th, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 2, null, entry.coverage, fieldRect)
-          tmp.copyRegionInto(entry.coverage, tx, ty, tx, ty, tw, th)
-          this._ribbonScratchPool.release(tmp)
-        }
-        const settledColor = entry.inkColor ? (runningFilm && entry.colorBase ? entry.colorBase : entry.inkColor) : null
-        // (§17.44) One paint: its colour record is the deposit times one
-        // absorption (§17.20), rebuilt at FULL resolution from the deposit
-        // just brought home - the field's rebuilt record and the recorded one
-        // are not the same quantity, and a change between them came back as
-        // a paler, washed-out mark.
-        const rebuildColour = (to: AccumulationBuffer, from: AccumulationBuffer): void =>
-          this._fieldOp(to, from, from, 2, 1, { c: from, d: from, tau: singleTau, scissor: [tx, ty, tw, th] })
-        if (settledColor) {
-          if (S > 1 && !colour) rebuildColour(settledColor, settledInk)
-          else fromField(col.out, ca0, tile, ox0, oy0, ox1, oy1, settledColor, snap?.color ?? settledColor)
-          if (entry.colorSettled) settledColor.copyRegionInto(entry.colorSettled, tx, ty, tx, ty, tw, th)
-        }
-        if (runningFilm) {
-          const rect: [number, number, number, number] = [tx, ty, tw, th]
-          this._fieldOp(entry.inkLoad, entry.inkBase!, entry.strokeInk!, 1, 1, { scissor: rect })
-          if (entry.inkColor && entry.colorBase && entry.strokeColor) this._fieldOp(entry.inkColor, entry.colorBase, entry.strokeColor, 1, 1, { scissor: rect })
-        }
-        if (dry) {
-          // (§17.43) First the settled wet state over the whole of this
-          // tile's part of the field (the field is capped; past the window
-          // the dry target keeps up with the deposit), then the dry result
-          // over the field less its margin - the tide's change on top.
-          if (!entry.inkDry) { entry.inkDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); settledInk.copyTo(entry.inkDry) }
-          else settledInk.copyRegionInto(entry.inkDry, tx, ty, tx, ty, tw, th)
-          if (settledColor) {
-            if (!entry.colorDry) { entry.colorDry = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height); settledColor.copyTo(entry.colorDry) }
-            else settledColor.copyRegionInto(entry.colorDry, tx, ty, tx, ty, tw, th)
-          }
-          // Where the field was clipped by the tile's own edge there is no
-          // margin to leave, the tile ends there.
-          const ix0 = ox0 === x0 && x0 > minX ? ox0 + dryMargin : ox0, iy0 = oy0 === y0 && y0 > minY ? oy0 + dryMargin : oy0
-          const ix1 = ox1 === x1 && x1 < maxX ? ox1 - dryMargin : ox1, iy1 = oy1 === y1 && y1 < maxY ? oy1 - dryMargin : oy1
-          if (ix1 <= ix0 || iy1 <= iy0) continue
-          fromField(dry.dep, dep.out, tile, ix0, iy0, ix1, iy1, entry.inkDry, entry.inkDry)
-          if (entry.colorDry) {
-            if (S > 1 && !colour) rebuildColour(entry.colorDry, entry.inkDry)
-            else fromField(dry.col, col.out, tile, ix0, iy0, ix1, iy1, entry.colorDry, entry.colorDry)
-          }
-        }
-      }
-      if (a0) this._ribbonScratchPool.release(a0)
-      if (ca0) this._ribbonScratchPool.release(ca0)
-      for (const snap of snapshots.values()) { this._ribbonScratchPool.release(snap.ink); if (snap.color) this._ribbonScratchPool.release(snap.color) }
-    }
-    return { ops, finish }
+    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs)
   }
-
-  /** (#536, §17.42) The group tide as entries of `ops`: over a settle field
-   *  whose coverage holds the wash's whole coverage (the union of every
-   *  operation's domain), the wet deposit `dep` and its colour record `col`
-   *  (null with one paint: rebuilt from the dried deposit) get the ONE tide
-   *  along the coverage's outer contour, into `outDep` and `outCol`. `free`
-   *  is three buffers the routine may scribble on; `mask`, `pressure` and
-   *  `band` it takes for itself. The band is what the settle's own tide used
-   *  (mode 6), read off an inward relaxation seeded from outside the
-   *  coverage (mode 19) - no backrun, no "earlier mark", the whole union one
-   *  domain with the dome full throughout. */
   private _groupTideOps(
     ops: Array<() => void>, field: SettleField, x0: number, y0: number,
     radiusPx: number, standing: number, paints: ReadonlySet<string>,
@@ -10157,77 +6958,7 @@ export class PencilEngine implements PencilEngineAPI {
     /** (§17.44) World px per field cell; radiusPx is in cells already. */
     scale = 1,
   ): void {
-    // (§17.44) A world width in cells - see the settle's own `width`.
-    const width = Math.max(1, Math.round(Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx * scale / 5))) / scale))
-    const costMaxIn = width + 3
-    const inSteps = width + 2
-    const [t1, t2, t3] = free
-    // The seeds from the coverage (mode 19): the inward pass's into `mask`
-    // (inside unreached, outside the source), a stand-in outward cost into
-    // `pressure` (0 inside, 1 outside); then the inward relaxation over the
-    // relief as the settle runs it, the first two cells flat so the peak is
-    // a continuous line. `band` is the relaxation's ping-pong partner until
-    // it is written.
-    ops.push(() => {
-      this._fieldOp(field.mask, field.coverage, field.coverage, 19, 0.002, { dir: [1, 0] })
-      this._fieldOp(field.pressure, field.coverage, field.coverage, 19, 0.002)
-    })
-    const pp = { src: field.mask, dst: field.band }
-    for (let i = 0; i < inSteps; i += 4) {
-      const n = Math.min(4, inSteps - i)
-      ops.push(() => {
-        for (let j = 0; j < n; j++) {
-          const flat = i + j < 2
-          this._waterFrontStep(field, x0, y0, WC_FRONT_DRY_COST, pp.src, pp.dst, costMaxIn, flat ? 0 : WC_FRONT_CLIMB_IN, flat ? 1 : WC_FRONT_FLOOR_IN, 1, scale)
-          const t = pp.src; pp.src = pp.dst; pp.dst = t
-        }
-        if (i + n >= inSteps && pp.src !== field.mask) this._fieldOp(field.mask, pp.src, pp.src, 1, 0)
-      })
-    }
-    const gather: Array<[number, number]> = []
-    for (let st = 1; st <= Math.max(1, radiusPx / 2) && gather.length < 6; st *= 2) gather.push([st, st])
-    // A 3x3 binomial at each stride of `gather`, `from` untouched, the result
-    // in `out` (which may be one of the temporaries).
-    const blurTo = (out: AccumulationBuffer, from: AccumulationBuffer, tmpA: AccumulationBuffer, tmpB: AccumulationBuffer): void => {
-      let gs = from, gd = tmpA
-      for (let i = 0; i < gather.length; i++) {
-        this._fieldOp(gd, gs, gs, 5, 0, { dir: gather[i] })
-        const next = gd === tmpA ? tmpB : tmpA
-        gs = gd; gd = next
-      }
-      if (gs !== out) this._fieldOp(out, gs, gs, 1, 0)
-    }
-    const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
-    const share = watercolorRimShare(WC_TIDE_RIM, radiusPx, width) * tideWater
-    const costMax = 8
-    ops.push(() => {
-      // The band (mode 6) over the whole union: costOut 0 inside the
-      // coverage so `inside` and the dome are 1 throughout, no backrun (tau
-      // 0), no "earlier mark" (the seed's .b is empty), the stood record
-      // from the coverage against the wash's wettest standing level. Then
-      // the band gathered by the rim's kernel, into `mask`.
-      this._fieldOp(field.band, field.pressure, field.coverage, 6, 0, {
-        c: field.mask, d: field.pressure, band: [0.5, width / costMaxIn], size: [1 / costMax, 1 / costMaxIn],
-        origin: [standing, 0], dir: [1, 1], tau: [0, 0, 0], world: [x0 / scale, -(y0 / scale + field.h), scale],
-      })
-      blurTo(field.mask, field.band, t1, t3)
-    })
-    // The tide: `share` of ALL the paint inside (mode 7 by band .g, the whole
-    // union) gathered onto the band (mode 14) - the deposit and, with two
-    // paints or more, the colour record by the same fractions.
-    const tide = (paint: AccumulationBuffer, out: AccumulationBuffer): void => {
-      this._fieldOp(t1, paint, paint, 7, share, { d: field.band })
-      blurTo(t2, t1, t2, t3)
-      this._fieldOp(out, paint, t2, 14, share, { c: field.mask, d: field.band })
-    }
-    ops.push(() => tide(dep, outDep))
-    if (col) {
-      ops.push(() => tide(col, outCol))
-    } else {
-      const only = [...paints][0]
-      const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
-      ops.push(() => this._fieldOp(outCol, outDep, outDep, 2, 1, { c: outDep, d: outDep, tau: [tau[0], tau[1], tau[2]] }))
-    }
+    this._settlePlan.groupTideOps(ops, field, x0, y0, radiusPx, standing, paints, dep, col, outDep, outCol, free, scale)
   }
 
   /** (#536, §17.42) The group-dry oracle's second half: every open wash —
@@ -10373,115 +7104,20 @@ export class PencilEngine implements PencilEngineAPI {
     scratch.pendingComposite.clear()
     this._liveComposite = null
   }
-
-  /** (#536, §17.22) How many of a settle's GPU steps run per animation frame
-   *  when it is spread out. Two: a step is one full-field pass, ~8 ms for a
-   *  400 px brush on a desktop GPU, and the whole list is 15–27 entries, so
-   *  the settle lands within the first quarter of the reveal.
-   *  (§17.46) One: on the tablet two entries a frame made four to six frames
-   *  of 50-67 ms after every big stroke's pen-up, one made none, for a settle
-   *  of 1.07 s instead of 0.76 s - still inside the reveal. */
-  private static readonly WET_SETTLE_OPS_PER_TICK = 1
   /** (§17.46) The adaptive settle tick's clock - see _tickSettle. */
   /** (§17.49) See setUnpaintedInBatch. */
   private _unpaintedInBatch: ReadonlySet<string> | null = null
   private _skippedInBatch = new Set<string>()
   /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
   private _dryAtPenUp = false
-  private _settleTickAt = 0
-  private _settleSkipped = 0
-
-  /** Begins running `ops` a few per frame, then `complete`. Drains a settle
-   *  already in flight first: both use the one _diffuseField. */
   private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void): void {
-    if (this._settle) this._completeSettle()
-    if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
-    this._settle = { scratch, ops, next: 0, complete, raf: 0 }
-    // (§17.44) The stitch - the settle's first entry, copies only - runs NOW:
-    // it captures the deposit and its settled base as they stand at this
-    // boundary, before the next chunk's batches rebuild them. The dear
-    // passes are what gets spread over the frames.
-    if (ops.length) { ops[0](); this._settle.next = 1 }
-    this._wcPerf.settleStart = performance.now()
-    this._wcPerf.settleOps = ops.length
-    this._scheduleSettleTick()
+    this._settleQueue.start(scratch, ops, complete)
   }
-
-  private _scheduleSettleTick(): void {
-    const s = this._settle
-    if (!s || s.raf) return
-    s.raf = requestAnimationFrame(() => {
-      s.raf = 0
-      this._tickSettle()
-    })
-  }
-
-  private _tickSettle(): void {
-    const s = this._settle
-    if (!s) return
-    // The wash was torn down under it (undo, a new wash): nothing to land.
-    if (!s.scratch.live) { this._settle = null; return }
-    // (§17.44) One entry a frame while the pen is still down (a chunk's
-    // settle under a running gesture): the frame also has the brush's own
-    // batches to draw, and two entries made the tablet's P95 frame 110-150 ms.
-    // (§17.46) ...and only in a frame that follows an on-time one: a wet-on-
-    // wet chunk's entries (the puddle's coarse diffusion, the re-mobilisation)
-    // on top of the brush's own work dropped a frame in eight on the tablet.
-    // Never more than three frames without one, or the settle stalls.
-    const nowT = performance.now()
-    const late = this._settleTickAt > 0 && nowT - this._settleTickAt > 20
-    this._settleTickAt = nowT
-    if (this._strokeLayerId && late && this._settleSkipped < 3) {
-      this._settleSkipped++
-      this._scheduleSettleTick()
-      return
-    }
-    this._settleSkipped = 0
-    // (§17.58) ...and more a frame while peers' operations wait behind it and
-    // nobody is drawing here: one a frame is 0.5-1 s an operation on the
-    // iPad, and with three others painting their marks arrived up to ten
-    // seconds late.
-    // Only after an on-time frame, the same gate as the pen's: a late one means
-    // the device is already behind.
-    const perTick = this._strokeLayerId || late ? 1
-      : Math.min(this.settleBacklogMax, PencilEngine.WET_SETTLE_OPS_PER_TICK + this._opQueue.length)
-    for (let k = 0; k < perTick && this._settle === s; k++) this._advanceSettle()
-    if (this._settle === s) this._scheduleSettleTick()
-  }
-
-  /** Runs the next entry of the settle in flight; lands it after the last. */
   private _advanceSettle(): void {
-    const s = this._settle
-    if (!s) return
-    this._washActiveAt = performance.now() // (§17.68)
-    if (!s.scratch.live) { this._settle = null; return }
-    if (s.next < s.ops.length) s.ops[s.next++]()
-    if (s.next < s.ops.length) return
-    this._settle = null
-    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
-    s.complete()
-    this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
-    this._scheduleFieldRelease()
+    this._settleQueue.advance()
   }
-
-  /** Runs whatever is left of the settle in flight, now. Called before
-   *  anything that would paint into the wash or reuse the field: the
-   *  copy-back at the end writes the deposit as it was when the settle began,
-   *  so paint laid meanwhile would be lost. */
   private _completeSettle(): void {
-    const s = this._settle
-    if (!s) return
-    this._settle = null
-    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
-    if (!s.scratch.live) return
-    for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
-    s.complete()
-    this._wcPerf.settleMs = performance.now() - this._wcPerf.settleStart
-    this._scheduleFieldRelease()
-    // (§17.72) A peer's operation drawn over frames lands by finishing its
-    // stroke, which starts that stroke's own settle: "nothing in flight" is
-    // what every caller of this is after.
-    if (this._settle) this._completeSettle()
+    this._settleQueue.complete()
   }
 
   /** (#536, §17.22) The diffusion field is freed WET_FIELD_RELEASE_MS after
@@ -10622,13 +7258,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _overHardCeiling(): boolean {
     return this._gpuBudget !== Infinity && this._washGpuBytes() > this._gpuBudget * GPU_HARD_CEILING
   }
-
-  /** Drops the settle in flight without landing it — the field is gone. */
   private _cancelSettle(): void {
-    const s = this._settle
-    if (!s) return
-    this._settle = null
-    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+    this._settleQueue.cancel()
   }
 
   /** The diffusion's stitched field, at least `w` × `h`.
@@ -10868,24 +7499,6 @@ export class PencilEngine implements PencilEngineAPI {
     const dist = Math.hypot(dab.x - prevDab.x, dab.y - prevDab.y)
     return dist > 0.01 ? dist : radius * MARKER_DWELL_CREEP_DISTANCE_FACTOR
   }
-
-  /** #330 stage 2/3: one nib stamp drawn from its own analytic in-pixel outline
-   *  — the coverage pass (`inkMode` 6, the ribbon's caps) and the ink pass
-   *  (`inkMode` 7) are the same geometry and differ only in what they write, so
-   *  they share one method. That sharing is the point: silhouette and pigment
-   *  cannot disagree about where the nib ended.
-   *
-   *  Sets none of the paper/hardness/grain uniforms a soft dab profile needs —
-   *  neither branch reads them. The three samplers still need *something* bound
-   *  (WebGL validates every active sampler in a linked program, not just the
-   *  branch that runs) and must not be the render target itself, which would be
-   *  a feedback loop, and that fails the draw call outright with
-   *  GL_INVALID_OPERATION whether or not the live branch ever samples it.
-   *  Found the hard way: every marker dab silently no-opped with error 1282
-   *  until it was caught.
-   *
-   *  `ownTarget` false leaves framebuffer/blend setup to the caller, which the
-   *  ink pass needs (it accumulates additively, not "over"). */
   private _drawRibbonNibPass(
     dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
     profile: RibbonProfile, inkMode: 6 | 7 | 10, opacity: number, ownTarget = true,
@@ -10924,94 +7537,8 @@ export class PencilEngine implements PencilEngineAPI {
      *  the watercolor's own ink stamps only. */
     poolBlot = 0,
   ): void {
-    const { gl } = this
-    if (ownTarget) dest.beginDraw()
-
-    gl.useProgram(this._dabProg)
-    this._stamps.bindNoise(this._dabUni.u_wcNoiseTex)
-    const u = this._dabUni
-    gl.uniform2f(u.u_resolution, dest.width, dest.height)
-    for (const [unit, loc] of [[0, u.u_paperHeightMap], [1, u.u_original], [2, u.u_strokeCoverage], [3, u.u_inkLoad]] as const) {
-      gl.activeTexture(gl.TEXTURE0 + unit)
-      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-      gl.uniform1i(loc, unit)
-    }
-    const radius = dab.size * 0.5 * preset.sizeMultiplier
-    gl.uniform1f(u.u_eraseMode, 0.0)
-    gl.uniform1i(u.u_grainMode, 0)
-    gl.uniform1f(u.u_inkMode, inkMode)
-    // #452: cleared, not merely unset — a liner stroke drawn a moment ago left
-    // its own band on this same program (_dabProg is shared), and the marker's
-    // nib geometry is sized off the quad it gets handed.
-    gl.uniform1f(u.u_wickPx, 0)
-    gl.uniform1f(u.u_wickCap, 0)
-    gl.uniform1f(u.u_aaPx, profile.aaPx)
-    // #547: set explicitly rather than left wherever the last draw put it —
-    // _dabProg is shared with the graphite path, which writes this uniform on
-    // every dab, so the digital brush's stamp (u_inkMode=10) would otherwise
-    // take its edge softness from whatever pencil grade was last drawn. Modes 6
-    // and 7 never read it, so this is inert for the three older ribbon tools.
-    gl.uniform1f(u.u_hardness, preset.hardness)
-    gl.uniform1f(u.u_nibShape, profile.nibShape === 'roundedBox' ? 1 : 0)
-    gl.uniform1f(u.u_nibCorner, radius * profile.cornerFraction)
-    gl.uniform1f(u.u_inkEdge, profile.inkEdgeFalloff)
-    if (clipTo) {
-      // Unit 2 is u_strokeCoverage — bound to the paper placeholder above, as
-      // for every stamp, and replaced here with the wash's real coverage.
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, clipTo.texture)
-      gl.activeTexture(gl.TEXTURE0)
-    }
-    gl.uniform1f(u.u_inkClip, clipTo ? 1 : 0)
-    // (#536) Where on the sheet this tile is — the deposit's own mottling is a
-    // world-space field and must land in the same place for a stamp as it does
-    // for a band. Set here rather than inherited: this pass did not set it at
-    // all before, so it was reading whatever the previous draw happened to
-    // leave, which is fine for a value nothing used and a silent seam once
-    // something did.
-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-    gl.uniform1f(u.u_cloudDeposit, profile.cloud)
-    gl.uniform1f(u.u_granDeposit, profile.granulation)
-    gl.uniform2f(u.u_mottleSeed, mottleSeed[0], mottleSeed[1])
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._dabPosLoc)
-    gl.vertexAttribPointer(this._dabPosLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.uniform2f(u.u_dabCenter, dab.x - tile.originX, dab.y - tile.originY)
-    gl.uniform1f(u.u_dabRadius, radius)
-    gl.uniform1f(u.u_angle, dab.angle)
-    gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
-    gl.uniform1f(u.u_pressure, dab.pressure)
-    gl.uniform1f(u.u_opacity, opacity)
-    // #468 v4 — weights the deposit written into the texture's colour channels.
-    gl.uniform1f(u.u_inkWater, inkWater)
-    gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
-    gl.uniform1f(u.u_paperWet, paperWet)
-    gl.uniform1f(u.u_puddle, puddle)
-    gl.uniform1f(u.u_poolBlot, poolBlot)
-    // (#536, s17.11/13) What this stroke delivers and what dry paper keeps of
-    // it — the mix's water, not this dab's depleted load — into the record of
-    // standing water the diffusion pass gates on. See u_washWater.
-    const delivery = ribbonWaterDelivery(profile)
-    gl.uniform1f(u.u_washWater, delivery.water)
-    gl.uniform1f(u.u_waterRetain, delivery.retain)
-    gl.uniform1f(u.u_inkStrength, inkStrength)
-    gl.uniform1f(u.u_bristleCombs, bristleCombs)
-    gl.uniform1f(u.u_bristleInk, bristleInk)
-    gl.uniform1f(u.u_depthWrite, depthTau ? 1 : 0)
-    gl.uniform3fv(u.u_tau, depthTau ? [depthTau[0], depthTau[1], depthTau[2]] : [0, 0, 0])
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    if (ownTarget) dest.endDraw()
+    this._ribbonPasses.drawRibbonNibPass(dest, tile, dab, preset, profile, inkMode, opacity, ownTarget, inkWater, acrossLocal, paperWet, inkStrength, mottleSeed, clipTo, bristleCombs, bristleInk, depthTau, puddle, poolBlot)
   }
-
-  /** #330 stage 2, coverage pass part 2: every band of this batch in one draw
-   *  (markerRibbon.ts built them; RIBBON_FRAG turns each vertex's carried
-   *  distance-to-edge into coverage). Positions are world-space, shifted into
-   *  this tile's own pixel space here — the only per-tile work, which is why
-   *  the geometry itself is built once for the whole batch rather than per
-   *  tile. */
   private _drawRibbonBands(
     dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink' | 'ink-max', aaPx: number,
     cloud = 0, gran = 0, mottleSeed: [number, number] = [0, 0],
@@ -11026,76 +7553,8 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#680, s17.79) See _drawRibbonNibPass's poolBlot. */
     poolBlot = 0,
   ): void {
-    const { gl } = this
-    const local = bands.slice()
-    for (let i = 0; i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
-      local[i]     = bands[i]     - tile.originX
-      local[i + 1] = bands[i + 1] - tile.originY
-
-    }
-
-    if (mode === 'ink-max') dest.beginMaxDraw(this._minmaxExt!); else if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
-    gl.useProgram(this._ribbonProg)
-    this._stamps.bindNoise(this._ribbonUni.u_wcNoiseTex)
-    gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
-    gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
-    gl.uniform1f(this._ribbonUni.u_mode, mode === 'coverage' ? 0 : 1)
-    gl.uniform2f(this._ribbonUni.u_worldOrigin, tile.originX, -tile.originY || 0)
-    gl.uniform1f(this._ribbonUni.u_cloudDeposit, cloud)
-    gl.uniform1f(this._ribbonUni.u_granDeposit, gran)
-    gl.uniform1f(this._ribbonUni.u_poolBlot, poolBlot)
-    gl.uniform2f(this._ribbonUni.u_mottleSeed, mottleSeed[0], mottleSeed[1])
-    gl.uniform1f(this._ribbonUni.u_washWater, washWater)
-    gl.uniform1f(this._ribbonUni.u_waterRetain, waterRetain)
-    gl.uniform1f(this._ribbonUni.u_bristleCombs, bristleCombs)
-    gl.uniform1f(this._ribbonUni.u_bristleInk, bristleInk)
-    gl.uniform1f(this._ribbonUni.u_depthWrite, depthTau ? 1 : 0)
-    gl.uniform3fv(this._ribbonUni.u_tau, depthTau ? [depthTau[0], depthTau[1], depthTau[2]] : [0, 0, 0])
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
-    gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
-    const stride = RIBBON_FLOATS_PER_VERTEX * 4
-    gl.enableVertexAttribArray(this._ribbonPosLoc)
-    gl.vertexAttribPointer(this._ribbonPosLoc, 2, gl.FLOAT, false, stride, 0)
-    gl.enableVertexAttribArray(this._ribbonEdgeLoc)
-    gl.vertexAttribPointer(this._ribbonEdgeLoc, 1, gl.FLOAT, false, stride, 8)
-    gl.enableVertexAttribArray(this._ribbonInkWaterLoc)
-    gl.vertexAttribPointer(this._ribbonInkWaterLoc, 1, gl.FLOAT, false, stride, 16)
-    gl.enableVertexAttribArray(this._ribbonInkLoc)
-    gl.vertexAttribPointer(this._ribbonInkLoc, 1, gl.FLOAT, false, stride, 12)
-    gl.enableVertexAttribArray(this._ribbonAcrossLoc)
-    gl.vertexAttribPointer(this._ribbonAcrossLoc, 1, gl.FLOAT, false, stride, 20)
-    gl.enableVertexAttribArray(this._ribbonInkWetLoc)
-    gl.vertexAttribPointer(this._ribbonInkWetLoc, 1, gl.FLOAT, false, stride, 24)
-    gl.enableVertexAttribArray(this._ribbonInkStrengthLoc)
-    gl.vertexAttribPointer(this._ribbonInkStrengthLoc, 1, gl.FLOAT, false, stride, 28)
-    gl.enableVertexAttribArray(this._ribbonPuddleLoc)
-    gl.vertexAttribPointer(this._ribbonPuddleLoc, 3, gl.FLOAT, false, stride, 32)
-
-    gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
-
-    // Leaving these enabled would make the *next* program's draw read a stale
-    // per-vertex stream for whatever attribute index happens to collide with
-    // them (these slots are not reserved across programs).
-    gl.disableVertexAttribArray(this._ribbonEdgeLoc)
-    gl.disableVertexAttribArray(this._ribbonInkWaterLoc)
-    gl.disableVertexAttribArray(this._ribbonInkLoc)
-    gl.disableVertexAttribArray(this._ribbonAcrossLoc)
-    gl.disableVertexAttribArray(this._ribbonInkWetLoc)
-    gl.disableVertexAttribArray(this._ribbonInkStrengthLoc)
-    dest.endDraw()
+    this._ribbonPasses.drawRibbonBands(dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot)
   }
-
-  /** #330 stage 2, composite pass: the same DAB_FRAG u_inkMode=2 branch the
-   *  every other tool's dabs feed, but drawn once over the whole batch's dirty
-   *  rect instead of once per dab — see _ribbonStrokeWork's own doc comment for why a
-   *  per-dab quad no longer covers what the coverage pass wrote.
-   *
-   *  The rect is covered by a circumscribing dab quad (aspect 1, angle 0,
-   *  radius = half the diagonal) rather than a new full-rect program: DAB_FRAG
-   *  discards outside `dist > 1`, and a circle through the rect's corners
-   *  contains every pixel of it. The extra fragments cost nothing — the branch
-   *  discards any pixel this stroke hasn't covered anyway. */
   private _drawRibbonCompositeRect(
     tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
     preset: PencilPreset, profile: RibbonProfile,
@@ -11108,402 +7567,21 @@ export class PencilEngine implements PencilEngineAPI {
      *  derived from. */
     bristleRadiusPx = 0,
   ): void {
-    // (#536, §17.22) The rect itself, as a dab whose aspect is the rect's:
-    // DAB_VERT scales the unit quad by (aspect, 1) * radius * 2, so a "dab"
-    // of size H and aspect W/H covers exactly W x H. It used to be a round
-    // dab of the rect's half-DIAGONAL, which the composite branch (pure
-    // gl_FragCoord, no dab geometry) filled corner to corner — twice the
-    // rect's area of the most expensive shader in the tool, for nothing.
-    // One pixel of margin so a fractional edge cannot leave a column out.
-    const minX = Math.floor(bounds.minX) - 1, minY = Math.floor(bounds.minY) - 1
-    const maxX = Math.ceil(bounds.maxX) + 1, maxY = Math.ceil(bounds.maxY) + 1
-    const w = maxX - minX, h = maxY - minY
-    if (w <= 0 || h <= 0) return
-    const rectDab: Dab = {
-      x: (minX + maxX) * 0.5, y: (minY + maxY) * 0.5, pressure: 1, tiltX: 0, tiltY: 0,
-      size: h, aspectRatio: w / h, angle: 0, opacity, t: 0,
-    }
-    this._drawRibbonCompositeDab(tile, rectDab, h * 0.5, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
+    this._ribbonPasses.drawRibbonCompositeRect(tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
   }
-
-  /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
-   *  branch), reading `original`/`coverage`/`inkLoad` as plain full-tile
-   *  textures (sampled via gl_FragCoord/u_resolution — no patch-relative
-   *  origin/size uniforms needed, since all three are already 1:1-aligned
-   *  with the tile this draws into) instead of a small per-dab copied
-   *  patch. */
-  private _drawRibbonCompositeDab(
-    tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
-    original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
-    inkColor: AccumulationBuffer | null,
-    color: [number, number, number], fieldSeed: [number, number], spreadPx: number, water: number,
-    migratePx: number, inkSmoothPx: number, strokeDir: [number, number],
-    /** (#536) Half-width of this gesture's mark, px — what the hair count is
-     *  derived from. */
-    bristleRadiusPx = 0,
-  ): void {
-    const { gl } = this
-    const { buffer } = tile
-    if (this._wcAb.noSpread) spreadPx = 0
-    if (this._wcAb.noMigrate) migratePx = 0
-    // Overwrite, not "over" (#330) — this branch recomputes the finished pixel
-    // from scratch every time, so blending it into its own previous output
-    // compounded alpha once per dab. See beginReplaceDraw's own comment.
-    buffer.beginReplaceDraw()
-
-    gl.useProgram(this._dabProg)
-    this._stamps.bindNoise(this._dabUni.u_wcNoiseTex)
-    const u = this._dabUni
-    gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    // #141: world-space paper sampling — see DAB_FRAG's own comment. Marker
-    // never actually reads u_paperHeightMap in *this* branch (ADR 004 §8 —
-    // the composite itself has no paper interaction, only the coverage
-    // splat's edge bleed does), but every uniform this shared program
-    // declares still needs a value bound each draw the way every other
-    // caller of _dabProg already does, so this mirrors _paintDabsUniform's
-    // own setup exactly rather than skipping it.
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 0)
-    // The actual multiply-compositing inputs (ADR 004 §3, redesigned in
-    // "Ревизия v1.5" — see RibbonStrokeScratch's own doc comment): this
-    // tile's frozen pre-stroke content, this stroke's own running coverage
-    // (silhouette/alpha) and running inkLoad (darkness) — both just updated
-    // by the two splat passes above, same quad, moments ago. No paper-color
-    // uniform any more: DAB_FRAG's own effectiveBase now falls back to a
-    // flat vec3(1.0) for an untouched spot, not this room's actual paper
-    // tone — a fully built-up marker mark on blank layer content multiplies
-    // out to exactly the picked swatch color that way (1.0 * color =
-    // color), while still correctly darkening toward whatever's *really*
-    // underneath (a pencil line, say) wherever this layer isn't blank.
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, original.texture)
-    gl.uniform1i(u.u_original, 1)
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
-    gl.uniform1i(u.u_strokeCoverage, 2)
-    // Bound even when this tool has no ink load: WebGL validates every active
-    // sampler in a linked program, not only the branch that runs, and an
-    // unbound one fails the draw outright (see _drawRibbonNibPass's own note
-    // on the 1282 that cost an afternoon). The paper texture stands in — the
-    // source-over branch never samples it, and it is guaranteed not to be the
-    // render target, which would be a feedback loop.
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, inkLoad ? inkLoad.texture : this._paperTex)
-    gl.uniform1i(u.u_inkLoad, 3)
-    // (#536, §17.19) The colour record on its own unit for this draw. Every
-    // other user of the program leaves the sampler at unit 0 (the paper,
-    // always bound), and it is put back there below, so no draw ever finds
-    // it pointing at a unit nothing is bound to.
-    gl.activeTexture(gl.TEXTURE4)
-    gl.bindTexture(gl.TEXTURE_2D, inkColor ? inkColor.texture : this._paperTex)
-    gl.uniform1i(u.u_inkColor, 4)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform1f(u.u_hardness, preset.hardness)
-    gl.uniform1f(u.u_eraseMode, 0.0)
-    gl.uniform3fv(u.u_color, color)
-    // No graphite grain dither for marker — same reasoning liner's own
-    // branch gives (a completely different deposit formula, not a
-    // "graphite variant"); DAB_FRAG's marker branch never calls
-    // computeGrain at all, so this value is inert, but every _dabProg
-    // caller sets it (see _paintDabsUniform) so this stays consistent.
-    gl.uniform1i(u.u_grainMode, 0)
-    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
-    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, profile.compositeInkMode)
-    // #454: how strongly paper grain acts on a ribbon tool's rim — read by the
-    // u_inkMode=8 and =9 branches, in opposite directions (RibbonProfile
-    // .paperRim) — and set on every composite draw, not just those tools', for
-    // the same reason u_wickPx is cleared below: uniforms persist across draws
-    // on a shared program.
-    gl.uniform1f(u.u_paperRim, profile.paperRim)
-    // #468, ADR 011 §3 — watercolor's four, set on every ribbon composite (not
-    // just watercolor's) for the same uniforms-persist reason u_wickPx is
-    // cleared below. Every other profile carries zeros, which makes each term
-    // in the u_inkMode=9 branch vanish identically.
-    //
-    // (#468 v4) No live/settle split any more — every term runs on every
-    // composite, and the settle pass differs only in the rect it covers. See
-    // _ribbonStrokeWork's compositeBounds for why that became possible, and
-    // what the split cost perceptually while it lasted.
-    gl.uniform1f(u.u_wetEdge, profile.wetEdge)
-    gl.uniform1f(u.u_wetEdgeRadiusPx, profile.wetEdgeRadiusPx)
-    // (#536) Bundles from the mark's own half-width, so a hair stays a fixed
-    // few pixels wide whatever brush is held — see
-    // WATERCOLOR_BRISTLE_BUNDLE_PX. The coordinate this scales runs -1..+1
-    // across the whole width, so the count of bundles laid across the mark is
-    // twice this.
-    const combs = ribbonBristleCombs(profile, bristleRadiusPx)
-    gl.uniform1f(u.u_granulation, profile.granulation)
-    gl.uniform1f(u.u_bristleCombs, combs)
-    gl.uniform1f(u.u_bristleInk, profile.bristleInk)
-    gl.uniform1f(u.u_wcDebugView, this._wcDebugView)
-    // (#536) The fallback where there is no deposit to read a per-pixel value
-    // from — the spread fringe, which is about to be decided by it.
-    gl.uniform1f(u.u_inkStrength, profile.pigmentStrength)
-    gl.uniform1f(u.u_saturateInk, profile.saturateInk)
-    // #468 v2 — split by *what the term depends on*, not by taste. The spread
-    // rewrites the mark's silhouette and so cannot be evaluated before the
-    // stroke is finished, exactly like the wet edge above it. The cloud field
-    // is a per-place value owing nothing to the silhouette, so it runs on every
-    // batch — deferring it would only make a wash visibly change tone at
-    // pen-up, buying nothing.
-    gl.uniform1f(u.u_spreadPx, spreadPx)
-    gl.uniform1f(u.u_cloud, profile.cloud)
-    gl.uniform2f(u.u_fieldOffset, fieldSeed[0], fieldSeed[1])
-    // #468 v4 — the brush model (ADR 011 §4). u_water is the fallback the
-    // composite uses outside the mark, where there is no deposit to read a
-    // per-pixel level from.
-    gl.uniform1f(u.u_water, water)
-    gl.uniform1f(u.u_dryContact, profile.dryContact)
-    gl.uniform1f(u.u_edgeSoft, profile.edgeSoft)
-    gl.uniform1f(u.u_edgeWander, profile.edgeWander)
-    gl.uniform2f(u.u_strokeDir, strokeDir[0], strokeDir[1])
-    gl.uniform1f(u.u_tideLo, profile.tideLo)
-    gl.uniform1f(u.u_tideHi, profile.tideHi)
-    gl.uniform1f(u.u_pigmentOpacity, profile.pigmentOpacity)
-    gl.uniform1f(u.u_inkSmoothPx, profile.normalizeDeposit ? inkSmoothPx : 0)
-    // #468 v11 — pigment transport (ADR 011 §11). A zero gain switches the
-    // block off outright rather than scaling its result to nothing, which
-    // matters here in a way it does not for the terms above: this one costs 52
-    // texture reads per fragment, and every marker and brush-pen composite goes
-    // through the same program.
-    gl.uniform1f(u.u_migrate, migratePx > 0 ? profile.migrate : 0)
-    gl.uniform1f(u.u_migratePx, migratePx)
-    gl.uniform1f(u.u_migrateLo, profile.migrateLo)
-    gl.uniform1f(u.u_migrateHi, profile.migrateHi)
-    gl.uniform1f(u.u_inkWater, 0)
-    // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
-    gl.uniform1f(u.u_wickPx, 0)
-    gl.uniform1f(u.u_wickCap, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._dabPosLoc)
-    gl.vertexAttribPointer(this._dabPosLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.uniform2f(u.u_dabCenter, dab.x - tile.originX, dab.y - tile.originY)
-    gl.uniform1f(u.u_dabRadius, radius)
-    gl.uniform1f(u.u_angle, dab.angle)
-    gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
-    gl.uniform1f(u.u_pressure, dab.pressure)
-    gl.uniform1f(u.u_tiltX, dab.tiltX)
-    gl.uniform1f(u.u_tiltY, dab.tiltY)
-    gl.uniform1f(u.u_opacity, dab.opacity)
-    // (§17.62) The whole quad, corners included - see u_rectComposite.
-    gl.uniform1f(u.u_rectComposite, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    gl.uniform1f(u.u_rectComposite, 0)
-    gl.uniform1i(u.u_inkColor, 0)
-
-    buffer.endDraw()
-  }
-
+  /** Delegates layer composition to LayerCompositor. */
   private _compositeTextures(
     items: Array<{ texture: WebGLTexture; opacity: number }>,
     targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
-  ): void {
-    const { gl } = this
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, targetW, targetH)
-    gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-
-    gl.useProgram(this._compositeProg)
-    const cu = this._compositeUni
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._compositePosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    for (const { texture, opacity } of items) {
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.uniform1i(cu.u_layer, 0)
-      gl.uniform1f(cu.u_opacity, opacity)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-    }
-
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** Marks the below/above split cache (#122 — see the field comment on
-   *  _belowCache/_aboveCache) stale. Idempotent and cheap: safe to call from
-   *  any site that isn't sure whether it actually needs to. The very next
-   *  _runComposite() call rebuilds both halves from current buffer state
-   *  before reading either. */
-  private _invalidateSplitCache(): void {
-    this._splitCacheDirty = true
-  }
-
-  /** Draws one CompositeItem's live content into `targetFbo` — a layer
-   *  mid-gizmo-drag (#120) composites its scratch transform-preview tile(s)
-   *  instead of its real, untouched buffer (see previewLayerTransform);
-   *  otherwise every one of its resident/visible tiles goes through
-   *  _drawTileComposite (#136 — this used to special-case BoundedLayerBuffer
-   *  with a plain fullscreen-quad blit and just skip TiledLayerBuffer
-   *  entirely; a bounded room's fixed identity camera, see the constructor,
-   *  makes that plain-blit shortcut and the tile-relative draw produce the
-   *  same pixels, so there's no reason to keep both paths). #139: a preview
-   *  tile is shaped exactly like a real PaintTarget (own originX/originY,
-   *  own size — see PreviewTile), so it goes through the exact same
-   *  _drawTileComposite loop as a real tile rather than a separate
-   *  fullscreen-blit path — that's what makes a multi-tile preview (an
-   *  infinite-canvas layer spanning, or transformed to span, more than one
-   *  tile) composite correctly instead of only ever showing one tile's
-   *  worth. */
+  ): void { this._compositor.compositeTextures(items, targetFbo, targetW, targetH) }
+  /** Delegates layer composition to LayerCompositor. */
+  private _invalidateSplitCache(): void { this._compositor.invalidateSplitCache() }
+  /** Delegates layer composition to LayerCompositor. */
   private _drawCompositeItem(
     frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
     targetW: number, targetH: number,
-  ): void {
-    const viewRect = frame.view
-    // (#365) Whether this pass is shrinking tiles on the way to its target.
-    // Only then is a mip chain worth having: at or above 1:1 the base level
-    // is already the right size, and generating levels nobody samples would
-    // be pure cost on the one path (drawing at 100%) that must stay fast.
-    // The export's frame is exactly 1:1 for the same reason — see
-    // exactFrame.
-    const minifying = frame.scale < 1
+  ): void { this._compositor.drawCompositeItem(frame, id, opacity, targetFbo, targetW, targetH) }
 
-    const preview = this._previews.tiles.get(id)
-    // (#446) A selection preview shadows only the tiles it holds — the rest of
-    // the layer is standing still and must still be drawn. A whole-layer
-    // preview keeps the original behaviour of replacing the layer outright:
-    // every pixel of it moved, so there is nothing left to draw underneath.
-    const areaPreview = preview ? this._previews.areaLayers.has(id) : false
-    if (preview) {
-      for (const { originX, originY, buffer } of preview) {
-        buffer.setMipSampling(minifying && buffer.ensureMipmaps())
-        this._drawTileComposite(
-          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
-        )
-      }
-      if (!areaPreview) return
-    }
-    const buf = this._layers.get(id)
-    if (!buf) return
-
-    if (areaPreview) {
-      // Deliberately the fine tiles, never resolveCoarse: the coarse pyramid
-      // has no idea a preview is shadowing anything, so a zoomed-out frame
-      // would draw the pre-drag content of the very tiles being previewed,
-      // right on top of the preview. A drag is transient; one frame at fine
-      // resolution is the cheaper mistake.
-      const shadowed = new Set((preview ?? []).map(t => `${t.originX},${t.originY}`))
-      for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
-        if (shadowed.has(`${originX},${originY}`)) continue
-        buffer.setMipSampling(minifying && buffer.ensureMipmaps())
-        this._drawTileComposite(
-          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
-        )
-      }
-      return
-    }
-
-    // (#365) Which pyramid level this frame should draw, or null for the fine
-    // tiles — see coarseFactorFor. The level is never more than a factor of
-    // two off 1:1, so the visible tile count stays flat (~9-16 per layer)
-    // across the whole zoom range instead of spiking just above a single
-    // level's threshold, which is what made one specific zoom freeze: the
-    // fine tiles it fell back to had been evicted while the coarse level was
-    // on screen, and recovering hundreds of them at once costs an Operation
-    // Log replay plus a readback and re-upload each.
-    const factor = coarseFactorFor(frame.scale)
-    const coarse = factor === null ? null : buf.resolveCoarse(viewRect, factor)
-    // (#503) `coarse.length`, not just `coarse`: an empty array is truthy, so
-    // a level holding nothing here used to end the draw outright — the layer
-    // vanished at this zoom and came back on zooming in. That state is
-    // unreachable while every write marks its tiles (which is what the rest of
-    // #503 is about), so this is a guard, not a fix for a seen bug. It is
-    // worth having anyway because of the asymmetry: falling through costs one
-    // resolveVisible over a region that by construction holds no tiles, while
-    // not falling through costs a layer.
-    if (coarse?.length && factor !== null) {
-      const { w: coarseW, h: coarseH } = buf.coarseWorldSize(factor)
-      for (const { buffer, originX, originY } of coarse) {
-        buffer.setMipSampling(false)
-        this._drawTileComposite(
-          frame, buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
-        )
-      }
-      return
-    }
-
-    for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
-      buffer.setMipSampling(minifying && buffer.ensureMipmaps())
-      // (#536, §17.12) A tile still converging on a settled wash draws through
-      // the reveal — same rect, same blend, its pixels mixed with the kept
-      // picture. The coarse levels above draw plain: at that zoom the motion
-      // is under a pixel.
-      const reveal = this._washReveals.get(buffer)
-      if (reveal) {
-        this._drawTileReveal(
-          frame, reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
-          minifying,
-        )
-        continue
-      }
-      this._drawTileComposite(
-        frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
-      )
-    }
-  }
-
-  /** Rebuilds both cache halves from scratch iff _splitCacheDirty — see the
-   *  _belowCache/_aboveCache field comment for what "dirty" tracks. Only
-   *  ever called with _previews empty (_runComposite bypasses this
-   *  entirely otherwise), so _drawCompositeItem always resolves to a real
-   *  layer's own current buffer here, never a scratch preview. */
-  private _rebuildSplitCacheIfDirty(
-    frame: CameraFrame, belowItems: CompositeItem[], aboveItems: CompositeItem[],
-    targetW: number, targetH: number,
-  ): void {
-    if (!this._splitCacheDirty) return
-    this._rebuildCacheHalf(frame, this._belowCache, belowItems, targetW, targetH)
-    this._rebuildCacheHalf(frame, this._aboveCache, aboveItems, targetW, targetH)
-    this._splitCacheDirty = false
-  }
-
-  private _rebuildCacheHalf(
-    frame: CameraFrame, target: AccumulationBuffer, items: CompositeItem[], targetW: number, targetH: number,
-  ): void {
-    target.clear()
-    for (const { id, opacity } of items) this._drawCompositeItem(frame, id, opacity, target.fbo, targetW, targetH)
-  }
-
-  /** #122: normally recomposites *every* visible layer/folder-child from
-   *  `items` into `targetFbo` on every call — cost scaling linearly with
-   *  layer count even though a painted move-event only ever changes the
-   *  active layer's own texture (see _paintStrokeDabs). Instead, splits
-   *  `items` around the active layer and composites:
-   *
-   *    [ below-cache (opacity 1) ] → [ active layer (its own opacity) ] → [ above-cache (opacity 1) ]
-   *
-   *  where below-cache/above-cache are the pre-blended result of every
-   *  entry strictly below/above the active layer (rebuilt only when
-   *  _splitCacheDirty — see _invalidateSplitCache's call sites). Porter-Duff
-   *  "over" is associative, so grouping contiguous runs into one
-   *  already-composited texture and blending *that* at opacity 1 produces
-   *  the exact same result as blending every entry individually in order —
-   *  same technique this file already uses for layer_merge
-   *  (StructuralOps.mergeLive/replayMergeInto).
-   *
-   *  Bypassed entirely whenever a layer-transform gizmo preview (#120) is
-   *  active: previewLayerTransform can substitute scratch content for *any*
-   *  layer, active or not, on every drag frame, and that's rare enough
-   *  (drags, not paint dabs) that reasoning about invalidating a persistent
-   *  cache through it isn't worth it — this falls back to exactly the old
-   *  (pre-#122) per-frame full recompute for as long as any preview exists.
-   *
-   *  (#136) Same split-cache technique now backs both bounded and infinite
-   *  rooms — see _drawCompositeItem and Camera's constructor
-   *  pose. No per-mode branch left here. */
   /** (#138) See Camera.centeredOrigin. Kept by this name for the stroke
    *  lifecycle code, which is live on another branch. */
   private _cameraCenteredOrigin(): { x: number; y: number } {
@@ -11515,232 +7593,21 @@ export class PencilEngine implements PencilEngineAPI {
   private _translateDabs(dabs: Dab[], origin: { x: number; y: number }): Dab[] {
     return translateDabs(dabs, origin)
   }
-
-  /** (#365) Draws one fine tile, shrunk, into its slot of a coarse tile —
-   *  the TileDownsampler TiledLayerBuffer is handed so it can keep its coarse
-   *  level current without owning a shader.
-   *
-   *  Positions the slot with gl.viewport for the same reason
-   *  _drawTileComposite does (see its comment on the ANGLE/D3D dropout), and
-   *  refreshes the source's mip chain first so shrinking 1024 texels into 128
-   *  reads filtered levels rather than one texel in sixty-four — without that
-   *  the coarse level would be built out of exactly the aliasing it exists to
-   *  avoid.
-   *
-   *  Replaces rather than blends: a slot is one fine tile's whole content,
-   *  including its transparency, so blending "over" would keep whatever that
-   *  tile used to hold before it was erased. */
+  /** Delegates layer composition to LayerCompositor. */
   private _downsampleTileInto(
     source: AccumulationBuffer, dest: AccumulationBuffer,
     x: number, y: number, w: number, h: number,
-  ): void {
-    const { gl } = this
-    // Always minifying by COARSE_FACTOR here, so this wants filtered levels
-    // regardless of what the camera is doing.
-    source.setMipSampling(source.ensureMipmaps())
-
-    // A partial screen composite may have a screen-space scissor active.
-    // Coarse-cache slots have their own coordinates; folding must replace
-    // the whole slot before restoring the caller's clipping state.
-    const scissored = gl.isEnabled(gl.SCISSOR_TEST)
-    if (scissored) gl.disable(gl.SCISSOR_TEST)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, dest.fbo)
-    // gl.viewport's y is bottom-up; slot coordinates are top-down like every
-    // other buffer-pixel value in this file.
-    gl.viewport(x, dest.height - (y + h), w, h)
-    gl.disable(gl.BLEND)
-
-    gl.useProgram(this._compositeProg)
-    const u = this._compositeUni
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._compositePosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, source.texture)
-    gl.uniform1i(u.u_layer, 0)
-    gl.uniform1f(u.u_opacity, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    // Left on a plain filter: the fold runs on every write, at every zoom,
-    // so leaving mip sampling on here would quietly make the 1:1 on-screen
-    // composite trilinear too — where it is meant to be an exact texel copy.
-    source.setMipSampling(false)
-
-    if (scissored) gl.enable(gl.SCISSOR_TEST)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** Infinite canvas (#133 Phase 1) — draws one tile's texture into
-   *  `targetFbo` at its camera-relative screen position, blended over
-   *  whatever's already there (same (ONE, ONE_MINUS_SRC_ALPHA) "over" every
-   *  other composite pass in this file uses) — the tile-aware counterpart
-   *  to _compositeTextures' fullscreen-quad draw.
-   *
-   *  Positions the tile via gl.viewport() instead of a per-tile clip-space
-   *  computation in a shader — deliberately, and not for simplicity: an
-   *  earlier version computed each tile's destination quad and/or source-UV
-   *  sub-rect in the shader (a uniform mat3, a dynamically-reuploaded vertex
-   *  buffer, even a compile-time constant — every variant tried), and
-   *  reproducibly sampled as fully transparent black on a real ANGLE/D3D
-   *  backend (confirmed: Chrome/Windows) — but *only* on some draws, not
-   *  others, in a pattern that tracked draw-call position within the
-   *  composite pass rather than which values were used (bisection ruled out
-   *  clip-space magnitude, branching, uniform-vs-attribute-vs-constant, and
-   *  program identity in turn). Whatever the underlying driver quirk is,
-   *  routing the tile's position through gl.viewport — ordinary WebGL state,
-   *  not a shader computation — sidesteps it entirely: this reuses
-   *  _compositeProg/DISPLAY_VERT completely unmodified (the same program
-   *  every *other* composite pass in this file already relies on) with its
-   *  plain full quad, and lets the fixed-function rasterizer do the
-   *  positioning instead. Verified stable across a full stroke crossing all
-   *  four tile boundaries — no dropout, no seam.
-   *
-   *  Doesn't itself account for camera rotation (Camera.pose.angle) —
-   *  the viewport is always an axis-aligned rect, so a rotated view would
-   *  misplace tiles if this drew straight to the real screen. It doesn't:
-   *  for infinite rooms _runComposite always targets the unrotated
-   *  _assemblyFBO here (see targetW/targetH, always that buffer's own
-   *  size in that case) and _finishInfiniteComposite applies the actual
-   *  rotation exactly once, afterwards, on the assembled result — see its
-   *  own comment (#134).
-   *
-   *  Rounds each of the tile's four EDGES individually (via
-   *  frameEdgeX/Y, src/raster/cameraFrame.ts), rather than rounding a position and a
-   *  size independently — two tiles sharing a world-space edge (adjacent
-   *  tile origins are always exactly TILE_SIZE apart) compute that shared
-   *  edge from the exact same formula and thus the exact same rounded
-   *  pixel, however the camera/zoom fraction falls. Rounding position and
-   *  size separately (the pre-#140 version of this method) doesn't have
-   *  that guarantee — `round(pos) + round(size)` and `round(pos + size)`
-   *  disagree for plenty of real zoom/pan combinations (confirmed: e.g.
-   *  zoom 1.01 with the camera offset a few hundred world units from a
-   *  tile boundary), producing a 1px transparent gap or a 1px overlap
-   *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
-   *  case for a concrete reproduction.
-   *
-   *  Centers on `frame`'s centerX/Y — the current composite target's own
-   *  pixel position for the camera's world point — rather than this
-   *  target's own half-size (targetW/2): see CameraFrame.centerX for
-   *  why the two aren't the same thing for infinite rooms, and why that
-   *  distinction is what keeps an unrotated infinite-room frame pixel-
-   *  aligned (no blur) instead of resampled through a fractional offset.
-   *
-   *  (#301) Scales by frame.scale, not the camera's raw zoom — above
-   *  zoom 1 the two differ, and the leftover magnification is applied later,
-   *  by the same pass that applies the rotation. See CameraFrame.scale. */
+  ): void { this._compositor.downsampleTileInto(source, dest, x, y, w, h) }
+  /** Delegates layer composition to LayerCompositor. */
   private _drawTileComposite(
     frame: CameraFrame, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
     opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
-  ): void {
-    const { gl } = this
-    const leftEdge   = frameEdgeX(frame, originX)
-    const rightEdge  = frameEdgeX(frame, originX + bw)
-    const topEdge    = frameEdgeY(frame, originY)
-    const bottomEdge = frameEdgeY(frame, originY + bh)
-    const glX = leftEdge
-    // gl.viewport's y is measured from the bottom of the target, unlike the
-    // top-down (topEdge, bottomEdge) this file uses everywhere else.
-    const glY = targetH - bottomEdge
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(glX, glY, rightEdge - leftEdge, bottomEdge - topEdge)
-    gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-
-    gl.useProgram(this._compositeProg)
-    const u = this._compositeUni
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._compositePosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.uniform1i(u.u_layer, 0)
-    gl.uniform1f(u.u_opacity, opacity)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    gl.disable(gl.BLEND)
-    gl.viewport(0, 0, targetW, targetH)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** Every draw in this method (tiles, split-cache halves, active layer)
-   *  targets _assemblyFBO — unrotated, zoom-applied, world-centered —
-   *  instead of the real (canvas-sized) `targetFbo` directly.
-   *
-   *  (#470) Both kinds of room, now that a bounded one is drawn through the
-   *  camera too. It used to draw straight into `targetFbo` because its
-   *  rotation and zoom were the DOM canvasWrap's CSS transform rather than
-   *  this camera's, and its canvas was the whole sheet.
-   *
-   *  Unlike before #138, this no longer calls _finishInfiniteComposite
-   *  itself: _composeToFBO (the only caller) still has the live-tip/
-   *  predicted/peer-reveal preview buffers to blend in after real layer
-   *  content but *before* the camera's rotation is baked in — those
-   *  previews need the exact same unrotated `_assemblyFBO` this method
-   *  leaves populated, so _composeToFBO now owns the single call to
-   *  _finishInfiniteComposite once everything (real content + previews) is
-   *  in place. */
+  ): void { this._compositor.drawTileComposite(frame, texture, originX, originY, bw, bh, opacity, targetFbo, targetW, targetH) }
+  /** Delegates layer composition to LayerCompositor. */
   private _runComposite(
     frame: CameraFrame, items: CompositeItem[],
     partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null,
-  ): void {
-    const buildFbo = this._assemblyFBO.fbo
-    const targetW  = this._assemblyFBO.width
-    const targetH  = this._assemblyFBO.height
-
-    const idx = this._activeId !== null ? items.findIndex(it => it.id === this._activeId) : -1
-    // idx === -1 (no active layer, or it's not currently composited — e.g.
-    // hidden): treat everything as "below" and composite no separate active
-    // entry, exactly matching what a plain full recompute of `items` would
-    // have produced (the active id, absent from `items`, was never going to
-    // be drawn either way).
-    const belowItems  = idx === -1 ? items : items.slice(0, idx)
-    const activeItem  = idx === -1 ? null  : items[idx]
-    const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
-    // (§17.46) The split caches are rebuilt (in full) before any scissor.
-    if (this._previews.tiles.size === 0) this._rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
-    // (§17.46) A frame whose only change is the live stroke reassembles only
-    // its rect (unrotated camera: the assembly is then the screen, padded):
-    // clearing and redrawing the whole assembly - the caches and every
-    // resident tile of the active layer - was the second-dearest thing in a
-    // big stroke's frame on the tablet.
-    let scissored = false
-    if (partialWorld && frame.angle === 0 && this._previews.tiles.size === 0) {
-      const pad = 8
-      const x0 = Math.max(0, frameEdgeX(frame, partialWorld.minX) - pad)
-      const x1 = Math.min(targetW, frameEdgeX(frame, partialWorld.maxX) + pad)
-      const top = Math.max(0, frameEdgeY(frame, partialWorld.minY) - pad)
-      const bottom = Math.min(targetH, frameEdgeY(frame, partialWorld.maxY) + pad)
-      if (x1 > x0 && bottom > top) {
-        this.gl.enable(this.gl.SCISSOR_TEST)
-        this.gl.scissor(x0, targetH - bottom, x1 - x0, bottom - top)
-        scissored = true
-      }
-    }
-    this._assemblyFBO.clear()
-
-    if (this._previews.tiles.size > 0) {
-      for (const { id, opacity } of items) this._drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH)
-      return
-    }
-
-    if (belowItems.length) {
-      this._compositeTextures([{ texture: this._belowCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
-    }
-    if (activeItem) {
-      this._drawCompositeItem(frame, activeItem.id, activeItem.opacity, buildFbo, targetW, targetH)
-    }
-    if (aboveItems.length) {
-      this._compositeTextures([{ texture: this._aboveCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
-    }
-    if (scissored) this.gl.disable(this.gl.SCISSOR_TEST)
-  }
+  ): void { this._compositor.runComposite(frame, items, partialWorld) }
 
   /** (#134) The one place camera rotation actually applies for infinite
    *  rooms — a no-op for bounded rooms (angle is always 0 there for the
