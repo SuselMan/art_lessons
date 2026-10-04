@@ -85,7 +85,8 @@ async function main(): Promise<void> {
   // so favicon.svg works as a standalone image (SVG images cannot fetch it).
   const mark = readFileSync(join(HERE, '../public/brand/grafetto-g.png'))
   const svg = Buffer.from(readFileSync(SOURCE, 'utf8')
-    .replace('viewBox="0.00 0.00 1130.00 388.00"', 'viewBox="40 42 316 316"')
+    .replace(/^[ \t]*<g id="logo-wordmark"[\s\S]*?<\/g>/m, '')
+    .replace(/viewBox="[^"]*"/, 'viewBox="40 42 316 316"')
     .replace('href="/brand/grafetto-g.png"', `href="data:image/png;base64,${mark.toString('base64')}"`))
   mkdirSync(OUT_DIR, { recursive: true })
   console.log(`Baking app icons from ${SOURCE}`)
