@@ -833,3 +833,33 @@ strong меняет полосы6 и пятна9. Риск лишней поло
 победитель ждёт голосов. Симметричный обмен обсуждён readonly, не запускался.
 Production/engine source/старые голоса не менялись. Singlepaint diagnostic
 не подтверждает multicolor/live/undo/tablets и не готов к общему релизу.
+
+
+Пачка23: film-only6 better, directional6 и оба варианта9 worse.
+Accepted6 теперь drag-mass-covered-film(search-round24),9 остаётсяcombo55.
+Пачка24/search-round25: четыре targeted headedVega рендера, по одному
+primary6/9 на механизм. Shortstep заменяет .65R на.25R;6 наследует
+принятый film-contact,9 прежний standing-contact. Последний почти
+идентичен(.0043crop) и исключён. Symmetric заменяет весь прежний flux
+попарным brush-aligned обменом без occupancyroomclip и без netadvection.
+
+Вес .20*min(contactBi,Bj)*symmetriccoveragegate*abs(meanvelocity axis).
+Для разных соседних векторов bound4*.20=.8 (uniformfield .4sqrt2 нельзя
+использовать как общий bound). Положительность и диапазон сохраняются
+через convexcombination; все4RGBA перемещаются одинаковыми коэффициентами,
+не зависящими от deposit.a. CPUoracle100random32×32grid дал masserror
+≤2.05e-12, значения0..1. Это математическая проверка, не доказательство
+сохранения массы RGBA8/GPU; shader max(result,0) оставлен как guard.
+Pairflow/coverageendpoint и midpoint symmetric, граница контакта закрыта.
+
+Публикуются три сравнения: short6 и symmetric6 против новогоaccepted6,
+symmetric9 противcombo55. На9 symmetric использует также film-contact,
+это составная гипотеза и явно так названа. Доза и ранний осадок внутри
+сравнений не изменены. Мягкие изменения, winner не объявлен; риск потери
+скоплений/излишне ровного тела. Контрольные1/8 и другиеfixtures сейчас
+не рендерились: targetedpack не обещает общего улучшения/регрессии.
+
+Все4reports/spec/PNG SHA и GL0/context/actualbrushdraws проверены root
+и агентом, sixsourceSHA неизменны. Старыеbaseline/spec/report identity
+сохранены при копировании; publisher проверяетimmutable3casepack.
+Production/live/undo/multicolor/tablets не проверялись и не менялись.
