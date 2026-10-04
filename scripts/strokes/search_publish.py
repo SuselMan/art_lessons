@@ -69,17 +69,23 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
     variants = {variant for _, baseline, candidate in selected for variant in (baseline, candidate)}
     reports = {variant: json.loads((root/variant/'report.json').read_text()) for variant in variants}
     for variant, report in reports.items():
-        if report['errors']:
-            raise ValueError('Render errors '+variant)
+        if report['errors'] or report.get('complete', True) is not True:
+            raise ValueError('Incomplete/error render '+variant)
+        if report.get('base') != inputs['base'] or report.get('variant') != variant:
+            raise ValueError('Render identity mismatch '+variant)
         rows = {row['id']: row for row in report['cases']}
         for test, baseline, candidate in selected:
             if variant not in (baseline, candidate):
                 continue
             row = rows.get(test['id'])
-            if not row or row['lost'] or row['error'] or not row['draws']:
+            if not row or row['lost'] or row['error'] or not row['draws'] or row.get('variant') != variant:
                 raise ValueError('GPU pass not reached '+variant+' '+test['id'])
-            if variant != 'baseline' and report['replacements'] < 1:
-                raise ValueError('Candidate patch not reached '+variant)
+            image_path = root/variant/(test['id']+'.png')
+            digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
+            if row.get('pngSha256') != digest:
+                raise ValueError('Render image checksum mismatch '+variant+' '+test['id'])
+            if variant != 'baseline' and report.get('replacements', 0) < 1 and row.get('shaderReplacements', 0) < 1:
+                raise ValueError('Candidate patch not reached '+variant+' '+test['id'])
     data = gallery/'data'
     previews = gallery/'previews'
     previews.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -118,6 +124,11 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
                                   ('referenceImageSha256', reference_name)]:
                     case[key] = hashlib.sha256((stage/name).read_bytes()).hexdigest()
                 case['candidateReportSha256'] = hashlib.sha256((root/candidate/'report.json').read_bytes()).hexdigest()
+                case['baselineReportSha256'] = hashlib.sha256((root/baseline_variant/'report.json').read_bytes()).hexdigest()
+                candidate_report = reports[candidate]
+                candidate_row = next(row for row in candidate_report['cases'] if row['id'] == test['id'])
+                case['patchProof'] = {'compiledReplacements': candidate_report.get('replacements', 0),
+                                      'shaderReplacements': candidate_row.get('shaderReplacements', 0)}
                 cases.append(case)
                 stats.append({'id': identity, 'meanDifference': float(difference.mean()),
                               'changedPixels': int((difference.max(axis=2)>1).sum())})
@@ -125,7 +136,9 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
                 raise ValueError('All outputs identical; nothing to evaluate')
             batch = {'id': batch_id, 'title': title.strip(),
                      'created': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                     'baseEngine': inputs['base'], 'cases': cases}
+                     'baseEngine': inputs['base'], 'cases': cases,
+                     'inputManifestSha256': hashlib.sha256((root/'inputs.json').read_bytes()).hexdigest(),
+                     'selection': config}
             for file in stage.iterdir():
                 file.chmod(0o600)
             os.replace(stage, dest)

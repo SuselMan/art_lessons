@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -26,8 +27,9 @@ class PublishTest(unittest.TestCase):
             path = self.artifacts/variant
             path.mkdir()
             Image.new('RGB',(4,4),color).save(path/'s2-n1.png')
-            (path/'report.json').write_text(json.dumps({'errors':[], 'replacements':int(variant!='baseline'),
-                          'cases':[{'id':'s2-n1','lost':False,'error':None,'draws':10}]}))
+            (path/'report.json').write_text(json.dumps({'base':'source-sha','variant':variant,'errors':[], 'replacements':int(variant!='baseline'),
+                          'cases':[{'id':'s2-n1','variant':variant,'lost':False,'error':None,'draws':10,
+                          'pngSha256':hashlib.sha256((path/'s2-n1.png').read_bytes()).hexdigest()}]}))
         self.patch = patch('search_publish.ROOT',self.root)
         self.patch.start()
         self.addCleanup(self.patch.stop)
@@ -49,6 +51,33 @@ class PublishTest(unittest.TestCase):
             publish(self.artifacts,self.gallery,'round1')
         self.assertEqual(image.read_bytes(),before)
 
+    def test_shader_patch_proof_is_accepted(self):
+        report_path = self.artifacts/'next/report.json'
+        report = json.loads(report_path.read_text())
+        report['replacements'] = 0
+        report['complete'] = True
+        report['cases'][0]['shaderReplacements'] = 2
+        report_path.write_text(json.dumps(report))
+        batch = publish(self.artifacts,self.gallery,'round2','Второй',
+                        {'comparisons':[{'case':'s2-n1','candidate':'next'}]})
+        self.assertEqual(len(batch['cases']),1)
+
+    def test_render_guards_reject_identity_hash_and_missing_proof(self):
+        path = self.artifacts/'next/report.json'
+        original = json.loads(path.read_text())
+        for mutation in ('incomplete','base','variant','hash','proof'):
+            report = json.loads(json.dumps(original))
+            if mutation == 'incomplete': report['complete'] = False
+            elif mutation == 'base': report['base'] = 'other-source'
+            elif mutation == 'variant': report['variant'] = 'other-variant'
+            elif mutation == 'hash': report['cases'][0]['pngSha256'] = 'wrong'
+            else: report['replacements'] = 0
+            path.write_text(json.dumps(report))
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                publish(self.artifacts,self.gallery,'round2','Второй',
+                        {'comparisons':[{'case':'s2-n1','candidate':'next'}]})
+        self.assertFalse((self.gallery/'data/review-batches.json').exists())
+
     def test_invalid_selection_never_published(self):
         for config in [{'comparisons':[]}, {'comparisons':[{'case':'missing','candidate':'next'}]},
                        {'comparisons':[{'case':'s2-n1','candidate':'../next'}]}]:
@@ -58,6 +87,10 @@ class PublishTest(unittest.TestCase):
 
     def test_identical_outputs_leave_no_visible_batch(self):
         Image.new('RGB',(4,4),'white').save(self.artifacts/'next/s2-n1.png')
+        report_path = self.artifacts/'next/report.json'
+        report = json.loads(report_path.read_text())
+        report['cases'][0]['pngSha256'] = hashlib.sha256((self.artifacts/'next/s2-n1.png').read_bytes()).hexdigest()
+        report_path.write_text(json.dumps(report))
         with self.assertRaises(ValueError):
             publish(self.artifacts,self.gallery,'round2','Второй',
                     {'comparisons':[{'case':'s2-n1','candidate':'next'}]})

@@ -5,6 +5,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 const { chromium } = createRequire(new URL('../../package.json', import.meta.url))('playwright')
 const [inputFile, output, variant = 'baseline'] = process.argv.slice(2)
+const validVariants = new Set(['baseline', 'landing-rich', 'brush-step-short', 'brush-mix-low', 'pool-color-sync', 'tide-body', 'pool-structure', 'pool-structure-soft'])
+if (!validVariants.has(variant)) throw Error('Unknown experiment variant: ' + variant)
 const input = JSON.parse(readFileSync(inputFile, 'utf8'))
 mkdirSync(output, { recursive: true })
 const browser = await chromium.launch({ channel: 'chrome', headless: false, args: ['--ignore-certificate-errors'] })
@@ -14,15 +16,31 @@ try {
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   let replacements = 0
-  if (variant === 'landing-rich') {
+  if (variant === 'landing-rich' || variant === 'tide-body') {
     await page.route('**/src/engine/src/presets/watercolorPresets.ts*', async route => {
       const response = await route.fetch()
       const body = await response.text()
-      const pattern = /WATERCOLOR_START_EXCESS_BASE = 2(?:\.0)?\b/g
+      const pattern = variant === 'landing-rich'
+        ? /WATERCOLOR_START_EXCESS_BASE = 2(?:\.0)?\b/g
+        : /WC_TIDE_RIM = 0?\.4\b/g
       const matches = body.match(pattern) || []
-      if (matches.length !== 1) throw Error('Expected one landing-pigment constant, got ' + matches.length)
+      if (matches.length !== 1) throw Error('Expected one ' + variant + ' constant, got ' + matches.length)
       replacements++
-      await route.fulfill({ response, body: body.replace(pattern, 'WATERCOLOR_START_EXCESS_BASE = 5') })
+      await route.fulfill({ response, body: body.replace(pattern, variant === 'landing-rich' ? 'WATERCOLOR_START_EXCESS_BASE = 5' : 'WC_TIDE_RIM = 0') })
+    })
+  }
+  if (variant === 'pool-color-sync') {
+    await page.route('**/src/engine/index.ts*', async route => {
+      const response = await route.fetch()
+      const body = await response.text()
+      // The colour stamp currently receives water puddle level here while
+      // the matching deposit stamp receives pigmentPoolByDab. Use one pool
+      // multiplier for both records, as the ribbon-band path already does.
+      const pattern = /puddleByDab\.get\(drawable\[i\]\)\s*\?\?\s*1,\s*poolBlot/g
+      const matches = body.match(pattern) || []
+      if (matches.length !== 1) throw Error('Expected one colour-stamp pool argument, got ' + matches.length)
+      replacements++
+      await route.fulfill({ response, body: body.replace(pattern, 'pigmentPoolByDab.get(drawable[i]) ?? 0.5, poolBlot') })
     })
   }
   if (variant === 'brush-step-short') {
@@ -47,6 +65,18 @@ try {
         source = source.replace(before, before.replace('0.18', '0.06'))
         window.__searchShaderReplacements++
       }
+      if ((variant === 'pool-structure' || variant === 'pool-structure-soft') && source.includes('float wcPoolBlot(')) {
+        const before = /float wcPoolBlot\(vec2 wp, vec2 seed, float puddle, float paperWet, float on\) \{[\s\S]*?\n  \}/g
+        if ((source.match(before) || []).length !== 1) throw Error('Expected one pool-blot function per shader')
+        const soft = variant === 'pool-structure-soft'
+        source = source.replace(before, `float wcPoolBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on) {
+    float pool = on * mix(${soft ? '0.35' : '0.65'}, 1.0, smoothstep(0.5, 0.95, puddle));
+    if (pool <= 0.0) return 1.0;
+    float n = wcFbm(wp * ${soft ? '0.03' : '0.018'} + seed * 1.7 + vec2(13.0, 5.0));
+    return mix(1.0, ${soft ? '0.4 + 1.2 * smoothstep(0.3, 0.7, n)' : '0.08 + 1.84 * smoothstep(0.38, 0.62, n)'}, pool);
+  }`)
+        window.__searchShaderReplacements++
+      }
       return original.call(this, shader, source)
     }
   }, { variant })
@@ -55,6 +85,7 @@ try {
   for (const test of input.cases) {
     const result = await page.evaluate(async test => {
       const started = performance.now()
+      const shaderReplacementsBefore = window.__searchShaderReplacements
       const canvas = document.createElement('canvas'); canvas.width = 1000; canvas.height = 700
       document.body.append(canvas)
       const e = new window.__searchEngineClass(canvas, { pageWidth: 3508, pageHeight: 2480, paper: 'medium', userId: 'search' })
@@ -87,7 +118,7 @@ try {
         const gpu = ext ? e.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : e.gl.getParameter(e.gl.RENDERER)
         const lost = e.gl.isContextLost(), error = e.gl.getError()
         if (lost || error) throw Error('GPU context/error ' + error)
-        return { png: btoa(binary), gpu, draws, lost, error, shaderReplacements: window.__searchShaderReplacements,
+        return { png: btoa(binary), gpu, draws, lost, error, shaderReplacements: window.__searchShaderReplacements - shaderReplacementsBefore,
                  timings: { setup: ready-started, paint: painted-ready, dry: dried-painted, export: performance.now()-dried } }
       } finally {
         e.destroy(); e.gl.getExtension('WEBGL_lose_context')?.loseContext(); canvas.remove()
@@ -97,14 +128,17 @@ try {
     writeFileSync(output + '/' + test.id + '.png', bytes)
     result.id = test.id; result.variant = variant; result.pngSha256 = createHash('sha256').update(bytes).digest('hex')
     reports.push(result)
-    writeFileSync(output + '/report.json', JSON.stringify({ base: input.base, variant, replacements, errors, cases: reports }, null, 2))
+    writeFileSync(output + '/report.json', JSON.stringify({ base: input.base, variant, replacements, errors, complete: false, cases: reports }, null, 2))
     console.log(JSON.stringify(result))
   }
   // Vite may request both the HMR URL and the plain import URL. Every response
   // is checked above for exactly one replacement; at least one must be served.
   if (variant === 'brush-step-short' && replacements < 1) throw Error('Contact patch not applied')
   if (variant === 'landing-rich' && replacements < 1) throw Error('Landing patch not applied')
+  if (variant === 'pool-color-sync' && replacements < 1) throw Error('Colour pool patch not applied')
+  if (variant === 'tide-body' && replacements < 1) throw Error('Tide patch not applied')
   if (variant === 'brush-mix-low' && !reports.every(r => r.shaderReplacements > 0)) throw Error('Shader patch not reached')
+  if (['pool-structure', 'pool-structure-soft'].includes(variant) && !reports.every(r => r.shaderReplacements > 0)) throw Error('Pool shader patch not reached')
   if (errors.length) throw Error('Browser errors ' + errors.join('; '))
   writeFileSync(output + '/report.json', JSON.stringify({ base: input.base, variant, replacements, errors, complete: true, cases: reports }, null, 2))
 } finally { await browser.close() }
