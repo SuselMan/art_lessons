@@ -3,9 +3,74 @@ import unittest
 import numpy as np
 from carrier import Brush, Carrier, Params, footprint, transport
 from carrier_replay import RecordedClock
+from carrier_all import group_gestures, mix_levels, simulate_sequence
 
 
 class CarrierTests(unittest.TestCase):
+    def test_multiple_pigments_use_the_same_water_flux_and_preserve_each_mass(self):
+        rng = np.random.default_rng(7)
+        w = rng.uniform(.1, 1, (12, 9))
+        p = np.stack([.3*w, 1.2*w])
+        qx = rng.uniform(-10, 10, (12, 8))
+        qy = rng.uniform(-10, 10, (11, 9))
+        wn, pn = transport(w, p, qx, qy)
+        np.testing.assert_allclose(pn, np.stack([.3*wn, 1.2*wn]), atol=1e-14)
+        np.testing.assert_allclose(pn.sum(axis=(1, 2)), p.sum(axis=(1, 2)), atol=1e-12)
+        self.assertGreaterEqual(pn.min(), -1e-14)
+
+    def test_colour_brush_exchange_closes_each_pigment_balance(self):
+        sim = Carrier(np.full((12, 12), .5), pigments=2)
+        sim.w.fill(.4)
+        sim.p[0].fill(.2)
+        brush = Brush(30, np.zeros(2), 30, np.array([0., 12.]))
+        before = sim.p.sum(axis=(1, 2))+sim.d.sum(axis=(1, 2))+brush.pigment+brush.loaded_pigment
+        water = sim.totals(brush)[0]
+        for _ in range(100):
+            sim.step(1/120, np.ones((12, 12)), (1, 0), brush)
+        sim.dry_all()
+        after = sim.d.sum(axis=(1, 2))+brush.pigment+brush.loaded_pigment
+        np.testing.assert_allclose(after, before, atol=1e-12)
+        self.assertAlmostEqual(sim.totals(brush)[0], water, places=11)
+        self.assertGreater(sim.d[1].sum(), 0)
+
+    def test_preset_levels_distinguish_water_and_pigment(self):
+        self.assertEqual(mix_levels('normal:100:0:PB29:round'), (1., 0.))
+        self.assertEqual(mix_levels('normal:10:89:PB29:chisel'), (.1, .89))
+
+    def test_sequence_rewet_and_two_colours_preserve_total_stocks(self):
+        import base64
+        import struct
+        def op(seq, colour, pigment):
+            ds = [(8, 8, .7, 0, 0, 10, 1, 0, 1, t) for t in (0, 100)]
+            packed = b''.join(struct.pack('<10f', *d) for d in ds)
+            return {'seq':seq, 'id':str(seq), 'userId':'test', 'layerId':'test', 'color':colour, 'preset':f'normal:100:{pigment}',
+                    'timestamp':seq*200, 'dabsPacked':'1:'+base64.b64encode(packed).decode()}
+        _, _, _, report = simulate_sequence([op(1, [1,.7,0], 100), op(2, [0,.5,.4], 100), op(3, [0,.5,.4], 0)], [0,0,16,16], dry_seconds=.1)
+        self.assertLess(abs(report['relativeWaterError']), 1e-12)
+        self.assertLess(abs(report['relativePigmentError']), 1e-12)
+        self.assertEqual(report['operations'][2]['pigmentLevel'], 0)
+        self.assertEqual(len(report['colours']), 2)
+
+    def test_chunk_boundaries_do_not_refill_or_extend_the_gesture(self):
+        import base64
+        import struct
+        ds = np.array([(5+t/100, 8, .7, 0, 0, 10, 1, 0, 1, t) for t in (0, 100, 200, 300)])
+        def op(rows, seq):
+            packed = b''.join(struct.pack('<10f', *d) for d in rows)
+            return {'seq':seq, 'id':str(seq), 'strokeId':'gesture', 'userId':'test', 'layerId':'test',
+                    'color':[0,.5,.8], 'preset':'normal:100:100', 'timestamp':1000 if seq==1 else 1200,
+                    'dabsPacked':'1:'+base64.b64encode(packed).decode()}
+        chunks = [op(ds[:2],1), op(ds[2:],2)]
+        groups = group_gestures(chunks)
+        self.assertEqual(len(groups), 1)
+        np.testing.assert_array_equal(groups[0][1], ds.astype(np.float32).astype(np.float64))
+        a, w, _, r = simulate_sequence(chunks,[0,0,16,16],dry_seconds=.1)
+        b, bw, _, br = simulate_sequence([op(ds,2)],[0,0,16,16],dry_seconds=.1)
+        np.testing.assert_array_equal(a,b)
+        np.testing.assert_array_equal(w,bw)
+        self.assertEqual(r['initial'], br['initial'])
+        self.assertEqual(r['operations'][0]['ticks'], br['operations'][0]['ticks'])
+
     def test_face_transport_preserves_mass_and_positive_amounts(self):
         rng = np.random.default_rng(680)
         for _ in range(100):

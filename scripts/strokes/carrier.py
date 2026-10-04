@@ -10,22 +10,22 @@ import numpy as np
 def transport(w, p, qx, qy):
     """Signed, integrated face volumes; closed domain; simultaneous old state."""
     out = np.zeros_like(w)
-    out[:, :-1] += np.maximum(qx, 0)
-    out[:, 1:] += np.maximum(-qx, 0)
-    out[:-1, :] += np.maximum(qy, 0)
-    out[1:, :] += np.maximum(-qy, 0)
+    out[..., :, :-1] += np.maximum(qx, 0)
+    out[..., :, 1:] += np.maximum(-qx, 0)
+    out[..., :-1, :] += np.maximum(qy, 0)
+    out[..., 1:, :] += np.maximum(-qy, 0)
     scale = np.minimum(1, np.divide(w, out, out=np.ones_like(w), where=out > 0))
-    qx = qx * np.where(qx >= 0, scale[:, :-1], scale[:, 1:])
-    qy = qy * np.where(qy >= 0, scale[:-1, :], scale[1:, :])
+    qx = qx * np.where(qx >= 0, scale[..., :, :-1], scale[..., :, 1:])
+    qy = qy * np.where(qy >= 0, scale[..., :-1, :], scale[..., 1:, :])
     c = np.divide(p, w, out=np.zeros_like(p), where=w > 0)
-    px = qx * np.where(qx >= 0, c[:, :-1], c[:, 1:])
-    py = qy * np.where(qy >= 0, c[:-1, :], c[1:, :])
+    px = qx * np.where(qx >= 0, c[..., :, :-1], c[..., :, 1:])
+    py = qy * np.where(qy >= 0, c[..., :-1, :], c[..., 1:, :])
     wn, pn = w.copy(), p.copy()
     for value, fx, fy in [(wn, qx, qy), (pn, px, py)]:
-        value[:, :-1] -= fx
-        value[:, 1:] += fx
-        value[:-1, :] -= fy
-        value[1:, :] += fy
+        value[..., :, :-1] -= fx
+        value[..., :, 1:] += fx
+        value[..., :-1, :] -= fy
+        value[..., 1:, :] += fy
     return wn, pn
 
 
@@ -54,20 +54,21 @@ class Brush:
 
 
 class Carrier:
-    def __init__(self, paper, params=Params()):
+    def __init__(self, paper, params=Params(), pigments=None):
         self.paper = np.asarray(paper, dtype=np.float64)
         self.params = params
         self.w = np.zeros_like(self.paper)
         self.s = np.zeros_like(self.paper)
-        self.p = np.zeros_like(self.paper)
-        self.d = np.zeros_like(self.paper)
+        pigment_shape = self.paper.shape if pigments is None else (pigments, *self.paper.shape)
+        self.p = np.zeros(pigment_shape, dtype=np.float64)
+        self.d = np.zeros_like(self.p)
         self.pin = np.zeros_like(self.paper, dtype=bool)
         self.evaporated = 0.
         self.steps = 0
 
     def totals(self, brush=None):
         return (float(self.w.sum() + self.s.sum() + self.evaporated) + (brush.water if brush else 0),
-                float(self.p.sum() + self.d.sum()) + (brush.pigment + brush.loaded_pigment if brush else 0))
+                float(self.p.sum() + self.d.sum()) + (float(np.sum(brush.pigment + brush.loaded_pigment)) if brush else 0))
 
     def exchange(self, brush, contact, dt):
         k = self.params
@@ -80,7 +81,7 @@ class Carrier:
         self.p -= picked_p
         returned = float(pickup.sum())
         brush.water += returned
-        brush.pigment += float(picked_p.sum())
+        brush.pigment += picked_p.sum(axis=(-2, -1))
         level = min(1., brush.water / max(brush.capacity, 1e-12))
         demand = np.maximum(level - self.w, 0) * contact * (1 - np.exp(-k.brush_release * dt))
         if contact.sum() > 0:
@@ -90,8 +91,9 @@ class Carrier:
             demand *= min(1., brush.water / amount)
             amount = float(demand.sum())
             colour = brush.pigment / max(brush.water, 1e-12)
+            spatial_colour = np.asarray(colour)[..., None, None]
             self.w += demand
-            self.p += demand * colour
+            self.p += demand * spatial_colour
             brush.water -= amount
             brush.pigment -= amount * colour
         # Pigment retained on the hairs is not a perfectly dissolved dye in
@@ -102,7 +104,7 @@ class Carrier:
         if area > 0:
             activity = min(1., np.sqrt(area / max(brush.capacity / 7, 1e-12)))
             released = brush.loaded_pigment * (1 - np.exp(-k.pigment_release * dt * activity))
-            deposited = released * contact / area
+            deposited = np.asarray(released)[..., None, None] * contact / area
             self.p += np.where(self.w > 1e-12, deposited, 0)
             self.d += np.where(self.w > 1e-12, 0, deposited)
             brush.loaded_pigment -= released
@@ -142,8 +144,8 @@ class Carrier:
         c = np.divide(self.p, self.w, out=np.zeros_like(self.p), where=self.w > 1e-8)
         wetx = np.minimum(self.w[:, :-1], self.w[:, 1:])
         wety = np.minimum(self.w[:-1, :], self.w[1:, :])
-        dx = dt * k.diffusion * wetx * (c[:, :-1] - c[:, 1:])
-        dy = dt * k.diffusion * wety * (c[:-1, :] - c[1:, :])
+        dx = dt * k.diffusion * wetx * (c[..., :, :-1] - c[..., :, 1:])
+        dy = dt * k.diffusion * wety * (c[..., :-1, :] - c[..., 1:, :])
         self.p, _ = transport(self.p, self.p, dx, dy)
         lifted = self.d * (1 - np.exp(-dt * k.lift * contact * self.w / (self.w + .03)))
         self.d -= lifted
@@ -167,8 +169,8 @@ class Carrier:
         self.s -= evaporated_s
         self.evaporated += float(evaporated.sum() + evaporated_s.sum())
         dry = self.w <= 1e-12
-        self.d[dry] += self.p[dry]
-        self.p[dry] = 0
+        self.d[..., dry] += self.p[..., dry]
+        self.p[..., dry] = 0
         self.steps += 1
 
     def dry_all(self):
