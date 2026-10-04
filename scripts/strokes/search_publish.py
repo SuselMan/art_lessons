@@ -40,6 +40,9 @@ def atomic_json(path, value):
 
 def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None):
     identifier(batch_id)
+    description = config.get('description', '') if config else ''
+    if not isinstance(description, str) or len(description) > 1000:
+        raise ValueError('Invalid description')
     if not isinstance(title, str) or not title.strip() or len(title) > 200:
         raise ValueError('Invalid title')
     inputs = json.loads((root/'inputs.json').read_text())
@@ -138,7 +141,7 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
                      'created': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                      'baseEngine': inputs['base'], 'cases': cases,
                      'inputManifestSha256': hashlib.sha256((root/'inputs.json').read_bytes()).hexdigest(),
-                     'selection': config}
+                     'selection': config, 'description': description}
             for file in stage.iterdir():
                 file.chmod(0o600)
             os.replace(stage, dest)

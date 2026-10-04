@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 const { chromium } = createRequire(new URL('../../package.json', import.meta.url))('playwright')
 const [inputFile, output, variant = 'baseline'] = process.argv.slice(2)
-const validVariants = new Set(['baseline', 'landing-rich', 'brush-step-short', 'brush-mix-low', 'pool-color-sync', 'tide-body', 'pool-structure', 'pool-structure-soft'])
+const validVariants = new Set(['baseline', 'landing-rich', 'brush-step-short', 'brush-mix-low', 'pool-color-sync', 'tide-body', 'pool-structure', 'pool-structure-soft', 'combined-soft', 'combined-gentle'])
 if (!validVariants.has(variant)) throw Error('Unknown experiment variant: ' + variant)
 const input = JSON.parse(readFileSync(inputFile, 'utf8'))
 mkdirSync(output, { recursive: true })
@@ -16,17 +16,19 @@ try {
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   let replacements = 0
-  if (variant === 'landing-rich' || variant === 'tide-body') {
+  const landingVariants = ['landing-rich', 'combined-soft', 'combined-gentle']
+  const structureVariants = ['pool-structure', 'pool-structure-soft', 'combined-soft', 'combined-gentle']
+  if (landingVariants.includes(variant) || variant === 'tide-body') {
     await page.route('**/src/engine/src/presets/watercolorPresets.ts*', async route => {
       const response = await route.fetch()
       const body = await response.text()
-      const pattern = variant === 'landing-rich'
+      const pattern = landingVariants.includes(variant)
         ? /WATERCOLOR_START_EXCESS_BASE = 2(?:\.0)?\b/g
         : /WC_TIDE_RIM = 0?\.4\b/g
       const matches = body.match(pattern) || []
       if (matches.length !== 1) throw Error('Expected one ' + variant + ' constant, got ' + matches.length)
       replacements++
-      await route.fulfill({ response, body: body.replace(pattern, variant === 'landing-rich' ? 'WATERCOLOR_START_EXCESS_BASE = 5' : 'WC_TIDE_RIM = 0') })
+      await route.fulfill({ response, body: body.replace(pattern, landingVariants.includes(variant) ? 'WATERCOLOR_START_EXCESS_BASE = 5' : 'WC_TIDE_RIM = 0') })
     })
   }
   if (variant === 'pool-color-sync') {
@@ -65,15 +67,16 @@ try {
         source = source.replace(before, before.replace('0.18', '0.06'))
         window.__searchShaderReplacements++
       }
-      if ((variant === 'pool-structure' || variant === 'pool-structure-soft') && source.includes('float wcPoolBlot(')) {
+      if (['pool-structure', 'pool-structure-soft', 'combined-soft', 'combined-gentle'].includes(variant) && source.includes('float wcPoolBlot(')) {
         const before = /float wcPoolBlot\(vec2 wp, vec2 seed, float puddle, float paperWet, float on\) \{[\s\S]*?\n  \}/g
         if ((source.match(before) || []).length !== 1) throw Error('Expected one pool-blot function per shader')
-        const soft = variant === 'pool-structure-soft'
+        const soft = variant === 'pool-structure-soft' || variant === 'combined-soft'
+        const gentle = variant === 'combined-gentle'
         source = source.replace(before, `float wcPoolBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on) {
-    float pool = on * mix(${soft ? '0.35' : '0.65'}, 1.0, smoothstep(0.5, 0.95, puddle));
+    float pool = on * mix(${gentle ? '0.15' : soft ? '0.35' : '0.65'}, 1.0, smoothstep(0.5, 0.95, puddle));
     if (pool <= 0.0) return 1.0;
-    float n = wcFbm(wp * ${soft ? '0.03' : '0.018'} + seed * 1.7 + vec2(13.0, 5.0));
-    return mix(1.0, ${soft ? '0.4 + 1.2 * smoothstep(0.3, 0.7, n)' : '0.08 + 1.84 * smoothstep(0.38, 0.62, n)'}, pool);
+    float n = wcFbm(wp * ${soft || gentle ? '0.03' : '0.018'} + seed * 1.7 + vec2(13.0, 5.0));
+    return mix(1.0, ${gentle ? '0.7 + 0.6 * smoothstep(0.3, 0.7, n)' : soft ? '0.4 + 1.2 * smoothstep(0.3, 0.7, n)' : '0.08 + 1.84 * smoothstep(0.38, 0.62, n)'}, pool);
   }`)
         window.__searchShaderReplacements++
       }
@@ -134,11 +137,11 @@ try {
   // Vite may request both the HMR URL and the plain import URL. Every response
   // is checked above for exactly one replacement; at least one must be served.
   if (variant === 'brush-step-short' && replacements < 1) throw Error('Contact patch not applied')
-  if (variant === 'landing-rich' && replacements < 1) throw Error('Landing patch not applied')
+  if (landingVariants.includes(variant) && replacements < 1) throw Error('Landing patch not applied')
   if (variant === 'pool-color-sync' && replacements < 1) throw Error('Colour pool patch not applied')
   if (variant === 'tide-body' && replacements < 1) throw Error('Tide patch not applied')
   if (variant === 'brush-mix-low' && !reports.every(r => r.shaderReplacements > 0)) throw Error('Shader patch not reached')
-  if (['pool-structure', 'pool-structure-soft'].includes(variant) && !reports.every(r => r.shaderReplacements > 0)) throw Error('Pool shader patch not reached')
+  if (structureVariants.includes(variant) && !reports.every(r => r.shaderReplacements > 0)) throw Error('Pool shader patch not reached')
   if (errors.length) throw Error('Browser errors ' + errors.join('; '))
   writeFileSync(output + '/report.json', JSON.stringify({ base: input.base, variant, replacements, errors, complete: true, cases: reports }, null, 2))
 } finally { await browser.close() }
