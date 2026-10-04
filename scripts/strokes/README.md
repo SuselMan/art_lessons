@@ -863,3 +863,20 @@ symmetric9 противcombo55. На9 symmetric использует также 
 и агентом, sixsourceSHA неизменны. Старыеbaseline/spec/report identity
 сохранены при копировании; publisher проверяетimmutable3casepack.
 Production/live/undo/multicolor/tablets не проверялись и не менялись.
+
+
+Пачка24: short6 better и symmetric6 better; symmetric9 uncertain.
+Две принятые альтернативы6 сохраняются, победитель ещё не выбран;
+combo55 на9 не меняется. Пачка25/search-round26 сравнивает cached
+short6 и symmetric6 напрямую. Явно названа выбором уже показанных
+версий, не новым улучшением. Одинcase, leftshort/rightSym.
+
+Две новые targetedпробы6: symmetric+shortstep и symmetric+finecontacts
+(.5R вместо1.5R groupflush). Меняются runtimecompiledanchors, не dose,
+вода или времясушки. Exactspec/PNG SHA, GL0/context и sixsourceSHA
+проверены; actualbrushdraws496/1456, diffuse10 наtwoop6. Это достижимые
+эксперименты, но cropMAE.290/.200 и визуально почти те же контакты.
+Обе новые пробы сохранены, исключены из голосования как слабовидимые;
+не названы ни пользовательскимbetter/worse, ни физическим улучшением.
+Контрольные другиеfixtures не запускались. Никаких claims о live,
+undo,multicolor,tablets или production; исходники и старыеvotes не менялись.
