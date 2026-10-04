@@ -144,18 +144,24 @@ export function PrecisionSlider({
       aria-valuemax={max}
       aria-valuenow={value}
       aria-orientation={orientation}
+      aria-label={title}
+      aria-valuetext={formatValue ? formatValue(value) : undefined}
       title={title}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
     >
-      <div
-        className={styles.fill}
-        style={orientation === 'vertical' ? { height: `${proportion * 100}%` } : { width: `${proportion * 100}%` }}
-      />
-      <div
-        className={styles.thumb}
-        style={orientation === 'vertical' ? { bottom: `${proportion * 100}%` } : { left: `${proportion * 100}%` }}
-      />
+      <div className={styles.rail}>
+        <div
+          className={styles.fill}
+          style={orientation === 'vertical'
+            ? { height: `calc(${proportion * 100}% + 32px)` }
+            : { width: `calc(${proportion * 100}% + 32px)` }}
+        />
+        <div
+          className={styles.thumb}
+          style={orientation === 'vertical' ? { bottom: `${proportion * 100}%` } : { left: `${proportion * 100}%` }}
+        />
+      </div>
       {bubble && (
         <div className={styles.bubble} style={{ left: bubble.x, top: bubble.y }}>
           {bubble.text}
