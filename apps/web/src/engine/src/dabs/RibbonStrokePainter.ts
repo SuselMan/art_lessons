@@ -9,7 +9,7 @@ import { markerThinNibInkGain } from '../dabs/markerInkGain'
 import { wetAt, wetPeak } from '../paper/paperWetness'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from '../dabs/ribbonProfile'
-import { watercolorFerrulePx, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, watercolorTurnLoad, WC_SLOW_GAIN, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterStep, watercolorWaterClock, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
+import { watercolorFerrulePx, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterStep, watercolorWaterClock, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { EMPTY_BANDS, rectOnTile, ribbonBandPieceCost, ribbonBandPieces, ribbonBristleCombs, ribbonWaterDelivery } from './ribbonStrokeMath'
 
@@ -461,6 +461,7 @@ export class RibbonStrokePainter {
     // the composite's single opacity — see _bakeDabOpacity's own note.
     const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1
     const mottleSeed = strokeSeed ?? [0, 0]
+    const pigmentPoolByDab = new Map<Dab, number>()
     const excessByDab = new Map<Dab, number>()
     const puddleByDab = new Map<Dab, number>()
     // #559 — how much to raise this dab's deposit for being dragged thin-side
@@ -579,7 +580,8 @@ export class RibbonStrokePainter {
         scratch.brakePigment = watercolorBrakeSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * pigmentGate, speedElapsed)
         scratch.turnOffset[0] += dx; scratch.turnOffset[1] += dy
         if (Math.hypot(...scratch.turnOffset) >= Math.max(1.5, minor * 0.12)) {
-          scratch.brakePigment = Math.min(1.5, scratch.brakePigment + 0.55 * watercolorTurnLoad(scratch.turnDirection, ...scratch.turnOffset) * pigmentGate)
+          // A geometric corner changes direction, not the pigment supply.
+          // Braking still unloads through its elapsed-time reservoir above.
           const direction = scratch.turnOffset
           scratch.turnDirection = [...direction]
           scratch.turnOffset = [0, 0]
@@ -594,11 +596,14 @@ export class RibbonStrokePainter {
         const landingPool = (1 - Math.min(Math.max(landedWet, 0), 1)) * Math.exp(-pigUsed / WC_START_EXCESS_RADII)
         // Braking pigment is not extra water: a sharp turn must not invent a
         // deep visible puddle merely because it unloads a little more colour.
+        // The pool multiplier affects only surplus pigment. Braking does
+        // not add standing water or turn a corner into a deep puddle.
+        pigmentPoolByDab.set(dab, Math.max(0, excess - 1) / Math.max(excess, 1))
         const waterPool = Math.max(scratch.surplusWater, landingPool)
         puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(waterPool, wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
         if (profile.waterDepletion) this.ctx.dabPool().set(dab, Math.min(waterPool, 1))
-        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && water > 0.1) scratch.brushTravel.push({
-          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water,
+        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && profile.waterLevel > 0) scratch.brushTravel.push({
+          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water: profile.waterLevel,
         })
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
@@ -666,6 +671,7 @@ export class RibbonStrokePainter {
         if (across) acrossByDab.set(grown, across)
         waterByDab.set(grown, waterByDab.get(dab) ?? 0)
         pigmentByDab.set(grown, pigmentByDab.get(dab) ?? 1)
+        pigmentPoolByDab.set(grown, pigmentPoolByDab.get(dab) ?? 0.5)
         excessByDab.set(grown, excessByDab.get(dab) ?? 1)
         puddleByDab.set(grown, puddleByDab.get(dab) ?? 1)
         paperWetByDab.set(grown, paperWetByDab.get(dab) ?? 0)
@@ -680,12 +686,12 @@ export class RibbonStrokePainter {
     // formula back in with the thin-nib gain on it, so its bands and stamps
     // stay on one scale — a gain of 1 reproduces the omitted case exactly.
     const inkFor = profile.thinNibInkRefPx > 0 && !profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number } => ({
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number; pigmentPool?: number } => ({
         ink: d1.opacity * travel * 0.5 * thinNibGain(d1, d0.x, d0.y),
         water: 0, paperWet: 0, strength: 0, puddle: 1,
       })
       : profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number } => {
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number; puddle: number; pigmentPool?: number } => {
         // #489: same measure the stamps use, and it has to be the same one —
         // the bands overlap the stamps almost everywhere, so two different
         // readings of "how far in nib units" would show up as a seam.
@@ -716,6 +722,7 @@ export class RibbonStrokePainter {
           // the magnitude.
           strength: Math.hypot(bdx, bdy) > 0.2 * minor ? inkStrength : -inkStrength,
           puddle: puddleByDab.get(d1) ?? 1,
+          pigmentPool: pigmentPoolByDab.get(d1) ?? 0.5,
         }
       }
       : undefined
@@ -838,7 +845,7 @@ export class RibbonStrokePainter {
             deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
             paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk,
-            null, puddleByDab.get(drawable[i]) ?? 1, poolBlot,
+            null, pigmentPoolByDab.get(drawable[i]) ?? 0.5, poolBlot,
           )
           inkDest.endDraw()
           yield pieceTris ? this.ctx.nibDrawCost(tile, drawable[i], preset) : 0
@@ -866,7 +873,7 @@ export class RibbonStrokePainter {
               deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
               waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
               paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk, tau,
-              puddleByDab.get(drawable[i]) ?? 1, poolBlot,
+              pigmentPoolByDab.get(drawable[i]) ?? 0, poolBlot,
             )
             colorDest.endDraw()
             yield pieceTris ? this.ctx.nibDrawCost(tile, drawable[i], preset) : 0

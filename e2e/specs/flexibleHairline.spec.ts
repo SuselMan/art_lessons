@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { slow } from '../support/pace'
 import { strokeDabs } from '../../packages/shared/src/index'
 import { createRoom, waitForRoomReady, waitForOperations, operations } from '../support/room'
 
@@ -12,8 +13,8 @@ for (const tool of ['brushPen', 'watercolor'] as const) {
       s.setTool(tool)
       if (tool === 'watercolor') {
         s.setToolSetting(tool, 'nib', 'flex')
-        s.setToolSetting(tool, 'water', 55)
-        s.setToolSetting(tool, 'pigment', 100)
+        s.setToolSetting(tool, 'water', 0.55)
+        s.setToolSetting(tool, 'pigment', 1)
       }
       s.setToolSetting(tool, 'size', 100)
       const v = s.viewport
@@ -50,7 +51,16 @@ for (const tool of ['brushPen', 'watercolor'] as const) {
       }
       return result
     }, { x: middle.x, y: middle.y })
-    await page.waitForTimeout(1500)
+    // Pixel probes need the finished image; software GL can settle longer
+    // than a fixed delay even though the operation is already recorded.
+    await page.waitForFunction(() => {
+      const e = window.__engine as unknown as {
+        _settle: unknown; _opQueue: unknown[];
+        _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>;
+      }
+      return !e._settle && e._opQueue.length === 0
+        && e._rebuildJobs.size === 0 && e._pendingRebuilds.size === 0
+    }, undefined, { timeout: slow(30_000) })
     const live = await sample()
     console.log(tool, 'live cross-section', live)
     expect(Math.max(...live)).toBeGreaterThan(tool === 'brushPen' ? 25 : 3)
@@ -59,7 +69,16 @@ for (const tool of ['brushPen', 'watercolor'] as const) {
     await expect.poll(async () => (await operations(page)).filter(op => op.type === 'stroke').length).toBe(0)
     await page.keyboard.press('Control+Shift+z')
     await waitForOperations(page, 'stroke', 1)
-    await page.waitForTimeout(1500)
+    // Pixel probes need the finished image; software GL can settle longer
+    // than a fixed delay even though the operation is already recorded.
+    await page.waitForFunction(() => {
+      const e = window.__engine as unknown as {
+        _settle: unknown; _opQueue: unknown[];
+        _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>;
+      }
+      return !e._settle && e._opQueue.length === 0
+        && e._rebuildJobs.size === 0 && e._pendingRebuilds.size === 0
+    }, undefined, { timeout: slow(30_000) })
     const replay = await sample()
     console.log(tool, 'replay cross-section', replay)
     expect(Math.max(...replay)).toBeGreaterThan(tool === 'brushPen' ? 25 : 3)

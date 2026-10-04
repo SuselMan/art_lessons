@@ -253,7 +253,8 @@ const WC_NOISE_GLSL = `
   // brush left its surplus (the stamp's and band's puddle depth over the
   // film's level - watercolorPuddleFromSurplus: landing, stop, braking), the
   // surplus paint lies in blots: the dose there is multiplied by a coarse
-  // field that averages about one, so the pool keeps its mass but loses the
+  // field that averages about one statistically (not normalized per mark),
+  // so the pool loses the
   // nib's shape - Ilya's "повторяет форму кисти, выглядит стерильно". Off
   // on wet paper, where the puddle depth is the paper's water, not a pool.
   // (#680, s17.84) The pool share a coverage pass records in its .g (over
@@ -263,10 +264,12 @@ const WC_NOISE_GLSL = `
     return on * smoothstep(0.5, 0.95, puddle) * (1.0 - clamp(paperWet, 0.0, 1.0));
   }
   float wcPoolBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on) {
-    float pool = on * smoothstep(0.5, 0.95, puddle) * (1.0 - clamp(paperWet, 0.0, 1.0));
+    // puddle carries the surplus fraction on ink/depth draws, independent
+    // of standing water; multiplying the full dose preserves its body.
+    float pool = on * clamp(puddle, 0.0, 1.0);
     if (pool <= 0.0) return 1.0;
     float n = wcFbm(wp * 0.03 + seed * 1.7 + vec2(13.0, 5.0));
-    return mix(1.0, 0.25 + 1.5 * smoothstep(0.3, 0.7, n), pool);
+    return mix(1.0, 0.4 + 1.2 * smoothstep(0.3, 0.7, n), pool);
   }
 
   // (#536, ADR 011 §17.4) The wash's own coarse unevenness — where the water
@@ -410,7 +413,7 @@ export const RIBBON_VERT = `
   // the composite has to be able to tell them apart per pixel.
   attribute float a_inkWet;
   attribute float a_inkStrength;
-  attribute vec2 a_contact; // puddle, pressure (one attribute slot)
+  attribute vec3 a_contact; // water pool, pressure, pigment pool (one slot)
 
   uniform vec2 u_resolution;
 
@@ -421,6 +424,7 @@ export const RIBBON_VERT = `
   varying float v_inkWet;
   varying float v_puddle;
   varying float v_tipPressure;
+  varying float v_pigmentPool;
   varying float v_inkStrength;
 
   void main() {
@@ -432,6 +436,7 @@ export const RIBBON_VERT = `
     v_inkStrength = a_inkStrength;
     v_puddle = a_contact.x;
     v_tipPressure = a_contact.y;
+    v_pigmentPool = a_contact.z;
     // #691: skinny ribbon triangles may straddle a hardware subpixel tie.
     // Use the same binary grid before the GPU's own rasterization. The
     // maximum displacement is 1/128px, below the existing 1px AA ramp.
@@ -490,6 +495,7 @@ export const RIBBON_FRAG = `
   varying float v_inkWet;
   varying float v_puddle;
   varying float v_tipPressure;
+  varying float v_pigmentPool;
   varying float v_inkStrength;
 
   // (#536) The band half of the deposited mottling. The world origin has to be
@@ -520,7 +526,7 @@ ${WC_NOISE_GLSL}
     float mottle = u_mode > 0.5
       ? wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
         * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
-        * wcPoolBlot(mottleWp, u_mottleSeed, v_puddle, v_ink > 1e-6 ? v_inkWet / v_ink : 0.0, u_poolBlot)
+        * wcPoolBlot(mottleWp, u_mottleSeed, v_pigmentPool, v_ink > 1e-6 ? v_inkWet / v_ink : 0.0, u_poolBlot)
       : 1.0;
     float tip = wcTipContact(v_across, u_bristleCombs, mottleWp, v_tipPressure);
     float amount = (u_mode > 0.5 ? cov * v_ink * mottle : cov) * tip;
@@ -3775,6 +3781,9 @@ export const LAYER_COMPOSITE_FRAG = `
 export const WC_DIFFUSE_FRAG = `
   precision highp float;
   uniform sampler2D u_ink;
+  // Both pigment and absorption records read the same pre-step mobile
+  // pigment here. Never derive mobility from the colour record itself.
+  uniform sampler2D u_density;
   uniform sampler2D u_coverage;
   uniform sampler2D u_paperHeightMap;
   uniform vec2 u_resolution;
@@ -3805,11 +3814,12 @@ export const WC_DIFFUSE_FRAG = `
   // (#536, s17.19) From the coverage alone, on purpose: the pass now runs
   // over two fields - the deposit and its optical depth - and both must move
   // by the same fractions, so the gate may not read the field it moves. The
-  // coverage's .b already carries the wetter of the recorded paper wetness
-  // and the standing water the stroke left (see u_washWater).
+  // Accepted covered-film mobility uses the connected coverage .a domain;
+  // higher pre-step pigment density slows the same pairwise transfer for
+  // both records. Standing-water appearance remains a separate record.
   float wcWaterAt(vec4 cov) {
     if (cov.a <= 0.002) return 0.0;
-    return clamp(cov.b, 0.0, cov.a);
+    return clamp(cov.a, 0.0, 1.0);
   }
 
   float wcHeightAt(vec2 px) {
@@ -3866,7 +3876,8 @@ export const WC_DIFFUSE_FRAG = `
         vec4 inkj = texture2D(u_ink, uvj);
         vec4 covj = texture2D(u_coverage, uvj);
         float wj = wcWaterAt(covj);
-        float gate = min(wi, wj);
+        float density = max(texture2D(u_density, v_uv).a / max(cov.a, 0.002), texture2D(u_density, uvj).a / max(covj.a, 0.002));
+        float gate = min(wi, wj) / (1.0 + 8.0 * density * density);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);
         // On .a, give * ink.a - take * inkj.a is gate * (D (ci - cj)
@@ -5641,9 +5652,14 @@ export const BRUSH_COMPOSITE_FRAG = `
 export const WC_BRUSH_DRAG_FRAG = `
   precision highp float;
   varying vec2 v_uv;
-  uniform sampler2D u_paint, u_flow, u_water, u_pigment, u_base;
-  uniform float u_mode;
+  uniform sampler2D u_paint, u_flow, u_water, u_pigment;
   uniform vec2 u_step;
+  uniform vec4 u_flowRect;
+  vec3 flowAt(vec2 uv) {
+    vec2 local = (uv - u_flowRect.xy) / u_flowRect.zw;
+    if (min(min(local.x, local.y), min(1.0-local.x, 1.0-local.y)) < 0.0) return vec3(0.5, 0.5, 0.0);
+    return texture2D(u_flow, local).rgb;
+  }
   vec2 axis(int k) {
     if (k == 0) return vec2(1.0, 0.0);
     if (k == 1) return vec2(-1.0, 0.0);
@@ -5652,35 +5668,22 @@ export const WC_BRUSH_DRAG_FRAG = `
   }
   float flux(vec2 from, vec2 to, vec2 direction) {
     if (min(min(to.x, to.y), min(1.0-to.x, 1.0-to.y)) < 0.0 || min(min(from.x, from.y), min(1.0-from.x, 1.0-from.y)) < 0.0) return 0.0;
-    vec3 flow = texture2D(u_flow, from).rgb;
+    vec3 flow = flowAt(from);
     vec2 velocity = flow.rg * 2.0 - 1.0;
     // Keep directional confidence: opposite passes can cancel. Normalising
     // a tiny residual amplified byte rounding into a full-strength flow.
-    float contact = smoothstep(0.015, 0.15, min(texture2D(u_water, from).b, texture2D(u_water, to).b));
+    float contact = smoothstep(0.015, 0.15, min(texture2D(u_water, from).a, texture2D(u_water, to).a));
+    contact *= step(0.015, texture2D(u_water, (from + to) * 0.5).a);
     float donor = texture2D(u_pigment, from).a;
-    // Carry the pool's surplus independently of the receiver's concentration.
-    // Outgoing axial fractions sum to at most 0.4 * sqrt(2).
-    float amount = 0.4 * max(dot(velocity, direction), 0.0) * min(flow.b, texture2D(u_flow, to).b) * contact;
-    float room = max(0.0, 1.0 - texture2D(u_pigment, to).a - texture2D(u_base, to).a);
+    // Move wet material, with a conservative exchange down concentration.
+    // At most 0.18*sqrt(2) advection + 4*0.18 mixing leaves a donor.
+    float neighbour = texture2D(u_pigment, to).a;
+    float mixFraction = 0.18 * max(donor - neighbour, 0.0) / max(donor, 1e-4);
+    float amount = (0.18 * max(dot(velocity, direction), 0.0) + mixFraction) * min(flow.b, flowAt(to).b) * contact;
+    float room = max(0.0, 1.0 - texture2D(u_pigment, to).a);
     return min(amount, room / max(4.0 * donor, 1e-4));
   }
   void main() {
-    if (u_mode > 0.5) {
-      float donor = texture2D(u_pigment, v_uv).a;
-      // Estimate the surrounding coat over a wider neighbourhood. Dry samples
-      // cannot turn the normal silhouette into a false pigment surplus.
-      float background = donor;
-      for (int k=0; k<4; k++) {
-        vec2 probe = v_uv + axis(k) * u_step * 10.0;
-        if (min(min(probe.x, probe.y), min(1.0-probe.x, 1.0-probe.y)) >= 0.0
-            && texture2D(u_water, probe).b > 0.015)
-          background = min(background, texture2D(u_pigment, probe).a);
-      }
-      float surplus = max(donor - background, 0.0) / max(donor, 1e-4);
-      // A share of the pool grips the paper; only half of the excess moves.
-      gl_FragColor = texture2D(u_paint, v_uv) * (0.5 * surplus);
-      return;
-    }
     vec4 own = texture2D(u_paint, v_uv), result = own;
     for (int k=0; k<4; k++) {
       vec2 dir = axis(k), neighbour = v_uv + dir * u_step;

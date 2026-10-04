@@ -260,7 +260,7 @@ export class RibbonPasses {
     gl.enableVertexAttribArray(this._ribbonInkStrengthLoc)
     gl.vertexAttribPointer(this._ribbonInkStrengthLoc, 1, gl.FLOAT, false, stride, 28)
     gl.enableVertexAttribArray(this._ribbonPuddleLoc)
-    gl.vertexAttribPointer(this._ribbonPuddleLoc, 2, gl.FLOAT, false, stride, 32)
+    gl.vertexAttribPointer(this._ribbonPuddleLoc, 3, gl.FLOAT, false, stride, 32)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 

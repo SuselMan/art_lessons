@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  watercolorTurnLoad, WC_DWELL_FLOOR_MS, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown,
+  watercolorTurnSurplus, watercolorTurnLoad, WC_DWELL_FLOOR_MS, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown,
   watercolorBrakeSurplus, watercolorSurplus, watercolorTrailDwell, watercolorPuddleDepth, WC_START_EXCESS_RADII,
 } from './watercolorPresets'
 
@@ -93,5 +93,16 @@ describe('the carried surplus against the landing-only model it generalises', ()
   it('gives the same unloading to a subdivided return corner', () => {
     expect(watercolorTurnLoad([1, 0], -1, 0)).toBeCloseTo(1)
     expect(watercolorTurnLoad([1, 0], 0, 1) + watercolorTurnLoad([0, 1], -1, 0)).toBeCloseTo(1)
+  })
+})
+
+
+describe('corner surplus stays below a fresh landing', () => {
+  it('cannot refill every identical turn past the landing, but keeps its history', () => {
+    let carried = 0
+    for (let i=0;i<20;i++) carried = watercolorTurnSurplus(carried,1,1)
+    expect(watercolorExcessFromSurplus(100,0,carried)).toBeLessThan(watercolorExcessFromSurplus(0,0,0))
+    expect(watercolorTurnSurplus(0,1,1)).toBeLessThan(watercolorTurnSurplus(0.2,1,1))
+    expect(watercolorTurnSurplus(0,0.2,1)).toBeLessThan(watercolorTurnSurplus(0,1,1))
   })
 })

@@ -695,7 +695,8 @@ const PIGMENT_RUN_WET_RADII = 80
 //  patch of a loaded stroke, and Ilya's touch-downs stand 30-120 ms - under the
 //  dwell's floor - so the landing had only this base, and the stroke's END
 //  (braking before the lift) out-darkened its start.
-const WATERCOLOR_START_EXCESS_BASE = 2.0
+// (#680, human comparison) Richer landing; duration remains 1.2 radii.
+const WATERCOLOR_START_EXCESS_BASE = 5.0
 //  (#680, s17.79) 2.8, from 1.8: Ilya, "скопление стало лучше, но ты стесняешься".
 const WATERCOLOR_START_EXCESS_DWELL = 2.8
 
@@ -766,8 +767,10 @@ export const WC_PUDDLE_WET_FULL = 0.5
  *  Under MAX blending (AccumulationBuffer.beginMaxDraw) a texel holds one
  *  stamp's value, so the value is the film itself, spacing-free; under the
  *  old additive sum it was seg/R per stamp and 2R/seg stamps deep. Set so
- *  the calibration stroke keeps D_body 0.6. */
-export const WC_FILM_DOSE = 0.62
+ *  the calibration stroke keeps D_body 0.6. The accepted mass-film trial
+ *  raises the film dose to 1.4 together with density-limited mobility;
+ *  neither coefficient is an independent physical calibration. */
+export const WC_FILM_DOSE = 1.4
 
 export function watercolorTravelQuantum(radiusPx: number): number {
   return Math.max(WC_TRAVEL_QUANTUM_MIN_PX, radiusPx * WC_TRAVEL_QUANTUM)
@@ -835,6 +838,12 @@ export function watercolorTurnLoad(before: readonly [number, number] | null, dx:
   return Math.abs(Math.atan2(before[0] * dy - before[1] * dx, before[0] * dx + before[1] * dy)) / Math.PI
 }
 
+/** A moving corner unloads less than the fresh landing, even after repeated
+ * turns. A stationary dwell remains a separate source and may grow stronger. */
+export function watercolorTurnSurplus(previous: number, turn: number, pigmentGate: number): number {
+  return Math.min(0.2166666667, previous + 0.0666666667 * turn * pigmentGate)
+}
+
 /** watercolorStartExcess with the dwell's share from the carried surplus
  *  (watercolorSurplus of watercolorDwellPigment) instead of the landing's. */
 export function watercolorExcessFromSurplus(usedRadii: number, landedWet: number, surplusPigment: number): number {
@@ -867,7 +876,8 @@ export const WC_SLOW_V0 = 0.2
 /** Weight of the slowdown next to the dwell (both 0..1 levels of the reservoir). */
 //  (#680, s17.79) 0.8, from 0.6: bolder, as the dwell's. 1.0 over-darkened
 //  the body of a wavy stroke, which brakes at every turn (sheet 1, 9-15).
-export const WC_SLOW_GAIN = 0.8
+// Spend a smaller braking surplus over three times the outgoing travel.
+export const WC_SLOW_GAIN = 0.2666666667
 /** (#680, s17.84) How strongly the brush's surplus is combed along the
  *  travel by the hairs, over the settled paint where a pool stood (field-op
  *  mode 1's streak branch): 0 off, 1 the full comb (0..2x, mean one).
@@ -880,7 +890,7 @@ export const WC_POOL_STREAK = 0
  *  nib's footprint, not a wide cap: its surplus is spent over this many radii
  *  of travel, not the landing's WC_START_EXCESS_RADII / WC_PUDDLE_RADII
  *  (ChatGPT on the first render: "slowdown -> dark blob", too wide). */
-export const WC_SLOW_RUN_RADII = 0.8
+export const WC_SLOW_RUN_RADII = 2.4
 /** The smoothing of the pen's speed, and how fast its remembered peak fades. */
 export const WC_SPEED_TAU_MS = 20
 export const WC_PEAK_FADE_MS = 800

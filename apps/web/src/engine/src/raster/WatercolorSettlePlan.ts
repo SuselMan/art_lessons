@@ -5,7 +5,7 @@ import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
-import { brushDragField } from '../watercolor/brushDrag'
+import { brushDragContacts } from '../watercolor/brushDrag'
 import { foreignWaterStencil } from '../watercolor/foreignWater'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { watercolorDampOver, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME, watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_POOL_STREAK, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE } from '../presets/watercolorPresets'
@@ -217,7 +217,8 @@ export class WatercolorSettlePlan {
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const flow = brushDragField(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    const contacts = brushDragContacts(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    const flow = contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
@@ -291,8 +292,8 @@ export class WatercolorSettlePlan {
 
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this.ctx.passes().fieldOp(out, a, b, mode, k)
-    const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage): void => {
-      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate)
+    const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage, density: AccumulationBuffer = src): void => {
+      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density)
     }
     // (§17.23) The operation's footprint — where its own deposit lies, which
     // is the mobile field before anything moves — and the dome over it: the
@@ -425,16 +426,15 @@ export class WatercolorSettlePlan {
     // One record: c = mobile share of (laid − settled); b = laid − c, the part
     // that stays put (settled paint plus the fixed share of the new); the
     // schedule over c; the sum back into whichever of the pair is free.
-    // The gate is the coverage alone (wcWaterAt), so the deposit and its
-    // colour record — two records, one suspension — move by identical
-    // fractions, to the bit. Each step is one entry of `ops`.
+    // Both records use coverage and one pre-step mobile pigment density,
+    // so absorption cannot choose a different mobility from its carrier.
     const diffuseSteps: readonly WetDiffuseStep[] = this.ctx.ab().noDiffuse ? [] : WET_DIFFUSE_SCHEDULE
     // (§17.29) The colour record, when there is one (two paints or more),
     // is split and carried in LOCKSTEP with the deposit inside the
     // deposit's own settle: the carry's fractions depend on the deposit's
     // mobile and fixed amounts at every step, so the colour cannot be
-    // carried on its own afterwards. `follow` is the colour settle that
-    // then runs the rest (bloom, diffusion, tide) on the carried record.
+    // carried on its own afterwards. Diffusion likewise runs colour first
+    // and pigment second against the unchanged pre-step pigment field.
     const colour = scratch.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
     const singlePaint = [...scratch.paints][0]
     const singleTau: [number, number, number] = !colour && singlePaint ? pigmentAbsorption(singlePaint.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
@@ -459,8 +459,19 @@ export class WatercolorSettlePlan {
       this.ctx.passes().fieldOp(free, paint, paint, 1, 1, { c: field.coverage, world: [x0 / S, -(y0 / S + field.h), S], size: [streakCombs, 0], origin: [WC_POOL_STREAK, 0], dir: [1, 1] })
       fieldOp(paint, free, free, 1, 0)
     }
+    let pairedColour: { out: AccumulationBuffer } | null = null
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
       const st = { src: c, dst: a, out: a }
+      const paired = first && colour ? { src: colour.c, dst: colour.a, out: colour.a } : null
+      if (paired) pairedColour = paired
+      const advance = (radius: number, knight: boolean, gate = field.coverage): void => {
+        // Colour first: the following deposit draw still reads exactly the
+        // same pre-step density. Neither destination aliases that density.
+        if (paired) diffuseStep(paired.src, paired.dst, radius, knight, gate, st.src)
+        diffuseStep(st.src, st.dst, radius, knight, gate, st.src)
+        const t = st.src; st.src = st.dst; st.dst = t
+        if (paired) { const t = paired.src; paired.src = paired.dst; paired.dst = t }
+      }
       if (!follow) ops.push(() => {
         fieldOp(c, a, b, 0, mobileShare)
         // (§17.25) A mark that landed in a puddle wets the paint already
@@ -573,6 +584,10 @@ export class WatercolorSettlePlan {
         ops.push(() => {
           rim(b, WC_BLOOM_SHARE * bloom, a, spare)
           fieldOp(b, spare, spare, 1, 0)
+          if (paired && colour) {
+            rim(colour.b, WC_BLOOM_SHARE * bloom, a, spare)
+            fieldOp(colour.b, spare, spare, 1, 0)
+          }
         })
       }
       // (#680, §17.78) ...and it SETTLES as it mixes: a share of the paint
@@ -582,7 +597,7 @@ export class WatercolorSettlePlan {
       // a wide faint one (Ilya: "белое пятно почти без размытия, градиент
       // побольше и прозрачнее, и огромный очень прозрачный"), where the
       // schedule alone evened the whole of it out into one pale cloud.
-      // The diffusion is linear in the paint for a given gate, so the
+      // The paired update is linear for its shared pre-step gate, so the
       // mobile field is left undepleted and each step's slice is added to
       // the fixed one at its weight (watercolorPuddleSettleWeights); the
       // rest is scaled down once at the end. The fixed field ping-pongs
@@ -597,6 +612,19 @@ export class WatercolorSettlePlan {
         const world: [number, number, number] = [x0 / S, -(y0 / S + field.h), S]
         const settleSlice = (k: number): void => {
           if (!(w.slices[k] > 0)) return
+          if (paired && colour) {
+            // Both old mobile destinations are free after the paired draw.
+            // Reuse them for fixed-slice sums, then copy back; no histories
+            // or extra field-sized textures are needed.
+            const addSlice = (fixed: AccumulationBuffer, mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
+              if (k >= fibreFrom) this.ctx.passes().fieldOp(tmp, fixed, mobile, 1, w.slices[k], { world, d: field.band, dir: [1, 1] })
+              else fieldOp(tmp, fixed, mobile, 1, w.slices[k])
+              fieldOp(fixed, tmp, tmp, 1, 0)
+            }
+            addSlice(b, st.src, st.dst)
+            addSlice(colour.b, paired.src, paired.dst)
+            return
+          }
           if (k >= fibreFrom) this.ctx.passes().fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k], { world, d: field.band, dir: [1, 1] })
           else fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k])
           const t = acc.fixed; acc.fixed = acc.free; acc.free = t
@@ -609,16 +637,12 @@ export class WatercolorSettlePlan {
         // coverage and not the dome (the line IS the dome's edge), an even
         // count so the pair's parity stays.
         for (const [radius, knight] of WET_SETTLE_SMOOTH) {
-          ops.push(() => {
-            diffuseStep(st.src, st.dst, radius, knight)
-            const t = st.src; st.src = st.dst; st.dst = t
-          })
+          ops.push(() => advance(radius, knight))
         }
         ops.push(() => settleSlice(0))
         puddleSteps.forEach(({ radius, knight }, i) => {
           ops.push(() => {
-            diffuseStep(st.src, st.dst, radius, knight, field.pressure)
-            const t = st.src; st.src = st.dst; st.dst = t
+            advance(radius, knight, field.pressure)
             settleSlice(i + 1)
           })
         })
@@ -629,13 +653,14 @@ export class WatercolorSettlePlan {
           // spare is chosen by) does not change.
           fieldOp(st.dst, st.src, st.src, 1, w.afloat - 1)
           fieldOp(st.src, st.dst, st.dst, 1, 0)
+          if (paired) {
+            fieldOp(paired.dst, paired.src, paired.src, 1, w.afloat - 1)
+            fieldOp(paired.src, paired.dst, paired.dst, 1, 0)
+          }
         })
       }
       for (const { radius, knight } of diffuseSteps) {
-        ops.push(() => {
-          diffuseStep(st.src, st.dst, radius, knight)
-          const t = st.src; st.src = st.dst; st.dst = t
-        })
+        ops.push(() => advance(radius, knight))
       }
       // (§17.23) The tideline: after the paint has run, its puddle carries a
       // share of it to the rim as it dries. The moved field lands in `dst`,
@@ -644,19 +669,34 @@ export class WatercolorSettlePlan {
       // the whole wash (watercolorDryWash), and the operation's result is
       // its moved paint over the fixed field, all of it still mobile.
       ops.push(() => {
+        // The pressure gate is no longer sampled after the diffusion. It
+        // is now a spare shared sequentially by the paired final sums.
+        const finalSpare = paired ? field.pressure : spare
         if (groupDry) {
           // Through the spare and back, so the result lands where the rim's
           // would (st.src): the colour settle's spare is chosen by that.
-          fieldOp(spare, b, st.src, 1, 1)
-          fieldOp(st.src, spare, spare, 1, 0)
+          fieldOp(finalSpare, b, st.src, 1, 1)
+          fieldOp(st.src, finalSpare, finalSpare, 1, 0)
           st.out = st.src
-          poolStreaks(st.src, spare)
+          poolStreaks(st.src, finalSpare)
+          if (paired && colour) {
+            fieldOp(finalSpare, colour.b, paired.src, 1, 1)
+            fieldOp(paired.src, finalSpare, finalSpare, 1, 0)
+            paired.out = paired.src
+            poolStreaks(paired.src, finalSpare)
+          }
           return
         }
-        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusC, width) * tideWater, st.dst, spare, true)
+        rim(st.src, watercolorRimShare(WC_TIDE_RIM, radiusC, width) * tideWater, st.dst, finalSpare, true)
         st.out = st.src
-        fieldOp(st.out, b, spare, 1, 1)
-        poolStreaks(st.out, spare)
+        fieldOp(st.out, b, finalSpare, 1, 1)
+        poolStreaks(st.out, finalSpare)
+        if (paired && colour) {
+          rim(paired.src, watercolorRimShare(WC_TIDE_RIM, radiusC, width) * tideWater, paired.dst, finalSpare, true)
+          paired.out = paired.src
+          fieldOp(paired.out, colour.b, finalSpare, 1, 1)
+          poolStreaks(paired.out, finalSpare)
+        }
       })
       return st
     }
@@ -679,46 +719,27 @@ export class WatercolorSettlePlan {
         this.ctx.passes().pigmentColor(field.cc, dep.out, tau)
       })
     } else {
-      // Its spare is whichever deposit buffer the deposit's settle will NOT
-      // leave its result in: the schedule ping-pongs c and a, so an even
-      // count of steps (none, under the wcNoDiffuse A/B) lands in c. Read
-      // at plan time, dep.out is still its initial value - that was a
-      // settle with no steps copying the colour rim over its own deposit.
-      // (s17.43) ...counting the puddle schedule only when it runs: under
-      // wcNoDiffuse it is skipped, and counting it anyway picked the buffer
-      // holding the deposit's result as the colour's spare - the A/B render
-      // came out with the colour record and the deposit out of step.
-      col = settle(field.ca, field.cb, field.cc, false, (diffuseSteps.length + (merge > 0 && !this.ctx.ab().noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE.length : 0)) % 2 === 0 ? field.a : field.c, true)
+      // Already transported in lockstep with each deposit step; an
+      // independent colour schedule would change its mobility fractions.
+      col = pairedColour!
     }
 
-    // #680: split the concentration surplus once, then carry that field.
-    // The surrounding coat stays fixed; colour uses the same dose fraction.
-    // All temporaries are existing settle fields, free after both settles.
-    const brushPass = (source: AccumulationBuffer, out: AccumulationBuffer,
-      pigment: AccumulationBuffer, base: AccumulationBuffer, mode: number): void => {
-      this.ctx.passes().brushPass(field, flowTexture, radiusPx, S, source, out, pigment, base, mode)
-    }
-    if (flow) {
-      let fixedInk = field.c, fixedColour = field.cc
-      ops.push(() => {
-        fixedInk = dep.out === field.a ? field.c : field.a
-        fixedColour = col.out === field.ca ? field.cc : field.ca
-        brushPass(col.out, field.cb, dep.out, dep.out, 1)
-        brushPass(dep.out, field.b, dep.out, dep.out, 1)
-        fieldOp(fixedInk, dep.out, field.b, 1, -1)
-        fieldOp(fixedColour, col.out, field.cb, 1, -1)
-      })
-      for (let i = 0; i < 12; i++) ops.push(() => {
-        brushPass(field.cb, field.band, field.b, fixedInk, 0)
-        brushPass(field.b, field.pressure, field.b, fixedInk, 0)
-        fieldOp(field.b, field.pressure, field.pressure, 1, 0)
-        fieldOp(field.cb, field.band, field.band, 1, 0)
-      })
-      ops.push(() => {
-        fieldOp(dep.out, fixedInk, field.b, 1, 1)
-        fieldOp(col.out, fixedColour, field.cb, 1, 1)
-      })
-    }
+    // Sweep contacts in recorded order. Optical depth and pigment use the
+    // same pre-contact pigment, before either result is copied back.
+    for (const contact of contacts) ops.push(() => {
+      if (!flowTexture) return
+      const cf = contact.field, cr = contact.rect
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, flowTexture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cf.width, cf.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, cf.pixels)
+      const rect: [number, number, number, number] = [(cr.x - x0) / (field.w * S), 1 - (cr.y + cr.h - y0) / (field.h * S), cr.w / (field.w * S), cr.h / (field.h * S)]
+      const left = Math.max(0, Math.floor((cr.x - x0) / S)), right = Math.min(field.w, Math.ceil((cr.x + cr.w - x0) / S))
+      const bottom = Math.max(0, Math.floor(field.h - (cr.y + cr.h - y0) / S)), top = Math.min(field.h, Math.ceil(field.h - (cr.y - y0) / S))
+      const scissor: [number, number, number, number] = [left, bottom, right - left, top - bottom]
+      this.ctx.passes().brushPass(field, flowTexture, contact.radius, S, col.out, field.band, dep.out, rect, scissor)
+      this.ctx.passes().brushPass(field, flowTexture, contact.radius, S, dep.out, field.pressure, dep.out, rect, scissor)
+      field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
+      field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
+    })
 
     // (§17.42) The provisional dry target: the wet result with the one tide
     // along the whole wash's contour, into the deposit and colour buffers

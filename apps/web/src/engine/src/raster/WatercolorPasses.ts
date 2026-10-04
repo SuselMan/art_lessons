@@ -210,6 +210,7 @@ export class WatercolorPasses {
   diffuseStep(
     field: WatercolorPassField, x0: number, y0: number, S: number, paperTexW: number, paperTexH: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer,
+    density: AccumulationBuffer = src,
   ): void {
     const { gl } = this
     dst.beginReplaceDraw()
@@ -227,6 +228,9 @@ export class WatercolorPasses {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this.ctx.paperTex())
     gl.uniform1i(u.u_paperHeightMap, 2)
+    gl.activeTexture(gl.TEXTURE3)
+    gl.bindTexture(gl.TEXTURE_2D, density.texture)
+    gl.uniform1i(u.u_density, 3)
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform2f(u.u_resolution, field.w, field.h)
     // The paper at the world position of a texel. A tile passes
@@ -243,28 +247,32 @@ export class WatercolorPasses {
     dst.endDraw()
   }
 
-  /** Concentration split/transport driven by the brush-travel texture. */
+  /** One chronological wet brush contact. Both records read the unchanged
+   * pre-contact pigment record; the caller copies results back afterwards. */
   brushPass(
-    field: WatercolorPassField, flowTexture: WebGLTexture | null, radiusPx: number, S: number,
-    source: AccumulationBuffer, out: AccumulationBuffer, pigment: AccumulationBuffer, base: AccumulationBuffer, mode: number,
+    field: WatercolorPassField, flowTexture: WebGLTexture, radiusPx: number, S: number,
+    source: AccumulationBuffer, out: AccumulationBuffer, pigment: AccumulationBuffer,
+    flowRect: [number, number, number, number], scissor: [number, number, number, number],
   ): void {
     const { gl } = this
-    if (!flowTexture) return
     out.beginReplaceDraw()
     gl.useProgram(this._brushDragProg)
     const u = this._brushDragUni
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
     gl.enableVertexAttribArray(this._brushDragPosLoc)
     gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
-    const textures = [source.texture, flowTexture, field.coverage.texture, pigment.texture, base.texture]
-    const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base']
+    const textures = [source.texture, flowTexture, field.coverage.texture, pigment.texture]
+    const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment']
     for (let j = 0; j < textures.length; j++) {
       gl.activeTexture(gl.TEXTURE0 + j); gl.bindTexture(gl.TEXTURE_2D, textures[j]); gl.uniform1i(u[names[j]], j)
     }
-    const step = Math.max(1, Math.round(radiusPx * 0.2 / S))
+    const step = Math.max(1, Math.round(radiusPx * 0.25 / S))
     gl.uniform2f(u.u_step, step / field.w, step / field.h)
-    gl.uniform1f(u.u_mode, mode)
+    gl.uniform4fv(u.u_flowRect, flowRect)
+    gl.enable(gl.SCISSOR_TEST)
+    gl.scissor(...scissor)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.disable(gl.SCISSOR_TEST)
     out.endDraw(); gl.activeTexture(gl.TEXTURE0)
   }
 
@@ -313,7 +321,7 @@ export class WatercolorPasses {
     const { gl } = this
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
-    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base', 'u_step', 'u_mode'])
+    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect'])
     this._brushDragPosLoc = gl.getAttribLocation(this._brushDragProg, 'a_position')
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
   }
@@ -330,7 +338,7 @@ export class WatercolorPasses {
       'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride', 'u_foreignFilm', 'u_foreignWet',
     ])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
-      'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
+      'u_ink', 'u_density', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
       'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
     ])
   }
