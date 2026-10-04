@@ -800,3 +800,36 @@ SourceSHA неизменны. Publisher использует текущие ор
 прогонов и остановленные ENOSPC/GL попытки. Production, engine source,
 прежние картинки и голоса не менялись; долгий режим не проверен на
 планшетах/live/undo/multicolor и не объявлен пригодным к релизу.
+
+
+Пачка22: все четыре сравнения pressure40/progressive40 получилиworse.
+Accepted mass6 и combo55 на9 сохранены. Пачка23 (search-round24)
+проверяет существующий chronological brushDrag, а не объявляет новый
+перенос отсутствовавшим раньше. Diagnostic no-drag, coveragefilm-only и
+film-directional дали18 последовательных headed Vega рендеров; exact
+spec/PNG SHA, replacement guards, GL0/context и sourceSHA проверены.
+В no-drag brushdraws0, при film/strong прежние контакты реально рисуются.
+
+Brush flux раньше проверял standing coverage.b на концах и середине
+пары; film-only меняет только этот gate на coverage.a. Strong также
+задаёт adv.45/mixing.06 (outgoing≤.45√2+4*.06≈.8764 до byte rounding)
+и floor.3 только в copied contactfield waterweight, не в записанной воде,
+дозе или footprint. Коэффициенты direction сохраняют confidence, step
+.65R/scissor/recipient room остаются. No-drag сохранён как диагностика,
+не опубликован. Малое изменение no-drag9 не доказывает, что весь drag
+всегда выключен; saturation room=1-dep.a — readonly математическое
+ограничение, но фактические alpha полей в этом раунде не измерялись.
+
+Начальные18 пробы использовали technical combo55 parent на всех6
+fixtures. Для causal usercomparison6 дополнительно выполнены две
+singlecase пробы тех же laws с actual mass6 parent без early55.
+Публикуются четыре сравнения: film-only/strong на6 противmass6 и на9
+противcombo55. Это разные выбранные исходные осадки, сохранённые внутри
+каждого сравнения. Targeted дополнительные inputs/spec/report identity
+сохраняются отдельно, старые результаты не переименованы.
+
+Визуально film gate позволяет кисти сильнее смешивать внутренний диск9;
+strong меняет полосы6 и пятна9. Риск лишней полосатости/пятен сохраняется,
+победитель ждёт голосов. Симметричный обмен обсуждён readonly, не запускался.
+Production/engine source/старые голоса не менялись. Singlepaint diagnostic
+не подтверждает multicolor/live/undo/tablets и не готов к общему релизу.
