@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import type { AreaPasteOperation } from '../../packages/shared/src/index'
-import { createRoom, drawStroke, operations, waitForOperations, waitForRoomReady } from '../support/room'
+import { INK, createRoom, drawStroke, maxDarknessOverRect, operations, waitForOperations, waitForRoomReady } from '../support/room'
 
 /** (#521) Carrying a piece of a drawing from one room to another.
  *
@@ -87,6 +87,57 @@ async function pasteAndDrop(page: Page): Promise<AreaPasteOperation> {
 }
 
 test.describe('the clipboard outlives the room it was filled in', () => {
+  test('a piece copied onto another layer stays visible after dragging and closing its gizmo (#714)', async ({ page }) => {
+    await inEnglish(page)
+    await createRoom(page)
+    await waitForRoomReady(page)
+    await drawAndCopy(page)
+    const sourceName = await page.evaluate(() => {
+      const state = window.__roomStore!.getState()
+      return state.layerState.items[state.layerState.activeId].name
+    })
+    // Isolate the pasted piece: the source underneath otherwise remains
+    // visible when undo removes the paste from the destination.
+    const sourceRow = page.locator('div', { has: page.getByText(sourceName, { exact: true }) })
+      .filter({ has: page.getByRole('button', { name: 'More' }) }).last()
+    await sourceRow.getByRole('button', { name: 'Hide', exact: true }).click()
+    await waitForOperations(page, 'layer_visibility')
+    await page.getByRole('button', { name: 'Add layer', exact: true }).click()
+    await waitForOperations(page, 'layer_add')
+    const target = await page.evaluate(() => window.__roomStore!.getState().layerState.activeId)
+    // The destination is already drawn/displayed, as in the homework room.
+    await page.evaluate(() => window.__roomStore!.getState().setTool('pencil'))
+    await drawStroke(page, [[220, 600], [360, 600]])
+    await waitForOperations(page, 'stroke', 2)
+    await page.keyboard.press('Control+v')
+    const body = page.locator('[data-transform-gizmo] polygon').first()
+    await expect(body).toBeVisible()
+    const box = await body.boundingBox()
+    if (!box) throw new Error('e2e: no paste gizmo')
+    const x = box.x + box.width * 0.2
+    const y = box.y + box.height / 2
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x + 150, y + 90, { steps: 12 })
+    await page.mouse.up()
+    // Switching tools commits the float and removes its preview.
+    await page.evaluate(() => window.__roomStore!.getState().setTool('pencil'))
+    await expect(body).not.toBeVisible()
+    await waitForOperations(page, 'area_paste')
+    const paste = (await operations(page)).find((op): op is AreaPasteOperation => op.type === 'area_paste')
+    if (!paste?.matrix || paste.matrix.length !== 6) throw new Error('e2e: no translated paste')
+    expect(paste.layerId).toBe(target)
+    const [a, b, c, d, tx, ty] = paste.matrix
+    const landed = { x: a * paste.x + c * paste.y + tx, y: b * paste.x + d * paste.y + ty,
+      width: paste.width, height: paste.height }
+    await expect.poll(() => maxDarknessOverRect(page, landed)).toBeGreaterThan(INK)
+    // Rebuild from history must preserve the same displayed piece.
+    await page.keyboard.press('Control+z')
+    await expect.poll(() => maxDarknessOverRect(page, landed)).toBeLessThan(INK)
+    await page.keyboard.press('Control+Shift+z')
+    await expect.poll(() => maxDarknessOverRect(page, landed)).toBeGreaterThan(INK)
+  })
+
   test('a piece copied in one room pastes into another, in front of the person', async ({ page }) => {
     await inEnglish(page)
     await createRoom(page, 'Clipboard source')
