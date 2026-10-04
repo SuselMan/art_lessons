@@ -21,8 +21,7 @@ interface SettingFieldProps {
   onExpand?: () => void
 }
 
-const ENUM_TRACK_HEIGHT = 96
-const RANGE_TRACK_HEIGHT = 64
+const ENUM_TRACK_HEIGHT = 128
 
 /** One generic control per tool setting (#196) — the same component renders
  *  every field for every tool, in both the toolbar's quick-access row and the
@@ -70,7 +69,6 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
               value={numValue}
               min={valueType.min} max={valueType.max} step={valueType.step}
               scale={valueType.scale}
-              trackSize={RANGE_TRACK_HEIGHT}
               onChange={v => onChange(v)}
               formatValue={valueType.format}
               title={label}
