@@ -1,9 +1,10 @@
+import { WatercolorPasses } from './src/raster/WatercolorPasses'
 import { RibbonPasses } from './src/raster/RibbonPasses'
 import { RibbonStrokePainter, type RibbonLiveComposite } from './src/dabs/RibbonStrokePainter'
 import { rectOnTile, ribbonWaterDelivery } from './src/dabs/ribbonStrokeMath'
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
-import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -81,7 +82,7 @@ import { appendWatercolorLift } from './src/presets/watercolorLift'
 
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/dabs/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
+import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from './src/watercolor/wetDiffusion'
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 import { brushDragField } from './src/watercolor/brushDrag'
 import { foreignWaterStencil, type WaterSource } from './src/watercolor/foreignWater'
@@ -1738,20 +1739,6 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
   private _revealProg!: WebGLProgram
-  /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
-  private _fieldOpProg!: WebGLProgram
-  private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
-  /** (#685) Modes 10-20 except the carry (15/16), linked separately. */
-  private _fieldOpHighProg!: WebGLProgram
-  private _fieldOpHighUni!: Record<string, WebGLUniformLocation | null>
-  private _fieldOpHighPosLoc!: number
-  private _fieldOpCarryProg!: WebGLProgram
-  private _fieldOpCarryUni!: Record<string, WebGLUniformLocation | null>
-  private _fieldOpCarryPosLoc!: number
-  private _fieldOpCarryColourProg!: WebGLProgram
-  private _fieldOpCarryColourUni!: Record<string, WebGLUniformLocation | null>
-  private _fieldOpCarryColourPosLoc!: number
-  private _fieldOpPosLoc = -1
   /** (#536, §17.46) The paper composite's own copy of the screen, so a frame
    *  that changed only the brush's rect recomposes that rect alone. */
   private _screenCache: AccumulationBuffer | null = null
@@ -1765,10 +1752,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperDamage: { minX: number; minY: number; maxX: number; maxY: number } | null = null
   private _paperPartialOK = false
   private _paperCacheKey = ''
-  /** (#536, §17.44) WC_RESAMPLE_FRAG - tile <-> half-resolution settle field. */
-  private _resampleProg!: WebGLProgram
-  private _resampleUni!: Record<string, WebGLUniformLocation | null>
-  private _resamplePosLoc = -1
   private _revealUni!: Record<string, WebGLUniformLocation | null>
   private _revealPosLoc = -1
   /** Keyed by the layer tile the wash settled into. Presentation state only:
@@ -1799,6 +1782,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  of a rect from the deposit, so the union of the batches since the last
    *  frame gives the same pixels as the batches one by one. */
 
+  private readonly _watercolorPasses = new WatercolorPasses({
+    gl: () => this.gl,
+    screenBuf: () => this._screenBuf,
+    paperTex: () => this._paperTex,
+    paperScale: () => this._opts.paperScale,
+    paperWorldSize: () => this._paperWorldSize(),
+    stamps: () => this._stamps,
+  })
 
   private readonly _ribbonPasses = new RibbonPasses({
     gl: () => this.gl,
@@ -1859,20 +1850,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldCache: Array<SettleField> = []
   // (#494) The transform, selection and image blits — see blitPasses.ts.
   private _passes!: BlitPasses
-  /** (#536) One step of pigment diffusion in standing water — see
-   *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
-  private _diffuseProg!: WebGLProgram
   /** (#536, §17.24) The water front's relaxation — see WC_WATER_FRONT_FRAG. */
   private _brushFlowTex: WebGLTexture | null = null
-  private _brushDragProg!: WebGLProgram
-  private _brushDragUni!: Record<string, WebGLUniformLocation | null>
-  private _brushDragPosLoc = -1
   private _foreignWaterTex: WebGLTexture | null = null
-  private _waterFrontProg!: WebGLProgram
-  private _waterFrontUni!: Record<string, WebGLUniformLocation | null>
-  private _waterFrontPosLoc = -1
-  private _diffuseUni!: Record<string, WebGLUniformLocation | null>
-  private _diffusePosLoc = -1
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _compositePosLoc!: number
   private _quadBuf!: WebGLBuffer
@@ -3868,6 +3848,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._stamps.destroy()
     this._brush.destroy()
     this._ribbonPasses.destroy()
+    this._watercolorPasses.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
@@ -5275,11 +5256,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._stamps.initGL()
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
-    this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
-    this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
-    this._fieldOpCarryProg    = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_FRAG)
-    this._fieldOpCarryColourProg = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_COLOUR_FRAG)
-    this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
+    this._watercolorPasses.initFieldPrograms()
+
     this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     // (#494) Smudge's transfer and imprint-refresh programs — see SmudgePainter.ts.
@@ -5290,28 +5268,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._exporter.initGL()
     this._brush.initGL() // (#494) see BrushPainter.ts
     this._ribbonPasses.initProgram()
-    this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
-    this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
-    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base', 'u_step', 'u_mode'])
-    this._brushDragPosLoc = gl.getAttribLocation(this._brushDragProg, 'a_position')
-    this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
+    this._watercolorPasses.initSettlePrograms()
 
     this._ribbonPasses.initUniforms()
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
-    this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
-      'u_wcNoiseTex', 'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
-      'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride', 'u_foreignFilm', 'u_foreignWet',
-    ])
-    this._diffuseUni = getUniforms(gl, this._diffuseProg, [
-      'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
-      'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
-    ])
+    this._watercolorPasses.initFieldUniforms()
+
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
@@ -5320,15 +5283,12 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
-    this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
-    this._fieldOpHighPosLoc    = gl.getAttribLocation(this._fieldOpHighProg, 'a_position')
-    this._fieldOpCarryPosLoc   = gl.getAttribLocation(this._fieldOpCarryProg, 'a_position')
-    this._fieldOpCarryColourPosLoc = gl.getAttribLocation(this._fieldOpCarryColourProg, 'a_position')
-    this._resamplePosLoc       = gl.getAttribLocation(this._resampleProg, 'a_position')
+    this._watercolorPasses.initFieldAttributes()
+
     this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')
-    this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
-    this._waterFrontPosLoc     = gl.getAttribLocation(this._waterFrontProg, 'a_position')
+    this._watercolorPasses.initDiffusionAttributes()
+
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
 
     this._ribbonPasses.initAttributes()
@@ -6910,105 +6870,20 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._ribbonScratchPool.release(prev)
   }
-
-  /** One WC_FIELD_OP_FRAG step between same-sized buffers — see the shader
-   *  for the modes. `c` is mode 3's third input; `scissor` (bottom-up GL
-   *  pixels) limits the write to a rect, everything outside it untouched. */
   private _fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
     opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number] } = {},
   ): void {
-    const { gl } = this
-    out.beginReplaceDraw()
-    if (opts.scissor) {
-      gl.enable(gl.SCISSOR_TEST)
-      gl.scissor(opts.scissor[0], opts.scissor[1], opts.scissor[2], opts.scissor[3])
-    }
-    // (#685) Carry modes must never enter the bookkeeping program: its
-    // combined control flow crashes the Galaxy Tab's Adreno linker.
-    const high = mode >= 10
-    const prog = mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
-    const u = mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
-    const pos = mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
-    gl.useProgram(prog)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(pos)
-    gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, a.texture)
-    gl.uniform1i(u.u_a, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, b.texture)
-    gl.uniform1i(u.u_b, 1)
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, (opts.c ?? b).texture)
-    gl.uniform1i(u.u_c, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, (opts.d ?? b).texture)
-    gl.uniform1i(u.u_d, 3)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform1f(u.u_k, k)
-    gl.uniform1f(u.u_mode, mode)
-    gl.uniform2f(u.u_dir, opts.dir ? opts.dir[0] / out.width : 0, opts.dir ? opts.dir[1] / out.height : 0)
-    gl.uniform2f(u.u_origin, opts.origin ? opts.origin[0] : 0, opts.origin ? opts.origin[1] : 0)
-    gl.uniform2f(u.u_size, opts.size ? opts.size[0] : out.width, opts.size ? opts.size[1] : out.height)
-    gl.uniform2f(u.u_band, opts.band ? opts.band[0] : 0, opts.band ? opts.band[1] : 0)
-    gl.uniform3fv(u.u_tau, opts.tau ?? [0, 0, 0])
-    gl.uniform3fv(u.u_world, opts.world ?? [0, 0, 0])
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
-    out.endDraw()
+    this._watercolorPasses.fieldOp(out, a, b, mode, k, opts)
   }
-
-  /** (#536, §17.24) One relaxation step of the water front's cost (WC_WATER_FRONT_FRAG)
-   *  over a settle field whose top-left is at world (x0, y0): src → dst. Shared by
-   *  the settle's outward and inward passes and the group tide's inward one. */
   private _waterFrontStep(
     field: SettleField, x0: number, y0: number, dryCost: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, max: number, climb: number, floor: number, stride = 1,
     /** (§17.44) World px per field cell. */
     scale = 1, foreignWater: WebGLTexture | null = null,
   ): void {
-    const { gl } = this
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    dst.beginReplaceDraw()
-    gl.useProgram(this._waterFrontProg)
-    this._stamps.bindNoise(this._waterFrontUni.u_wcNoiseTex)
-    const u = this._waterFrontUni
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._waterFrontPosLoc)
-    gl.vertexAttribPointer(this._waterFrontPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, src.texture)
-    gl.uniform1i(u.u_cost, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    gl.uniform1i(u.u_paperHeightMap, 1)
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
-    gl.uniform1i(u.u_film, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, foreignWater ?? this._paperTex)
-    gl.uniform1i(u.u_foreignFilm, 3)
-    gl.uniform1f(u.u_foreignWet, foreignWater ? 1 : 0)
-    gl.uniform1f(u.u_dryCost, dryCost)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform2f(u.u_resolution, field.w, field.h)
-    gl.uniform2f(u.u_paperOrigin, x0 / scale, -(y0 / scale + field.h))
-    gl.uniform2f(u.u_paperTexSize, paperTexW / scale, paperTexH / scale)
-    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-    gl.uniform1f(u.u_climb, climb)
-    gl.uniform1f(u.u_floor, floor)
-    gl.uniform1f(u.u_costMax, max)
-    gl.uniform1f(u.u_stride, stride)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    dst.endDraw()
+    this._watercolorPasses.waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, scale, foreignWater)
   }
-
-  /** (#536, §17.44) One WC_RESAMPLE_FRAG draw into `dst` over the GL rect
-   *  (dx, dy, dw, dh). Mode 0 averages `src` down (ratio 2), mode 1 writes
-   *  base + up(src) - up(old), mode 2 max(base, up(src)) (ratio 1/2). `dst`
-   *  must not be `base`: modes 1 and 2 go through a temporary. */
   private _wcResample(
     dst: AccumulationBuffer, dx: number, dy: number, dw: number, dh: number,
     src: AccumulationBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2,
@@ -7016,31 +6891,7 @@ export class PencilEngine implements PencilEngineAPI {
     /** The source texels the draw may read: [x0, y0, x1, y1). The whole source by default. */
     clampRect: [number, number, number, number] | null = null,
   ): void {
-    if (dw <= 0 || dh <= 0) return
-    const { gl } = this
-    dst.beginReplaceDraw()
-    gl.enable(gl.SCISSOR_TEST)
-    gl.scissor(dx, dy, dw, dh)
-    gl.useProgram(this._resampleProg)
-    const u = this._resampleUni
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._resamplePosLoc)
-    gl.vertexAttribPointer(this._resamplePosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.texture); gl.uniform1i(u.u_src, 0)
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, (old ?? src).texture); gl.uniform1i(u.u_old, 1)
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, (base ?? src).texture); gl.uniform1i(u.u_base, 2)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform2f(u.u_srcSize, src.width, src.height)
-    gl.uniform2f(u.u_baseSize, (base ?? dst).width, (base ?? dst).height)
-    gl.uniform2f(u.u_dstOrigin, dx, dy)
-    gl.uniform2f(u.u_srcOrigin, sx, sy)
-    gl.uniform1f(u.u_ratio, ratio)
-    gl.uniform1f(u.u_mode, mode)
-    const cr = clampRect ?? [0, 0, src.width, src.height]
-    gl.uniform4f(u.u_clamp, cr[0], cr[1], cr[2], cr[3])
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    gl.disable(gl.SCISSOR_TEST)
-    dst.endDraw()
+    this._watercolorPasses.wcResample(dst, dx, dy, dw, dh, src, sx, sy, ratio, mode, old, base, clampRect)
   }
 
   /** (#536, §17.44) The reveal's copies, pooled: a new tile-sized texture per
@@ -7366,35 +7217,7 @@ export class PencilEngine implements PencilEngineAPI {
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this._fieldOp(out, a, b, mode, k)
     const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage): void => {
-      dst.beginReplaceDraw()
-      gl.useProgram(this._diffuseProg)
-      const u = this._diffuseUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._diffusePosLoc)
-      gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, src.texture)
-      gl.uniform1i(u.u_ink, 0)
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, gate.texture)
-      gl.uniform1i(u.u_coverage, 1)
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-      gl.uniform1i(u.u_paperHeightMap, 2)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.uniform2f(u.u_resolution, field.w, field.h)
-      // The paper at the world position of a texel. A tile passes
-      // (originX, -originY) and lets its height of 1024 fold into the paper's
-      // period; a rect of any height has to say where its bottom row is.
-      gl.uniform2f(u.u_paperOrigin, x0 / S, -(y0 / S + field.h))
-      gl.uniform2f(u.u_paperTexSize, paperTexW / S, paperTexH / S)
-      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-      gl.uniform1f(u.u_d, WET_DIFFUSE_D)
-      gl.uniform1f(u.u_b, WET_DIFFUSE_B)
-      gl.uniform1f(u.u_radius, Math.max(1, Math.round(radius / S)))
-      gl.uniform1f(u.u_stencil, knight ? 1 : 0)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      dst.endDraw()
+      this._watercolorPasses.diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate)
     }
     // (§17.23) The operation's footprint — where its own deposit lies, which
     // is the mobile field before anything moves — and the dome over it: the
@@ -7778,34 +7601,7 @@ export class PencilEngine implements PencilEngineAPI {
       const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
       col = { out: field.cc }
       ops.push(() => {
-        const outColor = field.cc
-        outColor.beginReplaceDraw()
-        gl.useProgram(this._fieldOpProg)
-        const fu = this._fieldOpUni
-        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-        gl.enableVertexAttribArray(this._fieldOpPosLoc)
-        gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_a, 0)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_b, 1)
-        // Units 2 and 3 too: the program samples u_c and u_d, and whatever
-        // the last field op left on those units — the rim's spare buffer,
-        // which is this very output — would be a feedback loop.
-        gl.activeTexture(gl.TEXTURE2)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_c, 2)
-        gl.activeTexture(gl.TEXTURE3)
-        gl.bindTexture(gl.TEXTURE_2D, dep.out.texture)
-        gl.uniform1i(fu.u_d, 3)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.uniform1f(fu.u_k, 1)
-        gl.uniform1f(fu.u_mode, 2)
-        gl.uniform3fv(fu.u_tau, [tau[0], tau[1], tau[2]])
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-        outColor.endDraw()
+        this._watercolorPasses.pigmentColor(field.cc, dep.out, tau)
       })
     } else {
       // Its spare is whichever deposit buffer the deposit's settle will NOT
@@ -7825,23 +7621,7 @@ export class PencilEngine implements PencilEngineAPI {
     // All temporaries are existing settle fields, free after both settles.
     const brushPass = (source: AccumulationBuffer, out: AccumulationBuffer,
       pigment: AccumulationBuffer, base: AccumulationBuffer, mode: number): void => {
-      if (!flowTexture) return
-      out.beginReplaceDraw()
-      gl.useProgram(this._brushDragProg)
-      const u = this._brushDragUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._brushDragPosLoc)
-      gl.vertexAttribPointer(this._brushDragPosLoc, 2, gl.FLOAT, false, 0, 0)
-      const textures = [source.texture, flowTexture, field.coverage.texture, pigment.texture, base.texture]
-      const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_base']
-      for (let j = 0; j < textures.length; j++) {
-        gl.activeTexture(gl.TEXTURE0 + j); gl.bindTexture(gl.TEXTURE_2D, textures[j]); gl.uniform1i(u[names[j]], j)
-      }
-      const step = Math.max(1, Math.round(radiusPx * 0.2 / S))
-      gl.uniform2f(u.u_step, step / field.w, step / field.h)
-      gl.uniform1f(u.u_mode, mode)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      out.endDraw(); gl.activeTexture(gl.TEXTURE0)
+      this._watercolorPasses.brushPass(field, flowTexture, radiusPx, S, source, out, pigment, base, mode)
     }
     if (flow) {
       let fixedInk = field.c, fixedColour = field.cc
