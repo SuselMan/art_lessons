@@ -821,7 +821,12 @@ export class AreaOps {
     const toWorld = translationMatrix(originX, originY)
     const toRectLocal = translationMatrix(-rect.x, -rect.y)
     const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
+    // (#714) This is a write to a resident tile too, not just a fresh preview.
+    // beginDraw invalidates its old mip chain; binding the FBO in transform
+    // alone leaves zoomed-out display sampling the pixels before this paste.
+    target.beginDraw()
     this.ctx.passes().transform(scratch, mc, target.width, target.height, target.fbo)
+    target.endDraw()
     this.releaseScratch(scratch)
   }
 
