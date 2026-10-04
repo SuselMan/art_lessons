@@ -6,8 +6,9 @@ import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchSlot } from './src/buffers/scratchPools'
+import { RibbonReplayCache, type ReplayRibbonChunk } from './src/buffers/RibbonReplayCache'
 import { RibbonScratchPool } from './src/buffers/RibbonScratchPool'
-import { RibbonStrokeScratch, scratchSnapshotBytes, freeScratchSnapshot, type RibbonTileScratch, type ScratchSnapshot, type SpilledScratch } from './src/buffers/RibbonStrokeScratch'
+import { RibbonStrokeScratch, scratchSnapshotBytes, freeScratchSnapshot, type RibbonTileScratch, type ScratchSnapshot } from './src/buffers/RibbonStrokeScratch'
 import { SnapshotLedger } from './src/oplog/snapshotLedger'
 import { SnapshotIO } from './src/oplog/SnapshotIO'
 import { StructuralOps } from './src/oplog/structuralOps'
@@ -1485,16 +1486,6 @@ function ribbonBandPieces(bands: Float32Array, tris: number): Float32Array[] {
   for (let i = 0; i < bands.length; i += step) out.push(bands.subarray(i, Math.min(bands.length, i + step)))
   return out
 }
-
-/** (#468) How many ribbon gestures/washes the replay side keeps open at once.
- *
- *  Four, because each holds three pooled buffers per tile it touches, and
- *  because the thing it has to survive is other people painting between two
- *  strokes of one wash. Past that the oldest goes back to being a seam. */
-const REPLAY_RIBBON_CHUNK_SLOTS = 4
-/** #702: compact GPU states retain the former spill storage cap, and also
- *  count towards the device GPU budget. No cache or memory limit is raised. */
-const SPILLED_WASHES_MAX_BYTES = 128 * 1024 * 1024
 /** (§17.68) How long a wash has to rest before the budget may spill it. */
 const SPILL_IDLE_MS = 8000
 /** (§17.68) ...and how long the whole room has to be still first. */
@@ -1745,38 +1736,43 @@ export class PencilEngine implements PencilEngineAPI {
   private _gpuBudget = typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 1
     && ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 0) <= 4
     ? GPU_BUDGET_TOUCH_BYTES : Infinity
-  /** (#536, §17.57) Who painted each replay-cache key - see _retireWashesOf. */
-  private _chunkAuthors = new Map<string, string>()
-  /** (#702) Resting washes parked in compact GPU buffers. Their bytes are
-   *  included in the same pool/device budget as active scratch. The next
-   *  operation restores zero padding and continues the exact stored state.
-   *  Keyed as the cache is; `target` is the layer buffer it mirrors. */
-  private _spilledWashes = new Map<string, {
-    target: ILayerBuffer; userId: string | undefined; washStrokeId?: string; lastDab: Dab; spill: SpilledScratch
-  }>()
-  /** (§17.68) Open washes whose state could be neither kept nor spilled. Their
-   *  next operation cannot be painted as everyone else paints it - so it
-   *  rebuilds the layer instead, which replays the wash from its start. */
-  private _lostWashes = new Map<string, ILayerBuffer>()
-  /** (§17.70) The spill in progress, a buffer per step, and the washes the
-   *  cache's slots are waiting to see spilled after it. */
-  private _spillJob: { work: Generator<void, SpilledScratch | null, void>; key: string; scratch: RibbonStrokeScratch; usedAt: number; timer: ReturnType<typeof setTimeout> | 0 } | null = null
-  private _spillPumpTimer: ReturnType<typeof setTimeout> | 0 = 0
   /** (§17.70) A rebuild's step is running: the cache is the job's own. */
   private _inJobStep = false
-  private _replayRibbonChunks = new Map<string, {
-    /** The grouping key: a wash id where the stroke has one, its gesture id
-     *  otherwise (#468 v7). */
-    strokeId: string
-    /** Which *gesture* the last chunk belonged to, so a wash can tell one of
-     *  its strokes ending from a gesture's chunk boundary. */
-    washStrokeId?: string
-    target: ILayerBuffer
-    scratch: RibbonStrokeScratch
-    lastDab: Dab
-    /** (§17.68) performance.now() of its last operation - see _enforceGpuBudget. */
-    usedAt?: number
-  }>()
+
+  private readonly _ribbonCache = new RibbonReplayCache({
+    ribbonScratchPool: () => this._ribbonScratchPool,
+    destroyed: () => this._destroyed,
+    contextLost: () => this._contextLost,
+    inJobStep: () => this._inJobStep,
+    gpuBudget: () => this._gpuBudget,
+    settlingScratch: () => this._settle?.scratch,
+    completeSettle: () => this._completeSettle(),
+    finishedChunk: () => [...this._replayRibbonChunks].find(([key, chunk]) => {
+      const job = [...this._rebuildJobs.values()].find(j => j.fresh === chunk.target)
+      if (!job) return false
+      const remaining = this._log.layerPixelOps(job.layerId).slice(job.start + job.applied.length)
+      return !remaining.some(op => op.type === 'stroke' && (op.washId ?? op.strokeId) === key)
+    }),
+    rebuildLostWash: target => this._rebuildLostWash(target),
+    scheduleBudgetCheck: () => this._scheduleBudgetCheck(),
+    washGpuBytes: () => this._washGpuBytes(),
+  })
+  private get _replayRibbonChunks() { return this._ribbonCache.chunks }
+  private set _replayRibbonChunks(chunks: Map<string, ReplayRibbonChunk>) { this._ribbonCache.chunks = chunks }
+  private get _chunkAuthors() { return this._ribbonCache.authors }
+  private get _spilledWashes() { return this._ribbonCache.spilled }
+  private get _lostWashes() { return this._ribbonCache.lost }
+  private get _spillJob() { return this._ribbonCache.spillJob }
+  private _retireWashesOf(op: StrokeOperation): void { this._ribbonCache.retireWashesOf(op) }
+  private _replayChunkScratch(target: ILayerBuffer, strokeId: string | undefined, washId: string | undefined, dabs: Dab[], profile: RibbonProfile) {
+    return this._ribbonCache.replayChunkScratch(target, strokeId, washId, dabs, profile)
+  }
+  private _trimChunkCache(): void { this._ribbonCache.trimChunkCache() }
+  private _evictChunk(key: string, keep: boolean): void { this._ribbonCache.evictChunk(key, keep) }
+  private _cancelSpillJob(): void { this._ribbonCache.cancelSpillJob() }
+  private _startSpill(key: string): void { this._ribbonCache.startSpill(key) }
+  private _forgetWashesOf(target: ILayerBuffer): void { this._ribbonCache.forgetWashesOf(target) }
+
 
   // (#494) Smudge and the mixer brush — their programs, scratch pool, per-user
   // imprints and replay chunks. See SmudgePainter.ts.
@@ -2250,6 +2246,7 @@ export class PencilEngine implements PencilEngineAPI {
       onLoaded: () => this._display(),
     })
     this._ribbonScratchPool = new RibbonScratchPool(gl)
+
     // (#494) See scratchPools.ts. What each buffer is set up for stays with
     // the pool's owner: here for these two, AreaOps and SmudgePainter for theirs.
     this._previewBufPool = new ScratchSlot((w, h) => new AccumulationBuffer(gl, w, h))
@@ -6830,247 +6827,6 @@ export class PencilEngine implements PencilEngineAPI {
     return standing
   }
 
-  /** The scratch this replayed operation should paint through, given the
-   *  gesture it belongs to — see _replayRibbonChunk. Returns null for an
-   *  operation with no gesture id (a stroke recorded before strokeId existed),
-   *  which then falls back to a throwaway scratch, exactly as before. */
-  /** (#536, §17.57) A participant's stroke closes every wash and gesture of
-   *  theirs but its own: a wash is only ever joined by its author's NEXT
-   *  stroke (the author's single open `_wash`), and a gesture's chunks are
-   *  that author's consecutive operations. So the cache entries of their
-   *  earlier washes can never be read again, and they go now instead of when
-   *  the LRU gets to them - four whole-sheet washes held that way were most
-   *  of the 600 MB the iPad died at (multitest, CJoiem15). A fact of the log
-   *  order, the same live and on every replay, so what is painted does not
-   *  change - only an open wash is no longer evicted to make room for them. */
-  private _retireWashesOf(op: StrokeOperation): void {
-    const key = op.washId ?? op.strokeId
-    for (const [k, chunk] of this._replayRibbonChunks) {
-      if (k === key || this._chunkAuthors.get(k) !== op.userId) continue
-      if (this._settle?.scratch === chunk.scratch) this._completeSettle()
-      chunk.scratch.destroy()
-      this._replayRibbonChunks.delete(k)
-      this._chunkAuthors.delete(k)
-    }
-    // (§17.68) ...and the ones spilled or lost: closed just the same.
-    for (const [k, w] of this._spilledWashes) {
-      if (k !== key && w.userId === op.userId) { w.spill.dispose(); this._spilledWashes.delete(k); this._lostWashes.delete(k) }
-    }
-    for (const k of [...this._lostWashes.keys()]) {
-      if (k !== key && this._chunkAuthors.get(k) === op.userId) { this._lostWashes.delete(k); this._chunkAuthors.delete(k) }
-    }
-    if (key) this._chunkAuthors.set(key, op.userId)
-  }
-
-  private _replayChunkScratch(
-    target: ILayerBuffer, strokeId: string | undefined, washId: string | undefined,
-    dabs: Dab[], profile: RibbonProfile,
-  ): { scratch: RibbonStrokeScratch; prevDab?: Dab } | null {
-    // (#468 v7) A wash groups more strongly than a gesture: several strokes
-    // share one accumulation, so the key is the wash where there is one and the
-    // gesture otherwise. Grouping by the recorded id rather than by anything
-    // measured here is what keeps replay a pure function of the log — the live
-    // client already decided, using wall-clock timing replay must never see.
-    const key = washId ?? strokeId
-    if (!key || !dabs.length) return null
-    const cached = this._replayRibbonChunks.get(key)
-    if (cached && cached.target === target) {
-      // `prevDab` bridges the ribbon across a *gesture's* chunks. Across two
-      // strokes of one wash there is nothing to bridge — the brush was lifted —
-      // so the band builder must not stitch them into one swept figure.
-      const sameGesture = cached.washStrokeId === strokeId
-      const prevDab = washId && !sameGesture ? undefined : cached.lastDab
-      cached.lastDab = dabs[dabs.length - 1]
-      cached.washStrokeId = strokeId
-      // Only when a *new* stroke of the wash starts. This read the flag it had
-      // just overwritten, so it fired on every operation — including the chunks
-      // one long gesture is split into, which live never does. The brush was
-      // getting recharged mid-stroke on replay and not while drawing, so a long
-      // enough stroke came back different after a reload.
-      if (washId && !sameGesture) cached.scratch.beginStroke()
-      // Re-inserted so the map's own order is least-recently-used: the eviction
-      // below takes the front, and a wash still being painted into must not be
-      // the one thrown away.
-      this._replayRibbonChunks.delete(key)
-      this._replayRibbonChunks.set(key, cached)
-      cached.usedAt = performance.now()
-      return { scratch: cached.scratch, prevDab }
-    }
-    // A stale entry under the same key but a *different* layer buffer is not a
-    // hit — the scratch mirrors the tiles of one target and nothing else.
-    if (cached && this._settle?.scratch === cached.scratch) this._completeSettle() // (§17.52)
-    cached?.scratch.destroy()
-    this._replayRibbonChunks.delete(key)
-    // #702: an open wash this client parked on the GPU, continued as a hit.
-    const spilled = this._spilledWashes.get(key)
-    if (spilled && spilled.target !== target) { spilled.spill.dispose(); this._spilledWashes.delete(key) }
-    if (spilled && spilled.target === target) {
-      this._spilledWashes.delete(key)
-      const back = RibbonStrokeScratch.unspill(this._ribbonScratchPool, spilled.spill, target)
-      if (back) {
-        this._replayRibbonChunks.set(key, { strokeId: key, washStrokeId: spilled.washStrokeId, target, scratch: back, lastDab: spilled.lastDab })
-        if (spilled.userId) this._chunkAuthors.set(key, spilled.userId)
-        this._trimChunkCache()
-        return this._replayChunkScratch(target, strokeId, washId, dabs, profile)
-      }
-      this._lostWashes.set(key, target)
-    }
-    if (this._lostWashes.get(key) === target) {
-      this._lostWashes.delete(key)
-      this._rebuildLostWash(target)
-    }
-    const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
-    scratch.beginStroke()
-    this._replayRibbonChunks.set(key, {
-      strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1], usedAt: performance.now(),
-    })
-    this._trimChunkCache()
-    this._scheduleBudgetCheck()
-    return { scratch }
-  }
-
-  /** (§17.68) The cache back to REPLAY_RIBBON_CHUNK_SLOTS, least recently used
-   *  first - spilled, not destroyed: a fifth participant's wash used to push
-   *  out an open one, whose next stroke then started over in a fresh scratch
-   *  on this client only. */
-  private _trimChunkCache(): void {
-    // #702: park resting washes in slices. The cache may temporarily
-    // exceed its slot count while copies are queued.
-    if (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS && !this._inJobStep && typeof setTimeout === 'function') {
-      this._pumpSpills()
-      return
-    }
-    while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
-      if (this._inJobStep) {
-        // (#701) A sliced rebuild already knows which gestures its remaining
-        // journal continues. Reading a finished one back only to evict it can
-        // block a frame for seconds. Keep the existing lost-wash fallback for
-        // any continuation that arrives later, outside this known history.
-        const finished = [...this._replayRibbonChunks].find(([key, chunk]) => {
-          const job = [...this._rebuildJobs.values()].find(j => j.fresh === chunk.target)
-          if (!job) return false
-          const remaining = this._log.layerPixelOps(job.layerId).slice(job.start + job.applied.length)
-          return !remaining.some(op => op.type === 'stroke' && (op.washId ?? op.strokeId) === key)
-        })
-        if (finished) {
-          const [key, chunk] = finished
-          if (this._settle?.scratch === chunk.scratch) this._completeSettle()
-          this._replayRibbonChunks.delete(key)
-          this._lostWashes.set(key, chunk.target)
-          chunk.scratch.destroy()
-          continue
-        }
-      }
-      this._evictChunk(this._replayRibbonChunks.keys().next().value as string, true)
-    }
-  }
-
-  /** (#702) Removes cache entry `key` from active scratch. `keep`: the wash may still
-   *  be joined, so it is spilled - or, where it cannot be (mid-gesture, past
-   *  the memory cap), marked lost. */
-  private _evictChunk(key: string, keep: boolean): void {
-    const c = this._replayRibbonChunks.get(key)
-    if (!c) return
-    if (this._settle?.scratch === c.scratch) this._completeSettle() // (§17.52)
-    if (this._spillJob?.key === key) this._cancelSpillJob()
-    this._replayRibbonChunks.delete(key)
-    if (keep) {
-      const origins = new Map<AccumulationBuffer, { originX: number; originY: number }>()
-      for (const t of c.target.allResident()) origins.set(t.buffer, { originX: t.originX, originY: t.originY })
-      const spill = c.scratch.spill(tile => origins.get(tile) ?? null)
-      if (spill) {
-        this._spilledWashes.get(key)?.spill.dispose()
-        this._spilledWashes.set(key, { target: c.target, userId: this._chunkAuthors.get(key), washStrokeId: c.washStrokeId, lastDab: c.lastDab, spill })
-      } else {
-        this._lostWashes.set(key, c.target)
-      }
-    }
-    c.scratch.destroy()
-    this._trimSpilled()
-  }
-
-  /** #702: cancelling a park returns its partial GPU copies to the pool. */
-  private _cancelSpillJob(): void {
-    const job = this._spillJob
-    if (!job) return
-    this._spillJob = null
-    if (job.timer) clearTimeout(job.timer)
-    job.work.return(null)
-  }
-
-  /** GPU copies over frames; no readPixels or GPU fence in this job. */
-  private _startSpill(key: string): void {
-    const c = this._replayRibbonChunks.get(key)
-    if (!c) return
-    const origins = new Map<AccumulationBuffer, { originX: number; originY: number }>()
-    for (const t of c.target.allResident()) origins.set(t.buffer, { originX: t.originX, originY: t.originY })
-    const work = c.scratch.spillWork(tile => origins.get(tile) ?? null)
-    const job = { work, key, scratch: c.scratch, usedAt: c.usedAt ?? 0, timer: 0 as ReturnType<typeof setTimeout> | 0 }
-    this._spillJob = job
-    const step = (): void => {
-      job.timer = 0
-      if (this._spillJob !== job) return
-      const now = this._replayRibbonChunks.get(key)
-      if (this._destroyed || this._contextLost || now !== c || (c.usedAt ?? 0) !== job.usedAt
-        || c.scratch.diffusePending || this._settle?.scratch === c.scratch) { work.return(null); this._spillJob = null; this._pumpSpillsLater(); return }
-      const t0 = performance.now()
-      let r = work.next()
-      while (!r.done && performance.now() - t0 < 4) r = work.next()
-      if (!r.done) { job.timer = setTimeout(step, 16); return }
-      this._spillJob = null
-      this._replayRibbonChunks.delete(key)
-      if (r.value) {
-        this._spilledWashes.get(key)?.spill.dispose()
-        this._spilledWashes.set(key, { target: c.target, userId: this._chunkAuthors.get(key), washStrokeId: c.washStrokeId, lastDab: c.lastDab, spill: r.value })
-      } else {
-        this._lostWashes.set(key, c.target)
-      }
-      c.scratch.destroy()
-      this._trimSpilled()
-      if (this._gpuBudget !== Infinity) this._ribbonScratchPool.trimFree()
-      this._scheduleBudgetCheck()
-      this._pumpSpillsLater()
-    }
-    job.timer = setTimeout(step, 0)
-  }
-
-  /** (§17.70) While the cache is over its slots and nothing is being
-   *  spilled, spills the least recently used wash that is at rest (the map's
-   *  order is its use order). One busy just now is tried again a little later. */
-  private _pumpSpills(): void {
-    if (this._destroyed || this._spillJob || this._inJobStep) return
-    if (this._replayRibbonChunks.size <= REPLAY_RIBBON_CHUNK_SLOTS) return
-    for (const [key, c] of this._replayRibbonChunks) {
-      if (c.scratch.diffusePending || this._settle?.scratch === c.scratch) continue
-      this._startSpill(key)
-      return
-    }
-    this._pumpSpillsLater()
-  }
-
-  private _pumpSpillsLater(): void {
-    if (this._spillPumpTimer || this._destroyed) return
-    this._spillPumpTimer = setTimeout(() => { this._spillPumpTimer = 0; this._pumpSpills() }, 100)
-  }
-
-  /** #702: parked GPU storage is bounded by the existing 128 MiB cap AND
-   *  the device budget. Past either, the existing journal-rebuild fallback
-   *  replaces the oldest parked state. */
-  private _trimSpilled(): void {
-    // Release idle allocations before sacrificing any recoverable wash.
-    if (this._washGpuBytes() > this._gpuBudget) this._ribbonScratchPool.trimFree()
-    let bytes = 0
-    for (const w of this._spilledWashes.values()) bytes += w.spill.bytes
-    for (const [k, w] of this._spilledWashes) {
-      if (bytes <= SPILLED_WASHES_MAX_BYTES && this._washGpuBytes() <= this._gpuBudget) break
-      bytes -= w.spill.bytes
-      w.spill.dispose()
-      this._ribbonScratchPool.trimFree()
-      this._spilledWashes.delete(k)
-      this._lostWashes.set(k, w.target)
-    }
-  }
-
   /** (§17.68) A lost wash's next operation: the layer is rebuilt, which replays
    *  the wash from its first stroke. After the current operation, which is
    *  being painted the only way it can be. */
@@ -7090,13 +6846,6 @@ export class PencilEngine implements PencilEngineAPI {
       })
       return
     }
-  }
-
-  /** (§17.68) Spilled and lost washes of `target` are about a buffer that is
-   *  going away. */
-  private _forgetWashesOf(target: ILayerBuffer): void {
-    for (const [k, w] of this._spilledWashes) if (w.target === target) { w.spill.dispose(); this._spilledWashes.delete(k) }
-    for (const [k, t] of this._lostWashes) if (t === target) this._lostWashes.delete(k)
   }
 
   /** #330 — the marker's rasterizer: the stroke as one connected swept figure.
