@@ -78,6 +78,31 @@ class PublishTest(unittest.TestCase):
                         {'comparisons':[{'case':'s2-n1','candidate':'next'}]})
         self.assertFalse((self.gallery/'data/review-batches.json').exists())
 
+    def test_custom_proof_cannot_hide_behind_successful_parent(self):
+        path = self.artifacts/'next/report.json'
+        original = json.loads(path.read_text())
+        for modules, shaders in [([0],[0]), ([2,0],[0,0]), ([1],[1,0]), ([True],[0])]:
+            report = json.loads(json.dumps(original))
+            report.update(complete=True,modulePatchCounts=modules)
+            report['cases'][0]['customReplacements'] = shaders
+            path.write_text(json.dumps(report))
+            with self.subTest(modules=modules,shaders=shaders), self.assertRaises(ValueError):
+                publish(self.artifacts,self.gallery,'round2','Второй',
+                        {'comparisons':[{'case':'s2-n1','candidate':'next'}]})
+        self.assertFalse((self.gallery/'data/review-batches.json').exists())
+
+    def test_mixed_shader_and_module_custom_proofs(self):
+        path = self.artifacts/'next/report.json'
+        report = json.loads(path.read_text())
+        report.update(complete=True,modulePatchCounts=[2,0])
+        report['cases'][0]['customReplacements'] = [0,3]
+        path.write_text(json.dumps(report))
+        batch = publish(self.artifacts,self.gallery,'round2','Второй',
+                        {'comparisons':[{'case':'s2-n1','candidate':'next'}]})
+        proof = batch['cases'][0]['patchProof']
+        self.assertEqual(proof['modulePatchCounts'],[2,0])
+        self.assertEqual(proof['customReplacements'],[0,3])
+
     def test_invalid_selection_never_published(self):
         for config in [{'comparisons':[]}, {'comparisons':[{'case':'missing','candidate':'next'}]},
                        {'comparisons':[{'case':'s2-n1','candidate':'../next'}]}]:

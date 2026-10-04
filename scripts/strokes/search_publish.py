@@ -87,7 +87,16 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
             digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
             if row.get('pngSha256') != digest:
                 raise ValueError('Render image checksum mismatch '+variant+' '+test['id'])
-            if variant != 'baseline' and report.get('replacements', 0) < 1 and row.get('shaderReplacements', 0) < 1:
+            modules = report.get('modulePatchCounts', [])
+            custom = row.get('customReplacements', [])
+            if not isinstance(modules, list) or not isinstance(custom, list) or len(modules) != len(custom):
+                raise ValueError('Malformed custom patch proof '+variant+' '+test['id'])
+            if any(type(count) is not int or count < 0 for count in modules+custom):
+                raise ValueError('Malformed custom patch counters '+variant+' '+test['id'])
+            if modules and (report.get('complete') is not True or
+                            any(module <= 0 and shader <= 0 for module, shader in zip(modules, custom))):
+                raise ValueError('Custom patch not reached '+variant+' '+test['id'])
+            if variant != 'baseline' and not modules and report.get('replacements', 0) < 1 and row.get('shaderReplacements', 0) < 1:
                 raise ValueError('Candidate patch not reached '+variant+' '+test['id'])
     data = gallery/'data'
     previews = gallery/'previews'
@@ -131,7 +140,9 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
                 candidate_report = reports[candidate]
                 candidate_row = next(row for row in candidate_report['cases'] if row['id'] == test['id'])
                 case['patchProof'] = {'compiledReplacements': candidate_report.get('replacements', 0),
-                                      'shaderReplacements': candidate_row.get('shaderReplacements', 0)}
+                                      'shaderReplacements': candidate_row.get('shaderReplacements', 0),
+                                      'modulePatchCounts': candidate_report.get('modulePatchCounts', []),
+                                      'customReplacements': candidate_row.get('customReplacements', [])}
                 cases.append(case)
                 stats.append({'id': identity, 'meanDifference': float(difference.mean()),
                               'changedPixels': int((difference.max(axis=2)>1).sum())})
