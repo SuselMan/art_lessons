@@ -695,3 +695,34 @@ Large-surplus-blots увеличивает размер существующег
 errors/draws/context, spec и patch reachability проверены агентом и
 publisher. SourceSHA до/после идентичны. Пробы runtime-only, production,
 исходники движка, прежние картинки и голоса не менялись.
+
+
+Пачка 19: conductance9/3 better; blots6/rich6 uncertain, blots8 worse.
+Принято conductance9, film-domain6 и прежний bundle8 сохранены.
+Пачка 20 (search-round21):18 чистых GPU-рендеров от conductance-parent.
+Dense24 усиливает симметричное снижение edge conductance8→24,
+но слишком близок к принятому9 и исключён из голосования.
+Density-adsorption оставляет фиксированной долю до55% нового пигмента
+через smoothstep(.1,.6,freshalpha) в existingmode0; остальное подвижно,
+дополнение остаётся в fixed через прежний a-c. Это однократное начальное
+осаждение, не continuoussettling, и не прежняя одинаковая fixed15.
+Singlepaint diagnostic ограничение optical record остаётся.
+
+Mass-rich меняет film source .95→1.4, не inkStrength, не экранную
+цветокоррекцию и не additive-blend. Дозовые RGBA масштабируются совместно
+до MAX/нормализации; отношения каналов не меняются, водный footprint
+напрямую не перерисовывается. Из-за концентрационно-зависимой mobility
+это может менять и распределение, а не только темноту; последующий
+feedback не объявлен отсутствующим. На9 эффект достигнут и виден
+(cropmean6.23,max127), на6mean9.32. Не доказано, что итоговая масса
+возросла в отношении1.4/.95 после8bit/нормализации.
+
+Опубликованы четыре сравнения round20: mass9 против принятого conductance,
+mass6 против film-domain, mass8 против bundle70 и adsorption9 против
+conductance. Adsorption возвращает выраженную границу внутреннего диска9;
+описание прямо отмечает риск регрессии. Общего победителя не объявляем.
+6/8 сравнивают итоговый результат с ранее выбранной иной родительской
+веткой; изоляция source есть в contact.jpg против conductance-parent.
+Все18 PNG независимо прошли SHA/complete/errors/draws/context, spec и
+module/shader reachability подтверждены агентом и publisher. Пять sourceSHA
+неизменны. Production, engine source, старые картинки и голоса не менялись.
