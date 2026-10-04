@@ -190,9 +190,8 @@ interface EngineInternals {
   // resolves once its async load has swapped the placeholder for the real
   // baked texture — see that class's own field comments.
   _paper: { readonly texture: object; ready(): Promise<void> }
-  _dabUni: Record<string, MockLocation | null>
   // (#494) The instanced stamp program's uniforms live on StampPainter now.
-  _stamps: { instUni: Record<string, MockLocation | null> }
+  _stamps: { instUni: Record<string, MockLocation | null>; uniforms: Record<string, MockLocation | null> }
   _handleContextRestored: () => void
   // #245 white-box access — see inProgressStrokeDabs below.
   _strokeDabs: Dab[]
@@ -498,20 +497,20 @@ export function triggerContextRestore(engine: PencilEngine): void {
 
 /** The last value a named dab-shader uniform (e.g. 'u_paperOrigin',
  *  'u_paperTexSize') was set to for the most recently painted dab —
- *  whichever of the batched (StampPainter's instUni) or per-dab-uniform (_dabUni) path
+ *  whichever of the batched (StampPainter's instUni) or per-dab-uniform (StampPainter.uniforms) path
  *  actually ran last (MockGL always provides the ANGLE_instanced_arrays
  *  shim, so in practice this is always the batched path — see
  *  StampPainter.paintInstanced). Reads through the *instanced* program first since
  *  that's the one every real dab paint in these tests actually uses. */
 export function lastPaperDabUniform(engine: PencilEngine, name: string): UniformValue | undefined {
   const eng = internals(engine)
-  const loc = eng._stamps.instUni[name] ?? eng._dabUni[name]
+  const loc = eng._stamps.instUni[name] ?? eng._stamps.uniforms[name]
   return loc ? eng.gl.readUniform(loc) : undefined
 }
 
 /** Like lastPaperDabUniform, but reads only the non-batched per-dab program
- *  (_dabUni) — needed for marker (#250), whose own paint path
- *  (_ribbonStrokeWork) always draws through _dabProg
+ *  (StampPainter.uniforms) — needed for marker (#250), whose own paint path
+ *  (RibbonStrokePainter.paint) always draws through StampPainter.program
  *  directly and never StampPainter's paintInstanced/instProg (see
  *  _paintRibbonDabs' own doc comment on why marker dabs can't batch).
  *  lastPaperDabUniform's own "prefer the instanced location" order would
@@ -521,7 +520,7 @@ export function lastPaperDabUniform(engine: PencilEngine, name: string): Uniform
  *  to a value marker's own draw call ever touched). */
 export function lastMarkerDabUniform(engine: PencilEngine, name: string): UniformValue | undefined {
   const eng = internals(engine)
-  const loc = eng._dabUni[name]
+  const loc = eng._stamps.uniforms[name]
   return loc ? eng.gl.readUniform(loc) : undefined
 }
 
