@@ -71,3 +71,15 @@ CPU byte mirror: spiral наружная доля P.b0.383% против0.896% �
 Frozen5299 readonly capture current P/V/baseV/frontcost small synthetic spiral/blob: GL0, Chromeclosedfinally. Данные `temp/flux/current-base-capture`. ExtraV alpha-byte sums: spiral3030533, blob435380; peak64, отрицательных нет. CurrentcostMax107.2, costzero99.30% source spiral и100% blob: внутри source этот cost не содержит направленного напора.
 
 CPU λ.05 closure4px/48draw с **currentcost**: spiraloutside0.889%, p95visible4px/max7px, haloPeak251/255; bloboutside0.736%, p95visible3px/max5px, haloPeak45. λ.1 не расширяетp95. Масса P4/V точная, V>=base. Это узкий слишком плотный edge, не живой заметный фронт. GPU solver AB такого closure не обоснован. Legacy material.r role исследуется отдельным основным агентом; pressure mode10 прямо использует P.a/coverage.b, поэтому случайное смешение units запрещено. Прототип не интегрирован.
+
+## Альтернативный механизм: концентрационная диффузия
+
+`WC_DIFFUSE` сейчас использует P/V только для вязкости gate, а движущий член остаётся D(Pi−Pj). Это не D·min(Vi,Vj)(Pi/Vi−Pj/Vj): состояние P=cV при неодинаковом V не стационарно. Диффузия пигмента в стоячей воде — другой механизм, чем перенос водой; dry pigment может диффундировать при extraV=0.
+
+Scalar float oracle actual recorded P/V/coverage: finite wet-path по всем промежуточным texels, conservative pair incidence, outgoing/receivercap по1/8, stationaryP=cV exact и dry-gap0. Ошибки общей scalarмассы<8e−9; это не RGBA8GPUдоказательство и не pairedC гарантия. Height bias отсутствует; физически depleted mobile/fixed slices не точная production undepletedweighted-slices replica.
+
+Actual concentrationcore45: spiraloutside1.78%/p95front19px, blob9.72%/15px. Core0 отдельно:2.45%/22px и10.85%/17px. Extendedbudget25steps:2.91%/26px и16.21%/24px. Gate removal усиливаетblob сильнееspiral, глобально не предлагать. Dry-path gate почти не меняет actual результаты: исходные лужи связны.
+
+Главный геометрический контроль: spiral area141007/boundary1746=1.24%, blob11492/480=4.18%. Median mobilityspiral0.344, blob0.219; coverage1обоим. Поэтому spiral не заблокирована viscositygate: она имеет3.37×меньшийperimeter/area. Absolute outside P-byte/boundarytexel:203.3 vs387.9; halo mean P/V0.152 vs0.0197, core1.089vs1.188. Visible spiralfront даже ширеblob. В900×800 capture нет объявленного физического формата, px→mm без него не заявляется.
+
+Matched-concentration surrogate P=.5V внутри исходного footprint (не изменение оригинальных данных): core45 spiraloutside2.82%/p95=15px, blob16.38%/p95=4px; core0 отдельно4.27%/20px и25.21%/14px. Relative outside не равен ширине/живостиfront. Файлы `temp/flux/diffusion[-path|-matched-concentration]`, scalar-compare — условная визуализация P, не canonical renderer. Концентрационная диффузия физически обоснована дляdry-on-water, но CPU не обещает устранение smoothhalo/fingers и не оправдывает blanketcore/gateизменения.
