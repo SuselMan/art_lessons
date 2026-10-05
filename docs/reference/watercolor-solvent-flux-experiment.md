@@ -49,3 +49,11 @@ Standalone lazy shader, без увеличения Adreno bookkeeping program. 
 CPU byte mirror: spiral наружная доля P.b0.383% против0.896% без paper gate; blob1.265% против2.706%. Все4P/V integer sums сохраняются точно, negative/overflow/negative-head отсутствуют. Reverse-face symmetry проверена явным assert. Источник cost пока **предыдущий actual front с той же recorded geometry**, не current independent-V capture; это ограничение, не готовое GPU-доказательство. Данные: соседний `temp/spiral/actual-solvent/paper-byte-results.json` и `paper-proof.log`.
 
 Дополнительных текстур нет: прежние18MiB max; cost sampler unit5 не перезаписывает bookkeeping u_e наunit4, укладывается в WebGL1 minimum8textureunits. Программа остаётся отдельной. Следующий GPU A/B должен захватить настоящий current cost и проверить grain/fingers, массу, direct negative. До него кандидат default-off и не принят.
+
+## Vega QA 05830816: отвергнут по изображению и dry control
+
+Четыре small synthetic paper cases и direct negative прошли GL0. Все четыре P-channel sums и V сохраняются точно. Outside P.b: spiral0.7404%, blob1.8238%; direct wet100 PNG byte-identical. Настоящий current front-cost захвачен вместе с pre/postP/V в `temp/flux/paper-gpu`, direct в `paper-direct`.
+
+Пальцы не восстановились: бумажный gate уменьшает гладкий ореол, но mean conductance длинной грани не локализует поток на путях. Кольцо исчезает и ядро слитное, однако клякса остаётся менее живой. Поэтому не интегрировать и не передавать Samsung review.
+
+Отдельный dry0 pigment over prewater control (`paper-dry`) выявил регрессию:41970 отличных pixels, max206/255, mean absolute channel difference2.927. При addedV=0 flux не переносит воду, но legacy carry уже отключён. Следующий оператор обязан исключать этот случай; текущий эксперимент не решает dry-on-water. Все owned Chrome закрытыfinally, runtime5299 оставлен.
