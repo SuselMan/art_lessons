@@ -13,6 +13,8 @@ import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { SettleField } from '../buffers/SettleField'
 import { WC_HALF_RES_RADIUS_PX, WC_HALF_RES_SPAN_PX } from '../watercolor/settleResolution'
 
+export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationBuffer, color: AccumulationBuffer | null, coverage: AccumulationBuffer) => void
+
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
   fieldFor(w: number, h: number): SettleField
@@ -87,6 +89,7 @@ export class WatercolorSettlePlan {
     /** (§17.37) How long the brush stood on landing, ms: the strength of
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
+    preview?: WatercolorSettlePreview,
   ): { ops: Array<() => void>; finish: () => void } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
@@ -459,6 +462,46 @@ export class WatercolorSettlePlan {
       this.ctx.passes().fieldOp(free, paint, paint, 1, 1, { c: field.coverage, world: [x0 / S, -(y0 / S + field.h), S], size: [streakCombs, 0], origin: [WC_POOL_STREAK, 0], dir: [1, 1] })
       fieldOp(paint, free, free, 1, 0)
     }
+    // Presentation copies only: never write the intermediate state into the
+    // wash records. Reconstruct against the same captured base as finish().
+    let previewAt = -Infinity
+    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1): void => {
+      if (!preview || performance.now() - previewAt < 150) return
+      previewAt = performance.now()
+      const pool = this.ctx.pool()
+      const pigment = pool.acquire(field.w, field.h)
+      const color = pool.acquire(field.w, field.h)
+      try {
+        if (fixed) fieldOp(pigment, fixed, mobile, 1, afloat)
+        else mobile.copyTo(pigment)
+        if (mobileColor) {
+          if (fixedColor) fieldOp(color, fixedColor, mobileColor, 1, afloat)
+          else mobileColor.copyTo(color)
+        } else this.ctx.passes().pigmentColor(color, pigment, singleTau)
+        for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+          const entry = scratch.peek(tile.buffer)
+          if (!entry?.inkLoad) continue
+          const load = pool.acquire(tile.buffer.width, tile.buffer.height)
+          const chroma = pool.acquire(tile.buffer.width, tile.buffer.height)
+          const coverage = pool.acquire(tile.buffer.width, tile.buffer.height)
+          try {
+            entry.inkLoad.copyTo(load)
+            if (entry.inkColor) entry.inkColor.copyTo(chroma)
+            entry.coverage.copyTo(coverage)
+            const snap = snapshots.get(tile.buffer)
+            fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
+            if (entry.inkColor) {
+              if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
+              else fromField(color, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
+            }
+            const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
+            if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
+            else this.ctx.passes().wcResample(coverage, tx, ty, ox1 - ox0, oy1 - oy0, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 0)
+            preview(tile, load, entry.inkColor ? chroma : null, coverage)
+          } finally { pool.release(load); pool.release(chroma); pool.release(coverage) }
+        }
+      } finally { pool.release(pigment); pool.release(color) }
+    }
     let pairedColour: { out: AccumulationBuffer } | null = null
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
       const st = { src: c, dst: a, out: a }
@@ -530,6 +573,8 @@ export class WatercolorSettlePlan {
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }
+            const last = plan[plan.length - 1]
+            present(last.dst, b, last.cdst, colour?.b)
           })
         }
         if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
@@ -647,11 +692,14 @@ export class WatercolorSettlePlan {
         for (const [radius, knight] of WET_SETTLE_SMOOTH) {
           ops.push(() => advance(radius, knight))
         }
-        ops.push(() => settleSlice(0))
+        let afloat = 1
+        ops.push(() => { settleSlice(0); afloat -= w.slices[0]; present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat) })
         puddleSteps.forEach(({ radius, knight }, i) => {
           ops.push(() => {
             advance(radius, knight, field.pressure)
             settleSlice(i + 1)
+            afloat -= w.slices[i + 1]
+            present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat)
           })
         })
         ops.push(() => {
@@ -668,7 +716,7 @@ export class WatercolorSettlePlan {
         })
       }
       for (const { radius, knight } of diffuseSteps) {
-        ops.push(() => advance(radius, knight))
+        ops.push(() => { advance(radius, knight); present(st.src, b, paired?.src, colour?.b) })
       }
       // (§17.23) The tideline: after the paint has run, its puddle carries a
       // share of it to the rim as it dries. The moved field lands in `dst`,
@@ -768,6 +816,7 @@ export class WatercolorSettlePlan {
         this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, dep.out, field.pressure, dep.out, rect, scissor, col.out, contactGain)
         field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
         field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
+        present(dep.out, null, col.out)
       }
       // Pulses share immutable contact geometry; reuse one closure while
       // retaining every scheduler operation and its chronological order.

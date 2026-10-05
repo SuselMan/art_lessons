@@ -1,6 +1,6 @@
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
-import { WatercolorSettlePlan } from './src/raster/WatercolorSettlePlan'
+import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
 import { WatercolorSettleQueue } from './src/watercolor/WatercolorSettleQueue'
 import { destroyField, type SettleField } from './src/buffers/SettleField'
 import { WC_HALF_RES_RADIUS_PX } from './src/watercolor/settleResolution'
@@ -6947,8 +6947,9 @@ export class PencilEngine implements PencilEngineAPI {
     /** (§17.37) How long the brush stood on landing, ms: the strength of
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
+    preview?: WatercolorSettlePreview,
   ): { ops: Array<() => void>; finish: () => void } | null {
-    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs)
+    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview)
   }
   private _groupTideOps(
     ops: Array<() => void>, field: SettleField, x0: number, y0: number,
@@ -7434,6 +7435,19 @@ export class PencilEngine implements PencilEngineAPI {
         scratch, targets, bounds, bloom, ctx.radiusPx,
         profile.waterLevel, ctx.landedWet, standing,
         ctx.wetPeak, ctx.dwellMs,
+        reveal && fade ? (tile, pigment, chroma, coverage) => {
+          const owned = revealCopies.find(copy => copy.buffer === tile.buffer)
+          if (!owned || this._washReveals.get(tile.buffer) !== owned.held || this._strokeLayerId) return
+          const entry = scratch.peek(tile.buffer)
+          if (!entry) return
+          this._drawRibbonCompositeRect(
+            { ...tile, buffer: owned.held.before }, bounds, preset, profile,
+            entry.original, coverage, pigment, chroma, color, opacity,
+            fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
+          )
+          this._invalidateSplitCache()
+          this._displayIfNotSuspended()
+        } : undefined,
       )
       if (job) {
         const complete = (): void => {
