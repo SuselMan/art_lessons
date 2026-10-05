@@ -1,7 +1,11 @@
 import type { WaterFootprint } from './foreignWater'
 
 /** Recorded motion only; retained between pointer batches, consumed by settle. */
-export interface BrushTravel extends WaterFootprint { dx: number; dy: number; water: number }
+export interface BrushTravel extends WaterFootprint {
+  dx: number; dy: number; water: number
+  /** Optional diagnostic solver radius; flow field geometry uses radius. */
+  settleRadius?: number
+}
 
 /** Local recent brush velocity, RG signed direction, B contact strength.
  * Bottom-up for GL. Travel weights keep resampling density from changing flow. */
@@ -56,7 +60,7 @@ export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: num
       const ex = Math.hypot(rx * c, d.radius * s), ey = Math.hypot(rx * s, d.radius * c)
       x0 = Math.min(x0, d.x - ex); x1 = Math.max(x1, d.x + ex)
       y0 = Math.min(y0, d.y - ey); y1 = Math.max(y1, d.y + ey)
-      radius = Math.max(radius, d.radius)
+      radius = Math.max(radius, d.settleRadius ?? d.radius)
     }
     x0 = Math.max(rect.x, Math.floor(x0) - 4); y0 = Math.max(rect.y, Math.floor(y0) - 4)
     x1 = Math.min(rect.x + rect.w, Math.ceil(x1) + 4); y1 = Math.min(rect.y + rect.h, Math.ceil(y1) + 4)
