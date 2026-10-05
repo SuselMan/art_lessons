@@ -1268,6 +1268,11 @@ export function watercolorPigmentLoad(usedRadii: number, water = 0): number {
 }
 
 /** The run, in radii, over which the brush spends 1 − 1/e of its pigment. */
+/** Monotone spent-pigment clock: changing fluid cannot restore stock. */
+export function watercolorPigmentHazard(previous: number, advancedRadii: number, water: number): number {
+  return previous + Math.max(0, advancedRadii) / watercolorPigmentRun(water)
+}
+
 export function watercolorPigmentRun(water: number): number {
   return PIGMENT_RUN_DRY_RADII + (PIGMENT_RUN_WET_RADII - PIGMENT_RUN_DRY_RADII) * clamp01(water)
 }

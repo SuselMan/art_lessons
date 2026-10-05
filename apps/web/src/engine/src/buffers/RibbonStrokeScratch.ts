@@ -166,6 +166,7 @@ export class RibbonStrokeScratch {
    *
    *  On dry paper the two are the same number to the last bit, which is what
    *  keeps every stroke that never meets water behaving exactly as it did. */
+  pigmentHazard = 0
   private _pigmentUsed = 0
 
   /** (#468 v6) The composite's scalar uniforms, fixed for the whole gesture.
@@ -440,6 +441,7 @@ export class RibbonStrokeScratch {
     // The exchange is intra-stroke by decision — see watercolorWaterClock's own
     // note on why the brush is not allowed hidden state that outlives a mark.
     this._pigmentUsed = 0
+    this.pigmentHazard = 0
     // (#536, §17.23) The finish context is the GESTURE's: its bounds, its
     // landing wetness, its radius. It used to outlive the stroke, so every
     // pen-up of a wash recomposited the union of every stroke so far and
@@ -551,6 +553,7 @@ export class RibbonStrokeScratch {
     this._storageBounds = null
     this._waterUsed = 0
     this._pigmentUsed = 0
+    this.pigmentHazard = 0
     this.diffusePending = false
     this.pendingComposite.clear()
     this._composite = null
@@ -615,7 +618,7 @@ export class RibbonStrokeScratch {
     return {
       needsInk: this.needsInk, needsColor: this.needsColor,
       storageBounds: this._storageBounds ? { ...this._storageBounds } : this._storageBounds,
-      paints: [...this.paints], waterUsed: this._waterUsed, pigmentUsed: this._pigmentUsed,
+      paints: [...this.paints], waterUsed: this._waterUsed, pigmentUsed: this._pigmentUsed, pigmentHazard: this.pigmentHazard,
       composite: this._composite ? { ...this._composite, fieldSeed: [...this._composite.fieldSeed] } : null,
       dabSpacing: this._dabSpacing, brushEdgePx: this._brushEdgePx, dir: [...this._dir], dirSet: this._dirSet,
       finish: this._finish ? { ...this._finish, bounds: { ...this._finish.bounds }, fieldSeed: [...this._finish.fieldSeed] } : null,
@@ -632,6 +635,7 @@ export class RibbonStrokeScratch {
     for (const p of snap.paints) this.paints.add(p)
     this._waterUsed = snap.waterUsed
     this._pigmentUsed = snap.pigmentUsed
+    this.pigmentHazard = snap.pigmentHazard
     this._composite = snap.composite ? { ...snap.composite, fieldSeed: [...snap.composite.fieldSeed] } : null
     this._dabSpacing = snap.dabSpacing
     this._brushEdgePx = snap.brushEdgePx
@@ -834,7 +838,7 @@ export function freeScratchSnapshot(snap: ScratchSnapshot): void {
 interface ScratchScalars {
   storageBounds?: ScratchBounds | null
   needsInk: boolean; needsColor: boolean
-  paints: string[]; waterUsed: number; pigmentUsed: number
+  paints: string[]; waterUsed: number; pigmentUsed: number; pigmentHazard: number
   composite: { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; bristleRadiusPx: number; fieldSeed: [number, number] } | null
   dabSpacing: number; brushEdgePx: number; dir: [number, number]; dirSet: boolean
   finish: Omit<NonNullable<RibbonStrokeScratch['finishContext']>, 'target'> | null

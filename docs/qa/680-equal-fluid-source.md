@@ -42,3 +42,18 @@ halo solver bounds. В shaders wcTransportField читает a.r/a.a (1208),
 composite читает ink.r/ink.a (1627). Их активность/эффект требуют отдельных AB.
 Следующий безопасный clock — accumulated hazard Δused/run(available),
 remaining exp(-H); не восстанавливает израсходованный остаток dry→wet.
+
+## Монотонный clock
+
+Следующий кандидат сохраняет default-off switch, но вместо instantaneous
+exp(-used/run) накапливает H += max(ΔpigUsed,0)/run(availableHere).
+Remaining exp(-H); переход dry→wet не возвращает потраченную краску.
+Clock входит в scratch scalars snapshot/spill/restore, сбрасывается beginStroke
+и destroy. Фактический max(rate×run)96.266666… приwater17/18, не96.
+
+CPU4 meaningful tests PASS: постоянная среда/partition identity, no recovery,
+переменная среда finite upper bound, scratch snapshotrestore/reset.
+GenuineVega `temp/finish/hazard100` + `hazard15`,10cases GL0/lostfalse;
+все PNG RGBAexact диагностической instantaneous формуле на этих постоянных
+средах. App typecheck PASS. **GPU native/live partition и меняющийся wet-field
+ещё не проверены**; CPUpartition не заменяет slicing invariance движка.
