@@ -42,3 +42,13 @@ watercolorHalo имеет SHED0, WATERCOLOR_HALO_DRAWN=false. Следовате
 ## Артефакты
 
 `temp/geometry/production-metadata.json`, `probe.log`, `production-metadata-probe.test.ts`. Последний — временный diagnostic test, перемещён из app после успешного запуска: для повторения скопировать обратно в src/engine/src/dabs/geometryProbe.test.ts и запустить `npx vitest run src/engine/src/dabs/geometryProbe.test.ts` из apps/web. Один CPU diagnostic passed; это не GLSL/render test. Исходники приложения не изменены, публикации нет.
+
+## Изолированные кандидаты и первый GPU контроль
+
+A `diagnosticFluidBrushContacts` и B `diagnosticRetiredHaloBounds` реализованы отдельными default-off флагами. Три CPU теста настоящего RibbonStrokePainter проверяют metadata и неизменность dry/dry control; `npm run typecheck --workspace @grafetto/web` проходит. B пока проверен только CPU.
+
+Первый A off/on рендер на Vega5302: own wet100/pig100 и dry/dry дают точные одинаковые canonical PNG; контактный список соответственно23/23 и0/0. Clearwater→drypigment даёт0→23контакта,3678изменённых пикселей/max24. Во всех трёх парах семь source ROI P/C/V/coverage полей перед settle побайтно одинаковы, GL0/context intact. ROI256×128 покрывает этот короткий штрих, не весь многотайловый холст. Source V alpha sum у own и clearwater→drypigment369480; P между разными сценариями различается из-за отдельного nominal-water pigment budget, который исследует основной агент. Off/on внутри сценария P совпадает.
+
+Этот clearwater→drypigment контроль оказался **в одной wash**: изменение preset/цвета не разорвало native grouping. Поэтому он доказывает contact-only effect при сохранённой своей V, но не проверяет импорт чужой V. Попытка true-foreign с одной сменой цвета завершилась assertion `Not foreign wash`; Chrome закрыт, результат не используется. Для следующего контроля подготовлена штатная граница tool pencil→watercolor без мазка и сушки: `_clearWash` завершает scratch, но сохраняет wet paper. Новый harness дополнительно требует разных washId и foreignSolventLoad. Его успешный результат ещё не получен.
+
+Визуальный первый кандидат даёт небольшое перераспределение на концах/внутри prewater штриха; это не полное own/foreign равенство и не утверждение пользовательского улучшения. Артефакты: `temp/geometry/contact-ab/summary.json`, `contact-compare.png`, исходные off/on PNG и bounded source SHA; отдельный `contact-foreign-ab-run.log` сохраняет неудачную assertion попытку.
