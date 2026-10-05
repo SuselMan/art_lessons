@@ -102,3 +102,30 @@ for (const radius of [8, 200]) it(`keeps paired brush state and executes every p
     scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
   }
 })
+
+it('uses the same transport schedule for equal water from the brush or the paper', () => {
+  const schedules = [0, 1].map(paperWet => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile)
+    scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+    const diffusion = vi.spyOn(probe._watercolorPasses, 'diffuseStep')
+    const fields = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    try {
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0, 8, 1, paperWet, 1, paperWet)!
+      for (const op of plan.ops) op()
+      plan.finish()
+      return {
+        diffusion: diffusion.mock.calls.map(call => [call[8], call[9]]),
+        fields: fields.mock.calls.map(call => [call[3], call[4], call[5]?.band, call[5]?.origin]),
+      }
+    } finally {
+      diffusion.mockRestore(); fields.mockRestore()
+      scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  })
+  expect(schedules[0]).toEqual(schedules[1])
+})

@@ -467,19 +467,9 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
-  /** (#536, s17.11/13/18) Standing water, into coverage .b (premultiplied
-   *  like .r): the wetter of the paper wetness the stroke saw under itself
-   *  (v_inkWet) and what it left. A clean-water stroke leaves u_washWater, its
-   *  nominal mix, whole; a pigment stroke leaves the brush's water AT THIS
-   *  DAB (v_inkWater, after the clocks) kept by u_waterRetain, rising to 1
-   *  where the paper was already wet - see watercolorWaterRetention. The wet
-   *  diffusion pass reads standing water off the wash's own silhouette from
-   *  it. One of u_washWater / u_waterRetain is zero for any given stroke.
-   *
-   *  The first version recorded nothing for a pigment stroke, to keep a
-   *  spiral on dry paper from levelling into a blob; it also kept a loaded
-   *  brush's scribble dry-on-dry. Retention is the middle: a thin film on dry
-   *  paper, a puddle's worth where there was a puddle. */
+  /** Available water into coverage .b, premultiplied by contact coverage.
+   *  Brush water and preceding paper water use the same scale. Poolness
+   *  remains in .g; it must not reduce the solvent that pigment can enter. */
   uniform float u_washWater;
   uniform float u_waterRetain;
   /** (#536, s17.13) The brush's hairs, laid into the DEPOSIT. Bundles across
@@ -587,7 +577,7 @@ ${WC_NOISE_GLSL}
       ? (u_depthWrite > 0.5
           ? vec4(amount * (abs(v_inkStrength) / max(v_ink, 5e-7)) * u_tau / WC_DEPTH_SCALE, amount * (abs(v_inkStrength) / max(v_ink, 5e-7)))
           : vec4(amount * bandWater, amount * bandWet, amount * (abs(v_inkStrength) / max(v_ink, 5e-7)), amount))
-      : vec4(acrossEncoded * amount, amount * wcPoolness(v_puddle, bandWet, u_poolBlot) * step(0.0, v_inkStrength), amount * max(bandWet, v_puddle * u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
+      : vec4(acrossEncoded * amount, amount * wcPoolness(v_puddle, bandWet, u_poolBlot) * step(0.0, v_inkStrength), amount * max(bandWet, u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
   }
 `;
 
@@ -1370,7 +1360,7 @@ ${WC_NOISE_GLSL}
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
       cov *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
 

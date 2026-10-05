@@ -124,9 +124,8 @@ export class WatercolorSettlePlan {
     // (budget up to 160) ran into the field's edge, and the domain - and
     // the coverage it extends - came out cut to the rect: a wash on the
     // rig turned into a lopsided polygon.
-    const externalMerge = watercolorPuddleMerge(wetPeak)
-    const selfMix = externalMerge > 0 ? 0 : watercolorPuddleMerge(standing)
-    const effectiveWet = Math.max(landedWet, wetPeak, selfMix > 0 ? standing : 0)
+    // Mobility depends on available water, never on which gesture brought it.
+    const effectiveWet = Math.max(landedWet, wetPeak, standing)
     const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, effectiveWet) / WC_FRONT_FLOOR)
     // (§17.42) ...plus, when the wash dries as one component, the margin
     // the group tide needs around what changed: its band is read off an
@@ -342,15 +341,11 @@ export class WatercolorSettlePlan {
     // resolve a cell.
     const costMaxIn = width + 3
     const inSteps = width + 2
-    const merge = externalMerge
-    // A loaded wet brush brings its own solvent to dry paper. Keep the
-    // existing foreign-puddle remobilisation/tide rules, but let that new
-    // water mix this stroke's pigment too (first wet wash, #680).
-    const puddleMix = Math.max(merge, selfMix)
+    const merge = watercolorPuddleMerge(effectiveWet)
     // (§17.26) A mark laid over an earlier mark that was still damp has no
     // dry paper to stop at there: its own tideline stands down over it (the
     // bloom ring is the edge), fully on wet.
-    const damp = watercolorDampOver(wetPeak)
+    const damp = watercolorDampOver(effectiveWet)
     // …and a rim wants free water to dry out of: none from a brush that
     // carried none.
     const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
@@ -619,20 +614,9 @@ export class WatercolorSettlePlan {
         fieldOp(c, a, a, 1, 0)
         fieldOp(b, spare, spare, 1, 0)
       })
-      // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
-      // and the wash under it are one liquid, and the paint in it - the
-      // new, and the wash's re-mobilised under it - evens out across the
-      // footprint over tens of texels, as the coarse diffusion did for
-      // every mark before §17.29 took it out (it erased the fingers at the
-      // front). Back for the wet landing only, gated by the DOME over the
-      // footprint (band .a: full inside, none at the front), so the fingers
-      // the carry cut past the footprint keep their edges. Without it the
-      // earlier mark's paint stopped at its own contour under the new mark
-      // - Ilya's "жёлтый проникает ровной линией" - and the new mark's
-      // footprint over the wash stayed a paler band where the carry had
-      // taken from it ("область между штрихом и рваным краем"). The gate
-      // texture is built once into `pressure`, free after the carry.
-      if (first && merge > 0) ops.push(() => this.ctx.passes().fieldOp(field.pressure, field.coverage, field.coverage, 17, 0, { d: field.band }))
+      // All available water mixes by the same covered-film domain. The
+      // former dome copy changed coverage.b while diffusion reads .a, so
+      // its extra full-field draw did not restrict the actual exchange.
       // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
       // footprint goes to the footprint's edge — the light patch with the
       // dark ragged ring. Only as much as the recorded wetness says the wash
@@ -662,7 +646,7 @@ export class WatercolorSettlePlan {
       // the fixed one at its weight (watercolorPuddleSettleWeights); the
       // rest is scaled down once at the end. The fixed field ping-pongs
       // with `spare`, free here, and comes back into `b` before the bloom.
-      const puddleSteps = puddleMix > 0 && !this.ctx.ab().noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []
+      const puddleSteps = merge > 0 && !this.ctx.ab().noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []
       if (puddleSteps.length) {
         const w = watercolorPuddleSettleWeights(puddleSteps.length)
         const acc = { fixed: b, free: spare }
@@ -703,7 +687,7 @@ export class WatercolorSettlePlan {
         ops.push(() => { settleSlice(0); afloat -= w.slices[0]; present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat) })
         puddleSteps.forEach(({ radius, knight }, i) => {
           ops.push(() => {
-            advance(selfMix > 0 ? radius * selfMix : radius, knight, selfMix > 0 ? field.coverage : field.pressure)
+            advance(radius, knight)
             settleSlice(i + 1)
             afloat -= w.slices[i + 1]
             present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat)
