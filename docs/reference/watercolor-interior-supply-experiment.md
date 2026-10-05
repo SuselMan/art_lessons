@@ -79,3 +79,48 @@ carrier за carry расписание 0.05884% против 0.05502% baseline.
 `interior-oracle.json`. GPU захват — `render.mjs`, load/rebuild — `rebuild.mjs`.
 Собственный Vite 5292 оставлен; Chrome закрыт, GPU свободен. Samsung/5290,
 production и remote git не изменялись.
+
+## Следующая абляция: направленный повторный проход
+
+На снятом GPU поле `wcCapillary` восстанавливается точно: `WC_CARRY_RIDGE=1`,
+поэтому бумажная высота не меняет ёмкость. Остаётся
+`cap=1-0.85*smoothstep(0,band,cost)`. Множитель travelling одинаково умножает
+концентрации обеих сторон: он меняет скорость шага, но не знак градиента и не
+равновесие. После supply на stride64 ещё существует разрешённый наружный
+градиент; следовательно, полное равновесие не объясняет остановку.
+
+CPU oracle actual fields (`temp/spiral/balance_oracle.py`) показал после supply:
+8.7% допустимых stride64-рёбер спирали имеют неположительный градиент, против
+16.2% до supply. Последние supply на32/16 не получают следующего крупного
+наружного прохода в исходном расписании.
+
+Абляция добавила только outward64→32→16 после всего расписания. Shader,
+travelling, capacity и taper не менялись. Vega GL0/context intact:
+
+| Показатель | Supply-only | Directed resweep |
+|---|---:|---:|
+| Spiral outside carrier после carry |8.36%|9.53%|
+| Spiral после coarse diffusion |14.61%|15.65%|
+| Blob outside после carry |34.56%|41.39%|
+| Blob после coarse diffusion / новая исходная доза |276.49%|282.50%|
+| Spiral потеря carrier alpha в carry |0.0588%|0.0783%|
+
+Значения blob больше100% после diffusion включают remobilized carrier из
+предварительной воды; это не масса нового пигмента. Начальная alpha спирали
+между старым и новым run отличается на0.0108%, поэтому сравнение к старому
+артефакту не является побайтным контролем. Blob input alpha совпадает точно.
+
+Спираль всё ещё читается плотным диском. Blob сохраняет пальцы, но меняется,
+светлая обводка заметна. Общий resweep отклонён; source и runtime возвращены
+к59b1f704. Patch/raw/stages сохранены в `temp/spiral/directed-resweep`.
+
+CPU ограничение resweep: разрешать донора только если его zero-cost ячейка
+соединена с blocked interior одним supply stride16/32/64 с теми же probes.
+На actual spiral этот marker сохраняет97.91% потенциального zero-cost
+наружного потока; на blob marker пуст и оператор строго no-op.
+`temp/spiral/resweep_mask_oracle.py` и JSON сохраняют доказательство.
+Это ещё не реализация: повторное вычисление marker в каждом fragment дорого,
+а кеширование требует аудита scratch texture/channel. Quarter probes также
+не доказывают непрерывный мокрый путь между пробами. Нового GLSL/текстуры не
+добавлено. Load/rebuild именно resweep не проверялся, поскольку общий вариант
+отклонён; прежняя проверка59b1f704 остаётся действительной.
