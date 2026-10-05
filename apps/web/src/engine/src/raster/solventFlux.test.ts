@@ -49,3 +49,30 @@ describe('default-off solvent carry replacement', () => {
     })
   }
 })
+
+it('returns both solvent allocations when the second extra buffer fails', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as {
+    _ribbonScratchPool: RibbonScratchPool
+    _settlePlan: Pick<WatercolorSettlePlan, 'prepare'> & { _ownedSolvent: Set<unknown> }
+    _wcAb: { solventFlux: boolean }
+  }
+  probe._wcAb.solventFlux = true
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile); scratch.solventFilm(tile); scratch.paints.add('1,0,0')
+  scratch.solventPigmentGestures = 1
+  const acquire = probe._ribbonScratchPool.acquire.bind(probe._ribbonScratchPool)
+  const spy = vi.spyOn(probe._ribbonScratchPool, 'acquire').mockImplementation((...args) => {
+    if (probe._settlePlan._ownedSolvent.size === 2) throw Error('forced second extra allocation failure')
+    return acquire(...args)
+  })
+  try {
+    expect(() => probe._settlePlan.prepare(scratch,
+      [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.4, 8, 1, 1, 1, 1)).toThrow('forced second extra')
+    expect(probe._settlePlan._ownedSolvent.size).toBe(0)
+  } finally {
+    spy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+  }
+})

@@ -229,10 +229,22 @@ export class WatercolorSettlePlan {
     // unknown purity and multi-paint C are excluded. V stays canonical-only in
     // this isolated experiment; it is not a persistent solvent ledger.
     const fluxEnabled = !!this.ctx.ab().solventFlux && !!solvent && scratch.paints.size === 1 && scratch.solventPigmentGestures === 1
-    const solventBase = fluxEnabled ? this.ctx.pool().acquire(field.w, field.h) : null
-    if (solventBase) this._ownedSolvent.add(solventBase)
-    const solventNext = fluxEnabled ? this.ctx.pool().acquire(field.w, field.h) : null
-    if (solventNext) this._ownedSolvent.add(solventNext)
+    const [solventBase, solventNext] = (() : [AccumulationBuffer | null, AccumulationBuffer | null] => {
+      if (!fluxEnabled) return [null, null]
+      let base: AccumulationBuffer | null = null
+      try {
+        base = this.ctx.pool().acquire(field.w, field.h)
+        this._ownedSolvent.add(base)
+        const next = this.ctx.pool().acquire(field.w, field.h)
+        this._ownedSolvent.add(next)
+        return [base, next]
+      } catch (error) {
+        for (const buffer of [base, solvent]) {
+          if (buffer && this._ownedSolvent.delete(buffer)) this.ctx.pool().release(buffer)
+        }
+        throw error
+      }
+    })()
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
