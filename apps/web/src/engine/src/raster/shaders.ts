@@ -3407,9 +3407,13 @@ export const WC_FIELD_OP_FRAG = `
           // the plain balance is unchanged (the series capacity alone halved
           // it and the drop in a clean puddle lost two thirds of its reach).
           float capIJ = 2.0 * capI * capJ / (capI + capJ);
+          // Dev A/B: keep the absolute four-direction conductance scale.
+          // Normalising only active outward edges gives a boundary cell the
+          // full export rate even when its other neighbours are flat source.
+          // No exchange is added inside the source and no blur pass is used.
           // Give: my share toward j, of my excess over j, capped at what
           // travels here.
-          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 5e-5));
+          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / (u_band.y > 0.5 ? max(wsum, 4.0 * pow(4.0, u_size.x)) : wsum) * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 5e-5));
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
           if (cj > u_band.x) continue;
@@ -3420,7 +3424,7 @@ export const WC_FIELD_OP_FRAG = `
             wj += w;
             if (mm == back) wme = w;
           }
-          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 5e-5));
+          if (wme > 0.0) out4 += aj * (u_k * wme / (u_band.y > 0.5 ? max(wj, 4.0 * pow(4.0, u_size.x)) : wj) * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 5e-5));
         }
       }
       gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));

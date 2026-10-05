@@ -1017,7 +1017,7 @@ export interface PencilEngineAPI {
    *  (§17.42) `opDry`: every operation dries on its own at pen-up (tide and
    *  fixation per operation, the r17 behaviour) instead of the wash drying
    *  as one component. */
-  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; opDry?: boolean }): void
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; carryConductance?: boolean; opDry?: boolean }): void
   /** (#536, §17.42) Dries every open wash NOW, as one component: the tide
    *  along the union's outer contour is laid into the wet state itself, so
    *  the next mark finds the wash dry. Returns how many washes it dried. Dev
@@ -3287,9 +3287,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (#536, §17.24) Applied in _drawRibbonCompositeDab, so a replay under the
    *  switch recomposites the same deposit without the effect. */
-  private _wcAb = { noSpread: false, noMigrate: false, noDiffuse: false, noCarry: false, opDry: false }
-  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; opDry?: boolean }): void {
-    this._wcAb = { noSpread: ab.noSpread, noMigrate: ab.noMigrate, noDiffuse: !!ab.noDiffuse, noCarry: !!ab.noCarry, opDry: !!ab.opDry }
+  private _wcAb = { noSpread: false, noMigrate: false, noDiffuse: false, noCarry: false, carryConductance: false, opDry: false }
+  setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; carryConductance?: boolean; opDry?: boolean }): void {
+    this._wcAb = { noSpread: ab.noSpread, noMigrate: ab.noMigrate, noDiffuse: !!ab.noDiffuse, noCarry: !!ab.noCarry, carryConductance: !!ab.carryConductance, opDry: !!ab.opDry }
     this._display()
   }
 
