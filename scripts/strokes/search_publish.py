@@ -119,7 +119,15 @@ def publish(root, gallery, batch_id='round1', title='Пачка 1', config=None)
             if variant not in (baseline, candidate) or test['id'] != case_id:
                 continue
             row = rows.get(test['id'])
-            if not row or row['lost'] or row['error'] or not row['draws'] or row.get('variant') != variant:
+            zero_brush_diagnostic = (config is not None
+                and config.get('allowZeroBrushDiagnostic') == {
+                    'variant': 'selected-soft16-sheet7-no-contact-diagnostic', 'case': 's7-n3'}
+                and variant == 'selected-soft16-sheet7-no-contact-diagnostic' and case_id == 's7-n3'
+                and row is not None and row.get('draws') == 0
+                and row.get('programDraws', {}).get('brush') == 0
+                and row.get('programDraws', {}).get('diffuse', 0) > 0
+                and row.get('programDraws', {}).get('fieldHigh', 0) > 0)
+            if not row or row['lost'] or row['error'] or (not row['draws'] and not zero_brush_diagnostic) or row.get('variant') != variant:
                 raise ValueError('GPU pass not reached '+variant+' '+test['id'])
             image_path = root/variant/(test['id']+'.png')
             digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
