@@ -3888,7 +3888,10 @@ export const WC_DIFFUSE_FRAG = `
         vec4 inkj = texture2D(u_ink, uvj);
         vec4 covj = texture2D(u_coverage, uvj);
         float wj = wcWaterAt(covj);
-        float density = max((2.0 * texture2D(u_density, v_uv).a) / max(cov.a, 0.002), (2.0 * texture2D(u_density, uvj).a) / max(covj.a, 0.002));
+        // P.a is the carrier dose, positive even for a clean-water pass.
+        // P.b is that dose weighted by pigment strength. Clear water may
+        // extend the wet domain, but must not make its pigment more viscous.
+        float density = max((2.0 * texture2D(u_density, v_uv).b) / max(cov.a, 0.002), (2.0 * texture2D(u_density, uvj).b) / max(covj.a, 0.002));
         float gate = min(wi, wj) / (1.0 + 8.0 * density * density);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);
