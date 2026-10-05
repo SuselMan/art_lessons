@@ -3022,14 +3022,52 @@ export const SCREEN_BLIT_FRAG = `
  *  linear mix is a valid blend; the result is scaled by the layer's opacity
  *  exactly as LAYER_COMPOSITE_FRAG scales a plain tile. */
 export const WASH_REVEAL_FRAG = `
-  precision mediump float;
+  precision highp float;
   uniform sampler2D u_after;
   uniform sampler2D u_before;
+  uniform sampler2D u_wetMask;
   uniform float u_hold;
   uniform float u_opacity;
+  uniform float u_motionGain;
+  uniform float u_motionAge;
+  uniform vec2 u_texel;
+  uniform vec2 u_motionOrigin;
   varying vec2 v_uv;
+  float ink(vec4 c) { return max(0.0, c.a - dot(c.rgb, vec3(0.3333333))); }
+  float wet(vec2 uv) {
+    vec4 m = texture2D(u_wetMask, uv);
+    return m.a * smoothstep(0.025, 0.18, m.b);
+  }
+  float pairInk(vec2 uv) {
+    return 0.5 * (ink(texture2D(u_before, uv)) + ink(texture2D(u_after, uv)));
+  }
   void main() {
-    vec4 c = mix(texture2D(u_after, v_uv), texture2D(u_before, v_uv), u_hold);
+    vec4 after = texture2D(u_after, v_uv);
+    vec4 before = texture2D(u_before, v_uv);
+    if (u_motionGain > 0.0 && u_hold > 0.0) {
+      // Local brightness correspondence to the actual intermediate target.
+      // Bounded by two texels; not an offline particle or global flow solve.
+      vec2 d = 2.0 * u_texel;
+      vec2 gradient = vec2(
+        pairInk(v_uv + vec2(d.x, 0.0)) - pairInk(v_uv - vec2(d.x, 0.0)),
+        pairInk(v_uv + vec2(0.0, d.y)) - pairInk(v_uv - vec2(0.0, d.y))
+      ) * 0.25;
+      float change = ink(after) - ink(before);
+      vec2 flow = -change * gradient / (dot(gradient, gradient) + 0.002);
+      flow *= min(1.0, 2.0 / max(length(flow), 0.0001));
+      // Presentation circulation, explicitly artistic, not water velocity.
+      // World coordinates keep the phase continuous across layer tiles.
+      vec2 world = u_motionOrigin + vec2(v_uv.x, 1.0 - v_uv.y) / u_texel;
+      float phase = u_motionAge * 0.00055;
+      vec2 stir = vec2(cos(world.y * 0.035 + phase) * sin(world.x * 0.03 + phase),
+        -0.8571429 * cos(world.x * 0.03 + phase) * sin(world.y * 0.035 + phase));
+      vec2 shift = (flow + 2.5 * stir) * u_texel * u_motionGain;
+      // Both sides and the midpoint must be wet: cannot drag through paper.
+      float gate = min(wet(v_uv), min(wet(v_uv - shift), wet(v_uv - shift * 0.5)));
+      vec2 uv = clamp(v_uv - shift * gate, 0.5 * u_texel, 1.0 - 0.5 * u_texel);
+      before = texture2D(u_before, uv);
+    }
+    vec4 c = mix(after, before, u_hold);
     gl_FragColor = vec4(c.rgb * u_opacity, c.a * u_opacity);
   }
 `;
