@@ -514,11 +514,11 @@ export class WatercolorSettlePlan {
       const st = { src: c, dst: a, out: a }
       const paired = first && colour ? { src: colour.c, dst: colour.a, out: colour.a } : null
       if (paired) pairedColour = paired
-      const advance = (radius: number, knight: boolean, gate = field.coverage, density = st.src): void => {
+      const advance = (radius: number, knight: boolean, gate = field.coverage): void => {
         // Colour first: the following deposit draw still reads exactly the
         // same pre-step density. Neither destination aliases that density.
-        if (paired) diffuseStep(paired.src, paired.dst, radius, knight, gate, density)
-        diffuseStep(st.src, st.dst, radius, knight, gate, density)
+        if (paired) diffuseStep(paired.src, paired.dst, radius, knight, gate, st.src)
+        diffuseStep(st.src, st.dst, radius, knight, gate, st.src)
         const t = st.src; st.src = st.dst; st.dst = t
         if (paired) { const t = paired.src; paired.src = paired.dst; paired.dst = t }
       }
@@ -697,19 +697,7 @@ export class WatercolorSettlePlan {
         // coverage and not the dome (the line IS the dome's edge), an even
         // count so the pair's parity stays.
         for (const [radius, knight] of WET_SETTLE_SMOOTH) {
-          ops.push(() => {
-            if (merge <= 0) { advance(radius, knight); return }
-            // In an existing puddle the newly carried footprint must mix
-            // before its core grips the paper. Concentration damping here
-            // froze a depleted contour into a light ring. Only these two
-            // early steps use free-solvent mobility; later settling keeps
-            // the normal density damping and the body's concentrated core.
-            const solvent = this.ctx.pool().acquire(field.w, field.h)
-            try {
-              solvent.clear()
-              advance(radius, knight, field.coverage, solvent)
-            } finally { this.ctx.pool().release(solvent) }
-          })
+          ops.push(() => advance(radius, knight))
         }
         let afloat = 1
         ops.push(() => { settleSlice(0); afloat -= w.slices[0]; present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat) })
