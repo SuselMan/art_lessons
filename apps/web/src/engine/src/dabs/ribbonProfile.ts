@@ -30,6 +30,8 @@ import type { NibShape } from './markerRibbon'
 // two tools now differ by this record and nothing else.
 
 export interface RibbonProfile {
+  /** Dev-only SegmentDelivery: read standing liquid after its water phase. */
+  diagnosticReadFluid?: boolean
   /** Outline the CPU-side band builder and the shader's nib stamp must agree
    *  on — they draw the same figure from two directions. */
   nibShape: NibShape
