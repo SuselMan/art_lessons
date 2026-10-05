@@ -683,6 +683,28 @@ export class WatercolorSettlePlan {
         for (const [radius, knight] of WET_SETTLE_SMOOTH) {
           ops.push(() => advance(radius, knight))
         }
+        // (#680) Repair only the exhausted source contour before fixing
+        // the core. The pressure cost is finished after carry and bloom;
+        // reuse it as a narrow gate, via the unused mobile destination.
+        ops.push(() => {
+          this.ctx.passes().fieldOp(st.dst, field.coverage, field.coverage, 17, 0, {
+            c: st.src, d: field.pressure, size: [costMax, 0], dir: [3, 3],
+          })
+          fieldOp(field.pressure, st.dst, st.dst, 1, 0)
+        })
+        for (const [radius, knight] of [...WET_SETTLE_SMOOTH, ...WET_SETTLE_SMOOTH]) {
+          ops.push(() => {
+            // A constant zero texture needs one texel, not another full field.
+            const zero = this.ctx.pool().acquire(1, 1)
+            try {
+              fieldOp(zero, st.src, st.src, 1, -1)
+              if (paired) diffuseStep(paired.src, paired.dst, radius, knight, field.pressure, zero)
+              diffuseStep(st.src, st.dst, radius, knight, field.pressure, zero)
+              const t = st.src; st.src = st.dst; st.dst = t
+              if (paired) { const t = paired.src; paired.src = paired.dst; paired.dst = t }
+            } finally { this.ctx.pool().release(zero) }
+          })
+        }
         let afloat = 1
         ops.push(() => { settleSlice(0); afloat -= w.slices[0]; present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat) })
         puddleSteps.forEach(({ radius, knight }, i) => {

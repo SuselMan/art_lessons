@@ -18,7 +18,7 @@ type Probe = {
 // absorption alpha, and writing over density before the pigment draw.
 describe('coupled pigment and absorption diffusion', () => {
   for (const opDry of [false, true]) for (const wetPeak of [0, 1]) {
-    it(`reads one pre-step pigment for both records (opDry=${opDry}, wet=${wetPeak})`, () => {
+    it(`reads one common density for both records (opDry=${opDry}, wet=${wetPeak})`, () => {
       const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
       const probe = engine as unknown as Probe
       probe._wcAb.opDry = opDry
@@ -27,6 +27,7 @@ describe('coupled pigment and absorption diffusion', () => {
       scratch.getOrCreate(tile)
       scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
       const calls: Array<{ src: AccumulationBuffer; dst: AccumulationBuffer; gate: AccumulationBuffer; density: AccumulationBuffer }> = []
+      const fields = vi.spyOn(probe._watercolorPasses, 'fieldOp')
       const original = probe._watercolorPasses.diffuseStep.bind(probe._watercolorPasses)
       const spy = vi.spyOn(probe._watercolorPasses, 'diffuseStep').mockImplementation((...args) => {
         calls.push({ src: args[6], dst: args[7], gate: args[10], density: args[11] ?? args[6] })
@@ -41,15 +42,19 @@ describe('coupled pigment and absorption diffusion', () => {
         expect(calls.length % 2).toBe(0)
         for (let i = 0; i < calls.length; i += 2) {
           const colour = calls[i], pigment = calls[i + 1]
-          expect(colour.density).toBe(pigment.src)
-          expect(pigment.density).toBe(pigment.src)
+          expect(colour.density).toBe(pigment.density)
+          if (pigment.density !== pigment.src) {
+            // Local edge relaxation uses an independent zero-density field
+            // for both records, never either record's write destination.
+            expect(fields.mock.calls.some(call => call[0] === pigment.density && call[3] === 1 && call[4] === -1)).toBe(true)
+          }
           expect(colour.src).not.toBe(pigment.src)
           expect(colour.dst).not.toBe(colour.density)
           expect(pigment.dst).not.toBe(pigment.density)
           expect(colour.gate).toBe(pigment.gate)
         }
       } finally {
-        spy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+        fields.mockRestore(); spy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
       }
     })
   }

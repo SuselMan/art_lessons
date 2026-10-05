@@ -3317,9 +3317,21 @@ export const WC_FIELD_OP_FRAG = `
       return;
     }
     if (u_mode > 16.5) {
-      // (s17.40) The puddle's mixing gate: the coverage with its standing
-      // water (.b) scaled by the dome over the footprint (u_d.a).
-      gl_FragColor = vec4(a.r, a.g, a.b * texture2D(u_d, v_uv).a, a.a);
+      // (#680) A narrow exchange domain around the original source edge.
+      // The carry exhausts this contour; relaxing the whole source hides
+      // it by blurring all of the paint. Cost is flat inside the source,
+      // so neighbouring nonzero cost identifies only its boundary.
+      float cost = texture2D(u_d, v_uv).r * u_size.x;
+      float nearby = cost;
+      nearby = max(nearby, texture2D(u_d, v_uv + vec2(u_dir.x, 0.0)).r * u_size.x);
+      nearby = max(nearby, texture2D(u_d, v_uv - vec2(u_dir.x, 0.0)).r * u_size.x);
+      nearby = max(nearby, texture2D(u_d, v_uv + vec2(0.0, u_dir.y)).r * u_size.x);
+      nearby = max(nearby, texture2D(u_d, v_uv - vec2(0.0, u_dir.y)).r * u_size.x);
+      float edge = smoothstep(0.0, 1.0, nearby) * (1.0 - smoothstep(2.0, 4.0, cost));
+      // Clear water carries no pigment strength in .b; its hidden load
+      // must not be relaxed by a repair for a pigment contour.
+      float paint = step(0.002, texture2D(u_c, v_uv).b);
+      gl_FragColor = vec4(a.rgb, a.a * edge * paint);
       return;
     }
 #else
