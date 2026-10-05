@@ -46,4 +46,23 @@ describe('auxiliary water source execution', () => {
     try { work.next(); work.return(); expect((painter as unknown as { waterOnlyDepth: number }).waterOnlyDepth).toBe(0); expect((painter as unknown as { diagnosticDepth: number }).diagnosticDepth).toBe(1) }
     finally { scratch.destroy(); engine.destroy() }
   })
+
+  it('releases a checked-out auxiliary source if the engine is destroyed while it is sliced', () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    engine.initLayer('source')
+    const probe = engine as unknown as Probe, painter = probe._ribbonPainter
+    painter.diagnosticSegmentDelivery = 'combined'; painter.diagnosticSolventField = true; painter.diagnosticForeignSolvent = true
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.foreignSources = [{ gesture: 'donor', footprints: [{ x: 20, y: 32, radius: 20, aspect: 1, angle: 0 }], chunks: [{ id: 'donor-op', preset: presetName, color: [0.2, 0, 0.6], dabs, wet: '000', seed: [1, 2] }] }]
+    const work = painter.paint(probe._layers.get('source')!, dabs, probe._resolvePreset('watercolor', presetName), presetName, ribbonProfileFor('watercolor', presetName, 1), [0.2, 0, 0.6], scratch, undefined, 'fff', [1, 2], false, 256)
+    work.next()
+    const owned = (painter as unknown as { auxiliaryWater: Set<RibbonStrokeScratch> }).auxiliaryWater
+    expect(owned.size).toBe(1)
+    const aux = [...owned][0]
+    expect(aux.live).toBe(true)
+    engine.destroy()
+    expect(owned.size).toBe(0); expect(aux.live).toBe(false)
+    work.return(); scratch.destroy()
+  })
+
 })
