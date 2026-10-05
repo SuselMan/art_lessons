@@ -3061,7 +3061,9 @@ export const WASH_REVEAL_FRAG = `
       float phase = u_motionAge * 0.00055;
       vec2 stir = vec2(cos(world.y * 0.035 + phase) * sin(world.x * 0.03 + phase),
         -0.8571429 * cos(world.x * 0.03 + phase) * sin(world.y * 0.035 + phase));
-      vec2 shift = (flow + 2.5 * stir) * u_texel * u_motionGain;
+      vec2 edgePx = min(v_uv, 1.0 - v_uv) / u_texel;
+      float edgeGate = smoothstep(0.0, 4.0, min(edgePx.x, edgePx.y));
+      vec2 shift = (flow + 2.5 * stir) * u_texel * u_motionGain * edgeGate;
       // Both sides and the midpoint must be wet: cannot drag through paper.
       float gate = min(wet(v_uv), min(wet(v_uv - shift), wet(v_uv - shift * 0.5)));
       vec2 uv = clamp(v_uv - shift * gate, 0.5 * u_texel, 1.0 - 0.5 * u_texel);

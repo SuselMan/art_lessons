@@ -6925,8 +6925,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _revealMotionGain(reveal: WashReveal, now: number): number {
     if (!reveal.wetMask || reveal.motionAt === undefined) return 0
     const onset = Math.min(1, Math.max(0, now - reveal.motionAt) / 250)
+    return onset * this._revealMotionTail(reveal, now)
+  }
+
+  private _revealMotionTail(reveal: WashReveal, now: number): number {
     const tail = reveal.startedAt === null ? 1 : Math.max(0, 1 - (now - reveal.startedAt) / (reveal.durationMs ?? 8000))
-    return onset * tail * tail * (reveal.motionBaseGain ?? 1)
+    return tail * tail * (reveal.motionBaseGain ?? 1)
   }
 
   private _setRevealMotion(reveal: WashReveal | undefined, now: number): void {
@@ -7071,7 +7075,7 @@ export class PencilEngine implements PencilEngineAPI {
     const now = performance.now()
     this._sweepReveals(now)
     for (const reveal of this._washReveals.values()) if (reveal.progressive) {
-      reveal.motionBaseGain = this._revealMotionGain(reveal, now)
+      reveal.motionBaseGain = this._revealMotionTail(reveal, now)
       reveal.durationMs = 2000
       if (reveal.startedAt !== null) reveal.startedAt = now
       reveal.frameAt = now
