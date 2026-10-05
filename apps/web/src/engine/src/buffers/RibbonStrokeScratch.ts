@@ -354,7 +354,9 @@ export class RibbonStrokeScratch {
   /** Diagnostic purity gate, carried by snapshot/spill metadata, never inferred
    * from whether a texture currently happens to be resident. -1 means unknown. */
   solventPigmentGestures = 0
-  solventPigmentGesture = -1
+  solventPigmentStroke = -1
+  solventStrokeSerial = 0
+  solventInitialClearWater = false
   /** (#536, §17.37) The gesture's landing: where the nib came down and its
    *  radius there, and how long it stood within WC_DWELL_RADIUS of it before
    *  moving on (the dabs' own clock, Dab.t). Frozen once a dab leaves. Per
@@ -420,6 +422,7 @@ export class RibbonStrokeScratch {
   beginStroke(): void {
     this.lastKept = undefined
     this.gesture++
+    this.solventStrokeSerial++
     this.turnOffset = [0, 0]
     this.turnDirection = null
     this.landing = null
@@ -620,7 +623,8 @@ export class RibbonStrokeScratch {
       finish: this._finish ? { ...this._finish, bounds: { ...this._finish.bounds }, fieldSeed: [...this._finish.fieldSeed] } : null,
       dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
       lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
-      solventPigmentGestures: this.solventPigmentGestures, solventPigmentGesture: this.solventPigmentGesture,
+      solventPigmentGestures: this.solventPigmentGestures, solventPigmentStroke: this.solventPigmentStroke,
+      solventStrokeSerial: this.solventStrokeSerial, solventInitialClearWater: this.solventInitialClearWater,
       landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
       turnOffset: [...this.turnOffset], turnDirection: this.turnDirection ? [...this.turnDirection] : null, brushTravel: this.brushTravel.map(d => ({ ...d })), foreignSources: this.foreignSources, wetContacts: this.wetContacts.map(d => ({ ...d })),
       trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, speedAt: this.speedAt, speedTravel: this.speedTravel, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
@@ -642,7 +646,9 @@ export class RibbonStrokeScratch {
     this.lastKept = snap.lastKept ? { ...snap.lastKept } : undefined
     this.gesture = snap.gesture
     this.solventPigmentGestures = snap.solventPigmentGestures ?? -1
-    this.solventPigmentGesture = snap.solventPigmentGesture ?? -1
+    this.solventPigmentStroke = snap.solventPigmentStroke ?? -1
+    this.solventStrokeSerial = snap.solventStrokeSerial ?? -1
+    this.solventInitialClearWater = snap.solventInitialClearWater ?? false
     this.landing = snap.landing ? { ...snap.landing } : null
     this.dwellMs = snap.dwellMs
     this.dwellDone = snap.dwellDone
@@ -841,7 +847,8 @@ interface ScratchScalars {
   finish: Omit<NonNullable<RibbonStrokeScratch['finishContext']>, 'target'> | null
   dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
   lastKept: Dab | undefined; gesture: number
-  solventPigmentGestures?: number; solventPigmentGesture?: number
+  solventPigmentGestures?: number; solventPigmentStroke?: number
+  solventStrokeSerial?: number; solventInitialClearWater?: boolean
   landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
   turnOffset: [number, number]; turnDirection: [number, number] | null; brushTravel: BrushTravel[]; foreignSources: WaterSource[] | null; wetContacts: WaterFootprint[]
   trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number

@@ -228,7 +228,7 @@ export class WatercolorSettlePlan {
     // only, first pigment gesture: singleTau reconstructs depth. Older/restored
     // unknown purity and multi-paint C are excluded. V stays canonical-only in
     // this isolated experiment; it is not a persistent solvent ledger.
-    const fluxEnabled = !!this.ctx.ab().solventFlux && !!solvent && scratch.paints.size === 1 && scratch.solventPigmentGestures === 1
+    const fluxEnabled = !!this.ctx.ab().solventFlux && !!solvent && scratch.paints.size === 1 && scratch.solventPigmentGestures === 1 && scratch.solventInitialClearWater
     const [solventBase, solventNext] = (() : [AccumulationBuffer | null, AccumulationBuffer | null] => {
       if (!fluxEnabled) return [null, null]
       let base: AccumulationBuffer | null = null
