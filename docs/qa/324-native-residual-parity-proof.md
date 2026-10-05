@@ -29,3 +29,23 @@ AB с одинаковой записанной операцией, source7ROI �
 Own temp/parity: plan-proof.ts/json/log; cpu-probe.json и native-probe-test.ts (временный тест перемещён из app после запуска); cpu-contact-diff.json; contact-gains.json; contact-normalization-proof.json; actual-packed-contacts.ts и actual-packed-contact-check.json; diff-location.json. Реальный case — соседняя324-preview-isolation/temp/policy/source-ab-canonical/. Диагностический тест не объявляется GLSL/image regression.
 
 Правильный `npm run typecheck --workspace @grafetto/web` на этой worktree PASS. Прежняя команда tsc -p apps/web/tsconfig.json у агента была references-only и не проверяла app; ранние заявления typecheck для99/743 надо читать вместе с исправлениями parent7fdcc459. Здесь source не менялся, inherited d38 содержит исправленные actual app types.
+
+## Default-off uniform-only кандидат 463d1082
+
+Новый флаг `RibbonStrokePainter.diagnosticCanonicalSettleRadius` по умолчанию false. Только solver metadata получает minorRadius из `Math.fround(dab.size)*.5*presetMultiplier`, majorRadius также использует float32 aspect. Исходный nib, bounds/flow RGBA и contact grouping используют прежние radius. Optional `BrushTravel.settleRadius` меняет исключительно contact gain/substeps. Формат операций и codec не меняются. Два meaningful CPU теста и8 прежних brushDrag tests проходят (10), правильный web workspace typecheck проходит.
+
+Первый настоящий Vega capture дал28 travel/23contacts. Off:23 разных contact.radius и22 разных float32 gain; on:0 разных radius/gain. Но диагностический fixed-seed hook стоял только на `_paintDabs`, который native raster обходил: P/C source ROI native/replay различались. Эти4177/4167px PNG нельзя выдавать за причинный AB нормализации. V/coverage source совпали, GL0 в обеих парах. Исправленный общий seed hook на `RibbonStrokePainter.paint` подготовлен; вывод о GPU parity ждёт повторного source-exact oracle. Артефакты первого запуска сохраняются отдельно, не удалены.
+
+## Причинный GPU oracle: controlled round native/replay
+
+Исправленный harness использует общий `RibbonStrokePainter.paint` seed[0,0] в native и append, фиксированные pointer timestamps1000+i*16. Это диагностический контролируемый ввод, а не обещание всех обычных комнат. Настоящий PencilEngine, Vega Chrome, medium paper,15move, round40px/pressure.7, water100/pigment15; native normal finish[true] и packed append. Экспорт канонический, оба источника/ветки включают inherited V review flags.
+
+Все7 source ROI **exact native↔append и off↔on**: coverage, inkLoad, inkColor, solventLoad, strokeInk, strokeColor, strokeSolvent. Off native/replay310px/max10/mean.00019615. On **0px/max0**. Append dry PNG off↔on **точный**, native меняется ровно310px/max10 и становится точным append. В каждой паре GL0. Actual ctx radius off16.587967959570904↔16.587968826293945; on оба16.587968826293945. Это ограниченное причинное доказательство: исключительно radius metadata устраняет остаток в данной source-exact сцене, без изменения исходного материала или replay результата. Не универсальный parity fix и не разрешение включить флаг во всех режимах без других cases.
+
+Артефакты `temp/parity/canonical-radius-{off,on}-matched/{report.json,native.png,after.png}`, harness `canonical-radius-{off,on}.mjs`, summary `radius-ab-matched-summary.json`. Исходные полный raw ROI buffers сохранены на home в тех же папках, компактные metadata/PNG скопированы VPS. Первый confounded запуск остаётся в отдельных папках без `-matched`.
+
+## Второй bounded native case: chisel
+
+Chisel57px/pressure.43,15move(x100+i*12,y150+i*2), те же controlled seed/timestamps, water100/pigment15. Все7 source ROI exact native↔append и off↔on. В off и on canonical native/replay PNG точные0px/max0; native и append off↔on также неизменны. GL0,53brushTravel на обеих ветках. Off ctx radius28.5↔28.500000810388883; on оба28.500000810388883. Этот case проверяет отсутствие регрессии другого наконечника/нажима, а не доказывает дополнительное исправление (baseline уже был exact). Артефакты `canonical-radius-chisel-{off,on}-matched`, `summary-chisel.mjs`, home `radius-ab-chisel-matched-summary.json`.
+
+Итого предлагается принять нормализацию solver radius **только для V review** после parent review; source commit всё ещё default-off, никакой публикации не было. Полный native/foreign-water multi-stroke parity требует отдельной проверки: source dose, записанная wetness и flow raster здесь не округляются.
