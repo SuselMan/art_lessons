@@ -11,7 +11,7 @@ import { rectOnTile, ribbonWaterDelivery } from './src/dabs/ribbonStrokeMath'
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
-import { washRevealHold } from './src/raster/washReveal'
+import { washRevealHold, washRevealStep } from './src/raster/washReveal'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -3263,7 +3263,11 @@ export class PencilEngine implements PencilEngineAPI {
     const MB = 1 / (1024 * 1024)
     const pool = this._ribbonScratchPool.bytes
     let revealBytes = 0
-    for (const r of this._washReveals.values()) revealBytes += r.before.width * r.before.height * 4 * 4 / 3
+    for (const r of this._washReveals.values()) {
+      revealBytes += r.before.width * r.before.height * 4 * 4 / 3
+      if (r.pending) revealBytes += r.pending.width * r.pending.height * 4 * 4 / 3
+    }
+    for (const b of this._revealPool) revealBytes += b.width * b.height * 4 * 4 / 3
     return {
       frameP50: pct(intervals, 0.5), frameP95: pct(intervals, 0.95), frames: p.frameAt.length,
       displayMs: pct(p.frameMs, 0.5),
@@ -3876,7 +3880,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     for (const f of this._fieldCache) destroyField(f)
     this._fieldCache = []
-    for (const r of this._washReveals.values()) r.before.destroy()
+    for (const r of this._washReveals.values()) { r.before.destroy(); r.pending?.destroy() }
     this._washReveals.clear()
     for (const b of this._revealPool) b.destroy()
     this._revealPool = []
@@ -6791,6 +6795,7 @@ export class PencilEngine implements PencilEngineAPI {
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       before.endDraw()
       this._revealPoolRelease(prev.before)
+      if (prev.pending) this._revealPoolRelease(prev.pending)
     }
     let layerId = ''
     for (const [id, buf] of this._layers) if (buf === layer) { layerId = id; break }
@@ -6800,6 +6805,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** How much of the kept picture still shows, 1 → 0 over WC_REVEAL_MS,
    *  fast first: the square of the time left. */
   private _revealHold(reveal: WashReveal, now: number): number {
+    if (reveal.progressive) return reveal.startedAt === null || now - reveal.startedAt < (reveal.durationMs ?? 8000) ? 1 : 0
     return washRevealHold(reveal.startedAt, now, WC_REVEAL_MS)
   }
 
@@ -6851,6 +6857,10 @@ export class PencilEngine implements PencilEngineAPI {
       const sum = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
       this._fieldOp(sum, reveal.before, tile.buffer, 3, 1, { c: prev, scissor: rect })
       sum.copyRegionInto(reveal.before, rect[0], rect[1], rect[0], rect[1], rect[2], rect[3])
+      if (reveal.pending) {
+        this._fieldOp(sum, reveal.pending, tile.buffer, 3, 1, { c: prev, scissor: rect })
+        sum.copyRegionInto(reveal.pending, rect[0], rect[1], rect[0], rect[1], rect[2], rect[3])
+      }
       this._ribbonScratchPool.release(sum)
     }
     this._ribbonScratchPool.release(prev)
@@ -6877,11 +6887,43 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealPool.push(buf)
   }
 
+  /** Follow calculated targets continuously; do not replace the visible
+   * copy when a solver stage or a paused animation frame finishes. */
+  private _advanceWashReveal(buffer: AccumulationBuffer, reveal: WashReveal, now: number): void {
+    if (!reveal.progressive) return
+    const dt = now - (reveal.frameAt ?? now)
+    reveal.frameAt = now
+    const target = reveal.startedAt === null ? reveal.pending : buffer
+    if (!target) return
+    const remaining = reveal.startedAt === null ? null : (reveal.durationMs ?? 8000) - (now - reveal.startedAt)
+    const step = washRevealStep(dt, remaining)
+    if (!(step > 0)) return
+    const out = this._revealPoolAcquire(buffer.width, buffer.height)
+    out.beginReplaceDraw()
+    const gl = this.gl, u = this._revealUni
+    gl.useProgram(this._revealProg)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._revealPosLoc)
+    gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, target.texture)
+    gl.uniform1i(u.u_after, 0)
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, reveal.before.texture)
+    gl.uniform1i(u.u_before, 1)
+    gl.uniform1f(u.u_hold, 1 - step); gl.uniform1f(u.u_opacity, 1)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    out.endDraw()
+    gl.activeTexture(gl.TEXTURE0)
+    this._revealPoolRelease(reveal.before)
+    reveal.before = out
+  }
+
   /** Drops every reveal that has run out, or whose layer is gone. */
   private _sweepReveals(now: number, goneLayerId: string | null = null): void {
     for (const [buffer, reveal] of this._washReveals) {
+      if (reveal.layerId !== goneLayerId) this._advanceWashReveal(buffer, reveal, now)
       if (reveal.layerId !== goneLayerId && this._revealHold(reveal, now) > 0) continue
       this._revealPoolRelease(reveal.before)
+      if (reveal.pending) this._revealPoolRelease(reveal.pending)
       this._washReveals.delete(buffer)
     }
   }
@@ -6996,6 +7038,13 @@ export class PencilEngine implements PencilEngineAPI {
     // the paper dry and record it so - which is what a replay reads too.
     if (this._strokeLayerId) this._dryAtPenUp = true
     else if (this._wash) this._wash.endedAt = -Infinity
+    const now = performance.now()
+    this._sweepReveals(now)
+    for (const reveal of this._washReveals.values()) if (reveal.progressive) {
+      reveal.durationMs = 2000
+      if (reveal.startedAt !== null) reveal.startedAt = now
+      reveal.frameAt = now
+    }
     this._paperWet.clear()
     // The sheen goes with it: the wet map is rebuilt on the next frame, not
     // after the overlay's own throttle, and the whole paper recomposes.
@@ -7362,7 +7411,13 @@ export class PencilEngine implements PencilEngineAPI {
       if (!revealCopies.length) return
       const now = performance.now()
       for (const { buffer, held } of revealCopies) {
-        if (this._washReveals.get(buffer) === held) held.startedAt = now
+        if (this._washReveals.get(buffer) === held) {
+          held.startedAt = now
+          if (held.pending) {
+            this._revealPoolRelease(held.pending)
+            held.pending = undefined
+          }
+        }
       }
       this._displayIfNotSuspended()
     }
@@ -7440,8 +7495,14 @@ export class PencilEngine implements PencilEngineAPI {
           if (!owned || this._washReveals.get(tile.buffer) !== owned.held || this._strokeLayerId) return
           const entry = scratch.peek(tile.buffer)
           if (!entry) return
+          if (!owned.held.pending) {
+            owned.held.pending = this._revealPoolAcquire(tile.buffer.width, tile.buffer.height)
+            owned.held.before.copyTo(owned.held.pending)
+            owned.held.progressive = true
+            owned.held.frameAt = performance.now()
+          }
           this._drawRibbonCompositeRect(
-            { ...tile, buffer: owned.held.before }, bounds, preset, profile,
+            { ...tile, buffer: owned.held.pending }, bounds, preset, profile,
             entry.original, coverage, pigment, chroma, color, opacity,
             fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
           )

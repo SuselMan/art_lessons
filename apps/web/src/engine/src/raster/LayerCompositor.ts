@@ -22,6 +22,11 @@ export interface WashReveal {
   before: AccumulationBuffer
   /** null while the canonical dry target is still being computed. */
   startedAt: number | null
+  /** Intermediate target; only presentation buffers read this. */
+  pending?: AccumulationBuffer
+  progressive?: boolean
+  frameAt?: number
+  durationMs?: number
 }
 
 export interface LayerCompositorContext {
