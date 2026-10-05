@@ -1,15 +1,22 @@
+import type { Dab } from '@grafetto/shared'
+
 // #680: recorded wet contacts locate a preceding puddle; geometry comes from
 // the log, never the replay client's wall clock or its live wetness field.
 export interface WaterFootprint {
   x: number; y: number; radius: number; aspect: number; angle: number
 }
-export interface WaterSource { gesture: string; footprints: WaterFootprint[] }
+export interface WaterSourceChunk { id: string; preset: string; color: [number, number, number]; dabs: Dab[]; wet?: string; seed: [number, number] }
+export interface WaterSource { gesture: string; footprints: WaterFootprint[]; chunks?: WaterSourceChunk[] }
 
 function contains(d: WaterFootprint, x: number, y: number, pad = 0): boolean {
   const dx = x - d.x, dy = y - d.y, c = Math.cos(d.angle), s = Math.sin(d.angle)
   const u = (dx * c + dy * s) / Math.max(d.radius * d.aspect + pad, 0.5)
   const v = (-dx * s + dy * c) / Math.max(d.radius + pad, 0.5)
   return u * u + v * v <= 1
+}
+
+export function selectedForeignWaterSources(sources: readonly WaterSource[], contacts: readonly WaterFootprint[]): readonly WaterSource[] {
+  return sources.filter(source => source.footprints.some(d => contacts.some(p => contains(d, p.x, p.y, p.radius))))
 }
 
 /** A small CPU-baked alpha stencil, bottom-up like a GL texture. Only source
@@ -19,8 +26,7 @@ export function foreignWaterStencil(
   rect: { x: number; y: number; w: number; h: number }, cellPx = 4,
 ): { width: number; height: number; pixels: Uint8Array } | null {
   if (!contacts.length || !sources.length) return null
-  const selected = sources.filter(source => source.footprints.some(d =>
-    contacts.some(p => contains(d, p.x, p.y, p.radius))))
+  const selected = selectedForeignWaterSources(sources, contacts)
   if (!selected.length) return null
   const width = Math.max(1, Math.ceil(rect.w / cellPx)), height = Math.max(1, Math.ceil(rect.h / cellPx))
   const sx = rect.w / width, sy = rect.h / height

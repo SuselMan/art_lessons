@@ -1785,6 +1785,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   private readonly _ribbonPainter = new RibbonStrokePainter({
     dabPool: () => this._dabPool,
+    scratchPool: () => this._ribbonScratchPool,
+    resolveWaterPreset: name => this._resolvePreset('watercolor', name),
     infinite: () => this._infinite,
     minmaxExt: () => this._minmaxExt,
     setLiveComposite: value => { this._liveComposite = value },
@@ -6659,8 +6661,10 @@ export class PencilEngine implements PencilEngineAPI {
         const mul = this._resolvePreset('watercolor', op.preset).sizeMultiplier
         const gesture = op.strokeId ?? op.id
         let source = sources.find(s => s.gesture === gesture)
-        if (!source) { source = { gesture, footprints: [] }; sources.push(source) }
-        for (const d of strokeDabs(op)) source.footprints.push({
+        if (!source) { source = { gesture, footprints: [], chunks: [] }; sources.push(source) }
+        const sourceDabs = strokeDabs(op)
+        if (this._ribbonPainter.diagnosticForeignSolvent && !source.chunks?.some(c => c.id === op.id)) source.chunks?.push({ id: op.id, preset: op.preset, color: op.color, dabs: sourceDabs, wet: op.wet, seed: mottleSeedFromStrokeId(op.strokeId) })
+        for (const d of sourceDabs) source.footprints.push({
           x: d.x, y: d.y, radius: d.size * 0.5 * mul, aspect: Math.max(1, d.aspectRatio), angle: d.angle,
         })
       }
