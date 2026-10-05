@@ -21,7 +21,7 @@ export interface WatercolorSettlePlanContext {
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
-  ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean }
+  ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean; noInteriorResweep?: boolean }
   passes(): WatercolorPasses
 }
 
@@ -36,6 +36,8 @@ export class WatercolorSettlePlan {
   private _brushFlowTex: WebGLTexture | null = null
 
   private _foreignWaterTex: WebGLTexture | null = null
+
+  private _pendingInteriorMarkers = new Set<AccumulationBuffer>()
 
   /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
    *  laid (the deposit less what was settled before it) is split into a
@@ -172,6 +174,8 @@ export class WatercolorSettlePlan {
     // stitch - a running gesture's next batch refreshes the film's base).
     const a0 = S > 1 ? this.ctx.pool().acquire(field.w, field.h) : null
     const ca0 = S > 1 ? this.ctx.pool().acquire(field.w, field.h) : null
+    let interiorMarker: AccumulationBuffer | null = null
+    let blockedMarker: AccumulationBuffer | null = null
     const snapshots = new Map<AccumulationBuffer, { ink: AccumulationBuffer; color: AccumulationBuffer | null }>()
     // The settle's rect in the field's GL cells, for the interpolation's clamp.
     const fieldRect: [number, number, number, number] = [0, field.h - h / S, w / S, field.h]
@@ -559,21 +563,43 @@ export class WatercolorSettlePlan {
       // in lockstep, taking the deposit's fractions (mode 16).
       if (first && !this.ctx.ab().noCarry) {
         const carry = watercolorCarryStrides(budgetPx)
+        const originalCarryLength = carry.length
         // Supply depleted edge cells only from the blocked zero-cost interior.
         const topStride = Math.max(...carry)
         const pulseAt = new Set((scratch.finishContext?.profile.pigmentStrength ?? 1) > 0
           ? [16, 32, 64].filter(s => s <= topStride) : [])
+        if (pulseAt.size && !this.ctx.ab().noInteriorResweep) {
+          blockedMarker = this.ctx.pool().acquire(field.w, field.h)
+          this._pendingInteriorMarkers.add(blockedMarker)
+          try { interiorMarker = this.ctx.pool().acquire(field.w, field.h) }
+          catch (error) {
+            this.ctx.pool().release(blockedMarker)
+            this._pendingInteriorMarkers.delete(blockedMarker)
+            blockedMarker = null
+            throw error
+          }
+          this._pendingInteriorMarkers.add(interiorMarker)
+          const blocked = blockedMarker, marker = interiorMarker
+          ops.push(() => this.ctx.passes().interiorMarker(blocked, field.pressure, field.pressure, topStride, 0))
+          ops.push(() => {
+            this.ctx.passes().interiorMarker(marker, field.pressure, blocked, topStride, 1)
+            this.ctx.pool().release(blocked)
+            this._pendingInteriorMarkers.delete(blocked)
+            blockedMarker = null
+          })
+          carry.push(...[64, 32, 16].filter(s => s <= topStride))
+        }
         let src = c, dst = a
         let csrc = colour?.c, cdst = colour?.a
         for (let i = 0; i < carry.length; i += 4) {
           const n = Math.min(4, carry.length - i)
-          const plan: Array<{ s: number; interior?: boolean; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
+          const plan: Array<{ s: number; interior?: boolean; resweep?: boolean; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
           for (let j = 0; j < n; j++) {
-            plan.push({ s: carry[i + j], src, dst, csrc, cdst })
+            plan.push({ s: carry[i + j], resweep: i + j >= originalCarryLength, src, dst, csrc, cdst })
             const t = src; src = dst; dst = t
             const ct = csrc; csrc = cdst; cdst = ct
             const s = carry[i + j]
-            if (pulseAt.has(s)) {
+            if (i + j < originalCarryLength && pulseAt.has(s)) {
               plan.push({ s, interior: true, src, dst, csrc, cdst })
               const t = src; src = dst; dst = t
               const ct = csrc; csrc = cdst; cdst = ct
@@ -581,7 +607,7 @@ export class WatercolorSettlePlan {
           }
           ops.push(() => {
             for (const p of plan) {
-              const opts = { d: field.pressure, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, p.interior ? 1 : 0] as [number, number], size: [p.interior ? topStride : WC_CARRY_POW, costMax] as [number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
+              const opts = { e: p.resweep ? interiorMarker! : undefined, d: field.pressure, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, p.interior ? 1 : p.resweep ? 2 : 0] as [number, number], size: [p.interior ? topStride : WC_CARRY_POW, costMax] as [number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
               const rate = p.interior ? 0.16 : WC_CARRY_RATE
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, rate, { ...opts, c: p.src })
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, rate, opts)
@@ -937,6 +963,8 @@ export class WatercolorSettlePlan {
       }
       if (a0) this.ctx.pool().release(a0)
       if (ca0) this.ctx.pool().release(ca0)
+      if (blockedMarker) { this.ctx.pool().release(blockedMarker); this._pendingInteriorMarkers.delete(blockedMarker) }
+      if (interiorMarker) { this.ctx.pool().release(interiorMarker); this._pendingInteriorMarkers.delete(interiorMarker) }
       for (const snap of snapshots.values()) { this.ctx.pool().release(snap.ink); if (snap.color) this.ctx.pool().release(snap.color) }
     }
     return { ops, finish }
@@ -1034,11 +1062,15 @@ export class WatercolorSettlePlan {
   }
 
   destroyTextures(): void {
+    // Abandoned queue closures do not return checked-out buffers to the pool.
+    for (const marker of this._pendingInteriorMarkers) marker.destroy()
+    this._pendingInteriorMarkers.clear()
     this.gl.deleteTexture(this._brushFlowTex)
     this.gl.deleteTexture(this._foreignWaterTex)
   }
 
   forgetTextures(): void {
+    this._pendingInteriorMarkers.clear() // The lost context already owns their disposal.
     this._brushFlowTex = null
     this._foreignWaterTex = null
   }

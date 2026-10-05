@@ -1,4 +1,4 @@
-import { DISPLAY_VERT, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG, WC_INTERIOR_MARKER_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
@@ -44,6 +44,10 @@ export class WatercolorPasses {
   private _fieldOpCarryColourUni!: Record<string, WebGLUniformLocation | null>
 
   private _fieldOpCarryColourPosLoc!: number
+
+  private _interiorMarkerProg: WebGLProgram | null = null
+  private _interiorMarkerUni: Record<string, WebGLUniformLocation | null> = {}
+  private _interiorMarkerPos = -1
 
   private _fieldOpPosLoc = -1
 
@@ -109,7 +113,7 @@ export class WatercolorPasses {
     gl.activeTexture(gl.TEXTURE3)
     gl.bindTexture(gl.TEXTURE_2D, (opts.d ?? b).texture)
     gl.uniform1i(u.u_d, 3)
-    if (mode === 18 && opts.e) {
+    if ((mode === 18 || mode === 15 || mode === 16) && opts.e) {
       gl.activeTexture(gl.TEXTURE4)
       gl.bindTexture(gl.TEXTURE_2D, opts.e.texture)
       gl.uniform1i(u.u_e, 4)
@@ -320,7 +324,33 @@ export class WatercolorPasses {
     outColor.endDraw()
   }
 
+  /** Two stages: blocked interior, then zero-cost cells fed by that interior. */
+  interiorMarker(out: AccumulationBuffer, cost: AccumulationBuffer, blocked: AccumulationBuffer, top: number, stage: number): void {
+    const { gl } = this
+    if (!this._interiorMarkerProg) {
+      this._interiorMarkerProg = createProgram(gl, DISPLAY_VERT, WC_INTERIOR_MARKER_FRAG)
+      this._interiorMarkerUni = getUniforms(gl, this._interiorMarkerProg, ['u_cost', 'u_blocked', 'u_texel', 'u_top', 'u_stage'])
+      this._interiorMarkerPos = gl.getAttribLocation(this._interiorMarkerProg, 'a_position')
+    }
+    const u = this._interiorMarkerUni
+    out.beginReplaceDraw()
+    gl.useProgram(this._interiorMarkerProg)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
+    gl.enableVertexAttribArray(this._interiorMarkerPos)
+    gl.vertexAttribPointer(this._interiorMarkerPos, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cost.texture); gl.uniform1i(u.u_cost, 0)
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, blocked.texture); gl.uniform1i(u.u_blocked, 1)
+    gl.uniform2f(u.u_texel, 1 / out.width, 1 / out.height)
+    gl.uniform1f(u.u_top, top); gl.uniform1f(u.u_stage, stage)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    out.endDraw()
+  }
+
   initFieldPrograms(): void {
+    // init also runs after context restore; the old lazy handle is invalid.
+    this._interiorMarkerProg = null
+    this._interiorMarkerUni = {}
+    this._interiorMarkerPos = -1
     const { gl } = this
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
@@ -342,8 +372,8 @@ export class WatercolorPasses {
     const { gl } = this
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_wcNoiseTex', 'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
@@ -375,7 +405,7 @@ export class WatercolorPasses {
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
     if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg].includes(current)) {
+      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._interiorMarkerProg].includes(current)) {
       this.gl.useProgram(null)
     }
     this.gl.deleteProgram(this._fieldOpProg)
@@ -386,5 +416,7 @@ export class WatercolorPasses {
     this.gl.deleteProgram(this._diffuseProg)
     this.gl.deleteProgram(this._brushDragProg)
     this.gl.deleteProgram(this._waterFrontProg)
+    if (this._interiorMarkerProg) this.gl.deleteProgram(this._interiorMarkerProg)
+    this._interiorMarkerProg = null
   }
 }

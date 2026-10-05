@@ -3381,7 +3381,7 @@ export const WC_FIELD_OP_FRAG = `
       // Experimental interior supply, separate from the outward carry.
       // Both ends and intermediate probes stay in the same zero-cost film.
       // The symmetric transfer is an integer number of RGBA8 carrier codes.
-      if (u_band.y > 0.5) {
+      if (u_band.y > 0.5 && u_band.y < 1.5) {
         if (ci < 0.5 / 255.0) {
           float blockedI = wcBlockedInterior(v_uv);
           for (int k = 0; k < 4; k++) {
@@ -3425,7 +3425,8 @@ export const WC_FIELD_OP_FRAG = `
       if (ci <= u_band.x) {
         float ws[4];
         float wsum = 0.0;
-        for (int k = 0; k < 4; k++) { ws[k] = wcCarryWeight(ci, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
+        float allowed = u_band.y > 1.5 ? step(0.5, texture2D(u_e, v_uv).r) : 1.0;
+        for (int k = 0; k < 4; k++) { ws[k] = allowed * wcCarryWeight(ci, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
         for (int k = 0; k < 4; k++) {
           vec2 uvj = v_uv + wcCarryDir(k) * u_dir;
           if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
@@ -3447,6 +3448,7 @@ export const WC_FIELD_OP_FRAG = `
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
           if (cj > u_band.x) continue;
+          if (u_band.y > 1.5 && texture2D(u_e, uvj).r < 0.5) continue;
           int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
           float wj = 0.0, wme = 0.0;
           for (int mm = 0; mm < 4; mm++) {
@@ -5765,4 +5767,45 @@ export const WC_BRUSH_DRAG_FRAG = `
     }
     gl_FragColor=result/255.0;
   }
+`;
+
+/** Isolated experimental topology marker; no change to bookkeeping shader. */
+export const WC_INTERIOR_MARKER_FRAG = `
+ precision highp float;
+ uniform sampler2D u_cost;
+ uniform sampler2D u_blocked;
+ uniform vec2 u_texel;
+ uniform float u_top;
+ uniform float u_stage;
+ varying vec2 v_uv;
+ float zeroAt(vec2 uv) {
+   if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 0.0;
+   return 1.0-step(0.5/255.0,texture2D(u_cost,uv).r);
+ }
+ vec2 axis(int k) {
+   if(k==0)return vec2(1.0,0.0);
+   if(k==1)return vec2(-1.0,0.0);
+   if(k==2)return vec2(0.0,1.0);
+   return vec2(0.0,-1.0);
+ }
+ void main() {
+   float m=zeroAt(v_uv);
+   if(m<0.5){gl_FragColor=vec4(0.0,0.0,0.0,1.0);return;}
+   if(u_stage<0.5) {
+     for(int k=0;k<4;k++)m*=zeroAt(v_uv+axis(k)*u_texel*u_top);
+   } else {
+     float connected=texture2D(u_blocked,v_uv).r;
+     for(int j=0;j<3;j++) {
+       float stride=16.0*pow(2.0,float(j));
+       if(stride>u_top)continue;
+       for(int k=0;k<4;k++) {
+         vec2 delta=axis(k)*u_texel*stride;
+         float path=zeroAt(v_uv+delta)*zeroAt(v_uv+delta*0.25)*zeroAt(v_uv+delta*0.5)*zeroAt(v_uv+delta*0.75);
+         connected=max(connected,path*texture2D(u_blocked,v_uv+delta).r);
+       }
+     }
+     m*=connected;
+   }
+   gl_FragColor=vec4(m,0.0,0.0,1.0);
+ }
 `;

@@ -161,3 +161,86 @@ it('keeps interior supply coupled to the pre-step pigment without aliasing eithe
     fields.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
   }
 })
+
+it('keeps topology markers outside pigment outputs and returns both temporary buffers', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 256, height: 256 })
+  const probe = engine as unknown as Probe
+  const tile = probe._ribbonScratchPool.acquire(256, 256)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile)
+  scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  const markers = vi.spyOn(probe._watercolorPasses, 'interiorMarker')
+  const fields = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+  const release = vi.spyOn(probe._ribbonScratchPool, 'release')
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 40, minY: 40, maxX: 216, maxY: 216 }, 0, 65, 1, 1, 1, 1)!
+    for (const op of plan.ops) op()
+    expect(markers.mock.calls).toHaveLength(2)
+    const blocked = markers.mock.calls[0][0], marker = markers.mock.calls[1][0]
+    expect(marker).not.toBe(blocked)
+    expect(markers.mock.calls[1][2]).toBe(blocked)
+    const resweep = fields.mock.calls.filter(c => c[5]?.band?.[1] === 2)
+    expect(resweep.length).toBeGreaterThan(0)
+    for (const call of resweep) {
+      expect(call[5]?.e).toBe(marker)
+      expect(call[0]).not.toBe(marker)
+      expect(call[0]).not.toBe(blocked)
+    }
+    plan.finish()
+    expect(release.mock.calls.filter(c => c[0] === marker)).toHaveLength(1)
+    expect(release.mock.calls.filter(c => c[0] === blocked)).toHaveLength(1)
+  } finally {
+    markers.mockRestore(); fields.mockRestore(); release.mockRestore()
+    scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+  }
+})
+
+it('disposes marker buffers if a prepared settle is abandoned before its first GPU step', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 256, height: 256 })
+  const probe = engine as unknown as Probe
+  const tile = probe._ribbonScratchPool.acquire(256, 256)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile)
+  scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  const planOwner = probe._settlePlan as unknown as { _pendingInteriorMarkers: Set<AccumulationBuffer> }
+  probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+    { minX: 40, minY: 40, maxX: 216, maxY: 216 }, 0, 65, 1, 1, 1, 1)
+  const markers = [...planOwner._pendingInteriorMarkers]
+  expect(markers).toHaveLength(2)
+  const destroys = markers.map(marker => vi.spyOn(marker, 'destroy'))
+  scratch.destroy(); probe._ribbonScratchPool.release(tile)
+  engine.destroy()
+  for (const spy of destroys) { expect(spy).toHaveBeenCalledTimes(1); spy.mockRestore() }
+  expect(planOwner._pendingInteriorMarkers.size).toBe(0)
+})
+
+it('returns the first marker when the second allocation fails', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 256, height: 256 })
+  const probe = engine as unknown as Probe
+  const tile = probe._ribbonScratchPool.acquire(256, 256)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile)
+  scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  const owner = probe._settlePlan as unknown as { _pendingInteriorMarkers: Set<AccumulationBuffer> }
+  const original = probe._ribbonScratchPool.acquire.bind(probe._ribbonScratchPool)
+  let first: AccumulationBuffer | undefined
+  const acquire = vi.spyOn(probe._ribbonScratchPool, 'acquire').mockImplementation((w, h) => {
+    if (owner._pendingInteriorMarkers.size === 1) {
+      first = [...owner._pendingInteriorMarkers][0]
+      throw new Error('marker allocation failure')
+    }
+    return original(w, h)
+  })
+  const release = vi.spyOn(probe._ribbonScratchPool, 'release')
+  try {
+    expect(() => probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 40, minY: 40, maxX: 216, maxY: 216 }, 0, 65, 1, 1, 1, 1)).toThrow('marker allocation failure')
+    expect(first).toBeDefined()
+    expect(release.mock.calls.filter(call => call[0] === first)).toHaveLength(1)
+    expect(owner._pendingInteriorMarkers.size).toBe(0)
+  } finally {
+    acquire.mockRestore(); release.mockRestore()
+    scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+  }
+})
