@@ -63,6 +63,7 @@ export class RibbonStrokePainter {
   diagnosticPigmentRecord = true
   diagnosticSharedFluid = true
   diagnosticLandingReservoir = true
+  diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'legacy'
   diagnosticSolventField = false
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
   private diagnosticDepth = 0
@@ -556,7 +557,9 @@ export class RibbonStrokePainter {
         // carries the nominal pigment setting, so only the remaining *fraction*
         // multiplies it here.
         // (#536, §17.21) …and a clean-water brush does not run down at all.
-        const load = profile.waterDepletion && watercolorBrushRunsDry(profile.pigmentStrength) ? watercolorWaterLoad(used) : 1
+        const spendsWater = segmentMode && this.diagnosticWaterPolicy !== 'legacy'
+          ? this.diagnosticWaterPolicy === 'finite' : watercolorBrushRunsDry(profile.pigmentStrength)
+        const load = profile.waterDepletion && spendsWater ? watercolorWaterLoad(used) : 1
         const water = profile.waterDepletion ? profile.waterLevel * load : 1
         // (#536, §17.14) …by the brush's water: a wet brush spends the same
         // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
