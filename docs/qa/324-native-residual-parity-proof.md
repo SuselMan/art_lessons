@@ -53,3 +53,9 @@ Chisel57px/pressure.43,15move(x100+i*12,y150+i*2), те же controlled seed/tim
 ## Root integration
 
 Исходники463d1082 перенесены в324-watercolor-transition после foreignV c206. Canonical radius включён только в существующем DEV VITE_WC_REVIEW entry; production defaults сохранены. Root actual workspace typecheck PASS до единственной boolean строки entry,9 targeted CPU tests PASS; канонический экспорт и reveal retirement проверены отдельно после объединения.
+
+## Root combined Samsung proof (c1997fee / 5301)
+
+SM-T970, отдельная create?qa=root-combined-20261006 вкладка. Обычный native round40px pressure.7,100 воды/15 пигмента,15 move, затем Dry, канонический экспорт, undo/redo и rebuild. Автоматические DEV combined/V/bottomless/foreign/canonicalRadius flags проверены без изменения через console. Все фазовые getError0; contextLostfalse;26 уникально salted cold shader links,0 failed. Sharp raw PNG oracle2000×1200: native vs rebuild **0 разных пикселей/max0/mean0**; redo vs rebuild byte-exact. В прежнем root single-line canonical export контроль был525px/max12. Этот новый реальный контроль подтверждает parity данного native мазка на Samsung; не универсальное доказательство всех rooms/chunks.
+
+Артефакты root temp/wc-runs/own-water/native-combined-samsung.json, native-combined-samsung-metrics.json, native-combined-before-samsung.png и solvent-combined-native-samsung.png. Собственная QA вкладка закрыта, forward9233 удалён, пользовательские вкладки не менялись.
