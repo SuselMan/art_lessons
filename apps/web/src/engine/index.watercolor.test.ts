@@ -606,7 +606,7 @@ describe('a wash reaches every path that paints (#468)', () => {
     engine['_display']()
     expect(drawReveal).toHaveBeenCalled()
     drawReveal.mockClear()
-    const composite = engine['_exporter'].buildContentComposite({ x: 0, y: 0, w: 64, h: 64 })
+    const composite = engine['_exporter'].buildContentComposite({ x: 0, y: 0, width: 64, height: 64 })
     expect(composite).not.toBeNull()
     expect(drawReveal).not.toHaveBeenCalled()
     expect(reveals(engine)).toEqual(held)
