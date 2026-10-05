@@ -32,7 +32,7 @@ P/depth; patterned V GPU fixture snapshot/restore, spill/unspill и next-film ba
 4MiB persistent V/tile,9MiB canonical1536 field,4MiB/tile в checkpoint.
 
 V field принадлежит scratch/wash: иностранная wetness/contact маска пока не
-импортирует V другого wash. Root Samsung QA проводится отдельно. V не переносится
+импортирует V другого wash. Root Samsung QA выполнен на фиксированном source: direct100, prewater15 и dry-on-water того же wash. Во всех трёх 26 холодных link, 0 failed, GL0/contextlost false, сухой PNG append/rebuild побайтно одинаковый. Отдельная вкладка с уникальным QA URL закрыта после проверки. V не переносится
 с expanding water front: во fringe возможна wet coverage без V, блокирующая
 последующий перенос P/V. Нельзя заполнять fringe константой без water accounting.
 Не изменены pickup/self-refill, политика расхода кисти и current-stroke wet sampling.
