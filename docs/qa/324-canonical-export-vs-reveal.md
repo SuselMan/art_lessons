@@ -27,3 +27,25 @@ Unit index.watercolor.test.ts: exports canonical tiles without stopping the on-s
 Артефакты temp/policy/source-ab-canonical/{report.json,metrics.json,native.png,after.png}; source/index.ts и LayerCompositor.ts на home совпадали по SHA256 с 743adafd перед запуском. Экранное движение подтверждено прежним morph QA; routing unit доказывает, что этот patch не отключает on-screen reveal. Отдельный real moving-frame proof этого export-only изменения и Samsung native export smoke ещё не сделаны.
 
 Артефакты own temp/policy/source-ab-{nodisplay,noop,noprepare}/report.json + PNG/raw; harness source-ab-canonical.mjs подготовлен. Home5316 update sync завершился; оба изменённых source-файла сверены по SHA перед реальным запуском. Ни5297, ни5313 не менялись.
+
+## Проверка основной рабочей копии и Samsung
+
+Root7fdcc459 сохраняет делегирование через _drawCompositeItem с optional
+includeWashReveal и исправляет ExportRect теста (width/height). После извлечения
+advanceSolventSource его segmentMode передаётся как boolean (!!). Настоящая
+проверка `npm run typecheck --workspace @grafetto/web` прошла; canonical routing
+regression unit прошёл после исправления типов. Ранние сообщения о typecheck PASS
+для743/99a не подтверждали эти три ошибки в app-конфигурации.
+
+Samsung5316, runtime743: native один короткий штрих, Dry, экспорт при reveal map1,
+undo/redo и полная перерисовка. GL0 до/после undo/redo и в конце, contextLost=false,
+26 salted cold links/0 failed. Экспорт сохраняет reveal map1. Native canonical
+PNG против rebuild:525 pixels, max12, meanRGBA.0003915625 на2000×1200; exact
+parity не заявляется. Redo против full rebuild byte-exact. Случай очень маленький,
+не доказывает память/плавность больших рисунков.
+
+Две экранные выборки этой harness дали frameChanged0, поэтому это НЕ новое
+доказательство живого движения и не новая диагностика его регрессии. Routing
+unit и предыдущий полноценный morph QA отделяются от этого export smoke.
+Своя QA вкладка закрыта, forward9233 снят. Файлы roottemp/wc-runs/own-water/
+native-export-{samsung.json,samsung-metrics.json,before-samsung.png,after-samsung.png}.
