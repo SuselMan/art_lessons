@@ -58,8 +58,8 @@ export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: num
       y0 = Math.min(y0, d.y - ey); y1 = Math.max(y1, d.y + ey)
       radius = Math.max(radius, d.radius)
     }
-    x0 = Math.max(rect.x, Math.floor(x0)); y0 = Math.max(rect.y, Math.floor(y0))
-    x1 = Math.min(rect.x + rect.w, Math.ceil(x1)); y1 = Math.min(rect.y + rect.h, Math.ceil(y1))
+    x0 = Math.max(rect.x, Math.floor(x0) - 4); y0 = Math.max(rect.y, Math.floor(y0) - 4)
+    x1 = Math.min(rect.x + rect.w, Math.ceil(x1) + 4); y1 = Math.min(rect.y + rect.h, Math.ceil(y1) + 4)
     if (x1 > x0 && y1 > y0) {
       const bounds = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
       contacts.push({ rect: bounds, field: brushDragField(group, bounds)!, radius })
@@ -69,7 +69,7 @@ export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: num
   for (const d of travel) {
     if (d.water <= 0 || Math.hypot(d.dx, d.dy) < 0.01) continue
     group.push(d); distance += Math.hypot(d.dx, d.dy)
-    if (distance >= Math.max(1, d.radius * 1.5)) flush()
+    if (distance >= Math.max(1, d.radius * 0.5)) flush()
   }
   flush()
   return contacts

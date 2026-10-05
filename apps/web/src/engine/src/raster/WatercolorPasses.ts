@@ -79,7 +79,7 @@ export class WatercolorPasses {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number] } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number] } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -109,6 +109,11 @@ export class WatercolorPasses {
     gl.activeTexture(gl.TEXTURE3)
     gl.bindTexture(gl.TEXTURE_2D, (opts.d ?? b).texture)
     gl.uniform1i(u.u_d, 3)
+    if (mode === 18 && opts.e) {
+      gl.activeTexture(gl.TEXTURE4)
+      gl.bindTexture(gl.TEXTURE_2D, opts.e.texture)
+      gl.uniform1i(u.u_e, 4)
+    }
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform1f(u.u_k, k)
     gl.uniform1f(u.u_mode, mode)
@@ -253,6 +258,7 @@ export class WatercolorPasses {
     field: WatercolorPassField, flowTexture: WebGLTexture, radiusPx: number, S: number,
     source: AccumulationBuffer, out: AccumulationBuffer, pigment: AccumulationBuffer,
     flowRect: [number, number, number, number], scissor: [number, number, number, number],
+    colorReference: AccumulationBuffer, pulseGain: number,
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -268,6 +274,12 @@ export class WatercolorPasses {
     }
     const step = Math.max(1, Math.round(radiusPx * 0.25 / S))
     gl.uniform2f(u.u_step, step / field.w, step / field.h)
+    gl.uniform1f(u.u_contactGain, pulseGain)
+    gl.uniform2f(u.u_texel, 1 / pigment.width, 1 / pigment.height)
+    gl.activeTexture(gl.TEXTURE4)
+    gl.bindTexture(gl.TEXTURE_2D, colorReference.texture)
+    gl.uniform1i(u.u_color, 4)
+    gl.activeTexture(gl.TEXTURE0)
     gl.uniform4fv(u.u_flowRect, flowRect)
     gl.enable(gl.SCISSOR_TEST)
     gl.scissor(...scissor)
@@ -321,7 +333,7 @@ export class WatercolorPasses {
     const { gl } = this
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
-    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect'])
+    this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect', 'u_color', 'u_contactGain', 'u_texel'])
     this._brushDragPosLoc = gl.getAttribLocation(this._brushDragProg, 'a_position')
     this._waterFrontProg      = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_FRAG)
   }
@@ -329,7 +341,7 @@ export class WatercolorPasses {
   initFieldUniforms(): void {
     const { gl } = this
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])

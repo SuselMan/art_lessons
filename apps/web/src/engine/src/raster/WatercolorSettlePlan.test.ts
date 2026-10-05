@@ -54,3 +54,51 @@ describe('coupled pigment and absorption diffusion', () => {
     })
   }
 })
+
+for (const radius of [8, 200]) it(`keeps paired brush state and executes every pulse (radius=${radius})`, () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  probe._wcAb.opDry = true
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile)
+  scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  scratch.brushTravel.push({ x: 32, y: 32, radius, aspect: 1, angle: 0, dx: radius * 4, dy: 0, water: 1 })
+  const remob = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+  const brush = vi.spyOn(probe._watercolorPasses, 'brushPass')
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.4, radius, 1, 1, 1, 1)
+    expect(plan).not.toBeNull()
+    const multiplicities = new Map<() => void, number>()
+    for (const op of plan!.ops) multiplicities.set(op, (multiplicities.get(op) ?? 0) + 1)
+    const repeatedPulses = Math.max(...multiplicities.values())
+    if (radius === 200) expect(repeatedPulses).toBeGreaterThan(64)
+    for (const op of plan!.ops) op()
+    const calls = brush.mock.calls
+    expect(calls).toHaveLength(repeatedPulses * 2)
+    expect(calls.length).toBeGreaterThan(2)
+    expect(calls.length % 2).toBe(0)
+    for (let i = 0; i < calls.length; i += 2) {
+      const colour = calls[i], pigment = calls[i + 1]
+      expect(colour[6]).toBe(pigment[4])
+      expect(pigment[6]).toBe(pigment[4])
+      expect(colour[9]).toBe(colour[4])
+      expect(pigment[9]).toBe(colour[4])
+      expect(colour[5]).not.toBe(pigment[5])
+      expect(colour[8]).toEqual(pigment[8])
+      expect(colour[10]).toBe(pigment[10])
+      expect(colour[2]).toBe(4 * colour[3])
+    }
+    const wet = remob.mock.calls.filter(call => call[3] === 18)
+    expect(wet).toHaveLength(2)
+    const colourWet = wet[0], pigmentWet = wet[1]
+    expect(colourWet[5]?.origin?.[1]).toBe(1)
+    expect(colourWet[5]?.c).toBe(pigmentWet[1])
+    expect(colourWet[5]?.e).toBe(pigmentWet[2])
+    expect(pigmentWet[5]?.origin?.[1]).toBe(0)
+    expect(colourWet[5]?.origin?.[0]).toBe(pigmentWet[5]?.origin?.[0])
+  } finally {
+    remob.mockRestore(); brush.mockRestore()
+    scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+  }
+})

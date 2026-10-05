@@ -580,9 +580,16 @@ export class RibbonStrokePainter {
         scratch.brakePigment = watercolorBrakeSurplus(scratch.brakePigment, spent, WC_SLOW_GAIN * slow * pigmentGate, speedElapsed)
         scratch.turnOffset[0] += dx; scratch.turnOffset[1] += dy
         if (Math.hypot(...scratch.turnOffset) >= Math.max(1.5, minor * 0.12)) {
-          // A geometric corner changes direction, not the pigment supply.
-          // Braking still unloads through its elapsed-time reservoir above.
+          // Tight curvature unloads the carried pigment reservoir. A wide
+          // smooth bend spends the angle through its travelled chord.
           const direction = scratch.turnOffset
+          const priorTurnDirection = scratch.turnDirection
+          if (priorTurnDirection && Math.hypot(priorTurnDirection[0], priorTurnDirection[1]) > 0.01) {
+            const turnAngle = Math.abs(Math.atan2(priorTurnDirection[0] * direction[1] - priorTurnDirection[1] * direction[0], priorTurnDirection[0] * direction[0] + priorTurnDirection[1] * direction[1]))
+            const normalizedChord = Math.hypot(direction[0], direction[1]) / Math.max(minor, 0.5)
+            const angularPigmentImpulse = Math.max(turnAngle - 1.0 * normalizedChord, 0.0) / Math.PI
+            scratch.brakePigment = Math.min(0.6, scratch.brakePigment + 0.3 * angularPigmentImpulse * pigmentGate)
+          }
           scratch.turnDirection = [...direction]
           scratch.turnOffset = [0, 0]
         }
@@ -612,10 +619,12 @@ export class RibbonStrokePainter {
         // formula's 0.5 assumed an even split with the bands.
         const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
         // (§17.28) Under MAX the stamp's value IS the film: spacing-free.
+        // Store half the physical dose: RGBA8 then has headroom for two
+        // overlapping loads. The watercolor passes decode this scale.
         deposits.push(profile.normalizeDeposit
           ? (film
-            ? profile.depositPerRadius * WC_FILM_DOSE * pigmentLeft * excess
-            : profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft * excess)
+            ? (profile.depositPerRadius * 0.5) * WC_FILM_DOSE * pigmentLeft * excess
+            : (profile.depositPerRadius * 0.5) * (seg / radius) * 0.5 * stampShare * pigmentLeft * excess)
           : dab.opacity * seg * 0.5 * thinNibGain(dab, prev?.x ?? dab.x, prev?.y ?? dab.y))
         prev = dab
       }
@@ -707,8 +716,8 @@ export class RibbonStrokePainter {
         // stroke was cut into pointer events cannot change the result.
         return {
           ink: (film
-            ? profile.depositPerRadius * WC_FILM_DOSE * 2
-            : profile.depositPerRadius * (travel / radius) * 0.5 * ((1 - profile.stampInkShare) * 2))
+            ? (profile.depositPerRadius * 0.5) * WC_FILM_DOSE * 2
+            : (profile.depositPerRadius * 0.5) * (travel / radius) * 0.5 * ((1 - profile.stampInkShare) * 2))
             * (pigmentByDab.get(d1) ?? 1)
             * (excessByDab.get(d1) ?? 1)
             // (#536) …less what this dab shed into standing water — see the

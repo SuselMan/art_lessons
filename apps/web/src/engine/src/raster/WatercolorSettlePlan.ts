@@ -548,16 +548,24 @@ export class WatercolorSettlePlan {
       // record alike. `a` and `spare` are the temporaries.
       const remobFloor = groupDry ? 1 : WC_REMOB_DOME
       if (first && merge > 0) ops.push(() => {
-        this.ctx.passes().fieldOp(a, c, b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
-        this.ctx.passes().fieldOp(spare, b, c, 3, 0, { c: a })
-        fieldOp(c, a, a, 1, 0)
-        fieldOp(b, spare, spare, 1, 0)
         if (colour) {
-          this.ctx.passes().fieldOp(a, colour.c, colour.b, 18, merge, { d: field.band, origin: [remobFloor, 0] })
+          this.ctx.passes().fieldOp(a, colour.c, colour.b, 18, merge, {
+            d: field.band,
+            c,
+            e: b,
+            origin: [remobFloor, 1],
+          })
           this.ctx.passes().fieldOp(spare, colour.b, colour.c, 3, 0, { c: a })
           fieldOp(colour.c, a, a, 1, 0)
           fieldOp(colour.b, spare, spare, 1, 0)
         }
+        this.ctx.passes().fieldOp(a, c, b, 18, merge, {
+          d: field.band,
+          origin: [remobFloor, 0],
+        })
+        this.ctx.passes().fieldOp(spare, b, c, 3, 0, { c: a })
+        fieldOp(c, a, a, 1, 0)
+        fieldOp(b, spare, spare, 1, 0)
       })
       // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
       // and the wash under it are one liquid, and the paint in it - the
@@ -726,20 +734,45 @@ export class WatercolorSettlePlan {
 
     // Sweep contacts in recorded order. Optical depth and pigment use the
     // same pre-contact pigment, before either result is copied back.
-    for (const contact of contacts) ops.push(() => {
-      if (!flowTexture) return
-      const cf = contact.field, cr = contact.rect
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, flowTexture)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cf.width, cf.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, cf.pixels)
-      const rect: [number, number, number, number] = [(cr.x - x0) / (field.w * S), 1 - (cr.y + cr.h - y0) / (field.h * S), cr.w / (field.w * S), cr.h / (field.h * S)]
-      const left = Math.max(0, Math.floor((cr.x - x0) / S)), right = Math.min(field.w, Math.ceil((cr.x + cr.w - x0) / S))
-      const bottom = Math.max(0, Math.floor(field.h - (cr.y + cr.h - y0) / S)), top = Math.min(field.h, Math.ceil(field.h - (cr.y - y0) / S))
-      const scissor: [number, number, number, number] = [left, bottom, right - left, top - bottom]
-      this.ctx.passes().brushPass(field, flowTexture, contact.radius, S, col.out, field.band, dep.out, rect, scissor)
-      this.ctx.passes().brushPass(field, flowTexture, contact.radius, S, dep.out, field.pressure, dep.out, rect, scissor)
-      field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
-      field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
-    })
+    for (const contact of contacts) {
+      // Split the accumulated contact exposure into one-cell exchanges.
+      // Each pulse stays within the shared pigment/colour capacity bound.
+      let maxExposure = 0
+      for (let i = 2; i < contact.field.pixels.length; i += 4) {
+        maxExposure = Math.max(maxExposure, -Math.log(Math.max(1 - contact.field.pixels[i] / 255, 1 / 255)))
+      }
+      const substeps = Math.max(1, Math.ceil(0.2 * contact.radius / S * maxExposure * Math.SQRT2 / 0.84))
+      const contactGain = 0.2 * contact.radius / (substeps * S)
+      let rect: [number, number, number, number], scissor: [number, number, number, number]
+      let left: number, right: number, bottom: number, top: number
+      ops.push(() => {
+        if (!flowTexture) return
+        const cf = contact.field, cr = contact.rect
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, flowTexture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cf.width, cf.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, cf.pixels)
+        rect = [(cr.x - x0) / (field.w * S), 1 - (cr.y + cr.h - y0) / (field.h * S), cr.w / (field.w * S), cr.h / (field.h * S)]
+        // The face stencil reaches one canonical texel beyond the flow rect.
+        // Draw and copy both records over that same halo to retain every pair.
+        left = Math.max(0, Math.floor((cr.x - x0) / S) - 1)
+        right = Math.min(field.w, Math.ceil((cr.x + cr.w - x0) / S) + 1)
+        bottom = Math.max(0, Math.floor(field.h - (cr.y + cr.h - y0) / S) - 1)
+        top = Math.min(field.h, Math.ceil(field.h - (cr.y - y0) / S) + 1)
+        scissor = [left, bottom, right - left, top - bottom]
+      })
+      const exchange = (): void => {
+        if (!flowTexture) return
+        // Both draws read the same pre-pulse P/C. Copy back only after both
+        // outputs exist; the existing settle scheduler yields between pulses.
+        this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, col.out, field.band, dep.out, rect, scissor, col.out, contactGain)
+        this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, dep.out, field.pressure, dep.out, rect, scissor, col.out, contactGain)
+        field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
+        field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
+      }
+      // Pulses share immutable contact geometry; reuse one closure while
+      // retaining every scheduler operation and its chronological order.
+      for (let sub = 0; sub < substeps; sub++) ops.push(exchange)
+    }
 
     // (§17.42) The provisional dry target: the wet result with the one tide
     // along the whole wash's contour, into the deposit and colour buffers

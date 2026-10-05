@@ -271,6 +271,14 @@ const WC_NOISE_GLSL = `
     float n = wcFbm(wp * 0.03 + seed * 1.7 + vec2(13.0, 5.0));
     return mix(1.0, 0.4 + 1.2 * smoothstep(0.3, 0.7, n), pool);
   }
+float wcFilmBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on, float brushWater, float pigmentOn) {
+    if (pigmentOn < 0.5) return wcPoolBlot(wp, seed, puddle, paperWet, on);
+    float pool = on * clamp(max(puddle, 0.0 * clamp(brushWater, 0.0, 1.0) * (1.0 - clamp(paperWet, 0.0, 1.0))), 0.0, 1.0);
+    if (pool <= 0.0) return 1.0;
+    float n = wcFbm(wp * 0.055 + seed * 1.7 + vec2(13.0, 5.0));
+    return 1.0 + pool * 0.85 * (2.0 * smoothstep(0.3, 0.7, n) - 1.0);
+}
+
 
   // (#536, ADR 011 §17.4) The wash's own coarse unevenness — where the water
   // pooled, where the brush unloaded — applied where the paint is **laid**
@@ -526,7 +534,7 @@ ${WC_NOISE_GLSL}
     float mottle = u_mode > 0.5
       ? wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
         * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
-        * wcPoolBlot(mottleWp, u_mottleSeed, v_pigmentPool, v_ink > 1e-6 ? v_inkWet / v_ink : 0.0, u_poolBlot)
+        * wcFilmBlot(mottleWp, u_mottleSeed, v_pigmentPool, v_ink > 5e-7 ? v_inkWet / v_ink : 0.0, u_poolBlot, v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0, step(5e-7, abs(v_inkStrength)))
       : 1.0;
     float tip = wcTipContact(v_across, u_bristleCombs, mottleWp, v_tipPressure);
     float amount = (u_mode > 0.5 ? cov * v_ink * mottle : cov) * tip;
@@ -563,8 +571,8 @@ ${WC_NOISE_GLSL}
     // so a stroke's own puddle existed only in the caps its stamps left
     // uncovered - a row of crescents, "зубья в лужах" - and the hair comb
     // read every band as bone dry.
-    float bandWater = v_ink > 1e-6 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0;
-    float bandWet = v_ink > 1e-6 ? clamp(v_inkWet / v_ink, 0.0, 1.0) : 0.0;
+    float bandWater = v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0;
+    float bandWet = v_ink > 5e-7 ? clamp(v_inkWet / v_ink, 0.0, 1.0) : 0.0;
     // (#536, s17.13) The hairs vary the delivery, here, into the deposit -
     // see wcHairAmp. The across coordinate is this band's own, so a hair is
     // a fixed place in the brush and its streak follows the brush round a
@@ -577,8 +585,8 @@ ${WC_NOISE_GLSL}
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
       ? (u_depthWrite > 0.5
-          ? vec4(amount * abs(v_inkStrength) * u_tau / WC_DEPTH_SCALE, amount * abs(v_inkStrength))
-          : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * abs(v_inkStrength) * mottle, amount))
+          ? vec4(amount * (abs(v_inkStrength) / max(v_ink, 5e-7)) * u_tau / WC_DEPTH_SCALE, amount * (abs(v_inkStrength) / max(v_ink, 5e-7)))
+          : vec4(amount * bandWater, amount * bandWet, amount * (abs(v_inkStrength) / max(v_ink, 5e-7)), amount))
       : vec4(acrossEncoded * amount, amount * wcPoolness(v_puddle, bandWet, u_poolBlot) * step(0.0, v_inkStrength), amount * max(bandWet, v_puddle * u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
   }
 `;
@@ -1092,7 +1100,7 @@ ${WC_NOISE_GLSL}
     s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5,  rPx * C30) * texel);
     s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5, -rPx * C30) * texel);
     s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5, -rPx * C30) * texel);
-    return s * 0.0714286;
+    return (s * 0.0714286) * 2.0;
   }
 
   /** Mean stroke coverage on a ring of radius rPx, twelve taps. A stagger above
@@ -1198,7 +1206,7 @@ ${WC_NOISE_GLSL}
            + texture2D(u_inkLoad, uv + vec2( -s, 0.0) * texel)
            + texture2D(u_inkLoad, uv + vec2(0.0,   s) * texel)
            + texture2D(u_inkLoad, uv + vec2(0.0,  -s) * texel);
-    a *= 0.25;
+    a *= 0.5; // four-tap average then headroom record decode x2
     float dep = a.a;
     float wat = dep > 0.004 ? clamp(a.r / dep, 0.0, 1.0) : 0.0;
     // (#536) …and how wet the *paper* under it already was, which this pass did
@@ -1425,7 +1433,7 @@ ${WC_NOISE_GLSL}
       vec2 mottleWp = gl_FragCoord.xy + u_paperOrigin;
       amount *= wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
               * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
-              * wcPoolBlot(mottleWp, u_mottleSeed, u_puddle, u_paperWet, u_poolBlot);
+              * wcFilmBlot(mottleWp, u_mottleSeed, u_puddle, u_paperWet, u_poolBlot, u_inkWater, step(5e-7, abs(u_inkStrength)));
       // .a is the deposit; .rgb the same deposit weighted by how wet the brush
       // was for this dab. Both accumulate additively, so the composite's r/a is
       // the deposit-weighted mean water over everything that landed here — see
@@ -1577,7 +1585,7 @@ ${WC_NOISE_GLSL}
       // u_inkSmoothPx for the ripple this removes and why v3 made it visible.
       vec4 ink = u_inkSmoothPx > 0.0
         ? wcInkAvg(tileUV, texel, u_inkSmoothPx * 0.5)
-        : texture2D(u_inkLoad, tileUV);
+        : texture2D(u_inkLoad, tileUV) * 2.0;
       // (#536, s17.19) What colour the paint HERE is: the mass-weighted
       // geometric mean of the transmittances of everything laid on this
       // texel, exp(-D / m), read off the depth buffer - so two paints in one
@@ -1589,7 +1597,7 @@ ${WC_NOISE_GLSL}
       // and a bare ratio there is exp(0) - WHITE paint, which is what the
       // "светлые артефакты, после высыхания остались" were. With the prior
       // the fringe is the batch's colour and the body is the mixture.
-      vec4 depth = texture2D(u_inkColor, tileUV);
+      vec4 depth = texture2D(u_inkColor, tileUV) * 2.0;
       // (s17.26) …and the prior grows where the mass is thin: the front's
       // extension and a relocated rim's fringe hold a few codes of mass with
       // a depth rounded per channel, and a bare ratio there swung the hue
@@ -2071,7 +2079,11 @@ ${WC_NOISE_GLSL}
       // the record's own colour, so a mixture darkens as it should.
       float darkness = 1.0 - dot(paint, vec3(0.2126, 0.7152, 0.0722));
       float tint = 1.0 + WC_TINT_DARK * pow(darkness, 4.0);
-      float density = 1.0 - exp(-pigmentMass * tint / WC_DENSITY_K);
+      float linearThickness = pigmentMass * 0.55 / WC_DENSITY_K;
+      float effectiveThickness = linearThickness <= 1.0 ? linearThickness : 1.0 + 0.6 * (1.0 - exp(-(linearThickness - 1.0) / 0.6));
+      vec3 transmittance = exp(-tauHere * effectiveThickness);
+      float density = 1.0 - min(transmittance.r, min(transmittance.g, transmittance.b));
+      paint = density > 0.0001 ? clamp((transmittance - vec3(1.0 - density)) / density, 0.0, 1.0) : vec3(1.0);
 
       // §3.3 granulation - heavier pigment settles into the paper's pits while
       // the wash is still liquid and dries there. paperCatch is high on a fibre
@@ -2223,7 +2235,7 @@ ${WC_NOISE_GLSL}
       if (u_wcDebugView > 0.5) {
         // 4 = standing water as WC_DIFFUSE_FRAG gates on it; keep in step
         // with wcWaterAt there.
-        vec4 rawInk = texture2D(u_inkLoad, tileUV);
+        vec4 rawInk = texture2D(u_inkLoad, tileUV) * 2.0;
         vec4 rawCov = texture2D(u_strokeCoverage, tileUV);
         float nominalDbg = rawCov.a > 0.002 ? rawCov.b / rawCov.a : 0.0;
         float recordedDbg = rawInk.a > 0.002 ? rawInk.g / rawInk.a : 0.0;
@@ -3100,6 +3112,7 @@ export const WC_FIELD_OP_FRAG = `
    *  record (u_k) reach as far as the water did. */
   uniform vec2 u_dir;
   uniform sampler2D u_d;
+  uniform sampler2D u_e;
   uniform vec2 u_origin;
   uniform vec2 u_size;
   uniform vec2 u_band;
@@ -3297,11 +3310,20 @@ export const WC_FIELD_OP_FRAG = `
       // 1.0 under the group-dry oracle, where the earlier paint never dried
       // and all of it under the dome is one liquid with the new.
       float dome = texture2D(u_d, v_uv).a;
-      float share = max(a.a / max(a.a + b.a, 1e-4), u_origin.x * dome);
+      if (u_origin.y > 0.5) {
+        vec4 physicalMobile=texture2D(u_c,v_uv), physicalFixed=texture2D(u_e,v_uv);
+        float physicalShare=max(physicalMobile.a/max(physicalMobile.a+physicalFixed.a,5e-5),u_origin.x*dome);
+        vec4 physicalAdd=u_k*physicalShare*dome*physicalFixed;
+        float physicalRoom=max(1.0-max(max(physicalMobile.r,physicalMobile.g),max(physicalMobile.b,physicalMobile.a)),0.0);
+        float physicalPeak=max(max(physicalAdd.r,physicalAdd.g),max(physicalAdd.b,physicalAdd.a));
+        gl_FragColor=a+(u_k*physicalShare*dome*b)*min(1.0,physicalRoom/max(physicalPeak,5e-5));
+        return;
+      }
+      float share = max(a.a / max(a.a + b.a, 5e-5), u_origin.x * dome);
       vec4 add = u_k * share * dome * b;
       float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
       float peak = max(max(add.r, add.g), max(add.b, add.a));
-      gl_FragColor = a + add * min(1.0, room / max(peak, 1e-4));
+      gl_FragColor = a + add * min(1.0, room / max(peak, 5e-5));
       return;
     }
     if (u_mode > 16.5) {
@@ -3397,7 +3419,7 @@ export const WC_FIELD_OP_FRAG = `
           float capIJ = 2.0 * capI * capJ / (capI + capJ);
           // Give: my share toward j, of my excess over j, capped at what
           // travels here.
-          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 1e-4));
+          if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 5e-5));
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
           if (cj > u_band.x) continue;
@@ -3408,7 +3430,7 @@ export const WC_FIELD_OP_FRAG = `
             wj += w;
             if (mm == back) wme = w;
           }
-          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 1e-4));
+          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 5e-5));
         }
       }
       gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));
@@ -3436,11 +3458,11 @@ export const WC_FIELD_OP_FRAG = `
       // little. All of it (the design thread's "invisible pressure") made
       // a water stroke over a wet wash push nearly every grain of the wash
       // out from under itself: a white band with dark ragged edges.
-      float share = a.a / max(a.a + b.a, 1e-4);
+      float share = a.a / max(a.a + b.a, 5e-5);
       vec4 add = u_k * share * b * texture2D(u_d, v_uv).r;
       float room = max(1.0 - max(max(a.r, a.g), max(a.b, a.a)), 0.0);
       float peak = max(max(add.r, add.g), max(add.b, add.a));
-      gl_FragColor = a + add * min(1.0, room / max(peak, 1e-4));
+      gl_FragColor = a + add * min(1.0, room / max(peak, 5e-5));
       return;
     }
     if (u_mode > 11.5) {
@@ -3487,7 +3509,7 @@ export const WC_FIELD_OP_FRAG = `
       // its front runs out INTO the film by the paper's relief and stops a
       // cell short of the film's own cost: the ragged backrun inside a
       // stroke. Where no water stood, unreached.
-      float m = 1.0 - smoothstep(u_k, u_k * 4.0, a.a);
+      float m = 1.0 - smoothstep(u_k, u_k * 4.0, a.a * 2.0);
       float rel = b.b / max(u_band.y, 1e-4);
       float film = smoothstep(WC_SEED_FILM_LO, WC_SEED_FILM_HI, rel);
       float deep = smoothstep(WC_SEED_DEEP_LO, WC_SEED_DEEP_HI, rel);
@@ -3498,7 +3520,7 @@ export const WC_FIELD_OP_FRAG = `
       // edge ("подтёк внутри одного мазка"). The dwell test settled where
       // a hard line inside a stroke comes from: the landing puddle (deep
       // seed, backrun by dwell), not a drier stretch of film.
-      float cost = a.a > u_k ? mix(u_size.x, m * u_band.x, deep) : 1.0;
+      float cost = a.a * 2.0 > u_k ? mix(u_size.x, m * u_band.x, deep) : 1.0;
       gl_FragColor = vec4(cost, 0.0, 0.0, 1.0);
       return;
     }
@@ -3640,7 +3662,7 @@ export const WC_FIELD_OP_FRAG = `
       // stroke's batches round it differently from a replay's one pass; a
       // step there flips whole texels of the band between the two, a ramp
       // moves them by a fraction.
-      float m = smoothstep(u_k, u_k * 4.0, a.a);
+      float m = smoothstep(u_k, u_k * 4.0, a.a * 2.0);
       gl_FragColor = vec4(m, 0.0, 0.0, 1.0);
       return;
     }
@@ -3876,7 +3898,7 @@ export const WC_DIFFUSE_FRAG = `
         vec4 inkj = texture2D(u_ink, uvj);
         vec4 covj = texture2D(u_coverage, uvj);
         float wj = wcWaterAt(covj);
-        float density = max(texture2D(u_density, v_uv).a / max(cov.a, 0.002), texture2D(u_density, uvj).a / max(covj.a, 0.002));
+        float density = max((2.0 * texture2D(u_density, v_uv).a) / max(cov.a, 0.002), (2.0 * texture2D(u_density, uvj).a) / max(covj.a, 0.002));
         float gate = min(wi, wj) / (1.0 + 8.0 * density * density);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);
@@ -5666,7 +5688,12 @@ export const WC_BRUSH_DRAG_FRAG = `
     if (k == 2) return vec2(0.0, 1.0);
     return vec2(0.0, -1.0);
   }
-  float flux(vec2 from, vec2 to, vec2 direction) {
+  uniform sampler2D u_color;
+  uniform vec2 u_texel;
+  uniform float u_contactGain;
+  vec2 snapUV(vec2 uv){return (floor(uv/u_texel)+0.5)*u_texel;}
+  float rawFraction(vec2 from, vec2 to, vec2 direction) {
+    from=snapUV(from);to=snapUV(to);
     if (min(min(to.x, to.y), min(1.0-to.x, 1.0-to.y)) < 0.0 || min(min(from.x, from.y), min(1.0-from.x, 1.0-from.y)) < 0.0) return 0.0;
     vec3 flow = flowAt(from);
     vec2 velocity = flow.rg * 2.0 - 1.0;
@@ -5676,20 +5703,42 @@ export const WC_BRUSH_DRAG_FRAG = `
     contact *= step(0.015, texture2D(u_water, (from + to) * 0.5).a);
     float donor = texture2D(u_pigment, from).a;
     // Move wet material, with a conservative exchange down concentration.
-    // At most 0.18*sqrt(2) advection + 4*0.18 mixing leaves a donor.
+    // Symmetric face exposure preserves a uniform field instead of
+    // compressing paint along each elliptical contact boundary. The
+    // calibrated pulses bound exchange by 0.84 and mixing by 0.08.
     float neighbour = texture2D(u_pigment, to).a;
-    float mixFraction = 0.18 * max(donor - neighbour, 0.0) / max(donor, 1e-4);
-    float amount = (0.18 * max(dot(velocity, direction), 0.0) + mixFraction) * min(flow.b, flowAt(to).b) * contact;
-    float room = max(0.0, 1.0 - texture2D(u_pigment, to).a);
-    return min(amount, room / max(4.0 * donor, 1e-4));
+    float mixFraction = 0.02 * max(donor - neighbour, 0.0) / max(donor, 5e-5);
+    float doseB = min(flow.b, flowAt(to).b);
+    float contactClock = -log(max(1.0 - clamp(doseB, 0.0, 1.0), 1.0 / 255.0));
+    float amount = (0.3535533905932738 * u_contactGain * abs(dot(0.5 * (velocity + (flowAt(to).rg * 2.0 - 1.0)), direction)) * contactClock + mixFraction * doseB) * contact;
+    return amount;
+  }
+
+  float channelLimit(float q, float cap, float raw) {
+    if(q<0.5 || raw<=0.0)return 1.0;
+    return min(1.0,cap/(q*raw));
+  }
+  float integerFraction(vec2 from,vec2 to,vec2 direction) {
+    from=snapUV(from);to=snapUV(to);
+    float raw=rawFraction(from,to,direction);if(raw<=0.0)return 0.0;
+    vec4 P=floor(texture2D(u_pigment,from)*255.0+0.5), C=floor(texture2D(u_color,from)*255.0+0.5);
+    vec4 roomP=floor((255.0-floor(texture2D(u_pigment,to)*255.0+0.5))/4.0);
+    vec4 roomC=floor((255.0-floor(texture2D(u_color,to)*255.0+0.5))/4.0);
+    float limit=1.0;
+    limit=min(limit,channelLimit(P.r,roomP.r,raw));limit=min(limit,channelLimit(P.g,roomP.g,raw));
+    limit=min(limit,channelLimit(P.b,roomP.b,raw));limit=min(limit,channelLimit(P.a,roomP.a,raw));
+    limit=min(limit,channelLimit(C.r,roomC.r,raw));limit=min(limit,channelLimit(C.g,roomC.g,raw));
+    limit=min(limit,channelLimit(C.b,roomC.b,raw));limit=min(limit,channelLimit(C.a,roomC.a,raw));
+    return raw*limit;
   }
   void main() {
-    vec4 own = texture2D(u_paint, v_uv), result = own;
-    for (int k=0; k<4; k++) {
-      vec2 dir = axis(k), neighbour = v_uv + dir * u_step;
-      result -= own * flux(v_uv, neighbour, dir);
-      result += texture2D(u_paint, neighbour) * flux(neighbour, v_uv, -dir);
+    vec2 center=snapUV(v_uv);
+    vec4 own=floor(texture2D(u_paint,center)*255.0+0.5), result=own;
+    for(int k=0;k<4;k++) {
+      vec2 dir=axis(k), neighbour=snapUV(center+dir*u_step);
+      result-=floor(own*integerFraction(center,neighbour,dir));
+      result+=floor(floor(texture2D(u_paint,neighbour)*255.0+0.5)*integerFraction(neighbour,center,-dir));
     }
-    gl_FragColor = max(result, vec4(0.0));
+    gl_FragColor=result/255.0;
   }
 `;
