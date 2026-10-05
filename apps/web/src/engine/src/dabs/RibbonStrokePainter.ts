@@ -1,3 +1,4 @@
+import { advanceSolventSource } from '../watercolor/solventSource'
 import type { Dab } from '@grafetto/shared'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
@@ -9,7 +10,7 @@ import { markerThinNibInkGain } from '../dabs/markerInkGain'
 import { wetAt, wetPeak } from '../paper/paperWetness'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from '../dabs/ribbonProfile'
-import { watercolorFerrulePx, watercolorWaterLoad, watercolorStandingWater, watercolorBrushRunsDry, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterStep, watercolorWaterClock, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
+import { watercolorFerrulePx, watercolorStandingWater, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, watercolorPigmentLoad, watercolorPigmentRate, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { EMPTY_BANDS, rectOnTile, ribbonBandPieceCost, ribbonBandPieces, ribbonBristleCombs, ribbonWaterDelivery } from './ribbonStrokeMath'
 
@@ -555,24 +556,13 @@ export class RibbonStrokePainter {
           acrossByDab.set(dab, [Math.cos(la), Math.sin(la)])
         }
         const seg = this.ctx.markerSegmentLength(dab, prev, radius)
-        if (profile.waterDepletion) {
-          const step = watercolorWaterStep(seg, radius)
-          // (#536) Travel spends both clocks; only water is ever given back,
-          // and only by paper this stroke *recorded* as wet. See
-          // watercolorWaterClock, and RibbonStrokeScratch._pigmentUsed on why
-          // the two are separate numbers at all.
-          pigUsed += step
-          used = watercolorWaterClock(used, step, wetHere)
-        }
-        // The profile's levels are the *initial* load; the two curves say how
-        // much of each is left after that much travel. depositPerRadius already
-        // carries the nominal pigment setting, so only the remaining *fraction*
-        // multiplies it here.
-        // (#536, §17.21) …and a clean-water brush does not run down at all.
-        const spendsWater = segmentMode && this.diagnosticWaterPolicy !== 'legacy'
-          ? this.diagnosticWaterPolicy === 'finite' : watercolorBrushRunsDry(profile.pigmentStrength)
-        const load = profile.waterDepletion && spendsWater ? watercolorWaterLoad(used) : 1
-        const water = profile.waterDepletion ? profile.waterLevel * load : 1
+        const source = advanceSolventSource(
+          { waterUsed: used, pigmentUsed: pigUsed }, profile, seg, radius,
+          wetHere, segmentMode, this.diagnosticWaterPolicy,
+        )
+        used = source.waterUsed
+        pigUsed = source.pigmentUsed
+        const { load, water } = source
         // (#536, §17.14) …by the brush's water: a wet brush spends the same
         // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
         // (§17.26) …and a wet sheet pulls more of it out (watercolorWetPull).
