@@ -1,3 +1,4 @@
+import { canonicalMinorRadius, canonicalMajorRadius } from '../watercolor/canonicalRadius'
 import { advanceSolventSource } from '../watercolor/solventSource'
 import type { Dab } from '@grafetto/shared'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -66,6 +67,8 @@ export class RibbonStrokePainter {
   diagnosticLandingReservoir = true
   diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'legacy'
   diagnosticSolventField = false
+  /** Default-off uniform-only parity experiment; does not change source nibs. */
+  diagnosticCanonicalSettleRadius = false
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
   private diagnosticDepth = 0
   diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
@@ -399,7 +402,9 @@ export class RibbonStrokePainter {
     for (const d of drawable) {
       const minor = d.size * 0.5 * preset.sizeMultiplier
       maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(d) + haloPast(d))
-      nibRadius = Math.max(nibRadius, minor * Math.max(d.aspectRatio, 1))
+      nibRadius = Math.max(nibRadius, this.diagnosticCanonicalSettleRadius
+        ? canonicalMajorRadius(d.size, d.aspectRatio, preset.sizeMultiplier)
+        : minor * Math.max(d.aspectRatio, 1))
     }
     // Everything that can still change this pixel, **summed** rather than
     // maxed — each term is a separate hop outward and they compose:
@@ -651,6 +656,7 @@ export class RibbonStrokePainter {
         if (profile.waterDepletion) this.ctx.dabPool().set(dab, Math.min(waterPool, 1))
         if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && profile.waterLevel > 0) scratch.brushTravel.push({
           x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water: profile.waterLevel,
+          ...(this.diagnosticCanonicalSettleRadius ? { settleRadius: canonicalMinorRadius(dab.size, preset.sizeMultiplier) } : {}),
         })
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
