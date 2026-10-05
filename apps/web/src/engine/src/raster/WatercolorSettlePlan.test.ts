@@ -39,10 +39,14 @@ describe('coupled pigment and absorption diffusion', () => {
         plan!.finish()
         expect(calls.length).toBeGreaterThan(0)
         expect(calls.length % 2).toBe(0)
+        // Free-solvent mobility is limited to the two paired pre-core
+        // steps in an external puddle. All later steps keep real density.
+        const pigmentCalls = calls.filter((_, i) => i % 2 === 1)
+        expect(pigmentCalls.filter(call => call.density !== call.src)).toHaveLength(wetPeak > 0 ? 2 : 0)
         for (let i = 0; i < calls.length; i += 2) {
           const colour = calls[i], pigment = calls[i + 1]
-          expect(colour.density).toBe(pigment.src)
-          expect(pigment.density).toBe(pigment.src)
+          expect(colour.density).toBe(pigment.density)
+          if (wetPeak === 0) expect(pigment.density).toBe(pigment.src)
           expect(colour.src).not.toBe(pigment.src)
           expect(colour.dst).not.toBe(colour.density)
           expect(pigment.dst).not.toBe(pigment.density)
