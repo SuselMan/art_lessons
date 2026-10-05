@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Как высыхает акварель</title>
+<style>
+:root{font:16px system-ui,sans-serif;color:#252931;background:#f7f8fa;color-scheme:light}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:24px}h1{font-size:26px;font-weight:550;margin:0 0 12px}p{line-height:1.5;max-width:75ch}button,select,input{font:inherit}button,select{min-height:44px;padding:8px 14px;border:1px solid #acb5c3;border-radius:5px;background:white;color:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #5184cd;outline-offset:3px}.controls{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:24px 0 14px}.controls label{display:flex;gap:8px;align-items:center}input[type=range]{min-width:150px;min-height:40px}.labels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.labels strong{font-weight:600}.labels p{margin:4px 0 10px;color:#626c7a;font-size:14px}.board{position:relative;background:white;border:1px solid #d7dde5}canvas{display:block;width:100%;aspect-ratio:1.6}.captions{position:absolute;inset:0;pointer-events:none;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}.captions span{padding:10px;color:#33445e;font-size:14px}.line{display:flex;align-items:center;gap:12px;margin:14px 0}.line input{flex:1}#status{min-height:24px;color:#626c7a}#error{color:#9b2626;white-space:pre-wrap}small{color:#626c7a}@media(max-width:600px){main{padding:16px}h1{font-size:23px}canvas{aspect-ratio:1}.captions span{font-size:12px;padding:7px}.labels{gap:14px}}
+</style>
+<main>
+<h1>Как высыхает акварель</h1>
+<p>Три перехода из мокрого штриха в одну и ту же сухую картинку. Запусти их вместе или подвигай ползунок, чтобы рассмотреть движение краски.</p>
+<div class="controls">
+<select id="case" aria-label="Мазок"></select>
+<button id="play" disabled>Проиграть вместе</button>
+<button id="dry" disabled>Высушить за 2 секунды</button>
+<label>Обычная сушка <select id="duration"><option value="8">8 секунд</option><option value="12" selected>12 секунд</option><option value="20">20 секунд</option></select></label>
+<label><input id="loop" type="checkbox">Повторять</label>
+</div>
+<div class="board"><canvas id="view" aria-label="Четыре варианта высыхания"></canvas><div class="captions"><span>Нынешняя кривая</span><span>Плавное смешивание</span><span>Морфинг</span><span>Высыхание участками</span></div></div>
+<div class="line"><span>Мокрый</span><input id="progress" type="range" min="0" max="1000" value="0" aria-label="Степень высыхания"><span>Сухой</span></div>
+<div id="status" role="status">Загружаю мазки…</div><div id="error" role="alert"></div>
+<div class="labels">
+<div><strong>Плавное смешивание</strong><p>Начинается и заканчивается без резкого ускорения. Форма постепенно переходит в сухую.</p></div>
+<div><strong>Морфинг</strong><p>Краска слегка перемещается к своей сухой форме, одновременно меняя насыщенность.</p></div>
+<div><strong>Высыхание участками</strong><p>Разные части мазка высыхают чуть раньше или позже. Без заметной движущейся границы.</p></div>
+<div><strong>Нынешняя кривая</strong><p>Для сравнения: наибольшее изменение происходит сразу в начале. Здесь показан сам переход, без ожидания досчёта.</p></div>
+</div>
+<small>Запуск имитирует отрыв кисти: движение начинается сразу. «Высушить» продолжает текущий переход быстрее, без возврата назад. Это проба на захваченных мазках; варианты пока не включены в приложении.</small>
+</main>
+<script type="module" src="preview.js"></script>
+</html>

@@ -1,0 +1,39 @@
+{
+  "source": "098de86ae914db434b17ae680432d76fe5bd9bc3",
+  "cases": [
+    {
+      "id": "zigzag6",
+      "label": "Плотный зигзаг",
+      "wet": "zigzag6-wet.png",
+      "dry": "zigzag6-dry.png",
+      "forward": "zigzag6-forward.png",
+      "backward": "zigzag6-backward.png",
+      "size": [
+        600,
+        380
+      ],
+      "flowRange": 16,
+      "endpointSha256": {
+        "wet": "1b71decc5792a0604461eb7bc071a45a6cb8748470444dd1e4d8f0af31a9b6a3",
+        "dry": "222297972d2550502a2ca35d08046afb6e7109e13f04a44c049629ccc020e971"
+      }
+    },
+    {
+      "id": "cross9",
+      "label": "Пересечение двух цветов",
+      "wet": "cross9-wet.png",
+      "dry": "cross9-dry.png",
+      "forward": "cross9-forward.png",
+      "backward": "cross9-backward.png",
+      "size": [
+        600,
+        380
+      ],
+      "flowRange": 16,
+      "endpointSha256": {
+        "wet": "9332985cc6e06f6112e413b59a98a86142d8440339a5e7cb030e493641a1ccef",
+        "dry": "fbdcbad208f941ab03b77fd0b441a5953b17651b3dfa562eb3be8189fd2a1eed"
+      }
+    }
+  ]
+}

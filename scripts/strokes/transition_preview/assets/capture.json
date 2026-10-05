@@ -1,0 +1,114 @@
+{
+  "baseCommit": "098de86ae914db434b17ae680432d76fe5bd9bc3",
+  "sourceSha256": {
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b0f615c156e8841c4a5efd9caabc9b1b61358d4d7c63dc7174fef0ee46eba89",
+    "apps/web/src/engine/src/raster/WatercolorPasses.ts": "ab51f02899f2986002fe35cd0cea0c405b9b64d447af927a9552f5f64c366a46",
+    "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts": "58567184e2c8a6ae1ad95679359d92610abb4eae06062816135098ce2fcda669",
+    "apps/web/src/engine/src/raster/shaders.ts": "94cd070081a04b57edc5a00f865980bc3214ce64a05ba4bc7a1fe2f67df4bd2c",
+    "apps/web/src/engine/src/watercolor/brushDrag.ts": "4d0f2d6bd7b9329562a0e7e0c4cd15a6c5756831ad691a9ceab2947dcf15de73"
+  },
+  "gpu": "Real headed Chrome Vega, no tablet claim",
+  "endpointScope": "Layer RGBA crop before penupsettle and aftersamecanonicalsettle; not complete paperPNG",
+  "cases": [
+    {
+      "name": "zigzag6",
+      "roi": [
+        80,
+        120,
+        600,
+        380
+      ],
+      "events": [
+        {
+          "kind": "reveal-created",
+          "at": 2240.699999988079,
+          "startedAt": 2211.7999999821186,
+          "settle": false
+        },
+        {
+          "kind": "settle-start",
+          "at": 2256.4000000059605,
+          "ops": 882
+        },
+        {
+          "kind": "reveal-removed",
+          "at": 3720.0999999940395,
+          "settle": true
+        },
+        {
+          "kind": "settle-finish-begin",
+          "at": 16814,
+          "reveals": 0
+        },
+        {
+          "kind": "settle-finish-end",
+          "at": 16814.69999998808,
+          "reveals": 0
+        }
+      ]
+    },
+    {
+      "name": "cross9",
+      "roi": [
+        80,
+        120,
+        600,
+        380
+      ],
+      "events": [
+        {
+          "kind": "reveal-created",
+          "at": 1184.199999988079,
+          "startedAt": 1152.199999988079,
+          "settle": false
+        },
+        {
+          "kind": "settle-start",
+          "at": 1191.699999988079,
+          "ops": 244
+        },
+        {
+          "kind": "reveal-removed",
+          "at": 2687,
+          "settle": true
+        },
+        {
+          "kind": "settle-finish-begin",
+          "at": 5131.5999999940395,
+          "reveals": 0
+        },
+        {
+          "kind": "settle-finish-end",
+          "at": 5132.299999982119,
+          "reveals": 0
+        },
+        {
+          "kind": "reveal-created",
+          "at": 7136.399999976158,
+          "startedAt": 7105.0999999940395,
+          "settle": false
+        },
+        {
+          "kind": "settle-start",
+          "at": 7140.699999988079,
+          "ops": 249
+        },
+        {
+          "kind": "reveal-removed",
+          "at": 8647.399999976158,
+          "settle": true
+        },
+        {
+          "kind": "settle-finish-begin",
+          "at": 11158.899999976158,
+          "reveals": 0
+        },
+        {
+          "kind": "settle-finish-end",
+          "at": 11159.299999982119,
+          "reveals": 0
+        }
+      ]
+    }
+  ]
+}
