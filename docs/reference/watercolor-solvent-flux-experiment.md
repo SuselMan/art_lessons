@@ -65,3 +65,9 @@ CPU byte mirror: spiral наружная доля P.b0.383% против0.896% �
 Диагностическая эвристика capillary face drive `Δ(V-base)+λΔ(cost)`, дополнительный предел q<=0.2donorExtraV, receivercapacity/actualwetpath. Stride4,48draws, λ.05: spiral outside0.448%, blob0.569%, все4P/Vmass exact/V>=base. Но видимая P>8 геометрия слаба: spiral max6px/p95=3px, blob max4px/p95=3px; λ.1 не увеличивает p95. Core peak255, средний core сдвиг<0.5/255. Это небольшой edge, не достаточное живое растекание; GPU candidate не оправдан. Скрипты и geometry JSON соседний `temp/spiral/actual-solvent/`.
 
 Для следующей причинной проверки нужен current cost и pre-baseV в одном фактическом capture; harness подготовлен. До этого scalar head и λclosure не считать решением.
+
+## Current baseV/cost capture и закрытие stale-cost гипотезы
+
+Frozen5299 readonly capture current P/V/baseV/frontcost small synthetic spiral/blob: GL0, Chromeclosedfinally. Данные `temp/flux/current-base-capture`. ExtraV alpha-byte sums: spiral3030533, blob435380; peak64, отрицательных нет. CurrentcostMax107.2, costzero99.30% source spiral и100% blob: внутри source этот cost не содержит направленного напора.
+
+CPU λ.05 closure4px/48draw с **currentcost**: spiraloutside0.889%, p95visible4px/max7px, haloPeak251/255; bloboutside0.736%, p95visible3px/max5px, haloPeak45. λ.1 не расширяетp95. Масса P4/V точная, V>=base. Это узкий слишком плотный edge, не живой заметный фронт. GPU solver AB такого closure не обоснован. Legacy material.r role исследуется отдельным основным агентом; pressure mode10 прямо использует P.a/coverage.b, поэтому случайное смешение units запрещено. Прототип не интегрирован.
