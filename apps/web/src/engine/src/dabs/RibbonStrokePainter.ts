@@ -68,7 +68,19 @@ export class RibbonStrokePainter {
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
   private diagnosticDepth = 0
   diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
-  constructor(ctx: RibbonStrokePainterContext) { this.ctx = ctx }
+  constructor(ctx: RibbonStrokePainterContext) {
+    this.ctx = ctx
+    // Isolated development review only; no UI or recorded operation fields.
+    if (import.meta.env.DEV && import.meta.env.VITE_WC_REVIEW === '1') {
+      this.diagnosticSegmentDelivery = 'combined'
+      this.diagnosticPigmentRecord = true
+      this.diagnosticSharedFluid = true
+      this.diagnosticLandingReservoir = true
+      this.diagnosticSolventField = true
+      this.diagnosticLandingPolicy = 'fluid'
+      this.diagnosticWaterPolicy = 'bottomless'
+    }
+  }
 
 
   /** #330 — the marker's rasterizer: the stroke as one connected swept figure.
