@@ -575,6 +575,26 @@ describe('a wash reaches every path that paints (#468)', () => {
     expect(reveals(other).size).toBe(0)
   })
 
+  it('retires an active reveal before undo deletes its canonical tile', async () => {
+    const engine = wetEngine()
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    expect(reveals(engine).size).toBeGreaterThan(0)
+    const layer = engine['_layers'].get('L')!
+    const clear = layer.clear.bind(layer)
+    const atClear: number[] = []
+    vi.spyOn(layer, 'clear').mockImplementation(() => {
+      atClear.push(reveals(engine).size)
+      clear()
+    })
+    expect(engine.undo()?.type).toBe('stroke')
+    expect(atClear).toEqual([0])
+    expect(reveals(engine).size).toBe(0)
+    expect(engine.redo()?.type).toBe('stroke')
+    await vi.waitFor(() => expect(engine['_rebuildJobs'].size).toBe(0))
+    expect(reveals(engine).size).toBe(0)
+  })
+
   it('lets go of the kept picture after WC_REVEAL_MS on its own', async () => {
     const engine = wetEngine()
     await paperReady(engine)
