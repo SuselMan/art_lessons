@@ -3266,6 +3266,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const r of this._washReveals.values()) {
       revealBytes += r.before.width * r.before.height * 4 * 4 / 3
       if (r.pending) revealBytes += r.pending.width * r.pending.height * 4 * 4 / 3
+      if (r.wetMask) revealBytes += r.wetMask.width * r.wetMask.height * 4 * 4 / 3
     }
     for (const b of this._revealPool) revealBytes += b.width * b.height * 4 * 4 / 3
     return {
@@ -3880,7 +3881,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
     for (const f of this._fieldCache) destroyField(f)
     this._fieldCache = []
-    for (const r of this._washReveals.values()) { r.before.destroy(); r.pending?.destroy() }
+    for (const r of this._washReveals.values()) { r.before.destroy(); r.pending?.destroy(); r.wetMask?.destroy() }
     this._washReveals.clear()
     for (const b of this._revealPool) b.destroy()
     this._revealPool = []
@@ -5262,7 +5263,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._ribbonPasses.initUniforms()
     this._compositor.initUniforms()
-    this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
+    this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity', 'u_wetMask', 'u_motionGain', 'u_motionAge', 'u_texel', 'u_motionOrigin'])
     this._watercolorPasses.initFieldUniforms()
 
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
@@ -6792,10 +6793,12 @@ export class PencilEngine implements PencilEngineAPI {
       gl.activeTexture(gl.TEXTURE0)
       gl.uniform1f(u.u_hold, this._revealHold(prev, performance.now()))
       gl.uniform1f(u.u_opacity, 1)
+      this._setRevealMotion(prev, performance.now())
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       before.endDraw()
       this._revealPoolRelease(prev.before)
       if (prev.pending) this._revealPoolRelease(prev.pending)
+      if (prev.wetMask) this._revealPoolRelease(prev.wetMask)
     }
     let layerId = ''
     for (const [id, buf] of this._layers) if (buf === layer) { layerId = id; break }
@@ -6910,11 +6913,36 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, reveal.before.texture)
     gl.uniform1i(u.u_before, 1)
     gl.uniform1f(u.u_hold, 1 - step); gl.uniform1f(u.u_opacity, 1)
+    this._setRevealMotion(undefined, now)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     out.endDraw()
     gl.activeTexture(gl.TEXTURE0)
     this._revealPoolRelease(reveal.before)
     reveal.before = out
+  }
+
+  /** Bounded visual motion only: canonical content never samples these. */
+  private _revealMotionGain(reveal: WashReveal, now: number): number {
+    if (!reveal.wetMask || reveal.motionAt === undefined) return 0
+    const onset = Math.min(1, Math.max(0, now - reveal.motionAt) / 250)
+    const tail = reveal.startedAt === null ? 1 : Math.max(0, 1 - (now - reveal.startedAt) / (reveal.durationMs ?? 8000))
+    return onset * tail * tail * (reveal.motionBaseGain ?? 1)
+  }
+
+  private _setRevealMotion(reveal: WashReveal | undefined, now: number): void {
+    const gl = this.gl, u = this._revealUni
+    const gain = reveal ? this._revealMotionGain(reveal, now) : 0
+    gl.uniform1f(u.u_motionGain, gain)
+    gl.uniform1i(u.u_wetMask, 0) // disabled sampler must not alias a recycled output FBO
+    if (gain > 0 && reveal?.wetMask) {
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, reveal.wetMask.texture)
+      gl.uniform1i(u.u_wetMask, 2)
+      gl.uniform2f(u.u_texel, 1 / reveal.before.width, 1 / reveal.before.height)
+      gl.uniform2f(u.u_motionOrigin, ...(reveal.motionOrigin ?? [0, 0]))
+      gl.uniform1f(u.u_motionAge, now - (reveal.motionAt ?? now))
+    }
+    gl.activeTexture(gl.TEXTURE0)
   }
 
   /** Drops every reveal that has run out, or whose layer is gone. */
@@ -6924,6 +6952,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (reveal.layerId !== goneLayerId && this._revealHold(reveal, now) > 0) continue
       this._revealPoolRelease(reveal.before)
       if (reveal.pending) this._revealPoolRelease(reveal.pending)
+      if (reveal.wetMask) this._revealPoolRelease(reveal.wetMask)
       this._washReveals.delete(buffer)
     }
   }
@@ -6955,7 +6984,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.enableVertexAttribArray(this._revealPosLoc)
     gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.bindTexture(gl.TEXTURE_2D, reveal.startedAt === null ? reveal.pending?.texture ?? texture : texture)
     gl.uniform1i(u.u_after, 0)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, reveal.before.texture)
@@ -6963,6 +6992,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform1f(u.u_hold, this._revealHold(reveal, performance.now()))
     gl.uniform1f(u.u_opacity, opacity)
+    this._setRevealMotion(reveal, performance.now())
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     gl.disable(gl.BLEND)
@@ -7041,6 +7071,7 @@ export class PencilEngine implements PencilEngineAPI {
     const now = performance.now()
     this._sweepReveals(now)
     for (const reveal of this._washReveals.values()) if (reveal.progressive) {
+      reveal.motionBaseGain = this._revealMotionGain(reveal, now)
       reveal.durationMs = 2000
       if (reveal.startedAt !== null) reveal.startedAt = now
       reveal.frameAt = now
@@ -7405,6 +7436,14 @@ export class PencilEngine implements PencilEngineAPI {
     // settle may complete while this stroke is starting its next one.
     const revealCopies = reveal && fade ? targets.flatMap(tile => {
       const held = this._washReveals.get(tile.buffer)
+      const entry = scratch.peek(tile.buffer)
+      if (held && entry) {
+        held.wetMask = this._revealPoolAcquire(tile.buffer.width, tile.buffer.height)
+        entry.coverage.copyTo(held.wetMask)
+        held.progressive = true
+        held.frameAt = held.motionAt = performance.now()
+        held.motionOrigin = [tile.originX, tile.originY]
+      }
       return held ? [{ buffer: tile.buffer, held }] : []
     }) : []
     const startReveal = (): void => {
@@ -7495,6 +7534,7 @@ export class PencilEngine implements PencilEngineAPI {
           if (!owned || this._washReveals.get(tile.buffer) !== owned.held || this._strokeLayerId) return
           const entry = scratch.peek(tile.buffer)
           if (!entry) return
+          if (owned.held.wetMask) coverage.copyTo(owned.held.wetMask)
           if (!owned.held.pending) {
             owned.held.pending = this._revealPoolAcquire(tile.buffer.width, tile.buffer.height)
             owned.held.before.copyTo(owned.held.pending)

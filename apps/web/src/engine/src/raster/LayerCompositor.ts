@@ -27,6 +27,11 @@ export interface WashReveal {
   progressive?: boolean
   frameAt?: number
   durationMs?: number
+  /** Display-only standing-water/coverage snapshot, never a paint input. */
+  wetMask?: AccumulationBuffer
+  motionAt?: number
+  motionBaseGain?: number
+  motionOrigin?: [number, number]
 }
 
 export interface LayerCompositorContext {
