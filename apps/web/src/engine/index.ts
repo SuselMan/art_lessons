@@ -4369,6 +4369,11 @@ export class PencilEngine implements PencilEngineAPI {
     // settled tile count instead — see TiledLayerBuffer.suspendEviction.
     const tiled = buf instanceof TiledLayerBuffer ? buf : null
     this._dropCarriedGestureState(buf)
+    // A synchronous undo (especially the last stroke -> empty history)
+    // clears tiled buffers in place and deletes their textures. Retire the
+    // presentation before that clear; its canonical target is one of those
+    // tiles. Temporary export/replay buffers must not retire the live layer.
+    if (this._layers.get(layerId) === buf) this._sweepReveals(performance.now(), layerId)
     tiled?.suspendEviction()
     try {
       let start = 0
