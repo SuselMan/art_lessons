@@ -1723,8 +1723,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperCacheKey = ''
   private _revealUni!: Record<string, WebGLUniformLocation | null>
   private _revealPosLoc = -1
-  /** Default-off causal check: composite the existing solver-written domain. */
-  private _diagnosticSettleCompositeDomain = false
   /** Keyed by the layer tile the wash settled into. Presentation state only:
    *  never read by any paint pass, never serialised, dropped with the tile. */
   private _washReveals = new Map<AccumulationBuffer, WashReveal>()
@@ -7491,6 +7489,8 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.44) A tile under a newer, still-running film shows the wet deposit
     // (settled base + that film), not the dry target, which has no film in it.
     const runningFilm = (entry: RibbonTileScratch): boolean => entry.filmGesture !== settledGesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk
+    // The job exposes the exact domain it writes in the existing resident
+    // targets. Source bounds alone can cut off pigment moved into a puddle.
     let compositeBounds = bounds
     const composite = (): void => {
       // (#700) The final settle can land several frames after targets were
@@ -7563,7 +7563,7 @@ export class PencilEngine implements PencilEngineAPI {
             owned.held.frameAt = performance.now()
           }
           this._drawRibbonCompositeRect(
-            { ...tile, buffer: owned.held.pending }, bounds, preset, profile,
+            { ...tile, buffer: owned.held.pending }, compositeBounds, preset, profile,
             entry.original, coverage, pigment, chroma, color, opacity,
             fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
           )
@@ -7572,7 +7572,7 @@ export class PencilEngine implements PencilEngineAPI {
         } : undefined,
       )
       if (job) {
-        if (this._diagnosticSettleCompositeDomain) compositeBounds = job.compositeDomain
+        compositeBounds = job.compositeDomain
         const complete = (): void => {
           job.finish()
           composite()
