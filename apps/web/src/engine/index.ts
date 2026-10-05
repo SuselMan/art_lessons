@@ -2205,7 +2205,7 @@ export class PencilEngine implements PencilEngineAPI {
       contentBounds: id => this.getContentBounds(id),
       // Export the material target, never the transient wet presentation.
       // The screen continues its reveal while the offscreen export draws.
-      drawLayer: (frame, id, opacity, fbo, w, h) => this._compositor.drawCompositeItem(frame, id, opacity, fbo, w, h, false),
+      drawLayer: (frame, id, opacity, fbo, w, h) => this._drawCompositeItem(frame, id, opacity, fbo, w, h, false),
       composePaper: (tex, fbo, w, h, origin) => this._renderPaperComposeInto(tex, fbo, w, h, origin),
       composeScreen: () => {
         this._composeToFBO()
@@ -7717,7 +7717,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawCompositeItem(
     frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
     targetW: number, targetH: number,
-  ): void { this._compositor.drawCompositeItem(frame, id, opacity, targetFbo, targetW, targetH) }
+    includeWashReveal = true,
+  ): void { this._compositor.drawCompositeItem(frame, id, opacity, targetFbo, targetW, targetH, includeWashReveal) }
 
   /** (#138) See Camera.centeredOrigin. Kept by this name for the stroke
    *  lifecycle code, which is live on another branch. */

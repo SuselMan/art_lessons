@@ -558,7 +558,7 @@ export class RibbonStrokePainter {
         const seg = this.ctx.markerSegmentLength(dab, prev, radius)
         const source = advanceSolventSource(
           { waterUsed: used, pigmentUsed: pigUsed }, profile, seg, radius,
-          wetHere, segmentMode, this.diagnosticWaterPolicy,
+          wetHere, !!segmentMode, this.diagnosticWaterPolicy,
         )
         used = source.waterUsed
         pigUsed = source.pigmentUsed
