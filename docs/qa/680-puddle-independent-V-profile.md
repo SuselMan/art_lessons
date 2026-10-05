@@ -65,3 +65,18 @@ Final integrated P.b1901553→1901092 (-0.024% к off). Max198→175: распр
 profile-console.txt,*-crop.png,*.raw}`; воспроизведение
 `V-frozen-stage-qa.mjs`, `V-puddle-cases.json`, `profile-V-frozen.mjs`.
 Пользовательские страницы и runtime source не менялись; своя QA вкладка закрыта.
+
+## Ядро и зерно
+
+Matched side-by-side: `temp/carry-normalization/V-frozen-stage/matched-ring-compare.png`.
+Визуально V делает ядро немного ровнее и светлее, но мелкое зерно остаётся;
+явной мутной размытой фактуры в этом crop не видно. Это художественная оценка
+одного повтора, а не принятие пользователя.
+
+В центральном диске R28 около(319,292),2449 pixels, mean R-G158.41→153.93
+(-2.8%), standard deviation7.98→7.81. High-frequency RMS chroma residual от
+среднего3×3:4.56332→4.56297, mean horizontal chroma gradient3.518→3.493.
+Мелкий контраст практически не потерян. Метрики включают влияние бумаги и
+не доказывают сохранение каждого пигментного пятна или всех других листов.
+Артефакт `core-grain-metrics.json`; max198→175 всего поля нельзя трактовать как
+меру размытия центрального зерна.
