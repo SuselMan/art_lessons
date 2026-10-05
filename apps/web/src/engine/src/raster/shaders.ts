@@ -1615,13 +1615,13 @@ ${WC_NOISE_GLSL}
       // divide by, so the batch's nominal water stands in; that region is the
       // spread fringe, which is about to be decided by exactly this value.
       float waterHere = ink.a > 0.004 ? clamp(ink.r / ink.a, 0.0, 1.0) : u_water;
-      // (#536) …and how wet the paper it landed on already was, recovered the
-      // same way. Two quantities, and keeping them apart is the whole of
-      // wet-in-wet: the brush's own water decides how the mark was *laid* (see
-      // u_dryContact below, which reads waterHere and only waterHere), the
-      // paper's decides what becomes of the paint afterwards. A dry brush over
-      // a puddle still scratches; the little paint it leaves still blooms.
-      float paperWetHere = ink.a > 0.004 ? clamp(ink.g / ink.a, 0.0, 1.0) : 0.0;
+      // #680: post-deposition rendering reads available fluid, not the
+      // historical prewet tag ink.g. Coverage.b records standing water from
+      // all contacts in the wash; waterHere preserves the deposited carrier
+      // in transported fringe pixels outside that standing record.
+      // Pickup and brush delivery still read prior wetness separately.
+      float standingHere = texture2D(u_strokeCoverage, tileUV).b;
+      float paperWetHere = max(waterHere, standingHere);
       // (#536) …and how strong the paint that landed here was. Per pixel, not
       // per batch, because a wash is several strokes and they may carry
       // different amounts of paint — that is the whole of "lay clean water,
@@ -1691,41 +1691,10 @@ ${WC_NOISE_GLSL}
         // exactly, so a dry mark with u_edgeWander near zero goes where the hand
         // went. Every earlier version spent a fixed 0.10..0.62 here whatever the
         // mix, which is why even a nearly dry brush drew a shape of its own.
-        // (#536) Widened where the paper was already wet: the gesture's own
-        // uniforms were resolved from the wetness under its *first* dab, so a
-        // stroke that runs from dry paper into a puddle needs the rest of the
-        // difference per pixel.
+        // Widen and vary the edge where fluid is available after deposition.
+        // Own carrier and standing water share the same response; the
+        // historical prewet tag must not style an otherwise identical field.
         float wetGain = mix(1.0, 1.7, paperWetHere);
-        // (#536) …and the boundary is pushed *outward* where the paper is wet,
-        // which is the difference between a mark whose edge wanders and a blot
-        // that actually grows.
-        //
-        // Ilya, spelling out what he had been asking for: a 30 px dot dropped
-        // into standing water should end up nearer 45 px across. Everything
-        // here up to now was zero-mean — the threshold wandered either side of
-        // 0.5, so the boundary got *irregular* without getting *bigger*, and
-        // the drying animation only filled in a margin the composite had
-        // already drawn. Neither of those can move a boundary fifteen pixels.
-        //
-        // Thresholding a blur below its half point does. The boundary lands
-        // where the blurred silhouette equals thr, and the blur's slope across
-        // an edge is about 1/(2*reach), so biasing thr down by d displaces it
-        // outward by roughly 2*reach*d — real growth, into the water only,
-        // because paperWetHere is zero everywhere else.
-        // (#536) How hard the boundary is pushed outward, and it now reads
-        // *both* waters rather than only the paper's.
-        //
-        // Ilya, from the real thing: a wet brush drawn through a puddle spreads
-        // markedly more than a nearly dry one, and the nearly dry one still
-        // spreads plainly. So the paper decides whether there is anywhere to go
-        // and the brush decides how much goes — a product, with a floor well
-        // above zero rather than a gate.
-        // paperWetHere is read off the deposit, and outside the brush's own
-        // footprint the deposit used to be zero — which made this term zero
-        // precisely where growth has to happen, measured as 15 px against 15.
-        // The fix is not here: the halo pass now lays a real, wider deposit
-        // wherever the paper was wet (see _ribbonStrokeWork), so the per-pixel
-        // value exists out there and this reads it as it always did.
         push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
         // …and the front follows the sheet. In the photographs the spread half
         // of a mark is not a smooth gradient at all: it is granular, and the
@@ -1852,16 +1821,8 @@ ${WC_NOISE_GLSL}
       // one does under water.
       // (s17.28) A gate, not a line: the photographs show a full film at
       // half water and the tooth breaking through only near dry.
-      // (s17.43) ...and the water STANDING on the texel now, from the wash's
-      // coverage record (.b), counts with them. The two ratios above are
-      // what the brush brought and what the paper held when the paint was
-      // laid; a wash that has since been flooded - a puddle a later stroke
-      // ran its front through, or a big blob whose brush ran low on water
-      // along the way - kept a low ratio and was composited as a dry-brush
-      // mark: the whole of Ilya's yellow puddle broke up on the tooth, and
-      // where a second stroke's coverage overwrote the across coordinate
-      // the break-up changed pattern along a line ("вот эта линия").
-      float standingHere = texture2D(u_strokeCoverage, tileUV).b;
+      // Contact still breaks only when both deposited carrier and standing
+      // water are low. Historical prewet metadata is no longer consulted.
       float dryness = u_dryContact * (1.0 - smoothstep(WC_DRY_WATER_LO, WC_DRY_WATER_HI, max(max(waterHere, paperWetHere), standingHere)));
       if (dryness > 0.0) {
         // Where a bundle sits, the brush reaches further down into the paper;
