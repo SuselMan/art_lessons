@@ -595,6 +595,24 @@ describe('a wash reaches every path that paints (#468)', () => {
     expect(reveals(engine).size).toBe(0)
   })
 
+  it('exports canonical tiles without stopping the on-screen wash reveal', async () => {
+    const engine = wetEngine()
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    await vi.waitFor(() => expect(engine['_settle']).toBeNull())
+    const held = new Map(reveals(engine))
+    expect(held.size).toBeGreaterThan(0)
+    const drawReveal = vi.spyOn(engine as unknown as { _drawTileReveal: (...args: unknown[]) => void }, '_drawTileReveal')
+    engine['_display']()
+    expect(drawReveal).toHaveBeenCalled()
+    drawReveal.mockClear()
+    const composite = engine['_exporter'].buildContentComposite({ x: 0, y: 0, w: 64, h: 64 })
+    expect(composite).not.toBeNull()
+    expect(drawReveal).not.toHaveBeenCalled()
+    expect(reveals(engine)).toEqual(held)
+    composite?.buffer.destroy()
+  })
+
   it('lets go of the kept picture after WC_REVEAL_MS on its own', async () => {
     const engine = wetEngine()
     await paperReady(engine)
