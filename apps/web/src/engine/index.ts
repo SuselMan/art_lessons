@@ -3858,6 +3858,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const w of this._spilledWashes.values()) w.spill.dispose()
     this._spilledWashes.clear()
     this._lostWashes.clear()
+    this._ribbonPainter.releaseWaterSources()
     this._ribbonScratchPool.destroy()
     if (this._dryingTimer) { clearTimeout(this._dryingTimer); this._dryingTimer = 0 }
     if (this._budgetTimer) { clearTimeout(this._budgetTimer); this._budgetTimer = 0 }
@@ -4687,6 +4688,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
+    this._ribbonPainter.releaseWaterSources(true)
     this._settlePlan.forgetTextures()
     this._contextLost = true
     this._cancelSpillJob()

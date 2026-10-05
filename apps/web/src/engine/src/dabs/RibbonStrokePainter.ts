@@ -74,6 +74,12 @@ export class RibbonStrokePainter {
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
   private diagnosticDepth = 0
   private waterOnlyDepth = 0
+  private readonly auxiliaryWater = new Set<RibbonStrokeScratch>()
+
+  releaseWaterSources(contextLost = false): void {
+    for (const scratch of this.auxiliaryWater) { if (contextLost) scratch.forget(); else scratch.destroy() }
+    this.auxiliaryWater.clear()
+  }
   diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
   constructor(ctx: RibbonStrokePainterContext) {
     this.ctx = ctx
@@ -133,11 +139,15 @@ export class RibbonStrokePainter {
       const first = unique[0], sourcePreset = this.ctx.resolveWaterPreset(first.preset)
       const sourceProfile = ribbonProfileFor('watercolor', first.preset, wetAt(first.wet, 0))
       const aux = new RibbonStrokeScratch(pool, false, false)
-      const sourceDabs = unique.flatMap(chunk => chunk.dabs)
-      const sourceWet = unique.map(chunk => chunk.wet ?? '0'.repeat(chunk.dabs.length)).join('')
+      this.auxiliaryWater.add(aux)
       try {
-        // One MAX film for a gesture and all its encoded chunks. No target write.
-        yield* this.paintWaterSource(target, sourceDabs, sourcePreset, first.preset, sourceProfile, first.color, aux, undefined, sourceWet, first.seed, false, 256)
+        // Preserve the engine's recorded chunk film transitions exactly.
+        // MAX is within a film; newFilm adds the next chunk to its saved base.
+        for (const chunk of unique) {
+          yield* this.paintWaterSource(target, chunk.dabs, sourcePreset, first.preset, sourceProfile, chunk.color, aux, undefined, chunk.wet, chunk.seed, false, 256)
+          aux.releaseFilm()
+          aux.newFilm()
+        }
         for (const [tile, donor] of aux.tileEntries()) {
           const recipient = scratch.getOrCreate(tile), temp = pool.acquire(tile.width, tile.height)
           try {
@@ -151,7 +161,7 @@ export class RibbonStrokePainter {
           } finally { pool.release(temp) }
         }
         scratch.foreignImportedGestures.add(source.gesture)
-      } finally { aux.destroy() }
+      } finally { this.auxiliaryWater.delete(aux); aux.destroy() }
     }
   }
 
