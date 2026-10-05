@@ -2205,7 +2205,9 @@ export class PencilEngine implements PencilEngineAPI {
       pageSize: () => this._paper.pageSize(),
       compositeOrder: () => this._compositeOrder,
       contentBounds: id => this.getContentBounds(id),
-      drawLayer: (frame, id, opacity, fbo, w, h) => this._drawCompositeItem(frame, id, opacity, fbo, w, h),
+      // Export the material target, never the transient wet presentation.
+      // The screen continues its reveal while the offscreen export draws.
+      drawLayer: (frame, id, opacity, fbo, w, h) => this._compositor.drawCompositeItem(frame, id, opacity, fbo, w, h, false),
       composePaper: (tex, fbo, w, h, origin) => this._renderPaperComposeInto(tex, fbo, w, h, origin),
       composeScreen: () => {
         this._composeToFBO()
