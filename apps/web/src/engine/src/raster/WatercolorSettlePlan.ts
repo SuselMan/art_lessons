@@ -221,7 +221,7 @@ export class WatercolorSettlePlan {
       overlaps.push({ tile, ox0, oy0, ox1, oy1 })
     }
     if (!overlaps.length) return null
-    const solvent = tiles.some(t => scratch.peek(t.buffer)?.solventLoad)
+    const solvent = tiles.some(t => scratch.peek(t.buffer)?.solventLoad || scratch.peek(t.buffer)?.foreignSolventLoad)
       ? this.ctx.pool().acquire(field.w, field.h) : null
     if (solvent) this._ownedSolvent.add(solvent)
 
@@ -291,7 +291,15 @@ export class WatercolorSettlePlan {
           snapshots.set(tile.buffer, { ink, color })
         }
         toField(entry.coverage, tile, ox0, oy0, ox1, oy1, field.coverage)
-        if (solvent && entry.solventLoad) toField(entry.solventLoad, tile, ox0, oy0, ox1, oy1, solvent)
+        if (solvent && (entry.solventLoad || entry.foreignSolventLoad)) {
+          if (entry.solventLoad && entry.foreignSolventLoad) {
+            const temp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
+            try {
+              this.ctx.passes().fieldOp(temp, entry.solventLoad, entry.foreignSolventLoad, 1, 1)
+              toField(temp, tile, ox0, oy0, ox1, oy1, solvent)
+            } finally { this.ctx.pool().release(temp) }
+          } else toField((entry.solventLoad ?? entry.foreignSolventLoad)!, tile, ox0, oy0, ox1, oy1, solvent)
+        }
         if (entry.inkColor) {
           const settledColor = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
           toField(entry.inkColor, tile, ox0, oy0, ox1, oy1, field.ca)
