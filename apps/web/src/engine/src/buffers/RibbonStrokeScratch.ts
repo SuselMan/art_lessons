@@ -351,6 +351,10 @@ export class RibbonStrokeScratch {
   /** (§17.28) Counts the gestures of this wash; the film buffers of a tile
    *  are refreshed when a batch arrives from a gesture they were not made for. */
   gesture = 0
+  /** Diagnostic purity gate, carried by snapshot/spill metadata, never inferred
+   * from whether a texture currently happens to be resident. -1 means unknown. */
+  solventPigmentGestures = 0
+  solventPigmentGesture = -1
   /** (#536, §17.37) The gesture's landing: where the nib came down and its
    *  radius there, and how long it stood within WC_DWELL_RADIUS of it before
    *  moving on (the dabs' own clock, Dab.t). Frozen once a dab leaves. Per
@@ -616,6 +620,7 @@ export class RibbonStrokeScratch {
       finish: this._finish ? { ...this._finish, bounds: { ...this._finish.bounds }, fieldSeed: [...this._finish.fieldSeed] } : null,
       dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
       lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
+      solventPigmentGestures: this.solventPigmentGestures, solventPigmentGesture: this.solventPigmentGesture,
       landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
       turnOffset: [...this.turnOffset], turnDirection: this.turnDirection ? [...this.turnDirection] : null, brushTravel: this.brushTravel.map(d => ({ ...d })), foreignSources: this.foreignSources, wetContacts: this.wetContacts.map(d => ({ ...d })),
       trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, speedAt: this.speedAt, speedTravel: this.speedTravel, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
@@ -636,6 +641,8 @@ export class RibbonStrokeScratch {
     this.dryCtx = snap.dryCtx ? { ...snap.dryCtx, target, bounds: { ...snap.dryCtx.bounds }, fieldSeed: [...snap.dryCtx.fieldSeed] } : null
     this.lastKept = snap.lastKept ? { ...snap.lastKept } : undefined
     this.gesture = snap.gesture
+    this.solventPigmentGestures = snap.solventPigmentGestures ?? -1
+    this.solventPigmentGesture = snap.solventPigmentGesture ?? -1
     this.landing = snap.landing ? { ...snap.landing } : null
     this.dwellMs = snap.dwellMs
     this.dwellDone = snap.dwellDone
@@ -834,6 +841,7 @@ interface ScratchScalars {
   finish: Omit<NonNullable<RibbonStrokeScratch['finishContext']>, 'target'> | null
   dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
   lastKept: Dab | undefined; gesture: number
+  solventPigmentGestures?: number; solventPigmentGesture?: number
   landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
   turnOffset: [number, number]; turnDirection: [number, number] | null; brushTravel: BrushTravel[]; foreignSources: WaterSource[] | null; wetContacts: WaterFootprint[]
   trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number

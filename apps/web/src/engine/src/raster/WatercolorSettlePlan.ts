@@ -21,7 +21,7 @@ export interface WatercolorSettlePlanContext {
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
-  ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean }
+  ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean; solventFlux?: boolean }
   passes(): WatercolorPasses
 }
 
@@ -224,6 +224,15 @@ export class WatercolorSettlePlan {
     const solvent = tiles.some(t => scratch.peek(t.buffer)?.solventLoad)
       ? this.ctx.pool().acquire(field.w, field.h) : null
     if (solvent) this._ownedSolvent.add(solvent)
+    // Diagnostic replacement, never added on top of legacy carry. One pigment
+    // only, first pigment gesture: singleTau reconstructs depth. Older/restored
+    // unknown purity and multi-paint C are excluded. V stays canonical-only in
+    // this isolated experiment; it is not a persistent solvent ledger.
+    const fluxEnabled = !!this.ctx.ab().solventFlux && !!solvent && scratch.paints.size === 1 && scratch.solventPigmentGestures === 1
+    const solventBase = fluxEnabled ? this.ctx.pool().acquire(field.w, field.h) : null
+    if (solventBase) this._ownedSolvent.add(solventBase)
+    const solventNext = fluxEnabled ? this.ctx.pool().acquire(field.w, field.h) : null
+    if (solventNext) this._ownedSolvent.add(solventNext)
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
@@ -269,6 +278,7 @@ export class WatercolorSettlePlan {
       field.ca.clear()
       field.cb.clear()
       solvent?.clear()
+      solventBase?.clear()
       for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
         const entry = scratch.peek(tile.buffer)
         if (!entry?.inkLoad) continue
@@ -292,6 +302,7 @@ export class WatercolorSettlePlan {
         }
         toField(entry.coverage, tile, ox0, oy0, ox1, oy1, field.coverage)
         if (solvent && entry.solventLoad) toField(entry.solventLoad, tile, ox0, oy0, ox1, oy1, solvent)
+        if (solventBase && entry.solventBase) toField(entry.solventBase, tile, ox0, oy0, ox1, oy1, solventBase)
         if (entry.inkColor) {
           const settledColor = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
           toField(entry.inkColor, tile, ox0, oy0, ox1, oy1, field.ca)
@@ -547,6 +558,21 @@ export class WatercolorSettlePlan {
       })
       // The water front, its band and the extended coverage come from the
       // deposit's mobile field, once; the colour record rides the same.
+      if (first && fluxEnabled && solvent && solventBase && solventNext) {
+        let psrc = c, pdst = a, vsrc = solvent, vdst = solventNext
+        for (const worldStride of [16, 8, 4, 16, 8, 4]) for (const axis of [[1, 0], [0, 1]] as const) {
+          const oldP = psrc, newP = pdst, oldV = vsrc, newV = vdst
+          ops.push(() => {
+            this.ctx.passes().solventFlux(newP, oldP, oldV, solventBase, field.coverage,
+              [axis[0], axis[1]], Math.max(1, Math.round(worldStride / S)), false)
+            this.ctx.passes().solventFlux(newV, oldP, oldV, solventBase, field.coverage,
+              [axis[0], axis[1]], Math.max(1, Math.round(worldStride / S)), true)
+          })
+          ;[psrc, pdst] = [pdst, psrc]
+          ;[vsrc, vdst] = [vdst, vsrc]
+        }
+        // Twelve face steps return to c/solvent, so later readers keep their identities.
+      }
       if (first) frontOps(c, a)
       // (§17.29) The front carries the paint: the mobile field runs along
       // the front's cost, from the footprint out to where the water
@@ -564,7 +590,7 @@ export class WatercolorSettlePlan {
       // under it out into fingers denser than its body, and the body went
       // pale. The deposit ping-pongs c and a; the colour record cc and ca,
       // in lockstep, taking the deposit's fractions (mode 16).
-      if (first && !this.ctx.ab().noCarry) {
+      if (first && !this.ctx.ab().noCarry && !fluxEnabled) {
         const carry = watercolorCarryStrides(budgetPx)
         let src = c, dst = a
         let csrc = colour?.c, cdst = colour?.a
@@ -933,7 +959,9 @@ export class WatercolorSettlePlan {
       }
       if (a0) this.ctx.pool().release(a0)
       if (ca0) this.ctx.pool().release(ca0)
-      if (solvent && this._ownedSolvent.delete(solvent)) this.ctx.pool().release(solvent)
+      for (const buffer of [solvent, solventBase, solventNext]) {
+        if (buffer && this._ownedSolvent.delete(buffer)) this.ctx.pool().release(buffer)
+      }
       for (const snap of snapshots.values()) { this.ctx.pool().release(snap.ink); if (snap.color) this.ctx.pool().release(snap.color) }
     }
     return { ops, finish }

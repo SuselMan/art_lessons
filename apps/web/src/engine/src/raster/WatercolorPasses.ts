@@ -1,3 +1,4 @@
+import { WC_SOLVENT_FLUX_FRAG } from './solventFluxShader'
 import { DISPLAY_VERT, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -325,8 +326,43 @@ export class WatercolorPasses {
     outColor.endDraw()
   }
 
+  private _solventFluxProg: WebGLProgram | null = null
+  private _solventFluxUni: Record<string, WebGLUniformLocation | null> = {}
+  private _solventFluxPos = -1
+
+  /** Default-off single-paint experiment: both outputs read the same old P/V. */
+  solventFlux(out: AccumulationBuffer, paint: AccumulationBuffer, volume: AccumulationBuffer,
+    base: AccumulationBuffer, gate: AccumulationBuffer, axis: [number, number], stride: number, volumeOutput: boolean): void {
+    const { gl } = this
+    if (!this._solventFluxProg) {
+      this._solventFluxProg = createProgram(gl, DISPLAY_VERT, WC_SOLVENT_FLUX_FRAG)
+      this._solventFluxUni = getUniforms(gl, this._solventFluxProg,
+        ['u_paint', 'u_volume', 'u_base', 'u_gate', 'u_texel', 'u_axis', 'u_stride', 'u_volumeOutput'])
+      this._solventFluxPos = gl.getAttribLocation(this._solventFluxProg, 'a_position')
+    }
+    out.beginReplaceDraw()
+    gl.useProgram(this._solventFluxProg)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
+    gl.enableVertexAttribArray(this._solventFluxPos)
+    gl.vertexAttribPointer(this._solventFluxPos, 2, gl.FLOAT, false, 0, 0)
+    const u = this._solventFluxUni
+    for (const [unit, name, buffer] of [[0, 'u_paint', paint], [1, 'u_volume', volume],
+      [2, 'u_base', base], [3, 'u_gate', gate]] as const) {
+      gl.activeTexture(gl.TEXTURE0 + unit)
+      gl.bindTexture(gl.TEXTURE_2D, buffer.texture)
+      gl.uniform1i(u[name], unit)
+    }
+    gl.uniform2f(u.u_texel, 1 / paint.width, 1 / paint.height)
+    gl.uniform2f(u.u_axis, axis[0], axis[1])
+    gl.uniform1f(u.u_stride, stride)
+    gl.uniform1f(u.u_volumeOutput, volumeOutput ? 1 : 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    out.endDraw()
+  }
+
   initFieldPrograms(): void {
     const { gl } = this
+    this._solventFluxProg = null
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
     this._fieldOpCarryProg    = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_FRAG)
@@ -380,7 +416,7 @@ export class WatercolorPasses {
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
     if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg].includes(current)) {
+      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._solventFluxProg].includes(current)) {
       this.gl.useProgram(null)
     }
     this.gl.deleteProgram(this._fieldOpProg)
@@ -390,6 +426,7 @@ export class WatercolorPasses {
     this.gl.deleteProgram(this._resampleProg)
     this.gl.deleteProgram(this._diffuseProg)
     this.gl.deleteProgram(this._brushDragProg)
+    if (this._solventFluxProg) this.gl.deleteProgram(this._solventFluxProg)
     this.gl.deleteProgram(this._waterFrontProg)
   }
 }
