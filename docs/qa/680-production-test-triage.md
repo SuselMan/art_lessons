@@ -20,3 +20,7 @@ Actual mode9 draw log: native4 deferred union composites vs replay12 short compo
 Authorized permanent test therefore checks the actual presentation invariant directly: settled canonical pixels in one engine remain exact through morph/display frames250/2000/7999/8001ms. Peer-no-reveal assertions stay. Cross-path dry pixel parity remains real-WebGL QA (Samsung accepted single-round exact; complex native4 residual6px/max6 documented separately).
 
 Artifacts `temp/geometry/canonical-mock-{triage,meta,draws,overwrite,opacity,bounds,sync,alluniform32}.json`, temporary oracle source/config/logs. Do not copy diagnostic target-clear oracle into MockGL. Charcoal chisel focused test passed3.06s after initial overloaded5s timeout; not evidence of a watercolor source regression.
+
+## Финальная проверка разрешённого test diff
+
+Release `index.watercolor.test.ts` и `index.parkedWash.test.ts`: полный запуск86/86 PASS, maxWorkers1, CLI testTimeout15000,25.97s wall/22.28s tests. Timeout длинного chunk fixture выбран для CPU VPS, исходники и общие test config не менялись. Каноническое равенство внутри одного engine проверяется строго, без допуска. Четыре budget fixtures (resting/recent/cancel/nextwash) выбирают pressure после trimFree, сохраняя и positive eviction, и negative recent/no-eviction controls. Source activation root остаётся отдельным review diff. Лог `temp/geometry/release-fixtures-full-final.log`. Root коммитит разрешённые test edits вместе с release review; этот агент их отдельно не коммитил.
