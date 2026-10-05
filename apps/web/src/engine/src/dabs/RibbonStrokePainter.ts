@@ -76,6 +76,8 @@ export class RibbonStrokePainter {
   diagnosticCanonicalSettleRadius = false
   /** Default-off causal experiment: contact exposure follows available fluid. */
   diagnosticFluidBrushContacts = false
+  /** Default-off bounds-only experiment: retired halo cannot expand reach. */
+  diagnosticRetiredHaloBounds = false
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
   private diagnosticDepth = 0
   private waterOnlyDepth = 0
@@ -273,13 +275,14 @@ export class RibbonStrokePainter {
     // (#536) …and by the halo a wet-paper dab lays around itself, at the widest
     // it can be for that wetness — this is a bound, and erring outward is the
     // cheap direction. See watercolorHalo.
+    const haloReachActive = !this.diagnosticRetiredHaloBounds || WATERCOLOR_HALO_DRAWN
     const haloBound = (d: Dab): number =>
-      profile.normalizeDeposit ? watercolorHalo(wetOf(d), 1).scale : 1
+      profile.normalizeDeposit && haloReachActive ? watercolorHalo(wetOf(d), 1).scale : 1
     // …and the reach the halo is allowed past the bloom, at the cap: the
     // gesture's own spread is not resolved until further down, and this is a
     // bound, so the ceiling stands in.
     const haloPast = (d: Dab): number =>
-      profile.normalizeDeposit && wetOf(d) > 0
+      profile.normalizeDeposit && haloReachActive && wetOf(d) > 0
         ? WATERCOLOR_HALO_PAST_BLOOM * WATERCOLOR_SPREAD.cap : 0
     // (§17.46) Two rects. The REACH (halo bound included) is what the gesture
     // hands its settle as the window the wet-in-wet may move paint in - cut

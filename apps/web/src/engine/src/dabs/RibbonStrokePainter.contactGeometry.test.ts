@@ -9,7 +9,7 @@ import { presetForTool } from '../presets/resolvePreset'
 import { dabWorldHalfExtents } from './StampPainter'
 import { brushDragContacts } from '../watercolor/brushDrag'
 
-function metadata(water: number, priorWet: number, enabled: boolean) {
+function metadata(water: number, priorWet: number, enabled: boolean, retiredHalo = false) {
   const name = `normal:${water}:100:PB29:round`
   const profile = ribbonProfileFor('watercolor', name, priorWet)
   const scratch = new RibbonStrokeScratch({} as RibbonScratchPool, true, true)
@@ -33,9 +33,10 @@ function metadata(water: number, priorWet: number, enabled: boolean) {
   painter.diagnosticWaterPolicy = 'bottomless'
   painter.diagnosticLandingPolicy = 'fluid'
   painter.diagnosticFluidBrushContacts = enabled
+  painter.diagnosticRetiredHaloBounds = retiredHalo
   const dabs: Dab[] = Array.from({ length: 20 }, (_, i) => ({
     x: 400 + i * 12, y: 500, size: 120, opacity: 1, aspectRatio: 1,
-    angle: 0, pressure: 1, t: i * 16, speed: .5,
+    angle: 0, pressure: 1, tiltX: 0, tiltY: 0, t: i * 16, speed: .5,
   }))
   const original = structuredClone(dabs)
   for (const _ of painter.paint({} as ILayerBuffer, dabs, presetForTool('watercolor', name), name,
@@ -66,3 +67,17 @@ describe('default-off fluid brush contact experiment', () => {
     expect(on).toEqual(off)
   })
 })
+
+ describe('default-off retired halo bound experiment', () => {
+  it('removes the inactive halo wet-label reach while leaving delivery and contacts intact', () => {
+    const wetOff = metadata(100, 1, false), wetOn = metadata(100, 1, false, true), dry = metadata(100, 0, false)
+    expect(wetOn.reaches).toEqual(dry.reaches)
+    expect(wetOff.reaches).not.toEqual(wetOn.reaches)
+    expect(wetOn.contacts).toEqual(wetOff.contacts)
+    expect(wetOn.standing).toEqual(wetOff.standing)
+    expect(wetOn.waterUsed).toBe(wetOff.waterUsed)
+    expect(wetOn.pigmentUsed).toBe(wetOff.pigmentUsed)
+    expect(wetOn.dabs).toEqual(wetOn.original)
+    expect(metadata(100, 0, false, true)).toEqual(dry)
+  })
+ })
