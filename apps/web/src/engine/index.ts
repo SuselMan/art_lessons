@@ -1723,6 +1723,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _paperCacheKey = ''
   private _revealUni!: Record<string, WebGLUniformLocation | null>
   private _revealPosLoc = -1
+  /** Default-off causal check: composite the existing solver-written domain. */
+  private _diagnosticSettleCompositeDomain = false
   /** Keyed by the layer tile the wash settled into. Presentation state only:
    *  never read by any paint pass, never serialised, dropped with the tile. */
   private _washReveals = new Map<AccumulationBuffer, WashReveal>()
@@ -7037,7 +7039,7 @@ export class PencilEngine implements PencilEngineAPI {
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
-  ): { ops: Array<() => void>; finish: () => void } | null {
+  ): { ops: Array<() => void>; finish: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview)
   }
   private _groupTideOps(
@@ -7489,11 +7491,12 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.44) A tile under a newer, still-running film shows the wet deposit
     // (settled base + that film), not the dry target, which has no film in it.
     const runningFilm = (entry: RibbonTileScratch): boolean => entry.filmGesture !== settledGesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk
+    let compositeBounds = bounds
     const composite = (): void => {
       // (#700) The final settle can land several frames after targets were
       // first resolved. A live frame may already have folded their coarse
       // copies; resolve again at this write so the next frame folds anew.
-      for (const tile of this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(bounds) : bounds)) {
+      for (const tile of this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(compositeBounds) : compositeBounds)) {
         const entry = scratch.peek(tile.buffer)
         if (!entry) continue
         // (§17.23) No deposit smoothing at the settle: the live batches
@@ -7502,12 +7505,12 @@ export class PencilEngine implements PencilEngineAPI {
         // rim it lays is a few pixels wide — the average would take it away.
         // (§17.42) The provisional dry target where the settle built one.
         this._drawRibbonCompositeRect(
-          tile, bounds, preset, profile, entry.original, entry.coverage,
+          tile, compositeBounds, preset, profile, entry.original, entry.coverage,
           runningFilm(entry) ? entry.inkLoad : entry.inkDry ?? entry.inkLoad, runningFilm(entry) ? entry.inkColor : entry.colorDry ?? entry.inkColor, color, opacity,
           fieldSeed, spreadPx, water, migratePx, 0, dir, bristleRadiusPx,
         )
       }
-      target.markContentPainted(bounds)
+      target.markContentPainted(compositeBounds)
     }
     // (#536, ADR 011 §17.11) The mobile phase. Pigment laid into standing
     // water keeps moving after the brush has gone; this is where it moves —
@@ -7569,6 +7572,7 @@ export class PencilEngine implements PencilEngineAPI {
         } : undefined,
       )
       if (job) {
+        if (this._diagnosticSettleCompositeDomain) compositeBounds = job.compositeDomain
         const complete = (): void => {
           job.finish()
           composite()
