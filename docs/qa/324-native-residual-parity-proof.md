@@ -49,3 +49,7 @@ Own temp/parity: plan-proof.ts/json/log; cpu-probe.json и native-probe-test.ts 
 Chisel57px/pressure.43,15move(x100+i*12,y150+i*2), те же controlled seed/timestamps, water100/pigment15. Все7 source ROI exact native↔append и off↔on. В off и on canonical native/replay PNG точные0px/max0; native и append off↔on также неизменны. GL0,53brushTravel на обеих ветках. Off ctx radius28.5↔28.500000810388883; on оба28.500000810388883. Этот case проверяет отсутствие регрессии другого наконечника/нажима, а не доказывает дополнительное исправление (baseline уже был exact). Артефакты `canonical-radius-chisel-{off,on}-matched`, `summary-chisel.mjs`, home `radius-ab-chisel-matched-summary.json`.
 
 Итого предлагается принять нормализацию solver radius **только для V review** после parent review; source commit всё ещё default-off, никакой публикации не было. Полный native/foreign-water multi-stroke parity требует отдельной проверки: source dose, записанная wetness и flow raster здесь не округляются.
+
+## Root integration
+
+Исходники463d1082 перенесены в324-watercolor-transition после foreignV c206. Canonical radius включён только в существующем DEV VITE_WC_REVIEW entry; production defaults сохранены. Root actual workspace typecheck PASS до единственной boolean строки entry,9 targeted CPU tests PASS; канонический экспорт и reveal retirement проверены отдельно после объединения.

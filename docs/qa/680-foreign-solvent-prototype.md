@@ -38,3 +38,9 @@ GPU `state.json`: patterned borrowed V snapshot/restore и spill/unspill byte-ex
 `native.mjs` не устанавливает diagnostic flags вручную. Автоматический DEV entry проверен: combined/record/sharedFluid/solvent/landingfluid/bottomless/foreigntrue. Источник — remote чистая вода от другого user со своим strokeId/washId и fresh timestamp; цветной штрих идёт настоящими `_onStart/_onMove/_onEnd`.
 
 Native1: remote чужая вода→сухой pen pigment;2operations, undo/redo/rebuild, всеphaseGL0/faults[], contextLostfalse, все RGBA PNG byte-exact. Native4:5operations с дополнительными own-water+15%pigment и dry contact; всеphaseGL0/faults[], contextLostfalse. Undo/redo и rebuild согласованы друг с другом, но native до rebuild отличается517pixels,max11 codes,bbox[100,340,285,541]. Это небольшой оставшийся native/replay drift, не объявлен исправленным этим water-source прототипом; отдельный morph агент проверяет float-profile boundary. Основание включает canonical exportSOURCE743adafd и typefix7fdcc459.
+
+## Samsung native smoke (root, c2064b58 / 5298)
+
+SM-T970, отдельная create?qa=root-foreign-20261006 вкладка; автоматический DEV entry combined/V/bottomless/foreign, без ручного изменения flags. Remote clear-water operation другого user/gesture/wash, затем настоящий native сухой pigment stroke. Все11 фаз ready/water/stroke/dry/export/undo/redo/rebuild GL0, contextLostfalse.26 программ реально скомпилированы с уникальным shader salt,0 failed. Native, redo и rebuild канонические PNG byte-exact. Две операции, свежий маленький контроль; это не доказательство качества всех комнат/обратного смешения двух цветов.
+
+Артефакты root temp/wc-runs/own-water/native-foreign-samsung.json и native-foreign-{before,redo}-samsung.png. Только собственная QA вкладка закрыта, forward9233 удалён; пользовательские вкладки сохранены.

@@ -93,6 +93,7 @@ export class RibbonStrokePainter {
       this.diagnosticSharedFluid = true
       this.diagnosticLandingReservoir = true
       this.diagnosticSolventField = true
+      this.diagnosticCanonicalSettleRadius = true
       this.diagnosticLandingPolicy = 'fluid'
       this.diagnosticWaterPolicy = 'bottomless'
       this.diagnosticForeignSolvent = import.meta.env.VITE_WC_FOREIGN_REVIEW === '1'
