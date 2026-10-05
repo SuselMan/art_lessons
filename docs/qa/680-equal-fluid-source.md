@@ -57,3 +57,14 @@ GenuineVega `temp/finish/hazard100` + `hazard15`,10cases GL0/lostfalse;
 все PNG RGBAexact диагностической instantaneous формуле на этих постоянных
 средах. App typecheck PASS. **GPU native/live partition и меняющийся wet-field
 ещё не проверены**; CPUpartition не заменяет slicing invariance движка.
+
+## Один live gesture, разные границы batching
+
+`temp/finish/hazard-slicing/report.json` genuineVega4cases GL0/lostfalse:
+41 подготовленный dab, один beginStroke/один scratch/один finish,
+`_paintRibbonDabs` whole41 и batch1/3/7; без encodedchunk append/newFilm.
+Во всех4 beforefinish SHA coverage/inkLoad/inkColor/solventLoad exact.
+Clock hazard0.1625, pigmentUsed13 exact. Финальные PNG RGBAexact0px.
+Это подтверждает painter livebatch invariance текущего мокрого15% fixture;
+не утверждает инвариантность исторического ADD между encodedchunks.
+Native pointer UI всей комнаты отдельно этим harness не проверялся.
