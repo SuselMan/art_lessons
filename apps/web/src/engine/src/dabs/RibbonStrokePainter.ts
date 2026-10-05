@@ -86,6 +86,7 @@ export class RibbonStrokePainter {
       this.diagnosticSolventField = true
       this.diagnosticLandingPolicy = 'fluid'
       this.diagnosticWaterPolicy = 'bottomless'
+      this.diagnosticForeignSolvent = import.meta.env.VITE_WC_FOREIGN_REVIEW === '1'
     }
   }
 
