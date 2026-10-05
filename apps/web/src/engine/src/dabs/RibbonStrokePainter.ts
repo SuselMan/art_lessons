@@ -61,20 +61,17 @@ export interface RibbonStrokePainterContext {
  * are supplied by the engine without changing the order of rendering. */
 export class RibbonStrokePainter {
   private readonly ctx: RibbonStrokePainterContext
-  /** Dev-only protocol experiment; never encoded in operations or enabled by default. */
-  diagnosticSegmentDelivery: false | 'combined' | 'explicit' =
-    import.meta.env.DEV && typeof window !== 'undefined'
-      && new URLSearchParams(window.location.search).get('wcSegmentDelivery') === '1'
-      ? 'combined' : false
+  /** Water is deposited before pigment on each segment, including replay. */
+  diagnosticSegmentDelivery: false | 'combined' | 'explicit' = 'combined'
   diagnosticPigmentRecord = true
   diagnosticSharedFluid = true
   diagnosticLandingReservoir = true
-  diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'legacy'
-  diagnosticForeignSolvent = false
-  diagnosticSolventField = false
-  /** Default-off uniform-only parity experiment; does not change source nibs. */
-  diagnosticCanonicalSettleRadius = false
-  diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
+  diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'bottomless'
+  diagnosticForeignSolvent = true
+  diagnosticSolventField = true
+  /** Solver uniforms use the radius recoverable from the recorded dabs. */
+  diagnosticCanonicalSettleRadius = true
+  diagnosticLandingPolicy: 'dry' | 'fluid' = 'fluid'
   private diagnosticDepth = 0
   private waterOnlyDepth = 0
   private readonly auxiliaryWater = new Set<RibbonStrokeScratch>()
@@ -86,18 +83,6 @@ export class RibbonStrokePainter {
   diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
   constructor(ctx: RibbonStrokePainterContext) {
     this.ctx = ctx
-    // Isolated development review only; no UI or recorded operation fields.
-    if (import.meta.env.DEV && import.meta.env.VITE_WC_REVIEW === '1') {
-      this.diagnosticSegmentDelivery = 'combined'
-      this.diagnosticPigmentRecord = true
-      this.diagnosticSharedFluid = true
-      this.diagnosticLandingReservoir = true
-      this.diagnosticSolventField = true
-      this.diagnosticCanonicalSettleRadius = true
-      this.diagnosticLandingPolicy = 'fluid'
-      this.diagnosticWaterPolicy = 'bottomless'
-      this.diagnosticForeignSolvent = import.meta.env.VITE_WC_FOREIGN_REVIEW === '1'
-    }
   }
 
 
@@ -190,7 +175,7 @@ export class RibbonStrokePainter {
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
   ): Generator<number, void, void> {
-    const segmentMode = import.meta.env.DEV && profile.normalizeDeposit ? this.diagnosticSegmentDelivery : false
+    const segmentMode = profile.normalizeDeposit ? this.diagnosticSegmentDelivery : false
     if (segmentMode && dabs.length > 1 && this.diagnosticDepth === 0) {
       scratch.standing.clear()
       this.diagnosticDepth++
@@ -1062,7 +1047,7 @@ export class RibbonStrokePainter {
         yield* contribution.pigment()
       }
       if (this.waterOnlyDepth) continue
-      if (segmentMode && this.diagnosticTrace.length < 4096) this.diagnosticTrace.push({
+      if (import.meta.env.DEV && segmentMode && this.diagnosticTrace.length < 4096) this.diagnosticTrace.push({
         before: wetOf(drawable[0]), after: paperWetByDab.get(drawable[0]) ?? 0,
         water: waterByDab.get(drawable[0]) ?? 0, dose: deposits[0] * inkStrength,
       })

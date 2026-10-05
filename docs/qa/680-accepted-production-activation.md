@@ -36,3 +36,31 @@ Lifecycle b37 и canonical exporter includeWashReveal=false тоже без DEV 
 - Остаются user visual задачи: ring/spiral/неполное own-vs-foreign равенство. Accepted advancement не означает решение всех четырёх.
 
 Принцип: публикация должна включать тот же accepted source/solver, который человек видел на5301; display morph остаётся presentation-only, canonical export/ops неизменны.
+
+## Release-проверка менеджера 06.10
+
+Отдельный worktree `680-watercolor-release` основан на принятом c1997fee и
+содержит merge origin/main6007b92e (только новые assets логотипа).
+Перенос меняет defaults и снимает DEV gate painter; DEV trace остаётся
+только в development. A/B, hazard dose, Rpatch и новые diffusion solver сюда
+не входят. Все девять настроек принятого review подтверждены отдельно
+собранным Vite SSR production module, без window/DEV/environment override.
+
+Изолированный npm ci + build shared/server Prisma устранили ошибки первого
+setup с чужим старым shared/dist. Полный `npm run typecheck` PASS,
+`npm run build` PASS (обычная production-сборка, paper bake и SW106entries),
+map:check PASS67modules/937files, map:rules0errors/4knownwarnings.
+После обновления обоснованных CPU fixtures весь engine suite:
+**124files / 1418tests PASS**, maxWorkers2/testTimeout15000 (107.88s).
+Это CPU correctness, не доказательство плавности или crossGPU parity.
+Lint:fix0errors/7warnings. Артефакты `temp-{build,typecheck,engine-tests-final,lint-final}.log`,
+`temp/release/production-model.{mjs,json}`.
+
+Production Samsung UI первая попытка была INVALID из-за возврата DOM
+объекта в CDP returnByValue (Object reference chain too long). Исправленный
+повтор не нашёл собственную1132tab: она уже закрыта вне harness. Никакого
+вывода о GL/пикселях этой обычной сборки пока нет. Forward9233 снят,
+пользовательская1121settings/5301room не тронута; дальнейшая UI QA будет
+в отдельной управляемой странице. Принятый c199 на Samsung ранее имеет
+26saltedlinks/0fails, GL0, native single-round/rebuild PNG exact, но это
+явно dev-review entry, не результат production UI попытки выше.
