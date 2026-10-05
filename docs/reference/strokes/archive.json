@@ -120,6 +120,11 @@
        "src": "img/1/001-app-0a78ab53.jpg",
        "w": 1451,
        "h": 334
+      },
+      "c1997fee-review": {
+       "src": "img/1/001-app-c1997fee-review.jpg",
+       "w": 1451,
+       "h": 334
       }
      }
     },
@@ -234,6 +239,11 @@
       },
       "0a78ab53": {
        "src": "img/1/002-app-0a78ab53.jpg",
+       "w": 1217,
+       "h": 382
+      },
+      "c1997fee-review": {
+       "src": "img/1/002-app-c1997fee-review.jpg",
        "w": 1217,
        "h": 382
       }
@@ -352,6 +362,11 @@
        "src": "img/1/003-app-0a78ab53.jpg",
        "w": 1334,
        "h": 373
+      },
+      "c1997fee-review": {
+       "src": "img/1/003-app-c1997fee-review.jpg",
+       "w": 1334,
+       "h": 373
       }
      }
     },
@@ -466,6 +481,11 @@
       },
       "0a78ab53": {
        "src": "img/1/004-app-0a78ab53.jpg",
+       "w": 1170,
+       "h": 343
+      },
+      "c1997fee-review": {
+       "src": "img/1/004-app-c1997fee-review.jpg",
        "w": 1170,
        "h": 343
       }
@@ -584,6 +604,11 @@
        "src": "img/1/005-app-0a78ab53.jpg",
        "w": 1287,
        "h": 326
+      },
+      "c1997fee-review": {
+       "src": "img/1/005-app-c1997fee-review.jpg",
+       "w": 1287,
+       "h": 326
       }
      }
     },
@@ -698,6 +723,11 @@
       },
       "0a78ab53": {
        "src": "img/1/006-app-0a78ab53.jpg",
+       "w": 1256,
+       "h": 354
+      },
+      "c1997fee-review": {
+       "src": "img/1/006-app-c1997fee-review.jpg",
        "w": 1256,
        "h": 354
       }
@@ -816,6 +846,11 @@
        "src": "img/1/007-app-0a78ab53.jpg",
        "w": 1187,
        "h": 407
+      },
+      "c1997fee-review": {
+       "src": "img/1/007-app-c1997fee-review.jpg",
+       "w": 1187,
+       "h": 407
       }
      }
     },
@@ -930,6 +965,11 @@
       },
       "0a78ab53": {
        "src": "img/1/008-app-0a78ab53.jpg",
+       "w": 1142,
+       "h": 376
+      },
+      "c1997fee-review": {
+       "src": "img/1/008-app-c1997fee-review.jpg",
        "w": 1142,
        "h": 376
       }
@@ -1048,6 +1088,11 @@
        "src": "img/1/009-app-0a78ab53.jpg",
        "w": 908,
        "h": 407
+      },
+      "c1997fee-review": {
+       "src": "img/1/009-app-c1997fee-review.jpg",
+       "w": 908,
+       "h": 407
       }
      }
     },
@@ -1162,6 +1207,11 @@
       },
       "0a78ab53": {
        "src": "img/1/010-app-0a78ab53.jpg",
+       "w": 939,
+       "h": 398
+      },
+      "c1997fee-review": {
+       "src": "img/1/010-app-c1997fee-review.jpg",
        "w": 939,
        "h": 398
       }
@@ -1280,6 +1330,11 @@
        "src": "img/1/011-app-0a78ab53.jpg",
        "w": 942,
        "h": 382
+      },
+      "c1997fee-review": {
+       "src": "img/1/011-app-c1997fee-review.jpg",
+       "w": 942,
+       "h": 382
       }
      }
     },
@@ -1394,6 +1449,11 @@
       },
       "0a78ab53": {
        "src": "img/1/012-app-0a78ab53.jpg",
+       "w": 836,
+       "h": 329
+      },
+      "c1997fee-review": {
+       "src": "img/1/012-app-c1997fee-review.jpg",
        "w": 836,
        "h": 329
       }
@@ -1512,6 +1572,11 @@
        "src": "img/1/013-app-0a78ab53.jpg",
        "w": 827,
        "h": 340
+      },
+      "c1997fee-review": {
+       "src": "img/1/013-app-c1997fee-review.jpg",
+       "w": 827,
+       "h": 340
       }
      }
     },
@@ -1626,6 +1691,11 @@
       },
       "0a78ab53": {
        "src": "img/1/014-app-0a78ab53.jpg",
+       "w": 794,
+       "h": 345
+      },
+      "c1997fee-review": {
+       "src": "img/1/014-app-c1997fee-review.jpg",
        "w": 794,
        "h": 345
       }
@@ -1744,6 +1814,11 @@
        "src": "img/1/015-app-0a78ab53.jpg",
        "w": 864,
        "h": 384
+      },
+      "c1997fee-review": {
+       "src": "img/1/015-app-c1997fee-review.jpg",
+       "w": 864,
+       "h": 384
       }
      }
     },
@@ -1858,6 +1933,11 @@
       },
       "0a78ab53": {
        "src": "img/1/017-app-0a78ab53.jpg",
+       "w": 816,
+       "h": 343
+      },
+      "c1997fee-review": {
+       "src": "img/1/017-app-c1997fee-review.jpg",
        "w": 816,
        "h": 343
       }
@@ -2086,6 +2166,11 @@
        "src": "img/2/001-app-0a78ab53.jpg",
        "w": 718,
        "h": 794
+      },
+      "c1997fee-review": {
+       "src": "img/2/001-app-c1997fee-review.jpg",
+       "w": 718,
+       "h": 794
       }
      }
     },
@@ -2195,6 +2280,11 @@
       },
       "0a78ab53": {
        "src": "img/2/002-app-0a78ab53.jpg",
+       "w": 718,
+       "h": 770
+      },
+      "c1997fee-review": {
+       "src": "img/2/002-app-c1997fee-review.jpg",
        "w": 718,
        "h": 770
       }
@@ -2308,6 +2398,11 @@
        "src": "img/2/003-app-0a78ab53.jpg",
        "w": 789,
        "h": 794
+      },
+      "c1997fee-review": {
+       "src": "img/2/003-app-c1997fee-review.jpg",
+       "w": 789,
+       "h": 794
       }
      }
     },
@@ -2417,6 +2512,11 @@
       },
       "0a78ab53": {
        "src": "img/2/004-app-0a78ab53.jpg",
+       "w": 808,
+       "h": 914
+      },
+      "c1997fee-review": {
+       "src": "img/2/004-app-c1997fee-review.jpg",
        "w": 808,
        "h": 914
       }
@@ -2530,6 +2630,11 @@
        "src": "img/2/005-app-0a78ab53.jpg",
        "w": 819,
        "h": 868
+      },
+      "c1997fee-review": {
+       "src": "img/2/005-app-c1997fee-review.jpg",
+       "w": 819,
+       "h": 868
       }
      }
     },
@@ -2641,6 +2746,11 @@
        "src": "img/2/006-app-0a78ab53.jpg",
        "w": 718,
        "h": 963
+      },
+      "c1997fee-review": {
+       "src": "img/2/006-app-c1997fee-review.jpg",
+       "w": 718,
+       "h": 963
       }
      }
     },
@@ -2750,6 +2860,11 @@
       },
       "0a78ab53": {
        "src": "img/2/007-app-0a78ab53.jpg",
+       "w": 1414,
+       "h": 707
+      },
+      "c1997fee-review": {
+       "src": "img/2/007-app-c1997fee-review.jpg",
        "w": 1414,
        "h": 707
       }
@@ -3038,6 +3153,11 @@
        "src": "img/3/001-app-0a78ab53.jpg",
        "w": 719,
        "h": 540
+      },
+      "c1997fee-review": {
+       "src": "img/3/001-app-c1997fee-review.jpg",
+       "w": 719,
+       "h": 540
       }
      }
     },
@@ -3239,6 +3359,11 @@
        "src": "img/3/002-app-0a78ab53.jpg",
        "w": 719,
        "h": 540
+      },
+      "c1997fee-review": {
+       "src": "img/3/002-app-c1997fee-review.jpg",
+       "w": 719,
+       "h": 540
       }
      }
     },
@@ -3424,6 +3549,11 @@
        "src": "img/3/003-app-0a78ab53.jpg",
        "w": 719,
        "h": 540
+      },
+      "c1997fee-review": {
+       "src": "img/3/003-app-c1997fee-review.jpg",
+       "w": 719,
+       "h": 540
       }
      }
     },
@@ -3585,6 +3715,11 @@
        "src": "img/3/004-app-0a78ab53.jpg",
        "w": 719,
        "h": 540
+      },
+      "c1997fee-review": {
+       "src": "img/3/004-app-c1997fee-review.jpg",
+       "w": 719,
+       "h": 540
       }
      }
     },
@@ -3730,6 +3865,11 @@
        "src": "img/3/005-app-0a78ab53.jpg",
        "w": 719,
        "h": 540
+      },
+      "c1997fee-review": {
+       "src": "img/3/005-app-c1997fee-review.jpg",
+       "w": 719,
+       "h": 540
       }
      }
     },
@@ -3849,6 +3989,11 @@
       },
       "0a78ab53": {
        "src": "img/3/006-app-0a78ab53.jpg",
+       "w": 719,
+       "h": 540
+      },
+      "c1997fee-review": {
+       "src": "img/3/006-app-c1997fee-review.jpg",
        "w": 719,
        "h": 540
       }
@@ -4124,6 +4269,11 @@
        "src": "img/4/001-app-0a78ab53.jpg",
        "w": 1008,
        "h": 599
+      },
+      "c1997fee-review": {
+       "src": "img/4/001-app-c1997fee-review.jpg",
+       "w": 1008,
+       "h": 599
       }
      }
     },
@@ -4315,6 +4465,11 @@
        "src": "img/4/002-app-0a78ab53.jpg",
        "w": 1095,
        "h": 599
+      },
+      "c1997fee-review": {
+       "src": "img/4/002-app-c1997fee-review.jpg",
+       "w": 1095,
+       "h": 599
       }
      }
     },
@@ -4482,6 +4637,11 @@
        "src": "img/4/003-app-0a78ab53.jpg",
        "w": 1051,
        "h": 599
+      },
+      "c1997fee-review": {
+       "src": "img/4/003-app-c1997fee-review.jpg",
+       "w": 1051,
+       "h": 599
       }
      }
     },
@@ -4625,6 +4785,11 @@
        "src": "img/4/004-app-0a78ab53.jpg",
        "w": 1018,
        "h": 599
+      },
+      "c1997fee-review": {
+       "src": "img/4/004-app-c1997fee-review.jpg",
+       "w": 1018,
+       "h": 599
       }
      }
     },
@@ -4744,6 +4909,11 @@
        "src": "img/4/005-app-0a78ab53.jpg",
        "w": 870,
        "h": 599
+      },
+      "c1997fee-review": {
+       "src": "img/4/005-app-c1997fee-review.jpg",
+       "w": 870,
+       "h": 599
       }
      }
     },
@@ -4837,6 +5007,11 @@
       },
       "0a78ab53": {
        "src": "img/4/006-app-0a78ab53.jpg",
+       "w": 1055,
+       "h": 599
+      },
+      "c1997fee-review": {
+       "src": "img/4/006-app-c1997fee-review.jpg",
        "w": 1055,
        "h": 599
       }
@@ -5037,6 +5212,11 @@
        "src": "img/5/001-app-0a78ab53.jpg",
        "w": 1317,
        "h": 329
+      },
+      "c1997fee-review": {
+       "src": "img/5/001-app-c1997fee-review.jpg",
+       "w": 1317,
+       "h": 329
       }
      }
     },
@@ -5178,6 +5358,11 @@
       },
       "0a78ab53": {
        "src": "img/5/002-app-0a78ab53.jpg",
+       "w": 1213,
+       "h": 360
+      },
+      "c1997fee-review": {
+       "src": "img/5/002-app-c1997fee-review.jpg",
        "w": 1213,
        "h": 360
       }
@@ -5323,6 +5508,11 @@
        "src": "img/5/003-app-0a78ab53.jpg",
        "w": 1256,
        "h": 278
+      },
+      "c1997fee-review": {
+       "src": "img/5/003-app-c1997fee-review.jpg",
+       "w": 1256,
+       "h": 278
       }
      }
     },
@@ -5450,6 +5640,11 @@
        "src": "img/5/004-app-0a78ab53.jpg",
        "w": 969,
        "h": 289
+      },
+      "c1997fee-review": {
+       "src": "img/5/004-app-c1997fee-review.jpg",
+       "w": 969,
+       "h": 289
       }
      }
     },
@@ -5569,6 +5764,11 @@
        "src": "img/5/005-app-0a78ab53.jpg",
        "w": 1000,
        "h": 289
+      },
+      "c1997fee-review": {
+       "src": "img/5/005-app-c1997fee-review.jpg",
+       "w": 1000,
+       "h": 289
       }
      }
     },
@@ -5678,6 +5878,11 @@
       },
       "0a78ab53": {
        "src": "img/5/006-app-0a78ab53.jpg",
+       "w": 1183,
+       "h": 299
+      },
+      "c1997fee-review": {
+       "src": "img/5/006-app-c1997fee-review.jpg",
        "w": 1183,
        "h": 299
       }
@@ -5891,6 +6096,11 @@
        "src": "img/6/001-app-0a78ab53.jpg",
        "w": 1345,
        "h": 438
+      },
+      "c1997fee-review": {
+       "src": "img/6/001-app-c1997fee-review.jpg",
+       "w": 1345,
+       "h": 438
       }
      }
     },
@@ -6039,6 +6249,11 @@
        "src": "img/6/002-app-0a78ab53.jpg",
        "w": 1209,
        "h": 546
+      },
+      "c1997fee-review": {
+       "src": "img/6/002-app-c1997fee-review.jpg",
+       "w": 1209,
+       "h": 546
       }
      }
     },
@@ -6169,6 +6384,11 @@
       },
       "0a78ab53": {
        "src": "img/6/003-app-0a78ab53.jpg",
+       "w": 1217,
+       "h": 476
+      },
+      "c1997fee-review": {
+       "src": "img/6/003-app-c1997fee-review.jpg",
        "w": 1217,
        "h": 476
       }
@@ -6303,6 +6523,11 @@
        "src": "img/6/004-app-0a78ab53.jpg",
        "w": 1189,
        "h": 487
+      },
+      "c1997fee-review": {
+       "src": "img/6/004-app-c1997fee-review.jpg",
+       "w": 1189,
+       "h": 487
       }
      }
     },
@@ -6427,6 +6652,11 @@
        "src": "img/6/005-app-0a78ab53.jpg",
        "w": 1122,
        "h": 525
+      },
+      "c1997fee-review": {
+       "src": "img/6/005-app-c1997fee-review.jpg",
+       "w": 1122,
+       "h": 525
       }
      }
     },
@@ -6543,6 +6773,11 @@
        "src": "img/6/006-app-0a78ab53.jpg",
        "w": 1032,
        "h": 515
+      },
+      "c1997fee-review": {
+       "src": "img/6/006-app-c1997fee-review.jpg",
+       "w": 1032,
+       "h": 515
       }
      }
     },
@@ -6651,6 +6886,11 @@
        "src": "img/6/007-app-0a78ab53.jpg",
        "w": 1071,
        "h": 466
+      },
+      "c1997fee-review": {
+       "src": "img/6/007-app-c1997fee-review.jpg",
+       "w": 1071,
+       "h": 466
       }
      }
     },
@@ -6751,6 +6991,11 @@
        "src": "img/6/008-app-0a78ab53.jpg",
        "w": 1168,
        "h": 497
+      },
+      "c1997fee-review": {
+       "src": "img/6/008-app-c1997fee-review.jpg",
+       "w": 1168,
+       "h": 497
       }
      }
     },
@@ -6843,6 +7088,11 @@
        "src": "img/6/009-app-0a78ab53.jpg",
        "w": 1237,
        "h": 546
+      },
+      "c1997fee-review": {
+       "src": "img/6/009-app-c1997fee-review.jpg",
+       "w": 1237,
+       "h": 546
       }
      }
     },
@@ -6925,6 +7175,11 @@
       },
       "0a78ab53": {
        "src": "img/6/010-app-0a78ab53.jpg",
+       "w": 1296,
+       "h": 564
+      },
+      "c1997fee-review": {
+       "src": "img/6/010-app-c1997fee-review.jpg",
        "w": 1296,
        "h": 564
       }
@@ -7178,6 +7433,11 @@
        "src": "img/7/001-app-0a78ab53.jpg",
        "w": 727,
        "h": 386
+      },
+      "c1997fee-review": {
+       "src": "img/7/001-app-c1997fee-review.jpg",
+       "w": 727,
+       "h": 386
       }
      }
     },
@@ -7350,6 +7610,11 @@
        "src": "img/7/002-app-0a78ab53.jpg",
        "w": 697,
        "h": 325
+      },
+      "c1997fee-review": {
+       "src": "img/7/002-app-c1997fee-review.jpg",
+       "w": 697,
+       "h": 325
       }
      }
     },
@@ -7498,6 +7763,11 @@
        "src": "img/7/003-app-0a78ab53.jpg",
        "w": 748,
        "h": 406
+      },
+      "c1997fee-review": {
+       "src": "img/7/003-app-c1997fee-review.jpg",
+       "w": 748,
+       "h": 406
       }
      }
     },
@@ -7630,6 +7900,11 @@
        "src": "img/7/004-app-0a78ab53.jpg",
        "w": 758,
        "h": 378
+      },
+      "c1997fee-review": {
+       "src": "img/7/004-app-c1997fee-review.jpg",
+       "w": 758,
+       "h": 378
       }
      }
     },
@@ -7746,6 +8021,11 @@
        "src": "img/7/005-app-0a78ab53.jpg",
        "w": 666,
        "h": 368
+      },
+      "c1997fee-review": {
+       "src": "img/7/005-app-c1997fee-review.jpg",
+       "w": 666,
+       "h": 368
       }
      }
     },
@@ -7852,6 +8132,11 @@
       },
       "0a78ab53": {
        "src": "img/7/006-app-0a78ab53.jpg",
+       "w": 656,
+       "h": 386
+      },
+      "c1997fee-review": {
+       "src": "img/7/006-app-c1997fee-review.jpg",
        "w": 656,
        "h": 386
       }
@@ -8001,6 +8286,11 @@
        "src": "img/8/001-app-0a78ab53.jpg",
        "w": 807,
        "h": 297
+      },
+      "c1997fee-review": {
+       "src": "img/8/001-app-c1997fee-review.jpg",
+       "w": 807,
+       "h": 297
       }
      }
     },
@@ -8091,6 +8381,11 @@
       },
       "0a78ab53": {
        "src": "img/8/002-app-0a78ab53.jpg",
+       "w": 1008,
+       "h": 297
+      },
+      "c1997fee-review": {
+       "src": "img/8/002-app-c1997fee-review.jpg",
        "w": 1008,
        "h": 297
       }
@@ -8185,6 +8480,11 @@
        "src": "img/8/003-app-0a78ab53.jpg",
        "w": 998,
        "h": 335
+      },
+      "c1997fee-review": {
+       "src": "img/8/003-app-c1997fee-review.jpg",
+       "w": 998,
+       "h": 335
       }
      }
     },
@@ -8267,6 +8567,11 @@
       },
       "0a78ab53": {
        "src": "img/8/004-app-0a78ab53.jpg",
+       "w": 1048,
+       "h": 287
+      },
+      "c1997fee-review": {
+       "src": "img/8/004-app-c1997fee-review.jpg",
        "w": 1048,
        "h": 287
       }
@@ -8353,6 +8658,11 @@
        "src": "img/8/005-app-0a78ab53.jpg",
        "w": 1168,
        "h": 325
+      },
+      "c1997fee-review": {
+       "src": "img/8/005-app-c1997fee-review.jpg",
+       "w": 1168,
+       "h": 325
       }
      }
     },
@@ -8437,6 +8747,11 @@
        "src": "img/8/006-app-0a78ab53.jpg",
        "w": 977,
        "h": 297
+      },
+      "c1997fee-review": {
+       "src": "img/8/006-app-c1997fee-review.jpg",
+       "w": 977,
+       "h": 297
       }
      }
     },
@@ -8519,6 +8834,11 @@
       },
       "0a78ab53": {
        "src": "img/8/007-app-0a78ab53.jpg",
+       "w": 957,
+       "h": 307
+      },
+      "c1997fee-review": {
+       "src": "img/8/007-app-c1997fee-review.jpg",
        "w": 957,
        "h": 307
       }
@@ -8667,6 +8987,11 @@
        "src": "img/9/001-app-0a78ab53.jpg",
        "w": 693,
        "h": 565
+      },
+      "c1997fee-review": {
+       "src": "img/9/001-app-c1997fee-review.jpg",
+       "w": 693,
+       "h": 565
       }
      }
     },
@@ -8750,6 +9075,11 @@
       },
       "0a78ab53": {
        "src": "img/9/002-app-0a78ab53.jpg",
+       "w": 650,
+       "h": 597
+      },
+      "c1997fee-review": {
+       "src": "img/9/002-app-c1997fee-review.jpg",
        "w": 650,
        "h": 597
       }
@@ -8837,6 +9167,11 @@
        "src": "img/9/003-app-0a78ab53.jpg",
        "w": 713,
        "h": 585
+      },
+      "c1997fee-review": {
+       "src": "img/9/003-app-c1997fee-review.jpg",
+       "w": 713,
+       "h": 585
       }
      }
     },
@@ -8922,6 +9257,11 @@
        "src": "img/9/004-app-0a78ab53.jpg",
        "w": 725,
        "h": 618
+      },
+      "c1997fee-review": {
+       "src": "img/9/004-app-c1997fee-review.jpg",
+       "w": 725,
+       "h": 618
       }
      }
     },
@@ -8999,6 +9339,11 @@
        "src": "img/9/005-app-0a78ab53.jpg",
        "w": 660,
        "h": 683
+      },
+      "c1997fee-review": {
+       "src": "img/9/005-app-c1997fee-review.jpg",
+       "w": 660,
+       "h": 683
       }
      }
     },
@@ -9074,6 +9419,11 @@
       },
       "0a78ab53": {
        "src": "img/9/006-app-0a78ab53.jpg",
+       "w": 736,
+       "h": 703
+      },
+      "c1997fee-review": {
+       "src": "img/9/006-app-c1997fee-review.jpg",
        "w": 736,
        "h": 703
       }
@@ -9232,6 +9582,11 @@
        "src": "img/10/001-app-0a78ab53.jpg",
        "w": 711,
        "h": 577
+      },
+      "c1997fee-review": {
+       "src": "img/10/001-app-c1997fee-review.jpg",
+       "w": 711,
+       "h": 577
       }
      }
     },
@@ -9331,6 +9686,11 @@
       },
       "0a78ab53": {
        "src": "img/10/002-app-0a78ab53.jpg",
+       "w": 679,
+       "h": 577
+      },
+      "c1997fee-review": {
+       "src": "img/10/002-app-c1997fee-review.jpg",
        "w": 679,
        "h": 577
       }
@@ -9434,6 +9794,11 @@
        "src": "img/10/003-app-0a78ab53.jpg",
        "w": 768,
        "h": 634
+      },
+      "c1997fee-review": {
+       "src": "img/10/003-app-c1997fee-review.jpg",
+       "w": 768,
+       "h": 634
       }
      }
     },
@@ -9527,6 +9892,11 @@
        "src": "img/10/004-app-0a78ab53.jpg",
        "w": 701,
        "h": 599
+      },
+      "c1997fee-review": {
+       "src": "img/10/004-app-c1997fee-review.jpg",
+       "w": 701,
+       "h": 599
       }
      }
     },
@@ -9612,6 +9982,11 @@
        "src": "img/10/005-app-0a78ab53.jpg",
        "w": 711,
        "h": 589
+      },
+      "c1997fee-review": {
+       "src": "img/10/005-app-c1997fee-review.jpg",
+       "w": 711,
+       "h": 589
       }
      }
     },
@@ -9687,6 +10062,11 @@
       },
       "0a78ab53": {
        "src": "img/10/006-app-0a78ab53.jpg",
+       "w": 845,
+       "h": 522
+      },
+      "c1997fee-review": {
+       "src": "img/10/006-app-c1997fee-review.jpg",
        "w": 845,
        "h": 522
       }
@@ -9995,6 +10375,25 @@
    "date": "2026-10-03",
    "subject": "#680: разделить пигмент на поворотах и последовательный мокрый контакт",
    "rendered": "2026-10-03"
+  },
+  {
+   "id": "c1997fee-review",
+   "commit": "c1997fee56175bddc99961604dc52f8add829a7a",
+   "date": "2026-10-06",
+   "subject": "Принятая DEV версия: общая вода и плавная сушка",
+   "rendered": "2026-10-05T23:50:28.236872+00:00",
+   "devReview": true,
+   "flags": {
+    "diagnosticSegmentDelivery": "combined",
+    "diagnosticPigmentRecord": true,
+    "diagnosticSharedFluid": true,
+    "diagnosticLandingReservoir": true,
+    "diagnosticSolventField": true,
+    "diagnosticCanonicalSettleRadius": true,
+    "diagnosticLandingPolicy": "fluid",
+    "diagnosticWaterPolicy": "bottomless",
+    "diagnosticForeignSolvent": true
+   }
   }
  ]
 }
