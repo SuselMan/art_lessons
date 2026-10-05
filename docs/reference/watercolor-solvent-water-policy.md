@@ -42,3 +42,31 @@ rate=(1-w)^p, без threshold jump. Это brushmodel choice, не скрыто
 
 Полный15-case policy GPU прогон завершился: GL0/contextlost false во всех,
 Chrome закрыт. Typecheck/lint/map:rules прошли (исторические предупреждения).
+
+## Native pen path и reveal causal AB
+
+Нативный PointerData input (1 fullwet15 straight stroke,15rAFmoves,pressure0.7)
+проходит DEV env entry без ручных diagnostic setter. Packed operation replay в
+свежем engine даёт в source ROI256×128 полностью одинаковые семь records:
+coverage,inkLoad,inkColor,solventLoad,strokeInk,strokeColor,strokeSolvent. ROI
+содержит весь след (world x64..320,y96..224). Оба пути GL0, до undo.
+
+Однако finalnative/freshappend отличается7509pixel,maxchannel101. Абляция ТОЛЬКО
+native `_finishRibbonStroke` reveal args `[true]`→`[false,false,true]` уменьшает
+разницу до584pixel,max10. Finish contexts одинаковы по воде/профилю/seed, кроме
+float32 упакованных opacity,bounds,radius (~1e−6). Следовательно крупная canonical
+разница вызвана progressive preview/reveal execution path, не delivery water/P.
+Причина малого остатка ещё не доказана; float geometry quantization — гипотеза.
+
+Отдельный undo trace обнаружил GL1282 в bindTexture `_advanceWashReveal` после
+удаления canonical tile. Это воспроизводится и с segment/V выключенными;
+морфагент исправил lifetime отдельным b37fbb9f. Native baseline безsegment/V
+тоже даёт большой live/rebuild drift7034pixel,max81. Поэтому новую V model нельзя
+объявлять единственной причиной native drift, а previewcanonical contamination
+следует чинить до приглашения. Эти два бага различны: lifetimefix убрал GLerror,
+но сам по себе ещё не выровнял PNG. Source5297 во время AB не менялся.
+
+Артефакты: temp/policy/source-ab/ и source-ab-no-reveal/ (bounded fields+PNG),
+native-stages/native-trace/native-baseline harnesses. Native7append load/rebuild
+контролей с review+morph source exact и GL0, включая purewater/dry/samewashforeignwash;
+они проверяют последовательный replay, но не заменяют нативный pen input тест.
