@@ -1,6 +1,6 @@
 # #324: отделить canonical export от мокрой презентации
 
-Основание bb45c644, исправление 743adafd. Production/push отсутствуют. GPU verification исправления пока не выполнена: во время независимого spiral capture перестал отвечать домашний SSH. Новые Chrome не запускались.
+Основание bb45c644, исправление 743adafd. Production/push отсутствуют. Во время независимого spiral capture домашний SSH временно не отвечал; новые Chrome до освобождения слота не запускались. После завершения того capture исправление проверено на настоящей Vega.
 
 ## Исправленная диагностика
 
@@ -22,6 +22,8 @@ AB на неизменённом исходнике:
 
 Unit index.watercolor.test.ts: exports canonical tiles without stopping the on-screen wash reveal. Проверяет, что экран вызывает drawReveal, offscreen export composite его не вызывает, и map/объекты reveal сохранены. PASS; web tsc PASS. Это routing/lifecycle proof, не real shader PNG proof.
 
-Следующая проверка при доступном GPU: то же native+freshappend source-ab с обычным finish=true, экспорт patched path при ещё активном reveal; отдельно raw canonical tiles. Проверить phaseGL0, source7ROIexact, residual native/replay PNG и экранное движение; Samsung salted compile не требуется для этого изменения shader-free, но native undo smoke полезен. Не обещать exact native parity до измерения float32 geometry остатка.
+Реальная Vega: обычный native finish=true, затем fresh append тех же записанных операций. Экспорт patched path при всё ещё активном reveal: source7ROI byte-exact, GLnative/append0; остаток PNG **463px/max10/mean.00036625** вместо примерно7505px/max100. Это подтверждает, что большая прежняя разница была экспортом transient представления, а не доказанной порчей material solver. Exact native parity не заявляется: float32 geometry/quantized recorded-dab остаток отдельно не локализован. Chrome закрыт finally, GPU освобождена. Изменённых shader programs нет.
 
-Артефакты own temp/policy/source-ab-{nodisplay,noop,noprepare}/report.json + PNG/raw; harness source-ab-canonical.mjs подготовлен. Home5316 update sync начат до потери SSH, его завершение и актуальность source пока не подтверждены. Ни5297, ни5313 не менялись.
+Артефакты temp/policy/source-ab-canonical/{report.json,metrics.json,native.png,after.png}; source/index.ts и LayerCompositor.ts на home совпадали по SHA256 с 743adafd перед запуском. Экранное движение подтверждено прежним morph QA; routing unit доказывает, что этот patch не отключает on-screen reveal. Отдельный real moving-frame proof этого export-only изменения и Samsung native export smoke ещё не сделаны.
+
+Артефакты own temp/policy/source-ab-{nodisplay,noop,noprepare}/report.json + PNG/raw; harness source-ab-canonical.mjs подготовлен. Home5316 update sync завершился; оба изменённых source-файла сверены по SHA перед реальным запуском. Ни5297, ни5313 не менялись.
