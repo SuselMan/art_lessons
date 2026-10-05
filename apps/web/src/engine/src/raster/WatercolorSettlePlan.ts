@@ -124,7 +124,10 @@ export class WatercolorSettlePlan {
     // (budget up to 160) ran into the field's edge, and the domain - and
     // the coverage it extends - came out cut to the rect: a wash on the
     // rig turned into a lopsided polygon.
-    const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, Math.max(landedWet, wetPeak)) / WC_FRONT_FLOOR)
+    const externalMerge = watercolorPuddleMerge(wetPeak)
+    const selfMix = externalMerge > 0 ? 0 : watercolorPuddleMerge(standing)
+    const effectiveWet = Math.max(landedWet, wetPeak, selfMix > 0 ? standing : 0)
+    const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, effectiveWet) / WC_FRONT_FLOOR)
     // (§17.42) ...plus, when the wash dries as one component, the margin
     // the group tide needs around what changed: its band is read off an
     // inward relaxation of `inSteps` cells from the coverage's edge and its
@@ -314,7 +317,7 @@ export class WatercolorSettlePlan {
     // (§17.29) ...by the WETTEST paper the mark ran over, not where it
     // landed: Ilya's series 5 lays the second stroke from dry paper into
     // the first, and its front has to run where the first stroke is.
-    const runWet = Math.max(landedWet, wetPeak)
+    const runWet = effectiveWet
     // (§17.44) In the field's cells from here on: budget and radius over S.
     const budgetPx = watercolorSpreadBudget(radiusPx, water, runWet) / S
     const radiusC = radiusPx / S
@@ -339,7 +342,11 @@ export class WatercolorSettlePlan {
     // resolve a cell.
     const costMaxIn = width + 3
     const inSteps = width + 2
-    const merge = watercolorPuddleMerge(wetPeak)
+    const merge = externalMerge
+    // A loaded wet brush brings its own solvent to dry paper. Keep the
+    // existing foreign-puddle remobilisation/tide rules, but let that new
+    // water mix this stroke's pigment too (first wet wash, #680).
+    const puddleMix = Math.max(merge, selfMix)
     // (§17.26) A mark laid over an earlier mark that was still damp has no
     // dry paper to stop at there: its own tideline stands down over it (the
     // bloom ring is the edge), fully on wet.
@@ -655,7 +662,7 @@ export class WatercolorSettlePlan {
       // the fixed one at its weight (watercolorPuddleSettleWeights); the
       // rest is scaled down once at the end. The fixed field ping-pongs
       // with `spare`, free here, and comes back into `b` before the bloom.
-      const puddleSteps = merge > 0 && !this.ctx.ab().noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []
+      const puddleSteps = puddleMix > 0 && !this.ctx.ab().noDiffuse ? WET_DIFFUSE_PUDDLE_SCHEDULE : []
       if (puddleSteps.length) {
         const w = watercolorPuddleSettleWeights(puddleSteps.length)
         const acc = { fixed: b, free: spare }
@@ -696,7 +703,7 @@ export class WatercolorSettlePlan {
         ops.push(() => { settleSlice(0); afloat -= w.slices[0]; present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat) })
         puddleSteps.forEach(({ radius, knight }, i) => {
           ops.push(() => {
-            advance(radius, knight, field.pressure)
+            advance(selfMix > 0 ? radius * selfMix : radius, knight, selfMix > 0 ? field.coverage : field.pressure)
             settleSlice(i + 1)
             afloat -= w.slices[i + 1]
             present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat)
