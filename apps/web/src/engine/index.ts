@@ -7438,6 +7438,7 @@ export class PencilEngine implements PencilEngineAPI {
       const held = this._washReveals.get(tile.buffer)
       const entry = scratch.peek(tile.buffer)
       if (held && entry) {
+        if (held.wetMask) this._revealPoolRelease(held.wetMask)
         held.wetMask = this._revealPoolAcquire(tile.buffer.width, tile.buffer.height)
         entry.coverage.copyTo(held.wetMask)
         held.progressive = true
