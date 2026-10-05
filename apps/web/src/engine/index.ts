@@ -1,3 +1,4 @@
+import { hasActiveWater } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
 import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
@@ -5133,7 +5134,11 @@ export class PencilEngine implements PencilEngineAPI {
     // glaze instead of one wet wash, for that participant only, for good, and
     // passed on in every snapshot they bake. Refusing costs nothing: the layer
     // is left out of this upload and the server keeps serving its operations.
-    const washOps = this._log.doneOperations().filter(o => o.type === 'paper_dry' || (o.type === 'stroke' && o.layerId === layerId))
+    const done = this._log.doneOperations()
+    // A closed wash can still supply water to another gesture. Its encoded
+    // donor must remain in the join tail until that ephemeral water expires.
+    if (hasActiveWater(done, layerId, Date.now())) return false
+    const washOps = done.filter(o => o.type === 'paper_dry' || (o.type === 'stroke' && o.layerId === layerId))
     if (this._openWashes(washOps, Date.now()).open.length) return false
     // (§17.53) Mid-rebuild the buffer is the pre-undo picture: not this time.
     // The layer stays dirty and goes with the next boundary.
