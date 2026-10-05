@@ -3767,6 +3767,8 @@ export const WC_DIFFUSE_FRAG = `
   // Both pigment and absorption records read the same pre-step mobile
   // pigment here. Never derive mobility from the colour record itself.
   uniform sampler2D u_density;
+  uniform sampler2D u_solvent;
+  uniform float u_useSolvent;
   uniform sampler2D u_coverage;
   uniform sampler2D u_paperHeightMap;
   uniform vec2 u_resolution;
@@ -3860,6 +3862,14 @@ export const WC_DIFFUSE_FRAG = `
         vec4 covj = texture2D(u_coverage, uvj);
         float wj = wcWaterAt(covj);
         float density = max((2.0 * texture2D(u_density, v_uv).a) / max(cov.a, 0.002), (2.0 * texture2D(u_density, uvj).a) / max(covj.a, 0.002));
+        if (u_useSolvent > 0.5) {
+          // Independent diagnostic thickness V/4. Pigment mass P comes from
+          // .b, never from the solvent's representational headroom.
+          float vi = 4.0 * texture2D(u_solvent, v_uv).a;
+          float vj = 4.0 * texture2D(u_solvent, uvj).a;
+          density = max(2.0 * texture2D(u_density, v_uv).b / max(vi, 0.002),
+                        2.0 * texture2D(u_density, uvj).b / max(vj, 0.002));
+        }
         float gate = min(wi, wj) / (1.0 + 8.0 * density * density);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);
