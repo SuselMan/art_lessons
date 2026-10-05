@@ -31,9 +31,11 @@ Historical same-op-wet cases — отдельный causal input контрол�
 prewater fixtures используют те же209dabs, что pigment48; original water47 имеет66.
 
 В этом диагностическом варианте bottomless действует на любой waterlevel.
-Для дальнейшего usercandidate обсуждена explicit независимая от пигмента policy:
-100% воды bottomless, менее100% finite у чистой и цветной кисти. Это отдельный
-brushmodel choice, не скрытое утверждение о conservation жидкости.
+Предложение hard cliff (100% bottomless,99% finite) отклонено: это резкий
+UX скачок. Current review оставляет bottomlessall как явный experimental режим.
+Следующее отдельное исследование — continuous waterlevel-dependent clock, например
+rate=(1-w)^p, без threshold jump. Это brushmodel choice, не скрытое утверждение
+о conservation жидкости.
 
 Стенд5297 изолирован;5296 frozen. Диагностика temp/policy/qa.mjs и cases.json:
 только source/final V/P/depth stats и PNG, без fulltile basefilm base64 snapshots.
