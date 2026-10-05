@@ -48,3 +48,35 @@ typecheck новой рабочей копии не прошёл из-за от�
 `target-qa.mjs`, `cases.json`; CPU oracle в соседней рабочей копии
 `324-live-spread-morph/temp/outline-independent/{oracle.mjs,report.json}`.
 Своя Vite5314 остаётся отдельным diagnostic runtime; Chrome QA закрыт.
+
+## Где возникает несогласованность и светлая линия
+
+Следующий stage-only baseline прогон operator не меняет. `split-total` перед
+mode0 имеет b<=a во всех пикселях; fixed.b=0. После mode0
+`mobile=max(total-fixed,0)` b>a в 10484 пикселях (max125 codes), g>a в10469
+(max62). Prefront и precarry имеют те же суммы/числа нарушений. Total a суммарно
+5041455, fixed a4925776, mobile a115679, но весь новый b1134203 остаётся mobile.
+10488 total amount pixels насыщены. Поканальная разность ограниченных векторов
+не сохраняет b<=a; это точный этап появления нарушения, не доказанная причина
+всех других дефектов. Исходный raster до объединения total здесь не дампился.
+
+Final canonical tile снова b<=a везде; final C.rgb<=C.a. Поэтому рассматривать
+composite strength clamp по mobile sums было преждевременно: display читает
+восстановленный total, а не этот mobile. Shader composite не изменён.
+
+На точной видимой линии y290..294, x261 (среднее по5 пикселям) P.b доcarry42.8,
+после15.6, final P.b22.4 и C.a22.4, C.g6.4, luminance209.4. Снаружи x260:
+final P.b/C.a39.6, luma190.9; внутри x262:35.8,194.9. C.g/C.a около.28
+везде, coverage.a255. Светлая линия соответствует настоящему провалу пигмента
+и optical depth, а не только ratio/coverage composite.
+
+Mobile carrier на линии P.a10.8, а в центре x300 всего5.4; pigment P.b,
+наоборот,42.8 против102.4. Это исходная несогласованность carrier и pigment
+после вычитания насыщенного total-fixed. Независимая новая V-модель может
+устранить её, но этот вывод нужно подтвердить тем же frozen profile на V,
+а не переносить результат baseline на другой оператор автоматически.
+
+Артефакты `temp/carry-normalization/frozen-stage`: report с global sums и
+числами нарушений, малые RGBA ROI каждого этапа, `line-profile.json`,
+`profile-console.txt`; воспроизведение `frozen-stage-qa.mjs` и
+`profile-frozen.mjs`. GL0/lostfalse, собственная вкладка закрыта.
