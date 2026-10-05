@@ -11,6 +11,7 @@ import { rectOnTile, ribbonWaterDelivery } from './src/dabs/ribbonStrokeMath'
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
+import { washRevealHold } from './src/raster/washReveal'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -6793,14 +6794,13 @@ export class PencilEngine implements PencilEngineAPI {
     }
     let layerId = ''
     for (const [id, buf] of this._layers) if (buf === layer) { layerId = id; break }
-    this._washReveals.set(buffer, { layerId, before, startedAt: performance.now() })
+    this._washReveals.set(buffer, { layerId, before, startedAt: null })
   }
 
   /** How much of the kept picture still shows, 1 → 0 over WC_REVEAL_MS,
    *  fast first: the square of the time left. */
   private _revealHold(reveal: WashReveal, now: number): number {
-    const left = 1 - (now - reveal.startedAt) / WC_REVEAL_MS
-    return left <= 0 ? 0 : left * left
+    return washRevealHold(reveal.startedAt, now, WC_REVEAL_MS)
   }
 
   /** A live batch just composited `bounds` into `tile`: the kept picture is
@@ -7351,6 +7351,20 @@ export class PencilEngine implements PencilEngineAPI {
     const targets = this._resolveWithinSheet(target, profile.normalizeDeposit ? this._wcSheetClamp(bounds) : bounds)
     if (!targets.length) return
     if (reveal && fade) for (const tile of targets) this._revealWash(tile, target)
+    // Own these copies, not a later reveal over the same tile. An older
+    // settle may complete while this stroke is starting its next one.
+    const revealCopies = reveal && fade ? targets.flatMap(tile => {
+      const held = this._washReveals.get(tile.buffer)
+      return held ? [{ buffer: tile.buffer, held }] : []
+    }) : []
+    const startReveal = (): void => {
+      if (!revealCopies.length) return
+      const now = performance.now()
+      for (const { buffer, held } of revealCopies) {
+        if (this._washReveals.get(buffer) === held) held.startedAt = now
+      }
+      this._displayIfNotSuspended()
+    }
     const { spreadPx, water, migratePx, bristleRadiusPx } = scratch.compositeScalars(
       () => ({
         spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0,
@@ -7440,12 +7454,7 @@ export class PencilEngine implements PencilEngineAPI {
             // The settle lands now, so the reveal eases in from now — not
             // from the pen-up a few frames ago, which would show a slice of
             // the change at once.
-            const now = performance.now()
-            for (const tile of targets) {
-              const r = this._washReveals.get(tile.buffer)
-              if (r) r.startedAt = now
-            }
-            this._displayIfNotSuspended()
+            startReveal()
           }
         }
         if ((reveal || spread) && typeof requestAnimationFrame === 'function') {
@@ -7461,6 +7470,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     composite()
+    startReveal()
     // (§17.44) Not the author's open wash: its next gesture takes the same
           // film buffers straight back (filmBuffers reuses them), and giving
           // them to the pool made it destroy the overflow and remake it on

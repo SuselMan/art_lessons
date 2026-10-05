@@ -20,7 +20,8 @@ export interface CompositeItem {
 export interface WashReveal {
   layerId: string
   before: AccumulationBuffer
-  startedAt: number
+  /** null while the canonical dry target is still being computed. */
+  startedAt: number | null
 }
 
 export interface LayerCompositorContext {
