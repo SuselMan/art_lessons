@@ -34,7 +34,7 @@ const PLATE = '#000000'
 // The 316-unit crop renders at 632 px, enough for the largest PNG.
 const DENSITY = 144
 
-// Every nontransparent source pixel is inside radius 1.273 (half-side units).
+// Every nontransparent source pixel is inside radius 1.281 (half-side units).
 // At 62% it fits Android's circular safe zone of radius 0.8, including flecks.
 const MASKABLE_SCALE = 0.62
 
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
 
   // An SVG favicon is an image document: external PNG references are blocked.
   // Embed a 192px copy instead of making every tab fetch the 1.2MB original.
-  const faviconMark = await sharp(mark).resize(192, 192).png().toBuffer()
+  const faviconMark = await sharp(mark).resize(192, 192, { fit: 'inside' }).png().toBuffer()
   const favicon = svg.toString().replace(mark.toString('base64'), faviconMark.toString('base64'))
   writeFileSync(join(OUT_DIR, 'favicon.svg'), favicon)
   console.log('  favicon.svg              standalone embedded artwork')
