@@ -86,8 +86,13 @@ PNG baseline remote replay и PNG candidate rebuild совпадают byte-exac
 Диагностический baseline использует исходный index `11ee5ab6` и его исходный
 inline reveal shader; остальные совместные runtime helpers не изменены, кроме
 добавления TypeScript-полей к WashReveal. Независимый native draw→rebuild на
-полной старой сборке остаётся дополнительной проверкой причины малого drift;
-точное равенство live/rebuild для этого случая не заявляется.
+полной старой сборке 5290 тоже не совпал: 141 pixels, max 4/255,
+mean 0.0000459416, ROI x1189..1256/y311..328, без delta > 8. Index, shaders,
+LayerCompositor и WatercolorSettlePlan этой сборки сверены SHA256 с `11ee5ab6`.
+Таким образом малый native/rebuild drift присутствует и без presentation motion;
+его точная причина не установлена. Оба endpoint после remote replay/rebuild
+candidate и baseline совпадают точно; exact live/rebuild двухтайлового случая
+по-прежнему не заявляется.
 
 Проба same-canvas повторного создания baseline дала GL0 и не воспроизвела
 старую ошибку атрибутов, поэтому первоначальный дефект harness не объявляется
@@ -96,6 +101,8 @@ inline reveal shader; остальные совместные runtime helpers н
 Артефакты: `temp/engine-morph/vega-qa`, видео, early/moving/dry PNG; отдельный
 `temp/engine-morph/tiles-qa.mjs` проверяет tile count, replacement/destroy,
 full rebuild, exact old baseline и baseline same-canvas reuse.
+Отдельно `temp/engine-morph/baseline-tiles` содержит independent native5290
+PNG/report; `early-dry-probe.js` подготовлен для request во время solverpending.
 
 ## Ограничения
 
