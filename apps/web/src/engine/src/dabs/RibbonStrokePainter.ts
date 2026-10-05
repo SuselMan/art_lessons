@@ -12,7 +12,7 @@ import { markerThinNibInkGain } from '../dabs/markerInkGain'
 import { wetAt, wetPeak } from '../paper/paperWetness'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, ribbonProfileFor, type RibbonProfile } from '../dabs/ribbonProfile'
-import { watercolorFerrulePx, watercolorStandingWater, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, watercolorPigmentLoad, watercolorPigmentRate, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
+import { watercolorFerrulePx, watercolorStandingWater, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, watercolorPigmentLoad, watercolorPigmentRate, watercolorPigmentHazard, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { EMPTY_BANDS, rectOnTile, ribbonBandPieceCost, ribbonBandPieces, ribbonBristleCombs, ribbonWaterDelivery } from './ribbonStrokeMath'
 
@@ -622,6 +622,7 @@ export class RibbonStrokePainter {
           wetHere, !!segmentMode, this.diagnosticWaterPolicy,
         )
         used = source.waterUsed
+        const pigmentAdvance = Math.max(0, source.pigmentUsed - pigUsed)
         pigUsed = source.pigmentUsed
         const { load, water } = source
         // (#536, §17.14) …by the brush's water: a wet brush spends the same
@@ -636,8 +637,9 @@ export class RibbonStrokePainter {
         // Diagnostic single-boundary trial: nominal water releases solvent;
         // available liquid selects the pigment travel curve. No pickup/refill.
         const pigmentWater = segmentMode && this.diagnosticPigmentFluidDose ? availableHere : profile.waterLevel
+        if (segmentMode && this.diagnosticPigmentFluidDose) scratch.pigmentHazard = watercolorPigmentHazard(scratch.pigmentHazard, pigmentAdvance, pigmentWater)
         const pigmentLeft = profile.waterDepletion
-          ? watercolorPigmentLoad(pigUsed, pigmentWater) * watercolorPigmentRate(pigmentWater) * watercolorWetPull(availableHere)
+          ? (segmentMode && this.diagnosticPigmentFluidDose ? Math.exp(-scratch.pigmentHazard) : watercolorPigmentLoad(pigUsed, pigmentWater)) * watercolorPigmentRate(pigmentWater) * watercolorWetPull(availableHere)
           : 1
         // The gesture's own travel clock, carried on the scratch, so this decays
         // from the *stroke's* start rather than from each batch's. The pigment
