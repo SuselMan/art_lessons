@@ -868,6 +868,10 @@ export class RibbonStrokePainter {
     // (#536, §17.19) This stroke's paint as absorption, for the colour record.
     const tau = pigmentAbsorption(color)
     scratch.paints.add(color.join(','))
+    if (profile.pigmentStrength > 0 && scratch.solventPigmentStroke !== scratch.solventStrokeSerial) {
+      if (scratch.solventPigmentGestures >= 0) scratch.solventPigmentGestures++
+      scratch.solventPigmentStroke = scratch.solventStrokeSerial
+    }
 
     // #547 — flow, normalized against how far the brush travelled between
     // stamps, computed once for the batch rather than per tile.

@@ -1,3 +1,4 @@
+import { WC_CONCENTRATION_DIFFUSE_FRAG } from './concentrationDiffuseShader'
 import { DISPLAY_VERT, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -56,6 +57,9 @@ export class WatercolorPasses {
 
   /** (#536) One step of pigment diffusion in standing water — see
    *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
+  private _concentrationProg: WebGLProgram | null = null
+  private _concentrationUni: Record<string, WebGLUniformLocation | null> = {}
+  private _concentrationPos = -1
   private _diffuseProg!: WebGLProgram
 
   private _brushDragProg!: WebGLProgram
@@ -216,15 +220,22 @@ export class WatercolorPasses {
     field: WatercolorPassField, x0: number, y0: number, S: number, paperTexW: number, paperTexH: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer,
     density: AccumulationBuffer = src,
-    solvent: AccumulationBuffer | null = null,
+    solvent: AccumulationBuffer | null = null, concentration = false,
   ): void {
     const { gl } = this
     dst.beginReplaceDraw()
-    gl.useProgram(this._diffuseProg)
-    const u = this._diffuseUni
+    if (concentration && solvent && !this._concentrationProg) {
+      this._concentrationProg = createProgram(gl, DISPLAY_VERT, WC_CONCENTRATION_DIFFUSE_FRAG)
+      this._concentrationUni = getUniforms(gl, this._concentrationProg, ['u_ink', 'u_density', 'u_solvent', 'u_coverage', 'u_resolution', 'u_d', 'u_radius', 'u_stencil', 'u_paperHeightMap', 'u_useSolvent', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_b'])
+      this._concentrationPos = gl.getAttribLocation(this._concentrationProg, 'a_position')
+    }
+    const active = concentration && solvent && this._concentrationProg
+    gl.useProgram(active || this._diffuseProg)
+    const u = active ? this._concentrationUni : this._diffuseUni
+    const pos = active ? this._concentrationPos : this._diffusePosLoc
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
-    gl.enableVertexAttribArray(this._diffusePosLoc)
-    gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(pos)
+    gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, src.texture)
     gl.uniform1i(u.u_ink, 0)
@@ -336,6 +347,7 @@ export class WatercolorPasses {
 
   initSettlePrograms(): void {
     const { gl } = this
+    this._concentrationProg = null
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
     this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect', 'u_color', 'u_contactGain', 'u_texel'])
@@ -380,7 +392,7 @@ export class WatercolorPasses {
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
     if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg].includes(current)) {
+      this._resampleProg, this._diffuseProg, this._concentrationProg, this._brushDragProg, this._waterFrontProg].includes(current)) {
       this.gl.useProgram(null)
     }
     this.gl.deleteProgram(this._fieldOpProg)
@@ -389,6 +401,8 @@ export class WatercolorPasses {
     this.gl.deleteProgram(this._fieldOpCarryColourProg)
     this.gl.deleteProgram(this._resampleProg)
     this.gl.deleteProgram(this._diffuseProg)
+    if (this._concentrationProg) this.gl.deleteProgram(this._concentrationProg)
+    this._concentrationProg = null
     this.gl.deleteProgram(this._brushDragProg)
     this.gl.deleteProgram(this._waterFrontProg)
   }

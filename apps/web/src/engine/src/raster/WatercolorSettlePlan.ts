@@ -21,7 +21,7 @@ export interface WatercolorSettlePlanContext {
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
-  ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean }
+  ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean; concentrationDiffuse?: boolean }
   passes(): WatercolorPasses
 }
 
@@ -313,7 +313,7 @@ export class WatercolorSettlePlan {
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this.ctx.passes().fieldOp(out, a, b, mode, k)
     const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage, density: AccumulationBuffer = src): void => {
-      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density, solvent)
+      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density, solvent, !!this.ctx.ab().concentrationDiffuse && !!solvent && scratch.paints.size === 1 && scratch.solventPigmentGestures === 1 && Math.max(1, Math.round(radius / S)) <= 4)
     }
     // (§17.23) The operation's footprint — where its own deposit lies, which
     // is the mobile field before anything moves — and the dome over it: the
