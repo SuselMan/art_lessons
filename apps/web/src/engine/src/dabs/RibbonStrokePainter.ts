@@ -34,7 +34,7 @@ export interface RibbonStrokePainterContext {
   minmaxExt(): { MAX_EXT: number } | null
   setLiveComposite(value: RibbonLiveComposite | null): void
   dabWorldHalfExtents(d: Dab, erasing: boolean, preset: PencilPreset, wicking?: boolean): { hx: number; hy: number }
-  drawRibbonBands(dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink' | 'ink-max', aaPx: number, cloud?: number, gran?: number, mottleSeed?: [number, number], washWater?: number, waterRetain?: number, bristleCombs?: number, bristleInk?: number, depthTau?: readonly [number, number, number] | null, poolBlot?: number): void
+  drawRibbonBands(dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink' | 'ink-max', aaPx: number, cloud?: number, gran?: number, mottleSeed?: [number, number], washWater?: number, waterRetain?: number, bristleCombs?: number, bristleInk?: number, depthTau?: readonly [number, number, number] | null, poolBlot?: number, availableWater?: AccumulationBuffer | null): void
   drawRibbonCompositeRect(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }, preset: PencilPreset, profile: RibbonProfile, original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null, inkColor: AccumulationBuffer | null, color: [number, number, number], opacity: number, fieldSeed: [number, number], spreadPx: number, water: number, migratePx: number, inkSmoothPx: number, strokeDir: [number, number], bristleRadiusPx?: number): void
   drawRibbonNibPass(dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset, profile: RibbonProfile, inkMode: 6 | 7 | 10, opacity: number, ownTarget?: boolean, inkWater?: number, acrossLocal?: [number, number], paperWet?: number, inkStrength?: number, mottleSeed?: [number, number], clipTo?: AccumulationBuffer | null, bristleCombs?: number, bristleInk?: number, depthTau?: readonly [number, number, number] | null, puddle?: number, poolBlot?: number): void
   fieldOp(out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number, opts?: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number] }): void
@@ -55,6 +55,16 @@ export interface RibbonStrokePainterContext {
  * are supplied by the engine without changing the order of rendering. */
 export class RibbonStrokePainter {
   private readonly ctx: RibbonStrokePainterContext
+  /** Dev-only protocol experiment; never encoded in operations or enabled by default. */
+  diagnosticSegmentDelivery: false | 'combined' | 'explicit' =
+    import.meta.env.DEV && typeof window !== 'undefined'
+      && new URLSearchParams(window.location.search).get('wcSegmentDelivery') === '1'
+      ? 'combined' : false
+  diagnosticPigmentRecord = true
+  diagnosticSharedFluid = true
+  diagnosticLandingReservoir = true
+  private diagnosticDepth = 0
+  diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
   constructor(ctx: RibbonStrokePainterContext) { this.ctx = ctx }
 
 
@@ -103,6 +113,19 @@ export class RibbonStrokePainter {
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
   ): Generator<number, void, void> {
+    const segmentMode = import.meta.env.DEV && profile.normalizeDeposit ? this.diagnosticSegmentDelivery : false
+    if (segmentMode && dabs.length > 1 && this.diagnosticDepth === 0) {
+      scratch.standing.clear()
+      this.diagnosticDepth++
+      try {
+        for (let i = 0; i < dabs.length; i++) {
+          yield* this.paint(target, [dabs[i]], preset, presetName, profile, color, scratch,
+            i === 0 ? prevDab : scratch.lastKept, wetProfile?.slice(i, i + 1), strokeSeed, deferComposite, pieceTris)
+        }
+      } finally { this.diagnosticDepth-- }
+      return
+    }
+    if (segmentMode && this.diagnosticSharedFluid) profile = { ...profile, diagnosticReadFluid: true }
     // Two different treatments of a dab too thin to resolve, and which one a
     // tool gets is the whole of RibbonProfile.minHalfWidthPx (#454). The
     // marker drops it: a sub-half-pixel marker dab is degenerate. The brush
@@ -440,7 +463,7 @@ export class RibbonStrokePainter {
     const waterByDab = new Map<Dab, number>()
     const pigmentByDab = new Map<Dab, number>()
     const delivery = ribbonWaterDelivery(profile)
-    scratch.standing.clear()
+    if (!segmentMode || this.diagnosticDepth === 0) scratch.standing.clear()
     // (#536) Which way "across the brush" points for each dab, in the nib's own
     // local axes — the stamps' half of the hair comb. Filled in the same loop
     // that already resolves each dab's travel direction, so there is exactly
@@ -536,8 +559,14 @@ export class RibbonStrokePainter {
         // (#536, §17.14) …by the brush's water: a wet brush spends the same
         // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
         // (§17.26) …and a wet sheet pulls more of it out (watercolorWetPull).
+        // Pickup above used contact-before. Newly delivered standing water
+        // is available to pigment here, without refilling the brush clock.
+        const availableHere = segmentMode && this.diagnosticSharedFluid
+          ? Math.max(wetHere, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
+          : wetHere
+        if (segmentMode) paperWetByDab.set(dab, availableHere)
         const pigmentLeft = profile.waterDepletion
-          ? watercolorPigmentLoad(pigUsed, profile.waterLevel) * watercolorPigmentRate(profile.waterLevel) * watercolorWetPull(wetHere)
+          ? watercolorPigmentLoad(pigUsed, profile.waterLevel) * watercolorPigmentRate(profile.waterLevel) * watercolorWetPull(availableHere)
           : 1
         // The gesture's own travel clock, carried on the scratch, so this decays
         // from the *stroke's* start rather than from each batch's. The pigment
@@ -549,7 +578,7 @@ export class RibbonStrokePainter {
         // and the surplus is spent over the travel after it.
         const tau = Math.max(0, watercolorTrailDwell(scratch.trail, dab.x, dab.y, dab.t, WC_DWELL_RADIUS * minor * Math.max(dab.aspectRatio, 1)) - WC_DWELL_FLOOR_MS)
         const gateHere = 1 - Math.min(Math.max(wetHere, 0), 1)
-        const pigmentGate = 0.45 + 0.55 * gateHere
+        const pigmentGate = 0.45 + 0.55 * (1 - Math.min(Math.max(availableHere, 0), 1))
         // …and the slowdown relative to this stroke's own pace (watercolorSlowdown).
         const last = scratch.trail.length ? scratch.trail[scratch.trail.length - 1] : null
         let slow = 0
@@ -596,7 +625,7 @@ export class RibbonStrokePainter {
         scratch.surplusAt = pigUsed
         scratch.trail.push({ x: dab.x, y: dab.y, t: dab.t })
         if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
-        const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, landedWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
+        const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, segmentMode && this.diagnosticLandingReservoir ? 0 : landedWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
         excessByDab.set(dab, excess)
         // (#680, s17.79) ...and the landing's own surplus, which needs no dwell:
         // the touch-down's pool is a pool too, broken into blots like the others.
@@ -743,6 +772,13 @@ export class RibbonStrokePainter {
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor, film,
     )
 
+    // The water phase keeps contact-before metadata; pigment bands sample
+    // after-delivery fluid. They share geometry and immutable source dose.
+    const waterBands = segmentMode && inkFor && !profile.stampsOnly
+      ? buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx,
+          (d0, d1, travel) => ({ ...inkFor(d0, d1, travel), paperWet: wetOf(d1) }), film)
+      : bands
+
     // (#536, s17.13) The hairs' bundle count, for the ink pass below and the
     // composite alike - see ribbonBristleCombs.
     const combs = ribbonBristleCombs(profile, bristleRadiusPx)
@@ -795,13 +831,14 @@ export class RibbonStrokePainter {
       // (#536, s17.11) For the watercolor the recorded paper wetness rides
       // along into the coverage stamp too: its .b is the standing-water
       // record the diffusion pass gates on. See u_washWater.
+      const waterPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
       for (let i = 0; i < drawable.length; i++) {
         const dab = drawable[i]
         if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue // (§17.70)
         this.ctx.drawRibbonNibPass(
           coverage, tile, dab, preset, profile, profile.coverageInkMode,
           stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
-          paperWetByDab.get(dab) ?? 0, 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
+          wetOf(dab), 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
           // (s17.84) ...and the pool share into the coverage's .g - where
           // the brush was moving: a standing dab has no direction to comb
           // along (its across is the default, not the travel's).
@@ -813,8 +850,8 @@ export class RibbonStrokePainter {
       // bands that fill between samples are switched off for it (ADR 013 §4).
       // The three older tools keep them: on a turn the bands reach places the
       // stamps miss, and with nothing there the composite paints bare paper.
-      if (!profile.stampsOnly && bands.length) {
-        for (const piece of ribbonBandPieces(bands, pieceTris)) {
+      if (!profile.stampsOnly && waterBands.length) {
+        for (const piece of ribbonBandPieces(waterBands, pieceTris)) {
           const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
           if (pieceTris && !px) continue // (§17.70) nothing of it on this tile
           this.ctx.drawRibbonBands(
@@ -825,6 +862,8 @@ export class RibbonStrokePainter {
           yield px
         }
       }
+
+      }.bind(this)
 
       // Ink follows the *same* figure as the silhouette. Depositing it only at
       // the sample stamps is what produced the rounded white notches on turns:
@@ -845,7 +884,8 @@ export class RibbonStrokePainter {
       const bandMode = fb ? 'ink-max' as const : 'ink' as const
       // (#680, s17.79) The watercolor's surplus lies in blots — see wcPoolBlot.
       const poolBlot = profile.waterDepletion ? 1 : 0
-      if (inkDest) {
+      const pigmentPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
+      if (inkDest && (!segmentMode || !this.diagnosticPigmentRecord || inkStrength > 0)) {
         for (let i = 0; i < drawable.length; i++) {
           if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
           beginInk(inkDest)
@@ -853,7 +893,7 @@ export class RibbonStrokePainter {
             inkDest, tile, drawable[i], preset, profile, 7,
             deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-            paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk,
+            paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, segmentMode && this.diagnosticSharedFluid ? coverage : null, combs, profile.bristleInk,
             null, pigmentPoolByDab.get(drawable[i]) ?? 0.5, poolBlot,
           )
           inkDest.endDraw()
@@ -865,7 +905,7 @@ export class RibbonStrokePainter {
             if (pieceTris && !px) continue
             this.ctx.drawRibbonBands(
               inkDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-              0, 0, combs, profile.bristleInk, null, poolBlot,
+              0, 0, combs, profile.bristleInk, null, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
             )
             yield px
           }
@@ -881,7 +921,7 @@ export class RibbonStrokePainter {
               colorDest, tile, drawable[i], preset, profile, 7,
               deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
               waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-              paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk, tau,
+              paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, segmentMode && this.diagnosticSharedFluid ? coverage : null, combs, profile.bristleInk, tau,
               pigmentPoolByDab.get(drawable[i]) ?? 0, poolBlot,
             )
             colorDest.endDraw()
@@ -893,13 +933,29 @@ export class RibbonStrokePainter {
               if (pieceTris && !px) continue
               this.ctx.drawRibbonBands(
                 colorDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-                0, 0, combs, profile.bristleInk, tau, poolBlot,
+                0, 0, combs, profile.bristleInk, tau, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
               )
               yield px
             }
           }
         }
       }
+
+      }.bind(this)
+      if (segmentMode === 'explicit') {
+        // Explicit independent contribution events on THIS segment.
+        yield* waterPhase()
+        yield* pigmentPhase()
+      } else {
+        // Combined brush input expands to the same water -> pigment protocol.
+        const contribution = { water: waterPhase, pigment: pigmentPhase }
+        yield* contribution.water()
+        yield* contribution.pigment()
+      }
+      if (segmentMode && this.diagnosticTrace.length < 4096) this.diagnosticTrace.push({
+        before: wetOf(drawable[0]), after: paperWetByDab.get(drawable[0]) ?? 0,
+        water: waterByDab.get(drawable[0]) ?? 0, dose: deposits[0] * inkStrength,
+      })
 
       if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
       // (#536, ADR 011 §17.10) The halo, after the mark itself: ink only, and

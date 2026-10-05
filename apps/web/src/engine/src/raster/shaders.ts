@@ -467,6 +467,9 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
+  uniform vec2 u_resolution;
+  uniform sampler2D u_availableWater;
+  uniform float u_useAvailableWater;
   /** Available water into coverage .b, premultiplied by contact coverage.
    *  Brush water and preceding paper water use the same scale. Poolness
    *  remains in .g; it must not reduce the solvent that pigment can enter. */
@@ -521,10 +524,14 @@ ${WC_NOISE_GLSL}
     // (#536) Ink only: the mottling is a property of how much paint landed, not
     // of where the mark's silhouette is.
     vec2 mottleWp = gl_FragCoord.xy + u_worldOrigin;
+    vec4 available = texture2D(u_availableWater, gl_FragCoord.xy / u_resolution);
+    float availableWet = u_useAvailableWater > 0.5
+      ? clamp(available.b / max(available.a, 0.002), 0.0, 1.0)
+      : (v_ink > 5e-7 ? v_inkWet / v_ink : 0.0);
     float mottle = u_mode > 0.5
       ? wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
         * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
-        * wcFilmBlot(mottleWp, u_mottleSeed, v_pigmentPool, v_ink > 5e-7 ? v_inkWet / v_ink : 0.0, u_poolBlot, v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0, step(5e-7, abs(v_inkStrength)))
+        * wcFilmBlot(mottleWp, u_mottleSeed, v_pigmentPool, availableWet, u_poolBlot, v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0, step(5e-7, abs(v_inkStrength)))
       : 1.0;
     float tip = wcTipContact(v_across, u_bristleCombs, mottleWp, v_tipPressure);
     float amount = (u_mode > 0.5 ? cov * v_ink * mottle : cov) * tip;
@@ -562,7 +569,7 @@ ${WC_NOISE_GLSL}
     // uncovered - a row of crescents, "зубья в лужах" - and the hair comb
     // read every band as bone dry.
     float bandWater = v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0;
-    float bandWet = v_ink > 5e-7 ? clamp(v_inkWet / v_ink, 0.0, 1.0) : 0.0;
+    float bandWet = clamp(availableWet, 0.0, 1.0);
     // (#536, s17.13) The hairs vary the delivery, here, into the deposit -
     // see wcHairAmp. The across coordinate is this band's own, so a hair is
     // a fixed place in the brush and its streak follows the brush round a
@@ -1411,7 +1418,7 @@ ${WC_NOISE_GLSL}
         float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
         amount *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
       }
-      if (u_inkClip > 0.5) {
+      if (u_inkClip > 0.5 && u_inkClip < 1.5) {
         // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
         // inside (the composite's own note is about non-uniform flow).
         float washCov = texture2D(u_strokeCoverage, gl_FragCoord.xy / u_resolution).a;
@@ -1421,9 +1428,12 @@ ${WC_NOISE_GLSL}
       // world mapping the paper sampling uses, so a stamp and a band cannot
       // disagree about where the field is.
       vec2 mottleWp = gl_FragCoord.xy + u_paperOrigin;
+      vec4 available = texture2D(u_strokeCoverage, gl_FragCoord.xy / u_resolution);
+      float depositWet = u_inkClip > 1.5
+        ? clamp(available.b / max(available.a, 0.002), 0.0, 1.0) : u_paperWet;
       amount *= wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
               * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
-              * wcFilmBlot(mottleWp, u_mottleSeed, u_puddle, u_paperWet, u_poolBlot, u_inkWater, step(5e-7, abs(u_inkStrength)));
+              * wcFilmBlot(mottleWp, u_mottleSeed, u_puddle, depositWet, u_poolBlot, u_inkWater, step(5e-7, abs(u_inkStrength)));
       // .a is the deposit; .rgb the same deposit weighted by how wet the brush
       // was for this dab. Both accumulate additively, so the composite's r/a is
       // the deposit-weighted mean water over everything that landed here — see
@@ -1434,7 +1444,7 @@ ${WC_NOISE_GLSL}
         gl_FragColor = vec4(amount * u_inkStrength * u_tau / WC_DEPTH_SCALE, amount * u_inkStrength);
         return;
       }
-      gl_FragColor = vec4(amount * u_inkWater, amount * u_paperWet, amount * u_inkStrength, amount);
+      gl_FragColor = vec4(amount * u_inkWater, amount * depositWet, amount * u_inkStrength, amount);
       return;
     }
 

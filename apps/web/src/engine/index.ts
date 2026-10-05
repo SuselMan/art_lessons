@@ -1789,7 +1789,7 @@ export class PencilEngine implements PencilEngineAPI {
     minmaxExt: () => this._minmaxExt,
     setLiveComposite: value => { this._liveComposite = value },
     dabWorldHalfExtents: (d, erasing, preset, wicking) => this._dabWorldHalfExtents(d, erasing, preset, wicking),
-    drawRibbonBands: (dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot) => this._drawRibbonBands(dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot),
+    drawRibbonBands: (dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot, availableWater) => this._drawRibbonBands(dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot, availableWater),
     drawRibbonCompositeRect: (tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx) => this._drawRibbonCompositeRect(tile, bounds, preset, profile, original, coverage, inkLoad, inkColor, color, opacity, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx),
     drawRibbonNibPass: (dest, tile, dab, preset, profile, inkMode, opacity, ownTarget, inkWater, acrossLocal, paperWet, inkStrength, mottleSeed, clipTo, bristleCombs, bristleInk, depthTau, puddle, poolBlot) => this._drawRibbonNibPass(dest, tile, dab, preset, profile, inkMode, opacity, ownTarget, inkWater, acrossLocal, paperWet, inkStrength, mottleSeed, clipTo, bristleCombs, bristleInk, depthTau, puddle, poolBlot),
     fieldOp: (out, a, b, mode, k, opts) => this._fieldOp(out, a, b, mode, k, opts),
@@ -7636,9 +7636,9 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536, s17.19) Ink mode into the colour record — see _drawRibbonNibPass. */
     depthTau: readonly [number, number, number] | null = null,
     /** (#680, s17.79) See _drawRibbonNibPass's poolBlot. */
-    poolBlot = 0,
+    poolBlot = 0, availableWater: AccumulationBuffer | null = null,
   ): void {
-    this._ribbonPasses.drawRibbonBands(dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot)
+    this._ribbonPasses.drawRibbonBands(dest, tile, bands, mode, aaPx, cloud, gran, mottleSeed, washWater, waterRetain, bristleCombs, bristleInk, depthTau, poolBlot, availableWater)
   }
   private _drawRibbonCompositeRect(
     tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
