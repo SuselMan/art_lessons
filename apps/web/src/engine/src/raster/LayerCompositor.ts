@@ -118,6 +118,7 @@ export class LayerCompositor {
   drawCompositeItem(
     frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
     targetW: number, targetH: number,
+    includeWashReveal = true,
   ): void {
     const viewRect = frame.view
     // (#365) Whether this pass is shrinking tiles on the way to its target.
@@ -198,7 +199,7 @@ export class LayerCompositor {
       // the reveal — same rect, same blend, its pixels mixed with the kept
       // picture. The coarse levels above draw plain: at that zoom the motion
       // is under a pixel.
-      const reveal = this.ctx.reveals().get(buffer)
+      const reveal = includeWashReveal ? this.ctx.reveals().get(buffer) : undefined
       if (reveal) {
         this.ctx.drawReveal(
           frame, reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
