@@ -22,8 +22,14 @@ describe('default-off solvent carry replacement', () => {
       scratch.solventPigmentGestures = gestures
       scratch.solventInitialClearWater = clearWater
       if (colors === 2) scratch.paints.add('0,0,1')
-      const flux = vi.spyOn(probe._watercolorPasses, 'solventFlux')
       const fieldOp = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+      const front = vi.spyOn(probe._watercolorPasses, 'waterFrontStep')
+      const stages: Array<[number, number]> = []
+      const originalFlux = probe._watercolorPasses.solventFlux.bind(probe._watercolorPasses)
+      const flux = vi.spyOn(probe._watercolorPasses, 'solventFlux').mockImplementation((...args) => {
+        stages.push([fieldOp.mock.calls.length, front.mock.calls.length])
+        return originalFlux(...args)
+      })
       try {
         const plan = probe._settlePlan.prepare(scratch,
           [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
@@ -34,7 +40,17 @@ describe('default-off solvent carry replacement', () => {
         for (const op of plan!.ops) op()
         expect(flux.mock.calls).toHaveLength(active ? 24 : 0)
         const legacyCarry = fieldOp.mock.calls.filter(c => c[3] === 15)
-        if (active) expect(legacyCarry).toHaveLength(0)
+        if (active) {
+          expect(legacyCarry).toHaveLength(0)
+          expect(stages.every(s => s[0] === stages[0][0] && s[1] === stages[0][1])).toBe(true)
+          const firstP = flux.mock.calls[0][1]
+          const seed = fieldOp.mock.calls.findIndex(c => c[3] === 10)
+          expect(seed).toBeGreaterThanOrEqual(0)
+          expect(fieldOp.mock.calls[seed][1]).toBe(firstP)
+          for (const c of fieldOp.mock.calls.slice(seed + 1, stages[0][0])) expect(c[0]).not.toBe(firstP)
+          for (const c of front.mock.calls.slice(0, stages[0][1])) expect(c[5]).not.toBe(firstP)
+          expect(flux.mock.calls.every(c => c[8] === flux.mock.calls[0][8])).toBe(true)
+        }
         else expect(legacyCarry.length).toBeGreaterThan(0)
         for (let i = 0; i < flux.mock.calls.length; i += 2) {
           const pigment = flux.mock.calls[i], volume = flux.mock.calls[i + 1]
@@ -45,7 +61,7 @@ describe('default-off solvent carry replacement', () => {
         plan!.finish()
         expect(probe._settlePlan._ownedSolvent.size).toBe(0)
       } finally {
-        flux.mockRestore(); fieldOp.mockRestore(); scratch.destroy()
+        flux.mockRestore(); fieldOp.mockRestore(); front.mockRestore(); scratch.destroy()
         probe._ribbonScratchPool.release(tile); engine.destroy()
       }
     })

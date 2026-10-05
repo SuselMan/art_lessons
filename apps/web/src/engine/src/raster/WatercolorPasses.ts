@@ -3,6 +3,7 @@ import { DISPLAY_VERT, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG,
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
+import { WC_FRONT_FLOOR } from '../presets/watercolorPresets'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B } from '../watercolor/wetDiffusion'
 
 export interface WatercolorPassField { w: number; h: number; coverage: AccumulationBuffer }
@@ -332,12 +333,12 @@ export class WatercolorPasses {
 
   /** Default-off single-paint experiment: both outputs read the same old P/V. */
   solventFlux(out: AccumulationBuffer, paint: AccumulationBuffer, volume: AccumulationBuffer,
-    base: AccumulationBuffer, gate: AccumulationBuffer, axis: [number, number], stride: number, volumeOutput: boolean): void {
+    base: AccumulationBuffer, gate: AccumulationBuffer, axis: [number, number], stride: number, volumeOutput: boolean, cost: AccumulationBuffer, costScale: number, paperGain = 2): void {
     const { gl } = this
     if (!this._solventFluxProg) {
       this._solventFluxProg = createProgram(gl, DISPLAY_VERT, WC_SOLVENT_FLUX_FRAG)
       this._solventFluxUni = getUniforms(gl, this._solventFluxProg,
-        ['u_paint', 'u_volume', 'u_base', 'u_gate', 'u_texel', 'u_axis', 'u_stride', 'u_volumeOutput'])
+        ['u_paint', 'u_volume', 'u_base', 'u_gate', 'u_cost', 'u_texel', 'u_axis', 'u_stride', 'u_volumeOutput', 'u_costScale', 'u_floorByte', 'u_paperGain'])
       this._solventFluxPos = gl.getAttribLocation(this._solventFluxProg, 'a_position')
     }
     out.beginReplaceDraw()
@@ -347,7 +348,7 @@ export class WatercolorPasses {
     gl.vertexAttribPointer(this._solventFluxPos, 2, gl.FLOAT, false, 0, 0)
     const u = this._solventFluxUni
     for (const [unit, name, buffer] of [[0, 'u_paint', paint], [1, 'u_volume', volume],
-      [2, 'u_base', base], [3, 'u_gate', gate]] as const) {
+      [2, 'u_base', base], [3, 'u_gate', gate], [5, 'u_cost', cost]] as const) {
       gl.activeTexture(gl.TEXTURE0 + unit)
       gl.bindTexture(gl.TEXTURE_2D, buffer.texture)
       gl.uniform1i(u[name], unit)
@@ -356,6 +357,9 @@ export class WatercolorPasses {
     gl.uniform2f(u.u_axis, axis[0], axis[1])
     gl.uniform1f(u.u_stride, stride)
     gl.uniform1f(u.u_volumeOutput, volumeOutput ? 1 : 0)
+    gl.uniform1f(u.u_costScale, costScale)
+    gl.uniform1f(u.u_floorByte, Math.ceil(WC_FRONT_FLOOR * 255 / costScale))
+    gl.uniform1f(u.u_paperGain, paperGain)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     out.endDraw()
   }

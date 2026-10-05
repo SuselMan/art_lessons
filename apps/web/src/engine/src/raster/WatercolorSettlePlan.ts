@@ -570,22 +570,22 @@ export class WatercolorSettlePlan {
       })
       // The water front, its band and the extended coverage come from the
       // deposit's mobile field, once; the colour record rides the same.
+      if (first) frontOps(c, a)
       if (first && fluxEnabled && solvent && solventBase && solventNext) {
         let psrc = c, pdst = a, vsrc = solvent, vdst = solventNext
         for (const worldStride of [16, 8, 4, 16, 8, 4]) for (const axis of [[1, 0], [0, 1]] as const) {
           const oldP = psrc, newP = pdst, oldV = vsrc, newV = vdst
           ops.push(() => {
             this.ctx.passes().solventFlux(newP, oldP, oldV, solventBase, field.coverage,
-              [axis[0], axis[1]], Math.max(1, Math.round(worldStride / S)), false)
+              [axis[0], axis[1]], Math.max(1, Math.round(worldStride / S)), false, field.pressure, costMax)
             this.ctx.passes().solventFlux(newV, oldP, oldV, solventBase, field.coverage,
-              [axis[0], axis[1]], Math.max(1, Math.round(worldStride / S)), true)
+              [axis[0], axis[1]], Math.max(1, Math.round(worldStride / S)), true, field.pressure, costMax)
           })
           ;[psrc, pdst] = [pdst, psrc]
           ;[vsrc, vdst] = [vdst, vsrc]
         }
         // Twelve face steps return to c/solvent, so later readers keep their identities.
       }
-      if (first) frontOps(c, a)
       // (§17.29) The front carries the paint: the mobile field runs along
       // the front's cost, from the footprint out to where the water
       // stopped, in strided steps of WC_FIELD_OP_FRAG's mode 15 - so a

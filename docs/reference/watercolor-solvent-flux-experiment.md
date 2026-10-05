@@ -39,3 +39,13 @@ Standalone lazy shader, без увеличения Adreno bookkeeping program. 
 Визуально: светлое внутреннее кольцо исчезло, ядро стало слитнее. Но наружные пальцы/grain заменены слишком гладким круглым ореолом, особенно у кляксы. Поэтому этот вариант **не интегрировать и не передавать на пользовательский review**. Load/rebuild и saltedSamsungcompile не выполнялись: сначала нужна более правильная картинка. Wallcase11s spiraloff/on и5.3/6.6s bloboff/on включают дополнительное readbackon, это не GPU timing.
 
 Следующий эксперимент: консервативный q/V перенос с проводимостью существующего бумажного front-cost по каждой грани. Не добавлять обратно legacy carry поверх этого оператора и не вводить отдельную шумовую маску. Проверить симметрию conductance, mass/headroom/negative controls, затем отдельный короткий GPU A/B.
+
+## Кандидат с бумажной проводимостью: CPU
+
+Проводимость использует существующий `field.pressure` (outward front cost), не `field.band` с доменом/пигментом. Front seed и water-front steps перенесены перед flux: читают исходный P, не меняют его. До завершения всех24flux draws pressure не перезаписывается. Это проверено тестом порядка вызовов и отсутствия P feedback.
+
+Для длинной грани суммируются целочисленные превышения соседних cost-byte differences над `ceil(WC_FRONT_FLOOR * 255 / costMax)`, где действующий floor=0.85. Сумма сопротивления одинакова при обходе грани в обе стороны. Conductance=`1/(1+2*resistance*costMax/(255*stride))`; равная стоимость внутри пятна даёт1, поэтому прежний запрет пути по плоскому interior не возвращается. Направление потока задаётся только разностью дополнительного V-base.
+
+CPU byte mirror: spiral наружная доля P.b0.383% против0.896% без paper gate; blob1.265% против2.706%. Все4P/V integer sums сохраняются точно, negative/overflow/negative-head отсутствуют. Reverse-face symmetry проверена явным assert. Источник cost пока **предыдущий actual front с той же recorded geometry**, не current independent-V capture; это ограничение, не готовое GPU-доказательство. Данные: соседний `temp/spiral/actual-solvent/paper-byte-results.json` и `paper-proof.log`.
+
+Дополнительных текстур нет: прежние18MiB max; cost sampler unit5 не перезаписывает bookkeeping u_e наunit4, укладывается в WebGL1 minimum8textureunits. Программа остаётся отдельной. Следующий GPU A/B должен захватить настоящий current cost и проверить grain/fingers, массу, direct negative. До него кандидат default-off и не принят.
