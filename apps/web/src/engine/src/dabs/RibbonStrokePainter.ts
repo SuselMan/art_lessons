@@ -66,6 +66,7 @@ export class RibbonStrokePainter {
       && new URLSearchParams(window.location.search).get('wcSegmentDelivery') === '1'
       ? 'combined' : false
   diagnosticPigmentRecord = true
+  diagnosticPigmentFluidDose = false
   diagnosticSharedFluid = true
   diagnosticLandingReservoir = true
   diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'legacy'
@@ -632,8 +633,11 @@ export class RibbonStrokePainter {
           ? Math.max(wetHere, watercolorStandingWater(delivery.water, delivery.retain, wetHere, load))
           : wetHere
         if (segmentMode) paperWetByDab.set(dab, availableHere)
+        // Diagnostic single-boundary trial: nominal water releases solvent;
+        // available liquid selects the pigment travel curve. No pickup/refill.
+        const pigmentWater = segmentMode && this.diagnosticPigmentFluidDose ? availableHere : profile.waterLevel
         const pigmentLeft = profile.waterDepletion
-          ? watercolorPigmentLoad(pigUsed, profile.waterLevel) * watercolorPigmentRate(profile.waterLevel) * watercolorWetPull(availableHere)
+          ? watercolorPigmentLoad(pigUsed, pigmentWater) * watercolorPigmentRate(pigmentWater) * watercolorWetPull(availableHere)
           : 1
         // The gesture's own travel clock, carried on the scratch, so this decays
         // from the *stroke's* start rather than from each batch's. The pigment
