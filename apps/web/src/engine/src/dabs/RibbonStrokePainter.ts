@@ -63,6 +63,8 @@ export class RibbonStrokePainter {
   diagnosticPigmentRecord = true
   diagnosticSharedFluid = true
   diagnosticLandingReservoir = true
+  diagnosticSolventField = false
+  diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
   private diagnosticDepth = 0
   diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
   constructor(ctx: RibbonStrokePainterContext) { this.ctx = ctx }
@@ -625,7 +627,11 @@ export class RibbonStrokePainter {
         scratch.surplusAt = pigUsed
         scratch.trail.push({ x: dab.x, y: dab.y, t: dab.t })
         if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
-        const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, segmentMode && this.diagnosticLandingReservoir ? 0 : landedWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
+        const landingWet = segmentMode && this.diagnosticLandingReservoir
+          ? this.diagnosticLandingPolicy === 'fluid'
+            ? Math.max(landedWet, watercolorStandingWater(delivery.water, delivery.retain, landedWet, 1)) : 0
+          : landedWet
+        const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, landingWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
         excessByDab.set(dab, excess)
         // (#680, s17.79) ...and the landing's own surplus, which needs no dwell:
         // the touch-down's pool is a pool too, broken into blots like the others.
@@ -778,6 +784,11 @@ export class RibbonStrokePainter {
       ? buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx,
           (d0, d1, travel) => ({ ...inkFor(d0, d1, travel), paperWet: wetOf(d1) }), film)
       : bands
+    const solventBands = segmentMode && this.diagnosticSolventField && !profile.stampsOnly
+      ? buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx,
+          (_d0, d1) => ({ ink: (waterByDab.get(d1) ?? 0) / 4, water: 1, paperWet: 0,
+            strength: 0, puddle: 0, pigmentPool: 0 }), film)
+      : EMPTY_BANDS
 
     // (#536, s17.13) The hairs' bundle count, for the ink pass below and the
     // composite alike - see ribbonBristleCombs.
@@ -861,6 +872,31 @@ export class RibbonStrokePainter {
           )
           yield px
         }
+      }
+
+      if (segmentMode && this.diagnosticSolventField) {
+        // Water has its OWN film/base. MAX water and MAX pigment envelopes
+        // must not compete in one record or compress each other's headroom.
+        const solvent = scratch.solventFilm(tile.buffer)
+        const solventProfile = { ...profile, diagnosticReadFluid: false, inkEdgeFalloff: 1, cloud: 0, granulation: 0, bristleInk: 0 }
+        for (const dab of drawable) {
+          if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue
+          beginInk(solvent.film)
+          this.ctx.drawRibbonNibPass(solvent.film, tile, dab, preset, solventProfile, 7,
+            (waterByDab.get(dab) ?? 0) / 4, false, 1, acrossByDab.get(dab) ?? [0, 1],
+            0, 0, mottleSeed, coverage, combs, 0, null, 0, 0)
+          solvent.film.endDraw()
+          yield pieceTris ? this.ctx.nibDrawCost(tile, dab, preset) : 0
+        }
+        for (const piece of ribbonBandPieces(solventBands, pieceTris)) {
+          this.ctx.drawRibbonBands(solvent.film, tile, piece, fb ? 'ink-max' : 'ink', profile.aaPx, 0, 0, mottleSeed,
+            0, 0, combs, 0, null, 0)
+          yield pieceTris ? ribbonBandPieceCost(piece, tile) : 0
+        }
+        // Independent V cap4 is an explicit reservoir limit. It cannot
+        // rescale the material P/C records; source P still uses the old film.
+        const solventRect = this.ctx.revealRect(tile, compositeBounds)
+        if (solventRect) this.ctx.fieldOp(solvent.load, solvent.base, solvent.film, 1, 1, { scissor: solventRect })
       }
 
       }.bind(this)

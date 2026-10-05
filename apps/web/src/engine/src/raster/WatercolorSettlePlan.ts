@@ -36,6 +36,8 @@ export class WatercolorSettlePlan {
   private _brushFlowTex: WebGLTexture | null = null
 
   private _foreignWaterTex: WebGLTexture | null = null
+  /** Checked-out diagnostic fields survive asynchronous settle steps. */
+  private readonly _ownedSolvent = new Set<AccumulationBuffer>()
 
   /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
    *  laid (the deposit less what was settled before it) is split into a
@@ -219,6 +221,9 @@ export class WatercolorSettlePlan {
       overlaps.push({ tile, ox0, oy0, ox1, oy1 })
     }
     if (!overlaps.length) return null
+    const solvent = tiles.some(t => scratch.peek(t.buffer)?.solventLoad)
+      ? this.ctx.pool().acquire(field.w, field.h) : null
+    if (solvent) this._ownedSolvent.add(solvent)
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
@@ -263,6 +268,7 @@ export class WatercolorSettlePlan {
       field.coverage.clear()
       field.ca.clear()
       field.cb.clear()
+      solvent?.clear()
       for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
         const entry = scratch.peek(tile.buffer)
         if (!entry?.inkLoad) continue
@@ -285,6 +291,7 @@ export class WatercolorSettlePlan {
           snapshots.set(tile.buffer, { ink, color })
         }
         toField(entry.coverage, tile, ox0, oy0, ox1, oy1, field.coverage)
+        if (solvent && entry.solventLoad) toField(entry.solventLoad, tile, ox0, oy0, ox1, oy1, solvent)
         if (entry.inkColor) {
           const settledColor = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
           toField(entry.inkColor, tile, ox0, oy0, ox1, oy1, field.ca)
@@ -298,7 +305,7 @@ export class WatercolorSettlePlan {
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this.ctx.passes().fieldOp(out, a, b, mode, k)
     const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage, density: AccumulationBuffer = src): void => {
-      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density)
+      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density, solvent)
     }
     // (§17.23) The operation's footprint — where its own deposit lies, which
     // is the mobile field before anything moves — and the dome over it: the
@@ -926,6 +933,7 @@ export class WatercolorSettlePlan {
       }
       if (a0) this.ctx.pool().release(a0)
       if (ca0) this.ctx.pool().release(ca0)
+      if (solvent && this._ownedSolvent.delete(solvent)) this.ctx.pool().release(solvent)
       for (const snap of snapshots.values()) { this.ctx.pool().release(snap.ink); if (snap.color) this.ctx.pool().release(snap.color) }
     }
     return { ops, finish }
@@ -1023,11 +1031,14 @@ export class WatercolorSettlePlan {
   }
 
   destroyTextures(): void {
+    for (const field of this._ownedSolvent) field.destroy()
+    this._ownedSolvent.clear()
     this.gl.deleteTexture(this._brushFlowTex)
     this.gl.deleteTexture(this._foreignWaterTex)
   }
 
   forgetTextures(): void {
+    this._ownedSolvent.clear()
     this._brushFlowTex = null
     this._foreignWaterTex = null
   }
