@@ -92,7 +92,7 @@ export class WatercolorSettlePlan {
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
-  ): { ops: Array<() => void>; finish: () => void } | null {
+  ): { ops: Array<() => void>; finish: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
@@ -944,7 +944,13 @@ export class WatercolorSettlePlan {
       if (solvent && this._ownedSolvent.delete(solvent)) this.ctx.pool().release(solvent)
       for (const snap of snapshots.values()) { this.ctx.pool().release(snap.ink); if (snap.color) this.ctx.pool().release(snap.color) }
     }
-    return { ops, finish }
+    // Presentation must show the actual solver-written rectangle, not only
+    // the brush source AABB. Keep source bounds too when the field was capped.
+    const compositeDomain = {
+      minX: Math.min(bounds.minX, x0), minY: Math.min(bounds.minY, y0),
+      maxX: Math.max(bounds.maxX, x1), maxY: Math.max(bounds.maxY, y1),
+    }
+    return { ops, finish, compositeDomain }
   }
 
   /** (#536, §17.42) The group tide as entries of `ops`: over a settle field

@@ -171,3 +171,18 @@ it('retains independent solvent when a film ends and when a wash is parked', () 
     parked!.dispose()
   } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
 })
+
+it('returns this job write domain independently of an old wash storage union', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile)
+  scratch.noteStorageBounds({ minX: -500, minY: -500, maxX: 500, maxY: 500 })
+  const source = { minX: 20, minY: 20, maxX: 44, maxY: 44 }
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], source, 0.2, 8, 1, 1, 1, 1)
+    expect(plan?.compositeDomain).toEqual({ minX: 0, minY: 0, maxX: 64, maxY: 64 })
+    expect(source).toEqual({ minX: 20, minY: 20, maxX: 44, maxY: 44 })
+  } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+})
