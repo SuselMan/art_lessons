@@ -57,3 +57,11 @@ CPU byte mirror: spiral наружная доля P.b0.383% против0.896% �
 Пальцы не восстановились: бумажный gate уменьшает гладкий ореол, но mean conductance длинной грани не локализует поток на путях. Кольцо исчезает и ядро слитное, однако клякса остаётся менее живой. Поэтому не интегрировать и не передавать Samsung review.
 
 Отдельный dry0 pigment over prewater control (`paper-dry`) выявил регрессию:41970 отличных pixels, max206/255, mean absolute channel difference2.927. При addedV=0 flux не переносит воду, но legacy carry уже отключён. Следующий оператор обязан исключать этот случай; текущий эксперимент не решает dry-on-water. Все owned Chrome закрытыfinally, runtime5299 оставлен.
+
+## Следующая CPU проверка: локальный и капиллярный напор
+
+На прежних actual recorded V/P и previousactualcost проверен strictly1px: даже96P/V draws дают spiral наружную массу0.00114%, blob0.00522%. Scalar V-base relaxation не обеспечивает заметный фронт в48drawbudget; длинные прыжки скрывали это ограничение.
+
+Диагностическая эвристика capillary face drive `Δ(V-base)+λΔ(cost)`, дополнительный предел q<=0.2donorExtraV, receivercapacity/actualwetpath. Stride4,48draws, λ.05: spiral outside0.448%, blob0.569%, все4P/Vmass exact/V>=base. Но видимая P>8 геометрия слаба: spiral max6px/p95=3px, blob max4px/p95=3px; λ.1 не увеличивает p95. Core peak255, средний core сдвиг<0.5/255. Это небольшой edge, не достаточное живое растекание; GPU candidate не оправдан. Скрипты и geometry JSON соседний `temp/spiral/actual-solvent/`.
+
+Для следующей причинной проверки нужен current cost и pre-baseV в одном фактическом capture; harness подготовлен. До этого scalar head и λclosure не считать решением.
