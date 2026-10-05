@@ -559,21 +559,32 @@ export class WatercolorSettlePlan {
       // in lockstep, taking the deposit's fractions (mode 16).
       if (first && !this.ctx.ab().noCarry) {
         const carry = watercolorCarryStrides(budgetPx)
+        // Supply depleted edge cells only from the blocked zero-cost interior.
+        const topStride = Math.max(...carry)
+        const pulseAt = new Set((scratch.finishContext?.profile.pigmentStrength ?? 1) > 0
+          ? [16, 32, 64].filter(s => s <= topStride) : [])
         let src = c, dst = a
         let csrc = colour?.c, cdst = colour?.a
         for (let i = 0; i < carry.length; i += 4) {
           const n = Math.min(4, carry.length - i)
-          const plan: Array<{ s: number; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
+          const plan: Array<{ s: number; interior?: boolean; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
           for (let j = 0; j < n; j++) {
             plan.push({ s: carry[i + j], src, dst, csrc, cdst })
             const t = src; src = dst; dst = t
             const ct = csrc; csrc = cdst; cdst = ct
+            const s = carry[i + j]
+            if (pulseAt.has(s)) {
+              plan.push({ s, interior: true, src, dst, csrc, cdst })
+              const t = src; src = dst; dst = t
+              const ct = csrc; csrc = cdst; cdst = ct
+            }
           }
           ops.push(() => {
             for (const p of plan) {
-              const opts = { d: field.pressure, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, 0] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
-              if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
-              this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
+              const opts = { d: field.pressure, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, p.interior ? 1 : 0] as [number, number], size: [p.interior ? topStride : WC_CARRY_POW, costMax] as [number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
+              const rate = p.interior ? 0.16 : WC_CARRY_RATE
+              if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, rate, { ...opts, c: p.src })
+              this.ctx.passes().fieldOp(p.dst, p.src, b, 15, rate, opts)
             }
             const last = plan[plan.length - 1]
             present(last.dst, b, last.cdst, colour?.b)

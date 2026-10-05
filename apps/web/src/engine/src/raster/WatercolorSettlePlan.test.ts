@@ -129,3 +129,35 @@ it('uses the same transport schedule for equal water from the brush or the paper
   })
   expect(schedules[0]).toEqual(schedules[1])
 })
+
+it('keeps interior supply coupled to the pre-step pigment without aliasing either output', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 256, height: 256 })
+  const probe = engine as unknown as Probe
+  const tile = probe._ribbonScratchPool.acquire(256, 256)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile)
+  scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  const fields = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 40, minY: 40, maxX: 216, maxY: 216 }, 0, 65, 1, 1, 1, 1)!
+    for (const op of plan.ops) op()
+    const supply = fields.mock.calls.filter(call => call[5]?.band?.[1] === 1 && (call[3] === 15 || call[3] === 16))
+    expect(supply.length).toBeGreaterThan(0)
+    expect(supply.length % 2).toBe(0)
+    for (let i = 0; i < supply.length; i += 2) {
+      const colour = supply[i], pigment = supply[i + 1]
+      expect(colour[3]).toBe(16)
+      expect(pigment[3]).toBe(15)
+      expect(colour[5]?.c).toBe(pigment[1])
+      expect(colour[0]).not.toBe(pigment[1])
+      expect(pigment[0]).not.toBe(pigment[1])
+      expect(colour[0]).not.toBe(colour[1])
+      expect(colour[4]).toBe(pigment[4])
+      expect(colour[5]?.dir).toEqual(pigment[5]?.dir)
+      expect(colour[5]?.d).toBe(pigment[5]?.d)
+    }
+  } finally {
+    fields.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+  }
+})

@@ -3259,6 +3259,16 @@ export const WC_FIELD_OP_FRAG = `
     return mix(WC_CARRY_RIDGE, 1.0, 1.0 - smoothstep(WC_CARRY_VALLEY_HI, WC_CARRY_CREST_LO, h));
   }
 
+  // Flat interior that the largest outward step cannot drain directly.
+  float wcBlockedInterior(vec2 uv) {
+    vec2 h = u_dir * (u_size.x / max(u_origin.x, 1.0));
+    if (uv.x < h.x || uv.y < h.y || uv.x > 1.0 - h.x || uv.y > 1.0 - h.y) return 0.0;
+    float c = max(max(texture2D(u_d, uv + vec2(h.x, 0.0)).r,
+                      texture2D(u_d, uv - vec2(h.x, 0.0)).r),
+                  max(texture2D(u_d, uv + vec2(0.0, h.y)).r,
+                      texture2D(u_d, uv - vec2(0.0, h.y)).r));
+    return 1.0 - step(0.5 / 255.0, c);
+  }
   vec2 wcCarryDir(int k) {
     return k == 0 ? vec2(1.0, 0.0) : k == 1 ? vec2(-1.0, 0.0) : k == 2 ? vec2(0.0, 1.0) : vec2(0.0, -1.0);
   }
@@ -3368,6 +3378,30 @@ export const WC_FIELD_OP_FRAG = `
 #endif
       vec4 m = colour ? texture2D(u_c, v_uv) : a;
       float trav = u_origin.y;
+      // Experimental interior supply, separate from the outward carry.
+      // Both ends and intermediate probes stay in the same zero-cost film.
+      // The symmetric transfer is an integer number of RGBA8 carrier codes.
+      if (u_band.y > 0.5) {
+        if (ci < 0.5 / 255.0) {
+          float blockedI = wcBlockedInterior(v_uv);
+          for (int k = 0; k < 4; k++) {
+            vec2 hop = wcCarryDir(k) * u_dir;
+            vec2 uvj = v_uv + hop;
+            if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
+            float path = max(max(texture2D(u_d, uvj).r, texture2D(u_d, v_uv + hop * 0.25).r),
+                             max(texture2D(u_d, v_uv + hop * 0.5).r, texture2D(u_d, v_uv + hop * 0.75).r));
+            if (path >= 0.5 / 255.0 || max(blockedI, wcBlockedInterior(uvj)) < 0.5) continue;
+            vec4 aj = texture2D(u_a, uvj);
+            vec4 mj = colour ? texture2D(u_c, uvj) : aj;
+            if (max(m.b, mj.b) <= 0.0) continue;
+            float transfer = floor(u_k * abs(m.a - mj.a) * 255.0 + 0.5) / 255.0;
+            if (m.a > mj.a) out4 -= a * (transfer / max(m.a, 5e-5));
+            else out4 += aj * (transfer / max(mj.a, 5e-5));
+          }
+        }
+        gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));
+        return;
+      }
       // (s17.43) The sheet's capacity for the carried paint falls toward the
       // front: the water that has travelled furthest holds the least pigment
       // (the sheet filters it on the way - the design thread's immobilisation
