@@ -68,3 +68,33 @@ Clock hazard0.1625, pigmentUsed13 exact. Финальные PNG RGBAexact0px.
 Это подтверждает painter livebatch invariance текущего мокрого15% fixture;
 не утверждает инвариантность исторического ADD между encodedchunks.
 Native pointer UI всей комнаты отдельно этим harness не проверялся.
+
+## Оставшийся material.R: изолированная проба
+
+Код: wcTransportField читает material.r/alpha только в u_migrate>0;
+текущий watercolor profile.migrate=0, этот reader не активен. Composite
+читает R/alpha для waterHere; active spread3 включает push, а грануляция
+использует max(R/alpha,standing). wetEdge0 исключает tideExp reader.
+
+`temp/finish/rtag/report.json`: 4genuineVega lowpig15 equalV/H controls,
+GL0/lostfalse. Runtime census spread3,migrate0,wetEdge0. R-only
+передfinish overwrite inkLoad.r=inkLoad.a, без изменения u_inkWater
+и sourcehair/filmBlot. Own R ужеalpha→0changes, PNGexact. Explicit
+R меняется6569px, G/B/A otherChanged0. PNG2418px/max129;
+origin residual5236→4496px/max93. Исправление неполное; это не
+продакшенпатч и не доказательство полной независимости транспортных
+каналов. Stitched-field и finalPGA stagechecks готовятся отдельно.
+
+Исправленный bounded stageконтроль `temp/finish/rtag-stage-fixed/report.json`
+(2cases genuineVega GL0/lostfalse) подтвердил: final composite material.R
+0→950518, остальныеP/G/A SHA exact; final inkColor SHA exact; finalV SHA
+exact, sums369294. Следовательно в этой паре изменение R не изменяет
+канонические P/depth/V: вид меняется в отображении, а не переносе пигмента.
+Конечный reader получает patchedR, он не затёрт filmcompose.
+
+Stitched-fieldcapture центрального256ROI не нашёл P и осталсяnull;
+не считаем это доказательством отсутствияfront. Sourcecopy pathway
+`toField(entry.inkLoad,...field.a)` подтверждён кодом279. Первыйstageharness
+упалwrongreceiver beforepaint; второй stalled изwrong.bind(ribbonPasses)
+и был закрыт external90secwall. Оба INVALID дляengineвыводов. Corrected
+bind(watercolorPasses) завершился нормально; пользовательскиеChromeнетронуты.
