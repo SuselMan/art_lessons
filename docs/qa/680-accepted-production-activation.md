@@ -64,3 +64,16 @@ Production Samsung UI первая попытка была INVALID из-за в�
 в отдельной управляемой странице. Принятый c199 на Samsung ранее имеет
 26saltedlinks/0fails, GL0, native single-round/rebuild PNG exact, но это
 явно dev-review entry, не результат production UI попытки выше.
+
+Оставшиеся unit-модули проверены отдельно без повторного engine run:
+155files/2072tests PASS (75.73s). Суммарно3490unit tests.
+Production UI черезVPSsoftwareWebGL/SSHpreview5303: create→обычныйRoom
+без __engine→Watercolor toolbar→trusted CDPpen15moves→Dry→Undo.
+GL0 во всех4 фазах, pageerrors[]. PaperROI256×320 содержитнарисованный
+мазок(429px/max196), послеUndoстрого0px/max0 кпустойбумаге.
+Полный screenshot включает toolbar/history/save-status и потому НЕ
+каноническийoracle: его1287px послеUndoотносятсякUI, некраске.
+Первый locator.screenshot ожидалelement stability иtimedout; rawCDP
+capture сделалвсе3изображения. Browserfinallyclosed. Артефакты
+`temp/release/production-ui/{report,before,dry,undo}` +harness/log.
+ЭтоfunctionalUIsmoke, не аппаратнаяплавность/финальнаяGPUparity.
