@@ -74,6 +74,8 @@ export class RibbonStrokePainter {
   diagnosticSolventField = false
   /** Default-off uniform-only parity experiment; does not change source nibs. */
   diagnosticCanonicalSettleRadius = false
+  /** Default-off causal experiment: contact exposure follows available fluid. */
+  diagnosticFluidBrushContacts = false
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
   private diagnosticDepth = 0
   private waterOnlyDepth = 0
@@ -715,8 +717,9 @@ export class RibbonStrokePainter {
         const waterPool = Math.max(scratch.surplusWater, landingPool)
         puddleByDab.set(dab, profile.waterDepletion ? watercolorPuddleFromSurplus(waterPool, wetHere) : watercolorPuddleDepth(pigUsed, landedWet, wetHere, scratch.dwellMs))
         if (profile.waterDepletion) this.ctx.dabPool().set(dab, Math.min(waterPool, 1))
-        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && profile.waterLevel > 0) scratch.brushTravel.push({
-          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water: profile.waterLevel,
+        const contactWater = this.diagnosticFluidBrushContacts ? availableHere : profile.waterLevel
+        if (profile.normalizeDeposit && Math.hypot(dx, dy) > 0.01 && contactWater > 0) scratch.brushTravel.push({
+          x: dab.x, y: dab.y, radius: minor, aspect: Math.max(1, dab.aspectRatio), angle: dab.angle, dx, dy, water: contactWater,
           ...(this.diagnosticCanonicalSettleRadius ? { settleRadius: canonicalMinorRadius(dab.size, preset.sizeMultiplier) } : {}),
         })
         waterByDab.set(dab, water)
