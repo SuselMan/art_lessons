@@ -15,3 +15,9 @@
 Артефакты: temp/night-728/surface-overlay-*-result.json и исходники fixture; оригиналы также на HOME в680-combined-stability/temp. Временные CA install попытки не установили Root сертификат; собственный scheduled task остановлен, cleanup остаётся.
 
 Повторный dense400 поверх предыдущего: active max233мс, 14>33/5>100; tail483мс; все8новых chunk operations ACK/GL0. CPU inclusive _paintStrokeDabs max54.5мс, _display22.2мс, _onEnd41.2мс; _completeSettle не превышал10мс. Это не объясняет все длинные RAF и не является GPU timer. Следующая абляция — early отказ от Plan.present при активном stroke, поскольку существующий callback уже отвергает показ, но после дорогих копий.
+
+Early active+drain preview guard ON на Surface: dense native active max217мс, 12>33/5>100, tail150мс, GL0/ACK. Начальное состояние отличалось (предыдущая комната высушена/восстановлена), поэтому 233→217 НЕ причинный A/B и НЕ исправление.
+
+Matched oracle: native18-op baseline (17 stroke chunks + ordered UI Dry) сохранён с decodedRGBA в собственной IndexedDB; fresh room replay ON и fresh room replay OFF тех же18операций, одинаковый source/бумага/шаг250мс. OFF vs ON whole1754×2480 RGBA EXACT0/max0, GL0/idle. Однако исходный native vs replay ON744130px/max64 — самостоятельная незакрытая parity проблема либо harness/lifecycle фактор, не влияние preview guards. Требуется дальнейшее воспроизведение на исходном source без snapshot и с полной фиксацией финального состояния.
+
+Корневой source156b5106: guards default OFF, 26 целевых tests PASS. Mirror67+isolated guard patch сохраняет исходный overlay-only source, остальные совместные правки rect/tone туда не подмешивались.
