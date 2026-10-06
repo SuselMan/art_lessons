@@ -100,3 +100,105 @@ Fix artifacts: ignored `temp/snapshot/two-vega-fixed-final/run/`, including full
 pre-reload synthetic inputs, sourceflags, canonicalPNG and packing-comparison.
 Home retains `temp/two-vega-fix-minimal/` and `temp/two-vega-fix-full/`. All owned
 Chrome instances closed in finally; no Samsung interaction in fix QA.
+
+## Short controls and remaining technical work
+
+A native short path stayed within one spatialchunk: water36dabs, pigment31dabs,
+one operation each. Initial peer canonicalRGBA and A rejoin were both exact0,
+GL0. This is a valid control and narrows the remaining issue to the long path,
+its chunk transitions, or correlated geometry/state.
+
+A long-path Float32-input diagnostic still differed (13810pixels/max10), but
+this control is **invalid for isolating rounding**: copied painter dabs become
+keys in scratch.standing, whereas the engine samples that map with the original
+Dab objects. Without a clone→original key remap, PaperWetness may take its
+fallback. The rounding-cause conclusion is withdrawn. Numeric codec comparison
+above remains valid; GPU rounding causality is not established.
+
+CPU path audit: native `_flushStrokeChunk` records the chunk, finishes/settles its
+scratch, then calls newFilm; normal replay also finishes/settles each operation
+and calls newFilm. Auxiliary foreign-water import instead paints the original
+chunks water-only, then releaseFilm/newFilm without a settle. newFilm preserves
+lastKept/water/pigment clocks and increments gesture; it resets brushTravel.
+SolventFilm saves solventLoad as base, MAXes within one film and adds/caps across
+films. The settle reads the solvent field but does not currently transport or
+write back solventLoad; it does modify coverage. Therefore aux-versus-native
+settling may explain a coverage difference, but cannot simply be assumed to
+explain different V delivery. No physical order or constants were changed.
+
+Next bounded causal instrumentation should compare, for the same recorded pair,
+P/C/V/coverage at four boundaries: before first pigment-chunk settle, after it,
+first delivery of the second chunk, and final settle. Also capture gesture,
+lastKept, clocks, foreignImportedGestures and finish bounds/radius. Full server
+operation payloads should be JSON-stringified/cloned inside the page before the
+bridge's cycle-safe serializer (shared color array references otherwise become
+`[cycle]` on later chunks). No corrupted report payload is a replay oracle.
+
+A donor-only chunk-layout control and pigment-only chunk-layout control must be
+separate, with measured V/depth budgets: changing a film boundary can change
+additive V, so merely disabling chunking is not a matched-input proof. A repaired
+Float32 diagnostic must preserve standingMap identity and show matching returned
+standing/PaperWetness before its residual can be attributed to geometry rather
+than input semantics. These are further technical QA tasks, not a silent model
+change required by the confirmed9eb lifetime correction.
+
+## Repaired Float32 painter-input control
+
+The follow-up kept the model/operations unchanged and remapped returned standing
+keys from copied dabs back to the original Dab objects at generator completion.
+Actual top-level traces on both participants showed97retained original dabs,
+97successful standing lookups, zero missing/unexpected keys. Full synthetic
+operation payloads were cloned inside the page, preserving color arrays.
+
+Long native baseline:13846differentRGBApixels/max10; repaired Float32 painter
+input:9613/max14. A rejoin left each corresponding residual unchanged; allGL0.
+Thus Float32 rounding of the painter inputs alone does not remove the long-chunk
+residual. This does not isolate earlier native geometry/bounds preparation or
+other inputs, and does not justify a blanket claim that all numeric differences
+are irrelevant. Sampled canonical/P/C/V fields and original PNGs are retained in
+home `temp/two-long-correct/`; all owned Chrome instances closed in finally.
+
+## Packed synchronous versus queued chunk oracle
+
+Genuine Vega, frozen9eb2a6fe (three source SHA checks passed), one owned Chrome
+with independent authenticated Room contexts. This diagnostic replayed synthetic
+packed operations into fresh actual Room engines; it is not native-input or
+server-ACK QA. Source/model/operator parameters were unchanged. Source fixture
+came from the repaired long-control report's in-page JSON clones. Codec1, color
+arrays, unique operation IDs and wet-string lengths were validated. A common
+operation-timestamp epoch preserved relative differences; encoded dab inputs
+were retained. Short variants take the first36packed dabs as explicit lower-dose
+fixtures, not as identical water volume to the long variants.
+
+The synchronous route actually called `_paintDabs` for every operation, with
+suspendDepth1, no `_paintOpOverFrames`, no pending settle or queued operations.
+The queued route called `_paintOpOverFrames` once per operation, with depth0 and
+pending settle after append. Each operation drained before the next. Both routes
+awaited paperReady, used the same review flags (combined/shared fluid/separate V,
+foreign V/bottomless/fluid landing) and kept the source frozen.
+
+All four final **whole PNG decoded RGBA** comparisons were exact0pixels/max0:
+long donor/short pigment (3ops), short donor/long pigment (3ops), long/long
+(4ops), short/short (2ops). All GL0; Chrome closed in finally, exit0.
+
+Exact SHA-256 over every byte of bounded256×128 ROI (x1006,y894) matched at all
+corresponding delivery-after/before-finish/aux-water-after boundaries. Matched
+boundary counts8/7/10/5 respectively. Coverage, source P/depth/color, V load,
+foreign V and film/base buffers were included; finish context and clocks also
+recorded. SHA equality is restricted to this ROI, not a full-field mass claim.
+Queued after-finish-return still has unfinished work, so it was deliberately
+not compared against the synchronous after-finish-return as the same stage.
+
+This is a strong negative for asynchronous queue scheduling as the explanation
+of the remaining **native** long-stroke residual under these packed fixtures.
+It does not prove native donor state equals auxiliary reconstruction: native
+input, pre-painter geometry/fieldWet/clocks, actual native chunk settlement and
+packed input remain separate boundaries for the next oracle. No physical fix
+was chosen from this negative result.
+
+An earlier attempted fixture used a corrupt historical report with `[cycle]`
+in a second-chunk color; it failed before results and closed its Chrome. That
+attempt is excluded, not evidence of a source/GL failure. Valid artifacts are
+home night-QA `temp/chunk-packed/report.json`, `png-comparison.json` and eight
+PNG files; local exact-ROI comparison is
+`temp/snapshot/chunk-packed-boundary-comparison.json`.
