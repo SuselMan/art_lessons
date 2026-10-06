@@ -189,6 +189,7 @@ export const en = {
   'lessons.noMatches': 'No projects match "{query}".',
   'lessons.empty': "You don't have any projects yet.",
   'lessons.folderEmpty': 'This folder is empty.',
+  'lessons.preparingRoom': 'Preparing room',
   'lessons.fork': 'Make a copy',
   // The copy lands next to the original, so it needs a name that tells the
   // two apart at a glance in a list of twenty (#317).

@@ -599,3 +599,24 @@
 .closedBadge :global(.material-symbols-outlined) {
   font-size: 14px;
 }
+.preparingCard .cardLink:hover {
+  background: transparent;
+}
+
+.preparingSpinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-text-bright);
+  border-radius: 50%;
+  animation: preparingSpin 900ms linear infinite;
+}
+
+@keyframes preparingSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preparingSpinner { animation: none; }
+}
+

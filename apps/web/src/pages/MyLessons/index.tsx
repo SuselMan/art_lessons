@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router-dom'
@@ -183,6 +183,27 @@ function CardThumbnail({ room }: { room: Room }) {
     </div>
   )
 }
+
+/** A copy has no room id yet: it must not be a link or a drag source. */
+function PreparingRoomCard({ name, view, t }: { name: string; view: LessonsView; t: TFunction }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' })
+  }, [])
+  return (
+    <div ref={ref} className={clsx(styles.card, styles.preparingCard, view === 'list' && styles.cardListItem)} aria-disabled="true" aria-busy="true">
+      <div className={styles.cardLink}>
+        <div className={styles.cardThumbnailPlaceholder}><span className={styles.preparingSpinner} aria-hidden="true" /></div>
+        <div className={styles.cardText}>
+          <span className={styles.cardName}>{name}</span>
+          <span className={styles.cardMeta} role="status">{t('lessons.preparingRoom')}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+type PendingCopy = { key: string; id: string; name: string; folderId: string | undefined; search: string | null }
 
 function RoomCard({
   t, locale, view, room, isOwnRoom, renaming, renameText, onRenameTextChange, onRenameSubmit,
@@ -453,6 +474,7 @@ export function MyLessons() {
   const loggedIn = isLoggedIn(me)
   const shareRoom = useShareRoom()
   const { confirm } = useConfirmDialog()
+  const [pendingCopies, setPendingCopies] = useState<PendingCopy[]>([])
   // (#351) Every card on this page is a door into the Room chunk, so start
   // fetching it now rather than on whichever card gets clicked — see
   // lib/api/roomChunk.ts for why that click is otherwise a multi-second wait
@@ -581,16 +603,19 @@ export function MyLessons() {
   // is usually done to *hand out* a copy, and being dropped inside it would
   // make forking three of them a matter of going back twice.
   const forkMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, { name, scope: 'lesson' }),
-    // (#552) Into the list for the folder the copy was actually filed in, which
-    // the server now reports: it files the copy beside its source, and when the
-    // fork is made from search results the source's folder is not the folder
-    // being viewed. `setQueryData` on an uncached key is a no-op, so a copy
-    // made into a folder that isn't open simply appears when it is opened.
-    onSuccess: ({ room }) => queryClient.setQueryData<RoomsAtFolder | undefined>(
-      roomsQueryKey(room.folderId), prev => prev && { ...prev, rooms: [room, ...prev.rooms] },
-    ),
+    mutationFn: (copy: PendingCopy) => forkRoom(copy.id, { name: copy.name, scope: 'lesson' }),
+    onMutate: copy => setPendingCopies(prev => [copy, ...prev]),
+    onSuccess: ({ room }, copy) => {
+      queryClient.setQueryData<RoomsAtFolder | undefined>(
+        roomsQueryKey(room.folderId), prev => prev && { ...prev, rooms: [room, ...prev.rooms.filter(r => r.id !== room.id)] },
+      )
+      // Keep the new card visible where copying started, including search results.
+      if (copy.search !== null) queryClient.setQueryData<{ rooms: Room[] } | undefined>(
+        searchQueryKey(copy.search), prev => prev && { ...prev, rooms: [room, ...prev.rooms.filter(r => r.id !== room.id)] },
+      )
+    },
     onError: () => notifyFailure(t('lessons.error.fork'), 'fork-room'),
+    onSettled: (_, __, copy) => setPendingCopies(prev => prev.filter(p => p.key !== copy.key)),
   })
   // (#222) The room comes back with its new `closedAt`, so the card updates
   // from the server's answer rather than from an assumption about it.
@@ -723,8 +748,10 @@ export function MyLessons() {
   // that used to live here are pushed from their own `onError` instead.
   const loadError = loadFailed ? t('lessons.error.load') : null
   const searchError = searchFailed ? t('lessons.error.search') : null
-  const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
-  const isSearchEmpty = searchData !== undefined && searchData.rooms.length === 0
+  const visibleCopies = pendingCopies.filter(copy => isSearching ? copy.search === debouncedSearch : copy.folderId === currentFolderId)
+  const preparingCards = visibleCopies.map(copy => <PreparingRoomCard key={copy.key} name={copy.name} view={view} t={t} />)
+  const isEmpty = visibleCopies.length === 0 && data !== undefined && data.folders.length === 0 && data.rooms.length === 0
+  const isSearchEmpty = visibleCopies.length === 0 && searchData !== undefined && searchData.rooms.length === 0
   const confirmBusy = deleteMutation.isPending || leaveMutation.isPending
 
   function renderRoomCard(room: Room) {
@@ -745,7 +772,7 @@ export function MyLessons() {
         onShareClick={() => shareRoom(room)}
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
         onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id, parentFolderId: room.folderId ?? null })}
-        onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}
+        onForkClick={() => forkMutation.mutate({ key: crypto.randomUUID(), id: room.id, name: t('lessons.forkedName', { name: room.name }), folderId: room.folderId, search: isSearching ? debouncedSearch : null })}
         onAccessClick={() => setAccessRoom({ id: room.id, name: room.name })}
         onToggleClosedClick={() => closedMutation.mutate({ id: room.id, closed: room.closedAt === undefined })}
         onDeleteOrLeaveClick={async () => {
@@ -800,6 +827,7 @@ export function MyLessons() {
               <EmptyState icon="search_off" message={t('lessons.noMatches', { query: debouncedSearch })} />
             ) : (
               <div className={view === 'list' ? styles.list : styles.grid}>
+                {preparingCards}
                 {searchData.rooms.map(renderRoomCard)}
               </div>
             )}
@@ -899,6 +927,7 @@ export function MyLessons() {
                     onDeleteClick={() => deleteFolderMutation.mutate(folder.id)}
                   />
                 ))}
+                {preparingCards}
                 {data.rooms.map(renderRoomCard)}
               </div>
             )}

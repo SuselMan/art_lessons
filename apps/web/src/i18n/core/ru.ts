@@ -149,6 +149,7 @@ export const ru: Dictionary = {
   'lessons.noMatches': 'По запросу «{query}» ничего не найдено.',
   'lessons.empty': 'У вас пока нет ни одного проекта.',
   'lessons.folderEmpty': 'Папка пуста.',
+  'lessons.preparingRoom': 'Подготавливаем комнату',
   'lessons.fork': 'Сделать копию',
   'lessons.forkedName': '{name} — копия',
   'lessons.close': 'Закрыть для редактирования',
