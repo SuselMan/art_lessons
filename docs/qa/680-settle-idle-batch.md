@@ -187,3 +187,9 @@ Source7322, idleBatch OFF, те же actual9flags/AMD, native80 burst3, GL0/erro
 Pointerdown13.8ms, `_completeSettle`11ms (971pending), move внутри первого интервала2.7ms. MinorGC в7092.99ms занимает1.78ms. Это положительное свидетельство задержек GPU-service/driver/context-switch и swap, перекрывающих observedRAFhitches; их нельзя объяснить одним только synchronous JavaScript-handler. Это **CPUwall GPU-thread, не чистое hardwareGPUexecution и не photonlatency**. Трассировка сама заметно нагружает браузер (например первый конец штриха FireAnimationFrame62ms), поэтому её числа не подменяют исходный passthrough/nativeperfbaseline. Второйburst не покрыт сохранённым prefix; отрицательных выводов нет.
 
 Следующая диагностическая трасса при отдельном grant должна убрать verbose scheduler/toplevel/disabled debug categories, ограничить10s и сохранить нужные timelineGC/cc/gpu/viz события без увеличения16MiB cap. Модель и defaultOFF неизменны. Root получил GPUfree и все paths.
+
+### Узкая CDP-трасса, 02:39 UTC
+
+Без debug/toplevel/scheduler, категории devtools.timeline/v8/cc/gpu/viz/user_timing,10s. GL0/nonempty/errors0, ownedChrome закрыт02:39:30. JSON всё равно превысил16MiB;81201 полных prefixevents покрывают performance5043–13371ms, включая оба следующих PenDown. Burst2rAF133.3/99.9ms перекрываются CrGpuMainOnAsyncFlush88.923ms(at6983.669) иSwapBuffers75.802(at7131.878). Burst3rAF138.8ms перекрывается MakeCurrent116.892(at8371.084), затемSwap67.533(at8519.549). Это повтор положительных driver/GPU-service CPUwall событий; wholetraceобрезана, absenceclaims запрещены.
+
+CPU подготовлен lossless streaminggzip (`temp/idle-batch/cdp-native/boundedTrace.mjs`):10s/8MiBbuffer/16MiBcompressed/64MiBdecoded,256KiBIOchunks+backpressure, no wholememory. MockCDP proof458907decoded→26170compressed точногоJSON, endonce/detach/noGL PASS. Новый GPUrun требует отдельного grant. Никакого appsource/defaultenable изменения.
