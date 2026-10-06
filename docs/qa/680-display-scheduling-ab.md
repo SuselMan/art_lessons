@@ -111,3 +111,12 @@ Fixed65 fivefields+wholePNGexact. Camera/resize/dryidle/pick/full-reference pixe
 | Solver idle s |14.62|15.23|15.63|15.12|
 
 Нет устойчивого улучшения45Hz/отзывчивости, alpha:false не рекомендуется включать. Физика/operator неизменны; разные native journals не сравнивались на exactPNG. Reveal continuity снова INCONCLUSIVE-baseline-motion-absent, не safety PASS. Ни sourceproduction изменений, ни публикации.
+
+
+## One-pixel defaultFB dirty diagnostic, 06:18–06:21 UTC
+
+Own5311 immutablec17, S/T/R/idleBatch OFF, actualA23508×2480, nine flags/debugfalse/preserve true/AMD Vega. Harness changed ONLY final screenBlit scissor to1×1 after initial validfullframe; original FBO paper/wet/model work retained. ON output explicitly STALE SCREEN, not a product fix. Full blit restored before final PNG and same-cache pixel guards. Fixed65 fivefields+PNGexact, GL0, native ACK, restored full output0diff.
+
+Balanced OFF/ON/ON/OFF active median22.2ms throughout. Burst2 max150.1/166.7/144.4/150.0ms, burst3 max183.3/200/150/200ms. ON actually restricted738/725 final draws. One-pixel dirtying still45Hz, unlike finaldrawnoop60Hz. This supports fixed defaultFB presentation/dirty handoff as a limiter rather than filled pixel count, but does not identify a particular driver bug. No sourceproduction change. OwnChromeclosedfinally. Artifact home `680-lifetime-hardware/temp/display-tinyblit/results/report.json`, VPS `temp/display-tinyblit/report.json`.
+
+Prior preserve:false control is a different historical source7322, explicitly not b863: `680-settle-idle-grace/docs/qa/680-settle-idle-batch.md` section02:52–02:55UTC, artifacts `temp/idle-batch/preserve-balanced-7322/{pair1-off,pair1-on,pair2-on,pair2-off}/burst.json` and summary; all active22.2ms. Fixed65/picking oracle `temp/idle-batch/preserve-fixed-7322/comparison.json`. No unreferenced inference that preservation is the proven current-source cause.
