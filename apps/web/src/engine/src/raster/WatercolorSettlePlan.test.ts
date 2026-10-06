@@ -179,7 +179,7 @@ it('owns a solvent field until finish or pending-plan destruction, never both', 
   const tile = probe._ribbonScratchPool.acquire(64, 64)
   const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
   scratch.solventFilm(tile)
-  const owned = (probe._settlePlan as unknown as { _ownedSolvent: Set<AccumulationBuffer> })._ownedSolvent
+  const owned = (probe._settlePlan as unknown as { _ownedInputs: Set<AccumulationBuffer> })._ownedInputs
   const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], { minX: 20, minY: 20, maxX: 44, maxY: 44 })!
   expect(owned.size).toBe(1)
   const field = [...owned][0]
@@ -189,7 +189,10 @@ it('owns a solvent field until finish or pending-plan destruction, never both', 
     probe._settlePlan.destroyTextures()
     expect(destroy).toHaveBeenCalledOnce()
     expect(owned.size).toBe(0)
-    plan.finish()
+    const land = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    // The queue abort closes the plan after its outer owner forgets/destroys inputs.
+    plan.dispose(); plan.finish(); plan.dispose()
+    expect(land).not.toHaveBeenCalled()
     expect(release.mock.calls.some(([buffer]) => buffer === field)).toBe(false)
   } finally {
     release.mockRestore(); destroy.mockRestore()
