@@ -2,7 +2,7 @@ import { hasActiveWater } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
 import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
-import { WatercolorSettleQueue } from './src/watercolor/WatercolorSettleQueue'
+import { WatercolorSettleQueue, type WatercolorSettleLifecycle } from './src/watercolor/WatercolorSettleQueue'
 import { destroyField, type SettleField } from './src/buffers/SettleField'
 import { WC_HALF_RES_RADIUS_PX } from './src/watercolor/settleResolution'
 import { WatercolorPasses } from './src/raster/WatercolorPasses'
@@ -3811,6 +3811,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._opQueue = [] // (§17.58)
     if (this._opDrainRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._opDrainRaf)
     this._destroyed = true
+    this._cancelSettle() // Close suspended drawing/auxiliary generators before their pool.
     this._cancelSpillJob()
     this._paper.destroy()
     for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
@@ -4296,7 +4297,13 @@ export class PencilEngine implements PencilEngineAPI {
       if (!r.done && r.value !== -1) ops.push(step)
     }
     ops.push(step)
-    this._startSettle(scratch, ops, land)
+    this._startSettle(scratch, ops, land, {
+      // The first slice may be entirely auxiliary water import, before the
+      // recipient owns a tile. Cache identity distinguishes this from a
+      // destroyed/replaced wash without treating an empty scratch as dead.
+      isAlive: () => this._replayRibbonChunks.get(op.washId ?? op.strokeId ?? '')?.scratch === scratch,
+      abort: () => { work.return(undefined) },
+    })
   }
 
   /** (§17.70) How much a rebuild's watercolour slice may draw on this
@@ -4690,6 +4697,7 @@ export class PencilEngine implements PencilEngineAPI {
     e.preventDefault()
     this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
     this._ribbonPainter.releaseWaterSources(true)
+    this._cancelSettle() // Auxiliary handles were forgotten; close their coroutine without resuming GL.
     this._settlePlan.forgetTextures()
     this._contextLost = true
     this._cancelSpillJob()
@@ -7213,8 +7221,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _skippedInBatch = new Set<string>()
   /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
   private _dryAtPenUp = false
-  private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void): void {
-    this._settleQueue.start(scratch, ops, complete)
+  private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void, lifecycle?: WatercolorSettleLifecycle): void {
+    this._settleQueue.start(scratch, ops, complete, lifecycle)
   }
   private _advanceSettle(): void {
     this._settleQueue.advance()

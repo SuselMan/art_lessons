@@ -1,11 +1,20 @@
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 
+/** Drawing can pause before its recipient has any tiles; ownership, rather
+ * than tile count, defines that coroutine's lifetime. Solver jobs keep the
+ * existing scratch.live rule. */
+export interface WatercolorSettleLifecycle {
+  isAlive(): boolean
+  abort(): void
+}
+
 export interface WatercolorSettleJob {
   scratch: RibbonStrokeScratch
   ops: Array<() => void>
   next: number
   complete: () => void
   raf: number
+  lifecycle?: WatercolorSettleLifecycle
 }
 
 export interface WatercolorSettleQueueContext {
@@ -48,10 +57,10 @@ export class WatercolorSettleQueue {
 
   /** Begins running `ops` a few per frame, then `complete`. Drains a settle
    *  already in flight first: both use the one _diffuseField. */
-  start(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void): void {
+  start(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void, lifecycle?: WatercolorSettleLifecycle): void {
     if (this._settle) this.complete()
     this.ctx.beforeStart()
-    this._settle = { scratch, ops, next: 0, complete, raf: 0 }
+    this._settle = { scratch, ops, next: 0, complete, raf: 0, lifecycle }
     // (§17.44) The stitch - the settle's first entry, copies only - runs NOW:
     // it captures the deposit and its settled base as they stand at this
     // boundary, before the next chunk's batches rebuild them. The dear
@@ -75,7 +84,7 @@ export class WatercolorSettleQueue {
     const s = this._settle
     if (!s) return
     // The wash was torn down under it (undo, a new wash): nothing to land.
-    if (!s.scratch.live) { this._settle = null; return }
+    if (!this.isAlive(s)) { this.cancel(); return }
     // (§17.44) One entry a frame while the pen is still down (a chunk's
     // settle under a running gesture): the frame also has the brush's own
     // batches to draw, and two entries made the tablet's P95 frame 110-150 ms.
@@ -109,7 +118,7 @@ export class WatercolorSettleQueue {
     const s = this._settle
     if (!s) return
     this.ctx.noteActivity(performance.now()) // (§17.68)
-    if (!s.scratch.live) { this._settle = null; return }
+    if (!this.isAlive(s)) { this.cancel(); return }
     if (s.next < s.ops.length) s.ops[s.next++]()
     if (s.next < s.ops.length) return
     this._settle = null
@@ -128,7 +137,7 @@ export class WatercolorSettleQueue {
     if (!s) return
     this._settle = null
     if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
-    if (!s.scratch.live) return
+    if (!this.isAlive(s)) { s.lifecycle?.abort(); return }
     for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
     s.complete()
     this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
@@ -139,11 +148,16 @@ export class WatercolorSettleQueue {
     if (this._settle) this.complete()
   }
 
+  private isAlive(s: WatercolorSettleJob): boolean {
+    return s.lifecycle ? s.lifecycle.isAlive() : s.scratch.live
+  }
+
   /** Drops the settle in flight without landing it — the field is gone. */
   cancel(): void {
     const s = this._settle
     if (!s) return
     this._settle = null
     if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+    s.lifecycle?.abort()
   }
 }

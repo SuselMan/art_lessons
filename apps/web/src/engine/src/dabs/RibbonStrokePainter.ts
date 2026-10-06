@@ -72,8 +72,6 @@ export class RibbonStrokePainter {
   /** Solver uniforms use the radius recoverable from the recorded dabs. */
   diagnosticCanonicalSettleRadius = true
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'fluid'
-  private diagnosticDepth = 0
-  private waterOnlyDepth = 0
   private readonly auxiliaryWater = new Set<RibbonStrokeScratch>()
 
   releaseWaterSources(contextLost = false): void {
@@ -156,10 +154,10 @@ export class RibbonStrokePainter {
 
   /** Same original water source, without any pigment or target write. */
   *paintWaterSource(...args: Parameters<RibbonStrokePainter['paint']>): Generator<number, void, void> {
-    const depth = this.diagnosticDepth
-    this.diagnosticDepth = 0
-    this.waterOnlyDepth++
-    try { yield* this.paint(...args) } finally { this.waterOnlyDepth--; this.diagnosticDepth = depth }
+    // Invocation-local: a suspended auxiliary generator must not change
+    // another paint's pigment/segmentation policy on this shared painter.
+    args[12] = { waterOnly: true, segmented: false }
+    yield* this.paint(...args)
   }
 
   *paint(
@@ -174,20 +172,18 @@ export class RibbonStrokePainter {
     deferComposite = false,
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
+    mode: Readonly<{ waterOnly: boolean; segmented: boolean }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
     const segmentMode = profile.normalizeDeposit ? this.diagnosticSegmentDelivery : false
-    if (segmentMode && dabs.length > 1 && this.diagnosticDepth === 0) {
+    if (segmentMode && dabs.length > 1 && !mode.segmented) {
       scratch.standing.clear()
-      this.diagnosticDepth++
-      try {
-        for (let i = 0; i < dabs.length; i++) {
-          yield* this.paint(target, [dabs[i]], preset, presetName, profile, color, scratch,
-            i === 0 ? prevDab : scratch.lastKept, wetProfile?.slice(i, i + 1), strokeSeed, deferComposite, pieceTris)
-        }
-      } finally { this.diagnosticDepth-- }
+      for (let i = 0; i < dabs.length; i++) {
+        yield* this.paint(target, [dabs[i]], preset, presetName, profile, color, scratch,
+            i === 0 ? prevDab : scratch.lastKept, wetProfile?.slice(i, i + 1), strokeSeed, deferComposite, pieceTris, { ...mode, segmented: true })
+      }
       return
     }
-    if (segmentMode && this.diagnosticForeignSolvent && this.diagnosticSolventField && !this.waterOnlyDepth) {
+    if (segmentMode && this.diagnosticForeignSolvent && this.diagnosticSolventField && !mode.waterOnly) {
       yield* this.importForeignWater(target, scratch, dabs, preset, wetProfile)
     }
     if (segmentMode && this.diagnosticSharedFluid) profile = { ...profile, diagnosticReadFluid: true }
@@ -530,7 +526,7 @@ export class RibbonStrokePainter {
     const waterByDab = new Map<Dab, number>()
     const pigmentByDab = new Map<Dab, number>()
     const delivery = ribbonWaterDelivery(profile)
-    if (!segmentMode || this.diagnosticDepth === 0) scratch.standing.clear()
+    if (!segmentMode || !mode.segmented) scratch.standing.clear()
     // (#536) Which way "across the brush" points for each dab, in the nib's own
     // local axes — the stamps' half of the hair comb. Filled in the same loop
     // that already resolves each dab's travel direction, so there is exactly
@@ -978,7 +974,7 @@ export class RibbonStrokePainter {
       // (#680, s17.79) The watercolor's surplus lies in blots — see wcPoolBlot.
       const poolBlot = profile.waterDepletion ? 1 : 0
       const pigmentPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
-      if (this.waterOnlyDepth) return
+      if (mode.waterOnly) return
       if (inkDest && (!segmentMode || !this.diagnosticPigmentRecord || inkStrength > 0)) {
         for (let i = 0; i < drawable.length; i++) {
           if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
@@ -1046,7 +1042,7 @@ export class RibbonStrokePainter {
         yield* contribution.water()
         yield* contribution.pigment()
       }
-      if (this.waterOnlyDepth) continue
+      if (mode.waterOnly) continue
       if (import.meta.env.DEV && segmentMode && this.diagnosticTrace.length < 4096) this.diagnosticTrace.push({
         before: wetOf(drawable[0]), after: paperWetByDab.get(drawable[0]) ?? 0,
         water: waterByDab.get(drawable[0]) ?? 0, dose: deposits[0] * inkStrength,
@@ -1123,7 +1119,7 @@ export class RibbonStrokePainter {
       yield pieceTris ? rectOnTile(tile, compositeBounds) : 0
     }
 
-    if (this.waterOnlyDepth) return
+    if (mode.waterOnly) return
 
     scratch.noteFinish({
       target, preset, profile, color, opacity: drawable[0].opacity,
