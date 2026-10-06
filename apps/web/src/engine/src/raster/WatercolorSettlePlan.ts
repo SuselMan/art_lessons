@@ -25,6 +25,8 @@ export interface WatercolorSettlePlanContext {
   ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean }
   /** Presentation only; canonical solver steps and final landing never consult this. */
   shouldPreview?(): boolean
+  /** Optional diagnostic, latched by prepare; no material model changes. */
+  contactRoiPingPong?(): boolean
   passes(): WatercolorPasses
 }
 
@@ -505,8 +507,9 @@ export class WatercolorSettlePlan {
     // Presentation copies only: never write the intermediate state into the
     // wash records. Reconstruct against the same captured base as finish().
     let previewAt = -Infinity
-    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1): void => {
+    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1, beforeRead?: () => void): void => {
       if (!preview || this.ctx.shouldPreview?.() === false || performance.now() - previewAt < 150) return
+      beforeRead?.()
       previewAt = performance.now()
       const pool = this.ctx.pool()
       const pigment = pool.acquire(field.w, field.h)
@@ -822,6 +825,16 @@ export class WatercolorSettlePlan {
       const contactGain = 0.2 * contact.radius / (substeps * S)
       let rect: [number, number, number, number], scissor: [number, number, number, number]
       let left: number, right: number, bottom: number, top: number
+      const pingPongRequested = this.ctx.contactRoiPingPong?.() === true
+      let usePingPong = false, pulse = 0, committedPulse = 0
+      let pCanonical: AccumulationBuffer, cCanonical: AccumulationBuffer
+      let pSource: AccumulationBuffer, pTarget: AccumulationBuffer, cSource: AccumulationBuffer, cTarget: AccumulationBuffer
+      const commitContact = (): void => {
+        if (committedPulse === pulse) return
+        if (pSource !== pCanonical) pSource.copyRegionInto(pCanonical, left, bottom, left, bottom, right - left, top - bottom)
+        if (cSource !== cCanonical) cSource.copyRegionInto(cCanonical, left, bottom, left, bottom, right - left, top - bottom)
+        committedPulse = pulse
+      }
       ops.push(() => {
         if (!flowTexture) return
         const cf = contact.field, cr = contact.rect
@@ -836,9 +849,26 @@ export class WatercolorSettlePlan {
         bottom = Math.max(0, Math.floor(field.h - (cr.y + cr.h - y0) / S) - 1)
         top = Math.min(field.h, Math.ceil(field.h - (cr.y - y0) / S) + 1)
         scissor = [left, bottom, right - left, top - bottom]
+        pCanonical = pSource = dep.out; cCanonical = cSource = col.out
+        pTarget = field.pressure; cTarget = field.band
+        usePingPong = pingPongRequested && pCanonical !== pTarget && cCanonical !== cTarget
       })
       const exchange = (): void => {
         if (!flowTexture) return
+        if (usePingPong) {
+          // The existing halo encloses every nonzero face. Both records read
+          // one pre-pulse pair; temporary texels outside this ROI are not used.
+          this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, cSource, cTarget, pSource, rect, scissor, cSource, contactGain)
+          this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, pSource, pTarget, pSource, rect, scissor, cSource, contactGain)
+          const previousP = pSource, previousC = cSource
+          pSource = pTarget; pTarget = previousP
+          cSource = cTarget; cTarget = previousC
+          if (++pulse === substeps) commitContact()
+          // Preserve full-field preview and final ownership: assemble only
+          // after the existing presentation gates, never expose scratch junk.
+          present(pCanonical, null, cCanonical, undefined, 1, commitContact)
+          return
+        }
         // Both draws read the same pre-pulse P/C. Copy back only after both
         // outputs exist; the existing settle scheduler yields between pulses.
         this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, col.out, field.band, dep.out, rect, scissor, col.out, contactGain)

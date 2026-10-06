@@ -289,3 +289,63 @@ it('restores nonactive preview after a reentrant drain throws', () => {
     expect(ctx.shouldPreview()).toBe(true)
   } finally { probe._strokeLayerId = null; scratch.destroy(); engine.destroy() }
 })
+
+
+for (const enabled of [false, true]) for (const visible of [false, true]) it(`keeps paired contact input and canonical ownership with ROI ping-pong=${enabled}, preview=${visible}`, () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  ;(engine as unknown as { _settleQueue: { contactRoiPingPong: boolean } })._settleQueue.contactRoiPingPong = enabled
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile); scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  const radius = visible ? 8 : 200
+  scratch.brushTravel.push({ x: 32, y: 32, radius, aspect: 1, angle: 0, dx: radius*4, dy: 0, water: 1 })
+  const brush = vi.spyOn(probe._watercolorPasses, 'brushPass')
+  const copy = vi.spyOn(Object.getPrototypeOf(tile), 'copyRegionInto')
+  let clock = 0
+  const time = vi.spyOn(performance, 'now').mockImplementation(() => clock)
+  const preview = visible ? vi.fn() : undefined
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.4, radius, 1, 1, 1, 1, 0, preview)!
+    const multiplicities = new Map<() => void, number>()
+    for (const op of plan.ops) multiplicities.set(op, (multiplicities.get(op) ?? 0) + 1)
+    const [pulse, count] = [...multiplicities].sort((a,b) => b[1]-a[1])[0]
+    const pulseCopies: unknown[][] = []
+    for (const op of plan.ops) { if (op === pulse) clock += 200; const before = copy.mock.calls.length; op(); if (op === pulse) pulseCopies.push(...copy.mock.calls.slice(before)) }
+    expect(brush.mock.calls).toHaveLength(count*2)
+    const canonical = [brush.mock.calls[0][4], brush.mock.calls[1][4]]
+    const canonicalCopies = pulseCopies.filter(call => canonical.includes(call[0] as AccumulationBuffer))
+    expect(canonicalCopies).toHaveLength(enabled ? (visible ? 2*Math.ceil(count/2) : 2*(count%2)) : 2*count)
+    if (visible) expect(preview).toHaveBeenCalled()
+    for (let i=0; i<brush.mock.calls.length; i+=2) {
+      const c=brush.mock.calls[i], p=brush.mock.calls[i+1]
+      expect(c[6]).toBe(p[4]); expect(p[6]).toBe(p[4]); expect(c[9]).toBe(c[4]); expect(p[9]).toBe(c[4])
+      expect(c[5]).not.toBe(c[4]); expect(p[5]).not.toBe(p[4])
+      if (i && enabled) { expect(c[4]).toBe(brush.mock.calls[i-2][5]); expect(p[4]).toBe(brush.mock.calls[i-1][5]) }
+      if (i && !enabled) { expect(c[4]).toBe(brush.mock.calls[0][4]); expect(p[4]).toBe(brush.mock.calls[1][4]) }
+    }
+  } finally { brush.mockRestore(); copy.mockRestore(); time.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+})
+
+it('cancels an odd contact pulse without landing or retaining captured inputs', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  const queue = (engine as unknown as { _settleQueue: import('../watercolor/WatercolorSettleQueue').WatercolorSettleQueue })._settleQueue
+  queue.contactRoiPingPong = true
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.filmBuffers(tile); scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+  scratch.brushTravel.push({ x: 32, y: 32, radius: 200, aspect: 1, angle: 0, dx: 800, dy: 0, water: 1 })
+  const brush = vi.spyOn(probe._watercolorPasses, 'brushPass')
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.4, 200, 1, 1, 1, 1)!
+    const finish = vi.fn(plan.finish), abort = vi.fn(plan.dispose)
+    queue.start(scratch, plan.ops, finish, { isAlive: () => true, abort })
+    while (!brush.mock.calls.length) { expect(queue.current).not.toBeNull(); queue.advance() }
+    expect(brush).toHaveBeenCalledTimes(2)
+    queue.cancel()
+    expect(abort).toHaveBeenCalledTimes(1); expect(finish).not.toHaveBeenCalled(); expect(queue.current).toBeNull()
+    expect((probe._settlePlan as unknown as { _ownedInputs: Set<AccumulationBuffer> })._ownedInputs.size).toBe(0)
+    queue.advance(); expect(brush).toHaveBeenCalledTimes(2)
+  } finally { queue.cancel(); brush.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+})

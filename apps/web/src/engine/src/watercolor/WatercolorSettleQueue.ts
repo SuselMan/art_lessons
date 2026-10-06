@@ -64,6 +64,9 @@ export class WatercolorSettleQueue {
   /** Diagnostic post-lift throughput tradeoff; front chunks retain their 4 ms budget. */
   contactBudgetMs: 4 | 8 = 4
 
+  /** Diagnostic contact-local ping-pong; canonical fields retain their owners. */
+  contactRoiPingPong = false
+
   /** Separate diagnostic: never enables contact batching or crosses uploads. */
   frontBatchEnabled = false
 

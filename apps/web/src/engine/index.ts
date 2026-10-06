@@ -1749,6 +1749,7 @@ export class PencilEngine implements PencilEngineAPI {
     minmaxExt: () => this._minmaxExt,
     ab: () => this._wcAb,
     passes: () => this._watercolorPasses,
+    contactRoiPingPong: () => this._settleQueue.contactRoiPingPong,
     shouldPreview: () => this._settleQueue.allowProgressPreview
       && (!this._settleQueue.suppressActivePreview || !this._strokeLayerId),
   })
