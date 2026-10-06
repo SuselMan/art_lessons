@@ -2627,7 +2627,8 @@ export class PencilEngine implements PencilEngineAPI {
     // author's own) lands before the next operation touches anything: the
     // replay settles each operation before painting the next, and this keeps
     // the live picture to that order.
-    if (this._settle) this._completeSettle()
+    const lost = this._contextLost || this.gl.isContextLost()
+    if (this._settle && !lost) this._completeSettle()
     // (#537) Local: the pending tail, applied ahead of the server's order.
     // Remote: already ordered, so into the confirmed region at its seq — which
     // is below any pending operation of this client's own.
@@ -2636,6 +2637,15 @@ export class PencilEngine implements PencilEngineAPI {
     // duplicate checkpoints its result on the spot, and a layer already known
     // to be out of order must refuse that checkpoint (_takeCheckpoint).
     this._noteOvertaken(op, overtaken)
+    // The confirmed journal keeps advancing while the GPU is unavailable.
+    // Restore replays that journal; interim paint must not create dead handles.
+    if (lost) {
+      if (op.type === 'operation_revoke') this._log.revoke(op.targetOpId)
+      else if (op.type === 'operation_undo') this._log.applyUndo(op.targetOpId, op.userId)
+      else if (op.type === 'operation_redo') this._log.applyRedo(op.targetOpId, op.userId)
+      if (source === 'local') this._onLocalOperation?.(op)
+      return
+    }
     for (const layerId of pixelWriteLayerIds(op)) {
       if (this._foreignUnrecordedInk(layerId, op)) this._unsettledLayers.add(layerId)
     }
@@ -3013,6 +3023,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  it began. Each of those clears on its own (pen-up, the operation
    *  arriving, the wash drying), and each of those moments calls this again. */
   private _settleLayers(): void {
+    if (this._contextLost || this.gl.isContextLost()) return
     if (!this._unsettledLayers.size || this._strokeLayerId) return
     let settled = false
     for (const layerId of [...this._unsettledLayers]) {
@@ -3513,6 +3524,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
+    if (this._contextLost || this.gl.isContextLost()) {
+      // This callback commits the confirmed operation, not just its preview.
+      this._onPreviewApplied?.(op)
+      return
+    }
     let state = this._peerPreviews.get(op.userId)
     if (!state) {
       state = {
@@ -3568,6 +3584,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket): void {
+    if (this._contextLost || this.gl.isContextLost()) return
     const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
     if (!live) {
@@ -3745,6 +3762,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _stepPeerPreview(peerId: string): void {
     const state = this._peerPreviews.get(peerId)
     if (!state) return
+    if (this._contextLost || this.gl.isContextLost()) {
+      const queued = [...state.queue]
+      this._peerPreviews.delete(peerId)
+      for (const head of queued) this._onPreviewApplied?.(head.op)
+      return
+    }
     const head = state.queue[0]
     if (!head) return
     const { op, rate, dabs } = head
@@ -3908,6 +3931,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Re-syncs pixel state after `op` flipped between done and undone/gone. */
   private _applyHistoryChange(op: Operation): void {
+    if (this._contextLost || this.gl.isContextLost()) return
     switch (op.type) {
       // (#520) Every layer of the gesture, not only this operation's own:
       // undo/redo flip a whole gesture at once (OperationLog._gestureEntries),
@@ -4695,11 +4719,18 @@ export class PencilEngine implements PencilEngineAPI {
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
+    this._contextLost = true
     this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
+    // A confirmed preview must not depend on its timer running before restore
+    // forgets the old buffers. Detach first: commit callbacks can be reentrant.
+    const previews = [...this._peerPreviews.values()]
+    const confirmed = previews.flatMap(state => state.queue.map(head => head.op))
+    for (const state of previews) if (state.timer !== null) clearTimeout(state.timer)
+    this._peerPreviews.clear()
+    for (const op of confirmed) this._onPreviewApplied?.(op)
     this._ribbonPainter.releaseWaterSources(true)
     this._cancelSettle() // Auxiliary handles were forgotten; close their coroutine without resuming GL.
     this._settlePlan.forgetTextures()
-    this._contextLost = true
     this._cancelSpillJob()
   }
 
@@ -4711,6 +4742,10 @@ export class PencilEngine implements PencilEngineAPI {
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
+    // Also forget anything an already-scheduled callback retained during loss.
+    this._ribbonPainter.releaseWaterSources(true)
+    this._cancelSettle()
+    this._settlePlan.forgetTextures()
     // Context loss invalidates the wet overlay's GL name too. Forget it
     // before _initGL / PaperState can request the first restored display;
     // deleting the old name would operate on a dead-context resource.
@@ -5425,7 +5460,7 @@ export class PencilEngine implements PencilEngineAPI {
     // at all (rather than trying to special-case the paint path) means
     // there is nothing to later "fix up" — matches how `_locked` already
     // blocks drawing for a different reason, just orthogonal to it.
-    if (this._locked || !this._paper.loaded) {
+    if (this._locked || !this._paper.loaded || this._contextLost || this.gl.isContextLost()) {
       // (#517) Both refusals below are correct and both are silent, which is
       // indistinguishable from the input layer having dropped the stroke —
       // and telling those two apart is the whole question in the iPad report.
@@ -8308,6 +8343,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _display(): void {
+    if (this._contextLost || this.gl.isContextLost()) return
     // (#470) One path for both kinds of room. A bounded room used to take a
     // screen-locked DISPLAY_FRAG pass over a sheet-sized _compositeFBO, which
     // only worked because its canvas *was* the sheet; now that the camera
