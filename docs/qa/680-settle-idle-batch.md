@@ -173,3 +173,17 @@ handler/complete timestamps, per-phase GL aggregates и memory timeline для
 Артефакты: `temp/idle-batch/causal-burst-7322/{burst.json,causal-summary.json,
 burst.events.jsonl,system-memory.jsonl}`. CPU scripts и SHA в `causal-native/`.
 CPU proof проверяет passthrough/throw/return/30cap/restore/observer errors.
+
+### Ограниченная CDP-трасса baseline OFF, 2026-10-06 02:21 UTC
+
+Source7322, idleBatch OFF, те же actual9flags/AMD, native80 burst3, GL0/errors0/nonempty. Никаких дополнительных GL barriers/readbacks в измеряемом пути. OwnedChrome закрыт02:21:55UTC. Preflight MemAvailable1762MiB; монитор не остановил тест. Категории Tracing.getCategories сохранены; Node останавливает трассу через15s, buffer8MiB, outputcap16MiB. Выбранные verbose cc/gpu/toplevel категории превысили filecap: **полная JSON обрезана**, не используется для отрицания отсутствующих событий. Сохранено55430 полных событий начала трассы в `temp/idle-batch/cdp-burst-7322/trace-prefix.json`; анализ явно partial.
+
+В первом рывке burst2 rAF6921.6→7054.8ms (133.2ms), затем7054.8→7138.2 (83.4ms), положительно присутствуют:
+
+- CrGpuMain `GLContextEGL::MakeCurrent`6918.037ms, CPUwall104.715ms;
+- CrGpuMain WebGL/CommandBuffer::Flush7029.666ms,21.991ms;
+- CrGpuMain compositor `NativeViewGLSurfaceEGL:RealSwapBuffers`7074.763ms,76.902ms.
+
+Pointerdown13.8ms, `_completeSettle`11ms (971pending), move внутри первого интервала2.7ms. MinorGC в7092.99ms занимает1.78ms. Это положительное свидетельство задержек GPU-service/driver/context-switch и swap, перекрывающих observedRAFhitches; их нельзя объяснить одним только synchronous JavaScript-handler. Это **CPUwall GPU-thread, не чистое hardwareGPUexecution и не photonlatency**. Трассировка сама заметно нагружает браузер (например первый конец штриха FireAnimationFrame62ms), поэтому её числа не подменяют исходный passthrough/nativeperfbaseline. Второйburst не покрыт сохранённым prefix; отрицательных выводов нет.
+
+Следующая диагностическая трасса при отдельном grant должна убрать verbose scheduler/toplevel/disabled debug categories, ограничить10s и сохранить нужные timelineGC/cc/gpu/viz события без увеличения16MiB cap. Модель и defaultOFF неизменны. Root получил GPUfree и все paths.
