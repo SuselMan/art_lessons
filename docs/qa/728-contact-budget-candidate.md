@@ -31,3 +31,13 @@ Pigment400 и purewater400 — непрерывные пути по 6 секун
 Cold compile итог этого запуска **INVALID**: после link движок удаляет shader handles, финальный query COMPILE_STATUS этих handles вернул null; это ошибка диагностического gate, не доказательство compile fail. Такие queries выполнялись после timing captures. Recorder исправлен: статус сохраняется перед deleteShader. Новый cold PASS пока не объявляется.
 
 Own target 1214 закрыт в finally. Raw HOME temp/contact-budget/samsung/extended-first.json и immutable extended-first-journal.json: 5 операций, snapshot null, journal SHA fcfcb085cde1b566b2845ff75307a5633150e52c22faa1e7893372216225f7cb. Источник5311 не менялся, пользовательские вкладки не трогались.
+
+## Samsung pending attribution: sampled повтор
+
+На том же frozen5311 повторены четыре пути с CPU sampler 2 мс и прозрачными wrappers существующих engine methods. Native payload независим от первого прогона, это attribution arm, не paired speed gate. Own1217 закрыт в finally. Исправленный cold recorder сохранил COMPILE_STATUS перед deleteShader: **104/104 true**, GL 0/lost false во всех timing captures. Все5 strokes ACK.
+
+Новое касание после плотного зигзага действительно вошло в _onStart с **1192 остающимися шагами**. _completeSettle синхронно отправил их за50.4 мс, _onStart занял54.7 мс. Следом rAF интервалы дважды167.2 мс; _onMove в соседних callback занимал3–7 мс, q.tick максимум1.8 мс в первом control arm. Это конкретный GPU burst кандидат при обязательном синхронном drain перед новым stroke; GPU execution/presentation latency ещё не отделены direct GPU trace/query. Нельзя объявить устранение этого hitch одним postlift batching.
+
+Sampler dense whole interval: idle8709 мс, readPixels72.7 мс через _packWashBoundaries; _updateWetTexture114.7 мс через _takePaperPartial/_display. Последний поток исследуется отдельно root. CPU profiler start bracket относительно page performance clock широк:261 мс. Поэтому CPU samples не привязаны к отдельному rAF167. Perf method wrappers и rAF находятся в одном page clock; rAF timestamp может предшествовать callback start, это не photon/input latency measurement.
+
+Raw HOME temp/contact-budget/samsung/samsung-pending-attribution.json и четыре *.cpuprofile. Группировка не меняет operators, их порядок и tagged identities. Source/default flag OFF сохранены; публикации не было.
