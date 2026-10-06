@@ -110,3 +110,35 @@ jobAge262.6ms. Это подтверждаетсохранениеbaselinepath �
 `temp/idle-batch` наVPS;raw сохранены и на домашнеймашине. Никакихreadbacks или
 дополнительныхGL barriers в nativeframe loop: instrumentation толькооборачивает
 существующийqueue.ctx.syncGpu дляcounter/time и восстанавливаетсяfinally.
+
+## Чередующийся повтор ON/OFF/OFF/ON — 2026-10-06 01:58–02:02 UTC
+
+Source7322,267SHA, прежний AMD/Chrome паспорт. Поdense80 иburst3×1.2s/150ms
+в каждом режиме, итого8nativecases; толькоодин ownedChrome одновременно,
+каждый finallyclosed, GL0/pageerrors0, прозрачныйink непустой. DefaultOFF.
+
+| Метрика | ON, два повтора | OFF, два повтора |
+| --- | --- | --- |
+| Dense solver idle | 8.1123/8.0097s | 15.2269/15.7288s |
+| Burst solver idle | 8.0134/8.0106s | 15.1215/15.3246s |
+| Dense active median/p95 rAF | 22.2/22.3ms | 22.2/22.3ms |
+| Burst2 max rAF | 183.3/183.3ms | 149.9/150ms |
+| Burst3 max rAF | 216.8/216.6ms | 216.7/133.3ms |
+| Burst LoAF max | 229.8/228.5ms | 231.7/177.7ms |
+
+OFF extraSync0. ON sync толькопосле финальногоUp: minjobAge253.7–263.7ms;
+в active и первыхдвух коротких150ms паузах extraSync0. Background после полной
+готовности median16.7ms,max≤22.4ms, без>33ms, во всех8case. Нетlongtasks>200ms,
+однако меньшие иLoAF существуют. Native submission/forcedcomplete неphoton latency.
+
+Повтор подтверждаетускорениефона иотсутствиеextra barriers вкраткойпаузе, но
+**не доказывает consistent-no-regression активныхburst**: ONmax здесь выше.
+Это не изолированноеcausal доказательство: native rAF формирует разное числоdabs,
+а IDs/seed/точноеpacing различаются; фиксированнаяsourceparity отдельная.
+Поэтимданнымdefaultenable не рекомендуем иbaselinehitchне объявляем исправленным.
+
+Raw `temp/idle-batch/repeat-7322/{pair1-on,pair1-off,pair2-off,pair2-on}`,
+сводка `repeat-7322-summary.json` сохранены наVPS и домашнеймашине. Summarizer
+проверяетsource/mode/GL/nonempty/finished/grace исохраняетmemory/draws/relativeFPS,
+latencies/forcedsubmission/backgroundframe distributions отдельно. Прежние
+артефакты7322/696a/ecba не перезаписаны; новыхзависимостей/шейдеров/моделинет.
