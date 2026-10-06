@@ -1,6 +1,6 @@
 # #680 — flexible hairline finished-display barrier
 
-2026-10-06. Isolated worktree `680-composite-domain`, source HEAD21539acf (engine1e49aa99: accepted production defaults + composite-domain fix). No artistic/source change in this experiment. The later release wet-clock wake guard is absent here; this is not a complete final-release qualification.
+2026-10-06. Isolated worktree `680-composite-domain`, source HEAD21539acf (engine1e49aa99: accepted production defaults + composite-domain fix). No artistic/source change in this experiment. The later release active-water snapshot guard is absent here; this is not a complete final-release qualification.
 
 CI37391069320 reported watercolor feather-pressure size100/flex →81 recorded dabs of size2, screen darkness max2 against unchanged >3 assertion. Geometry succeeded; the test's finished-image barrier omitted presentation-only wash reveals. `pickColor` reads the visible screen; canonical PNG export excludes wash reveals and does not clear their ownership map.
 
