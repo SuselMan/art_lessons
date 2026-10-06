@@ -7,11 +7,12 @@ import { GRADIENT_FIBRE_GLSL, withGradientFibres } from './gradientFibres'
 
 describe('optional baked gradient fibres', () => {
   it('preserves the four frozen OFF shader strings exactly', () => {
+    // Combined ring baseline efe5dea9; fibre integration leaves shaders.ts byte-identical.
     const expected = [
-      '19f3adf8b490d67adeabe32b39922e1396cddc422f75c0db2cb94cc42680cbc7',
-      '7129970dd9b324a1e1276b134daf8dd4289b668d521bd923c461b097360b520f',
-      'a5bb6233cf175e91d9442ad94f0aa21f1a80b9921872090d6e7f97f9ffd91907',
-      '480c0fb8a4c049b39aab68f1780520ea058b01e3f7f9d810908f001530fe18e5',
+      '68be1a68251727abd3b06849903c6c2050fdfaecb078f0f0fdbf1e713d0ade1f',
+      '4d87a6d4afca39acf0681e2304f7517b7f19397b62d4aa74fd6e17fa0e31c020',
+      '0b28e2c3a464c1aabd92d4a31a1631dd170c7136d335895df0bf6bbcf961c486',
+      'd7ab8fcd84686fc2401edc5e702445d130b4f4a9e9181d9d2cb5cb635613be50',
     ]
     const actual = [WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG]
       .map(s => createHash('sha256').update(s).digest('hex'))
