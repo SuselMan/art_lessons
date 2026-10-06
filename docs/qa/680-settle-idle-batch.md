@@ -142,3 +142,34 @@ Raw `temp/idle-batch/repeat-7322/{pair1-on,pair1-off,pair2-off,pair2-on}`,
 проверяетsource/mode/GL/nonempty/finished/grace исохраняетmemory/draws/relativeFPS,
 latencies/forcedsubmission/backgroundframe distributions отдельно. Прежние
 артефакты7322/696a/ecba не перезаписаны; новыхзависимостей/шейдеров/моделинет.
+
+## Нативная трасса существующих GL API — 2026-10-06 02:15 UTC
+
+Baseline source7322, idle batching OFF, один native80 burst. Девять flags и
+AMD/Chrome паспорт подтверждены. Node memory monitor: до запуска1794MiB
+MemAvailable, минимум во время проверки1394MiB. Resource stop не сработал.
+GL0, pageerrors0, canonical ink непустой, finally Chrome закрыт02:15:50.922UTC.
+
+Обёрнуты существующие drawArrays/drawElements,texImage2D,createFramebuffer,
+checkFramebufferStatus,copyTexSubImage2D,readPixels,finish,flush. Original this,
+arguments,result,throw сохраняются; новых GL calls/barriers нет. 22189 вызовов:
+ни одного>1ms, поэтому top30slow stacks пуст. В burst2/3 максимальный APIwall
+для draw/tex/copy/createFB0.1ms. Учтённое время JSmetadata16.7ms за весь прогон,
+ошибок observer0. Это APIwall, не чистое GPU время; overhead не вычитается из FPS.
+
+Forced `_completeSettle` submission19.2/9.8ms при971/962 remaining ops.
+В burst2 пауза rAF133.3ms (t6915.3→7048.6) включает только move1.4ms;
+complete закончился раньше (t6877.2+19.2). Затем кадр83.3ms с move11.4ms.
+В burst3 пауза133.3ms (t8293.1→8426.4) включает move3ms;
+complete раньше (t8262.6+9.8). Затем83.3ms с move26.6ms.
+
+Наблюдаемые100+ms паузы не находятся внутри измеренных CPU/GL API вызовов.
+Очередь GPU либо compositor/frame scheduling после bulk submission — вероятное
+объяснение, **ещё не доказанное GPU trace**. Не объявляем архитектурный фикс на
+основании одного APItrace; не включаем idle оптимизацию. Сохранились rAF timestamps,
+handler/complete timestamps, per-phase GL aggregates и memory timeline для
+следующего сопоставления с GPU/compositor trace.
+
+Артефакты: `temp/idle-batch/causal-burst-7322/{burst.json,causal-summary.json,
+burst.events.jsonl,system-memory.jsonl}`. CPU scripts и SHA в `causal-native/`.
+CPU proof проверяет passthrough/throw/return/30cap/restore/observer errors.
