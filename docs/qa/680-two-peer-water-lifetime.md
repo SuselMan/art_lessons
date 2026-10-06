@@ -296,3 +296,49 @@ ROI. No such GPU ablation was run in this check.
 
 Artifacts: home `temp/two-native-boundary-minimal/long-donor-long-pigment/`;
 local `temp/snapshot/native-boundary-minimal-report.json`, stage/entry comparisons.
+
+## Scoped forced-first-settle native control
+
+One subsequent real two-auth native Room on the same frozen9ebsource added only
+a diagnostic browser wrapper to `_flushStrokeChunk`. After the original native
+function returned, the wrapper called `_completeSettle` only for an actual
+`normal:0:15` watercolor native chunk with dabs flushed and a settle owned by
+that native scratch. It did not modify the application, source operators,
+physics constants, encoded operations or the remote painter. All21 embedded
+browser commands compiled in CPU before the run. Watchdog120s/finally applied.
+
+The native pigment author invoked that wrapper once after a59dab chunk;
+first-settle completion returned pendingfalse/queue0 before subsequent delivery.
+The remote participant and native pure-water brush invoked it zero times. Both
+peers had the **same four-operation journal inside this run**, independently
+verified from their deep JSON-cloned operations. Previous natural baseline is
+a reference, not a strict matched OFF/ON input: native rAF sampling and random
+stroke seeds can differ between separate runs.
+
+Meaningful painted-ROI guards passed: coverage/V nonzero for pure water,
+P/coverage/V and raw canonical pixels nonzero for pigment. Correctly clipped
+five-buffer ROI reads used the fixed top-to-bottom coordinate conversion.
+Both pigment chunks' before-finish P/C/V/coverage SHA matched exactly between
+native and packed peer (10valid field ROIs each). Raw canonical ROI decoded
+RGBA was exact0pixels/max0 after pigment and after ordinary A rejoin. All
+capturedGL0/lostfalse. Native donor V also matched auxiliary reconstruction;
+remaining tiny donor coverage quantization differences of1–3summed codes did
+not prevent the matched pigment fields or canonical ROI in this run.
+
+At rejoin, completed replay had no newly instrumented ephemeral captures; its
+canonical raw ROI remained nonempty and exact. The corrected diagnostic treats
+that as missing source-stage observation, not missing pigment, and checks only
+raw canonical pixels for that phase. All three scoped barriers completed;
+Chrome closed in finally, exit0. Artifact directory:
+`temp/two-native-boundary-force/long-donor-long-pigment/` in the home QA mirror.
+Local source comparisons are `temp/snapshot/native-boundary-force-*.json`.
+
+This provides strong scoped support for the temporal-overlap hypothesis:
+completing the author's first chunk before second delivery restored native/peer
+field and ROI parity despite retained small input precision differences. It is
+not a full-image or cross-GPU proof, a controlled same-input OFF/ON proof across
+runs, or a production fix. Forced synchronous completion may create a hitch;
+this diagnostic is not a smoothness/performance recommendation. The running
+film merge preserves new paint, but second delivery against an unsettled base
+and later first-result merging are not shown to commute with delivering the
+second chunk against an already settled base.
