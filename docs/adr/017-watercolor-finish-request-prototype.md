@@ -41,6 +41,33 @@ pending request до capture. Предварительная картинка и
 этот критерий. Подробные ownership/cancellation gates описаны в
 `docs/qa/728-async-finish-design.md`.
 
+### Разделение владельцев, необходимое после prepareDelivery
+
+Текущая extraction44c487d7 только отделяет CPU delivery без изменения immediate
+execution. Для следующего генератора нужно захватить весь batch: drawable/prev,
+profile/preset/color, bands/deposits/across/water/standing, foreign donor chunks,
+reach/composite bounds, seed и результат noteFinish. GPU continuation создаётся
+после этого, а foreign import остаётся перед первым material draw. Mutable
+vertex arrays и donor lists копируются. Выполнение continuation не пересчитывает
+water clock, wet sampling, стоянку и выделение частиц пигмента.
+
+Logical gesture и material gesture — разные владельцы. Input может закончить
+логический chunk и начать следующий, но physical filmGesture меняется только
+в очереди перед соответствующим GPU batch. Oldland должен смотреть physical
+owner, не самый новый logical gesture. Ни temporary swap всего scratch, ни
+возврат snapshot всех скаляров после landing не подходят: они откатят уже
+принятые стоянки/контакты следующего batch. FinishRequest берёт свои brushTravel,
+wetContacts/paints/dryCtx в момент логической границы; Plan.prepare перестаёт
+читать эти mutable коллекции без request. Pending request закрывает возможность
+spill/checkpoint до безопасной canonical границы.
+
+Presentation хранит только отдельный transient target и prepared geometry/color.
+Обычный `_paintDabs` использовать для него нельзя: он меняет water clocks и
+общий dabPool. Существующий prediction target AccumulationBuffer тоже не
+решение: watercolor путь для него явно возвращает undefined, то есть следа
+вообще не будет. Нужен небольшой независимый presentation draw; его качество и
+видимость проверяются отдельно от dry endpoint, без заявления новой физики.
+
 Проверяем отдельно exact endpoints и плавность. Вводимый прототип должен показать
 след сразу, а не скрывать input задержкой рисунка. Source577/cleaned4f доказали
 native→history equality, но сами не устранили synchronous pen-up barrier.
