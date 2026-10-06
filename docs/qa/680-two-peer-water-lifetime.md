@@ -141,3 +141,19 @@ Float32 diagnostic must preserve standingMap identity and show matching returned
 standing/PaperWetness before its residual can be attributed to geometry rather
 than input semantics. These are further technical QA tasks, not a silent model
 change required by the confirmed9eb lifetime correction.
+
+## Repaired Float32 painter-input control
+
+The follow-up kept the model/operations unchanged and remapped returned standing
+keys from copied dabs back to the original Dab objects at generator completion.
+Actual top-level traces on both participants showed97retained original dabs,
+97successful standing lookups, zero missing/unexpected keys. Full synthetic
+operation payloads were cloned inside the page, preserving color arrays.
+
+Long native baseline:13846differentRGBApixels/max10; repaired Float32 painter
+input:9613/max14. A rejoin left each corresponding residual unchanged; allGL0.
+Thus Float32 rounding of the painter inputs alone does not remove the long-chunk
+residual. This does not isolate earlier native geometry/bounds preparation or
+other inputs, and does not justify a blanket claim that all numeric differences
+are irrelevant. Sampled canonical/P/C/V fields and original PNGs are retained in
+home `temp/two-long-correct/`; all owned Chrome instances closed in finally.
