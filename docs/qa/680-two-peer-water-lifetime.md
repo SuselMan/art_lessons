@@ -373,3 +373,16 @@ Owned AMD Vega/ANGLE Radeon renoir, separate fresh Room contexts on baseline5305
 Wall17.559s/17.592s includes approximately1000 scheduled operations, not pen-hitch measurement. Subsequent native two-auth stage reached B JoinGate but did not complete within outer180s; failure capture referenced a closed fixed65 page and masked the underlying fixture error. Native capture/rejoin/parity/responsiveness remain pending. First failed attempt used a form-scoped creation input selector and is excluded. All owned Chrome finally closed; no application/GL failure claim from either fixture failure.
 
 Evidence: `temp/snapshot/firstop-fixed65-baseline.json`, `firstop-fixed65-candidate.json`, `firstop-fixed65-comparison.json`, `firstop-hardware-driver.json`.
+
+
+### Native first-op hardware gate (6c121f56): scoped PASS
+
+Standalone owned AMD Vega Chrome, two independently authenticated actual Room participants, native clear-water then long dry-pigment gesture. Actual source stamp6c121f56/settle hash0a0a9aad unchanged. Working JoinGate helper; process exit0 and Chrome finally closed. Both peers recorded the exact same four operation journal. All nine source flags recorded.
+
+Native B pigment job3 prepared at14202.7ms, immediate capture-op ran14204.5→14204.7ms with capturedGesture1=actualGesture1 and all four filmGesture1. Its24 actual copy/resample calls were in opindex0. Only afterward newFilm changed gesture2 (same rounded timestamp14204.7ms, event order preserved). Each painted tile selected distinct inkBase rather than later inkLoad (load IDs89/97/115/157, base IDs92/139/118/160). This directly removes the previous native next-film alias. First solver finished14517.9ms while gesture2 was running, so asynchronous transport/rebase remained active.
+
+Meaningful nonzero raw canonical world ROI(1006,894,256,128), validated top-to-bottom mapping: native/peer before rejoin RGBA0changed pixels/max0; A ordinary rejoin versus B also0/max0. SHA256 `ab86a563f59c291ed0822bf1fcda28d665899f6d295f92d5c597ade2d4d8547d` on all four captures, GL0/lostfalse. This is a bounded painted ROI, not full-image or cross-GPU proof. Native P/C/V pixel fields were not read in this run; their full-field negative gate is the separate fixed65 measurement.
+
+Trace event cap4096 was reached on both pages; native B pigment job3/4 capture events occurred before its cap, but remote A pigment chronology fell after its cap and is unobserved. Thus no full-timeline claim. The driver did not save the rAF stroke helper return; responsiveness/frame interval evaluation remains pending. No performance PASS is inferred from0pixel difference or immediate command submission.
+
+Evidence: `temp/snapshot/firstop-native-only-report.json`, `firstop-native-only-driver.json`, `firstop-native-only-summary.json`; home `680-firstop-capture-qa/temp/firstop-native-only`.
