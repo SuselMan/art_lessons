@@ -5224,6 +5224,7 @@ export class PencilEngine implements PencilEngineAPI {
    *     any watermark this client can have seen, so a joiner restoring these
    *     pixels would then receive the same operations and paint them twice. */
   private _snapshotSettled(layerId: string): boolean {
+    if (this._log.hasPendingPaperDry()) return false
     if (this._unsettledLayers.has(layerId)) this._settleLayers()
     if (this._unsettledLayers.has(layerId) || this._pendingRebuilds.has(layerId)) return false
     return !this._log.hasPendingPixelOps(layerId)

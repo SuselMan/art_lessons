@@ -8,7 +8,7 @@ import { createSnapshotGate } from './net/snapshotGate'
 import { createSnapshotUploader } from './net/snapshotSync'
 
 export interface SnapshotPublishingDeps {
-  /** Any local unconfirmed operation, including structural changes. */
+  /** Pending new layers/folders; engine bake guards pending paint and Dry. */
   pendingIdsRef: RefObject<Set<string>>
   boardId: string | null
   engineRef: RefObject<PencilEngineAPI | null>

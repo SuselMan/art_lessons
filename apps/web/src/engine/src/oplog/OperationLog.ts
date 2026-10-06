@@ -280,6 +280,16 @@ export class OperationLog {
     return false
   }
 
+  /** A local dry changes wet-state and canonical pixels on every layer.
+   * It cannot be published under the watermark before its confirmation. */
+  hasPendingPaperDry(): boolean {
+    for (let i = this._confirmedCount; i < this._entries.length; i++) {
+      const entry = this._entries[i]
+      if (entry.state === 'done' && entry.op.type === 'paper_dry') return true
+    }
+    return false
+  }
+
   /** Where a confirmed operation with this seq belongs: after every confirmed
    *  entry with a lower (or unknown) seq. Scans back from the region's end,
    *  which is where it almost always goes — the stream is ordered. */

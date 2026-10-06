@@ -627,3 +627,46 @@ describe('idle first snapshot never captures unrecorded native pixels (#728)', (
     engine.destroy()
   })
 })
+
+
+describe('pending shared dry cannot enter an older snapshot watermark (#728)', () => {
+  function fixture() {
+    const { engine } = createTestEngine({ userId: 'A' }, { width: 16, height: 16 })
+    engine.appendOperation(makeLayerAdd('A', 'L'), 'remote')
+    engine.appendOperation(makeStroke('A', 'L', [dab(8, 8, { size: 6 })]), 'remote')
+    // Real log water donor with no new pixels: isolate the publication gate,
+    // not software-GL transport. Its encoded history remains required.
+    engine.appendOperation(makeStroke('A', 'L', [], {
+      id: 'water', tool: 'watercolor', preset: 'normal:100:0',
+      washId: 'wet', timestamp: Date.now(), seq: 1,
+    }), 'remote')
+    return engine
+  }
+  it('refuses completed local dry before ACK, releases after seq2', () => {
+    const engine = fixture()
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    engine.appendOperation({ id: 'dry', type: 'paper_dry', userId: 'A', timestamp: Date.now() })
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    expect(engine.confirmOperation('dry', 2)).toBe(true)
+    expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
+    engine.destroy()
+  })
+  it('discarding unconfirmed dry restores the original active-water refusal', () => {
+    const engine = fixture()
+    engine.appendOperation({ id: 'dry', type: 'paper_dry', userId: 'A', timestamp: Date.now() })
+    expect(engine.discardOperation('dry')).toBe(true)
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    engine.destroy()
+  })
+  it('keeps the existing pending pixel refusal without any paper dry', () => {
+    const { engine } = createTestEngine({ userId: 'A' }, { width: 16, height: 16 })
+    engine.appendOperation(makeLayerAdd('A', 'L'), 'remote')
+    const pending = makeStroke('A', 'L', [dab(8, 8, { size: 6 })])
+    engine.appendOperation(pending)
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    expect(engine.confirmOperation(pending.id, 1)).toBe(true)
+    expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
+    engine.destroy()
+  })
+
+})

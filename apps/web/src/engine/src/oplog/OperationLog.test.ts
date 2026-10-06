@@ -483,3 +483,26 @@ describe('undo/redo grouped by gesture (strokeId)', () => {
     expect(log.pixelOpDoneCount('layer-1')).toBe(3)
   })
 })
+
+
+describe('unconfirmed paper dry blocks every snapshot layer (#728)', () => {
+  const dry = { id: 'dry', type: 'paper_dry' as const, userId: 'A', timestamp: 10 }
+  it('is pending before ACK and released at its confirmed seq', () => {
+    const log = new OperationLog()
+    log.append(stroke({ id: 'wet' }), { serverSeq: 1 })
+    log.append(dry, { pending: true })
+    expect(log.hasPendingPixelOps('layer-1')).toBe(false)
+    expect(log.hasPendingPaperDry()).toBe(true)
+    log.confirm(dry.id, 2)
+    expect(log.hasPendingPaperDry()).toBe(false)
+  })
+  it('ignores rejected dry and preserves the existing pending pixel guard', () => {
+    const log = new OperationLog()
+    log.append(dry, { pending: true })
+    log.revoke(dry.id)
+    expect(log.hasPendingPaperDry()).toBe(false)
+    log.append(stroke(), { pending: true })
+    expect(log.hasPendingPaperDry()).toBe(false)
+    expect(log.hasPendingPixelOps('layer-1')).toBe(true)
+  })
+})
