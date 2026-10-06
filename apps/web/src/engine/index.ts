@@ -704,6 +704,9 @@ export interface PencilEngineAPI {
   // start, one page at a time — see Room's backfill orchestration). Safe to
   // call repeatedly, once per page.
   absorbHistoricalOperations(ops: Operation[]): void
+  /** Inclusive snapshot prefix plus dependency source history; seeds the log
+   * before tail meta-ops and rebuilds only live layers not covered by restored pixels. */
+  restoreHistoricalOperations(ops: Operation[]): Promise<void>
   // (#289 epic, reliable history spec v0.2 §13) Bakes the same bytes
   // bakeNetworkSnapshot would, but reached by a deliberately *independent*
   // route: a scratch buffer replayed from zero through every one of this
@@ -5278,6 +5281,19 @@ export class PencilEngine implements PencilEngineAPI {
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
     this._snapshotIO.absorbHistorical(pageOps)
+  }
+
+  /** Restore dependency prefix without replaying already baked structure or
+   * revoking historical strokes whose source layer has since been consumed.
+   * The original prefix fold (including boundary undo) precedes tail redo. */
+  async restoreHistoricalOperations(ops: Operation[]): Promise<void> {
+    const affected = new Set<string>()
+    for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
+      if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
+    }
+    this.absorbHistoricalOperations(ops)
+    await this.preloadImages(ops)
+    for (const id of affected) this._rebuildLayerOrDefer(id)
   }
 
   getOperationsSinceRestore(): Operation[] {

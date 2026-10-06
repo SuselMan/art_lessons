@@ -1,3 +1,4 @@
+import type { PreparedSnapshotReplay } from './snapshotReplayLoader.js'
 import bcrypt from 'bcryptjs'
 import type {
   LessonState, Operation, Participant, Room, RoomAccessMode,
@@ -498,6 +499,7 @@ export function getRoomSnapshot(
   // they may see (see lessonStateFor). Without one, none of them — the safe
   // reading for a caller that has nobody in particular to show them to.
   viewerId = '',
+  replay?: PreparedSnapshotReplay,
 ): {
   room: Room; latestSnapshotSeq: number | null
   tailOperations: Operation[]; participants: Participant[]
@@ -519,11 +521,13 @@ export function getRoomSnapshot(
   // Now a stroke is withheld only when *its own* layer's stored pixels
   // positively reach it, so a layer nobody snapshotted keeps every operation.
   const floor = lastKnownSeq ?? 0
-  const tailOperations = record.operations.filter(op =>
+  const available = replay?.operations ?? record.operations
+  const availableById = new Map(available.map(op => [op.id, op]))
+  const tailOperations = available.filter(op =>
     (op.seq ?? 0) > floor
-    && !isCoveredBySnapshot(
-      record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds, undefined,
-      id => record.operationsById.get(id)))
+    && (replay?.historicalIds.has(op.id) || !isCoveredBySnapshot(
+      replay?.coverage ?? record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds, undefined,
+      id => availableById.get(id))))
   const lesson = lessonRecordOf(record)
   return {
     room: wireRoomOf(record, lesson),

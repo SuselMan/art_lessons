@@ -22,6 +22,9 @@ export interface SnapshotRestoreSink {
   /** Called once, after every blob has arrived and before any pixels are
    *  applied, so the layers exist to receive them. */
   beginLayers: (layerState: LayerState) => void
+  /** Scoped original prefix after pixel handover. Unlike applyLayer this
+   * carries journal data, never inflated pixel views, and may await rebuild. */
+  restoreHistory?: (operations: Operation[]) => Promise<void>
   /** Called once per covered layer, in index order. The tiles are views into a
    *  buffer released as soon as this returns — a caller that needs them later
    *  has to copy. */
@@ -284,6 +287,26 @@ export async function restoreLatestSnapshot(
     if (!isLayerStateShape(layerState)) throw new Error('snapshot index: stored layerState is malformed')
     plan = body.layers.map(layer => ({ layerId: layer.layerId, seq: layer.seq, bytes: 0 }))
 
+    const dependencyHistory: Operation[] = []
+    if (sink.restoreHistory) {
+      const coverage = new Map(body.layers.map(layer => [layer.layerId, layer.seq]))
+      const missing = Object.values(layerState.items).filter(item => item.kind === 'layer'
+        && (coverage.get(item.id) ?? 0) < body.seq).map(item => item.id)
+      if (missing.length) {
+        let cursor = body.seq + 1 // inclusive snapshot structural boundary
+        while (cursor > 0) {
+          const page = await api('GET /api/rooms/:roomId/operations', {
+            params: { roomId }, query: { beforeSeq: cursor, limit: HISTORY_PAGE_LIMIT, layerIds: missing.join(',') },
+          })
+          if (!page.length) break
+          const oldest = page[0].seq ?? 0
+          if (oldest >= cursor) throw new Error('snapshot dependency history cursor did not advance')
+          dependencyHistory.unshift(...page)
+          cursor = oldest
+        }
+      }
+    }
+
     stage = 'blobs'
     // Deliberately not `cache: 'reload'` or a cache-busting query: the browser
     // cache hitting here is the entire point of #427. The bytes are still gzip
@@ -316,6 +339,7 @@ export async function restoreLatestSnapshot(
       appliedLayerIds.push(layer.layerId)
     }
 
+    if (dependencyHistory.length) await sink.restoreHistory!(dependencyHistory)
     return { status: 'restored', head: { seq: body.seq, layerState }, plan }
   } catch (error) {
     return { status: 'failed', stage, plan, appliedLayerIds, error }

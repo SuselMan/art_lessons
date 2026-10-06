@@ -15,6 +15,7 @@ import {
 import { getRoomBacklog } from './roomStats.js'
 import { findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
 import { ensureRoomLoaded } from './roomLoader.js'
+import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
 import {
   releaseLockOnUndo, setLayerLocked, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, setRoomTools,
 } from './ownerControls.js'
@@ -172,12 +173,13 @@ export async function evacuateBoard(io: AppServer, lessonId: string, boardId: st
     if (!userId || socket.data.roomId !== boardId) continue
 
     const name = getParticipant(lessonId, userId)?.name ?? FALLBACK_PARTICIPANT_NAME
+    const replay = await prepareSnapshotReplay(lessonId)
     const result = joinRoom(lessonId, userId, name, socket.id)
     void socket.leave(boardId)
     socket.data.roomId = lessonId
     if (!result.ok) continue
     socket.join(lessonId)
-    const snapshot = getRoomSnapshot(lessonId, undefined, userId)
+    const snapshot = getRoomSnapshot(lessonId, undefined, userId, replay)
     if (snapshot) socket.emit('room_state', snapshot)
     io.to(lessonChannel(lessonId)).except(socket.id).emit('peer_board_changed', { userId, boardId: lessonId })
   }
@@ -434,6 +436,15 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         return
       }
 
+      let replay
+      try {
+        replay = await prepareSnapshotReplay(roomId)
+      } catch (err) {
+        releaseRoomIfUnused(roomId)
+        log.error({ err, roomId, socketId: socket.id }, 'join_room snapshot dependency preparation failed')
+        ack({ ok: false, error: 'server_busy' })
+        return
+      }
       const result = joinRoom(roomId, userId, displayName, socket.id)
       if (!result.ok) {
         releaseRoomIfUnused(roomId)
@@ -480,7 +491,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // no-op, so a page turn simply keeps the lesson channel.
       socket.join(roomId)
       socket.join(lessonChannel(lessonId))
-      const snapshot = getRoomSnapshot(roomId, lastKnownSeq, userId)
+      const snapshot = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
       if (snapshot) socket.emit('room_state', snapshot)
       // (#176) Someone the lesson already had, now on a different board, is
       // announced as having moved; everyone else — first join or a reconnect

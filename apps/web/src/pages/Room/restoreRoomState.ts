@@ -159,10 +159,19 @@ export async function restoreRoomState(
     openTimer?.note({ restoredFromSnapshot })
     openTimer?.stage('replay')
 
+    // Dependency history may precede the restored structural watermark. Seed
+    // that inclusive prefix before redo/undo in the tail; appending it would
+    // revoke strokes on consumed source layers and double-apply old structure.
+    const historicalPrefix = restoredFromSnapshot && latestSnapshotSeq !== null
+      ? tailOperations.filter(op => (op.seq ?? 0) <= latestSnapshotSeq) : []
+    const replayOperations = historicalPrefix.length
+      ? tailOperations.filter(op => (op.seq ?? 0) > latestSnapshotSeq!) : tailOperations
+    if (engine && historicalPrefix.length) await engine.restoreHistoricalOperations(historicalPrefix)
+
     // (#398) Reference images decoded before the loop, not inside it — see
     // PencilEngineAPI.preloadImages. Without this, the operations recorded
     // *after* an import replay against a layer whose image has not landed yet.
-    if (engine) await engine.preloadImages(tailOperations)
+    if (engine) await engine.preloadImages(replayOperations)
 
     // (#385) Per-operation, not around the whole loop. One operation that
     // throws used to abandon every operation after it — and in the real case
@@ -197,10 +206,10 @@ export async function restoreRoomState(
     }
     // (#536, §17.49) In slices, yielding between them, behind the gate - see
     // replayGate.ts on why it is not one piece any more, and why the gate.
-    engine?.setUnpaintedInBatch(undoneInBatch(tailOperations))
+    engine?.setUnpaintedInBatch(undoneInBatch(replayOperations))
     try {
       let sliceStart = performance.now()
-      for (const op of tailOperations) {
+      for (const op of replayOperations) {
         applyOne(op)
         if (performance.now() - sliceStart > REPLAY_YIELD_MS) {
           await yieldToEventLoop()

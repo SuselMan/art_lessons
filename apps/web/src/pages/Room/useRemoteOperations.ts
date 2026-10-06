@@ -142,6 +142,7 @@ export function useRemoteOperations({
       beginLayers: layerState => engine.setBaseLayers(
         Object.values(layerState.items).filter(item => item.kind === 'layer').map(item => item.id),
       ),
+      restoreHistory: operations => engine.restoreHistoricalOperations(operations),
       applyLayer: (layerId, tiles, coveredSeq) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq),
     })
     // (#474) Drained here and nowhere else, on every path including failure:

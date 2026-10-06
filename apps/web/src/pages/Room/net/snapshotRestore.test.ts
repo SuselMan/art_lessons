@@ -490,3 +490,35 @@ describe('walkHistoryBackward', () => {
     expect(pages).toBe(1)
   })
 })
+
+
+describe('index coverage invalidated after room_state (#728)', () => {
+  it('loads only missing layer history through the inclusive fixed snapshot boundary before completing restore', async () => {
+    const requested: string[] = []
+    const prefix: Operation[] = [
+      { id: 'colour3', seq: 3, type: 'stroke', userId: 'A', timestamp: 3, layerId: 'background', tool: 'pencil', preset: 'HB', color: [0, 0, 0], dabs: [] },
+      { id: 'undo5', seq: 5, type: 'operation_undo', userId: 'A', timestamp: 5, targetOpId: 'colour3' },
+    ]
+    global.fetch = vi.fn(async (url: string) => {
+      requested.push(url)
+      if (url.endsWith('/snapshots/index')) return { status: 200, ok: true, json: async () => ({ seq: 5, layerState: ONE_LAYER_STATE, layers: [] }) }
+      const u = new URL(url, 'http://qa')
+      expect(u.searchParams.get('layerIds')).toBe('background')
+      return { status: 200, ok: true, json: async () => u.searchParams.get('beforeSeq') === '6' ? prefix : [] }
+    }) as unknown as typeof fetch
+    const history = vi.fn().mockResolvedValue(undefined)
+    const outcome = await restoreLatestSnapshot('race', { ...recordingSink().sink, restoreHistory: history })
+    expect(outcome.status).toBe('restored')
+    expect(history).toHaveBeenCalledWith(prefix)
+    expect(requested.filter(u => u.includes('/operations')).map(u => new URL(u, 'http://qa').searchParams.get('beforeSeq'))).toEqual(['6', '3'])
+  })
+  it('never requests heavy prefix history for fully covered safe layers', async () => {
+    const fetch = mockRestoreFetch({ seq: 5, layerState: ONE_LAYER_STATE, layers: [{ layerId: 'background', seq: 5, hash: 'x' }] }, {
+      'background/5': await compressLayerTiles(encodeLayerTiles([])),
+    })
+    const history = vi.fn().mockResolvedValue(undefined)
+    expect((await restoreLatestSnapshot('safe', { ...recordingSink().sink, restoreHistory: history })).status).toBe('restored')
+    expect(history).not.toHaveBeenCalled()
+    expect(fetch.mock.calls.some(([url]) => url.includes('/operations'))).toBe(false)
+  })
+})

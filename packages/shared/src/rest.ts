@@ -187,7 +187,7 @@ export interface ApiRoutes {
     params: { roomId: string; layerId: string; seq: string | number }; response: ApiBinary
   }
   'GET /api/rooms/:roomId/operations': {
-    params: { roomId: string }; query: { beforeSeq: number; limit?: number }; response: Operation[]
+    params: { roomId: string }; query: { beforeSeq: number; limit?: number; layerIds?: string }; response: Operation[]
   }
 
   // A review image is a view of the board, never a layer snapshot.

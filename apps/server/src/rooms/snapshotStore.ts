@@ -10,6 +10,7 @@ import { rooms, type RoomRecord } from './roomRegistry.js'
 import { permitsSnapshotWatermark } from './firstSnapshotPolicy.js'
 import { isCoveredBySnapshot, layerStateIdsOf } from './snapshotCoverage.js'
 import { deriveLayerIds } from './structuralLog.js'
+import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
 
 /** (#612) Where a room's client-baked snapshots live (#149 epic, per layer
  *  since #371): storing an upload after checking its structure against the
@@ -314,39 +315,7 @@ export interface SnapshotIndexEntry {
 export async function getSnapshotIndex(
   roomId: string,
 ): Promise<{ seq: number; layerState: unknown; layers: SnapshotIndexEntry[] } | null> {
-  const [stored, rows] = await Promise.all([
-    prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
-    // Newest first, so the first row seen for a layer is the one to keep —
-    // retention leaves up to SNAPSHOT_RETENTION_PER_LAYER rows per layer.
-    prisma.roomLayerSnapshot.findMany({
-      where: { roomId }, orderBy: { seq: 'desc' }, select: { layerId: true, seq: true, hash: true },
-    }),
-  ])
-  if (!stored) return null
-
-  // (#474) Only layers the room still has. Every blob listed here is one the
-  // client downloads and inflates before handing it to the engine, and a layer
-  // absent from the structure is dropped by the engine's first line
-  // (`restoreLayerFromSnapshot`'s `if (!buf) return`) — so listing it spends
-  // bandwidth and, far more expensively, peak memory to reach a no-op.
-  //
-  // Production room 2xKybCLI listed five layers for a three-layer room: ~1.5 MB
-  // on the wire and ~20 MiB of inflated pixels, on a join that then came up
-  // showing one partial layer. Whether or not that join died of memory, asking
-  // a tablet to inflate a fifth of a room it will never draw is not a cost this
-  // can justify.
-  //
-  // `null` from layerStateIdsOf means the stored structure could not be read at
-  // all, and that fails open on purpose — same reasoning as its own doc
-  // comment. Listing a blob nobody needs wastes memory; withholding one that is
-  // needed loses drawing, and only one of those is recoverable.
-  const liveIds = layerStateIdsOf(stored.state)
-  const newestByLayer = new Map<string, SnapshotIndexEntry>()
-  for (const row of rows) {
-    if (liveIds !== null && !liveIds.has(row.layerId)) continue
-    if (!newestByLayer.has(row.layerId)) newestByLayer.set(row.layerId, row)
-  }
-  return { seq: stored.seq, layerState: stored.state, layers: [...newestByLayer.values()] }
+  return (await prepareSnapshotReplay(roomId)).index
 }
 
 /** One layer's stored snapshot: the gzipped `encodeLayerTiles` payload exactly
@@ -395,12 +364,34 @@ export async function getLayerSnapshot(
  *  exactly the operations that window deliberately excludes, so it has to go
  *  to the source. An empty result means backfill has reached the beginning
  *  of the room's stored history. */
-export async function getOperationsBefore(roomId: string, beforeSeq: number, limit: number): Promise<Operation[]> {
+export async function getOperationsBefore(roomId: string, beforeSeq: number, limit: number, layerIds?: string[]): Promise<Operation[]> {
   // `orderBy: seq desc` + take, then reversed: "the newest `limit`
   // operations below beforeSeq" is a suffix, and the (roomId, seq) unique
   // index makes it an indexed range scan rather than a full-table sort.
+  const needed = layerIds ? new Set(layerIds) : null
+  if (needed) {
+    // Structural/history metadata is small; close sources without downloading
+    // any unrelated covered stroke population. The caller pins beforeSeq.
+    const metadata = await prisma.operation.findMany({
+      where: { roomId, seq: { lt: beforeSeq }, type: { in: ['layer_merge', 'layer_duplicate'] } }, select: { data: true },
+    })
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const row of metadata) {
+        const op = row.data as Operation
+        if ((op.type !== 'layer_merge' && op.type !== 'layer_duplicate') || !needed.has(op.layerId)) continue
+        for (const id of op.type === 'layer_merge' ? op.sources.map(s => s.id) : [op.sourceId]) {
+          if (!needed.has(id)) { needed.add(id); changed = true }
+        }
+      }
+    }
+  }
   const rows = await prisma.operation.findMany({
-    where: { roomId, seq: { lt: beforeSeq } },
+    where: { roomId, seq: { lt: beforeSeq }, ...(needed ? { OR: [
+      { layerId: { in: [...needed] } },
+      { type: { in: ['operation_undo', 'operation_redo', 'operation_revoke', 'paper_dry', 'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_duplicate', 'layer_transform'] } },
+    ] } : {}) },
     orderBy: { seq: 'desc' },
     take: limit,
     select: { data: true },
