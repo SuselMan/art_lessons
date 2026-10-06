@@ -23,3 +23,9 @@ PNG1754×2480 до Undo и после Redo полностью совпали:0р
 Живой жест:59activeframes,1014ms,max33ms,1>33ms,0>100ms,tailmax67ms. Один sample, без заявления о приросте performance. Физическое перо человека не использовалось; это настоящий GPU с программно поданным pointer-вводом.
 
 Артефакты root `temp/device-runs/samsung-precision-native-pixels.json`, samsung-precision-before/undo/redo.png. Полные unit3511PASS+16skip/284files, typecheck/lint/mapcheck/maprulesPASS.
+
+## Samsung: три последовательно увеличивающиеся кисти
+
+На той же окончательной сборке отдельная собственная lRC_2T3B/target1183:3actual PointerInput жеста по одной траектории, размеры80/160/240. Каждыйactualstroke имеетserverACK,GL0/contextLostfalse; Hand guard действует. Для размеров80/160/240 активные интервалы сохранены в report,160/240 max17ms и0>33ms; хвосты67/67/84ms. Это короткие отдельные samples, не общий FPS/paired-improvement.
+
+После трёх перекрывающихся мазков Undo действительно удалил последний, Redo вернул весь PNG1754×2480 точно:0changed/max0/alpha0, SHA fafd20f3f4787f6319bcacbab36463fd32e209b49c64c559efd71e10d11920fa. pending0/GL0. Chrome own1183 закрыт finally, пользовательские вкладки не тронуты. Root temp/device-runs/samsung-precision-sizes-native-pixels.json и samsung-precision-sizes-before/undo/redo.png.
