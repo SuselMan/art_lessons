@@ -217,3 +217,29 @@ morph ещё6.68с доtrueidle. GL0/contextalive/final2ops, wholePNG HOME.
 и не paired old/new performance proof. Raw HOME
 `current577400-phase-retry-{loaded400,truewater400}-gpu-trace.json.gz`,
 compact VPS `temp/profile/current577400-phase-summary.json`.
+
+### Target27 front metric: причинная gross ablation
+
+Own5311/1b diagnostic, frozen8aa paper+DAB, неизменный prefix1..27 SHA
+91428ed2. Первый1282 отклонён пустымmaterialguard: отдельный imported Plan
+constructor не совпал с actual instance из-заViteHMR module identity. Retry
+оборачивает actual instance; sameModule=false подтверждено. Первый файл
+отчёта повторно использован retry; summary1282 явно восстановлен изstdout,
+не выдаётся за исходныйimmutable report.
+
+Samsung1283baseline/1284cardinal последовательноCLOSED. Только126 front
+calls target27 временно используют отдельный program8→4neighbors; все
+predecessors и другие physical passes исходные. Full prefront P/C/V/coverage
+SHA256 EXACT, source/seed/order/geometry неизменны. НенулевыеROI guards, GL0.
+Actual target27 `u_dryContact` uniform writes=0 во всехcomposites, такчто
+coverage.r bristle consumer неактивен здесь; poolstreak также0.
+
+Доcarry cost.r изменился10129px/max141, P/C/V/coverage0diff. Послеsolver
+P15157px/max20, C16761/max21, V/coverage0diff; wholeRGBA18989px/max60.
+Переход к4neighbor создаёт более заметные ступеньки/ромбы вouterhalo.
+Frontmetric причинно участвует в конечном пигменте, но в baseline27 нет
+явной решётки, совпадающей с жалобой пользователя. Это не доказательство
+причины исходныхtriangles и не предложенныйfix. Светлая innerобводка
+остаётся в обоих arms. Raw/atlas толькоHOME
+`temp/contact-budget/triangle/front27-{baseline,cardinal}-planes.json`,
+`front27-atlas.jpg`, `front27-comparison.json`, wholePNG рядом.
