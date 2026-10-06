@@ -193,3 +193,27 @@ Page clock:
 latency. ROI copies не решают эту физическую работу. Паспорт всё ещё изолированная
 модель8aa, не текущая chronology main. Raw HOME
 `roi-phase-off-gpu-trace.json.gz`, компактный VPS `temp/profile/roi-phase-summary.json`.
+
+### Current577, straight native400, Samsung1279 CLOSED
+
+Own5316 HOME `680-water-wet-tone-qa` source SHA совпал с root passport:
+indexba05a856, scratchf386ee21, painter5fcde271, Planee86b25e,
+Queue43e450dd, shader8a4df66c. Единственный opt-in sourceFilm=true;
+coverageFilm=false, zeroPigmentContacts=false. Queue tuning отсутствует.
+Первый bootstrap1278 отклонён устаревшим diagnostic cap guard доinput;
+он закрыт и не считается измерением. Guard исправлен только в controller.
+
+Непрерывные6с gestures A4Fine1754×2480, Adreno650, camera0: loaded400
+100:100 active max27мс; настоящая water400100:0 max17мс. Поодному
+нативному ACK operation (54/51 baked dabs). Ни один не пересёк chunk boundary.
+Harness-tail отключён; tailMax0 не означает плавное досыхание.
+_onEnd92.0/55.4мс; _finishRibbonStroke57.1/25.1мс. Большого prior complete
+в этих двух случаях нет. Ожидание solver послеlift10.9/11.2с, затем final
+morph ещё6.68с доtrueidle. GL0/contextalive/final2ops, wholePNG HOME.
+
+Обе traces полные (по8marks,4MiB gpu+user_timing): clock spread107/113µs.
+Максимальный loaded GPUFlush31.629мс начинается после_end; pure13.802мс.
+Старый853мсburst здесь не проявился. Это straight400, не dense/chunk control,
+и не paired old/new performance proof. Raw HOME
+`current577400-phase-retry-{loaded400,truewater400}-gpu-trace.json.gz`,
+compact VPS `temp/profile/current577400-phase-summary.json`.
