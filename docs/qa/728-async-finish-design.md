@@ -1,0 +1,65 @@
+# #728 — асинхронная граница завершения film: проект, не реализация
+
+Принцип: Operation Log определяет порядок канонического рисунка; презентация и
+приём pointer input не должны синхронно досчитывать предыдущий solver. Исходный
+оператор и порядок его RGBA8-записей сохраняются. Этот документ не включает
+изменение runtime или обещание плавности.
+
+## Почему простой callback небезопасен
+
+`_finishRibbonStroke` синхронно вызывает `_completeSettle` перед подготовкой
+следующей задачи. Но `_flushStrokeChunk` сразу вызывает `scratch.newFilm()`:
+меняются gesture и brushTravel. `prepare` читает mutable gesture, контакты,
+foreignSources, профиль и набор красок; filmBuffers лениво очищает новые P/C/V
+и копирует базы. Старый job проверяет соответствие filmGesture текущему gesture.
+Поэтому отложить только prepare — значит потерять владельца film и метаданные.
+
+Кроме того, `_onStart`, `_diffuseFieldFor` и `WatercolorSettleQueue.start`
+сами досчитывают старую задачу. `complete()` рекурсивно досчитывает задачу,
+созданную complete-callback. Перенос одного вызова не убирает input barrier.
+
+## Минимальная корректная граница
+
+Ввести immutable FinishRequest для одного material film: epoch/log revision,
+layer/target/scratch identity, material gesture, копии ctx bounds/profile/preset/
+color/scalars, dryCtx, brushTravel/wetContacts/foreignSources и paints. Массивы
+копируются, texture owners удерживаются до завершения либо отмены запроса.
+
+До capture этого запроса запретить `newFilm()` переиспользовать его P/C/V и базы.
+PointerInput продолжает принимать точки; следующие канонические source-команды
+ждут в очереди с подтверждённым порядком операций. Чтобы кисть оставляла след
+сразу, нужна отдельная transient-презентация, не пишущая в канонический scratch.
+Без неё перенос barrier лишь задержит видимый рисунок и не решит задачу Ильи.
+
+Порядок после завершения старого job: исходный oldland → source577 exact rebase
+защищённого film → capture его prepare → переход к следующему material gesture
+→ его queued source. Один глобальный diffusion field не используется двумя
+задачами одновременно. Выполнение режется по существующему GPU budget; вызов
+из pointer handler не должен попадать в рекурсивный complete/drain.
+
+## Контракты отмены и истории
+
+- Dry изменяет скорость ожидающих reveal/solver requests, не вызывает скрытый
+  синхронный drain из input. Финальный endpoint обязан совпасть с прежним.
+- Undo/revoke/layer clear/delete инвалидируют запросы через epoch/log revision,
+  затем обычный rebuild; callback старой эпохи не пишет в новый target.
+- Context loss забывает texture owners и immutable draw closures без GL-вызовов;
+  подтверждённый журнал сохраняется и воспроизводится новым контекстом.
+- Spill/checkpoint считают незахваченный FinishRequest занятым: неизвестное
+  промежуточное состояние не становится persisted snapshot.
+- Destroy освобождает каждый owner один раз. Старый completion не освобождает
+  буферы следующего film и не запускает запрос после destroy.
+
+## Проверка до включения
+
+Сначала CPU lifecycle: два chunk до completion, отмена/clear/loss на каждой
+границе, immutable vertices/uniforms и смена gesture. Затем fixed journal:
+целые P/C/V/coverage и dry PNG строго равны прежнему complete-before-source
+oracle; multi-tile, ordinary Room native→UndoRedo→rejoin и ACK во время loss.
+Плавность проверяется отдельно по input rAF и GPU trace: ранее source577
+исправил endpoint, но обычный Room всё ещё имел input max283мс.
+
+Решение требует проверки parent перед реализацией. Альтернатива без отдельной
+transient-презентации — держать отдельный scratch каждого незавершённого film;
+это увеличит RAM и всё равно потребует последовательного canonical rebase.
+Простой callback, перестановка операторов и MAX всех coverage channels отвергнуты.

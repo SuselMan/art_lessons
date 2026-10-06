@@ -174,6 +174,41 @@ export class RibbonStrokePainter {
     pieceTris = 0,
     mode: Readonly<{ waterOnly: boolean; segmented: boolean }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
+    const immutable = (v: unknown): unknown => {
+      if (v instanceof Float32Array) return v.slice()
+      if (Array.isArray(v)) return v.slice()
+      if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+        const copy = { ...v } as Record<string, unknown>
+        for (const k of Object.keys(copy)) if (Array.isArray(copy[k])) copy[k] = (copy[k] as unknown[]).slice()
+        return copy
+      }
+      return v
+    }
+    const sourceNib = (...args: Parameters<RibbonStrokePainterContext['drawRibbonNibPass']>): void => {
+      if (scratch.trackRunningSource) {
+        const saved = args.map(immutable) as typeof args
+        scratch.runningSourceCommands.push(() => {
+          if (saved[5] === 7) saved[0].beginMaxDraw(this.ctx.minmaxExt()!)
+          this.ctx.drawRibbonNibPass(...saved)
+          if (saved[5] === 7) saved[0].endDraw()
+        })
+      }
+      this.ctx.drawRibbonNibPass(...args)
+    }
+    const sourceBands = (...args: Parameters<RibbonStrokePainterContext['drawRibbonBands']>): void => {
+      if (scratch.trackRunningSource) {
+        const saved = args.map(immutable) as typeof args
+        scratch.runningSourceCommands.push(() => this.ctx.drawRibbonBands(...saved))
+      }
+      this.ctx.drawRibbonBands(...args)
+    }
+    const sourceField = (...args: Parameters<RibbonStrokePainterContext['fieldOp']>): void => {
+      if (scratch.trackRunningSource) {
+        const saved = args.map(immutable) as typeof args
+        scratch.runningSourceCommands.push(() => this.ctx.fieldOp(...saved))
+      }
+      this.ctx.fieldOp(...args)
+    }
     const segmentMode = profile.normalizeDeposit ? this.diagnosticSegmentDelivery : false
     if (!mode.waterOnly && (!segmentMode || !this.diagnosticPigmentRecord || profile.pigmentStrength > 0)) scratch.pigmentInputsKnownZero = false
     if (segmentMode && dabs.length > 1 && !mode.segmented) {
@@ -897,10 +932,11 @@ export class RibbonStrokePainter {
       // along into the coverage stamp too: its .b is the standing-water
       // record the diffusion pass gates on. See u_washWater.
       const waterPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
+      scratch.runningCoverage(tile.buffer)
       for (let i = 0; i < drawable.length; i++) {
         const dab = drawable[i]
         if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue // (§17.70)
-        this.ctx.drawRibbonNibPass(
+        sourceNib(
           coverage, tile, dab, preset, profile, profile.coverageInkMode,
           stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
           wetOf(dab), 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
@@ -919,7 +955,7 @@ export class RibbonStrokePainter {
         for (const piece of ribbonBandPieces(waterBands, pieceTris)) {
           const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
           if (pieceTris && !px) continue // (§17.70) nothing of it on this tile
-          this.ctx.drawRibbonBands(
+          sourceBands(
             coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
             ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
             combs, 0, null, profile.waterDepletion ? 1 : 0,
@@ -936,21 +972,21 @@ export class RibbonStrokePainter {
         for (const dab of drawable) {
           if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue
           if (film) solvent.film.beginMaxDraw(this.ctx.minmaxExt()!); else solvent.film.beginAdditiveDraw()
-          this.ctx.drawRibbonNibPass(solvent.film, tile, dab, preset, solventProfile, 7,
+          sourceNib(solvent.film, tile, dab, preset, solventProfile, 7,
             (waterByDab.get(dab) ?? 0) / 4, false, 1, acrossByDab.get(dab) ?? [0, 1],
             0, 0, mottleSeed, coverage, combs, 0, null, 0, 0)
           solvent.film.endDraw()
           yield pieceTris ? this.ctx.nibDrawCost(tile, dab, preset) : 0
         }
         for (const piece of ribbonBandPieces(solventBands, pieceTris)) {
-          this.ctx.drawRibbonBands(solvent.film, tile, piece, film ? 'ink-max' : 'ink', profile.aaPx, 0, 0, mottleSeed,
+          sourceBands(solvent.film, tile, piece, film ? 'ink-max' : 'ink', profile.aaPx, 0, 0, mottleSeed,
             0, 0, combs, 0, null, 0)
           yield pieceTris ? ribbonBandPieceCost(piece, tile) : 0
         }
         // Independent V cap4 is an explicit reservoir limit. It cannot
         // rescale the material P/C records; source P still uses the old film.
         const solventRect = this.ctx.revealRect(tile, compositeBounds)
-        if (solventRect) this.ctx.fieldOp(solvent.load, solvent.base, solvent.film, 1, 1, { scissor: solventRect })
+        if (solventRect) sourceField(solvent.load, solvent.base, solvent.film, 1, 1, { scissor: solventRect })
       }
 
       }.bind(this)
@@ -980,7 +1016,7 @@ export class RibbonStrokePainter {
         for (let i = 0; i < drawable.length; i++) {
           if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
           beginInk(inkDest)
-          this.ctx.drawRibbonNibPass(
+          sourceNib(
             inkDest, tile, drawable[i], preset, profile, 7,
             deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
@@ -994,7 +1030,7 @@ export class RibbonStrokePainter {
           for (const piece of ribbonBandPieces(bands, pieceTris)) {
             const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
             if (pieceTris && !px) continue
-            this.ctx.drawRibbonBands(
+            sourceBands(
               inkDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
               0, 0, combs, profile.bristleInk, null, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
             )
@@ -1008,7 +1044,7 @@ export class RibbonStrokePainter {
           for (let i = 0; i < drawable.length; i++) {
             if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
             beginInk(colorDest)
-            this.ctx.drawRibbonNibPass(
+            sourceNib(
               colorDest, tile, drawable[i], preset, profile, 7,
               deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
               waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
@@ -1022,7 +1058,7 @@ export class RibbonStrokePainter {
             for (const piece of ribbonBandPieces(bands, pieceTris)) {
               const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
               if (pieceTris && !px) continue
-              this.ctx.drawRibbonBands(
+              sourceBands(
                 colorDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
                 0, 0, combs, profile.bristleInk, tau, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
               )
@@ -1064,7 +1100,7 @@ export class RibbonStrokePainter {
           const dose = haloDoseByDab.get(haloDabs[i]) ?? 0
           if (dose <= 0 || !this.ctx.nibTouchesTile(tile, haloDabs[i], preset)) continue // (§17.70)
           beginInk(inkDest)
-          this.ctx.drawRibbonNibPass(
+          sourceNib(
             inkDest, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
             waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
             paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage, combs, profile.bristleInk,
@@ -1079,8 +1115,8 @@ export class RibbonStrokePainter {
       if (fb && inkLoad) {
         const rect = this.ctx.revealRect(tile, compositeBounds)
         if (rect) {
-          this.ctx.fieldOp(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
-          if (inkColor && fb.strokeColor && fb.colorBase) this.ctx.fieldOp(inkColor, fb.colorBase, fb.strokeColor, 1, 1, { scissor: rect })
+          sourceField(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
+          if (inkColor && fb.strokeColor && fb.colorBase) sourceField(inkColor, fb.colorBase, fb.strokeColor, 1, 1, { scissor: rect })
         }
       }
 
