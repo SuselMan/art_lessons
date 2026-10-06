@@ -37,3 +37,15 @@ Runtime-only grouping contiguous brushPass contact pulses по4, upload barriers
 Normal replay solver16.4625с, batch4 **6.0115с (2.74× быстрее)**.839 pulses сведены к214 queued entries, остальные closure неизменны. GL0 / healthy / queue complete обеих сторон. Export после timing, raw PNGs HOME, Chrome closed finally. Один harness export-only invalid launch требовал await exportPNG Promise и excluded. Итог `temp/profile-current/batch-results/{op.json,report.json,comparison.json,capture.png,replay.png,batch4.png}`.
 
 Это причинный результат для одного фиксированного журнала на Vega, не production patch и не доказательство безопасной отзывчивости на Samsung. Фиксированный batch4 нельзя слепо включать: самый дорогой sampled contact pulse6.68мс и слабый GPU могут дать дорогую группу; нужны адаптивное GPU-budget ограничение, сохранение cancel/lifecycle/input ownership и проверки нескольких участников/undo/reveal continuity. Native active timing при batch4 не измерялся, поэтому не заявляется рост active FPS. Результат поддерживает оптимизацию cadence contact stage, без уменьшения числа физических pulses или изменения сухой картинки.
+
+## Bounded replay комнаты KJc0OoVo
+
+Immutable47ops SHA JSON `d242bf844577fb0a6cc016e88da468e2738f64be5df6241d9d2aa9d06f6dd552`;41stroke,2undo(seq6/13),1layer_clear(seq11),3Dry(seq16/18/44). Fresh own Fine1754×2480, все операции appendOperation(remote), очереди/операторы неизменны. Это pipeline replay экспортированного журнала, не end-to-end HTTP/network production load. CPU wrapping/whole-op sparse queries аналогичны dense attribution; новые sync/readback во время stepping не добавлялись.
+
+**180.098с cap → INCOMPLETE**, лог38/47ops, pending9, settle221/239, rebuildJobs1; healthy GL0. Контроллер завершился штатно и закрыл Chrome finally. Progress каждые5с сохраняет постоянное продвижение, не hard hang:10с log4;40с log14;95с log19;150с log28;180с log38. Snapshot отсутствует в исходных metadata. Итогового PNG не снимали, потому что журнал ещё не завершён; полной корректности replay этим прогоном не подтверждали.
+
+За время cap66 queue jobs,65completed,21451scheduled entries и21433executed. Изexecuted16662contact pulses,2683flow uploads,1066front chunks,1022прочих. Contact+upload **90.3% executed entries**. Накопленная CPU submission: contact766.4мс,upload83.7мс,front52.4мс,прочие415.2мс (всего1.3187с), не GPU elapsed. Backlog cadence примерно120entries/с на длинных solver. Преобладание десятков тысяч short contact steps является конкретной причиной scheduling walltime.
+
+**66 jobs ≠ доказательство повторного rebuild**: replay может запускать отдельную drawing coroutine job и её solver job. Наблюдался один rebuildJobs, и исходные undo/clear могут добавлять работу, но их отдельную долю не измеряли. Такой вывод без отделения jobs/layer/history делать нельзя. Предыдущая оперативная гипотеза jobs>41→повторныйrebuild отозвана.
+
+Raw HOME `temp/profile-current/load-results/report.json`, небольшой aggregate `summary.json`. Производительность сети, snapshot generation, полное завершение41strokes и совпадение всех пикселей остаются отдельными проверками. Source/defaultpolicy/publication не менялись.
