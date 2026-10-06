@@ -109,6 +109,9 @@ export function useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, p
    *  definition. See snapshotGate.ts for what this is guarding. */
   const markJoinRestoreDone = useCallback(() => {
     snapshotGateRef.current.restoreCompleted(latestKnownSeqRef.current)
+    // The creator's genuinely empty room skips restoreRoomState entirely.
+    // Arm its first copy too; the timer still waits for confirmed paint.
+    if (latestKnownSeqRef.current === 0) snapshotUploaderRef.current?.requestFirstSnapshot()
   }, [latestKnownSeqRef])
 
   return {
