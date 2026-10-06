@@ -1144,7 +1144,7 @@ export class RibbonStrokePainter {
           water: waterByDab.get(drawable[0]) ?? 0, dose: deposits[0] * inkStrength,
         })
 
-        if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
+        if (inkLoad && profile.normalizeDeposit && !mode.deferMaterial) scratch.diffusePending = true
         // (#536, ADR 011 §17.10) The halo, after the mark itself: ink only, and
         // only where the wash already has coverage. The pigment a wet-in-wet dab
         // sheds travels as far as the standing water and no further, and the
@@ -1220,6 +1220,9 @@ export class RibbonStrokePainter {
       target.markContentPainted(compositeBounds)
     }
     if (mode.deferMaterial) {
+      // Logical finish ownership is captured before these GPU commands run.
+      // Execution must not overwrite a newer input film's pending flag.
+      scratch.diffusePending = true
       noteFinish()
       captured = scratch.captureFinishMetadata()
       let used = false, cancelled = false

@@ -160,3 +160,60 @@ for (const contextLost of [false, true]) {
     } finally { scratch.destroy(); engine.destroy() }
   })
 }
+
+it('keeps pure-water and off-sheet logical delivery identical when material is deferred', () => {
+  for (const onSheet of [true, false]) {
+    const outcomes = []
+    for (const deferred of [false, true]) {
+      const { engine } = createTestEngine({}, { width: 64, height: 64 })
+      engine.initLayer('L')
+      const scratch = new RibbonStrokeScratch(engine['_ribbonScratchPool'], true, true)
+      const name = 'normal:100:0:PB29:round'
+      const ds = [dab(onSheet ? 20 : -100, 20, { size: 16, t: 0 }), dab(onSheet ? 32 : -80, 20, { size: 16, t: 16 })]
+      const requests: PreparedRibbonMaterial[] = []
+      try {
+        for (const cost of engine['_ribbonPainter'].paint(engine['_layers'].get('L')!, ds,
+          engine['_resolvePreset']('watercolor', name), name, ribbonProfileFor('watercolor', name),
+          [0.2, 0, 0.6], scratch, undefined, '00', [0.2, 0.3], false, 0,
+          { waterOnly: false, segmented: false, ...(deferred ? { deferMaterial: (r: PreparedRibbonMaterial) => requests.push(r) } : {}) })) void cost
+        if (deferred) expect(requests.length).toBe(onSheet ? 2 : 0)
+        outcomes.push({ water: scratch.waterUsed, pigment: scratch.pigmentUsed,
+          standing: ds.map(d => scratch.standing.get(d)), travel: scratch.brushTravel,
+          finish: scratch.finishContext ? { bounds: scratch.finishContext.bounds, radius: scratch.finishContext.radiusPx } : null })
+        for (const request of requests) request.cancel()
+      } finally { scratch.destroy(); engine.destroy() }
+    }
+    expect(outcomes[1]).toEqual(outcomes[0])
+  }
+})
+
+it('detaches finish scalars without rewinding the later input water clock', () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  engine.initLayer('L')
+  const scratch = new RibbonStrokeScratch(engine['_ribbonScratchPool'], true, true)
+  const requests: PreparedRibbonMaterial[] = []
+  const name = 'normal:100:100:PB29:round'
+  const preset = engine['_resolvePreset']('watercolor', name)
+  const profile = ribbonProfileFor('watercolor', name)
+  const prepare = (ds: ReturnType<typeof dab>[]) => {
+    for (const cost of engine['_ribbonPainter'].paint(engine['_layers'].get('L')!, ds,
+      preset, name, profile, [0.2, 0, 0.6], scratch, undefined, '00', [0.2, 0.3], false, 0,
+      { waterOnly: false, segmented: false, deferMaterial: r => requests.push(r) })) void cost
+  }
+  try {
+    prepare([dab(16, 16, { size: 16, t: 0 }), dab(32, 16, { size: 16, t: 16 })])
+    scratch.noteDabSpacing(16); scratch.noteDirection(1, 0)
+    const held = scratch.captureCanonicalFinish()!
+    expect(held.diffusePending).toBe(true)
+    expect(scratch.diffusePending).toBe(false)
+    const spent = scratch.waterUsed
+    scratch.newFilm()
+    prepare([dab(32, 24, { size: 16, t: 32 })])
+    expect(scratch.waterUsed).toBeGreaterThan(spent)
+    expect(scratch.diffusePending).toBe(true)
+    expect(held.gesture).toBe(0)
+    expect(held.spacing).toBe(16)
+    expect(held.direction).toEqual([1, 0])
+    expect(held.finish!.bounds.maxY).toBeLessThan(scratch.finishContext!.bounds.maxY)
+  } finally { for (const request of requests) request.cancel(); scratch.destroy(); engine.destroy() }
+})

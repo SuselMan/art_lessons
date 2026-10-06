@@ -336,6 +336,24 @@ export class RibbonStrokeScratch {
     }
   }
 
+  /** Detach the canonical boundary without advancing or restoring input clocks.
+   * dryCtx is deliberately not a canonical baseline: the FIFO folds it only
+   * after the preceding finish has landed. */
+  captureCanonicalFinish(): RibbonCanonicalFinish | null {
+    if (!this._finish?.profile.normalizeDeposit) return null
+    const metadata = this.captureFinishMetadata()
+    const diffusePending = this.diffusePending
+    this.diffusePending = false
+    const composite = this._composite ?? {
+      spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0,
+      fieldSeed: [0, 0] as [number, number], bristleRadiusPx: 0,
+    }
+    return { ...metadata, diffusePending,
+      composite: { ...composite, fieldSeed: [...composite.fieldSeed] },
+      spacing: this._dabSpacing, direction: [...this._dir],
+    }
+  }
+
   /** The scratch this tile already has, or null — deliberately not getOrCreate:
    *  a tile inside the gesture's bounding box that its dabs never reached has
    *  nothing to recomposite, and snapshotting one would spend three pooled
@@ -930,6 +948,16 @@ export interface RibbonFinishMetadata {
   readonly foreignSources: WaterSource[] | null
   readonly dryCtx: RibbonStrokeScratch['dryCtx']
   readonly finish: RibbonStrokeScratch['finishContext']
+}
+
+export interface RibbonCanonicalFinish extends RibbonFinishMetadata {
+  readonly diffusePending: boolean
+  readonly composite: {
+    spreadPx: number; inkSmoothPx: number; water: number; migratePx: number;
+    fieldSeed: [number, number]; bristleRadiusPx: number
+  }
+  readonly spacing: number
+  readonly direction: [number, number]
 }
 
 /** (#536, §17.56) See RibbonStrokeScratch.snapshot. */
