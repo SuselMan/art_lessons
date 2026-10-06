@@ -44,3 +44,17 @@ Carry также соединяет strided endpoints без промежуто�
 - **clearBlue**: только purewater seq24 получает предыдущий синий nominal color вместо фиолетового; все dabs/wet/seed/preset/time/IDs сохранены. В старой лужe ROI x680,y1500,w100,h200 после seq25 inkLoad/inkColor/solventLoad/coverage/inkDry/colorDry byte-exact относительно baseline (0 differing bytes), PNG меняется804pixels. Это доказывает появление части внешней примеси через отображение текущего nominal color без изменения материала. Фиолетовый край не исчезает полностью: последующие фиолетовые операции снова дают tauBatch.
 
 Raw HOME temp/KJc0OoVo/causal/report.json, baseline/plateau/clearBlue.png, comparison.jpg. Скрипт causal.mjs сохранён в task temp; CPU compile всего файла и embedded evaluate PASS. Следующий минимальный color candidate: thin prior из локального depth record вместо текущего цвета кисти; P/V/depth не размывать. Нужен контроль тонкого fringe, белых/цветных артефактов и shader cold compile.
+
+## Минимальные кандидаты после проверки риска
+
+На Vega выполнены baseline/unitPlateau/localPrior: все seq19–29 GL0/contextLostfalse, owned Chrome finally closed. Runtime modifications включались до создания своей engine и удалялись finally. unitPlateau patchHits4, localPrior patchHits2; отложенные/недостигнутые shader changes исключены.
+
+**unitPlateau** разрешает equal-cost обмен только stride1. Линия немного ослабла, но остаётся отчётливо видна. Не включён в source candidate и не объявлен исправлением.
+
+**localPrior** меняет только thin-color prior: средний mass-weighted depth самого texel и четырёх соседей на2px, из существующего u_inkColor. Весь captured material inkLoad/inkColor/solventLoad/coverage/inkDry/colorDry совпадает с baseline byte-exact (0 differing bytes во всех captured before/after ROI). Фиолетовый край второй синей лужи исчезает; другие пятна сохраняют растекание и фактуру, их материальная каёмка остаётся. При thinPrior0 тело оптически не меняется; при полностью пустом depth prior0 не вносит воображаемый цвет. Не добавлены sampler/state/opfields, не размыт pigment/depth record; четыре дополнительных texture fetch только в тонком optical fringe.
+
+Source candidate реализует тот же local depth prior; runtime ablation tauBatch→local ratio переименована в tauPrior (математически эквивалентна, исходное значение batch colour больше не вычисляется). Этот literal source ещё требует отдельного cold compile/контролей на Samsung и native/replay перед передачей пользователю. Performance не измерялся.
+
+CPU shader tests22PASS. Новая проверка настоящего emitted watercolor optical-read GLSL не допускает зависимости от u_color; она FAIL на старом f539 source (1fail/21pass), PASS на кандидате. Dependencies не устанавливались, использован существующий Vitest executable с временным явным config/aliases вне tracked source. Frozen5314 не менялся.
+
+Raw HOME temp/KJc0OoVo/minimal/{report.json,baseline.png,unitPlateau.png,localPrior.png,comparison.jpg}. Перенос между disconnected water islands материальным оператором пока не доказан и этой color правкой не заявлен решённым. Причина подтверждённого внешнего перекрашивания — optical fallback, обе проблемы нельзя объединять в одно объяснение.
