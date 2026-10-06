@@ -9,7 +9,7 @@ import { ribbonProfileFor } from './ribbonProfile'
 import type { WatercolorSettleQueue } from '../watercolor/WatercolorSettleQueue'
 import type { RibbonStrokePainter, RibbonStrokePainterContext } from './RibbonStrokePainter'
 
-type Probe = { _settleQueue: WatercolorSettleQueue; _handleContextLost(e: Event): void; _ribbonPainter: RibbonStrokePainter; _ribbonScratchPool: RibbonScratchPool; _layers: Map<string, ILayerBuffer>; _resolvePreset(tool: string, preset: string): PencilPreset }
+type Probe = { gl: WebGLRenderingContext; _settleQueue: WatercolorSettleQueue; _handleContextLost(e: Event): void; _ribbonPainter: RibbonStrokePainter; _ribbonScratchPool: RibbonScratchPool; _layers: Map<string, ILayerBuffer>; _resolvePreset(tool: string, preset: string): PencilPreset }
 const presetName = 'normal:100:15:PB29:round'
 const dabs: Dab[] = [0, 1, 2].map(i => ({ x: 20 + i * 6, y: 32, pressure: 0.7, tiltX: 0, tiltY: 0, size: 12, aspectRatio: 1, angle: 0, opacity: 1, t: i * 20 }))
 
@@ -88,4 +88,31 @@ describe('auxiliary water source execution', () => {
     scratch.destroy(); if (teardown === 'context-loss') engine.destroy()
   })
 
+})
+
+it('tracks exact cleared pigment provenance and rejects restored or legacy sources', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  engine.initLayer('source')
+  const probe = engine as unknown as Probe, painter = probe._ribbonPainter, target = probe._layers.get('source')!
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  try {
+    const paint = (name: string) => { for (const _ of painter.paint(target, dabs, probe._resolvePreset('watercolor', name), name, ribbonProfileFor('watercolor', name), [0.2,0,0.6], scratch, undefined)) void _ }
+    paint('normal:100:0:PB29:round')
+    expect(scratch.pigmentInputsKnownZero).toBe(true)
+    const snap = scratch.snapshot(probe.gl, () => ({ originX: 0, originY: 0 }))!
+    const restored = RibbonStrokeScratch.restore(probe._ribbonScratchPool, snap, target)
+    expect(restored.pigmentInputsKnownZero).toBe(false)
+    restored.destroy()
+    const legacy = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    painter.diagnosticPigmentRecord = false
+    for (const _ of painter.paint(target, dabs, probe._resolvePreset('watercolor', 'normal:100:0:PB29:round'), 'normal:100:0:PB29:round', ribbonProfileFor('watercolor', 'normal:100:0:PB29:round'), [0.2,0,0.6], legacy, undefined)) void _
+    expect(legacy.pigmentInputsKnownZero).toBe(false)
+    legacy.destroy()
+    painter.diagnosticPigmentRecord = true
+    for (const t of snap.tiles) for (const b of Object.values(t.bufs)) b?.destroy()
+    paint(presetName)
+    expect(scratch.pigmentInputsKnownZero).toBe(false)
+    paint('normal:100:0:PB29:round')
+    expect(scratch.pigmentInputsKnownZero).toBe(false)
+  } finally { scratch.destroy(); engine.destroy() }
 })

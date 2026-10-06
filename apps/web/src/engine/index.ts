@@ -1,6 +1,7 @@
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
+import { pureWaterLayerProof } from './src/watercolor/pureWaterLayerProof'
 import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
 import { WatercolorSettleQueue, type WatercolorSettleLifecycle } from './src/watercolor/WatercolorSettleQueue'
 import { destroyField, type SettleField } from './src/buffers/SettleField'
@@ -1742,6 +1743,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  screen shows sixty of them at most. The composite is a pure recomputation
    *  of a rect from the deposit, so the union of the batches since the last
    *  frame gives the same pixels as the batches one by one. */
+
+  /** Opt-in diagnostic: only proven-zero pigment contact operators. */
+  private _wcZeroPigmentContacts = false
 
   private readonly _settlePlan = new WatercolorSettlePlan({
     gl: () => this.gl,
@@ -7119,7 +7123,13 @@ export class PencilEngine implements PencilEngineAPI {
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
-    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview)
+    let skipContacts = false
+    if (this._wcZeroPigmentContacts && scratch.pigmentInputsKnownZero) {
+      const layerId = [...this._layers].find(([, layer]) => layer === scratch.finishContext?.target)?.[0]
+      skipContacts = !!layerId && pureWaterLayerProof(this._log.entries, layerId, this._snapshots.hasCoverage(layerId),
+        this._strokeLayerId === layerId && (this._strokeTool !== 'watercolor' || watercolorMixFromPreset(this._opts.pencilType).pigment > 0))
+    }
+    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts)
   }
   private _groupTideOps(
     ops: Array<() => void>, field: SettleField, x0: number, y0: number,

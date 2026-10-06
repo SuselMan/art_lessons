@@ -107,6 +107,9 @@ function clearParkedBuffer(buffer: AccumulationBuffer): void {
 type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 export class RibbonStrokeScratch {
+  /** Conservative proof: fresh cleared P/C only; restoration is unknown. */
+  pigmentInputsKnownZero = true
+
   // #702: every rectangle written to the non-original buffers, including
   // diffusion's halo. Undefined means an older carried state has no proof
   // of its empty exterior and must be kept whole.
@@ -628,6 +631,8 @@ export class RibbonStrokeScratch {
   }
 
   private _applyScalars(snap: ScratchScalars, target: ILayerBuffer): void {
+    this.pigmentInputsKnownZero = false
+
     this._storageBounds = snap.storageBounds ? { ...snap.storageBounds } : snap.storageBounds
     for (const p of snap.paints) this.paints.add(p)
     this._waterUsed = snap.waterUsed
