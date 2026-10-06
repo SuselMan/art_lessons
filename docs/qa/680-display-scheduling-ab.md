@@ -26,3 +26,18 @@ Fake-clock тесты используют настоящую reveal lifecycle �
 Дополнительный Dry→новый штрих в другом участке получил настоящий reveal и pendown, сняты шесть кадров с шагом250ms. Однако старая область630,420,260×70 byte-identical во всех соседних кадрах ОБОИХ вариантовOFF/ON. Baseline motion в этом straight-stroke fixture отсутствует, поэтому continuity gate **inconclusive**, нельзя назвать T безопасным: будущая проверка требует puddle/pigment fixture с доказанной baseline motion. CPU-fakeclock lifecycle не заменяет экранную непрерывность.
 
 Chrome закрыты вfinally; GPU передан urgent restore QA. Исходники production не менялись. Raw artifacts: `temp/display-ab/T-results` (full timings/passport/ACK/fixedfieldsPNG), `temp/display-ab/visual-T` (PNG иactualreveals/pendown); source8e50 остаётсяdefaultOFF DEV экспериментом.
+
+## Vega R-only balanced результат
+
+T выключен во всех случаях. Same65 OFF/ON пять canonical buffers/wholePNG EXACT, actual3ACK/GL0 во всех fresh-room bursts. Четыре случая OFF/ON/ON/OFF:
+
+| R | active median ms | burst2 max ms | burst3 max ms |
+|---|---:|---:|---:|
+|OFF|22.2|150.1|233.4|
+|ON|22.2|133.3|161.0|
+|ON|22.2|133.4|116.7|
+|OFF|22.2|150.0|200.0|
+
+45Hz не исправлен. Обе пары дают ограниченный сигнал сокращения худших burst hitch, но остаются133–161ms и выборка составляет лишь две пары. Это не доказательство общего production исправления или GPU/photon latency. Forced-complete CPU submission6–13ms, remaining971..952 /991..973 /976..970 /973..960 ops; driver/GPU backlog механизм этим не устранён. Background solver/reveal23.6–24.3s. Native журналы различаются по реальным rAF input sampling, поэтому их канонические PNG между случаями не сравниваются; exact65 gate использует один и тот же журнал.
+
+Оставлено DEV/defaultOFF. Raw `temp/display-ab/R-results`. Chrome finallyclosed, GPU передан five-participant QA. Следующее причинное исследование подготовленоCPU: finaldefaultFBblit-only ablation (paper pass, framebuffer bindings и bookkeeping остаются), поскольку прежниеwhole-screen-noop60Hz, paper-fragments-onlyskip45Hz и preservefalse45Hz не объясняют именно последний draw. ON отображение намеренно stale, diagnostic не является productfix.
