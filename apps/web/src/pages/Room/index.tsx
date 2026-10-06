@@ -40,6 +40,7 @@ import type { CreatorNavState } from './net/joinFlow'
 import { toRoomConfig } from './net/roomConfig'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useJoinGate } from './useJoinGate'
+import { useCopyRoomEntry } from './useCopyRoomEntry'
 import { usePaperReadiness } from './usePaperReadiness'
 import { useOpenTimer } from './useOpenTimer'
 import { useLeaveGuard } from './useLeaveGuard'
@@ -73,7 +74,7 @@ import { useFilterTarget } from './useFilterTarget'
 import { useLayerPanelBridge } from './useLayerPanelBridge'
 import { useSpaceToPan } from './useSpaceToPan'
 import { useDrawingActivity } from './useDrawingActivity'
-import { RoomLoadingOverlay } from './status/RoomLoadingOverlay'
+import { CopyRoomGate, RoomLoadingOverlay } from './status/RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './status/OfflineRoomOverlay'
 import { PaperFailedOverlay } from './status/PaperFailedOverlay'
 import { RestoreFailedOverlay, type RestoreFailureReason } from './status/RestoreFailedOverlay'
@@ -1298,6 +1299,8 @@ function RoomEditor() {
     applyIdentity, outbox, startOpenTimer,
   })
 
+  const copyingRoom = useCopyRoomEntry(location.state, roomContentReady, connected, retryJoin, config !== null)
+
   // ── socket wiring (#84/#37/#38/join-gate) ──────────────────────────────────────
   // Runs once per room id, independent of `config` — a joiner doesn't have a
   // config yet at connect time (that's the entire point of the join gate), so
@@ -1405,11 +1408,8 @@ function RoomEditor() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   if (!config) {
-    // Creator's config is known synchronously (see the `config` initializer
-    // above), so reaching here with `isCreator` true would mean navigation
-    // state was lost — nothing sensible to render but not this component's
-    // job to redirect (CreateRoom already sent us here deliberately).
     if (isCreator) return null
+    if (copyingRoom && !joinError && joinState === 'form' && !joinPasswordAsked) return <CopyRoomGate offline={notOpen === 'offline'} pending={outboxState.pending} />
     return (
       <JoinGate
         roomName={null}
@@ -1800,7 +1800,7 @@ function RoomEditor() {
         {notOpen === 'restoreFailed' && (
           <RestoreFailedOverlay reason={restoreFailure ?? 'transfer'} onRetry={retryRestore} />
         )}
-        {notOpen === 'loading' && <RoomLoadingOverlay paper={paperProgress} />}
+        {notOpen === 'loading' && <RoomLoadingOverlay paper={paperProgress} copying={copyingRoom} />}
       </div>
 
       {glLost && <GlLostOverlay />}

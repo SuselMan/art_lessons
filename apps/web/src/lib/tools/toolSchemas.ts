@@ -1575,8 +1575,8 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     textSize: {
       nameKey: 'tool.field.size',
       valueType: { kind: 'numberRange', min: 11, max: 20, step: 1, format: pxFormat },
-      uiControls: ['slider', 'input'],
-      quickAccess: true,
+      uiControls: ['input'],
+      quickAccess: false,
       default: 13,
     },
   },

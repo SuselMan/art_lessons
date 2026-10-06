@@ -661,7 +661,7 @@ export function useAnnotations({
         toolBeforeAnnotationRef.current = current
       }
       setAnnotationMode(true)
-      selectTool('annotateText')
+      selectTool(compact ? 'hand' : 'annotateText')
       return
     }
     setAnnotationMode(false)
@@ -669,7 +669,7 @@ export function useAnnotations({
     commitAnnotationDraft()
     selectTool(toolBeforeAnnotationRef.current ?? 'pencil')
     toolBeforeAnnotationRef.current = null
-  }, [setAnnotationMode, selectTool, commitAnnotationDraft])
+  }, [compact, setAnnotationMode, selectTool, commitAnnotationDraft])
 
   // Preview links start in annotation mode once. A later render must not
   // turn it back on after the viewer deliberately returns to drawing.
@@ -702,16 +702,18 @@ export function useAnnotations({
     if (useRoomStore.getState().annotationMode) toggleAnnotationMode(false)
   }, [boardId, onPersonalBoard, isOwner, compact, toggleAnnotationMode, selectTool])
 
-  // (#512) The compact shell has no drawing tools on screen, so it must not
-  // leave one in hand: a phone opening with the pencil selected would react to
-  // every tap by drawing graphite the user cannot see a tool for and cannot
-  // switch away from. Only ever *into* an annotation tool, and never back —
-  // leaving the shell is not a reason to take a tool out of someone's hand.
+  // (#734) A phone opens ready to navigate the work. Apply the default only
+  // on entry: room updates can replace selectTool without taking away a pen
+  // or text tool the viewer has deliberately selected in the meantime.
+  const compactEnteredRef = useRef(false)
   useEffect(() => {
-    if (!compact) return
-    const current = useRoomStore.getState().tool
-    if (current === 'annotateText' || current === 'annotatePen') return
-    selectTool('annotateText')
+    if (!compact) {
+      compactEnteredRef.current = false
+      return
+    }
+    if (compactEnteredRef.current) return
+    compactEnteredRef.current = true
+    selectTool('hand')
   }, [compact, selectTool])
 
   // An open note must not survive the tool that opened it: switching away is a
