@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { WC_BRUSH_DRAG_FRAG } from '../raster/shaders'
-import { WC_BRUSH_DRAG_EARLY_ZERO_FRAG } from './brushDragEarlyZero'
+import { describe, expect, it, vi } from 'vitest'
+import { WC_BRUSH_DRAG_FRAG, WC_BRUSH_DRAG_BASELINE_FRAG } from '../raster/shaders'
+import { brushDragEarlyZero } from './brushDragEarlyZero'
+import { MockGL } from '../../testing/mockGL'
+import { WatercolorPasses, type WatercolorPassesContext } from '../raster/WatercolorPasses'
 
 // Finite-domain oracle for the exact factors being skipped, not a substitute
 // for paired GLSL P/C pixel gates and an Adreno cold compile.
@@ -11,13 +13,23 @@ function raw(donor: number, neighbour: number, velocity: number, gain: number, d
 }
 
 describe('brush contact early-zero finite proof', () => {
+  it('initializes the real brush pass with the optimized production program', () => {
+    const gl = new MockGL()
+    const source = vi.spyOn(gl, 'shaderSource')
+    const passes = new WatercolorPasses({ gl: () => gl } as unknown as WatercolorPassesContext)
+    passes.initSettlePrograms()
+    expect(source.mock.calls.filter(call => call[1] === WC_BRUSH_DRAG_FRAG)).toHaveLength(1)
+    expect(source.mock.calls.some(call => call[1] === WC_BRUSH_DRAG_BASELINE_FRAG)).toBe(false)
+    source.mockRestore()
+  })
   it('changes only cached flow and early-zero checks; all nonzero arithmetic stays identical', () => {
-    const restored = WC_BRUSH_DRAG_EARLY_ZERO_FRAG
+    expect(WC_BRUSH_DRAG_FRAG).toBe(brushDragEarlyZero(WC_BRUSH_DRAG_BASELINE_FRAG))
+    const restored = WC_BRUSH_DRAG_FRAG
       .replace('    vec3 targetFlow = flowAt(to);\n    float doseB = min(flow.b, targetFlow.b);\n    if (doseB <= 0.0) return 0.0;\n', '')
       .replace('    if (contact <= 0.0) return 0.0;\n', '')
       .replace('    float contactClock =', '    float doseB = min(flow.b, flowAt(to).b);\n    float contactClock =')
       .replace('(targetFlow.rg * 2.0 - 1.0)', '(flowAt(to).rg * 2.0 - 1.0)')
-    expect(restored).toBe(WC_BRUSH_DRAG_FRAG)
+    expect(restored).toBe(WC_BRUSH_DRAG_BASELINE_FRAG)
   })
   it('zero dose and zero contact are exact zero even with maximum concentration gradients', () => {
     for (const donor of [0, 1 / 255, 0.5, 1]) for (const neighbour of [0, 1 / 255, 1])
