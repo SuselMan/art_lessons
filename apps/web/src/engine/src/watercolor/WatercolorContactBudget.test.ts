@@ -24,6 +24,21 @@ it('stops after GPU elapsed budget, including a slow first heavy step', () => {
   const f = fixture(12); f.q.contactBatchEnabled = true; f.start([f.step(1), f.step(2)]); f.frame()
   expect(f.events).toEqual([0, 1]); expect(f.sync).toHaveBeenCalledTimes(1)
 })
+it.each([8, 16] as const)('permits cap %i only within the same four millisecond wall budget', cap => {
+  const f = fixture(0.5); f.q.contactBatchEnabled = true; f.q.contactBatchMax = cap
+  f.start(Array.from({ length: 32 }, (_, i) => f.step(i + 1))); f.frame()
+  expect(f.events).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]); expect(f.sync).toHaveBeenCalledTimes(8)
+})
+it('retains the upload barrier with the larger diagnostic cap', () => {
+  const f = fixture(); f.q.contactBatchEnabled = true; f.q.contactBatchMax = 16
+  f.start([f.step(1), f.step(2), () => f.events.push(7), f.step(3)]); f.frame()
+  expect(f.events).toEqual([0, 1, 2]); expect(f.sync).toHaveBeenCalledTimes(2)
+})
+it('keeps the hard cap bounded if a runtime diagnostic passes an unsupported value', () => {
+  const f = fixture(); f.q.contactBatchEnabled = true; f.q.contactBatchMax = 400 as 4
+  f.start(Array.from({ length: 32 }, (_, i) => f.step(i + 1))); f.frame()
+  expect(f.events).toEqual([0, 1, 2, 3, 4]); expect(f.sync).toHaveBeenCalledTimes(4)
+})
 it('does not cross an upload/capture barrier', () => {
   const f = fixture(); f.q.contactBatchEnabled = true; f.start([f.step(1), () => f.events.push(7), f.step(2)]); f.frame()
   expect(f.events).toEqual([0, 1]); f.frame(); expect(f.events).toEqual([0, 1, 7, 2, 99])
