@@ -47,3 +47,12 @@ isCoveredBySnapshot: новое правило удерживает marker и в
 Первый запуск на этой worktree не нашёл Prisma из-за отсутствия nested
 apps/server/node_modules; использован symlink уже установленного release
 server node_modules, без нового npm install/дисковых зависимостей.
+
+Дополнительная проверка actual snapshot lifecycle: roomSnapshots сохраняет
+полностью покрытые pixel snapshot и layerState; aged Dry остаётся единственной
+операцией в tail с исходным timestamp. Три server файла208testsPASS.
+Shared PaperDry doc целиком описывает отсутствие непосредственного нанесения
+пигмента и сохранение ordered foreign-import barrier, без прежнего утверждения
+о replay-equivalence после удаления marker. Временный server node_modules
+symlink удалён после тестов; target dependencies не менялись. Повтор
+проверки в стандартной root worktree с собственными deps остаётся за root.
