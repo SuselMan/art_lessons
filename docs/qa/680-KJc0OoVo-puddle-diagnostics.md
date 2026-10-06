@@ -308,3 +308,19 @@ Field sheets показывают резкие складки/диагонали
 Vega36 one-pass32×8 cases: endpoints alphaV64 (V≈1.004), bridge alphaV0/1/8/16/32/45/64, strides1/2/4/8, costgap и wetgate0 controls. SourceP5120, bridgeP0; измерены leftP/bridgeP/rightP, без изменения shader/source. V0gap/costgap/gate0 noflow/exactRGBA0 во всехstrides. При тонком положительномV≈.0157/.1255/.251 strides1/2/4 noflow, stride8 передаёт rightP1280/bridgeP0 — столько жеrightP, как fullV1 bridge. V≈.502 наstride8 даёт right1280/bridge128. V≥.706 локальные strides1/2/4 даютbridge86/184/416; stride8 right1280/bridge1280. Psum5120 совпал во всех36 ограниченныхcases, GL0/lostfalse, OWNED_CHROME_CLOSED. Raw HOMEtemp/KJc0OoVo/phase-lowbridge-vega-report.json.
 
 Причина из shader: path проверяет только V>0 для connectivity, conductance берёт phase только endpoints. Поэтому крупныйstride не моделирует толщинубутылочного горлышка. Это не утверждение, чтоpositiveflow через связанную тонкуюводу является багом: критерий physicalconductance ещё не определён, и данныйendpointclosure остаётся гипотезой. DefaultOFF не изменён; никакой новыйthreshold/source tuning не внесён.
+
+### Эксперимент: минимум V на промежуточном пути (подготовка, аппаратный результат ещё не получен)
+
+После 36-case low-positive bridge контроля подготовлена отдельная opt-in версия той же V-phase closure. Она использует минимум независимой V по концам и всем уже читаемым промежуточным узлам. Нулевые V/cost-gap guards и направления/число шагов сохранены. Парная capacity использует ту же вычисленную фазу: одно изменение весов недостаточно, поскольку нормализация веса способна отменить уменьшение проводимости. Дополнительных чтений текстур или буферов нет; прежнее повторное чтение endpoint V для capacity удалено.
+
+Это проверка согласованности выбранной экспериментальной closure по stride, а не доказательство правильности физического порога V. Прежние endpoint-only исходник и GPU артефакты сохранены. Флаг по умолчанию выключен.
+
+CPU: 26 shader-тестов и 22 теста Plan прошли. Четыре новых проверки исследуют все реально выпускаемые shader-программы; прежний endpoint-only исходник вызывает четыре падения. Diff whitespace и синтаксис контроллеров проверены. Подготовлены отдельные `minpath-input.json`, четыре полные salted программы и 36-case контроллер; аппаратные ring/dry10/islands/wholeRGBA и warmed cost пока **не выполнены**.
+
+#### MinV: исправленные аппаратные гейты Vega
+
+Отдельный прогон 36 tiny-мостов: GL0, context не потерян. При stride8 и V=.0157/.1255/.251 `rightP=0` вместо прежних1280; V=.502 даёт128, V≥.706 сохраняет1280. Нулевой V-gap, cost-gap и отключённый wet gate сохраняют нулевой перенос. Сумма P во всех этих конкретных однопроходных случаях5120; общей консервативности solver это не доказывает. Четыре полные программы с уникальным salted source реально скомпилированы/слинкованы на Vega: все PASS, GL0.
+
+Исправленный `minpath-controls-painted-report.json`: исходное кольцо сохранило прежний endpoint-phase результат побайтно по wholeRGBA SHA `be647a211caa81ab2360783270093b324863c31411ba8abfae8a4d1804ac52bc`. Разница с legacy51434px/max40; sourceP344435 в обоих, внутри ROI126213/снаружи84821 у кандидата. Dry10 whole1754×2480 exact0/max0; sourceP376402. Оба GL0/lostfalse. Первый `minpath-controls-report.json` использовал tiny-функцию без рисования исходных операций: пустой результат **INVALID**, сохранён и не является контрольным доказательством. Исправленный отчёт требует ненулевые P и настоящие исходные операции.
+
+Все собственные Chrome закрыты finally. Adreno minV cold/native и warmed cost ещё не проверены. Источник/flag default OFF; публикации не было.
