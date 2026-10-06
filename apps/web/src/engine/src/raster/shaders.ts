@@ -4508,6 +4508,10 @@ export const PAPER_COMPOSE_FRAG = `
   /** (s17.33) The fresh-water shade: how much darker the wettest paper reads
    *  than merely damp paper, and the wetness it starts rising from. */
   const float WC_FRESH_SHADE = 0.07;
+  // (#680) Presentation only: water stays visible on bare paper and reads
+  // much more gently over paint. Neither share enters the deposited pigment.
+  const float WC_WET_PAPER_TONE_SHARE = 0.35;
+  const float WC_WET_PAINT_TONE_SHARE = 0.12;
   // (s17.43) The power applied to a painted colour under fresh water, at
   // full freshness: 1.35 takes a mid blue (0.45) to 0.34, a near-white
   // nowhere - deeper and more saturated, never greyer.
@@ -5019,7 +5023,9 @@ export const PAPER_COMPOSE_FRAG = `
     // also the difference between this and a halo: an area, not a ring.
     // 1.2 per cent: "она должна быть едва заметная". Twice this read as a grey
     // patch rather than as damp paper.
-    color *= mix(1.0, 0.988, damp);
+    float onPaint = smoothstep(0.02, 0.25, graphite);
+    float wetToneShare = mix(WC_WET_PAPER_TONE_SHARE, WC_WET_PAINT_TONE_SHARE, onPaint);
+    color *= 1.0 - 0.012 * damp * wetToneShare;
     // (s17.33) ...and FRESH water on top of that: the tint above saturates at
     // 0.3 of wetness, so a drop of clean water into a wash that is still wet
     // showed nothing at all ("рисование водой ничего не рисует, пятно
@@ -5037,12 +5043,11 @@ export const PAPER_COMPOSE_FRAG = `
     // white, a colour gains chroma as it darkens), and the neutral shade is
     // kept for the paper between the marks, where a drop of clean water
     // still has to show. Both fade with the same clock.
-    float onPaint = smoothstep(0.02, 0.25, graphite);
-    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh * (1.0 - onPaint));
-    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_FRESH_DEEPEN * fresh * onPaint));
+    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh * (1.0 - onPaint) * wetToneShare);
+    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_FRESH_DEEPEN * fresh * onPaint * wetToneShare));
     // (#680, s17.83) ...and a pool one step deeper again, the same two ways.
-    color *= mix(1.0, 1.0 - WC_POOL_SHADE, pool * (1.0 - onPaint));
-    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_POOL_DEEPEN * pool * onPaint));
+    color *= mix(1.0, 1.0 - WC_POOL_SHADE, pool * (1.0 - onPaint) * wetToneShare);
+    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_POOL_DEEPEN * pool * onPaint * wetToneShare));
     color += vec3(gloss);
     color *= 1.0 - shade;
 
