@@ -240,3 +240,140 @@ many capture buffers and asynchronous SHA promises can perturb workload; this
 is diagnostic instrumentation, not smoothness QA. Future captures should use
 only P/C/V/coverage at a few explicit boundaries and enforce nonzero paint ROI
 before interpreting exact hashes. No physics or application source changed.
+
+## Corrected painted-ROI native boundary diagnostic
+
+The minimal follow-up used one actual two-auth Room on genuine Vega/source9eb,
+long native clear-water A then long dry-pigment B. No whole-canvas export was
+called. It read256×128 ROI at world(1006,894), mapping top-origin world y to
+bottom-origin FBO y and reversing rows for its raw canonical layer PNG. CPU
+validation compiled all20 embedded browser commands. An earlier syntax-error
+attempt is excluded and archived separately; both owned browsers closed.
+
+All meaningful ROI guards passed for both peers before rejoin: coverage and V
+were nonzero after water, and P/coverage/V plus raw canonical layer pixels were
+nonzero after pigment. Five scratch buffers were read only within correctly
+clipped tile fragments (18×128 on tilex0,238×128 on tilex1024), with SHA-256
+computed over every byte. GL0/contextLostfalse at these captures. The actual
+native/packed raw canonical ROI differed10703pixels/max10, while ordinary A
+rejoin's raw ROI was nonempty and exact0 versus original A. No whole-image
+comparison is claimed here.
+
+The child stopped at its rejoin ephemeral guard: replay had already completed
+before the newly installed probe, so there were no diagnostic captures and
+P/coverage/V flags were false. This is **missing ephemeral observations**, not
+missing canonical paint: the raw rejoin PNG was nonempty and matched originalA.
+The parent closed Chrome in finally at02:45:00.793UTC. This is a partial
+functional diagnostic, not a full scenario PASS.
+
+Valid stage observations within this painted ROI:
+
+- native clear-water versus packed donor and auxiliary reconstruction had
+  identical V SHA at both chunk boundaries; tiny coverage differences were
+  already present (first boundary channel sum differed by1code);
+- first pigment before-finish P/C/V SHA matched, with a tiny coverage difference;
+- by the second pigment invocation, P/C records had materially diverged while
+  profiles matched; second-finish right-tile ROI P.b sums were16514packed and
+  24242native. Clock differences were small doubles, not a demonstrated cause.
+
+The chronology identifies an ordering boundary that earlier instrumentation
+had obscured: `_startSettle` is used both for drawing work and actual solver
+work. A's first after-complete callback was drawing completion, not solver
+completion. `_finishRibbonStroke(scratch,true,false)` on the author is also
+asynchronous because reveal=true, despite fade=false.
+
+NativeB first chunk returned pending at13184.7ms, began second delivery at
+13202.4ms, and reached second before-finish at13518.9ms; the first solver
+completion was13547.6ms. PackedA first chunk drawing completed15101.1ms, its
+solver completed16093.8ms, and second delivery began16136.8ms. Times are local
+per-page clocks; only relative ordering within each page is compared.
+
+Thus native second delivery uses a still-unsettled first chunk, whereas packed
+second delivery uses its settled result. `WatercolorSettlePlan.finish` later
+updates the running second film's base and rebuilds load/color (runningFilm
+branch), but does not replay the earlier second delivery against that new base.
+This is a concrete temporal boundary, **not yet causal proof** that it explains
+all residual or a demonstrated buffer-alias error. A minimal future diagnostic
+can force completion immediately after native chunk flush, without changing
+physics constants/source, and compare the guarded first/second fields and raw
+ROI. No such GPU ablation was run in this check.
+
+Artifacts: home `temp/two-native-boundary-minimal/long-donor-long-pigment/`;
+local `temp/snapshot/native-boundary-minimal-report.json`, stage/entry comparisons.
+
+## Scoped forced-first-settle native control
+
+One subsequent real two-auth native Room on the same frozen9ebsource added only
+a diagnostic browser wrapper to `_flushStrokeChunk`. After the original native
+function returned, the wrapper called `_completeSettle` only for an actual
+`normal:0:15` watercolor native chunk with dabs flushed and a settle owned by
+that native scratch. It did not modify the application, source operators,
+physics constants, encoded operations or the remote painter. All21 embedded
+browser commands compiled in CPU before the run. Watchdog120s/finally applied.
+
+The native pigment author invoked that wrapper once after a59dab chunk;
+first-settle completion returned pendingfalse/queue0 before subsequent delivery.
+The remote participant and native pure-water brush invoked it zero times. Both
+peers had the **same four-operation journal inside this run**, independently
+verified from their deep JSON-cloned operations. Previous natural baseline is
+a reference, not a strict matched OFF/ON input: native rAF sampling and random
+stroke seeds can differ between separate runs.
+
+Meaningful painted-ROI guards passed: coverage/V nonzero for pure water,
+P/coverage/V and raw canonical pixels nonzero for pigment. Correctly clipped
+five-buffer ROI reads used the fixed top-to-bottom coordinate conversion.
+Both pigment chunks' before-finish P/C/V/coverage SHA matched exactly between
+native and packed peer (10valid field ROIs each). Raw canonical ROI decoded
+RGBA was exact0pixels/max0 after pigment and after ordinary A rejoin. All
+capturedGL0/lostfalse. Native donor V also matched auxiliary reconstruction;
+remaining tiny donor coverage quantization differences of1–3summed codes did
+not prevent the matched pigment fields or canonical ROI in this run.
+
+At rejoin, completed replay had no newly instrumented ephemeral captures; its
+canonical raw ROI remained nonempty and exact. The corrected diagnostic treats
+that as missing source-stage observation, not missing pigment, and checks only
+raw canonical pixels for that phase. All three scoped barriers completed;
+Chrome closed in finally, exit0. Artifact directory:
+`temp/two-native-boundary-force/long-donor-long-pigment/` in the home QA mirror.
+Local source comparisons are `temp/snapshot/native-boundary-force-*.json`.
+
+This provides strong scoped support for the temporal-overlap hypothesis:
+completing the author's first chunk before second delivery restored native/peer
+field and ROI parity despite retained small input precision differences. It is
+not a full-image or cross-GPU proof, a controlled same-input OFF/ON proof across
+runs, or a production fix. Forced synchronous completion may create a hitch;
+this diagnostic is not a smoothness/performance recommendation. The running
+film merge preserves new paint, but second delivery against an unsettled base
+and later first-result merging are not shown to commute with delivering the
+second chunk against an already settled base.
+
+
+### Passive deferred-stitch identity proof (9eb2a6fe)
+
+One owned Vega Chrome, two authenticated actual Room participants, native clear-water then long dry-pigment gesture. Engine source unchanged. The harness wraps existing calls and reads JavaScript buffer/FBO/texture identities only; no additional GL queries or readbacks. Both journals were deep-cloned inside the page and exactly equal. Owned Chrome closed in finally, process exit 0.
+
+On native pigment job 3, prepare captured gesture 1 at 12585.8 ms with all four tile entries on filmGesture 1. Deferred stitch ran at 12623.0 ms after two entries had advanced to filmGesture 2. Its settled-input fallback selected current inkLoad: deposit and settled inputs referenced identical buffers/FBOs (88/89 and 148/149). On the packed peer for the same journal, job 3 stitch retained filmGesture 1 and selected distinct inkBase inputs on all four entries. The same crossing occurred in native clear-water job 1. Object IDs are page-local; milliseconds establish ordering within each page, not cross-page latency.
+
+This proves the deferred stitch reads a later mutable film and changes its base selection. It does not measure pixel values, mass, performance, or establish a complete repair. Earlier force-complete scoped ROI evidence independently supports the ordering boundary. A proposed repair must freeze the first operation's inputs before later-film writes, preserve resource lifetime through cancel/context loss, and separately prove running-film rebase equivalence. Capturing texture references alone is insufficient because those textures remain mutable.
+
+Evidence: `temp/snapshot/stitch-passive-report.json`; harness `temp/snapshot/deferred-stitch-passive.js`, `two-peers-stitch-passive.mjs`, and `vega-stitch-passive.mjs`. Event streams did not hit their cap (1937/1499). No source change or additional GPU run was made.
+
+
+### Planned matched hardware gate: grouped first operation (hardware pending)
+
+Candidate `6c121f56` restores the existing Queue.start contract: flow upload, foreign upload and stitch form one immediate first operation. Settle source SHA256: `0a0a9aad59e0d0cce2b440b287a6d98adfe11d8f63b7def864bc9358e75dfd27`. No hardware result is claimed here. Root reported full engine suite/type/lint/maps passing; that is distinct from the pending device gate.
+
+Deterministic canonical control uses the existing 65-dab fixture from `680-settle-idle-grace/temp/idle-batch/fixedFixture.js`: same geometry, pressure, times, preset, color, IDs, production flags and idleBatch=false. Its canonicalProbe measures actual nonzero scratch P/C/V/dry/coverage hashes and full exported PNG. Compare candidate with a source-matched baseline differing only in grouped capture; prior idle/blit results are reference evidence, not automatically a matched first-op AB.
+
+Actual native control uses two authenticated participants, clear-water then long dry-pigment gesture. Passive first-op instrumentation observes all existing copies/resamples rather than parsing function source. Require capture executed before newFilm and next-film writes, distinct first load/base where required, same actual journals at drain, nonempty canonical ROI, native/peer/rejoin comparisons with residuals explicitly reported. No extra GL reads in chronology instrumentation; pixel gates are separate bounded readbacks. Frame/rAF observations are separate from field readback diagnostics. One owned Chrome, outer watchdog180s, finally-close; no user tabs or frozen5308 source changes.
+
+S2 cancel/destroy orphan is separate known CPU lifetime scope and must not be presented as an ordinary undo leak: ordinary undo completes the settle first. Grouped capture changes scheduling, not transport, source doses or material encoding.
+
+
+### Fixed65 hardware first-op gate (6c121f56): limited PASS
+
+Owned AMD Vega/ANGLE Radeon renoir, separate fresh Room contexts on baseline5305(9eb2a6fe) and firstop5310(6c121f56), nine renderer flags identical, idleBatch=false. Exact fixed65 normalized source and all five full tile buffer hashes: inkLoad `b7d57bdde6ea9c973def8a67fe4e9977eb01e42a2dfdd5e29e505e16c11e7829`; inkColor `d733c495dc26f606e862f94a87fcb18b7ef585e1c043cee26403b171214d6c6c`; inkDry `0466c4d2e2b305ce61904b35d81aa1e017082b9c6a55466d0eb3d34a8ad38378`; colorDry `a13152c82b42d9b101186648e55b7aa67bf593dead3fdaf5b4cc5187a33aeaf9`; solventLoad `2b17a6087129824c6126947ae8b0e18cf0e75be63efa1a922a8fb67947e5085c`. Nonzero P sum7109251, V sum4806538, GL0/lostfalse both. Coverage/fullPNG were not captured in this run. Sources differ in other release technical fixes as well as firstop; this is a deterministic canonical negative gate, not isolated one-file causal AB.
+
+Wall17.559s/17.592s includes approximately1000 scheduled operations, not pen-hitch measurement. Subsequent native two-auth stage reached B JoinGate but did not complete within outer180s; failure capture referenced a closed fixed65 page and masked the underlying fixture error. Native capture/rejoin/parity/responsiveness remain pending. First failed attempt used a form-scoped creation input selector and is excluded. All owned Chrome finally closed; no application/GL failure claim from either fixture failure.
+
+Evidence: `temp/snapshot/firstop-fixed65-baseline.json`, `firstop-fixed65-candidate.json`, `firstop-fixed65-comparison.json`, `firstop-hardware-driver.json`.
