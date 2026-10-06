@@ -95,3 +95,19 @@ Observed author0/author1: active full33/33, partial128/118. Burst1 full1/2, burs
 Ровно один duplicate display в одном rAF timestamp на каждый жест обоих авторов: scheduled display, затем direct _onEnd с pendingRAF=true. Это не постоянный duplicate каждого активного кадра. Rows cap2000 достигнут в tail (dropped1326/1228), active rows сохранены, uncapped bins сохраняют все фазовые counts.
 
 Даже первый жест без старого reveal (почти все paper frames partial) остаётся45Hz. Таймерные full frames не объясняют основной active cadence. Новый production patch по этим данным не выбран; R/S/T остаются default OFF.
+
+
+## Alpha-only compositor control, 06:12–06:16 UTC
+
+CPU audit: PAPER_COMPOSE_FRAG outputs alpha1 for paper, smooth page boundary and desk outside paper. SCREEN_BLIT copies opaque screenCache. DefaultFB bind elsewhere is restoration/picking, not a transparent screen draw. Therefore tested harness-only WebGL context alpha:false, preserving preserveDrawingBuffer=true. No source patch; own5311 immutablec17, S/T/R/idleBatch OFF, debugfalse, AMD Vega, actual A2 _pageSize3508×2480. Init override matched engine getContext options only; actual attrs asserted.
+
+Fixed65 fivefields+wholePNGexact. Camera/resize/dryidle/pick/full-reference pixel gates PASS; actual screenCache and defaultFB minAlpha255 in all checks. Three native gestures ACK and GL0 in all four balancedcases; Chromeclosedfinally. Artifacts home `680-lifetime-hardware/temp/display-alpha/results`, VPS lightweight `temp/display-alpha/report.json`.
+
+| Метрика | alpha:true | alpha:false | alpha:false | alpha:true |
+|---|---:|---:|---:|---:|
+| Active median ms |22.2|22.2|22.2|22.2|
+| Burst2 max RAF ms |133.3|133.3|150.0|150.1|
+| Burst3 max RAF ms |161.1|133.4|116.7|133.3|
+| Solver idle s |14.62|15.23|15.63|15.12|
+
+Нет устойчивого улучшения45Hz/отзывчивости, alpha:false не рекомендуется включать. Физика/operator неизменны; разные native journals не сравнивались на exactPNG. Reveal continuity снова INCONCLUSIVE-baseline-motion-absent, не safety PASS. Ни sourceproduction изменений, ни публикации.
