@@ -41,3 +41,22 @@ Own target 1214 закрыт в finally. Raw HOME temp/contact-budget/samsung/ex
 Sampler dense whole interval: idle8709 мс, readPixels72.7 мс через _packWashBoundaries; _updateWetTexture114.7 мс через _takePaperPartial/_display. Последний поток исследуется отдельно root. CPU profiler start bracket относительно page performance clock широк:261 мс. Поэтому CPU samples не привязаны к отдельному rAF167. Perf method wrappers и rAF находятся в одном page clock; rAF timestamp может предшествовать callback start, это не photon/input latency measurement.
 
 Raw HOME temp/contact-budget/samsung/samsung-pending-attribution.json и четыре *.cpuprofile. Группировка не меняет operators, их порядок и tagged identities. Source/default flag OFF сохранены; публикации не было.
+
+
+## Cap и front-chunk: продолжение ночного опыта
+
+Диагностический `03c8f7c8` разрешает cap4/8/16 при том же 4 мс бюджете. Fixed Samsung journal, 5 packed strokes: cap4 14.5093 с, cap8 11.4381 с, cap16 9.7016 с. Полный RGBA всех вариантов точен, 0/max0. Но sustained native cap8/16 не устранили синхронное завершение при новом касании: remaining1176/1155, drain26.9/35.9 мс, active кадры184/167 мс. Cap16 не объявляется безопаснее8.
+
+`6f0fba84` добавляет отдельно tagged существующие front relaxation и paired carry chunks, max4 с тем же finish/check-clock после каждого chunk. Между contact/front семействами, capture/upload и сменой job переход запрещён. Физические operators, порядок, данные и timestamps не меняются; снятие только обёрток возвращает предыдущий Plan byte-exact. Оба opt-in flags default OFF. CPU meaningful cases:31/31 PASS (budget11, ownership6, Plan14).
+
+Samsung strict same5-op OFF-clean cap8/frontOFF 10.2134 с → cap8/frontON 9.1356 с. Полный RGBA1754×2480 byte-exact, 0/max0,1 387 910 непустых пикселей. Первый OFF был одновременно с чужим cold compile, поэтому помечен contended и исключён. Все own targets закрыты; raw HOME temp/contact-budget/samsung/samsung-prefix-*.
+
+Native frontON: sustained pigment400/water400 по6 с active max17 мс; dense80 max84 мс. Следующее касание вошло с1172 оставшимися шагами: drain38.8 мс, onStart40.9 мс, затем два кадра167 мс. GL0,5 actual strokes ACK, own1235 closed. Это независимый native payload, не paired speed claim. Ускорение postlift не решило new-touch burst.
+
+## Полный KJc0OoVo: sequential OFF/ON, настоящий rebuild
+
+Immutable journal47 операций/41stroke, SHA d242bf844577fb0a6cc016e88da468e2738f64be5df6241d9d2aa9d06f6dd552, Fine1754×2480/#fdfdfc, snapshots отсутствуют. Vega headed Chrome1600×1000/DPR1, angle0, видимая страница, paper loaded/debugOFF. OFF context полностью idle + finalPNG + close ДО создания ON context; overlap нет.
+
+OFF полный solver/restoration idle209.693 с → contactcap8/frontmax4 ON76.796 с (2.73×). В FINAL обеих arms: все47 authoritative seq1…47, pending0, settle null, rebuild0, reveals0, GL0/lostfalse. Весь RGBA2480×1754 exact0/max0,1 227 377 colored pixels. OWNED_CHROME_CLOSED. Raw HOME temp/contact-budget/load-results; PNG не переносились на VPS.
+
+Queue ticks12046→4063, advances23594→23670. Advance count включает coroutine yields, а не только physical passes; не интерпретируется как изменение дозы. Max individual tick73.1/73.5 мс: дорогие untaged operators остались. completeCalls0. Наличие rebuild1 в промежуточном прогрессе не означало готовность: log47 появился около200/70 с, полный restoration idle лишь209.693/76.796 с. Это engine replay + реальные undo/rebuild из журнала, не сетевой end-to-end room load. Подсчёт job.start не записан в этом gate, потому новых утверждений о количестве jobs нет.
