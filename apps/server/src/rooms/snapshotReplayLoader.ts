@@ -30,7 +30,10 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
     const live = stored ? layerStateIdsOf(stored.state) : null
     const candidates = rows.filter(row => live === null || live.has(row.layerId))
     const byId = new Map((record?.operations ?? []).map(op => [op.id, op]))
-    if (!stored || !candidates.length) return { snapshots: [], coverage: new Map(), historyLayers: new Set(), unresolvedTargets: new Set(), index: stored ? { seq: stored.seq, layerState: stored.state, layers: [] } : null, operations: [...byId.values()], historicalIds: new Set(), watermark }
+    if (!stored || !candidates.length) {
+      if (record && ((rooms.get(roomId)?.nextSeq ?? 1) - 1 !== watermark)) continue
+      return { snapshots: [], coverage: new Map(), historyLayers: new Set(), unresolvedTargets: new Set(), index: stored ? { seq: stored.seq, layerState: stored.state, layers: [] } : null, operations: [...byId.values()], historicalIds: new Set(), watermark }
+    }
     const queried = new Set<string>()
     // Targets may have left resident RAM at snapshot upload/cold load. Resolve
     // only referenced ids, not the room's heavy covered stroke population.
