@@ -100,3 +100,44 @@ Fix artifacts: ignored `temp/snapshot/two-vega-fixed-final/run/`, including full
 pre-reload synthetic inputs, sourceflags, canonicalPNG and packing-comparison.
 Home retains `temp/two-vega-fix-minimal/` and `temp/two-vega-fix-full/`. All owned
 Chrome instances closed in finally; no Samsung interaction in fix QA.
+
+## Short controls and remaining technical work
+
+A native short path stayed within one spatialchunk: water36dabs, pigment31dabs,
+one operation each. Initial peer canonicalRGBA and A rejoin were both exact0,
+GL0. This is a valid control and narrows the remaining issue to the long path,
+its chunk transitions, or correlated geometry/state.
+
+A long-path Float32-input diagnostic still differed (13810pixels/max10), but
+this control is **invalid for isolating rounding**: copied painter dabs become
+keys in scratch.standing, whereas the engine samples that map with the original
+Dab objects. Without a clone→original key remap, PaperWetness may take its
+fallback. The rounding-cause conclusion is withdrawn. Numeric codec comparison
+above remains valid; GPU rounding causality is not established.
+
+CPU path audit: native `_flushStrokeChunk` records the chunk, finishes/settles its
+scratch, then calls newFilm; normal replay also finishes/settles each operation
+and calls newFilm. Auxiliary foreign-water import instead paints the original
+chunks water-only, then releaseFilm/newFilm without a settle. newFilm preserves
+lastKept/water/pigment clocks and increments gesture; it resets brushTravel.
+SolventFilm saves solventLoad as base, MAXes within one film and adds/caps across
+films. The settle reads the solvent field but does not currently transport or
+write back solventLoad; it does modify coverage. Therefore aux-versus-native
+settling may explain a coverage difference, but cannot simply be assumed to
+explain different V delivery. No physical order or constants were changed.
+
+Next bounded causal instrumentation should compare, for the same recorded pair,
+P/C/V/coverage at four boundaries: before first pigment-chunk settle, after it,
+first delivery of the second chunk, and final settle. Also capture gesture,
+lastKept, clocks, foreignImportedGestures and finish bounds/radius. Full server
+operation payloads should be JSON-stringified/cloned inside the page before the
+bridge's cycle-safe serializer (shared color array references otherwise become
+`[cycle]` on later chunks). No corrupted report payload is a replay oracle.
+
+A donor-only chunk-layout control and pigment-only chunk-layout control must be
+separate, with measured V/depth budgets: changing a film boundary can change
+additive V, so merely disabling chunking is not a matched-input proof. A repaired
+Float32 diagnostic must preserve standingMap identity and show matching returned
+standing/PaperWetness before its residual can be attributed to geometry rather
+than input semantics. These are further technical QA tasks, not a silent model
+change required by the confirmed9eb lifetime correction.
