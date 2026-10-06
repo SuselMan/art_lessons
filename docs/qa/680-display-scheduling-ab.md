@@ -82,3 +82,16 @@ Balanced OFF/ON/ON/OFF, три native size80 жеста, 8 legs×150ms, пауз
 Все три жеста подтверждены server seq, нет pending, завершён solver, GL0. S не воспроизводит выигрыш final-blit skip: остаётся45Hz, устойчивого улучшения задержек нет. Это не основание включать S в production.
 
 Dry→новое рисование в другом участке: full-reference пиксели exact обеих сторон, но oldROI hash не менялся и в baseline. Классификация `INCONCLUSIVE-baseline-motion-absent`; отсутствие паузы/прыжка морфинга этим fixture не доказано. Screenshots/readback этой отдельной визуальной фазы исключены из timing. Прототип остаётся default OFF, публикаций нет.
+
+
+## Production b863: phase/caller observer, 05:57–06:00 UTC
+
+Immutable home `680-combined-stability`, 5314, index SHA c8c5be23229f1b2fee0357c65fe22c3e20bc7d66bd26fcd74d4bf4093d8d4536; shader d6928e5c49342a1ec16f47f4ee7fa9c4cbb9befd010e29fd7f833d975148bdd8. Без изменения источника/модели/suppression. Две отдельные synthetic комнаты: uninstrumented control и passive observer; по два разных actual authors, три native bursts size80 у каждого. Девять accepted flags, actual server ACK seq, GL0, debugfalse. Один Chrome finally closed.
+
+Артефакт `temp/display-phase/report.json` (VPS), home `temp/display-phase/results/report.json`. Passive wrappers не вызывают дополнительных GL, sync или readbacks; display/invalidation stacks создают CPU overhead. Поэтому механизм counts отделён от FPS сравнения. Control и observed active median 22.2ms; сравнение разных native journals не является pixel-equivalence.
+
+Observed author0/author1: active full33/33, partial128/118. Burst1 full1/2, burst2 full16/16, burst3 full16/15. Tail full375/359, затем morph full190/188. Большая часть агрегатных full screen copies происходит после активного рисования. Inner reveal timer (emitted index7400) создал13–14 invalidations при pendown во втором/третьем жесте, согласуется с full frames этих фаз.
+
+Ровно один duplicate display в одном rAF timestamp на каждый жест обоих авторов: scheduled display, затем direct _onEnd с pendingRAF=true. Это не постоянный duplicate каждого активного кадра. Rows cap2000 достигнут в tail (dropped1326/1228), active rows сохранены, uncapped bins сохраняют все фазовые counts.
+
+Даже первый жест без старого reveal (почти все paper frames partial) остаётся45Hz. Таймерные full frames не объясняют основной active cadence. Новый production patch по этим данным не выбран; R/S/T остаются default OFF.
