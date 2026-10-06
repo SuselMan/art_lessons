@@ -5,6 +5,7 @@ import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
+import { smallSettleOperation } from '../watercolor/WatercolorSettleQueue'
 import { brushDragContacts } from '../watercolor/brushDrag'
 import { foreignWaterStencil } from '../watercolor/foreignWater'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
@@ -814,7 +815,7 @@ export class WatercolorSettlePlan {
         top = Math.min(field.h, Math.ceil(field.h - (cr.y - y0) / S) + 1)
         scissor = [left, bottom, right - left, top - bottom]
       })
-      const exchange = (): void => {
+      const exchange = smallSettleOperation((): void => {
         if (!flowTexture) return
         // Both draws read the same pre-pulse P/C. Copy back only after both
         // outputs exist; the existing settle scheduler yields between pulses.
@@ -823,7 +824,13 @@ export class WatercolorSettlePlan {
         field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
         field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
         present(dep.out, null, col.out)
-      }
+      }, () => {
+        // The presentation path reconstructs full tiles and may allocate.
+        // Never group it with local contact exchanges. Keep a conservative
+        // frame-budget margin before its wall-clock throttle can expire.
+        if (!flowTexture || (preview && performance.now() - previewAt >= 130)) return null
+        return { draws: 5, pixels: 5 * (right - left) * (top - bottom) }
+      })
       // Pulses share immutable contact geometry; reuse one closure while
       // retaining every scheduler operation and its chronological order.
       for (let sub = 0; sub < substeps; sub++) ops.push(exchange)

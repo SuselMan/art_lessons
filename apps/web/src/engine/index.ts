@@ -1759,6 +1759,7 @@ export class PencilEngine implements PencilEngineAPI {
     backlogMax: () => this.settleBacklogMax,
     noteActivity: now => { this._washActiveAt = now },
     scheduleFieldRelease: () => this._scheduleFieldRelease(),
+    syncGpu: () => this.gl.finish(),
   })
 
   private readonly _watercolorPasses = new WatercolorPasses({
