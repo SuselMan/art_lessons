@@ -36,3 +36,9 @@ Offline native/history analysis: все alpha255/exact; из744130 изменё�
 Actual visible Surface Intel Iris Xe on ownHTTP5319, A4 Fine1754×2480, prior UI/backend4537. All diagnostic switches OFF. Native purewater400 zigzag6seconds:7 ACK chunks seq9–15, active max534ms/18frames>33/6>100, tail300ms, GL0 and stable timeOrigin. Existing own water room; accumulated state differs from earlier measurements, so this is not causal A/B. It does contradict the target of smooth dense brush400. Scratch219MB/field90MB/reveal48MB.
 
 Explicit engine Dry (old UI still pencil; no UI Dry claim), then wholeRGBA saved into indexedDB qa-728-surface/fixtures combined180-baseline. No-checkpoint forced rebuild from seven resident water entries: whole1754×2480 exact0/max0/GL0. This is limited pure-water parity, not pigmented full-history restore. Raw JSON/scripts under temp/night-728/surface-combined180*.
+
+## Fresh full UI/engine180, ordinary Dry journal
+
+Own fresh room52tPYmve, full frontend180 (backend4537 unchanged), visible Surface/Intel Iris Xe, physical1754×2480 Fine. HTTP UUID shim only. Selected watercolor in actual Room store; ordinary Dry everything control enabled. Purewater400 dense6s:7ACK strokechunks1–7, active283ms/5>100,tail233ms. Ordinary UI Dry produced paper_dry8. Pigment400 dense6s:8chunks9–16,active283ms/5>100,tail500ms. Ordinary UI Dry produced paper_dry17. GL0/stable timeOrigin.
+
+Saved actual nativeRGBA17,399,680bytes/full17entry journal. Forced no-checkpoint rebuild:370149pixels/max19 differ, GL0. This is now a valid native/rebuild comparison (both Dry events are recorded); previous direct-Dry fixture is invalid for this claim. Source-film rebase remains defaultOFF here. Next controlled native→ownrebuild diagnostic ON test is required; don't call full history parity achieved on Surface. Resident native baseline retained in indexedDB qa-728-surface/fixtures fresh180-baseline; raw JSON/scripts undertemp/night-728.
