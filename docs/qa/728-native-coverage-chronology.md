@@ -35,3 +35,38 @@ GPU кандидата ещё НЕ проверен. RGBA8 source-over неас�
 Буфер теперь хранит прежний coverage BASE до нанесения нового running film, не сгруппированную текстуру нового film. После предыдущего solver только r/g base восстанавливаются в его фактическом overlap. Затем выполняется прежний MAX copyback и сохранённые source-over draw команды следующего film, в прежнем порядке, с scissor overlap и colorMaskRG. b/a не перерисовываются. Dab, tile, preset/profile и across uniforms копируются при записи, band vertices копируются в независимый Float32Array; новые mutable ссылки на текущий кадр не сохраняются. DefaultOFF путь не записывает команды/не копирует vertices. При release/abort/destroy очищаются и texture, и список команд. При context loss они забываются без GL release. Shader source полностью возвращён к предыдущей реализации, новых shader режимов больше нет.
 
 91 targeted CPU tests PASS (watercolor/parked/lifecycle, включая4 новых lifecycle), actual app+SW typecheck PASS и lint PASS со старыми warnings. GPU версии immutable commands ещё не выполнен на момент этой записи; strict endpoint exact0 остаётся требованием.
+
+## Source sampler chronology: bounded causal follow-up
+
+On the unchanged `34d7be81` source, full-buffer per-channel hashes/sums at
+actual settle preparation show that immutable coverage command replay makes
+coverage RGBA agree, but does not restore the entire material input. Chunk 2
+still has `strokeInk.g` +1712 and solvent-film r/a −200 in native painting.
+Consequently this candidate is not a complete native/history parity fix.
+
+The follow-up instrumented each actual mode-7 nib draw before execution,
+recording numeric inputs and the sampled coverage texture. Accepted segment
+mode already processes V then P per dab; the earlier whole-batch ordering
+hypothesis is excluded. All 42 corresponding source draw inputs are identical.
+Without completing the previous settle, 27 draws read different coverage,
+starting with the first V nib in the next chunk at (486.578918, 215.848694).
+Its coverage sums are native `[25205612,2086756,49829262,49829262]` versus
+history `[25305105,2086756,50027484,50337190]`; opacity is 0.25 in both.
+The immediately following pigment draws read the same differing texture.
+The V source uses coverage.a as a multiplier; the pigment source reads b/a.
+Completing the old settle before subsequent source eliminates all sampler
+and numeric-input differences. Both arms have GL0 and retained contexts.
+This localizes a real input chronology difference, rather than proving that
+all original Surface differences share this cause.
+
+Raw HOME: `680-water-wet-tone-qa/temp/history-parity/source-inputs/report.json`.
+The diagnostic controller is `temp/history-parity/source-inputs.{html,mjs}`.
+Readback instrumentation is diagnostic and is not a performance measurement.
+The hardware Chrome closed in finally. No shader or physical operator changed.
+
+A coverage-only correction at old-job completion occurs too late to repair
+already deposited V/P. A next candidate must preserve the canonical ordering
+of source sampling as well, with bounded ownership of immutable commands and
+material film state, or separate immediate presentation from queued canonical
+source painting. Blindly MAX-merging coordinates or ignoring b/a differences
+is not a valid correction. Existing candidate flags remain default OFF.
