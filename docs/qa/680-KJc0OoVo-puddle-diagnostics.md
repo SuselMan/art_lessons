@@ -68,3 +68,24 @@ Runtime pathPlateau допускает equal-cost обмен только stride
 В ringROI80×64 final inkLoad P.b sum211627→211210, max98→95, saturated255count0 в обоих; C.a те же значения. inkDry P.b sum210604→210238,max97→94, saturated255count0. В colorDepth RGB saturated255count0. Это только локальные sums/max/counts: поле за ROI не считалось, глобальная масса не заявляется. Разница локальных sums может включать перемещение через границу ROI и восьмибитное округление.
 
 Raw HOME temp/KJc0OoVo/path-plateau/{report.json,baseline.png,pathPlateau.png,comparison.jpg}; CPU script сохранён temp/KJc0OoVo/path-plateau.mjs. Существующий localPrior source candidate0c49d9ab независим и не содержит этой operator абляции.
+
+## #728: предел проводимости вместо произвольного plateau weight
+
+Ночной task branch подтянут к main8aa7e9f0 (merge53b1f886), прежние диагностики сохранены. Carry operator не менялся между f539 и8aa; GPU baseline/limitUnit/limitPath проведён на неизменном HOME5314 f539, поэтому presentation water tone старый. Shader runtime изменения отдельные и откатываются finally, исходный journal immutable.
+
+В существующем weight `pow(min(stride/d,4),WC_CARRY_POW)` при d→0+ предел64 (WC_CARRY_POW3). Прежние plateau проверки с weight1 не были этим пределом: у source edge с тремя внутренними соседями и conductance64 наружу суммарная доля наружу могла оставаться64/(64+3). Поэтому проверены64 только для stride1 и для guarded strides1/2/4 (все intermediate source-cost0).
+
+Все arms GL0/lostfalse, modified shader patchHits4, owned Chrome finally closed. Визуальная каёмка остаётся. На y1736 baseline P x1244/1245/1246=52/31/38; limitUnit52/32/38; limitPath50/36/44. Это недостаточное исправление; никакой operator source fix не включён.
+
+Полный census retained scratch tile state (2097152 texels, не sample):
+
+| state | baseline sum P.b | unit64 | path1/2/4 weight64 |
+|---|---:|---:|---:|
+|inkLoad|1185422|1185274|1184996|
+|inkDry|1163044|1162898|1162654|
+
+Solvent r/a sum13764346 byte-code units во всех arms, max192, saturation255count0. P/C/depth всех retained buffers тоже saturation255count0, maxP117→116→114. Суммы физически масштабируются по прежнему encoding; source/deposit units не изменены. Это исключает saturation для данного финального state, но не промежуточную и не гарантирует точное conservationRGBA8; небольшая разница P−0.036% остаётся.
+
+Ring sourceP344435 exact в ROI80×64 всех arms. Final inside source-mask122865→122790→122867; outside-mask88762→88693→88206. Эти inside/outside суммы только ROI: fringe выходит за ROI, поэтому они не равны всему растеканию/массе. Глобальный census и ROI не подменяют друг друга.
+
+Raw HOME temp/KJc0OoVo/limit-plateau/{report.json,baseline.png,limitUnit.png,limitPath.png,comparison.jpg}. Следующий диагностический опыт — bounded local source strides8/16 с полным промежуточным pathguard и тем же пределом64, пока без source changes. Если до production кандидата дойдёт, eligibility должна явно исключать dry-on-dry: seed-cost0 сам по себе не означает жидкость. Dry brush/рваный кончик в#728 вне scope.
