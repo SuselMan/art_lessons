@@ -79,3 +79,34 @@ Timestamp принадлежит job; chained drawing→solver или следу
 late-frame fallback, grace нового chained job, drawing fallback и ownership
 empty recipient/cancel. Аппаратные ON negative controls этого кандидата ещё
 не выполнены; предыдущий696a burst результат к нему не относится.
+
+## Grace250 Vega QA — 2026-10-06 01:46–01:49 UTC
+
+Source `7322a325`, тот же AMD/Chrome154/DPR1/A2 паспорт и267 source SHA.
+Первыеbootstrap попытки не дошли доfixture: исходнаяформа/create timeout после
+Vite restart, затем ошибка временного diagnostics driver доgoto. После CPU
+коррекцииdriver и controlledretry форма/комната созданы; source не менялся.
+Все рабочие cases GL0, pageerrors отсутствуют, owned Chrome закрыты finally.
+
+Fixed65 OFF/ON: source, actualP/C/V,dryP/C,PNG byteexact; alpha>0 у83103pixels
+вобоих. Wall17.6162→8.0458s, не FPS. Artifacts `ab-7322-retry2`.
+
+Native80 dense: OFF/ON median/p95 active22.2/22.3ms, idle baseline16.7ms.
+Solver idle15.7224→8.1105s; revealidle24.4398→16.8267s.
+ON дополнительныйsync впервые приjobAge250.7ms (978callbacks вactive-settle).
+
+Burst3×1.2s/150ms: OFFmax2/3=149.9/233.4ms, ON150/172.3ms.
+OFFforcedcomplete CPU13.1/5.5ms, ON12.6/5.9ms (submission, неphoton latency).
+Оба остаются с100+ms hitches. В ON **ноль дополнительныхsync** во всех active
+фазах и первыхдвух150ms паузах;913sync толькопосле третьегоUp, минимальный
+jobAge262.6ms. Это подтверждаетсохранениеbaselinepath в короткихпаузах.
+
+ОдиночноеOFF→ON наблюдение не доказываетулучшенияburst. НовыйOFF233.4ms
+показываетвариативностьbaseline: предыдущие696a ON233vsOFF183 сами по себе
+не доказываютпричинноеухудшениеbatching. DefaultOFF сохранён. Длявключениянужны
+чередующиесяповторыOFF/ON, минимумдвепары, и отдельныйdevice gate.
+
+Артефакты `native-7322-off`, `native-7322-on`, `native-7322-summary.json` в
+`temp/idle-batch` наVPS;raw сохранены и на домашнеймашине. Никакихreadbacks или
+дополнительныхGL barriers в nativeframe loop: instrumentation толькооборачивает
+существующийqueue.ctx.syncGpu дляcounter/time и восстанавливаетсяfinally.
