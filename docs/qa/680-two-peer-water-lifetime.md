@@ -70,3 +70,33 @@ closed. Recent bounded logcat had no GPU crash/ANR matches; live user input was
 observed and further device interaction stopped. No user tab or feedback draft
 was modified. The independent real automatic100 StoredSnapshot gate remains
 passed (see680-wet-snapshot.md), and is not invalidated by this separate failure.
+
+## Fix verification —9eb2a6fe
+
+The owned5305mirror was updated to the isolated fix with matching SHA256 for
+index.ts, RibbonStrokePainter and WatercolorSettleQueue. The repro explicitly
+started a drawing job with `scratch.live=false` and zero recipient tiles; it now
+resumes, imports water and produces nonempty canonical pigment. Global painter
+modes no longer exist. GL0/no context loss on both contexts throughout.
+
+Full six-phase scenario: clearwater exactRGBA0; initial foreign pigment differed
+by10727pixels/max12; pending undo, redo, native sharedDry and B rejoin all became
+exactRGBA0. SharedDry was the same confirmedserverseq10 on both participants.
+A second gate separated drying from rebuild: waterA→drypigB initial7356/max10;
+native sharedDry without undo/rebuild kept the same7356/max10; both ordinary
+rejoins/fresh packed-server engines became exactRGBA0 and remained nonempty.
+Thus the dropped whole pigment stroke is fixed; a smaller initial native/packed
+source discrepancy remains. Drying alone does not remove that discrepancy.
+
+Before reload, both synthetic stroke payloads and actual native painter inputs
+were preserved. Each gesture had97unique native dabs and97packed dabs, split59+38
+at the existing1100px spatialchunk boundary. Every packed dab exactly matches
+Float32(native) over the10codecfields; no missing/extra dab. Maximum rounding:
+x6.1e-5px,size1.85e-6,pressure1.19e-8,t2.44e-5ms. These measurements do not establish
+numericrounding as the cause of the residual. Single spatialchunk and live-film
+versus encoded-chunk transition auditing are the next discriminating controls.
+
+Fix artifacts: ignored `temp/snapshot/two-vega-fixed-final/run/`, including full
+pre-reload synthetic inputs, sourceflags, canonicalPNG and packing-comparison.
+Home retains `temp/two-vega-fix-minimal/` and `temp/two-vega-fix-full/`. All owned
+Chrome instances closed in finally; no Samsung interaction in fix QA.
