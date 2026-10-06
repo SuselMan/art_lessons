@@ -1731,6 +1731,7 @@ export class PencilEngine implements PencilEngineAPI {
   // Isolated DEV A/B only; production and default behavior remain unchanged.
   private _diagnosticRevealPause = false
   private _diagnosticDisplayRafCancel = false
+  private _diagnosticBlitScissor = false
   private get _settle(): WatercolorSettleQueue['current'] { return this._settleQueue.current }
   /** (#536, §17.22) The live gesture's composite, deferred to the frame: the
    *  per-gesture scalars every batch would have passed, kept from the first
@@ -8206,7 +8207,12 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     gl.enableVertexAttribArray(this._screenBlitPosLoc)
     gl.vertexAttribPointer(this._screenBlitPosLoc, 2, gl.FLOAT, false, 0, 0)
+    // DEV A/B: untouched pixels are reusable only in a preserved drawing buffer.
+    const blitPartial = import.meta.env.DEV && this._diagnosticBlitScissor && partial
+      && gl.getContextAttributes()?.preserveDrawingBuffer ? partial : null
+    if (blitPartial) { gl.enable(gl.SCISSOR_TEST); gl.scissor(...blitPartial) }
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    if (blitPartial) gl.disable(gl.SCISSOR_TEST)
   }
 
   /** See PencilEngineAPI's doc comment. */
