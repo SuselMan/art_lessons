@@ -16,7 +16,8 @@ it('native watercolor enters ribbon geometry with codec inputs and returns stand
   const { engine } = createTestEngine({}, { width: 64, height: 64 })
   const scratch = new RibbonStrokeScratch(engine['_ribbonScratchPool'], true, true)
   const dropped = { ...dab, x: dab.x + 10 }, previous = { ...dab, x: dab.x - 10 }
-  const spy = vi.spyOn(engine, '_paintRibbonDabs' as never).mockImplementation((...args: unknown[]) => new Map([[(args[1] as Dab[])[0], .6]]) as never)
+  const seam = engine as unknown as { _paintRibbonDabs: (...args: unknown[]) => Map<Dab, number> }
+  const spy = vi.spyOn(seam, '_paintRibbonDabs').mockImplementation((...args) => new Map([[(args[1] as Dab[])[0], .6]]))
   try {
     const result = engine['_paintDabs'](engine['_compositeFBO'], [dab, dropped], 'watercolor', 'normal:100:100:PB29:round', [.2, .3, .6], 'self', previous, scratch, 'gesture', 'wash', '00', [1, 2])
     const args = spy.mock.calls[0] as unknown[]
