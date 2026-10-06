@@ -77,3 +77,15 @@ GL0 во всех4 фазах, pageerrors[]. PaperROI256×320 содержитн
 capture сделалвсе3изображения. Browserfinallyclosed. Артефакты
 `temp/release/production-ui/{report,before,dry,undo}` +harness/log.
 ЭтоfunctionalUIsmoke, не аппаратнаяплавность/финальнаяGPUparity.
+
+Повтор финальной ordinary production UI после composite-domain и wet-snapshot
+исправлений, 2026-10-06 00:51 UTC: own offset83 API4574/HTTPSpreview5574/
+Postgres55574, отдельная база, production dist f99d43ea (позднейшие изменения
+тестов/QA не меняют renderer). Create→Watercolor pen→Dry→Undo PASS,
+`__engine` отсутствует, errors[], GL0/lostfalse во всех четырёх фазах.
+PaperROI429px/max190 после Dry, после Undo точно0px/max0.
+Артефакты `temp/release/production-final-ui/`, собственные процессы и база
+удалены после проверки. Software WebGL: функциональный контроль, не FPS.
+Первый запуск выявил readiness race тестового PostgreSQL: временный сервер
+инициализации принимает Unix socket до запуска рабочего TCP endpoint.
+Harness теперь ждёт TCP127.0.0.1:5432; свежая база, миграции и health проходят.
