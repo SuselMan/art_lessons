@@ -558,8 +558,8 @@ describe('a wash reaches every path that paints (#468)', () => {
   // a settled wash instead of cutting to it. Its whole contract is that it is
   // NOT content — the layer holds the dry target from the first frame, a
   // replay never has one, and it lets go on its own.
-  function reveals(engine: PencilEngine): Map<unknown, { startedAt: number }> {
-    return (engine as unknown as { _washReveals: Map<unknown, { startedAt: number }> })._washReveals
+  function reveals(engine: PencilEngine): Map<unknown, { startedAt: number | null; durationMs?: number }> {
+    return (engine as unknown as { _washReveals: Map<unknown, { startedAt: number | null; durationMs?: number }> })._washReveals
   }
 
   it('keeps what the screen showed when the author lifts the pen, and only then', async () => {
@@ -575,13 +575,53 @@ describe('a wash reaches every path that paints (#468)', () => {
     expect(reveals(other).size).toBe(0)
   })
 
-  it('lets go of the kept picture after WC_REVEAL_MS on its own', async () => {
+  it('retires an active reveal before undo deletes its canonical tile', async () => {
     const engine = wetEngine()
     await paperReady(engine)
     simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    expect(reveals(engine).size).toBeGreaterThan(0)
+    const layer = engine['_layers'].get('L')!
+    const clear = layer.clear.bind(layer)
+    const atClear: number[] = []
+    vi.spyOn(layer, 'clear').mockImplementation(() => {
+      atClear.push(reveals(engine).size)
+      clear()
+    })
+    expect(engine.undo()?.type).toBe('stroke')
+    expect(atClear).toEqual([0])
+    expect(reveals(engine).size).toBe(0)
+    expect(engine.redo()?.type).toBe('stroke')
+    await vi.waitFor(() => expect(engine['_rebuildJobs'].size).toBe(0))
+    expect(reveals(engine).size).toBe(0)
+  })
+
+  it('exports canonical tiles without stopping the on-screen wash reveal', async () => {
+    const engine = wetEngine()
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    await vi.waitFor(() => expect(engine['_settle']).toBeNull())
+    const held = new Map(reveals(engine))
+    expect(held.size).toBeGreaterThan(0)
+    const drawReveal = vi.spyOn(engine as unknown as { _drawTileReveal: (...args: unknown[]) => void }, '_drawTileReveal')
+    engine['_display']()
+    expect(drawReveal).toHaveBeenCalled()
+    drawReveal.mockClear()
+    const composite = engine['_exporter'].buildContentComposite({ x: 0, y: 0, width: 64, height: 64 })
+    expect(composite).not.toBeNull()
+    expect(drawReveal).not.toHaveBeenCalled()
+    expect(reveals(engine)).toEqual(held)
+    composite?.buffer.destroy()
+  })
+
+  it('lets go of the progressive kept picture after its presentation duration', async () => {
+    const engine = wetEngine()
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    ;(engine as unknown as { _completeSettle(): void })._completeSettle()
     const [reveal] = [...reveals(engine).values()]
     expect(reveal).toBeDefined()
-    const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(reveal.startedAt + 1600)
+    expect(reveal.startedAt).not.toBeNull()
+    const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(reveal.startedAt! + (reveal.durationMs ?? 8000) + 1)
     try {
       ;(engine as unknown as { _display(): void })._display()
       expect(reveals(engine).size).toBe(0)
@@ -606,7 +646,21 @@ describe('a wash reaches every path that paints (#468)', () => {
     // (§17.22) …once the author's settle, spread over the next frames, has
     // landed. The replay's landed inside appendOperation.
     await vi.waitFor(() => expect(settleOf(a)).toBeNull())
-    expectPixelsEqual(readLayerPixels(a, 'L'), readLayerPixels(b, 'L'))
+    const canonical = readLayerPixels(a, 'L')
+    const [reveal] = [...reveals(a).values()]
+    expect(reveal.startedAt).not.toBeNull()
+    // MockGL models mode9 as a graphite ellipse, not the GLSL composite
+    // from original+coverage. Its intermediate rect histories differ on
+    // replay/live; real-GPU QA verifies equality between those paths.
+    // Test presentation directly: motion must not write the canonical layer.
+    const nowSpy = vi.spyOn(performance, 'now')
+    try {
+      for (const elapsed of [250, 2000, 7999, 8001]) {
+        nowSpy.mockReturnValue(reveal.startedAt! + elapsed)
+        ;(a as unknown as { _display(): void })._display()
+        expectPixelsEqual(readLayerPixels(a, 'L'), canonical)
+      }
+    } finally { nowSpy.mockRestore() }
   })
 
   function settleOf(engine: PencilEngine): unknown {
@@ -774,14 +828,20 @@ describe('water first, then paint (#536)', () => {
     return { head: field.sample('L', 24, 32, now), tail: field.sample('L', 600, 32, now) }
   }
 
-  it('wets the sheet where the brush still had water, not where it had run dry (§17.21)', async () => {
-    // One long loaded stroke, many radii of it. The head leaves a puddle;
-    // the tail, with the brush's water long gone (watercolorWaterLoad), leaves
-    // the sheet as dry as it found it — the same cut the wash's coverage .b
-    // record makes, so the sheen and the diffusion agree on where the puddle
-    // is. Before this the field took the nominal mix for every dab.
+  it('keeps a loaded brush wet along the whole bottomless gesture', async () => {
+    // Accepted brush policy is bottomless: nominal water remains available
+    // on this long gesture. Independent V records its delivery separately.
     const engine = setupLayer(640, 64)
     await paperReady(engine)
+    const { head, tail } = longLine(engine, 'normal:100:80:PB29:round')
+    expect(head).toBeGreaterThan(0.6)
+    expect(tail).toBeGreaterThan(0.6)
+  })
+
+  it('retains water depletion when the finite brush policy is explicitly selected', async () => {
+    const engine = setupLayer(640, 64)
+    await paperReady(engine)
+    ;(engine as unknown as { _ribbonPainter: { diagnosticWaterPolicy: string } })._ribbonPainter.diagnosticWaterPolicy = 'finite'
     const { head, tail } = longLine(engine, 'normal:100:80:PB29:round')
     expect(head).toBeGreaterThan(0.6)
     expect(tail).toBeLessThan(0.05)
@@ -1521,6 +1581,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
     I._fieldCache = [] // the washes alone decide it
+    // Remove free transient films before choosing pressure on resident washes.
+    ;(e as unknown as { _ribbonScratchPool: { trimFree(): void } })._ribbonScratchPool.trimFree()
     I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     vi.useFakeTimers()
     try {
@@ -1545,6 +1607,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     const I = e as unknown as Internals
     I._completeSettle()
     I._fieldCache = [] // the washes alone decide it
+    // Remove free transient films before choosing pressure on resident washes.
+    ;(e as unknown as { _ribbonScratchPool: { trimFree(): void } })._ribbonScratchPool.trimFree()
     I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     I._enforceGpuBudget()
     expect(I._replayRibbonChunks.has('w1')).toBe(true)
@@ -1559,6 +1623,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
     I._fieldCache = [] // the washes alone decide it
+    // Remove free transient films before choosing pressure on resident washes.
+    ;(e as unknown as { _ribbonScratchPool: { trimFree(): void } })._ribbonScratchPool.trimFree()
     I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     vi.useFakeTimers()
     try {
@@ -1596,6 +1662,8 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
     for (const c of I._replayRibbonChunks.values()) c.usedAt = -1e9
     I._washActiveAt = -1e9
     I._fieldCache = [] // the washes alone decide it
+    // Remove free transient films before choosing pressure on resident washes.
+    ;(e as unknown as { _ribbonScratchPool: { trimFree(): void } })._ribbonScratchPool.trimFree()
     I._gpuBudget = Math.floor(I._washGpuBytes() / 1.3) // over the budget, under its hard ceiling
     vi.useFakeTimers()
     try {
@@ -1615,6 +1683,46 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
 // now rather than whenever the browser collects it. A board switch builds the
 // next engine on the same, still attached canvas - that context must live.
 describe('what destroy lets go of (#536 §17.69)', () => {
+  it('forgets the wet overlay before the first restored display', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 32, height: 32 })
+    const hooks = engine as unknown as {
+      gl: WebGLRenderingContext
+      _wetTex: WebGLTexture | null
+      _wetTexAt: number
+      _wetRect: number[]
+      _wetShown: number
+      _composePaperToScreen(): void
+      _initGL(): void
+      _handleContextLost(e: Event): void
+      _handleContextRestored(): void
+    }
+    const old = hooks.gl.createTexture()!
+    hooks._wetTex = old
+    hooks._wetTexAt = performance.now()
+    hooks._wetRect = [10, 20, 30, 40]
+    hooks._wetShown = 255
+    const beforeInit: unknown[] = []
+    const init = hooks._initGL.bind(hooks)
+    const initSpy = vi.spyOn(hooks, '_initGL').mockImplementation(() => {
+      beforeInit.push([hooks._wetTex, hooks._wetTexAt, [...hooks._wetRect], hooks._wetShown])
+      init()
+    })
+    const firstDisplay: unknown[] = []
+    const compose = vi.spyOn(hooks, '_composePaperToScreen').mockImplementation(() => {
+      firstDisplay.push([hooks._wetTex, hooks._wetTexAt, [...hooks._wetRect], hooks._wetShown])
+    })
+    const deleteTexture = vi.spyOn(hooks.gl, 'deleteTexture')
+    hooks._handleContextLost(new Event('webglcontextlost', { cancelable: true }))
+    hooks._handleContextRestored()
+    expect(firstDisplay.length).toBeGreaterThan(0)
+    expect(beforeInit[0]).toEqual([null, 0, [0, 0, -1, -1], -1])
+    expect((firstDisplay[0] as unknown[])[0]).not.toBe(old)
+    expect(deleteTexture.mock.calls.some(([texture]) => texture === old)).toBe(false)
+    compose.mockRestore()
+    initSpy.mockRestore()
+    deleteTexture.mockRestore()
+  })
+
   function withLoseContext(connected: boolean) {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 32, height: 32 })
     const loseContext = vi.fn()

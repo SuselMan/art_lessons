@@ -88,6 +88,12 @@ export interface RibbonTileScratch {
    *  under the per-operation drying A/B (wcOpDry). */
   inkDry: AccumulationBuffer | null
   colorDry: AccumulationBuffer | null
+  /** Dev-only solvent thickness V/4, independent of pigment/depth headroom. */
+  foreignSolventLoad?: AccumulationBuffer | null
+  solventLoad?: AccumulationBuffer | null
+  solventBase?: AccumulationBuffer | null
+  strokeSolvent?: AccumulationBuffer | null
+  solventGesture?: number
 }
 
 /** Parked state is zero-padded in full, regardless of a display's scissor. */
@@ -362,6 +368,7 @@ export class RibbonStrokeScratch {
   turnDirection: [number, number] | null = null
   brushTravel: BrushTravel[] = []
   foreignSources: WaterSource[] | null = null
+  foreignImportedGestures = new Set<string>()
   wetContacts: WaterFootprint[] = []
   trail: WcTrailDab[] = []
   /** (#680) The pen's smoothed speed (px/ms) and its recent peak. */
@@ -395,6 +402,10 @@ export class RibbonStrokeScratch {
    *  next gesture (or chunk) acquires them again from the pool. */
   releaseFilm(gesture = this.gesture): void {
     for (const entry of this._tiles.values()) {
+      if (entry.solventGesture === gesture) {
+        for (const b of [entry.strokeSolvent, entry.solventBase]) if (b) this.pool.release(b)
+        entry.strokeSolvent = null; entry.solventBase = null; entry.solventGesture = -1
+      }
       // Only the film the landed settle consumed: a chunk's settle lands
       // while the next chunk's film is being painted.
       if (entry.filmGesture !== gesture) continue
@@ -486,6 +497,9 @@ export class RibbonStrokeScratch {
     return { strokeInk: entry.strokeInk!, inkBase: entry.inkBase!, strokeColor: entry.strokeColor, colorBase: entry.colorBase }
   }
 
+  /** Read-only iteration; the scratch retains ownership of these buffers. */
+  tileEntries(): IterableIterator<[AccumulationBuffer, RibbonTileScratch]> { return this._tiles.entries() }
+
   getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
     let entry = this._tiles.get(tile)
     if (!entry) {
@@ -516,6 +530,20 @@ export class RibbonStrokeScratch {
     return entry
   }
 
+  /** Bounded diagnostic solvent state: one loaded-contact film is V=1;
+   * RGBA8 stores V/4. MAX within the gesture, additive/capped between films. */
+  solventFilm(tile: AccumulationBuffer): { load: AccumulationBuffer; base: AccumulationBuffer; film: AccumulationBuffer } {
+    const entry = this.getOrCreate(tile)
+    if (!entry.solventLoad) { entry.solventLoad = this.pool.acquire(tile.width, tile.height); entry.solventLoad.clear() }
+    if (entry.solventGesture !== this.gesture) {
+      entry.strokeSolvent ??= this.pool.acquire(tile.width, tile.height)
+      entry.solventBase ??= this.pool.acquire(tile.width, tile.height)
+      entry.strokeSolvent.clear(); entry.solventLoad.copyTo(entry.solventBase)
+      entry.solventGesture = this.gesture
+    }
+    return { load: entry.solventLoad, base: entry.solventBase!, film: entry.strokeSolvent! }
+  }
+
   /** Ends this gesture's use of its buffers. Named as it always was, and it
    *  still means "this scratch is finished with" — what changed (#385) is that
    *  the buffers go back to the pool instead of to the driver. */
@@ -531,8 +559,8 @@ export class RibbonStrokeScratch {
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
-    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled, strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry } of this._tiles.values()) {
-      for (const b of [strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry]) if (b) this.pool.release(b)
+    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled, strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry, solventLoad, solventBase, strokeSolvent, foreignSolventLoad } of this._tiles.values()) {
+      for (const b of [strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry, solventLoad, solventBase, strokeSolvent, foreignSolventLoad]) if (b) this.pool.release(b)
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
       if (inkSettled) this.pool.release(inkSettled)
@@ -594,7 +622,7 @@ export class RibbonStrokeScratch {
       dryCtx: this.dryCtx ? { ...this.dryCtx, bounds: { ...this.dryCtx.bounds }, fieldSeed: [...this.dryCtx.fieldSeed] } : null,
       lastKept: this.lastKept ? { ...this.lastKept } : undefined, gesture: this.gesture,
       landing: this.landing ? { ...this.landing } : null, dwellMs: this.dwellMs, dwellDone: this.dwellDone,
-      turnOffset: [...this.turnOffset], turnDirection: this.turnDirection ? [...this.turnDirection] : null, brushTravel: this.brushTravel.map(d => ({ ...d })), foreignSources: this.foreignSources, wetContacts: this.wetContacts.map(d => ({ ...d })),
+      turnOffset: [...this.turnOffset], turnDirection: this.turnDirection ? [...this.turnDirection] : null, brushTravel: this.brushTravel.map(d => ({ ...d })), foreignSources: this.foreignSources, foreignImportedGestures: [...this.foreignImportedGestures], wetContacts: this.wetContacts.map(d => ({ ...d })),
       trail: this.trail.map(d => ({ ...d })), speed: this.speed, speedPeak: this.speedPeak, speedAt: this.speedAt, speedTravel: this.speedTravel, brakePigment: this.brakePigment, surplusPigment: this.surplusPigment, surplusWater: this.surplusWater, surplusAt: this.surplusAt,
     }
   }
@@ -620,6 +648,7 @@ export class RibbonStrokeScratch {
     this.turnDirection = snap.turnDirection ? [...snap.turnDirection] : null
     this.brushTravel = snap.brushTravel.map(d => ({ ...d }))
     this.foreignSources = snap.foreignSources
+    this.foreignImportedGestures = new Set(snap.foreignImportedGestures ?? [])
     this.wetContacts = snap.wetContacts.map(d => ({ ...d }))
     this.trail = snap.trail.map(d => ({ ...d }))
     this.speed = snap.speed
@@ -655,7 +684,7 @@ export class RibbonStrokeScratch {
     const dispose = (): void => { for (const b of owned) this.pool.release(b); owned.clear() }
     try {
       for (const [tile, entry] of this._tiles) {
-        if (entry.strokeInk || entry.inkBase || entry.strokeColor || entry.colorBase) return null
+        if (entry.strokeInk || entry.inkBase || entry.strokeColor || entry.colorBase || entry.strokeSolvent || entry.solventBase) return null
         const at = originOf(tile)
         if (!at) return null
         const bufs: SpilledScratch['tiles'][number]['bufs'] = {}
@@ -747,6 +776,7 @@ export class RibbonStrokeScratch {
           inkColor: take(t.bufs.inkColor), colorSettled: take(t.bufs.colorSettled),
           strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1,
           inkDry: take(t.bufs.inkDry), colorDry: take(t.bufs.colorDry),
+          solventLoad: take(t.bufs.solventLoad), foreignSolventLoad: take(t.bufs.foreignSolventLoad),
         })
       }
       return s
@@ -775,6 +805,7 @@ export class RibbonStrokeScratch {
         inkColor: take(t.bufs.inkColor), colorSettled: take(t.bufs.colorSettled),
         strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1,
         inkDry: null, colorDry: null,
+        solventLoad: take(t.bufs.solventLoad), foreignSolventLoad: take(t.bufs.foreignSolventLoad),
       })
     }
     return s
@@ -786,7 +817,7 @@ export class RibbonStrokeScratch {
  *  lays it again before the composite reads it, and leaving it out was the
  *  same to a level on the devices and a quarter less memory (80 MB of
  *  carried washes on the iPad instead of 96). */
-const SNAPSHOT_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled'] as const
+const SNAPSHOT_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled', 'solventLoad', 'foreignSolventLoad'] as const
 
 export function scratchSnapshotBytes(snap: ScratchSnapshot): number {
   let n = 0
@@ -810,7 +841,7 @@ interface ScratchScalars {
   dryCtx: Omit<NonNullable<RibbonStrokeScratch['dryCtx']>, 'target'> | null
   lastKept: Dab | undefined; gesture: number
   landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
-  turnOffset: [number, number]; turnDirection: [number, number] | null; brushTravel: BrushTravel[]; foreignSources: WaterSource[] | null; wetContacts: WaterFootprint[]
+  turnOffset: [number, number]; turnDirection: [number, number] | null; brushTravel: BrushTravel[]; foreignSources: WaterSource[] | null; foreignImportedGestures: string[]; wetContacts: WaterFootprint[]
   trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number
 }
 
@@ -820,7 +851,7 @@ export interface ScratchSnapshot extends ScratchScalars {
 }
 
 /** (#536, §17.68) Every tile buffer of an open wash at rest. */
-const SPILL_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled', 'inkDry', 'colorDry'] as const
+const SPILL_TILE_BUFFERS = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled', 'inkDry', 'colorDry', 'solventLoad', 'foreignSolventLoad'] as const
 
 /** (§17.68) See RibbonStrokeScratch.spill. */
 interface ParkedScratchBuffer { buffer: AccumulationBuffer; glX: number; glY: number; srcX: number; srcY: number; w: number; h: number; whole: boolean }
@@ -831,4 +862,3 @@ export interface SpilledScratch extends ScratchScalars {
   takeBuffer(buffer: AccumulationBuffer): void
   releaseBuffer(buffer: AccumulationBuffer): void
 }
-

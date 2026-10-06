@@ -20,7 +20,18 @@ export interface CompositeItem {
 export interface WashReveal {
   layerId: string
   before: AccumulationBuffer
-  startedAt: number
+  /** null while the canonical dry target is still being computed. */
+  startedAt: number | null
+  /** Intermediate target; only presentation buffers read this. */
+  pending?: AccumulationBuffer
+  progressive?: boolean
+  frameAt?: number
+  durationMs?: number
+  /** Display-only standing-water/coverage snapshot, never a paint input. */
+  wetMask?: AccumulationBuffer
+  motionAt?: number
+  motionBaseGain?: number
+  motionOrigin?: [number, number]
 }
 
 export interface LayerCompositorContext {
@@ -107,6 +118,7 @@ export class LayerCompositor {
   drawCompositeItem(
     frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer,
     targetW: number, targetH: number,
+    includeWashReveal = true,
   ): void {
     const viewRect = frame.view
     // (#365) Whether this pass is shrinking tiles on the way to its target.
@@ -187,7 +199,7 @@ export class LayerCompositor {
       // the reveal — same rect, same blend, its pixels mixed with the kept
       // picture. The coarse levels above draw plain: at that zoom the motion
       // is under a pixel.
-      const reveal = this.ctx.reveals().get(buffer)
+      const reveal = includeWashReveal ? this.ctx.reveals().get(buffer) : undefined
       if (reveal) {
         this.ctx.drawReveal(
           frame, reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,

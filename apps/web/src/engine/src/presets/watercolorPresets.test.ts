@@ -7,6 +7,7 @@
 // u_inkMode=9 branch, which MockGL never rasterizes (see mockGL.ts and
 // index.watercolor.test.ts's own header). Those need a real browser.
 import { describe, expect, it } from 'vitest'
+import { ribbonWaterDelivery } from '../dabs/ribbonStrokeMath'
 
 import { BRUSH_PEN_HEAD_TAPER, BRUSH_PEN_PRESSURE_SMOOTHING_PX, shapingForBrushPenPreset } from './brushPenPresets'
 import { createTipState, tipFootprint } from '../dabs/tipFootprint'
@@ -930,20 +931,11 @@ describe('paper wetness against brush water (#536)', () => {
     expect(onWet.dryContact).toBeGreaterThan(0.5)
   })
 
-  it('lets even a loaded brush travel further on paper that is already wet', () => {
-    // (#536) This assertion is the reverse of the one it replaces, which said a
-    // loaded brush should be unaffected because its own water already exceeded
-    // the paper's. That was true of the saturating curves — which do take the
-    // wetter of the two — and false of the thing a painter sees: water lying on
-    // the sheet is extra reservoir, and paint laid into it goes further than
-    // the same paint laid on dry paper however loaded the brush was. Wet-in-wet
-    // is not a fringe a few pixels wide, and treating the paper as merely "not
-    // less wet than the brush" is what kept it one.
+  it('uses the same transport when the available water comes from brush or paper', () => {
     const loaded = watercolorPresetString('normal', { water: 0.92, pigment: 0.5 }, 'PB29')
     const onDry = ribbonProfileFor('watercolor', loaded, 0)
     const onWet = ribbonProfileFor('watercolor', loaded, 0.9)
-    expect(onWet.spreadOfRadius).toBeGreaterThan(onDry.spreadOfRadius * 2)
-    // …and the brush still meets the paper the way it always did.
+    expect(onWet.spreadOfRadius).toBe(onDry.spreadOfRadius)
     expect(onWet.dryContact).toBe(onDry.dryContact)
   })
 })
@@ -1116,4 +1108,12 @@ describe('the deposit has to fit in the buffer it is written to (#536)', () => {
     const profile = ribbonProfileFor('watercolor', 'normal:55:60:PB29:round', 0)
     expect(singlePass('normal:55:60:PB29:round')).toBeGreaterThan(profile.saturateInk)
   })
+})
+
+it('delivers equal water with and without pigment at the same brush water setting', () => {
+  for (const water of [0.1, 0.55, 1]) {
+    const clean = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water, pigment: 0 }))
+    const colored = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water, pigment: 1 }))
+    expect(ribbonWaterDelivery(colored)).toEqual(ribbonWaterDelivery(clean))
+  }
 })

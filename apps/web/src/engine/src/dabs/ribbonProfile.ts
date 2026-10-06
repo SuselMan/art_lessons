@@ -30,6 +30,8 @@ import type { NibShape } from './markerRibbon'
 // two tools now differ by this record and nothing else.
 
 export interface RibbonProfile {
+  /** Dev-only SegmentDelivery: read standing liquid after its water phase. */
+  diagnosticReadFluid?: boolean
   /** Outline the CPU-side band builder and the shader's nib stamp must agree
    *  on — they draw the same figure from two directions. */
   nibShape: NibShape
@@ -910,12 +912,9 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.
-    // (#536) …and a bloom on genuinely wet paper. Wet-in-wet is not a fringe a
-    // few pixels wide; the paint travels a visible distance through the water
-    // that is already there, which is the whole reason anyone lays water first.
-    // Scaled by the paper rather than by the mix, so a dry brush dragged into a
-    // puddle blooms and the same brush on dry paper does not.
-    spreadOfRadius: t.spreadOfRadius * (0.6 + 0.8 * paint.diffusion) * (1 + WATERCOLOR_WET_BLOOM * paperWet),
+    // Transport uses available water from brush or paper alike. Brush
+    // contact/depletion below still depends on the brush's actual load.
+    spreadOfRadius: t.spreadOfRadius * (0.6 + 0.8 * paint.diffusion) * (1 + WATERCOLOR_WET_BLOOM * transportWater),
     cloud: t.cloud,
     edgeSoft: t.edgeSoft,
     edgeWander: t.edgeWander,

@@ -1,0 +1,17 @@
+# #680 — rapid undo/redo during watercolor settle and reveal
+
+2026-10-06. Actual Room UI on isolated home5305, frozen `f99d43ea` night-QA source. Read-only SHA passport matches release source in all four files: engine/index, RibbonStrokePainter, WatercolorSettlePlan and shaders. Genuine Vega: ANGLE AMD Radeon Graphics/radeonsi renoir ACO. Automatic accepted flags: segment combined, independent solvent true, foreign import true, canonical radius true. No artistic/source change, no Samsung or user-owned room/tab.
+
+Controller reuses stock `createRoom`, `waitForRoomReady`, `drawStroke`, `operations`, `waitForOperations`, `joinRoom`; actual application keyboard shortcuts Control+z/Control+Shift+z, not direct engine undo methods. One owned Chrome, test bounded180s, no retries. First native pigment100/water100 round size80 gesture is observed at pen-up with settle=true/reveals2. Three undo/redo pairs preserve 0↔1 recorded stroke. The first undo overlaps active settle; later redo may finish synchronously and is not claimed continuously pending. A separate second native gesture is needed because canonical redo rebuild deliberately has no reveal. Second native solver completes with reveal1, then two more hotkey pairs remove/restore that stroke (redo settle=true at both checkpoints). Final two recorded strokes remain; engine object identity stays captured across every awaited phase/export. After stock UI rejoin, a new engine identity is captured and checked independently.
+
+Final control PASS15.2s (runner16.2s); Chrome closed normally. Fourteen GL checkpoints all0, context intact. Canonical export is explicitly checked nonempty BEFORE parity:
+
+- After settle undo/redo: 1754×2480, 54705 painted pixels, max alpha239.
+- Final: 1754×2480, 81902 painted pixels, max alpha239.
+- Rejoined fresh reader: same dimensions, painted count and max alpha, RGBA SHA exact `39103693886339faa51fad9713fccf037bffe5b1ecc60ae9b20c2acde8b3cded`.
+
+Rejoin uses the same Playwright browser context and stock Join-project UI, but userId/session before/after was not explicitly captured. Thus this is classified as a **fresh engine reader in the same browser context**, not a proven same-author authentication/session continuation. It does not validate the separate two-author foreign-water bug/fix. No empty-equals-empty parity result is accepted.
+
+Two bounded fixture probes preceded the passing run, preserved separately: (1) 5.4s failure expected a reveal after canonical redo (incorrect: redo deliberately skips reveal); all prior GL checkpoints0. (2) 58s failure waited for Room readiness after reload while the actual Join-project gate awaited submission; corrected by reusing stock joinRoom, without changing engine code. Neither failure is classified as an engine regression. The third run is the only complete canonical/rejoin qualification.
+
+Raw artifacts: `680-composite-domain/temp/gallery-clip/rapid-undo-final/rapid-undo-results/` (passport.json, phases.json, canonical-before.json, canonical.json, screenshot); `run3.log`. Reproduction controller remains an isolated QA spec/config outside the committed default CI suite (`e2e/specs/rapidWatercolorUndo.spec.ts`, `temp/gallery-clip/rapid-undo.config.ts` in the agent worktree; home copy temp/rapid-undo/config.ts). CPU Playwright --list passed. No new model implementation or permanent CI stress test is included in this documentation commit.

@@ -13,6 +13,8 @@ import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { SettleField } from '../buffers/SettleField'
 import { WC_HALF_RES_RADIUS_PX, WC_HALF_RES_SPAN_PX } from '../watercolor/settleResolution'
 
+export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationBuffer, color: AccumulationBuffer | null, coverage: AccumulationBuffer) => void
+
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
   fieldFor(w: number, h: number): SettleField
@@ -34,6 +36,8 @@ export class WatercolorSettlePlan {
   private _brushFlowTex: WebGLTexture | null = null
 
   private _foreignWaterTex: WebGLTexture | null = null
+  /** Checked-out diagnostic fields survive asynchronous settle steps. */
+  private readonly _ownedSolvent = new Set<AccumulationBuffer>()
 
   /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
    *  laid (the deposit less what was settled before it) is split into a
@@ -87,7 +91,8 @@ export class WatercolorSettlePlan {
     /** (§17.37) How long the brush stood on landing, ms: the strength of
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
-  ): { ops: Array<() => void>; finish: () => void } | null {
+    preview?: WatercolorSettlePreview,
+  ): { ops: Array<() => void>; finish: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
@@ -121,7 +126,9 @@ export class WatercolorSettlePlan {
     // (budget up to 160) ran into the field's edge, and the domain - and
     // the coverage it extends - came out cut to the rect: a wash on the
     // rig turned into a lopsided polygon.
-    const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, Math.max(landedWet, wetPeak)) / WC_FRONT_FLOOR)
+    // Mobility depends on available water, never on which gesture brought it.
+    const effectiveWet = Math.max(landedWet, wetPeak, standing)
+    const frontReachPx = Math.ceil(watercolorSpreadBudget(radiusPx, water, effectiveWet) / WC_FRONT_FLOOR)
     // (§17.42) ...plus, when the wash dries as one component, the margin
     // the group tide needs around what changed: its band is read off an
     // inward relaxation of `inSteps` cells from the coverage's edge and its
@@ -214,6 +221,9 @@ export class WatercolorSettlePlan {
       overlaps.push({ tile, ox0, oy0, ox1, oy1 })
     }
     if (!overlaps.length) return null
+    const solvent = tiles.some(t => scratch.peek(t.buffer)?.solventLoad || scratch.peek(t.buffer)?.foreignSolventLoad)
+      ? this.ctx.pool().acquire(field.w, field.h) : null
+    if (solvent) this._ownedSolvent.add(solvent)
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
@@ -258,6 +268,7 @@ export class WatercolorSettlePlan {
       field.coverage.clear()
       field.ca.clear()
       field.cb.clear()
+      solvent?.clear()
       for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
         const entry = scratch.peek(tile.buffer)
         if (!entry?.inkLoad) continue
@@ -280,6 +291,15 @@ export class WatercolorSettlePlan {
           snapshots.set(tile.buffer, { ink, color })
         }
         toField(entry.coverage, tile, ox0, oy0, ox1, oy1, field.coverage)
+        if (solvent && (entry.solventLoad || entry.foreignSolventLoad)) {
+          if (entry.solventLoad && entry.foreignSolventLoad) {
+            const temp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
+            try {
+              this.ctx.passes().fieldOp(temp, entry.solventLoad, entry.foreignSolventLoad, 1, 1)
+              toField(temp, tile, ox0, oy0, ox1, oy1, solvent)
+            } finally { this.ctx.pool().release(temp) }
+          } else toField((entry.solventLoad ?? entry.foreignSolventLoad)!, tile, ox0, oy0, ox1, oy1, solvent)
+        }
         if (entry.inkColor) {
           const settledColor = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
           toField(entry.inkColor, tile, ox0, oy0, ox1, oy1, field.ca)
@@ -293,7 +313,7 @@ export class WatercolorSettlePlan {
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this.ctx.passes().fieldOp(out, a, b, mode, k)
     const diffuseStep = (src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer = field.coverage, density: AccumulationBuffer = src): void => {
-      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density)
+      this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density, solvent)
     }
     // (§17.23) The operation's footprint — where its own deposit lies, which
     // is the mobile field before anything moves — and the dome over it: the
@@ -311,7 +331,7 @@ export class WatercolorSettlePlan {
     // (§17.29) ...by the WETTEST paper the mark ran over, not where it
     // landed: Ilya's series 5 lays the second stroke from dry paper into
     // the first, and its front has to run where the first stroke is.
-    const runWet = Math.max(landedWet, wetPeak)
+    const runWet = effectiveWet
     // (§17.44) In the field's cells from here on: budget and radius over S.
     const budgetPx = watercolorSpreadBudget(radiusPx, water, runWet) / S
     const radiusC = radiusPx / S
@@ -336,11 +356,11 @@ export class WatercolorSettlePlan {
     // resolve a cell.
     const costMaxIn = width + 3
     const inSteps = width + 2
-    const merge = watercolorPuddleMerge(wetPeak)
+    const merge = watercolorPuddleMerge(effectiveWet)
     // (§17.26) A mark laid over an earlier mark that was still damp has no
     // dry paper to stop at there: its own tideline stands down over it (the
     // bloom ring is the edge), fully on wet.
-    const damp = watercolorDampOver(wetPeak)
+    const damp = watercolorDampOver(effectiveWet)
     // …and a rim wants free water to dry out of: none from a brush that
     // carried none.
     const tideWater = Math.min(1, standing / WC_TIDE_STANDING_FULL)
@@ -459,6 +479,46 @@ export class WatercolorSettlePlan {
       this.ctx.passes().fieldOp(free, paint, paint, 1, 1, { c: field.coverage, world: [x0 / S, -(y0 / S + field.h), S], size: [streakCombs, 0], origin: [WC_POOL_STREAK, 0], dir: [1, 1] })
       fieldOp(paint, free, free, 1, 0)
     }
+    // Presentation copies only: never write the intermediate state into the
+    // wash records. Reconstruct against the same captured base as finish().
+    let previewAt = -Infinity
+    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1): void => {
+      if (!preview || performance.now() - previewAt < 150) return
+      previewAt = performance.now()
+      const pool = this.ctx.pool()
+      const pigment = pool.acquire(field.w, field.h)
+      const color = pool.acquire(field.w, field.h)
+      try {
+        if (fixed) fieldOp(pigment, fixed, mobile, 1, afloat)
+        else mobile.copyTo(pigment)
+        if (mobileColor) {
+          if (fixedColor) fieldOp(color, fixedColor, mobileColor, 1, afloat)
+          else mobileColor.copyTo(color)
+        } else this.ctx.passes().pigmentColor(color, pigment, singleTau)
+        for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+          const entry = scratch.peek(tile.buffer)
+          if (!entry?.inkLoad) continue
+          const load = pool.acquire(tile.buffer.width, tile.buffer.height)
+          const chroma = pool.acquire(tile.buffer.width, tile.buffer.height)
+          const coverage = pool.acquire(tile.buffer.width, tile.buffer.height)
+          try {
+            entry.inkLoad.copyTo(load)
+            if (entry.inkColor) entry.inkColor.copyTo(chroma)
+            entry.coverage.copyTo(coverage)
+            const snap = snapshots.get(tile.buffer)
+            fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
+            if (entry.inkColor) {
+              if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
+              else fromField(color, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
+            }
+            const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
+            if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
+            else this.ctx.passes().wcResample(coverage, tx, ty, ox1 - ox0, oy1 - oy0, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 0)
+            preview(tile, load, entry.inkColor ? chroma : null, coverage)
+          } finally { pool.release(load); pool.release(chroma); pool.release(coverage) }
+        }
+      } finally { pool.release(pigment); pool.release(color) }
+    }
     let pairedColour: { out: AccumulationBuffer } | null = null
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
       const st = { src: c, dst: a, out: a }
@@ -530,6 +590,8 @@ export class WatercolorSettlePlan {
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }
+            const last = plan[plan.length - 1]
+            present(last.dst, b, last.cdst, colour?.b)
           })
         }
         if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
@@ -567,20 +629,9 @@ export class WatercolorSettlePlan {
         fieldOp(c, a, a, 1, 0)
         fieldOp(b, spare, spare, 1, 0)
       })
-      // (§17.40) The puddle MIXES: on a wet landing the mark's footprint
-      // and the wash under it are one liquid, and the paint in it - the
-      // new, and the wash's re-mobilised under it - evens out across the
-      // footprint over tens of texels, as the coarse diffusion did for
-      // every mark before §17.29 took it out (it erased the fingers at the
-      // front). Back for the wet landing only, gated by the DOME over the
-      // footprint (band .a: full inside, none at the front), so the fingers
-      // the carry cut past the footprint keep their edges. Without it the
-      // earlier mark's paint stopped at its own contour under the new mark
-      // - Ilya's "жёлтый проникает ровной линией" - and the new mark's
-      // footprint over the wash stayed a paler band where the carry had
-      // taken from it ("область между штрихом и рваным краем"). The gate
-      // texture is built once into `pressure`, free after the carry.
-      if (first && merge > 0) ops.push(() => this.ctx.passes().fieldOp(field.pressure, field.coverage, field.coverage, 17, 0, { d: field.band }))
+      // All available water mixes by the same covered-film domain. The
+      // former dome copy changed coverage.b while diffusion reads .a, so
+      // its extra full-field draw did not restrict the actual exchange.
       // (§17.23) The bloom: the wash's SETTLED paint inside this operation's
       // footprint goes to the footprint's edge — the light patch with the
       // dark ragged ring. Only as much as the recorded wetness says the wash
@@ -647,11 +698,14 @@ export class WatercolorSettlePlan {
         for (const [radius, knight] of WET_SETTLE_SMOOTH) {
           ops.push(() => advance(radius, knight))
         }
-        ops.push(() => settleSlice(0))
+        let afloat = 1
+        ops.push(() => { settleSlice(0); afloat -= w.slices[0]; present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat) })
         puddleSteps.forEach(({ radius, knight }, i) => {
           ops.push(() => {
-            advance(radius, knight, field.pressure)
+            advance(radius, knight)
             settleSlice(i + 1)
+            afloat -= w.slices[i + 1]
+            present(st.src, paired ? b : acc.fixed, paired?.src, colour?.b, afloat)
           })
         })
         ops.push(() => {
@@ -668,7 +722,7 @@ export class WatercolorSettlePlan {
         })
       }
       for (const { radius, knight } of diffuseSteps) {
-        ops.push(() => advance(radius, knight))
+        ops.push(() => { advance(radius, knight); present(st.src, b, paired?.src, colour?.b) })
       }
       // (§17.23) The tideline: after the paint has run, its puddle carries a
       // share of it to the rim as it dries. The moved field lands in `dst`,
@@ -768,6 +822,7 @@ export class WatercolorSettlePlan {
         this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, dep.out, field.pressure, dep.out, rect, scissor, col.out, contactGain)
         field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
         field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
+        present(dep.out, null, col.out)
       }
       // Pulses share immutable contact geometry; reuse one closure while
       // retaining every scheduler operation and its chronological order.
@@ -886,9 +941,16 @@ export class WatercolorSettlePlan {
       }
       if (a0) this.ctx.pool().release(a0)
       if (ca0) this.ctx.pool().release(ca0)
+      if (solvent && this._ownedSolvent.delete(solvent)) this.ctx.pool().release(solvent)
       for (const snap of snapshots.values()) { this.ctx.pool().release(snap.ink); if (snap.color) this.ctx.pool().release(snap.color) }
     }
-    return { ops, finish }
+    // Presentation must show the actual solver-written rectangle, not only
+    // the brush source AABB. Keep source bounds too when the field was capped.
+    const compositeDomain = {
+      minX: Math.min(bounds.minX, x0), minY: Math.min(bounds.minY, y0),
+      maxX: Math.max(bounds.maxX, x1), maxY: Math.max(bounds.maxY, y1),
+    }
+    return { ops, finish, compositeDomain }
   }
 
   /** (#536, §17.42) The group tide as entries of `ops`: over a settle field
@@ -983,11 +1045,14 @@ export class WatercolorSettlePlan {
   }
 
   destroyTextures(): void {
+    for (const field of this._ownedSolvent) field.destroy()
+    this._ownedSolvent.clear()
     this.gl.deleteTexture(this._brushFlowTex)
     this.gl.deleteTexture(this._foreignWaterTex)
   }
 
   forgetTextures(): void {
+    this._ownedSolvent.clear()
     this._brushFlowTex = null
     this._foreignWaterTex = null
   }

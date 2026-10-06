@@ -151,7 +151,7 @@ export class RibbonPasses {
       gl.bindTexture(gl.TEXTURE_2D, clipTo.texture)
       gl.activeTexture(gl.TEXTURE0)
     }
-    gl.uniform1f(u.u_inkClip, clipTo ? 1 : 0)
+    gl.uniform1f(u.u_inkClip, clipTo ? profile.diagnosticReadFluid ? 2 : 1 : 0)
     // (#536) Where on the sheet this tile is — the deposit's own mottling is a
     // world-space field and must land in the same place for a stamp as it does
     // for a band. Set here rather than inherited: this pass did not set it at
@@ -214,7 +214,7 @@ export class RibbonPasses {
     /** (#536, s17.19) Ink mode into the colour record — see _drawRibbonNibPass. */
     depthTau: readonly [number, number, number] | null = null,
     /** (#680, s17.79) See _drawRibbonNibPass's poolBlot. */
-    poolBlot = 0,
+    poolBlot = 0, availableWater: AccumulationBuffer | null = null,
   ): void {
     const { gl } = this
     const local = bands.slice()
@@ -228,6 +228,11 @@ export class RibbonPasses {
     gl.useProgram(this._ribbonProg)
     this.ctx.stamps().bindNoise(this._ribbonUni.u_wcNoiseTex)
     gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, availableWater?.texture ?? this.ctx.paperTex())
+    gl.uniform1i(this._ribbonUni.u_availableWater, 1)
+    gl.uniform1f(this._ribbonUni.u_useAvailableWater, availableWater ? 1 : 0)
+    gl.activeTexture(gl.TEXTURE0)
     gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
     gl.uniform1f(this._ribbonUni.u_mode, mode === 'coverage' ? 0 : 1)
     gl.uniform2f(this._ribbonUni.u_worldOrigin, tile.originX, -tile.originY || 0)
@@ -503,7 +508,7 @@ export class RibbonPasses {
     const { gl } = this
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
       'u_wcNoiseTex', 'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit', 'u_poolBlot',
-      'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau',
+      'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau', 'u_availableWater', 'u_useAvailableWater',
     ])
   }
 

@@ -53,14 +53,19 @@ for (const tool of ['brushPen', 'watercolor'] as const) {
     }, { x: middle.x, y: middle.y })
     // Pixel probes need the finished image; software GL can settle longer
     // than a fixed delay even though the operation is already recorded.
+    // The visible image also includes a presentation-only drying reveal.
+    // Wait for its endpoint and the following display frame before picking.
     await page.waitForFunction(() => {
       const e = window.__engine as unknown as {
         _settle: unknown; _opQueue: unknown[];
         _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>;
+        _washReveals: Map<unknown, unknown>;
       }
       return !e._settle && e._opQueue.length === 0
         && e._rebuildJobs.size === 0 && e._pendingRebuilds.size === 0
+        && e._washReveals.size === 0
     }, undefined, { timeout: slow(30_000) })
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
     const live = await sample()
     console.log(tool, 'live cross-section', live)
     expect(Math.max(...live)).toBeGreaterThan(tool === 'brushPen' ? 25 : 3)
@@ -71,14 +76,19 @@ for (const tool of ['brushPen', 'watercolor'] as const) {
     await waitForOperations(page, 'stroke', 1)
     // Pixel probes need the finished image; software GL can settle longer
     // than a fixed delay even though the operation is already recorded.
+    // The visible image also includes a presentation-only drying reveal.
+    // Wait for its endpoint and the following display frame before picking.
     await page.waitForFunction(() => {
       const e = window.__engine as unknown as {
         _settle: unknown; _opQueue: unknown[];
         _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>;
+        _washReveals: Map<unknown, unknown>;
       }
       return !e._settle && e._opQueue.length === 0
         && e._rebuildJobs.size === 0 && e._pendingRebuilds.size === 0
+        && e._washReveals.size === 0
     }, undefined, { timeout: slow(30_000) })
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
     const replay = await sample()
     console.log(tool, 'replay cross-section', replay)
     expect(Math.max(...replay)).toBeGreaterThan(tool === 'brushPen' ? 25 : 3)

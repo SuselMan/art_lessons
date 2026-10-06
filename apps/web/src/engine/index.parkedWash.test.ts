@@ -4,7 +4,7 @@ import type { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import type { ILayerBuffer } from './src/buffers/ILayerBuffer'
 import { createTestEngine, dab, makeLayerAdd, makeStroke, paperReady } from './testing/engineTestUtils'
 
-const keys = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled', 'inkDry', 'colorDry'] as const
+const keys = ['original', 'coverage', 'inkLoad', 'inkSettled', 'inkColor', 'colorSettled', 'inkDry', 'colorDry', 'solventLoad'] as const
 type Bounds = { minX: number; minY: number; maxX: number; maxY: number }
 type Entry = Record<typeof keys[number], AccumulationBuffer | null>
 type Scratch = { _tiles: Map<AccumulationBuffer, Entry>; _storageBounds: Bounds; releaseFilm(): void }
@@ -33,7 +33,7 @@ async function setup(edge = 1024) {
   return { engine, I, chunk }
 }
 
-it.each([{ edge: 1024, compact: true }, { edge: 512, compact: false }])('parks and restores all eight buffers without CPU readback ($edge)', async ({ edge, compact }) => {
+it.each([{ edge: 1024, compact: true }, { edge: 512, compact: false }])('parks and restores all material and solvent buffers without CPU readback ($edge)', async ({ edge, compact }) => {
   const { engine, I, chunk } = await setup(edge)
   try {
     const snapshots = new Map<string, Uint8Array>()
@@ -63,8 +63,8 @@ it.each([{ edge: 1024, compact: true }, { edge: 512, compact: false }])('parks a
     I._evictChunk('w1', true)
     expect(read).not.toHaveBeenCalled()
     const parked = I._spilledWashes.get('w1')!
-    if (compact) expect(parked.spill.bytes).toBeLessThan(edge * edge * 4 * 8)
-    else expect(parked.spill.bytes).toBe(edge * edge * 4 * 8)
+    if (compact) expect(parked.spill.bytes).toBeLessThan(edge * edge * 4 * keys.length)
+    else expect(parked.spill.bytes).toBe(edge * edge * 4 * keys.length)
     const restored = I._replayChunkScratch(chunk.target, 's2', 'w1', [dab(400, 400)], {})!
     expect(read).not.toHaveBeenCalled()
     expect(I._spilledWashes.has('w1')).toBe(false)

@@ -467,19 +467,12 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
-  /** (#536, s17.11/13/18) Standing water, into coverage .b (premultiplied
-   *  like .r): the wetter of the paper wetness the stroke saw under itself
-   *  (v_inkWet) and what it left. A clean-water stroke leaves u_washWater, its
-   *  nominal mix, whole; a pigment stroke leaves the brush's water AT THIS
-   *  DAB (v_inkWater, after the clocks) kept by u_waterRetain, rising to 1
-   *  where the paper was already wet - see watercolorWaterRetention. The wet
-   *  diffusion pass reads standing water off the wash's own silhouette from
-   *  it. One of u_washWater / u_waterRetain is zero for any given stroke.
-   *
-   *  The first version recorded nothing for a pigment stroke, to keep a
-   *  spiral on dry paper from levelling into a blob; it also kept a loaded
-   *  brush's scribble dry-on-dry. Retention is the middle: a thin film on dry
-   *  paper, a puddle's worth where there was a puddle. */
+  uniform vec2 u_resolution;
+  uniform sampler2D u_availableWater;
+  uniform float u_useAvailableWater;
+  /** Available water into coverage .b, premultiplied by contact coverage.
+   *  Brush water and preceding paper water use the same scale. Poolness
+   *  remains in .g; it must not reduce the solvent that pigment can enter. */
   uniform float u_washWater;
   uniform float u_waterRetain;
   /** (#536, s17.13) The brush's hairs, laid into the DEPOSIT. Bundles across
@@ -531,10 +524,14 @@ ${WC_NOISE_GLSL}
     // (#536) Ink only: the mottling is a property of how much paint landed, not
     // of where the mark's silhouette is.
     vec2 mottleWp = gl_FragCoord.xy + u_worldOrigin;
+    vec4 available = texture2D(u_availableWater, gl_FragCoord.xy / u_resolution);
+    float availableWet = u_useAvailableWater > 0.5
+      ? clamp(available.b / max(available.a, 0.002), 0.0, 1.0)
+      : (v_ink > 5e-7 ? v_inkWet / v_ink : 0.0);
     float mottle = u_mode > 0.5
       ? wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
         * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
-        * wcFilmBlot(mottleWp, u_mottleSeed, v_pigmentPool, v_ink > 5e-7 ? v_inkWet / v_ink : 0.0, u_poolBlot, v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0, step(5e-7, abs(v_inkStrength)))
+        * wcFilmBlot(mottleWp, u_mottleSeed, v_pigmentPool, availableWet, u_poolBlot, v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0, step(5e-7, abs(v_inkStrength)))
       : 1.0;
     float tip = wcTipContact(v_across, u_bristleCombs, mottleWp, v_tipPressure);
     float amount = (u_mode > 0.5 ? cov * v_ink * mottle : cov) * tip;
@@ -572,7 +569,7 @@ ${WC_NOISE_GLSL}
     // uncovered - a row of crescents, "зубья в лужах" - and the hair comb
     // read every band as bone dry.
     float bandWater = v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0;
-    float bandWet = v_ink > 5e-7 ? clamp(v_inkWet / v_ink, 0.0, 1.0) : 0.0;
+    float bandWet = clamp(availableWet, 0.0, 1.0);
     // (#536, s17.13) The hairs vary the delivery, here, into the deposit -
     // see wcHairAmp. The across coordinate is this band's own, so a hair is
     // a fixed place in the brush and its streak follows the brush round a
@@ -587,7 +584,7 @@ ${WC_NOISE_GLSL}
       ? (u_depthWrite > 0.5
           ? vec4(amount * (abs(v_inkStrength) / max(v_ink, 5e-7)) * u_tau / WC_DEPTH_SCALE, amount * (abs(v_inkStrength) / max(v_ink, 5e-7)))
           : vec4(amount * bandWater, amount * bandWet, amount * (abs(v_inkStrength) / max(v_ink, 5e-7)), amount))
-      : vec4(acrossEncoded * amount, amount * wcPoolness(v_puddle, bandWet, u_poolBlot) * step(0.0, v_inkStrength), amount * max(bandWet, v_puddle * u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
+      : vec4(acrossEncoded * amount, amount * wcPoolness(v_puddle, bandWet, u_poolBlot) * step(0.0, v_inkStrength), amount * max(bandWet, u_washWater * mix(u_waterRetain, 1.0, bandWet) * wcStandingGate(bandWater, u_washWater)), amount);
   }
 `;
 
@@ -1370,7 +1367,7 @@ ${WC_NOISE_GLSL}
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
       cov *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_puddle * u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov * wcPoolness(u_puddle, u_paperWet, u_poolBlot), cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * wcStandingGate(u_inkWater, u_washWater)), cov);
       return;
     }
 
@@ -1421,7 +1418,7 @@ ${WC_NOISE_GLSL}
         float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
         amount *= wcTipContact(acrossN, u_bristleCombs, gl_FragCoord.xy + u_paperOrigin, wcTipPressure(v_pressure, v_radius));
       }
-      if (u_inkClip > 0.5) {
+      if (u_inkClip > 0.5 && u_inkClip < 1.5) {
         // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
         // inside (the composite's own note is about non-uniform flow).
         float washCov = texture2D(u_strokeCoverage, gl_FragCoord.xy / u_resolution).a;
@@ -1431,9 +1428,12 @@ ${WC_NOISE_GLSL}
       // world mapping the paper sampling uses, so a stamp and a band cannot
       // disagree about where the field is.
       vec2 mottleWp = gl_FragCoord.xy + u_paperOrigin;
+      vec4 available = texture2D(u_strokeCoverage, gl_FragCoord.xy / u_resolution);
+      float depositWet = u_inkClip > 1.5
+        ? clamp(available.b / max(available.a, 0.002), 0.0, 1.0) : u_paperWet;
       amount *= wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
               * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
-              * wcFilmBlot(mottleWp, u_mottleSeed, u_puddle, u_paperWet, u_poolBlot, u_inkWater, step(5e-7, abs(u_inkStrength)));
+              * wcFilmBlot(mottleWp, u_mottleSeed, u_puddle, depositWet, u_poolBlot, u_inkWater, step(5e-7, abs(u_inkStrength)));
       // .a is the deposit; .rgb the same deposit weighted by how wet the brush
       // was for this dab. Both accumulate additively, so the composite's r/a is
       // the deposit-weighted mean water over everything that landed here — see
@@ -1444,7 +1444,7 @@ ${WC_NOISE_GLSL}
         gl_FragColor = vec4(amount * u_inkStrength * u_tau / WC_DEPTH_SCALE, amount * u_inkStrength);
         return;
       }
-      gl_FragColor = vec4(amount * u_inkWater, amount * u_paperWet, amount * u_inkStrength, amount);
+      gl_FragColor = vec4(amount * u_inkWater, amount * depositWet, amount * u_inkStrength, amount);
       return;
     }
 
@@ -1625,13 +1625,13 @@ ${WC_NOISE_GLSL}
       // divide by, so the batch's nominal water stands in; that region is the
       // spread fringe, which is about to be decided by exactly this value.
       float waterHere = ink.a > 0.004 ? clamp(ink.r / ink.a, 0.0, 1.0) : u_water;
-      // (#536) …and how wet the paper it landed on already was, recovered the
-      // same way. Two quantities, and keeping them apart is the whole of
-      // wet-in-wet: the brush's own water decides how the mark was *laid* (see
-      // u_dryContact below, which reads waterHere and only waterHere), the
-      // paper's decides what becomes of the paint afterwards. A dry brush over
-      // a puddle still scratches; the little paint it leaves still blooms.
-      float paperWetHere = ink.a > 0.004 ? clamp(ink.g / ink.a, 0.0, 1.0) : 0.0;
+      // #680: post-deposition rendering reads available fluid, not the
+      // historical prewet tag ink.g. Coverage.b records standing water from
+      // all contacts in the wash; waterHere preserves the deposited carrier
+      // in transported fringe pixels outside that standing record.
+      // Pickup and brush delivery still read prior wetness separately.
+      float standingHere = texture2D(u_strokeCoverage, tileUV).b;
+      float paperWetHere = max(waterHere, standingHere);
       // (#536) …and how strong the paint that landed here was. Per pixel, not
       // per batch, because a wash is several strokes and they may carry
       // different amounts of paint — that is the whole of "lay clean water,
@@ -1701,41 +1701,10 @@ ${WC_NOISE_GLSL}
         // exactly, so a dry mark with u_edgeWander near zero goes where the hand
         // went. Every earlier version spent a fixed 0.10..0.62 here whatever the
         // mix, which is why even a nearly dry brush drew a shape of its own.
-        // (#536) Widened where the paper was already wet: the gesture's own
-        // uniforms were resolved from the wetness under its *first* dab, so a
-        // stroke that runs from dry paper into a puddle needs the rest of the
-        // difference per pixel.
+        // Widen and vary the edge where fluid is available after deposition.
+        // Own carrier and standing water share the same response; the
+        // historical prewet tag must not style an otherwise identical field.
         float wetGain = mix(1.0, 1.7, paperWetHere);
-        // (#536) …and the boundary is pushed *outward* where the paper is wet,
-        // which is the difference between a mark whose edge wanders and a blot
-        // that actually grows.
-        //
-        // Ilya, spelling out what he had been asking for: a 30 px dot dropped
-        // into standing water should end up nearer 45 px across. Everything
-        // here up to now was zero-mean — the threshold wandered either side of
-        // 0.5, so the boundary got *irregular* without getting *bigger*, and
-        // the drying animation only filled in a margin the composite had
-        // already drawn. Neither of those can move a boundary fifteen pixels.
-        //
-        // Thresholding a blur below its half point does. The boundary lands
-        // where the blurred silhouette equals thr, and the blur's slope across
-        // an edge is about 1/(2*reach), so biasing thr down by d displaces it
-        // outward by roughly 2*reach*d — real growth, into the water only,
-        // because paperWetHere is zero everywhere else.
-        // (#536) How hard the boundary is pushed outward, and it now reads
-        // *both* waters rather than only the paper's.
-        //
-        // Ilya, from the real thing: a wet brush drawn through a puddle spreads
-        // markedly more than a nearly dry one, and the nearly dry one still
-        // spreads plainly. So the paper decides whether there is anywhere to go
-        // and the brush decides how much goes — a product, with a floor well
-        // above zero rather than a gate.
-        // paperWetHere is read off the deposit, and outside the brush's own
-        // footprint the deposit used to be zero — which made this term zero
-        // precisely where growth has to happen, measured as 15 px against 15.
-        // The fix is not here: the halo pass now lays a real, wider deposit
-        // wherever the paper was wet (see _ribbonStrokeWork), so the per-pixel
-        // value exists out there and this reads it as it always did.
         push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
         // …and the front follows the sheet. In the photographs the spread half
         // of a mark is not a smooth gradient at all: it is granular, and the
@@ -1862,16 +1831,8 @@ ${WC_NOISE_GLSL}
       // one does under water.
       // (s17.28) A gate, not a line: the photographs show a full film at
       // half water and the tooth breaking through only near dry.
-      // (s17.43) ...and the water STANDING on the texel now, from the wash's
-      // coverage record (.b), counts with them. The two ratios above are
-      // what the brush brought and what the paper held when the paint was
-      // laid; a wash that has since been flooded - a puddle a later stroke
-      // ran its front through, or a big blob whose brush ran low on water
-      // along the way - kept a low ratio and was composited as a dry-brush
-      // mark: the whole of Ilya's yellow puddle broke up on the tooth, and
-      // where a second stroke's coverage overwrote the across coordinate
-      // the break-up changed pattern along a line ("вот эта линия").
-      float standingHere = texture2D(u_strokeCoverage, tileUV).b;
+      // Contact still breaks only when both deposited carrier and standing
+      // water are low. Historical prewet metadata is no longer consulted.
       float dryness = u_dryContact * (1.0 - smoothstep(WC_DRY_WATER_LO, WC_DRY_WATER_HI, max(max(waterHere, paperWetHere), standingHere)));
       if (dryness > 0.0) {
         // Where a bundle sits, the brush reaches further down into the paper;
@@ -3061,14 +3022,54 @@ export const SCREEN_BLIT_FRAG = `
  *  linear mix is a valid blend; the result is scaled by the layer's opacity
  *  exactly as LAYER_COMPOSITE_FRAG scales a plain tile. */
 export const WASH_REVEAL_FRAG = `
-  precision mediump float;
+  precision highp float;
   uniform sampler2D u_after;
   uniform sampler2D u_before;
+  uniform sampler2D u_wetMask;
   uniform float u_hold;
   uniform float u_opacity;
+  uniform float u_motionGain;
+  uniform float u_motionAge;
+  uniform vec2 u_texel;
+  uniform vec2 u_motionOrigin;
   varying vec2 v_uv;
+  float ink(vec4 c) { return max(0.0, c.a - dot(c.rgb, vec3(0.3333333))); }
+  float wet(vec2 uv) {
+    vec4 m = texture2D(u_wetMask, uv);
+    return m.a * smoothstep(0.025, 0.18, m.b);
+  }
+  float pairInk(vec2 uv) {
+    return 0.5 * (ink(texture2D(u_before, uv)) + ink(texture2D(u_after, uv)));
+  }
   void main() {
-    vec4 c = mix(texture2D(u_after, v_uv), texture2D(u_before, v_uv), u_hold);
+    vec4 after = texture2D(u_after, v_uv);
+    vec4 before = texture2D(u_before, v_uv);
+    if (u_motionGain > 0.0 && u_hold > 0.0) {
+      // Local brightness correspondence to the actual intermediate target.
+      // Bounded by two texels; not an offline particle or global flow solve.
+      vec2 d = 2.0 * u_texel;
+      vec2 gradient = vec2(
+        pairInk(v_uv + vec2(d.x, 0.0)) - pairInk(v_uv - vec2(d.x, 0.0)),
+        pairInk(v_uv + vec2(0.0, d.y)) - pairInk(v_uv - vec2(0.0, d.y))
+      ) * 0.25;
+      float change = ink(after) - ink(before);
+      vec2 flow = -change * gradient / (dot(gradient, gradient) + 0.002);
+      flow *= min(1.0, 2.0 / max(length(flow), 0.0001));
+      // Presentation circulation, explicitly artistic, not water velocity.
+      // World coordinates keep the phase continuous across layer tiles.
+      vec2 world = u_motionOrigin + vec2(v_uv.x, 1.0 - v_uv.y) / u_texel;
+      float phase = u_motionAge * 0.00055;
+      vec2 stir = vec2(cos(world.y * 0.035 + phase) * sin(world.x * 0.03 + phase),
+        -0.8571429 * cos(world.x * 0.03 + phase) * sin(world.y * 0.035 + phase));
+      vec2 edgePx = min(v_uv, 1.0 - v_uv) / u_texel;
+      float edgeGate = smoothstep(0.0, 4.0, min(edgePx.x, edgePx.y));
+      vec2 shift = (flow + 2.5 * stir) * u_texel * u_motionGain * edgeGate;
+      // Both sides and the midpoint must be wet: cannot drag through paper.
+      float gate = min(wet(v_uv), min(wet(v_uv - shift), wet(v_uv - shift * 0.5)));
+      vec2 uv = clamp(v_uv - shift * gate, 0.5 * u_texel, 1.0 - 0.5 * u_texel);
+      before = texture2D(u_before, uv);
+    }
+    vec4 c = mix(after, before, u_hold);
     gl_FragColor = vec4(c.rgb * u_opacity, c.a * u_opacity);
   }
 `;
@@ -3806,6 +3807,8 @@ export const WC_DIFFUSE_FRAG = `
   // Both pigment and absorption records read the same pre-step mobile
   // pigment here. Never derive mobility from the colour record itself.
   uniform sampler2D u_density;
+  uniform sampler2D u_solvent;
+  uniform float u_useSolvent;
   uniform sampler2D u_coverage;
   uniform sampler2D u_paperHeightMap;
   uniform vec2 u_resolution;
@@ -3899,6 +3902,14 @@ export const WC_DIFFUSE_FRAG = `
         vec4 covj = texture2D(u_coverage, uvj);
         float wj = wcWaterAt(covj);
         float density = max((2.0 * texture2D(u_density, v_uv).a) / max(cov.a, 0.002), (2.0 * texture2D(u_density, uvj).a) / max(covj.a, 0.002));
+        if (u_useSolvent > 0.5) {
+          // Independent diagnostic thickness V/4. Pigment mass P comes from
+          // .b, never from the solvent's representational headroom.
+          float vi = 4.0 * texture2D(u_solvent, v_uv).a;
+          float vj = 4.0 * texture2D(u_solvent, uvj).a;
+          density = max(2.0 * texture2D(u_density, v_uv).b / max(vi, 0.002),
+                        2.0 * texture2D(u_density, uvj).b / max(vj, 0.002));
+        }
         float gate = min(wi, wj) / (1.0 + 8.0 * density * density);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);

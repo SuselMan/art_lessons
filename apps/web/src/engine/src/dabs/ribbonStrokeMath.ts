@@ -1,7 +1,6 @@
 import { RIBBON_FLOATS_PER_VERTEX } from '../dabs/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 import { type RibbonProfile } from '../dabs/ribbonProfile'
-import { watercolorWaterRetention } from '../presets/watercolorPresets'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 
 
@@ -61,19 +60,10 @@ export function ribbonBristleCombs(profile: RibbonProfile, bristleRadiusPx: numb
 }
 
 
-/** (#536, ADR 011 §17.11/13) The water a stroke delivers to the sheet — its
- *  nominal mix water — and how much of it dry paper keeps standing. See
- *  watercolorWaterRetention, and u_washWater in RIBBON_FRAG for how the two
- *  become the wash's standing-water record; watercolorStandingWater is the
- *  same rule on the CPU, feeding the live wetness field (§17.21). */
+/** Water and pigment are delivered independently. Equal brush water must
+ * leave equal standing water whether the brush also carries colour. The
+ * recorded load still controls depletion and the contact mask. */
 export function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: number } {
   if (!profile.normalizeDeposit) return { water: 0, retain: 0 }
-  // The nominal mix for every stroke — a long puddle laid from a depleting
-  // load read patchy, and a pigment stroke's own puddle read far weaker than
-  // a clean one's — kept whole for clean water and by the load's retention
-  // for pigment; the shader cuts it only where the brush has run dry.
-  return {
-    water: profile.waterLevel,
-    retain: profile.pigmentStrength <= 0 ? 1 : watercolorWaterRetention(profile.waterLevel),
-  }
+  return { water: profile.waterLevel, retain: 1 }
 }

@@ -1299,42 +1299,6 @@ const WATERCOLOR_PIGMENT_GAIN = 2.4
  *  far, so it carries twice the paint - a loaded wet brush does. */
 const WATERCOLOR_WET_RATE_DROP = 0.5
 
-/** (#536, ADR 011 §17.13) How much of the water a brush delivers to the
- *  sheet stays on it as STANDING water, by what the sheet already held.
- *
- *  Standing water is a balance on the paper — delivered, minus what the sheet
- *  absorbs — not a property of the brush, and the two came apart on Ilya's
- *  sheet in both directions. A puddle laid by one long clean stroke read
- *  patchy when the record was the brush's depleted load; a loaded brush
- *  scribbled on dry paper read as dry-on-dry when a pigment stroke recorded
- *  no water of its own at all ("въедается как мелок"). So: a clean-water
- *  stroke's delivery stays whole (retention 1 — that is what a puddle is),
- *  and a pigment stroke's is kept in proportion to how wet the sheet under
- *  the dab already was — a thin film on dry paper, most of it where there
- *  was a puddle to join. The dab's recorded wetness digit is the "already",
- *  so a replay keeps the same water.
- *
- *  Known limit, deliberate: a stroke does not read its own water before
- *  pen-up (see _paintDabs on why), so ten passes over one spot do not yet
- *  pile the film up into a puddle. The API is written as delivery and
- *  retention so that they can, without the record changing shape. */
-export function watercolorWaterRetention(water: number): number {
-  const w = clamp01(water)
-  const t = w <= WATERCOLOR_RETAIN_FROM ? 0 : (w - WATERCOLOR_RETAIN_FROM) / (1 - WATERCOLOR_RETAIN_FROM)
-  return WATERCOLOR_RETAIN_DAMP + (WATERCOLOR_RETAIN_FLOODED - WATERCOLOR_RETAIN_DAMP) * t * t * (3 - 2 * t)
-}
-/** What a pigment stroke's water leaves standing on dry paper, by how much
- *  the brush carries. A damp brush's film soaks in almost at once; a flooded
- *  brush leaves a real puddle the sheet cannot drink — and that puddle has
- *  the paint in it: "лужа по сути должна уже быть немного подкрашена". So at
- *  full water a pigment stroke's own mark diffuses nearly as a puddle does,
- *  levelling into a tinted film; at damp it keeps its structure. Applied to
- *  the brush's water as it stands at each dab, not the nominal mix, so the
- *  dry tail of a long line leaves no standing water to run in. */
-const WATERCOLOR_RETAIN_DAMP = 0.15
-const WATERCOLOR_RETAIN_FLOODED = 0.85
-const WATERCOLOR_RETAIN_FROM = 0.25
-
 /** (#536, §17.21) How much of the delivered water stands on the sheet, by
  *  the brush's LOAD — the fraction of its water left (watercolorWaterLoad),
  *  not the water itself: the whole film while the load is above HI, none at
@@ -1377,7 +1341,7 @@ export function watercolorStandingGate(load: number): number {
  *  that has run dry wets nothing, and now the sheen says so too.
  *
  *  `mixWater` the preset's nominal water, `retain` what dry paper keeps of it
- *  (1 for clean water, watercolorWaterRetention for pigment), `paperWet` the
+ *  (shared by clean and pigmented water), `paperWet` the
  *  wetness the dab was laid into (already-wet paper keeps everything), and
  *  `load` the fraction of the brush's water left at this dab, after the
  *  clocks (watercolorWaterLoad). What the field records is the max with what
