@@ -153,3 +153,17 @@ Final morph idle/GL0 проверены; async callbacks8 в обоих arms —
 frame count. Opt-in сохраняется OFF. Подготовлен отдельный immediate
 controller: два жеста внутри одного Runtime.evaluate, первый без harness-tail,
 trace включена до первого input; модель/пакет dabs не изменяются.
+
+Immediate native refinement (1275/1276 CLOSED, diagnostic8aa): второй
+pointerdown вызван внутри того же Runtime.evaluate через0.9/0.8мс после
+captured pending92/99. Новый active max1003/1020мс, tail1103/1070мс.
+Первая _completeSettle1362/1366steps43.2/39.1мс была уже внутри первого
+gesture end; последующая на новом touch92/99steps5.8/5.4мс.
+ROI physical copies2771→203, итоговый morph idle/GL0 в обоих arms.
+Эти independent native journals не парный same-payload speed oracle.
+ROI не устранил hitch, default OFF; parent не планирует интегрировать его.
+
+Trace8MiB переполнилась до lift: из140096events около128k были toplevel
+RunTask/mojo/epoll/watchers. Отсутствующие end markers запрещают заявлять
+GPU attribution по этой trace. Отдельный bounded refinement оставляет
+только gpu+blink.user_timing,4MiB, и один caller stack на complete>1000steps.
