@@ -1,10 +1,10 @@
-import clsx from 'clsx'
 import { useEffect, useState } from 'react'
+import clsx from 'clsx'
 
 import type { PaperLoadProgress } from '../../../engine'
 import { useT, type TranslationKey } from '../../../i18n'
-import styles from './RoomLoadingOverlay.module.css'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
+import styles from './RoomLoadingOverlay.module.css'
 
 /** Before the copy's first room_state, the editor itself does not exist yet. */
 export function CopyRoomGate({ offline, pending }: { offline: boolean; pending: number }): React.JSX.Element {
