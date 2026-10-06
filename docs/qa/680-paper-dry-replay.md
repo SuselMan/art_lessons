@@ -74,3 +74,27 @@ revision. Mapcheck 942 файла PASS, rules 0 errors/4 известных warn
 
 Raw: `680-paper-dry-replay/temp/context-loss/fixed-dry-valid2/report.json`
 на домашней машине; локально `temp/context-loss/fixed-dry-valid2-result.json`.
+
+## Метаданные, пришедшие во время реальной потери контекста
+
+Дополнительные два edge-case на той же неизменной 5308/source3d: второй участник
+настоящей UI-кнопкой отправляет Dry либо Clear layer, пока первый GL действительно
+lost. Оба marker ACK присутствуют в журнале первого до restore. Затем второй
+рисует новую воду в отдельной области, её ACK тоже приходит при actual lost.
+
+Dry: CPU peak становится 0 уже при lost; после restore старая проба 0, новая
+положительна. Clear: CPU старая проба 0 и anyWet очищенного слоя false уже при
+lost; после restore старая проба 0, новая положительна. В обоих случаях GL0,
+нет captured faults, непустой canonical PNG точно совпадает с двумя свежими
+читателями серверного журнала. Собственный Chrome закрыт finally.
+
+Первый Clear-контроллер ошибочно требовал глобальный peak=0. Это O(1)
+консервативная envelope, которую существующий forgetLayer не пересчитывает;
+она не является проверкой наличия клеток очищенного слоя. Корректный повтор
+проверяет настоящие sample/anyWet, source остаётся неизменным.
+
+Raw: `680-paper-dry-replay/temp/context-loss/lost-metadata/report.json`
+(успешный Dry и ошибочный peak-oracle Clear),
+`temp/context-loss/lost-clear-valid/report.json` (успешный исправленный Clear).
+Локальные копии `temp/context-loss/lost-metadata-result.json` и
+`temp/context-loss/lost-clear-valid-result.json`.
