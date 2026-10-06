@@ -38,6 +38,7 @@ export class WatercolorSettlePlan {
   private _foreignWaterTex: WebGLTexture | null = null
   /** Checked-out captured inputs survive asynchronous settle steps until landing or abort. */
   private readonly _ownedInputs = new Set<AccumulationBuffer>()
+  private readonly _coverageOwners = new Set<RibbonStrokeScratch>()
 
   /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
    *  laid (the deposit less what was settled before it) is split into a
@@ -173,6 +174,7 @@ export class WatercolorSettlePlan {
     // thin line where its edge had been. So: the settled part in the field
     // (b0, cb0) and at full resolution per tile (snapshots, taken at the
     // stitch - a running gesture's next batch refreshes the film's base).
+    this._coverageOwners.add(scratch)
     const owned = new Set<AccumulationBuffer>()
     let disposed = false
     const acquireInput = (width: number, height: number): AccumulationBuffer => {
@@ -183,7 +185,7 @@ export class WatercolorSettlePlan {
     const dispose = (): void => {
       if (disposed) return
       disposed = true
-      scratch.releaseRunningCoverage()
+      if (this._coverageOwners.delete(scratch)) scratch.releaseRunningCoverage()
       // Forget/destroy clears the outer owner first: dead-context names must
       // never return to the pool through a subsequently cancelled callback.
       for (const buffer of owned) if (this._ownedInputs.delete(buffer)) this.ctx.pool().release(buffer)
@@ -986,7 +988,7 @@ export class WatercolorSettlePlan {
     }
     const finish = (): void => {
       if (disposed) return
-      try { land() } finally { scratch.releaseRunningCoverage(); dispose(); snapshots.clear() }
+      try { land() } finally { dispose(); snapshots.clear() }
     }
     // Presentation must show the actual solver-written rectangle, not only
     // the brush source AABB. Keep source bounds too when the field was capped.
@@ -1089,6 +1091,8 @@ export class WatercolorSettlePlan {
   }
 
   destroyTextures(): void {
+    for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage()
+    this._coverageOwners.clear()
     for (const field of this._ownedInputs) field.destroy()
     this._ownedInputs.clear()
     this.gl.deleteTexture(this._brushFlowTex)
@@ -1096,6 +1100,8 @@ export class WatercolorSettlePlan {
   }
 
   forgetTextures(): void {
+    for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage(true)
+    this._coverageOwners.clear()
     this._ownedInputs.clear()
     this._brushFlowTex = null
     this._foreignWaterTex = null

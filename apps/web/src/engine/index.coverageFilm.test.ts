@@ -72,3 +72,17 @@ it('owns the coverage base and continuation only until the pending rebase is rel
   expect(scratch.peek(tile)?.coverageCommands).toBeUndefined()
   scratch.destroy(); pool.destroy(); tile.destroy(); engine.destroy()
 })
+
+it('forgets a pending continuation before settle cancellation can recycle dead handles', () => {
+  const { engine, pool, tile, scratch } = setup()
+  scratch.trackRunningCoverage = true
+  scratch.runningCoverage(tile)
+  scratch.recordRunningCoverage(tile, vi.fn())
+  const release = vi.spyOn(pool, 'release')
+  scratch.releaseRunningCoverage(true)
+  scratch.releaseRunningCoverage()
+  expect(release).not.toHaveBeenCalled()
+  expect(scratch.peek(tile)?.coverageFilm).toBeUndefined()
+  expect(scratch.peek(tile)?.coverageCommands).toBeUndefined()
+  scratch.forget(); pool.forget(); tile.destroy(); engine.destroy()
+})

@@ -130,9 +130,9 @@ export class RibbonStrokeScratch {
     if (this.trackRunningCoverage) this.getOrCreate(tile).coverageCommands?.push(draw)
   }
 
-  releaseRunningCoverage(): void {
+  releaseRunningCoverage(forget = false): void {
     for (const entry of this._tiles.values()) {
-      if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
+      if (entry.coverageFilm && !forget) this.pool.release(entry.coverageFilm)
       entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined; entry.coverageCommands = undefined
     }
     this.trackRunningCoverage = false
