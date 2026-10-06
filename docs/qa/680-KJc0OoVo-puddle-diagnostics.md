@@ -89,3 +89,27 @@ Solvent r/a sum13764346 byte-code units во всех arms, max192, saturation25
 Ring sourceP344435 exact в ROI80×64 всех arms. Final inside source-mask122865→122790→122867; outside-mask88762→88693→88206. Эти inside/outside суммы только ROI: fringe выходит за ROI, поэтому они не равны всему растеканию/массе. Глобальный census и ROI не подменяют друг друга.
 
 Raw HOME temp/KJc0OoVo/limit-plateau/{report.json,baseline.png,limitUnit.png,limitPath.png,comparison.jpg}. Следующий диагностический опыт — bounded local source strides8/16 с полным промежуточным pathguard и тем же пределом64, пока без source changes. Если до production кандидата дойдёт, eligibility должна явно исключать dry-on-dry: seed-cost0 сам по себе не означает жидкость. Dry brush/рваный кончик в#728 вне scope.
+
+
+## Ночь #728: guarded source plateau 8/16 (2026-10-06)
+
+HOME `temp/KJc0OoVo/limit-8-16/{report.json,baseline.png,limit8.png,limit16.png}`;
+контроллер `temp/KJc0OoVo/limit-8-16.mjs`. Исходный seq19–29 и frozen5314 не менялись.
+Три чистых replay завершились GL0, contextLost=false, Chrome finally закрыт.
+Модифицированные варианты реально скомпилировали четыре carry-программы.
+
+Предел проводимости64 с проверкой каждого промежуточного texel и cap8 впервые
+убирает видимое кольцо, сохраняя внешнее растекание. Cap16 также убирает кольцо,
+но заметнее уплотняет центральное тело; минимальный дальнейший кандидат — cap8.
+Source P.b в ROI одинаков344435; V во всём retained состоянии одинаков13764346.
+Final P.b sums baseline1185422 / cap8 1184900 / cap16 1185559;
+финальная saturation255 отсутствует. Это не доказательство точной conservation:
+RGBA8 округляет, промежуточные состояния полного поля не считались.
+В ringROI outsideP88762→84821(cap8), поэтому неизменное растекание не обещаем.
+
+Локальный source-кандидат дополнительно передаёт effectiveWet в свободный
+carry u_band.y: равнокостный обмен разрешён только при доступной воде.
+Сухая кисть на сухой бумаге должна сохранить прежний оператор. Этот eligibility
+ещё требует GPU controls; кандидат не опубликован и не признан готовым.
+Следующие обязательные проверки: сухая кисть/чистая вода, разделённые острова,
+load/rebuild, полный source/P/V census и реальная salted compilation Samsung.

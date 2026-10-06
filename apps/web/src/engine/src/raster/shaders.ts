@@ -3233,12 +3233,22 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_CARRY_RIDGE = 1.0;
   const float WC_CARRY_VALLEY_HI = 0.46;
   const float WC_CARRY_CREST_LO = 0.54;
-  float wcCarryWeight(float ci, vec2 uvj) {
+  float wcCarryWeight(float ci, vec2 uvi, vec2 uvj) {
     if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) return 0.0;
     float cj = texture2D(u_d, uvj).r;
     if (cj > u_band.x) return 0.0;
     float d = (cj - ci) * u_size.y;
-    if (d <= 1e-3) return 0.0;
+    if (d <= 1e-3) {
+      // A wet source's interior must supply its draining edge. The positive
+      // cost-gradient formula tends to 4^POW as the gradient tends to zero.
+      // Keep this exchange inside the source plateau; every intervening
+      // texel must belong to it, so a stride cannot jump a dry gap.
+      if (u_band.y <= 0.0 || ci > 1e-5 || cj > 1e-5 || u_origin.x > 8.0) return 0.0;
+      for (int p = 1; p < 8; p++) {
+        if (float(p) < u_origin.x && texture2D(u_d, mix(uvi, uvj, float(p) / u_origin.x)).r > 1e-5) return 0.0;
+      }
+      return pow(4.0, u_size.x);
+    }
     // (s17.35) ...fading with how far along the front the RECEIVER lies:
     // the flux weakens toward the horizon, so the moved paint lies along the
     // way, dense near the footprint and thin at the tips, instead of piling
@@ -3415,7 +3425,7 @@ export const WC_FIELD_OP_FRAG = `
       if (ci <= u_band.x) {
         float ws[4];
         float wsum = 0.0;
-        for (int k = 0; k < 4; k++) { ws[k] = wcCarryWeight(ci, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
+        for (int k = 0; k < 4; k++) { ws[k] = wcCarryWeight(ci, v_uv, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
         for (int k = 0; k < 4; k++) {
           vec2 uvj = v_uv + wcCarryDir(k) * u_dir;
           if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
@@ -3440,7 +3450,7 @@ export const WC_FIELD_OP_FRAG = `
           int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
           float wj = 0.0, wme = 0.0;
           for (int mm = 0; mm < 4; mm++) {
-            float w = wcCarryWeight(cj, uvj + wcCarryDir(mm) * u_dir);
+            float w = wcCarryWeight(cj, uvj, uvj + wcCarryDir(mm) * u_dir);
             wj += w;
             if (mm == back) wme = w;
           }
