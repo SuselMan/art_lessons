@@ -15,3 +15,19 @@ Vega hardware, один собственный Chrome/engine за раз, Fine64
 RawHOME `680-water-wet-tone-qa/temp/history-parity/zero-contact/`, предварительный вариант сохранён `zero-contact-pre-shortcircuit/`. Полные PNG/SHA/операции/report сохранены; собственный Chrome закрыт finally. VPS `temp/history-parity/zero-contact-report.json`, `zero-source-{vps,home}.txt`; все5runtime SHA HOME/VPS совпадают. Controller `temp/history-parity/zero-{review.html,run.mjs}`. Protected5314 и пользовательские комнаты не менялись.
 
 Ограничения: история сканируется только при opt-in, кеша пока нет; старый/covered/carried state сознательно даёт false negatives. Carry/diffusion/tide проходы пока НЕ оптимизированы. Actual Samsung warm performance/dense400 и native multisession/negative-controls понадобятся до default ON.
+
+## Samsung: warm balanced latency
+
+Собственная unique5316 вкладка1249 на actual Adreno650, один engine, Fine физический640×480. Тот же fixed journal внутри каждой OFF/ON/OFF тройки; первый400 проход только warmup. Тайминговый режим не делал material readback внутри settle. Измеряется append→idle первого water operation, включая его deposition и settle, затем обычные последующий pigment/Dry/rebuild.
+
+| Сценарий | OFF1 | ON | OFF2 |
+|---|---:|---:|---:|
+| straight water400 |2389.7мс|1513.0мс|2333.5мс|
+| dense water400 |12961.7мс|1524.8мс|12776.3мс|
+| water over painted layer (negative) |591.4мс|591.3мс|634.1мс|
+
+Straight улучшился примерно36%, dense88% относительно среднего двух OFF. Painted-layer gate=false и операторы не исключены. Dense исключил1316 brushPass calls и1316 связных copies в первом водяном settle; straight96+96. Последующий пигмент остаётся slow. Whole phase PNG/Dry/rebuild в каждой тройке EXACT, конечный Dry непустой, GL0/lostfalse во всех12 запусках. Это не native pointer FPS, не fullA4/многопользовательский/performance soak.
+
+Отдельная нетайминговая foreign-water→pigment OFF/ON пара дала полные SHA P/C/V/coverage EXACT. В timed dense проходе поля намеренно не читались: там только whole endpoint PNG equality, не отдельный dense field SHA claim. Actual runtime пяти файлов соответствует проверенному коммиту0e0cbe77 по SHA; shader не менялся, cold-salt compilation не заявляется.
+
+Raw VPS `temp/device-runs/samsung728-zero-contact.json` + `samsung-zero-*.png`, controller `temp/history-parity/samsung-zero.mjs`. Старый первый запуск без отсутствовавшего9338 forward оставлен `samsung728-zero-contact-no-forward.json`; его созданная, но неинициализированная own1248 закрыта после восстановления доступа. Successful own1249 закрыта finally, только собственный временный9341 forward удалён; power/Chrome restart/pairing/user tabs не менялись. Samsung передан следующему агенту.
