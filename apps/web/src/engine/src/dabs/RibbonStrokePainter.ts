@@ -932,57 +932,34 @@ export class RibbonStrokePainter {
       // along into the coverage stamp too: its .b is the standing-water
       // record the diffusion pass gates on. See u_washWater.
       const waterPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
-      const coverageBase = scratch.runningCoverage(tile.buffer)
+      scratch.runningCoverage(tile.buffer)
       for (let i = 0; i < drawable.length; i++) {
         const dab = drawable[i]
-        if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue
-        if (!coverageBase) {
-          sourceNib(
-            coverage, tile, dab, preset, profile, profile.coverageInkMode,
-            stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
-            wetOf(dab), 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
-            profile.waterDepletion && movingByDab.has(dab) ? 1 : 0,
-          )
-        } else {
-          const sample = { ...dab }
-          const across = acrossByDab.get(dab) ?? [0, 1]
-          const acrossCopy: [number, number] = [across[0], across[1]]
-          const wet = wetOf(dab), water = waterByDab.get(dab) ?? 0
-          const flow = stampFlows ? stampFlows[i] : 0
-          const puddle = puddleByDab.get(dab) ?? 1
-          const poolBlot = profile.waterDepletion && movingByDab.has(dab) ? 1 : 0
-          const presetCopy = { ...preset }, profileCopy = { ...profile }, tileCopy = { ...tile }
-          const draw = (): void => sourceNib(
-            coverage, tileCopy, sample, presetCopy, profileCopy, profileCopy.coverageInkMode,
-            flow, true, water, acrossCopy, wet, 1, [0, 0], null, combs, 0, null, puddle, poolBlot,
-          )
-          draw()
-          scratch.recordRunningCoverage(tile.buffer, draw)
-        }
+        if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue // (§17.70)
+        sourceNib(
+          coverage, tile, dab, preset, profile, profile.coverageInkMode,
+          stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
+          wetOf(dab), 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
+          // (s17.84) ...and the pool share into the coverage's .g - where
+          // the brush was moving: a standing dab has no direction to comb
+          // along (its across is the default, not the travel's).
+          profile.waterDepletion && movingByDab.has(dab) ? 1 : 0,
+        )
         yield pieceTris ? this.ctx.nibDrawCost(tile, dab, preset) : 0
       }
+      // #547 — a brush's mark is a repeated stamp, not a swept smear, so the
+      // bands that fill between samples are switched off for it (ADR 013 §4).
+      // The three older tools keep them: on a turn the bands reach places the
+      // stamps miss, and with nothing there the composite paints bare paper.
       if (!profile.stampsOnly && waterBands.length) {
         for (const piece of ribbonBandPieces(waterBands, pieceTris)) {
           const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
-          if (pieceTris && !px) continue
-          if (!coverageBase) {
-            sourceBands(
-              coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
-              ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
-              combs, 0, null, profile.waterDepletion ? 1 : 0,
-            )
-          } else {
-            const vertices = piece.slice()
-            const tileCopy = { ...tile }
-            const aa = profile.aaPx, delivery = ribbonWaterDelivery(profile)
-            const poolBlot = profile.waterDepletion ? 1 : 0
-            const draw = (): void => sourceBands(
-              coverage, tileCopy, vertices, 'coverage', aa, 0, 0, [0, 0],
-              delivery.water, delivery.retain, combs, 0, null, poolBlot,
-            )
-            draw()
-            scratch.recordRunningCoverage(tile.buffer, draw)
-          }
+          if (pieceTris && !px) continue // (§17.70) nothing of it on this tile
+          sourceBands(
+            coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
+            ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
+            combs, 0, null, profile.waterDepletion ? 1 : 0,
+          )
           yield px
         }
       }

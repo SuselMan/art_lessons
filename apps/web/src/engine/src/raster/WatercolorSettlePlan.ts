@@ -911,15 +911,6 @@ export class WatercolorSettlePlan {
         // (§17.24) …and the coverage the water front extended - MERGED by
         // max (§17.44): the gesture may have gone on stamping the next
         // chunk's coverage while the settle ran.
-        const coverageBase = entry.coverageFilmGesture === scratch.gesture ? entry.coverageFilm : undefined
-        const coverageCommands = coverageBase && runningFilm && !scratch.trackRunningSource ? entry.coverageCommands : undefined
-        if (coverageBase && coverageCommands) {
-          const gl = this.ctx.gl(), mask = gl.getParameter(gl.COLOR_WRITEMASK)
-          try {
-            gl.colorMask(true, true, false, false)
-            this.ctx.passes().fieldOp(entry.coverage, coverageBase, coverageBase, 1, 0, { scissor: [tx, ty, tw, th] })
-          } finally { gl.colorMask(mask[0], mask[1], mask[2], mask[3]) }
-        }
         if (S === 1) {
           const sx = ox0 - x0, sy = field.h - (oy1 - y0)
           entry.coverage.copyRegionInto(field.mask, tx, ty, sx, sy, tw, th)
@@ -930,19 +921,6 @@ export class WatercolorSettlePlan {
           this.ctx.passes().wcResample(tmp, tx, ty, tw, th, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 2, null, entry.coverage, fieldRect)
           tmp.copyRegionInto(entry.coverage, tx, ty, tx, ty, tw, th)
           this.ctx.pool().release(tmp)
-        }
-        if (coverageCommands) {
-          const gl = this.ctx.gl(), mask = gl.getParameter(gl.COLOR_WRITEMASK)
-          const scissor = gl.isEnabled(gl.SCISSOR_TEST), rect = gl.getParameter(gl.SCISSOR_BOX)
-          try {
-            gl.enable(gl.SCISSOR_TEST); gl.scissor(tx, ty, tw, th)
-            gl.colorMask(true, true, false, false)
-            for (const draw of coverageCommands) draw()
-          } finally {
-            gl.colorMask(mask[0], mask[1], mask[2], mask[3])
-            gl.scissor(rect[0], rect[1], rect[2], rect[3])
-            if (!scissor) gl.disable(gl.SCISSOR_TEST)
-          }
         }
         const settledColor = entry.inkColor ? (runningFilm && entry.colorBase ? entry.colorBase : entry.inkColor) : null
         // (§17.44) One paint: its colour record is the deposit times one

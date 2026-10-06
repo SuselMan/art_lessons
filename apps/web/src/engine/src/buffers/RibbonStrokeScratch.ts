@@ -57,7 +57,6 @@ export interface RibbonTileScratch {
   original: AccumulationBuffer
   coverageFilm?: AccumulationBuffer
   coverageFilmGesture?: number
-  coverageCommands?: Array<() => void>
   coverage: AccumulationBuffer
   inkLoad: AccumulationBuffer | null
   /** (#536, §17.17) The deposit as it stood after the wash's last settle —
@@ -113,33 +112,26 @@ export class RibbonStrokeScratch {
   /** Transient next-film continuation while the previous settle is pending. */
   trackRunningSource = false
   runningSourceCommands: Array<() => void> = []
-  trackRunningCoverage = false
 
   runningCoverage(tile: AccumulationBuffer): AccumulationBuffer | undefined {
-    if (!this.trackRunningCoverage) return undefined
+    if (!this.trackRunningSource) return undefined
     const entry = this.getOrCreate(tile)
     if (entry.coverageFilmGesture !== this.gesture) {
       if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
       entry.coverageFilm = this.pool.acquire(tile.width, tile.height)
       entry.coverage.copyTo(entry.coverageFilm)
-      entry.coverageCommands = []
       entry.coverageFilmGesture = this.gesture
     }
     return entry.coverageFilm
   }
 
-  recordRunningCoverage(tile: AccumulationBuffer, draw: () => void): void {
-    if (this.trackRunningCoverage) this.getOrCreate(tile).coverageCommands?.push(draw)
-  }
-
   releaseRunningCoverage(forget = false): void {
     for (const entry of this._tiles.values()) {
       if (entry.coverageFilm && !forget) this.pool.release(entry.coverageFilm)
-      entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined; entry.coverageCommands = undefined
+      entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined
     }
     this.trackRunningSource = false
     this.runningSourceCommands = []
-    this.trackRunningCoverage = false
   }
 
   /** Conservative proof: fresh cleared P/C only; restoration is unknown. */
@@ -441,7 +433,7 @@ export class RibbonStrokeScratch {
   releaseFilm(gesture = this.gesture): void {
     for (const entry of this._tiles.values()) if (entry.coverageFilmGesture === gesture) {
       if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
-      entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined; entry.coverageCommands = undefined
+      entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined
     }
     for (const entry of this._tiles.values()) {
       if (entry.solventGesture === gesture) {
@@ -618,7 +610,6 @@ export class RibbonStrokeScratch {
   forget(): void {
     this.trackRunningSource = false
     this.runningSourceCommands = []
-    this.trackRunningCoverage = false
     this._tiles.clear()
     this.pendingComposite.clear()
   }

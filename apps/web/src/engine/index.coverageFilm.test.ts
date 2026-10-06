@@ -17,7 +17,7 @@ it('allocates running coverage only on demand and releases it after the old job 
   const { engine, pool, tile, scratch } = setup()
   expect(scratch.runningCoverage(tile)).toBeUndefined()
   expect(pool.bytes.live).toBe(0)
-  scratch.trackRunningCoverage = true
+  scratch.trackRunningSource = true
   const film = scratch.runningCoverage(tile)
   const live = pool.bytes.live
   expect(scratch.runningCoverage(tile)).toBe(film)
@@ -33,7 +33,7 @@ it('allocates running coverage only on demand and releases it after the old job 
 it('does not drop the next film when releasing the previous gesture or capture an unresolved rebase', () => {
   const { engine, gl, pool, tile, scratch } = setup()
   scratch.gesture = 2
-  scratch.trackRunningCoverage = true
+  scratch.trackRunningSource = true
   const film = scratch.runningCoverage(tile)
   scratch.releaseFilm(1)
   expect(scratch.peek(tile)?.coverageFilm).toBe(film)
@@ -46,12 +46,12 @@ it('does not drop the next film when releasing the previous gesture or capture a
 
 it('forgets dead coverage without returning old-context handles to the pool', () => {
   const { engine, pool, tile, scratch } = setup()
-  scratch.trackRunningCoverage = true
+  scratch.trackRunningSource = true
   scratch.runningCoverage(tile)
   const release = vi.spyOn(pool, 'release')
   scratch.forget()
   expect(release).not.toHaveBeenCalled()
-  expect(scratch.trackRunningCoverage).toBe(false)
+  expect(scratch.trackRunningSource).toBe(false)
   expect([...scratch.tileEntries()]).toHaveLength(0)
   pool.forget(); tile.destroy(); engine.destroy()
 })
@@ -61,35 +61,34 @@ it('owns the coverage base and continuation only until the pending rebase is rel
   const coverage = scratch.getOrCreate(tile).coverage
   const pixels = new Uint8Array(32 * 24 * 4).fill(83)
   coverage.restorePixels(pixels)
-  scratch.trackRunningCoverage = true
+  scratch.trackRunningSource = true
   const base = scratch.runningCoverage(tile)!
   expect(base.readPixels()).toEqual(pixels)
   const draw = vi.fn()
-  scratch.recordRunningCoverage(tile, draw)
+  scratch.runningSourceCommands.push(draw)
   expect(draw).not.toHaveBeenCalled()
-  expect(scratch.peek(tile)?.coverageCommands).toEqual([draw])
+  expect(scratch.runningSourceCommands).toEqual([draw])
   scratch.releaseRunningCoverage()
-  expect(scratch.peek(tile)?.coverageCommands).toBeUndefined()
+  expect(scratch.runningSourceCommands).toEqual([])
   scratch.destroy(); pool.destroy(); tile.destroy(); engine.destroy()
 })
 
 it('forgets a pending continuation before settle cancellation can recycle dead handles', () => {
   const { engine, pool, tile, scratch } = setup()
-  scratch.trackRunningCoverage = true
+  scratch.trackRunningSource = true
   scratch.runningCoverage(tile)
-  scratch.recordRunningCoverage(tile, vi.fn())
+  scratch.runningSourceCommands.push(vi.fn())
   const release = vi.spyOn(pool, 'release')
   scratch.releaseRunningCoverage(true)
   scratch.releaseRunningCoverage()
   expect(release).not.toHaveBeenCalled()
   expect(scratch.peek(tile)?.coverageFilm).toBeUndefined()
-  expect(scratch.peek(tile)?.coverageCommands).toBeUndefined()
+  expect(scratch.runningSourceCommands).toEqual([])
   scratch.forget(); pool.forget(); tile.destroy(); engine.destroy()
 })
 
 it('drops source commands and their ownership on loss without replaying stale handles', () => {
   const { engine, pool, tile, scratch } = setup()
-  scratch.trackRunningCoverage = true
   scratch.trackRunningSource = true
   scratch.runningCoverage(tile)
   const draw = vi.fn()
