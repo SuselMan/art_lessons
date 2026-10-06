@@ -193,3 +193,18 @@ Pointerdown13.8ms, `_completeSettle`11ms (971pending), move внутри пер�
 Без debug/toplevel/scheduler, категории devtools.timeline/v8/cc/gpu/viz/user_timing,10s. GL0/nonempty/errors0, ownedChrome закрыт02:39:30. JSON всё равно превысил16MiB;81201 полных prefixevents покрывают performance5043–13371ms, включая оба следующих PenDown. Burst2rAF133.3/99.9ms перекрываются CrGpuMainOnAsyncFlush88.923ms(at6983.669) иSwapBuffers75.802(at7131.878). Burst3rAF138.8ms перекрывается MakeCurrent116.892(at8371.084), затемSwap67.533(at8519.549). Это повтор положительных driver/GPU-service CPUwall событий; wholetraceобрезана, absenceclaims запрещены.
 
 CPU подготовлен lossless streaminggzip (`temp/idle-batch/cdp-native/boundedTrace.mjs`):10s/8MiBbuffer/16MiBcompressed/64MiBdecoded,256KiBIOchunks+backpressure, no wholememory. MockCDP proof458907decoded→26170compressed точногоJSON, endonce/detach/noGL PASS. Новый GPUrun требует отдельного grant. Никакого appsource/defaultenable изменения.
+
+### Причинная экранная абляция OFF/ON/ON/OFF, 02:46–02:49 UTC
+
+**Диагностика, не продуктовый фикс:** только `_composePaperToScreen` заменён noop; `_display`, `_flushLiveComposite`, сборка canonicalFBO/reveal/dirtyrect сохранены. Исходный метод восстановлен finally, до экспортов; исходник7322/idleOFF/9flags неизменны. Сначала frozen65 OFF/ON: sourceOps/P/C/V/dryP/C/wholetransparentPNG **exact**, nonemptyGL0. Затем четыре native80burst3 в одном ownedChrome/sequentialcontexts, no addedGLsync/readback,120s/case. Chromeclosed02:49:39UTC, всеGL0/errors0/nonempty.
+
+| Экран | Burst2 max | Burst3 max | Active median | Finalsolver |
+|---|---:|---:|---:|---:|
+| OFF (обычный)1 |150ms|216.7ms|22.2ms|15.323s|
+| ON (экранnoop)1 |16.8ms|16.8ms|16.7ms|16.647s|
+| ON (экранnoop)2 |16.8ms|16.8ms|16.7ms|16.643s|
+| OFF (обычный)2 |150ms|216.6ms|22.2ms|15.225s|
+
+ON пропустил818/823screenpasses. `_completeSettle` остаётся4.7–17.1ms с946–998pendingops; canonical solver не ускоряется. Устойчивое исчезновение rAFblackout и45→60Hz при отключении экранного прохода указывает на screen/presentation/compositor/GPUqueue contention как важный лимитер, подтверждая отдельные CDP GPUservice/swap задачи. **Это не готовое решение: пользователь во времяON не видит рисование**, и nativeops отличаются при иной кадровойчастоте; exactPNG между различными nativeжурналами не заявляется. Exactgate использует frozen65 одинаковыеops. Следующий шаг должен сохранить screenoutput и отделить цену screenpass от compositor/contextswitch, без новой физики или defaultON.
+
+Passive getContext registry: в каждой странице создано5uniqueWebGLcontexts до/при входе вroom, размеры при создании300×150. Один page/author engine; createdcount не говорит сколькоcontextsalive и не включает compositorEGL. Registry не создаётcontexts и originalgetContext вызываетсяexactonce; CPUmockreturn/unique/restorePASS. Полные результаты `temp/idle-batch/screen-balanced-7322/summary.json`, frozenproof `screen-fixed-7322/comparison.json`; исходникприложения неизменён.
