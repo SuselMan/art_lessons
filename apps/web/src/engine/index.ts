@@ -4711,6 +4711,13 @@ export class PencilEngine implements PencilEngineAPI {
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
+    // Context loss invalidates the wet overlay's GL name too. Forget it
+    // before _initGL / PaperState can request the first restored display;
+    // deleting the old name would operate on a dead-context resource.
+    this._wetTex = null
+    this._wetTexAt = 0
+    this._wetRect = [0, 0, -1, -1]
+    this._wetShown = -1
     // (§17.53) Their buffers died with the context; the restore rebuilds.
     for (const job of this._rebuildJobs.values()) if (job.timer) clearTimeout(job.timer)
     this._rebuildJobs.clear()
