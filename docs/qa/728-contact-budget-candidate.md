@@ -116,3 +116,24 @@ Vega, fixed timeline journal2 water80→pigment15 на frozen5314 с scoped8aa d
 Faithful diagnostic fixtures оставляют ВЕСЬ original journal prefix, без удаления/пересэмплирования: seq1..27 (27ops, Node JSON SHA91428ed202e9994569c157ce0a262e9488c0dd320f51c143f73b0bcc2b6a0e81), seq1..34 (34ops, SHA3b630baede25fb251ce437ba1acc9aebf8998221e83d00d51c4449c91370f314). Оба сохраняют undo6/13, clear11, dry16/18 и все water predecessors. Target27 full100:100/wet82 внутри water26, wash2xbTjBRSxT; target34 full100:100/wet98 внутри water33, washT6JLvUEGsV, prior31/32 тоже остаются. Original Fine1754×2480, безsnapshot. Они пока не измерены аппаратно. Ориентировочные world ROI27[1235,1705,1311,1768], ROI34[902,1427,985,1503] включают nib support; для реального front gate нужно добавлять действительный budget margin, а не отсекать front этим bbox.
 
 Water-front source использует восемь направлений с длинами1/√2. На плоском постоянном film/cost, при достаточной relaxation и до8-bit quantization, получается octile metric: max(|dx|,|dy|)+(√2−1)min(|dx|,|dy|). Iso-cost контур имеет восемь граней; в22.5° radius на7.61% меньше евклидова. CPU oracle temp/profile/octile-reference.{py,json} явно перечисляет допущения. Это конкретная отдельная гипотеза crystal facets, НЕ объяснение pre-solver V wedge. Требуются настоящие target27/34 P/V/coverage/front-cost maps до/после; никаких source/model изменений на основе одной этой формулы не сделано.
+
+### ROI ping-pong: первый hardware oracle (7 октября, 22:20 UTC)
+
+Диагностический source `1b2368a4` на собственном HOME5311 основан на
+`8aa7e9f0`, с точным production early-zero `bd9dc5f4`. Это не текущий
+chronology-кандидат root. Флаг `contactRoiPingPong` по умолчанию выключен.
+Frozen source passport: `temp/profile/roi-source-passport.json`.
+
+Samsung Adreno650: отдельные последовательные страницы1269 OFF/1270 ON,
+обе закрыты до следующего arm. Один неизменный five-operation journal
+`fcfcb085cde1b566b2845ff75307a5633150e52c22faa1e7893372216225f7cb`,
+настоящая незавершённая работа `next=1,total=1334`, A4Fine1754×2480.
+Полные ненулевые P/C/V/coverage1024² совпали по SHA256; whole RGBA1754×2480
+совпала байт в байт (0 изменённых пикселей/max0,4,006,163 colored), GL0,
+context alive. В обоих arms four synchronous preview callbacks.
+Это не счётчик видимых кадров и не доказательство всего живого morph.
+
+15.796/15.805с включают fixture/readback и не показывают ускорения. Следующий
+гейт — actual destination/copy census, затем native rAF/newtouch. Raw PNG
+только HOME `temp/contact-budget/samsung/roi-fixed-{off,on}.png`; маленькие
+отчёты VPS `temp/profile/roi-fixed-{off,on}.json`. Default не включён.
