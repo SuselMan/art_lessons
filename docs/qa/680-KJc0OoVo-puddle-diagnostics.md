@@ -58,3 +58,13 @@ Source candidate реализует тот же local depth prior; runtime ablat
 CPU shader tests22PASS. Новая проверка настоящего emitted watercolor optical-read GLSL не допускает зависимости от u_color; она FAIL на старом f539 source (1fail/21pass), PASS на кандидате. Dependencies не устанавливались, использован существующий Vitest executable с временным явным config/aliases вне tracked source. Frozen5314 не менялся.
 
 Raw HOME temp/KJc0OoVo/minimal/{report.json,baseline.png,unitPlateau.png,localPrior.png,comparison.jpg}. Перенос между disconnected water islands материальным оператором пока не доказан и этой color правкой не заявлен решённым. Причина подтверждённого внешнего перекрашивания — optical fallback, обе проблемы нельзя объединять в одно объяснение.
+
+## Ограниченная подпитка с проверкой пути: отрицательный результат
+
+Runtime pathPlateau допускает equal-cost обмен только strides1/2/4 и проверяет ВСЕ промежуточные texels cost0. SenderUV передаётся явно в обе outgoing/incoming callsites, поэтому donor normalization проверяет тот же путь. GLSL loop фиксирован p1..3. Baseline/pathPlateau Vega GL0/lostfalse, patchHits4; own Chrome finally closed.
+
+Каёмка seq27 немного ослабевает, но остаётся отчётливо видимой; это не достаточное исправление, source candidate не создан. Растекание сохраняется. В двух видимых раздельных синих пятнах новой примеси не видно, однако это не доказательство нулевого переноса между всеми disconnected components.
+
+В ringROI80×64 final inkLoad P.b sum211627→211210, max98→95, saturated255count0 в обоих; C.a те же значения. inkDry P.b sum210604→210238,max97→94, saturated255count0. В colorDepth RGB saturated255count0. Это только локальные sums/max/counts: поле за ROI не считалось, глобальная масса не заявляется. Разница локальных sums может включать перемещение через границу ROI и восьмибитное округление.
+
+Raw HOME temp/KJc0OoVo/path-plateau/{report.json,baseline.png,pathPlateau.png,comparison.jpg}; CPU script сохранён temp/KJc0OoVo/path-plateau.mjs. Существующий localPrior source candidate0c49d9ab независим и не содержит этой operator абляции.
