@@ -56,6 +56,9 @@ export class WatercolorSettleQueue {
   /** Candidate remains opt-in until physical-device budget and parity gates pass. */
   contactBatchEnabled = false
 
+  /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
+  contactBatchMax: 4 | 8 | 16 = 4
+
   private _settleTickAt = 0
 
   private _settleSkipped = 0
@@ -127,7 +130,8 @@ export class WatercolorSettleQueue {
       if (this.contactBatchEnabled && !late && !this.ctx.isDrawing() && this.ctx.syncGpu
         && contactPulses.has(s.ops[s.next])) {
         const batchAt = performance.now()
-        for (let n = 0; n < 4 && this._settle === s && contactPulses.has(s.ops[s.next]); n++) {
+        const cap = this.contactBatchMax === 8 || this.contactBatchMax === 16 ? this.contactBatchMax : 4
+        for (let n = 0; n < cap && this._settle === s && contactPulses.has(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize
           // every pulse, so a slow device overruns by only one existing step.
