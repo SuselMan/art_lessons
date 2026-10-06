@@ -277,3 +277,5 @@ Gradient-noise+paper-fixed domain warp1292 CLOSED/GL0, четыре реальн
 CPU pattern atlas показывает происхождение mesh напрямую: исходное среднее трёх вытянутых полей пересекается треугольниками. Его std≈.367 против≈.679 у нового single-gradient field на той же области. Следующий предложенный, ещё не измеренный шаг — variance-matched output вокруг mean≈.75 со strength.5, сохраняя threshold/halo.
 
 Артефакты HOME triangle: `front34-fibre-candidate-atlas.jpg` (rejected stripes), `front34-fibre-gradient-atlas.jpg`, `front34-fibre-authority-baseline-planes.json`, `front34-fibre-gradient-planes.json`, `fibre-pattern-cpu.py`, `fibre-pattern-cpu-atlas.jpg`. Все изменения только runtime own contexts; source5311/HMR и production неизменны.
+
+Soft contrast1293 CLOSED/GL0 сохраняет halo gate/threshold и remaps raw вокругmean.75 со strength.5. Authoritative wet868175→866060 (−0.2436%), dry843154→841119 (−0.2414%), Cα=P; whole9679/max41. Сетка отсутствует, islands слабее, но ещё заметны: до review/default это пограничный кандидат, не готовое исправление. `front34-fibre-soft-atlas.jpg` сохранён HOME.
