@@ -29,3 +29,10 @@ Matched oracle: native18-op baseline (17 stroke chunks + ordered UI Dry) сох�
 Корректная чистая вода normal:100:0: прямойA4/400, active241/max17мс/0>33, tail100мс; dense OFF7chunks active310/max217мс/13>33/5>100, tail150мс. После isolated zero-source patch native ON на новой пустой комнате:8chunks, все8prepare skip=true/known=true; active337/max150мс/7>33/2>100, tail400мс, GL0/8ACK. Native payload/time/начальное состояние различаются, поэтому это не строгий paired speed A/B; полная плавность НЕ подтверждена. Доказано, что gate действует во всех живых порциях, а не только в первой. В конце actual recorded preset проверен normal:100:0.
 
 Offline native/history analysis: все alpha255/exact; из744130 изменённых RGB пикселей только242 имеют delta>8. Суммарный signedRGB drift [+2189,+1992,+3525], bbox[2,583,1753,1848]. Геометрия и большая часть тона визуально сохраняются; это распределение мелких различий с редкими большими. Не потеря слоя, но строгий паритет ещё не достигнут. Lossless PNG native/replay сохранены на HOME и VPS.
+
+
+## Combined engine18018025, 23:09 UTC
+
+Actual visible Surface Intel Iris Xe on ownHTTP5319, A4 Fine1754×2480, prior UI/backend4537. All diagnostic switches OFF. Native purewater400 zigzag6seconds:7 ACK chunks seq9–15, active max534ms/18frames>33/6>100, tail300ms, GL0 and stable timeOrigin. Existing own water room; accumulated state differs from earlier measurements, so this is not causal A/B. It does contradict the target of smooth dense brush400. Scratch219MB/field90MB/reveal48MB.
+
+Explicit engine Dry (old UI still pencil; no UI Dry claim), then wholeRGBA saved into indexedDB qa-728-surface/fixtures combined180-baseline. No-checkpoint forced rebuild from seven resident water entries: whole1754×2480 exact0/max0/GL0. This is limited pure-water parity, not pigmented full-history restore. Raw JSON/scripts under temp/night-728/surface-combined180*.
