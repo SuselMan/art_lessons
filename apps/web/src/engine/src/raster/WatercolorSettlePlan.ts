@@ -1,4 +1,4 @@
-import { contactPulseOp } from '../watercolor/WatercolorSettleQueue'
+import { contactPulseOp, frontStepOp } from '../watercolor/WatercolorSettleQueue'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -412,10 +412,10 @@ export class WatercolorSettlePlan {
         for (let i = 0; i < list.length; i += 4) {
           const chunk = list.slice(i, i + 4)
           const last = i + chunk.length >= list.length
-          ops.push(() => {
+          ops.push(frontStepOp(() => {
             for (const st of chunk) { frontStep(pp.src, pp.dst, max, climb, floor, st); const t = pp.src; pp.src = pp.dst; pp.dst = t }
             if (last && pp.src !== home) this.ctx.passes().fieldOp(home, pp.src, pp.src, 1, 0)
-          })
+          }))
         }
       }
       ops.push(() => { this.ctx.passes().fieldOp(field.pressure, mobile, field.coverage, 10, 0.003, { band: [1 / costMax, standing], size: [(budgetPx - 1) / costMax, 0] }); pp.src = field.pressure; pp.dst = tmp })
@@ -605,7 +605,7 @@ export class WatercolorSettlePlan {
             const t = src; src = dst; dst = t
             const ct = csrc; csrc = cdst; cdst = ct
           }
-          ops.push(() => {
+          ops.push(frontStepOp(() => {
             for (const p of plan) {
               const opts = { d: field.pressure, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, 0] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
@@ -613,7 +613,7 @@ export class WatercolorSettlePlan {
             }
             const last = plan[plan.length - 1]
             present(last.dst, b, last.cdst, colour?.b)
-          })
+          }))
         }
         if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
         if (colour && csrc && csrc !== colour.c) { const from = csrc, to = colour.c; ops.push(() => fieldOp(to, from, from, 1, 0)) }

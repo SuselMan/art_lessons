@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
-import { contactPulseOp, WatercolorSettleQueue } from './WatercolorSettleQueue'
+import { contactPulseOp, frontStepOp, WatercolorSettleQueue } from './WatercolorSettleQueue'
 function fixture(cost = 0) {
   let now = 0, drawing = false, serial = 0
   const frames = new Map<number, FrameRequestCallback>(), events: number[] = []
@@ -11,11 +11,22 @@ function fixture(cost = 0) {
   const q = new WatercolorSettleQueue({ beforeStart() {}, perf: () => ({ settleStart: 0, settleOps: 0, settleMs: 0 }),
     isDrawing: () => drawing, backlogSize: () => 100, backlogMax: () => 4, syncGpu: sync, noteActivity() {}, scheduleFieldRelease() {} })
   const step = (id: number) => contactPulseOp(() => events.push(id))
+  const front = (id: number) => frontStepOp(() => events.push(id))
   const frame = (gap = 16) => { now += gap; const [id, fn] = [...frames][0]; frames.delete(id); fn(now) }
   const start = (ops: Array<() => void>) => q.start({ live: true } as RibbonStrokeScratch, [() => events.push(0), ...ops], () => events.push(99))
-  return { q, sync, events, step, frame, start, setDrawing: (v: boolean) => { drawing = v } }
+  return { q, sync, events, step, front, frame, start, setDrawing: (v: boolean) => { drawing = v } }
 }
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+it('keeps front batches separate from contact pulses and uploads', () => {
+  const f = fixture(); f.q.frontBatchEnabled = true; f.q.contactBatchEnabled = true
+  f.start([f.front(1), f.front(2), f.step(3), () => f.events.push(7)]); f.frame()
+  expect(f.events).toEqual([0, 1, 2]); expect(f.sync).toHaveBeenCalledTimes(2)
+})
+it('limits one front chunk over budget to its existing work', () => {
+  const f = fixture(12); f.q.frontBatchEnabled = true
+  f.start([f.front(1), f.front(2)]); f.frame()
+  expect(f.events).toEqual([0, 1]); expect(f.sync).toHaveBeenCalledTimes(1)
+})
 it('bounds one post-lift batch to four pulses even with a peer backlog', () => {
   const f = fixture(); f.q.contactBatchEnabled = true; f.start(Array.from({ length: 8 }, (_, i) => f.step(i + 1))); f.frame()
   expect(f.events).toEqual([0, 1, 2, 3, 4]); expect(f.sync).toHaveBeenCalledTimes(4)
