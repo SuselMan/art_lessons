@@ -25,6 +25,8 @@ export interface WatercolorSettlePlanContext {
   ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean }
   /** Presentation only; canonical solver steps and final landing never consult this. */
   shouldPreview?(): boolean
+  /** Optional #728 late fibre diagnostic; canonical log remains unchanged. */
+  gradientFibres?(): boolean
   passes(): WatercolorPasses
 }
 
@@ -699,6 +701,7 @@ export class WatercolorSettlePlan {
         // (§17.82) The far slices - settled after the long steps, the faint
         // outer halo - go down through the paper's fibres (wcFibre).
         const fibreFrom = WET_SETTLE_FIBRE_FROM
+        const gradientFibres = this.ctx.gradientFibres?.() ?? false
         const world: [number, number, number] = [x0 / S, -(y0 / S + field.h), S]
         const settleSlice = (k: number): void => {
           if (!(w.slices[k] > 0)) return
@@ -707,7 +710,7 @@ export class WatercolorSettlePlan {
             // Reuse them for fixed-slice sums, then copy back; no histories
             // or extra field-sized textures are needed.
             const addSlice = (fixed: AccumulationBuffer, mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
-              if (k >= fibreFrom) this.ctx.passes().fieldOp(tmp, fixed, mobile, 1, w.slices[k], { world, d: field.band, dir: [1, 1] })
+              if (k >= fibreFrom) this.ctx.passes().fieldOp(tmp, fixed, mobile, 1, w.slices[k], { world, d: field.band, dir: [1, 1], ...(gradientFibres ? { gradientFibres: true } : {}) })
               else fieldOp(tmp, fixed, mobile, 1, w.slices[k])
               fieldOp(fixed, tmp, tmp, 1, 0)
             }
@@ -715,7 +718,7 @@ export class WatercolorSettlePlan {
             addSlice(colour.b, paired.src, paired.dst)
             return
           }
-          if (k >= fibreFrom) this.ctx.passes().fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k], { world, d: field.band, dir: [1, 1] })
+          if (k >= fibreFrom) this.ctx.passes().fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k], { world, d: field.band, dir: [1, 1], ...(gradientFibres ? { gradientFibres: true } : {}) })
           else fieldOp(acc.free, acc.fixed, st.src, 1, w.slices[k])
           const t = acc.fixed; acc.fixed = acc.free; acc.free = t
         }

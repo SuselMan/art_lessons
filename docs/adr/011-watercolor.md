@@ -5791,3 +5791,32 @@ baseline-прогона этой уменьшенной геометрии, чт
 `unified-{samsung,vega,gpu-diff}.json`, соответствующие PNG. Удалён один лишний
 GPU-проход и специальные правила, но ускорение всего движка не измерено:
 на первом мокром штрихе теперь выполняется общий wet-mixing путь.
+
+### Дополнение #728 — поздние волокна без пересечения трёх решёток (diagnostic OFF)
+
+Принцип решения — `cross-device-determinism` из `understanding.yaml`: lattice
+запечена заранее, участники читают одинаковые значения; Operation Log и дабы не
+меняются. Причинный опыт на настоящем prefix34 KJc0OoVo показал, что late
+`wcFibre` создаёт треугольную решётку в физическом P и сухом halo. Отключение
+только этого множителя убрало решётку, сохранив prefront/carry inputs. Четыре
+соседа вместо восьми во front меняют halo, но решётку не убирают.
+
+Прототип заменяет три фиксированных elongated value-noise orientations одним
+умеренно вытянутым gradient field с мягким paper-fixed domain warp. Это не
+вращение по dome gradient: старые концентрические дуги не возвращаются таким
+способом. Сохранены cutoff 0.58/0.85 и downstream halo gate; factor имеет mean
+0.75 и strength 0.25. Первые сильные версии отклонены: одна ориентация дала
+полосы, полный gradient contrast — декоративные пятна. Измеренные dry mass
+изменения hash-based diagnostic на настоящих27/34 были −0.573%/−0.191%; это
+не mass-conserving оператор. Baked variant необходимо измерить отдельно.
+
+Отдельная cached low-программа сохраняет четыре OFF shader strings точно.
+`WatercolorPasses` владеет её созданием, unbind/delete и сбросом после потери
+контекста; поздний Plan передаёт opt-in лишь осадочным slices. Единственный
+добавленный sampler — уже существующая noise texture на unit7. Новых textures,
+буферов, владельцев материала и операций нет. Флаг `_wcGradientFibres=false`.
+Прогрев доступен отдельно; eventual default ON требует прогрева при подготовке
+движка, а не компиляции в первом штрихе. До ON обязательны salted cold compile
+всех пяти программ, actual27/34 visual/mass, dry10 negative, native/replay и
+undo/redo на актуальном combined source. Светлое внутреннее кольцо — отдельная
+проблема. Подробные отрицательные результаты и raw пути: QA728 contact budget.
