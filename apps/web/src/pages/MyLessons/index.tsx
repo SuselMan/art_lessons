@@ -809,11 +809,12 @@ export function MyLessons() {
         <ViewToggle t={t} view={view} onChange={setView} />
         <Link
           className={styles.newRoomLink}
+          aria-label={t('lessons.newRoom')}
           to="/create"
           state={currentFolderId ? { folderId: currentFolderId } : undefined}
         >
           <Icon name="add" />
-          {t('lessons.newRoom')}
+          <span className={styles.newRoomLabel}>{t('lessons.newRoom')}</span>
         </Link>
       </div>
 
