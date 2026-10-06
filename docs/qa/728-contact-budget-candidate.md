@@ -243,3 +243,13 @@ Frontmetric причинно участвует в конечном пигмен
 остаётся в обоих arms. Raw/atlas толькоHOME
 `temp/contact-budget/triangle/front27-{baseline,cardinal}-planes.json`,
 `front27-atlas.jpg`, `front27-comparison.json`, wholePNG рядом.
+
+### Настоящий prefix34: фронт влияет на halo, сетка остаётся
+
+На frozen own5311 (1b2368a4/8aa, не текущий combined) выполнены последовательные Samsung baseline1285 и cardinal1286; обе собственные страницы закрыты. Immutable prefix SHA `3b630baede25fb251ce437ba1acc9aebf8998221e83d00d51c4449c91370f314`, все предшественники сохранены. Только целевые 138 waterFront calls переключены с восьми на четыре соседа; исходники стенда не менялись.
+
+Полные prefront P/C/V/coverage 1536² совпали по SHA, actual `u_dryContact=0`, GL0. Перед carry P/C/V ещё совпадают, cost различается на 16036 пикселях (max120); coverage уже после front отличается на163 (max228). Конечные P/C различаются на21432 (max29), V точен, whole RGBA на24193 (max72). Значит метрика причинно меняет перенос/halo, однако видимая треугольная сетка сохраняется в обоих вариантах; исправление пользовательских треугольников не доказано.
+
+Полные lossless prefront PNG сохранены из cardinal capture и представляют также baseline seed благодаря полным SHA. Каналы R/G/B/A уложены слева направо непрозрачным grayscale, чтобы Canvas premultiplication не теряла RGB при нулевом alpha. Положение поля `[640,1154,1]`. World-space target ribbon vertices занимают bbox x911.38–980.39/y1428.01–1497.35, около69×69 px: прямая геометрия target не достигает наружной сетки. Это ещё не исключает переноса её атрибутов.
+
+Артефакты на HOME: `/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/contact-budget/triangle/`: `front34-{baseline,cardinal}.png`, `front34-cardinal-planes.json` (полные seed PNG metadata и bands), `front34-cardinal-prefront-{P,C,V,coverage}.png`, `front34-comparison.json`, `front34-atlas.jpg`, `front34-bands-overlay.jpg`. Raw не переносились на VPS.
