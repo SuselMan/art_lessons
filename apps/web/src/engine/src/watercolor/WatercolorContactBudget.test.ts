@@ -64,3 +64,19 @@ it('retains abort ownership if a pulse cancels its job', () => {
   f.q.start({ live: true } as RibbonStrokeScratch, [() => {}, contactPulseOp(() => f.q.cancel()), f.step(2)], finish, { isAlive: () => true, abort }); f.frame()
   expect(abort).toHaveBeenCalledTimes(1); expect(finish).not.toHaveBeenCalled(); expect(f.events).toEqual([])
 })
+it('permits an eight millisecond diagnostic contact budget but synchronizes every pulse', () => {
+  const f = fixture(0.5); f.q.contactBatchEnabled = true; f.q.contactBatchMax = 16; f.q.contactBudgetMs = 8
+  f.start(Array.from({ length: 32 }, (_, i) => f.step(i + 1))); f.frame()
+  expect(f.events).toEqual([0, ...Array.from({ length: 16 }, (_, i) => i + 1)])
+  expect(f.sync).toHaveBeenCalledTimes(16)
+})
+it('keeps front chunks at four milliseconds despite an eight millisecond contact option', () => {
+  const f = fixture(2); f.q.frontBatchEnabled = true; f.q.contactBudgetMs = 8
+  f.start([f.front(1), f.front(2), f.front(3), f.front(4)]); f.frame()
+  expect(f.events).toEqual([0, 1, 2]); expect(f.sync).toHaveBeenCalledTimes(2)
+})
+it('falls back to four milliseconds for an unsupported runtime budget', () => {
+  const f = fixture(1); f.q.contactBatchEnabled = true; f.q.contactBatchMax = 16; f.q.contactBudgetMs = 400 as 4
+  f.start(Array.from({ length: 32 }, (_, i) => f.step(i + 1))); f.frame()
+  expect(f.events).toEqual([0, 1, 2, 3, 4]); expect(f.sync).toHaveBeenCalledTimes(4)
+})

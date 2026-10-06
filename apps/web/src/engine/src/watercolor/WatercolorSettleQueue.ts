@@ -61,6 +61,8 @@ export class WatercolorSettleQueue {
 
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
+  /** Diagnostic post-lift throughput tradeoff; front chunks retain their 4 ms budget. */
+  contactBudgetMs: 4 | 8 = 4
 
   /** Separate diagnostic: never enables contact batching or crosses uploads. */
   frontBatchEnabled = false
@@ -139,12 +141,13 @@ export class WatercolorSettleQueue {
         const batchAt = performance.now()
         const cap = batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
           ? this.contactBatchMax : 4
+        const budgetMs = batchable === contactPulses && this.contactBudgetMs === 8 ? 8 : 4
         for (let n = 0; n < cap && this._settle === s && batchable.has(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize
           // every pulse, so a slow device overruns by only one existing step.
           this.ctx.syncGpu()
-          if (performance.now() - batchAt >= 4 || this.ctx.isDrawing()) break
+          if (performance.now() - batchAt >= budgetMs || this.ctx.isDrawing()) break
         }
         break // Per-tick backlog acceleration must not multiply this budget.
       }
