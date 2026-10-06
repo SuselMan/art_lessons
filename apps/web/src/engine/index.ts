@@ -1744,8 +1744,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  of a rect from the deposit, so the union of the batches since the last
    *  frame gives the same pixels as the batches one by one. */
 
+  /** Preserve the next film after the preceding settle lands (ADR 011). */
+  private _wcSourceFilmRebase = true
   /** Opt-in diagnostic: only proven-zero pigment contact operators. */
-  private _wcSourceFilmRebase = false
   private _wcZeroPigmentContacts = false
 
   private readonly _settlePlan = new WatercolorSettlePlan({
