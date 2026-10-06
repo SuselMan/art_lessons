@@ -109,9 +109,9 @@ export class WatercolorPasses {
     gl.activeTexture(gl.TEXTURE3)
     gl.bindTexture(gl.TEXTURE_2D, (opts.d ?? b).texture)
     gl.uniform1i(u.u_d, 3)
-    if (mode === 18 && opts.e) {
+    if ((mode === 18 && opts.e) || mode === 15 || mode === 16) {
       gl.activeTexture(gl.TEXTURE4)
-      gl.bindTexture(gl.TEXTURE_2D, opts.e.texture)
+      gl.bindTexture(gl.TEXTURE_2D, (opts.e ?? b).texture)
       gl.uniform1i(u.u_e, 4)
     }
     gl.activeTexture(gl.TEXTURE0)
@@ -347,8 +347,8 @@ export class WatercolorPasses {
     const { gl } = this
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_wcNoiseTex', 'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',

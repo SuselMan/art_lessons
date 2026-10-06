@@ -5,6 +5,7 @@ import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { WatercolorSettlePlan } from './WatercolorSettlePlan'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
+import { WC_BLOOM_WET_LO, WC_BLOOM_WET_HI } from '../presets/watercolorPresets'
 
 type Probe = {
   _ribbonScratchPool: RibbonScratchPool
@@ -312,3 +313,68 @@ it('opt-in zero contact path keeps front and landing but omits pigment exchanges
   expect(counts[1].front).toBe(counts[0].front)
   expect(counts[1].front).toBeGreaterThan(0)
 })
+
+for (const input of [
+  { name: 'dry', landed: 0, standing: 0, peak: 0, expected: 0 },
+  { name: 'own standing water', landed: 0, standing: 1, peak: 0, expected: 1 },
+  { name: 'prior water', landed: 1, standing: 0, peak: 0, expected: 1 },
+  { name: 'later wet contact', landed: 0, standing: 0, peak: 0.75, expected: 0.75 },
+]) {
+  it(`supplies the carry's wet plateau gate from ${input.name}`, () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile)
+    scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+    const spy = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    try {
+      const plan = probe._settlePlan.prepare(scratch,
+        [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 },
+        0, 8, 0, input.landed, input.standing, input.peak)!
+      for (const op of plan.ops) op()
+      plan.finish()
+      const carry = spy.mock.calls.filter(call => call[3] === 15 || call[3] === 16)
+      expect(carry.length).toBeGreaterThan(0)
+      for (const call of carry) expect(call[5]?.band?.[1]).toBe(input.expected)
+    } finally {
+      spy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  })
+}
+
+for (const enabled of [false, true]) for (const hasSolvent of [false, true]) {
+  it(`captures the diagnostic plateau switch and solvent input (enabled=${enabled}, solvent=${hasSolvent})`, () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile)
+    if (hasSolvent) scratch.solventFilm(tile)
+    expect(probe._settlePlan.diagnosticPlateauPhase).toBe(false)
+    probe._settlePlan.diagnosticPlateauPhase = enabled
+    const spy = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    try {
+      const plan = probe._settlePlan.prepare(scratch,
+        [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0, 8, 1, 1, 1, 1)!
+      // A subsequent diagnostic setting must not change an already-created job.
+      probe._settlePlan.diagnosticPlateauPhase = !enabled
+      for (const op of plan.ops) op()
+      const carry = spy.mock.calls.filter(call => call[3] === 15 || call[3] === 16)
+      expect(carry.length).toBeGreaterThan(0)
+      for (const call of carry) {
+        expect(call[5]?.tau).toEqual([WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, enabled && hasSolvent ? 1 : 0])
+        if (enabled && hasSolvent) {
+          expect(call[5]?.e).toBeDefined()
+          expect(call[5]?.e).not.toBe(call[0])
+          expect(call[5]?.e).not.toBe(scratch.peek(tile)?.solventLoad)
+        } else expect(call[5]?.e).toBeUndefined()
+      }
+      plan.finish()
+    } finally {
+      spy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  })
+}

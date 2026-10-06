@@ -3243,12 +3243,32 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_CARRY_RIDGE = 1.0;
   const float WC_CARRY_VALLEY_HI = 0.46;
   const float WC_CARRY_CREST_LO = 0.54;
-  float wcCarryWeight(float ci, vec2 uvj) {
+  float wcCarryWeight(float ci, vec2 uvi, vec2 uvj) {
     if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) return 0.0;
     float cj = texture2D(u_d, uvj).r;
     if (cj > u_band.x) return 0.0;
     float d = (cj - ci) * u_size.y;
-    if (d <= 1e-3) return 0.0;
+    if (d <= 1e-3) {
+      // A wet source's interior must supply its draining edge. The positive
+      // cost-gradient formula tends to 4^POW as the gradient tends to zero.
+      // Keep this exchange inside the source plateau; every intervening
+      // texel must belong to it, so a stride cannot jump a dry gap.
+      if (u_tau.z <= 0.0 || u_band.y <= 0.0 || ci > 1e-5 || cj > 1e-5 || u_origin.x > 8.0) return 0.0;
+      if (u_tau.y <= u_tau.x) return 0.0;
+      float minV = 4.0 * min(texture2D(u_e, uvi).a, texture2D(u_e, uvj).a);
+      if (minV <= 0.0) return 0.0;
+      for (int p = 1; p < 8; p++) {
+        if (float(p) < u_origin.x) {
+          vec2 uvp = mix(uvi, uvj, float(p) / u_origin.x);
+          float vp = 4.0 * texture2D(u_e, uvp).a;
+          if (texture2D(u_d, uvp).r > 1e-5 || vp <= 0.0) return 0.0;
+          minV = min(minV, vp);
+        }
+      }
+      // V-phase is an experimental closure, not the PaperWetness clock.
+      // The path's weakest fluid node limits a coarse exchange too.
+      return pow(4.0, u_size.x) * smoothstep(u_tau.x, u_tau.y, minV);
+    }
     // (s17.35) ...fading with how far along the front the RECEIVER lies:
     // the flux weakens toward the horizon, so the moved paint lies along the
     // way, dense near the footprint and thin at the tips, instead of piling
@@ -3425,7 +3445,7 @@ export const WC_FIELD_OP_FRAG = `
       if (ci <= u_band.x) {
         float ws[4];
         float wsum = 0.0;
-        for (int k = 0; k < 4; k++) { ws[k] = wcCarryWeight(ci, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
+        for (int k = 0; k < 4; k++) { ws[k] = wcCarryWeight(ci, v_uv, v_uv + wcCarryDir(k) * u_dir); wsum += ws[k]; }
         for (int k = 0; k < 4; k++) {
           vec2 uvj = v_uv + wcCarryDir(k) * u_dir;
           if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
@@ -3441,20 +3461,29 @@ export const WC_FIELD_OP_FRAG = `
           // the plain balance is unchanged (the series capacity alone halved
           // it and the drop in a clean puddle lost two thirds of its reach).
           float capIJ = 2.0 * capI * capJ / (capI + capJ);
+          // Reuse the path phase already contained in the plateau weight.
+          // Applying it to capacity as well keeps weight normalisation from
+          // cancelling a thin bridge's conductance. No extra V reads here.
+          if (ci <= 1e-5 && cj <= 1e-5) capIJ *= ws[k] / pow(4.0, u_size.x);
           // Give: my share toward j, of my excess over j, capped at what
           // travels here.
           if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 5e-5));
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
           if (cj > u_band.x) continue;
-          int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
-          float wj = 0.0, wme = 0.0;
-          for (int mm = 0; mm < 4; mm++) {
-            float w = wcCarryWeight(cj, uvj + wcCarryDir(mm) * u_dir);
-            wj += w;
-            if (mm == back) wme = w;
+          // The incoming flux is exactly zero unless the donor's travelling
+          // concentration exceeds ours. Avoid its four path queries then;
+          // this changes neither a positive flux nor its normalisation.
+          if (Tj > Ti) {
+            int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
+            float wj = 0.0, wme = 0.0;
+            for (int mm = 0; mm < 4; mm++) {
+              float w = wcCarryWeight(cj, uvj, uvj + wcCarryDir(mm) * u_dir);
+              wj += w;
+              if (mm == back) wme = w;
+            }
+            if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 5e-5));
           }
-          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 5e-5));
         }
       }
       gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));

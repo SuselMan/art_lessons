@@ -58,6 +58,28 @@ describe('every shader declares what it uses (#536)', () => {
     expect(opticalRead).not.toMatch(/\bu_color\b/);
     expect(opticalRead).toMatch(/texture2D\(u_inkColor/);
   });
+  for (const [name, src] of PROGRAMS.filter(([name]) => name.startsWith('WC_FIELD_OP'))) {
+    it(`${name} limits coarse plateau capacity by the weakest sampled fluid node (#728)`, () => {
+      // A path can be connected yet much thinner than its endpoints. The
+      // weight's phase also has to reach pair capacity, or normalisation of
+      // ws/wsum cancels the bottleneck. Check all independently emitted
+      // programs, not a second CPU implementation of the same formula.
+      const body = code(src);
+      const start = body.indexOf('float wcCarryWeight(');
+      const end = body.indexOf('float wcCarryCap(', start);
+      expect(start).toBeGreaterThan(0);
+      const weight = body.slice(start, end);
+      expect(weight).toMatch(/u_tau\.z <= 0\.0/);
+      expect(weight).toMatch(/minV = 4\.0 \* min\(texture2D\(u_e, uvi\)\.a, texture2D\(u_e, uvj\)\.a\)/);
+      expect(weight).toMatch(/minV = min\(minV, vp\)/);
+      expect(weight).toContain('smoothstep(u_tau.x, u_tau.y, minV)');
+      const capStart = body.indexOf('float capIJ =');
+      const capacity = body.slice(capStart, body.indexOf('if (ws[k] > 0.0)', capStart));
+      expect(capStart).toBeGreaterThan(0);
+      expect(capacity).toContain('capIJ *= ws[k] / pow(4.0, u_size.x)');
+      expect(capacity).not.toMatch(/texture2D\(u_e/);
+    });
+  }
   for (const [name, src] of PROGRAMS) {
     it(`${name} has no undeclared WC_ constant`, () => {
       const body = code(src)
