@@ -232,3 +232,33 @@ it('returns this job write domain independently of an old wash storage union', (
     expect(source).toEqual({ minX: 20, minY: 20, maxX: 44, maxY: 44 })
   } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
 })
+
+for (const input of [
+  { name: 'dry', landed: 0, standing: 0, peak: 0, expected: 0 },
+  { name: 'own standing water', landed: 0, standing: 1, peak: 0, expected: 1 },
+  { name: 'prior water', landed: 1, standing: 0, peak: 0, expected: 1 },
+  { name: 'later wet contact', landed: 0, standing: 0, peak: 0.75, expected: 0.75 },
+]) {
+  it(`supplies the carry's wet plateau gate from ${input.name}`, () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile)
+    scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+    const spy = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    try {
+      const plan = probe._settlePlan.prepare(scratch,
+        [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 },
+        0, 8, 0, input.landed, input.standing, input.peak)!
+      for (const op of plan.ops) op()
+      plan.finish()
+      const carry = spy.mock.calls.filter(call => call[3] === 15 || call[3] === 16)
+      expect(carry.length).toBeGreaterThan(0)
+      for (const call of carry) expect(call[5]?.band?.[1]).toBe(input.expected)
+    } finally {
+      spy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  })
+}
