@@ -224,3 +224,28 @@ Mean synchronized warmed draw milliseconds unoptimized→optimized:
 профиль из этих интервалов не выводится. Raw: samsung-shortcut-report.json.
 22 shader CPUtests PASS. Полный real-room/native candidate после shortcut
 ещё проверяется отдельно; данные предыдущего native относятся к a431 без него.
+
+
+### Wet/morph: первое ограниченное воспроизведение
+
+Samsung, отдельные страницы1229/1230 закрыты. Frozen5314 index идентичен8aa;
+в оба emit DAB_FRAG/PAPER_COMPOSE_FRAG подставлены полные8aa программы
+(hits2/1, hashes в timeline-input.json), без кольцевого кандидата. Native
+water80→pigment15,512×512, плотный зигзаг; снимается actual display через
+Page.captureScreenshot, не dry export. GL0/lostfalse. Первый timeline показывает
+наклонный светлый клин справа на2s/5s. Это ещё не доказанный треугольник mesh.
+
+Следующий независимый native gesture использован только для presentation AB:
+queue.advance остановлен (tick вызывает именно advance), автоматический display
+приостановлен, performance clock фиксируется внутри ручного display.
+Normal→motionOff→wetToneOff→normalAfter. NormalAfter1088×1088 RGB byte-exact0
+(это crop512CSS px, не whole canvas). Все6 материальных buffers до/после
+сохраняют hashes; P1552073/C1552073/V6960058/coverage14845441 ненулевые,
+dry records0. MotionOff изменяет508936pixels/max82; wetToneOff538929/max7.
+Косой край в этой сцене визуально остаётся, но его форма слабее первого native
+журнала. Поэтому исходную грань нельзя считать причинно объяснённой этим AB.
+
+Кропы450×340: HOME680-combined-stability/temp/KJc0OoVo/triangle-crop-*.png.
+Для следующего опыта сохраняется первый журнал без изменения dabs/seed/wet;
+нужны source P/C/V и polygon-domain stage maps. Только тогда можно отделить
+геометрию и MAX envelope от физики/промежуточного target.
