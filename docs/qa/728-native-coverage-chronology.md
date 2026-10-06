@@ -25,3 +25,13 @@ HOME `680-combined-stability/temp/surface-dense-{native,replay}.png`, analysis/c
 Буфер освобождается при landing/abort/destroy; context loss forget не возвращает dead handles. Snapshot/spill с незавершённым rebase отвергаются, вместо записи неполного continuation. Restore не включает tracking неизвестного film. 3 lifecycle CPU tests проходят; actual web app typecheck, lint и map:check проходят.
 
 GPU кандидата ещё НЕ проверен. RGBA8 source-over неассоциативен из-за округлений: отдельный film может оставить1–2LSB против прежней per-dab хронологии. Если строгий native/rebuild oracle не проходит, кандидат не считается окончательным исправлением; следующий точный путь — replay immutable coverage draw commands нового film на завершённый base. Синхронное completion доказало причину, но не предлагается production, поскольку возвращает GPU hitch на chunk boundary.
+
+### Lazy film — отрицательный аппаратный результат
+
+В Vega OFF/film/complete прогоне на новом native жесте для каждого варианта: OFF16242px/max58/23 delta>8; film24994px/max40/21 delta>8; complete0. Все P/C/V ROI exact, coverage film неexact. GL0/lostfalse/ownedChromeCLOSED. HOME `temp/history-parity/coverage-film/`. `f109413b` НЕ является готовым исправлением и не должен интегрироваться.
+
+### Следующая реализация: immutable команды
+
+Буфер теперь хранит прежний coverage BASE до нанесения нового running film, не сгруппированную текстуру нового film. После предыдущего solver только r/g base восстанавливаются в его фактическом overlap. Затем выполняется прежний MAX copyback и сохранённые source-over draw команды следующего film, в прежнем порядке, с scissor overlap и colorMaskRG. b/a не перерисовываются. Dab, tile, preset/profile и across uniforms копируются при записи, band vertices копируются в независимый Float32Array; новые mutable ссылки на текущий кадр не сохраняются. DefaultOFF путь не записывает команды/не копирует vertices. При release/abort/destroy очищаются и texture, и список команд. При context loss они забываются без GL release. Shader source полностью возвращён к предыдущей реализации, новых shader режимов больше нет.
+
+91 targeted CPU tests PASS (watercolor/parked/lifecycle, включая4 новых lifecycle), actual app+SW typecheck PASS и lint PASS со старыми warnings. GPU версии immutable commands ещё не выполнен на момент этой записи; strict endpoint exact0 остаётся требованием.

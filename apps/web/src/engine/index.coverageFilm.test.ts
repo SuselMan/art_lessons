@@ -55,3 +55,20 @@ it('forgets dead coverage without returning old-context handles to the pool', ()
   expect([...scratch.tileEntries()]).toHaveLength(0)
   pool.forget(); tile.destroy(); engine.destroy()
 })
+
+it('owns the coverage base and continuation only until the pending rebase is released', () => {
+  const { engine, pool, tile, scratch } = setup()
+  const coverage = scratch.getOrCreate(tile).coverage
+  const pixels = new Uint8Array(32 * 24 * 4).fill(83)
+  coverage.restorePixels(pixels)
+  scratch.trackRunningCoverage = true
+  const base = scratch.runningCoverage(tile)!
+  expect(base.readPixels()).toEqual(pixels)
+  const draw = vi.fn()
+  scratch.recordRunningCoverage(tile, draw)
+  expect(draw).not.toHaveBeenCalled()
+  expect(scratch.peek(tile)?.coverageCommands).toEqual([draw])
+  scratch.releaseRunningCoverage()
+  expect(scratch.peek(tile)?.coverageCommands).toBeUndefined()
+  scratch.destroy(); pool.destroy(); tile.destroy(); engine.destroy()
+})

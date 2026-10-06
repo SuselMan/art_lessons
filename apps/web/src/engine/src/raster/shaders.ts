@@ -3304,7 +3304,7 @@ export const WC_FIELD_OP_FRAG = `
       // (s17.44) max(a, b) per channel: the settle's extended coverage merged
       // into a tile's coverage that the gesture may have gone on stamping
       // while the settle ran, instead of overwriting it.
-      gl_FragColor = u_k > 0.5 ? vec4(b.rg + a.rg * (1.0 - b.a), a.ba) : max(a, b);
+      gl_FragColor = max(a, b);
       return;
     }
     if (u_mode > 18.5) {
@@ -4015,8 +4015,7 @@ export const WC_RESAMPLE_FRAG = `
       gl_FragColor = clamp(base + keep * (wcBilerp(u_src, q) - wcBilerp(u_old, q)), 0.0, 1.0);
       return;
     }
-    vec4 sampleCoverage = wcBilerp(u_src, q);
-    gl_FragColor = u_mode > 2.5 ? vec4(sampleCoverage.rg, max(base.ba, sampleCoverage.ba)) : max(base, sampleCoverage);
+    gl_FragColor = max(base, wcBilerp(u_src, q));
   }
 `;
 
