@@ -236,3 +236,63 @@ many capture buffers and asynchronous SHA promises can perturb workload; this
 is diagnostic instrumentation, not smoothness QA. Future captures should use
 only P/C/V/coverage at a few explicit boundaries and enforce nonzero paint ROI
 before interpreting exact hashes. No physics or application source changed.
+
+## Corrected painted-ROI native boundary diagnostic
+
+The minimal follow-up used one actual two-auth Room on genuine Vega/source9eb,
+long native clear-water A then long dry-pigment B. No whole-canvas export was
+called. It read256×128 ROI at world(1006,894), mapping top-origin world y to
+bottom-origin FBO y and reversing rows for its raw canonical layer PNG. CPU
+validation compiled all20 embedded browser commands. An earlier syntax-error
+attempt is excluded and archived separately; both owned browsers closed.
+
+All meaningful ROI guards passed for both peers before rejoin: coverage and V
+were nonzero after water, and P/coverage/V plus raw canonical layer pixels were
+nonzero after pigment. Five scratch buffers were read only within correctly
+clipped tile fragments (18×128 on tilex0,238×128 on tilex1024), with SHA-256
+computed over every byte. GL0/contextLostfalse at these captures. The actual
+native/packed raw canonical ROI differed10703pixels/max10, while ordinary A
+rejoin's raw ROI was nonempty and exact0 versus original A. No whole-image
+comparison is claimed here.
+
+The child stopped at its rejoin ephemeral guard: replay had already completed
+before the newly installed probe, so there were no diagnostic captures and
+P/coverage/V flags were false. This is **missing ephemeral observations**, not
+missing canonical paint: the raw rejoin PNG was nonempty and matched originalA.
+The parent closed Chrome in finally at02:45:00.793UTC. This is a partial
+functional diagnostic, not a full scenario PASS.
+
+Valid stage observations within this painted ROI:
+
+- native clear-water versus packed donor and auxiliary reconstruction had
+  identical V SHA at both chunk boundaries; tiny coverage differences were
+  already present (first boundary channel sum differed by1code);
+- first pigment before-finish P/C/V SHA matched, with a tiny coverage difference;
+- by the second pigment invocation, P/C records had materially diverged while
+  profiles matched; second-finish right-tile ROI P.b sums were16514packed and
+  24242native. Clock differences were small doubles, not a demonstrated cause.
+
+The chronology identifies an ordering boundary that earlier instrumentation
+had obscured: `_startSettle` is used both for drawing work and actual solver
+work. A's first after-complete callback was drawing completion, not solver
+completion. `_finishRibbonStroke(scratch,true,false)` on the author is also
+asynchronous because reveal=true, despite fade=false.
+
+NativeB first chunk returned pending at13184.7ms, began second delivery at
+13202.4ms, and reached second before-finish at13518.9ms; the first solver
+completion was13547.6ms. PackedA first chunk drawing completed15101.1ms, its
+solver completed16093.8ms, and second delivery began16136.8ms. Times are local
+per-page clocks; only relative ordering within each page is compared.
+
+Thus native second delivery uses a still-unsettled first chunk, whereas packed
+second delivery uses its settled result. `WatercolorSettlePlan.finish` later
+updates the running second film's base and rebuilds load/color (runningFilm
+branch), but does not replay the earlier second delivery against that new base.
+This is a concrete temporal boundary, **not yet causal proof** that it explains
+all residual or a demonstrated buffer-alias error. A minimal future diagnostic
+can force completion immediately after native chunk flush, without changing
+physics constants/source, and compare the guarded first/second fields and raw
+ROI. No such GPU ablation was run in this check.
+
+Artifacts: home `temp/two-native-boundary-minimal/long-donor-long-pigment/`;
+local `temp/snapshot/native-boundary-minimal-report.json`, stage/entry comparisons.
