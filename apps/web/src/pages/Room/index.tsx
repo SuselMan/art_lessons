@@ -237,6 +237,10 @@ function RoomEditor() {
   // ready to draw." A joiner already started blocked the same way, via the
   // mount-engine effect's own replay / handleRoomState's reconnect branch.
   const [roomContentReady, setRoomContentReady] = useState(false)
+  const [copyingRoom, setCopyingRoom] = useState(() => (location.state as { copying?: boolean } | null)?.copying === true)
+  useEffect(() => {
+    if (roomContentReady) setCopyingRoom(false)
+  }, [roomContentReady])
   // (#429) Mirrored for the socket effect's live-stroke handler, which is
   // wired once per connection and must see the current value rather than
   // whatever it was when the listener was attached.
@@ -1800,7 +1804,7 @@ function RoomEditor() {
         {notOpen === 'restoreFailed' && (
           <RestoreFailedOverlay reason={restoreFailure ?? 'transfer'} onRetry={retryRestore} />
         )}
-        {notOpen === 'loading' && <RoomLoadingOverlay paper={paperProgress} />}
+        {notOpen === 'loading' && <RoomLoadingOverlay paper={paperProgress} copying={copyingRoom} />}
       </div>
 
       {glLost && <GlLostOverlay />}

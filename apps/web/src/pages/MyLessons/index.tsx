@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection,
@@ -13,6 +13,7 @@ import {
   ApiError, apiPath, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder, moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed,
 } from '../../lib/api/api'
 import { isLoggedIn, useAuth } from '../../lib/api/authState'
+import { RoomLoadingOverlay } from '../Room/status/RoomLoadingOverlay'
 import { preloadRoomPage } from '../Room/roomChunk'
 import { useShareRoom } from '../../components/RoomAccessControl/useShareRoom'
 import { notifyError } from '../../stores/noticeStore'
@@ -143,6 +144,7 @@ interface RoomCardProps {
   onRenameClick: () => void
   onMoveClick: () => void
   onForkClick: () => void
+  onForkAndOpenClick: () => void
   onAccessClick: () => void
   onToggleClosedClick: () => void
   onDeleteOrLeaveClick: () => void
@@ -203,11 +205,11 @@ function PreparingRoomCard({ name, view, t }: { name: string; view: LessonsView;
   )
 }
 
-type PendingCopy = { key: string; id: string; name: string; folderId: string | undefined; search: string | null }
+type PendingCopy = { key: string; id: string; name: string; folderId: string | undefined; search: string | null; open?: boolean }
 
 function RoomCard({
   t, locale, view, room, isOwnRoom, renaming, renameText, onRenameTextChange, onRenameSubmit,
-  onRenameCancel, busy, onShareClick, onRenameClick, onMoveClick, onForkClick, onAccessClick,
+  onRenameCancel, busy, onShareClick, onRenameClick, onMoveClick, onForkClick, onForkAndOpenClick, onAccessClick,
   onToggleClosedClick, onDeleteOrLeaveClick,
 }: RoomCardProps) {
   // (#222) Closed for editing — homework that has been handed out, or a
@@ -242,6 +244,7 @@ function RoomCard({
             { label: t('common.rename'), onClick: onRenameClick },
             { label: t('common.moveTo'), onClick: onMoveClick },
             { label: t('lessons.fork'), onClick: onForkClick, disabled: busy },
+            { label: t('lessons.forkAndOpen'), onClick: onForkAndOpenClick, disabled: busy },
             // Only the owner can toggle it, and the server enforces that
             // independently (#222) — hiding the item for everyone else keeps
             // the menu honest rather than offering an action that 403s.
@@ -466,6 +469,8 @@ function ViewToggle({ t, view, onChange }: {
 }
 
 export function MyLessons() {
+  const navigate = useNavigate()
+  const [openingCopy, setOpeningCopy] = useState(false)
   const t = useT()
   const locale = useLocale()
   const view = useSettingsStore(s => s.lessonsView)
@@ -604,17 +609,24 @@ export function MyLessons() {
   // make forking three of them a matter of going back twice.
   const forkMutation = useMutation({
     mutationFn: (copy: PendingCopy) => forkRoom(copy.id, { name: copy.name, scope: 'lesson' }),
-    onMutate: copy => setPendingCopies(prev => [copy, ...prev]),
+    onMutate: copy => {
+      if (copy.open) setOpeningCopy(true)
+      else setPendingCopies(prev => [copy, ...prev])
+    },
     onSuccess: ({ room }, copy) => {
       queryClient.setQueryData<RoomsAtFolder | undefined>(
         roomsQueryKey(room.folderId), prev => prev && { ...prev, rooms: [room, ...prev.rooms.filter(r => r.id !== room.id)] },
       )
+      if (copy.open) navigate(`/room/${room.id}`, { state: { copying: true } })
       // Keep the new card visible where copying started, including search results.
       if (copy.search !== null) queryClient.setQueryData<{ rooms: Room[] } | undefined>(
         searchQueryKey(copy.search), prev => prev && { ...prev, rooms: [room, ...prev.rooms.filter(r => r.id !== room.id)] },
       )
     },
-    onError: () => notifyFailure(t('lessons.error.fork'), 'fork-room'),
+    onError: (_, copy) => {
+      if (copy.open) setOpeningCopy(false)
+      notifyFailure(t('lessons.error.fork'), 'fork-room')
+    },
     onSettled: (_, __, copy) => setPendingCopies(prev => prev.filter(p => p.key !== copy.key)),
   })
   // (#222) The room comes back with its new `closedAt`, so the card updates
@@ -773,6 +785,7 @@ export function MyLessons() {
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
         onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id, parentFolderId: room.folderId ?? null })}
         onForkClick={() => forkMutation.mutate({ key: crypto.randomUUID(), id: room.id, name: t('lessons.forkedName', { name: room.name }), folderId: room.folderId, search: isSearching ? debouncedSearch : null })}
+        onForkAndOpenClick={() => forkMutation.mutate({ key: crypto.randomUUID(), id: room.id, name: t('lessons.forkedName', { name: room.name }), folderId: room.folderId, search: isSearching ? debouncedSearch : null, open: true })}
         onAccessClick={() => setAccessRoom({ id: room.id, name: room.name })}
         onToggleClosedClick={() => closedMutation.mutate({ id: room.id, closed: room.closedAt === undefined })}
         onDeleteOrLeaveClick={async () => {
@@ -794,6 +807,7 @@ export function MyLessons() {
   return (
     <div className={styles.page}>
       <AppHeader />
+      {openingCopy && <RoomLoadingOverlay copying fullscreen />}
 
       <div className={styles.titleRow}>
         <div className={styles.searchRow}>

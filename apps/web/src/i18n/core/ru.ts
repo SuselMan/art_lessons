@@ -150,6 +150,7 @@ export const ru: Dictionary = {
   'lessons.empty': 'У вас пока нет ни одного проекта.',
   'lessons.folderEmpty': 'Папка пуста.',
   'lessons.preparingRoom': 'Подготавливаем комнату',
+  'lessons.forkAndOpen': 'Сделать копию и открыть',
   'lessons.fork': 'Сделать копию',
   'lessons.forkedName': '{name} — копия',
   'lessons.close': 'Закрыть для редактирования',
@@ -493,6 +494,10 @@ export const ru: Dictionary = {
   'room.lostWork.unnamedLayer': 'Удалённый слой',
 
   // ── проект: тексты загрузки ────────────────────────────────────────────
+  'room.loading.copy.1': 'Срисовываем слои...',
+  'room.loading.copy.2': 'Разворачиваем копирку...',
+  'room.loading.copy.3': 'Переносим каждый штрих...',
+  'room.loading.copy.4': 'Проверяем, всё ли срисовали...',
   'room.loading.1': 'Точим карандаш...',
   'room.loading.2': 'Натягиваем бумагу на планшет...',
   'room.loading.3': 'Раскладываем слои...',
