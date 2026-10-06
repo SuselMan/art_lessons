@@ -3233,6 +3233,7 @@ export const WC_FIELD_OP_FRAG = `
   const float WC_CARRY_RIDGE = 1.0;
   const float WC_CARRY_VALLEY_HI = 0.46;
   const float WC_CARRY_CREST_LO = 0.54;
+  float wcPlateauMobility(float ci, float cj, vec2 uvi, vec2 uvj);
   float wcCarryWeight(float ci, vec2 uvi, vec2 uvj) {
     if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) return 0.0;
     float cj = texture2D(u_d, uvj).r;
@@ -3243,11 +3244,14 @@ export const WC_FIELD_OP_FRAG = `
       // cost-gradient formula tends to 4^POW as the gradient tends to zero.
       // Keep this exchange inside the source plateau; every intervening
       // texel must belong to it, so a stride cannot jump a dry gap.
-      if (u_band.y <= 0.0 || ci > 1e-5 || cj > 1e-5 || u_origin.x > 8.0) return 0.0;
+      if (u_tau.z <= 0.0 || u_band.y <= 0.0 || ci > 1e-5 || cj > 1e-5 || u_origin.x > 8.0) return 0.0;
       for (int p = 1; p < 8; p++) {
-        if (float(p) < u_origin.x && texture2D(u_d, mix(uvi, uvj, float(p) / u_origin.x)).r > 1e-5) return 0.0;
+        if (float(p) < u_origin.x) {
+          vec2 uvp = mix(uvi, uvj, float(p) / u_origin.x);
+          if (texture2D(u_d, uvp).r > 1e-5 || texture2D(u_e, uvp).a <= 0.0) return 0.0;
+        }
       }
-      return pow(4.0, u_size.x);
+      return pow(4.0, u_size.x) * wcPlateauMobility(ci, cj, uvi, uvj);
     }
     // (s17.35) ...fading with how far along the front the RECEIVER lies:
     // the flux weakens toward the horizon, so the moved paint lies along the
@@ -3272,6 +3276,17 @@ export const WC_FIELD_OP_FRAG = `
     // conductivity, not a higher power on the gradient). The height is the
     // cost texture's .g, written by the front's relaxation.
     return pow(min(u_origin.x / d, 4.0), u_size.x) * fade;
+  }
+  // Diagnostic only: u_tau.z explicitly opts into interpreting independent
+  // V (loaded-contact units) with the existing wet-puddle phase thresholds.
+  // This is a testable hypothesis; V is not the PaperWetness clock.
+  float wcPlateauMobility(float ci, float cj, vec2 uvi, vec2 uvj) {
+    if (ci > 1e-5 || cj > 1e-5) return 1.0;
+    if (u_tau.z <= 0.0 || u_band.y <= 0.0 || u_tau.y <= u_tau.x) return 0.0;
+    float vi = 4.0 * texture2D(u_e, uvi).a;
+    float vj = 4.0 * texture2D(u_e, uvj).a;
+    if (vi <= 0.0 || vj <= 0.0) return 0.0;
+    return smoothstep(u_tau.x, u_tau.y, min(vi, vj));
   }
   // (s17.38) The sheet's capillary conductance at a texel: a valley takes
   // the flow freely, a crest with a penalty - not a wall, or the domain
@@ -3441,6 +3456,7 @@ export const WC_FIELD_OP_FRAG = `
           // the plain balance is unchanged (the series capacity alone halved
           // it and the drop in a clean puddle lost two thirds of its reach).
           float capIJ = 2.0 * capI * capJ / (capI + capJ);
+          capIJ *= wcPlateauMobility(ci, cj, v_uv, uvj);
           // Give: my share toward j, of my excess over j, capped at what
           // travels here.
           if (ws[k] > 0.0) out4 -= a * (u_k * ws[k] / wsum * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a) / max(m.a, 5e-5));
