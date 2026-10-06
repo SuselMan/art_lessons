@@ -131,3 +131,36 @@ Expanded watercolor/parked/lifecycle CPU suite93 tests passed; map check67module
 950files passed, map rules0errors/4existingwarnings. Candidate still default OFF,
 not part of production or accepted initial combined source. Hardware context-loss
 and broader native UI gates remain open, despite the paired endpoint proof.
+
+### Actual Room native and context-loss gates
+
+Unchanged `57792769`, own frontend5316/backend4537. Physical custom3200×1000/Fine,
+brush400, Room store tool settings and PointerInput coalesced pen6s. Eight natural
+chunks of one strokeId, no `_flushStrokeChunk` override. UI Dry, keyboard Undo/Redo,
+then close-own-page and same-auth fresh join:
+
+| Arm | NativeDry vs Redo changed pixels | Maximum | Pixels>8 |
+| --- | ---: | ---: | ---: |
+| OFF | 430385 | 36 | 16 |
+| ON | 0 | 0 | 0 |
+
+Both post-Redo vs fresh endpoints and authoritative journals are exact; Undo is
+actually empty; GL0 throughout. Active input maximum250ms/5>100 OFF and283ms/5>100
+ON, so this remains a correctness fix, not a smoothness pass. The two native runs
+have different timed input journals; the valid oracle pairs each native image
+with its own history, not an OFF/ON same-payload final-picture comparison.
+
+Actual loss triggered while twelve new-film commands were pending and one prior
+chunk was already server-ACKed. After actual restore, the test completes the pen
+through PointerInput up at the last point. Two ops are then ACKed; the pre-loss
+confirmed ID remains present. Restored/fresh whole PNG exact0, raw authoritative
+journal exact,643852 nonempty pixels, GL0/lostfalse. The unrecorded tail is not
+claimed retained: it is separately finished and committed after restoration.
+Own Chrome closed. HOME raw `temp/history-parity/room-source-rebase-loss/`.
+
+Preserved fixture failures:1400×640 initially produced one chunk because the
+wide-nib span threshold is2200; that is not a product failure. The first loss
+fixture left pointerdown open and waited for rebuild, which intentionally waits
+while `_strokeLayerId` is active; its idle timeout is not an established deadlock.
+The corrected fixture lifts after restoration. Raw previous failures remain in
+`room-source-rebase/` and `room-source-rebase-span/` alongside valid OFF/ON gates.
