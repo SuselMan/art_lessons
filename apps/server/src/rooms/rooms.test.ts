@@ -1545,9 +1545,25 @@ describe('isCoveredBySnapshot — paper_dry (#536 §17.48)', () => {
     expect(isCoveredBySnapshot(covered, dry(1_000_000), 1000, new Set(['layer-1']), 1_000_000 + 60_000)).toBe(false)
   })
 
-  it('stops being kept once the paper would have dried by itself', () => {
-    expect(isCoveredBySnapshot(new Map(), dry(1_000_000), null, null, 1_000_000 + WATERCOLOR_WET_DRY_MS + 1)).toBe(true)
+  it('retains an aged historical Dry barrier even when its overlay is gone', () => {
+    expect(isCoveredBySnapshot(new Map(), dry(1_000_000), null, null, 1_000_000 + WATERCOLOR_WET_DRY_MS + 1)).toBe(false)
   })
+
+  it('sends aged Dry between old water and later pigment in the cold-load tail', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const at = Date.now() - 10 * WATERCOLOR_WET_DRY_MS
+    const water = stroke({ id: 'historical-water', tool: 'watercolor', preset: 'normal:100:0:PB29:round', timestamp: at })
+    const marker = { ...dry(at + 1000), id: 'historical-dry' }
+    const pigment = stroke({ id: 'historical-pigment', tool: 'watercolor', preset: 'normal:75:40:PB29:round', timestamp: at + 2000 })
+    recordOperation(roomId, water)
+    recordOperation(roomId, marker)
+    recordOperation(roomId, pigment)
+    const tail = getRoomSnapshot(roomId)?.tailOperations
+    expect(tail?.map(op => op.id)).toEqual([water.id, marker.id, pigment.id])
+    expect(tail?.map(op => op.timestamp)).toEqual([at, at + 1000, at + 2000])
+  })
+
 })
 
 describe('isCoveredBySnapshot — layer_duplicate', () => {
