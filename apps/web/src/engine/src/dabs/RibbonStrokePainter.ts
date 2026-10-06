@@ -19,6 +19,7 @@ import { EMPTY_BANDS, rectOnTile, ribbonBandPieceCost, ribbonBandPieces, ribbonB
 
 /** Opt-in preparation seam; the owning engine must provide epoch/FIFO and presentation. */
 export interface PreparedRibbonMaterial {
+  readonly presentationDabs: readonly Dab[]
   readonly metadata: RibbonFinishMetadata
   execute(): Generator<number, void, void>
   cancel(contextLost?: boolean): void
@@ -1230,6 +1231,7 @@ export class RibbonStrokePainter {
       const owner = this
       mode.deferMaterial({
         metadata: captured,
+        presentationDabs: drawable.map(d => ({ ...d })),
         execute: function* () {
           if (used) throw new Error('Prepared material is single-use')
           used = true
