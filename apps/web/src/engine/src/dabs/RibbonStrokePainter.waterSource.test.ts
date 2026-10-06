@@ -6,9 +6,10 @@ import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import type { PencilPreset } from '../presets/pencilPresets'
 import { ribbonProfileFor } from './ribbonProfile'
+import type { WatercolorSettleQueue } from '../watercolor/WatercolorSettleQueue'
 import type { RibbonStrokePainter, RibbonStrokePainterContext } from './RibbonStrokePainter'
 
-type Probe = { _ribbonPainter: RibbonStrokePainter; _ribbonScratchPool: RibbonScratchPool; _layers: Map<string, ILayerBuffer>; _resolvePreset(tool: string, preset: string): PencilPreset }
+type Probe = { _settleQueue: WatercolorSettleQueue; _handleContextLost(e: Event): void; _ribbonPainter: RibbonStrokePainter; _ribbonScratchPool: RibbonScratchPool; _layers: Map<string, ILayerBuffer>; _resolvePreset(tool: string, preset: string): PencilPreset }
 const presetName = 'normal:100:15:PB29:round'
 const dabs: Dab[] = [0, 1, 2].map(i => ({ x: 20 + i * 6, y: 32, pressure: 0.7, tiltX: 0, tiltY: 0, size: 12, aspectRatio: 1, angle: 0, opacity: 1, t: i * 20 }))
 
@@ -35,19 +36,35 @@ describe('auxiliary water source execution', () => {
     } finally { nib.mockRestore(); composite.mockRestore(); live.mockRestore(); mark.mockRestore(); scratch.destroy(); engine.destroy() }
   })
 
-  it('resets the execution guard when a sliced generator is cancelled', () => {
+  it.each([false, true])('pausing auxiliary water cannot suppress another pigment invocation (closed=%s)', closed => {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     engine.initLayer('source')
     const probe = engine as unknown as Probe, painter = probe._ribbonPainter
     painter.diagnosticSegmentDelivery = 'combined'; painter.diagnosticSolventField = true
-    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, false, false)
-    ;(painter as unknown as { diagnosticDepth: number }).diagnosticDepth = 1
-    const work = painter.paintWaterSource(probe._layers.get('source')!, dabs, probe._resolvePreset('watercolor', presetName), presetName, ribbonProfileFor('watercolor', presetName, 0), [0.2, 0, 0.6], scratch, undefined, '000', [1, 2], false, 256)
-    try { work.next(); work.return(); expect((painter as unknown as { waterOnlyDepth: number }).waterOnlyDepth).toBe(0); expect((painter as unknown as { diagnosticDepth: number }).diagnosticDepth).toBe(1) }
-    finally { scratch.destroy(); engine.destroy() }
+    const target = probe._layers.get('source')!, preset = probe._resolvePreset('watercolor', presetName)
+    const aux = new RibbonStrokeScratch(probe._ribbonScratchPool, false, false)
+    const pigment = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    const ctx = (painter as unknown as { ctx: RibbonStrokePainterContext }).ctx
+    const nib = vi.spyOn(ctx, 'drawRibbonNibPass'), composite = vi.spyOn(ctx, 'drawRibbonCompositeRect')
+    const work = painter.paintWaterSource(target, dabs, preset, presetName, ribbonProfileFor('watercolor', presetName, 0), [0.2, 0, 0.6], aux, undefined, '000', [1, 2], false, 256)
+    try {
+      expect(work.next().done).toBe(false)
+      if (closed) work.return()
+      nib.mockClear(); composite.mockClear()
+      for (const _ of painter.paint(target, dabs, preset, presetName, ribbonProfileFor('watercolor', presetName, 0), [0.2, 0, 0.6], pigment, undefined, '000', [1, 2])) void _
+      expect(nib.mock.calls.some(call => call[5] === 7 && (call[11] ?? 0) > 0)).toBe(true)
+      expect(composite).toHaveBeenCalled()
+      expect(pigment.finishContext).not.toBeNull()
+      expect(pigment.diffusePending).toBe(true)
+      // Resuming the original auxiliary invocation still never emits pigment.
+      nib.mockClear(); composite.mockClear()
+      for (const _ of work) void _
+      for (const call of nib.mock.calls.filter(call => call[5] === 7)) expect(call[11]).toBe(0)
+      expect(composite).not.toHaveBeenCalled(); expect(aux.finishContext).toBeNull()
+    } finally { work.return(); nib.mockRestore(); composite.mockRestore(); aux.destroy(); pigment.destroy(); engine.destroy() }
   })
 
-  it('releases a checked-out auxiliary source if the engine is destroyed while it is sliced', () => {
+  it.each(['destroy', 'context-loss'] as const)('closes a queued auxiliary source before %s teardown', teardown => {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     engine.initLayer('source')
     const probe = engine as unknown as Probe, painter = probe._ribbonPainter
@@ -60,9 +77,15 @@ describe('auxiliary water source execution', () => {
     expect(owned.size).toBe(1)
     const aux = [...owned][0]
     expect(aux.live).toBe(true)
-    engine.destroy()
+    const abort = vi.fn(() => { work.return() })
+    probe._settleQueue.start(scratch, [() => {}, () => work.next()], () => {}, { isAlive: () => true, abort })
+    if (teardown === 'destroy') engine.destroy()
+    else probe._handleContextLost(new Event('webglcontextlost', { cancelable: true }))
+    expect(abort).toHaveBeenCalledTimes(1)
+    expect(probe._settleQueue.current).toBeNull()
     expect(owned.size).toBe(0); expect(aux.live).toBe(false)
-    work.return(); scratch.destroy()
+    expect(work.next().done).toBe(true)
+    scratch.destroy(); if (teardown === 'context-loss') engine.destroy()
   })
 
 })
