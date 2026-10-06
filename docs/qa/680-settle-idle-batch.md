@@ -223,3 +223,18 @@ Balancednative80burst OFF/ON/ON/OFF, source7322idleOFF, screenoutputсохран
 |true2|172.1ms|133.4ms|22.2ms|15.322s|
 
 **Кандидат отвергнут как фикс плавности:** не воспроизводит60Hz/nohitch эффект screennoop, существенные рывки остаются. Небольшая вариабельностьmax не доказательство causalулучшения. Falseattrsне переноситьproduction; требуетпипеточнойкоррекции, в этом эксперименте её правильность отдельнымnegative/positivecontrol проверена. Nextdiagnostic isolatespaperComposeFBOdraw vsfinaldefaultFBblit, безфизики/шейдерныхизменений. Артефакты `temp/idle-batch/preserve-balanced-7322/summary.json`, `preserve-fixed-7322/*.pick.json`.
+
+### paperCompose-only абляция, 02:56–03:00 UTC
+
+Harness tracking existinguseProgram (безGLqueries) пропускает толькоdrawArrayspaperComposeProg внутри `_composePaperToScreen`. InitialscreenCachevalid доизмерения, finaldefaultFBblit сохранён. ONкартинказастывшая, этоdiagnostic, неvisualfix. Restorefinally доexport, production/source7322/idleOFFнеизменны. Frozen65sourceOps/P/C/VdryPC/PNGexactPASS. FourburstbalancedGL0/errors0/nonempty, ownedChromeclosed02:59:56UTC; minRAMavailable1086MiB.
+
+| Paperdraw | Burst2 max | Burst3 max | Active median | Solver |
+|---|---:|---:|---:|---:|
+|обычный1|183.3ms|138.9ms|22.2ms|15.221s|
+|skip1|150ms|133.3ms|22.2ms|15.124s|
+|skip2|133.3ms|116.6ms|22.2ms|15.124s|
+|обычный2|183.3ms|133.3ms|22.2ms|15.022s|
+
+ON734/735paperdraws skipped, столько жеdefaultFBblits выполнено. Canvas1600×1000,DPR~1,cameraangle0/residualScale1. Partialscissor121–128passes,1482–23288px каждый;604–609fullpaperpasses по1.6Mpx заполныйbenchmark(включаяsettle/reveal/tail). Убиратьтолькоpaperfragmentkernel недостаточно: нет60Hz/nohitch эффекта полногоscreenmethodnoop. Вместе с отрицательнымpreservefalse и положительными CDPGPUthreadcontext/swapstalls это локализует существенныйlimiter вdefaultFBpresentation/contextswitch/swapinteraction, бездоказательстваединственногоконкретногоdriverbug. NativeopsразличаютсяпоRAF, поэтомуmaxdifferencesнепредставляются exactsamework causalвыигрышем. Исходныеphysicsоператоры нетронуты, кандидатнеproduction.
+
+Артефакты `temp/idle-batch/paper-balanced-7322/summary.json`, `paper-fixed-7322/comparison.json`. CapabilityprobesWebGLвwebgl.ts/environment.ts сами вызываютWEBGL_lose_context; created5неозначает5activecontexts.
