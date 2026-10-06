@@ -56,3 +56,45 @@ Shared PaperDry doc целиком описывает отсутствие не�
 о replay-equivalence после удаления marker. Временный server node_modules
 symlink удалён после тестов; target dependencies не менялись. Повтор
 проверки в стандартной root worktree с собственными deps остаётся за root.
+
+## Причинная аппаратная проверка: подтверждена
+
+Vega, immutable b8 frontend5309, independent fresh engine, paper fine как
+в исходной Room (CreateRoom default). Два полностью одинаковых packed
+journal replay отличаются только единственным marker Dry:28ops versus27.
+Recorded timestamps/IDs/authoritative seq не переписывались, snapshots не
+использовались, backend4536 не изменялся. Оба9productionflags совпали,
+GL0/context valid, оба изображения73814paintedpixels, Chrome closed finally.
+
+Результат с Dry против результата без Dry:
+23981pixels, rawmax255 приalpha1..3, alpha delta max42,
+199pixels с delta>8, premult RGB max21.937255859375.
+**With-Dry PNG versus original A-restored: exact0pixels/max0.**
+**Without-Dry PNG versus original fresh reader: exact0pixels/max0.**
+Это воспроизводит весь большой original A/fresh delta удалением только
+исторической Dry границы. Причина больше не гипотеза Float32.
+Отдельные204pixels/max5 A-restored versus B-native не устранены этим AB.
+
+Actual RibbonStrokePainter foreignSources trace (unique-per-op) подтверждает
+добавление7/6/5/4/3 pre-Dry доноров для targets wzFrE_iMOQ, m5GE0Rhmb4,
+gRV-TNM_l5, MRmtFiETkl, DdyWo5S51x. В исходном localseq это12..16,
+в AB authoritative serverseq13..17. With-Dry donors только post-Dry.
+Trace aux callbacks иногда содержит дополнительный более короткий donorlist;
+полный список сохраняется, а не подменяется CPU-ожиданием.
+
+Прежняя semantic oracle, исключавшая expired Dry из журналов, **не является
+доказательством replay-equivalent authoritative history** для нового foreign
+water пути. Старые raw reports сохраняются. Новый combined-server soak обязан
+проверять все marker/payload/serverseq без age-based исключений.
+
+Raw artifacts: домашний680-carried-wash-restore/temp/context-loss/dry-barrier-fine-ab/
+(report.json, with.png, without.png), полная копия на VPS в
+680-context-restore/temp/context-loss/dry-barrier-fine-ab/.
+
+Предшествующий medium-paper A/B также причинно менял pixels23951, но не мог
+быть сравнен с original fine Room. Fine повтор устранил этот confound.
+Первый fine startup упал на import fetch до любого case; повтор фиксирует
+6 module request failures net::ERR_FAILED во время warm reload. Readonly curl
+возвращал200/JavaScript MIME, конкретная сетевая/HMR причина не установлена.
+Успешные actual phases после warm import не имели GL/lost ошибок; startup
+ошибки сохранены в report, не объявлены физической проблемой и не скрыты.
