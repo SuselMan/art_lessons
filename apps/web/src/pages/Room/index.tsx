@@ -40,6 +40,7 @@ import type { CreatorNavState } from './net/joinFlow'
 import { toRoomConfig } from './net/roomConfig'
 import { useOperationDispatch } from './useOperationDispatch'
 import { useJoinGate } from './useJoinGate'
+import { useCopyRoomEntry } from './useCopyRoomEntry'
 import { usePaperReadiness } from './usePaperReadiness'
 import { useOpenTimer } from './useOpenTimer'
 import { useLeaveGuard } from './useLeaveGuard'
@@ -237,10 +238,6 @@ function RoomEditor() {
   // ready to draw." A joiner already started blocked the same way, via the
   // mount-engine effect's own replay / handleRoomState's reconnect branch.
   const [roomContentReady, setRoomContentReady] = useState(false)
-  const [copyingRoom, setCopyingRoom] = useState(() => (location.state as { copying?: boolean } | null)?.copying === true)
-  useEffect(() => {
-    if (roomContentReady) setCopyingRoom(false)
-  }, [roomContentReady])
   // (#429) Mirrored for the socket effect's live-stroke handler, which is
   // wired once per connection and must see the current value rather than
   // whatever it was when the listener was attached.
@@ -1302,6 +1299,8 @@ function RoomEditor() {
     applyIdentity, outbox, startOpenTimer,
   })
 
+  const copyingRoom = useCopyRoomEntry(location.state, roomContentReady, connected, retryJoin)
+
   // ── socket wiring (#84/#37/#38/join-gate) ──────────────────────────────────────
   // Runs once per room id, independent of `config` — a joiner doesn't have a
   // config yet at connect time (that's the entire point of the join gate), so
@@ -1409,11 +1408,8 @@ function RoomEditor() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   if (!config) {
-    // Creator's config is known synchronously (see the `config` initializer
-    // above), so reaching here with `isCreator` true would mean navigation
-    // state was lost — nothing sensible to render but not this component's
-    // job to redirect (CreateRoom already sent us here deliberately).
     if (isCreator) return null
+    if (copyingRoom && !joinError && joinState === 'form' && !joinPasswordAsked) return <RoomLoadingOverlay copying fullscreen />
     return (
       <JoinGate
         roomName={null}
