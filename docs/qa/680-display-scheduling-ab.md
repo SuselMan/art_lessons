@@ -120,3 +120,15 @@ Own5311 immutablec17, S/T/R/idleBatch OFF, actualA23508×2480, nine flags/debugf
 Balanced OFF/ON/ON/OFF active median22.2ms throughout. Burst2 max150.1/166.7/144.4/150.0ms, burst3 max183.3/200/150/200ms. ON actually restricted738/725 final draws. One-pixel dirtying still45Hz, unlike finaldrawnoop60Hz. This supports fixed defaultFB presentation/dirty handoff as a limiter rather than filled pixel count, but does not identify a particular driver bug. No sourceproduction change. OwnChromeclosedfinally. Artifact home `680-lifetime-hardware/temp/display-tinyblit/results/report.json`, VPS `temp/display-tinyblit/report.json`.
 
 Prior preserve:false control is a different historical source7322, explicitly not b863: `680-settle-idle-grace/docs/qa/680-settle-idle-batch.md` section02:52–02:55UTC, artifacts `temp/idle-batch/preserve-balanced-7322/{pair1-off,pair1-on,pair2-on,pair2-off}/burst.json` and summary; all active22.2ms. Fixed65/picking oracle `temp/idle-batch/preserve-fixed-7322/comparison.json`. No unreferenced inference that preservation is the proven current-source cause.
+
+
+## Asynchronous draw GPU timer, 06:29–06:31 UTC
+
+Own5311 immutablec17, AMD Vega, debugfalse/nineflags/S/T/R/idleBatch OFF. One uninstrumented nativeburstcontrol and one queried run of same preset. EXT_disjoint_timer_query supported;106 valid samples,53 paperFBO and53 finalDefaultBlit, disjointfalse/unavailable0/errors0. Queries surround only selected active drawArrays, one at a time, subsampled1/3 and capped120; results/availability/disjoint polled only AFTER stroke+settle. No added perframe finish/readPixels/getError/parameter polling, ownqueries deletedfinally, Chromeclosed.
+
+| Selected draw | p50 GPUelapsed ms | p95 | max |
+|---|---:|---:|---:|
+| paperFBO |0.02164|0.56684|4.21787|
+| finalDefaultBlit |0.16796|0.58290|0.66125|
+
+Native active median22.2ms bothcontrol/instrumented; burst2/3 max control150/100ms vsinstrumented149.9/133.2ms. Query commands perturb stream; separate journals are not identical-work equivalence. Timers do not measure CPU, compositor, queue waiting outside query region, swap or photon latency, and do not prove entire canonical pipeline cheap. Selected paper/blit draws themselves do not account for22ms cadence/150ms spikes. Evidence supports further investigation of presentation/driver handoff, not shader tuning as an established remedy. Artifact `temp/display-gputimer/report.json` VPS; home `680-lifetime-hardware/temp/display-gputimer/results/report.json`. No sourceproduction change.
