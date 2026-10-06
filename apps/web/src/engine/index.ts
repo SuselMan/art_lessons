@@ -1758,6 +1758,7 @@ export class PencilEngine implements PencilEngineAPI {
     isDrawing: () => !!this._strokeLayerId,
     backlogSize: () => this._opQueue.length,
     backlogMax: () => this.settleBacklogMax,
+    syncGpu: () => this.gl.finish(),
     noteActivity: now => { this._washActiveAt = now },
     scheduleFieldRelease: () => this._scheduleFieldRelease(),
   })
