@@ -59,16 +59,14 @@ export type OperationRedoOperation = OperationBase & {
  *  What it adds is the part a replay does not see: the sheen on every screen,
  *  and the paper the next live stroke of each participant lands on.
  *
- *  Not undoable (there is no "wet it again"), and worthless past the paper's
- *  own drying time - see WATERCOLOR_WET_DRY_MS. */
+ *  Not undoable (there is no "wet it again"). Retained as an ordered
+ *  historical barrier for foreign-water replay after the live paper dries. */
 export type PaperDryOperation = OperationBase & {
   type: 'paper_dry'
 }
 
-/** (#536) How long watercolour water stays on the paper, in ms. Here rather
- *  than only in the engine because the server needs it too: a `paper_dry`
- *  older than this can have no effect on anything, and stops being sent to a
- *  joining client (isCoveredBySnapshot). */
+/** (#536) How long live watercolour water stays on the paper, in ms.
+ *  Historical paper_dry markers remain replay barriers after this window. */
 export const WATERCOLOR_WET_DRY_MS = 120000
 
 export type Operation =
