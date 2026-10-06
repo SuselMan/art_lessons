@@ -43,3 +43,15 @@ it('does not corrupt the FIFO when an executing owner cancels it reentrantly', (
   f.tick()
   expect(next).not.toHaveBeenCalled(); expect(f.queue.pending).toBe(false)
 })
+it('does not let a callback from a lost epoch erase the new scheduled frame', () => {
+  const f = fixture(), old = vi.fn(), fresh = vi.fn()
+  f.queue.enqueue({ execute: function* () { old(); yield 1 }, cancel: vi.fn() })
+  const stale = [...f.frames.values()][0]
+  f.queue.cancel(true)
+  f.queue.enqueue({ execute: function* () { fresh(); yield 1 }, cancel: vi.fn() })
+  const scheduled = [...f.frames.keys()]
+  stale()
+  expect([...f.frames.keys()]).toEqual(scheduled)
+  f.tick()
+  expect(old).not.toHaveBeenCalled(); expect(fresh).toHaveBeenCalledOnce()
+})
