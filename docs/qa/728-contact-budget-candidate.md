@@ -328,3 +328,51 @@ map:rules0 errors (четыре прежних no-orphans warnings).
 его cold5/visual/совместимость с ring/source-film исправлениями. Эти gates не
 подменяются старой отдельной линией5311. Все наши страницы закрыты, Samsung
 передан координатору.
+
+### Actual combined f877: Adreno + Intel endpoints, 07.10
+
+Координатор подготовил `f877b418` (`1e1959b6` fullweb source): адаптированные
+волокна default OFF, source-film rebase ON, V-phase closure OFF по умолчанию.
+Для этих controls phase включена одинаково в обоих плечах. Брали `git archive
+f877b418`, не HEAD другой рабочей копии. HOME5311 engine и браузерные raw-source
+SHA Surface5319 совпали: index `9c974375…e7ebee`, Plan `506c9130…533eeb`,
+Passes `62eae751…463f0`, shaders `bf97bd94…3857`, helper `3ef3f52c…0ee`.
+Whole-web typecheck PASS. В данной серии не было frozen paper/DAB overrides.
+
+Adreno actual combined: cold salted5 PASS, собственная1307 CLOSED; emitted
+SHA пятой программы `479b4872608808bdae98e7bf3d6b3ea76b391f655ee230a2cde54807e83ee811`.
+Первый endpoint controller неверно требовал purple pixels после undo пигмента;
+исходный отрицательный guard сохранён. Исправленный1308 CLOSED:
+`phaseON/sourceRebaseON`, native water160→pigment80 (512² Fine), baked OFF/ON:
+оба native→fresh replay и replay→redo wholeRGBA exact0/max0. ON8 реальных late
+calls native/replay, 20 cumulatively после redo. Два native stroke, GL0,
+context alive. Это endpoint control, не sustained400/performance claim.
+
+Surface Intel Iris Xe D3D11, root own HTTP5319/52tPYmve: свежий standalone
+engine import с cache-bust, source SHA прочитаны из браузера и проверены Node.
+UI engine отсутствовал; join/комната/чужие вкладки не менялись. Native
+water400→pigment100, world1754×2480 Fine, viewport512², baked OFF/ON,
+phaseON/sourceRebaseON: native→fresh same-journal replay и replay→redo
+wholeRGBA exact0/max0 в обоих плечах. ON8 real late calls, 2ops,
+GL0/lostfalse. После undo остаётся вода без purple pixels; redo возвращает
+исходное изображение. Exact comparison выполнен по всем байтам в странице,
+не по контрольной сумме. HTTP не даёт `crypto.subtle`, поэтому сохранённые
+hash labels помечены `fnv32`, это не SHA256 и не самостоятельный proof.
+
+Matched negative Surface: исходный native water400 op `Kd2Z9egA-w`, preset
+`normal:100:0:PB29:round`, одинаковый packed payload в двух свежих engines.
+Baked OFF/ON phaseON: whole1754×2480RGBA exact0/max0, purple0, 1op;
+ON реально4 late calls. GL0/lostfalse. Все временные engines и canvases
+уничтожены. Root own Surface tab сохранён. Samsung и Surface переданы
+координатору без живых наших contexts.
+
+HOME small reports:
+`/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/contact-budget/`:
+`surface-baked-proof.json`, `surface-baked-endpoints.json`,
+`surface-baked-negative.json`; current Adreno reports лежат также в
+`triangle/f877-baked-endpoints{,-retry}.json`. Собственные копии компактных
+отчётов — `temp/profile/`. Native gestures двух OFF/ON плеч отличаются по
+rAF sampling: между ними не заявляется paired скорость/визуальная причинность;
+канонические endpoints сравниваются с тем же журналом внутри каждого плеча.
+Actual combined visual true27/34 и массовые ограничения отдельно от старой
+5311 линии всё ещё должны быть проверены перед default ON.
