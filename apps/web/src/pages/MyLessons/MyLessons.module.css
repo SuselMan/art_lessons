@@ -56,6 +56,7 @@
    dropped as redundant (#211 feedback round 2). */
 .searchRow {
   flex: 1;
+  min-width: 0;
   max-width: 480px;
 }
 
@@ -632,4 +633,3 @@
 @media (prefers-reduced-motion: reduce) {
   .preparingSpinner { animation: none; }
 }
-
