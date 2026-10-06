@@ -390,3 +390,10 @@ Meaningful nonzero raw canonical world ROI(1006,894,256,128), validated top-to-b
 Trace event cap4096 was reached on both pages; native B pigment job3/4 capture events occurred before its cap, but remote A pigment chronology fell after its cap and is unobserved. Thus no full-timeline claim. The driver did not save the rAF stroke helper return; responsiveness/frame interval evaluation remains pending. No performance PASS is inferred from0pixel difference or immediate command submission.
 
 Evidence: `temp/snapshot/firstop-native-only-report.json`, `firstop-native-only-driver.json`, `firstop-native-only-summary.json`; home `680-firstop-capture-qa/temp/firstop-native-only`.
+
+
+### Native performance-only sample (6c121f56)
+
+One owned Vega Chrome/two auth contexts, source unchanged; same80px/900ms water-A then dry-pigment15-B-on-water case. No passive wrappers, field reads or bridge polls during the measured stroke. Saved actual __mt.stroke rAF result separately from subsequent ACK/idle checks. A water: active915ms,46intervals,max22ms,0intervals>33ms; tailmax150ms,total3>33ms/1>100ms. B pigment: active907ms,45intervals,max24ms,0intervals>33ms; tailmax117ms,total2>33ms/1>100ms. Each native gesture produced two real operation chunks, samegesture within that pair; confirmed server seq1..4, pendingfalse, identical actual journals, idletrue/GL0/lostfalse both participants after each phase.
+
+This is one candidate sample, not paired baseline performance improvement or cross-GPU evidence. Tail hitches150/117ms remain; active smoothness alone is not a complete user-experience PASS. No pixel parity measurement was mixed into timing. Exit0, owned Chrome finally closed and GPU handed off. Evidence `temp/snapshot/firstop-native-perf-report.json`; controller `two-peers-firstop-perf.mjs`, parent `vega-firstop-perf.mjs`.
