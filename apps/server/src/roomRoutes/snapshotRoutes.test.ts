@@ -223,3 +223,17 @@ describe('POST /api/rooms/:roomId/snapshots', () => {
     expect(mockRooms.saveSnapshot).not.toHaveBeenCalled()
   })
 })
+
+
+describe('scoped dependency history HTTP query', () => {
+  it('passes only validated layer ids and preserves the inclusive caller cursor', async () => {
+    mockRooms.getOperationsBefore.mockResolvedValue([])
+    const response = await buildApp().inject({ method: 'GET', url: '/api/rooms/room-1/operations?beforeSeq=6&limit=500&layerIds=L,S' })
+    expect(response.statusCode).toBe(200)
+    expect(mockRooms.getOperationsBefore).toHaveBeenCalledWith('room-1', 6, 500, ['L', 'S'])
+  })
+  it('refuses empty layer identifiers', async () => {
+    const response = await buildApp().inject({ method: 'GET', url: '/api/rooms/room-1/operations?beforeSeq=6&layerIds=L,' })
+    expect(response.statusCode).toBe(400)
+  })
+})

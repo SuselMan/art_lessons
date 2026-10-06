@@ -159,7 +159,13 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
         return reply.code(400).send({ error: 'bad_request' })
       }
 
-      return await getOperationsBefore(roomId, beforeSeq, limit)
+      const rawLayerIds = request.query.layerIds
+      if (rawLayerIds !== undefined && typeof rawLayerIds !== 'string') return reply.code(400).send({ error: 'bad_request' })
+      const layerIds = typeof rawLayerIds === 'string' ? rawLayerIds.split(',') : undefined
+      if (layerIds && (layerIds.length > 200 || layerIds.some(id => !id || id.length > 100))) {
+        return reply.code(400).send({ error: 'bad_request' })
+      }
+      return await getOperationsBefore(roomId, beforeSeq, limit, layerIds)
     },
   )
 }

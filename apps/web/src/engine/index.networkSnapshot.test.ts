@@ -9,7 +9,7 @@ import type { OperationRedoOperation, OperationUndoOperation } from '@grafetto/s
 
 import {
   checkpointBytes, checkpointCountFor, createTestEngine, dab, expectPixelsClose, fillStroke, makeAreaClear,
-  makeLayerAdd,
+  makeLayerAdd, makeLayerMerge, makeLayerDuplicate,
   makeStroke, readLayerPixels, readTilePixels, residentTileCount, paperReady, simulateStrokeStart, simulateStrokeMove,
 } from './testing/engineTestUtils'
 import { decodeLayerTiles } from './src/oplog/snapshotCodec'
@@ -669,4 +669,53 @@ describe('pending shared dry cannot enter an older snapshot watermark (#728)', (
     engine.destroy()
   })
 
+})
+
+describe('snapshot dependency prefix before tail history mutations (#728)', () => {
+  it('restores original undone-at-snapshot state before redo6 and preserves an unrelated snapshot', async () => {
+    const { engine: source } = createTestEngine({ userId: 'A' }, { width: 8, height: 8 })
+    source.setBaseLayers(['L'])
+    const one = { ...makeStroke('A', 'L', [dab(2, 4, { size: 4, opacity: 0.5 })]), seq: 1 }
+    const two = { ...makeStroke('B', 'L', [dab(4, 4, { size: 4, opacity: 0.5 })]), seq: 2 }
+    const colour = { ...makeStroke('A', 'L', [dab(6, 4, { size: 4, opacity: 0.5 })]), seq: 3 }
+    const dry = { type: 'paper_dry' as const, id: 'dry4', userId: 'A', timestamp: 4, seq: 4 }
+    const undo: OperationUndoOperation = { type: 'operation_undo', id: 'undo5', userId: 'A', timestamp: 5, seq: 5, targetOpId: colour.id }
+    const redo: OperationRedoOperation = { type: 'operation_redo', id: 'redo6', userId: 'A', timestamp: 6, seq: 6, targetOpId: colour.id }
+    const prefix = [one, two, colour, dry, undo]
+    for (const op of prefix) source.appendOperation(op, 'remote')
+    const snapshot5 = source.bakeNetworkSnapshot('L')!
+    const restored = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    restored.setBaseLayers(['L', 'safe'])
+    restored.restoreLayerFromSnapshot('safe', decodeLayerTiles(snapshot5, 0).tiles, 5)
+    const safeBefore = readLayerPixels(restored, 'safe')
+    await restored.restoreHistoricalOperations(prefix)
+    expect(restored.getOperations().some(op => op.id === colour.id)).toBe(false)
+    expect(restored.getOperationsSinceRestore()).toEqual([])
+    restored.appendOperation(redo, 'remote')
+    source.appendOperation(redo, 'remote')
+    expect([...readLayerPixels(restored, 'L')!]).toEqual([...readLayerPixels(source, 'L')!])
+    expect([...readLayerPixels(restored, 'safe')!]).toEqual([...safeBefore!])
+  })
+})
+
+
+describe('historical source closure for an uncovered snapshot result (#728)', () => {
+  it.each(['merge', 'duplicate'] as const)('rebuilds a historical %s from absent source history', async kind => {
+    const { engine: source } = createTestEngine({ userId: 'A' }, { width: 8, height: 8 })
+    source.setBaseLayers(['S'])
+    const stroke = { ...makeStroke('A', 'S', [dab(4, 4, { size: 5, opacity: 0.7 })]), seq: 1 }
+    const result = kind === 'merge'
+      ? makeLayerMerge('A', 'R', [{ id: 'S', opacity: 1 }], { seq: 4 })
+      : makeLayerDuplicate('A', 'R', 'S', { seq: 4 })
+    source.appendOperation(stroke, 'remote')
+    source.appendOperation(result, 'remote')
+    const expected = readLayerPixels(source, 'R')!.slice()
+    expect(expected.some(v => v > 0)).toBe(true)
+    const { engine } = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 })
+    engine.setBaseLayers(['R'])
+    await engine.restoreHistoricalOperations([stroke, result])
+    expect(engine['_log'].entries.find(e => e.op.id === stroke.id)?.state).toBe('done')
+    expect(readLayerPixels(engine, 'R')).toEqual(expected)
+    engine.destroy(); source.destroy()
+  })
 })

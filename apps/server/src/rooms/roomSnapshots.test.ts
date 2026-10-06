@@ -723,6 +723,21 @@ describe('leaveRoom no longer prunes operations (#289 — pending snapshot verif
 describe('getOperationsBefore', () => {
   beforeEach(() => { mockPrisma.operation.findMany.mockReset() })
 
+  it('scopes a pinned inclusive prefix and recursively closes merge/copy source history', async () => {
+    mockPrisma.operation.findMany.mockResolvedValueOnce([
+      { data: { type: 'layer_duplicate', layerId: 'L', sourceId: 'M' } },
+      { data: { type: 'layer_merge', layerId: 'M', sources: [{ id: 'S' }] } },
+      { data: { type: 'layer_duplicate', layerId: 'unrelated', sourceId: 'heavy' } },
+    ]).mockResolvedValueOnce([{ data: { id: 'undo5', seq: 5 } }])
+    expect(await getOperationsBefore('room', 6, 500, ['L'])).toEqual([{ id: 'undo5', seq: 5 }])
+    const query = mockPrisma.operation.findMany.mock.calls[1][0]
+    expect(query.where.seq).toEqual({ lt: 6 })
+    expect(query.where.OR[0]).toEqual({ layerId: { in: ['L', 'M', 'S'] } })
+    expect(query.where.OR[1].type.in).toContain('operation_undo')
+    expect(query.where.OR[0].layerId.in).not.toContain('heavy')
+    expect(query.take).toBe(500)
+  })
+
   it('asks for the newest `limit` operations strictly below beforeSeq', async () => {
     mockPrisma.operation.findMany.mockResolvedValueOnce([])
     await getOperationsBefore('room-1', 400, 100)
