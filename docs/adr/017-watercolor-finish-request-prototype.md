@@ -71,3 +71,18 @@ Presentation хранит только отдельный transient target и pr
 Проверяем отдельно exact endpoints и плавность. Вводимый прототип должен показать
 след сразу, а не скрывать input задержкой рисунка. Source577/cleaned4f доказали
 native→history equality, но сами не устранили synchronous pen-up barrier.
+
+### CPU preparation seam (not an active Room queue)
+
+The painter can now prepare logical water delivery at input time while owning
+immutable GPU inputs for later single-use execution. Original dab keys remain
+available to PaperWetness and recorded standing maps. Material-film ownership
+can stay behind the logical film; snapshots/spills refuse that unresolved
+state. Finish metadata owns its contact, donor and paint lists.
+
+Cancellation closes a paused foreign-water generator. Normal cancellation
+destroys its auxiliary scratch; context-loss cancellation forgets the stale
+handles without returning them to the pool. Both branches have CPU regression
+coverage. No engine caller currently enables this seam: canonical FIFO,
+transient presentation and readiness barriers are still required before this
+can be tested as a responsiveness candidate. The runtime on 5316 is unchanged.

@@ -7581,7 +7581,7 @@ export class PencilEngine implements PencilEngineAPI {
     const dir = scratch.noteDirection(0, 0)
     // (§17.44) A tile under a newer, still-running film shows the wet deposit
     // (settled base + that film), not the dry target, which has no film in it.
-    const runningFilm = (entry: RibbonTileScratch): boolean => entry.filmGesture !== settledGesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk
+    const runningFilm = (entry: RibbonTileScratch): boolean => entry.filmGesture !== settledGesture && entry.filmGesture === scratch.materialGesture && !!entry.strokeInk
     // The job exposes the exact domain it writes in the existing resident
     // targets. Source bounds alone can cut off pigment moved into a puddle.
     let compositeBounds = bounds

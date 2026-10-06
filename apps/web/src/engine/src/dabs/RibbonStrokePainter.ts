@@ -4,7 +4,7 @@ import { selectedForeignWaterSources } from '../watercolor/foreignWater'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { Dab } from '@grafetto/shared'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
-import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
+import { RibbonStrokeScratch, type RibbonFinishMetadata } from '../buffers/RibbonStrokeScratch'
 
 import { type PencilPreset } from '../presets/pencilPresets'
 import { type BrushDescriptor, type BrushPressureSettings } from '../presets/digitalBrushPresets'
@@ -16,6 +16,13 @@ import { WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, ribbonProfileFor, type RibbonP
 import { watercolorFerrulePx, watercolorStandingWater, watercolorWetPull, watercolorPuddleDepth, watercolorTravelQuantum, WC_FILM_DOSE, watercolorDwellWater, watercolorDwellPigment, WC_DWELL_RADIUS, watercolorTrailDwell, WC_DWELL_FLOOR_MS, WC_TRAIL_LEN, watercolorSurplus, watercolorExcessFromSurplus, watercolorPuddleFromSurplus, watercolorSlowdown, watercolorBrakeSurplus, WC_SLOW_GAIN, WC_SPEED_TAU_MS, WC_PEAK_FADE_MS, WC_START_EXCESS_RADII, WC_PUDDLE_RADII, watercolorPigmentLoad, watercolorPigmentRate, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { EMPTY_BANDS, rectOnTile, ribbonBandPieceCost, ribbonBandPieces, ribbonBristleCombs, ribbonWaterDelivery } from './ribbonStrokeMath'
+
+/** Opt-in preparation seam; the owning engine must provide epoch/FIFO and presentation. */
+export interface PreparedRibbonMaterial {
+  readonly metadata: RibbonFinishMetadata
+  execute(): Generator<number, void, void>
+  cancel(contextLost?: boolean): void
+}
 
 export type RibbonLiveComposite = {
     scratch: RibbonStrokeScratch
@@ -116,11 +123,11 @@ export class RibbonStrokePainter {
    *  vice versa) resolves to solid either way. The two only ever meet at a
    *  tangent point, where both are ramping, and the difference between max and
    *  over there is a fraction of one pixel. */
-  private *importForeignWater(target: ILayerBuffer, scratch: RibbonStrokeScratch, dabs: Dab[], preset: PencilPreset, wetProfile?: string): Generator<number, void, void> {
+  private *importForeignWater(target: ILayerBuffer, scratch: RibbonStrokeScratch, dabs: Dab[], preset: PencilPreset, wetProfile?: string, sources = scratch.foreignSources ?? [], forgetOnExit?: () => boolean): Generator<number, void, void> {
     const contacts = dabs.flatMap((d, i) => wetAt(wetProfile, i) > 0
       ? [{ x: d.x, y: d.y, radius: d.size * 0.5 * preset.sizeMultiplier, aspect: Math.max(1, d.aspectRatio), angle: d.angle }] : [])
     const pool = this.ctx.scratchPool()
-    for (const source of selectedForeignWaterSources(scratch.foreignSources ?? [], contacts)) {
+    for (const source of selectedForeignWaterSources(sources, contacts)) {
       if (scratch.foreignImportedGestures.has(source.gesture) || !source.chunks?.length) continue
       const unique = [...new Map(source.chunks.map(chunk => [chunk.id, chunk])).values()]
       const first = unique[0], sourcePreset = this.ctx.resolveWaterPreset(first.preset)
@@ -148,7 +155,7 @@ export class RibbonStrokePainter {
           } finally { pool.release(temp) }
         }
         scratch.foreignImportedGestures.add(source.gesture)
-      } finally { this.auxiliaryWater.delete(aux); aux.destroy() }
+      } finally { this.auxiliaryWater.delete(aux); if (forgetOnExit?.()) aux.forget(); else aux.destroy() }
     }
   }
 
@@ -378,8 +385,13 @@ export class RibbonStrokePainter {
     deferComposite = false,
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
-    mode: Readonly<{ waterOnly: boolean; segmented: boolean }> = { waterOnly: false, segmented: false },
+    mode: Readonly<{ waterOnly: boolean; segmented: boolean; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
+    if (mode.deferMaterial) {
+      if (!profile.normalizeDeposit || mode.waterOnly) throw new Error('Deferred source prototype is watercolor-only')
+      preset = { ...preset }; profile = { ...profile }; color = [...color]
+      strokeSeed = strokeSeed ? [...strokeSeed] : undefined
+    }
     const immutable = (v: unknown): unknown => {
       if (v instanceof Float32Array) return v.slice()
       if (Array.isArray(v)) return v.slice()
@@ -425,7 +437,8 @@ export class RibbonStrokePainter {
       }
       return
     }
-    if (segmentMode && this.diagnosticForeignSolvent && this.diagnosticSolventField && !mode.waterOnly) {
+    const importForeign = segmentMode && this.diagnosticForeignSolvent && this.diagnosticSolventField && !mode.waterOnly
+    if (importForeign && !mode.deferMaterial) {
       yield* this.importForeignWater(target, scratch, dabs, preset, wetProfile)
     }
     if (segmentMode && this.diagnosticSharedFluid) profile = { ...profile, diagnosticReadFluid: true }
@@ -537,7 +550,7 @@ export class RibbonStrokePainter {
     // the bounded room's x=1024 seam unable to run into the next tile. Per
     // tile, the film rebuild and composite are cut to the paint rect.
     const reachRect = { minX: rMinX, minY: rMinY, maxX: rMaxX, maxY: rMaxY }
-    const targets = this.ctx.resolveWithinSheet(target, profile.normalizeDeposit ? this.ctx.wcSheetClamp(reachRect) : reachRect)
+    const targets = mode.deferMaterial ? null : this.ctx.resolveWithinSheet(target, profile.normalizeDeposit ? this.ctx.wcSheetClamp(reachRect) : reachRect)
     // (#536, §17.63) Not yet: a batch with nothing on the sheet still spends
     // the gesture's brush - see the return after the deposit loop.
 
@@ -779,7 +792,7 @@ export class RibbonStrokePainter {
     // the brush came onto the paper fully loaded; a replay paints the operation
     // as one batch that does reach the sheet, and it came on already spent -
     // 30-40 % lighter over the whole mark (a V begun off the page at 32 %).
-    if (!targets.length) return
+    if (mode.deferMaterial ? !Number.isFinite(reachRect.minX) : !targets!.length) return
 
     // (#536, ADR 011 §17.10) The halo: a second, wider, weaker stamp for every
     // dab that landed on wet paper, into the same coverage and deposit buffers.
@@ -938,136 +951,138 @@ export class RibbonStrokePainter {
 
 
 
-    for (const tile of targets) {
-      const { original, coverage, inkLoad, inkColor } = scratch.getOrCreate(tile.buffer)
-
-      // #547, ADR 013 §3 — the stamp's own `opacity` argument is this dab's
-      // **flow** for the digital brush, and a plain 0 for the three tools whose
-      // coverage pass only needs a silhouette (their mode-6 branch ignores it).
-      // (#536, s17.11) For the watercolor the recorded paper wetness rides
-      // along into the coverage stamp too: its .b is the standing-water
-      // record the diffusion pass gates on. See u_washWater.
-      const waterPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
-      scratch.runningCoverage(tile.buffer)
-      for (let i = 0; i < drawable.length; i++) {
-        const dab = drawable[i]
-        if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue // (§17.70)
-        sourceNib(
-          coverage, tile, dab, preset, profile, profile.coverageInkMode,
-          stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
-          wetOf(dab), 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
-          // (s17.84) ...and the pool share into the coverage's .g - where
-          // the brush was moving: a standing dab has no direction to comb
-          // along (its across is the default, not the travel's).
-          profile.waterDepletion && movingByDab.has(dab) ? 1 : 0,
-        )
-        yield pieceTris ? this.ctx.nibDrawCost(tile, dab, preset) : 0
-      }
-      // #547 — a brush's mark is a repeated stamp, not a swept smear, so the
-      // bands that fill between samples are switched off for it (ADR 013 §4).
-      // The three older tools keep them: on a turn the bands reach places the
-      // stamps miss, and with nothing there the composite paints bare paper.
-      if (!profile.stampsOnly && waterBands.length) {
-        for (const piece of ribbonBandPieces(waterBands, pieceTris)) {
-          const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
-          if (pieceTris && !px) continue // (§17.70) nothing of it on this tile
-          sourceBands(
-            coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
-            ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
-            combs, 0, null, profile.waterDepletion ? 1 : 0,
-          )
-          yield px
+    if (mode.deferMaterial) {
+      // Preserve original Dab keys in standing/dabPool for the input caller.
+      // Only the queued GPU geometry receives owned copies after logical preparation.
+      drawable = drawable.map(original => {
+        const copy = { ...original }
+        for (const values of [waterByDab, pigmentByDab, paperWetByDab, pigmentPoolByDab, excessByDab, puddleByDab]) {
+          const value = values.get(original)
+          if (value !== undefined) values.set(copy, value)
         }
+        const across = acrossByDab.get(original)
+        if (across) acrossByDab.set(copy, [...across])
+        if (movingByDab.has(original)) movingByDab.add(copy)
+        return copy
+      })
+      dabs = dabs.map(d => ({ ...d }))
+      prevDab = prevDab ? { ...prevDab } : undefined
+    }
+    const noteFinish = (): void => scratch.noteFinish({
+      target, preset, profile, color, opacity: drawable[0].opacity,
+      bounds: reachBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius, dwellMs: scratch.dwellMs,
+    })
+    const materialGesture = scratch.gesture
+    let captured: RibbonFinishMetadata | undefined
+    let cancelledLost = false
+    const material = function* (this: RibbonStrokePainter): Generator<number, void, void> {
+      if (mode.deferMaterial) {
+        scratch.activateMaterialFilm(materialGesture)
+        if (importForeign) yield* this.importForeignWater(target, scratch, dabs, preset, wetProfile, captured!.foreignSources ?? [], () => cancelledLost)
       }
+      const materialTargets = targets ?? this.ctx.resolveWithinSheet(target, profile.normalizeDeposit ? this.ctx.wcSheetClamp(reachRect) : reachRect)
+      for (const tile of materialTargets) {
+        const { original, coverage, inkLoad, inkColor } = scratch.getOrCreate(tile.buffer)
 
-      if (segmentMode && this.diagnosticSolventField) {
-        // Water has its OWN film/base. MAX water and MAX pigment envelopes
-        // must not compete in one record or compress each other's headroom.
-        const solvent = scratch.solventFilm(tile.buffer)
-        const solventProfile = { ...profile, diagnosticReadFluid: false, inkEdgeFalloff: 1, cloud: 0, granulation: 0, bristleInk: 0 }
-        for (const dab of drawable) {
-          if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue
-          if (film) solvent.film.beginMaxDraw(this.ctx.minmaxExt()!); else solvent.film.beginAdditiveDraw()
-          sourceNib(solvent.film, tile, dab, preset, solventProfile, 7,
-            (waterByDab.get(dab) ?? 0) / 4, false, 1, acrossByDab.get(dab) ?? [0, 1],
-            0, 0, mottleSeed, coverage, combs, 0, null, 0, 0)
-          solvent.film.endDraw()
+        // #547, ADR 013 §3 — the stamp's own `opacity` argument is this dab's
+        // **flow** for the digital brush, and a plain 0 for the three tools whose
+        // coverage pass only needs a silhouette (their mode-6 branch ignores it).
+        // (#536, s17.11) For the watercolor the recorded paper wetness rides
+        // along into the coverage stamp too: its .b is the standing-water
+        // record the diffusion pass gates on. See u_washWater.
+        const waterPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
+        scratch.runningCoverage(tile.buffer)
+        for (let i = 0; i < drawable.length; i++) {
+          const dab = drawable[i]
+          if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue // (§17.70)
+          sourceNib(
+            coverage, tile, dab, preset, profile, profile.coverageInkMode,
+            stampFlows ? stampFlows[i] : 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
+            wetOf(dab), 1, [0, 0], null, combs, 0, null, puddleByDab.get(dab) ?? 1,
+            // (s17.84) ...and the pool share into the coverage's .g - where
+            // the brush was moving: a standing dab has no direction to comb
+            // along (its across is the default, not the travel's).
+            profile.waterDepletion && movingByDab.has(dab) ? 1 : 0,
+          )
           yield pieceTris ? this.ctx.nibDrawCost(tile, dab, preset) : 0
         }
-        for (const piece of ribbonBandPieces(solventBands, pieceTris)) {
-          sourceBands(solvent.film, tile, piece, film ? 'ink-max' : 'ink', profile.aaPx, 0, 0, mottleSeed,
-            0, 0, combs, 0, null, 0)
-          yield pieceTris ? ribbonBandPieceCost(piece, tile) : 0
-        }
-        // Independent V cap4 is an explicit reservoir limit. It cannot
-        // rescale the material P/C records; source P still uses the old film.
-        const solventRect = this.ctx.revealRect(tile, compositeBounds)
-        if (solventRect) sourceField(solvent.load, solvent.base, solvent.film, 1, 1, { scissor: solventRect })
-      }
-
-      }.bind(this)
-
-      // Ink follows the *same* figure as the silhouette. Depositing it only at
-      // the sample stamps is what produced the rounded white notches on turns:
-      // between stamps the ribbon still made the mark fully opaque, but with an
-      // ink load of zero the composite multiplies by nothing and the paper
-      // shows straight through. Both halves carry half a dose each (see
-      // buildRibbonBands) so their overlap sums to the calibrated amount.
-      //
-      // Skipped entirely for a covering ink, which has no such quantity — see
-      // RibbonProfile.ink.
-      // (§17.28) With the film on, the stamps and bands go into the gesture's
-      // own buffers under MAX and inkLoad/inkColor are rebuilt as base + film
-      // over the batch's rect; without it, straight into inkLoad additively.
-      const fb = film && inkLoad ? scratch.filmBuffers(tile.buffer) : null
-      const inkDest = fb ? fb.strokeInk : inkLoad
-      const colorDest = fb ? fb.strokeColor : inkColor
-      const beginInk = (buf: AccumulationBuffer): void => { if (fb) buf.beginMaxDraw(this.ctx.minmaxExt()!); else buf.beginAdditiveDraw() }
-      const bandMode = fb ? 'ink-max' as const : 'ink' as const
-      // (#680, s17.79) The watercolor's surplus lies in blots — see wcPoolBlot.
-      const poolBlot = profile.waterDepletion ? 1 : 0
-      const pigmentPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
-      if (mode.waterOnly) return
-      if (inkDest && (!segmentMode || !this.diagnosticPigmentRecord || inkStrength > 0)) {
-        for (let i = 0; i < drawable.length; i++) {
-          if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
-          beginInk(inkDest)
-          sourceNib(
-            inkDest, tile, drawable[i], preset, profile, 7,
-            deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
-            waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-            paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, segmentMode && this.diagnosticSharedFluid ? coverage : null, combs, profile.bristleInk,
-            null, pigmentPoolByDab.get(drawable[i]) ?? 0.5, poolBlot,
-          )
-          inkDest.endDraw()
-          yield pieceTris ? this.ctx.nibDrawCost(tile, drawable[i], preset) : 0
-        }
-        if (bands.length) {
-          for (const piece of ribbonBandPieces(bands, pieceTris)) {
+        // #547 — a brush's mark is a repeated stamp, not a swept smear, so the
+        // bands that fill between samples are switched off for it (ADR 013 §4).
+        // The three older tools keep them: on a turn the bands reach places the
+        // stamps miss, and with nothing there the composite paints bare paper.
+        if (!profile.stampsOnly && waterBands.length) {
+          for (const piece of ribbonBandPieces(waterBands, pieceTris)) {
             const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
-            if (pieceTris && !px) continue
+            if (pieceTris && !px) continue // (§17.70) nothing of it on this tile
             sourceBands(
-              inkDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-              0, 0, combs, profile.bristleInk, null, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
+              coverage, tile, piece, 'coverage', profile.aaPx, 0, 0, [0, 0],
+              ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
+              combs, 0, null, profile.waterDepletion ? 1 : 0,
             )
             yield px
           }
         }
-        // (#536, §17.19) …and the same figure once more, into the colour
-        // record: the paint's optical depth per texel. Same dose, same hairs,
-        // same mottling, so depth and deposit agree to the texel.
-        if (colorDest) {
+
+        if (segmentMode && this.diagnosticSolventField) {
+          // Water has its OWN film/base. MAX water and MAX pigment envelopes
+          // must not compete in one record or compress each other's headroom.
+          const solvent = scratch.solventFilm(tile.buffer)
+          const solventProfile = { ...profile, diagnosticReadFluid: false, inkEdgeFalloff: 1, cloud: 0, granulation: 0, bristleInk: 0 }
+          for (const dab of drawable) {
+            if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue
+            if (film) solvent.film.beginMaxDraw(this.ctx.minmaxExt()!); else solvent.film.beginAdditiveDraw()
+            sourceNib(solvent.film, tile, dab, preset, solventProfile, 7,
+              (waterByDab.get(dab) ?? 0) / 4, false, 1, acrossByDab.get(dab) ?? [0, 1],
+              0, 0, mottleSeed, coverage, combs, 0, null, 0, 0)
+            solvent.film.endDraw()
+            yield pieceTris ? this.ctx.nibDrawCost(tile, dab, preset) : 0
+          }
+          for (const piece of ribbonBandPieces(solventBands, pieceTris)) {
+            sourceBands(solvent.film, tile, piece, film ? 'ink-max' : 'ink', profile.aaPx, 0, 0, mottleSeed,
+              0, 0, combs, 0, null, 0)
+            yield pieceTris ? ribbonBandPieceCost(piece, tile) : 0
+          }
+          // Independent V cap4 is an explicit reservoir limit. It cannot
+          // rescale the material P/C records; source P still uses the old film.
+          const solventRect = this.ctx.revealRect(tile, compositeBounds)
+          if (solventRect) sourceField(solvent.load, solvent.base, solvent.film, 1, 1, { scissor: solventRect })
+        }
+
+        }.bind(this)
+
+        // Ink follows the *same* figure as the silhouette. Depositing it only at
+        // the sample stamps is what produced the rounded white notches on turns:
+        // between stamps the ribbon still made the mark fully opaque, but with an
+        // ink load of zero the composite multiplies by nothing and the paper
+        // shows straight through. Both halves carry half a dose each (see
+        // buildRibbonBands) so their overlap sums to the calibrated amount.
+        //
+        // Skipped entirely for a covering ink, which has no such quantity — see
+        // RibbonProfile.ink.
+        // (§17.28) With the film on, the stamps and bands go into the gesture's
+        // own buffers under MAX and inkLoad/inkColor are rebuilt as base + film
+        // over the batch's rect; without it, straight into inkLoad additively.
+        const fb = film && inkLoad ? scratch.filmBuffers(tile.buffer) : null
+        const inkDest = fb ? fb.strokeInk : inkLoad
+        const colorDest = fb ? fb.strokeColor : inkColor
+        const beginInk = (buf: AccumulationBuffer): void => { if (fb) buf.beginMaxDraw(this.ctx.minmaxExt()!); else buf.beginAdditiveDraw() }
+        const bandMode = fb ? 'ink-max' as const : 'ink' as const
+        // (#680, s17.79) The watercolor's surplus lies in blots — see wcPoolBlot.
+        const poolBlot = profile.waterDepletion ? 1 : 0
+        const pigmentPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
+        if (mode.waterOnly) return
+        if (inkDest && (!segmentMode || !this.diagnosticPigmentRecord || inkStrength > 0)) {
           for (let i = 0; i < drawable.length; i++) {
             if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
-            beginInk(colorDest)
+            beginInk(inkDest)
             sourceNib(
-              colorDest, tile, drawable[i], preset, profile, 7,
+              inkDest, tile, drawable[i], preset, profile, 7,
               deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
               waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-              paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, segmentMode && this.diagnosticSharedFluid ? coverage : null, combs, profile.bristleInk, tau,
-              pigmentPoolByDab.get(drawable[i]) ?? 0, poolBlot,
+              paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, segmentMode && this.diagnosticSharedFluid ? coverage : null, combs, profile.bristleInk,
+              null, pigmentPoolByDab.get(drawable[i]) ?? 0.5, poolBlot,
             )
-            colorDest.endDraw()
+            inkDest.endDraw()
             yield pieceTris ? this.ctx.nibDrawCost(tile, drawable[i], preset) : 0
           }
           if (bands.length) {
@@ -1075,110 +1090,157 @@ export class RibbonStrokePainter {
               const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
               if (pieceTris && !px) continue
               sourceBands(
-                colorDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
-                0, 0, combs, profile.bristleInk, tau, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
+                inkDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
+                0, 0, combs, profile.bristleInk, null, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
               )
               yield px
             }
           }
+          // (#536, §17.19) …and the same figure once more, into the colour
+          // record: the paint's optical depth per texel. Same dose, same hairs,
+          // same mottling, so depth and deposit agree to the texel.
+          if (colorDest) {
+            for (let i = 0; i < drawable.length; i++) {
+              if (!this.ctx.nibTouchesTile(tile, drawable[i], preset)) continue // (§17.70)
+              beginInk(colorDest)
+              sourceNib(
+                colorDest, tile, drawable[i], preset, profile, 7,
+                deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
+                waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
+                paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, segmentMode && this.diagnosticSharedFluid ? coverage : null, combs, profile.bristleInk, tau,
+                pigmentPoolByDab.get(drawable[i]) ?? 0, poolBlot,
+              )
+              colorDest.endDraw()
+              yield pieceTris ? this.ctx.nibDrawCost(tile, drawable[i], preset) : 0
+            }
+            if (bands.length) {
+              for (const piece of ribbonBandPieces(bands, pieceTris)) {
+                const px = pieceTris ? ribbonBandPieceCost(piece, tile) : 0
+                if (pieceTris && !px) continue
+                sourceBands(
+                  colorDest, tile, piece, bandMode, profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
+                  0, 0, combs, profile.bristleInk, tau, poolBlot, segmentMode && this.diagnosticSharedFluid ? coverage : null,
+                )
+                yield px
+              }
+            }
+          }
         }
-      }
 
-      }.bind(this)
-      if (segmentMode === 'explicit') {
-        // Explicit independent contribution events on THIS segment.
-        yield* waterPhase()
-        yield* pigmentPhase()
-      } else {
-        // Combined brush input expands to the same water -> pigment protocol.
-        const contribution = { water: waterPhase, pigment: pigmentPhase }
-        yield* contribution.water()
-        yield* contribution.pigment()
-      }
-      if (mode.waterOnly) continue
-      if (import.meta.env.DEV && segmentMode && this.diagnosticTrace.length < 4096) this.diagnosticTrace.push({
-        before: wetOf(drawable[0]), after: paperWetByDab.get(drawable[0]) ?? 0,
-        water: waterByDab.get(drawable[0]) ?? 0, dose: deposits[0] * inkStrength,
-      })
-
-      if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
-      // (#536, ADR 011 §17.10) The halo, after the mark itself: ink only, and
-      // only where the wash already has coverage. The pigment a wet-in-wet dab
-      // sheds travels as far as the standing water and no further, and the
-      // water is this wash's own silhouette — the puddle is a stroke of the
-      // same wash — so clipping the stamp by the coverage buffer is what keeps
-      // a halo from ever leaving the puddle ("пигмент за пределы лужи может
-      // уйти, такого быть не может"). No coverage stamp for the halo for the
-      // same reason: it must not grow the silhouette. Skipped outright on dry
-      // paper: no wet dab, no second pass, no cost.
-      if (anyHalo && inkDest) {
-        for (let i = 0; i < haloDabs.length; i++) {
-          const dose = haloDoseByDab.get(haloDabs[i]) ?? 0
-          if (dose <= 0 || !this.ctx.nibTouchesTile(tile, haloDabs[i], preset)) continue // (§17.70)
-          beginInk(inkDest)
-          sourceNib(
-            inkDest, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
-            waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
-            paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage, combs, profile.bristleInk,
-          )
-          inkDest.endDraw()
-          yield pieceTris ? this.ctx.nibDrawCost(tile, haloDabs[i], preset) : 0
-        }
-      }
-      // (§17.28) The deposit the composite and the settle read: the wash as it
-      // stood before this gesture plus the gesture's film, over this batch's
-      // rect (the film outside it is unchanged since the last batch).
-      if (fb && inkLoad) {
-        const rect = this.ctx.revealRect(tile, compositeBounds)
-        if (rect) {
-          sourceField(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
-          if (inkColor && fb.strokeColor && fb.colorBase) sourceField(inkColor, fb.colorBase, fb.strokeColor, 1, 1, { scissor: rect })
-        }
-      }
-
-      // `drawable[0].opacity` rather than a per-dab value: only a tool whose
-      // dabs all share one opacity can be composited from a coverage buffer at
-      // all, which for the brush pen is guaranteed by _bakeDabOpacity (ADR 009
-      // §9 — pressure drives width, never alpha). The marker's branch ignores
-      // this argument entirely and reads its own inkLoad texture instead.
-      if (deferComposite) {
-        // (#536, §17.22) The live gesture: the rect joins this frame's union
-        // and the composite runs once, in _display, before the frame is drawn.
-        const pending = scratch.pendingComposite.get(tile.buffer)
-        if (pending) {
-          pending.bounds.minX = Math.min(pending.bounds.minX, compositeBounds.minX)
-          pending.bounds.minY = Math.min(pending.bounds.minY, compositeBounds.minY)
-          pending.bounds.maxX = Math.max(pending.bounds.maxX, compositeBounds.maxX)
-          pending.bounds.maxY = Math.max(pending.bounds.maxY, compositeBounds.maxY)
+        }.bind(this)
+        if (segmentMode === 'explicit') {
+          // Explicit independent contribution events on THIS segment.
+          yield* waterPhase()
+          yield* pigmentPhase()
         } else {
-          scratch.pendingComposite.set(tile.buffer, { tile, bounds: { ...compositeBounds } })
+          // Combined brush input expands to the same water -> pigment protocol.
+          const contribution = { water: waterPhase, pigment: pigmentPhase }
+          yield* contribution.water()
+          yield* contribution.pigment()
         }
-        // Every coalesced batch grows both the layer and paper damage, even
-        // when this tile already has a pending composite for the frame.
-        this.ctx.markPaperDamage(compositeBounds)
-        this.ctx.setLiveComposite({
-          scratch, preset, profile, color, opacity: drawable[0].opacity, fieldSeed, spreadPx, fringeWater, migratePx,
-          inkSmoothPx: profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
+        if (mode.waterOnly) continue
+        if (import.meta.env.DEV && segmentMode && this.diagnosticTrace.length < 4096) this.diagnosticTrace.push({
+          before: wetOf(drawable[0]), after: paperWetByDab.get(drawable[0]) ?? 0,
+          water: waterByDab.get(drawable[0]) ?? 0, dose: deposits[0] * inkStrength,
         })
-        continue
+
+        if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
+        // (#536, ADR 011 §17.10) The halo, after the mark itself: ink only, and
+        // only where the wash already has coverage. The pigment a wet-in-wet dab
+        // sheds travels as far as the standing water and no further, and the
+        // water is this wash's own silhouette — the puddle is a stroke of the
+        // same wash — so clipping the stamp by the coverage buffer is what keeps
+        // a halo from ever leaving the puddle ("пигмент за пределы лужи может
+        // уйти, такого быть не может"). No coverage stamp for the halo for the
+        // same reason: it must not grow the silhouette. Skipped outright on dry
+        // paper: no wet dab, no second pass, no cost.
+        if (anyHalo && inkDest) {
+          for (let i = 0; i < haloDabs.length; i++) {
+            const dose = haloDoseByDab.get(haloDabs[i]) ?? 0
+            if (dose <= 0 || !this.ctx.nibTouchesTile(tile, haloDabs[i], preset)) continue // (§17.70)
+            beginInk(inkDest)
+            sourceNib(
+              inkDest, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
+              waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
+              paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage, combs, profile.bristleInk,
+            )
+            inkDest.endDraw()
+            yield pieceTris ? this.ctx.nibDrawCost(tile, haloDabs[i], preset) : 0
+          }
+        }
+        // (§17.28) The deposit the composite and the settle read: the wash as it
+        // stood before this gesture plus the gesture's film, over this batch's
+        // rect (the film outside it is unchanged since the last batch).
+        if (fb && inkLoad) {
+          const rect = this.ctx.revealRect(tile, compositeBounds)
+          if (rect) {
+            sourceField(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
+            if (inkColor && fb.strokeColor && fb.colorBase) sourceField(inkColor, fb.colorBase, fb.strokeColor, 1, 1, { scissor: rect })
+          }
+        }
+
+        // `drawable[0].opacity` rather than a per-dab value: only a tool whose
+        // dabs all share one opacity can be composited from a coverage buffer at
+        // all, which for the brush pen is guaranteed by _bakeDabOpacity (ADR 009
+        // §9 — pressure drives width, never alpha). The marker's branch ignores
+        // this argument entirely and reads its own inkLoad texture instead.
+        if (deferComposite) {
+          // (#536, §17.22) The live gesture: the rect joins this frame's union
+          // and the composite runs once, in _display, before the frame is drawn.
+          const pending = scratch.pendingComposite.get(tile.buffer)
+          if (pending) {
+            pending.bounds.minX = Math.min(pending.bounds.minX, compositeBounds.minX)
+            pending.bounds.minY = Math.min(pending.bounds.minY, compositeBounds.minY)
+            pending.bounds.maxX = Math.max(pending.bounds.maxX, compositeBounds.maxX)
+            pending.bounds.maxY = Math.max(pending.bounds.maxY, compositeBounds.maxY)
+          } else {
+            scratch.pendingComposite.set(tile.buffer, { tile, bounds: { ...compositeBounds } })
+          }
+          // Every coalesced batch grows both the layer and paper damage, even
+          // when this tile already has a pending composite for the frame.
+          this.ctx.markPaperDamage(compositeBounds)
+          this.ctx.setLiveComposite({
+            scratch, preset, profile, color, opacity: drawable[0].opacity, fieldSeed, spreadPx, fringeWater, migratePx,
+            inkSmoothPx: profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
+          })
+          continue
+        }
+        const revealPrev = this.ctx.revealBeforeBatch(tile, compositeBounds)
+        this.ctx.drawRibbonCompositeRect(
+          tile, compositeBounds, preset, profile, original, coverage, inkLoad, inkColor, color, drawable[0].opacity,
+          fieldSeed, spreadPx, fringeWater, migratePx,
+          profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
+        )
+        this.ctx.revealAfterBatch(tile, compositeBounds, revealPrev)
+        yield pieceTris ? rectOnTile(tile, compositeBounds) : 0
       }
-      const revealPrev = this.ctx.revealBeforeBatch(tile, compositeBounds)
-      this.ctx.drawRibbonCompositeRect(
-        tile, compositeBounds, preset, profile, original, coverage, inkLoad, inkColor, color, drawable[0].opacity,
-        fieldSeed, spreadPx, fringeWater, migratePx,
-        profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
-      )
-      this.ctx.revealAfterBatch(tile, compositeBounds, revealPrev)
-      yield pieceTris ? rectOnTile(tile, compositeBounds) : 0
+
+      if (mode.waterOnly) return
+      if (!mode.deferMaterial) noteFinish()
+      target.markContentPainted(compositeBounds)
     }
-
-    if (mode.waterOnly) return
-
-    scratch.noteFinish({
-      target, preset, profile, color, opacity: drawable[0].opacity,
-      bounds: reachBounds, fieldSeed, landedWet, wetPeak: wetPeakHere, radiusPx: nibRadius, dwellMs: scratch.dwellMs,
-    })
-
-    target.markContentPainted(compositeBounds)
+    if (mode.deferMaterial) {
+      noteFinish()
+      captured = scratch.captureFinishMetadata()
+      let used = false, cancelled = false
+      let work: Generator<number, void, void> | undefined
+      const owner = this
+      mode.deferMaterial({
+        metadata: captured,
+        execute: function* () {
+          if (used) throw new Error('Prepared material is single-use')
+          used = true
+          work = material.call(owner)
+          while (!cancelled) {
+            const step = work.next()
+            if (step.done) return
+            yield step.value
+          }
+        },
+        cancel: (contextLost = false) => { cancelled = true; cancelledLost ||= contextLost; work?.return() },
+      })
+      return
+    }
+    yield* material.call(this)
   }
 }
