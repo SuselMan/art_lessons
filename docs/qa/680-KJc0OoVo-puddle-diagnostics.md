@@ -249,3 +249,14 @@ dry records0. MotionOff изменяет508936pixels/max82; wetToneOff538929/max
 Для следующего опыта сохраняется первый журнал без изменения dabs/seed/wet;
 нужны source P/C/V и polygon-domain stage maps. Только тогда можно отделить
 геометрию и MAX envelope от физики/промежуточного target.
+
+
+### 2026-10-07: dry10 guard и shortcut на исходном ряду
+
+Genuine Vega, один собственный Chrome, четыре последовательных arms, exit 0 / OWNED_CHROME_CLOSED. Frozen HOME5314 исходников не менялся. Обе ветки получили полные DAB/PAPER emitted shaders принятой 8aa7e9f0 (DAB `a31574c649beff73d75478b51926c51e91f8ff228c6dd16013641b0925bafeb9`, PAPER `004a5371d0e61c36b0b11379a7e47c10eab3c42999efb4b77d4385a21589619e`); index старого f539 идентичен 8aa. Все arms GL0 / contextLost false.
+
+Dry10 — явно диагностическая копия seq27: неизменные геометрия, seed и packed dabs, только normal:10:100 и нулевая recorded wet fixture; исходный журнал сохранён. Legacy/path8: whole 1754×2480 RGBA различаются в 1147 пикселях, max111. Source P обоих 376402; final P 376323→375766; C меняется; V одинаковая sum10349/max6, outside P в 80×64 ROI остаётся0. Это отрицательный gate сохранения сухой кисти: a431 нельзя включать по умолчанию. Одного effectiveWet>0 недостаточно; следующее ограничение должно опираться на реальную жидкость, а не произвольный порог номинального water10.
+
+Исходные seq19–29 без изменений: path8/shortcut whole RGBA exact0. Полные material P/C/V sums/max совпадают (P1184900, V13764346), ring ROI source344435/inside126213/outside84821 совпадает; shortcut достигнут в4 emitted programs. Это подтверждает эквивалентность shortcut относительно path8 на данном реальном ряду, но не снимает отрицательный dry10 gate самого path8.
+
+HOME raw: `680-combined-stability/temp/KJc0OoVo/dry10-shortcut/{report.json,*.png}`. Контроллер `temp/KJc0OoVo/dry10-shortcut.mjs`; VPS сводка `dry10-shortcut-metrics.json`. Проверка не является native UI, серверным ACK или замером плавности.
