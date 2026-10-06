@@ -353,3 +353,14 @@ On native pigment job 3, prepare captured gesture 1 at 12585.8 ms with all four 
 This proves the deferred stitch reads a later mutable film and changes its base selection. It does not measure pixel values, mass, performance, or establish a complete repair. Earlier force-complete scoped ROI evidence independently supports the ordering boundary. A proposed repair must freeze the first operation's inputs before later-film writes, preserve resource lifetime through cancel/context loss, and separately prove running-film rebase equivalence. Capturing texture references alone is insufficient because those textures remain mutable.
 
 Evidence: `temp/snapshot/stitch-passive-report.json`; harness `temp/snapshot/deferred-stitch-passive.js`, `two-peers-stitch-passive.mjs`, and `vega-stitch-passive.mjs`. Event streams did not hit their cap (1937/1499). No source change or additional GPU run was made.
+
+
+### Planned matched hardware gate: grouped first operation (hardware pending)
+
+Candidate `6c121f56` restores the existing Queue.start contract: flow upload, foreign upload and stitch form one immediate first operation. Settle source SHA256: `0a0a9aad59e0d0cce2b440b287a6d98adfe11d8f63b7def864bc9358e75dfd27`. No hardware result is claimed here. Root reported full engine suite/type/lint/maps passing; that is distinct from the pending device gate.
+
+Deterministic canonical control uses the existing 65-dab fixture from `680-settle-idle-grace/temp/idle-batch/fixedFixture.js`: same geometry, pressure, times, preset, color, IDs, production flags and idleBatch=false. Its canonicalProbe measures actual nonzero scratch P/C/V/dry/coverage hashes and full exported PNG. Compare candidate with a source-matched baseline differing only in grouped capture; prior idle/blit results are reference evidence, not automatically a matched first-op AB.
+
+Actual native control uses two authenticated participants, clear-water then long dry-pigment gesture. Passive first-op instrumentation observes all existing copies/resamples rather than parsing function source. Require capture executed before newFilm and next-film writes, distinct first load/base where required, same actual journals at drain, nonempty canonical ROI, native/peer/rejoin comparisons with residuals explicitly reported. No extra GL reads in chronology instrumentation; pixel gates are separate bounded readbacks. Frame/rAF observations are separate from field readback diagnostics. One owned Chrome, outer watchdog180s, finally-close; no user tabs or frozen5308 source changes.
+
+S2 cancel/destroy orphan is separate known CPU lifetime scope and must not be presented as an ordinary undo leak: ordinary undo completes the settle first. Grouped capture changes scheduling, not transport, source doses or material encoding.
