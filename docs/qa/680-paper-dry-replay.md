@@ -42,3 +42,35 @@ WEBGL_lose_context lost/restored events, Undo/Redo UI и официальный 
 Raw evidence: домашняя копия `680-context-journal/temp/context-loss/dry-state/`
 (`report.json`, контроллер и log); локальная копия
 `680-context-restore/temp/context-loss/dry-state-result.json`.
+
+## Ограниченное исправление и аппаратный повтор
+
+Кандидат `3d582373` не меняет P/C/V, shader или solver. Все записанные
+watercolor-операции проходят проверку opID по done-журналу после последних
+упорядоченных Dry/clear. Положительный standing при номинальной воде 0 сохраняется;
+возраст проверяется прежним кодом. Live-пакеты без opID не фильтруются.
+Set кешируется по revision журнала, инвалидируемой append/confirm/undo/redo/revoke/
+hydration. Во время context loss Dry/clear также очищают CPU PaperWet без GL.
+
+Аппаратный повтор на отдельной 5308, настоящая Vega, один Chrome/три новых комнаты:
+все три logicalPass/canonicalExact true. После Dry→restore старая проба 0;
+после Dry→UndoRedo 0; после Dry→новая вода→restore старая 0, новая 0.853761.
+Свежие читатели сохраняют старую пробу 0, новые штрихи мокрыми. PNG непустые,
+байтово одинаковые у восстановленного двигателя и обоих свежих читателей.
+GL0, captured faults пустые; Chrome закрыт в finally, exit0.
+
+Перед Dry обязательны actual paperReady(), native stroke ACK, wet-проба и
+видимая активная кнопка; Dry ACK подтверждён отдельно. Passport index.ts/
+OperationLog.ts/hasActiveWater.ts SHA256 совпал локально и в runtime.
+Предшествующие непрошедшие прогоны были fixture failures до Dry: в новом mirror
+отсутствовали gitignored baked-paper assets; затем ошибочное имя paperLoaded
+в контроллере. Они не считаются проверками поведения исправления. Assets
+восстановлены, проверка заменена настоящим paperReady(), source не менялся.
+
+CPU: actual app typecheck PASS; OperationLog+watercolor 121 тест PASS;
+контекст/eligibility focused PASS, включая zero-preset positive standing,
+revoked Dry, ordered barriers, foreign-layer clear и hydration/confirmation
+revision. Mapcheck 942 файла PASS, rules 0 errors/4 известных warnings.
+
+Raw: `680-paper-dry-replay/temp/context-loss/fixed-dry-valid2/report.json`
+на домашней машине; локально `temp/context-loss/fixed-dry-valid2-result.json`.
