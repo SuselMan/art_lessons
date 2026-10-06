@@ -351,7 +351,7 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(SOUND_VOLUME_STORAGE_KEY, String(clamped))
     set({ soundVolume: clamped })
   },
-  minimalUi: readStoredBoolean(MINIMAL_UI_STORAGE_KEY, false),
+  minimalUi: readStoredBoolean(MINIMAL_UI_STORAGE_KEY, true),
   setMinimalUi: enabled => {
     localStorage.setItem(MINIMAL_UI_STORAGE_KEY, String(enabled))
     set({ minimalUi: enabled })
