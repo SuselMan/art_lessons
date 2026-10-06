@@ -39,3 +39,12 @@ cleanup exactly once при cancel/dead frame/dead complete, chained solver fini
 
 Аппаратная проверка нового source ещё не выполнена. Нужны water A→dry pigment B,
 контроль без чужой воды, native→remote→fresh replay и canonical P/C/V/PNG сравнение.
+
+Release worktree validation (same renderer source), 06.10.2026:
+full typecheck and production build PASS. Full CPU suite ran alongside the build:
+3502tests passed,3tests hit5000ms timeout (two charcoal geometry controls and
+one long watercolor chunk control); no assertion failure. Both affected files
+then passed110/110 with maxWorkers1, original5000ms threshold and no concurrent
+build. The new regression/lifecycle controls passed in the full run. Logs:
+`temp/release/{typecheck-lifetime,build-lifetime,tests-lifetime,tests-lifetime-isolated}.log`.
+This is CPU verification, not a GPU performance measurement.
