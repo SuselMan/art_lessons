@@ -174,3 +174,28 @@ Raw report/PNG/metrics: temp/KJc0OoVo/samsung-native-*.
 Предыдущий большой standalone controller остановлен по180с без собственного
 engine canvas и без измерений. Это незавершённый bootstrap fixture; ни app bug,
 ни slowdown нового carry из него не следуют. В старом run не было phase markers.
+
+
+### Samsung: warmed carry-only cost
+
+Один standalone context на arm, поля и draw-параметры одинаковые. Modes15/16,
+stride8, wetgate1. Перед измерением каждого размера3 warm draws, затем5 draws
+с синхронизацией readPixels1×1 из destination FBO. Все GL0/lostfalse,
+собственные страницы закрыты. Mean milliseconds (material/colour):
+
+| Size | Baseline | Plateau8 |
+| --- | --- | --- |
+|128²|0.72 /0.84|1.12 /1.42|
+|256²|1.36 /1.30|3.24 /3.34|
+|512²|4.18 /4.44|10.40 /10.68|
+
+Maximum candidate draw11ms. Это~2.5× стоимость данного warmed оператора на512²,
+а не total settle или нативного штриха. Нельзя суммировать частичные интервалы
+и выдавать за профиль всего solver; canonical field1536 здесь не измерялся.
+Raw: temp/KJc0OoVo/samsung-carry-cost-report.json.
+
+Найден следующий кандидат оптимизации (ещё НЕ реализован): считать donor
+normalization только при Tj>Ti. При Tj<=Ti incoming flux точно0, поэтому
+текущий внутренний loop из4 weight-запросов не влияет на out4. Это не меняет
+пути/домены/массу и не требует новых текстур, но equivalence и стоимость
+нужно проверить отдельно до принятия.
