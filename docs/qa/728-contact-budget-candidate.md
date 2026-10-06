@@ -14,4 +14,10 @@ Immutable actual source hashes: index 37ddeb104d83b1c030f7f0b34a6db688659f9d6219
 
 Normal replay solver 16.5348с, budget ON **6.0683с**. Полный 2480×1754 RGBA EXACT 0/max 0; native capture vs OFF replay такжеEXACT 0. GL 0/healthy/queue complete обеих сторон. Raw HOME temp/contact-budget/results, PNG сняты после timing; Chrome closed finally. Это один фиксированный журнал, не cross-GPU/generalperformance proof.
 
-Следующий native80/400 запуск покаINVALID bootstrap: create form timeout 30 с, жестов/измерений нет, Chrome closed finally. Backend 4537 health 200 и frontend 5311 HTTP 200; причиной timeout не объявляется обычныйwsended после закрытия Chrome. Подготовлен повтор с DOM/network failure capture. Samsung cached SM-T970 подтверждён и own forward 9338 создан, его пользовательские вкладки не затронуты; аппаратный candidate Samsung пока PENDING.
+## Vega native 80/400
+
+Первый запуск остановился на create form timeout до жестов: недействительный bootstrap, Chrome закрыт в finally. Повтор на том же source завершился успешно. Dense 80: active rAF p50/max 22.2/22.4 мс, ни одного >33 мс; solver 5.9113 с, полный tail 14.6307 с. 377 queue ticks, максимум 4 шага; самый длинный postlift tick 5 мс с одним шагом. Короткий прямой 400: active p50/max 22.2/22.3 мс, ни одного >33 мс; solver 2.0053 с, полный tail 10.7214 с. 121 ticks, максимум 4 шага, максимальный postlift tick 1.2 мс. GL 0, server ACK, noop guard и завершение очереди подтверждены. Это короткий 400, не доказательство безопасности плотного тяжёлого 400. Raw HOME temp/contact-budget/native-results/report.json; собственный Chrome закрыт в finally.
+
+## Samsung: пока не измерен
+
+Cached SM-T970 подтверждён, собственный forward 9338 подготовлен. Первый запуск не нашёл собственный salted URL target; устройство было Dozing. Пользовательские вкладки не закрывались и не изменялись, измерений не было. После wake родительского агента read-only dumpsys показал Awake, keyguard showing=false/inputRestricted=false/secure=false. Это проверка доступности, не GPU PASS. Повтор отложен: GPU слот передан агенту обновления галереи.
