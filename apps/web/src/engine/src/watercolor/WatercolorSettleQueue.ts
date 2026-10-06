@@ -122,7 +122,9 @@ export class WatercolorSettleQueue {
     let draws = 0, pixels = 0, count = 0
     const started = performance.now()
     while (this._settle === s && s.next < s.ops.length) {
-      const cost = s.ops[s.next].smallCost?.()
+      // The final callback also runs finish(), which may render full tiles
+      // or start a replacement job. Its small operator tag cannot cover it.
+      const cost = s.next + 1 === s.ops.length ? null : s.ops[s.next].smallCost?.()
       const known = cost && Number.isFinite(cost.draws) && Number.isFinite(cost.pixels)
         && cost.draws >= 1 && cost.pixels >= 0 && cost.draws <= 16 && cost.pixels <= (1 << 21)
       if (!known) {

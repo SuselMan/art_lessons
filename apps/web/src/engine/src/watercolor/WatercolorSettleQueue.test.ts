@@ -51,6 +51,14 @@ describe('bounded idle settle experiment', () => {
     expect(f.events).toEqual(['a', 'gpu'])
     expect(f.queue.current?.next).toBe(2)
   })
+  it('keeps final rendering and chained job completion outside a small group', () => {
+    const f = fixture(); f.queue.idleBatch = true
+    f.queue.start(f.scratch, [() => {}, f.small('a'), f.small('last')], () => f.events.push('full-finish'))
+    f.runFrame()
+    expect(f.events).toEqual(['a', 'gpu'])
+    f.runFrame()
+    expect(f.events).toEqual(['a', 'gpu', 'last', 'full-finish', 'gpu'])
+  })
   it('caps the total draw and pixel work before the next operation', () => {
     const f = fixture(); f.queue.idleBatch = true
     f.queue.start(f.scratch, [() => {}, f.small('a'), f.small('b'), f.small('c'), f.small('d')], () => {})
