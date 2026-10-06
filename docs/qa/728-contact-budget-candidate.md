@@ -21,3 +21,13 @@ Normal replay solver 16.5348с, budget ON **6.0683с**. Полный 2480×1754 
 ## Samsung: пока не измерен
 
 Cached SM-T970 подтверждён, собственный forward 9338 подготовлен. Первый запуск не нашёл собственный salted URL target; устройство было Dozing. Пользовательские вкладки не закрывались и не изменялись, измерений не было. После wake родительского агента read-only dumpsys показал Awake, keyguard showing=false/inputRestricted=false/secure=false. Это проверка доступности, не GPU PASS. Повтор отложен: GPU слот передан агенту обновления галереи.
+
+## Первый Samsung native прогон
+
+Adreno 650, Chrome 154, Fine 1754×2480, visible, camera angle 0, canvas 1670×2395/DPR 2.125. Candidate ON, реальный PointerInput с синтетическим coalesced pen; это не физический стилус. Native 5 strokes получили server ACK, очереди завершились, GL 0/lost false во всех timing captures. Отдельного OFF arm здесь нет.
+
+Pigment400 и purewater400 — непрерывные пути по 6 секунд, по 360 active frames: active max 17 мс и 0 >33 мс для каждого; tail max 100/67 мс. Dense80 с колебанием нажима 6 секунд: 355 active frames, один 100 мс. Короткий следующий штрих, начатый при реально оставшемся settle, дал два active 167 мс. При этом _handleMove max 11.2 мс, q.tick max 1.8 мс: эти CPU timings не объясняют задержки кадров. Подозревается GPU burst синхронного _completeSettle в _onStart, но причинность ещё не доказана. Нужна отдельная bounded attribution.
+
+Cold compile итог этого запуска **INVALID**: после link движок удаляет shader handles, финальный query COMPILE_STATUS этих handles вернул null; это ошибка диагностического gate, не доказательство compile fail. Такие queries выполнялись после timing captures. Recorder исправлен: статус сохраняется перед deleteShader. Новый cold PASS пока не объявляется.
+
+Own target 1214 закрыт в finally. Raw HOME temp/contact-budget/samsung/extended-first.json и immutable extended-first-journal.json: 5 операций, snapshot null, journal SHA fcfcb085cde1b566b2845ff75307a5633150e52c22faa1e7893372216225f7cb. Источник5311 не менялся, пользовательские вкладки не трогались.
