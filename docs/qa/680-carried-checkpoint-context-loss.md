@@ -43,3 +43,31 @@ Baseline: `680-paper-dry-replay/temp/context-loss/stability-two-engine/`.
 carried checkpoint и не является аппаратной проверкой фикса. Headroom
 освобождён остановкой только проверенных завершённых QA Vite-сервисов;
 пользовательские стенды не изменены.
+
+## Offline разбор round2
+
+A-restored против B-native: 204 pixels, raw max5, alpha max1,
+0 pixels >8, premult RGB max4.7647, bbox539,1341..569,1417.
+Большая разница с fresh общая для обоих авторов, а не специфична restore A.
+У199 pixels >8: top zig60, middle straight36, bottom straight103;
+118 имеют alpha>100, только7 alpha<=5. Около90 находятся в20 worldpx
+от ближайшего конца траектории; ни один не в20px от detected turn center.
+Повторные штрихи лежат по совпадающим траекториям: nearest-op attribution
+не доказывает, какая операция создала конкретный пиксель.
+На белом фоне сравнение выглядит очень близким; difference×8 показывает
+рассеянные отличия зерна внутри и вдоль контура всех трёх фигур.
+
+Все изображения1754×2480, все stroke на layer-1. Raw A/B содержат28ops,
+fresh27: отсутствует только paper_dry bC1VlmpSaT, возраст236448ms,
+что соответствует намеренному server expiry120000. Semantic authoritative
+oracle сохраняет exact serverseq/payload всех оставшихся операций.
+Это не идентичные chronological barrier lists, но не доказанная причина:
+все pre-Dry strokes aged247–322сек и должны уже исключаться существующим
+PaperWet age-filter независимо от barrier. Нужен отдельный matched replay
+контроль с/без expired Dry, прежде чем приписывать ему canonical difference.
+Float32 причина также не установлена этими данными.
+
+Bounded offline artifacts на VPS:
+`temp/context-loss/carried-round2/compare.png` (1440×558),
+`temp/context-loss/carried-round2/diff-x8.png` (480×530),
+`temp/context-loss/carried-round2/analysis.json` (полные координаты199pixels).
