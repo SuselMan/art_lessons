@@ -265,3 +265,15 @@ Samsung own1288 CLOSED, target34 late mode1 only: opts.d===field.band, world.z>0
 Полные prefront SHA exact; before-carry P/C/V/coverage/cost exact. В конечном физическом P/C изменились7370 пикселей/max6, whole9863/max31; V/coverage точны. Визуально треугольная решётка исчезла, pale inner ring сохранился. Это причинное подтверждение для настоящего prefix34 на frozen8aa-derived source, а не доказательство готового исправления/current combined. Psum в измеренной ROI843154→852249 (+1.079%); это **не global mass census**, для full1536² totals нужен matched повтор. Финальный cost-кэш отличается429px/max1, это downstream scratch, а не исходный front/carry cost.
 
 HOME raw `front34-fibre-off-planes.json`, `front34-fibre-off.png`, `front34-fibre-comparison.json`, `front34-fibre-atlas.jpg` в той же triangle папке. Scoped fibreOff diagnostic не внедрялся в production.
+
+### Замены fibre: первые два визуальных отрицательных результата
+
+Первый world-fixed elongated value-noise+soft drift (1290 CLOSED/GL0) убирает triangular mesh, но рисует слишком явные горизонтальные полосы. Dry-field Psum843154→842138 (−0.1205%). Это rejected visual candidate, не production fix.
+
+Authority baseline1291 CLOSED подтверждает реальные copyback roles: field.a→entry.inkLoad (wet Psum868175), field.cc→inkColor (α868175), field.c→inkDry (dry843154), field.ca→colorDry (α843154). Поэтому ранее captured lastP=field.c — provisional dry target, и несовпадение с pigmentColor's wet source ожидаемо. Full sums1536² сняты непосредственно перед этими canonical copies, не выводились из screenshots.
+
+Gradient-noise+paper-fixed domain warp1292 CLOSED/GL0, четыре реальные late slices. Full seeds и beforecarry cost unchanged. Wet P868175→866887 (−0.1484%), dry843154→841986 (−0.1385%), Cα одинаковы сP; wholeRGBA9759px/max53. Механической сетки/длинных полос нет, но контрастные короткие clusters читаются как пятнистый halo: пока тоже rejected visual. Pale inner ring остаётся. Диагностический gradient использует прежний wcRimHash; для production нужен baked noise, потому что floor(hash*8) усиливает hash divergence.
+
+CPU pattern atlas показывает происхождение mesh напрямую: исходное среднее трёх вытянутых полей пересекается треугольниками. Его std≈.367 против≈.679 у нового single-gradient field на той же области. Следующий предложенный, ещё не измеренный шаг — variance-matched output вокруг mean≈.75 со strength.5, сохраняя threshold/halo.
+
+Артефакты HOME triangle: `front34-fibre-candidate-atlas.jpg` (rejected stripes), `front34-fibre-gradient-atlas.jpg`, `front34-fibre-authority-baseline-planes.json`, `front34-fibre-gradient-planes.json`, `fibre-pattern-cpu.py`, `fibre-pattern-cpu-atlas.jpg`. Все изменения только runtime own contexts; source5311/HMR и production неизменны.
