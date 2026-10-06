@@ -4519,7 +4519,7 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_FRESH_SHADE = 0.07;
   // (#680) Presentation only: water stays visible on bare paper and reads
   // much more gently over paint. Neither share enters the deposited pigment.
-  const float WC_WET_PAPER_TONE_SHARE = 0.35;
+  const float WC_WET_PAPER_TONE_SHARE = 0.50;
   const float WC_WET_PAINT_TONE_SHARE = 0.12;
   // (s17.43) The power applied to a painted colour under fresh water, at
   // full freshness: 1.35 takes a mid blue (0.45) to 0.34, a near-white
