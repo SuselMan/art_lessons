@@ -13,3 +13,5 @@
 Последний жест — один pointerdown/up, семь stroke operations соответствуют нарезке живого штриха. Он выполнялся поверх предыдущих водяного и пигментного мазков; это стресс мокрого наложения. Прямые линии не подтверждают плавность плотной штриховки. Установлены CPU обёртки для следующего воспроизведения: inclusive timings не суммировать; GPU time ими не измеряется.
 
 Артефакты: temp/night-728/surface-overlay-*-result.json и исходники fixture; оригиналы также на HOME в680-combined-stability/temp. Временные CA install попытки не установили Root сертификат; собственный scheduled task остановлен, cleanup остаётся.
+
+Повторный dense400 поверх предыдущего: active max233мс, 14>33/5>100; tail483мс; все8новых chunk operations ACK/GL0. CPU inclusive _paintStrokeDabs max54.5мс, _display22.2мс, _onEnd41.2мс; _completeSettle не превышал10мс. Это не объясняет все длинные RAF и не является GPU timer. Следующая абляция — early отказ от Plan.present при активном stroke, поскольку существующий callback уже отвергает показ, но после дорогих копий.
