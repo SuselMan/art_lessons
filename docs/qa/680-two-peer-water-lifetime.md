@@ -157,3 +157,48 @@ residual. This does not isolate earlier native geometry/bounds preparation or
 other inputs, and does not justify a blanket claim that all numeric differences
 are irrelevant. Sampled canonical/P/C/V fields and original PNGs are retained in
 home `temp/two-long-correct/`; all owned Chrome instances closed in finally.
+
+## Packed synchronous versus queued chunk oracle
+
+Genuine Vega, frozen9eb2a6fe (three source SHA checks passed), one owned Chrome
+with independent authenticated Room contexts. This diagnostic replayed synthetic
+packed operations into fresh actual Room engines; it is not native-input or
+server-ACK QA. Source/model/operator parameters were unchanged. Source fixture
+came from the repaired long-control report's in-page JSON clones. Codec1, color
+arrays, unique operation IDs and wet-string lengths were validated. A common
+operation-timestamp epoch preserved relative differences; encoded dab inputs
+were retained. Short variants take the first36packed dabs as explicit lower-dose
+fixtures, not as identical water volume to the long variants.
+
+The synchronous route actually called `_paintDabs` for every operation, with
+suspendDepth1, no `_paintOpOverFrames`, no pending settle or queued operations.
+The queued route called `_paintOpOverFrames` once per operation, with depth0 and
+pending settle after append. Each operation drained before the next. Both routes
+awaited paperReady, used the same review flags (combined/shared fluid/separate V,
+foreign V/bottomless/fluid landing) and kept the source frozen.
+
+All four final **whole PNG decoded RGBA** comparisons were exact0pixels/max0:
+long donor/short pigment (3ops), short donor/long pigment (3ops), long/long
+(4ops), short/short (2ops). All GL0; Chrome closed in finally, exit0.
+
+Exact SHA-256 over every byte of bounded256×128 ROI (x1006,y894) matched at all
+corresponding delivery-after/before-finish/aux-water-after boundaries. Matched
+boundary counts8/7/10/5 respectively. Coverage, source P/depth/color, V load,
+foreign V and film/base buffers were included; finish context and clocks also
+recorded. SHA equality is restricted to this ROI, not a full-field mass claim.
+Queued after-finish-return still has unfinished work, so it was deliberately
+not compared against the synchronous after-finish-return as the same stage.
+
+This is a strong negative for asynchronous queue scheduling as the explanation
+of the remaining **native** long-stroke residual under these packed fixtures.
+It does not prove native donor state equals auxiliary reconstruction: native
+input, pre-painter geometry/fieldWet/clocks, actual native chunk settlement and
+packed input remain separate boundaries for the next oracle. No physical fix
+was chosen from this negative result.
+
+An earlier attempted fixture used a corrupt historical report with `[cycle]`
+in a second-chunk color; it failed before results and closed its Chrome. That
+attempt is excluded, not evidence of a source/GL failure. Valid artifacts are
+home night-QA `temp/chunk-packed/report.json`, `png-comparison.json` and eight
+PNG files; local exact-ROI comparison is
+`temp/snapshot/chunk-packed-boundary-comparison.json`.
