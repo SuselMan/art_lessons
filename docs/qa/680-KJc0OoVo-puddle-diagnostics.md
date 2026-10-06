@@ -132,3 +132,17 @@ scoped runtime shader и prepare wrappers воспроизводят a431c57e б
 Это bounded операторный контроль confinement и включения, не утверждение,
 что любой естественный waterfront остаётся несвязанным при длительном рисовании.
 Нативная скорость, saltedSamsung compile и undo/rebuild ещё не проверены.
+
+
+### Cold Adreno: полный кандидат a431c57e
+
+6 октября, отдельная новая Samsung Chrome вкладка1215: все четыре полные
+эмитированные программы low/high/carry/colour с уникальным salt успешно
+скомпилированы и linked. Размеры37977/37999/38022/38046 байт. GPU: ANGLE
+Qualcomm Adreno650. У всех LINK_STATUS=true, log пустой, GL0, lost=false.
+Статусы прочитаны до удаления shader/program handles. Собственная вкладка
+закрыта; старые вкладки не менялись. Это compile gate, а не доказательство
+скорости нового carry. Raw: temp/KJc0OoVo/carry-cold-report.json; точные hashes
+в temp/KJc0OoVo/carry-cold-input.json. Источник shaders собран непосредственно
+из a431c57e, без сокращения mode ветвей. Native/performance gate остаётся
+отдельным.
