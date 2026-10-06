@@ -257,3 +257,11 @@ Frontmetric причинно участвует в конечном пигмен
 Passive baseline1287 повторил seed SHA и wholeRGBA baseline1285 точно (0/max0). Actual paper uniforms: world1754×2480, scale1, field1536², paperOrigin[640,-2690], paperTexSize[1754,2480]. CPU crop height использует texel-center GL_LINEAR/REPEAT и world y со знаком минус; Fine asset SHA `e59ea6fafc9c21dac73fd31d7e7ebb9e86ad5545af46b6b3b1605a5ce84955fb`. `front34-height-worldaligned.jpg` показывает мелкое зерно, не крупную сетку. В `front34-cost-material-atlas.jpg` сетка уже в физическом конечном P.b, поэтому одним display/composite её не объяснить.
 
 Конкретная следующая гипотеза, пока НЕ проверенный вывод: `wcFibre` смешивает stretched noise в трёх направлениях0/60/120 градусов, а Plan добавляет через него поздние физические P/C slices в far halo. Это совпадает с местом и ориентациями решётки. Подготовлен scoped runtime AB только target34 mode1 late-slice (`opts.world.z>0`, `opts.d`, без pool origin): нейтрализовать fibre через world.z=0, оставив weights/front/seed/dabs неизменными. Без аппаратного gate это не заявляется причиной и не является исправлением.
+
+### Причинная локализация треугольной сетки: late wcFibre
+
+Samsung own1288 CLOSED, target34 late mode1 only: opts.d===field.band, world.z>0, origin.x=0; runtime world.z=0 отключил только fibre multiplier. Сработали4 unpaired P slices с весами .0704/.05632/.045056/.0360448; C далее восстановлен из физического P. Все predecessor passes, front8, weights и shader source сохранены.
+
+Полные prefront SHA exact; before-carry P/C/V/coverage/cost exact. В конечном физическом P/C изменились7370 пикселей/max6, whole9863/max31; V/coverage точны. Визуально треугольная решётка исчезла, pale inner ring сохранился. Это причинное подтверждение для настоящего prefix34 на frozen8aa-derived source, а не доказательство готового исправления/current combined. Psum в измеренной ROI843154→852249 (+1.079%); это **не global mass census**, для full1536² totals нужен matched повтор. Финальный cost-кэш отличается429px/max1, это downstream scratch, а не исходный front/carry cost.
+
+HOME raw `front34-fibre-off-planes.json`, `front34-fibre-off.png`, `front34-fibre-comparison.json`, `front34-fibre-atlas.jpg` в той же triangle папке. Scoped fibreOff diagnostic не внедрялся в production.
