@@ -167,3 +167,29 @@ Trace8MiB переполнилась до lift: из140096events около128k 
 RunTask/mojo/epoll/watchers. Отсутствующие end markers запрещают заявлять
 GPU attribution по этой trace. Отдельный bounded refinement оставляет
 только gpu+blink.user_timing,4MiB, и один caller stack на complete>1000steps.
+
+### Точная фаза большого drain: Samsung1277 CLOSED
+
+Полная trace только `gpu,blink.user_timing`,4MiB:29942events,10marks,
+before/after присутствуют. Median trace→page offset202514116485.5µs,
+spread158µs. Один caller stack доказал
+`PointerInput._handleUp → _onEnd → _finishRibbonStroke → _completeSettle`.
+В own diagnostic source это finish на index.ts:5920 и явный drain предыдущего
+job внутри `scratch.diffusePending` на7610 перед подготовкой нового settle.
+
+Page clock:
+
+- `_onEnd`12975.4–13036.6мс; внутри него complete1366steps12988.9–13030.9мс.
+- CrGpuMain `CommandBuffer::Flush`13010.831–13864.122мс (853.291мс).
+- Новый gesture t0=13068.3; его `_onStart`13068.6–13076.3мс,
+  complete87steps13068.8–13073.9мс (5.1мс).
+- Следующие неперекрывающиеся GPU Flush13872.902–14059.485мс (186.583мс),
+  затем14059.575–14107.310мс (47.735мс). Nested OnAsyncFlush не суммировались.
+- Первый active gap нового gesture1003мс; конечный morph idle/GL0.
+
+Большой GPU burst начинается ещё внутри предыдущего `_onEnd`, после его CPU
+возврата остаётся исполняться через следующий pointerdown. Это локализация
+очереди команд, не доказательство стоимости отдельного shader и не photon
+latency. ROI copies не решают эту физическую работу. Паспорт всё ещё изолированная
+модель8aa, не текущая chronology main. Raw HOME
+`roi-phase-off-gpu-trace.json.gz`, компактный VPS `temp/profile/roi-phase-summary.json`.
