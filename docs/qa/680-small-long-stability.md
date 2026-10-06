@@ -23,3 +23,6 @@
 Артефакты домашние: `680-combined-stability/temp/context-loss/small-long-stability-run/` — report.json,80roundPNG, cold-before.png. Копия report: `680-context-restore/temp/context-loss/small-long-stability-run/report.json`; контроллер small-long-stability.mjs. Sourcepassport index/OperationLog/hasActiveWater/servercoverage содержит точныеSHA. Первый bootstrapfixtureabort roomStore-before-ready сохранён отдельно small-long-stability, до рисования, source не менялся.
 
 Scope: ограниченная непрерывная стабильность общего мокрого слоя на640×480/brush32,165настоящих жестов, история/потери/Undo/Dry. Это не performance большогоA3, не полная nativeparity, не leakproof и не coldrestartPASS.
+
+
+Размер холста дополнительно подтверждён отдельным read-only Prisma audit: комнаты f_GlYesQ и ltLjzwXe имеют `infinite=false, canvasWidth=640, canvasHeight=480` в самой базе. Сохранённые PNG экспортированы640×480; roomStore metadata совпадает. Это физический размер холста, а не только viewport. Контроллер создания выбирает UI Custom и задаёт640/480. Артефакт `temp/context-loss/board-dimension-audit.json`; база и source не изменялись.

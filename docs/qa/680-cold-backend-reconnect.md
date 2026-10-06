@@ -26,3 +26,6 @@ Root координированно перезапустил только соб
 Это завершённый PASS холодного QA-backend reconnect с сохранённой165stroke историей на640×480/brush32 и двумя новымиACK. Не стресс большого холста, не измерениеnative fps. Прежниеfailed/inconclusive rawreports не переписывались.
 
 Артефакты: `680-combined-stability/temp/context-loss/cold-precision-diagnostic/` содержит report.json,6PNG, offline-diffs.json, ready/cold-resume. Полная копия наVPS в `680-context-restore/temp/context-loss/cold-precision-diagnostic/`.
+
+
+Размер холста дополнительно подтверждён отдельным read-only Prisma audit: комнаты f_GlYesQ и ltLjzwXe имеют `infinite=false, canvasWidth=640, canvasHeight=480` в самой базе. Сохранённые PNG экспортированы640×480; roomStore metadata совпадает. Это физический размер холста, а не только viewport. Контроллер создания выбирает UI Custom и задаёт640/480. Артефакт `temp/context-loss/board-dimension-audit.json`; база и source не изменялись.
