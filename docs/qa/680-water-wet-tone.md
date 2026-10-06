@@ -1,11 +1,21 @@
-# Ослабление водяного тона: CPU кандидат
+# Водяной тон: узкий кандидат и аппаратная проверка
 
-Основа main f5397918, отдельная agents/680-water-wet-tone. Production KJc0OoVo выгружена read-only:47операций; есть чистая вода normal100:0, мокрыйпигмент100:100, слабыйпигмент и0:60. Originalops сохранены `temp/wet-tone/KJc0OoVo-ops.json`; не открывали/менялипользовательскуюкомнату.
+Основа main f5397918, ветка agents/680-water-wet-tone, код b40614a5. Production KJc0OoVo выгружена read-only: 47 операций. Исходные операции сохранены в `temp/wet-tone/KJc0OoVo-ops.json`; пользовательскую комнату не меняли.
 
-Причина отображения: PAPER_COMPOSE_FRAG накладывает damp нейтральныйтон1.2%, freshwater набумаге7%, standingpool8%. Поверхпигмента идут последовательно exponent1+0.35fresh и1+0.45pool, поэтому полнаявода может очень сильнотемнитьсреднийцвет. Это презентационныеwetMapтермы; они не являются P/C/V pigmentdeposit или driedsolver. Exporter `_renderPaperComposeInto` отключаетwetRect(0,0,-1,-1), значит сухойэкспорт не получаетниdamp/fresh/pool.
+PAPER_COMPOSE_FRAG затемнял влажную бумагу последовательными damp/fresh/pool коэффициентами; поверх пигмента дополнительно повышал степень цвета. Кандидат вводит WC_WET_PAPER_TONE_SHARE=0.35 и WC_WET_PAINT_TONE_SHARE=0.12. Их смешивает существующая маска onPaint. Изменены только презентационные тоновые члены, P/C/V, solver, мокрая геометрия, бумажный микроконтраст и gloss сохранены.
 
-Узкийкандидат добавляет два явныхкоэффициента WC_WET_PAPER_TONE_SHARE0.35 иWC_WET_PAINT_TONE_SHARE0.12, плавно смешанные существующим onPaint. Они ослабляют все damp/fresh/pool tone термы, не растекание, не сухуюкраску и не формуwetmask. Стабильныепереходы границы воды/пигмента сохраняют старыйsmoothstep. Paper microcontrast flatten/gloss не менялись.
+Аппаратный тест на домашней Vega: ANGLE AMD Radeon Graphics, WebGL1, GL0, context lost=false. Отдельная копия `680-water-wet-tone-qa`, порт 5316. Один настоящий native рисунок: сухой пигмент, вода на бумаге и поверх пигмента. После settle заморожены фактическая wet texture/peak; три программы PAPER_COMPOSE сменяются над одними P/C/V. Это причинный тест отображения, без изменения модели или случайных strokeId между вариантами. Baseline — полный исходный shader f5397918; mild=0.5/0.2; candidate=0.35/0.12. Wet peak 0.9139.
 
-Для следующихживыхсмотрин варианты baseline1/1, mild0.5/0.2, candidate0.35/0.12. CPU арифметикаприfullfresh/fullpool: baselinebare0.8453 vs candidatebare≈0.9442; точные числа в cpu-tone-variants.json. Это расчеткоэффициентов, а не измерениеGPU/визуальнаяоценка. Приwet0 всеwetтермы0, сухойцвет аналитически прежний.
+Средние RGB в фиксированных участках:
 
-Проверено CPU: shader template импортирован существующимtsx без новыхdeps/symlinks; ровноодно onPaint; git diff --checkPASS. НиGLSL link/coldcompile, ни реальноеPNGexact, ни liveabovebare/painted, Dry/UndoReplay пока НЕпроверены. Нужен согласованныйGPUслот,2–3настройки наизолированномстенде и exactdry endpoint. Push/deploy не делались.
+| Вариант | Вода на бумаге | Вода поверх пигмента |
+|---|---|---|
+| Baseline | 227.43 / 227.43 / 227.43 | 170.12 / 156.33 / 199.37 |
+| Mild | 236.81 / 236.81 / 236.81 | 184.02 / 169.60 / 211.73 |
+| Candidate | 239.65 / 239.65 / 239.65 | 186.46 / 172.02 / 213.94 |
+
+Все три canonical export PNG совпадают точно: 0 изменённых пикселей. Candidate после Dry совпадает с полным rebuild точно: 0 пикселей. Exporter отключает wetRect, поэтому тоновые параметры не участвуют в сухом результате. Визуально вода остаётся различимой, но серое затемнение значительно слабее; насыщенность сухой краски сохранена.
+
+Undo/Redo выполнены, однако redo PNG против pre-undo rebuild отличается на 28 пикселей: raw максимум 255, alpha и premultiplied максимум 4, bbox x440..540/y156..198. Это отдельный незавершённый критерий parity, не скрытый допуск и не заявленный PASS. Причина пока не доказана; смена wet-tone программы не меняет canonical export уже существующего слоя. Samsung/cold Adreno compile этим прогоном не проверены.
+
+Артефакты на HOME и копия в этой рабочей ветке: `temp/wet-tone/hardware/report.json`, PNG всех вариантов, `compare.jpg`. Controller `temp/wet-tone/hardware-ab.mjs`, HTML `temp/wet-tone/review.html`. CPU JS скомпилирован, diff-check чистый. Собственный Chrome закрыт finally; пользовательские вкладки и frozen5314 сохранены. Push/deploy не выполнялись.
