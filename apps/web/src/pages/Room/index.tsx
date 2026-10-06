@@ -687,7 +687,7 @@ function RoomEditor() {
   const {
     snapshotUploader, snapshotUploaderRef, snapshotGateRef, replayIncompleteRef, checkSnapshotBoundary,
     markJoinRestoreDone,
-  } = useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, pendingPreviewsRef })
+  } = useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, pendingPreviewsRef, pendingIdsRef })
   // (#595) The class grid's live picture of this board — see useLivePreviewBake.
   const previewScheduleRef = useLivePreviewBake({ engineRef, boardId, active: bakesPreviewHere })
   // (#487) The open's own measurement and its slow-open alarm — see

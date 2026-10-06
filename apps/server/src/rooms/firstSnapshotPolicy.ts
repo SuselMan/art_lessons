@@ -9,7 +9,9 @@ export function permitsSnapshotWatermark(
   coveredSeqByLayer: ReadonlyMap<string, number>,
   requestedLayerIds: readonly string[],
 ): boolean {
-  if (!Number.isSafeInteger(seq) || seq <= 0 || seq > latestSeq) return false
+  if (!Number.isSafeInteger(seq) || seq <= 0) return false
+  // Preserve the existing periodic-upload contract. The new current-head
+  // restriction belongs only to the first nonboundary coverage path.
   if (seq % SNAPSHOT_SEQ_INTERVAL === 0) return true
   if (seq !== latestSeq || requestedLayerIds.length === 0) return false
   // Concurrent duplicate uploads at this same first watermark are legitimate.

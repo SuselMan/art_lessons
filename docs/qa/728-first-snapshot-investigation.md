@@ -1,6 +1,6 @@
 # #728: первая копия короткой акварельной комнаты
 
-Срез исходников: agents/728-night-combined, eb209d96; исследование 06.10.2026 22:05 UTC. Код политики пока не изменён.
+Срез исходников: agents/728-night-combined, eb209d96; исследование 06.10.2026 22:05 UTC. Кандидат политики и клиентский retry подключены локально; production не изменён.
 
 ## Установленная причина
 
@@ -30,4 +30,20 @@ SnapshotIO.bake отказывает через _snapshotQuiet при очере
 
 ## Подготовленный серверный критерий
 
-firstSnapshotPolicy.ts пока не подключён к saveSnapshot: это проверенный кандидат политики, а не исправленный join. Он разрешает некратный100 watermark только на текущем server seq и только для ещё не покрытых слоёв либо повторной записи на том же seq. Structural-only bootstrap не разрешён; partial coverage одного слоя не блокирует первый снимок другого. Старые кратные100 допустимы при seq не выше server latest. 8 тестов покрывают47/113, stale/future/fractional seq, concurrent duplicate, partial layers и запрет пересохранения на каждой операции. Combined queue/zero/policy:60tests7files PASS. Клиентский catch-up/retry и actual network join ещё требуют реализации/проверки.
+firstSnapshotPolicy.ts пока не подключён к saveSnapshot: это проверенный кандидат политики, а не исправленный join. Он разрешает некратный100 watermark только на текущем server seq и только для ещё не покрытых слоёв либо повторной записи на том же seq. Structural-only bootstrap не разрешён; partial coverage одного слоя не блокирует первый снимок другого. При кратных100 сохранён действующий серверный контракт; ограничение current server head относится к новому bootstrap. 8 тестов покрывают47/113, stale/future/fractional seq, concurrent duplicate, partial layers и запрет пересохранения на каждой операции. Combined queue/zero/policy:60tests7files PASS. Клиентский catch-up/retry и actual network join ещё требуют реализации/проверки.
+
+## Рабочий клиент/сервер кандидат (проверка продолжается)
+
+Политика подключена к saveSnapshot. После полного join без snapshot uploader запрашивает first-copy; собственный useSnapshotPublishing timer раз в секунду читает текущие seq/gates/структуру в одном шаге. Unconfirmed операции любого типа блокируют bootstrap через pendingIdsRef; pending peer reveals/reconnect/incomplete restore — через SnapshotGate. Нет сохранённого watermark для отложенного readback. Каждый слой помечается firstCovered только после успешного upload, partial/refused слой остаётся retryable. Неизменённая пустая бумага не перечитывается, а слой с неудачным upload допускает retry даже после снятия dirty самим bake. Обычный успешный boundary upload также закрывает firstCovered.
+
+Добавлена защита engine snapshotQuiet от active native gesture/destroyed/lost context: промежуточные незаписанные пиксели не могут попасть под прошлый подтверждённый watermark. 138tests10files PASS, включая реальные private pointer pipeline и context-loss guards в mock GL. Это не actual-device network join PASS. Полная проверка типов выполняется с внешними уже установленными зависимостями (без install/symlinks); первый config имел ошибки разрешения внешних @types, не ошибки изменённого source. Actual server storage/HTTP restore и real-device repeat join следующие обязательные gates.
+
+Проверенный race: другой клиент может успеть сохранить first coverage до ответа нашего upload, либо ordinary boundary во время compression. Нужно различать безвредный first-coverage race и transient failure, чтобы не перечитывать уже покрытый слой каждую секунду. Индекс snapshot — авторитетное подтверждение чужого покрытия; нельзя считать отказ сервера успешной публикацией без такого подтверждения.
+
+Concurrent first upload race закрыт: при not_a_checkpoint_seq uploader перечитывает authoritative snapshot index и отмечает только действительно сохранённые layer IDs. Отсутствие индекса или ошибка запроса не отменяет право retry. Два дополнительных теста проходят. Серверный первоначальный вариант также ограничивал обычные seq100 текущим nextSeq; это изменило старый периодический контракт, выявлено26 существующими storage tests. Ограничение перенесено только в новый nonboundary bootstrap; регулярный путь сохраняет прежнее поведение. Это не отключение защиты bootstrap watermark.
+
+## HTTP и проверки текущего кандидата
+
+200tests11files PASS, включая roomSnapshots storage suite и два новых интеграционных storage контроля: фактический47 сохраняется, tail48 остаётся; stale47 при head48 отказывается без DB create, затем48 принимается. Web app и server typechecks PASS с внешними уже установленными @types; oxlint изменённых policy/uploader/gate/hook PASS; map:check67modules/954files PASS и map:rules0errors (4старых orphan warnings).
+
+На отдельном HOME QA backend4538 (PID1036661, source8ad7c844+working tree, собственная папка680-lifetime-hardware/temp/night-load-server) выполнен реальный HTTP/Postgres/socket transport gate. Собственная комната qa728load-3da329f4 получила47 Dry-marker операций, snapshotPOST47=200, индекс и layer seq47, gzip roundtrip84bytes/SHA62c0d9515c12cd58fea0d6215b4ec532b0b63446261e357945f06b15dbec8a44 exact. Второй участник получил latestSnapshotSeq47. Это opaque tile transport fixture, не акварельный native/replay oracle. Tail содержит47 Dry markers по существующей политике сохранения Dry; этот тест не измеряет сокращение GPU replay или скорость UI входа. Raw temp/night-728/load-http-gate.json и mjs сохранены наVPS; собственные sockets закрыты. Actual-device Room first-copy/rejoin/пиксели и скорость остаются обязательным следующим gate.

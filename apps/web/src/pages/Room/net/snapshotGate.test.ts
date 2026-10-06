@@ -191,3 +191,24 @@ describe('createSnapshotGate — a stranded pending seq (#477)', () => {
       .toEqual({ previous: 1500, watermark: 1600 })
   })
 })
+
+
+describe('first snapshot readiness (#728)', () => {
+  it('refuses incomplete catch-up, reconnect and pending peer reveals', () => {
+    const gate = createSnapshotGate()
+    const input = { latestKnownSeq: 47, pendingCommitSeqs: [], replayIncomplete: false }
+    expect(gate.firstSnapshotWatermark(input)).toBeNull()
+    gate.restoreCompleted(47)
+    expect(gate.firstSnapshotWatermark(input)).toBe(47)
+    expect(gate.firstSnapshotWatermark({ ...input, pendingCommitSeqs: [47] })).toBeNull()
+    expect(gate.firstSnapshotWatermark({ ...input, replayIncomplete: true })).toBeNull()
+    gate.restoreStarted()
+    expect(gate.firstSnapshotWatermark(input)).toBeNull()
+  })
+  it('always reads the current watermark without re-opening old boundaries', () => {
+    const gate = createSnapshotGate()
+    gate.restoreCompleted(47)
+    expect(gate.firstSnapshotWatermark({ latestKnownSeq: 48, pendingCommitSeqs: [], replayIncomplete: false })).toBe(48)
+    expect(gate.observe({ latestKnownSeq: 48, pendingCommitSeqs: [], replayIncomplete: false })).toEqual({ previous: 47, watermark: 48 })
+  })
+})

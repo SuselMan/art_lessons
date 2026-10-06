@@ -18,13 +18,15 @@ function bytesToBase64(bytes: Uint8Array): string {
  *  the loss #369 was. */
 async function uploadSnapshot(
   roomId: string, seq: number, layerState: LayerState, layers: Map<string, Uint8Array>,
-): Promise<void> {
-  const encoded: Record<string, string> = {}
-  for (const [layerId, raw] of layers) {
-    encoded[layerId] = bytesToBase64(await compressLayerTiles(raw))
-  }
+  onCheckpointRefused?: () => Promise<void>,
+): Promise<boolean> {
   try {
+    const encoded: Record<string, string> = {}
+    for (const [layerId, raw] of layers) {
+      encoded[layerId] = bytesToBase64(await compressLayerTiles(raw))
+    }
     await api('POST /api/rooms/:roomId/snapshots', { params: { roomId }, body: { seq, layerState, layers: encoded } })
+    return true
   } catch (error) {
     // (#627) The one failure worth telling anyone about: the server refusing
     // the structure because it omits layers the log says are alive (#462).
@@ -39,11 +41,17 @@ async function uploadSnapshot(
         roomId, seq, missingCount: missing.length, missing: missing.join(','),
       })
     }
+    if (error instanceof ApiError && error.code === 'not_a_checkpoint_seq' && onCheckpointRefused) {
+      // Another client may already have published first coverage while our
+      // compression was in flight. Only the server index can prove that.
+      try { await onCheckpointRefused() } catch { /* Retain retry eligibility. */ }
+    }
     // Best-effort (#149 epic): another client independently crossing the
     // same seq boundary will very likely succeed even if this upload was
     // dropped (offline tab, a server hiccup) — nothing here retries. If
     // truly nobody ever uploads a given boundary, the room just keeps
     // behaving as if no snapshot exists yet, same as before this epic.
+    return false
   }
 }
 
@@ -95,8 +103,39 @@ export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): 
  *  detects on its own whether that crossed a new boundary. */
 export function createSnapshotUploader(roomId: string) {
   const attempted = new Set<number>()
+  const firstCovered = new Set<string>()
+  const firstBaked = new Set<string>()
+  let bootstrap = false
+  let bootstrapUploading = false
 
   return {
+    /** Armed only by a completed catch-up that found no snapshot index. */
+    requestFirstSnapshot(): void { bootstrap = true },
+
+    /** The caller reads this watermark and structure in the same task as bake.
+     * A refused wet/pending layer remains eligible for the next observation. */
+    tryFirstSnapshot(seq: number, engine: PencilEngineAPI, layerState: LayerState): void {
+      if (!bootstrap || bootstrapUploading || seq <= 0) return
+      const known = new Set(Object.keys(layerState.items))
+      if (engine.liveLayerIds().some(id => !known.has(id))) return
+      const layers = new Map<string, Uint8Array>()
+      for (const item of Object.values(layerState.items)) {
+        if (item.kind !== 'layer' || firstCovered.has(item.id)) continue
+        // Never read empty/untouched paper every second. A failed upload may
+        // already have cleared dirty, so its layer must remain retryable.
+        if (!engine.isLayerDirty(item.id) && !firstBaked.has(item.id)) continue
+        const baked = engine.bakeNetworkSnapshot(item.id)
+        if (baked) { firstBaked.add(item.id); layers.set(item.id, baked) }
+      }
+      if (!layers.size) return
+      bootstrapUploading = true
+      void uploadSnapshot(roomId, seq, layerState, layers, async () => {
+        const index = await api('GET /api/rooms/:roomId/snapshots/index', { params: { roomId } })
+        for (const entry of index?.layers ?? []) firstCovered.add(entry.layerId)
+      }).then(ok => {
+        if (ok) for (const id of layers.keys()) firstCovered.add(id)
+      }).finally(() => { bootstrapUploading = false })
+    },
     onSeqObserved(previousSeq: number, newSeq: number, engine: PencilEngineAPI, layerState: LayerState): void {
       const fromBoundary = Math.floor(previousSeq / SNAPSHOT_SEQ_INTERVAL)
       const toBoundary = Math.floor(newSeq / SNAPSHOT_SEQ_INTERVAL)
@@ -191,7 +230,9 @@ export function createSnapshotUploader(roomId: string) {
       }
       // The structure is uploaded even when no layer changed — a rename or a
       // reorder is a real change with no pixels behind it.
-      void uploadSnapshot(roomId, boundarySeq, layerState, layers)
+      void uploadSnapshot(roomId, boundarySeq, layerState, layers).then(ok => {
+        if (ok) for (const id of layers.keys()) firstCovered.add(id)
+      })
 
       // #210: independent of the layer-snapshot path above (fires even if
       // layers.size was 0 — a blank room still gets a thumbnail attempt,

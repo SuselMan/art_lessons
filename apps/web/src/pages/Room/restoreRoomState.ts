@@ -240,17 +240,13 @@ export async function restoreRoomState(
     if (engine && restoredFromSnapshot && latestSnapshotSeq !== null) {
       void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq)
     }
-    // A room that has never had a snapshot at all would stay stuck doing a
-    // full-history replay on every future join — nobody is ever "live" at the
-    // moment a checkpoint boundary is crossed for a room like that.
-    // Bootstrapping one here, only when latestSnapshotSeq is still null, fixes
-    // that without changing anything for a room that already has one.
-    // (#536, §17.66) ...but only when the room happens to stand exactly on a
-    // boundary: the uploader refuses a jump past one, since the buffers hold
-    // the latest seq and not the boundary's. Such a room gets its snapshot at
-    // the next boundary somebody crosses while drawing.
+    // A short room need not ever cross100. Request its first per-layer
+    // snapshot at the real current watermark; useSnapshotPublishing retries
+    // refused wet/pending layers after they become publishable. The ordinary
+    // cadence path below still refuses rounding a113 picture down to100.
     const uploader = deps.getSnapshotUploader()
     if (engine && latestSnapshotSeq === null && uploader) {
+      uploader.requestFirstSnapshot()
       uploader.onSeqObserved(
         alreadyHadSeq, deps.latestKnownSeqRef.current, engine, useRoomStore.getState().layerState,
       )

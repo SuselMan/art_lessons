@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
@@ -8,6 +8,8 @@ import { createSnapshotGate } from './net/snapshotGate'
 import { createSnapshotUploader } from './net/snapshotSync'
 
 export interface SnapshotPublishingDeps {
+  /** Any local unconfirmed operation, including structural changes. */
+  pendingIdsRef: RefObject<Set<string>>
   boardId: string | null
   engineRef: RefObject<PencilEngineAPI | null>
   /** Highest seq this client has seen arrive. */
@@ -20,7 +22,7 @@ export interface SnapshotPublishingDeps {
  *  own snapshot: the per-board uploader, the gate that decides whether this
  *  client may speak for the room at all, and the flag that takes that right
  *  away for the rest of the mount. Out of Room. */
-export function useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, pendingPreviewsRef }: SnapshotPublishingDeps) {
+export function useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, pendingPreviewsRef, pendingIdsRef }: SnapshotPublishingDeps) {
   // Bakes+uploads a full-room snapshot every time latestKnownSeqRef crosses
   // a SNAPSHOT_SEQ_INTERVAL boundary (#149/#167) — see snapshotSync.ts. One
   // instance per board (#176): a snapshot is content, and a fresh `attempted`
@@ -82,6 +84,24 @@ export function useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, p
   // Ref objects only, all stable for the component's life: this stays as
   // stable as it was when it listed none.
   }, [engineRef, latestKnownSeqRef, pendingPreviewsRef])
+  // A short room may never cross100; a first bake may also be refused while
+  // its water/settle is live. Re-read all guards and the actual watermark on
+  // each attempt, never capture a seq to label future pixels with.
+  useEffect(() => {
+    if (!snapshotUploader) return
+    const timer = setInterval(() => {
+      const engine = engineRef.current
+      if (!engine || pendingIdsRef.current.size) return
+      const seq = snapshotGateRef.current.firstSnapshotWatermark({
+        latestKnownSeq: latestKnownSeqRef.current,
+        pendingCommitSeqs: pendingPreviewsRef.current.commitSeqs(),
+        replayIncomplete: replayIncompleteRef.current,
+      })
+      if (seq !== null) snapshotUploader.tryFirstSnapshot(seq, engine, useRoomStore.getState().layerState)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [snapshotUploader, engineRef, latestKnownSeqRef, pendingPreviewsRef, pendingIdsRef])
+
   /** (#462) Opens the snapshot path for this client, once its canvas actually
    *  holds the room — called from every catch-up that ran to completion: the
    *  mount effect's replay, `handleRoomState`'s restore, and the brand-new-room

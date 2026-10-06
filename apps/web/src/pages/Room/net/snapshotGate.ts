@@ -67,6 +67,8 @@ export interface SnapshotGate {
   /** `null` when nothing should be baked. Otherwise the watermark pair, and
    *  the gate has already advanced past it. */
   observe(input: BakeObservation): BakePlan | null
+  /** No arrived-but-uncommitted operation may be labelled as caught up. */
+  firstSnapshotWatermark(input: BakeObservation): number | null
 }
 
 /** `report` — куда уходит замеченное нарушение (#480). Параметром, а не
@@ -90,6 +92,14 @@ export function createSnapshotGate(
 
     restoreStarted() {
       restoreDone = false
+    },
+
+    firstSnapshotWatermark({ latestKnownSeq, pendingCommitSeqs, replayIncomplete }) {
+      if (!restoreDone || replayIncomplete || latestKnownSeq <= 0) return null
+      // Unlike a regular boundary, bootstrap must represent the full current
+      // buffer, not an earlier watermark below a pending reveal.
+      if (!pendingCommitSeqs[Symbol.iterator]().next().done) return null
+      return latestKnownSeq
     },
 
     observe({ latestKnownSeq, pendingCommitSeqs, replayIncomplete }) {

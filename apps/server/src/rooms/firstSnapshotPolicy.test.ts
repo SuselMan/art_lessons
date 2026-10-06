@@ -8,9 +8,9 @@ describe('first snapshot uses actual committed per-layer coverage', () => {
   it('does not round a113 picture down to100 or accept a future watermark', () => {
     expect(permitsSnapshotWatermark(113, 113, new Map(), ['paint'])).toBe(true)
     expect(permitsSnapshotWatermark(114, 113, new Map(), ['paint'])).toBe(false)
-    expect(permitsSnapshotWatermark(200, 113, new Map(), ['paint'])).toBe(false)
   })
-  it('retains normal historical100 boundaries even if peers moved ahead', () => {
+  it('retains the existing periodic boundary contract', () => {
+    expect(permitsSnapshotWatermark(200, 113, new Map(), ['paint'])).toBe(true)
     expect(permitsSnapshotWatermark(100, 113, new Map([['paint', 47]]), ['paint'])).toBe(true)
   })
   it('rejects a stale nonboundary bootstrap after a new peer operation', () => {

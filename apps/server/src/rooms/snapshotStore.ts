@@ -4,10 +4,10 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 import type { Operation } from '@grafetto/shared'
-import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { rooms, type RoomRecord } from './roomRegistry.js'
+import { permitsSnapshotWatermark } from './firstSnapshotPolicy.js'
 import { isCoveredBySnapshot, layerStateIdsOf } from './snapshotCoverage.js'
 import { deriveLayerIds } from './structuralLog.js'
 
@@ -173,7 +173,9 @@ export async function saveSnapshot(
 ): Promise<SaveSnapshotResult> {
   const record = rooms.get(roomId)
   if (!record) return { ok: false, error: 'unknown_room' }
-  if (seq <= 0 || seq % SNAPSHOT_SEQ_INTERVAL !== 0) return { ok: false, error: 'not_a_checkpoint_seq' }
+  if (!permitsSnapshotWatermark(seq, record.nextSeq - 1, record.coveredSeqByLayer, [...layers.keys()])) {
+    return { ok: false, error: 'not_a_checkpoint_seq' }
+  }
 
   // (#462) The structure a client sends has to agree with the log the server
   // already holds. Checked here rather than trusted, because `layerState` is

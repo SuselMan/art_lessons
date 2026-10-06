@@ -879,3 +879,26 @@ describe('snapshot retention', () => {
       .resolves.toEqual({ ok: true, created: ['layer-1'], duplicated: [], mismatched: [] })
   })
 })
+
+
+describe('first nonboundary layer coverage (#728)', () => {
+  it('stores actual47 and removes only the operations the saved layer really covers', async () => {
+    const roomId = makeRoom()
+    for (let i = 0; i < 47; i++) recordOperation(roomId, stroke(`first-${i}`))
+    const structure = { items: { background: {}, 'layer-1': {} }, rootOrder: ['layer-1', 'background'] }
+    const saved = await saveSnapshot(roomId, 47, structure, layers('layer-1'))
+    expect(saved.ok).toBe(true)
+    expect(getCoveredSeq(roomId, 'layer-1')).toBe(47)
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
+    recordOperation(roomId, stroke('after-first'))
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(op => op.id)).toEqual(['after-first'])
+  })
+  it('refuses stale first watermark after a concurrent new operation, then accepts its actual head', async () => {
+    const roomId = makeRoom()
+    for (let i = 0; i < 48; i++) recordOperation(roomId, stroke(`race-${i}`))
+    const structure = { items: { background: {}, 'layer-1': {} }, rootOrder: ['layer-1', 'background'] }
+    expect(await saveSnapshot(roomId, 47, structure, layers('layer-1'))).toEqual({ ok: false, error: 'not_a_checkpoint_seq' })
+    expect(mockPrisma.roomLayerSnapshot.create).not.toHaveBeenCalled()
+    expect((await saveSnapshot(roomId, 48, structure, layers('layer-1'))).ok).toBe(true)
+  })
+})

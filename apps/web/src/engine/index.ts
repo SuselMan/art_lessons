@@ -5189,6 +5189,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** SnapshotIO's first bake gate — pure, see SnapshotIOContext.quiet. */
   private _snapshotQuiet(layerId: string): boolean {
+    // An idle bootstrap observer can run between native dab chunks. These
+    // unrecorded pixels belong to no confirmed watermark yet.
+    if (this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
     // (§17.58) Not with peers' operations still queued: landing them here was a
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.

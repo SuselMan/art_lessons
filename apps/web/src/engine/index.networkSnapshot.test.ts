@@ -3,14 +3,14 @@
 // tile gather, just serialized via snapshotCodec instead of kept in memory)
 // — and #169's restoreLayerFromSnapshot/absorbHistoricalOperations, the
 // fast-join restore + background backfill counterparts.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { nanoid } from 'nanoid'
 import type { OperationRedoOperation, OperationUndoOperation } from '@grafetto/shared'
 
 import {
   checkpointBytes, checkpointCountFor, createTestEngine, dab, expectPixelsClose, fillStroke, makeAreaClear,
   makeLayerAdd,
-  makeStroke, readLayerPixels, readTilePixels, residentTileCount,
+  makeStroke, readLayerPixels, readTilePixels, residentTileCount, paperReady, simulateStrokeStart, simulateStrokeMove,
 } from './testing/engineTestUtils'
 import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
@@ -597,5 +597,33 @@ describe('what a restore pins in memory (#467)', () => {
     engine.undo()
 
     expect([...readLayerPixels(engine, 'L')!]).toEqual(restored)
+  })
+})
+
+
+describe('idle first snapshot never captures unrecorded native pixels (#728)', () => {
+  it('refuses between pen-down and pen-up, including before the first chunk is recorded', async () => {
+    const { engine } = createTestEngine({ userId: 'me' }, { width: 32, height: 32 })
+    await paperReady(engine)
+    engine.appendOperation(makeLayerAdd('me', 'L'), 'remote')
+    engine.setActiveLayer('L')
+    engine.appendOperation(makeStroke('peer', 'L', [dab(8, 8, { size: 6 })]), 'remote')
+    expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
+    engine.setSize(8)
+    simulateStrokeStart(engine, 8, 16)
+    simulateStrokeMove(engine, 16, 16)
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    engine.destroy()
+  })
+  it('refuses lost-context readback even if history is otherwise publishable', () => {
+    const { engine } = createTestEngine({ userId: 'me' }, { width: 16, height: 16 })
+    const gl = engine['gl']
+    engine.appendOperation(makeLayerAdd('me', 'L'), 'remote')
+    engine.appendOperation(makeStroke('peer', 'L', [dab(8, 8, { size: 6 })]), 'remote')
+    expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
+    const lost = vi.spyOn(gl, 'isContextLost').mockReturnValue(true)
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    lost.mockRestore()
+    engine.destroy()
   })
 })
