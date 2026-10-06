@@ -232,7 +232,8 @@ export class WatercolorSettlePlan {
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
-    if (flow) ops.push(() => {
+    const captureInputs: Array<() => void> = []
+    if (flow) captureInputs.push(() => {
       this._brushFlowTex ??= gl.createTexture()
       flowTexture = this._brushFlowTex
       gl.activeTexture(gl.TEXTURE0)
@@ -243,7 +244,7 @@ export class WatercolorSettlePlan {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, flow.width, flow.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, flow.pixels)
     })
-    if (foreign) ops.push(() => {
+    if (foreign) captureInputs.push(() => {
       this._foreignWaterTex ??= gl.createTexture()
       foreignTexture = this._foreignWaterTex
       gl.activeTexture(gl.TEXTURE0)
@@ -262,7 +263,7 @@ export class WatercolorSettlePlan {
     // Stitch: every tile's overlap with the rect, top-down world → bottom-up
     // GL on both sides, exactly as SmudgePainter.gatherPatch does it. `a` takes the
     // deposit, `b` what was settled, `coverage` the silhouette.
-    ops.push(() => {
+    captureInputs.push(() => {
       field.a.clear()
       field.b.clear()
       field.coverage.clear()
@@ -309,6 +310,11 @@ export class WatercolorSettlePlan {
       if (a0) field.b.copyTo(a0)
       if (ca0) field.cb.copyTo(ca0)
     })
+    // Queue.start executes the first entry at the chunk boundary. Uploads
+    // belong to that same entry: putting them ahead of the stitch lets the
+    // next film overwrite its inputs before a later animation frame reads
+    // them. Only capture is immediate; transport still runs over frames.
+    ops.push(() => { for (const capture of captureInputs) capture() })
 
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this.ctx.passes().fieldOp(out, a, b, mode, k)

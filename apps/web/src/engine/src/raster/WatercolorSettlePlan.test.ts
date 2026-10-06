@@ -55,6 +55,49 @@ describe('coupled pigment and absorption diffusion', () => {
   }
 })
 
+for (const flow of [false, true]) for (const foreign of [false, true]) {
+  it(`captures the old film in the first queue entry despite uploads (flow=${flow}, foreign=${foreign})`, () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.filmBuffers(tile)
+    const entry = scratch.peek(tile)!
+    const capturedGesture = scratch.gesture
+    scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+    if (flow) scratch.brushTravel.push({ x: 32, y: 32, radius: 8, aspect: 1, angle: 0, dx: 32, dy: 0, water: 1 })
+    if (foreign) {
+      const footprint = { x: 32, y: 32, radius: 8, aspect: 1, angle: 0 }
+      scratch.foreignSources = [{ gesture: 'earlier-water', footprints: [footprint] }]
+      scratch.wetContacts = [footprint]
+    }
+    const pigment = vi.spyOn(entry.inkLoad!, 'copyRegionInto')
+    const base = vi.spyOn(entry.inkBase!, 'copyRegionInto')
+    const transport = vi.spyOn(probe._watercolorPasses, 'diffuseStep')
+    try {
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.2, 8, 1, 1, 1, 1)!
+      expect(pigment).not.toHaveBeenCalled()
+      expect(base).not.toHaveBeenCalled()
+      // Queue.start runs only this entry before yielding to the next film.
+      plan.ops[0]()
+      expect(pigment).toHaveBeenCalled()
+      expect(base).toHaveBeenCalled()
+      expect(entry.filmGesture).toBe(capturedGesture)
+      expect(transport).not.toHaveBeenCalled()
+      scratch.newFilm()
+      scratch.filmBuffers(tile)
+      expect(entry.filmGesture).not.toBe(capturedGesture)
+      for (const op of plan.ops.slice(1)) op()
+      plan.finish()
+      expect(transport).toHaveBeenCalled()
+    } finally {
+      pigment.mockRestore(); base.mockRestore(); transport.mockRestore()
+      scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  })
+}
+
 for (const radius of [8, 200]) it(`keeps paired brush state and executes every pulse (radius=${radius})`, () => {
   const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
   const probe = engine as unknown as Probe
