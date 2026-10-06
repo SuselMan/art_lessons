@@ -113,3 +113,22 @@ carry u_band.y: равнокостный обмен разрешён тольк�
 ещё требует GPU controls; кандидат не опубликован и не признан готовым.
 Следующие обязательные проверки: сухая кисть/чистая вода, разделённые острова,
 load/rebuild, полный source/P/V census и реальная salted compilation Samsung.
+
+
+### Wet-eligibility и раздельные острова: аппаратные controls
+
+HOME `temp/KJc0OoVo/wet-controls/report.json`, six replay arms on frozen5314;
+scoped runtime shader и prepare wrappers воспроизводят a431c57e без изменения
+сервера. Все six GL0/contextLostfalse; четыре carry compile hits на кандидат.
+Чистая вода seq19: P=0, V3982519 и wholePNG byte-exact baseline/candidate.
+Сухой вариант seq27(normal:0:100, recordedwet0): V=0, P327403 и wholePNG byte-exact.
+Исходный мокрый row сохраняет эффект cap8 и V13764346 exact.
+
+Дополнительно actual carry shader на32×8 nearest buffers, stride8:
+- source islands разделены4texels dry cost1: rightP0, весь output byte-exact,
+  Psum5120;
+- путь cost0 связан: rightP1280, Psum5120 — положительный reachability control;
+- тот же связанный путь с wetgate0: rightP0, output byte-exact, Psum5120.
+Это bounded операторный контроль confinement и включения, не утверждение,
+что любой естественный waterfront остаётся несвязанным при длительном рисовании.
+Нативная скорость, saltedSamsung compile и undo/rebuild ещё не проверены.
