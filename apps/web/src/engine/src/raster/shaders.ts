@@ -1,3 +1,4 @@
+import { brushDragEarlyZero } from '../watercolor/brushDragEarlyZero'
 // PAPER_WORLD_SIZE is imported rather than restated as a GLSL literal
 // because the charcoal dropout period below is derived from it: a hand-copied
 // number here would drift the moment that constant is retuned, which is
@@ -5709,7 +5710,7 @@ export const BRUSH_COMPOSITE_FRAG = `
 
 /** #680: donor-form brush advection. The same fractions move optical depth.
  * Separate small program: never grow the Adreno bookkeeping shader. */
-export const WC_BRUSH_DRAG_FRAG = `
+export const WC_BRUSH_DRAG_BASELINE_FRAG = `
   precision highp float;
   varying vec2 v_uv;
   uniform sampler2D u_paint, u_flow, u_water, u_pigment;
@@ -5780,3 +5781,6 @@ export const WC_BRUSH_DRAG_FRAG = `
     gl_FragColor=result/255.0;
   }
 `;
+
+/** Same conservative operator; skips only proven zero faces before pigment reads. */
+export const WC_BRUSH_DRAG_FRAG = brushDragEarlyZero(WC_BRUSH_DRAG_BASELINE_FRAG)
