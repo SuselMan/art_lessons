@@ -1728,6 +1728,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  never read by any paint pass, never serialised, dropped with the tile. */
   private _washReveals = new Map<AccumulationBuffer, WashReveal>()
   private _revealTimer = 0
+  // Isolated DEV A/B only; production and default behavior remain unchanged.
+  private _diagnosticRevealPause = false
+  private _diagnosticDisplayRafCancel = false
   private get _settle(): WatercolorSettleQueue['current'] { return this._settleQueue.current }
   /** (#536, §17.22) The live gesture's composite, deferred to the frame: the
    *  per-gesture scalars every batch would have passed, kept from the first
@@ -8362,6 +8365,13 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _display(): void {
     if (this._contextLost || this.gl.isContextLost()) return
+    let cancelledFrameTimestamp: number | null = null
+    if (import.meta.env.DEV && this._diagnosticDisplayRafCancel && this._displayRafId !== null) {
+      cancelAnimationFrame(this._displayRafId)
+      this._displayRafId = null
+      cancelledFrameTimestamp = this._debug ? this._dbgPendingFrameTimestamp : null
+      this._dbgPendingFrameTimestamp = null
+    }
     // (#470) One path for both kinds of room. A bounded room used to take a
     // screen-locked DISPLAY_FRAG pass over a sheet-sized _compositeFBO, which
     // only worked because its canvas *was* the sheet; now that the camera
@@ -8381,6 +8391,13 @@ export class PencilEngine implements PencilEngineAPI {
     // mirroring _runComposite/_finishInfiniteComposite's division of labor, so
     // nothing needs setting up here first.
     this._composePaperToScreen(partialWorld)
+    // The direct draw replaces the owed debug frame too, retaining its sample.
+    if (cancelledFrameTimestamp !== null) {
+      this.gl.finish()
+      const latency = performance.now() - cancelledFrameTimestamp
+      this._dbgFrameSum += latency; this._dbgFrameCount++
+      this._dbgMaxFrame = Math.max(this._dbgMaxFrame, latency)
+    }
     this._wcPerf.frameAt.push(perfT0)
     this._wcPerf.frameMs.push(performance.now() - perfT0)
     if (this._wcPerf.frameAt.length > 600) { this._wcPerf.frameAt.splice(0, 300); this._wcPerf.frameMs.splice(0, 300) }
@@ -8396,6 +8413,7 @@ export class PencilEngine implements PencilEngineAPI {
         // its clock but not its frames: thirty full repaints a second on top
         // of the brush's own. It is drawn wherever the brush draws, and in
         // full again from the first frame after pen-up.
+        if (this._strokeLayerId && import.meta.env.DEV && this._diagnosticRevealPause) return
         if (this._strokeLayerId) { this._revealTimer = setTimeout(() => { this._revealTimer = 0; this._displayIfNotSuspended() }, 33) as unknown as number; return }
         this._displayIfNotSuspended()
       }, 33) as unknown as number
