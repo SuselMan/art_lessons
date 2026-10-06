@@ -1,0 +1,24 @@
+# Пять настоящих участников: ограниченная проверка истории
+
+Источник combined b8633207, frontend5314/backend4537, все эффекты включены. Обычный UI создаёт собственную комнату f_GlYesQ с custom640×480; размеры проверены по roomStore у каждого участника. Один аппаратный Chrome/Vega, пять разных BrowserContext/userId одновременно, brush32, короткая дистанция40экранныхpx. Защита MemAvailable500MiB сохранена. Chrome закрыт finally, exit0.
+
+Каждый из пяти участников выполнил автоматизированный жест через обычные обработчики PointerInput на настоящей Vega и получил server ACK. Это синтетические движения, не физическое движение стилуса. Упакованы21/18/19/18/19дабов, у каждого ровно одна strokeOperation/strokeId. Пять участников получили идентичный authoritative журнал, включая paper_dry. Все записанные op.layerId равны layer-1: проверен общий слой с пятью разными washId, по одному на автора. Сами поля импорта воды в этом опыте отдельно не инструментировались.
+
+| Фаза | GL/lost | Непустые PNG | Журналы | Каждый peer против автораA |
+|---|---|---|---|---|
+| Paint | 0 / false у всех | 2536пикселей | EXACT | 0pixels/max0 |
+| Dry | 0 / false у всех | 2536пикселей | EXACT | 0pixels/max0 |
+| Undo | 0 / false у всех | 2219пикселей | EXACT | 0pixels/max0 |
+| Redo | 0 / false у всех | 2536пикселей | EXACT | 0pixels/max0 |
+| Rejoin участника5 | 0 / false у всех | 2536пикселей | EXACT | 0pixels/max0 |
+
+Undo реально изменил1833пикселя/max205 относительно Dry. Redo и Rejoin вернули точный Dry PNG,0пикселей/max0. Identity участника5 сохранилась при закрытии собственного page и обычном повторном Join в том же контексте. Двадцать peer/A сравнений посчитаны офлайн из сохранённых PNG; premultiplied разница также0.
+
+Минимальная свободная память при проверяемых фазах1925566464байта, примерно1,79GiB. Начальный запас после остановки завершённых диагностических Vite был3314088kB. Исходный A3portrait1754×2480/brush80 вариант не прошёл ресурсный guard: первая попытка после5engine до рисования; повтор после4nativeACK, до5-го. Все5 engine во втором abort имели GL0/lostfalse и один журнал5операций. Эти попытки не являются PASS и сохранены отдельно.
+
+Это PASS ограниченной доставки/истории/пиксельного совпадения пяти участников на малом холсте. Это не стресс большого холста, не измерение плавности и не доказательство отсутствия native/replay drift на длинной истории.
+
+Артефакты: домашняя `680-combined-stability/temp/context-loss/five-native-small/` содержит report.json,25PNG и offline-diffs.json. Копия25PNG/report в `680-context-restore/temp/context-loss/five-native-small/`; контроллер `temp/context-loss/five-native-small.mjs`. Ресурсные abort сохранены в five-native-peers и five-native-peers-retry. Source passport четырёх файлов находится в каждом report; физика и source не менялись.
+
+
+Размер холста дополнительно подтверждён отдельным read-only Prisma audit: комнаты f_GlYesQ и ltLjzwXe имеют `infinite=false, canvasWidth=640, canvasHeight=480` в самой базе. Сохранённые PNG экспортированы640×480; roomStore metadata совпадает. Это физический размер холста, а не только viewport. Контроллер создания выбирает UI Custom и задаёт640/480. Артефакт `temp/context-loss/board-dimension-audit.json`; база и source не изменялись.
