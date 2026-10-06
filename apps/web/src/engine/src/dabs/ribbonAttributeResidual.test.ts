@@ -23,7 +23,7 @@ it('constant round and chisel bands have affine across coordinates',()=>{
   for(const shape of ['ellipse','roundedBox'] as const)expect(measure(shape,false)[5]).toBeLessThan(1e-6)
 })
 it('varying-width round and chisel bands have a diagonal-dependent across gradient, not a dose gradient',()=>{
-  for(const shape of ['ellipse','roundedBox'] as const){const r=measure(shape,true);expect(r[5]).toBeGreaterThan(0.01);for(const c of [3,4,6,7,8,10])expect(r[c]).toBeLessThan(1e-6)}
+  for(const shape of ['ellipse','roundedBox'] as const){const r=measure(shape,true);expect(r[5]).toBeGreaterThan(0.01);if(shape==='ellipse')expect(r[2]).toBeLessThan(1e-5);for(const c of [3,4,6,7,8,9,10])expect(r[c]).toBeLessThan(1e-6)}
 })
 
 it('diagnostic swap preserves every quad corner and changes only the interior diagonal',()=>{
