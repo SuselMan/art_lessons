@@ -342,3 +342,14 @@ this diagnostic is not a smoothness/performance recommendation. The running
 film merge preserves new paint, but second delivery against an unsettled base
 and later first-result merging are not shown to commute with delivering the
 second chunk against an already settled base.
+
+
+### Passive deferred-stitch identity proof (9eb2a6fe)
+
+One owned Vega Chrome, two authenticated actual Room participants, native clear-water then long dry-pigment gesture. Engine source unchanged. The harness wraps existing calls and reads JavaScript buffer/FBO/texture identities only; no additional GL queries or readbacks. Both journals were deep-cloned inside the page and exactly equal. Owned Chrome closed in finally, process exit 0.
+
+On native pigment job 3, prepare captured gesture 1 at 12585.8 ms with all four tile entries on filmGesture 1. Deferred stitch ran at 12623.0 ms after two entries had advanced to filmGesture 2. Its settled-input fallback selected current inkLoad: deposit and settled inputs referenced identical buffers/FBOs (88/89 and 148/149). On the packed peer for the same journal, job 3 stitch retained filmGesture 1 and selected distinct inkBase inputs on all four entries. The same crossing occurred in native clear-water job 1. Object IDs are page-local; milliseconds establish ordering within each page, not cross-page latency.
+
+This proves the deferred stitch reads a later mutable film and changes its base selection. It does not measure pixel values, mass, performance, or establish a complete repair. Earlier force-complete scoped ROI evidence independently supports the ordering boundary. A proposed repair must freeze the first operation's inputs before later-film writes, preserve resource lifetime through cancel/context loss, and separately prove running-film rebase equivalence. Capturing texture references alone is insufficient because those textures remain mutable.
+
+Evidence: `temp/snapshot/stitch-passive-report.json`; harness `temp/snapshot/deferred-stitch-passive.js`, `two-peers-stitch-passive.mjs`, and `vega-stitch-passive.mjs`. Event streams did not hit their cap (1937/1499). No source change or additional GPU run was made.
