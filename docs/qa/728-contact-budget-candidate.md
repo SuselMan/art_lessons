@@ -279,3 +279,52 @@ CPU pattern atlas показывает происхождение mesh напр�
 Артефакты HOME triangle: `front34-fibre-candidate-atlas.jpg` (rejected stripes), `front34-fibre-gradient-atlas.jpg`, `front34-fibre-authority-baseline-planes.json`, `front34-fibre-gradient-planes.json`, `fibre-pattern-cpu.py`, `fibre-pattern-cpu-atlas.jpg`. Все изменения только runtime own contexts; source5311/HMR и production неизменны.
 
 Soft contrast1293 CLOSED/GL0 сохраняет halo gate/threshold и remaps raw вокругmean.75 со strength.5. Authoritative wet868175→866060 (−0.2436%), dry843154→841119 (−0.2414%), Cα=P; whole9679/max41. Сетка отсутствует, islands слабее, но ещё заметны: до review/default это пограничный кандидат, не готовое исправление. `front34-fibre-soft-atlas.jpg` сохранён HOME.
+
+### Запечённые поздние волокна: отдельная выключенная программа, 07.10
+
+Локальный кандидат `d5d80e13` относится к собственной линии 5311
+`1b2368a4/8aa`, а не к текущему combined source. Default OFF. `WatercolorPasses`
+создаёт пятую low-программу только по opt-in; четыре прежние строки программ
+остались byte-exact. Самплер использует существующий baked noise unit7,
+владельцы buffers/textures не добавлены. Explicit warm требуется перед
+измерениями; eventual default ON должен прогревать программу до первого мазка.
+Принцип `cross-device-determinism`: float hash, который выбирал градиент, заменён
+неизменной запечённой решёткой. Strength 0.25 вокруг опорного значения 0.75 —
+ослабление эффекта, а не гарантия нормализации массы.
+
+Adreno650, пять cold salted links PASS, GL0/lostfalse, собственная1299 CLOSED.
+Новая emitted low SHA `2ce1a4cb09a3a25ac011cc3b105dbe188b6983d9a3d48e66ccdf2bcd319969b8`.
+Source passport: собственный `temp/profile/baked-source-sha.txt`, компактные
+отчёты `temp/profile/{baked-cold5,front34-baked-off,front34-baked-on-target,
+front27-baked-off,front27-baked-on-target,dry10-baked-off,dry10-baked-on-target}.json`.
+Только target27/34 использовал ON; predecessor журнал и material inputs сохранены.
+Первый1301 all-prefix arm отдельно сохранён и не подменяет строгий target1302.
+
+| Контроль | OWN страницы CLOSED | Wet P = Cα | Dry P = Cα | Whole PNG |
+|---|---|---:|---:|---|
+| true prefix34 |1300/1302|868175→866105, −0.2384%|843154→841196, −0.2322%|9546px / max40|
+| true prefix27 |1303/1304|372504→370534, −0.5289%|369947→368015, −0.5222%|6566px / max32|
+| derived dry10 |1305/1306|exact|exact|0px / max0|
+
+Во всех controls четыре full prefront SHA P/C/V/coverage exact. На27/dry10
+дополнительно full cost SHA before-carry exact; на34 cost прочитан в исходном
+ROI, его raw bytes exact. Raw ROI P/C/V/coverage/cost before-front и
+before-carry на27/34 exact, coverage canonical exact. Реально flagged late
+calls34=4P,27=4P+4C,dry10=0. Суммы взяты из настоящих источников
+`field.copyRegionInto` непосредственно перед canonical copy-back, не из
+произвольного ping-pong/последнего цветового буфера. GL0/lostfalse, guards
+непустого P/C/V/coverage выполнены.
+
+HOME raw и визуальные atlases:
+`/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/contact-budget/triangle/`:
+`front34-baked-atlas.jpg`, `front27-baked-atlas.jpg`, соответствующие whole PNG
+и `*-planes.json`. Визуально треугольная решётка исчезла, halo остался мягким и
+неоднородным. Светлое внутреннее кольцо остаётся; это отдельная проблема.
+Baked поле меняет узор относительно float diagnostic и не объявляется
+mass-conserving. CPU28 PASS, whole-web types PASS, map:check PASS,
+map:rules0 errors (четыре прежних no-orphans warnings).
+
+До включения остаются native/replay/undo-redo на актуальном combined source и
+его cold5/visual/совместимость с ring/source-film исправлениями. Эти gates не
+подменяются старой отдельной линией5311. Все наши страницы закрыты, Samsung
+передан координатору.
