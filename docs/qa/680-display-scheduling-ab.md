@@ -132,3 +132,12 @@ Own5311 immutablec17, AMD Vega, debugfalse/nineflags/S/T/R/idleBatch OFF. One un
 | finalDefaultBlit |0.16796|0.58290|0.66125|
 
 Native active median22.2ms bothcontrol/instrumented; burst2/3 max control150/100ms vsinstrumented149.9/133.2ms. Query commands perturb stream; separate journals are not identical-work equivalence. Timers do not measure CPU, compositor, queue waiting outside query region, swap or photon latency, and do not prove entire canonical pipeline cheap. Selected paper/blit draws themselves do not account for22ms cadence/150ms spikes. Evidence supports further investigation of presentation/driver handoff, not shader tuning as an established remedy. Artifact `temp/display-gputimer/report.json` VPS; home `680-lifetime-hardware/temp/display-gputimer/results/report.json`. No sourceproduction change.
+
+
+## Complete narrow CDP presentation trace, 06:34–06:36 UTC
+
+Own5311 immutablec17, no source/presentation changes, one uninstrumented control and one traced nativeburst. Categories devtools.timeline/cc/gpu/viz,4s, complete ReturnAsStream gzip on HOME only:13,194,891decoded bytes/1,385,372compressed,70,252events. Raw `680-lifetime-hardware/temp/display-trace/results/trace.json.gz` not copied to VPS. Bounded64MiBdecoded/16MiBcompressed; finallyTracing.end/Chromeclosed. VPS has only small report and summaries.
+
+CrGpuMain selected nested X events: WebGL122.680ms maximum, CommandBufferFlush122.675ms, RealSwapBuffers110.595ms, MakeCurrent11.408ms. These nested durations are NOT summed. Renderer FireAnimationFrame max31.915ms, MajorGC5.037ms. Browser-defined SubmitCompositorFrameToPresentationCompositorFrame async b/e pairs matched bypid+localid2 on the same trace timestamp clock:224 pairs,0unmatched/overlapping; p50 10.169ms,p95 25.681ms,max248.695ms. These are browser presentation stages, not photon-visible latency; no trace/native rAF marker clock mapping recorded, so no claimed per-native-frame causal overlap.
+
+Control/traced active median22.2ms both; burst2max150/150.1ms,burst3max183.4/116.6ms. Trace perturbs scheduling; different native journals not equal-work causal improvement. Evidence identifies long GPUservice/commandbuffer/swap handling distinct from measured short selected GPUdraw elapsed; does not prove exact driver/compositor root cause or cheap whole canonical pipeline. No production fix chosen. Summaries `temp/display-trace/{report,summary,presentation-summary}.json`.
