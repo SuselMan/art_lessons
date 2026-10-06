@@ -33,6 +33,12 @@ export class WatercolorSettleQueue {
   private readonly ctx: WatercolorSettleQueueContext
   constructor(ctx: WatercolorSettleQueueContext) { this.ctx = ctx }
   get current(): WatercolorSettleJob | null { return this._settle }
+  /** Diagnostic opt-in: intermediate presentation cannot reach a frame during a synchronous drain. */
+  suppressDrainPreview = false
+  /** Opt-in gate for copies whose downstream reveal callback rejects an active stroke. */
+  suppressActivePreview = false
+  private _drainDepth = 0
+  get allowProgressPreview(): boolean { return !this.suppressDrainPreview || this._drainDepth === 0 }
 
   /** (#536, §17.22) The author's pen-up settle in flight: the diffusion's
    *  GPU steps, run a few per animation frame under the reveal instead of
@@ -135,17 +141,20 @@ export class WatercolorSettleQueue {
   complete(): void {
     const s = this._settle
     if (!s) return
-    this._settle = null
-    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
-    if (!this.isAlive(s)) { s.lifecycle?.abort(); return }
-    for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
-    s.complete()
-    this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
-    this.ctx.scheduleFieldRelease()
-    // (§17.72) A peer's operation drawn over frames lands by finishing its
-    // stroke, which starts that stroke's own settle: "nothing in flight" is
-    // what every caller of this is after.
-    if (this._settle) this.complete()
+    this._drainDepth++
+    try {
+      this._settle = null
+      if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+      if (!this.isAlive(s)) { s.lifecycle?.abort(); return }
+      for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
+      s.complete()
+      this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
+      this.ctx.scheduleFieldRelease()
+      // (§17.72) A peer's operation drawn over frames lands by finishing its
+      // stroke, which starts that stroke's own settle: "nothing in flight" is
+      // what every caller of this is after.
+      if (this._settle) this.complete()
+    } finally { this._drainDepth-- }
   }
 
   private isAlive(s: WatercolorSettleJob): boolean {
