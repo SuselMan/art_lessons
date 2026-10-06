@@ -19,3 +19,6 @@ Undo реально изменил1833пикселя/max205 относитель
 Это PASS ограниченной доставки/истории/пиксельного совпадения пяти участников на малом холсте. Это не стресс большого холста, не измерение плавности и не доказательство отсутствия native/replay drift на длинной истории.
 
 Артефакты: домашняя `680-combined-stability/temp/context-loss/five-native-small/` содержит report.json,25PNG и offline-diffs.json. Копия25PNG/report в `680-context-restore/temp/context-loss/five-native-small/`; контроллер `temp/context-loss/five-native-small.mjs`. Ресурсные abort сохранены в five-native-peers и five-native-peers-retry. Source passport четырёх файлов находится в каждом report; физика и source не менялись.
+
+
+Размер холста дополнительно подтверждён отдельным read-only Prisma audit: комнаты f_GlYesQ и ltLjzwXe имеют `infinite=false, canvasWidth=640, canvasHeight=480` в самой базе. Сохранённые PNG экспортированы640×480; roomStore metadata совпадает. Это физический размер холста, а не только viewport. Контроллер создания выбирает UI Custom и задаёт640/480. Артефакт `temp/context-loss/board-dimension-audit.json`; база и source не изменялись.
