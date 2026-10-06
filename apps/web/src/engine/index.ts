@@ -37,6 +37,7 @@ import { SmudgePainter } from './src/dabs/SmudgePainter'
 import { BrushPainter } from './src/dabs/BrushPainter'
 import { StampPainter, dabWorldHalfExtents } from './src/dabs/StampPainter'
 import { bakeDabOpacity } from './src/dabs/dabOpacity'
+import { codecDab } from './src/dabs/codecDab'
 import { nibScallops, presetForTool, renderSizeScale, resolveGrainMode } from './src/presets/resolvePreset'
 import {
   charcoalNibFromPreset, charcoalPresetString,
@@ -6618,6 +6619,20 @@ export class PencilEngine implements PencilEngineAPI {
     // #454: two tools now, dispatched by isRibbonTool rather than by name —
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
+    if (tool === 'watercolor' && ribbonScratch) {
+      // Native input and decoded operations must enter CPU geometry at the
+      // same codec precision. Keep the recorded dabs and standing keys intact.
+      const canonical = dabs.map(codecDab)
+      const standing = this._paintRibbonDabs(target, canonical, tool, presetName, color, ribbonScratch, prevDab ? codecDab(prevDab) : undefined, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
+      if (!standing) return undefined
+      const originalKeys = new Map(standing)
+      for (let i = 0; i < canonical.length; i++) {
+        if (canonical[i] === dabs[i] || !standing.has(canonical[i])) continue
+        originalKeys.delete(canonical[i])
+        originalKeys.set(dabs[i], standing.get(canonical[i])!)
+      }
+      return originalKeys
+    }
     if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
     // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
     this._stamps.paint(target, dabs, tool, presetName, color)
