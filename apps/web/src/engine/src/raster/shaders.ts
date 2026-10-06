@@ -1908,7 +1908,16 @@ ${WC_NOISE_GLSL}
       // make this tool stop looking like a marker. The settle pass pads its
       // bounds by u_spreadPx so those pixels are inside the drawn rect at all
       // (see _settleRibbonStroke).
-      if (coverage < 0.004) discard;
+      if (coverage < 0.004) {
+        // Rect recomposition replaces a prior live presentation. A discard
+        // would retain its low-coverage fringe even when the canonical field
+        // no longer covers this texel. Restore the pre-stroke layer instead.
+        if (u_rectComposite > 0.5) {
+          gl_FragColor = texture2D(u_original, tileUV);
+          return;
+        }
+        discard;
+      }
 
       vec4 dst = texture2D(u_original, tileUV);
       // Recover the pigment's own colour from premultiplied storage before
