@@ -102,3 +102,32 @@ warnings; six lifecycle tests passed. Follow-up gates remain: larger original
 native fixture, multiple tiles/chunks, context-loss cancellation, memory and
 latency. This small private-engine result does not establish full Surface parity
 or smoothness and is not authorization to enable the flag in production.
+
+### Multi-tile and Adreno follow-up
+
+Unchanged source `57792769`, HOME runtime four-file SHA passport matches VPS.
+The 1400×640 fixture touches two tiles and produces four prepare boundaries.
+Ordinary native differs by 128477 pixels/max255; source-rebase and synchronous
+complete control both give whole dry PNG exact0/max0. All four prepare field
+hash/sum sets agree in these two arms; all GL0, Chrome closed in finally.
+HOME raw: `temp/history-parity/source-rebase-tiles/`.
+
+Actual Samsung Adreno650, own target1267 only: three native chunks, actual
+Undo/Redo, then checkpoint-free rebuild. Ordinary native differs by37662 pixels,
+max64,24 pixels>8. Source-rebase and complete control both exact0/max0. Each arm
+GL0/lostfalse. Raw VPS `temp/device-runs/samsung728-source-rebase.json` and
+`samsung-source-rebase-{off,film,complete}-{native,rebuild}.png`; own target closed.
+No shader changed, no new cold-compilation proof is claimed for this run.
+
+The separate own target1268 captures rAF over the WHOLE private-engine scenario
+including native, Dry, Undo/Redo and full rebuild. OFF maximum interval7300.4ms,
+9 intervals>100ms; ON maximum7338.7ms,8>100ms. JS job.finish maximum0.9ms OFF versus
+2.3ms ON is not GPU work duration. These measurements do not establish live-input
+smoothness or assign the long pause specifically to source rebase. Preserve raw
+intervals in `temp/device-runs/samsung728-source-rebase-raf.json`; target closed.
+An actual input-only phase attribution remains necessary.
+
+Expanded watercolor/parked/lifecycle CPU suite93 tests passed; map check67modules/
+950files passed, map rules0errors/4existingwarnings. Candidate still default OFF,
+not part of production or accepted initial combined source. Hardware context-loss
+and broader native UI gates remain open, despite the paired endpoint proof.
