@@ -3447,14 +3447,19 @@ export const WC_FIELD_OP_FRAG = `
           // Take: j's share toward me, of its excess over me - the same
           // expression j evaluates on its side.
           if (cj > u_band.x) continue;
-          int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
-          float wj = 0.0, wme = 0.0;
-          for (int mm = 0; mm < 4; mm++) {
-            float w = wcCarryWeight(cj, uvj, uvj + wcCarryDir(mm) * u_dir);
-            wj += w;
-            if (mm == back) wme = w;
+          // The incoming flux is exactly zero unless the donor's travelling
+          // concentration exceeds ours. Avoid its four path queries then;
+          // this changes neither a positive flux nor its normalisation.
+          if (Tj > Ti) {
+            int back = k == 0 ? 1 : k == 1 ? 0 : k == 2 ? 3 : 2;
+            float wj = 0.0, wme = 0.0;
+            for (int mm = 0; mm < 4; mm++) {
+              float w = wcCarryWeight(cj, uvj, uvj + wcCarryDir(mm) * u_dir);
+              wj += w;
+              if (mm == back) wme = w;
+            }
+            if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 5e-5));
           }
-          if (wme > 0.0) out4 += aj * (u_k * wme / wj * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a) / max(mj.a, 5e-5));
         }
       }
       gl_FragColor = WC_FIELD_FIT(max(out4, vec4(0.0)));

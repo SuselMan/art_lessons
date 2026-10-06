@@ -199,3 +199,28 @@ normalization только при Tj>Ti. При Tj<=Ti incoming flux точно0
 текущий внутренний loop из4 weight-запросов не влияет на out4. Это не меняет
 пути/домены/массу и не требует новых текстур, но equivalence и стоимость
 нужно проверить отдельно до принятия.
+
+
+### Нулевой входящий поток: проверенная локальная оптимизация
+
+Donor normalization теперь исполняется только при Tj>Ti. Для реального
+carry travelling share0.35; RGBA8 alpha∈[0,1]; wcCapillary=1 и cap∈[0.15,1].
+Поэтому Ti/Tj конечны и неотрицательны. При Tj<=Ti старое incoming add равно
+нулю, а его weights нигде больше не используются. Положительный поток и
+нормализация не изменены. Новых полей/проходов/сэмплеров нет.
+
+Samsung отдельная вкладка1226, whole emitted shader replacement4hits, GL0
+lostfalse; закрыта finally. Шесть выходных RGBA buffers (material/colour,
+128²/256²/512²) ненулевые и SHA256 byte-exact unoptimized/optimized.
+Input и stride8 одинаковые. Sums128:743652/390600;256:3044196/1600200;
+512:12314772/6477000. Это actual shader-output gate, не пустой ROI.
+
+Mean synchronized warmed draw milliseconds unoptimized→optimized:
+-128² P1.44→1.16, C1.74→0.72;
+-256² P3.82→1.40, C3.20→1.44;
+-512² P11.46→4.50, C12.72→4.08; maximum optimized5.3/4.3ms.
+
+Время относится только к данному оператору/полям. Полный solver/native/frame
+профиль из этих интервалов не выводится. Raw: samsung-shortcut-report.json.
+22 shader CPUtests PASS. Полный real-room/native candidate после shortcut
+ещё проверяется отдельно; данные предыдущего native относятся к a431 без него.
