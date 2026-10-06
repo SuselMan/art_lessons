@@ -41,3 +41,18 @@ T выключен во всех случаях. Same65 OFF/ON пять canonica
 45Hz не исправлен. Обе пары дают ограниченный сигнал сокращения худших burst hitch, но остаются133–161ms и выборка составляет лишь две пары. Это не доказательство общего production исправления или GPU/photon latency. Forced-complete CPU submission6–13ms, remaining971..952 /991..973 /976..970 /973..960 ops; driver/GPU backlog механизм этим не устранён. Background solver/reveal23.6–24.3s. Native журналы различаются по реальным rAF input sampling, поэтому их канонические PNG между случаями не сравниваются; exact65 gate использует один и тот же журнал.
 
 Оставлено DEV/defaultOFF. Raw `temp/display-ab/R-results`. Chrome finallyclosed, GPU передан five-participant QA. Следующее причинное исследование подготовленоCPU: finaldefaultFBblit-only ablation (paper pass, framebuffer bindings и bookkeeping остаются), поскольку прежниеwhole-screen-noop60Hz, paper-fragments-onlyskip45Hz и preservefalse45Hz не объясняют именно последний draw. ON отображение намеренно stale, diagnostic не является productfix.
+
+## Final default-FB draw изолирован аппаратно
+
+На8e50, T/R OFF, debug=false, та же бумага/9flags/source65, balanced OFF/ON/ON/OFF. ON пропускает только последний screenBlit draw; paper-compose, bindings, viewport и bookkeeping сохранены. ON экран **устаревший**, это diagnostic, не исправление UX.
+
+| skip final draw | active median ms | burst2 max ms | burst3 max ms | post-export wall ms |
+|---|---:|---:|---:|---:|
+|OFF|22.2|150.0|133.3|226.4|
+|ON|16.7|16.8|22.3|208.6|
+|ON|16.7|16.8|16.8|272.1|
+|OFF|22.2|150.1|233.4|242.0|
+
+Actual canvas1600×1000/DPR1/angle0/residualScale1/zoom0.35484. ON действительно пропустил816/828 final draws, OFF0. Debug синхронизация исключена. Same65 fivebuffers/fullPNG exact; actual nativeACK/GL0 и post-export nonempty во всех случаях. Post-export включает GPU/readback/PNG CPU, не pure GPU timer; секундного отложенного backlog этим не видно.
+
+Сигнал локализует default-framebuffer/presentation path, но не доказывает высокую стоимость fragment shader: изменяется также compositor/GPU scheduling. Следующий разрешённый CPU DEV-off кандидат — тот же partial rect как scissor финального draw при preserveDrawingBuffer=true, с существующими full invalidations; цель проверить pixel-area против fixed presentation overhead. Никакой source production оптимизации не включено. `temp/display-ab/blit-results` содержит полный timing/flags/source/canonical/passthrough counts; Chrome finallyclosed, GPU передан precision QA.
