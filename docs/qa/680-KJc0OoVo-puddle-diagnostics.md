@@ -146,3 +146,31 @@ Qualcomm Adreno650. У всех LINK_STATUS=true, log пустой, GL0, lost=fa
 в temp/KJc0OoVo/carry-cold-input.json. Источник shaders собран непосредственно
 из a431c57e, без сокращения mode ветвей. Native/performance gate остаётся
 отдельным.
+
+
+### Samsung: небольшой нативный путь и собственный replay
+
+Исправленный controller дождался document load и проверил actual-origin
+resource: index.ts HTTP200 text/javascript,1165058 байт. Отдельная вкладка1218
+закрыта finally. Standalone engine512×512 на неизменном5314; runtime-кандидат
+добавляет одновременно shader plateau и actual Plan wetgate, accepted localPrior
+включён в обоих arms. Источник приложения не переписывался.
+
+Каждый arm: собственный native water160→pigment80, две записанные операции,
+ненулевой pigment. После завершения свой журнал воспроизведён через _replayInto.
+Whole512×512 RGBA native/replay byte-exact:0 отличающихся пикселей в baseline
+и candidate. GL0/lostfalse. Candidate patchHits6; actual mode15/16 wetgate
+достигнут56 раз, minimum=maximum1. Это scoped native/canonical контроль,
+не Room/server ACK, не Undo UI и не полный real-puddle visual gate.
+
+Производительность не признана готовой. Независимые gestures не являются
+строго парным измерением. rAF phases без диагностического readback во время
+рисования: baseline pigment1153.6мс/max1103.4мс, drying9809.1мс/max389.8мс;
+candidate pigment1120мс/max718.8мс, drying9361.6мс/max150.5мс. Readback/export
+происходят после остановки frame collector. Холодный standalone context и
+первый штрих могут влиять; нужен отдельный warmed carry-cost контроль.
+Raw report/PNG/metrics: temp/KJc0OoVo/samsung-native-*.
+
+Предыдущий большой standalone controller остановлен по180с без собственного
+engine canvas и без измерений. Это незавершённый bootstrap fixture; ни app bug,
+ни slowdown нового carry из него не следуют. В старом run не было phase markers.
