@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { createTestEngine, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd } from './testing/engineTestUtils'
+import { createTestEngine, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd, makeLayerAdd, makeStroke, dab } from './testing/engineTestUtils'
 
 it('accepts confirmed pointer metadata and shows a separate preview before queued material runs', async () => {
   const { engine } = createTestEngine({}, { width: 64, height: 64 })
@@ -149,4 +149,121 @@ it('retains three confirmed chunks of one gesture before any material continuati
     expect(engine['_wcAsyncOwners'].size).toBe(0)
     expect(engine['_wcAsyncError']).toBeNull()
   } finally { complete.mockRestore(); engine.destroy() }
+})
+
+it('accepts and sends a queued layer action before GPU execution and retains it through Undo', async () => {
+  const local = vi.fn()
+  const { engine } = createTestEngine({ userId: 'owner', onLocalOperation: local }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor'); engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    const add = makeLayerAdd('owner', 'new-layer')
+    engine.appendOperation(add, 'local')
+    expect(local.mock.calls.filter(([op]) => op.id === add.id)).toHaveLength(1)
+    expect(engine['_log'].entries.find(e => e.op.id === add.id)?.state).toBe('done')
+    expect(engine['_layers'].has('new-layer')).toBe(false)
+    expect(engine.undo()?.id).toBe(add.id)
+    expect(engine['_log'].entries.find(e => e.op.id === add.id)?.state).toBe('undone')
+    expect(engine['_layers'].has('new-layer')).toBe(false)
+    expect(local.mock.calls.filter(([op]) => op.id === add.id)).toHaveLength(1)
+  } finally { engine.destroy() }
+})
+
+it('retains an ACKed queued layer action on loss and does not send it twice', async () => {
+  const local = vi.fn()
+  const { engine } = createTestEngine({ userId: 'owner', onLocalOperation: local }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor'); engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    const stroke = engine['_log'].entries.find(e => e.op.type === 'stroke')!
+    engine.confirmOperation(stroke.op.id, 1)
+    const add = makeLayerAdd('owner', 'new-layer')
+    engine.appendOperation(add, 'local'); engine.confirmOperation(add.id, 2)
+    const draw = vi.spyOn(engine['gl'], 'drawArrays')
+    engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    expect(engine['_log'].entries.find(e => e.op.id === add.id)).toMatchObject({ state: 'done', pending: false, serverSeq: 2 })
+    expect(engine.getOperations().some(op => op.id === add.id)).toBe(true)
+    expect(local.mock.calls.filter(([op]) => op.id === add.id)).toHaveLength(1)
+    expect(draw).not.toHaveBeenCalled(); draw.mockRestore()
+  } finally { engine.destroy() }
+})
+
+it('keeps watercolor peer reveal visible without invoking the canonical painter', async () => {
+  const applied = vi.fn()
+  const { engine } = createTestEngine({ onPreviewApplied: applied }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine['_wcAsyncFinish'] = true
+  const canonical = vi.spyOn(engine as unknown as { _paintDabs(...args: unknown[]): void }, '_paintDabs')
+  try {
+    const op = makeStroke('peer', 'L', [dab(16, 20, { t: 0 }), dab(32, 20, { t: 10000 })], { tool: 'watercolor', preset: 'normal:100:100:PB29:round' })
+    engine.previewOperation(op)
+    expect(applied).not.toHaveBeenCalled()
+    engine['_stepPeerPreview']('peer')
+    expect(engine['_peerPreviews'].get('peer')!.buf.readPixels().some(v => v > 0)).toBe(true)
+    expect(canonical).not.toHaveBeenCalled()
+    const pencil = makeStroke('pencil-peer', 'L', [dab(16, 32, { t: 0 }), dab(32, 32, { t: 10000 })])
+    engine.previewOperation(pencil); engine['_stepPeerPreview']('pencil-peer')
+    expect(canonical).toHaveBeenCalled()
+  } finally { canonical.mockRestore(); engine.destroy() }
+})
+
+it('applies an accepted queued layer action once after the canonical source has landed', async () => {
+  const local = vi.fn()
+  const { engine } = createTestEngine({ userId: 'owner', onLocalOperation: local }, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor'); engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcAsyncFinish'] = true
+  const frames = new Map<number, () => void>(); let next = 0
+  engine['_wcCanonical']['ctx'].schedule = callback => { frames.set(++next, callback); return next }
+  engine['_wcCanonical']['ctx'].unschedule = handle => { frames.delete(handle) }
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 40, y: 20 }])
+    const add = makeLayerAdd('owner', 'new-layer')
+    engine.appendOperation(add, 'local')
+    for (let tick = 0; tick < 2000 && engine['_wcCanonical'].pending; tick++) {
+      while (engine['_settle']) engine['_advanceSettle']()
+      const frame = frames.entries().next().value
+      if (frame) { frames.delete(frame[0]); frame[1]() }
+    }
+    expect(engine['_wcCanonical'].pending).toBe(false)
+    expect(engine['_layers'].has('new-layer')).toBe(true)
+    expect(engine['_log'].entries.filter(e => e.op.id === add.id)).toHaveLength(1)
+    expect(local.mock.calls.filter(([op]) => op.id === add.id)).toHaveLength(1)
+  } finally { engine.destroy() }
+})
+
+it('holds a committed peer preview until queued canonical work is ready and forgets it safely on loss', async () => {
+  let engine: ReturnType<typeof createTestEngine>['engine']
+  const applied = vi.fn(op => engine.appendOperation(op, 'remote'))
+  const result = createTestEngine({ onPreviewApplied: applied }, { width: 64, height: 64 }); engine = result.engine
+  await engine.paperReady()
+  engine.initLayer('L'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  engine['_wcCanonical'].enqueue({ execute: function* () { yield 0 }, cancel: () => {} })
+  try {
+    const op = makeStroke('peer', 'L', [dab(16, 20, { t: 0 }), dab(32, 20, { t: 0 })], { tool: 'watercolor', preset: 'normal:100:100:PB29:round', seq: 1 })
+    engine.previewOperation(op); engine['_stepPeerPreview']('peer')
+    expect(applied).toHaveBeenCalledOnce()
+    const held = engine['_peerPreviews'].get('peer')!
+    expect(held.waitingCanonical).toBe(true)
+    expect(held.queue).toHaveLength(0)
+    expect(held.buf.readPixels().some(v => v > 0)).toBe(true)
+    expect(engine['_opQueue'].some(x => x.op.id === op.id)).toBe(true)
+    const draw = vi.spyOn(engine['gl'], 'drawArrays'), remove = vi.spyOn(engine['gl'], 'deleteTexture')
+    engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    expect(applied).toHaveBeenCalledOnce()
+    expect(engine['_log'].entries.find(e => e.op.id === op.id)).toMatchObject({ state: 'done', serverSeq: 1 })
+    expect(engine['_peerPreviews'].size).toBe(0)
+    expect(draw).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled()
+    draw.mockRestore(); remove.mockRestore()
+  } finally { engine.destroy() }
 })

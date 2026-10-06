@@ -1222,6 +1222,7 @@ interface PeerPreviewState {
   dabIdx: number
   startTime: number
   timer: ReturnType<typeof setTimeout> | null
+  waitingCanonical?: boolean
 }
 
 /** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
@@ -2646,13 +2647,22 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
-  private _appendOperationNow(op: Operation, source: OperationSource, canonicalExecution = false): void {
+  private _appendOperationNow(op: Operation, source: OperationSource, canonicalExecution = false, alreadyLogged = false): void {
     if (this._wcAsyncFinish && source === 'local' && !canonicalExecution && this._wcCanonical.pending) {
       if (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') this._cancelSettle()
       else if (op.type !== 'paper_dry') {
         const held = structuredClone(op)
+        // Acceptance is CPU/log-only; cancelling GPU work must never erase
+        // an action already sent to the server. Replay owns recovery.
+        const overtaken = this._log.append(held, { pending: true })
+        this._noteOvertaken(held, overtaken)
+        if (held.type === 'layer_clear') this._paperWet.forgetLayer(held.layerId)
+        else if (held.type === 'layer_delete') for (const id of held.layerIds) this._paperWet.forgetLayer(id)
+        this._onLocalOperation?.(held)
         const owner = this
-        this._wcCanonical.enqueue({ execute: function* () { owner._appendOperationNow(held, source, true) }, cancel: () => {} })
+        this._wcCanonical.enqueue({ execute: function* () {
+          if (owner._log.entries.some(e => e.op.id === held.id && e.state === 'done')) owner._appendOperationNow(held, source, true, true)
+        }, cancel: () => {} })
         return
       }
     }
@@ -2665,7 +2675,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#537) Local: the pending tail, applied ahead of the server's order.
     // Remote: already ordered, so into the confirmed region at its seq — which
     // is below any pending operation of this client's own.
-    const overtaken = this._log.append(op, source === 'local' ? { pending: true } : { serverSeq: op.seq })
+    const overtaken = alreadyLogged ? [] : this._log.append(op, source === 'local' ? { pending: true } : { serverSeq: op.seq })
     // Marked before the switch below applies it, not after: a merge or a
     // duplicate checkpoints its result on the spot, and a layer already known
     // to be out of order must refuse that checkpoint (_takeCheckpoint).
@@ -2678,7 +2688,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (op.type === 'operation_revoke') this._log.revoke(op.targetOpId)
       else if (op.type === 'operation_undo') this._log.applyUndo(op.targetOpId, op.userId)
       else if (op.type === 'operation_redo') this._log.applyRedo(op.targetOpId, op.userId)
-      if (source === 'local') this._onLocalOperation?.(op)
+      if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
     for (const layerId of pixelWriteLayerIds(op)) {
@@ -2963,7 +2973,7 @@ export class PencilEngine implements PencilEngineAPI {
         break
     }
     this._settleLayers()
-    if (source === 'local') this._onLocalOperation?.(op)
+    if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
   }
 
   /** See PencilEngineAPI's doc comment. */
@@ -3563,7 +3573,6 @@ export class PencilEngine implements PencilEngineAPI {
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
-    if (this._wcAsyncFinish) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
       this._onPreviewApplied?.(op)
@@ -3583,7 +3592,10 @@ export class PencilEngine implements PencilEngineAPI {
       this._peerPreviews.set(op.userId, state)
     }
     state.queue.push({ op, rate, dabs: strokeDabs(op) })
-    if (state.timer === null) this._startPeerPreviewHead(op.userId)
+    if (state.timer === null || state.waitingCanonical && state.queue.length === 1) {
+      if (state.timer !== null) clearTimeout(state.timer)
+      this._startPeerPreviewHead(op.userId)
+    }
   }
 
   /** See PencilEngineAPI's doc comment. Searches every peer's queue (not
@@ -3624,7 +3636,6 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket): void {
-    if (this._wcAsyncFinish) return
     if (this._contextLost || this.gl.isContextLost()) return
     const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
@@ -3810,7 +3821,16 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     const head = state.queue[0]
-    if (!head) return
+    if (!head) {
+      if (state.waitingCanonical) {
+        if (this._wcCanonical.pending || this._opQueue.length || this._rebuildJobs.size || this._pendingRebuilds.size) {
+          state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
+        } else {
+          state.timer = null; state.buf.destroy(); this._peerPreviews.delete(peerId); this._scheduleDisplay()
+        }
+      }
+      return
+    }
     const { op, rate, dabs } = head
 
     const elapsed = (performance.now() - state.startTime) * rate
@@ -3822,7 +3842,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (due.length) {
       // #138: translated into this peer's buffer's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
-      this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color, op.userId)
+      if (this._wcAsyncFinish && op.tool === 'watercolor') {
+        // Peer reveal is transient: no shared canonical scratch/solver here.
+        const waterOnly = watercolorMixFromPreset(op.preset).pigment <= 0
+        const marks = due.map(d => ({ ...d, opacity: d.opacity * (waterOnly ? 0.12 : 0.5) }))
+        this._stamps.paint(state.buf, this._translateDabs(marks, state.origin), op.tool, op.preset, waterOnly ? [0.5, 0.5, 0.5] : op.color)
+      } else this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color, op.userId)
       // (#697) Every peer owns a reveal timer, but all peers share one
       // screen. Coalesce their composites without delaying log commits.
       this._scheduleDisplay()
@@ -3831,8 +3856,11 @@ export class PencilEngine implements PencilEngineAPI {
     if (state.dabIdx >= dabs.length) {
       this._onPreviewApplied?.(op)
       state.queue.shift()
-      state.buf.clear()
+      const hold = this._wcAsyncFinish && (op.tool === 'watercolor' || state.waitingCanonical) && (this._wcCanonical.pending || this._opQueue.length > 0 || this._rebuildJobs.size > 0 || this._pendingRebuilds.size > 0)
+      state.waitingCanonical = hold
+      if (!hold) state.buf.clear()
       if (state.queue.length) this._startPeerPreviewHead(peerId)
+      else if (hold) state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
       else { state.timer = null; state.buf.destroy(); this._peerPreviews.delete(peerId); this._scheduleDisplay() }
       return
     }
@@ -3976,7 +4004,18 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Re-syncs pixel state after `op` flipped between done and undone/gone. */
   private _applyHistoryChange(op: Operation): void {
-    if (this._wcAsyncFinish) this._cancelSettle()
+    if (this._wcAsyncFinish) {
+      this._cancelSettle()
+      // These previews already committed their callbacks. History removes
+      // their transient pixels, not their confirmed journal operations.
+      for (const [peerId, state] of this._peerPreviews) if (state.waitingCanonical) {
+        if (state.timer !== null) clearTimeout(state.timer)
+        state.waitingCanonical = false
+        if (this._contextLost || this.gl.isContextLost()) this._peerPreviews.delete(peerId)
+        else if (state.queue.length) { state.buf.clear(); this._startPeerPreviewHead(peerId) }
+        else { state.buf.destroy(); this._peerPreviews.delete(peerId) }
+      }
+    }
     if (this._contextLost || this.gl.isContextLost()) return
     switch (op.type) {
       // (#520) Every layer of the gesture, not only this operation's own:
