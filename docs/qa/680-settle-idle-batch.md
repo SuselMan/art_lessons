@@ -208,3 +208,18 @@ CPU подготовлен lossless streaminggzip (`temp/idle-batch/cdp-native/b
 ON пропустил818/823screenpasses. `_completeSettle` остаётся4.7–17.1ms с946–998pendingops; canonical solver не ускоряется. Устойчивое исчезновение rAFblackout и45→60Hz при отключении экранного прохода указывает на screen/presentation/compositor/GPUqueue contention как важный лимитер, подтверждая отдельные CDP GPUservice/swap задачи. **Это не готовое решение: пользователь во времяON не видит рисование**, и nativeops отличаются при иной кадровойчастоте; exactPNG между различными nativeжурналами не заявляется. Exactgate использует frozen65 одинаковыеops. Следующий шаг должен сохранить screenoutput и отделить цену screenpass от compositor/contextswitch, без новой физики или defaultON.
 
 Passive getContext registry: в каждой странице создано5uniqueWebGLcontexts до/при входе вroom, размеры при создании300×150. Один page/author engine; createdcount не говорит сколькоcontextsalive и не включает compositorEGL. Registry не создаётcontexts и originalgetContext вызываетсяexactonce; CPUmockreturn/unique/restorePASS. Полные результаты `temp/idle-batch/screen-balanced-7322/summary.json`, frozenproof `screen-fixed-7322/comparison.json`; исходникприложения неизменён.
+
+### preserveDrawingBuffer=false с диагностическим исправлением пипетки, 02:52–02:55 UTC
+
+Attrs override только сигнатуры enginecontext (`preserve:true,premultipliedAlpha:false,antialias:false`); capabilityprobesбезattrs нетронуты. Производственный код неизменен. Falsecandidate требует всегда `_display()` сразу передoriginalpickColor: originalpick лишь условно обновляетприpendingRAF. Negativeoriginalidlepick9/10points даётblack/mismatch; wrapper10/10exact same-task screenoracle. ActualgetContextAttributes trueOFF/falseONassertPASS. ScreenscreenshotON просмотрен: paper+purplepaint видимы, неblack. Canonicalfrozen65sameops/P/C/V/dryPC/wholePNGexactPASS.
+
+Balancednative80burst OFF/ON/ON/OFF, source7322idleOFF, screenoutputсохранён,GL0/errors0/nonempty, Chromefinallyclosed02:55:55UTC:
+
+| preserve | Burst2 max | Burst3 max | Active median | Solver |
+|---|---:|---:|---:|---:|
+|true1|183.4ms|200ms|22.2ms|15.124s|
+|false1|133.3ms|233.3ms|22.2ms|15.627s|
+|false2|116.7ms|133.3ms|22.2ms|15.425s|
+|true2|172.1ms|133.4ms|22.2ms|15.322s|
+
+**Кандидат отвергнут как фикс плавности:** не воспроизводит60Hz/nohitch эффект screennoop, существенные рывки остаются. Небольшая вариабельностьmax не доказательство causalулучшения. Falseattrsне переноситьproduction; требуетпипеточнойкоррекции, в этом эксперименте её правильность отдельнымnegative/positivecontrol проверена. Nextdiagnostic isolatespaperComposeFBOdraw vsfinaldefaultFBblit, безфизики/шейдерныхизменений. Артефакты `temp/idle-batch/preserve-balanced-7322/summary.json`, `preserve-fixed-7322/*.pick.json`.
