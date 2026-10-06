@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 
 import type { Room } from '../../packages/shared/src'
-import { createRoom, waitForRoomReady } from '../support/room'
+import { createRoom, drawStroke, waitForOperations, waitForRoomReady } from '../support/room'
 
 const source: Room = {
   id: 'ui-source', name: 'Drawing with a long project title', paper: 'fine',
@@ -117,13 +117,21 @@ test('copy and open keeps the loader through the request and enters the new room
   await page.route('**/api/me', route => route.fulfill({ json: { userId: source.ownerId, email: 'ui@example.test', name: 'UI tester' } }))
   const target = await createRoom(page, 'Copy destination')
   await waitForRoomReady(page)
+  await drawStroke(page, [[300, 300], [500, 300]])
+  await waitForOperations(page, 'stroke', 1)
   await projects(page)
   const held = holdFork(page)
   await menu(page, 'Make a copy and open')
   await expect(page.getByText('Tracing the layers...', { exact: true })).toBeVisible()
   await expect(page.locator('[aria-busy="true"][aria-disabled="true"]')).toHaveCount(0)
   await page.screenshot({ path: 'temp/qa-ui/copy-and-open.png' })
-  await (await held.request).fulfill({ json: { room: { ...source, id: target, name: 'Copy destination' } } })
-  await page.waitForURL(`/room/${target}`)
+  const request = await held.request
+  const response = await request.fetch({ url: new URL(`/api/rooms/${target}/fork`, page.url()).href })
+  expect(response.status()).toBe(201)
+  const { room }: { room: Room } = await response.json()
+  expect(room.id).not.toBe(target)
+  await request.fulfill({ response })
+  await page.waitForURL(`/room/${room.id}`)
   await waitForRoomReady(page)
+  await waitForOperations(page, 'stroke', 1)
 })
