@@ -86,3 +86,19 @@ it('forgets a pending continuation before settle cancellation can recycle dead h
   expect(scratch.peek(tile)?.coverageCommands).toBeUndefined()
   scratch.forget(); pool.forget(); tile.destroy(); engine.destroy()
 })
+
+it('drops source commands and their ownership on loss without replaying stale handles', () => {
+  const { engine, pool, tile, scratch } = setup()
+  scratch.trackRunningCoverage = true
+  scratch.trackRunningSource = true
+  scratch.runningCoverage(tile)
+  const draw = vi.fn()
+  scratch.runningSourceCommands.push(draw)
+  const release = vi.spyOn(pool, 'release')
+  scratch.releaseRunningCoverage(true)
+  expect(draw).not.toHaveBeenCalled()
+  expect(release).not.toHaveBeenCalled()
+  expect(scratch.runningSourceCommands).toEqual([])
+  expect(scratch.trackRunningSource).toBe(false)
+  scratch.forget(); pool.forget(); tile.destroy(); engine.destroy()
+})

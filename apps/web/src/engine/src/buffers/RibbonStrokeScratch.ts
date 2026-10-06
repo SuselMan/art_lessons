@@ -111,6 +111,8 @@ type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 export class RibbonStrokeScratch {
   /** Transient next-film continuation while the previous settle is pending. */
+  trackRunningSource = false
+  runningSourceCommands: Array<() => void> = []
   trackRunningCoverage = false
 
   runningCoverage(tile: AccumulationBuffer): AccumulationBuffer | undefined {
@@ -135,6 +137,8 @@ export class RibbonStrokeScratch {
       if (entry.coverageFilm && !forget) this.pool.release(entry.coverageFilm)
       entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined; entry.coverageCommands = undefined
     }
+    this.trackRunningSource = false
+    this.runningSourceCommands = []
     this.trackRunningCoverage = false
   }
 
@@ -612,6 +616,8 @@ export class RibbonStrokeScratch {
   /** Context loss: the GL objects are already dead, so neither release nor
    *  destroy is meaningful — just let go of them. */
   forget(): void {
+    this.trackRunningSource = false
+    this.runningSourceCommands = []
     this.trackRunningCoverage = false
     this._tiles.clear()
     this.pendingComposite.clear()

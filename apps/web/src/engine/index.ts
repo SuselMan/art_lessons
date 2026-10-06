@@ -1745,6 +1745,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  frame gives the same pixels as the batches one by one. */
 
   /** Opt-in diagnostic: only proven-zero pigment contact operators. */
+  private _wcSourceFilmRebase = false
   private _wcCoverageFilmRebase = false
   private _wcZeroPigmentContacts = false
 
@@ -6628,7 +6629,10 @@ export class PencilEngine implements PencilEngineAPI {
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
     if (tool === 'watercolor' && ribbonScratch) {
-      if (this._wcCoverageFilmRebase && this._settle?.scratch === ribbonScratch) ribbonScratch.trackRunningCoverage = true
+      if ((this._wcCoverageFilmRebase || this._wcSourceFilmRebase) && this._settle?.scratch === ribbonScratch) {
+        ribbonScratch.trackRunningCoverage = true
+        ribbonScratch.trackRunningSource = this._wcSourceFilmRebase
+      }
       // Native input and decoded operations must enter CPU geometry at the
       // same codec precision. Keep the recorded dabs and standing keys intact.
       const canonical = dabs.map(codecDab)

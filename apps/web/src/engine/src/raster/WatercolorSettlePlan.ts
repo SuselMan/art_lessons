@@ -912,7 +912,7 @@ export class WatercolorSettlePlan {
         // max (§17.44): the gesture may have gone on stamping the next
         // chunk's coverage while the settle ran.
         const coverageBase = entry.coverageFilmGesture === scratch.gesture ? entry.coverageFilm : undefined
-        const coverageCommands = coverageBase && runningFilm ? entry.coverageCommands : undefined
+        const coverageCommands = coverageBase && runningFilm && !scratch.trackRunningSource ? entry.coverageCommands : undefined
         if (coverageBase && coverageCommands) {
           const gl = this.ctx.gl(), mask = gl.getParameter(gl.COLOR_WRITEMASK)
           try {
@@ -988,7 +988,30 @@ export class WatercolorSettlePlan {
     }
     const finish = (): void => {
       if (disposed) return
-      try { land() } finally { dispose(); snapshots.clear() }
+      try {
+        const commands = scratch.trackRunningSource ? scratch.runningSourceCommands.slice() : []
+        if (commands.length) {
+          for (const [, entry] of scratch.tileEntries()) {
+            if (entry.coverageFilmGesture === scratch.gesture && entry.coverageFilm) entry.coverageFilm.copyTo(entry.coverage)
+          }
+        }
+        land()
+        if (commands.length) {
+          scratch.trackRunningSource = false
+          for (const [, entry] of scratch.tileEntries()) {
+            if (entry.filmGesture === scratch.gesture && entry.filmGesture !== gesture) {
+              entry.strokeInk?.clear(); entry.strokeColor?.clear()
+              if (entry.inkBase && entry.inkLoad) entry.inkBase.copyTo(entry.inkLoad)
+              if (entry.colorBase && entry.inkColor) entry.colorBase.copyTo(entry.inkColor)
+            }
+            if (entry.solventGesture === scratch.gesture) {
+              entry.strokeSolvent?.clear()
+              if (entry.solventBase && entry.solventLoad) entry.solventBase.copyTo(entry.solventLoad)
+            }
+          }
+          for (const draw of commands) draw()
+        }
+      } finally { dispose(); snapshots.clear() }
     }
     // Presentation must show the actual solver-written rectangle, not only
     // the brush source AABB. Keep source bounds too when the field was capped.
