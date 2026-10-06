@@ -5292,7 +5292,19 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this.absorbHistoricalOperations(ops)
     await this.preloadImages(ops)
-    for (const id of affected) this._rebuildLayerOrDefer(id)
+    if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
+    // Tail merge/copy reads live source buffers. Deferring these until the
+    // eventual resumeDisplay would let that tail copy an empty source. Run
+    // the existing rebuild machinery now, preserving its GPU slicing.
+    for (const id of affected) {
+      this._pendingRebuilds.delete(id)
+      this._rebuildLayer(id)
+    }
+    while ([...affected].some(id => this._rebuildJobs.has(id))) {
+      if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
+      await new Promise<void>(resolve => setTimeout(resolve, 16))
+    }
+    if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
   }
 
   getOperationsSinceRestore(): Operation[] {

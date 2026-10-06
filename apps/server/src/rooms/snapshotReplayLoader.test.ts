@@ -62,3 +62,15 @@ describe('computed snapshot dependency loader', () => {
     await expect(prepareSnapshotReplay('room')).rejects.toThrow('Unresolved snapshot history dependency')
   })
 })
+
+
+it('retries a no-snapshot metadata read when the resident watermark changes', async () => {
+  mocks.state.mockResolvedValue(null); mocks.snapshots.mockResolvedValue([])
+  mocks.state.mockImplementationOnce(async () => {
+    mocks.rooms.get('room').nextSeq = 8
+    return null
+  })
+  const plan = await prepareSnapshotReplay('room')
+  expect(plan.watermark).toBe(7)
+  expect(mocks.state).toHaveBeenCalledTimes(2)
+})

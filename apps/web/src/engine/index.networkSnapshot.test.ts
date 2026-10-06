@@ -719,3 +719,23 @@ describe('historical source closure for an uncovered snapshot result (#728)', ()
     engine.destroy(); source.destroy()
   })
 })
+
+
+describe('restore prefix precedes live tail source reads while display is suspended', () => {
+  it.each(['merge', 'duplicate'] as const)('finishes source reconstruction before tail %s', async kind => {
+    const { engine: source } = createTestEngine({ userId: 'A' }, { width: 8, height: 8 })
+    source.setBaseLayers(['S'])
+    const stroke = { ...makeStroke('A', 'S', [dab(4, 4, { size: 5, opacity: 0.7 })]), seq: 1 }
+    const result = kind === 'merge' ? makeLayerMerge('A', 'R', [{ id: 'S', opacity: 1 }], { seq: 6 }) : makeLayerDuplicate('A', 'R', 'S', { seq: 6 })
+    source.appendOperation(stroke, 'remote'); source.appendOperation(result, 'remote')
+    const { engine } = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 })
+    engine.setBaseLayers(['S']); engine.suspendDisplay()
+    await engine.restoreHistoricalOperations([stroke])
+    expect(engine['_pendingRebuilds'].size).toBe(0)
+    expect(engine['_rebuildJobs'].size).toBe(0)
+    expect(readLayerPixels(engine, 'S')!.some(v => v > 0)).toBe(true)
+    engine.appendOperation(result, 'remote'); engine.resumeDisplay()
+    expect(readLayerPixels(engine, 'R')).toEqual(readLayerPixels(source, 'R'))
+    engine.destroy(); source.destroy()
+  })
+})
