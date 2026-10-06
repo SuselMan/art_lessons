@@ -21,6 +21,7 @@ import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n
 import { AppHeader } from '../../components/AppHeader'
 import { Icon } from '../../components/Icon'
 import { CardMenu } from '../../components/CardMenu'
+import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { TextInput } from '../../components/TextInput'
 import { MoveToDialog } from '../../components/MoveToDialog'
 import { Modal } from '../../components/Modal'
@@ -117,9 +118,7 @@ function formatDate(iso: string, locale: string): string {
   return new Date(iso).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-// Identifies whichever room/folder is mid inline-rename, mid delete/leave
-// confirm, or the target of an open "Move to..." dialog — only one of these
-// interactions is ever active across the whole page at a time.
+// Identifies the room/folder being renamed or moved.
 type ItemRef = { kind: 'room' | 'folder'; id: string }
 
 // (#360) The move dialog also needs to know where the item sits *now*, so it
@@ -134,7 +133,6 @@ interface RoomCardProps {
   view: LessonsView
   room: Room
   isOwnRoom: boolean
-  confirmingAction: boolean
   renaming: boolean
   renameText: string
   onRenameTextChange: (text: string) => void
@@ -148,8 +146,6 @@ interface RoomCardProps {
   onAccessClick: () => void
   onToggleClosedClick: () => void
   onDeleteOrLeaveClick: () => void
-  onConfirmClick: () => void
-  onCancelConfirmClick: () => void
 }
 
 /** The card's hero picture. (#176, ADR 014 §2) A lesson with several boards
@@ -189,9 +185,9 @@ function CardThumbnail({ room }: { room: Room }) {
 }
 
 function RoomCard({
-  t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
+  t, locale, view, room, isOwnRoom, renaming, renameText, onRenameTextChange, onRenameSubmit,
   onRenameCancel, busy, onShareClick, onRenameClick, onMoveClick, onForkClick, onAccessClick,
-  onToggleClosedClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
+  onToggleClosedClick, onDeleteOrLeaveClick,
 }: RoomCardProps) {
   // (#222) Closed for editing — homework that has been handed out, or a
   // template kept from drifting. Owner-only to toggle; visible to everyone,
@@ -244,6 +240,7 @@ function RoomCard({
               label: t(isOwnRoom ? 'common.delete' : 'lessons.leaveRoom'),
               onClick: onDeleteOrLeaveClick,
               danger: true,
+              disabled: busy,
             },
           ]}
         />
@@ -296,19 +293,7 @@ function RoomCard({
           </div>
         </div>
       </Link>
-      {confirmingAction && (
-        <div className={styles.confirmRow}>
-          <span className={styles.confirmText}>
-            {t(isOwnRoom ? 'lessons.confirmDelete' : 'lessons.confirmLeave')}
-          </span>
-          <button type="button" className={styles.confirmButton} onClick={onConfirmClick} disabled={busy}>
-            {busy ? t('common.working') : t(isOwnRoom ? 'lessons.yesDelete' : 'lessons.yesLeave')}
-          </button>
-          <button type="button" className={styles.cancelButton} onClick={onCancelConfirmClick} disabled={busy}>
-            {t('common.cancel')}
-          </button>
-        </div>
-      )}
+
     </div>
   )
 }
@@ -467,7 +452,7 @@ export function MyLessons() {
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
   const shareRoom = useShareRoom()
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const { confirm } = useConfirmDialog()
   // (#351) Every card on this page is a door into the Room chunk, so start
   // fetching it now rather than on whichever card gets clicked — see
   // lib/api/roomChunk.ts for why that click is otherwise a multi-second wait
@@ -751,7 +736,6 @@ export function MyLessons() {
         view={view}
         room={room}
         isOwnRoom={room.ownerId === me?.userId}
-        confirmingAction={confirmingId === room.id}
         busy={confirmBusy}
         renaming={renamingItem?.kind === 'room' && renamingItem.id === room.id}
         renameText={renameText}
@@ -764,13 +748,18 @@ export function MyLessons() {
         onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}
         onAccessClick={() => setAccessRoom({ id: room.id, name: room.name })}
         onToggleClosedClick={() => closedMutation.mutate({ id: room.id, closed: room.closedAt === undefined })}
-        onDeleteOrLeaveClick={() => setConfirmingId(room.id)}
-        onConfirmClick={() => {
-          setConfirmingId(null)
-          if (room.ownerId === me?.userId) deleteMutation.mutate(room.id)
+        onDeleteOrLeaveClick={async () => {
+          const isOwnRoom = room.ownerId === me?.userId
+          const accepted = await confirm({
+            title: room.name,
+            message: t(isOwnRoom ? 'lessons.confirmDelete' : 'lessons.confirmLeave'),
+            confirmLabel: t(isOwnRoom ? 'lessons.yesDelete' : 'lessons.yesLeave'),
+            danger: true,
+          })
+          if (!accepted) return
+          if (isOwnRoom) deleteMutation.mutate(room.id)
           else leaveMutation.mutate(room.id)
         }}
-        onCancelConfirmClick={() => setConfirmingId(null)}
       />
     )
   }
