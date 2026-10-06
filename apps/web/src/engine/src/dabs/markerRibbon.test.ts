@@ -10,6 +10,24 @@ function dab(x: number, y: number, opts: Partial<Dab> = {}): Dab {
   return { x, y, pressure: 1, tiltX: 0, tiltY: 0, size: 20, aspectRatio: 1, angle: 0, opacity: 1, t: 0, ...opts }
 }
 
+describe('subdivided ribbon contact', () => {
+  it('keeps pressure continuous through changing nib size', () => {
+    const a = dab(0, 0, { size: 100, pressure: 0.8 })
+    const b = dab(120, 0, { size: 150, pressure: 0.2 })
+    const bands = buildRibbonBands([a, b], 1)
+    let interior = 0
+    for (let i = 0; i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
+      const x = bands[i]
+      // Exclude the interpolated nib body's perimeter: its x coordinate is
+      // offset from the pose centre and its pressure is constant per body.
+      if (x <= 0 || x >= 120 || bands[i + 5] !== 0 || bands[i + 2] < 10) continue
+      interior++
+      expect(bands[i + 9]).toBeCloseTo(0.8 - 0.6 * x / 120, 6)
+    }
+    expect(interior).toBeGreaterThan(0)
+  })
+})
+
 /** Is a world point inside this dab's nib ellipse? Mirrors DAB_FRAG's own
  *  geometry (length(v_localUV) <= 1 over the aspect-stretched quad). */
 function insideNib(d: Dab, px: number, py: number, sizeMultiplier = 1): boolean {

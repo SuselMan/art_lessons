@@ -212,6 +212,7 @@ function lerpDab(d0: Dab, d1: Dab, t: number): Dab {
     x: d0.x + (d1.x - d0.x) * t,
     y: d0.y + (d1.y - d0.y) * t,
     size: d0.size + (d1.size - d0.size) * t,
+    pressure: d0.pressure + (d1.pressure - d0.pressure) * t,
     aspectRatio: d0.aspectRatio + (d1.aspectRatio - d0.aspectRatio) * t,
     angle: lerpAngle(d0.angle, d1.angle, t),
   }
