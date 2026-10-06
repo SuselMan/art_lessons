@@ -1,4 +1,4 @@
-import { hasActiveWater } from './src/oplog/hasActiveWater'
+import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
 import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
@@ -2640,6 +2640,8 @@ export class PencilEngine implements PencilEngineAPI {
     // The confirmed journal keeps advancing while the GPU is unavailable.
     // Restore replays that journal; interim paint must not create dead handles.
     if (lost) {
+      if (op.type === 'paper_dry') this._paperWet.clear()
+      else if (op.type === 'layer_clear') this._paperWet.forgetLayer(op.layerId)
       if (op.type === 'operation_revoke') this._log.revoke(op.targetOpId)
       else if (op.type === 'operation_undo') this._log.applyUndo(op.targetOpId, op.userId)
       else if (op.type === 'operation_redo') this._log.applyRedo(op.targetOpId, op.userId)
@@ -2756,7 +2758,7 @@ export class PencilEngine implements PencilEngineAPI {
               : undefined
             // (#536) The same dabs, and the same slice: whatever the live stream
             // already delivered has already wet the paper here.
-            this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing)
+            this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing, op.id)
           }
           this._snapshots.markDirty(op.layerId)
           // (#468) Never mid-wash, the same rule the local path follows one
@@ -4256,7 +4258,7 @@ export class PencilEngine implements PencilEngineAPI {
     let r = this._runSlice(p.work)
     if (!r.done && r.value === -1) r = p.work.next() // the finish, in this step
     if (!r.done) return false
-    this._wetFromForeignStroke(job.layerId, op.tool, op.preset, p.dabs, op.timestamp, r.value)
+    this._wetFromForeignStroke(job.layerId, op.tool, op.preset, p.dabs, op.timestamp, r.value, op.id)
     job.part = null
     return true
   }
@@ -4309,10 +4311,10 @@ export class PencilEngine implements PencilEngineAPI {
     const land = (): void => {
       let r = work.next()
       while (!r.done) r = work.next()
-      this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, r.value)
+      this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, r.value, op.id)
     }
     const first = this._runSlice(work)
-    if (first.done) { this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, first.value); return }
+    if (first.done) { this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, first.value, op.id); return }
     const scratch = first.value === -1 ? null : this._replayRibbonChunks.get(op.washId ?? op.strokeId ?? '')?.scratch
     if (!scratch) { land(); return }
     const ops: Array<() => void> = [() => {}]
@@ -4499,7 +4501,7 @@ export class PencilEngine implements PencilEngineAPI {
         // cannot be selective — the field is not in the log) and the rebuild
         // that follows puts back the water of every stroke that survived. Older
         // ones cost one subtraction each and deposit nothing.
-        this._wetFromForeignStroke(layerId, op.tool, op.preset, dabs, op.timestamp, standing)
+        this._wetFromForeignStroke(layerId, op.tool, op.preset, dabs, op.timestamp, standing, op.id)
         break
       }
       case 'layer_clear':
@@ -7883,13 +7885,23 @@ export class PencilEngine implements PencilEngineAPI {
    *  worst a wrong clock buys is a sheen that lingers or arrives already dry on
    *  one participant's screen. What the *marks* look like is decided by what
    *  each author recorded seeing, and that is not derived here. */
+  private _wetReplayRevision = -1
+  private _wetReplayIds = new Set<string>()
+
   private _wetFromForeignStroke(
     layerId: string, tool: ToolType, preset: string, dabs: Dab[], atMs: number | null,
     /** (#536, §17.21) What the ribbon build just worked out each dab left
      *  standing (_paintDabs' return) — the mix is only the fallback for a dab
      *  it did not paint. */
-    standing?: ReadonlyMap<Dab, number>,
+    standing?: ReadonlyMap<Dab, number>, opId?: string,
   ): void {
+    if (opId) {
+      if (this._wetReplayRevision !== this._log.revision) {
+        this._wetReplayIds = wetReplayOperationIds(this._log.doneOperations())
+        this._wetReplayRevision = this._log.revision
+      }
+      if (!this._wetReplayIds.has(opId)) return
+    }
     if (tool !== 'watercolor' || !dabs.length) return
     // A null timestamp is a live packet: it is happening now, by definition.
     const age = atMs === null ? 0 : Math.min(Math.max(Date.now() - atMs, 0), WET_DRY_MS)
