@@ -1,5 +1,9 @@
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 
+const contactPulses = new WeakSet<() => void>()
+/** Only conservative paired contact exchanges may share a post-lift tick. */
+export function contactPulseOp(op: () => void): () => void { contactPulses.add(op); return op }
+
 /** Drawing can pause before its recipient has any tiles; ownership, rather
  * than tile count, defines that coroutine's lifetime. Solver jobs keep the
  * existing scratch.live rule. */
@@ -23,6 +27,7 @@ export interface WatercolorSettleQueueContext {
   isDrawing(): boolean
   backlogSize(): number
   backlogMax(): number
+  syncGpu?(): void
   noteActivity(now: number): void
   scheduleFieldRelease(): void
 }
@@ -47,6 +52,9 @@ export class WatercolorSettleQueue {
    *  the steps run over the shared _diffuseField, so anything that needs the
    *  field (another settle, a replay's) drains this one first. */
   private _settle: WatercolorSettleJob | null = null
+
+  /** Candidate remains opt-in until physical-device budget and parity gates pass. */
+  contactBatchEnabled = false
 
   private _settleTickAt = 0
 
@@ -115,7 +123,21 @@ export class WatercolorSettleQueue {
     // the device is already behind.
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
-    for (let k = 0; k < perTick && this._settle === s; k++) this.advance()
+    for (let k = 0; k < perTick && this._settle === s; k++) {
+      if (this.contactBatchEnabled && !late && !this.ctx.isDrawing() && this.ctx.syncGpu
+        && contactPulses.has(s.ops[s.next])) {
+        const batchAt = performance.now()
+        for (let n = 0; n < 4 && this._settle === s && contactPulses.has(s.ops[s.next]); n++) {
+          this.advance()
+          // Submission time alone does not bound queued GPU work. Synchronize
+          // every pulse, so a slow device overruns by only one existing step.
+          this.ctx.syncGpu()
+          if (performance.now() - batchAt >= 4 || this.ctx.isDrawing()) break
+        }
+        break // Per-tick backlog acceleration must not multiply this budget.
+      }
+      this.advance()
+    }
     if (this._settle === s) this.scheduleTick()
   }
 

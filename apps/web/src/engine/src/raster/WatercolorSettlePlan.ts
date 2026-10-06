@@ -1,3 +1,4 @@
+import { contactPulseOp } from '../watercolor/WatercolorSettleQueue'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -849,7 +850,7 @@ export class WatercolorSettlePlan {
       }
       // Pulses share immutable contact geometry; reuse one closure while
       // retaining every scheduler operation and its chronological order.
-      for (let sub = 0; sub < substeps; sub++) ops.push(exchange)
+      for (let sub = 0; sub < substeps; sub++) ops.push(contactPulseOp(exchange))
     }
 
     // (§17.42) The provisional dry target: the wet result with the one tide
