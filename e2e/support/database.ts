@@ -98,7 +98,9 @@ export async function ensureDatabase(log: (msg: string) => void = () => {}): Pro
   const deadline = Date.now() + 60_000
   for (;;) {
     try {
-      run('docker', ['exec', DB_CONTAINER, 'pg_isready', '-U', DB_USER])
+      // The image's temporary initialization server accepts Unix sockets before
+      // the final TCP server starts. Migrations use TCP, so probe that endpoint.
+      run('docker', ['exec', DB_CONTAINER, 'pg_isready', '-h', '127.0.0.1', '-p', '5432', '-U', DB_USER])
       break
     } catch {
       if (Date.now() > deadline) throw new Error('e2e: Postgres did not become ready within 60s')
