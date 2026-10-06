@@ -45,6 +45,19 @@ function code(src: string): string {
 }
 
 describe('every shader declares what it uses (#536)', () => {
+  it('reads thin watercolor colour from recorded depth, independent of the current brush colour (#680)', () => {
+    // A pure-water operation can composite an older puddle in the same wash.
+    // Its selected colour must not enter that puddle's optical calculation.
+    // This guard covers the actual emitted shader, including both the prior
+    // and final paint colour; a prior on u_color caused the production defect.
+    const start = DAB_FRAG.indexOf('vec4 depth = texture2D(u_inkColor, tileUV)');
+    const end = DAB_FRAG.indexOf('vec3 paint = exp(-tauHere)', start);
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const opticalRead = code(DAB_FRAG.slice(start, end));
+    expect(opticalRead).not.toMatch(/\bu_color\b/);
+    expect(opticalRead).toMatch(/texture2D\(u_inkColor/);
+  });
   for (const [name, src] of PROGRAMS) {
     it(`${name} has no undeclared WC_ constant`, () => {
       const body = code(src)

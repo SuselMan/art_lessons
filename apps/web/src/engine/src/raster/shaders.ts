@@ -1590,20 +1590,19 @@ ${WC_NOISE_GLSL}
       // geometric mean of the transmittances of everything laid on this
       // texel, exp(-D / m), read off the depth buffer - so two paints in one
       // puddle mix as paints do (blue and yellow to a dull green), and one
-      // paint comes out exactly the colour it carries. Where nothing was
-      // laid the batch's own colour stands in, as with strength.
-      // Read as a ratio with a small prior on the batch's own paint: at a
+      // paint comes out exactly the colour it carries.
+      // Read as a ratio with a small prior on the nearby deposited paint: at a
       // thin fringe the mass is a code or two and the depth rounds to none,
       // and a bare ratio there is exp(0) - WHITE paint, which is what the
       // "светлые артефакты, после высыхания остались" were. With the prior
-      // the fringe is the batch's colour and the body is the mixture.
+      // the fringe uses nearby paint's colour and the body is the mixture.
       vec4 depth = texture2D(u_inkColor, tileUV) * 2.0;
       // (s17.26) …and the prior grows where the mass is thin: the front's
       // extension and a relocated rim's fringe hold a few codes of mass with
       // a depth rounded per channel, and a bare ratio there swung the hue
       // texel by texel - red, cyan and blue specks along a yellow mark's
-      // edge in the replay. Under WC_DEPTH_THIN of mass the batch's own
-      // colour takes over; a body's mass is ten times that.
+      // edge in the replay. Under WC_DEPTH_THIN of mass the nearby depth
+      // record stabilises colour; a body's mass is ten times that.
       // (s17.43) 0.03 -> 0: the constant part of the prior blended the BATCH's
       // colour into every texel the composite touched, whatever the record
       // held - 13 % of purple into a yellow body of 0.2 mass - and the
@@ -1616,8 +1615,22 @@ ${WC_NOISE_GLSL}
       const float WC_DEPTH_PRIOR = 0.0;
       const float WC_DEPTH_THIN = 0.12;
       float thinPrior = WC_DEPTH_PRIOR + WC_DEPTH_THIN * (1.0 - smoothstep(0.0, WC_DEPTH_THIN, depth.a));
-      vec3 tauBatch = -log(max(u_color, vec3(0.02)));
-      vec3 tauHere = (depth.rgb * WC_DEPTH_SCALE + tauBatch * thinPrior) / (depth.a + thinPrior);
+      // #680: this prior stabilises eight-bit colour, not pigment delivery.
+      // Read its colour from the local deposit: the current brush may be
+      // clear water of another colour, and its composite rect can reach an
+      // older, separate puddle. A batch-colour prior repaints that puddle
+      // without changing any of its pigment or depth records.
+      vec3 tauPrior = vec3(0.0);
+      if (thinPrior > 0.0) {
+        vec2 stepUV = 2.0 / u_resolution;
+        vec4 localDepth = depth + 2.0 * (
+          texture2D(u_inkColor, tileUV + vec2(stepUV.x, 0.0)) +
+          texture2D(u_inkColor, tileUV - vec2(stepUV.x, 0.0)) +
+          texture2D(u_inkColor, tileUV + vec2(0.0, stepUV.y)) +
+          texture2D(u_inkColor, tileUV - vec2(0.0, stepUV.y)));
+        tauPrior = localDepth.rgb * WC_DEPTH_SCALE / max(localDepth.a, 5e-5);
+      }
+      vec3 tauHere = (depth.rgb * WC_DEPTH_SCALE + tauPrior * thinPrior) / (depth.a + thinPrior);
       vec3 paint = exp(-tauHere);
 
       // §4.1 - how wet the brush was *here*, recovered from the deposit's own
@@ -4495,6 +4508,10 @@ export const PAPER_COMPOSE_FRAG = `
   /** (s17.33) The fresh-water shade: how much darker the wettest paper reads
    *  than merely damp paper, and the wetness it starts rising from. */
   const float WC_FRESH_SHADE = 0.07;
+  // (#680) Presentation only: water stays visible on bare paper and reads
+  // much more gently over paint. Neither share enters the deposited pigment.
+  const float WC_WET_PAPER_TONE_SHARE = 0.35;
+  const float WC_WET_PAINT_TONE_SHARE = 0.12;
   // (s17.43) The power applied to a painted colour under fresh water, at
   // full freshness: 1.35 takes a mid blue (0.45) to 0.34, a near-white
   // nowhere - deeper and more saturated, never greyer.
@@ -5006,7 +5023,9 @@ export const PAPER_COMPOSE_FRAG = `
     // also the difference between this and a halo: an area, not a ring.
     // 1.2 per cent: "она должна быть едва заметная". Twice this read as a grey
     // patch rather than as damp paper.
-    color *= mix(1.0, 0.988, damp);
+    float onPaint = smoothstep(0.02, 0.25, graphite);
+    float wetToneShare = mix(WC_WET_PAPER_TONE_SHARE, WC_WET_PAINT_TONE_SHARE, onPaint);
+    color *= 1.0 - 0.012 * damp * wetToneShare;
     // (s17.33) ...and FRESH water on top of that: the tint above saturates at
     // 0.3 of wetness, so a drop of clean water into a wash that is still wet
     // showed nothing at all ("рисование водой ничего не рисует, пятно
@@ -5024,12 +5043,11 @@ export const PAPER_COMPOSE_FRAG = `
     // white, a colour gains chroma as it darkens), and the neutral shade is
     // kept for the paper between the marks, where a drop of clean water
     // still has to show. Both fade with the same clock.
-    float onPaint = smoothstep(0.02, 0.25, graphite);
-    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh * (1.0 - onPaint));
-    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_FRESH_DEEPEN * fresh * onPaint));
+    color *= mix(1.0, 1.0 - WC_FRESH_SHADE, fresh * (1.0 - onPaint) * wetToneShare);
+    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_FRESH_DEEPEN * fresh * onPaint * wetToneShare));
     // (#680, s17.83) ...and a pool one step deeper again, the same two ways.
-    color *= mix(1.0, 1.0 - WC_POOL_SHADE, pool * (1.0 - onPaint));
-    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_POOL_DEEPEN * pool * onPaint));
+    color *= mix(1.0, 1.0 - WC_POOL_SHADE, pool * (1.0 - onPaint) * wetToneShare);
+    color = pow(max(color, vec3(0.0)), vec3(1.0 + WC_POOL_DEEPEN * pool * onPaint * wetToneShare));
     color += vec3(gloss);
     color *= 1.0 - shade;
 
