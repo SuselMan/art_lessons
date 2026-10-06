@@ -27,3 +27,7 @@ SnapshotIO.bake отказывает через _snapshotQuiet при очере
 - Несколько слоёв, частичный refusal и два участника одновременно; никакой ложной полноты покрытия.
 - Стандартные seq100/200, повторные uploads, восстановление по старому snapshot и Undo ниже его границы сохраняют контракт.
 - Реальный Samsung/iPad join: network download, restore, tail/settle и готовность ввода измерены отдельно. 209→77 секунд fixed journal является вычислительным результатом, не измерением загрузки.
+
+## Подготовленный серверный критерий
+
+firstSnapshotPolicy.ts пока не подключён к saveSnapshot: это проверенный кандидат политики, а не исправленный join. Он разрешает некратный100 watermark только на текущем server seq и только для ещё не покрытых слоёв либо повторной записи на том же seq. Structural-only bootstrap не разрешён; partial coverage одного слоя не блокирует первый снимок другого. Старые кратные100 допустимы при seq не выше server latest. 8 тестов покрывают47/113, stale/future/fractional seq, concurrent duplicate, partial layers и запрет пересохранения на каждой операции. Combined queue/zero/policy:60tests7files PASS. Клиентский catch-up/retry и actual network join ещё требуют реализации/проверки.
