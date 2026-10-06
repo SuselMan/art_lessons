@@ -60,3 +60,12 @@ Immutable journal47 операций/41stroke, SHA d242bf844577fb0a6cc016e88da46
 OFF полный solver/restoration idle209.693 с → contactcap8/frontmax4 ON76.796 с (2.73×). В FINAL обеих arms: все47 authoritative seq1…47, pending0, settle null, rebuild0, reveals0, GL0/lostfalse. Весь RGBA2480×1754 exact0/max0,1 227 377 colored pixels. OWNED_CHROME_CLOSED. Raw HOME temp/contact-budget/load-results; PNG не переносились на VPS.
 
 Queue ticks12046→4063, advances23594→23670. Advance count включает coroutine yields, а не только physical passes; не интерпретируется как изменение дозы. Max individual tick73.1/73.5 мс: дорогие untaged operators остались. completeCalls0. Наличие rebuild1 в промежуточном прогрессе не означало готовность: log47 появился около200/70 с, полный restoration idle лишь209.693/76.796 с. Это engine replay + реальные undo/rebuild из журнала, не сетевой end-to-end room load. Подсчёт job.start не записан в этом gate, потому новых утверждений о количестве jobs нет.
+
+
+## Samsung pending GPU trace: CPU и GPU раздельно
+
+Один bounded180с native primed frontON/cap8, без CPU sampler, own1236 CLOSED. Все5 strokes ACK/GL0. Trace4MiB buffer/gzip≤8MiB перенесён только на HOME после cleanup;39 477 events,6 user-timing marks. Mark args.startTime даёт прямое page-clock mapping; median offset197083981801.5µs, разброс всех шести offsets125µs. Это существенно точнее широкого bracket Profiler.start из предыдущего CPU опыта.
+
+Новое касание:1134 remaining; complete26.9мс, onStart29.3мс. CrGpuMain CommandBuffer::Flush занял113.105мс (page34186.50→34299.61), затем99.505мс (34304.18→34403.68). Вложенные OnAsyncFlush описывают те же интервалы и не суммируются. Два active rAF183.9мс:34236.6→34420.5→34604.4. GPU command execution burst после синхронной submission совпадает с задержкой отображения; короткий CPUonStart не ограничивает очередь GPU. Это Chrome GPU-thread trace, не hardware timer-query длительность конкретного shader и не измерение photon latency.
+
+Причина обязательного drain в index5491/Queue.complete: новый paint нельзя писать в общий wash/field до старого copy-back, иначе последний затрёт новые данные и нарушит replay order. Простое удаление complete или перенос его после paint не является исправлением. Front/contact budget сохраняет рисунок и ускоряет загрузку, но не устраняет этот barrier burst. Следующая задача должна сохранить ownership/shared-field semantics. Raw HOME temp/contact-budget/samsung/samsung-pending-front-trace-gpu-trace.json.gz (+summary.json), native JSON и sameclock wrappers.
