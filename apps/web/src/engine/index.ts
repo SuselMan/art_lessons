@@ -91,6 +91,7 @@ import { appendWatercolorLift } from './src/presets/watercolorLift'
 
 
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, wetPeak, WET_CELL_PX, WET_DRY_MS } from './src/paper/paperWetness'
+import { wetOverlayPixels, wetOverlayWorkspace, type WetOverlayWorkspace } from './src/paper/wetOverlayPixels'
 
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 
@@ -1571,6 +1572,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
+  private _wetOverlayWorkspace: WetOverlayWorkspace | null = null
   /** Texels of the wetness map, so the display pass can read its slope. */
   /** Quantized wetness the screen is currently showing, so the drying watcher
    *  can skip the frames that would look identical. -1 = nothing shown. */
@@ -3891,6 +3893,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._dryingTimer) { clearTimeout(this._dryingTimer); this._dryingTimer = 0 }
     if (this._budgetTimer) { clearTimeout(this._budgetTimer); this._budgetTimer = 0 }
     if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null }
+    this._wetOverlayWorkspace = null
     this._paperWet.clear()
     for (const { buf, timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
@@ -8022,39 +8025,10 @@ export class PencilEngine implements PencilEngineAPI {
     const poolRaster = this._paperWet.rasterPool(b.minCx, b.minCy, step, inW, inH, now)
     const pools = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) pools.set(poolRaster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
-    const poolAt = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : pools[y * w + x]
-    const data = new Uint8Array(w * h * 4)
-    const at = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : cells[y * w + x]
-    const rowMax = new Float32Array(w * h)
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        let m = 0
-        for (let i = -2; i <= 2; i++) { const v = at(x + i, y); if (v > m) m = v }
-        rowMax[y * w + x] = m
-      }
+    if (!this._wetOverlayWorkspace || this._wetOverlayWorkspace.rgba.length !== w * h * 4) {
+      this._wetOverlayWorkspace = wetOverlayWorkspace(w * h)
     }
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const tent = (
-          at(x, y) * 4
-          + (at(x, y + 1) + at(x, y - 1) + at(x + 1, y) + at(x - 1, y)) * 2
-          + at(x + 1, y + 1) + at(x - 1, y + 1) + at(x + 1, y - 1) + at(x - 1, y - 1)
-        ) * 0.0625
-        let body = 0
-        for (let j = -2; j <= 2; j++) { const yy = y + j; if (yy < 0 || yy >= h) continue; const v = rowMax[yy * w + x]; if (v > body) body = v }
-        // The pool as the tint's own tent, not the body's 5x5 max: the pool is
-        // drawn as a tone now (s17.83), and its edge must be the grey's.
-        const pool = (
-          poolAt(x, y) * 4
-          + (poolAt(x, y + 1) + poolAt(x, y - 1) + poolAt(x + 1, y) + poolAt(x - 1, y)) * 2
-          + poolAt(x + 1, y + 1) + poolAt(x - 1, y + 1) + poolAt(x + 1, y - 1) + poolAt(x - 1, y - 1)
-        ) * 0.0625
-        const o = (y * w + x) * 4
-        data[o] = data[o + 2] = Math.round(Math.min(tent, 1) * 255)
-        data[o + 1] = Math.round(Math.min(pool, 1) * 255)
-        data[o + 3] = Math.round(Math.min(body, 1) * 255)
-      }
-    }
+    const data = wetOverlayPixels(cells, pools, w, h, this._wetOverlayWorkspace)
     const { gl } = this
     if (!this._wetTex) this._wetTex = gl.createTexture()
     // TEXTURE2 explicitly, and it is not defensive tidiness. Without it this
