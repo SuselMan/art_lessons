@@ -19,6 +19,13 @@ Restore: faults=[], GL0, canonical изображение непустое (7381
 authoritative A/B/fresh payload/seq совпадают. Baseline имел шесть GL1282
 bindFramebuffer в RibbonStrokeScratch.restore через _seedWashes.
 
+Уточнение журнала после офлайн-аудита: предыдущая проверка равенства
+исключала просроченный `paper_dry`. Полные A/B содержат28операций, fresh27:
+сервер убрал единственный Dry marker. Совпадают остальные payload/serverseq;
+строгое равенство полной упорядоченной истории этим не доказано. Маркер может
+влиять на исторический импорт воды даже после исчезновения мокрого overlay;
+причинный аппаратный контроль with/without Dry выполняется отдельно.
+
 Это подтверждает исправление dead-FBO lifetime, **не** pixel parity.
 Round2 A-restored/fresh: 23981 raw RGBA pixels, alpha delta max42,
 199 pixels с max delta>8, premult RGB max21.9373. Native B/fresh:
