@@ -121,7 +121,7 @@ export class WatercolorSettleQueue {
   private advanceIdleBatch(s: WatercolorSettleJob): void {
     let draws = 0, pixels = 0, count = 0
     const started = performance.now()
-    while (this._settle === s && s.next < s.ops.length) {
+    while (this._settle === s && s.scratch.live && s.next < s.ops.length) {
       // The final callback also runs finish(), which may render full tiles
       // or start a replacement job. Its small operator tag cannot cover it.
       const cost = s.next + 1 === s.ops.length ? null : s.ops[s.next].smallCost?.()

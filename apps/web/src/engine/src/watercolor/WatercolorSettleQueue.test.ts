@@ -82,6 +82,17 @@ describe('bounded idle settle experiment', () => {
     f.runFrame()
     expect(f.events.filter(e => e !== 'gpu')).toEqual(['new-capture', 'new', 'new-done'])
   })
+  it('does not read later metadata after the scratch is destroyed', () => {
+    const f = fixture(); f.queue.idleBatch = true
+    const laterCost = vi.fn(() => ({ draws: 1, pixels: 1 }))
+    const destroy = smallSettleOperation(() => { Object.assign(f.scratch, { live: false }) }, () => ({ draws: 1, pixels: 1 }))
+    f.queue.start(f.scratch, [() => {}, destroy, smallSettleOperation(() => f.events.push('old'), laterCost), () => {}], () => {})
+    f.runFrame()
+    expect(laterCost).not.toHaveBeenCalled()
+    expect(f.events).toEqual(['gpu'])
+    f.runFrame()
+    expect(f.queue.current).toBeNull()
+  })
   it('keeps one-operation scheduling while the pen is down', () => {
     const f = fixture(); f.queue.idleBatch = true; f.drawing()
     f.queue.start(f.scratch, [() => {}, f.small('a'), f.small('b')], () => {})
