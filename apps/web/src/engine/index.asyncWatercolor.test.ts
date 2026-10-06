@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { createTestEngine, simulateStroke } from './testing/engineTestUtils'
+import { createTestEngine, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd } from './testing/engineTestUtils'
 
 it('accepts confirmed pointer metadata and shows a separate preview before queued material runs', async () => {
   const { engine } = createTestEngine({}, { width: 64, height: 64 })
@@ -117,4 +117,36 @@ it('keeps two accepted gestures in order and releases their distinct preview own
     expect(engine['_wcAsyncError']).toBeNull()
     expect(JSON.stringify(engine['_log'].entries.map(e => e.op))).toBe(journal)
   } finally { engine.destroy() }
+})
+
+it('retains three confirmed chunks of one gesture before any material continuation runs', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor'); engine.setPencil('normal:100:100:PB29:round'); engine.setSize(12)
+  engine['_wcAsyncFinish'] = true
+  const frames = new Map<number, () => void>(); let next = 0
+  engine['_wcCanonical']['ctx'].schedule = callback => { frames.set(++next, callback); return next }
+  engine['_wcCanonical']['ctx'].unschedule = handle => { frames.delete(handle) }
+  const complete = vi.spyOn(engine as unknown as { _completeSettle(): void }, '_completeSettle')
+  try {
+    simulateStrokeStart(engine, 12, 16)
+    for (let leg = 0; leg < 3; leg++) {
+      simulateStrokeMove(engine, 24, 16 + leg * 12)
+      simulateStrokeMove(engine, 40, 16 + leg * 12)
+      if (leg < 2) engine['_flushStrokeChunk']()
+    }
+    simulateStrokeEnd(engine, 40, 40)
+    const ops = engine['_log'].entries.filter(e => e.op.type === 'stroke').map(e => e.op)
+    expect(ops).toHaveLength(3)
+    expect(new Set(ops.map(op => op.strokeId)).size).toBe(1)
+    expect(complete).not.toHaveBeenCalled()
+    for (let tick = 0; tick < 3000 && engine['_wcCanonical'].pending; tick++) {
+      while (engine['_settle']) engine['_advanceSettle']()
+      const frame = frames.entries().next().value
+      if (frame) { frames.delete(frame[0]); frame[1]() }
+    }
+    expect(engine['_wcCanonical'].pending).toBe(false)
+    expect(engine['_wcAsyncOwners'].size).toBe(0)
+    expect(engine['_wcAsyncError']).toBeNull()
+  } finally { complete.mockRestore(); engine.destroy() }
 })
