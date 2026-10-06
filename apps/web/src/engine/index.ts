@@ -4722,6 +4722,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._contextLost = true
+    // Packed checkpoint pixels survive loss; carried wash snapshots are GL
+    // buffers and cannot seed a restored context. Drop the whole mid-wash
+    // checkpoint: retaining its prefix without open wash state loses the tail.
+    for (const cp of [...this._checkpoints.all()]) if (cp.washes) this._checkpoints.remove(cp)
     this._flushOpQueue() // (§17.58) into the log; the restore rebuilds from it
     // A confirmed preview must not depend on its timer running before restore
     // forgets the old buffers. Detach first: commit callbacks can be reentrant.
@@ -4739,8 +4743,8 @@ export class PencilEngine implements PencilEngineAPI {
   // The WebGLRenderingContext object itself (`this.gl`) survives restoration
   // per spec — only the GPU-side resources it created (programs, textures,
   // framebuffers) are gone and must be recreated. The Operation Log and
-  // checkpoints are plain JS memory, never touched by context loss, so
-  // recovery is: rebuild GL state, drop stale buffer/preview handles, then
+  // packed checkpoints are plain JS memory; carried GL wash state is dropped
+  // on loss. Recovery rebuilds GL state, drops stale buffer/preview handles, then
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
