@@ -324,3 +324,17 @@ CPU: 26 shader-тестов и 22 теста Plan прошли. Четыре н�
 Исправленный `minpath-controls-painted-report.json`: исходное кольцо сохранило прежний endpoint-phase результат побайтно по wholeRGBA SHA `be647a211caa81ab2360783270093b324863c31411ba8abfae8a4d1804ac52bc`. Разница с legacy51434px/max40; sourceP344435 в обоих, внутри ROI126213/снаружи84821 у кандидата. Dry10 whole1754×2480 exact0/max0; sourceP376402. Оба GL0/lostfalse. Первый `minpath-controls-report.json` использовал tiny-функцию без рисования исходных операций: пустой результат **INVALID**, сохранён и не является контрольным доказательством. Исправленный отчёт требует ненулевые P и настоящие исходные операции.
 
 Все собственные Chrome закрыты finally. Adreno minV cold/native и warmed cost ещё не проверены. Источник/flag default OFF; публикации не было.
+
+#### MinV: Adreno cold, 36 мостов и стоимость
+
+Samsung Adreno650: четыре **полные** emitted shader-программы с уникальным salt прошли compile/link, GL0/lostfalse. Все36 tiny bridge cases совпали с Vega, Psum5120 каждого конкретного однопроходного опыта. `samsung-minpath-bridge-pure-report.json` сохраняет renderer/cold/status и результаты. Собственная страница закрыта finally.
+
+Отдельная собственная страница actual5320, без изменения исходника стенда: endpoint-only и minV полные shader source подставлены непосредственно при compile (по4 фактических попадания). Одинаковые исходные P/C/cost/V1 и stride8. Warmed draw стоимость после3 discarded запусков,5 измерений, readPixels1×1 синхронизирует **каждый** отдельный P/C:
+
+| Размер | P endpoint→minV, медиана мс | C endpoint→minV, медиана мс |
+|---|---:|---:|
+|128|1.4→1.9|1.0→1.3|
+|256|2.0→1.5|1.7→1.6|
+|512|5.2→4.3|4.8→4.4|
+
+Во всех шести парах whole field SHA и суммы байтов совпадают, GL0/lostfalse. Это конкретный последовательный warmed sample, не доказательство стабильного ускорения и не сумма полной settle phase. Итог `minpath-matched-cost-comparison.json`, полный `samsung-minpath-cost-report.json`. Собственная страница закрыта finally. МинV actual-source native/rebuild пока не повторены; прежний endpoint-source тест не переименован в такой proof. Default OFF, публикации не было.
