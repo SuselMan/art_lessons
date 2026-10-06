@@ -74,7 +74,7 @@ import { useFilterTarget } from './useFilterTarget'
 import { useLayerPanelBridge } from './useLayerPanelBridge'
 import { useSpaceToPan } from './useSpaceToPan'
 import { useDrawingActivity } from './useDrawingActivity'
-import { RoomLoadingOverlay } from './status/RoomLoadingOverlay'
+import { CopyRoomGate, RoomLoadingOverlay } from './status/RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './status/OfflineRoomOverlay'
 import { PaperFailedOverlay } from './status/PaperFailedOverlay'
 import { RestoreFailedOverlay, type RestoreFailureReason } from './status/RestoreFailedOverlay'
@@ -1299,7 +1299,7 @@ function RoomEditor() {
     applyIdentity, outbox, startOpenTimer,
   })
 
-  const copyingRoom = useCopyRoomEntry(location.state, roomContentReady, connected, retryJoin)
+  const copyingRoom = useCopyRoomEntry(location.state, roomContentReady, connected, retryJoin, config !== null)
 
   // ── socket wiring (#84/#37/#38/join-gate) ──────────────────────────────────────
   // Runs once per room id, independent of `config` — a joiner doesn't have a
@@ -1409,7 +1409,7 @@ function RoomEditor() {
 
   if (!config) {
     if (isCreator) return null
-    if (copyingRoom && !joinError && joinState === 'form' && !joinPasswordAsked) return <RoomLoadingOverlay copying fullscreen />
+    if (copyingRoom && !joinError && joinState === 'form' && !joinPasswordAsked) return <CopyRoomGate offline={notOpen === 'offline'} pending={outboxState.pending} />
     return (
       <JoinGate
         roomName={null}

@@ -4,6 +4,14 @@ import { useEffect, useState } from 'react'
 import type { PaperLoadProgress } from '../../../engine'
 import { useT, type TranslationKey } from '../../../i18n'
 import styles from './RoomLoadingOverlay.module.css'
+import { OfflineRoomOverlay } from './OfflineRoomOverlay'
+
+/** Before the copy's first room_state, the editor itself does not exist yet. */
+export function CopyRoomGate({ offline, pending }: { offline: boolean; pending: number }): React.JSX.Element {
+  return offline
+    ? <div className={clsx(styles.overlay, styles.fullscreen)}><OfflineRoomOverlay pending={pending} /></div>
+    : <RoomLoadingOverlay copying fullscreen />
+}
 
 // Rotating flavor text for the room-load preloader (#185) — loading a room
 // (paper texture + snapshot fetch + operation-log replay/backfill, see
