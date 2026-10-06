@@ -1683,6 +1683,46 @@ describe('an open wash let go of this client’s GPU (#536 §17.68)', () => {
 // now rather than whenever the browser collects it. A board switch builds the
 // next engine on the same, still attached canvas - that context must live.
 describe('what destroy lets go of (#536 §17.69)', () => {
+  it('forgets the wet overlay before the first restored display', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 32, height: 32 })
+    const hooks = engine as unknown as {
+      gl: WebGLRenderingContext
+      _wetTex: WebGLTexture | null
+      _wetTexAt: number
+      _wetRect: number[]
+      _wetShown: number
+      _composePaperToScreen(): void
+      _initGL(): void
+      _handleContextLost(e: Event): void
+      _handleContextRestored(): void
+    }
+    const old = hooks.gl.createTexture()!
+    hooks._wetTex = old
+    hooks._wetTexAt = performance.now()
+    hooks._wetRect = [10, 20, 30, 40]
+    hooks._wetShown = 255
+    const beforeInit: unknown[] = []
+    const init = hooks._initGL.bind(hooks)
+    const initSpy = vi.spyOn(hooks, '_initGL').mockImplementation(() => {
+      beforeInit.push([hooks._wetTex, hooks._wetTexAt, [...hooks._wetRect], hooks._wetShown])
+      init()
+    })
+    const firstDisplay: unknown[] = []
+    const compose = vi.spyOn(hooks, '_composePaperToScreen').mockImplementation(() => {
+      firstDisplay.push([hooks._wetTex, hooks._wetTexAt, [...hooks._wetRect], hooks._wetShown])
+    })
+    const deleteTexture = vi.spyOn(hooks.gl, 'deleteTexture')
+    hooks._handleContextLost(new Event('webglcontextlost', { cancelable: true }))
+    hooks._handleContextRestored()
+    expect(firstDisplay.length).toBeGreaterThan(0)
+    expect(beforeInit[0]).toEqual([null, 0, [0, 0, -1, -1], -1])
+    expect((firstDisplay[0] as unknown[])[0]).not.toBe(old)
+    expect(deleteTexture.mock.calls.some(([texture]) => texture === old)).toBe(false)
+    compose.mockRestore()
+    initSpy.mockRestore()
+    deleteTexture.mockRestore()
+  })
+
   function withLoseContext(connected: boolean) {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 32, height: 32 })
     const loseContext = vi.fn()
