@@ -19,3 +19,13 @@ PAPER_COMPOSE_FRAG затемнял влажную бумагу последов
 Undo/Redo выполнены, однако redo PNG против pre-undo rebuild отличается на 28 пикселей: raw максимум 255, alpha и premultiplied максимум 4, bbox x440..540/y156..198. Это отдельный незавершённый критерий parity, не скрытый допуск и не заявленный PASS. Причина пока не доказана; смена wet-tone программы не меняет canonical export уже существующего слоя. Samsung/cold Adreno compile этим прогоном не проверены.
 
 Артефакты на HOME и копия в этой рабочей ветке: `temp/wet-tone/hardware/report.json`, PNG всех вариантов, `compare.jpg`. Controller `temp/wet-tone/hardware-ab.mjs`, HTML `temp/wet-tone/review.html`. CPU JS скомпилирован, diff-check чистый. Собственный Chrome закрыт finally; пользовательские вкладки и frozen5314 сохранены. Push/deploy не выполнялись.
+
+## Объединённый релиз с локальным цветом тонкого края
+
+Ветка agents/680-wet-tone-release объединяет этот тон с 0c49d9ab: thin-color prior читается из локального depth, а не из цвета последней кисти. Материальный оператор не менялся. Галерейный d5e27bc1 добавляет доску сухих образцов листа 12 и её комнату; файл комментариев не изменён.
+
+Combined Vega и Samsung используют один настоящий native рисунок и смену только PAPER_COMPOSE над фиксированными P/C/V/wet texture. На обеих GPU baseline/candidate canonical PNG совпадают точно; Dry и полный rebuild совпадают точно. Actual Vega ANGLE Radeon, Samsung ANGLE Adreno650. Samsung: 31 salted cold program links, 0 failures, GL0/lostfalse; собственная вкладка закрыта finally.
+
+Классификация остаточного native/history расхождения: первый Undo/Redo относительно native/Dry/full-rebuild capture отличается на 26 пикселей в combined обоих GPU (Vega alpha/premult максимум4, Samsung5; raw RGB максимум255 в почти прозрачных пикселях). Повторный полный rebuild→Undo/Redo совпадает точно. Исходный PAPER_COMPOSE baseline и candidate дают одинаковые history endpoints: baselineRedo==candidateRedo, 0 пикселей. До local-color правки отдельный b406 прогон уже давал 28 пикселей/premult4. Поэтому это остаточная разница первого native/history прохода, не водяного tone shader; полная native parity не заявляется. Причина материальной разницы остаётся отдельной задачей, допуск в тесты не внесён.
+
+Raw HOME `680-water-wet-tone-qa/temp/wet-tone/combined` и `temp/wet-tone/samsung`; VPS копия `680-device-qa-guards/temp/device-runs/combined` и `samsung-wet-release.json`/PNG. Проверки релиза: actual web typecheck и lint, 106 relevant watercolor/shader tests, map-check и map-rules (0 ошибок/4 существующих предупреждения), production build. Samsung первая попытка при Dozing не открыла QA URL; после штатного wake повтор успешен, без перезапуска Chrome/смены сопряжения.
