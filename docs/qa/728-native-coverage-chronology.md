@@ -70,3 +70,35 @@ of source sampling as well, with bounded ownership of immutable commands and
 material film state, or separate immediate presentation from queued canonical
 source painting. Blindly MAX-merging coordinates or ignoring b/a differences
 is not a valid correction. Existing candidate flags remain default OFF.
+
+## Opt-in full source-command rebase (57792769)
+
+The bounded prototype restores old coverage before old-job landing, clears only
+new-film material buffers afterwards, and replays immutable coverage/V/P/C and
+base+film combine commands in their original order. Old settled ink/color bases
+are preserved. No CPU brush clocks or contact metadata are advanced again.
+No shader changes or full synchronous settle on the input handler were added.
+The experiment remains default OFF (`_wcSourceFilmRebase`). Its command replay
+currently runs in old-job finish and is not yet a responsiveness improvement.
+
+Real Vega paired three-chunk oracle:
+
+| Arm | Native vs checkpoint-free rebuild changed pixels | Maximum | Pixels >8 |
+| --- | ---: | ---: | ---: |
+| Ordinary native | 34204 | 255 | 20 |
+| Source-command rebase | 0 | 0 | 0 |
+| Complete-before-source control | 0 | 0 | 0 |
+
+At each of three actual prepare boundaries the source-rebase and complete arms
+match full-buffer per-channel FNV hashes and integer sums for original, coverage,
+P/C loads and films, solvent loads/films and present dry material fields. Captured
+ROI bytes also match. Ordinary native diverges at boundaries 2 and 3. Whole PNG
+is the strict full-image endpoint oracle; FNV checks alone are not a cryptographic
+proof of texture identity. All arms GL0, contexts retained, owned Chrome closed.
+Raw HOME: `680-water-wet-tone-qa/temp/history-parity/source-rebase/`.
+
+Actual web typecheck passed; actual workspace oxlint passed with existing
+warnings; six lifecycle tests passed. Follow-up gates remain: larger original
+native fixture, multiple tiles/chunks, context-loss cancellation, memory and
+latency. This small private-engine result does not establish full Surface parity
+or smoothness and is not authorization to enable the flag in production.
