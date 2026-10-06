@@ -62,3 +62,23 @@ Actual canvas1600×1000/DPR1/angle0/residualScale1/zoom0.35484. ON действ�
 Новый private `_diagnosticBlitScissor`, DEV/defaultOFF. В конце существующего screen pass при partial rect и actual preserveDrawingBuffer=true тот же rect ограничивает финальный defaultFB draw; после draw scissor отключается. Full/null/неpreserved/attrsnull остаются full copy. Camera/cachekey/resize invalidation и все канонические операторы неизменны. Getter контекстных attrs используется только в ON partial ветке, не GPU readback.
 
 Пять FakeGL контрактов наблюдают реальный default-framebuffer draw и paper-cache draw: идентичный scissor rect/снятие scissor, preservefalse/null fallback, full invalidation, defaultOFF. Старый8e50 source не проходит первый контракт (defaultFB draw не clipped). Это GL-state proof, не raster/pixel proof. 108 тестов/6 файлов, typecheck/lint/map проходят; только существующие warnings. Hardware кандидат ещё не проверялся, production не включён. Будущие gates: same65 fullPNG/fields, defaultFB/cache pixel oracle, pick, resize/camera, actual reveal continuity, balanced native ACK/debugOFF/perf.
+
+
+## S: аппаратный balanced контроль 2026-10-06, 05:47–05:51 UTC
+
+Immutable `c17ab35a`, own5311, AMD Vega/radeonsi Chrome154, 1600×1000 DPR1, preserveDrawingBuffer=true, debug=false, девять accepted flags, T/R/idleBatch OFF. Один Chrome закрыт finally; source/operator unchanged. Артефакты `temp/display-ab/S-results/report.json` (дом и VPS), оперативная копия `temp/display-ab/S-report.json`.
+
+Fixed65 OFF/ON: пять canonical буферов P/C/V/dryP/dryC и весь transparent PNG byte exact, nonempty. Текущий default framebuffer совпал с полным baseline blit из того же screenCache: 0 разных пикселей, GL0, включая фактические partial draws, camera rotation/restore, resize, dry idle. Десять pickColor сравнений exact. ON actual partial count 126/129 в native cases; полных draws 613/616.
+
+Balanced OFF/ON/ON/OFF, три native size80 жеста, 8 legs×150ms, паузы150ms, timing без дополнительных GL readback/sync:
+
+| Метрика | OFF | ON | ON | OFF |
+|---|---:|---:|---:|---:|
+| Active median, ms | 22.2 | 22.2 | 22.2 | 22.2 |
+| Burst2 max RAF, ms | 133.4 | 150.1 | 166.7 | 150.0 |
+| Burst3 max RAF, ms | 116.7 | 133.3 | 100.0 | 183.4 |
+| Solver idle, s | 15.22 | 15.23 | 15.62 | 15.12 |
+
+Все три жеста подтверждены server seq, нет pending, завершён solver, GL0. S не воспроизводит выигрыш final-blit skip: остаётся45Hz, устойчивого улучшения задержек нет. Это не основание включать S в production.
+
+Dry→новое рисование в другом участке: full-reference пиксели exact обеих сторон, но oldROI hash не менялся и в baseline. Классификация `INCONCLUSIVE-baseline-motion-absent`; отсутствие паузы/прыжка морфинга этим fixture не доказано. Screenshots/readback этой отдельной визуальной фазы исключены из timing. Прототип остаётся default OFF, публикаций нет.
