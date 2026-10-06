@@ -136,7 +136,7 @@ it('retains three confirmed chunks of one gesture before any material continuati
       if (leg < 2) engine['_flushStrokeChunk']()
     }
     simulateStrokeEnd(engine, 40, 40)
-    const ops = engine['_log'].entries.filter(e => e.op.type === 'stroke').map(e => e.op)
+    const ops = engine['_log'].entries.map(e => e.op).filter(op => op.type === 'stroke')
     expect(ops).toHaveLength(3)
     expect(new Set(ops.map(op => op.strokeId)).size).toBe(1)
     expect(complete).not.toHaveBeenCalled()
