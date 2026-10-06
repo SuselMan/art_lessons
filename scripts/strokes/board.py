@@ -41,17 +41,19 @@ def layout(strokes, groups):
     """Rows per group, and the board's size in mm at scale 1."""
     per = -(-len(strokes) // groups)
     cols = [strokes[i * per:(i + 1) * per] for i in range(groups)]
-    wmm = max(st['wet'][0]['w'] for st in strokes) / refs.PX_PER_MM
+    wmm = max((st['wet'][0] if st['wet'] else st['dry'])['w'] for st in strokes) / refs.PX_PER_MM
     col_w = 3 * wmm + 3 * GAP_MM + 10  # 10 mm for the number
-    height = max(sum(max(st['wet'][0]['h'], (st['dry'] or st['wet'][-1])['h']) / refs.PX_PER_MM + GAP_MM for st in c) for c in cols)
+    height = max(sum(max((st['wet'][0] if st['wet'] else st['dry'])['h'], (st['dry'] or st['wet'][-1])['h']) / refs.PX_PER_MM + GAP_MM for st in c) for c in cols)
     return cols, wmm, groups * col_w, height
 
 
 def main(sid, out=None):
     a = refs.load()
     sheet = refs.sheet_of(a, sid)
-    strokes = [st for st in sheet['strokes'] if st['wet']]
+    strokes = [st for st in sheet['strokes'] if st['wet'] or st.get('dry')]
     avail_w, avail_h = 594 - 2 * MARGIN_MM, 420 - 2 * MARGIN_MM - TITLE_MM
+    if not strokes:
+        raise ValueError('Sheet has no wet or dry reference images')
     best = None
     for groups in (1, 2, 3):
         cols, wmm, bw, bh = layout(strokes, groups)
@@ -64,7 +66,8 @@ def main(sid, out=None):
     d = ImageDraw.Draw(board)
     m = round(MARGIN_MM * ROOM_PX_PER_MM)
     scale = '1:1 с листом' if s == 1 else f'масштаб {s:.2f} от листа'
-    d.text((m, m - round(4 * ROOM_PX_PER_MM)), f'Лист {sid} · {scale} · слева сразу после мазка, в середине сухой, справа — повторить',
+    caption = 'слева и в середине сухой образец, справа — повторить' if all(not st['wet'] for st in strokes) else 'слева сразу после мазка, в середине сухой, справа — повторить'
+    d.text((m, m - round(4 * ROOM_PX_PER_MM)), f'Лист {sid} · {scale} · {caption}',
            fill=(90, 90, 90), font=font(round(5 * ROOM_PX_PER_MM)))
     if sheet.get('note'):
         d.text((m, m + round(3 * ROOM_PX_PER_MM)), sheet['note'], fill=(140, 140, 140), font=font(round(4 * ROOM_PX_PER_MM)))
@@ -75,7 +78,7 @@ def main(sid, out=None):
         x = m + g * col_w
         y = y0
         for st in col:
-            first = Image.open(os.path.join(refs.ROOT, st['wet'][0]['src']))
+            first = Image.open(os.path.join(refs.ROOT, (st['wet'][0] if st['wet'] else st['dry'])['src']))
             dry = Image.open(os.path.join(refs.ROOT, (st['dry'] or st['wet'][-1])['src']))
             f = k / refs.PX_PER_MM
             first = first.resize((round(first.width * f), round(first.height * f)), Image.LANCZOS)
