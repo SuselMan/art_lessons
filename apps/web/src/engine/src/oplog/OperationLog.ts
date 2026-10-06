@@ -145,6 +145,10 @@ const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation
  *  renumbers the entries it shifted. */
 export class OperationLog {
   private _entries: LogEntry[] = []
+  private _revision = 0
+
+  /** Changes whenever journal order or entry state may change. */
+  get revision(): number { return this._revision }
   private _nextSeq = 0
   /** (#537) Entries [0, _confirmedCount) are the confirmed region; the rest
    *  are the pending tail. */
@@ -196,6 +200,7 @@ export class OperationLog {
    *  already applied — empty in the common case, where `op` lands on the end
    *  of its region with nothing painted above it. See the class doc comment. */
   append(op: Operation, placement: Placement = {}): LogEntry[] {
+    this._revision++
     if (!META_OP_TYPES.has(op.type)) {
       for (const e of this._entries) {
         if (e.state === 'undone' && e.op.userId === op.userId) e.state = 'gone'
@@ -240,6 +245,7 @@ export class OperationLog {
    *  pending here, was already confirmed (the ack and the broadcast both
    *  report it), or was coalesced into a later entry. */
   confirm(opId: string, serverSeq: number): { op: Operation; overtaken: LogEntry[] } | null {
+    this._revision++
     let from = -1
     for (let i = this._confirmedCount; i < this._entries.length; i++) {
       if (this._entries[i].op.id === opId) { from = i; break }
@@ -330,6 +336,7 @@ export class OperationLog {
    *  Guards `op.userId` against the target's own author: even without real
    *  auth (#41) yet, a client can never undo an op it didn't author. */
   applyUndo(targetOpId: string, userId: string): Operation | null {
+    this._revision++
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'done' && e.op.userId === userId)
     if (!target) return null
     for (const e of this._gestureEntries(target, 'done')) {
@@ -395,6 +402,7 @@ export class OperationLog {
 
   /** Symmetric with `applyUndo`: undone → done for one specific entry. */
   applyRedo(targetOpId: string, userId: string): Operation | null {
+    this._revision++
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId)
     if (!target) return null
     for (const e of this._gestureEntries(target, 'undone')) {
@@ -423,6 +431,7 @@ export class OperationLog {
   /** Privileged removal of someone else's operation (teacher). The target goes
    *  straight to `gone` — no redo, the author's own undo stack is untouched. */
   revoke(targetOpId: string): Operation | null {
+    this._revision++
     for (const e of this._entries) {
       if (e.op.id === targetOpId && e.state !== 'gone') {
         // Only a still-`done` entry was ever counted (an `undone` one
@@ -463,6 +472,7 @@ export class OperationLog {
    *  that invariant true across the splice. O(n) in the log's total size;
    *  fine for a background, few-times-per-session operation. */
   prependHistorical(entries: readonly LogEntry[]): void {
+    this._revision++
     const merged = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]
       .map((e, i) => ({ ...e, op: { ...e.op, seq: i } }))
     this._entries = merged
