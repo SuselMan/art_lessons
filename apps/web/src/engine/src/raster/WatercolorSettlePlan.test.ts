@@ -253,3 +253,39 @@ it('omits invisible intermediate preview during a drain while preserving the sol
     expect(probe._settleQueue.allowProgressPreview).toBe(true)
   } finally { now.mockRestore(); passes.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
 })
+
+it('uses the same active-stroke rejection as the downstream reveal callback', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe & { _strokeLayerId: string | null; _settleQueue: import('../watercolor/WatercolorSettleQueue').WatercolorSettleQueue }
+  const ctx = (probe._settlePlan as unknown as { ctx: { shouldPreview(): boolean } }).ctx
+  try {
+    probe._strokeLayerId = 'layer-1'
+    expect(ctx.shouldPreview()).toBe(true)
+    probe._settleQueue.suppressActivePreview = true
+    expect(ctx.shouldPreview()).toBe(false)
+    probe._strokeLayerId = null
+    expect(ctx.shouldPreview()).toBe(true)
+    probe._strokeLayerId = 'layer-1'
+    expect(ctx.shouldPreview()).toBe(false)
+  } finally { probe._strokeLayerId = null; engine.destroy() }
+})
+
+it('restores nonactive preview after a reentrant drain throws', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe & { _strokeLayerId: string | null; _settleQueue: import('../watercolor/WatercolorSettleQueue').WatercolorSettleQueue }
+  const ctx = (probe._settlePlan as unknown as { ctx: { shouldPreview(): boolean } }).ctx
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  const q = probe._settleQueue, states: boolean[] = []
+  q.suppressDrainPreview = q.suppressActivePreview = true
+  try {
+    q.start(scratch, [() => {}, () => states.push(ctx.shouldPreview())], () => {
+      probe._strokeLayerId = 'layer-1'
+      q.start(scratch, [() => states.push(ctx.shouldPreview()), () => { throw Error('nested failure') }], () => {}, { isAlive: () => true, abort() {} })
+    }, { isAlive: () => true, abort() {} })
+    expect(() => q.complete()).toThrow('nested failure')
+    expect(states).toEqual([false, false])
+    expect(ctx.shouldPreview()).toBe(false)
+    probe._strokeLayerId = null
+    expect(ctx.shouldPreview()).toBe(true)
+  } finally { probe._strokeLayerId = null; scratch.destroy(); engine.destroy() }
+})

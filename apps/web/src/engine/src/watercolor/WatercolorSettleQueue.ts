@@ -43,6 +43,8 @@ export class WatercolorSettleQueue {
   get current(): WatercolorSettleJob | null { return this._settle }
   /** Diagnostic opt-in: intermediate presentation cannot reach a frame during a synchronous drain. */
   suppressDrainPreview = false
+  /** Opt-in gate for copies whose downstream reveal callback rejects an active stroke. */
+  suppressActivePreview = false
   private _drainDepth = 0
   get allowProgressPreview(): boolean { return !this.suppressDrainPreview || this._drainDepth === 0 }
 
