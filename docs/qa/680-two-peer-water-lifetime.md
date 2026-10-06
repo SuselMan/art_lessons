@@ -181,6 +181,10 @@ All four final **whole PNG decoded RGBA** comparisons were exact0pixels/max0:
 long donor/short pigment (3ops), short donor/long pigment (3ops), long/long
 (4ops), short/short (2ops). All GL0; Chrome closed in finally, exit0.
 
+**Withdrawn field claim:** the diagnostic below used the wrong FBO y origin and
+read an empty region. It is preserved as the initial report, not valid evidence;
+see the correction section below. The whole-PNG comparisons above remain valid.
+
 Exact SHA-256 over every byte of bounded256×128 ROI (x1006,y894) matched at all
 corresponding delivery-after/before-finish/aux-water-after boundaries. Matched
 boundary counts8/7/10/5 respectively. Coverage, source P/depth/color, V load,
