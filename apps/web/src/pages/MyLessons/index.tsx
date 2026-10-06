@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection,
@@ -13,6 +13,7 @@ import {
   ApiError, apiPath, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder, moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed,
 } from '../../lib/api/api'
 import { isLoggedIn, useAuth } from '../../lib/api/authState'
+import { RoomLoadingOverlay } from '../Room/status/RoomLoadingOverlay'
 import { preloadRoomPage } from '../Room/roomChunk'
 import { useShareRoom } from '../../components/RoomAccessControl/useShareRoom'
 import { notifyError } from '../../stores/noticeStore'
@@ -21,6 +22,7 @@ import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n
 import { AppHeader } from '../../components/AppHeader'
 import { Icon } from '../../components/Icon'
 import { CardMenu } from '../../components/CardMenu'
+import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { TextInput } from '../../components/TextInput'
 import { MoveToDialog } from '../../components/MoveToDialog'
 import { Modal } from '../../components/Modal'
@@ -117,9 +119,7 @@ function formatDate(iso: string, locale: string): string {
   return new Date(iso).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-// Identifies whichever room/folder is mid inline-rename, mid delete/leave
-// confirm, or the target of an open "Move to..." dialog — only one of these
-// interactions is ever active across the whole page at a time.
+// Identifies the room/folder being renamed or moved.
 type ItemRef = { kind: 'room' | 'folder'; id: string }
 
 // (#360) The move dialog also needs to know where the item sits *now*, so it
@@ -134,7 +134,6 @@ interface RoomCardProps {
   view: LessonsView
   room: Room
   isOwnRoom: boolean
-  confirmingAction: boolean
   renaming: boolean
   renameText: string
   onRenameTextChange: (text: string) => void
@@ -145,11 +144,10 @@ interface RoomCardProps {
   onRenameClick: () => void
   onMoveClick: () => void
   onForkClick: () => void
+  onForkAndOpenClick: () => void
   onAccessClick: () => void
   onToggleClosedClick: () => void
   onDeleteOrLeaveClick: () => void
-  onConfirmClick: () => void
-  onCancelConfirmClick: () => void
 }
 
 /** The card's hero picture. (#176, ADR 014 §2) A lesson with several boards
@@ -188,10 +186,31 @@ function CardThumbnail({ room }: { room: Room }) {
   )
 }
 
+/** A copy has no room id yet: it must not be a link or a drag source. */
+function PreparingRoomCard({ name, view, t }: { name: string; view: LessonsView; t: TFunction }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' })
+  }, [])
+  return (
+    <div ref={ref} className={clsx(styles.card, styles.preparingCard, view === 'list' && styles.cardListItem)} aria-disabled="true" aria-busy="true">
+      <div className={styles.cardLink}>
+        <div className={styles.cardThumbnailPlaceholder}><span className={styles.preparingSpinner} aria-hidden="true" /></div>
+        <div className={styles.cardText}>
+          <span className={styles.cardName}>{name}</span>
+          <span className={styles.cardMeta} role="status">{t('lessons.preparingRoom')}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+type PendingCopy = { key: string; id: string; name: string; folderId: string | undefined; search: string | null; open?: boolean }
+
 function RoomCard({
-  t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
-  onRenameCancel, busy, onShareClick, onRenameClick, onMoveClick, onForkClick, onAccessClick,
-  onToggleClosedClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
+  t, locale, view, room, isOwnRoom, renaming, renameText, onRenameTextChange, onRenameSubmit,
+  onRenameCancel, busy, onShareClick, onRenameClick, onMoveClick, onForkClick, onForkAndOpenClick, onAccessClick,
+  onToggleClosedClick, onDeleteOrLeaveClick,
 }: RoomCardProps) {
   // (#222) Closed for editing — homework that has been handed out, or a
   // template kept from drifting. Owner-only to toggle; visible to everyone,
@@ -225,6 +244,7 @@ function RoomCard({
             { label: t('common.rename'), onClick: onRenameClick },
             { label: t('common.moveTo'), onClick: onMoveClick },
             { label: t('lessons.fork'), onClick: onForkClick, disabled: busy },
+            { label: t('lessons.forkAndOpen'), onClick: onForkAndOpenClick, disabled: busy },
             // Only the owner can toggle it, and the server enforces that
             // independently (#222) — hiding the item for everyone else keeps
             // the menu honest rather than offering an action that 403s.
@@ -244,6 +264,7 @@ function RoomCard({
               label: t(isOwnRoom ? 'common.delete' : 'lessons.leaveRoom'),
               onClick: onDeleteOrLeaveClick,
               danger: true,
+              disabled: busy,
             },
           ]}
         />
@@ -296,19 +317,7 @@ function RoomCard({
           </div>
         </div>
       </Link>
-      {confirmingAction && (
-        <div className={styles.confirmRow}>
-          <span className={styles.confirmText}>
-            {t(isOwnRoom ? 'lessons.confirmDelete' : 'lessons.confirmLeave')}
-          </span>
-          <button type="button" className={styles.confirmButton} onClick={onConfirmClick} disabled={busy}>
-            {busy ? t('common.working') : t(isOwnRoom ? 'lessons.yesDelete' : 'lessons.yesLeave')}
-          </button>
-          <button type="button" className={styles.cancelButton} onClick={onCancelConfirmClick} disabled={busy}>
-            {t('common.cancel')}
-          </button>
-        </div>
-      )}
+
     </div>
   )
 }
@@ -460,6 +469,8 @@ function ViewToggle({ t, view, onChange }: {
 }
 
 export function MyLessons() {
+  const navigate = useNavigate()
+  const [openingCopy, setOpeningCopy] = useState(false)
   const t = useT()
   const locale = useLocale()
   const view = useSettingsStore(s => s.lessonsView)
@@ -467,7 +478,8 @@ export function MyLessons() {
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
   const shareRoom = useShareRoom()
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const { confirm } = useConfirmDialog()
+  const [pendingCopies, setPendingCopies] = useState<PendingCopy[]>([])
   // (#351) Every card on this page is a door into the Room chunk, so start
   // fetching it now rather than on whichever card gets clicked — see
   // lib/api/roomChunk.ts for why that click is otherwise a multi-second wait
@@ -596,16 +608,26 @@ export function MyLessons() {
   // is usually done to *hand out* a copy, and being dropped inside it would
   // make forking three of them a matter of going back twice.
   const forkMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, { name, scope: 'lesson' }),
-    // (#552) Into the list for the folder the copy was actually filed in, which
-    // the server now reports: it files the copy beside its source, and when the
-    // fork is made from search results the source's folder is not the folder
-    // being viewed. `setQueryData` on an uncached key is a no-op, so a copy
-    // made into a folder that isn't open simply appears when it is opened.
-    onSuccess: ({ room }) => queryClient.setQueryData<RoomsAtFolder | undefined>(
-      roomsQueryKey(room.folderId), prev => prev && { ...prev, rooms: [room, ...prev.rooms] },
-    ),
-    onError: () => notifyFailure(t('lessons.error.fork'), 'fork-room'),
+    mutationFn: (copy: PendingCopy) => forkRoom(copy.id, { name: copy.name, scope: 'lesson' }),
+    onMutate: copy => {
+      if (copy.open) setOpeningCopy(true)
+      else setPendingCopies(prev => [copy, ...prev])
+    },
+    onSuccess: ({ room }, copy) => {
+      queryClient.setQueryData<RoomsAtFolder | undefined>(
+        roomsQueryKey(room.folderId), prev => prev && { ...prev, rooms: [room, ...prev.rooms.filter(r => r.id !== room.id)] },
+      )
+      if (copy.open) navigate(`/room/${room.id}`, { state: { copying: true } })
+      // Keep the new card visible where copying started, including search results.
+      if (copy.search !== null) queryClient.setQueryData<{ rooms: Room[] } | undefined>(
+        searchQueryKey(copy.search), prev => prev && { ...prev, rooms: [room, ...prev.rooms.filter(r => r.id !== room.id)] },
+      )
+    },
+    onError: (_, copy) => {
+      if (copy.open) setOpeningCopy(false)
+      notifyFailure(t('lessons.error.fork'), 'fork-room')
+    },
+    onSettled: (_, __, copy) => setPendingCopies(prev => prev.filter(p => p.key !== copy.key)),
   })
   // (#222) The room comes back with its new `closedAt`, so the card updates
   // from the server's answer rather than from an assumption about it.
@@ -738,8 +760,10 @@ export function MyLessons() {
   // that used to live here are pushed from their own `onError` instead.
   const loadError = loadFailed ? t('lessons.error.load') : null
   const searchError = searchFailed ? t('lessons.error.search') : null
-  const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
-  const isSearchEmpty = searchData !== undefined && searchData.rooms.length === 0
+  const visibleCopies = pendingCopies.filter(copy => isSearching ? copy.search === debouncedSearch : copy.folderId === currentFolderId)
+  const preparingCards = visibleCopies.map(copy => <PreparingRoomCard key={copy.key} name={copy.name} view={view} t={t} />)
+  const isEmpty = visibleCopies.length === 0 && data !== undefined && data.folders.length === 0 && data.rooms.length === 0
+  const isSearchEmpty = visibleCopies.length === 0 && searchData !== undefined && searchData.rooms.length === 0
   const confirmBusy = deleteMutation.isPending || leaveMutation.isPending
 
   function renderRoomCard(room: Room) {
@@ -751,7 +775,6 @@ export function MyLessons() {
         view={view}
         room={room}
         isOwnRoom={room.ownerId === me?.userId}
-        confirmingAction={confirmingId === room.id}
         busy={confirmBusy}
         renaming={renamingItem?.kind === 'room' && renamingItem.id === room.id}
         renameText={renameText}
@@ -761,16 +784,22 @@ export function MyLessons() {
         onShareClick={() => shareRoom(room)}
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
         onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id, parentFolderId: room.folderId ?? null })}
-        onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}
+        onForkClick={() => forkMutation.mutate({ key: crypto.randomUUID(), id: room.id, name: t('lessons.forkedName', { name: room.name }), folderId: room.folderId, search: isSearching ? debouncedSearch : null })}
+        onForkAndOpenClick={() => forkMutation.mutate({ key: crypto.randomUUID(), id: room.id, name: t('lessons.forkedName', { name: room.name }), folderId: room.folderId, search: isSearching ? debouncedSearch : null, open: true })}
         onAccessClick={() => setAccessRoom({ id: room.id, name: room.name })}
         onToggleClosedClick={() => closedMutation.mutate({ id: room.id, closed: room.closedAt === undefined })}
-        onDeleteOrLeaveClick={() => setConfirmingId(room.id)}
-        onConfirmClick={() => {
-          setConfirmingId(null)
-          if (room.ownerId === me?.userId) deleteMutation.mutate(room.id)
+        onDeleteOrLeaveClick={async () => {
+          const isOwnRoom = room.ownerId === me?.userId
+          const accepted = await confirm({
+            title: room.name,
+            message: t(isOwnRoom ? 'lessons.confirmDelete' : 'lessons.confirmLeave'),
+            confirmLabel: t(isOwnRoom ? 'lessons.yesDelete' : 'lessons.yesLeave'),
+            danger: true,
+          })
+          if (!accepted) return
+          if (isOwnRoom) deleteMutation.mutate(room.id)
           else leaveMutation.mutate(room.id)
         }}
-        onCancelConfirmClick={() => setConfirmingId(null)}
       />
     )
   }
@@ -778,6 +807,7 @@ export function MyLessons() {
   return (
     <div className={styles.page}>
       <AppHeader />
+      {openingCopy && <RoomLoadingOverlay copying fullscreen />}
 
       <div className={styles.titleRow}>
         <div className={styles.searchRow}>
@@ -793,11 +823,12 @@ export function MyLessons() {
         <ViewToggle t={t} view={view} onChange={setView} />
         <Link
           className={styles.newRoomLink}
+          aria-label={t('lessons.newRoom')}
           to="/create"
           state={currentFolderId ? { folderId: currentFolderId } : undefined}
         >
           <Icon name="add" />
-          {t('lessons.newRoom')}
+          <span className={styles.newRoomLabel}>{t('lessons.newRoom')}</span>
         </Link>
       </div>
 
@@ -811,6 +842,7 @@ export function MyLessons() {
               <EmptyState icon="search_off" message={t('lessons.noMatches', { query: debouncedSearch })} />
             ) : (
               <div className={view === 'list' ? styles.list : styles.grid}>
+                {preparingCards}
                 {searchData.rooms.map(renderRoomCard)}
               </div>
             )}
@@ -910,6 +942,7 @@ export function MyLessons() {
                     onDeleteClick={() => deleteFolderMutation.mutate(folder.id)}
                   />
                 ))}
+                {preparingCards}
                 {data.rooms.map(renderRoomCard)}
               </div>
             )}

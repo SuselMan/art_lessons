@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react'
+import clsx from 'clsx'
 
 import type { PaperLoadProgress } from '../../../engine'
 import { useT, type TranslationKey } from '../../../i18n'
+import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import styles from './RoomLoadingOverlay.module.css'
+
+/** Before the copy's first room_state, the editor itself does not exist yet. */
+export function CopyRoomGate({ offline, pending }: { offline: boolean; pending: number }): React.JSX.Element {
+  return offline
+    ? <div className={clsx(styles.overlay, styles.fullscreen)}><OfflineRoomOverlay pending={pending} /></div>
+    : <RoomLoadingOverlay copying fullscreen />
+}
 
 // Rotating flavor text for the room-load preloader (#185) — loading a room
 // (paper texture + snapshot fetch + operation-log replay/backfill, see
@@ -20,6 +29,13 @@ const MESSAGE_KEYS: readonly TranslationKey[] = [
   'room.loading.6',
   'room.loading.7',
   'room.loading.8',
+]
+
+const COPY_MESSAGE_KEYS: readonly TranslationKey[] = [
+  'room.loading.copy.1',
+  'room.loading.copy.2',
+  'room.loading.copy.3',
+  'room.loading.copy.4',
 ]
 
 const MESSAGE_INTERVAL_MS = 1800
@@ -43,13 +59,14 @@ const MIB = 1024 * 1024
  *  Null `paper` is the normal case once the prefetch is doing its job: the
  *  texture was already downloaded before the room opened, so no progress is
  *  ever emitted and the overlay looks exactly as it did before this change. */
-export function RoomLoadingOverlay({ paper }: { paper?: PaperLoadProgress | null }): React.JSX.Element {
+export function RoomLoadingOverlay({ paper, copying = false, fullscreen = false }: { paper?: PaperLoadProgress | null; copying?: boolean; fullscreen?: boolean }): React.JSX.Element {
   const t = useT()
+  const messages = copying ? COPY_MESSAGE_KEYS : MESSAGE_KEYS
   const [index, setIndex] = useState(0)
   useEffect(() => {
-    const id = window.setInterval(() => setIndex(i => (i + 1) % MESSAGE_KEYS.length), MESSAGE_INTERVAL_MS)
+    const id = window.setInterval(() => setIndex(i => (i + 1) % messages.length), MESSAGE_INTERVAL_MS)
     return () => window.clearInterval(id)
-  }, [])
+  }, [messages])
 
   // `done` deliberately drops back to the flavour text: the download is over
   // but the room is not ready, and leaving a full bar on screen would read as
@@ -58,7 +75,7 @@ export function RoomLoadingOverlay({ paper }: { paper?: PaperLoadProgress | null
   const percent = downloading ? Math.min(100, Math.round((paper.loaded / paper.total) * 100)) : 0
 
   return (
-    <div className={styles.overlay}>
+    <div className={clsx(styles.overlay, fullscreen && styles.fullscreen)}>
       <div className={styles.spinner} />
       {downloading ? (
         <>
@@ -81,7 +98,7 @@ export function RoomLoadingOverlay({ paper }: { paper?: PaperLoadProgress | null
           </div>
         </>
       ) : (
-        <div className={styles.message}>{t(MESSAGE_KEYS[index])}</div>
+        <div className={styles.message}>{t(messages[index % messages.length])}</div>
       )}
     </div>
   )

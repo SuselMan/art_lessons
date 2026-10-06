@@ -83,3 +83,12 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+
+/* Copy-and-open starts before a room id exists, covering the project list
+   until navigation hands the wait over to the editor's loading overlay. */
+.fullscreen {
+  position: fixed;
+  z-index: 100;
+  pointer-events: auto;
+}
