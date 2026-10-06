@@ -102,6 +102,26 @@ afterEach(() => {
 })
 
 describe('saveSnapshot', () => {
+  it('retains aged Dry in the tail after both pigment pixels and layer structure are snapshotted', async () => {
+    const roomId = makeRoom()
+    const at = Date.now() - 1_000_000
+    const water = { ...stroke('old-water'), tool: 'watercolor' as const, preset: 'normal:100:0:PB29:round', timestamp: at }
+    const marker: Operation = { id: 'old-dry', type: 'paper_dry', userId: 'owner-1', timestamp: at + 1000 }
+    const pigment = { ...stroke('later-pigment'), tool: 'watercolor' as const, preset: 'normal:75:40:PB29:round', timestamp: at + 2000 }
+    recordOperation(roomId, water)
+    recordOperation(roomId, marker)
+    recordOperation(roomId, pigment)
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    const saved = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL,
+      { items: { 'layer-1': {}, background: {} }, rootOrder: ['layer-1', 'background'] }, layers('layer-1'))
+    expect(saved.ok).toBe(true)
+    expect(getCoveredSeq(roomId, 'layer-1')).toBe(SNAPSHOT_SEQ_INTERVAL)
+    const snapshot = getRoomSnapshot(roomId)
+    expect(snapshot?.latestSnapshotSeq).toBe(SNAPSHOT_SEQ_INTERVAL)
+    expect(snapshot?.tailOperations.map(op => op.id)).toEqual([marker.id])
+    expect(snapshot?.tailOperations[0]?.timestamp).toBe(at + 1000)
+  })
+
   it('rejects a seq that is not a multiple of SNAPSHOT_SEQ_INTERVAL', async () => {
     const roomId = makeRoom()
     const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL + 1, {}, layers('layer-1'))

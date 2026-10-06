@@ -52,12 +52,11 @@ export type OperationRedoOperation = OperationBase & {
  *  a layer: the teacher presses it to KNOW that what a student lays next goes
  *  onto dry paper, which a per-client button could not promise.
  *
- *  It carries nothing, and changes no pixel. Its whole effect is on the
- *  ephemeral wetness every client keeps (and on which wash the next stroke
- *  may join); the strokes after it record the dry paper they met in their own
- *  `wet` profile, so a replay would reproduce the picture even without it.
- *  What it adds is the part a replay does not see: the sheen on every screen,
- *  and the paper the next live stroke of each participant lands on.
+ *  It does not directly paint pigment. It clears live paper wetness and
+ *  ends the eligibility of earlier water as a foreign donor for later
+ *  strokes. Recorded wet profiles describe contact; they do not encode all
+ *  historical donor geometry. A later replay therefore needs this ordered
+ *  barrier even after the current paper's sheen has disappeared.
  *
  *  Not undoable (there is no "wet it again"). Retained as an ordered
  *  historical barrier for foreign-water replay after the live paper dries. */
