@@ -1,8 +1,13 @@
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 
-/** Drawing can pause before its recipient has any tiles; ownership, rather
- * than tile count, defines that coroutine's lifetime. Solver jobs keep the
- * existing scratch.live rule. */
+export interface SmallSettleCost { draws: number; pixels: number }
+export type SettleOperation = (() => void) & { smallCost?: () => SmallSettleCost | null }
+
+/** An estimate for a known local pass; null keeps the one-entry boundary. */
+export function smallSettleOperation(op: () => void, cost: () => SmallSettleCost | null): SettleOperation {
+  return Object.assign(op, { smallCost: cost })
+}
+
 export interface WatercolorSettleLifecycle {
   isAlive(): boolean
   abort(): void
@@ -10,7 +15,7 @@ export interface WatercolorSettleLifecycle {
 
 export interface WatercolorSettleJob {
   scratch: RibbonStrokeScratch
-  ops: Array<() => void>
+  ops: SettleOperation[]
   next: number
   complete: () => void
   raf: number
@@ -25,6 +30,7 @@ export interface WatercolorSettleQueueContext {
   backlogMax(): number
   noteActivity(now: number): void
   scheduleFieldRelease(): void
+  syncGpu(): void
 }
 
 /** One settle at a time: synchronous drain or adaptive animation-frame steps.
@@ -32,6 +38,8 @@ export interface WatercolorSettleQueueContext {
 export class WatercolorSettleQueue {
   private readonly ctx: WatercolorSettleQueueContext
   constructor(ctx: WatercolorSettleQueueContext) { this.ctx = ctx }
+  /** Isolated performance experiment, disabled in every normal engine. */
+  idleBatch = false
   get current(): WatercolorSettleJob | null { return this._settle }
 
   /** (#536, §17.22) The author's pen-up settle in flight: the diffusion's
@@ -57,7 +65,7 @@ export class WatercolorSettleQueue {
 
   /** Begins running `ops` a few per frame, then `complete`. Drains a settle
    *  already in flight first: both use the one _diffuseField. */
-  start(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void, lifecycle?: WatercolorSettleLifecycle): void {
+  start(scratch: RibbonStrokeScratch, ops: SettleOperation[], complete: () => void, lifecycle?: WatercolorSettleLifecycle): void {
     if (this._settle) this.complete()
     this.ctx.beforeStart()
     this._settle = { scratch, ops, next: 0, complete, raf: 0, lifecycle }
@@ -109,8 +117,34 @@ export class WatercolorSettleQueue {
     // the device is already behind.
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
-    for (let k = 0; k < perTick && this._settle === s; k++) this.advance()
+    if (this.idleBatch && !this.ctx.isDrawing() && !late) this.advanceIdleBatch(s)
+    else for (let k = 0; k < perTick && this._settle === s; k++) this.advance()
     if (this._settle === s) this.scheduleTick()
+  }
+
+  /** At most sixteen draw equivalents/two million pixels, then GPU time.
+   * Unknown or presentation-bearing entries keep their own frame boundary. */
+  private advanceIdleBatch(s: WatercolorSettleJob): void {
+    let draws = 0, pixels = 0, count = 0
+    const started = performance.now()
+    while (this._settle === s && this.isAlive(s) && s.next < s.ops.length) {
+      // The final callback also runs finish(), which may render full tiles
+      // or start a replacement job. Its small operator tag cannot cover it.
+      const cost = s.next + 1 === s.ops.length ? null : s.ops[s.next].smallCost?.()
+      const known = cost && Number.isFinite(cost.draws) && Number.isFinite(cost.pixels)
+        && cost.draws >= 1 && cost.pixels >= 0 && cost.draws <= 16 && cost.pixels <= (1 << 21)
+      if (!known) {
+        if (count === 0) { this.advance(); this.ctx.syncGpu() }
+        break
+      }
+      if (draws + cost.draws > 16 || pixels + cost.pixels > (1 << 21)) break
+      draws += cost.draws; pixels += cost.pixels; count++
+      this.advance()
+      // A single local operator is indivisible; timing after submission is
+      // meaningless until its GPU work completes.
+      this.ctx.syncGpu()
+      if (performance.now() - started >= 12) break
+    }
   }
 
   /** Runs the next entry of the settle in flight; lands it after the last. */

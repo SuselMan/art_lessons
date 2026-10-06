@@ -10,23 +10,24 @@ function fixture() {
   const perf = { settleStart: 0, settleOps: 0, settleMs: 0 }
   const queue = new WatercolorSettleQueue({ beforeStart() {}, perf: () => perf,
     isDrawing: () => false, backlogSize: () => 0, backlogMax: () => 4,
-    noteActivity() {}, scheduleFieldRelease() {} })
+    noteActivity() {}, scheduleFieldRelease() {}, syncGpu() {} })
   const scratch = { live: false } as RibbonStrokeScratch
   const frame = () => { const [id, fn] = [...frames][0]; frames.delete(id); fn(performance.now()) }
   return { queue, scratch, frames, frame }
 }
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-describe('drawing coroutine ownership', () => {
+describe.each([false, true])('drawing coroutine ownership (idleBatch=%s)', idleBatch => {
+  const ownedFixture = () => { const f = fixture(); f.queue.idleBatch = idleBatch; return f }
   it('resumes an owned empty recipient after the auxiliary first slice', () => {
-    const f = fixture(), events: string[] = [], abort = vi.fn()
+    const f = ownedFixture(), events: string[] = [], abort = vi.fn()
     f.queue.start(f.scratch, [() => {}, () => events.push('pigment')], () => events.push('finish'), { isAlive: () => true, abort })
     f.frame()
     expect(events).toEqual(['pigment', 'finish'])
     expect(abort).not.toHaveBeenCalled(); expect(f.queue.current).toBeNull()
   })
   it.each(['cancel', 'dead-frame', 'dead-complete'] as const)('closes a paused generator on %s without landing it', how => {
-    const f = fixture(), cleanup = vi.fn(), finish = vi.fn()
+    const f = ownedFixture(), cleanup = vi.fn(), finish = vi.fn()
     function* work() { try { yield; yield } finally { cleanup() } }
     const generator = work(); generator.next()
     let owned = true
@@ -38,7 +39,7 @@ describe('drawing coroutine ownership', () => {
     expect(f.queue.current).toBeNull(); expect(f.frames.size).toBe(0)
   })
   it('drains drawing and its chained solver completion in order', () => {
-    const f = fixture(), events: string[] = [], abort = vi.fn()
+    const f = ownedFixture(), events: string[] = [], abort = vi.fn()
     f.queue.start(f.scratch, [() => {}, () => events.push('draw')], () => {
       events.push('draw-finish'); Object.assign(f.scratch, { live: true })
       f.queue.start(f.scratch, [() => events.push('stitch'), () => events.push('diffuse')], () => events.push('solver-finish'))
@@ -48,7 +49,7 @@ describe('drawing coroutine ownership', () => {
     expect(abort).not.toHaveBeenCalled(); expect(f.queue.current).toBeNull()
   })
   it('retains the dead-scratch guard for ordinary solver jobs', () => {
-    const f = fixture(), op = vi.fn(), finish = vi.fn()
+    const f = ownedFixture(), op = vi.fn(), finish = vi.fn()
     f.queue.start(f.scratch, [() => {}, op], finish)
     f.frame()
     expect(op).not.toHaveBeenCalled(); expect(finish).not.toHaveBeenCalled(); expect(f.queue.current).toBeNull()
