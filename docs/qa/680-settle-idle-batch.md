@@ -61,3 +61,21 @@ OFF p50/p95/max2.10/2.70/6.70ms, ON0.80/2.20/2.80ms; exactfields/PNG сохра�
 Артефакты сохраняются на VPS и домашней машине в `temp/idle-batch/ab-696a`,
 `native-696a-off`, `native-696a-on`, `cost-696a`. Сводки `native-summary.json`,
 `cost-summary.json`. Старые ecba043d результаты не перезаписаны.
+
+## Следующий изолированный кандидат: grace250ms
+
+В `agents/680-settle-idle-grace` fast batching по-прежнему defaultOFF.
+При включении первые250ms каждого нового settle выполняются строго через
+исходный perTick путь, без дополнительных `syncGpu`. Только после этого при
+on-time idle frame применяется прежняя ограниченная группировка16draws/2Mpx.
+Timestamp принадлежит job; chained drawing→solver или следующий stroke получают
+собственную паузу. Drawing/late/dead/cancel guards остаются прежними.
+
+Цель — не добавлять barrier в обычную150ms паузу быстрых повторных штрихов,
+сохранив ускорение более долгого idle. Это не обещает устранения исходного
+150–183ms burst hitch. Shader/operator/film/order не изменяются.
+
+39 targetedCPU тестов проверяют в том числе no-sync grace, переход после grace,
+late-frame fallback, grace нового chained job, drawing fallback и ownership
+empty recipient/cancel. Аппаратные ON negative controls этого кандидата ещё
+не выполнены; предыдущий696a burst результат к нему не относится.

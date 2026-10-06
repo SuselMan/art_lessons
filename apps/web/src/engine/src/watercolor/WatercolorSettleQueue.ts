@@ -19,6 +19,7 @@ export interface WatercolorSettleJob {
   next: number
   complete: () => void
   raf: number
+  startedAt: number
   lifecycle?: WatercolorSettleLifecycle
 }
 
@@ -68,7 +69,7 @@ export class WatercolorSettleQueue {
   start(scratch: RibbonStrokeScratch, ops: SettleOperation[], complete: () => void, lifecycle?: WatercolorSettleLifecycle): void {
     if (this._settle) this.complete()
     this.ctx.beforeStart()
-    this._settle = { scratch, ops, next: 0, complete, raf: 0, lifecycle }
+    this._settle = { scratch, ops, next: 0, complete, raf: 0, startedAt: performance.now(), lifecycle }
     // (§17.44) The stitch - the settle's first entry, copies only - runs NOW:
     // it captures the deposit and its settled base as they stand at this
     // boundary, before the next chunk's batches rebuild them. The dear
@@ -117,7 +118,7 @@ export class WatercolorSettleQueue {
     // the device is already behind.
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
-    if (this.idleBatch && !this.ctx.isDrawing() && !late) this.advanceIdleBatch(s)
+    if (this.idleBatch && nowT - s.startedAt >= 250 && !this.ctx.isDrawing() && !late) this.advanceIdleBatch(s)
     else for (let k = 0; k < perTick && this._settle === s; k++) this.advance()
     if (this._settle === s) this.scheduleTick()
   }

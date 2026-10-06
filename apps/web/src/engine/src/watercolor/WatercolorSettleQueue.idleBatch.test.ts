@@ -16,7 +16,7 @@ function fixture() {
     isDrawing: () => drawing, backlogSize: () => 0, backlogMax: () => 4,
     noteActivity() {}, scheduleFieldRelease() {}, syncGpu: sync })
   const scratch = { live: true } as RibbonStrokeScratch
-  const runFrame = () => { const [id, fn] = [...frames][0]; frames.delete(id); clock += 16; fn(clock) }
+  const runFrame = (afterGrace = true) => { const [id, fn] = [...frames][0]; frames.delete(id); clock = afterGrace ? Math.max(clock + 16, (queue.current?.startedAt ?? clock) + 250) : clock + 16; fn(clock) }
   const small = (name: string, pixels = 100) => smallSettleOperation(() => events.push(name), () => ({ draws: 5, pixels }))
   return { queue, scratch, frames, events, sync, runFrame, small, drawing: () => { drawing = true } }
 }
@@ -110,6 +110,37 @@ describe('bounded idle settle experiment', () => {
     expect(laterCost).not.toHaveBeenCalled(); expect(f.events).toEqual(['gpu'])
     f.runFrame()
     expect(abort).toHaveBeenCalledTimes(1); expect(f.queue.current).toBeNull()
+  })
+
+  it('keeps baseline scheduling and no extra sync within the first250ms, then batches', () => {
+    const f = fixture(); f.queue.idleBatch = true
+    f.queue.start(f.scratch, [() => {}, ...Array.from({ length: 30 }, (_, i) => f.small(String(i)))], () => {})
+    f.runFrame(false)
+    expect(f.events).toEqual(['0']); expect(f.sync).not.toHaveBeenCalled()
+    f.runFrame(false)
+    expect(f.events).toEqual(['0', '1']); expect(f.sync).not.toHaveBeenCalled()
+    f.runFrame()
+    // A delayed frame still follows the existing late-frame fallback.
+    expect(f.events).toEqual(['0', '1', '2']); expect(f.sync).not.toHaveBeenCalled()
+    f.runFrame(false)
+    expect(f.events.filter(e => e !== 'gpu')).toEqual(['0', '1', '2', '3', '4', '5'])
+    expect(f.sync).toHaveBeenCalledTimes(3)
+  })
+  it('gives a chained new job its own grace period', () => {
+    const f = fixture(); f.queue.idleBatch = true
+    f.queue.start(f.scratch, [() => {}, f.small('last')], () => {
+      f.queue.start(f.scratch, [() => f.events.push('new-capture'), f.small('a'), f.small('b')], () => {})
+    })
+    f.runFrame()
+    f.events.length = 0; f.sync.mockClear()
+    f.runFrame(false)
+    expect(f.events).toEqual(['a']); expect(f.sync).not.toHaveBeenCalled()
+  })
+  it('falls back to one baseline operation when a new stroke is drawing after grace', () => {
+    const f = fixture(); f.queue.idleBatch = true
+    f.queue.start(f.scratch, [() => {}, f.small('a'), f.small('b')], () => {})
+    f.drawing(); f.runFrame()
+    expect(f.events).toEqual(['a']); expect(f.sync).not.toHaveBeenCalled()
   })
 
 })
