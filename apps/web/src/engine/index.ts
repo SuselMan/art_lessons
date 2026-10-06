@@ -4735,8 +4735,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._peerPreviews.clear()
     for (const op of confirmed) this._onPreviewApplied?.(op)
     this._ribbonPainter.releaseWaterSources(true)
+    this._settlePlan.forgetTextures() // Forget captured inputs before cancellation can release them.
     this._cancelSettle() // Auxiliary handles were forgotten; close their coroutine without resuming GL.
-    this._settlePlan.forgetTextures()
     this._cancelSpillJob()
   }
 
@@ -4750,8 +4750,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextRestored = (): void => {
     // Also forget anything an already-scheduled callback retained during loss.
     this._ribbonPainter.releaseWaterSources(true)
-    this._cancelSettle()
     this._settlePlan.forgetTextures()
+    this._cancelSettle()
     // Context loss invalidates the wet overlay's GL name too. Forget it
     // before _initGL / PaperState can request the first restored display;
     // deleting the old name would operate on a dead-context resource.
@@ -7098,7 +7098,7 @@ export class PencilEngine implements PencilEngineAPI {
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
-  ): { ops: Array<() => void>; finish: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
+  ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview)
   }
   private _groupTideOps(
@@ -7658,11 +7658,13 @@ export class PencilEngine implements PencilEngineAPI {
         if ((reveal || spread) && typeof requestAnimationFrame === 'function') {
           // (§17.53) A sliced rebuild's buffer is not on screen yet: nothing to redraw.
           const shown = [...this._layers.values()].includes(target)
-          this._startSettle(scratch, job.ops, spread && !reveal && shown ? () => { complete(); this._displayIfNotSuspended() } : complete)
+          this._startSettle(scratch, job.ops, spread && !reveal && shown ? () => { complete(); this._displayIfNotSuspended() } : complete, { isAlive: () => scratch.live, abort: job.dispose })
           return
         }
-        for (const op of job.ops) op()
-        complete()
+        try {
+          for (const op of job.ops) op()
+          complete()
+        } finally { job.dispose() }
         this._scheduleFieldRelease()
         return
       }
