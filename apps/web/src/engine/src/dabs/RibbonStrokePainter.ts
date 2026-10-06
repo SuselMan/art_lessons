@@ -175,6 +175,7 @@ export class RibbonStrokePainter {
     mode: Readonly<{ waterOnly: boolean; segmented: boolean }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
     const segmentMode = profile.normalizeDeposit ? this.diagnosticSegmentDelivery : false
+    if (!mode.waterOnly && (!segmentMode || !this.diagnosticPigmentRecord || profile.pigmentStrength > 0)) scratch.pigmentInputsKnownZero = false
     if (segmentMode && dabs.length > 1 && !mode.segmented) {
       scratch.standing.clear()
       for (let i = 0; i < dabs.length; i++) {

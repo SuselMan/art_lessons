@@ -92,6 +92,7 @@ export class WatercolorSettlePlan {
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
+    skipZeroPigmentContacts = false,
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
@@ -241,7 +242,7 @@ export class WatercolorSettlePlan {
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const contacts = brushDragContacts(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    const contacts = skipZeroPigmentContacts ? [] : brushDragContacts(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const flow = contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null

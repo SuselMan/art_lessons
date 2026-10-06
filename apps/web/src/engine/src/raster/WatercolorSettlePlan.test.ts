@@ -232,3 +232,26 @@ it('returns this job write domain independently of an old wash storage union', (
     expect(source).toEqual({ minX: 20, minY: 20, maxX: 44, maxY: 44 })
   } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
 })
+
+it('opt-in zero contact path keeps front and landing but omits pigment exchanges', () => {
+  const counts: Array<{ brush: number; front: number }> = []
+  for (const skip of [false, true]) {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile)
+    scratch.brushTravel = [{ x: 32, y: 32, radius: 20, aspect: 1, angle: 0, dx: 15, dy: 0, water: 1 }]
+    const brush = vi.spyOn(probe._watercolorPasses, 'brushPass'), front = vi.spyOn(probe._watercolorPasses, 'waterFrontStep')
+    try {
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], { minX: 12, minY: 12, maxX: 52, maxY: 52 }, 0, 20, 1, 0, 1, 0, 0, undefined, skip)!
+      for (const op of plan.ops) op()
+      plan.finish()
+      counts.push({ brush: brush.mock.calls.length, front: front.mock.calls.length })
+    } finally { brush.mockRestore(); front.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+  }
+  expect(counts[0].brush).toBeGreaterThan(0)
+  expect(counts[1].brush).toBe(0)
+  expect(counts[1].front).toBe(counts[0].front)
+  expect(counts[1].front).toBeGreaterThan(0)
+})
