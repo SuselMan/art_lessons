@@ -1750,6 +1750,7 @@ export class PencilEngine implements PencilEngineAPI {
     ab: () => this._wcAb,
     passes: () => this._watercolorPasses,
     contactRoiPingPong: () => this._settleQueue.contactRoiPingPong,
+    gradientFibres: () => this._wcGradientFibres,
     shouldPreview: () => this._settleQueue.allowProgressPreview
       && (!this._settleQueue.suppressActivePreview || !this._strokeLayerId),
   })
@@ -3311,6 +3312,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (#536, §17.24) Applied in _drawRibbonCompositeDab, so a replay under the
    *  switch recomposites the same deposit without the effect. */
+  /** #728 diagnostic opt-in; fifth low program is warmed separately in QA. */
+  private _wcGradientFibres = false
   private _wcAb = { noSpread: false, noMigrate: false, noDiffuse: false, noCarry: false, opDry: false }
   setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; opDry?: boolean }): void {
     this._wcAb = { noSpread: ab.noSpread, noMigrate: ab.noMigrate, noDiffuse: !!ab.noDiffuse, noCarry: !!ab.noCarry, opDry: !!ab.opDry }

@@ -2,6 +2,7 @@ import { DISPLAY_VERT, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG,
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
+import { withGradientFibres } from '../watercolor/gradientFibres'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B } from '../watercolor/wetDiffusion'
 
 export interface WatercolorPassField { w: number; h: number; coverage: AccumulationBuffer }
@@ -23,6 +24,8 @@ export class WatercolorPasses {
 
   /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
   private _fieldOpProg!: WebGLProgram
+
+  private _gradientField: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
   private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
 
@@ -79,7 +82,7 @@ export class WatercolorPasses {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number] } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -89,11 +92,13 @@ export class WatercolorPasses {
     }
     // (#685) Carry modes must never enter the bookkeeping program: its
     // combined control flow crashes the Galaxy Tab's Adreno linker.
+    const gradient = mode === 1 && opts.gradientFibres && !!opts.world?.[2] ? this.gradientField() : null
     const high = mode >= 10
-    const prog = mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
-    const u = mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
-    const pos = mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
+    const prog = gradient ? gradient.program : mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
+    const u = gradient ? gradient.uniforms : mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
+    const pos = gradient ? gradient.position : mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
     gl.useProgram(prog)
+    if (gradient) this.ctx.stamps().bindNoise(u.u_wcFibreNoiseTex)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
     gl.enableVertexAttribArray(pos)
     gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0)
@@ -325,8 +330,37 @@ export class WatercolorPasses {
     outColor.endDraw()
   }
 
+  /** Diagnostic opt-in only. Before enabling by default, warm this at boot,
+   * not on the first production stroke. Existing four programs stay unchanged. */
+  warmGradientFibres(): void { this.gradientField() }
+
+  private gradientField(): NonNullable<WatercolorPasses['_gradientField']> {
+    if (!this._gradientField) {
+      const { gl } = this
+      const program = createProgram(gl, DISPLAY_VERT, withGradientFibres(WC_FIELD_OP_FRAG))
+      this._gradientField = {
+        program,
+        uniforms: getUniforms(gl, program, [...Object.keys(this._fieldOpUni), 'u_wcFibreNoiseTex']),
+        position: gl.getAttribLocation(program, 'a_position'),
+      }
+    }
+    return this._gradientField
+  }
+
+  private releaseGradientField(): void {
+    const cached = this._gradientField
+    if (!cached) return
+    const { gl } = this
+    if (gl.getParameter(gl.CURRENT_PROGRAM) === cached.program) gl.useProgram(null)
+    // Restored contexts reject old handles; MockGL may omit isProgram.
+    if (gl.isProgram?.(cached.program) !== false) gl.deleteProgram(cached.program)
+    this._gradientField = null
+  }
+
   initFieldPrograms(): void {
     const { gl } = this
+    // Context restoration invalidates the optional cached program too.
+    this.releaseGradientField()
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
     this._fieldOpCarryProg    = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_FRAG)
@@ -380,9 +414,10 @@ export class WatercolorPasses {
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
     if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg].includes(current)) {
+      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program].includes(current)) {
       this.gl.useProgram(null)
     }
+    this.releaseGradientField()
     this.gl.deleteProgram(this._fieldOpProg)
     this.gl.deleteProgram(this._fieldOpHighProg)
     this.gl.deleteProgram(this._fieldOpCarryProg)
