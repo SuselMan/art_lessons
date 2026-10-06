@@ -260,3 +260,19 @@ Dry10 — явно диагностическая копия seq27: неизме
 Исходные seq19–29 без изменений: path8/shortcut whole RGBA exact0. Полные material P/C/V sums/max совпадают (P1184900, V13764346), ring ROI source344435/inside126213/outside84821 совпадает; shortcut достигнут в4 emitted programs. Это подтверждает эквивалентность shortcut относительно path8 на данном реальном ряду, но не снимает отрицательный dry10 gate самого path8.
 
 HOME raw: `680-combined-stability/temp/KJc0OoVo/dry10-shortcut/{report.json,*.png}`. Контроллер `temp/KJc0OoVo/dry10-shortcut.mjs`; VPS сводка `dry10-shortcut-metrics.json`. Проверка не является native UI, серверным ACK или замером плавности.
+
+### 2026-10-07: локальная V-phase, кандидат по умолчанию выключен
+
+Две плотностные абляции отвергнуты: flux-only меняет dry10 в605px/max106, weighted-conductance — в134px/max30 на Adreno. Последняя улучшает кольцо слабо. Нельзя включать их по номинальному preset water: сухая кисть на настоящей луже должна оставаться подвижной.
+
+Следующая отдельная гипотеза использует существующие границы0.45/0.70, применённые к локальному независимому V (alpha×4), а не объявляет V равным PaperWetness. Нулевая V в любом промежуточном узле блокирует plateau-path даже при cost0. Opt-in захватывается при prepare; source defaultOFF, новые буферы/форматы операций не добавлены.
+
+На Vega, при одинаковых неизменных packed inputs и accepted8aa DAB/PAPER shaders, whole1754×2480 RGBA pure/dry10/dry0 exact0. Wet100 меняется1844px/max63, low-water10 в реальной луже9405px/max66: подвижность зависит от местной жидкости, не запрета low-water. В реальном ряду seq19–29 кольцо визуально уходит, внешнее растекание сохраняется; ring source P344435 совпадает, inside122865→126213, outside88762→84821. Whole P1185422→1184900 (−522), V13764346 совпадает: это не доказательство сохранения массы пигмента. HOME: temp/KJc0OoVo/phase/report.json, PNG и ring-comparison.png.
+
+Старые три micro-cases в полном phase report были запущены с прежним контроллером без правильного V-binding и НЕ являются доказательством связности. Исправленный phase-tiny run: connected rightP1280 и Psum5120; separated-cost-gap, cost0/dry-V-gap и wetgate0 exactRGBA0/rightP0, Psum5120. GL0/lostfalse. Это ограниченные32×8 field fixtures, не полный натуральный water-domain proof.
+
+Четыре новых CPU Plan tests проверяют defaultOFF, фиксацию opt-in до выполнения, реальные capturedV и отсутствие destination alias, noV fallback. Они проходят на новом source; старый Plan отрицателен (undefined default вместо false). На Adreno650 четыре ПОЛНЫХ emitted shaders с уникальным salt linked=true, GL0/lostfalse, максимум5 активныхsamplers; own1254 закрыт. phase-cold-report.json. Samsung dry10 wholeRGBA exact0, материал ROI совпадает, GL0/lostfalse, own1255 закрыт. Это runtime shader/Plan-parameter AB, не actual-source-native/undo/replay gate; они пока ожидаются.
+
+Adreno whole controls (компактный CDP export с wholeRGBA сравнением внутри страницы): pure/dry0/dry10 exact0, source P/C/V ROI совпадают; ring51994px/max39, source344523 exact, inside122763→127026/outside88911→85357. Lowwater10 в луже9527px/max64, source438085 exact, finalinside209432/outside105258. Все GL0/lostfalse, own1255–1259 закрыты. Samsung crop визуально подтверждает исчезновение замкнутого светлого кольца без выключения внешнего растекания. Исходные и phase arm используют одинаковые packed operations, не независимо нарисованные жесты. Полный native source/own replay gate ещё не выполнен.
+
+Локальный source commit d852c8ab. Полные22 Plan tests и22 shader tests PASS; старый Plan negative падает на четырёх новых default/captured-switch cases. Вызовы u_tau проверены: carry15/16 раньше не использовали tau, opt-in z0 сохраняет legacy cost0 exclusion. Кандидат не включает transport globally и не вводит новый UI/Operation Log контракт.
