@@ -1,8 +1,11 @@
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 
 const contactPulses = new WeakSet<() => void>()
+const frontSteps = new WeakSet<() => void>()
 /** Only conservative paired contact exchanges may share a post-lift tick. */
 export function contactPulseOp(op: () => void): () => void { contactPulses.add(op); return op }
+/** Existing front/carry chunks retain their internal pass order and state. */
+export function frontStepOp(op: () => void): () => void { frontSteps.add(op); return op }
 
 /** Drawing can pause before its recipient has any tiles; ownership, rather
  * than tile count, defines that coroutine's lifetime. Solver jobs keep the
@@ -58,6 +61,9 @@ export class WatercolorSettleQueue {
 
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
+
+  /** Separate diagnostic: never enables contact batching or crosses uploads. */
+  frontBatchEnabled = false
 
   private _settleTickAt = 0
 
@@ -127,11 +133,13 @@ export class WatercolorSettleQueue {
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
     for (let k = 0; k < perTick && this._settle === s; k++) {
-      if (this.contactBatchEnabled && !late && !this.ctx.isDrawing() && this.ctx.syncGpu
-        && contactPulses.has(s.ops[s.next])) {
+      const batchable = this.contactBatchEnabled && contactPulses.has(s.ops[s.next]) ? contactPulses
+        : this.frontBatchEnabled && frontSteps.has(s.ops[s.next]) ? frontSteps : null
+      if (batchable && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
         const batchAt = performance.now()
-        const cap = this.contactBatchMax === 8 || this.contactBatchMax === 16 ? this.contactBatchMax : 4
-        for (let n = 0; n < cap && this._settle === s && contactPulses.has(s.ops[s.next]); n++) {
+        const cap = batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
+          ? this.contactBatchMax : 4
+        for (let n = 0; n < cap && this._settle === s && batchable.has(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize
           // every pulse, so a slow device overruns by only one existing step.
