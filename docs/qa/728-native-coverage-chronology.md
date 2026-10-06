@@ -164,3 +164,23 @@ fixture left pointerdown open and waited for rebuild, which intentionally waits
 while `_strokeLayerId` is active; its idle timeout is not an established deadlock.
 The corrected fixture lifts after restoration. Raw previous failures remain in
 `room-source-rebase/` and `room-source-rebase-span/` alongside valid OFF/ON gates.
+# Cleaned net source 4f01243a: ordinary Room hardware gate
+
+Отдельный повтор на настоящей Vega после удаления RG-only промежуточного кода:
+HOME `680-water-wet-tone-qa/temp/history-parity/room-source-rebase-clean/`.
+Source passport: index50a92b04, Scratch90f412da, Painterbcea6500, Plan97d8daa7.
+Физический лист3200×1000, brush400, настоящий PointerInput, один engine одновременно.
+Опция sourceFilmRebase=true, остальные intrinsic accepted flags; никакого ручного
+flush chunk. В обычной комнате получены8 chunks одного strokeId.
+
+NativeDry, Redo и свежий вход дали один wholeRGBA SHA82d7bde8004bc7da925a69e84e6abb6da67f0c22e30b02d0eaddeaf35ed94acd.
+Undo дал пустой рисунок, остальные endpoint2298339 непустых пикселей.
+Все операции/identity после fresh строго совпали, GL0/lostfalse.
+
+Отдельный actual WEBGL_lose_context сработал при3 pending source commands и одном
+подтверждённом chunk. После restore обычный pointer-up завершил оставшуюся часть;
+restored/fresh SHAe2d36de37f5df7460c520b452205d307cf5aa73c4c78c8c3627712c69171097f
+строго совпал,614480 непустых пикселей, journal/identity exact, GL0.
+Неподтверждённый хвост не заявляется сохранённым: он отдельно закончен после restore.
+Собственный Chrome закрыт finally. Первая попытка launcher упала до опыта из-за
+shell quoting MODES; raw ошибку сохраняем отдельно, это не ошибка приложения.
