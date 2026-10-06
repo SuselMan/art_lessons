@@ -1749,6 +1749,7 @@ export class PencilEngine implements PencilEngineAPI {
     minmaxExt: () => this._minmaxExt,
     ab: () => this._wcAb,
     passes: () => this._watercolorPasses,
+    shouldPreview: () => this._settleQueue.allowProgressPreview,
   })
   private readonly _settleQueue = new WatercolorSettleQueue({
     beforeStart: () => {

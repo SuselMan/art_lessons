@@ -23,6 +23,8 @@ export interface WatercolorSettlePlanContext {
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
   ab(): { noDiffuse: boolean; noCarry: boolean; opDry: boolean }
+  /** Presentation only; canonical solver steps and final landing never consult this. */
+  shouldPreview?(): boolean
   passes(): WatercolorPasses
 }
 
@@ -504,7 +506,7 @@ export class WatercolorSettlePlan {
     // wash records. Reconstruct against the same captured base as finish().
     let previewAt = -Infinity
     const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1): void => {
-      if (!preview || performance.now() - previewAt < 150) return
+      if (!preview || this.ctx.shouldPreview?.() === false || performance.now() - previewAt < 150) return
       previewAt = performance.now()
       const pool = this.ctx.pool()
       const pigment = pool.acquire(field.w, field.h)

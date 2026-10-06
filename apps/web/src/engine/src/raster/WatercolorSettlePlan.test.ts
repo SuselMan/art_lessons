@@ -232,3 +232,24 @@ it('returns this job write domain independently of an old wash storage union', (
     expect(source).toEqual({ minX: 20, minY: 20, maxX: 44, maxY: 44 })
   } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
 })
+
+it('omits invisible intermediate preview during a drain while preserving the solver passes', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe & { _settleQueue: import('../watercolor/WatercolorSettleQueue').WatercolorSettleQueue }
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+  const preview = vi.fn(), passes = vi.spyOn(probe._watercolorPasses, 'diffuseStep')
+  let clock = performance.now()
+  const now = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 200))
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }], { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.2, 8, 1, 1, 1, 1, 0, preview)
+    expect(plan).not.toBeNull()
+    probe._settleQueue.suppressDrainPreview = true
+    probe._settleQueue.start(scratch, plan!.ops, () => plan!.finish(), { isAlive: () => true, abort: plan!.dispose })
+    probe._settleQueue.complete()
+    expect(passes).toHaveBeenCalled()
+    expect(preview).not.toHaveBeenCalled()
+    expect(probe._settleQueue.allowProgressPreview).toBe(true)
+  } finally { now.mockRestore(); passes.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+})

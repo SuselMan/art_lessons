@@ -54,3 +54,31 @@ describe('drawing coroutine ownership', () => {
     expect(op).not.toHaveBeenCalled(); expect(finish).not.toHaveBeenCalled(); expect(f.queue.current).toBeNull()
   })
 })
+
+describe('synchronous drain presentation gate', () => {
+  it('preserves ordinary asynchronous previews and suppresses only the drain', () => {
+    const f = fixture(), seen: boolean[] = []
+    Object.assign(f.scratch, { live: true }); f.queue.suppressDrainPreview = true
+    f.queue.start(f.scratch, [() => seen.push(f.queue.allowProgressPreview), () => seen.push(f.queue.allowProgressPreview), () => seen.push(f.queue.allowProgressPreview)], () => seen.push(f.queue.allowProgressPreview))
+    f.frame(); f.queue.complete()
+    expect(seen).toEqual([true, true, false, false])
+    expect(f.queue.allowProgressPreview).toBe(true)
+  })
+  it('keeps nested jobs suppressed and restores the gate after a thrown pass', () => {
+    const f = fixture(), seen: boolean[] = []
+    Object.assign(f.scratch, { live: true }); f.queue.suppressDrainPreview = true
+    f.queue.start(f.scratch, [() => {}, () => seen.push(f.queue.allowProgressPreview)], () => {
+      f.queue.start(f.scratch, [() => seen.push(f.queue.allowProgressPreview), () => { seen.push(f.queue.allowProgressPreview); throw Error('pass failed') }], () => {})
+    })
+    expect(() => f.queue.complete()).toThrow('pass failed')
+    expect(seen).toEqual([false, false, false])
+    expect(f.queue.allowProgressPreview).toBe(true)
+  })
+  it('preserves default presentation even when completing synchronously', () => {
+    const f = fixture(), seen: boolean[] = []
+    Object.assign(f.scratch, { live: true })
+    f.queue.start(f.scratch, [() => {}, () => seen.push(f.queue.allowProgressPreview)], () => seen.push(f.queue.allowProgressPreview))
+    f.queue.complete()
+    expect(seen).toEqual([true, true])
+  })
+})
