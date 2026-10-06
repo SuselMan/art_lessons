@@ -137,3 +137,19 @@ context alive. В обоих arms four synchronous preview callbacks.
 гейт — actual destination/copy census, затем native rAF/newtouch. Raw PNG
 только HOME `temp/contact-budget/samsung/roi-fixed-{off,on}.png`; маленькие
 отчёты VPS `temp/profile/roi-fixed-{off,on}.json`. Default не включён.
+
+ROI census на Samsung (1271/1272 CLOSED) доказал, что opt-in реально исполнил
+новый путь: brush draws3840 в обоих arms, destination switches каждого
+P/C0→1904, copyTexSubImage2D3984→176. Полные P/C/V/coverage снова exact.
+Однако fixture15.733→15.817с: ускорение общего solver не доказано.
+
+Native dense80 независимые gestures (1273/1274 CLOSED): active max33/34мс,
+tail1003/936мс. На новом touch active max385/485мс; остаётся hitch. Из-за
+1500мс встроенного harness-tail новый touch получил лишь51/62 pending
+steps. Основной complete1361/1367 возник ещё внутри первого жеста, вне
+поздно включённой trace. Поэтому этот эксперимент не измеряет immediate
+newtouch1134-step barrier. Raw traces HOME `roi-native-{off,on}-gpu-trace.json.gz`.
+Final morph idle/GL0 проверены; async callbacks8 в обоих arms — не visible
+frame count. Opt-in сохраняется OFF. Подготовлен отдельный immediate
+controller: два жеста внутри одного Runtime.evaluate, первый без harness-tail,
+trace включена до первого input; модель/пакет dabs не изменяются.
