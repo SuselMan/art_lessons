@@ -20,8 +20,14 @@
     E.setTool(tool); E.setPencil(preset); E.setColor(color); E.setSize(size)
     return JSON.stringify({ active: E._activeId, tool })
   }
-  mt.stroke = ({ pts, ms = 1500, perFrame = 2 }) => new Promise(resolve => {
+  mt.stroke = ({ pts, ms = 1500, perFrame = 2 }) => new Promise((resolve, reject) => {
     const E = e(); const p = E._pointer; const c = canvas(); const r = c.getBoundingClientRect()
+    // A blocked or lost engine can otherwise report perfect idle rAF timing.
+    // Selecting a tool only on E does not unlock Room's store-driven gate.
+    if (E._locked || !E._paper.loaded || E.gl.isContextLost()
+      || !E._activeId || !E._layers.has(E._activeId)) {
+      throw new Error('Pen benchmark requires loaded paper, a drawable layer and a drawing tool selected in roomStore')
+    }
     const origCapture = c.setPointerCapture; c.setPointerCapture = () => {}; c.releasePointerCapture = () => {}
     const P = pts.map(([fx, fy]) => [r.left + r.width * fx, r.top + r.height * fy])
     const seg = []; let L = 0
@@ -30,6 +36,11 @@
     const mk = (x, y, ts, buttons) => { const ev = { clientX: x, clientY: y, pressure: 0.8, tiltX: 0, tiltY: 0, twist: 0, width: 1, height: 1, pointerType: 'pen', pointerId: 7, isPrimary: true, button: 0, buttons, timeStamp: ts, target: c, currentTarget: c, preventDefault() {}, stopPropagation() {}, getCoalescedEvents() { return [ev] }, getPredictedEvents() { return [] } }; return ev }
     const t0 = performance.now(); const frames = [t0]; let last = t0, penUpAt = t0
     p._handleDown(mk(P[0][0], P[0][1], t0, 1))
+    const gestureId = E._strokeId
+    if (!gestureId) {
+      p._handleUp(mk(P[0][0], P[0][1], t0, 0)); c.setPointerCapture = origCapture
+      throw new Error('Pen benchmark pointerdown did not start a stroke')
+    }
     const tick = (now) => {
       frames.push(now)
       const samples = []
@@ -42,12 +53,17 @@
       requestAnimationFrame(tail)
     }
     const done = () => {
+      const drawnOperations = E.getOperations().filter(op => op.type === 'stroke' && op.strokeId === gestureId).length
+      if (E.gl.isContextLost() || drawnOperations <= 0) {
+        reject(new Error('Pen benchmark did not record a stroke; discard idle frame timings'))
+        return
+      }
       const d = [], active = [], tail = []
       for (let i = 1; i < frames.length; i++) {
         const gap = frames[i] - frames[i - 1]
         d.push(gap); (frames[i] <= penUpAt ? active : tail).push(gap)
       }
-      resolve(JSON.stringify({ n: d.length, over33: d.filter(v => v > 33).length, over100: d.filter(v => v > 100).length, max: Math.round(Math.max(0, ...d)),
+      resolve(JSON.stringify({ drawnOperations, n: d.length, over33: d.filter(v => v > 33).length, over100: d.filter(v => v > 100).length, max: Math.round(Math.max(0, ...d)),
         activeMs: Math.round(penUpAt - t0), activeN: active.length, activeMax: Math.round(Math.max(0, ...active)),
         activeOver33: active.filter(v => v > 33).length, activeOver100: active.filter(v => v > 100).length,
         tailMax: Math.round(Math.max(0, ...tail)),

@@ -36,8 +36,8 @@ export class WatercolorSettlePlan {
   private _brushFlowTex: WebGLTexture | null = null
 
   private _foreignWaterTex: WebGLTexture | null = null
-  /** Checked-out diagnostic fields survive asynchronous settle steps. */
-  private readonly _ownedSolvent = new Set<AccumulationBuffer>()
+  /** Checked-out captured inputs survive asynchronous settle steps until landing or abort. */
+  private readonly _ownedInputs = new Set<AccumulationBuffer>()
 
   /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
    *  laid (the deposit less what was settled before it) is split into a
@@ -92,7 +92,7 @@ export class WatercolorSettlePlan {
      *  the line where its landing puddle's front met the film. */
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
-  ): { ops: Array<() => void>; finish: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
+  ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
@@ -172,8 +172,23 @@ export class WatercolorSettlePlan {
     // thin line where its edge had been. So: the settled part in the field
     // (b0, cb0) and at full resolution per tile (snapshots, taken at the
     // stitch - a running gesture's next batch refreshes the film's base).
-    const a0 = S > 1 ? this.ctx.pool().acquire(field.w, field.h) : null
-    const ca0 = S > 1 ? this.ctx.pool().acquire(field.w, field.h) : null
+    const owned = new Set<AccumulationBuffer>()
+    let disposed = false
+    const acquireInput = (width: number, height: number): AccumulationBuffer => {
+      const buffer = this.ctx.pool().acquire(width, height)
+      owned.add(buffer); this._ownedInputs.add(buffer)
+      return buffer
+    }
+    const dispose = (): void => {
+      if (disposed) return
+      disposed = true
+      // Forget/destroy clears the outer owner first: dead-context names must
+      // never return to the pool through a subsequently cancelled callback.
+      for (const buffer of owned) if (this._ownedInputs.delete(buffer)) this.ctx.pool().release(buffer)
+      owned.clear()
+    }
+    const a0 = S > 1 ? acquireInput(field.w, field.h) : null
+    const ca0 = S > 1 ? acquireInput(field.w, field.h) : null
     const snapshots = new Map<AccumulationBuffer, { ink: AccumulationBuffer; color: AccumulationBuffer | null }>()
     // The settle's rect in the field's GL cells, for the interpolation's clamp.
     const fieldRect: [number, number, number, number] = [0, field.h - h / S, w / S, field.h]
@@ -220,10 +235,9 @@ export class WatercolorSettlePlan {
       if (ox1 <= ox0 || oy1 <= oy0) continue
       overlaps.push({ tile, ox0, oy0, ox1, oy1 })
     }
-    if (!overlaps.length) return null
+    if (!overlaps.length) { dispose(); return null }
     const solvent = tiles.some(t => scratch.peek(t.buffer)?.solventLoad || scratch.peek(t.buffer)?.foreignSolventLoad)
-      ? this.ctx.pool().acquire(field.w, field.h) : null
-    if (solvent) this._ownedSolvent.add(solvent)
+      ? acquireInput(field.w, field.h) : null
 
     const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
@@ -232,7 +246,8 @@ export class WatercolorSettlePlan {
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
-    if (flow) ops.push(() => {
+    const captureInputs: Array<() => void> = []
+    if (flow) captureInputs.push(() => {
       this._brushFlowTex ??= gl.createTexture()
       flowTexture = this._brushFlowTex
       gl.activeTexture(gl.TEXTURE0)
@@ -243,7 +258,7 @@ export class WatercolorSettlePlan {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, flow.width, flow.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, flow.pixels)
     })
-    if (foreign) ops.push(() => {
+    if (foreign) captureInputs.push(() => {
       this._foreignWaterTex ??= gl.createTexture()
       foreignTexture = this._foreignWaterTex
       gl.activeTexture(gl.TEXTURE0)
@@ -262,7 +277,7 @@ export class WatercolorSettlePlan {
     // Stitch: every tile's overlap with the rect, top-down world → bottom-up
     // GL on both sides, exactly as SmudgePainter.gatherPatch does it. `a` takes the
     // deposit, `b` what was settled, `coverage` the silhouette.
-    ops.push(() => {
+    captureInputs.push(() => {
       field.a.clear()
       field.b.clear()
       field.coverage.clear()
@@ -280,12 +295,12 @@ export class WatercolorSettlePlan {
         toField(settledInk, tile, ox0, oy0, ox1, oy1, field.b)
         if (S > 1) {
           const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
-          const ink = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
+          const ink = acquireInput(tile.buffer.width, tile.buffer.height)
           settledInk.copyRegionInto(ink, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
           let color: AccumulationBuffer | null = null
           if (entry.inkColor) {
             const sc = (entry.filmGesture === gesture ? entry.colorBase : null) ?? entry.colorSettled ?? entry.inkColor
-            color = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
+            color = acquireInput(tile.buffer.width, tile.buffer.height)
             sc.copyRegionInto(color, tx, ty, tx, ty, ox1 - ox0, oy1 - oy0)
           }
           snapshots.set(tile.buffer, { ink, color })
@@ -309,6 +324,11 @@ export class WatercolorSettlePlan {
       if (a0) field.b.copyTo(a0)
       if (ca0) field.cb.copyTo(ca0)
     })
+    // Queue.start executes the first entry at the chunk boundary. Uploads
+    // belong to that same entry: putting them ahead of the stitch lets the
+    // next film overwrite its inputs before a later animation frame reads
+    // them. Only capture is immediate; transport still runs over frames.
+    ops.push(() => { for (const capture of captureInputs) capture() })
 
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void =>
       this.ctx.passes().fieldOp(out, a, b, mode, k)
@@ -846,7 +866,7 @@ export class WatercolorSettlePlan {
     }
 
     // …and home, tile by tile — and this is the new settled deposit.
-    const finish = (): void => {
+    const land = (): void => {
       // (§17.43) The dry target first catches up with the deposit over the
       // WHOLE gesture, window or no window: a stroke wider than the field
       // (a replayed sheet-wide sweep from before the span cut) has paint
@@ -939,10 +959,10 @@ export class WatercolorSettlePlan {
           }
         }
       }
-      if (a0) this.ctx.pool().release(a0)
-      if (ca0) this.ctx.pool().release(ca0)
-      if (solvent && this._ownedSolvent.delete(solvent)) this.ctx.pool().release(solvent)
-      for (const snap of snapshots.values()) { this.ctx.pool().release(snap.ink); if (snap.color) this.ctx.pool().release(snap.color) }
+    }
+    const finish = (): void => {
+      if (disposed) return
+      try { land() } finally { dispose(); snapshots.clear() }
     }
     // Presentation must show the actual solver-written rectangle, not only
     // the brush source AABB. Keep source bounds too when the field was capped.
@@ -950,7 +970,7 @@ export class WatercolorSettlePlan {
       minX: Math.min(bounds.minX, x0), minY: Math.min(bounds.minY, y0),
       maxX: Math.max(bounds.maxX, x1), maxY: Math.max(bounds.maxY, y1),
     }
-    return { ops, finish, compositeDomain }
+    return { ops, finish, dispose, compositeDomain }
   }
 
   /** (#536, §17.42) The group tide as entries of `ops`: over a settle field
@@ -1045,14 +1065,14 @@ export class WatercolorSettlePlan {
   }
 
   destroyTextures(): void {
-    for (const field of this._ownedSolvent) field.destroy()
-    this._ownedSolvent.clear()
+    for (const field of this._ownedInputs) field.destroy()
+    this._ownedInputs.clear()
     this.gl.deleteTexture(this._brushFlowTex)
     this.gl.deleteTexture(this._foreignWaterTex)
   }
 
   forgetTextures(): void {
-    this._ownedSolvent.clear()
+    this._ownedInputs.clear()
     this._brushFlowTex = null
     this._foreignWaterTex = null
   }

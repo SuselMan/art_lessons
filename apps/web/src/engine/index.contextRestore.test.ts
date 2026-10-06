@@ -22,6 +22,20 @@ function history(type: 'operation_undo' | 'operation_redo' | 'operation_revoke',
 }
 
 describe('confirmed journal while WebGL is lost', () => {
+  it('drops dead carried-wash checkpoints while preserving packed snapshot pixels', () => {
+    const { engine, gl } = setup()
+    const dispose = vi.fn(() => { expect(engine['_contextLost']).toBe(true) })
+    engine['_checkpoints'].add({ layerId: 'L', opIds: ['open-wash-prefix'], tiles: [], washes: [{}], washIds: ['wash'], dispose })
+    engine['_checkpoints'].pinSnapshot('snapshot', [{ originX: 0, originY: 0, width: 1, height: 1, packed: new Uint8Array([1, 2, 3]) }], 9)
+    const packed = engine['_checkpoints'].all()[1]
+    const bind = vi.spyOn(gl, 'bindFramebuffer')
+    engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    expect(dispose).toHaveBeenCalledOnce()
+    expect(engine['_checkpoints'].all()).toEqual([packed])
+    expect(engine['_checkpoints'].totalBytes()).toBe(3)
+    expect(bind).not.toHaveBeenCalled()
+  })
+
   it('keeps structure, stroke and history order without creating or painting GL resources', () => {
     const { engine, gl, local } = setup()
     const lost = vi.spyOn(gl, 'isContextLost').mockReturnValue(true)
