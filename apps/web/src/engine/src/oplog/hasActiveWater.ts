@@ -17,3 +17,19 @@ export function hasActiveWater(ops: readonly Operation[], layerId: string, now: 
   }
   return active
 }
+
+/** Done-log order determines which recorded strokes may rehydrate PaperWet.
+ * Age is checked by the caller; dry pigment may still have standing contact water. */
+export function wetReplayOperationIds(ops: readonly Operation[]): Set<string> {
+  const layers = new Map<string, Set<string>>()
+  for (const op of ops) {
+    if (op.type === 'paper_dry') layers.clear()
+    else if (op.type === 'layer_clear') layers.delete(op.layerId)
+    else if (op.type === 'stroke' && op.tool === 'watercolor') {
+      let ids = layers.get(op.layerId)
+      if (!ids) { ids = new Set(); layers.set(op.layerId, ids) }
+      ids.add(op.id)
+    }
+  }
+  return new Set([...layers.values()].flatMap(ids => [...ids]))
+}

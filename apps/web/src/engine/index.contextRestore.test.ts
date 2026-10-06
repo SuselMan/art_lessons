@@ -79,4 +79,32 @@ describe('confirmed journal while WebGL is lost', () => {
     expect(create).not.toHaveBeenCalled()
     expect(draw).not.toHaveBeenCalled()
   })
+  it('applies CPU dry and layer-clear metadata while lost without GL work', () => {
+    const { engine, gl } = setup()
+    const wet = engine['_paperWet']; const now = performance.now()
+    wet.deposit('L', 16, 20, 8, 1, now)
+    wet.deposit('B', 40, 40, 8, 1, now)
+    const lost = vi.spyOn(gl, 'isContextLost').mockReturnValue(true)
+    const create = vi.spyOn(gl, 'createTexture'); const draw = vi.spyOn(gl, 'drawArrays')
+    engine.appendOperation({ type: 'layer_clear', id: 'clear', layerId: 'L', userId: 'peer', timestamp: Date.now() }, 'remote')
+    expect(wet.sample('L', 16, 20, now)).toBe(0)
+    expect(wet.sample('B', 40, 40, now)).toBeGreaterThan(0)
+    engine.appendOperation({ type: 'paper_dry', id: 'dry', userId: 'peer', timestamp: Date.now() }, 'remote')
+    expect(wet.peak(now)).toBe(0)
+    expect(create).not.toHaveBeenCalled(); expect(draw).not.toHaveBeenCalled()
+    lost.mockRestore()
+  })
+
+  it('keeps positive standing contact water on a recorded dry-pigment stroke', () => {
+    const { engine } = setup(); const d = dab(16, 20)
+    const op = { ...stroke('dry-pigment', 1), preset: 'normal:0:100:PB29:round', dabs: [d] }
+    engine['_log'].append(op)
+    engine['_wetFromForeignStroke']('L', 'watercolor', op.preset, [d], Date.now(), new Map([[d, 0.7]]), op.id)
+    expect(engine['_paperWet'].sample('L', 16, 20, performance.now())).toBeGreaterThan(0)
+    engine['_log'].append({ type: 'paper_dry', id: 'barrier', userId: 'peer', timestamp: Date.now() })
+    engine['_paperWet'].clear()
+    engine['_wetFromForeignStroke']('L', 'watercolor', op.preset, [d], Date.now(), new Map([[d, 0.7]]), op.id)
+    expect(engine['_paperWet'].peak(performance.now())).toBe(0)
+  })
+
 })
