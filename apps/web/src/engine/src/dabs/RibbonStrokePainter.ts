@@ -897,6 +897,8 @@ export class RibbonStrokePainter {
       // along into the coverage stamp too: its .b is the standing-water
       // record the diffusion pass gates on. See u_washWater.
       const waterPhase = function* (this: RibbonStrokePainter): Generator<number, void, void> {
+      const coverageFilm = scratch.runningCoverage(tile.buffer)
+      for (const coverage of coverageFilm ? [scratch.getOrCreate(tile.buffer).coverage, coverageFilm] : [scratch.getOrCreate(tile.buffer).coverage]) {
       for (let i = 0; i < drawable.length; i++) {
         const dab = drawable[i]
         if (!this.ctx.nibTouchesTile(tile, dab, preset)) continue // (§17.70)
@@ -928,6 +930,7 @@ export class RibbonStrokePainter {
         }
       }
 
+      }
       if (segmentMode && this.diagnosticSolventField) {
         // Water has its OWN film/base. MAX water and MAX pigment envelopes
         // must not compete in one record or compress each other's headroom.

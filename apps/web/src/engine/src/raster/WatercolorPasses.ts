@@ -179,7 +179,7 @@ export class WatercolorPasses {
    *  must not be `base`: modes 1 and 2 go through a temporary. */
   wcResample(
     dst: AccumulationBuffer, dx: number, dy: number, dw: number, dh: number,
-    src: AccumulationBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2,
+    src: AccumulationBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2 | 3,
     old: AccumulationBuffer | null = null, base: AccumulationBuffer | null = null,
     /** The source texels the draw may read: [x0, y0, x1, y1). The whole source by default. */
     clampRect: [number, number, number, number] | null = null,

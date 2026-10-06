@@ -55,6 +55,8 @@ import type { WaterFootprint, WaterSource } from '../watercolor/foreignWater'
  *  tool whose composite doesn't read one — see RibbonStrokeScratch's ctor. */
 export interface RibbonTileScratch {
   original: AccumulationBuffer
+  coverageFilm?: AccumulationBuffer
+  coverageFilmGesture?: number
   coverage: AccumulationBuffer
   inkLoad: AccumulationBuffer | null
   /** (#536, §17.17) The deposit as it stood after the wash's last settle —
@@ -108,6 +110,28 @@ type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 export class RibbonStrokeScratch {
   /** Conservative proof: fresh cleared P/C only; restoration is unknown. */
+  trackRunningCoverage = false
+
+  runningCoverage(tile: AccumulationBuffer): AccumulationBuffer | undefined {
+    if (!this.trackRunningCoverage) return undefined
+    const entry = this.getOrCreate(tile)
+    if (entry.coverageFilmGesture !== this.gesture) {
+      if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
+      entry.coverageFilm = this.pool.acquire(tile.width, tile.height)
+      entry.coverageFilm.clear()
+      entry.coverageFilmGesture = this.gesture
+    }
+    return entry.coverageFilm
+  }
+
+  releaseRunningCoverage(): void {
+    for (const entry of this._tiles.values()) {
+      if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
+      entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined
+    }
+    this.trackRunningCoverage = false
+  }
+
   pigmentInputsKnownZero = true
 
   // #702: every rectangle written to the non-original buffers, including
@@ -404,6 +428,10 @@ export class RibbonStrokeScratch {
    *  on a two-tile layer, and the rebuild behind an undo on top of it. The
    *  next gesture (or chunk) acquires them again from the pool. */
   releaseFilm(gesture = this.gesture): void {
+    for (const entry of this._tiles.values()) if (entry.coverageFilmGesture === gesture) {
+      if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
+      entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined
+    }
     for (const entry of this._tiles.values()) {
       if (entry.solventGesture === gesture) {
         for (const b of [entry.strokeSolvent, entry.solventBase]) if (b) this.pool.release(b)
@@ -562,6 +590,7 @@ export class RibbonStrokeScratch {
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
+    this.releaseRunningCoverage()
     for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled, strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry, solventLoad, solventBase, strokeSolvent, foreignSolventLoad } of this._tiles.values()) {
       for (const b of [strokeInk, inkBase, strokeColor, colorBase, inkDry, colorDry, solventLoad, solventBase, strokeSolvent, foreignSolventLoad]) if (b) this.pool.release(b)
       this.pool.release(original); this.pool.release(coverage)
@@ -576,6 +605,7 @@ export class RibbonStrokeScratch {
   /** Context loss: the GL objects are already dead, so neither release nor
    *  destroy is meaningful — just let go of them. */
   forget(): void {
+    this.trackRunningCoverage = false
     this._tiles.clear()
     this.pendingComposite.clear()
   }
@@ -596,6 +626,7 @@ export class RibbonStrokeScratch {
    *  `originOf` names each tile by its place on the sheet: the replay that
    *  restores this paints into another buffer. */
   snapshot(gl: WebGLRenderingContext, originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): ScratchSnapshot | null {
+    if ([...this._tiles.values()].some(entry => entry.coverageFilm)) return null
     const tiles: ScratchSnapshot['tiles'] = []
     for (const [tile, entry] of this._tiles) {
       const at = originOf(tile)
@@ -689,7 +720,7 @@ export class RibbonStrokeScratch {
     const dispose = (): void => { for (const b of owned) this.pool.release(b); owned.clear() }
     try {
       for (const [tile, entry] of this._tiles) {
-        if (entry.strokeInk || entry.inkBase || entry.strokeColor || entry.colorBase || entry.strokeSolvent || entry.solventBase) return null
+        if (entry.coverageFilm || entry.strokeInk || entry.inkBase || entry.strokeColor || entry.colorBase || entry.strokeSolvent || entry.solventBase) return null
         const at = originOf(tile)
         if (!at) return null
         const bufs: SpilledScratch['tiles'][number]['bufs'] = {}

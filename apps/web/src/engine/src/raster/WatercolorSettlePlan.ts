@@ -183,6 +183,7 @@ export class WatercolorSettlePlan {
     const dispose = (): void => {
       if (disposed) return
       disposed = true
+      scratch.releaseRunningCoverage()
       // Forget/destroy clears the outer owner first: dead-context names must
       // never return to the pool through a subsequently cancelled callback.
       for (const buffer of owned) if (this._ownedInputs.delete(buffer)) this.ctx.pool().release(buffer)
@@ -908,7 +909,16 @@ export class WatercolorSettlePlan {
         // (§17.24) …and the coverage the water front extended - MERGED by
         // max (§17.44): the gesture may have gone on stamping the next
         // chunk's coverage while the settle ran.
-        if (S === 1) {
+        const coverageFilm = entry.coverageFilmGesture === scratch.gesture ? entry.coverageFilm : undefined
+        if (runningFilm && coverageFilm) {
+          field.mask.clear()
+          toField(coverageFilm, tile, ox0, oy0, ox1, oy1, field.mask)
+          this.ctx.passes().fieldOp(field.band, field.coverage, field.mask, 20, 1)
+          const tmp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
+          this.ctx.passes().wcResample(tmp, tx, ty, tw, th, field.band, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 3, null, entry.coverage, fieldRect)
+          tmp.copyRegionInto(entry.coverage, tx, ty, tx, ty, tw, th)
+          this.ctx.pool().release(tmp)
+        } else if (S === 1) {
           const sx = ox0 - x0, sy = field.h - (oy1 - y0)
           entry.coverage.copyRegionInto(field.mask, tx, ty, sx, sy, tw, th)
           this.ctx.passes().fieldOp(field.band, field.coverage, field.mask, 20, 0)
@@ -963,7 +973,7 @@ export class WatercolorSettlePlan {
     }
     const finish = (): void => {
       if (disposed) return
-      try { land() } finally { dispose(); snapshots.clear() }
+      try { land() } finally { scratch.releaseRunningCoverage(); dispose(); snapshots.clear() }
     }
     // Presentation must show the actual solver-written rectangle, not only
     // the brush source AABB. Keep source bounds too when the field was capped.
