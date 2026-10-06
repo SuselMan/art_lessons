@@ -35,3 +35,12 @@ Baseline PNG показывает фиолетовый край второй с�
 В shader composite остаётся thinPrior=0.12*(1-smoothstep(...depth.a)), добавляющий tauBatch текущего цвета в слабые material pixels. Это конкретная гипотеза внешнего перекрашивания, включая purewater операции с другим номинальным цветом. Следующий causal контроль меняет только nominal color чистой воды seq24 при одинаковом журнале и требует P/C/V exact в старом ROI, отдельно сравнивая composite.
 
 Carry также соединяет strided endpoints без промежуточной wet-path проверки. Это потенциальная отдельная причина прыжка между островами, но она не доказана для текущей жалобы; общий washId сам по себе не доказательство соединённого домена.
+
+## Причинные runtime абляции
+
+На неизменном frozen5314 выполнены baseline/plateau/clearBlue. Все GL0/lostfalse, owned Chrome finally closed. Runtime shaderSource patch ограничен отдельными engine/context и восстановлен finally; plateau заменил ровно одну ветвь wcCarryWeight, patchHits4 (реальный compile, четыре программы). Оригинальные input операции/stand source сохранены.
+
+- **plateau**: равные cost0 клетки могут участвовать в существующем conservative Ti/Tj обмене. Светлая линия seq27 визуально исчезла, растекание осталось, тело немного выровнялось. Вода/coverage ROI остаются exact; pigment/color redistribution меняется. Это causal proof участия запрещённой подпитки source plateau, но не законченный production fix: большой stride может связать раздельные cost0 острова без проверки пути. Следующий безопасный контроль разрешает plateau только при stride1.
+- **clearBlue**: только purewater seq24 получает предыдущий синий nominal color вместо фиолетового; все dabs/wet/seed/preset/time/IDs сохранены. В старой лужe ROI x680,y1500,w100,h200 после seq25 inkLoad/inkColor/solventLoad/coverage/inkDry/colorDry byte-exact относительно baseline (0 differing bytes), PNG меняется804pixels. Это доказывает появление части внешней примеси через отображение текущего nominal color без изменения материала. Фиолетовый край не исчезает полностью: последующие фиолетовые операции снова дают tauBatch.
+
+Raw HOME temp/KJc0OoVo/causal/report.json, baseline/plateau/clearBlue.png, comparison.jpg. Скрипт causal.mjs сохранён в task temp; CPU compile всего файла и embedded evaluate PASS. Следующий минимальный color candidate: thin prior из локального depth record вместо текущего цвета кисти; P/V/depth не размывать. Нужен контроль тонкого fringe, белых/цветных артефактов и shader cold compile.
