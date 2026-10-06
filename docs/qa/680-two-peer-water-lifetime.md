@@ -202,3 +202,37 @@ attempt is excluded, not evidence of a source/GL failure. Valid artifacts are
 home night-QA `temp/chunk-packed/report.json`, `png-comparison.json` and eight
 PNG files; local exact-ROI comparison is
 `temp/snapshot/chunk-packed-boundary-comparison.json`.
+
+### ROI readback correction; native boundary attempt incomplete
+
+CPU inspection after the following native diagnostic exposed a coordinate error
+in both bounded-ROI probes: world y is top-origin, whereas `readPixels` is
+bottom-origin. The raster shaders explicitly flip clip.y. The probes had read
+world-local y directly, so their purported paint-region P/V/coverage sums were
+zero. **The preceding meaningful exact-ROI/source invariance claim is
+withdrawn.** SHA equality of an empty incorrectly positioned region does not
+establish paint-region equivalence. The four independent decoded whole-PNG
+exact0 comparisons remain valid; their exports used the ordinary engine path.
+The temp probes now map y to buffer.height minus world-local ROI bottom and
+record a nonzero guard; they have not been rerun on GPU.
+
+Native long-donor/short-pigment produced actual distinct participants, water and
+pigment gestures, matching server barriers, and saved before-finish contexts.
+PaperReady was resolved and paper/wet textures valid; both captured GL0 and
+contextLostfalse. Native/packed pigment clocks were12.617825460970478 versus
+12.617827662465618; finish bounds differed by small double precision amounts,
+while radius36.052520751953125 and landedWet/wetPeak .9333333333333333 agreed.
+These metadata differences are observations, not a proven cause of residual.
+
+A ordinary whole PNG exported with33852dark pixels; B export timed out after
+120000ms before a final pair/rejoin could be saved. The owned browser closed
+in finally at02:13:22UTC; no second fixture ran. Home available memory during
+this attempt was482–537MiB with full511MiB swap. That is a resource confound,
+not a demonstrated cause of the timeout or source bug. GL status is proven
+only at the saved pre-export capture, not after timeout.
+
+Each diagnostic read was bounded to its ROI, not full-tile-read/crop. However
+many capture buffers and asynchronous SHA promises can perturb workload; this
+is diagnostic instrumentation, not smoothness QA. Future captures should use
+only P/C/V/coverage at a few explicit boundaries and enforce nonzero paint ROI
+before interpreting exact hashes. No physics or application source changed.
