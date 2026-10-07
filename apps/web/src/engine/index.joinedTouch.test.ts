@@ -178,3 +178,32 @@ it('mixed diagnostic owns predecessor finish before new RGB/preset mutates its s
     expect(drain).toHaveBeenCalled()
   }
 })
+
+it('mixed capture without overlap preserves legacy prepare scalars and folded dry domain', async () => {
+  const observations: unknown[] = []
+  for (const mixed of [false, true]) {
+    const e = await setup(true, mixed)
+    e['_completeSettle']()
+    const prepare = vi.spyOn(e['_settlePlan'], 'prepare')
+    simulateStroke(e, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    expect(prepare).toHaveBeenCalledTimes(1)
+    const args = prepare.mock.calls[0]
+    const metadata = args[12]
+    const dry = metadata?.dryCtx ?? args[0].dryCtx
+    expect(dry).not.toBeNull()
+    observations.push({
+      scalars: args.slice(2, 10),
+      dry: dry && { bounds: dry.bounds, radiusPx: dry.radiusPx, standing: dry.standing },
+      spacing: args[0].noteDabSpacing(0), direction: args[0].noteDirection(0, 0),
+      diffusePending: args[0].diffusePending,
+    })
+    if (mixed) {
+      expect(metadata).toBeDefined()
+      expect(metadata!.dryCtx).not.toBe(args[0].dryCtx)
+      expect(metadata!.dryCtx?.target).toBe(args[0].dryCtx?.target)
+    }
+    e['_completeSettle']()
+    expect(e['_wcJoinedTouchLease']).toBeNull()
+  }
+  expect(observations[1]).toEqual(observations[0])
+})
