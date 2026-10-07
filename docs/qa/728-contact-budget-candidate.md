@@ -376,3 +376,30 @@ rAF sampling: между ними не заявляется paired скорос�
 канонические endpoints сравниваются с тем же журналом внутри каждого плеча.
 Actual combined visual true27/34 и массовые ограничения отдельно от старой
 5311 линии всё ещё должны быть проверены перед default ON.
+
+### Current combined trueprefix34: ring phase + baked fibres, Surface
+
+На frozen f877/5319 phaseON/sourceRebaseON одинаковы в обоих плечах,
+baked меняется лишь для настоящей seq34. Original prefix JSON SHA
+`3b630baede25fb251ce437ba1acc9aebf8998221e83d00d51c4449c91370f314`.
+Здесь нет прежних paper/DAB overrides или физических shader replacements:
+front заново собран с тем же актуальным body и диагностическим comment.
+Каждый engine полностью уничтожен до следующего. Все readbacks относятся
+к диагностике final physical planes, не к измерению плавности.
+
+Полные prefront P/C/V/coverage и full cost до carry (по9,437,184 bytes
+каждый) сравнены в странице напрямую: exact0/max0. Сравнение не опирается
+на FNV checksum. ROI P/C/V/coverage/cost before-front/before-carry exact.
+Authority copy-back wet P/Cα867250→865112 (−0.2465%), dry842472→840468
+(−0.2379%), coverage exact. WholeRGBA9588 different pixels / max40;
+4 фактических ON late calls, nonempty guards, Intel Iris Xe GL0/lostfalse.
+
+HOME raw/summary:
+`/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/contact-budget/`:
+`surface-current-stage34.json`, `current-stage34-{off,on}.png`,
+`current-stage34-atlas.jpg`. В atlas кольцо отсутствует в обоих phaseON
+плечах, треугольная сетка пропала справа с baked ON; текстурное ядро и
+неоднородный halo сохранились. Координатор визуально просмотрел actual atlas
+и поддержал следующий broad-gallery gate. Actual27 current mass/visual,
+широкая галерея и производительность остаются отдельными проверками;
+текущий результат не означает default ON или production publication.
