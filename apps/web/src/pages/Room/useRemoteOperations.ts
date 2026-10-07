@@ -47,6 +47,8 @@ export function useRemoteOperations({
 }: RemoteOperationsDeps) {
   const ordinaryBackfills = useRef(new Map<PencilEngineAPI, Promise<void>>())
   const repairs = useRef(new Map<PencilEngineAPI, Promise<void>>())
+  const repairFailure = useRef(onHistoryRepairFailure)
+  repairFailure.current = onHistoryRepairFailure
 
   // Applies an operation that arrived from the network (room_state replay or
   // operation_confirmed) exactly once. The guard isn't full reconnect/catch-up
@@ -105,10 +107,10 @@ export function useRemoteOperations({
       })
       if (!complete) return
       if (engineRef.current === engine) { syncFromLog(); checkSnapshotBoundary() }
-    })().catch(() => { if (engineRef.current === engine) onHistoryRepairFailure() })
+    })().catch(() => { if (engineRef.current === engine) repairFailure.current() })
       .finally(() => { repairs.current.delete(engine) })
     repairs.current.set(engine, work)
-  }, [engineRef, boardId, appliedOpIdsRef, syncFromLog, checkSnapshotBoundary, onHistoryRepairFailure, drainDeferredQueue])
+  }, [engineRef, boardId, appliedOpIdsRef, syncFromLog, checkSnapshotBoundary, drainDeferredQueue])
 
   // (#169 bug fix) Injects a downloaded snapshot's pixels + structure into
   // `engine` and sets restoredLayerStateRef so syncFromLog starts deriving
