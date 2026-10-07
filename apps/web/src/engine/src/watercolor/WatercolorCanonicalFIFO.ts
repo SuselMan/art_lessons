@@ -21,6 +21,8 @@ export class WatercolorCanonicalFIFO {
   private waiters: Array<(completed: boolean) => void> = []
   private readonly ctx: CanonicalWatercolorFIFOContext
   constructor(ctx: CanonicalWatercolorFIFOContext) { this.ctx = ctx }
+  /** Includes the executing request until its owned generator has completed. */
+  get queuedRequestCount(): number { return this.requests.length }
   get pending(): boolean { return this.requests.length > 0 || this.ctx.blocked() }
   enqueue(request: CanonicalWatercolorRequest): void {
     this.requests.push(request)

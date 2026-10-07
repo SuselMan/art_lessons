@@ -85,3 +85,15 @@ describe('canonical continuation completion clock', () => {
   })
 
 })
+
+it('reports real canonical ownership and cancellation to the continuation gate', () => {
+  const { engine } = fixture()
+  const backlog = engine['_settleQueue']['ctx'].canonicalBacklogSize!
+  expect(backlog()).toBe(0)
+  engine['_wcCanonical'].enqueue({ execute: function* () { yield 1 }, cancel() {} })
+  engine['_wcCanonical'].enqueue({ execute: function* () { yield 1 }, cancel() {} })
+  expect(backlog()).toBe(2)
+  engine['_wcCanonical'].cancel(false)
+  expect(backlog()).toBe(0)
+  engine.destroy()
+})
