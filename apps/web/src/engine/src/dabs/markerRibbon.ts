@@ -256,15 +256,6 @@ export function poseSubdivisions(g0: NibGeometry, g1: NibGeometry): number {
  *  box the inset of the shape is exactly the same shape with every extent
  *  reduced by the inset, which is what this relies on; for an ellipse it is an
  *  approximation, and a good one at the sub-pixel insets this is used with. */
-// All production ribbon bodies use 16 outline segments. These are the exact
-// original double results (same phi arithmetic), not Float32 approximations or
-// a recurrence that accumulates rotational error. Other segment counts retain
-// the original calculation and cannot grow a global cache.
-const ribbonOutlineDirections = Array.from({ length: 16 }, (_, i) => {
-  const phi = (i / 16) * Math.PI * 2
-  return { x: Math.cos(phi), y: Math.sin(phi) }
-})
-
 export function outlinePoints(nib: NibGeometry, inset: number, segments: number): Array<{ x: number; y: number }> {
   const a = Math.max(nib.semiMajor - inset, 1e-3)
   const b = Math.max(nib.semiMinor - inset, 1e-3)
@@ -272,18 +263,17 @@ export function outlinePoints(nib: NibGeometry, inset: number, segments: number)
   const pts: Array<{ x: number; y: number }> = []
   for (let i = 0; i < segments; i++) {
     const phi = (i / segments) * Math.PI * 2
-    const ux = segments === 16 ? ribbonOutlineDirections[i].x : Math.cos(phi)
-    const uy = segments === 16 ? ribbonOutlineDirections[i].y : Math.sin(phi)
     let lx: number, ly: number
     if (nib.shape === 'roundedBox') {
       // Squircle-free rounded box: the box's own corner arcs, walked by angle.
       const r = Math.min(Math.max(nib.cornerRadius - inset, 0), a, b)
+      const ux = Math.cos(phi), uy = Math.sin(phi)
       const m = Math.max(Math.abs(ux) / (a - r || 1e-3), Math.abs(uy) / (b - r || 1e-3))
       lx = ux / m + r * ux
       ly = uy / m + r * uy
     } else {
-      lx = a * ux
-      ly = b * uy
+      lx = a * Math.cos(phi)
+      ly = b * Math.sin(phi)
     }
     pts.push({ x: lx * c - ly * s, y: lx * s + ly * c })
   }
