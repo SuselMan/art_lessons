@@ -7723,13 +7723,18 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _asyncLocalPreviewTiles(): ReadonlyMap<string, readonly { buffer: AccumulationBuffer; originX: number; originY: number }[]> {
     const result = new Map<string, readonly { buffer: AccumulationBuffer; originX: number; originY: number }[]>()
-    for (const held of this._wcAsyncLocalTools.values()) for (const [id, layer] of held.layers) result.set(id, layer.buffer.allResident())
+    for (const held of this._wcAsyncLocalTools.values()) for (const [id, layer] of held.layers) {
+      const tiles = new Map((result.get(id) ?? []).map(t => [`${t.originX},${t.originY}`, t]))
+      for (const tile of layer.buffer.allResident()) tiles.set(`${tile.originX},${tile.originY}`, tile)
+      result.set(id, [...tiles.values()])
+    }
     return result
   }
   private _releaseAsyncLocalTool(id: string, lost: boolean): void {
     const held = this._wcAsyncLocalTools.get(id)
     if (!held) return
     this._wcAsyncLocalTools.delete(id)
+    this._smudge.releaseGesture(this._userId + ':async-preview', id + ':preview', lost)
     for (const layer of held.layers.values()) {
       if (!lost) layer.buffer.destroy()
       if (lost) layer.scratch.forget(); else layer.scratch.destroy()
