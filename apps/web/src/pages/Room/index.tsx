@@ -17,6 +17,7 @@ import { ClassChrome } from './panels/ClassChrome'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
+import { joinedTouchQaEnabled } from './diagnostics/joinedTouchQa'
 import {
   eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers/layers'
@@ -966,7 +967,7 @@ function RoomEditor() {
     const engine = new PencilEngine(canvasRef.current, {
       asyncFinish: false,
       // Private QA opt-in; the ordinary room keeps the existing geometry path.
-      joinedTouch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaJoinedTouch') === '1',
+      joinedTouch: joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
       materialPresentation: false,
       diagLog,
