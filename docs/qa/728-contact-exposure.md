@@ -13,3 +13,9 @@ Prepare attribution1332: первое prepare51.2мс; fieldFor0.3мс, pool.acq
 Локальный кандидат вычисляет максимум encoded B byte, затем ровно один исходный logarithm. Преобразование монотонно на всех256 значениях: выбранный результат IEEE754 совпадает с прежним победителем, положительный ноль сохранён. Pulse count/gain/order, fields и shaders неизменны. Exhaustive65536 ordered pairs, реальные overlapping contacts/scale1/2, Plan command-order gates проходят;43tests и wholeweb TypeScript PASS. Это убирает повторный log, но не стоимость brushDragField создания.
 
 Артефакты VPS: `728-plan-quantum-fifo/temp/combined-plan14/`, большие/восстановимые копии HOME: `680-lifetime-hardware/temp/plan-quantum/`. Новое включение split по умолчанию не предлагается; native batching/active/newtouch и combined loss/rebuild gates продолжаются.
+
+## Дополнение: чужая неподтверждённая краска
+
+Перед рекомендацией zeroContacts выявлен пробел разрешения: `appendPeerLiveDabs` для watercolor не рисует physical P/C, однако nonWC peer при idle рисует прямо на layer до Operation Log. Настоящий CPU engine test с pencil packet `paintedTotal=1/committedOffset=0`, затем local water finish получил skipContacts=true до исправления. Исходный FAIL сохранён в `temp/contact-exposure/peer-baseline.log`. Это пробел консервативного доказательства, не доказанная физическая P-регрессия pencil.
+
+Узкий guard теперь отклоняет разрешение при same-layer peer watermark `paintedTotal > committedOffset`. Другой layer не блокируется. После исправления оба реальные Engine сценария и существующая history proof suite проходят:22tests + whole web TypeScript PASS. Это не разрешает defaultON без реального peer/Room hardware gate; queued viewport previews сами по себе physical не пишут, но исполненные неполные peer gestures ловятся watermark.

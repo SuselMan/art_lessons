@@ -423,3 +423,27 @@ it('forgets suspended split presentation snapshots on context loss without stale
     remove.mockRestore(); draw.mockRestore()
   } finally { prepare.mockRestore(); physical.mockRestore(); engine.destroy() }
 })
+
+it.each(['L', 'other'])('scopes zero-contact rejection to painted unrecorded peer layer %s', async peerLayer => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.initLayer('other'); engine.setActiveLayer('L')
+  engine['_wcAsyncFinish'] = true; engine['_wcZeroPigmentContacts'] = true
+  const frames = new Map<number, () => void>(); let next = 0
+  engine['_wcCanonical']['ctx'].schedule = cb => { frames.set(++next, cb); return next }
+  engine['_wcCanonical']['ctx'].unschedule = handle => { frames.delete(handle) }
+  const prepare = vi.spyOn(engine['_settlePlan'], 'prepare')
+  try {
+    engine.appendPeerLiveDabs('peer', { strokeId: 'unrecorded', layerId: peerLayer, packetSeq: 0, tool: 'pencil', preset: 'HB', color: [0, 0, 0], dabs: [dab(20, 20)] })
+    expect([...engine['_peerLiveStrokes'].values()][0]).toMatchObject({ paintedTotal: 1, committedOffset: 0 })
+    engine.setTool('watercolor'); engine.setPencil('normal:100:0:PB29:round'); engine.setSize(16)
+    simulateStroke(engine, [{ x: 12, y: 24 }, { x: 24, y: 24 }, { x: 40, y: 24 }])
+    for (let i = 0; i < 2000 && engine['_wcCanonical'].pending; i++) {
+      while (engine['_settle']) engine['_advanceSettle']()
+      const frame = frames.entries().next().value
+      if (frame) { frames.delete(frame[0]); frame[1]() }
+    }
+    expect(engine['_wcAsyncError']).toBeNull()
+    expect(prepare.mock.calls.length).toBeGreaterThan(0)
+    for (const args of prepare.mock.calls) expect(args[11]).toBe(peerLayer !== 'L')
+  } finally { prepare.mockRestore(); engine.destroy() }
+})
