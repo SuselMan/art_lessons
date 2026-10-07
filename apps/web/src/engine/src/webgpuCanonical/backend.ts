@@ -1,7 +1,8 @@
 /// <reference types="@webgpu/types" />
 import noiseAsset from '../raster/watercolorNoise.txt?raw'
 import { CanonicalRibbonDeposit } from './deposit'
-import type { CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRibbonBatch, CanonicalSupport, CanonicalWatercolorFields } from './types'
+import { CanonicalStampDeposit } from './stamp'
+import type { CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
 
 export interface CanonicalWebGpuOptions {
  canvas: HTMLCanvasElement
@@ -19,6 +20,7 @@ export class CanonicalWatercolorWebGpu {
  readonly nearest: GPUSampler
  readonly linear: GPUSampler
  private readonly deposit: CanonicalRibbonDeposit
+ private readonly stamps: CanonicalStampDeposit
  private readonly context: GPUCanvasContext
  private readonly format: GPUTextureFormat
  private readonly preview: GPURenderPipeline
@@ -40,6 +42,7 @@ export class CanonicalWatercolorWebGpu {
   for (let k = 0; k < lattice.length; k++) rgba.set([lattice[k], lattice[k], lattice[k], 255], k * 4)
   this.noise = this.createField('production 251x251 watercolor lattice', 251, 251); this.upload(this.noise, rgba)
   this.deposit = new CanonicalRibbonDeposit(device, this.noise)
+  this.stamps = new CanonicalStampDeposit(device, this.noise)
   const module = device.createShaderModule({ label: 'diagnostic exact field presentation', code: `
 @group(0) @binding(0) var field:texture_2d<f32>;
 struct V { @builtin(position) p:vec4f }
@@ -77,6 +80,12 @@ struct V { @builtin(position) p:vec4f }
   const encoder = this.device.createCommandEncoder({ label: 'canonical prepared ribbon' })
   const transient = this.deposit.encode(encoder, batch, this.fields.coverage, this.fields.water, this.fields.pigment, this.fields.color)
   this.device.queue.submit([encoder.finish()]); void this.device.queue.onSubmittedWorkDone().finally(() => transient.forEach(buffer => buffer.destroy()))
+ }
+ appendPreparedStamp(stamp: CanonicalStamp) {
+  if (this.destroyed) throw new Error('Canonical WebGPU backend destroyed')
+  const encoder=this.device.createCommandEncoder({label:'canonical prepared nib stamp'})
+  const transient=this.stamps.encode(encoder,stamp,this.fields.coverage,this.fields.water,this.fields.pigment,this.fields.color)
+  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
  }
  clear() {
   const encoder = this.device.createCommandEncoder()

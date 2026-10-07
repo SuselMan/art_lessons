@@ -1,8 +1,8 @@
 import { CanonicalWatercolorWebGpu } from '../engine/src/webgpuCanonical/backend'
-import { ribbonGlOracle } from '../engine/src/webgpuCanonical/ribbonOracle'
+import { ribbonGlOracle, stampGlOracle } from '../engine/src/webgpuCanonical/ribbonOracle'
 import { buildRibbonBands } from '../engine/src/dabs/markerRibbon'
 import type { Dab } from '@grafetto/shared'
-import type { CanonicalRibbonBatch } from '../engine/src/webgpuCanonical/types'
+import type { CanonicalRibbonBatch, CanonicalStamp } from '../engine/src/webgpuCanonical/types'
 const canvas = document.querySelector<HTMLCanvasElement>('#stage')!
 const width = 256, height = 192
 const bytes = new Uint8Array(width * height * 4).fill(128)
@@ -17,5 +17,8 @@ const snapshot = await backend.readSnapshot()
 const nonzero = Object.fromEntries(Object.entries(snapshot.fields).map(([name, data]) => [name, data.reduce((sum, b) => sum + +(b > 0), 0)]))
 const reference=ribbonGlOracle(batch,width,height)
 const parity=Object.fromEntries(Object.entries(reference).map(([name,bytes])=>{const gpu=snapshot.fields[name as keyof typeof snapshot.fields];let changed=0,max=0;for(let k=0;k<bytes.length;k++){const d=Math.abs(bytes[k]-gpu[k]);if(d)changed++;max=Math.max(max,d)}return[name,{changed,max}]}))
-Object.assign(window, { __canonicalWebGpu: backend, __canonicalBatch: batch, __canonicalStage: { parity, gpuErrors, nonzero, vertices: vertices.length / 11 } })
+backend.clear();
+const stamp: CanonicalStamp={center:[32,70],radius:20,aspect:1,angle:0,pressure:.8,opacity:.14,nibShape:'ellipse',cornerRadius:0,inkEdge:.4,inkWater:.8,paperWet:.7,inkStrength:.11,puddle:.5,pigmentPool:.3,acrossLocal:[1,0],inkClip:0,inkBlend:'max',uniforms:batch.uniforms};
+backend.appendPreparedStamp(stamp);await backend.whenIdle();const stampSnapshot=await backend.readSnapshot();const stampReference=stampGlOracle(stamp,width,height);const stampParity=Object.fromEntries(Object.entries(stampReference).map(([name,bytes])=>{const gpu=stampSnapshot.fields[name as keyof typeof stampSnapshot.fields];let changed=0,max=0;for(let k=0;k<bytes.length;k++){const d=Math.abs(bytes[k]-gpu[k]);if(d)changed++;max=Math.max(max,d)}return[name,{changed,max}]}));
+Object.assign(window, { __canonicalWebGpu: backend, __canonicalBatch: batch, __canonicalStage: { stampParity, parity, gpuErrors, nonzero, vertices: vertices.length / 11 } })
 document.querySelector('#status')!.textContent = JSON.stringify({ stage: 'production ribbon deposit only — settle/composite unavailable', nonzero, vertices: vertices.length / 11 })
