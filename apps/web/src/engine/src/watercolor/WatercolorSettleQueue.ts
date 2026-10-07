@@ -41,6 +41,7 @@ export interface WatercolorSettleQueueContext {
   perf(): { settleStart: number; settleOps: number; settleMs: number }
   isDrawing(): boolean
   backlogSize(): number
+  canonicalBacklogSize?(): number
   backlogMax(): number
   syncGpu?(): void
   noteActivity(now: number): void
@@ -70,6 +71,9 @@ export class WatercolorSettleQueue {
 
   /** Candidate remains opt-in until physical-device budget and parity gates pass. */
   contactBatchEnabled = false
+
+  /** Default-off experiment: bounded progress while canonical requests wait. */
+  canonicalBacklogBatchEnabled = false
 
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
@@ -145,6 +149,23 @@ export class WatercolorSettleQueue {
     // seconds late.
     // Only after an on-time frame, the same gate as the pen's: a late one means
     // the device is already behind.
+    // Canonical FIFO waits behind this job, independently of the legacy peer
+    // backlog. Retain every command; accelerate only an on-time post-lift tick.
+    if (this.canonicalBacklogBatchEnabled && !late && !this.ctx.isDrawing()
+      && (this.ctx.canonicalBacklogSize?.() ?? 0) > 0 && this.ctx.syncGpu) {
+      const batchAt = performance.now()
+      for (let n = 0; n < 4 && this._settle === s; n++) {
+        this.advance()
+        // Fence even a final operator: its submitted work counts toward the
+        // same budget. WebGL finish is harmless after loss, as on tagged batches.
+        this.ctx.syncGpu()
+        if (this._settle !== s || !this.isAlive(s)) break
+        if (performance.now() - batchAt >= 4 || this.ctx.isDrawing()
+          || (this.ctx.canonicalBacklogSize?.() ?? 0) <= 0) break
+      }
+      if (this._settle === s) this.scheduleTick()
+      return
+    }
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
     for (let k = 0; k < perTick && this._settle === s; k++) {

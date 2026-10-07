@@ -144,3 +144,72 @@ describe('synchronous drain presentation gate', () => {
   })
 
 })
+
+
+describe('bounded canonical backlog scheduling', () => {
+  function setup() {
+    const f = fixture(), events: string[] = []
+    let time = 1, backlog = 183, drawing = false
+    const sync = vi.fn(() => { time += 1 })
+    vi.spyOn(performance, 'now').mockImplementation(() => time)
+    Object.assign(f.scratch, { live: true })
+    Object.assign(f.queue, { ctx: { beforeStart() {}, perf: () => ({ settleStart: 0, settleOps: 0, settleMs: 0 }), isDrawing: () => drawing, backlogSize: () => 0, canonicalBacklogSize: () => backlog, backlogMax: () => 4, noteActivity() {}, scheduleFieldRelease() {}, syncGpu: sync } })
+    const ops: Array<() => void> = [() => events.push('capture'), ...Array.from({ length: 8 }, (_, i) => () => events.push(String(i)))]
+    return { ...f, events, sync, ops, setTime: (v: number) => { time = v }, setBacklog: (v: number) => { backlog = v }, setDrawing: (v: boolean) => { drawing = v } }
+  }
+  it('keeps default OFF one-unit ticks despite 183 canonical requests', () => {
+    const f = setup(); f.queue.start(f.scratch, f.ops, () => {}); f.frame()
+    expect(f.events).toEqual(['capture', '0']); expect(f.sync).not.toHaveBeenCalled()
+  })
+  it('caps a tick at four synchronized units and respects dynamic insertion order', () => {
+    const f = setup(); f.queue.canonicalBacklogBatchEnabled = true
+    f.ops[1] = () => { f.events.push('0'); f.ops.splice(2, 0, () => f.events.push('inserted')) }
+    f.queue.start(f.scratch, f.ops, () => f.events.push('finish')); f.frame()
+    expect(f.events).toEqual(['capture', '0', 'inserted', '1', '2']); expect(f.sync).toHaveBeenCalledTimes(4)
+    f.queue.complete(); expect(f.events).toEqual(['capture', '0', 'inserted', '1', '2', '3', '4', '5', '6', '7', 'finish'])
+  })
+  it('stops at four milliseconds measured after the existing GPU sync', () => {
+    const f = setup(); f.queue.canonicalBacklogBatchEnabled = true
+    f.sync.mockImplementation(() => f.setTime(6))
+    f.queue.start(f.scratch, f.ops, () => {}); f.frame()
+    expect(f.events).toEqual(['capture', '0']); expect(f.sync).toHaveBeenCalledTimes(1)
+  })
+  it.each(['drawing', 'empty', 'late'] as const)('retains ordinary scheduling when %s', mode => {
+    const f = setup(); f.queue.canonicalBacklogBatchEnabled = true
+    f.queue.start(f.scratch, f.ops, () => {}); f.frame()
+    f.events.length = 0; f.sync.mockClear()
+    if (mode === 'drawing') f.setDrawing(true)
+    if (mode === 'empty') f.setBacklog(0)
+    if (mode === 'late') f.setTime(50)
+    f.frame(); expect(f.events).toEqual(['4']); expect(f.sync).not.toHaveBeenCalled()
+  })
+  it.each(['cancel', 'new-drawing', 'backlog-drained', 'new-job'] as const)('stops after an operator triggers %s', mode => {
+    const f = setup(); f.queue.canonicalBacklogBatchEnabled = true
+    f.ops[1] = () => {
+      f.events.push('0')
+      if (mode === 'cancel') f.queue.cancel()
+      if (mode === 'new-drawing') f.setDrawing(true)
+      if (mode === 'backlog-drained') f.setBacklog(0)
+    }
+    if (mode === 'new-job') f.ops.length = 2
+    f.queue.start(f.scratch, f.ops, () => { if (mode === 'new-job') f.queue.start(f.scratch, [() => f.events.push('new-capture'), () => f.events.push('new-pass')], () => {}) })
+    f.frame()
+    expect(f.events).toEqual(mode === 'new-job' ? ['capture', '0', 'new-capture'] : ['capture', '0'])
+    expect(f.sync).toHaveBeenCalledTimes(1)
+    f.queue.cancel()
+  })
+  it('closes an owned generator exactly once when loss occurs inside an accelerated unit', () => {
+    const f = setup(), cleanup = vi.fn(), landed = vi.fn()
+    let alive = true
+    function* work() { try { yield; alive = false; yield; f.events.push('late-write') } finally { cleanup() } }
+    const generator = work(); generator.next()
+    f.queue.canonicalBacklogBatchEnabled = true
+    f.queue.start(f.scratch, [() => {}, () => generator.next(), () => generator.next()], landed,
+      { isAlive: () => alive, abort: () => { generator.return() } })
+    f.frame(); expect(f.sync).toHaveBeenCalledTimes(1)
+    f.frame(); f.queue.cancel()
+    expect(cleanup).toHaveBeenCalledTimes(1); expect(landed).not.toHaveBeenCalled()
+    expect(f.events).not.toContain('late-write'); expect(f.queue.current).toBeNull()
+  })
+
+})
