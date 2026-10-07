@@ -299,6 +299,8 @@ export interface PencilEngineOptions {
   // ('remote') and re-sync derived state at that point, not on arrival, so
   // the log/layer-thumbnail state matches what's actually visible on screen.
   onPreviewApplied?: (op: StrokeOperation) => void
+  /** A covered history mutation needs the missing authoritative prefix. */
+  onSnapshotHistoryRepairNeeded?: () => void
   /** A deferred peer operation has actually entered the log. Derive UI state now. */
   onQueuedOperationApplied?: (op: Operation) => void
   // (#480) Движок заметил, что его собственный инвариант не держится. Опцией,
@@ -717,6 +719,8 @@ export interface PencilEngineAPI {
   // backfill walking backward from the snapshot point toward the room's
   // start, one page at a time — see Room's backfill orchestration). Safe to
   // call repeatedly, once per page.
+  isSnapshotHistoryRepairPending(layerId: string): boolean
+  pendingSnapshotHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }>
   absorbHistoricalOperations(ops: Operation[]): void
   /** Inclusive snapshot prefix plus dependency source history; seeds the log
    * before tail meta-ops and rebuilds only live layers not covered by restored pixels. */
@@ -1467,6 +1471,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
+  private readonly _snapshotDependentLayers = new Map<string, Set<string>>()
+  private readonly _snapshotRepairRebuilds = new Set<string>()
+  private _onSnapshotHistoryRepairNeeded?: () => void
   private _onQueuedOperationApplied?: (op: Operation) => void
   private _onInvariant?: (name: string, context: Record<string, string | number>) => void
   // (#480) Подряд идущие отказы _takeCheckpoint по слою. Единичный отказ —
@@ -2371,6 +2378,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
     this._onPreviewApplied = options.onPreviewApplied
+    this._onSnapshotHistoryRepairNeeded = options.onSnapshotHistoryRepairNeeded
     this._onQueuedOperationApplied = options.onQueuedOperationApplied
     this._onInvariant = options.onInvariant
     this._onLiveStrokeDabs = options.onLiveStrokeDabs
@@ -2649,6 +2657,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _opDrainRaf = 0
 
   private _shouldQueue(op: Operation, source: OperationSource): boolean {
+    if ([...pixelWriteLayerIds(op), ...pixelReadLayerIds(op)].some(id => this.isSnapshotHistoryRepairPending(id))) return false
     if (source !== 'remote' || this._displaySuspendDepth !== 0 || this._destroyed || this._contextLost) return false
     if (typeof requestAnimationFrame !== 'function') return false
     // Behind a queue, every peer operation waits - order kept without a
@@ -2730,9 +2739,21 @@ export class PencilEngine implements PencilEngineAPI {
     if (lost) {
       if (op.type === 'paper_dry') this._paperWet.clear()
       else if (op.type === 'layer_clear') this._paperWet.forgetLayer(op.layerId)
-      if (op.type === 'operation_revoke') this._log.revoke(op.targetOpId)
-      else if (op.type === 'operation_undo') this._log.applyUndo(op.targetOpId, op.userId)
-      else if (op.type === 'operation_redo') this._log.applyRedo(op.targetOpId, op.userId)
+      const target = op.type === 'operation_revoke' ? this._log.revoke(op.targetOpId)
+        : op.type === 'operation_undo' ? this._log.applyUndo(op.targetOpId, op.userId)
+        : op.type === 'operation_redo' ? this._log.applyRedo(op.targetOpId, op.userId) : null
+      if (target) this._noteSnapshotHistoryMutation(target)
+      if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
+      return
+    }
+    const pendingReads = pixelReadLayerIds(op).filter(id => this.isSnapshotHistoryRepairPending(id))
+    if (pendingReads.length || pixelWriteLayerIds(op).some(id => this.isSnapshotHistoryRepairPending(id))) {
+      for (const target of pixelWriteLayerIds(op)) for (const dependency of pendingReads) {
+        if (dependency === target) continue
+        let deps = this._snapshotDependentLayers.get(target)
+        if (!deps) { deps = new Set(); this._snapshotDependentLayers.set(target, deps) }
+        deps.add(dependency)
+      }
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
@@ -3119,7 +3140,7 @@ export class PencilEngine implements PencilEngineAPI {
     let settled = false
     for (const layerId of [...this._unsettledLayers]) {
       if (!this._layers.has(layerId)) { this._unsettledLayers.delete(layerId); this._cancelledPeerLayers.delete(layerId); continue }
-      if (this._hasUnrecordedInk(layerId)) continue
+      if (this.isSnapshotHistoryRepairPending(layerId) || this._hasUnrecordedInk(layerId)) continue
       // An explicitly cancelled stream owes no final operation. Repair its
       // landed tail once owners/other live ink are quiet, without waiting for
       // the accepted wash's usual joining window.
@@ -3624,6 +3645,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
+    if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
       this._onPreviewApplied?.(op)
@@ -3687,6 +3709,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
+    if (this.isSnapshotHistoryRepairPending(packet.layerId)) return
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
     if (!canonicalExecution && this._wcAsyncFinish && packet.tool !== 'watercolor' && this._wcCanonical.pending && this._queueAsyncPeerLive(peerId, packet)) return
@@ -4106,8 +4129,8 @@ export class PencilEngine implements PencilEngineAPI {
         else { state.buf.destroy(); this._peerPreviews.delete(peerId) }
       }
     }
+    this._noteSnapshotHistoryMutation(op)
     if (this._contextLost || this.gl.isContextLost()) return
-    this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(op), op.id)
     switch (op.type) {
       // (#520) Every layer of the gesture, not only this operation's own:
       // undo/redo flip a whole gesture at once (OperationLog._gestureEntries),
@@ -4178,6 +4201,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  and why _takeCheckpoint refuses to run against a layer with a rebuild
    *  still pending. */
   private _rebuildLayerOrDefer(layerId: string): void {
+    if (this._snapshotIO.historyRepairPending(layerId)) return
     if (this._displaySuspendDepth === 0) { this._rebuildLayer(layerId); return }
     this._pendingRebuilds.add(layerId)
   }
@@ -4238,6 +4262,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** Restores a layer's buffer to replay state: nearest valid checkpoint plus
    *  the tail of its done pixel operations. */
   private _rebuildLayer(layerId: string): void {
+    if (this._snapshotIO.historyRepairPending(layerId) || this._snapshotDependentLayers.has(layerId)) return
     const buf = this._layers.get(layerId)
     if (!buf) return
     // (#536, §17.53) A watercolour replay settles every operation: 5 s on the
@@ -4248,6 +4273,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._rebuildWantsSlicing(layerId, ops)) { this._startRebuildJob(layerId); return }
     this._cancelRebuildJob(layerId)
     this._replayInto(buf, layerId, ops)
+    this._snapshotRepairRebuilds.delete(layerId)
     this._noteReplayedOrder(layerId)
     // (#522) A layer whose pixels reach below the log window can only be
     // rebuilt from its snapshot checkpoint. If that is gone — evicted once the
@@ -4561,6 +4587,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers.set(layerId, job.fresh)
     ;(job.fresh instanceof TiledLayerBuffer ? job.fresh : null)?.resumeEviction()
     old?.destroy()
+    this._snapshotRepairRebuilds.delete(layerId)
     this._noteReplayedOrder(layerId) // (#537)
     if (this._snapshots.hasCoverage(layerId) && !this._checkpoints.hasSnapshotFor(layerId)) {
       this._snapshots.refusePublishing(layerId)
@@ -4568,6 +4595,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._snapshots.markDirty(layerId)
     this._invalidateSplitCache()
     this._displayIfNotSuspended()
+    this._flushSnapshotDependentLayers()
   }
 
   private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
@@ -4989,7 +5017,9 @@ export class PencilEngine implements PencilEngineAPI {
     // outright, which is strictly more than any deferred rebuild was going to
     // do — keeping them queued would just repeat that work at the next resume.
     this._pendingRebuilds.clear()
+    for (const id of this._snapshotIO.resolveHistoryRepairs()) this._snapshotRepairRebuilds.add(id)
     this._syncBuffersToLog()
+    for (const id of this._snapshotRepairRebuilds) if (!this._rebuildJobs.has(id) && !this._pendingRebuilds.has(id)) this._snapshotRepairRebuilds.delete(id)
     this._display()
   }
 
@@ -5267,6 +5297,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _takeCheckpoint(layerId: string): void {
+    if (this.isSnapshotHistoryRepairPending(layerId)) return
     if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
     // what the log no longer has (the undone stroke): never bake it.
@@ -5360,6 +5391,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** SnapshotIO's first bake gate — pure, see SnapshotIOContext.quiet. */
   private _snapshotQuiet(layerId: string): boolean {
+    if (this.isSnapshotHistoryRepairPending(layerId)) return false
     // A canonical request may be between solver steps, with no _settle yet.
     if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
@@ -5447,8 +5479,48 @@ export class PencilEngine implements PencilEngineAPI {
     return [...this._layers.keys()]
   }
 
+  private _noteSnapshotHistoryMutation(op: Operation): void {
+    this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(op), op.id)
+    this._resolveSnapshotHistoryRepairs()
+    if (this.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
+      if (!this._destroyed) this._onSnapshotHistoryRepairNeeded?.()
+    })
+  }
+
+  isSnapshotHistoryRepairPending(layerId: string): boolean {
+    return this._snapshotIO.historyRepairPending(layerId) || this._snapshotRepairRebuilds.has(layerId) || this._snapshotDependentLayers.has(layerId)
+  }
+
+  pendingSnapshotHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }> {
+    return this._snapshotIO.pendingHistoryRepairs()
+  }
+
+  private _flushSnapshotDependentLayers(): void {
+    if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
+    for (const [id, deps] of [...this._snapshotDependentLayers]) {
+      if ([...deps].some(source => this.isSnapshotHistoryRepairPending(source))) continue
+      this._snapshotDependentLayers.delete(id)
+      this._syncBuffersToLog(false)
+      if (!this._layers.has(id)) continue
+      this._snapshotRepairRebuilds.add(id)
+      this._rebuildLayerOrDefer(id)
+      if (!this._rebuildJobs.has(id) && !this._pendingRebuilds.has(id)) this._snapshotRepairRebuilds.delete(id)
+    }
+  }
+
+  private _resolveSnapshotHistoryRepairs(): void {
+    if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
+    for (const id of this._snapshotIO.resolveHistoryRepairs()) {
+      this._snapshotRepairRebuilds.add(id)
+      this._rebuildLayerOrDefer(id)
+      if (!this._rebuildJobs.has(id) && !this._pendingRebuilds.has(id)) this._snapshotRepairRebuilds.delete(id)
+    }
+    this._flushSnapshotDependentLayers()
+  }
+
   absorbHistoricalOperations(pageOps: Operation[]): void {
     this._snapshotIO.absorbHistorical(pageOps)
+    this._resolveSnapshotHistoryRepairs()
   }
 
   /** Restore dependency prefix without replaying already baked structure or
@@ -5533,7 +5605,7 @@ export class PencilEngine implements PencilEngineAPI {
     // instead of lingering. The sweep is immediate, so a room that deletes
     // many restored layers does not sit above budget until the next
     // checkpoint is taken.
-    this._checkpoints.unpinSnapshot(id)
+    if (!this._snapshotIO.historyRepairPending(id)) this._checkpoints.unpinSnapshot(id)
   }
 
   private _initGL(): void {
@@ -5701,6 +5773,10 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     const layerId = this._activeId
+    if (layerId && this.isSnapshotHistoryRepairPending(layerId)) {
+      this._diagLog('[engine] stroke start REFUSED: snapshot history repair', { layerId })
+      return
+    }
     if (!layerId || !this._layers.has(layerId)) {
       this._diagLog('[engine] stroke start REFUSED: no drawable layer', {
         activeId: this._activeId, known: this._layers.has(this._activeId ?? ''),

@@ -400,20 +400,45 @@ export class SnapshotIO {
   /** A covered history mutation cannot be subtracted from a baked tile.
    *  Discard that base only when every original server operation up to it is
    *  available, so rebuilding from empty cannot discard an unknown prefix. */
+  private readonly historyRepairs = new Map<string, number>()
+
+  pendingHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }> {
+    const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq))
+    return [...this.historyRepairs].flatMap(([layerId, coveredSeq]) => {
+      let missing = coveredSeq
+      while (missing > 0 && sequences.has(missing)) missing--
+      return missing > 0 ? [{ layerId, beforeSeq: missing + 1 }] : []
+    })
+  }
+
+  historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
+
   invalidateCoveredHistory(layerIds: readonly string[], targetId: string): void {
-    const checkpoints = this.ctx.checkpoints()
-    const entries = this.ctx.log().entries
-    const sequences = new Set(entries.map(e => e.serverSeq).filter((n): n is number => n !== undefined && n > 0))
     for (const layerId of layerIds) {
-      const snapshot = checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))
-      if (!snapshot || snapshot.coveredSeq === undefined || sequences.size < snapshot.coveredSeq) continue
-      let complete = true
-      for (let seq = 1; seq <= snapshot.coveredSeq; seq++) if (!sequences.has(seq)) { complete = false; break }
-      if (!complete) continue
-      // Derived checkpoints include the same baked prefix too.
-      for (const cp of [...checkpoints.all()]) if (cp.layerId === layerId) checkpoints.remove(cp)
-      this.ctx.ledger.forgetCoverage(layerId)
+      const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))
+      if (!snapshot || snapshot.coveredSeq === undefined) continue
+      this.historyRepairs.set(layerId, snapshot.coveredSeq)
+      this.ctx.ledger.markDirty(layerId)
+      this.ctx.ledger.refusePublishing(layerId)
     }
+  }
+
+  /** Resolve only from a complete server prefix; metadata survives lost GL. */
+  resolveHistoryRepairs(): string[] {
+    const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq).filter((n): n is number => n !== undefined && n > 0))
+    const ready: string[] = []
+    for (const [layerId, coveredSeq] of this.historyRepairs) {
+      if (sequences.size < coveredSeq) continue
+      let complete = true
+      for (let seq = 1; seq <= coveredSeq; seq++) if (!sequences.has(seq)) { complete = false; break }
+      if (!complete) continue
+      for (const cp of [...this.ctx.checkpoints().all()]) if (cp.layerId === layerId) this.ctx.checkpoints().remove(cp)
+      this.ctx.ledger.forgetCoverage(layerId)
+      this.ctx.ledger.allowPublishing(layerId)
+      this.historyRepairs.delete(layerId)
+      ready.push(layerId)
+    }
+    return ready
   }
 
   /** PencilEngineAPI.getOperationsSinceRestore. */
