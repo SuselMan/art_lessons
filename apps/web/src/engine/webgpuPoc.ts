@@ -4,7 +4,7 @@ import { checkCanonicalBrush } from './src/webgpu/canonicalBrush'
 import { SOLVER_WGSL, DISPLAY_WGSL } from './src/webgpu/shaders'
 import { GPU_GRID, makePocPaper, oracleFixture } from './src/webgpu/model'
 import { makeWetGrid, wetDiffuseStepMany } from './src/watercolor/wetDiffusion'
-export { GPU_WORLD, GPU_GRID, makeDab, packGpuDabs } from './src/webgpu/model'
+export { GPU_WORLD, GPU_GRID, makeDab, packGpuDabs, pocPreset } from './src/webgpu/model'
 export type { GpuStroke, BrushOptions, InputPoint } from './src/webgpu/model'
 
 declare global { interface Window { __watercolorGpuPoc?: WatercolorGpuPoc } }

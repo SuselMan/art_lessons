@@ -1,5 +1,5 @@
 import type { Dab, StrokeOperation } from '@grafetto/shared'
-import { watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterLoad, watercolorWidth } from '../presets/watercolorPresets'
+import { watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterLoad, watercolorWidth, watercolorPresetString } from '../presets/watercolorPresets'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 
 export const GPU_WORLD = { width: 1024, height: 768 } as const
@@ -10,6 +10,8 @@ export interface BrushOptions { size: number; water: number; pigment: number; co
 export function makeDab(point: InputPoint, options: BrushOptions): Dab {
   return { ...point, tiltX: 0, tiltY: 0, size: options.size * watercolorWidth(Math.max(point.pressure, 0.03), 'normal'), aspectRatio: options.nib === 'chisel' ? 2 : 1, angle: options.nib === 'chisel' ? -Math.PI / 4 : 0, opacity: 1 }
 }
+export function pocPreset(brush: BrushOptions) { return watercolorPresetString('normal', { water: brush.water, pigment: brush.pigment }, undefined, brush.nib) }
+
 /** Same recorded elliptical footprint and production absorption / travel curves.
  * Dose normalisation and deposition are experimental, not a Q8-identical port. */
 export function packGpuDabs(dabs: readonly Dab[], options: BrushOptions, travelled: number, previous: Dab | null) {

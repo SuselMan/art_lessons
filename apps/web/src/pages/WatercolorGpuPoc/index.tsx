@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Dab, StrokeOperation } from '@grafetto/shared'
-import { WatercolorGpuPoc, GPU_WORLD, makeDab, packGpuDabs } from '../../engine/webgpuPoc'
+import { WatercolorGpuPoc, GPU_WORLD, makeDab, packGpuDabs, pocPreset } from '../../engine/webgpuPoc'
 import type { BrushOptions, GpuStroke, InputPoint } from '../../engine/webgpuPoc'
 import type { PencilEngine } from '../../engine'
 import styles from './styles.module.css'
@@ -89,7 +89,7 @@ export function WatercolorGpuPocPage() {
   }
   function recordStroke(dabs: Dab[], brush: BrushOptions) {
     const id = `webgpu-poc-${strokes.current.length}`
-    const operation: StrokeOperation = { type: 'stroke', id, userId: 'webgpu-poc', timestamp: Date.now(), layerId: 'webgpu-layer', tool: 'watercolor', preset: `${brush.nib === 'chisel' ? 'chisel' : 'normal'}:${Math.round(brush.pigment * 100)}:${Math.round(brush.water * 100)}`, color: brush.color, dabs, strokeId: id, washId: 'webgpu-poc-wash' }
+    const operation: StrokeOperation = { type: 'stroke', id, userId: 'webgpu-poc', timestamp: Date.now(), layerId: 'webgpu-layer', tool: 'watercolor', preset: pocPreset(brush), color: brush.color, dabs, strokeId: id, washId: 'webgpu-poc-wash' }
     strokes.current.push({ operation, water: brush.water, pigment: brush.pigment })
   }
   function clear() {
