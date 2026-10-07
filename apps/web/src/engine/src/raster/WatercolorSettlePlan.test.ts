@@ -382,19 +382,22 @@ for (const enabled of [false, true]) for (const hasSolvent of [false, true]) {
 }
 
 describe('opt-in split continuation quanta', () => {
-  function run(split: boolean, abortPreview = false, abortBeforeTile = false, ownerLocked = true, scheduler: 'iterate' | 'advance' | 'complete' = 'iterate', cancelInPreview = false) {
+  function run(split: boolean, abortPreview = false, abortBeforeTile = false, ownerLocked = true, scheduler: 'iterate' | 'advance' | 'complete' = 'iterate', cancelInPreview = false, lazy = false, contacts = false, cancelDuringCpu = false) {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     const probe = engine as unknown as Probe
     probe._settlePlan.splitQuanta = split
+    probe._settlePlan.lazyContacts = lazy
     const tile = probe._ribbonScratchPool.acquire(64, 64)
     const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
     scratch.getOrCreate(tile)
     scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+    if (contacts) scratch.brushTravel = Array.from({ length: 8 }, (_, i) => ({ x: 22 + i * 2, y: 28 + i % 2 * 6, radius: 8, aspect: 1.5, angle: i * .21, dx: i % 2 ? -5 : 5, dy: 1, water: 1 }))
     const commands: string[] = []
     const ids = new WeakMap<object, number>()
     let nextId = 0
     const argument = (value: unknown): unknown => {
       if (value && typeof value === 'object') {
+        if (ArrayBuffer.isView(value)) return { pixels: [...new Uint8Array(value.buffer, value.byteOffset, value.byteLength)] }
         if ('copyRegionInto' in value && 'width' in value && 'height' in value) {
           if (!ids.has(value)) ids.set(value, ++nextId)
           return { buffer: ids.get(value), width: value.width, height: value.height }
@@ -404,7 +407,7 @@ describe('opt-in split continuation quanta', () => {
       }
       return value
     }
-    const spies = ['fieldOp', 'waterFrontStep', 'diffuseStep', 'pigmentColor', 'wcResample'].map(name => {
+    const spies = ['fieldOp', 'waterFrontStep', 'diffuseStep', 'pigmentColor', 'wcResample', 'brushPass'].map(name => {
       const key = name as 'fieldOp'
       const original = probe._watercolorPasses[key].bind(probe._watercolorPasses)
       return vi.spyOn(probe._watercolorPasses, key).mockImplementation((...args) => {
@@ -412,14 +415,33 @@ describe('opt-in split continuation quanta', () => {
         return original(...args)
       })
     })
+    const gl = (engine as unknown as { gl: WebGLRenderingContext }).gl
+    const upload = gl.texImage2D.bind(gl)
+    const uploadSpy = vi.spyOn(gl, 'texImage2D').mockImplementation((...args: unknown[]) => {
+      commands.push('upload:' + JSON.stringify(args.map(argument)))
+      return (upload as (...args: unknown[]) => void)(...args)
+    })
     const clock = vi.spyOn(performance, 'now').mockReturnValue(0)
     let previewCount = 0
     const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
       { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.2, 8, 1, 1, 1, 1, 0,
       () => { commands.push('preview'); previewCount++; if (cancelInPreview) plan.dispose(); if (abortPreview) throw new Error('preview abort') }, false, undefined, ownerLocked)!
     const initialOps = plan.ops.length
+    let cpuCancelled = false
+    const realExp = Math.exp
+    const expSpy = cancelDuringCpu ? vi.spyOn(Math, 'exp').mockImplementation(value => {
+      if (!cpuCancelled) { cpuCancelled = true; plan.dispose() }
+      return realExp(value)
+    }) : null
     try {
-      if (abortBeforeTile) {
+      if (cancelDuringCpu) {
+        for (let i = 0; i < plan.ops.length && !cpuCancelled; i++) plan.ops[i]()
+        expect(cpuCancelled).toBe(true)
+        const count = commands.length
+        plan.dispose()
+        for (const op of plan.ops) op()
+        expect(commands.length).toBe(count)
+      } else if (abortBeforeTile) {
         let i = 0
         while (plan.ops.length === initialOps && i < plan.ops.length) plan.ops[i++]()
         expect(plan.ops.length).toBeGreaterThan(initialOps)
@@ -445,7 +467,7 @@ describe('opt-in split continuation quanta', () => {
       expect((probe._settlePlan as unknown as { _ownedInputs: Set<unknown> })._ownedInputs.size).toBe(0)
       return { commands, previewCount, initialOps, finalOps: plan.ops.length }
     } finally {
-      plan.dispose(); clock.mockRestore(); spies.forEach(spy => spy.mockRestore())
+      plan.dispose(); expSpy?.mockRestore(); clock.mockRestore(); uploadSpy.mockRestore(); spies.forEach(spy => spy.mockRestore())
       scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
     }
   }
@@ -477,4 +499,24 @@ describe('opt-in split continuation quanta', () => {
   it('releases held presentation snapshots on preview failure and idempotent abort', () => {
     expect(run(true, true).previewCount).toBe(1)
   })
+  for (const scheduler of ['iterate', 'advance', 'complete'] as const) it(`retains lazy field upload/pulse/material order through ${scheduler}`, () => {
+    const eager = run(true, false, false, true, scheduler, false, false, true)
+    const lazy = run(true, false, false, true, scheduler, false, true, true)
+    expect(lazy.commands).toEqual(eager.commands)
+    expect(lazy.initialOps).toBeLessThan(eager.initialOps)
+    expect(lazy.finalOps).toBeGreaterThan(lazy.initialOps)
+  })
+  it('cancels reentrantly inside a running CPU field without resuming material writes', () => {
+    run(true, false, false, true, 'iterate', false, true, true, true)
+  })
+  it('retains eager contact fields without the canonical lock', () => {
+    const eager = run(false, false, false, false, 'iterate', false, false, true)
+    const unsafe = run(false, false, false, false, 'iterate', false, true, true)
+    expect(unsafe.commands).toEqual(eager.commands)
+    expect(unsafe.initialOps).toBe(eager.initialOps)
+  })
+  it('disposes suspended CPU field owners when cancelling before contact work', () => {
+    expect(run(true, false, true, true, 'iterate', false, true, true).previewCount).toBe(0)
+  })
+
 })
