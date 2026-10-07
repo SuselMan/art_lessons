@@ -75,3 +75,54 @@ Mixed Room прогон прерван потерей HOME ноутбука: SSH
 прямой home-laptop No route to host. Surface прямой SSH жив; CDP перенесён на
 собственный9455. Данный mixed прогон не считается hardware PASS. Новые самостоятельные
 WebGL2/WebGPU fixtures возможны через trusted private static gallery без HOME backend.
+
+## Актуальная точка 08 октября, около 01:22
+
+### Первое появление пигмента
+
+Mixed-admission Surface двух обычных новых комнат: CPU DOWN12.3→4.2ms,
+после-DOWN pixel-read wait671.7→49.2ms, верхняя граница GPU готовности первого
+пигмента714.6→63.1ms. Горячий DOWN не содержит pre-read/finish.
+Все38полей/wholeRGBA/material inputs совпали; настоящие UI Dry/Undo/Redo/fresh PASS.
+Это не прямое physical pen→screen/compositor время.
+Default ещё OFF: Samsung, rapid/multiuser/layer/new-wash rejection gates остаются.
+
+### CPU/GPU оптимизации
+
+Typed ribbon writer, paired wet raster, workspace/storage reuse, direct resample
+и dead first upload сохранены отдельно. Frozen combined wholeRGBA exact, tail
+600ms вместо baseline~650ms: главную задержку это не решило.
+Contact cache capped4MiB/128 и exact key проверены unit; actual hit ratio неизвестен.
+
+### WebGL2/MRT
+
+Actual PencilEngine GL1/MRT wholeRGBA/tape/Undo/Redo exact на Surface.
+MRT2560pairs/fallback0. Replay wall20.98s→21.31s, полного выигрыша нет.
+Очередь исполняет обычно1settle op/frame; GPU acceleration сама не убирает это
+ожидание. Нужно отдельно проверить безопасные existing batch groups.
+GPU pass sampler: brush median~1.05ms, water-front~2.09ms. Выборки ограничены
+pending cap, поэтому нельзя умножать sampledmean на всючастотудляобщеговремени.
+Sampler пока не оборачивает brushPair; реальныйMRT GPU timer нужно добавить.
+
+### WebGPU
+
+Первоначальная модель была слишком малоподвижной — отзыв Ильи подтверждён.
+Pause UX1d070ab3 Surface PASS; новыйphysical52f78a2a содержит multiscale
+wet-path transport + contact remobilization.
+Surface Mix colors: variance5104→15731за644ticks (старый5432за616).
+GPU median5.70ms/p9513.63ms в этом сценарии; 24MiB полей.
+Визуально цвета распространяются по общей луже, но движение довольно агрессивное;
+это экспериментальный результат, не подтверждение реализма.
+Hardware replay0differentfloats, Drymobile/water0, Undoempty, Redoexactmass PASS.
+Software dry-gap PASS; независимые largebrush gates ещё дополняются.
+Отдельный faithfulQ8compute прошёл software, но hardware byte parity FAIL
+(max difference3–5): не считать точным production port.
+Исходная приватная ссылка обновлена новымphysicalbundle.
+
+### Ограничения и следующие шаги
+
+HOME laptop SSH недоступен; Surface directCDP и Samsung directADB доступны.
+QA backend/frontend созданы наVPS без productionDB, доступнычерезсуществующий
+домашнийтуннель. iPad не проверен.
+Кайма, полная долгая загрузка и multiuser регрессии этойточкой не закрыты.
+Новый main/push/deploy не выполнялись.
