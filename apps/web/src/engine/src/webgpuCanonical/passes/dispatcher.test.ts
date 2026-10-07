@@ -3,7 +3,7 @@ import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } f
 import { CanonicalFieldPasses, packPassUniforms } from './dispatcher'
 import { CanonicalBasicFieldPass } from './fieldBasic'
 afterEach(() => vi.unstubAllGlobals())
-const field = (width=16,height=8):CanonicalGpuField => ({width,height,label:'fixture',format:'rgba8unorm',texture:{} as GPUTexture,view:{} as GPUTextureView})
+const field = (width=16,height=8):CanonicalGpuField => { const value={width,height,label:'fixture',filter:'nearest' as const,format:'rgba8unorm' as const,texture:{} as GPUTexture,view:{} as GPUTextureView};return value }
 function fixture() {
   vi.stubGlobal('GPUBufferUsage',{UNIFORM:64,COPY_DST:8})
   const buffers:GPUBuffer[]=[], writes:Float32Array[]=[], dispatches:number[][]=[], entries:GPUBindGroupEntry[][]=[]

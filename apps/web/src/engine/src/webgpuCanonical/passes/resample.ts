@@ -32,11 +32,11 @@ export class CanonicalResamplePass {
  private pipeline:GPUComputePipeline|null=null
  private readonly device:GPUDevice
  constructor(device:GPUDevice){this.device=device}
- run(ctx:CanonicalGpuContext,out:CanonicalGpuField,src:CanonicalGpuField,old:CanonicalGpuField,base:CanonicalGpuField,params:{dstOrigin:readonly[number,number];srcOrigin:readonly[number,number];ratio:number;mode:0|1|2;clamp:readonly[number,number,number,number];scissor:readonly[number,number,number,number]}){
+ run(ctx:CanonicalGpuContext,out:CanonicalGpuField,src:CanonicalGpuField,old:CanonicalGpuField,base:CanonicalGpuField,params:{dstOrigin:readonly[number,number];srcOrigin:readonly[number,number];ratio:number;mode:0|1|2;clamp:readonly[number,number,number,number];scissor:readonly[number,number,number,number];baseSize?:readonly[number,number]}){
   if(ctx.device!==this.device)throw new Error('Canonical device mismatch')
   if([src,old,base].some(f=>f.texture===out.texture))throw new Error('Canonical resample alias; caller must preserve temporary/copy boundary')
   if(params.clamp[0]<0||params.clamp[1]<0||params.clamp[2]>src.width||params.clamp[3]>src.height||params.clamp[2]<=params.clamp[0]||params.clamp[3]<=params.clamp[1])throw new Error('Canonical source clamp invalid')
-  const values=new Float32Array([src.width,src.height,base.width,base.height,...params.dstOrigin,...params.srcOrigin,params.ratio,params.mode,0,0,...params.clamp,...params.scissor]);if(values.some(v=>!Number.isFinite(v)))throw new Error('Canonical resample uniforms must be finite')
+  const values=new Float32Array([src.width,src.height,...(params.baseSize??[base.width,base.height]),...params.dstOrigin,...params.srcOrigin,params.ratio,params.mode,0,0,...params.clamp,...params.scissor]);if(values.some(v=>!Number.isFinite(v)))throw new Error('Canonical resample uniforms must be finite')
   if(!this.pipeline)this.pipeline=this.device.createComputePipeline({layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_RESAMPLE_WGSL}),entryPoint:'main'}})
   const uniform=this.device.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
   const bind=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:src.view},{binding:1,resource:old.view},{binding:2,resource:base.view},{binding:3,resource:out.view},{binding:4,resource:{buffer:uniform}}]})

@@ -61,3 +61,20 @@ CanonicalSettleCommand discriminated tape exposes original primitive arguments.
 CanonicalSettleCommands.encode encodes exactly one primitive/Q8 boundary; it does
 not choose new iterations, reorder, fuse, submit, read back or wait. Caller owns
 encoder, frame timing, buffers and returned uniform cleanup after completion.
+
+## Уточнение фильтров при интеграции настоящего плана
+
+`fieldOps` учитывает metadata `field.filter`: отдельный бит LINEAR для a/b/c/d/e/path.
+Остальные поля и шум остаются NEAREST. Это существенно для mode 6: кольцевые
+cos/sin taps маски/давления расположены между центрами texелей. Для проверки
+создан 32×32 неоднородный круговой cost: 30 положительных software GL↔WGSL
+случаев совпадают побайтно. LINEAR меняет 40 байтов относительно NEAREST;
+отрицательный контроль с принудительным старым NEAREST даёт те же 40 различий
+(max 5), поэтому тест не проходит за счёт нечувствительного входа.
+
+`resample.params.baseSize` отделяет размеры связанной base texture от GL
+`u_baseSize`. Legacy default base связывает src, но нормирует координаты по dst.
+Шесть software случаев mode 0/1/2 × explicit/default base (src 32², dst 64²,
+частичный scissor и clamp) совпадают побайтно; вне scissor не меняется ни байт.
+Данные: `temp/canonical-passes/{field-oracle,resample-oracle}.json`.
+Реальные GPU и полный проход плана ещё требуют отдельной проверки.
