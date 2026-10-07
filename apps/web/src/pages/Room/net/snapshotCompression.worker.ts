@@ -1,4 +1,4 @@
-import { gzipBytes } from '../../../engine/src/oplog/gzip'
+import { compressLayerTiles } from '../../../engine/snapshots'
 
 const port = globalThis as unknown as {
   onmessage: ((event: MessageEvent<{ id: number; buffer: ArrayBuffer }>) => void) | null
@@ -6,7 +6,7 @@ const port = globalThis as unknown as {
 }
 port.onmessage = async ({ data }) => {
   try {
-    const compressed = await gzipBytes(new Uint8Array(data.buffer))
+    const compressed = await compressLayerTiles(new Uint8Array(data.buffer))
     const buffer = compressed.buffer instanceof ArrayBuffer ? compressed.buffer : compressed.slice().buffer
     const offset = buffer === compressed.buffer ? compressed.byteOffset : 0
     port.postMessage({ id: data.id, buffer, offset, length: compressed.byteLength }, [buffer])
