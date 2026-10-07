@@ -67,3 +67,25 @@ flags async/material=false, stored index49 и ненулевые blob200. Bake �
 Это replay исходных packed операций в настоящем Room, не native pen benchmark.
 Held peer arrival сейчас CPU доказан; отдельный actual peer hardware остаётся
 обязательным до полного принятия оптимизации. GPU ещё не запускался.
+
+## Собственный TypeScript и actual peer controller
+
+Own web closure TS (include own src/landing, own shared, существующие root real-deps)
+EXIT0, 0 ошибок: `temp/cpu/web-closure.tsconfig.json`, `web-types.log`.
+Никаких install/symlink и изменений root config.
+
+Отдельный private `peer-arrival.mjs` готов для OFF/ON, два раздельных auth contexts,
+не более двух engines одновременно. Автор A сохраняет исходные47 ACK; читатель B
+идёт обычным join. После реального начала setUnpaintedInBatch A отправляет Undo clear
+через свой engine/network callback. Пассивный listener реального WebSocket сохраняет
+только ID/seq/clock/count конкретного QA Undo, без URL/auth/полного wire payload.
+Обязательный guard: операция48 действительно получена при suspended display,
+активном skipped set и неполном prefix (<47). Не удалось попасть в окно — это
+INCONCLUSIVE fixture, не peer PASS. Прямая подача operation читателю запрещена.
+
+После release оба клиента: full sequential ACK48, clear undone, meaningful Undo
+pixel delta и whole A/B exact. Redo49 возвращает original47 endpoint exact.
+Затем обычный first snapshot49, ненулевой blob, fresh stored rejoin exact. OFF/ON
+сравниваются также между собой. Проверка parser трёх scripts `node --check` PASS;
+реальные timing/arrival/bitmap результаты ещё отсутствуют. На hardware отдельно
+повторить RAM preflight и source passport; runtime/stand пока не изменены.
