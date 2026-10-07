@@ -6,6 +6,7 @@
 <button id="download">Download JSON</button><div id="surface"></div><pre id="output"></pre>
 <script type="module">
 import { GpuMethodTimer } from './timer.mjs';
+import { compareRuns, gpuSummary } from './parity.mjs';
 const engineUrl = new URL(new URLSearchParams(location.search).get('engine') || '../engine-webgl2-standalone/run.js', location.href);
 const engine = await import(engineUrl.href); let result;
 window.runGpuMethodTape = async (options = {}) => {
@@ -25,9 +26,8 @@ window.runGpuMethodTape = async (options = {}) => {
    const deadline=performance.now()+16000;
    while(timer?.pending.length && performance.now()<deadline) await new Promise(requestAnimationFrame);
    timer?.poll('Drain deadline');
-   const keys=['tapeSha256','code','operations','materialWholeLayer','rgbaSha256','exportSize','undo','redo'];
-   const parity=Object.fromEntries(keys.map(k=>[k,JSON.stringify(baseline[k])===JSON.stringify(measured[k])]));
-   result={config,baseline,measured,parity,valid: Object.values(parity).every(Boolean)&&!baseline.lost&&!measured.lost&&baseline.glError===0&&measured.glError===0,timer:timer?.report(),engineUrl:engineUrl.href};
+   const comparison=compareRuns(baseline,measured);
+   result={config,baseline,measured,...comparison,timer:timer?.report(),gpuSummary:gpuSummary(timer?.rows || []),engineUrl:engineUrl.href};
    out.textContent=JSON.stringify(result,null,2); return result;
  } finally {cancelAnimationFrame(raf);timer?.dispose();engine.disposePrototype();if(prior)Object.defineProperty(window,'__prototypeEngine',prior);else delete window.__prototypeEngine;}
 };
