@@ -93,3 +93,37 @@ paints.size=1, front126/carryP14 и meaningful четырьмя каналами
 ON и полный Undo/Redo gate по-прежнему не подтверждены. CPU runner теперь
 обновляет sequence48/49 перед этими двумя операциями; исходный renderer
 и полный сохранённый журнал не менялись.
+
+## Ограниченный same-journal Samsung gate: PASS
+
+`temp/clear-prefix-gate/runs/clear47ca0_1791360791885/report.json`:
+immutable ca0,989tracked SHA exact,4served source SHA exact. OWN1432 закрыт,
+controller26599 EXIT0; cached CDP после завершения own target не содержит.
+
+Все17 физических карт (cost + четыре tile × P/C/V/coverage) и три
+wholeRGBA final/Undo clear/Redo byteexact: changed0/max0. Ненулевые P/C/V/cov
+и реальные targetcarryP14/front126; targetpaints1, поэтому mode16 на этом
+job не нужен. Undo восстанавливает1,362,943 отличающихся RGBAbytes и1,784,736
+nonempty pixels; final1,580,675. Redo возвращает original final exact0.
+Full47 остаётся в Operation Log. ON skips10vsOFF2: восемь дополнительных
+stroke не рисуются; actual initial paint calls31vs39. Во всех4arms GL0/lostfalse.
+
+Чистая timing-волнa без промежуточных readback: OFF41.115s/ON35.359s.
+Это standalone canonical replay с одним rAF между append; cadence входит
+в wall time. Не ordinary Room latency, не native FPS и не production speedup.
+One-shot диагностический capture CPU проверен: original47/rebuild47/Undo48/
+Redo49 дают ровно один capture; исходные finish вызываются во всех случаях,
+включая исключение capture. Прежние три INCONCLUSIVE сохранены.
+
+Source audit multi-layer: actual target buffer выбран по op.layerId; cache
+требует cached.target===target. Painter.resolveWithinSheet и scratch.getOrCreate
+читают только этот target. ForeignSources фильтрует same-layer canonical done
+ops. Replay использует записанный op.wet; author sampleUnderNib читает отдельную
+_layers.get(layerId). Это поддерживает изоляцию исходниками, но отдельного
+multi-layer physical gate ещё нет. DefaultON не предлагается.
+
+Новый optional hook forwarding позволяет диагностической зависимости пройти
+useRoomRestore → actualrestoreRoomState. Real hook/real MockGL Engine regression:
+unchanged render сохраняет callback identity и не запускает дополнительный
+restore; opt-inpaint1/fullhistory3, undefinedpaint2. 22tests4files, whole-web TS
+и targeted lint PASS. Production Room caller не включает эту опцию.
