@@ -1,4 +1,4 @@
-import { DISPLAY_VERT, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
@@ -23,6 +23,8 @@ export class WatercolorPasses {
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
 
   /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
+  private _costDomain: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
+
   private _fieldOpProg!: WebGLProgram
 
   private _gradientField: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
@@ -82,7 +84,7 @@ export class WatercolorPasses {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; pathPacked?: boolean } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -119,6 +121,12 @@ export class WatercolorPasses {
       gl.bindTexture(gl.TEXTURE_2D, (opts.e ?? b).texture)
       gl.uniform1i(u.u_e, 4)
     }
+    if (mode === 15 || mode === 16) {
+      gl.activeTexture(gl.TEXTURE0 + 5)
+      gl.bindTexture(gl.TEXTURE_2D, (opts.path ?? b).texture)
+      gl.uniform1i(u.u_path, 5)
+      gl.uniform1f(u.u_pathEnabled, opts.path ? (opts.pathPacked ? 2 : 1) : 0)
+    }
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform1f(u.u_k, k)
     gl.uniform1f(u.u_mode, mode)
@@ -131,6 +139,30 @@ export class WatercolorPasses {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     if (opts.scissor) gl.disable(gl.SCISSOR_TEST)
     out.endDraw()
+  }
+
+  /** No new textures: the owner supplies two otherwise unused single-paint C fields. */
+  costDomainStep(out: AccumulationBuffer, source: AccumulationBuffer, rect: [number, number, number, number], band: number, stride: number, packed = false): void {
+    const { gl } = this
+    if (!this._costDomain) {
+      const program = createProgram(gl, DISPLAY_VERT, WC_COST_DOMAIN_FRAG)
+      this._costDomain = { program, uniforms: getUniforms(gl, program, ['u_source', 'u_resolution', 'u_rect', 'u_band', 'u_stride', 'u_packed']), position: gl.getAttribLocation(program, 'a_position') }
+    }
+    const { program, uniforms: u, position } = this._costDomain
+    const dithered = packed && gl.isEnabled(gl.DITHER)
+    if (packed) gl.disable(gl.DITHER)
+    out.beginReplaceDraw()
+    try {
+      gl.useProgram(program)
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
+      gl.enableVertexAttribArray(position)
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, source.texture)
+      gl.uniform1i(u.u_source, 0); gl.uniform2f(u.u_resolution, out.width, out.height)
+      gl.uniform4fv(u.u_rect, rect); gl.uniform1f(u.u_band, band); gl.uniform1f(u.u_stride, stride)
+      gl.uniform1f(u.u_packed, packed ? 1 : 0)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+    } finally { out.endDraw(); if (dithered) gl.enable(gl.DITHER) }
   }
 
   /** (#536, §17.24) One relaxation step of the water front's cost (WC_WATER_FRONT_FRAG)
@@ -357,10 +389,20 @@ export class WatercolorPasses {
     this._gradientField = null
   }
 
+  private releaseCostDomain(): void {
+    const cached = this._costDomain
+    if (!cached) return
+    const { gl } = this
+    if (gl.getParameter(gl.CURRENT_PROGRAM) === cached.program) gl.useProgram(null)
+    if (gl.isProgram?.(cached.program) !== false) gl.deleteProgram(cached.program)
+    this._costDomain = null
+  }
+
   initFieldPrograms(): void {
     const { gl } = this
     // Context restoration invalidates the optional cached program too.
     this.releaseGradientField()
+    this.releaseCostDomain()
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
     this._fieldOpCarryProg    = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_FRAG)
@@ -381,8 +423,8 @@ export class WatercolorPasses {
     const { gl } = this
     this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_origin', 'u_size', 'u_band', 'u_world'])
     this._fieldOpHighUni = getUniforms(gl, this._fieldOpHighProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
-    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world'])
+    this._fieldOpCarryUni = getUniforms(gl, this._fieldOpCarryProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_path', 'u_pathEnabled'])
+    this._fieldOpCarryColourUni = getUniforms(gl, this._fieldOpCarryColourProg, ['u_a', 'u_b', 'u_c', 'u_k', 'u_mode', 'u_tau', 'u_dir', 'u_d', 'u_e', 'u_origin', 'u_size', 'u_band', 'u_world', 'u_path', 'u_pathEnabled'])
     this._resampleUni = getUniforms(gl, this._resampleProg, ['u_src', 'u_old', 'u_base', 'u_srcSize', 'u_baseSize', 'u_dstOrigin', 'u_srcOrigin', 'u_ratio', 'u_mode', 'u_clamp'])
     this._waterFrontUni = getUniforms(gl, this._waterFrontProg, [
       'u_wcNoiseTex', 'u_cost', 'u_paperHeightMap', 'u_resolution', 'u_paperOrigin', 'u_paperTexSize', 'u_paperScale',
@@ -414,10 +456,11 @@ export class WatercolorPasses {
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
     if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program].includes(current)) {
+      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program, this._costDomain?.program].includes(current)) {
       this.gl.useProgram(null)
     }
     this.releaseGradientField()
+    this.releaseCostDomain()
     this.gl.deleteProgram(this._fieldOpProg)
     this.gl.deleteProgram(this._fieldOpHighProg)
     this.gl.deleteProgram(this._fieldOpCarryProg)

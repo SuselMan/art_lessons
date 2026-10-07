@@ -5,8 +5,9 @@ import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { WatercolorSettlePlan } from './WatercolorSettlePlan'
 import type { WatercolorSettleQueue } from '../watercolor/WatercolorSettleQueue'
+import type { SettleField } from '../buffers/SettleField'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
-import { WC_BLOOM_WET_LO, WC_BLOOM_WET_HI } from '../presets/watercolorPresets'
+import { WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, WC_CARRY_RATE, WC_CARRY_TRAVEL } from '../presets/watercolorPresets'
 
 type Probe = {
   _ribbonScratchPool: RibbonScratchPool
@@ -529,4 +530,185 @@ describe('opt-in split continuation quanta', () => {
     expect(run(true, false, true, true, 'iterate', false, true, true).previewCount).toBe(0)
   })
 
+})
+
+
+describe('diagnostic single-paint cost-domain paths', () => {
+  for (const enabled of [false, true]) for (const owner of [false, true]) for (const mixed of [false, true]) {
+    it(`preserves ownership and schedules masks before carry (enabled=${enabled}, owner=${owner}, mixed=${mixed})`, () => {
+      const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+      const probe = engine as unknown as Probe
+      const tile = probe._ribbonScratchPool.acquire(64, 64)
+      const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+      scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+      if (mixed) scratch.paints.add('0,0,1')
+      probe._settlePlan.diagnosticCostDomainPaths = enabled
+      const calls: string[] = []
+      const masks: AccumulationBuffer[] = []
+      let expectedMasks = 0
+      vi.spyOn(probe._watercolorPasses, 'costDomainStep').mockImplementation((out, source, _rect, _band, stride) => {
+        expect(out).not.toBe(source); masks.push(out); calls.push(`mask:${stride}`)
+      })
+      const field = probe._watercolorPasses.fieldOp.bind(probe._watercolorPasses)
+      vi.spyOn(probe._watercolorPasses, 'fieldOp').mockImplementation((...args) => {
+        if (args[3] === 15) {
+          calls.push('carry')
+          expect(args[4]).toBe(WC_CARRY_RATE)
+          expect(args[5]?.origin?.[1]).toBe(WC_CARRY_TRAVEL)
+          expectedMasks += 1 + Math.log2(args[5]?.origin?.[0] ?? 1)
+          if (enabled && !mixed) { expect(args[5]?.path).toBe(masks[masks.length - 1]); expect(calls[calls.length - 2]).toMatch(/^mask:/) }
+          else expect(args[5]?.path).toBeUndefined()
+        }
+        field(...args)
+      })
+      try {
+        const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+          { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, owner)!
+        for (const op of plan.ops) {
+          const before = calls.length
+          op()
+          if (enabled && !mixed) {
+            const commands = calls.slice(before)
+            expect(commands.length).toBeLessThanOrEqual(1)
+          }
+        }
+        expect(calls).toContain('carry')
+        expect(masks.length > 0).toBe(enabled && !mixed)
+        if (enabled && !mixed) expect(masks.length).toBe(expectedMasks)
+        expect(new Set(masks).size).toBe(enabled && !mixed ? 2 : 0)
+        plan.dispose(); plan.dispose()
+      } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
+    })
+  }
+
+  function execution(enabled: boolean | undefined, owner: boolean, pureWater = false, packed = false) {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile)
+    if (!pureWater) scratch.paints.add('1,0,0')
+    if (enabled !== undefined) probe._settlePlan.diagnosticCostDomainPaths = enabled
+    probe._settlePlan.diagnosticPackedCostPaths = packed
+    const calls: unknown[][] = []
+    const identities = new Map<AccumulationBuffer, number>()
+    const id = (buffer: AccumulationBuffer | undefined) => {
+      if (!buffer) return null
+      if (!identities.has(buffer)) identities.set(buffer, identities.size + 1)
+      return identities.get(buffer)
+    }
+    let field: SettleField | undefined
+    const front = probe._watercolorPasses.waterFrontStep.bind(probe._watercolorPasses)
+    vi.spyOn(probe._watercolorPasses, 'waterFrontStep').mockImplementation((...args) => {
+      field = args[0] as SettleField
+      return front(...args)
+    })
+    vi.spyOn(probe._watercolorPasses, 'costDomainStep').mockImplementation((out, source, rect, band, stride) => {
+      expect(field).toBeDefined()
+      expect([field!.ca, field!.cc]).toContain(out)
+      expect(out).not.toBe(field!.cb)
+      calls.push(['mask', stride, id(out), id(source), rect, band])
+    })
+    const physical = probe._watercolorPasses.fieldOp.bind(probe._watercolorPasses)
+    vi.spyOn(probe._watercolorPasses, 'fieldOp').mockImplementation((...args) => {
+      const options = args[5]
+      calls.push(['field', args[3], id(args[0]), id(args[1]), id(args[2]), args[4],
+        options?.origin, options?.band, id(options?.path)])
+      return physical(...args)
+    })
+    const color = probe._watercolorPasses.pigmentColor.bind(probe._watercolorPasses)
+    vi.spyOn(probe._watercolorPasses, 'pigmentColor').mockImplementation((...args) => {
+      if (args[0] === field?.cc && enabled && !pureWater) {
+        // Borrowing ends before the numerical colour record is reconstructed.
+        expect(calls.filter(call => call[0] === 'mask')).toHaveLength(packed ? 7 : 56)
+        expect(calls.filter(call => call[0] === 'field' && call[1] === 15)).toHaveLength(14)
+      }
+      calls.push(['color', id(args[0]), id(args[1]), args[2]])
+      return color(...args)
+    })
+    try {
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, owner)!
+      const entries = plan.ops.length
+      for (const op of plan.ops) op()
+      plan.finish(); plan.dispose()
+      return { entries, calls }
+    } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
+  }
+
+  it('packs seven levels before all fourteen carries and retains one immutable mask', () => {
+    const historical = execution(true, false, false, true)
+    expect(historical).toEqual(execution(true, true, false, true))
+    const masks = historical.calls.filter(call => call[0] === 'mask')
+    expect(masks.map(call => call[1])).toEqual([0, 1, 2, 4, 8, 16, 32])
+    const carries = historical.calls.filter(call => call[0] === 'field' && call[1] === 15)
+    expect(carries).toHaveLength(14)
+    expect(new Set(carries.map(call => call[8])).size).toBe(1)
+    expect(historical.calls.indexOf(masks[6])).toBeLessThan(historical.calls.indexOf(carries[0]))
+    expect(execution(false, false, false, true)).toEqual(execution(false, false))
+  })
+
+  it('executes identical physical inputs and colour reconstruction on owned and historical routes', () => {
+    const historical = execution(true, false)
+    const owned = execution(true, true)
+    expect(historical).toEqual(owned)
+    expect(historical.calls.filter(call => call[0] === 'mask')).toHaveLength(56)
+    expect(historical.calls.filter(call => call[0] === 'field' && call[1] === 15)).toHaveLength(14)
+  })
+
+  for (const owner of [false, true]) it(`preserves the original default schedule with the diagnostic off (owner=${owner})`, () => {
+    expect(execution(false, owner)).toEqual(execution(undefined, owner))
+    expect(execution(false, owner).calls.some(call => call[0] === 'mask')).toBe(false)
+  })
+
+  it('does not borrow colour buffers for a pure-water record', () => {
+    expect(execution(true, false, true)).toEqual(execution(false, false, true))
+  })
+})
+
+it('cost mask primitive balances draw ownership and retires its program without allocating textures', () => {
+  const { engine, canvas } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  const a = probe._ribbonScratchPool.acquire(8, 8), b = probe._ribbonScratchPool.acquire(8, 8)
+  const gl = canvas.getContext('webgl')!
+  const textures = vi.spyOn(gl, 'createTexture'), end = vi.spyOn(a, 'endDraw')
+  const destroy = vi.spyOn(gl, 'deleteProgram')
+  try {
+    probe._watercolorPasses.costDomainStep(a, b, [1, 1, 7, 7], .8, 0)
+    probe._watercolorPasses.costDomainStep(a, b, [1, 1, 7, 7], .8, 4)
+    expect(textures).not.toHaveBeenCalled()
+    expect(end).toHaveBeenCalledTimes(2)
+    // Context recreation drops the dead cached mask program before its next use.
+    probe._watercolorPasses.initFieldPrograms(); probe._watercolorPasses.initFieldUniforms(); probe._watercolorPasses.initFieldAttributes()
+    probe._watercolorPasses.costDomainStep(a, b, [1, 1, 7, 7], .8, 0)
+    expect(end).toHaveBeenCalledTimes(3)
+    probe._watercolorPasses.destroy()
+    expect(destroy.mock.calls.length).toBeGreaterThan(0)
+  } finally { probe._ribbonScratchPool.release(a); probe._ribbonScratchPool.release(b); engine.destroy(); vi.restoreAllMocks() }
+})
+
+for (const packed of [false, true]) for (const owner of [false, true]) for (const lost of [false, true]) it(`retires borrowed mask state on plan abort (owner=${owner}, contextLost=${lost}, packed=${packed})`, () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+  probe._settlePlan.diagnosticCostDomainPaths = true
+  probe._settlePlan.diagnosticPackedCostPaths = packed
+  let count = 0
+  vi.spyOn(probe._watercolorPasses, 'costDomainStep').mockImplementation(() => { count++ })
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, owner)!
+    let next = 0
+    while (!count && next < plan.ops.length) plan.ops[next++]()
+    expect(count).toBeGreaterThan(0)
+    const completed = count
+    const land = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    if (lost) probe._settlePlan.forgetTextures()
+    plan.dispose(); plan.dispose(); plan.finish()
+    for (; next < plan.ops.length; next++) plan.ops[next]()
+    expect(count).toBe(completed)
+    expect(land).not.toHaveBeenCalled()
+  } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
 })
