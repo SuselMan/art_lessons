@@ -45,3 +45,13 @@ allocated pool live+free+output относительно reservation. Это Moc
 - Нужны actual native Samsung water→pigment, visible intermediate screenshots,
   ограниченная память, natural canonical handoff без halo/doublepig, затем
   same-journal Dry/Undo/Redo/fresh canonical equality и cancellation/resize/peer.
+
+## Проверка живого локального предпросмотра на Vega, 7 октября
+
+Immutable79, 999 SHA; raw HOME `680-lifetime-hardware/temp/live-material-preview-79df/qa-ui-1791375149998/report.json`. Первый запуск до рисования остановился на отсутствующих generated paper assets; raw сохранён. Повтор EXIT0, собственный Chrome закрыт. RAM1784.6→min1399.8MiB.
+
+Вода180 и пигмент86 нанесены без ожидания завершения воды, canonical pending=true, один cumulative owner. Пигмент виден сразу, вода имеет серую подложку. Активный rAF max22ms обоих жестов; tail28/22ms; следующий pointer handler16.6/18.6ms. Это узкий сценарий, не400px и не Samsung. Предварительный мазок уже и плотнее финального: через примерно14s canonical расширяется/светлеет. Непрерывность перехода, peer и исчерпание бюджета остаются открытыми.
+
+После ordered UI Dry native/fresh пять accepted операций; fullRGBA1754×2480 exact0/max0, nonemptyAlpha137970 у обоих. Отдельный rgba-oracle.json сохранён рядом с локальной копией PNG в temp. Экспорт не доказывает качество живого перехода.
+
+Room включает типизированную constructor option materialPresentation; standalone defaultOFF. Видимая база с незавершённым reveal пока требует отдельного исправления; её неподтверждённый patch сохранён в temp, в этот источник не включён.
