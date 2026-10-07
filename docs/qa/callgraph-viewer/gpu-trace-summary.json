@@ -1,0 +1,84 @@
+{
+  "source": "6aa14a43",
+  "device": {
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "gpu": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "canvas": [
+      1554,
+      1698
+    ],
+    "dpr": 1.5,
+    "visibility": "visible",
+    "joined": true
+  },
+  "scope": "Surface round400 wet100 pigment100; same scripted zigzag3s + next touch; CPU counters/profiler + Chrome Tracing. Fresh ownroom, flags frozen, 2ACK/2REST matched GL0/lostfalse.",
+  "limitations": [
+    "GPU process service spans include driver waits and scheduling; actual device execution timestamps not established.",
+    "No individual shader/draw GPU duration or exact JS→GPU command correlation. Static origins are source-derived; no call stack in native trace.",
+    "Instrumentation/Dev React and trace add overhead; no baseline. 650ms frame gap is not fully causally explained.",
+    "Nested task durations cannot be added across task rows."
+  ],
+  "findings": [
+    {
+      "title": "Пауза воспроизведена",
+      "evidence": "rAF tail max650ms; second gesture handler118.8ms. Active max50ms, active>100ms0.",
+      "status": "measured"
+    },
+    {
+      "title": "Длинная задача compositor GPU service",
+      "evidence": "Skia FinishPaintRenderPass wall456.409ms, thread CPU10.173ms; starts3606.1ms after start marker. Wait/scheduling dominates span, cause not proven.",
+      "status": "measured service span, hypothesis cause"
+    },
+    {
+      "title": "Происхождение команд",
+      "evidence": "Методы Passes и Buffer отправляют WebGL commands; Chrome GPU scheduler executes service work; Viz/Skia presents canvas. Native trace does not preserve exact appcall attribution.",
+      "status": "source-derived"
+    }
+  ],
+  "tasks": [
+    {
+      "name": "CommandBufferStub::PerformWork",
+      "count": 10927,
+      "totalMs": 58.748,
+      "maxMs": 0.16,
+      "origin": "WebGL command buffer → GPU process; отправители Passes.*, Buffer.*, Engine._display; exact individual JS stack в trace отсутствует",
+      "semantics": "GPU process CPU wall time; includes waits; NOT GPU shader execution. Nested inclusive spans."
+    },
+    {
+      "name": "WebGL",
+      "count": 704,
+      "totalMs": 705.141,
+      "maxMs": 12.886,
+      "origin": "GPU process WebGL service; отправители Passes.fieldOp/brushPass/deposit и Buffer copy; отдельный shader не идентифицирован",
+      "semantics": "GPU process CPU wall time; includes waits; NOT GPU shader execution. Nested inclusive spans."
+    },
+    {
+      "name": "SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass",
+      "count": 113,
+      "totalMs": 554.985,
+      "maxMs": 456.409,
+      "origin": "Viz/Skia compositor → GPU service; показ canvas, исходный JS метод не установлен",
+      "semantics": "GPU process CPU wall time; includes waits; NOT GPU shader execution. Nested inclusive spans."
+    },
+    {
+      "name": "Scheduler::RunTask",
+      "count": 986,
+      "totalMs": 1379.466,
+      "maxMs": 457.433,
+      "origin": "Chrome GPU scheduler; вложенные сервисные задачи, нельзя складывать с ними",
+      "semantics": "GPU process CPU wall time; includes waits; NOT GPU shader execution. Nested inclusive spans."
+    },
+    {
+      "name": "GLContextEGL::MakeCurrent",
+      "count": 603,
+      "totalMs": 5.836,
+      "maxMs": 0.088,
+      "origin": "GPU service смена GL context; конкретный appcaller не установлен",
+      "semantics": "GPU process CPU wall time; includes waits; NOT GPU shader execution. Nested inclusive spans."
+    }
+  ],
+  "trace": {
+    "file": "scenario.trace.json",
+    "events": 182968
+  }
+}

@@ -1,6 +1,6 @@
 # Реальный Surface call graph, 07.10.2026
 
-Код6aa14a43, isolated dev frontend5344, normal QAbackend4539. Два жеста: round400/water100/pigment100/pressure0.8; зигзаг3s с двумя coalesced samples/frame, затем короткий штрих на втором tail rAF. Это scripted PointerInput handlers, не human physical pen timing. Fine1754×2480, fit40%, Surface Chrome154/IntelIrisXe/DPR2. Остальные performanceflagsOFF, joinedTouchON как production.
+Код6aa14a43, isolated dev frontend5344, normal QAbackend4539. Два жеста: round400/water100/pigment100/pressure0.8; зигзаг3s с двумя coalesced samples/frame, затем короткий штрих на втором tail rAF. Это scripted PointerInput handlers, не human physical pen timing. Fine1754×2480, fit40%, Surface Chrome154/IntelIrisXe/DPR1.5 (canvas1554×1698; по rawpassport). Остальные performanceflagsOFF, joinedTouchON как production.
 
 36 наблюдаемых методов/81 связь. Wrapped sync calls сохраняют this/args/return/throw; generator creation не считается выполнением генератора и исключена. Promise completion не измеряется. Edge — nearest instrumented synchronous caller, а не полный V8 call graph. Сумма totalMs double-counts nested calls; selfMs вычитает только наблюдаемых детей. P95 first≤4096 calls; счётчики/total/max allcalls.
 
@@ -21,3 +21,25 @@ Raw под temp/callgraph-728/report-1791401737504.json и matching cpuprofile; 
 record.mjs использует заранее предоставленный owned CDP9453, own frozen5344 и dependencies из680-device-qa-guards. Не запускает браузер/сервер/туннель самостоятельно. Для нового запуска нужны census/owned lifecycle, memory guard и явное согласование этих портов; старые endpoints не переносить слепо. После recording закрывает только собственную target; внешняя exact browser/task/forward cleanup обязательна.
 
 UI проверен browserHTTP200/data/profile,36nodes/5metrics/top20/logscale/detail/mobile390, ошибок JS нет. Изображения temp/callgraph-728/viewer-{desktop,mobile}.png. Raw профиль можно импортировать в Chrome DevTools Performance.
+
+## GPU/service trace 07.10, следующий захват
+
+`gpu-record.mjs`: тот же release6aa и сценарий, Chrome Tracing GPU/cc/viz/renderer
+вместе с CPU sampling/counters. Raw: temp/gpu-trace-728/report-1791403179659.trace.json
+(182968events,37MiB), matchingreport/cpuprofile. Завершено:2ACK/2RESTidentity,
+GL0/lostfalse. Свои Chromeprofile/task/forward/Vite закрыты; чужие стенды не тронуты.
+
+TailrAF650ms. В GPUprocess SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass
+456.409ms wall vs10.173ms threadCPU; начинается3606ms после startmarker.
+Это сервисная задача compositor с ожиданиями, НЕ456ms исполнения shaderGPU.
+Точная причина ожидания и соответствие отдельной команде приложения не установлены.
+Категории native trace не дали exactJS callerstack; источники команд описаны
+статически в summary иmethodaudit. Inclusive nestedspans не складывать.
+
+Две неудачные подготовительные попытки не входят в dataset: transient missing
+executioncontext и неподнятый Vite из-за системного Node18. Повтор на Node22,
+QA-only alias исправлен в frozenconfig; appsourceSHA совпал сrelease6aa.
+
+Публичный trace очищен: args событий исключены, кроме process/thread names,
+исходных Chrome src_file/src_func/src_line и двух wc400 markers. Полный raw
+остается локально для диагностики. Никакие оптимизации в движок не внесены.
