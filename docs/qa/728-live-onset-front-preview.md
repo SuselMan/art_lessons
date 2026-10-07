@@ -200,12 +200,83 @@ rate0.5×travel0.35×1/4=0.04375 на adjacent density-excess. Это медле
 weights, Vphase и capacity неоднородны. Отдельный flux<0.5byte округляется;
 в локальной равномерной оценке adjacent excess<≈11.4codes уже не даёт одного
 полного code transfer по face. Все входы писать RGBA8 после каждого tiny exchange
-может остановить слабый край и накопить measured mass drift. Fixed25% seed не
-участвует, mobile75% участвует; travel35% снижает обмен, но не следует объявлять
-остальные65% mobile математически навсегда фиксированными при повторных шагах.
+может остановить слабый край и накопить measured mass drift. Уточнение CPU audit:
+в этом actual default run opDry=false, groupDry=true, mobileShare=1; объяснение
+через fixed25% к нему НЕ относится (share0.75 только opDry ветка). Travel35%
+снижает обмен, но не следует объявлять остальные65% mobile математически
+навсегда фиксированными при повторных шагах.
 
 Нужный следующий proof — actual per-cell cost/V/P face excess/rounding у края,
 а не новые tuned steps/rates/tau. Existing canonical dyadic carry + diffusion
 не равны нашему97unitcarry trajectory; широкий canonical финал не доказывает,
 что ранний локальный private solver обязан прийти к нему с этой скоростью.
 Никакого нового GPU прогона или physics-source изменения после negative не было.
+
+### CPU design: canonical multiscale prefix without unfinished-front extrapolation
+
+Не выполнять coarse carry на недосчитанном partialcost: unreached.r=1 означает
+неизвестность, а не доказанную сухую стенку; переход к другому cost между exchanges
+уже не является prefix канонической последовательности. Чистая первая seam —
+после последнего OUTWARD relaxation и copy-to-home pressure, ДО inward mode12,
+band mode6 и remobilisation. Pressure на этой seam — тот же окончательный outward
+cost/g, который позже читает canonical carry. В eeb измеренный mode12 наступил
+472мс после jobstart; этим опытом ещё не доказано время будущего multiscale target.
+
+Capture-private уже владеет исходным mobileP/fixedP/C/V. На outward-complete один
+раз копируется окончательный actualpressure в privatecost. НЕ использовать
+предыдущую97-unit evolvedP как начало; отдельный режим вообще не запускает раннюю
+unit траекторию, чтобы не сбросить её обратно в seed. Далее ordered prefix
+`watercolorCarryStrides(budgetPx)` с ТЕМИ ЖЕ params (rate/travel/phase/band/costMax)
+на частных копиях. Строго останавливаться на первом неподдержанном stride, не
+пропускать его ради более позднего fine шага. No wall-clock radius inflation.
+Это потенциально полезный target<1с для smallblot, но не универсальная гарантия:
+он всё равно ждёт реальный outward-front. Внесение новых промежуточных ops меняет
+только scheduling/presentation, canonical operator sequence/inputs должны остаться.
+
+Стэнсил текущего7b11: WatercolorPasses нормализует u_dir=s/outSize; wcCapillary
+множит его на3/s, следовательно relief footprint ±3 PHYSICAL pixels при любомs.
+Donor-capacity достигает s+3; nestedincomingweight endpoint —2s; costLINEAR требует
+ещё один conservative texel. Reach=max(2s,s+3)+1 (unit5). После префикса с
+максимальным displacement R=sum(strides) перед очереднымs проверить
+R+s+reach(s)≤captured support-to-crop margin по обеим осям. P/C/V/coverage reads
+имеют не больший reach; координатный oracle перечисляет реальные обращения
+(и проверяет выражения исходного7b11 shader/Passes) для1/2/4/8/16/32/64.
+97px margin допускает prefix1/2/4/8/16 (R31), но НЕ32. `temp/onset/multiscale-coordinate-oracle.mjs`
+PASS — геометрическое dependency-доказательство, не pixel/mass/shader oracle.
+
+S1/crop≤512, owner14, knownpositiveprofile/singlepaint/noCarry/finitebounds guards
+и прежние12buffers/12MiB state/17MiB scopedpeak сохраняются. Один pairedC/P шаг
+в work quantum; present после такого же four-stride блока, как canonical carry,
+или после конца допустимого prefix. Cost immutable после outward seam, seed
+immutable; dispose/loss retirement прежние. No extra canonicalcopies/readbacks.
+P-prefix byte-equivalence требует hardware comparison crop↔fullfield на одинаковых
+captured inputs и offset/background/edge negatives. Singlepaint canonical C
+может реконструироваться позже pigmentColor(P,tau), а privateC следует mode16;
+поэтому не обещать C-prefix byte-equivalence без отдельного сравнения. Endpoint
+канонических слоёв всё равно обязан exact. Measured mass/support обязательно,
+никакого MAX-contour или fitted conductivity.
+
+### Остаточная каёмка sheet3: ограничение текущего CPU audit
+
+Изучены именно7b11 source: PlanSHA
+b3a23be4de64a3d3c03a7d97a4b159cb26980b2685cc6891abacf93267340ce9,
+shaderSHA bf97bd94bc9756187918536196528b3fa88ac6348fa75cbc7f2dc6b5156f3857.
+Rootgallery journal ops_3.json SHAecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9
+(42stored/41render,20strokes) отличается от полного historical78seq dump; не
+подменять входы. CPUslotmap: slot1 clear58→pig59, slot2 60→61, slot3 62→63,
+slot4 64→65, slot5 later74→75, slot6 76→77; всеchisel100:100, кроме earlier
+33%/dry0 controls. Predecessors/clear/undo/Dry сохранены в реальном journal.
+Кропы root[910,154..1925,1264,...] определяют шесть случаев, не один genericcircle.
+
+Phase меняет только plateau-парыcost.r≈0 с реальнойV; положительный cost gradient,
+tail capacity и groupTide НЕ выключены. DefaultgroupDry=true: после wetcarry+
+diffusion строится отдельный provisional inkDry/colorDry groupTide по wholecoverage
+(mode19→inward→mode6→gather→modes7/14). GroupTide не читает V и не зависит отphase;
+он остаётся реальным возможным источником dry-only контуров. Diffusion независимо
+использует density2P.b/max(V,0.002); fringe с extendedcoverage иV0 не эквивалентен
+влажному core и может тормозить. Это reachable code paths, НЕ установленная
+причина конкретного остаточного светлого кольца. Базовый slot/line profile должен
+сравнить actualP/C доcarry/послеcarry/последiffuse/доgroupTide/inkDry +composite
+при одном7b11journal. Без таких plane-данных утверждение material-vs-composite
+или groupTide-vs-carry снято. Атлас f877 phase+baked изменяет два флага и не
+показывает7b11stage; широкий светлый ореол сам по себе не доказательство бага.
