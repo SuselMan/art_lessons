@@ -122,3 +122,10 @@ export interface CanonicalCompositeUniforms {
 }
 
 export type CanonicalRasterPhase = 'coverage' | 'pigment' | 'color' | 'all'
+
+export interface CanonicalRasterTargets {
+ readonly coverage:CanonicalGpuField
+ readonly pigment:CanonicalGpuField
+ readonly color:CanonicalGpuField
+ readonly availableWater?:CanonicalGpuField
+}

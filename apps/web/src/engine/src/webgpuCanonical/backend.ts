@@ -4,7 +4,7 @@ import { CanonicalRibbonDeposit } from './deposit'
 import { CanonicalStampDeposit } from './stamp'
 import { CanonicalComposite } from './render'
 import { CanonicalBrushContact } from './brush'
-import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRasterPhase, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
+import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRasterPhase, CanonicalRasterTargets, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
 
 export interface CanonicalWebGpuOptions {
  canvas: HTMLCanvasElement
@@ -33,6 +33,9 @@ export class CanonicalWatercolorWebGpu {
  private readonly context: GPUCanvasContext
  private readonly format: GPUTextureFormat
  private readonly preview: GPURenderPipeline
+ private activeEncoder:GPUCommandEncoder|null=null
+ private activeBuffers:GPUBuffer[]=[]
+ private activeRetired:CanonicalGpuField[]=[]
  private destroyed = false
  readonly device: GPUDevice
  readonly options: CanonicalWebGpuOptions
@@ -88,9 +91,47 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   const texture = this.device.createTexture({ label, size: [width, height], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT })
   const field:CanonicalGpuField={ width, height, label, format: 'rgba8unorm', texture, view: texture.createView() };this.ownedFields.add(field);return field
  }
+ destroyField(field:CanonicalGpuField) {
+  if(this.ownedFields.delete(field)){if(this.activeEncoder)this.activeRetired.push(field);else field.texture.destroy()}
+ }
+ /** Synchronous planner quantum: owner operations join the caller's encoder.
+  * Caller submits it, then invokes release after queue completion. */
+ encodeOwnerCommands<T>(encoder:GPUCommandEncoder,task:()=>T):{value:T;release:()=>void} {
+  if(this.activeEncoder)throw new Error('Nested canonical owner command scope')
+  this.activeEncoder=encoder;this.activeBuffers=[];this.activeRetired=[]
+  try {
+   const value=task(),buffers=this.activeBuffers,retired=this.activeRetired
+   return{value,release:()=>{buffers.forEach(b=>b.destroy());retired.forEach(f=>f.texture.destroy())}}
+  } catch(error) {this.activeBuffers.forEach(b=>b.destroy());this.activeRetired.forEach(f=>f.texture.destroy());throw error}
+  finally {this.activeEncoder=null;this.activeBuffers=[];this.activeRetired=[]}
+ }
+ /** Immutable staging payload is recorded in the same command stream as its
+  * consumers. A later contact upload cannot overwrite an earlier contact. */
+ encodeUploadRgba(encoder:GPUCommandEncoder,field:CanonicalGpuField,bytes:Uint8Array,rawGlRows=false):GPUBuffer[] {
+  if(bytes.length!==field.width*field.height*4)throw new Error('Canonical staging upload dimensions mismatch')
+  const pitch=Math.ceil(field.width*4/256)*256,stagingBytes=new Uint8Array(pitch*field.height)
+  for(let row=0;row<field.height;row++){const sourceRow=rawGlRows?field.height-row-1:row;stagingBytes.set(bytes.subarray(sourceRow*field.width*4,(sourceRow+1)*field.width*4),row*pitch)}
+  const buffer=this.device.createBuffer({size:stagingBytes.length,usage:GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(buffer,0,stagingBytes)
+  encoder.copyBufferToTexture({buffer,bytesPerRow:pitch},{texture:field.texture},[field.width,field.height]);return[buffer]
+ }
+ encodeUploadGlLuminance(encoder:GPUCommandEncoder,field:CanonicalGpuField,bytes:Uint8Array):GPUBuffer[] {
+  if(bytes.length!==field.width*field.height)throw new Error('Canonical luminance upload dimensions mismatch')
+  const rgba=new Uint8Array(bytes.length*4);for(let k=0;k<bytes.length;k++)rgba.set([bytes[k],bytes[k],bytes[k],255],k*4)
+  return this.encodeUploadRgba(encoder,field,rgba,true)
+ }
  upload(field: CanonicalGpuField, bytes: Uint8Array) {
   if (bytes.byteLength !== field.width * field.height * 4) throw new Error(`Canonical RGBA8 upload size mismatch: ${field.label}`)
+  if(this.activeEncoder){this.activeBuffers.push(...this.encodeUploadRgba(this.activeEncoder,field,bytes));return}
   this.device.queue.writeTexture({ texture: field.texture }, bytes as Uint8Array<ArrayBuffer>, { bytesPerRow: field.width * 4 }, { width: field.width, height: field.height })
+ }
+ encodePreparedRibbon(encoder:GPUCommandEncoder,batch:CanonicalRibbonBatch,phase:CanonicalRasterPhase,targets:CanonicalRasterTargets):GPUBuffer[] {
+  if(this.destroyed)throw new Error('Canonical WebGPU backend destroyed')
+  if(!batch.vertices.length)return[]
+  return this.deposit.encode(encoder,batch,targets.coverage,targets.availableWater??this.fields.water,targets.pigment,targets.color,phase)
+ }
+ encodePreparedStamp(encoder:GPUCommandEncoder,stamp:CanonicalStamp,phase:CanonicalRasterPhase,targets:CanonicalRasterTargets):GPUBuffer[] {
+  if(this.destroyed)throw new Error('Canonical WebGPU backend destroyed')
+  return this.stamps.encode(encoder,stamp,targets.coverage,targets.availableWater??this.fields.water,targets.pigment,targets.color,phase)
  }
  appendPreparedRibbon(batch: CanonicalRibbonBatch, phase:CanonicalRasterPhase='all') {
   if (this.destroyed) throw new Error('Canonical WebGPU backend destroyed')
@@ -117,7 +158,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   if(srcOrigin[0]+size[0]>src.width||srcOrigin[1]+size[1]>src.height||dstOrigin[0]+size[0]>dst.width||dstOrigin[1]+size[1]>dst.height)throw new Error('Canonical copy region out of bounds')
   if(src.texture===dst.texture)throw new Error('Canonical texture self-copy unsupported')
   if(!size[0]||!size[1])return
-  const commands=encoder??this.device.createCommandEncoder();commands.copyTextureToTexture({texture:src.texture,origin:[...srcOrigin]},{texture:dst.texture,origin:[...dstOrigin]},[...size]);if(!encoder)this.device.queue.submit([commands.finish()])
+  const selected=encoder??this.activeEncoder;const commands=selected??this.device.createCommandEncoder();commands.copyTextureToTexture({texture:src.texture,origin:[...srcOrigin]},{texture:dst.texture,origin:[...dstOrigin]},[...size]);if(!selected)this.device.queue.submit([commands.finish()])
  }
  copyField(src:CanonicalGpuField,dst:CanonicalGpuField,encoder?:GPUCommandEncoder) {
   if(src.width!==dst.width||src.height!==dst.height)throw new Error('Canonical field copy dimensions mismatch')
@@ -132,6 +173,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   const group=this.device.createBindGroup({layout:this.clearPipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view},{binding:1,resource:{buffer}}]}),pass=encoder.beginComputePass();pass.setPipeline(this.clearPipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil((right-x)/8),Math.ceil((bottom-y)/8));pass.end();return[buffer]
  }
  clearField(field:CanonicalGpuField,rect?:readonly[number,number,number,number]) {
+  if(this.activeEncoder){this.activeBuffers.push(...this.encodeClearField(this.activeEncoder,field,rect));return}
   const encoder=this.device.createCommandEncoder(),transient=this.encodeClearField(encoder,field,rect);this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
  }
  clear() {

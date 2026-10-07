@@ -86,7 +86,8 @@ export class CanonicalRibbonDeposit {
   const uniform = this.device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
   this.device.queue.writeBuffer(uniform, 0, new Float32Array([coverage.width, coverage.height, ...v.worldOrigin, ...v.mottleSeed, v.aaPx, v.washWater, v.waterRetain, v.bristleCombs, v.bristleInk, v.cloudDeposit, v.granDeposit, v.poolBlot, +v.useAvailableWater, 0, ...v.tau, 0]))
   const vertices = this.device.createBuffer({ size: Math.max(batch.vertices.byteLength, 4), usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST })
-  this.device.queue.writeBuffer(vertices, 0, batch.vertices as Float32Array<ArrayBuffer>)
+  const local=batch.vertices.slice();for(let i=0;i<local.length;i+=11){local[i]=batch.vertices[i]-v.worldOrigin[0];local[i+1]=batch.vertices[i+1]+v.worldOrigin[1]}
+  this.device.queue.writeBuffer(vertices, 0, local as Float32Array<ArrayBuffer>)
   const encode = (pipeline: GPURenderPipeline, read: CanonicalGpuField, writes: CanonicalGpuField[]) => {
    const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniform } }, { binding: 1, resource: read.view }, { binding: 2, resource: this.noise.view }] })
    const pass = encoder.beginRenderPass({ colorAttachments: writes.map(field => ({ view: field.view, loadOp: 'load', storeOp: 'store' })) })
