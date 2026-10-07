@@ -3,14 +3,15 @@ import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStr
 import type { PencilEngine } from './index'
 const engines: PencilEngine[] = []
 afterEach(() => { for (const e of engines.splice(0)) if (!e['_destroyed']) e.destroy() })
-async function setup(enabled: boolean) {
+async function setup(enabled: boolean, mixed = false, preset = 'normal:100:100:PB29:round') {
   const { engine: e } = createTestEngine({ userId: 'a' }, { width: 64, height: 64 })
   engines.push(e)
   e.appendOperation(makeLayerAdd('a', 'L'))
   e.setCompositeOrder([{ id: 'L', opacity: 1 }]); e.setActiveLayer('L')
   await paperReady(e)
-  e.setTool('watercolor'); e.setPencil('normal:100:100:PB29:round'); e.setSize(8)
+  e.setTool('watercolor'); e.setPencil(preset); e.setSize(8)
   e['_wcJoinedTouch'] = enabled
+  e['_wcJoinedTouchMixed'] = mixed
   simulateStroke(e, [{ x: 8, y: 32 }, { x: 24, y: 32 }, { x: 40, y: 32 }])
   expect(e['_settle']).not.toBeNull()
   return e
@@ -50,7 +51,8 @@ it('different colour and split presentation preserve the original drain', async 
   }
 })
 it('recorded native nib commands own scalar/array inputs and replay them in their original order', async () => {
-  const e = await setup(true)
+  const e = await setup(true, true, 'normal:100:0:PB29:round')
+  e.setPencil('normal:100:100:PB29:round'); e.setColor([1, 0, 0])
   const nib = vi.spyOn(e as unknown as { _drawRibbonNibPass: typeof e['_drawRibbonNibPass'] }, '_drawRibbonNibPass')
   const bands = vi.spyOn(e as unknown as { _drawRibbonBands: typeof e['_drawRibbonBands'] }, '_drawRibbonBands')
   simulateStrokeStart(e, 24, 32)
@@ -89,7 +91,7 @@ it('a second admission cannot reuse a leased old film and cancellation retires t
 })
 
 it('overlap refuses exported/checkpoint prefixes and loss forgets the lease without source replay', async () => {
-  const e = await setup(true)
+  const e = await setup(true, true)
   simulateStrokeStart(e, 24, 32)
   expect(await e.exportPNG(true)).toBeNull()
   expect(await e.exportReviewImage()).toBeNull()
@@ -150,4 +152,29 @@ it('enabling after an uncaptured predecessor conservatively uses the original dr
   expect(drain).toHaveBeenCalled()
   expect(e['_wcJoinedTouchLease']).toBeNull()
   simulateStrokeEnd(e,40,32)
+})
+
+it('mixed diagnostic owns predecessor finish before new RGB/preset mutates its scratch', async () => {
+  for (const first of ['normal:100:0:PB29:round', 'normal:100:100:PB29:round']) {
+    const e = await setup(true, true, first)
+    const job = e['_settle']!
+    const old = e['_wcJoinedTouchInputs'].get(job)!.finish!
+    expect(old).toBeDefined()
+    const color = [...old.finish!.color]
+    const paints = [...old.paints]
+    const gesture = old.gesture
+    e.setPencil('normal:100:100:PB29:round'); e.setColor([1, 0, 0])
+    const drain = vi.spyOn(e as unknown as { _completeSettle(): void }, '_completeSettle')
+    simulateStrokeStart(e, 24, 32)
+    simulateStrokeMove(e, 40, 32)
+    expect(drain).not.toHaveBeenCalled()
+    expect(e['_wcJoinedTouchLease']).toBe(job)
+    expect(old.finish!.color).toEqual(color)
+    expect([...old.paints]).toEqual(paints)
+    expect(old.gesture).toBe(gesture)
+    expect(job.scratch.gesture).toBeGreaterThan(gesture)
+    expect(job.scratch.runningSourceCommands.length).toBeGreaterThan(0)
+    simulateStrokeEnd(e, 40, 32)
+    expect(drain).toHaveBeenCalled()
+  }
 })

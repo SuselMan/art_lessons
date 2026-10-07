@@ -74,3 +74,33 @@ commands, новое поколение metadata не наследует ста�
 границей 10 000 шагов. Не ошибка физики, raw сохранён.
 
 Финальный lifecycle контроль: 15/15 тестов PASS, whole-web TS exit0.
+
+### Следующая CPU-ступень: вода → пигмент / другой RGB
+
+Отдельный `_wcJoinedTouchMixed=false` допускает изменение watercolor preset/RGB
+только при наличии захваченного `RibbonCanonicalFinish` предыдущего job.
+Захват происходит до будущего `beginStroke`: finish/color, paints, gesture,
+foreign/contact inputs, composite/spacing/direction принадлежат старому job.
+Plan получает собственную копию объединённого dryCtx после fold bounds.
+Новый source deposition использует новый профиль и сохраняется существующим
+immutable source recorder; старый land затем выполняет прежний ordered rebase.
+Дополнительных GPU-команд сам захват не создаёт. Legacy OFF путь не захватывает
+этот контекст и сохраняет прежнее ограничение одинакового preset/RGB.
+
+Сохраняются одна lease/один будущий film, точное совпадение scratch/layer/wash,
+sourceFilmRebase ON, async/material/split OFF, прежние loss/export/checkpoint
+границы. UP всё ещё является барьером. Другая layer/new wash не допускается.
+CPU-тест использует настоящие source calls для чистой воды → красный пигмент и
+старого пигмента → другой RGB; проверяет неизменность старых metadata и наличие
+новых source commands. Это не доказательство GPU P/C/V parity или ускорения:
+следующий обязательный gate — одинаковая material tape/wet metadata, полный
+native/replay P/C/V/coverage и Dry/UndoRedo на железе.
+
+CPU результаты mixed-кандидата: 101 тест / 3 файла PASS (joinedTouch,
+coverageFilm, watercolor), затем усиленные mixed recorder/export/loss 16 / 2
+PASS и финальный gesture identity guard 10 / 1 PASS. Whole-web TypeScript exit0.
+Логи: `temp/pure-water-plan/causal-trace/joined-mixed-{final-tests,recorder-tests,final-guard-tests,types}.log`.
+Ни одна пользовательская сборка не изменена, аппаратного результата у этого
+mixed-кандидата ещё нет. При переносе сохранить root typed `qaJoinedTouch`
+constructor option; данный коммит содержит только расширение диагностического
+private gate, не включение продуктового пути.

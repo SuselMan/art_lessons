@@ -1789,9 +1789,12 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Diagnostic OFF: at most one joined native film may overlap its predecessor. */
   private _wcJoinedTouch = false
+  /** Diagnostic OFF: immutable predecessor admits a changed watercolor mix/RGB. */
+  private _wcJoinedTouchMixed = false
+  private readonly _wcJoinedFinish = new WeakMap<RibbonStrokeScratch, RibbonCanonicalFinish>()
   private _wcJoinedTouchLease: WatercolorSettleQueue['current'] = null
   private readonly _wcJoinedTouchInputs = new WeakMap<NonNullable<WatercolorSettleQueue['current']>, {
-    readonly preset: string; readonly color: readonly number[]; readonly gesture: number
+    readonly preset: string; readonly color: readonly number[]; readonly gesture: number; readonly finish?: RibbonCanonicalFinish
   }>()
   /** Preserve the next film after the preceding settle lands (ADR 011). */
   private _wcSourceFilmRebase = true
@@ -5866,8 +5869,9 @@ export class PencilEngine implements PencilEngineAPI {
       && oldJob.scratch === openTouch.scratch && this._wcJoinedTouchLease === null
       && oldJob.scratch.live
       && touchInputs !== undefined && touchInputs.gesture === oldJob.scratch.gesture
-      && touchInputs.preset === this._opts.pencilType
-      && touchInputs.color.every((c, i) => c === this._opts.graphiteColor[i])
+      && ((this._wcJoinedTouchMixed && touchInputs.finish?.gesture === touchInputs.gesture)
+        || (touchInputs.preset === this._opts.pencilType
+          && touchInputs.color.every((c, i) => c === this._opts.graphiteColor[i])))
       && openTouch.layerId === layerId && openTouch.signature === touchSignature
       && touchNow - openTouch.endedAt <= WASH_JOIN_MS
       && (this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow)
@@ -7554,7 +7558,9 @@ export class PencilEngine implements PencilEngineAPI {
       skipContacts = !!layerId && !rebuildingLayer && !unrecordedPeerInk && pureWaterLayerProof(this._log.entries, layerId, this._snapshots.hasCoverage(layerId),
         this._strokeLayerId === layerId && (this._strokeTool !== 'watercolor' || watercolorMixFromPreset(this._opts.pencilType).pigment > 0))
     }
-    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: scratch.dryCtx } : undefined, presentationOwnerLocked)
+    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: this._wcJoinedTouchMixed && scratch.dryCtx
+      ? { ...structuredClone({ ...scratch.dryCtx, target: undefined }), target: scratch.dryCtx.target }
+      : scratch.dryCtx } : undefined, presentationOwnerLocked)
   }
   private _groupTideOps(
     ops: Array<() => void>, field: SettleField, x0: number, y0: number,
@@ -7730,7 +7736,7 @@ export class PencilEngine implements PencilEngineAPI {
     const job = this._settle
     if (this._wcJoinedTouch && job && scratch === this._ribbonStrokeScratch) {
       // Context colour may alias opts: capture values before later UI mutation.
-      this._wcJoinedTouchInputs.set(job, { preset: this._strokePreset, color: [...this._strokeColor], gesture: scratch.gesture })
+      this._wcJoinedTouchInputs.set(job, { preset: this._strokePreset, color: [...this._strokeColor], gesture: scratch.gesture, finish: this._wcJoinedFinish.get(scratch) })
     }
   }
   private _advanceSettle(): void {
@@ -8318,6 +8324,11 @@ export class PencilEngine implements PencilEngineAPI {
         cancel: lost => { owner._releaseAsyncPresentation(scratch, finish.gesture, lost); release(lost) },
       })
       return
+    }
+    if (this._wcJoinedTouch && this._wcJoinedTouchMixed && !this._wcAsyncFinish && !owned
+      && scratch === this._ribbonStrokeScratch) {
+      owned = scratch.captureCanonicalFinish() ?? undefined
+      if (owned) this._wcJoinedFinish.set(scratch, owned)
     }
     // (#536, §17.22) Whatever the last batches left for the frame lands now,
     // for every ribbon tool: the marker's scratch is torn down right after
