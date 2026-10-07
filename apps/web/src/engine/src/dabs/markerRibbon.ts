@@ -103,7 +103,7 @@ export function nibGeometry(dab: Dab, sizeMultiplier: number, shape: NibShape = 
 
 // A 2px hairline cannot resolve separated bundles. Match wcTipPressure in
 // shaders.ts; preserve actual zero pressure and the release of wider tips.
-function tipContactPressure(pressure: number, radius: number): number {
+export function tipContactPressure(pressure: number, radius: number): number {
   if (pressure <= 0) return 0
   const t = Math.max(0, Math.min(1, radius - 1))
   return Math.max(pressure, 0.06 * (1 - t * t * (3 - 2 * t)))
@@ -206,7 +206,7 @@ function lerpAngle(a: number, b: number, t: number): number {
   return a + d * t
 }
 
-function lerpDab(d0: Dab, d1: Dab, t: number): Dab {
+export function lerpDab(d0: Dab, d1: Dab, t: number): Dab {
   return {
     ...d0,
     x: d0.x + (d1.x - d0.x) * t,
@@ -256,7 +256,7 @@ export function poseSubdivisions(g0: NibGeometry, g1: NibGeometry): number {
  *  box the inset of the shape is exactly the same shape with every extent
  *  reduced by the inset, which is what this relies on; for an ellipse it is an
  *  approximation, and a good one at the sub-pixel insets this is used with. */
-function outlinePoints(nib: NibGeometry, inset: number, segments: number): Array<{ x: number; y: number }> {
+export function outlinePoints(nib: NibGeometry, inset: number, segments: number): Array<{ x: number; y: number }> {
   const a = Math.max(nib.semiMajor - inset, 1e-3)
   const b = Math.max(nib.semiMinor - inset, 1e-3)
   const c = Math.cos(nib.angle), s = Math.sin(nib.angle)

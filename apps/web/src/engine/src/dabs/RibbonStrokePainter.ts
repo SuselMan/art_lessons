@@ -9,6 +9,7 @@ import { RibbonStrokeScratch, type RibbonFinishMetadata } from '../buffers/Ribbo
 import { type PencilPreset } from '../presets/pencilPresets'
 import { type BrushDescriptor, type BrushPressureSettings } from '../presets/digitalBrushPresets'
 import { buildRibbonBands, nibGeometry } from '../dabs/markerRibbon'
+import { buildRibbonBandBatch } from './ribbonBandBatch'
 import { markerThinNibInkGain } from '../dabs/markerInkGain'
 import { wetAt, wetPeak } from '../paper/paperWetness'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
@@ -77,6 +78,8 @@ export class RibbonStrokePainter {
   diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'bottomless'
   diagnosticForeignSolvent = true
   diagnosticSolventField = true
+  /** CPU-only geometry reuse; material doubles and draw order stay unchanged. */
+  diagnosticBandBatch = false
   /** Solver uniforms use the radius recoverable from the recorded dabs. */
   diagnosticCanonicalSettleRadius = true
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'fluid'
@@ -897,21 +900,28 @@ export class RibbonStrokePainter {
     // the band builder walks every consecutive pair and allocates a vertex
     // buffer per segment, which on a densely-spaced brush stroke is the larger
     // half of the CPU work in this method.
-    const bands = profile.stampsOnly ? EMPTY_BANDS : buildRibbonBands(
+    const bandBatch = this.diagnosticBandBatch && segmentMode && inkFor && this.diagnosticSolventField && !profile.stampsOnly
+      ? buildRibbonBandBatch(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, [
+          inkFor,
+          (d0, d1, travel) => ({ ...inkFor(d0, d1, travel), paperWet: wetOf(d1) }),
+          (_d0, d1) => ({ ink: (waterByDab.get(d1) ?? 0) / 4, water: 1, paperWet: 0, strength: 0, puddle: 0, pigmentPool: 0 }),
+        ], film)
+      : null
+    const bands = bandBatch?.[0] ?? (profile.stampsOnly ? EMPTY_BANDS : buildRibbonBands(
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor, film,
-    )
+    ))
 
     // The water phase keeps contact-before metadata; pigment bands sample
     // after-delivery fluid. They share geometry and immutable source dose.
-    const waterBands = segmentMode && inkFor && !profile.stampsOnly
+    const waterBands = bandBatch?.[1] ?? (segmentMode && inkFor && !profile.stampsOnly
       ? buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx,
           (d0, d1, travel) => ({ ...inkFor(d0, d1, travel), paperWet: wetOf(d1) }), film)
-      : bands
-    const solventBands = segmentMode && this.diagnosticSolventField && !profile.stampsOnly
+      : bands)
+    const solventBands = bandBatch?.[2] ?? (segmentMode && this.diagnosticSolventField && !profile.stampsOnly
       ? buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx,
           (_d0, d1) => ({ ink: (waterByDab.get(d1) ?? 0) / 4, water: 1, paperWet: 0,
             strength: 0, puddle: 0, pigmentPool: 0 }), film)
-      : EMPTY_BANDS
+      : EMPTY_BANDS)
 
     // (#536, s17.13) The hairs' bundle count, for the ink pass below and the
     // composite alike - see ribbonBristleCombs.
