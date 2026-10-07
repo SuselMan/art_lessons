@@ -18,3 +18,7 @@ Raw: `680-device-qa-guards/temp/device-runs/samsung-async-room-fifo_179133203367
 ## Уточнение источника
 
 Агент сверил код 7ace и controller: sourceFilmRebase в обеих arms оставался false, тогда как текущая общая ветка имеет true. Следовательно OFF расхождение соответствует ранее найденному дефекту старой модели и не является регрессией текущего общего стенда. ON exact0 подтверждён в указанной старой конфигурации. Для текущей конфигурации готовится отдельный повтор с явным sourceFilmRebase=true и полным паспортом модели; исходные артефакты сохраняются.
+
+## Повтор с текущим исправлением порядка
+
+Повтор `samsung-async-room-fifo_1791332553950` явно имеет sourceFilmRebase=true в обеих arms. Root заново декодировал все PNG: nativeDry→Redo/fresh для pigmentOFF и pigmentON — 0 изменённых RGBA пикселей/max0. Паспорт Adreno650, report closed=true/errors=[], GL0. OFF active max1070ms, следующий обработчик842.3ms/касание1069.9ms после отрыва; ON active50ms, обработчик21.9ms/касание100.3ms. Ограничение разного realtime sampling сохраняется. Это подтверждает корректность обеих arms в текущем порядке; baseline discrepancy предыдущего прогона объяснён.
