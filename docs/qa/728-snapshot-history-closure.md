@@ -109,3 +109,9 @@ a new ordinary snapshot restore. A real same-engine regression confirms that
 historical `layer_add` is exposed in structural mode and excluded again in ordinary
 snapshot mode. The hardware controller records activeId, UI tree and composite
 order after Room synchronization; this does not assume authors share local selection.
+
+### Консервативная проверка исходной структурной базы
+
+В computed structural mode исходный prefix до включительного watermark снимка складывается через настоящий OperationLog и replayLayerState. До передачи bitmap движку проверяется совпадение topology и общих style-полей с сохранённым layerState. Локальные selection/collapse и локализованные имена implicit-слоёв исключены; явный layer_rename, общие lock/ownerLock, opacity и visibility проверяются. Неполный старый prefix приводит к явному отказу, а не к придуманной initial topology.
+
+35 целевых тестов snapshotRestore/structuralSnapshotBase, web typecheck, lint и map:check прошли. Negative fixtures намеренно моделируют неполный legacy-like prefix; это не доказательство ошибки современного fork: residentOperationWhere сохраняет непиксельные move/style-операции. Аппаратный runtime 158ebc9e этих дополнительных проверок ещё не включает.

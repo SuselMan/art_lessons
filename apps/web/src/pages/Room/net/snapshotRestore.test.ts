@@ -531,7 +531,7 @@ it('restores structural prefix before safe bitmap handover, including a deleted 
   const urls:string[]=[]
   global.fetch = vi.fn(async (url:string) => {
     urls.push(url)
-    if(url.endsWith('/snapshots/index')) return {status:200,ok:true,json:async()=>({seq:5,layerState:ONE_LAYER_STATE,layers:[{layerId:'background',seq:5,hash:'safe'}],replayStructure:true,historyLayers:['S']})}
+    if(url.endsWith('/snapshots/index')) return {status:200,ok:true,json:async()=>({seq:5,layerState:{items:{...ONE_LAYER_STATE.items,'layer-1':{kind:'layer',id:'layer-1',name:'Layer',opacity:1,visible:true}},rootOrder:['layer-1','background'],activeId:'layer-1',selectedIds:[]},layers:[{layerId:'background',seq:5,hash:'safe'}],replayStructure:true,historyLayers:['S']})}
     if(url.includes('/operations')) return {status:200,ok:true,json:async()=>url.includes('beforeSeq=6')?prefix:[]}
     return {status:200,ok:true,arrayBuffer:async()=>bytes.slice().buffer}
   }) as unknown as typeof fetch

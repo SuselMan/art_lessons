@@ -127,6 +127,17 @@ export type { DiagLog, PressureMap } from './src/input/PointerInput'
 export { curveLut, isIdentityFilter, normalizeLayerFilter } from './src/filters/layerFilters'
 export type { ReviewExport } from './src/export/Exporter'
 export { pixelWriteLayerIds } from './src/oplog/OperationLog'
+/** Original journal fold for snapshot structure validation, without buffers. */
+export function doneOperationsFromHistory(operations: readonly Operation[]): Operation[] {
+  const log = new OperationLog()
+  for (const op of operations) {
+    log.append(op)
+    if (op.type === 'operation_undo') log.applyUndo(op.targetOpId, op.userId)
+    else if (op.type === 'operation_redo') log.applyRedo(op.targetOpId, op.userId)
+    else if (op.type === 'operation_revoke') log.revoke(op.targetOpId)
+  }
+  return log.doneOperations()
+}
 // (#345, #493) The paper download's progress, for the room's loading overlay.
 export { subscribePaperLoadProgress, type PaperLoadProgress } from './src/paper/paperLoader'
 export type { Matrix3 }
