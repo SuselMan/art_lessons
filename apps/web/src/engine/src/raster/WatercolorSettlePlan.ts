@@ -8,6 +8,7 @@ import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
 import { brushDragContacts, brushDragContactGroups, brushDragField, brushDragMaxExposure, BrushDragRasterWorkspace } from '../watercolor/brushDrag'
 import { brushDragFieldWork } from '../watercolor/brushDragFieldWork'
+import { BrushContactFieldCache } from '../watercolor/BrushContactFieldCache'
 import { foreignWaterStencil } from '../watercolor/foreignWater'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { watercolorDampOver, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME, watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_POOL_STREAK, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE } from '../presets/watercolorPresets'
@@ -65,6 +66,10 @@ export class WatercolorSettlePlan {
   splitQuanta = false
   /** CPU scheduling diagnostic; requires the same canonical owner capability. */
   lazyContacts = false
+  /** Diagnostic OFF: identical contact CPU inputs may recur across boundaries. */
+  diagnosticContactFieldCache = false
+  private readonly _contactFieldCache = new BrushContactFieldCache()
+  get contactFieldCacheStats() { return this._contactFieldCache.stats }
   constructor(ctx: WatercolorSettlePlanContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
 
@@ -310,8 +315,10 @@ export class WatercolorSettlePlan {
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
     const groups = lazyContacts && !skipZeroPigmentContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
-    const workspace = this.diagnosticReuseFlowRaster && !lazyContacts && !skipZeroPigmentContacts ? new BrushDragRasterWorkspace() : undefined
-    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : brushDragContacts(metadata.brushTravel, contactRect, workspace)
+    const workspace = this.diagnosticReuseFlowRaster && !this.diagnosticContactFieldCache && !lazyContacts && !skipZeroPigmentContacts ? new BrushDragRasterWorkspace() : undefined
+    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : this.diagnosticContactFieldCache
+      ? this._contactFieldCache.contacts(metadata.brushTravel, contactRect)
+      : brushDragContacts(metadata.brushTravel, contactRect, workspace)
     if (workspace) {
       this.flowRasterStats.allocations += workspace.allocations
       this.flowRasterStats.reuses += workspace.reuses
@@ -1382,6 +1389,7 @@ export class WatercolorSettlePlan {
 
   destroyTextures(): void {
     this._brushFlowSize = [0, 0]
+    this._contactFieldCache.clear()
     this._releaseContactPixels()
     for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage()
     this._coverageOwners.clear()
@@ -1393,6 +1401,7 @@ export class WatercolorSettlePlan {
 
   forgetTextures(): void {
     this._brushFlowSize = [0, 0]
+    this._contactFieldCache.clear()
     this._releaseContactPixels()
     for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage(true)
     this._coverageOwners.clear()
