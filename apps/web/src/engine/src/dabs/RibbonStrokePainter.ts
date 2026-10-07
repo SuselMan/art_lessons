@@ -971,6 +971,11 @@ export class RibbonStrokePainter {
       // Only the queued GPU geometry receives owned copies after logical preparation.
       drawable = drawable.map(original => {
         const copy = { ...original }
+        // Coverage still reads the recorded contact through wetOf, whose
+        // index is keyed by Dab identity. The owned geometry must keep that
+        // index too; a missing clone key would silently turn wet contact dry.
+        const contactIndex = wetIndex.get(original)
+        if (contactIndex !== undefined) wetIndex.set(copy, contactIndex)
         for (const values of [waterByDab, pigmentByDab, paperWetByDab, pigmentPoolByDab, excessByDab, puddleByDab]) {
           const value = values.get(original)
           if (value !== undefined) values.set(copy, value)
