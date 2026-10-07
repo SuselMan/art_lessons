@@ -21,3 +21,14 @@ DEFAULT оставляет поля painter исходной версии. c199 
 Сохранить pre-Dry/final/transparent wholePNG, непустые реальные P/C/coverage ROI у slot2, ledger и реальные flags. Byte sums разных исторических форматов нельзя напрямую называть изменением физической массы: 2e6a поменял record headroom. Вывод о каёмке требует одинаковой области исходного original-dab boundary и visual/profile comparison; только снижение общей плотности не является устранением каёмки.
 
 CPU runner/temp/regression/run.mjs и probe.js проверены syntax/embedded compile и source SHA preflight. HOME immutable runtime: 680-water-wet-tone-qa/temp/ring-regression-cea. Первая/вторая попытки16684/19807 остановлены ДО Chrome порогом RAM1700 (1618/1635MiB), не являются engine failures. Own Vite5335 PID1304963 безопасно заменён лёгким Python staticHTTP PID1308635 после exact cwd/argv и EMPTY established census; исходники не изменены. Предыдущее состояние сохранено. Actual hardware pending; новые результаты добавляются отдельно.
+
+
+## Подтверждённая аппаратная скобка DEFAULT
+
+Corrected session17153 завершён EXIT0, completed=true, ownedChromeClosed=true. Все три arms прошли paperReady, page3508×2480/Medium, actual target61 material capture до исходного Dry, GL0/lostfalse/errors[]. Полный исходный журнал сохранён. Raw HOME: `680-water-wet-tone-qa/temp/ring-regression-cea/temp/static-material-retry1`; копии report и трёхчастного атласа VPS: `temp/regression/three-arm-report.json`, `temp/regression/slot2-three-arm-atlas.png` этого worktree.
+
+На одинаковом slot2 у 0a78 DEFAULT нет замкнутой светлой внутренней линии, у c199 DEFAULT она есть; root независимо просмотрел одинаковые crops и подтвердил регрессию. REVIEW c199 тоже имеет линию. Следовательно, исторические REVIEW flags не являются необходимым условием дефекта. Это пока скобка, не первый плохой коммит и не причинная атрибуция shader diff.
+
+Фиксированный левый boundary darkness dip: old DEFAULT0, c199 DEFAULT0.048832, c199 REVIEW0.034578. Это PNG-профиль, не физическая масса. P/C capture используется как nonempty guard; headroom между историческими версиями отличается, raw byte sums нельзя сравнивать как conserved mass. Первичный static-first guard после Dry был неверным и остаётся INVALID; corrected capture непосредственно после target61 сохраняет числовые результаты до retirement scratch.
+
+Следующий условно разрешённый midpoint: 11ee5ab6 DEFAULT, session16825, тот же журнал/bundle passport, raw `temp/midpoint-11ee-default`. При запуске MemAvailable2047MiB, append originalseq48 после27.1s, error=null. Hardware midpoint ещё pending; первый bad не объявляется до одинаковой parent/child пары.
