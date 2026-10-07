@@ -13,6 +13,9 @@ const engine={gl,_settlePlan:plan,_watercolorPasses:passes,_paper:{scale:1}},old
 const qa=installNeighborhood(engine,{cap:2});qa.begin({id:'Gq9CPrzxWh',seq:64,type:'stroke'});plan.prepare(scratch);
 assert.equal(passes.diffuseStep(field,980,1220,1,3508,2480,field.a,field.b,1,false,field.coverage,field.a,null),'diffuse-return');
 assert.equal(bound,'original');assert.equal(qa.rows.length,2);assert.equal(qa.rows[0].fields.src.bytes.length,80);assert.equal(qa.rows[0].fields.src.read.center[1],4);assert.equal(qa.rows[0].fields.src.bytes[0],7);
+assert.equal(qa.rows[0].donors.ink.patches.length,9);assert.ok(qa.rows[0].donors.ink.patches.some(p=>p.read[2]<5));assert.ok(qa.rows[0].donors.ink.patches.filter(p=>!p.outside).every(p=>p.read[2]*p.read[3]<=25));assert.equal(qa.rows[0].unusedArguments.density.bound,false);assert.equal(qa.rows[0].unusedArguments.solvent.bound,false);assert.equal(qa.rows[0].externalUpload.known,false);assert.equal(qa.rows[0].paperDonors.known,false);
 passes.diffuseStep(field,980,1220,1,3508,2480,field.b,field.a,1,false,field.coverage,field.b,null);assert.equal(qa.summary().truncated,true);
 qa.dispose();assert.equal(plan.prepare,oldPrepare);assert.equal(passes.fieldOp,oldFieldOp);assert.ok(calls>0);
 console.log('5 mapping/selection/GL-state/return/restore negative controls PASS');
+
+const qa2=installNeighborhood(engine,{cap:4,paperBytes:new Uint8Array([1,0,2,0,3,0,4,0]),paperResolution:2});qa2.begin({id:'Gq9CPrzxWh',seq:64,type:'stroke'});passes.diffuseStep(field,980,1220,1,3508,2480,field.a,field.b,64,false,field.coverage,field.a,null);assert.ok(qa2.rows[0].donors.ink.patches.some(p=>p.outside));assert.equal(qa2.rows[0].paperDonors.known,true);assert.equal(qa2.rows[0].paperDonors.uploadBindingVerified,false);assert.equal(qa2.rows[0].paperDonors.samples.filter(x=>!x.outside)[0].heightBytes.length,4);qa2.dispose();console.log('actual donor patches/unused bindings/unknown provenance/paper view controls PASS');
