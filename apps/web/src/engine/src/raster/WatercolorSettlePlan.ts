@@ -638,7 +638,7 @@ export class WatercolorSettlePlan {
     const partialStepLimit = Math.max(0, Math.floor(Math.min(bounds.minX - x0, bounds.minY - y0,
       x1 - bounds.maxX, y1 - bounds.maxY)) - 5)
     let partialSteps = 0
-    const partialEnabled = partialStepLimit > 0 && this.diagnosticPartialFrontPreview && !!preview && S === 1
+    const partialEnabled = presentationOwnerLocked && partialStepLimit > 0 && this.diagnosticPartialFrontPreview && !!preview && S === 1
       && w <= 512 && h <= 512 && overlaps.length === 1 && metadata.paints.size === 1
       && overlaps[0].tile.buffer.width <= 512 && overlaps[0].tile.buffer.height <= 512
       && !this.ctx.ab().noCarry

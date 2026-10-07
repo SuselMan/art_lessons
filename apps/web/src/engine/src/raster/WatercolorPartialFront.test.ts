@@ -8,7 +8,7 @@ import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { SettleField } from '../buffers/SettleField'
 
 type Probe = { _ribbonScratchPool: RibbonScratchPool; _watercolorPasses: WatercolorPasses; _settlePlan: WatercolorSettlePlan; _fieldCache: SettleField[] }
-function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, oy = 0, edge = false, narrow = false) {
+function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, oy = 0, edge = false, narrow = false, owner = true) {
   const { engine } = createTestEngine({ paper: 'flat' }, { width: side, height: side })
   const p = engine as unknown as Probe, pool = p._ribbonScratchPool, tile = pool.acquire(side, side)
   const scratch = new RibbonStrokeScratch(pool, true, true)
@@ -21,7 +21,7 @@ function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, o
   const fieldOp = vi.spyOn(p._watercolorPasses, 'fieldOp')
   const preview = vi.fn()
   const plan = p._settlePlan.prepare(scratch, [{ buffer: tile, originX: ox, originY: oy, contentRect: null }],
-    { minX: ox + (edge ? 0 : narrow ? side / 2 - 12 : 20), minY: oy + (narrow ? side / 2 - 12 : 20), maxX: ox + (narrow ? side / 2 + 12 : 44), maxY: oy + (narrow ? side / 2 + 12 : 44) }, 0, narrow ? 1 : 8, narrow ? 0 : 1, narrow ? 0 : 1, narrow ? 0 : 1, narrow ? 0 : 1, 0, preview, false, undefined, split)!
+    { minX: ox + (edge ? 0 : narrow ? side / 2 - 12 : 20), minY: oy + (narrow ? side / 2 - 12 : 20), maxX: ox + (narrow ? side / 2 + 12 : 44), maxY: oy + (narrow ? side / 2 + 12 : 44) }, 0, narrow ? 1 : 8, narrow ? 0 : 1, narrow ? 0 : 1, narrow ? 0 : 1, narrow ? 0 : 1, 0, preview, false, undefined, owner)!
   const field = p._fieldCache[0], owned = (p._settlePlan as unknown as { _ownedInputs: Set<AccumulationBuffer> })._ownedInputs
   return { engine, p, pool, tile, scratch, fieldOp, preview, plan, field, owned,
     cleanup() { fieldOp.mockRestore(); plan.dispose(); scratch.destroy(); pool.release(tile); engine.destroy() } }
@@ -91,6 +91,12 @@ describe('cropped presentation-only partial front', () => {
         }
       } finally { for (const spy of spies) spy.mockRestore() }
     } finally { f.cleanup() }
+  })
+
+  it('requires immutable presentation owner even when splitQuanta is off', () => {
+    const f = fixture(true, false, 64, 1, 0, 0, false, false, false)
+    try { f.plan.ops[0](); f.plan.ops[1](); expect(f.owned.size).toBe(1) }
+    finally { f.cleanup() }
   })
 
   it('rejects a source envelope at the crop edge and bounds unit transport before the guard ring', () => {
