@@ -1860,6 +1860,7 @@ export class PencilEngine implements PencilEngineAPI {
     backlogMax: () => this.settleBacklogMax,
     syncGpu: () => this.gl.finish(),
     continuationSyncGpu: () => this._syncContinuationGpu(),
+    continuationFailed: error => { this._wcAsyncError = error; this._cancelSettle() },
     noteActivity: now => { this._washActiveAt = now },
     scheduleFieldRelease: () => this._scheduleFieldRelease(),
   })

@@ -84,6 +84,16 @@ describe('canonical continuation completion clock', () => {
     expect({ size: groups.size, px: groups.px }).toEqual(initial); engine.destroy()
   })
 
+  it('reports a failed clock to the actual Engine error owner and cancels pending canonical waiters', async () => {
+    const { engine } = fixture(); engine['_wcAsyncFinish'] = true
+    const cancelled = vi.fn(), error = Error('completion allocation failure')
+    engine['_wcCanonical'].enqueue({ execute: function* () { yield 1 }, cancel: cancelled })
+    const ready = engine['_wcCanonical'].ready()
+    engine['_settleQueue']['ctx'].continuationFailed!(error)
+    expect(engine['_wcAsyncError']).toBe(error); expect(engine['_wcCanonical'].pending).toBe(false)
+    expect(cancelled).toHaveBeenCalledOnce(); await expect(ready).resolves.toBe(false); engine.destroy()
+  })
+
 })
 
 it('reports real canonical ownership and cancellation to the continuation gate', () => {

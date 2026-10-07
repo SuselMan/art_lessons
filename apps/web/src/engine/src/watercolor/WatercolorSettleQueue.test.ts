@@ -149,14 +149,14 @@ describe('synchronous drain presentation gate', () => {
 describe('budgeted continuation task ownership', () => {
   function taskFixture() {
     vi.useFakeTimers()
-    const f = fixture(), sync = vi.fn(), calls: number[] = []
+    const f = fixture(), sync = vi.fn(), abort = vi.fn(), calls: number[] = []
     let drawing = false
     const ctx = (f.queue as unknown as { ctx: { syncGpu: () => void; canonicalBacklogSize: () => number; isDrawing: () => boolean } }).ctx
     ctx.syncGpu = sync; ctx.canonicalBacklogSize = () => 3; ctx.isDrawing = () => drawing
     vi.stubGlobal('scheduler', undefined)
     f.queue.continuationTasksEnabled = true
-    f.queue.start(f.scratch, Array.from({ length: 30 }, (_, i) => () => calls.push(i)), () => calls.push(99), { isAlive: () => true, abort() {} })
-    return { ...f, calls, sync, draw: () => { drawing = true } }
+    f.queue.start(f.scratch, Array.from({ length: 30 }, (_, i) => () => calls.push(i)), () => calls.push(99), { isAlive: () => true, abort })
+    return { ...f, calls, sync, abort, draw: () => { drawing = true } }
   }
   afterEach(() => vi.useRealTimers())
   it('retains exact order and forces a frame after two bounded tasks', () => {
@@ -211,6 +211,24 @@ describe('budgeted continuation task ownership', () => {
     f.queue.start(f.scratch, [() => f.calls.push(0), () => { f.calls.push(1); alive = false }, () => f.calls.push(2)], () => f.calls.push(3), { isAlive: () => alive, abort })
     f.frame(); expect(f.calls).toEqual([0, 1]); expect(f.sync).toHaveBeenCalledTimes(1)
     vi.runAllTimers(); f.frame(); expect(abort).toHaveBeenCalledTimes(1); expect(f.calls).toEqual([0, 1])
+  })
+
+  it('reports an actual continuation failure and cancels owned work instead of retrying', () => {
+    const f = taskFixture(), failed = vi.fn()
+    const ctx = (f.queue as unknown as { ctx: { continuationSyncGpu: () => void; continuationFailed: (error: unknown) => void } }).ctx
+    ctx.continuationFailed = failed
+    f.frame(); ctx.continuationSyncGpu = () => { throw Error('completion fence failed') }
+    vi.runAllTimers()
+    expect(failed).toHaveBeenCalledOnce(); expect(String(failed.mock.calls[0][0])).toContain('completion fence failed')
+    expect(f.queue.current).toBeNull(); expect(f.frames.size).toBe(0); expect(vi.getTimerCount()).toBe(0)
+    expect(f.calls).toEqual([0, 1, 2, 3, 4, 5]); expect(f.abort).toHaveBeenCalledOnce()
+  })
+  it('surfaces an actual frame-run failure when no error owner is installed', () => {
+    const f = taskFixture()
+    const ctx = (f.queue as unknown as { ctx: { continuationSyncGpu: () => void } }).ctx
+    ctx.continuationSyncGpu = () => { throw Error('clock failure') }
+    expect(() => f.frame()).toThrow('clock failure'); expect(f.queue.current).toBeNull()
+    vi.runAllTimers(); expect(f.calls).toEqual([0, 1])
   })
 
 })
