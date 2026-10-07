@@ -48,3 +48,31 @@ must belong to this Room. This root-controller lifecycle step is REQUIRED and
 is not automatically performed by this page function. Source/runtime/own browser
 cleanup must be reported independently. Current preparation has no hardware
 results and must not change product flags based on CPU/fake Room controls.
+
+## Root-ready Surface controller (CPU prepared)
+
+`controller.mjs` adapts the accepted joined-deferred controller. It will connect
+only to an explicitly verified OWN Surface CDP/profile supplied by root, never
+launch browser/device itself. Allowed app port5347 only; exact source HEAD must
+match QA_EXPECTED_HEAD and full QA_RUNTIME manifest files plus actual served
+critical raw sources SHA are checked. Out dir must be new, no raw overwrite.
+RAM1700MiB before each arm;500MiB watchdog during owned run;360s wall/arm. Source
+and device ownership must be externally verified, not inferred from port.
+
+Required env: QA_APP, QA_RUNTIME, QA_MANIFEST, QA_EXPECTED_HEAD, QA_OUT, QA_DEPS,
+QA_SURFACE_CDP, QA_SURFACE_OWN_PROFILE, QA_SURFACE_MEMORY_PROBE (JSON describing
+existing approved read-only memory probe). No commands/credentials are printed.
+CPU check `node --check .../controller.mjs` and `node .../controller.test.mjs`.
+Do not execute hardware without root grant.
+
+Both room URLs use `qaJoinedTouch=1&qaJoinedFinishDeferred=1`. BEFORE first stroke
+explicit `_wcJoinedFinishDeferred=true` QA baseline handles a ctorfalse runtime;
+full before/after flags recorded. async/material/split must already be false,
+sourceFilmRebase true, joined ctor true; any prior stroke/settle/canonical input
+refuses baseline. Only mixed flag differs. Bootstrap-only bypass is rejected.
+Actual source/model defaults remain untouched. Full UI Dry/Undo/Redo/fresh,
+nonempty wholeRGBA, authoritative undo-target state and room-specific persisted
+payload checks are retained. At final pair require aligned full fields/dimensions,
+materialSHA and wholeRGBA equality. Failure partial/DOM/state retained; own
+contexts/CDP disconnected in finally. External exact task/profile process
+cleanup stays with root and is explicitly NOT claimed by controller.
