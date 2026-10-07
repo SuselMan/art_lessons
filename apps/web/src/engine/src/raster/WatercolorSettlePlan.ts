@@ -620,7 +620,14 @@ export class WatercolorSettlePlan {
     }
     // The real field is at least 1536². Crop the active S=1 rectangle, not
     // field.w/h; no canonical field resize, scissor or UV change is allowed.
-    const partialEnabled = this.diagnosticPartialFrontPreview && !!preview && S === 1
+    // A unit carry moves support by at most one pixel and cost capillary
+    // samples read three pixels past a neighbouring donor. Five guard
+    // pixels include that four-pixel stencil and LINEAR half-texel. Stop before either can
+    // reach the cropped sampler edge; do not invent a zero/clamped wall.
+    const partialStepLimit = Math.max(0, Math.floor(Math.min(bounds.minX - x0, bounds.minY - y0,
+      x1 - bounds.maxX, y1 - bounds.maxY)) - 5)
+    let partialSteps = 0
+    const partialEnabled = partialStepLimit > 0 && this.diagnosticPartialFrontPreview && !!preview && S === 1
       && w <= 512 && h <= 512 && overlaps.length === 1 && metadata.paints.size === 1
       && overlaps[0].tile.buffer.width <= 512 && overlaps[0].tile.buffer.height <= 512
       && !this.ctx.ab().noCarry
@@ -648,7 +655,8 @@ export class WatercolorSettlePlan {
       if (solvent) cropSource(solvent, partial.volume); else partial.volume.clear()
     }
     if (partialEnabled) partialFrontPreview = cost => {
-      if (!partial || disposed || this.ctx.shouldPreview?.() === false) return
+      if (!partial || disposed || partialSteps >= partialStepLimit || this.ctx.shouldPreview?.() === false) return
+      partialSteps++
       // One unit exchange per existing outward entry, evolving only the
       // private presentation copy. The four seed records remain immutable.
       cropSource(cost, partial.cost)
