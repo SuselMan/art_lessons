@@ -328,6 +328,23 @@ export class AccumulationBuffer {
     return pixels
   }
 
+  /** Owned tight bottom-up readback for a snapshot's page-clipped edge tile. */
+  readPixelsRegion(x: number, y: number, width: number, height: number): Uint8Array {
+    const pixels = new Uint8Array(width * height * 4)
+    if (!width || !height) return pixels
+    const { gl } = this
+    const pack = (gl.getParameter(gl.PACK_ALIGNMENT) as number | null) ?? 4
+    if (pack !== 4) gl.pixelStorei(gl.PACK_ALIGNMENT, 4)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    try {
+      gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      if (pack !== 4) gl.pixelStorei(gl.PACK_ALIGNMENT, pack)
+    }
+    return pixels
+  }
+
   restorePixels(pixels: Uint8Array): void {
     this._invalidateMips()
     const { gl, width, height } = this

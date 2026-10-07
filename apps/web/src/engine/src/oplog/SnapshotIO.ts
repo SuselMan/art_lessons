@@ -21,7 +21,7 @@
 import type { Operation } from '@grafetto/shared'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { packTilePixels } from '../buffers/pinnedTiles'
-import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from '../buffers/retileSnapshot'
+import { isFullyTransparent, retileSnapshotTiles } from '../buffers/retileSnapshot'
 import type { CheckpointStore } from './checkpointStore'
 import { OperationLog, type PixelOperation } from './OperationLog'
 import type { SnapshotRestoreAudit } from './snapshotAudit'
@@ -108,10 +108,14 @@ export class SnapshotIO {
   private _bakeTiles(buf: ILayerBuffer): SnapshotTile[] {
     const page = this.ctx.infinite ? null : this.ctx.pageSize()
     return buf.allResident().flatMap(({ buffer, originX, originY }) => {
-      const pixels = buffer.readPixels()
-      const tile = page
-        ? clipTileToPage(originX, originY, buffer.width, buffer.height, pixels, page)
-        : { originX, originY, width: buffer.width, height: buffer.height, pixels }
+      // Exactly clipTileToPage's right/bottom geometry; read only its kept
+      // top-world rows directly, which are the final rows of the GL texture.
+      const width = page ? Math.max(0, Math.min(buffer.width, page.w - originX)) : buffer.width
+      const height = page ? Math.max(0, Math.min(buffer.height, page.h - originY)) : buffer.height
+      const pixels = width === buffer.width && height === buffer.height
+        ? buffer.readPixels()
+        : buffer.readPixelsRegion(0, buffer.height - height, width, height)
+      const tile = { originX, originY, width, height, pixels }
       return isFullyTransparent(tile.pixels) ? [] : [tile]
     })
   }
