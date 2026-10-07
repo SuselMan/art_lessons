@@ -28,3 +28,21 @@ RGBA equality и count removed draw. 9MiB соответствует1536²RGBA8 
 Аппаратные проверки, обновление runtime и публикация здесь не выполнялись.
 
 CPU raw (ignored): temp/preview/{tests.log,types.log,old-negative.log}.
+
+## Аппаратное сравнение и интеграция
+
+Vega, immutableBASE4ad7/CANDIDATEc740 по987sourceSHA. Six sequential arms,
+S2single/S1single/mixedtwo-color; sameinputSHA, одинengine за раз. Report
+completedtrue/ownedChromeClosedtrue, всеengineClosedtrue/GL0/lostfalse.
+Root независимо прочитал `728-preview-unused-color/temp/hardware/final-report.json`.
+
+Во всех трёх парах wholeDrydecodedRGBAexact и beforeDrymaterialSHAexact.
+MatchedpreviewP/C/coverage exact на2/3/6ordinals соответственно; остальные
+непопавшие вcapturecap кадры не считаются проверенными. S2fieldcolor4→1,
+tilepigmentColor44→44; S1field4→4/tile0→0; mixedfield0→0. PositiveP/C/V
+guards достигнуты. Mixed — directDabfixture, не Room/ACK проверка.
+
+Интегрировано root5077eecc. Productionchange только удаляет нечитавшийся
+intermediate; shared/shaders/physics и cadence не изменены. Fullengine
+проверка запущена, no FPS/initialhitch speed claim. User5329 покаd88.
+RawHOME:`680-water-wet-tone-qa/temp/preview-color-c740-4ad7/temp/first/`.
