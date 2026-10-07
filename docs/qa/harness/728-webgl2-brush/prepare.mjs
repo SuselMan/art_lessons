@@ -1,0 +1,15 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {brushVariants} from './shaders.mjs';
+const root=new URL('../../../../',import.meta.url);
+const shaders=readFileSync(new URL('apps/web/src/engine/src/raster/shaders.ts',root),'utf8');
+const extract=name=>{const m=shaders.match(new RegExp('export const '+name+' = `([\\s\\S]*?)`;'));if(!m)throw Error('Actual production template missing '+name);return m[1]};
+const early=readFileSync(new URL('apps/web/src/engine/src/watercolor/brushDragEarlyZero.ts',root),'utf8').replace('export function brushDragEarlyZero(source: string): string','function brushDragEarlyZero(source)');
+const transform=new Function(early+';return brushDragEarlyZero')();
+const variants=brushVariants(extract('DISPLAY_VERT'),transform(extract('WC_BRUSH_DRAG_BASELINE_FRAG')));
+const probe=readFileSync(new URL('./probe.js',import.meta.url),'utf8');new Function('return '+probe);
+const sha=s=>createHash('sha256').update(s).digest('hex');
+const input={variants,cases:[{name:'zero-flow',size:16,pulses:1,zero:true},{name:'wet-capacity',size:16,pulses:3},{name:'partial-scissor',size:128,pulses:2,partial:true},{name:'brush400-field',size:512,pulses:1,step:100}],sourceShadersSHA:sha(shaders),variantSHA:Object.fromEntries(Object.entries(variants).map(([k,v])=>[k,sha(v)]))};
+if(!process.env.WC_PREPARED_FILE)throw Error('Explicit output required; no browser launch');
+writeFileSync(process.env.WC_PREPARED_FILE,JSON.stringify({input,probe,probeSHA:sha(probe),scope:'isolated primitive; no Room/physics/default/runtime migration'}));
+console.log(JSON.stringify({compiledJS:true,variants:input.variantSHA,cases:input.cases.length}));
