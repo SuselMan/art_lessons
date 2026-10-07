@@ -119,3 +119,37 @@ Raw HOME folders: `results-wet-capture-corrected-7b11`, `results-wet-clean-7b11`
 under `680-water-wet-tone-qa/temp/async-multiplayer/`.
 The first `results-wet-capture-7b11` is a fixture failure: wrappers were not
 installed and mandatory capture correctly failed. Its raw report is retained.
+
+### Full staged material oracle (source7b11)
+
+Diagnostic readback preserved framebuffer binding, delegated original generators
+once and kept their yields/result identity (CPU transparency check passed).
+Full-tile SHA256 plus channel sums and a bounded32×32 ROI were captured before
+Plan.prepare and after finish. SHA implementation matched Node crypto vectors
+including4MiB; fields were processed one at a time. First attempt stopped at
+497.65MiB by the unchanged500MiB guard. A later streaming-SHA run had1988MiB
+preflight headroom and closed normally.
+
+The completed run preserved the dry mismatch:199pixels/max127, alphaMax127,
+premultMax18.56. Its diagnostic exit0 means records were collected, not parity
+PASS. Two independent fresh remote-only engines replayed the identical four-op
+tape: all six stages' full material SHA and whole RGBA were exact0.
+
+Native/remote initial loaded stroke matched all seven source fields and all
+nine available finished fields. The first divergence was the next pure-water
+stroke's coverage before prepare: fullSHA differed; channel sums R/B/A agreed,
+G was667122 vs648187. All P/C/V and film/dry fields still matched. On the
+subsequent foreign dry-pigment stroke, P.g and coverage diverged before settle,
+while P.b/P.a mass, C and V remained exact. The remote A result matched fresh
+replay; native B differed. This localizes the earliest material discrepancy to
+coverage/source-contact chronology; it does not yet identify an operator fix.
+
+Prepare physical parameters bloom/water/wet/radius matched; differing request
+metadata was owner capability and owned finish direction/spacing. Core material
+dab fields x/y/size/angle/aspect/t matched in the earlier captured native/remote
+streams. ROI does not cover the entire painted footprint; full SHA proves a
+field difference, but no spatial localization outside ROI is claimed.
+
+Raw HOME `results-material-stream-7b11/report.json`, VPS copied
+`temp/async-multiplayer/material-stream-7b11-report.json`. No source/operator,
+production flag or pixel tolerance changed.
