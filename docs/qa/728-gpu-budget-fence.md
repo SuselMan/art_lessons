@@ -185,3 +185,71 @@ tick7 начался10620.7, разрыв916.2ms. Соседние advance job1 
 операции в этом окне не профилировались. Наблюдались38 async advances;
 синхронный complete не проходит тот же advance wrapper, поэтому38 не полное
 число физических шагов.
+
+### Default d88 passive attribution, Samsung 1417
+
+Actual start06:52:09UTC, terminal06:52:46; сообщение о06:54 было ошибкой часов.
+Один свежий обычный Room/default flags, pure400 три секунды/второй touch/Dry,
+без дополнительного V readback и без экспорта до конца хвоста. Собственный1417
+закрыт; ACK2/GL0/lostfalse. Active180frames/max33.4ms, nexttouch62ms,
+нативный tail1003ms. Диагностические policy/source не менялись.
+
+Пассивные wrappers: gl.finish/readPixels/checkFramebufferStatus, actual
+Engine runSlice/finish/complete/display/compose/paint/snapshot иQueue.syncGpu;
+события>=2ms ограничены512, overflow=false. Вложенные durations неаддитивны.
+Для default batchingOFF вызовы gl.finish/Queue.syncGpu/runSlice/checkFB=0 —
+это соответствует реальной Queue ветке, а не отсутствие GPU работы.
+FinishRibbon max6.9ms, completeSettle10.9ms, paintStrokeDabs30.9ms,
+display8.9ms, composePaper0.5ms. Между tick6end11019.7 иtick7at12019.7
+1000ms; display11019.7..11022.7 занял3ms, следующий12020.1..12024.1 —4ms.
+Ни snapshot, ни readPixels в этом окне не было. Wrapper coverage не равна
+полному JS/GPU trace: точный GPU shader/браузерный stall всё ещё не доказан.
+
+Позже обнаружены20 bakeNetworkSnapshot attempts,109readPixels total,
+bake max47.3ms/read max56.5ms. Первый bake только13468.7, после1000ms окна;
+затем пустой pure-water dry слой повторно читается примерно раз в секунду.
+Worker/upload0. SnapshotIO.bake возвращаетnull при !tiles.length без
+markPublished, bootstrap tryFirstSnapshot оставляет dirty слой retryable.
+Это отдельный CPU/readback расход, не причина обнаруженного1s окна.
+
+Raw: `temp/fence-hardware/native-room-currentpureattribution_1791355929500/report.json`.
+Новых GPU прогонов/source changes после этого не выполнялось.
+
+### CPU-only следующий pure-water fast path: границы доказательства
+
+Принцип cross-device-determinism: OperationLog неизменён; оптимизируем только
+оператор, тождественный на доказанном нулевом P/C, сохраняя воду и ownership.
+Current skipZero proof + captured known-zero scratch подтверждает логические
+P=C=0; это **не** означает, что все используемые FBO содержат0 во все моменты.
+
+Кандидаты на identity skipping после отдельного oracle: paired carry15/16,
+P/C diffuseStep, remobilisation18/split3, bloom/rim pigment gathers,
+settled-slice accumulation/fibre1, итоговое pigment/tide sum. Их логические
+нулевые P/C outputs следует сохранять как явные нулевые ссылки/clear, включая
+правильную ping-pong parity. Shader zero-preservation каждого семейства ещё
+нужно проверить; hardware1412 доказывает конечные поля, не каждый промежуточный
+оператор. Colour reconstruction2 от нулевого deposit также кандидат, но её
+назначение может быть running source/base, поэтому не вырезать wholesale.
+
+**Coupled, не удалять:** capture solvent/foreign solvent/coverage;
+front seed10/outward/inward waterFrontStep; coverage extension11/merge20;
+band6/mask5; copy-back coverage, solvent/source chronology иfinish/dispose.
+`frontOps(c,a)` использует deposit buffer a как water-cost ping-pong/tmp:
+после фронта a содержит ненулевые cost/band данные. Обычный carry/diffuse
+перезаписывает его pigment output; простое удаление оставит cost как краску.
+`field.ca/cc` также используются costDomain scratch, если включён path режим.
+`field.pressure` после diffusion используется pigment final spare: глобальный
+фильтр fieldOp/mode1 по имени не является безопасной границей.
+
+Следующий конкретный эксперимент: opt-in water-only specialization внутри
+Plan.settle при existing captured proof, сохранить front/capture/coverage,
+после последнего front явно восстановить только логические P/C temporaries,
+выдать прежние presentation callbacks/inputs на zero material без изменения
+water overlay/reveal triggers. Сначала по одному семейству carry, затем
+отдельно diffuse/tide; не одним blanket early return. RunningFilm/copy-back
+и runningSourceCommands остаются прежними: новый пигмент может появиться
+между prepare иfinish, нельзя clear всего canonical tile под old zero proof.
+Гейты: actual intermediate role/alias oracle, same immutable full P/C/V/
+coverage/endpoint, positive/unknown/Undo/peer negatives, реальный nexttouch
+пигментом во время water settle, cancellation/contextloss. До них нет кода,
+никакого утверждения математической эквивалентности всей fast ветки.
