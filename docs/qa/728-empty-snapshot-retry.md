@@ -46,3 +46,21 @@ Whole-web TypeScript PASS в отдельном локальном mirror с с�
 зависимостями; oxlint --fix и diff --check PASS. map:check покрывает 994 файла; map:rules — 0 ошибок, 5 существующих предупреждений. Логи `temp/qa/` сохранены.
 Это CPU/MockGL проверка исправления; новый аппаратный FPS/полный readback timing
 после изменения не измерялся. Стенды и устройства в этом задании не изменялись.
+
+## Интеграция в ночную ветку
+
+Production-кандидат интегрирован как `1840f311`. Whole-web TypeScript PASS,
+Room snapshotSync30PASS. Первый полный engine прогон:1702PASS/16skip/2FAIL —
+два старых snapshotRegion fixtures использовали неполный fake ledger без нового
+getter. В `19d2720c` они заменены настоящим SnapshotLedger. Повторные focused
+region+empty проверки:13PASS; полная suite повторно запущена.
+
+Architecture map994files/68modules PASS; dependency rules0errors/5existing
+warnings/11knownignored. Логи: `temp/night-728/{full-engine-empty-cache,
+full-engine-empty-cache-retry,empty-region-retry,empty-uploader,
+web-empty-cache-types,map-empty-cache,map-empty-cache-rules}.log`.
+
+Аппаратный gate отдельно выполняется на immutable1840, Samsung, настоящая
+комната640×480. Его частичный результат не считается полным восстановлением:
+новая краска/upload/fresh join ещё должны быть проверены. Пользовательский
+стенд5329 по-прежнему d88; задержка первоначального растекания не закрыта.
