@@ -63,3 +63,9 @@ Room включает типизированную constructor option materialPr
 Временный кандидат отключает обе Room constructor options asyncFinish/materialPresentation, сохраняя canonicalring/tone/fibres f685. Отключение только materialPresentation возвращало бы genericStamp и потому недостаточно. Известный sync-drain/newtouch performance риск остаётся; откат направлен на настоящий живой материал, morph и zoom, а не на обещание плавности400.
 
 Rollback208 actualVega90950: source999 exact, constructor false/false, errors[], RAM1879.9/min1291MiB, ownChromeClosed. Actualwheel zoom0.413409→0.244490 while settle=true, настоящий мазок остаётся. NativeDry→RedoRGBA1754×2480 exact0/nonempty138696, Undo changes35951px. Fresh alpha0; log6ops lacksRedo (controller closed sender withoutawaitACK). Поэтому freshPASS отозван; надо отдельный reader bootstrap/ACKguard. Только типизированный Room opt-in false/false включён на5329 по прямому запросу пользователя, источник208; canonical не менялся.
+
+## Отдельный CPU эксперимент pending world overlay
+
+WatercolorPendingMarks ведёт immutable batch identities без GL и без физического оператора. Matching request.execute completion должен удалить только принятую отметку; будущие marks остаются. RetirementO(1), layer dirty coalesced onceframe. Это лишь metadata seam, ещё не подключённый renderer и не доказательство solverprogress visibility. Два CPU отрицательных теста покрывают повторный/stale callback, разныеслои и replacement послеclear.
+
+Следующий renderer обязан: всегда рисовать canonical evolvingbase; поверх него — только ещё не исполненные marks с world bounds. Копия oldbase внутриoverlay недопустима (doublepaint/shadow). Существующий Raster включает base и lowres512, поэтому его нельзя просто перенести изreplacement вsource-over. Нужен отдельный bounded transparent deposition/transport с точным retirement и worldtiles/camerareprojection; кадровый replay всего pendinghistoryO(n²) также не принят как финальное решение.
