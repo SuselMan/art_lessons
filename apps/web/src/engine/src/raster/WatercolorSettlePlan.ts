@@ -19,7 +19,7 @@ export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationB
 
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
-  fieldFor(w: number, h: number): SettleField
+  fieldFor(w: number, h: number, captureClearsInputs?: boolean): SettleField
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
@@ -64,6 +64,9 @@ export class WatercolorSettlePlan {
   private readonly _coverageOwners = new Set<RibbonStrokeScratch>()
   /** Lazy CPU upload payloads do not survive their last JS consumer. */
   private readonly _ownedContactPixels = new Set<{ pixels: Uint8Array | null }>()
+
+  /** Diagnostic: only reused inputs immediately cleared by capture may omit the earlier clear. */
+  diagnosticElideDuplicateCaptureClears = false
 
   /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
    *  laid (the deposit less what was settled before it) is split into a
@@ -196,7 +199,7 @@ export class WatercolorSettlePlan {
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
     scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
-    const field = this.ctx.fieldFor(w / S, h / S)
+    const field = this.ctx.fieldFor(w / S, h / S, this.diagnosticElideDuplicateCaptureClears)
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     // (§17.44) At half resolution what goes home is the SETTLED wash at full
     // resolution plus the field's result less its own settled part: the
