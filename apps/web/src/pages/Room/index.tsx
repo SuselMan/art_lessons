@@ -848,9 +848,10 @@ function RoomEditor() {
   // (#493) How the network's operations reach the engine — once each, deferred
   // until their target arrives, restored from a snapshot and backfilled behind
   // it — see useRemoteOperations.
-  const { applyRemoteOp, restoreFromSnapshot, backfillHistory } = useRemoteOperations({
+  const { applyRemoteOp, restoreFromSnapshot, backfillHistory, repairSnapshotHistory } = useRemoteOperations({
     engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
     confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,
+    boardId: boardId ?? id ?? '', onHistoryRepairFailure: () => setRestoreFailure('transfer'),
   })
 
   // (#461) The three room fields the engine is actually built from, pulled out
@@ -983,6 +984,7 @@ function RoomEditor() {
         sendLive: data => { socketRef.current?.emit('stroke_live', data) },
         sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
       }),
+      onSnapshotHistoryRepairNeeded: repairSnapshotHistory,
       // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
       onInvariant: reportInvariant,
       // (#493) The developer switches — see useEngineDevOptions.

@@ -10,7 +10,7 @@ import type { OperationRedoOperation, OperationUndoOperation } from '@grafetto/s
 import {
   checkpointBytes, checkpointCountFor, createTestEngine, dab, expectPixelsClose, fillStroke, makeAreaClear,
   makeLayerAdd, makeLayerMerge, makeLayerDuplicate,
-  makeStroke, readLayerPixels, readTilePixels, residentTileCount, paperReady, simulateStrokeStart, simulateStrokeMove,
+  makeStroke, readLayerPixels, readTilePixels, residentTileCount, paperReady, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd,
 } from './testing/engineTestUtils'
 import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
@@ -766,7 +766,7 @@ describe('covered snapshot history mutation (#728)', () => {
     expect(reader.bakeNetworkSnapshot('L')).not.toBeNull()
     source.destroy(); reader.destroy()
   })
-  it('keeps the only baked base when original history is incomplete', async () => {
+  it('blocks incomplete covered Undo, then repairs current Redo and queued material when history arrives', async () => {
     const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
     source.setBaseLayers(['L'])
     const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
@@ -775,12 +775,131 @@ describe('covered snapshot history mutation (#728)', () => {
     const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
     reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
     await reader.restoreHistoricalOperations([two])
-    reader.appendOperation({ id: 'incomplete-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }, 'remote')
-    // Safety only: this case still requires fetching a complete prefix before
-    // the covered Undo can be physically repaired. It must not silently wipe
-    // the unavailable first stroke by discarding its only base.
+    const undo: OperationUndoOperation = { id: 'incomplete-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }
+    source.appendOperation(undo, 'remote'); reader.appendOperation(undo, 'remote')
+    expect(reader.pendingSnapshotHistoryRepairs()).toEqual([{ layerId: 'L', beforeSeq: 2 }])
     expect(reader['_checkpoints'].hasSnapshotFor('L')).toBe(true)
-    expect(reader['_snapshots'].hasCoverage('L')).toBe(true)
+    expect(reader.bakeNetworkSnapshot('L')).toBeNull()
+    await paperReady(reader); reader.setActiveLayer('L')
+    simulateStrokeStart(reader, 4, 4)
+    expect(reader['_strokeLayerId']).toBeNull()
+    reader.initLayer('other'); reader.setActiveLayer('other')
+    simulateStrokeStart(reader, 4, 4)
+    expect(reader['_strokeLayerId']).toBe('other')
+    simulateStrokeEnd(reader, 4, 4)
+    const redo: OperationRedoOperation = { id: 'incomplete-redo', type: 'operation_redo', userId: 'A', timestamp: 4, seq: 4, targetOpId: two.id }
+    source.appendOperation(redo, 'remote'); reader.appendOperation(redo, 'remote')
+    const before = readLayerPixels(reader, 'L')!.slice()
+    const arrival = makeStroke('B', 'L', [dab(4, 4, { size: 3, opacity: 0.7 })], { seq: 5 })
+    source.appendOperation(arrival, 'remote'); reader.appendOperation(arrival, 'remote')
+    expect(readLayerPixels(reader, 'L')).toEqual(before)
+    expect(reader.getOperations().some(op => op.id === arrival.id)).toBe(true)
+    reader.absorbHistoricalOperations([one])
+    expect(reader.pendingSnapshotHistoryRepairs()).toEqual([])
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
+    expect(reader.bakeNetworkSnapshot('L')).not.toBeNull()
+    source.destroy(); reader.destroy()
+  })
+
+  it('physically applies the deferred covered Undo when the missing original page arrives', async () => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
+    await reader.restoreHistoricalOperations([two])
+    const undo: OperationUndoOperation = { id: 'late-prefix-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }
+    source.appendOperation(undo, 'remote'); reader.appendOperation(undo, 'remote')
+    reader.absorbHistoricalOperations([one])
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
+    source.destroy(); reader.destroy()
+  })
+
+  it('keeps unknown-base repair metadata during loss and does not dispose its base while lost', async () => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
+    await reader.restoreHistoricalOperations([two])
+    reader.appendOperation({ id: 'lost-prefix-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }, 'remote')
+    reader['_contextLost'] = true
+    const before = checkpointCountFor(reader, 'L')
+    reader.absorbHistoricalOperations([one])
+    expect(reader.isSnapshotHistoryRepairPending('L')).toBe(true)
+    expect(checkpointCountFor(reader, 'L')).toBe(before)
+    expect(reader.bakeNetworkSnapshot('L')).toBeNull()
+    reader['_contextLost'] = false
+    reader.absorbHistoricalOperations([])
+    expect(reader.isSnapshotHistoryRepairPending('L')).toBe(false)
+    source.destroy(); reader.destroy()
+  })
+
+  it.each([true, false])('registers a covered Undo arriving while lost (completePrefix=%s)', async complete => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
+    await reader.restoreHistoricalOperations(complete ? [one, two] : [two])
+    reader['_contextLost'] = true
+    const undo: OperationUndoOperation = { id: 'arrived-lost-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }
+    source.appendOperation(undo, 'remote'); reader.appendOperation(undo, 'remote')
+    expect(reader.isSnapshotHistoryRepairPending('L')).toBe(true)
+    expect(checkpointCountFor(reader, 'L')).toBe(1)
+    reader['_contextLost'] = false
+    if (!complete) reader.absorbHistoricalOperations([one])
+    else reader.absorbHistoricalOperations([])
+    expect(reader.isSnapshotHistoryRepairPending('L')).toBe(false)
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
+    source.destroy(); reader.destroy()
+  })
+
+  it.each(['duplicate', 'merge'] as const)('does not read unknown snapshot pixels for a %s during repair', async kind => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
+    await reader.restoreHistoricalOperations([two])
+    const undo: OperationUndoOperation = { id: 'read-prefix-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }
+    source.appendOperation(undo, 'remote'); reader.appendOperation(undo, 'remote')
+    const copy = kind === 'duplicate' ? makeLayerDuplicate('B', 'R', 'L', { seq: 4 }) : makeLayerMerge('B', 'R', [{ id: 'L', opacity: 1 }], { seq: 4 })
+    source.appendOperation(copy, 'remote'); reader.appendOperation(copy, 'remote')
+    expect(reader.isSnapshotHistoryRepairPending('R')).toBe(true)
+    expect(reader.getOperations().some(op => op.id === copy.id)).toBe(true)
+    expect(reader.bakeNetworkSnapshot('R')).toBeNull()
+    const arrival = makeStroke('B', 'R', [dab(4, 4, { size: 3 })], { seq: 5 })
+    source.appendOperation(arrival, 'remote'); reader.appendOperation(arrival, 'remote')
+    reader.absorbHistoricalOperations([one])
+    expect(reader.isSnapshotHistoryRepairPending('R')).toBe(false)
+    expect(readLayerPixels(reader, 'R')).toEqual(readLayerPixels(source, 'R'))
+    expect(reader['_log'].entries.find(e => e.op.id === arrival.id)?.state).toBe('done')
+    source.destroy(); reader.destroy()
+  })
+
+  it('physically repairs a covered Undo delivered during loss after the complete prefix is available', async () => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
+    await reader.restoreHistoricalOperations([one, two])
+    const undo: OperationUndoOperation = { id: 'physical-lost-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }
+    source.appendOperation(undo, 'remote')
+    reader['_contextLost'] = true; reader.appendOperation(undo, 'remote'); reader['_contextLost'] = false
+    reader.absorbHistoricalOperations([])
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
     source.destroy(); reader.destroy()
   })
 

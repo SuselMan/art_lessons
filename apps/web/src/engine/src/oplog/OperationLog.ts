@@ -483,8 +483,14 @@ export class OperationLog {
    *  fine for a background, few-times-per-session operation. */
   prependHistorical(entries: readonly LogEntry[]): void {
     this._revision++
-    const merged = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]
-      .map((e, i) => ({ ...e, op: { ...e.op, seq: i } }))
+    const incoming = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]
+    // A repair may fill a hole inside the known snapshot prefix, rather than
+    // merely prepend an older page. Original server order is authoritative;
+    // legacy seq-less callers keep their established prepend contract.
+    if (incoming.every(e => e.pending || e.serverSeq !== undefined)) {
+      incoming.sort((a, b) => a.pending ? (b.pending ? 0 : 1) : b.pending ? -1 : a.serverSeq! - b.serverSeq!)
+    }
+    const merged = incoming.map((e, i) => ({ ...e, op: { ...e.op, seq: i } }))
     this._entries = merged
     this._nextSeq = merged.length
     this._confirmedCount += entries.length

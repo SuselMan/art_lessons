@@ -345,6 +345,17 @@ describe('OperationLog', () => {
   // scratch OperationLog fed through the normal append/applyUndo/applyRedo/
   // revoke path first, so states arrive already resolved).
   describe('prependHistorical', () => {
+    it('orders a missing middle server page before tail operations, keeping pending locals last', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'one' }), { serverSeq: 1 })
+      log.append(stroke({ id: 'three' }), { serverSeq: 3 })
+      log.append(stroke({ id: 'pending' }), { pending: true })
+      log.prependHistorical([{ op: stroke({ id: 'two' }), state: 'done', serverSeq: 2 }])
+      expect(log.entries.map(e => e.op.id)).toEqual(['one', 'two', 'three', 'pending'])
+      expect(log.entries.map(e => e.op.seq)).toEqual([0, 1, 2, 3])
+      expect(log.entries.at(-1)?.pending).toBe(true)
+    })
+
     it('places historical entries before the existing (live) ones, renumbering local seq to match', () => {
       const log = new OperationLog()
       log.append(stroke({ id: 'tail' })) // the live tail, present first (as it really would be)

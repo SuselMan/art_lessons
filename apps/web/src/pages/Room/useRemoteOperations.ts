@@ -1,4 +1,4 @@
-import { useCallback, type RefObject } from 'react'
+import { useCallback, useRef, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'
 import { IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
@@ -8,6 +8,7 @@ import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import { computeCompositeOrder, replayLayerState } from '../../lib/layers/layers'
 import { reportSnapshotRestore } from './diagnostics/reportRestore'
 import { drainDeferredOps } from './net/deferredOps'
+import { continueSnapshotHistoryRepair } from './net/snapshotHistoryRepair'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './net/snapshotRestore'
 
 // (#291) How far back of the pre-snapshot operation log backfillHistory
@@ -21,6 +22,8 @@ const HISTORY_BACKFILL_DEPTH = SNAPSHOT_SEQ_INTERVAL
 
 export interface RemoteOperationsDeps {
   engineRef: RefObject<PencilEngineAPI | null>
+  boardId: string
+  onHistoryRepairFailure: () => void
   /** The board stream's applied ids and deferred meta-ops — see useBoardStream. */
   appliedOpIdsRef: RefObject<Set<string>>
   deferredOpsQueueRef: RefObject<Operation[]>
@@ -39,9 +42,12 @@ export interface RemoteOperationsDeps {
  *  and backfilled behind it for undo. Out of Room — the three restore steps
  *  are what restoreRoomState is handed. */
 export function useRemoteOperations({
-  engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
+  engineRef, boardId, onHistoryRepairFailure, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
   confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,
 }: RemoteOperationsDeps) {
+  const ordinaryBackfills = useRef(new Map<PencilEngineAPI, Promise<void>>())
+  const repairs = useRef(new Map<PencilEngineAPI, Promise<void>>())
+
   // Applies an operation that arrived from the network (room_state replay or
   // operation_confirmed) exactly once. The guard isn't full reconnect/catch-up
   // logic (#74) — it's a minimal idempotency net: since a reconnect re-runs
@@ -85,6 +91,24 @@ export function useRemoteOperations({
       checkSnapshotBoundary()
     }
   }, [deferredOpsQueueRef, appliedOpIdsRef, applyRemoteOp, syncFromLog, checkSnapshotBoundary])
+
+  const repairSnapshotHistory = useCallback(() => {
+    const engine = engineRef.current
+    if (!engine || !boardId || repairs.current.has(engine)) return
+    const work = (async () => {
+      const complete = await continueSnapshotHistoryRepair(boardId, engine, {
+        ordinary: ordinaryBackfills.current.get(engine), current: () => engineRef.current === engine,
+        onPage: page => {
+          for (const op of page) appliedOpIdsRef.current.add(op.id)
+          drainDeferredQueue()
+        },
+      })
+      if (!complete) return
+      if (engineRef.current === engine) { syncFromLog(); checkSnapshotBoundary() }
+    })().catch(() => { if (engineRef.current === engine) onHistoryRepairFailure() })
+      .finally(() => { repairs.current.delete(engine) })
+    repairs.current.set(engine, work)
+  }, [engineRef, boardId, appliedOpIdsRef, syncFromLog, checkSnapshotBoundary, onHistoryRepairFailure, drainDeferredQueue])
 
   // (#169 bug fix) Injects a downloaded snapshot's pixels + structure into
   // `engine` and sets restoredLayerStateRef so syncFromLog starts deriving
@@ -194,12 +218,20 @@ export function useRemoteOperations({
   // reach, so backfilling past that point buys nothing anyone can use. This
   // bound holds regardless of whether pruning is ever re-enabled.
   const backfillHistory = useCallback(async (roomId: string, engine: PencilEngineAPI, fromSeq: number) => {
-    await walkHistoryBackward(roomId, fromSeq, HISTORY_BACKFILL_DEPTH, page => {
+    const existing = ordinaryBackfills.current.get(engine)
+    if (existing) return existing
+    const work = walkHistoryBackward(roomId, fromSeq, HISTORY_BACKFILL_DEPTH, page => {
+      if (engineRef.current !== engine) return
       engine.absorbHistoricalOperations(page)
       for (const op of page) appliedOpIdsRef.current.add(op.id)
       drainDeferredQueue()
     })
-  }, [appliedOpIdsRef, drainDeferredQueue])
+    ordinaryBackfills.current.set(engine, work)
+    try { await work } finally {
+      ordinaryBackfills.current.delete(engine)
+      if (engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory()
+    }
+  }, [engineRef, appliedOpIdsRef, drainDeferredQueue, repairSnapshotHistory])
 
-  return { applyRemoteOp, restoreFromSnapshot, backfillHistory }
+  return { applyRemoteOp, restoreFromSnapshot, backfillHistory, repairSnapshotHistory }
 }
