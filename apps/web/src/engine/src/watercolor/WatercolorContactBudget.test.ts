@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
-import { contactPulseOp, frontStepOp, WatercolorSettleQueue } from './WatercolorSettleQueue'
+import { contactPulseOp, frontStepOp, inheritSettleOpTags, WatercolorSettleQueue } from './WatercolorSettleQueue'
 function fixture(cost = 0) {
   let now = 0, drawing = false, serial = 0
   const frames = new Map<number, FrameRequestCallback>(), events: number[] = []
@@ -63,4 +63,19 @@ it('retains abort ownership if a pulse cancels its job', () => {
   const f = fixture(), abort = vi.fn(), finish = vi.fn(); f.q.contactBatchEnabled = true
   f.q.start({ live: true } as RibbonStrokeScratch, [() => {}, contactPulseOp(() => f.q.cancel()), f.step(2)], finish, { isAlive: () => true, abort }); f.frame()
   expect(abort).toHaveBeenCalledTimes(1); expect(finish).not.toHaveBeenCalled(); expect(f.events).toEqual([])
+})
+
+it('preserves wrapped front batching but stops before inserted presentation', () => {
+  const f = fixture(); f.q.frontBatchEnabled = true
+  const ops: Array<() => void> = []
+  const physical = f.front(1)
+  const wrapped = () => { physical(); ops.splice(2, 0, () => f.events.push(7)) }
+  inheritSettleOpTags(physical, wrapped)
+  // start prepends its capture; insertion is immediately after this entry.
+  ops.push(() => f.events.push(0), wrapped, f.front(2))
+  f.q.start({ live: true } as RibbonStrokeScratch, ops, () => f.events.push(99))
+  f.frame()
+  expect(f.events).toEqual([0, 1]); expect(f.sync).toHaveBeenCalledTimes(1)
+  f.frame()
+  expect(f.events).toEqual([0, 1, 7, 2, 99])
 })
