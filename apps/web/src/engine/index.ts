@@ -5931,12 +5931,14 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgFrameCount = 0
       this._dbgMaxFrame = 0
     }
-    if (this._predictPointer) {
+    // Watercolor ribbons cannot paint AccumulationBuffer previews; real dabs
+    // and the physical end of the stroke remain on the canonical layer.
+    if (this._predictPointer && this._strokeTool !== 'watercolor') {
       this._previewBuf = this._previewBufPool.acquire(this.canvas.width, this.canvas.height)
       this._previewBuf.clear()
       this._previewBufOrigin = this._cameraCenteredOrigin()
     }
-    if (this._liveTip) {
+    if (this._liveTip && this._strokeTool !== 'watercolor') {
       this._tipBuf = this._tipBufPool.acquire(this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
       this._tipBufOrigin = this._cameraCenteredOrigin()
@@ -6027,7 +6029,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (e2e > this._dbgMaxE2e) this._dbgMaxE2e = e2e
       }
     }
-    if (this._liveTip) {
+    if (this._liveTip && this._strokeTool !== 'watercolor') {
       this._refreshTip(e.speed)
       painted = true
       if (this._debug) {
