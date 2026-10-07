@@ -62,3 +62,25 @@ Whole-web TypeScript PASS в отдельном private mirror на сущест
 oxlint --fix/diff --check PASS. map:check996files PASS; map:rules0errors,
 5 существующих предупреждений. Логи сохранены в temp/qa. GPU не использовался,
 стенды/сервер/user tabs не изменялись.
+
+## Диагностический GPU runner: незавершённые попытки
+
+После CPU-проверок родитель разрешил отдельный immutable runtime ca0b6129
+на Samsung SM-T970 (Adreno), порт5330. Все989 tracked web/shared SHA
+совпали; исходные пользовательские стенды не менялись.
+
+- `temp/clear-prefix-gate/runs/clear47ca0_1791359395489/report.json`:
+  четыре served source SHA совпали, затем CDP evaluate timeout15s до
+  диагностических данных. OWN1429 закрыт. INCONCLUSIVE, не регрессия кандидата.
+- `temp/clear-prefix-gate/runs/clear47ca0_1791359639637/report.json`:
+  исправленный async kickoff и один rAF между append сохранили все47 операций.
+  OFF дошёл до meaningful final P/C/V/coverage/cost; target47 finish1,
+  carryP14, front126. Проверка ошибочно требовала mode16 для single-paint
+  job, хотя Plan529 создаёт colour только при paints.size>1. OWN1430 закрыт.
+  ON/Undo/Redo ещё не выполнялись; byteidentity и ускорение не подтверждены.
+
+Следующая подготовленная проверка требует targetmode16 условно по фактическому
+finishMetadata/scratch paints.size, targetmode15/front и nonempty P/C/V/coverage
+всегда. Timing включает диагностический rAF dispatch cadence и не равен
+буквальному времени загрузки Room. Field readback вынесен в отдельную
+correctness-волну. Повтор аппаратного запуска ожидает review родителя.
