@@ -2,7 +2,7 @@
 /** Dev-only experimental backend, deliberately outside PencilEngineAPI. */
 import { checkCanonicalBrush } from './src/webgpu/canonicalBrush'
 import { SOLVER_WGSL, DISPLAY_WGSL } from './src/webgpu/shaders'
-import { GPU_GRID, makePocPaper, oracleFixture } from './src/webgpu/model'
+import { GPU_GRID, makePocPaper, oracleFixture, transportStep } from './src/webgpu/model'
 import { makeWetGrid, wetDiffuseStepMany } from './src/watercolor/wetDiffusion'
 export { GPU_WORLD, GPU_GRID, makeDab, packGpuDabs, pocPreset } from './src/webgpu/model'
 export type { GpuStroke, BrushOptions, InputPoint } from './src/webgpu/model'
@@ -34,6 +34,7 @@ export class WatercolorGpuPoc {
   private tickPending = false
   private gpuSamples: number[] = []
   private index = 0
+  private solverTick = 0
   private dead = false
   private resources: GPUBuffer[] = []
   private constructor(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, adapter: GPUAdapter, onError: (message: string) => void) {
@@ -91,6 +92,7 @@ export class WatercolorGpuPoc {
     if (validation) { engine.destroy(); throw new Error(validation.message) }
     engine.draw(); return engine
   }
+  get tickCount() { return this.solverTick }
   get canStep() { return !this.dead && !this.tickPending }
   async whenIdle() { await this.device.queue.onSubmittedWorkDone() }
   get timingSummary() {
@@ -106,9 +108,9 @@ export class WatercolorGpuPoc {
       { binding: 4, resource: { buffer: this.params } },
     ] })
   }
-  private parameters(count: number, dt: number, dry: boolean, bounds: [number, number, number, number]) {
+  private parameters(count: number, dt: number, dry: boolean, bounds: [number, number, number, number], transport = { radius: 1, knight: false }) {
     const data = new ArrayBuffer(48), u = new Uint32Array(data), f = new Float32Array(data)
-    u.set([GPU_GRID.width, GPU_GRID.height, count, 0]); f.set([dt, dry ? 1 : 0, 0, 0], 4); u.set(bounds, 8)
+    u.set([GPU_GRID.width, GPU_GRID.height, count, 0]); f.set([dt, dry ? 1 : 0, transport.radius, transport.knight ? 1 : 0], 4); u.set(bounds, 8)
     this.device.queue.writeBuffer(this.params, 0, data)
   }
   addDabs(data: Float32Array) {
@@ -131,10 +133,11 @@ export class WatercolorGpuPoc {
     this.device.queue.submit([encoder.finish()]); this.metrics.submissions++; this.metrics.dabs += data.length / 16
     this.metrics.cpuSubmitMs += performance.now() - start
   }
-  step(dt = 1 / 60, dry = false) {
+  step(dt = 1 / 60, dry = false, transport = transportStep(this.solverTick)) {
     if (this.dead) return
     const start = performance.now()
-    this.parameters(0, dt, dry, [0, 0, GPU_GRID.width, GPU_GRID.height])
+    this.parameters(0, dt, dry, [0, 0, GPU_GRID.width, GPU_GRID.height], transport)
+    this.solverTick++
     const encoder = this.device.createCommandEncoder({ label: 'Watercolor tick' })
     const timed = !!this.query && !this.timerPending
     const pass = encoder.beginComputePass(timed ? { timestampWrites: { querySet: this.query!, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 } } : {})
@@ -166,9 +169,10 @@ export class WatercolorGpuPoc {
     pass.setPipeline(this.display); pass.setBindGroup(0, bind); pass.draw(3); pass.end()
   }
   draw() { if (this.dead) return; const encoder = this.device.createCommandEncoder(); this.render(encoder); this.device.queue.submit([encoder.finish()]) }
-  clear() { const encoder = this.device.createCommandEncoder(); for (const b of this.cells) encoder.clearBuffer(b); this.device.queue.submit([encoder.finish()]); this.index = 0; this.draw() }
+  clear() { const encoder = this.device.createCommandEncoder(); for (const b of this.cells) encoder.clearBuffer(b); this.device.queue.submit([encoder.finish()]); this.index = 0; this.solverTick = 0; this.draw() }
   async checkCanonicalBrush() { return checkCanonicalBrush(this.device) }
   async checkOracle() {
+    const savedTick = this.solverTick
     const saved = await this.readState(), fixture = oracleFixture(GPU_GRID.width, GPU_GRID.height)
     try {
       const grid = makeWetGrid(GPU_GRID.width, GPU_GRID.height)
@@ -176,7 +180,7 @@ export class WatercolorGpuPoc {
       const fields = Array.from({ length: 4 }, () => new Float64Array(GPU_GRID.width * GPU_GRID.height))
       for (let i = 0; i < grid.water.length; i++) { grid.water[i] = fixture[i * 16 + 8]; for (let c = 0; c < 4; c++) fields[c][i] = fixture[i * 16 + c] }
       const expected = wetDiffuseStepMany(grid, fields, 0.09, 0.03, 1, false, { pressure: grid.water, pressureRate: 0.015 })
-      this.writeState(fixture); this.step(0)
+      this.writeState(fixture, 0); this.step(0, false, { radius: -1, knight: false })
       const actual = await this.readState()
       let maxError = 0, negative = 0; const before = [0, 0, 0, 0], after = [0, 0, 0, 0]
       for (let i = 0; i < grid.water.length; i++) for (let c = 0; c < 4; c++) {
@@ -185,8 +189,8 @@ export class WatercolorGpuPoc {
         if (v < -1e-6) negative++
       }
       const relativeMassDrift = Math.max(...before.map((v, c) => Math.abs(after[c] - v) / Math.max(v, 1e-8)))
-      return { pass: maxError < 2e-6 && relativeMassDrift < 1e-6 && negative === 0, maxError, relativeMassDrift, negative, fixtureCells: 256, reference: 'wetDiffuseStepMany, D=.09 B=.03 pressure=.015, float tolerance' }
-    } finally { this.writeState(saved) }
+      return { pass: maxError < 2e-6 && relativeMassDrift < 1e-6 && negative === 0, maxError, relativeMassDrift, negative, fixtureCells: 256, reference: 'Legacy nearest-8 kernel only: wetDiffuseStepMany, D=.09 B=.03 pressure=.015. Does not validate multiscale wet-path dynamics.' }
+    } finally { this.writeState(saved, savedTick) }
   }
   async readPixels() {
     const width = this.context.canvas.width, height = this.context.canvas.height
@@ -202,8 +206,9 @@ export class WatercolorGpuPoc {
       read.unmap(); return { width, height, rgba }
     } finally { read.destroy() }
   }
-  writeState(data: Float32Array) {
+  writeState(data: Float32Array, tick = this.solverTick) {
     if (data.byteLength !== this.cells[0].size) throw new Error('State size mismatch')
+    this.solverTick = tick
     this.device.queue.writeBuffer(this.cells[this.index], 0, data); this.draw()
   }
   async readState() {
