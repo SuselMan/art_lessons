@@ -265,3 +265,17 @@ does not claim preservation of an unrecorded tail, a carried checkpoint, uploade
 snapshot persistence or stored-blob restore. Raw HOME
 `results-pending-loss-snapshot/report.json`, VPS copy
 `temp/async-multiplayer/pending-loss-snapshot-report.json`.
+
+## Настоящий stored snapshot и Undo покрытого штриха
+
+На frozen `7b11b29e + e360f0f4` реальная загрузка snapshot seq6 (POST200/stored1, index200 и bitmap200) дала точный nonempty wholeRGBA. Затем обычный Undo seq7 перевёл covered stroke seq4 в undone у обоих участников, однако reader оставил свой PNG совершенно неизменным: before/after Undo RGBA0. Автор изменился; peer divergence составила187186px/max255, alphaMax246, premultMax112.137. Оба были idle/GL0. Это FAIL, не погрешность wet overlay и не восстановление после Redo (до него run не дошёл).
+
+Причина: pinned snapshot checkpoint `opIds=[]` всегда пригоден, а `covered` заставляет rebuild пропускать операции, уже содержащиеся в его baked pixels. Таким образом отменённый covered stroke остаётся в base. Исходный контракт специально удерживал эту base при неполном backfill, чтобы не потерять неизвестную историю.
+
+Локальный кандидат `168270c1` сохраняет настоящий serverSeq при historical absorb. Перед history rebuild он проверяет наличие каждого original seq1..coveredSeq. Только при доказанно полном prefix снимает все checkpoints затронутого слоя (включая производные snapshot base) и ledger coverage; обычный full replay затем исполняет authoritative done history. Другой слой не затрагивается. При неполной истории CP пока сохраняется: этот безопасный negative guard НЕ исправляет визуальную отмену и не закрывает incomplete-backfill задачу.
+
+Meaningful CPU engine regression до исправления FAIL, после Undo/Redo/unrelated-layer и incomplete-prefix safety tests:64PASS в3files; actual web+SW typecheck и lint PASS. Изменения solver/shader/P/C/V отсутствуют.
+
+Аппаратный повтор `83447` на `7b11b29e + e360f0f4 + 168270c1`: реальный pending FIFO с двумя finish → ACK во время actual loss → restore/Dry → automatic snapshot POST ACK → свежий ordinary Room reader bitmapGET200 → обычный Undo → Redo. Все wholeRGBA/premult/alpha сравнения0, изображения nonempty, GL0. Actual audit:1tile uploaded,1resident/withContent,1228800bytes, glError0. Full historical REST prefix и final authoritative IDs/payload/serverSeq совпали, coveredPrefixOmitted=[]. Chrome CLOSED, min available749.49MiB (guard500).
+
+HOME raw: `/home/suselman/projects/pencil-agents/680-water-wet-tone-qa/temp/async-multiplayer/results-pending-loss-stored-snapshot-full-prefix-fix/`. Исходный FAIL: соседний `results-pending-loss-stored-snapshot-instance/`. Два предыдущих reports остановились на audit observer fixture: Room штатно drains `takeSnapshotRestoreAudit`; их image/HTTP evidence сохраняется, но полного PASS нет. Исправленный observer перехватывает только собственный actual `window.__engine`, копирует возвращённые audit records и без изменений передаёт их штатному consumer. Runtime source manifest970files проверен, backend4539 неизменён.
