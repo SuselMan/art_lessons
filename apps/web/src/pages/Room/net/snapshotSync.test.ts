@@ -64,6 +64,40 @@ beforeEach(() => {
 
 afterEach(() => {
   global.fetch = originalFetch
+  vi.unstubAllGlobals()
+})
+
+it('uploads opt-in worker bytes at the synchronously captured first watermark', async () => {
+  const { compressLayerTiles, decompressLayerTiles } = await import('../../../engine/snapshots')
+  const terminate = vi.fn()
+  let finish: (() => Promise<void>) | undefined
+  class SnapshotWorker {
+    onmessage: ((event: { data: unknown }) => void) | null = null
+    onerror: (() => void) | null = null
+    terminate = terminate
+    postMessage(message: { id: number; buffer: ArrayBuffer }, transfer: Transferable[]) {
+      const owned = structuredClone(message, { transfer })
+      finish = async () => {
+        const compressed = await compressLayerTiles(new Uint8Array(owned.buffer))
+        this.onmessage?.({ data: { id: owned.id, buffer: compressed.buffer, offset: compressed.byteOffset, length: compressed.byteLength } })
+      }
+    }
+  }
+  vi.stubGlobal('Worker', SnapshotWorker)
+  const raw = new Uint8Array([1, 2, 255]), uploader = createSnapshotUploader('room-1', { workerCompression: true })
+  const { engine, bakeCalls } = fakeEngine({ 'layer-1': raw })
+  uploader.requestFirstSnapshot()
+  uploader.tryFirstSnapshot(47, engine, layerState())
+  expect(bakeCalls).toEqual(['layer-1'])
+  expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
+  uploader.tryFirstSnapshot(48, engine, layerState())
+  await finish!()
+  await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+  const body = JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
+  expect(body.seq).toBe(47)
+  expect(await decompressLayerTiles(new Uint8Array(Buffer.from(body.layers['layer-1'], 'base64')))).toEqual(raw)
+  expect(raw).toEqual(new Uint8Array([1, 2, 255]))
+  expect(terminate).toHaveBeenCalledOnce()
 })
 
 describe('createSnapshotUploader', () => {

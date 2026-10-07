@@ -1,10 +1,10 @@
 import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../../engine'
-import { compressLayerTiles } from '../../../engine/snapshots'
 import { api, ApiError } from '../../../lib/api/api'
 import { reportInvariant } from '../../../lib/observability/reportInvariant'
 import { snapshotBase64 } from './snapshotBase64'
+import { compressSnapshot } from './snapshotCompression'
 
 /** (#371/#374) One gzipped `encodeLayerTiles` payload per layer, keyed by
  *  layerId — the server stores each as its own row, at its own coverage. There
@@ -14,11 +14,12 @@ import { snapshotBase64 } from './snapshotBase64'
 async function uploadSnapshot(
   roomId: string, seq: number, layerState: LayerState, layers: Map<string, Uint8Array>,
   onCheckpointRefused?: () => Promise<void>,
+  workerCompression = false,
 ): Promise<boolean> {
   try {
     const encoded: Record<string, string> = {}
     for (const [layerId, raw] of layers) {
-      encoded[layerId] = await snapshotBase64(await compressLayerTiles(raw))
+      encoded[layerId] = await snapshotBase64(await compressSnapshot(raw, workerCompression))
     }
     await api('POST /api/rooms/:roomId/snapshots', { params: { roomId }, body: { seq, layerState, layers: encoded } })
     return true
@@ -96,7 +97,7 @@ export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): 
  *  "highest seq I've seen" (Room/index.tsx's latestKnownSeqRef) advances —
  *  both for its own acked local operations and for peer_operation — it
  *  detects on its own whether that crossed a new boundary. */
-export function createSnapshotUploader(roomId: string) {
+export function createSnapshotUploader(roomId: string, options: { workerCompression?: boolean } = {}) {
   const attempted = new Set<number>()
   const firstCovered = new Set<string>()
   const firstBaked = new Set<string>()
@@ -127,7 +128,7 @@ export function createSnapshotUploader(roomId: string) {
       void uploadSnapshot(roomId, seq, layerState, layers, async () => {
         const index = await api('GET /api/rooms/:roomId/snapshots/index', { params: { roomId } })
         for (const entry of index?.layers ?? []) firstCovered.add(entry.layerId)
-      }).then(ok => {
+      }, options.workerCompression).then(ok => {
         if (ok) for (const id of layers.keys()) firstCovered.add(id)
       }).finally(() => { bootstrapUploading = false })
     },
@@ -225,7 +226,7 @@ export function createSnapshotUploader(roomId: string) {
       }
       // The structure is uploaded even when no layer changed — a rename or a
       // reorder is a real change with no pixels behind it.
-      void uploadSnapshot(roomId, boundarySeq, layerState, layers).then(ok => {
+      void uploadSnapshot(roomId, boundarySeq, layerState, layers, undefined, options.workerCompression).then(ok => {
         if (ok) for (const id of layers.keys()) firstCovered.add(id)
       })
 
