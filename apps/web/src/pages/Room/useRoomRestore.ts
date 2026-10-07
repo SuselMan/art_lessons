@@ -32,7 +32,7 @@ export function useRoomRestore(deps: RoomRestoreDeps) {
   const {
     restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
-    replayGate,
+    replayGate, diagnosticClearPrefixElision,
   } = deps
   return useCallback((
     engine: PencilEngineAPI | null, state: RoomStatePayload,
@@ -44,10 +44,10 @@ export function useRoomRestore(deps: RoomRestoreDeps) {
     notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
       key: 'replay-incomplete', durationMs: null,
     }),
-    latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate,
+    latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate, diagnosticClearPrefixElision,
   }), [
     restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
-    replayGate,
+    replayGate, diagnosticClearPrefixElision,
   ])
 }

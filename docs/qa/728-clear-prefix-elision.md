@@ -62,3 +62,68 @@ Whole-web TypeScript PASS в отдельном private mirror на сущест
 oxlint --fix/diff --check PASS. map:check996files PASS; map:rules0errors,
 5 существующих предупреждений. Логи сохранены в temp/qa. GPU не использовался,
 стенды/сервер/user tabs не изменялись.
+
+## Диагностический GPU runner: незавершённые попытки
+
+После CPU-проверок родитель разрешил отдельный immutable runtime ca0b6129
+на Samsung SM-T970 (Adreno), порт5330. Все989 tracked web/shared SHA
+совпали; исходные пользовательские стенды не менялись.
+
+- `temp/clear-prefix-gate/runs/clear47ca0_1791359395489/report.json`:
+  четыре served source SHA совпали, затем CDP evaluate timeout15s до
+  диагностических данных. OWN1429 закрыт. INCONCLUSIVE, не регрессия кандидата.
+- `temp/clear-prefix-gate/runs/clear47ca0_1791359639637/report.json`:
+  исправленный async kickoff и один rAF между append сохранили все47 операций.
+  OFF дошёл до meaningful final P/C/V/coverage/cost; target47 finish1,
+  carryP14, front126. Проверка ошибочно требовала mode16 для single-paint
+  job, хотя Plan529 создаёт colour только при paints.size>1. OWN1430 закрыт.
+  ON/Undo/Redo ещё не выполнялись; byteidentity и ускорение не подтверждены.
+
+Следующая подготовленная проверка требует targetmode16 условно по фактическому
+finishMetadata/scratch paints.size, targetmode15/front и nonempty P/C/V/coverage
+всегда. Timing включает диагностический rAF dispatch cadence и не равен
+буквальному времени загрузки Room. Field readback вынесен в отдельную
+correctness-волну. Повтор аппаратного запуска ожидает review родителя.
+
+Третья попытка `clear47ca0_1791360028954` дошла до OFF seq47 с
+paints.size=1, front126/carryP14 и meaningful четырьмя каналами. Однако
+диагностический sequence не был обновлён перед Undo, поэтому rebuild
+повторно попал в target47 capture и вызвал duplicate guard. Собственная1431
+досрочно закрыта, controller terminalEXIT1/finallyclosed. Это ошибка fixture;
+ON и полный Undo/Redo gate по-прежнему не подтверждены. CPU runner теперь
+обновляет sequence48/49 перед этими двумя операциями; исходный renderer
+и полный сохранённый журнал не менялись.
+
+## Ограниченный same-journal Samsung gate: PASS
+
+`temp/clear-prefix-gate/runs/clear47ca0_1791360791885/report.json`:
+immutable ca0,989tracked SHA exact,4served source SHA exact. OWN1432 закрыт,
+controller26599 EXIT0; cached CDP после завершения own target не содержит.
+
+Все17 физических карт (cost + четыре tile × P/C/V/coverage) и три
+wholeRGBA final/Undo clear/Redo byteexact: changed0/max0. Ненулевые P/C/V/cov
+и реальные targetcarryP14/front126; targetpaints1, поэтому mode16 на этом
+job не нужен. Undo восстанавливает1,362,943 отличающихся RGBAbytes и1,784,736
+nonempty pixels; final1,580,675. Redo возвращает original final exact0.
+Full47 остаётся в Operation Log. ON skips10vsOFF2: восемь дополнительных
+stroke не рисуются; actual initial paint calls31vs39. Во всех4arms GL0/lostfalse.
+
+Чистая timing-волнa без промежуточных readback: OFF41.115s/ON35.359s.
+Это standalone canonical replay с одним rAF между append; cadence входит
+в wall time. Не ordinary Room latency, не native FPS и не production speedup.
+One-shot диагностический capture CPU проверен: original47/rebuild47/Undo48/
+Redo49 дают ровно один capture; исходные finish вызываются во всех случаях,
+включая исключение capture. Прежние три INCONCLUSIVE сохранены.
+
+Source audit multi-layer: actual target buffer выбран по op.layerId; cache
+требует cached.target===target. Painter.resolveWithinSheet и scratch.getOrCreate
+читают только этот target. ForeignSources фильтрует same-layer canonical done
+ops. Replay использует записанный op.wet; author sampleUnderNib читает отдельную
+_layers.get(layerId). Это поддерживает изоляцию исходниками, но отдельного
+multi-layer physical gate ещё нет. DefaultON не предлагается.
+
+Новый optional hook forwarding позволяет диагностической зависимости пройти
+useRoomRestore → actualrestoreRoomState. Real hook/real MockGL Engine regression:
+unchanged render сохраняет callback identity и не запускает дополнительный
+restore; opt-inpaint1/fullhistory3, undefinedpaint2. 22tests4files, whole-web TS
+и targeted lint PASS. Production Room caller не включает эту опцию.
