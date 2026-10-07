@@ -964,8 +964,8 @@ function RoomEditor() {
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
-      asyncFinish: true,
-      materialPresentation: true,
+      asyncFinish: false,
+      materialPresentation: false,
       diagLog,
       infinite: engineInfinite,
       // (#470) The sheet, in world units. The canvas is the viewport now, so
