@@ -47,3 +47,32 @@ P/C/cov берутся из фактических live/replay scratch; water �
 ролей; `mrtExercised` отдельно требует pairs > 0. Пустые/уже освобождённые scratch
 после dry явно не доказывают parity: смотреть unavailable и coverage gate.
 Сравнивать одинаковые key/role/dimensions/hash, а не только финальный PNG.
+
+## Existing queue grouping diagnostic
+
+`runPrototype({backend:'webgl1',scenario:'puddle',paper:'medium',schedule:'front-presentation'})`
+accepts `baseline`, `front`, `presentation`, `front-presentation`. Production queue
+flags remain OFF; only this owned instance opts in. Contact/continuation flags
+are not enabled. No shader, dose, quantization, pass order, or reveal/morph timer
+changes. Existing groups may complete earlier in wall time; this is the intended
+scheduling change, not a new animation model.
+
+`report.queue` records each actual settle tick: `index,continuation,elapsedMs,
+ops:{contact,front,presentation,barrier},syncCount,syncMs`, plus outside-tick
+advance calls. Data stops before diagnostic field capture/export/undo.
+Elapsed time includes JS and existing `gl.finish` synchronization, not GPU timestamps.
+Initial synchronous capture and synchronous complete drains bypass advance and
+are explicitly excluded from these op counts. Up to 10000 tick records, with a
+truncated flag if exceeded. Instrumentation never intercepts global rAF or GL.
+
+Semantics remain the existing ones: front groups never cross upload/capture
+barriers; presentation groups share exactly one captured token, inherited through
+ownership wrappers. Each unit keeps its order and synchronizes GPU before the
+4ms budget check, cap 4; drawing/late frame disables grouping. Slow GPU may overrun
+by one existing unit, not by four queued units. Cancellation/lifecycle guards
+remain in the original queue. Run baseline/front/presentation/combined one at a
+time on the same actual device; match tape, final RGBA, meaningful undo/exact redo,
+and retained field keys/dimensions/hash with nonemptyRequiredRoles. Compare total
+paintMs, tick count and p95/max elapsed (with and without sync cost), grouped op
+counts, glError/contextLost. Reject speed claims from fewer frames alone, and
+reject empty field hashes as a physical parity proof.

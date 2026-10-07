@@ -1,3 +1,5 @@
+import { captureQueue, type BatchSchedule } from './queueCapture'
+import type { WatercolorSettleQueue } from '../../../../apps/web/src/engine/src/watercolor/WatercolorSettleQueue'
 import { captureFieldRoles } from './fieldCapture'
 import { PencilEngine } from '../../../../apps/web/src/engine/index'
 import type { Operation, StrokeOperation, Dab, PaperType } from '@grafetto/shared'
@@ -16,7 +18,7 @@ window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
 export { PencilEngine, WatercolorPasses, AccumulationBuffer }
 
 type Backend = 'webgl1' | 'webgl2' | 'mrt'
-type Probe = { gl: WebGLRenderingContext; _settle: unknown; _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>; _unsettledLayers: Set<string>; _layers: Map<string, ILayerBuffer>; _watercolorPasses: WatercolorPasses }
+type Probe = { gl: WebGLRenderingContext; _settle: unknown; _rebuildJobs: Map<string, unknown>; _pendingRebuilds: Set<string>; _unsettledLayers: Set<string>; _layers: Map<string, ILayerBuffer>; _watercolorPasses: WatercolorPasses; _settleQueue: WatercolorSettleQueue }
 let engine: PencilEngine | null = null
 const show = (value: unknown) => { const node = document.querySelector('#prototype-output'); if (node) node.textContent = JSON.stringify(value, null, 2) }
 const digest = async (bytes: Uint8Array) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes.slice().buffer))].map(x => x.toString(16).padStart(2, '0')).join('')
@@ -66,7 +68,7 @@ export function disposePrototype() {
   engine?.destroy(); engine = null
   document.querySelector('#surface')!.replaceChildren()
 }
-export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat' }: { backend?: Backend; scenario?: string; paper?: PaperType } = {}) {
+export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline' }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule } = {}) {
   disposePrototype()
   const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024
   document.querySelector('#surface')!.append(canvas)
@@ -80,6 +82,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
     probe._watercolorPasses.diagnosticBrushMrt = true
   }
   current.setLocked(false); current.setActiveLayer('L'); current.setCompositeOrder([{ id: 'L', opacity: 1 }])
+  const queueCapture = captureQueue(probe._settleQueue, schedule)
   const initMs = performance.now() - started
   const operations = tape(scenario)
   const tapeSha256 = await digest(new TextEncoder().encode(JSON.stringify(operations)))
@@ -89,6 +92,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   }
   await idle(probe)
   const paintMs = performance.now() - startedPaint
+  const queue = queueCapture.snapshot(); queueCapture.detach()
   const fields = await captureFieldRoles(current as unknown as Parameters<typeof captureFieldRoles>[0], paper, probe._watercolorPasses.brushPairStats.pairs)
   const materialWholeLayer = await hashLayer(probe)
   const blob = await current.exportPNG(true)
@@ -103,7 +107,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   const redo = current.redo(); await idle(probe)
   const redone = await hashLayer(probe)
   const ext = probe.gl.getExtension('WEBGL_debug_renderer_info')
-  const report = { backend, scenario, paper, tapeSha256, code: '__CODE__', initMs, paintMs, phaseMs,
+  const report = { backend, scenario, paper, schedule, queue, tapeSha256, code: '__CODE__', initMs, paintMs, phaseMs,
     canvas: [canvas.width, canvas.height], renderer: ext ? probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null,
     glError: probe.gl.getError(), lost: probe.gl.isContextLost(), operations: current.getOperations().map(op => ({ id: op.id, type: op.type })),
     fields, materialWholeLayer, rgbaSha256, exportSize: [result.width, result.height], mrt: { ...probe._watercolorPasses.brushPairStats },
