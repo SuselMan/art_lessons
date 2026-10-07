@@ -1,3 +1,4 @@
+import { joinedFinishDeferredQaEnabled } from './diagnostics/joinedFinishDeferredQa'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -968,6 +969,7 @@ function RoomEditor() {
       asyncFinish: false,
       joinedTouch: joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
+      joinedFinishDeferred: joinedFinishDeferredQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
       materialPresentation: false,
       diagLog,
       infinite: engineInfinite,

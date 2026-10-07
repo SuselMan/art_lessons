@@ -104,3 +104,7 @@ it('thrown null still marks recovery and cannot publish pending material',async(
  try{e['_advanceSettle']();expect.fail('must throw')}catch(error){expect(error).toBeNull()}
  expect(e['_wcJoinedRecoveryLayers'].has('L')).toBe(true);expect(await e.exportPNG(true)).toBeNull();expect(e.bakeNetworkSnapshot('L')).toBeNull()
 })
+it('typed constructor option defaults OFF and cannot enable joined admission, async or provisional material by itself',()=>{
+ for(const enabled of [undefined,true]){const {engine:e}=createTestEngine({joinedFinishDeferred:enabled},{width:64,height:64});engines.push(e)
+ expect(e['_wcJoinedFinishDeferred']).toBe(enabled??false);expect(e['_wcJoinedTouch']).toBe(false);expect(e['_wcAsyncFinish']).toBe(false);expect(e['_wcMaterialPresentation']).toBe(false)}
+})

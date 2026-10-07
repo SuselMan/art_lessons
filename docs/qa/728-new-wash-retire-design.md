@@ -80,3 +80,9 @@ CPU final: 43 tests / 4 files PASS, whole-web TS exit0; `index.joinedDeferredFin
 Это перенос работы, не уменьшение числа 724 solver units. Будущий аппаратный гейт обязан отдельно измерить UP handler, UP→RAF tail/max gap и полную settle duration, затем same-tape field/wholeRGBA/Dry/UndoRedo/fresh endpoints. New-wash/layer admission этим коммитом не включается.
 
 Интеграция с текущим root требует ручного сохранения releaseDryTicket/isExpedited/captured gesture в `_startSettle`, а также уже существующих root asyncError/export guards. Эти поля отсутствуют в старой базе данной рабочей ветки; нельзя заменять root файл целиком.
+
+### Отдельный constructor opt-in
+
+`PencilEngineOptions.joinedFinishDeferred` по умолчанию false. Room читает этот параметр только из DEV `VITE_QA_JOINED_FINISH_DEFERRED=1` или `?qaJoinedFinishDeferred=1`; production query ничего не включает. Опция сама не включает joinedTouch, async или material; для будущего собственного QA адреса нужно отдельно существующее root `qaJoinedTouch=1`. Все работающие стенды неизменны.
+
+CPU option gate: 13 tests / 2 files PASS, whole-web TS exit0. Raw deferred-option-{tests,types}.log. На root net cherry сохраняет его уже существующий typed joinedTouch и Room DEV helper; wholefile из старой базы не переносить.
