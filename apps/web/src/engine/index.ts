@@ -5219,7 +5219,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _takeCheckpoint(layerId: string): void {
-    if (this._wcAsyncFinish && this._wcCanonical.pending) return
+    if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
     // what the log no longer has (the undone stroke): never bake it.
     if (this._rebuildJobs.has(layerId)) return
@@ -5291,6 +5291,7 @@ export class PencilEngine implements PencilEngineAPI {
     const last = opIds[opIds.length - 1]
     const step = (): void => {
       if (this._destroyed || this._contextLost || this._layers.get(layerId) !== buf) return
+      if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
       const now = this._log.layerPixelOps(layerId)
       if (now.length !== opIds.length || now[now.length - 1]?.id !== last || this._settle
         || this._washReveals.size || this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)
@@ -5311,6 +5312,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** SnapshotIO's first bake gate — pure, see SnapshotIOContext.quiet. */
   private _snapshotQuiet(layerId: string): boolean {
+    // A canonical request may be between solver steps, with no _settle yet.
+    if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
     // unrecorded pixels belong to no confirmed watermark yet.
     if (this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false

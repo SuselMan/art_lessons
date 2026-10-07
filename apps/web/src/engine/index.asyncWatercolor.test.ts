@@ -603,3 +603,72 @@ it('notifies a derived Room state only after deferred remote add and undo enter 
     expect(engine['_layers'].has('Q')).toBe(false)
   } finally { engine.destroy() }
 })
+
+
+it('refuses snapshot publication between pending canonical requests even without a settle', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    expect(engine['_snapshotQuiet']('L')).toBe(true)
+    engine['_wcCanonical'].enqueue({ execute: function* () {}, cancel: () => {} })
+    expect(engine['_settle']).toBeNull()
+    expect(engine['_snapshotQuiet']('L')).toBe(false)
+    engine['_wcCanonical'].cancel(false)
+    expect(engine['_snapshotQuiet']('L')).toBe(true)
+    engine['_wcAsyncOwners'].set({} as never, 1)
+    expect(engine['_snapshotQuiet']('L')).toBe(false)
+    engine['_wcAsyncOwners'].clear()
+    expect(engine['_snapshotQuiet']('L')).toBe(true)
+  } finally { engine.destroy() }
+})
+
+it('keeps an ACKed local tool dirty and unbakeable until its queued canonical pixels commit', async () => {
+  const local = vi.fn()
+  const { engine } = createTestEngine({ userId: 'owner', onLocalOperation: local }, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('pencil'); engine.setPencil('HB'); engine['_wcAsyncFinish'] = true
+  const frames = new Map<number, () => void>(); let n = 0
+  engine['_wcCanonical']['ctx'].schedule = cb => { frames.set(++n, cb); return n }
+  engine['_wcCanonical']['ctx'].unschedule = id => { frames.delete(id) }
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 36, y: 20 }])
+    const op = local.mock.calls[0][0]
+    engine.confirmOperation(op.id, 1)
+    engine['_snapshots'].markDirty('L')
+    expect(engine.isLayerDirty('L')).toBe(true)
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+    expect(engine.isLayerDirty('L')).toBe(true)
+    for (let i = 0; i < 100 && engine['_wcCanonical'].pending; i++) {
+      const frame = frames.entries().next().value
+      if (frame) { frames.delete(frame[0]); frame[1]() }
+    }
+    expect(engine['_wcAsyncLocalTools'].size).toBe(0)
+    expect(engine.bakeNetworkSnapshot('L')).not.toBeNull()
+  } finally { engine.destroy() }
+})
+
+it('abandons partial checkpoint readback if new canonical work starts between tiles', async () => {
+  const { engine } = createTestEngine({ infinite: true }, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L')
+  const width = engine['_tileSize']().w
+  engine.appendOperation(makeStroke('author', 'L', [dab(16, 20), dab(width + 16, 20)]), 'remote')
+  expect(engine['_layers'].get('L')!.allResident().length).toBeGreaterThan(1)
+  engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  const add = vi.spyOn(engine['_checkpoints'], 'add')
+  vi.useFakeTimers(); vi.stubGlobal('document', {})
+  try {
+    engine['_takeCheckpoint']('L')
+    expect(add).not.toHaveBeenCalled()
+    engine['_wcCanonical'].enqueue({ execute: function* () {}, cancel: () => {} })
+    vi.advanceTimersByTime(32)
+    expect(add).not.toHaveBeenCalled()
+    engine['_wcCanonical'].cancel(false)
+    engine['_takeCheckpoint']('L')
+    vi.advanceTimersByTime(64)
+    expect(add).toHaveBeenCalledOnce()
+  } finally { add.mockRestore(); vi.unstubAllGlobals(); vi.useRealTimers(); engine.destroy() }
+})
