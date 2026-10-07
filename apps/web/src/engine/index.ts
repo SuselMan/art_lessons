@@ -4530,10 +4530,6 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
-  /** (§17.70) How much a rebuild's watercolour slice may draw on this
-   *  device. Both limits matter and differ by device: on the iPad every draw
-   *  into its own target is a render pass, a few hundred in a slice cost more
-   *  than their pixels, while on a desktop GPU the pixels dominate. */
   /** Diagnostic Queue-only completion clock; drawing/FIFO paths are unchanged. */
   private _wcSettleBudgetFence = false
   private _gpuBudgetFence: GpuBudgetFence | null = null
@@ -4544,6 +4540,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._gpuBudgetFence.sync()
   }
 
+  /** (§17.70) How much a rebuild's watercolour slice may draw on this
+   *  device. Both limits matter and differ by device: on the iPad every draw
+   *  into its own target is a render pass, a few hundred in a slice cost more
+   *  than their pixels, while on a desktop GPU the pixels dominate. */
   private readonly _sliceLimits = new SliceGroups()
 
   /** (§17.70) The buffers rebuild jobs are about to replace. */
