@@ -148,3 +148,33 @@ endpoint читает Postgres непосредственно; все actual exp
 Сравнения OFF/ON строгие SHA full buffers, whole RGBA и material journal; диагностические
 scratch-роли здесь также не получают автоматической tolerance. Whole PNG сохраняется.
 Все readback вне active input. Это CPU подготовка: аппаратных результатов пока нет.
+
+### Изолированный mixed runtime, CPU-only
+
+HOME archive:
+`/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/joined-mixed-0250ae51`.
+Full root source `0250ae51e5646634109e6d4506d57c6686e10dec`,1007 tracked web/shared
+SHA byte-equal, оригинальный Vite config,7 paper assets из проверенного f52 runtime.
+`source-manifest.json` и `source-passport.json` сохраняют SHA/provenance/qaHashes.
+Archive SHA c011c572a3d41517279bb63908751135311b62ca83768c038be30b6cad574580.
+Typed joinedTouch/mixed defaultfalse. Backend4539 не изменён; потенциальный порт5340
+был свободен. При подготовке HOME MemAvailable1652MiB<1700: Vite и browser НЕ стартовали.
+Новых dependencies/install/worktrees нет, real ancestor deps доступны. Никаких
+5330/5329 изменений. GPU у других агентов.
+
+В `qa/next-commands.txt` точные отдельные команды future Vite и GPU controller.
+Запуск только после grant/RAM/port/bootstrap health. Основная команда:
+
+```sh
+QA_DEPS=/home/suselman/projects/pencil-agents/680-lifetime-hardware QA_APP=https://192.168.1.70:5340 QA_RUNTIME=/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/joined-mixed-0250ae51 QA_MANIFEST=/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/joined-mixed-0250ae51/source-manifest.json QA_OUT=/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/joined-mixed-0250ae51/qa/raw-next /home/suselman/.nvm/versions/node/v22.20.0/bin/node /home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/joined-mixed-0250ae51/qa/joined-mixed-room-controller.mjs
+```
+
+Controller использует установленный Chrome/actual DISPLAY0 и отказывает overwrite
+старого report. Snapshot of material SHA теперь стабильно сортирует object keys,
+но НЕ изменяет packed wet/dab times. Storage poll после ACK сверяет полный actual
+accepted payload с Postgres (только server seq дополнительно исключён), сохраняет
+storedOperations/expected IDs. API board ID берётся из actual store.room.id.
+Serialization test извлекает actual normalization из helper: wet/time/physical
+stroke/wash IDs сохраняются, изменение packed bytes/wet не совпадает, actual ID
+и walltime остаются в persistence comparison. Этот CPU test PASS на VPS и HOME;
+helpers node-check PASS. GPU/physical endpoint данным обновлением не проверен.
