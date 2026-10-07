@@ -17,8 +17,8 @@
         "Plan.prepare"
       ],
       "name": "CPU contact-field cache",
-      "result": "Surface два прогона: prepare176→86 и182→99мс; hitratio60%,1.27MiB. Во втором прогоне whole replay21141→21051мс: общий эффект мал.",
-      "limits": "Standalone400/Fine, поля/Undo/Redo exact. Обратный порядок ещё измеряется; workspace отдельно не ускорил.",
+      "result": "Surface прямые и обратный порядок: prepare176→86,182→99,199→139мс; hitratio60%,1.27MiB. Whole replay почти не меняется (21141→21051мс), обратный порядок21450→21972мс: общего ускорения не доказано.",
+      "limits": "Standalone400/Fine, поля/Undo/Redo exact. Чередование не убирает шум полностью; workspace отдельно стабильного ускорения не дал.",
       "status": "CPU выигрыш, общий выигрыш не установлен"
     },
     {
