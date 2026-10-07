@@ -100,3 +100,22 @@ watercolor quality from the software run.
 
 API reference: [WebGPU specification](https://www.w3.org/TR/webgpu/) and
 [GPUWeb timestamp-query example](https://webgpu.github.io/webgpu-samples/?sample=timestampQuery).
+
+## Faithful canonical brush gate
+
+`Check Q8 brush · WebGL1` separately ports the current
+`WC_BRUSH_DRAG_BASELINE_FRAG` donor/capacity algorithm into WGSL. Read-only
+pre-contact pigment/color, simultaneous two-field output, four directions in
+fixed order, floor(channel*f), per-channel receiver capacity and RGBA8 clamp
+remain at every pulse boundary. It does **not** replace the interactive float
+solver. Scope is the full-resolution flow rectangle used by the existing
+WebGL2 fixtures; compact bilinear flow rectangles are not yet ported.
+
+Software Dawn versus the actual production WebGL1 shader: zero-flow16, capacity16
+three-pulse, partial-scissor128 two-pulse and brush400/field512-step100 all have
+**0 different pigment/color bytes**. Nonzero fixtures change input, and the
+zero-flow fixture is identity. The shader uses f32 log/smoothstep; other hardware
+must measure parity rather than assume transcendental results are identical.
+The stress fixture gain=.84 is reused to match existing tests; positivity bounds
+for arbitrary gains are not asserted. This is an algorithm-port gate, not a
+whole-engine fidelity or throughput claim.

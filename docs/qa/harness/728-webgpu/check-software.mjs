@@ -48,6 +48,7 @@ try {
   })
   fs.writeFileSync(path.join(out, 'software-render.png'), Buffer.from(result.field.readbackPng.split(',')[1], 'base64'))
   delete result.field.readbackPng
+  result.canonicalBrush = await page.evaluate(() => window.__watercolorGpuPoc.checkCanonicalBrush())
   result.oracle = await page.evaluate(() => window.__watercolorGpuPoc.checkOracle())
   await page.getByRole('button', { name: 'Dry all', exact: true }).click()
   result.dry = await page.evaluate(async () => {
@@ -66,6 +67,6 @@ try {
   await page.waitForFunction(() => document.querySelector('[role=status]')?.textContent?.startsWith('Replay complete:'), null, { timeout: 30000 })
   result.redoMass = await page.evaluate(async () => { const state = await window.__watercolorGpuPoc.readState(); let mass = 0; for (let k = 0; k < state.length; k += 16) mass += state[k + 3] + state[k + 7]; return mass })
   result.metrics = await page.evaluate(() => ({ ...window.__watercolorGpuPoc.metrics, timings: window.__watercolorGpuPoc.timingSummary }))
-  result.pass = errors.length === 0 && result.replay.includes('0 different floats') && result.dryReplay.includes('0 different floats') && result.field.mass > 100 && result.field.colored > 1000 && result.field.negative === 0 && result.oracle.pass && result.dry.mobile === 0 && result.dry.water === 0 && result.undoMass === 0 && result.redoMass === result.dry.mass
+  result.pass = errors.length === 0 && result.replay.includes('0 different floats') && result.dryReplay.includes('0 different floats') && result.field.mass > 100 && result.field.colored > 1000 && result.field.negative === 0 && result.oracle.pass && result.canonicalBrush.pass && result.dry.mobile === 0 && result.dry.water === 0 && result.undoMass === 0 && result.redoMass === result.dry.mass
 } catch (error) { result.pass = false; result.error = String(error) }
 finally { await browser.close(); await new Promise(resolve => server.close(resolve)); fs.writeFileSync(path.join(out, 'software-report.json'), JSON.stringify(result, null, 2)); console.log(JSON.stringify(result)); if (!result.pass) process.exitCode = 1 }

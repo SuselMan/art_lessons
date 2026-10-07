@@ -228,6 +228,7 @@ export function WatercolorGpuPocPage() {
       <button disabled={!ready || busy || !redoTape.current} onClick={() => { const tape = redoTape.current; if (tape) void replay(tape) }}>Redo</button>
       <button disabled={!ready || busy} onClick={() => void inspectMass()}>Check mass</button>
       <button disabled={!ready || busy} onClick={() => { paused.current = true; setPausedUi(true); setBusy(true); void engine.current?.checkOracle().then(result => setStatus(`Production CPU oracle: ${JSON.stringify(result)}`)).finally(() => setBusy(false)) }}>Check CPU oracle</button>
+      <button disabled={!ready || busy} onClick={() => { paused.current = true; setPausedUi(true); setBusy(true); void engine.current?.checkCanonicalBrush().then(result => setStatus(`Canonical Q8 brush: ${JSON.stringify(result)}`)).catch(error => setStatus(String(error))).finally(() => setBusy(false)) }}>Check Q8 brush · WebGL1</button>
       <button disabled={!ready || busy} onClick={download}>Export journal</button>
     </div>
     <p role="status">{busy ? 'Working… ' : ''}{status}</p>
