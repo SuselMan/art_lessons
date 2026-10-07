@@ -116,11 +116,11 @@ export class RibbonStrokeScratch {
   runningCoverage(tile: AccumulationBuffer): AccumulationBuffer | undefined {
     if (!this.trackRunningSource) return undefined
     const entry = this.getOrCreate(tile)
-    if (entry.coverageFilmGesture !== this.gesture) {
+    if (entry.coverageFilmGesture !== this.materialGesture) {
       if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
       entry.coverageFilm = this.pool.acquire(tile.width, tile.height)
       entry.coverage.copyTo(entry.coverageFilm)
-      entry.coverageFilmGesture = this.gesture
+      entry.coverageFilmGesture = this.materialGesture
     }
     return entry.coverageFilm
   }
@@ -314,6 +314,46 @@ export class RibbonStrokeScratch {
     return this._finish
   }
 
+  /** CPU-only request metadata; no material texture or live input clock is rewound.
+   * A deferred prepare must consume this owned copy rather than a newer film's lists. */
+  captureFinishMetadata(): RibbonFinishMetadata {
+    const dry = this.dryCtx
+    const finish = this.finishContext
+    return {
+      gesture: this.gesture,
+      paints: new Set(this.paints),
+      brushTravel: this.brushTravel.map(d => ({ ...d })),
+      wetContacts: this.wetContacts.map(d => ({ ...d })),
+      foreignSources: this.foreignSources?.map(source => ({
+        gesture: source.gesture,
+        footprints: source.footprints.map(d => ({ ...d })),
+        chunks: source.chunks?.map(chunk => ({ ...chunk,
+          color: [...chunk.color], seed: [...chunk.seed], dabs: chunk.dabs.map(d => ({ ...d })),
+        })),
+      })) ?? null,
+      dryCtx: dry ? { ...structuredClone({ ...dry, target: undefined }), target: dry.target } : null,
+      finish: finish ? { ...structuredClone({ ...finish, target: undefined }), target: finish.target } : null,
+    }
+  }
+
+  /** Detach the canonical boundary without advancing or restoring input clocks.
+   * dryCtx is deliberately not a canonical baseline: the FIFO folds it only
+   * after the preceding finish has landed. */
+  captureCanonicalFinish(): RibbonCanonicalFinish | null {
+    if (!this._finish?.profile.normalizeDeposit) return null
+    const metadata = this.captureFinishMetadata()
+    const diffusePending = this.diffusePending
+    this.diffusePending = false
+    const composite = this._composite ?? {
+      spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0,
+      fieldSeed: [0, 0] as [number, number], bristleRadiusPx: 0,
+    }
+    return { ...metadata, diffusePending,
+      composite: { ...composite, fieldSeed: [...composite.fieldSeed] },
+      spacing: this._dabSpacing, direction: [...this._dir],
+    }
+  }
+
   /** The scratch this tile already has, or null — deliberately not getOrCreate:
    *  a tile inside the gesture's bounding box that its dabs never reached has
    *  nothing to recomposite, and snapshotting one would spend three pooled
@@ -382,6 +422,15 @@ export class RibbonStrokeScratch {
   /** (§17.28) Counts the gestures of this wash; the film buffers of a tile
    *  are refreshed when a batch arrives from a gesture they were not made for. */
   gesture = 0
+  /** Opt-in deferred source execution: null keeps the existing immediate owner. */
+  private _materialGesture: number | null = null
+  get materialGesture(): number { return this._materialGesture ?? this.gesture }
+  activateMaterialFilm(gesture: number): void {
+    if (!Number.isInteger(gesture) || gesture < 0 || gesture > this.gesture || (this._materialGesture !== null && gesture < this._materialGesture)) {
+      throw new Error('Watercolor material film is outside chronological input order')
+    }
+    this._materialGesture = gesture
+  }
   /** (#536, §17.37) The gesture's landing: where the nib came down and its
    *  radius there, and how long it stood within WC_DWELL_RADIUS of it before
    *  moving on (the dabs' own clock, Dab.t). Frozen once a dab leaves. Per
@@ -430,7 +479,7 @@ export class RibbonStrokeScratch {
    *  wash - with the replay cache's four washes that was 384 MB of scratch
    *  on a two-tile layer, and the rebuild behind an undo on top of it. The
    *  next gesture (or chunk) acquires them again from the pool. */
-  releaseFilm(gesture = this.gesture): void {
+  releaseFilm(gesture = this.materialGesture): void {
     for (const entry of this._tiles.values()) if (entry.coverageFilmGesture === gesture) {
       if (entry.coverageFilm) this.pool.release(entry.coverageFilm)
       entry.coverageFilm = undefined; entry.coverageFilmGesture = undefined
@@ -515,7 +564,7 @@ export class RibbonStrokeScratch {
   filmBuffers(tile: AccumulationBuffer): { strokeInk: AccumulationBuffer; inkBase: AccumulationBuffer; strokeColor: AccumulationBuffer | null; colorBase: AccumulationBuffer | null } | null {
     const entry = this.getOrCreate(tile)
     if (!entry.inkLoad) return null
-    if (entry.filmGesture !== this.gesture) {
+    if (entry.filmGesture !== this.materialGesture) {
       entry.strokeInk ??= this.pool.acquire(tile.width, tile.height)
       entry.inkBase ??= this.pool.acquire(tile.width, tile.height)
       entry.strokeInk.clear()
@@ -526,7 +575,7 @@ export class RibbonStrokeScratch {
         entry.strokeColor.clear()
         entry.inkColor.copyTo(entry.colorBase)
       }
-      entry.filmGesture = this.gesture
+      entry.filmGesture = this.materialGesture
     }
     return { strokeInk: entry.strokeInk!, inkBase: entry.inkBase!, strokeColor: entry.strokeColor, colorBase: entry.colorBase }
   }
@@ -569,11 +618,11 @@ export class RibbonStrokeScratch {
   solventFilm(tile: AccumulationBuffer): { load: AccumulationBuffer; base: AccumulationBuffer; film: AccumulationBuffer } {
     const entry = this.getOrCreate(tile)
     if (!entry.solventLoad) { entry.solventLoad = this.pool.acquire(tile.width, tile.height); entry.solventLoad.clear() }
-    if (entry.solventGesture !== this.gesture) {
+    if (entry.solventGesture !== this.materialGesture) {
       entry.strokeSolvent ??= this.pool.acquire(tile.width, tile.height)
       entry.solventBase ??= this.pool.acquire(tile.width, tile.height)
       entry.strokeSolvent.clear(); entry.solventLoad.copyTo(entry.solventBase)
-      entry.solventGesture = this.gesture
+      entry.solventGesture = this.materialGesture
     }
     return { load: entry.solventLoad, base: entry.solventBase!, film: entry.strokeSolvent! }
   }
@@ -582,6 +631,7 @@ export class RibbonStrokeScratch {
    *  still means "this scratch is finished with" — what changed (#385) is that
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
+    this._materialGesture = null
     this._storageBounds = null
     this._waterUsed = 0
     this._pigmentUsed = 0
@@ -608,6 +658,7 @@ export class RibbonStrokeScratch {
   /** Context loss: the GL objects are already dead, so neither release nor
    *  destroy is meaningful — just let go of them. */
   forget(): void {
+    this._materialGesture = null
     this.trackRunningSource = false
     this.runningSourceCommands = []
     this._tiles.clear()
@@ -630,6 +681,7 @@ export class RibbonStrokeScratch {
    *  `originOf` names each tile by its place on the sheet: the replay that
    *  restores this paints into another buffer. */
   snapshot(gl: WebGLRenderingContext, originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): ScratchSnapshot | null {
+    if (this._materialGesture !== null && this._materialGesture !== this.gesture) return null
     if ([...this._tiles.values()].some(entry => entry.coverageFilm)) return null
     const tiles: ScratchSnapshot['tiles'] = []
     for (const [tile, entry] of this._tiles) {
@@ -666,6 +718,7 @@ export class RibbonStrokeScratch {
   }
 
   private _applyScalars(snap: ScratchScalars, target: ILayerBuffer): void {
+    this._materialGesture = null
     this.pigmentInputsKnownZero = false
 
     this._storageBounds = snap.storageBounds ? { ...snap.storageBounds } : snap.storageBounds
@@ -708,6 +761,7 @@ export class RibbonStrokeScratch {
    * clear and only receive writes inside storageBounds. GPU sub-rect copies
    * preserve every byte; unpark clears the missing exterior. */
   spill(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): SpilledScratch | null {
+    if (this._materialGesture !== null && this._materialGesture !== this.gesture) return null
     const work = this.spillWork(originOf)
     let r = work.next()
     while (!r.done) r = work.next()
@@ -883,6 +937,27 @@ interface ScratchScalars {
   landing: { x: number; y: number; r: number; t: number } | null; dwellMs: number; dwellDone: boolean
   turnOffset: [number, number]; turnDirection: [number, number] | null; brushTravel: BrushTravel[]; foreignSources: WaterSource[] | null; foreignImportedGestures: string[]; wetContacts: WaterFootprint[]
   trail: WcTrailDab[]; speed: number; speedPeak: number; speedAt: number; speedTravel: number; brakePigment: number; surplusPigment: number; surplusWater: number; surplusAt: number
+}
+
+/** Metadata-only side of an asynchronous finish. Physical film ownership is separate. */
+export interface RibbonFinishMetadata {
+  readonly gesture: number
+  readonly paints: Set<string>
+  readonly brushTravel: BrushTravel[]
+  readonly wetContacts: WaterFootprint[]
+  readonly foreignSources: WaterSource[] | null
+  readonly dryCtx: RibbonStrokeScratch['dryCtx']
+  readonly finish: RibbonStrokeScratch['finishContext']
+}
+
+export interface RibbonCanonicalFinish extends RibbonFinishMetadata {
+  readonly diffusePending: boolean
+  readonly composite: {
+    spreadPx: number; inkSmoothPx: number; water: number; migratePx: number;
+    fieldSeed: [number, number]; bristleRadiusPx: number
+  }
+  readonly spacing: number
+  readonly direction: [number, number]
 }
 
 /** (#536, §17.56) See RibbonStrokeScratch.snapshot. */

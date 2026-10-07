@@ -2,7 +2,7 @@ import { contactPulseOp, frontStepOp } from '../watercolor/WatercolorSettleQueue
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
-import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
+import type { RibbonStrokeScratch, RibbonFinishMetadata } from '../buffers/RibbonStrokeScratch'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
@@ -102,8 +102,10 @@ export class WatercolorSettlePlan {
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
     skipZeroPigmentContacts = false,
+    finishMetadata?: RibbonFinishMetadata,
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
+    const metadata = finishMetadata ?? scratch
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
     // The rect: the settle's bounds plus the reach, clipped to the tiles that
@@ -252,9 +254,9 @@ export class WatercolorSettlePlan {
       ? acquireInput(field.w, field.h) : null
 
     const plateauPhase = this.diagnosticPlateauPhase && solvent !== null
-    const foreign = foreignWaterStencil(scratch.foreignSources ?? [], scratch.wetContacts,
+    const foreign = foreignWaterStencil(metadata.foreignSources ?? [], metadata.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const contacts = skipZeroPigmentContacts ? [] : brushDragContacts(scratch.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
+    const contacts = skipZeroPigmentContacts ? [] : brushDragContacts(metadata.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const flow = contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
@@ -286,7 +288,7 @@ export class WatercolorSettlePlan {
     })
     // (§17.44) The gesture whose film this settle consumes, fixed now: a
     // chunk's settle may land after the next chunk's film has begun.
-    const gesture = scratch.gesture
+    const gesture = metadata.gesture
     // Stitch: every tile's overlap with the rect, top-down world → bottom-up
     // GL on both sides, exactly as SmudgePainter.gatherPatch does it. `a` takes the
     // deposit, `b` what was settled, `coverage` the silhouette.
@@ -488,8 +490,8 @@ export class WatercolorSettlePlan {
     // mobile and fixed amounts at every step, so the colour cannot be
     // carried on its own afterwards. Diffusion likewise runs colour first
     // and pigment second against the unchanged pre-step pigment field.
-    const colour = scratch.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
-    const singlePaint = [...scratch.paints][0]
+    const colour = metadata.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
+    const singlePaint = [...metadata.paints][0]
     const singleTau: [number, number, number] = !colour && singlePaint ? pigmentAbsorption(singlePaint.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
     // (§17.42) The wash dries as ONE component: nothing of an operation is
     // fixed at its pen-up - the whole of its paint is mobile, the earlier
@@ -807,8 +809,8 @@ export class WatercolorSettlePlan {
     // deposit in a single pass instead of carried through the schedule
     // again — half the settle's cost, which was "всё это дело притормаживает".
     let col: { out: AccumulationBuffer }
-    if (scratch.paints.size <= 1) {
-      const only = [...scratch.paints][0]
+    if (metadata.paints.size <= 1) {
+      const only = [...metadata.paints][0]
       const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
       col = { out: field.cc }
       ops.push(() => {
@@ -871,9 +873,9 @@ export class WatercolorSettlePlan {
     if (groupDry) {
       const dryDep = dep.out === field.a ? field.c : field.a
       const dryCol = col.out === field.ca ? field.cc : field.ca
-      const dc = scratch.dryCtx
+      const dc = metadata.dryCtx
       this.groupTideOps(
-        ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0) / S, Math.max(standing, dc?.standing ?? 0), scratch.paints,
+        ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0) / S, Math.max(standing, dc?.standing ?? 0), metadata.paints,
         dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S,
       )
       dry = { dep: dryDep, col: dryCol }
@@ -913,7 +915,7 @@ export class WatercolorSettlePlan {
         // result goes onto that BASE, and the deposit is rebuilt as base +
         // film below - or the next chunk's paint vanished from the overlap
         // until the gesture ended. Otherwise it goes onto the deposit.
-        const runningFilm = entry.filmGesture !== gesture && entry.filmGesture === scratch.gesture && !!entry.strokeInk && !!entry.inkBase
+        const runningFilm = entry.filmGesture !== gesture && entry.filmGesture === scratch.materialGesture && !!entry.strokeInk && !!entry.inkBase
         const settledInk = runningFilm ? entry.inkBase! : entry.inkLoad
         const snap = snapshots.get(tile.buffer)
         fromField(dep.out, a0, tile, ox0, oy0, ox1, oy1, settledInk, snap?.ink ?? settledInk)
@@ -980,19 +982,19 @@ export class WatercolorSettlePlan {
         const commands = scratch.trackRunningSource ? scratch.runningSourceCommands.slice() : []
         if (commands.length) {
           for (const [, entry] of scratch.tileEntries()) {
-            if (entry.coverageFilmGesture === scratch.gesture && entry.coverageFilm) entry.coverageFilm.copyTo(entry.coverage)
+            if (entry.coverageFilmGesture === scratch.materialGesture && entry.coverageFilm) entry.coverageFilm.copyTo(entry.coverage)
           }
         }
         land()
         if (commands.length) {
           scratch.trackRunningSource = false
           for (const [, entry] of scratch.tileEntries()) {
-            if (entry.filmGesture === scratch.gesture && entry.filmGesture !== gesture) {
+            if (entry.filmGesture === scratch.materialGesture && entry.filmGesture !== gesture) {
               entry.strokeInk?.clear(); entry.strokeColor?.clear()
               if (entry.inkBase && entry.inkLoad) entry.inkBase.copyTo(entry.inkLoad)
               if (entry.colorBase && entry.inkColor) entry.colorBase.copyTo(entry.inkColor)
             }
-            if (entry.solventGesture === scratch.gesture) {
+            if (entry.solventGesture === scratch.materialGesture) {
               entry.strokeSolvent?.clear()
               if (entry.solventBase && entry.solventLoad) entry.solventBase.copyTo(entry.solventLoad)
             }
