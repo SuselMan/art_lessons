@@ -45,7 +45,7 @@ export function legacyCarryWeight(grid: CarryGrid, i: number, direction: number,
 /** The current ridge coefficient is exactly1; cost alone sets capacity. */
 const capacity = (cell: CarryCell, band: number): number => 1 - .85 * smooth(0, band, cell.cost)
 
-export function carryFaceOracle(grid: CarryGrid, cfg: CarryParameters, independentZero: boolean): CarryGrid {
+export function carryFaceOracle(grid: CarryGrid, cfg: CarryParameters, independentZero: boolean | 'add'): CarryGrid {
   if (cfg.rate < 0 || cfg.travel < 0 || 2 * cfg.rate * cfg.travel > 1) throw Error('Combined positive+zero outgoing bound exceeds available material')
   const weights = grid.cells.map((_, i) => directions.map((_, k) => legacyCarryWeight(grid, i, k, cfg)))
   const sums = weights.map(ws => ws.reduce((a, b) => a + b, 0))
@@ -61,10 +61,13 @@ export function carryFaceOracle(grid: CarryGrid, cfg: CarryParameters, independe
     if (!weight) continue
     const plateau = a.cost <= 1e-5 && b.cost <= 1e-5
     const phase = weight / 4 ** cfg.power
-    const zeroFace = independentZero && plateau && Math.abs((b.cost - a.cost) * cfg.costMax) <= 1e-3
+    const zeroFace = independentZero === true && plateau && Math.abs((b.cost - a.cost) * cfg.costMax) <= 1e-3
     const share = zeroFace ? phase / 4 : weight / sums[donor]
     const pairCapacity = 2 * ca * cb / (ca + cb) * (!zeroFace && plateau ? phase : 1)
-    const material = grid.cells[donor], amount = cfg.rate * share * Math.min(Math.abs(ta - tb) * pairCapacity, cfg.travel * material.p[3])
+    const material = grid.cells[donor]
+    const extra = independentZero === 'add' && plateau && Math.abs((b.cost - a.cost) * cfg.costMax) <= 1e-3
+      ? cfg.rate * phase / 4 * Math.min(Math.abs(ta - tb) * (2 * ca * cb / (ca + cb)), cfg.travel * material.p[3]) : 0
+    const amount = cfg.rate * share * Math.min(Math.abs(ta - tb) * pairCapacity, cfg.travel * material.p[3]) + extra
     const fraction = amount / Math.max(material.p[3], 5e-5)
     for (let channel = 0; channel < 4; channel++) {
       const dp = material.p[channel] * fraction, dc = material.c[channel] * fraction

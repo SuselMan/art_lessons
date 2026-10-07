@@ -30,14 +30,25 @@ describe('zero face program ownership', () => {
     const optional = f.create.mock.results.map(r => r.value)
     for (const program of optional) expect(f.remove.mock.calls.filter(c => c[0] === program)).toHaveLength(1)
   })
-  it('forgets invalid old-context handles and creates new programs after restoration', () => {
+  it('separates ADD from REPLACE and rejects ambiguous flags before allocation', () => {
+    const f=fixture()
+    expect(() => f.passes.fieldOp(f.buffer,f.buffer,f.buffer,15,.5,{ independentZeroFaces:true, additiveZeroFaces:true })).toThrow(/Choose/)
+    expect(f.create).not.toHaveBeenCalled()
+    for(const mode of [15,16] as const) {
+      f.passes.fieldOp(f.buffer,f.buffer,f.buffer,mode,.5,{ additiveZeroFaces:true })
+      f.passes.fieldOp(f.buffer,f.buffer,f.buffer,mode,.5,{ independentZeroFaces:true })
+    }
+    expect(f.create).toHaveBeenCalledTimes(4)
+    f.passes.destroy()
+  })
+  it.each(['replace', 'add'])('forgets invalid old-context handles and creates new programs after restoration: %s', (variant) => {
     const f = fixture()
-    f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 15, .5, { independentZeroFaces: true })
+    f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 15, .5, { independentZeroFaces: variant === 'replace', additiveZeroFaces: variant === 'add' })
     const stale = f.create.mock.results[0].value
     Object.defineProperty(f.gl, 'isProgram', { configurable: true, value: (program: WebGLProgram) => program !== stale })
     f.passes.initFieldPrograms(); f.passes.initFieldUniforms(); f.passes.initFieldAttributes()
     expect(f.remove.mock.calls.some(c => c[0] === stale)).toBe(false)
-    f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 15, .5, { independentZeroFaces: true })
+    f.passes.fieldOp(f.buffer, f.buffer, f.buffer, 15, .5, { independentZeroFaces: variant === 'replace', additiveZeroFaces: variant === 'add' })
     expect(f.create.mock.results.at(-1)!.value).not.toBe(stale)
     f.passes.destroy()
     expect(f.remove.mock.calls.some(c => c[0] === stale)).toBe(false)

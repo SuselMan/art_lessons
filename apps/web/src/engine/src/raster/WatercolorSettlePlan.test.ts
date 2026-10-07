@@ -723,3 +723,29 @@ for (const enabled of [false, true]) for (const wet of [0, 1]) {
     } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
   })
 }
+
+// Diagnostic numerical change: capture the flag at prepare, never mid-job.
+for (const enabled of [false, true]) for (const wet of [0, 1]) {
+  it(`captures additive zero faces without changing path eligibility (${enabled}/${wet})`, () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile); scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+    if (wet > 0) scratch.solventFilm(tile)
+    const passes = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    try {
+      probe._settlePlan.diagnosticAdditiveZeroFaces = enabled
+      probe._settlePlan.diagnosticPlateauPhase = wet > 0
+      const job = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, wet, 1, wet)!
+      probe._settlePlan.diagnosticAdditiveZeroFaces = !enabled
+      for (const op of job.ops) op()
+      const carry = passes.mock.calls.filter(c => c[3] === 15 || c[3] === 16)
+      expect(carry.length).toBeGreaterThan(0)
+      expect(carry.some(c => c[3] === 16)).toBe(true)
+      for (const call of carry) expect(call[5]?.additiveZeroFaces).toBe(enabled && wet > 0)
+      job.dispose()
+    } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
+  })
+}

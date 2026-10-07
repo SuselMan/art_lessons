@@ -109,3 +109,34 @@ Raw HOME:728-zero-cost-flux-runtime/temp/zero-cost-flux/hardware/
 results-adreno-vps-old-off-on/report.json и offline-zero-face-analysis.json.
 VPS та же относительная папка в728-zero-cost-flux. Первый HOME launcher
 67057 завершился до вкладки: namespace cached helper; реальный59537 EXIT0.
+
+## ADD-кандидат: полная legacy сумма плюс независимый поток
+
+`diagnosticAdditiveZeroFaces=false` по умолчанию. Предыдущий REPLACE остаётся
+отдельной отрицательной диагностикой; одновременный выбор запрещён до draw.
+ADD вставляет отдельный reciprocal phi/4 exchange, затем исполняет буквально
+весь исходный carry: прежние Σ, zero/positive weights, capacity и limiter.
+Оба потока используют один immutable P/C donor, не результат первого потока.
+Весь legacy outgoing≤k·travel; дополнительный outgoing≤k·travel, суммарно
+при текущих .5/.35≤.35 donor. Все mobile P/C каналы имеют один donor ratio;
+coverage/original dab geometry, V, cost не переносятся этим оператором.
+Масса/цвет/positivity доказаны в continuous CPU, не выводятся из UNORM clamp.
+Lazy P/C programs ADD отделены от REPLACE, forget invalid context handles и
+destroy покрыты тестами. Route52 guard и physical mode16 остаются прежними.
+
+Offline `temp/zero-cost-flux/add-offline.{mts,json}` использует настоящий
+checkpoint ROI354×266, но замыкает её внешнюю границу; это НЕ полный GPU proof.
+14 фактических stride/rate/band/tau команд, float64 без FIT/UNORM. Цвет здесь
+синтетически пропорционален P: actual singlepaint TOTAL C не mobile oracle.
+Масса2974.20392156865 сохраняется (ошибка~1e-11); min0. Изменены25282cells,
+max23.7078 byte-equivalent. Gap boundary(-1→0)21.7627→6.2466 (−71.3%).
+Это перспективная ограниченная оценка, не доказанное исчезновение кольца.
+Старый continuous ROI OFF отличается от hardware OFF профилем на~.15
+на inner-edge, внешняя граница/FIT/precision не совпадают; equality не заявлена.
+Полный savedinput SHA записан в JSON. Ни5331, ни root runtime не изменены.
+
+ADD final CPU:107PASS/5files/11.83sec/maxWorkers1; actual app TypeScript
+PASS exit0, targeted oxlint PASS, map67modules/981files PASS, diffcheck PASS.
+Outputs `temp/zero-cost-flux/add-{final-tests,typecheck,lint,map}.log`.
+Hardware ADD не запускался. Прежний OLD/OFF full6field byteexact относится
+только5e checkpoint; новый ADD/OFF ещё требует исполняемого аппаратного gate.

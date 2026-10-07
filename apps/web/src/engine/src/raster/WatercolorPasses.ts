@@ -1,4 +1,4 @@
-import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_FIELD_OP_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
@@ -23,7 +23,7 @@ export class WatercolorPasses {
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
 
   /** Diagnostic programs are linked only on explicit ON and owned by this GL context. */
-  private readonly _zeroFaceCarry = new Map<15 | 16, { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number }>()
+  private readonly _zeroFaceCarry = new Map<string, { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number }>()
 
   private _costDomain: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
@@ -87,8 +87,9 @@ export class WatercolorPasses {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; independentZeroFaces?: boolean } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; independentZeroFaces?: boolean; additiveZeroFaces?: boolean } = {},
   ): void {
+    if (opts.independentZeroFaces && opts.additiveZeroFaces) throw new Error('Choose one zero-face diagnostic')
     const { gl } = this
     out.beginReplaceDraw()
     if (opts.scissor) {
@@ -98,7 +99,7 @@ export class WatercolorPasses {
     // (#685) Carry modes must never enter the bookkeeping program: its
     // combined control flow crashes the Galaxy Tab's Adreno linker.
     const gradient = mode === 1 && opts.gradientFibres && !!opts.world?.[2] ? this.gradientField() : null
-    const zeroFace = opts.independentZeroFaces && (mode === 15 || mode === 16) ? this.zeroFaceCarry(mode) : null
+    const zeroFace = (opts.independentZeroFaces || opts.additiveZeroFaces) && (mode === 15 || mode === 16) ? this.zeroFaceCarry(mode, !!opts.additiveZeroFaces) : null
     const high = mode >= 10
     const prog = gradient ? gradient.program : zeroFace ? zeroFace.program : mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
     const u = gradient ? gradient.uniforms : zeroFace ? zeroFace.uniforms : mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
@@ -390,13 +391,14 @@ export class WatercolorPasses {
     this._gradientField = null
   }
 
-  private zeroFaceCarry(mode: 15 | 16): { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } {
-    const cached = this._zeroFaceCarry.get(mode)
+  private zeroFaceCarry(mode: 15 | 16, additive: boolean): { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } {
+    const key = `${mode}:${additive ? 'add' : 'replace'}`
+    const cached = this._zeroFaceCarry.get(key)
     if (cached) return cached
     const gl = this.gl
-    const program = createProgram(gl, DISPLAY_VERT, mode === 15 ? WC_FIELD_OP_ZERO_FACE_CARRY_FRAG : WC_FIELD_OP_ZERO_FACE_CARRY_COLOUR_FRAG)
+    const program = createProgram(gl, DISPLAY_VERT, additive ? (mode === 15 ? WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG : WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG) : (mode === 15 ? WC_FIELD_OP_ZERO_FACE_CARRY_FRAG : WC_FIELD_OP_ZERO_FACE_CARRY_COLOUR_FRAG))
     const entry = { program, uniforms: getUniforms(gl, program, Object.keys(mode === 15 ? this._fieldOpCarryUni : this._fieldOpCarryColourUni)), position: gl.getAttribLocation(program, 'a_position') }
-    this._zeroFaceCarry.set(mode, entry)
+    this._zeroFaceCarry.set(key, entry)
     return entry
   }
 

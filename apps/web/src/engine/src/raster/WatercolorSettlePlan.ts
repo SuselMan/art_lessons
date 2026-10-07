@@ -40,6 +40,7 @@ export class WatercolorSettlePlan {
   diagnosticCostDomainPaths = false
   /** Default OFF: reciprocal zero-cost face exchange; positive carry unchanged. */
   diagnosticIndependentZeroFaces = false
+  diagnosticAdditiveZeroFaces = false
   diagnosticPlateauPhase = false
   /** Presentation-only cropped partial-front transport; local, default OFF. */
   diagnosticPartialFrontPreview = false
@@ -535,6 +536,8 @@ export class WatercolorSettlePlan {
     // carried on its own afterwards. Diffusion likewise runs colour first
     // and pigment second against the unchanged pre-step pigment field.
     const independentZeroFaces = this.diagnosticIndependentZeroFaces
+    const additiveZeroFaces = this.diagnosticAdditiveZeroFaces
+    if (independentZeroFaces && additiveZeroFaces) throw new Error('Choose one zero-face diagnostic')
     // Physical reachability must be identical for owned live and synchronous replay.
     // Single-paint carry has no colour record: ca/cc are spare until reconstruction.
     const costPathsEnabled = this.diagnosticCostDomainPaths && metadata.paints.size === 1
@@ -692,7 +695,7 @@ export class WatercolorSettlePlan {
         dir: [1, 1] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number],
         size: [WC_CARRY_POW, costMax] as [number, number],
         tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number],
-        origin: [1, WC_CARRY_TRAVEL] as [number, number], independentZeroFaces: independentZeroFaces && plateauPhase }
+        origin: [1, WC_CARRY_TRAVEL] as [number, number], independentZeroFaces: independentZeroFaces && plateauPhase, additiveZeroFaces: additiveZeroFaces && plateauPhase }
       for (let step = 0; step < count; step++) {
         if (disposed || this.ctx.shouldPreview?.() === false) return
         partialSteps++
@@ -787,7 +790,7 @@ export class WatercolorSettlePlan {
           }
           ops.push(frontStepOp(() => {
             for (const p of plan) {
-              const opts = { path: p.path, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number], independentZeroFaces: independentZeroFaces && plateauPhase }
+              const opts = { path: p.path, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number], independentZeroFaces: independentZeroFaces && plateauPhase, additiveZeroFaces: additiveZeroFaces && plateauPhase }
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }

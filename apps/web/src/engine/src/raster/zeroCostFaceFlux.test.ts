@@ -88,3 +88,25 @@ it('matches the literal old shader gather with the actual legacy zero-inclusive 
     for (let i = 0; i < original.cells.length; i++) for (const field of ['p', 'c'] as const) for (let k = 0; k < 4; k++) expect(face.cells[i][field][k]).toBeCloseTo(gather.cells[i][field][k], 14)
   }
 })
+
+ describe('ADD preserves the entire legacy operator', () => {
+  it('adds immutable zero exchange while retaining mass, colour and combined positivity', () => {
+    const original = grid(3, [0,.9,.1,.2,.8,.05,.1,.4,.3], [0,0,.2,0,0,.3,0,.1,.4])
+    let current = original
+    for (let n=0;n<100;n++) current=carryFaceOracle(current,cfg,'add')
+    for (const field of ['p','c'] as const) for(let k=0;k<4;k++) expect(sum(current,field,k)).toBeCloseTo(sum(original,field,k),12)
+    for(const cell of current.cells) {
+      for(const value of [...cell.p,...cell.c]) expect(value).toBeGreaterThanOrEqual(0)
+      expect(cell.c[0]).toBeCloseTo(cell.p[3]*.3,12)
+    }
+    const isolated=grid(3,[0,0,0,0,.8,0,0,0,0],[0,0,0,0,0,.2,0,0,0])
+    expect(carryFaceOracle(isolated,cfg,'add').cells[4].p[3]).toBeGreaterThanOrEqual(.8*(1-2*cfg.rate*cfg.travel))
+  })
+  it('is legacy plus extra, not replacement; nonzero faces are unchanged', () => {
+    const pair=grid(2,[.8,.2])
+    const old=carryFaceOracle(pair,cfg,false), replace=carryFaceOracle(pair,cfg,true), add=carryFaceOracle(pair,cfg,'add')
+    expect(add.cells[1].p[3]-.2).toBeCloseTo(old.cells[1].p[3]-.2+replace.cells[1].p[3]-.2,14)
+    const positive=grid(3,[.8,.2,.1],[.05,.2,.4])
+    expect(carryFaceOracle(positive,cfg,'add')).toEqual(carryFaceOracle(positive,cfg,false))
+  })
+})
