@@ -1,4 +1,4 @@
-import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
@@ -22,9 +22,12 @@ export class WatercolorPasses {
   constructor(ctx: WatercolorPassesContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
 
-  /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
+  /** Diagnostic programs are linked only on explicit ON and owned by this GL context. */
+  private readonly _zeroFaceCarry = new Map<15 | 16, { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number }>()
+
   private _costDomain: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
 
+  /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
   private _fieldOpProg!: WebGLProgram
 
   private _gradientField: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
@@ -84,7 +87,7 @@ export class WatercolorPasses {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; independentZeroFaces?: boolean } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -95,10 +98,11 @@ export class WatercolorPasses {
     // (#685) Carry modes must never enter the bookkeeping program: its
     // combined control flow crashes the Galaxy Tab's Adreno linker.
     const gradient = mode === 1 && opts.gradientFibres && !!opts.world?.[2] ? this.gradientField() : null
+    const zeroFace = opts.independentZeroFaces && (mode === 15 || mode === 16) ? this.zeroFaceCarry(mode) : null
     const high = mode >= 10
-    const prog = gradient ? gradient.program : mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
-    const u = gradient ? gradient.uniforms : mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
-    const pos = gradient ? gradient.position : mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
+    const prog = gradient ? gradient.program : zeroFace ? zeroFace.program : mode === 15 ? this._fieldOpCarryProg : mode === 16 ? this._fieldOpCarryColourProg : high ? this._fieldOpHighProg : this._fieldOpProg
+    const u = gradient ? gradient.uniforms : zeroFace ? zeroFace.uniforms : mode === 15 ? this._fieldOpCarryUni : mode === 16 ? this._fieldOpCarryColourUni : high ? this._fieldOpHighUni : this._fieldOpUni
+    const pos = gradient ? gradient.position : zeroFace ? zeroFace.position : mode === 15 ? this._fieldOpCarryPosLoc : mode === 16 ? this._fieldOpCarryColourPosLoc : high ? this._fieldOpHighPosLoc : this._fieldOpPosLoc
     gl.useProgram(prog)
     if (gradient) this.ctx.stamps().bindNoise(u.u_wcFibreNoiseTex)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
@@ -386,6 +390,25 @@ export class WatercolorPasses {
     this._gradientField = null
   }
 
+  private zeroFaceCarry(mode: 15 | 16): { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } {
+    const cached = this._zeroFaceCarry.get(mode)
+    if (cached) return cached
+    const gl = this.gl
+    const program = createProgram(gl, DISPLAY_VERT, mode === 15 ? WC_FIELD_OP_ZERO_FACE_CARRY_FRAG : WC_FIELD_OP_ZERO_FACE_CARRY_COLOUR_FRAG)
+    const entry = { program, uniforms: getUniforms(gl, program, Object.keys(mode === 15 ? this._fieldOpCarryUni : this._fieldOpCarryColourUni)), position: gl.getAttribLocation(program, 'a_position') }
+    this._zeroFaceCarry.set(mode, entry)
+    return entry
+  }
+
+  private releaseZeroFaceCarry(): void {
+    const gl = this.gl
+    for (const { program } of this._zeroFaceCarry.values()) {
+      if (gl.getParameter(gl.CURRENT_PROGRAM) === program) gl.useProgram(null)
+      if (gl.isProgram?.(program) !== false) gl.deleteProgram(program)
+    }
+    this._zeroFaceCarry.clear()
+  }
+
   private releaseCostDomain(): void {
     const cached = this._costDomain
     if (!cached) return
@@ -400,6 +423,7 @@ export class WatercolorPasses {
     // Context restoration invalidates the optional cached program too.
     this.releaseGradientField()
     this.releaseCostDomain()
+    this.releaseZeroFaceCarry()
     this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._fieldOpHighProg     = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_HIGH_FRAG)
     this._fieldOpCarryProg    = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_CARRY_FRAG)
@@ -458,6 +482,7 @@ export class WatercolorPasses {
     }
     this.releaseGradientField()
     this.releaseCostDomain()
+    this.releaseZeroFaceCarry()
     this.gl.deleteProgram(this._fieldOpProg)
     this.gl.deleteProgram(this._fieldOpHighProg)
     this.gl.deleteProgram(this._fieldOpCarryProg)
