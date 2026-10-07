@@ -29,3 +29,13 @@ Own1342 отдельный matched prepare/profile, root5a fibresOFF: все19 f
 Own1343OFF и1344ON root5a последовательно CLOSED, Samsung освобождён. Actual6s dense loaded400 +20mspause→100px500ms gesture. Phase/source/FIFO/split+cap4batchON, fibresOFF, zeroContactsOFF. В обоих2 delivered engine journal ops, metadata13/owner14true, canonical busy на newtouch; GL0/lostfalse, endpoint nonempty487983/493223. Это standalone engine callbacks, НЕ обычная Room/server ACK. Payload адаптивен к rAF, поэтому endpoint разных gestures не paired equality oracle.
 
 Plan.prepare38.8→10.1ms, finish42.3→12.6ms: оба отложенных finish выполнялись уже в newtouch-active. Максимальный newtouch rAF50.2→33.5ms; dense16.8→33.5, postlift33.4both, tail100.3→100.2ms. Dense _onEnd25.5→27.3ms не улучшился. Фиксированный prepare/physical oracle отдельно подтвердил47.8→2.7ms и exact19; native независимые gestures лишь демонстрируют реальное применение lazy owner gate, не строгую causalFPS оценку. Tail и часть задержки самого отрыва остаются открытыми.
+
+## Actual CPU profiler / remaining final paint (own1345)
+
+Frozen root5a lazyON, GL0/lostfalse,2ops, target CLOSED. CDP Profiler interval1ms:676nodes/30193samples. Diagnostic wrappers counted existing GL draw/copy/upload/clear/finish/readPixels/FBOchecks without injecting any GL readback/barrier. Instrumented rAF is not unbiased FPS.
+
+Dense_onEnd26.1ms/8 final dabs: _paintRibbonDabs16.4ms, _paintStrokeDabs17.6ms. Actual CPU sample self-time: buildRibbonBands/body about9.1ms, commitPending2.9ms, captureFinishMetadata2.1ms, GC1.3ms; no existing GL call above1ms inside end. This supports geometry/final metadata CPU as next targeted seam, not a shader/physics change.
+
+One tail rAF gap100.2ms has~95.1ms CPU idle, no wrapped JS call above1ms,18 existing finish calls0–0.1ms. CPU profiling does not establish GPU/compositor cause; no invented root cause. Capture readPixels60.1ms happens only after tail and is not included in this finding.
+
+Clock mapping uses two ordered _onEnd ancestor sample groups within matching passive method entry/exit intervals: offset interval213748360.331–213748360.909ms. Independent Performance.getMetrics→Runtime clock pair has tunnel delay (~42ms here), so cannot be treated as exact mapping. Full raw profile and derived windows retained in attribution-cpu-profile.json, attribution-report.json and profile-summary.json.
