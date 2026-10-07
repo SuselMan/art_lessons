@@ -2,12 +2,15 @@
 import noiseAsset from '../raster/watercolorNoise.txt?raw'
 import { CanonicalRibbonDeposit } from './deposit'
 import { CanonicalStampDeposit } from './stamp'
-import type { CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
+import { CanonicalComposite } from './render'
+import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
 
 export interface CanonicalWebGpuOptions {
  canvas: HTMLCanvasElement
  width: number
  height: number
+ viewportWidth?: number
+ viewportHeight?: number
  paper: { bytes: Uint8Array; width: number; height: number; origin: readonly [number, number]; texSize: readonly [number, number]; scale: number }
 }
 const names = ['pigment', 'color', 'coverage', 'water', 'flow'] as const
@@ -21,6 +24,7 @@ export class CanonicalWatercolorWebGpu {
  readonly linear: GPUSampler
  private readonly deposit: CanonicalRibbonDeposit
  private readonly stamps: CanonicalStampDeposit
+ private readonly composite: CanonicalComposite
  private readonly context: GPUCanvasContext
  private readonly format: GPUTextureFormat
  private readonly preview: GPURenderPipeline
@@ -31,7 +35,7 @@ export class CanonicalWatercolorWebGpu {
   this.device=device;this.options=options
   const context = options.canvas.getContext('webgpu'); if (!context) throw new Error('WebGPU canvas unavailable')
   this.context = context; this.format = navigator.gpu.getPreferredCanvasFormat()
-  options.canvas.width = options.width; options.canvas.height = options.height
+  options.canvas.width = options.viewportWidth ?? options.width; options.canvas.height = options.viewportHeight ?? options.height
   context.configure({ device, format: this.format, alphaMode: 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC })
   this.nearest = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' })
   this.linear = device.createSampler({ magFilter: 'linear', minFilter: 'linear' })
@@ -43,11 +47,12 @@ export class CanonicalWatercolorWebGpu {
   this.noise = this.createField('production 251x251 watercolor lattice', 251, 251); this.upload(this.noise, rgba)
   this.deposit = new CanonicalRibbonDeposit(device, this.noise)
   this.stamps = new CanonicalStampDeposit(device, this.noise)
+  this.composite = new CanonicalComposite(device)
   const module = device.createShaderModule({ label: 'diagnostic exact field presentation', code: `
 @group(0) @binding(0) var field:texture_2d<f32>;
-struct V { @builtin(position) p:vec4f }
-@vertex fn vs(@builtin(vertex_index) n:u32)->V { let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));var o:V;o.p=vec4f(p[n],0,1);return o; }
-@fragment fn fs(v:V)->@location(0) vec4f {return textureLoad(field,vec2i(v.p.xy),0);}` })
+struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
+@vertex fn vs(@builtin(vertex_index) n:u32)->V { let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));var o:V;o.p=vec4f(p[n],0,1);o.uv=p[n]*vec2f(.5,-.5)+.5;return o; }
+@fragment fn fs(v:V)->@location(0) vec4f {let dims=vec2i(textureDimensions(field));return textureLoad(field,clamp(vec2i(v.uv*vec2f(dims)),vec2i(0),dims-1),0);}` })
   this.preview = device.createRenderPipeline({ layout: 'auto', vertex: { module, entryPoint: 'vs' }, fragment: { module, entryPoint: 'fs', targets: [{ format: this.format }] } })
   this.clear()
  }
@@ -94,12 +99,19 @@ struct V { @builtin(position) p:vec4f }
  }
  /** Exact field view for stage tests. This is deliberately NOT a substitute
   * for production DAB_FRAG watercolor composite. Room must supply that pass. */
+ resizeViewport(width:number,height:number) {
+  this.options.canvas.width=Math.max(1,Math.floor(width));this.options.canvas.height=Math.max(1,Math.floor(height))
+ }
  presentField(field: CanonicalGpuField) {
-  if (field.width !== this.options.width || field.height !== this.options.height) throw new Error('Field presentation requires canvas-sized canonical field')
   const encoder = this.device.createCommandEncoder(), pass = encoder.beginRenderPass({ colorAttachments: [{ view: this.context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store' }] })
   pass.setPipeline(this.preview); pass.setBindGroup(0, this.device.createBindGroup({ layout: this.preview.getBindGroupLayout(0), entries: [{ binding: 0, resource: field.view }] })); pass.draw(3); pass.end(); this.device.queue.submit([encoder.finish()])
  }
- present(): never { throw new Error('Canonical watercolor composite is not ported yet; use presentField only for explicit stage diagnostics') }
+ compositeInto(original: CanonicalGpuField, out: CanonicalGpuField, uniforms: CanonicalCompositeUniforms) {
+  const encoder=this.device.createCommandEncoder({label:'canonical watercolor composite'})
+  const transient=this.composite.encode(encoder,this.fields,original,this.paper.field,this.noise,out,uniforms)
+  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
+ }
+ present(out?: CanonicalGpuField) { if (!out) throw new Error('Canonical presentation requires the composited layer field');this.presentField(out) }
  settle(): never { throw new Error('Canonical watercolor settle schedule is not ported yet') }
  async readField(field: CanonicalGpuField): Promise<Uint8Array> {
   const pitch = Math.ceil(field.width * 4 / 256) * 256, buffer = this.device.createBuffer({ size: pitch * field.height, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST })

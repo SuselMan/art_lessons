@@ -94,3 +94,29 @@ export interface CanonicalStamp {
  readonly inkBlend: 'max' | 'add'
  readonly uniforms: CanonicalDepositUniforms
 }
+export interface CanonicalCompositeUniforms {
+ readonly paperOrigin: readonly [number,number]
+ readonly paperTexSize: readonly [number,number]
+ readonly paperScale: readonly [number,number]
+ readonly fieldOffset: readonly [number,number]
+ readonly inkSmoothPx: number
+ readonly water: number
+ readonly inkStrength: number
+ readonly spreadPx: number
+ readonly edgeWander: number
+ readonly edgeSoft: number
+ readonly bristleCombs: number
+ readonly dryContact: number
+ readonly granulation: number
+ readonly wetEdge: number
+ readonly wetEdgeRadiusPx: number
+ readonly tideLo: number
+ readonly tideHi: number
+ readonly paperRim: number
+ readonly opacity: number
+ readonly pigmentOpacity: number
+ readonly debugView: number
+ readonly rectComposite: boolean
+ /** Current production watercolor profile fixes this to zero. */
+ readonly migrate: number
+}

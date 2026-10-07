@@ -13,9 +13,13 @@ Y воспроизводится явно. Paper transform хранит исхо
 Подготовка доз, тип наконечника, давление, wet/puddle/strength и ribbon geometry
 остаются задачей production CPU preparer. Stamps/caps перенесены отдельным appendPreparedStamp: production DAB_VERT,
 markerNibDistPx, inkMode6/7, plateau2, pressure hair, roundedBox/ellipse,
-water/puddle/dose/tau и coverage clipping. Полный settle/composite
-ещё не перенесены. Методы present()/settle() явно бросают ошибку: скрытой подмены
-другой моделью нет. presentField(field) показывает сырые поля только для QA.
+water/puddle/dose/tau и coverage clipping. Composite перенесён по inkMode9, включая tau prior, paperCatch, dry contact,
+spread rings, density/transmittance, granulation, tide и premultiplied glaze.
+Production profile migrate=0 проверяется; nonzero migrate отвергается.
+Полный settle schedule ещё не перенесён. Метод settle() явно бросает ошибку: скрытой подмены
+другой моделью нет. presentField(field) показывает сырые поля только для QA. compositeInto(original,out,uniforms)
+создаёт настоящий layer result, present(out) показывает его. Canvas viewport
+отдельный от field dimensions: options.viewportWidth/viewportHeight и resizeViewport.
 
 Запуск первого этапа:
 
@@ -37,3 +41,7 @@ faithful parity. Smoke gate подтверждает только работос
 
 Stamp actual WebGL DAB_FRAG oracle на том же fixture: coverage/P/C0отличных
 bytes(max0), software only. Это один входной case, не аппаратное доказательство.
+
+Composite actual unchanged WebGL inkMode9 oracle при тех же P/C/cov input:
+0different bytes(max0) software fixture256×192, paper256×256 (POT repeat).
+Это stage parity, не гарантия wholeRoom/replay/device equivalence.
