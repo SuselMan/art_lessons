@@ -1,3 +1,4 @@
+import {diffusionStencilCells,uploadViewDescriptor} from '../728-crossgpu-neighborhood/stencil.mjs';
 import {worldRead} from './neighborhood-base.mjs';
 
 /** Diagnostic OFF. Mapping is derived from actual tiles/field/copy arguments. */
@@ -6,7 +7,7 @@ export function copiedFrame(src,dst,sx,sy,dx,dy,ratio=1){
   const S=src.S*ratio;
   return {x0:src.x0+sx*src.S-dx*S,y0:src.y0+(src.h-sy)*src.S-(dst.height-dy)*S,S,w:dst.width,h:dst.height,via:'actual-copy/resample'};
 }
-export function installPhysicalCapture(e,{enabled=false,point=[994,1231],ids=['Gq9CPrzxWh','ytlRBmw3Tg'],cap=8192,bufferPrototype=null}={}){
+export function installPhysicalCapture(e,{enabled=false,point=[994,1231],ids=['Gq9CPrzxWh','ytlRBmw3Tg'],cap=8192,bufferPrototype=null,paperBytes=null,paperResolution=2048,paperChannels=2}={}){
   const rows=[],errors=[],undo=[];let op=null,ordinal=0,truncated=false,vectorTruncated=false;
   if(!enabled)return {begin(){},end(){},rows,summary:()=>({enabled:false,rows:0}),dispose(){}};
   if(!point.every(Number.isFinite)||!Number.isInteger(cap)||cap<2)throw Error('capture configuration');
@@ -30,6 +31,18 @@ export function installPhysicalCapture(e,{enabled=false,point=[994,1231],ids=['G
     const previous=gl.getParameter(gl.FRAMEBUFFER_BINDING),bytes=new Uint8Array(r.w*r.h*4);
     try{gl.bindFramebuffer(gl.FRAMEBUFFER,b.fbo);gl.readPixels(r.x,r.y,r.w,r.h,gl.RGBA,gl.UNSIGNED_BYTE,bytes)}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,previous)}
     return {...label,meta:m,sampler,read:r,bytes:Array.from(bytes),scope:'local output neighborhood only; stencil equality NOT established'};
+  }
+  function diffuseDonors(src,coverage,m,radius,knight){
+    const cells=diffusionStencilCells(m,point,radius,knight,paperResolution),donors={};
+    for(const[key,b]of Object.entries({ink:src,coverage})){
+      if(!b?.fbo||b.width!==m.w||b.height!==m.h){donors[key]={known:false};continue}
+      const prior=gl.getParameter(gl.FRAMEBUFFER_BINDING),patches=[];
+      try{gl.bindFramebuffer(gl.FRAMEBUFFER,b.fbo);for(const c of cells){if(c.outside){patches.push({cell:c.cell,outside:true});continue}const x=Math.max(0,c.cell[0]-2),y=Math.max(0,c.cell[1]-2),w=Math.min(m.w-x,c.cell[0]+3-x),h=Math.min(m.h-y,c.cell[1]+3-y);const bytes=new Uint8Array(w*h*4);gl.readPixels(x,y,w,h,gl.RGBA,gl.UNSIGNED_BYTE,bytes);patches.push({cell:c.cell,uv:c.uv,read:[x,y,w,h],bytes:Array.from(bytes)})}}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,prior)}
+      donors[key]={known:true,patches};
+    }
+    const known=ArrayBuffer.isView(paperBytes)&&paperBytes.byteLength===paperResolution*paperResolution*paperChannels;
+    const paperDonors=known?{known:true,uploadBindingVerified:false,provenance:uploadViewDescriptor(paperBytes),samples:cells.map(c=>c.outside?{cell:c.cell,outside:true}:{cell:c.cell,paperUV:c.paperUV,paperCells:c.paperCells,fraction:c.fraction,heightBytes:c.paperCells.map(([x,y])=>paperBytes[(y*paperResolution+x)*paperChannels])})}:{known:false};
+    return {cells,donors,paperDonors,unusedArguments:{density:{bound:false},solvent:{bound:false}},externalUpload:{known:false},fullyKnownShaderInputs:false};
   }
   function record(stage,n,buffers,options){
     if(!active())return;if(rows.length>=cap){truncated=true;return}
@@ -55,7 +68,7 @@ export function installPhysicalCapture(e,{enabled=false,point=[994,1231],ids=['G
   wrap(passes,'waterFrontStep',function(original,args){const[field,x0,y0,dryCost,src,dst,max,climb,floor,stride=1,S=1,foreign]=args;const m={x0,y0,S,w:field.w,h:field.h};set(src,m,roles.get(src));set(dst,m,roles.get(dst));return call(original,this,args,'waterFront',{src,coverage:field.coverage},{dst},{x0,y0,dryCost,max,climb,floor,stride,S,foreignTexture:!!foreign,foreignInputEqual:false,paperInputEqual:false})});
   wrap(passes,'brushPass',function(original,args){const[field,flow,radius,S,source,out,pigment,flowRect,scissor,color,pulseGain]=args;const m=maps.get(source)||maps.get(pigment);if(m&&!maps.has(out))set(out,m,'brush-derived');return call(original,this,args,'brush',{source,pigment,coverage:field.coverage,color},{out},{radius,S,flowRect:[...flowRect],scissor:[...scissor],pulseGain,flowTexture:!!flow,flowInputEqual:false})});
   wrap(passes,'wcResample',function(original,args){const[dst,dx,dy,dw,dh,src,sx,sy,ratio,mode,old,base,clampRect]=args;if(!maps.has(dst)){const m=copiedFrame(maps.get(src),dst,sx,sy,dx,dy,ratio);set(dst,m,'resample-derived')};return call(original,this,args,'resample',{src,old,base},{dst},{dx,dy,dw,dh,sx,sy,ratio,mode,clampRect:clampRect&&[...clampRect]})});
-  wrap(passes,'diffuseStep',function(original,args){const[field,x0,y0,S,tw,th,src,dst,radius,knight,coverage,density,solvent]=args;const m={x0,y0,S,w:field.w,h:field.h};for(const b of [src,dst,coverage,density,solvent])set(b,m,roles.get(b));return call(original,this,args,'diffuse',{src,coverage,density,solvent},{dst},{x0,y0,S,tw,th,radius,knight,requiredHaloCells:Math.max(1,Math.round(radius/S))*(knight?2:1),inputHaloCaptured:false})});
+  wrap(passes,'diffuseStep',function(original,args){const[field,x0,y0,S,tw,th,src,dst,radius,knight,coverage,density,solvent]=args;const m={x0,y0,S,w:field.w,h:field.h,paper:{w:tw,h:th},paperScale:e._paper?.scale??ctx.paperScale?.()};for(const b of [src,dst,coverage])set(b,m,roles.get(b));let donorCapture=null;if(active()&&rows.length<cap){try{donorCapture=diffuseDonors(src,coverage,m,radius,knight)}catch(error){errors.push({op:{...op},stage:'diffuse-donors',error:String(error)})}}return call(original,this,args,'diffuse',{src,coverage},{dst},{x0,y0,S,tw,th,radius,knight,requiredHaloCells:Math.max(1,Math.round(radius/S))*(knight?2:1),inputHaloCaptured:!!donorCapture,donorCapture})});
   wrap(passes,'pigmentColor',function(original,args){const[out,deposit,tau]=args;if(!maps.has(out))set(out,maps.get(deposit),'pigmentColor-derived');return call(original,this,args,'pigmentColor',{deposit},{out},{tau:[...tau]})});
   if(typeof passes.costDomainStep==='function')wrap(passes,'costDomainStep',function(original,args){const[out,source,rect,band,stride,packed]=args;if(!maps.has(out))set(out,maps.get(source),'cost-domain-derived');return call(original,this,args,'costDomain',{source},{out},{rect:[...rect],band,stride,packed})});
   wrap(prototype,'copyTo',function(original,args){const[dst]=args;if(!maps.has(dst)&&dst.width===this.width&&dst.height===this.height)set(dst,maps.get(this),'copy-derived');return call(original,this,args,'copy',{source:this},{dst},{whole:true})});

@@ -26,7 +26,7 @@
     if(paperBytes.length!==2048*2048*2)throw Error('actual LA paper shape');
     out.paperBytesSHA=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',paperBytes))).map(x=>x.toString(16).padStart(2,'0')).join('');
     const {AccumulationBuffer}=await import(input.bufferModuleURL);
-    neighborhood=installer(e,{enabled:input.physicalCapture===true,bufferPrototype:AccumulationBuffer.prototype});
+    neighborhood=installer(e,{enabled:input.physicalCapture===true,bufferPrototype:AccumulationBuffer.prototype,paperBytes});
     out.baked=e._wcGradientFibres;
     out.bakedCalls=0;
     const originalFieldOp=e._watercolorPasses.fieldOp.bind(e._watercolorPasses);

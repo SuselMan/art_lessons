@@ -12,3 +12,5 @@ b=cp();b.unusedArguments.density.bound=true;assert.match(compareRows([row],[b]).
 b=cp();b.donors.ink.patches[0].bytes=[];assert.match(compareRows([row],[b]).invalid,/sized/);
 const unknown=cp();unknown.donors.ink={known:false};unknown.paperDonors={known:false};r=compareRows([unknown],[structuredClone(unknown)]);assert.equal(r.capturedBytesEqual,true);assert.equal(r.allInputsEqual,false);assert.ok(r.unknowns.length>=3);
 console.log('9 comparator alignment/donor/outside/unbound/unknown controls PASS');
+
+const equal0=cp(),unknown1=cp(),diff2=cp();unknown1.donors.ink={known:false};const left=[equal0,unknown1,cp()],right=structuredClone(left);right[2].donors.ink.patches[0].bytes[0]=20;const chain=compareRows(left,right);assert.equal(chain.firstCaptured.previousCapturedBytesEqual,1);assert.equal(chain.firstCaptured.previousFullyKnownInput,null);assert.equal('previousEqual' in chain.firstCaptured,false);console.log('unknown intermediate row cannot establish previous fully-known inputs PASS');

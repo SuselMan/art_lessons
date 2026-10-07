@@ -10,7 +10,7 @@ const tile={originX:980,originY:1220,buffer:new B()},entry={inkLoad:new B(),inkC
 const scratch={peek(){return entry},noteStorageBounds(){return 7}};
 const ctx={fieldFor(){return field}},passes={};for(const name of ['fieldOp','waterFrontStep','brushPass','wcResample','diffuseStep','pigmentColor','costDomainStep'])passes[name]=function(...args){calls.push([name,this,args]);return name+'-return'};
 const plan={ctx,prepare(s){s.noteStorageBounds({minX:980,minY:1220,maxX:996,maxY:1236});ctx.fieldFor(16,16);return 'prepared'}};
-const e={_drawRibbonNibPass(){return 'nib'},_drawRibbonBands(){return 'bands'},_drawRibbonCompositeRect(){return 'composite'},gl,_watercolorPasses:passes,_settlePlan:plan,_layers:new Map([['L',{allResident:()=>[tile]}]])};
+const e={_drawRibbonNibPass(){return 'nib'},_drawRibbonBands(){return 'bands'},_drawRibbonCompositeRect(){return 'composite'},gl,_paper:{scale:1},_watercolorPasses:passes,_settlePlan:plan,_layers:new Map([['L',{allResident:()=>[tile]}]])};
 const oldField=passes.fieldOp,oldCopy=B.prototype.copyTo;
 const disabled=installPhysicalCapture(e);assert.equal(passes.fieldOp,oldField);assert.equal(B.prototype.copyTo,oldCopy);disabled.dispose();
 assert.throws(()=>installPhysicalCapture({...e,_layers:new Map()},{enabled:true}),/preflight/);assert.equal(passes.fieldOp,oldField);
@@ -49,4 +49,6 @@ const missingChanged=structuredClone(missing);
 missingChanged[1].fields.dest.bytes[0]++;
 const incompleteComparison=comparePhysical(missing,missingChanged);
 assert.ok(incompleteComparison.unmapped.length);
-assert.equal(incompleteComparison.firstCaptured.precedingEqual,null);
+assert.equal(incompleteComparison.firstCaptured.previousFullyKnownInput,null);
+
+const dr=qa.rows.find(r=>r.stage==='diffuse-before');assert.equal(dr.options.inputHaloCaptured,true);assert.equal(dr.options.donorCapture.donors.ink.patches.length,9);assert.equal(dr.options.donorCapture.unusedArguments.solvent.bound,false);assert.equal('solvent' in dr.fields,false);console.log('actual physical diffuse wrapper reaches bounded donor capture PASS');
