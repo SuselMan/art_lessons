@@ -140,3 +140,22 @@ PASS exit0, targeted oxlint PASS, map67modules/981files PASS, diffcheck PASS.
 Outputs `temp/zero-cost-flux/add-{final-tests,typecheck,lint,map}.log`.
 Hardware ADD не запускался. Прежний OLD/OFF full6field byteexact относится
 только5e checkpoint; новый ADD/OFF ещё требует исполняемого аппаратного gate.
+
+## ADD Adreno actual carry checkpoint
+
+07bbfa56 on own5331, exec71529 EXIT0, own1403 CLOSEDfinally. Adreno650,
+12 salted P/C links PASS;14carry/56mask. Initial10full1536² SHA exact across
+OLD/OFF/ADD AND previous1398; OLD/OFF6wholefields byteexact. V/cost/cov/
+fixedP/Ctotal unchanged, GL0/lostfalse/errors[]/network[].
+Signed initial-support boundary gap21.59508→6.17044 (−71.43%); inner-edge
+51.12355→66.29344, outer72.71863→72.46388. FullP8662px/max23.
+Initial all4P mass758422 each, OFF756292, ADD756260; extra32byteunits
+(.004219%initial), FIT/UNORM caveat. No actualmobileC on singlepaint; cold
+C link+CPU ratio only, immutableTOTALC is not colourtransport proof.
+Raw `temp/zero-cost-flux/hardware/results-adreno-vps-old-off-add/` on VPS
+and HOME728-zero-cost-flux-runtime; offline-add-analysis.json and
+density-OFF-ADD-signeddiff.png. ROI transform from previous actual metadata
+is valid because all initial fields byteexact. Fullsolver/Dry/png still
+UNTESTED: carry improvement is not final visual ring proof.
+CPU fullsolver-controller syntax PASS, separatefulloriginal42→execution41
+plus orderedfinalDry, OFF/ADD target-only diagnostic, no RoomFPS claim.
