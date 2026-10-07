@@ -94,6 +94,37 @@ describe('watercolor tool (#468, ADR 011)', () => {
     simulateStrokeEnd(engine, 48, 32)
   })
 
+  it('does not decode discarded foreign dabs before the last clear in the real ribbon source path', async () => {
+    const engine = setupLayer()
+    await paperReady(engine)
+    const at = Date.now(), oldDabs = wcStroke(), keptDabs = wcStroke(32, 16, 32, 48)
+    let oldReads = 0, keptReads = 0
+    const prior = (id: string, dabs: ReturnType<typeof wcStroke>) => makeStroke('user-b', 'L', dabs, { tool: 'watercolor', preset: 'normal:100:0:PB29:round', strokeId: id, washId: id, timestamp: at - 10 })
+    // Log-only setup isolates the source collector; MockGL is not an oracle
+    // for the pigment pixels or the preceding water's physical simulation.
+    engine['_log'].append(prior('discarded', oldDabs))
+    engine['_log'].append({ id: 'clear', type: 'layer_clear', layerId: 'L', userId: 'user-b', timestamp: at - 5 })
+    engine['_log'].append(prior('kept', keptDabs))
+    engine['_log'].append(makeStroke('user-a', 'L', wcStroke(), { tool: 'watercolor', preset: 'normal:100:100:PB29:round', strokeId: 'current', washId: 'current', timestamp: at }))
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil('normal:100:100:PB29:round')
+    simulateStrokeStart(engine, 8, 32)
+    const scratch = engine['_ribbonStrokeScratch']!
+    scratch.foreignSources = null
+    oldReads = keptReads = 0
+    Object.defineProperty(engine['_log'].entries.find(e => e.op.type === 'stroke' && e.op.strokeId === 'discarded')!.op, 'dabs', { get: () => { oldReads++; return oldDabs } })
+    Object.defineProperty(engine['_log'].entries.find(e => e.op.type === 'stroke' && e.op.strokeId === 'kept')!.op, 'dabs', { get: () => { keptReads++; return keptDabs } })
+    const work = engine['_ribbonDabsWork'](engine['_layers'].get('L')!, wcStroke(), 'watercolor', 'normal:100:100:PB29:round', [0, 0, 0], scratch, undefined, 'current', 'current', 'fff', [0, 0], true, 0)
+    try {
+      work.next()
+      expect(oldReads).toBe(0)
+      expect(keptReads).toBe(2)
+      expect((scratch.foreignSources as import('./src/watercolor/foreignWater').WaterSource[] | null)?.map(s => s.gesture)).toEqual(['kept'])
+      expect((scratch.foreignSources as import('./src/watercolor/foreignWater').WaterSource[] | null)?.[0].footprints).toEqual(keptDabs.map(d => ({ x: d.x, y: d.y, radius: d.size * 0.5, aspect: Math.max(1, d.aspectRatio), angle: d.angle })))
+    } finally { work.return(undefined); simulateStrokeEnd(engine, 48, 32) }
+  })
+
   it('records the tool tag on the operation', () => {
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', wcStroke(), { tool: 'watercolor' }))
