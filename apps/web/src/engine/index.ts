@@ -1790,6 +1790,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  of a rect from the deposit, so the union of the batches since the last
    *  frame gives the same pixels as the batches one by one. */
 
+  /** Diagnostic OFF: at most one joined native film may overlap its predecessor. */
+  private _wcJoinedTouch = false
+  private _wcJoinedTouchLease: WatercolorSettleQueue['current'] = null
   /** Preserve the next film after the preceding settle lands (ADR 011). */
   private _wcSourceFilmRebase = true
   /** Skip pigment contact operators only with complete zero provenance;
@@ -4034,12 +4037,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  slow/offline first load makes the gap real. */
   async exportPNG(transparent = false): Promise<Blob | null> {
     await this._paper.ready()
+    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.exportPNG(transparent)
   }
 
   async exportReviewImage(): Promise<import('./src/export/Exporter').ReviewExport | null> {
     await this._paper.ready()
+    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.exportReviewImage()
@@ -5174,6 +5179,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  checks the log itself when the checkpoint is used (crossesWash). */
   private _checkpointBeforeWash(layerId: string, washId: string, userId: string, now: number, opId?: string): void {
     if (this._contextLost || this._destroyed) return
+    if (this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this._wcAsyncFinish && this._wcCanonical.pending) return
     if (this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)) return
     // (#537) Not a layer known to be out of the server's order: its pixels are
@@ -5357,6 +5363,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _takeCheckpoint(layerId: string): void {
+    if (this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this.isSnapshotHistoryRepairPending(layerId)) return
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
@@ -5869,7 +5876,24 @@ export class PencilEngine implements PencilEngineAPI {
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the
     // wash - replay order again.
-    if (this._settle && !this._wcAsyncFinish) this._completeSettle()
+    const oldJob = this._settle
+    if (this._wcJoinedTouchLease !== oldJob) this._wcJoinedTouchLease = null
+    const openTouch = this._wash
+    const touchNow = performance.now()
+    const touchSignature = watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
+    const joinedTouch = this._wcJoinedTouch && !this._wcAsyncFinish && !this._wcMaterialPresentation
+      && this._wcSourceFilmRebase && !this._settlePlan.splitQuanta
+      && this._opts.tool === 'watercolor' && oldJob !== null && openTouch !== null
+      && oldJob.scratch === openTouch.scratch && this._wcJoinedTouchLease === null
+      && this._strokePreset === this._opts.pencilType && oldJob.scratch.finishContext !== null
+      && oldJob.scratch.finishContext.color.every((c, i) => c === this._opts.graphiteColor[i])
+      && openTouch.layerId === layerId && openTouch.signature === touchSignature
+      && touchNow - openTouch.endedAt <= WASH_JOIN_MS
+      && (this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow)
+        || watercolorMixFromPreset(this._opts.pencilType).pigment <= 0 && this._paperWet.anyWet(layerId, touchNow)
+        || touchNow - openTouch.endedAt <= WASH_RECENT_MS)
+    if (joinedTouch) this._wcJoinedTouchLease = oldJob
+    else if (oldJob && !this._wcAsyncFinish) this._completeSettle()
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
     // (#520) The eraser's cross-layer mode, resolved once here for the whole
@@ -5947,7 +5971,7 @@ export class PencilEngine implements PencilEngineAPI {
       // in 5% of the tile against 0.35% with the settle landed here (rig
       // parityzz). The replay settles each operation before the next one
       // paints; the author has to as well.
-      if (this._settle && !this._wcAsyncFinish) this._completeSettle()
+      if (this._settle && !this._wcAsyncFinish && !(joinedTouch && joins && this._wcJoinedTouchLease === this._settle)) this._completeSettle()
       if (joins && open) {
         this._washId = open.id
         this._ribbonStrokeScratch = open.scratch
@@ -7746,7 +7770,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._settleQueue.advance()
   }
   private _completeSettle(): void {
-    this._settleQueue.complete()
+    try { this._settleQueue.complete() } finally { this._wcJoinedTouchLease = null }
   }
 
   /** (#536, §17.22) The diffusion field is freed WET_FIELD_RELEASE_MS after
@@ -7888,6 +7912,7 @@ export class PencilEngine implements PencilEngineAPI {
     return this._gpuBudget !== Infinity && this._washGpuBytes() > this._gpuBudget * GPU_HARD_CEILING
   }
   private _cancelSettle(): void {
+    this._wcJoinedTouchLease = null
     const lost = this._contextLost || this.gl.isContextLost()
     // Cancelling an unrelated history action can interrupt accepted material.
     // Its transient reveal cannot become the new canonical endpoint: recover
