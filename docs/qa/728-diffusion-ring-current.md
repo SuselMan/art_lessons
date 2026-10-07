@@ -18,3 +18,11 @@ Typed activation: optional PencilEngineOptions.gradientFibres (standalone omitte
 Foreign sheet4: неизменные 24 исходные операции, исключён только reference image (23 исполняемых), target WSfGdMae5C/seq39, полный водный/структурный prefix сохранён. Оба плеча выполнили 64 gradient-оператора, GL0, непустые material, собственные Chrome закрыты. Форма и цвет пересекающего лужу мазка сохранились; scoped optical core alpha −1.15%, support +0.16% — оптические метрики, не масса. Raw HOME `ring-regression-cea/temp/foreign-clean-baked-pair`; VPS atlas/report `728-ring-expanded-gates/temp/regression/foreign-clean-baked-*`.
 
 Samsung salted whole-program cold 2026-10-07: Chrome154, Adreno650; baseline diffuse5913B, clean diffuse4372B, полный baked field40170B — три успешных link, GL0/context intact. Свой target1455 закрыт. Raw `728-ring-expanded-gates/temp/regression/samsung-clean-cold-retry1/report.json`. Первое создание target через /json/new HTTP500 не создало GPU контекст; сохранено отдельно. CrossGPU typed-constructor replay остаётся отдельным текущим gate.
+
+### Typed boot и тот же журнал на двух GPU
+
+Коммит34050f9a: optional constructor gradientFibres, Room true/standalone false; синхронный warm после field uniforms/attributes, автоматический rewarm при context restore. 21 targeted test PASS (root исправил только TS private access в тесте). Нет runtime-переключения private flag или ручного prewarm в следующем аппаратном gate.
+
+Samsung same42 typed constructor: session36167 EXIT0, own1457 CLOSED, Chrome154/Adreno650, GL0/lostfalse, 68 фактических baked calls и непустые P/C/V. Архив929 tracked SHA, bundle7dcbd4bff3ac7135e39281d8254a13f90ec69031964ff15b250f9201d47ccd5e, journal ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9. Raw VPS `728-ring-expanded-gates/temp/regression/samsung-warm-same42-retry1`.
+
+Vega слева/Adreno справа в `vega-left-adreno-right.png`: кольцо и решётка отсутствуют в обоих, ядро/halo визуально сохранены. Побайтового crossGPU равенства нет: whole opaque101422px/max65; transparent35057px/max255, alphaMax76/premultMax76. Support197688→197934. Это положительный визуальный/операторный gate, не strict crossGPU pixel parity. Первое boot-guard failure1456 проверяло вымышленное имя `_gradientFieldProgram`, исправлено на реальный `_gradientField.program`; сохранено отдельно, не source failure.
