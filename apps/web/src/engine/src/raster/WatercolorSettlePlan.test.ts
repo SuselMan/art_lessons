@@ -738,3 +738,63 @@ for (const enabled of [false, true]) for (const wet of [0, 1]) {
     } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
   })
 }
+
+describe('preview colour intermediate consumers', () => {
+  for (const variant of ['half-single', 'full-single', 'half-mixed', 'dispose', 'lost'] as const) {
+    it(`allocates only preview fields that downstream reconstruction reads (${variant})`, () => {
+      const half = variant !== 'full-single', mixed = variant === 'half-mixed'
+      const { engine } = createTestEngine({ paper: 'flat' }, { width: 2048, height: 2048 })
+      const probe = engine as unknown as Probe
+      probe._settlePlan.splitQuanta = true
+      const tile = probe._ribbonScratchPool.acquire(2048, 2048)
+      const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+      scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+      if (mixed) scratch.paints.add('0,0,1')
+      const preview = vi.fn()
+      const clock = vi.spyOn(performance, 'now').mockReturnValue(0)
+      const acquire = vi.spyOn(probe._ribbonScratchPool, 'acquire')
+      const release = vi.spyOn(probe._ribbonScratchPool, 'release')
+      const pigment = vi.spyOn(probe._watercolorPasses, 'pigmentColor')
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 100, minY: 100, maxX: half ? 1800 : 144, maxY: half ? 1800 : 144 },
+        0.2, half ? 200 : 8, 1, 1, 1, 1, 0, preview, false, undefined, true)!
+      const owned = () => (probe._settlePlan as unknown as { _ownedInputs: Set<AccumulationBuffer> })._ownedInputs
+      try {
+        let index = 0, suspended = false
+        for (; index < plan.ops.length; index++) {
+          const oldLength = plan.ops.length
+          acquire.mockClear(); pigment.mockClear()
+          plan.ops[index]()
+          if (plan.ops.length > oldLength) {
+            // First generator quantum reconstructs private fields, before any tile callback.
+            const fields = acquire.mock.calls.filter(c => c[0] === 1536 && c[1] === 1536)
+            expect(fields).toHaveLength(half && !mixed ? 1 : 2)
+            const fieldColorDraws = pigment.mock.calls.filter(c => c[0].width === 1536)
+            expect(fieldColorDraws).toHaveLength(!half ? 1 : 0)
+            expect(preview).not.toHaveBeenCalled()
+            suspended = true; index++; break
+          }
+        }
+        expect(suspended).toBe(true)
+        if (variant === 'dispose' || variant === 'lost') {
+          if (variant === 'lost') probe._settlePlan.forgetTextures()
+          release.mockClear(); plan.dispose(); plan.dispose()
+          if (variant === 'lost') expect(release).not.toHaveBeenCalled()
+          expect(owned().size).toBe(0)
+          return
+        }
+        for (; index < plan.ops.length; index++) plan.ops[index]()
+        expect(preview).toHaveBeenCalled()
+        const tileColor = pigment.mock.calls.filter(c => c[0].width === 2048)
+        if (half && !mixed) {
+          expect(tileColor.length).toBeGreaterThan(0)
+          for (const call of preview.mock.calls) expect(call[2]).not.toBeNull()
+        }
+        plan.finish(); expect(owned().size).toBe(0)
+      } finally {
+        plan.dispose(); pigment.mockRestore(); acquire.mockRestore(); release.mockRestore(); clock.mockRestore()
+        scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+      }
+    })
+  }
+})
