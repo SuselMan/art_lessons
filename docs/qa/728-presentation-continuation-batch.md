@@ -27,3 +27,9 @@ Whole-web TypeScript и touched-files oxlint прошли. Новый constant t
 5-секундный census наблюдал dry backlog минимум25.12/15.03 с; это нижняя граница длительности, а не точный paired timing. Adaptive input журналы различаются, поэтому FPS и throughput causal-claim не делается. Первый bootstrap native arm1364 закрылся до ввода из-за отсутствовавшего лишнего instrumentation helper; исправление проверено CPU paths/import/embedded compile перед retry.
 
 Raw: `temp/presentation-batch/native-room-fifo_1791341201529/report.json` (OFF), `native-room-fifo_1791341250608/report.json` (ON). Отдельная диагностика стоимости единиц с1×1 FBO/readPixels выполняется после их closure, не во время native рисования.
+
+## Стоимость отдельных единиц (возмущающий diagnostic)
+
+1367 PASS/CLOSED, GL0/lostfalse. Всего16 sampled actual Queue.advance units: readPixels1×1 в отдельном FBO перед/после единицы, bindings восстанавливаются; constructor failure/read failure/idempotent disposal проверены CPU. Source9f/5327, прежние flags. Readbacks меняют scheduler timing, поэтому этот прогон не измеряет native FPS.
+
+Два presentation tile samples1.9/1.7 мс; десять paired brushPass units1.0–2.3 мс; один front1.4 мс. Ранняя drawing-coroutine единица59.5 мс, next21→22,len22→23, внутри18mode1 и preview0. Это ещё не solver230 и не grouped presentation tile; отсутствие census других draw-программ не позволяет назвать конкретный shader/caller причиной. Единица требует отдельной атрибуции. Raw `temp/presentation-batch/unit-cost-report.json`.
