@@ -85,3 +85,24 @@ mode16 mobileC на общем immutable P, не TOTAL C checkpoint singlePaint 
 обычный Room. Natural two-colour Room helper/protocol сохранены рядом как CPU
 подготовка; этот сценарий пока не запущен. Default OFF остаётся; полного исчезновения
 каёмки этот гейт не доказывает.
+
+### Natural ordinary Room two-colour route
+
+44985 завершён EXIT0, собственная Samsung-вкладка закрыта. Immutable HTTPS5329
+источник d88bb7386639c258683982e2eb5d28745ee93651/backend4539:986 actual HOME
+файлов повторно проверены по SHA. В inherited header raw осталась старая подпись
+source; raw не переписан, рядом отдельный `source-correction.json` и паспорт.
+
+Собственная Room PTmJEyXC, физическая640×480/fine. Два обычных native pointer/rAF
+жеста имеют по одному принятому stroke; entries без pending. Prepare впервые
+одна краска, затем две краски и landedWet1. Actual mobileC mode16 выполнен14раз,
+ADD=true. Первый вход: P.alpha mass1517892,C1517892,V910269; immutable P после
+оператора1517892, выход mobileC1517859>0. GL0. Это настоящая смешанная Room route,
+а не искусственная подмена TOTAL C. Connected mask singlePaint-only не объявляем
+активным для mixed. Renderer этот helper отдельно не записал; предшествующий
+прямой тест того же Samsung endpoint записал Adreno650.
+
+Этот гейт не захватывал wholePNG/Dry/UndoRedo/fresh equality и не заменяет их.
+Плавность не доказана: второй gesture activeMax100ms/tailMax485ms. Raw:
+`temp/zero-cost-flux/hardware/natural-room-encodeprofile_1791355787292/report.json`;
+точные helper/controller/passport/correction рядом. Root default OFF не менялся.
