@@ -377,7 +377,7 @@ groupings:
 # подсказывает, когда его можно ужать.
 budgets:
   - file: apps/web/src/pages/Room/index.tsx
-    maxLines: 1821
+    maxLines: 1824
     why: >-
       За месяц декомпозиции (#493) из Room вынесли около тысячи строк, а доски,
       класс и аннотации добавили примерно столько же — каждая новая фича
@@ -394,6 +394,8 @@ budgets:
       +1 (#728): constructor opt-in asyncFinish для существующего FIFO движка;
       в Room только настройка, очередь и material ownership остаются в Engine.
       +1 (#728): constructor opt-in gradientFibres; компиляция и прогрев остаются в Engine.
+      +3 (#728): отключённый materialPresentation и DEV opt-in bandBatch в constructor;
+      геометрия, очередь и материал остаются в Engine, новых алгоритмов в Room нет.
 
 # ======================================================================== потоки
 #
