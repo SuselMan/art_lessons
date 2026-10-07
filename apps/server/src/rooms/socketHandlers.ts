@@ -672,10 +672,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       if (typeof ack === 'function') ack(Date.now())
     })
 
-    socket.on('stroke_live_end', ({ strokeId }) => {
+    socket.on('stroke_live_end', ({ strokeId, cancelled }) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
-      socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId })
+      socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId, ...(cancelled === true ? { cancelled: true } : {}) })
     })
 
     // (#254/#256 epic) Room-wide freeze — owner-only, same role-check shape

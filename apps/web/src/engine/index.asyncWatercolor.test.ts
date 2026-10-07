@@ -748,8 +748,132 @@ it('closes only the cancelled local preview stream once without losing accepted 
     engine['_strokeLayerId'] = 'L'
     engine['_clearAsyncPresentations'](false)
     engine['_clearAsyncPresentations'](false)
-    expect(ended.mock.calls).toEqual([['unrecorded-tail']])
+    expect(ended.mock.calls).toEqual([['unrecorded-tail', true]])
     expect(engine.getOperations().map(op => op.id)).toEqual(accepted)
     expect(engine['_strokeId']).toBeNull()
+  } finally { engine.destroy() }
+})
+
+it('repairs only cancelled uncommitted live tail and retains the accepted chunk', async () => {
+  const { engine } = createTestEngine({ userId: 'reader' }, { width: 64, height: 64 })
+  const { engine: fresh } = createTestEngine({ userId: 'fresh' }, { width: 64, height: 64 })
+  await Promise.all([engine.paperReady(), fresh.paperReady()])
+  for (const e of [engine, fresh]) { e.initLayer('L'); e.setActiveLayer('L') }
+  const prefix = [dab(12, 20, { size: 8 })], tail = [dab(40, 20, { size: 8 })]
+  const op = makeStroke('peer', 'L', prefix, { strokeId: 'accepted-prefix' })
+  const packet = (dabs: typeof prefix, packetSeq: number) => ({ strokeId: 'accepted-prefix', layerId: 'L', tool: 'pencil' as const, preset: 'HB', color: op.color, dabs, packetSeq })
+  try {
+    engine.appendPeerLiveDabs('peer', packet(prefix, 0))
+    engine.appendOperation(op, 'remote'); fresh.appendOperation(op, 'remote')
+    engine.appendPeerLiveDabs('peer', packet(tail, 1))
+    expect(engine.endPeerLiveStroke('other-peer', 'accepted-prefix', true)).toBe(0)
+    expect(engine['_peerLiveStrokes'].size).toBe(1)
+    expect(engine.endPeerLiveStroke('peer', 'accepted-prefix', true)).toBe(1)
+    expect(engine['_peerLiveStrokes'].size).toBe(0)
+    expect(engine['_log'].entries.find(e => e.op.id === op.id)?.state).toBe('done')
+    expect(engine['_layers'].get('L')!.allResident()[0].buffer.readPixels()).toEqual(fresh['_layers'].get('L')!.allResident()[0].buffer.readPixels())
+    expect(engine.endPeerLiveStroke('peer', 'accepted-prefix', true)).toBe(0)
+    // Delayed/duplicate ephemeral packets cannot resurrect the cancelled tail.
+    engine.appendPeerLiveDabs('peer', packet(tail, 2))
+    expect(engine['_peerLiveStrokes'].size).toBe(0)
+    expect(engine['_layers'].get('L')!.allResident()[0].buffer.readPixels()).toEqual(fresh['_layers'].get('L')!.allResident()[0].buffer.readPixels())
+    // An already accepted operation may arrive after cancellation; the log
+    // wins and it must paint once, without a vanished live claim skipping it.
+    const late = makeStroke('peer', 'L', tail, { strokeId: 'accepted-prefix' })
+    engine.appendOperation(late, 'remote'); fresh.appendOperation(late, 'remote')
+    expect(engine['_log'].entries.find(e => e.op.id === late.id)?.state).toBe('done')
+    expect(engine['_layers'].get('L')!.allResident()[0].buffer.readPixels()).toEqual(fresh['_layers'].get('L')!.allResident()[0].buffer.readPixels())
+  } finally { engine.destroy(); fresh.destroy() }
+})
+
+it('keeps ordinary ended live claims until the following confirmed operation arrives', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  const { engine: fresh } = createTestEngine({}, { width: 64, height: 64 })
+  await Promise.all([engine.paperReady(), fresh.paperReady()])
+  for (const e of [engine, fresh]) e.initLayer('L')
+  const points = [dab(12, 20, { size: 8 }), dab(28, 20, { size: 8 })]
+  const op = makeStroke('peer', 'L', points, { strokeId: 'normal-end' })
+  try {
+    engine.appendPeerLiveDabs('peer', { strokeId: 'normal-end', layerId: 'L', tool: 'pencil', preset: 'HB', color: op.color, dabs: points, packetSeq: 0 })
+    expect(engine.endPeerLiveStroke('peer', 'normal-end')).toBe(2)
+    expect(engine['_peerLiveStrokes'].size).toBe(1)
+    expect(engine['_cancelledPeerLayers'].size).toBe(0)
+    engine.appendOperation(op, 'remote'); fresh.appendOperation(op, 'remote')
+    expect(engine['_layers'].get('L')!.allResident()[0].buffer.readPixels()).toEqual(fresh['_layers'].get('L')!.allResident()[0].buffer.readPixels())
+  } finally { engine.destroy(); fresh.destroy() }
+})
+
+it('defers cancelled-tail recovery behind canonical ownership and an unrelated local pen', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.initLayer('Q')
+  const rebuild = vi.spyOn(engine as unknown as { _rebuildLayerOrDefer(id: string): void }, '_rebuildLayerOrDefer')
+  engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    engine.appendPeerLiveDabs('peer', { strokeId: 'tail', layerId: 'L', tool: 'pencil', preset: 'HB', color: [.1,.1,.1], dabs: [dab(20, 20, { size: 8 })], packetSeq: 0 })
+    engine['_wcCanonical'].enqueue({ execute: function* () {}, cancel: () => {} })
+    engine['_strokeLayerId'] = 'Q'
+    engine.endPeerLiveStroke('peer', 'tail', true)
+    expect(rebuild).not.toHaveBeenCalled()
+    expect(engine['_wcCanonical'].pending).toBe(true)
+    expect(engine['_strokeLayerId']).toBe('Q')
+    expect(engine['_unsettledLayers'].has('L')).toBe(true)
+    engine['_wcCanonical'].cancel(false); engine['_settleLayers']()
+    expect(rebuild).not.toHaveBeenCalled()
+    engine['_strokeLayerId'] = null; engine['_settleLayers']()
+    expect(rebuild).toHaveBeenCalledWith('L')
+  } finally { rebuild.mockRestore(); engine.destroy() }
+})
+
+it('forgets a cancelled queued peer preview without deleting lost-context resources or other owners', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('watercolor'); engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  const remove = vi.spyOn(engine['gl'], 'deleteTexture')
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 36, y: 20 }])
+    const owners = [...engine['_wcAsyncOwners']], accepted = engine.getOperations().map(o => o.id)
+    engine.appendPeerLiveDabs('peer', { strokeId: 'queued-tail', layerId: 'L', tool: 'pencil', preset: 'HB', color: [.1,.1,.1], dabs: [dab(20, 20)], packetSeq: 0 })
+    expect(engine['_wcAsyncPeerStreams'].size).toBe(1)
+    const held = [...engine['_wcAsyncPeerStreams'].values()][0]
+    engine['_contextLost'] = true; remove.mockClear()
+    engine.endPeerLiveStroke('peer', 'queued-tail', true)
+    expect(remove).not.toHaveBeenCalled()
+    expect(held.cancelled).toBe(true); expect(held.buf).toBeNull()
+    expect(engine['_wcAsyncPeerStreams'].size).toBe(0)
+    expect([...engine['_wcAsyncOwners']]).toEqual(owners)
+    expect(engine.getOperations().map(o => o.id)).toEqual(accepted)
+  } finally { remove.mockRestore(); engine.destroy() }
+})
+
+
+it('bounds cancelled-stream tombstones and resets them at a peer scene reset', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L')
+  try {
+    for (let i = 0; i < 80; i++) engine.endPeerLiveStroke('peer', `cancel-${i}`, true)
+    expect(engine['_cancelledPeerStreams'].size).toBe(64)
+    engine.resetPeerLiveStrokes()
+    expect(engine['_cancelledPeerStreams'].size).toBe(0)
+  } finally { engine.destroy() }
+})
+
+it('retires cancelled-layer repair provenance on clear, completed replay and layer replacement', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L')
+  try {
+    engine['_cancelledPeerLayers'].add('L')
+    engine.appendOperation({ id: 'clear-cancelled', type: 'layer_clear', userId: 'peer', layerId: 'L', timestamp: Date.now() }, 'remote')
+    expect(engine['_cancelledPeerLayers'].has('L')).toBe(false)
+    engine['_cancelledPeerLayers'].add('L')
+    engine['_noteReplayedOrder']('L')
+    expect(engine['_cancelledPeerLayers'].has('L')).toBe(false)
+    engine['_cancelledPeerLayers'].add('L')
+    engine['_destroyBuffer']('L'); engine.initLayer('L')
+    expect(engine['_cancelledPeerLayers'].has('L')).toBe(false)
   } finally { engine.destroy() }
 })

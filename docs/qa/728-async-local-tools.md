@@ -45,3 +45,36 @@ Mid-pen CPU correction sends matching live-end once when cancelling the async no
 Предыдущий `results-midpen-corrected` сохраняет факты matching end exactly once, операции Undo и строгих конечных RGBA endpoints. Однако контроллер не записал текущие strokeLayerId/identity прямо перед Undo и returnUndo; хвост мог завершиться на более раннем RAF recovery. Причинный hardware claim «именно Undo отменил активный хвост» отозван до усиленного повторения. CPU scoped exactly-once test остаётся действительным. Для WC ordinary local Undo при активном strokeLayerId штатно возвращает null; этот UX guard не снимается ради теста.
 
 Координатор дополнительно прочитал actual entry types прежнего midpen report: до опыта одна stroke, после опыта две stroke, ни operation_undo, ни operation_redo не записаны. Поэтому labels `midpen-undo-recovered`/`midpen-redo` сами по себе неверны как доказательство истории. Подтверждены только exactly-one stream-end и одинаковые конечные рисунки; утверждения об отменённом/незаписанном хвосте этим raw также отозваны. Усиленный контроллер обязан сохранять returnUndo, active identity до вызова и actual operation types.
+
+Strengthened `results-nonwc-guard` also passed: immediately before Undo, pencil stroke0LUz6cHJ-d retained matching active layer and held-preview identity, no end callback yet. Undo returnednull; ordinary up then emitted one live-end and recorded tail operation wGRYmcy5Ee. Strict peer endpoints exact0/GL0. Thus previous apparent cancellation was ordinary guarded input followed by normal pen-up; helper cancellation correctness remains a CPU/lifecycle contract, not an observed local-Undo cancellation path.
+
+## Scoped ephemeral cancellation: CPU gate
+
+The reachable remote-history case (`results-remote-midpen`, room AX5TWblh,
+source 47f1d339) applied B's layer-add Undo while A's pencil tail was active.
+A emitted one end and cancelled the unrecorded tail. B retained an ended live
+claim (`paintedTotal=1`, `committedOffset=0`) awaiting an operation that would
+never exist. The 120 s idle barrier failed; the owned Chrome closed. This is
+separate from the guarded local Undo cases above.
+
+The proposed optional `cancelled: true` travels through shared protocol,
+server strict-boolean normalization, Room sender/receiver and Engine. It
+retires only the matching author/stroke preview and its affected-layer repair
+provenance. Accepted journal chunks and late confirmed operations are retained.
+Normal end before ACK still waits for its confirmed operation. Recovery waits
+for canonical owners, local pen and unrelated live claims, then rebuilds the
+changed layer from the authoritative journal; it does not merely hide pixels.
+
+Socket.io preserves packet/end order on each connection. A bounded 64-entry
+scoped tombstone set additionally rejects delayed duplicate live packets, while
+cancelled FIFO closures remain inert. Scene reset/restore clears tombstones;
+clear, layer removal/replacement and completed replay retire repair flags.
+Lost-context cleanup does not delete invalid GL handles.
+
+CPU gate: 83 tests in six files passed (22.42 s), including normal end before
+ACK, accepted prefix plus cancelled tail with exact MockGL endpoint, late
+confirmed operation, unrelated active pen/canonical owner, lost queued preview,
+strict server normalization, late packet and reset/clear/replay lifecycle.
+Logs: `temp/async-multiplayer/cancel-final-lifecycle.log` and final types/lint/map
+logs. This section makes no post-fix hardware or production claim; the ordinary
+Room retry requires matching updated frontend and backend.
