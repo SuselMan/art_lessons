@@ -382,7 +382,7 @@ for (const enabled of [false, true]) for (const hasSolvent of [false, true]) {
 }
 
 describe('opt-in split continuation quanta', () => {
-  function run(split: boolean, abortPreview = false, abortBeforeTile = false, ownerLocked = true, scheduler: 'iterate' | 'advance' | 'complete' = 'iterate', cancelInPreview = false, lazy = false, contacts = false, cancelDuringCpu = false) {
+  function run(split: boolean, abortPreview = false, abortBeforeTile = false, ownerLocked = true, scheduler: 'iterate' | 'advance' | 'complete' = 'iterate', cancelInPreview = false, lazy = false, contacts = false, cancelDuringCpu = false, loseDuringCpu = false) {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     const probe = engine as unknown as Probe
     probe._settlePlan.splitQuanta = split
@@ -429,12 +429,19 @@ describe('opt-in split continuation quanta', () => {
     const initialOps = plan.ops.length
     let cpuCancelled = false
     const realExp = Math.exp
-    const expSpy = cancelDuringCpu ? vi.spyOn(Math, 'exp').mockImplementation(value => {
-      if (!cpuCancelled) { cpuCancelled = true; plan.dispose() }
+    const expSpy = cancelDuringCpu || loseDuringCpu ? vi.spyOn(Math, 'exp').mockImplementation(value => {
+      if (!cpuCancelled) { cpuCancelled = true; if (cancelDuringCpu) plan.dispose() }
       return realExp(value)
     }) : null
     try {
-      if (cancelDuringCpu) {
+      if (loseDuringCpu) {
+        probe._settleQueue.start(scratch, plan.ops, plan.finish, { isAlive: () => scratch.live && !cpuCancelled, abort: plan.dispose })
+        while (probe._settleQueue.current) probe._settleQueue.advance()
+        expect(cpuCancelled).toBe(true)
+        const count = commands.length
+        for (const op of plan.ops) op()
+        expect(commands.length).toBe(count)
+      } else if (cancelDuringCpu) {
         for (let i = 0; i < plan.ops.length && !cpuCancelled; i++) plan.ops[i]()
         expect(cpuCancelled).toBe(true)
         const count = commands.length
@@ -508,6 +515,9 @@ describe('opt-in split continuation quanta', () => {
   })
   it('cancels reentrantly inside a running CPU field without resuming material writes', () => {
     run(true, false, false, true, 'iterate', false, true, true, true)
+  })
+  it('aborts actual Queue after owner loss inside a CPU continuation', () => {
+    run(true, false, false, true, 'advance', false, true, true, false, true)
   })
   it('retains eager contact fields without the canonical lock', () => {
     const eager = run(false, false, false, false, 'iterate', false, false, true)
