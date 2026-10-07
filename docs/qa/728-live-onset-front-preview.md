@@ -590,3 +590,28 @@ GL0/contextalive/errorsnone; RAM preflight1903.2MiB. Report lives on HOME:
 `680-puddle-outline/temp/packed-cost-domain-cb188/temp/onset/packed-warm-retry3/report.json`.
 The LOW/HIGH/CARRY/COLOUR/MASK salted Adreno controller is CPU-parsed and ready,
 but has not run while the sibling owns Samsung.
+
+### Packed candidate Adreno compile and1536 unit gate
+
+Own Samsung target1402 closed in finally (controller exit0). Source was the same
+verified e8+net39+580+route52+cb188 net runtime, own HTTP5332. Actual renderer ANGLE
+Qualcomm Adreno650. Three salts for each whole emitted LOW/HIGH/CARRY/COLOUR/MASK
+program linked successfully:15 links, shader lengths39511/39533/39556/39580/1659.
+Shader status was captured before handles were deleted. GL0/contextalive, no
+network or runtime errors. No full solver or integration was performed.
+
+Three diagnostic1536² buffers28,311,552bytes were allocated NEAREST; production
+adds no textures. Five warm samples per separate draw gave medians seed2.6ms,
+D2/D4/D8/D16/D32/D64=3.5/3.4/3.2/3.5/3.2/3.2ms. Maximum unit4.3ms passed8ms
+unit guard. A separately measured seven-draw sequence with ONE1×1 readPixels sync
+had samples18.2/15.3/15.6/16.5/15.9ms (median15.9ms). Do not sum independently
+synchronised units or call this whole solver/native latency. The previously
+measured binary seven-draw11.4ms came from another run; it is not a matched speed
+comparison. Packing reduces scheduled mask draws56→7 but full solver cost and
+endpoint equality remain hardware gates.
+
+Full readback confirmed immutable input cost. The actual texture filter query was
+performed in the Vega primitive (MIN/MAG9728); this Adreno run used the explicit
+NEAREST allocation code without separately recording that query. Raw source
+manifest, device version, stage log, compile statuses and timings are preserved
+in `temp/onset/packed-adreno-first/report.json` on VPS. No defaults were enabled.
