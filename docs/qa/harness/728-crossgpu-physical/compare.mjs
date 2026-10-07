@@ -9,7 +9,7 @@ export function comparePhysical(a,b){
   for(const key of Object.keys(x.fields)){
    const u=x.fields[key],v=y.fields[key],frame=f=>JSON.stringify({role:f.role,size:f.size,meta:f.meta,read:f.read,sampler:f.sampler,absent:f.absent,outside:f.outside,unmapped:f.unmapped});
    if(frame(u)!==frame(v))return{invalid:'physical frame/sampler mismatch',row:i,key};
-   if(!u.bytes||!v.bytes){if(u.unmapped||v.unmapped)unknown.push({row:i,key});continue}
+   if(!u.bytes||!v.bytes){if(u.unmapped||v.unmapped){unknown.push({row:i,key});same=false;precedingEqual=null}continue}
    if(u.bytes.length!==v.bytes.length)return{invalid:'read size mismatch',row:i,key};let count=0,max=0;
    for(let j=0;j<u.bytes.length;j++){const d=Math.abs(u.bytes[j]-v.bytes[j]);if(d)count++;max=Math.max(max,d)}
    if(count){same=false;deltas.push({row:i,op:x.op,ordinal:x.ordinal,stage:x.stage,key,count,max,precedingEqual})}

@@ -42,3 +42,11 @@ assert.equal(comparePhysical(qa.rows,changed).firstCaptured.stage,'ribbonNib-bef
 const changedDomain=structuredClone(qa.rows);changedDomain[0].fields.previousOutput.meta.x0++;
 assert.equal(comparePhysical(qa.rows,changedDomain).invalid,'physical frame/sampler mismatch');
 console.log('Comparator rejects mismatched physical frame and identifies captured source-input byte divergence PASS');
+
+const missing=structuredClone(qa.rows);
+missing[0].fields.previousOutput={unmapped:true};
+const missingChanged=structuredClone(missing);
+missingChanged[1].fields.dest.bytes[0]++;
+const incompleteComparison=comparePhysical(missing,missingChanged);
+assert.ok(incompleteComparison.unmapped.length);
+assert.equal(incompleteComparison.firstCaptured.precedingEqual,null);
