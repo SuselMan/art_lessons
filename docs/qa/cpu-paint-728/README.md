@@ -36,3 +36,20 @@ Node A/B старого кодаf7 против typedwriter **без trig cache*
 Формулы не переассоциировали, Math.hypot/exp не заменяли приближениями, contacts не прореживали и не переставляли, resolution/iterations не уменьшали. E-graph/SMT не запускали: доминирующая найденная издержка — представление и повторные обходы, а не известная алгебраическая эквивалентность Float64 выражения.
 
 Рабочие harness/rawbaseline: `temp/cpu-paint-opt/geometry-typed-isolated-bench.ts`, `markerRibbon-baseline.ts`, `markerRibbon-typed-isolated.ts`, `paired-raster-bench.mts` в этомworktree. Первый чрезмерно длинныйbenchmark был остановлен по точным собственнымPID; опубликованные trials относятся к короткому завершённому прогону.
+
+## Следующий эксперимент: контактные CPU-поля, default OFF
+
+В исходном CPUprofile `brushDragField` занимал42.25ms sampled self. `prepare` повторно строит поля из cumulative `metadata.brushTravel`. Не меняя группировки или контактов, можно memoize чистую функцию по **точным Float64битам** всех аргументов: croprect/cellPx и упорядоченные x/y/radius/aspect/angle/dx/dy/water. `settleRadius` используется актуальный из descriptor и не входит в независимое flowполе.
+
+`BrushContactFieldCache`:4MiB расчётного payload/keybudget, максимум128entries, длинные группы>64bypass; copies изолируют изменяемые uploadpayloads. Холодный miss выполняет старый `brushDragField`. `destroyTextures`/`forgetTextures` очищают сохранённые CPUполя. GPU upload, пары pigment/color контактов, substeps и schedulerops не менялись.
+
+Диагностика: `engine._settlePlan.diagnosticContactFieldCache = true`; счётчики `engine._settlePlan.contactFieldCacheStats`. Флаг defaultfalse, lazycontacts/pure-water bypass сохраняются. Это не production допуск.
+
+Node synthetic повтор96motions/24groups с клонированными объектами: baseline54.27ms, warm1.74ms, cold55.84ms. Retained1.57MB. Полные trials — `contact-cache-node.json`. На настоящем сценарии **cachehits неизвестны**. При слабом hitratio это добавляет память и cold overhead, поэтому без измерения hits/prepare/UX включать нельзя. Нужны fresh/warm/clipped/changedgeometry, повторные chunk/penup, cancel, undo/redo,contextrestore и exactGPUfields/fullRGBA.
+
+Отдельные не принятые experiments:
+
+- Hoist неизменных выражений в brushDragField: bytesPASS; single0.690→0.656ms, three1.382→1.387, eight3.190→3.216. Значимого выигрыша нет, код восстановлен.
+- Single contact directencoding с точными Math.fround вместо3workgrids:22testsPASS, но single0.785→0.747ms, остальные шумят. Код восстановлен; усложнение не оправдано.
+
+Отклонённый trigcache полностью отменён локальным95e57acf. Root, который не принималb0271427, этот revert применять не должен.
