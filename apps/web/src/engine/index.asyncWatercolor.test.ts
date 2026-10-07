@@ -1,12 +1,11 @@
 import { expect, it, vi } from 'vitest'
 import { createTestEngine, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd, makeLayerAdd, makeStroke, dab } from './testing/engineTestUtils'
 
-it('accepts confirmed pointer metadata and shows a separate preview before queued material runs', async () => {
-  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+it('constructor opt-in accepts confirmed pointer metadata and shows a separate preview before queued material runs', async () => {
+  const { engine } = createTestEngine({ asyncFinish: true }, { width: 64, height: 64 })
   await engine.paperReady()
   engine.initLayer('L'); engine.setActiveLayer('L')
   engine.setTool('watercolor'); engine.setPencil('normal:100:0:PB29:round'); engine.setSize(16)
-  engine['_wcAsyncFinish'] = true
   const source = vi.spyOn(engine['_ribbonPainter']['ctx'], 'drawRibbonNibPass')
   const frames = new Map<number, () => void>(); let next = 0
   engine['_wcCanonical']['ctx'].schedule = callback => { frames.set(++next, callback); return next }

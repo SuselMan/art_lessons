@@ -245,6 +245,10 @@ export function previewDabShape(
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 export interface PencilEngineOptions {
+  /** (#728) Accept provisional pointer input while canonical wet material
+   * finishes in FIFO order. Export/snapshot readiness waits for that queue.
+   * Omitted, standalone callers retain synchronous completion. */
+  asyncFinish?: boolean
   /** (#650) Where the engine's own diagnostic lines go — the on-device ring
    *  buffer in the app (lib/observability/diagLog). Handed in rather than
    *  imported, so engine code knows nothing of the app around it; omitted, the
@@ -2170,6 +2174,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    this._wcAsyncFinish = options.asyncFinish ?? false
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
     // (#494) The first frame's pose (centred on the sheet for a bounded room)
