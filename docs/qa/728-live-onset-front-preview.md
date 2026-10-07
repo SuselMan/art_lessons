@@ -430,3 +430,21 @@ Raw `temp/onset/adreno-mask580-first/report.json` на VPS; controller/function
 `cost-mask-adreno-{run.mjs,function.js}`. Samsung немедленно освобождён и передан
 profiler после finally. DefaultOFF/root integration не выполнялась; real sheet3
 fullsolver/operator/mixedpaint gates по-прежнему pending.
+
+
+### Samsung: полный sheet3 slot2 — INCOMPLETE, 2026-10-07 04:32 UTC
+
+На том же неизменном e8+39+580 runtime выполнена одна попытка исходного curated42
+журнала (SHA ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9).
+Target61-only OFF/ON, phase/baked/sourceRebase фиксированы. OFF дошёл до seq62:
+последний marker 04:31:59.422 UTC; до возврата результатов целевого target61 и полей истёк установленный
+180-секундный CDP Runtime.evaluate. ON не запускался, arms пусты. Это незавершённая
+проверка; endpoint, mask56/carry14, GL на завершении и влияние на каёмку НЕ доказаны.
+Ошибок страницы и network failures до timeout в сохранённом отчёте нет. Device RAM
+preflight 2251500KiB, память не вызвала guard500.
+
+Session93308 завершился exit1, собственный target1384 закрыт finally; последующий
+/json/list подтвердил отсутствие1384. Samsung передан profiler, forward9338 сохранён.
+Raw VPS: temp/onset/sheet3-mask-adreno-first/report.json. Копия HOME:
+680-puddle-outline/temp/cost-domain-e8-net39/temp/onset/sheet3-mask-adreno-first-report.json.
+Прежний smallmask/Adreno compiler PASS сохраняет свой узкий scope; полного solver PASS нет.
