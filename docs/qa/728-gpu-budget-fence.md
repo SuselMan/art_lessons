@@ -65,3 +65,13 @@ RawVPS temp/fence-hardware/native-room-workerregion_1791349176264 contains CPUpr
 ### Fresh snapshot restore1392
 
 1391 fixture stopped at ordinary Join project, engine absent; own CLOSED, no rendering verdict. Corrected join1392 loads same own y2R_sNIe seq3 snapshot: full exported RGBA17,399,680B exact0/max0 versus saved author endpoint, nonzero5,741,090, Adreno650 GL0/lostfalse. Engine log[] because coveredseq3 leaves no tail; original three authoritative operations remain saved in1390 journal. This is snapshot restore, not replay-all proof. Same storedbytes compressSnapshot opt-in creates/posts/receives/terminates one moduleworker, browsererror0, gunzip raw17,399,780 changed0. Successful message body was not separately inspected, so fallback remains a minor diagnostic caveat. Own1392 CLOSED. Rawtemp/fence-hardware/native-room-workerrestore_1791349438479/report.json.
+
+### Frozen root standacf1 correctness smoke1393–1395
+
+Ordinary ownRoomR9plW-dT on5329, sourceacf1/defaults unchanged (asyncFinish=false). Native400 one-second stroke plus nexttouch authoritative ACK1/2, UIDry3, actual keyboard Undo4/Redo5. Undo changes695,549 RGBAbytes, redo full17,399,680B exact0/max0, allGL0/lostfalse. Default performance is unacceptable here: active250.8ms/four>100, tail1805.3ms/six>100; correctness is not a smoothness claim.
+
+Fresh rejoin1394 prematurely exported before asynchronous restore began (log only1..3, later queue/settle active), producing an empty endpoint: fixtureFAIL/inconclusive, not snapshotregression. Corrected1395 requires authoritative seq5 then stable queue/rebuild/revealidle. Actual log1..5 retained and done, fullRGBA exact0/max0/nonzero4,704,129 againstauthorendpoint, AdrenoGL0/lostfalse/ownCLOSED. No checkpoint-only visual tuning and no newgesture/source changes. Rawrootstand_1791349530213/endpoint-summary.json and rootrestore_1791349645879/report.json.
+
+### Reviewed A2 transport size policy, still defaultOFF
+
+Ordinary A2 full3508×2480 RGBA/12tile headers occupies34,799,556B=33.187MiB, so former32MiB worker input cap necessarily used main-thread fallback. Reviewed input40MiB/output48MiB covers this board while bounding one extra transfer clone to40MiB; larger inputs deliberately retain old compressor. A2 callerraw+transferclone+existinggzip internalcopy already~99.56MiB, before Blob/compressed/retainedtiles/GPU; this is no memory reduction claim.64/80MiB caps rejected as unnecessarylarger ceiling. CPU actualA2-sized gzip/gunzip preserves everybyte/callerownership, Worker createdonce; >40MiB boundary uses no worker and old compressor preserves endpoints/length.43tests3files/wholewebTS/lint/workerbuild PASS. NativeA2memory/validreply/transport timing remain pending; productionoptin defaultOFF.
