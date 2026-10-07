@@ -184,6 +184,7 @@ topics:
     level: 2
     parent: server
     title: Снапшоты и быстрый вход в длинную комнату
+    issue: 737
     why: Почему снапшоты печёт клиент, а сервер их только хранит, и как хвост лога ложится поверх.
     modules: [apps/server/src/roomRoutes, apps/web/src/pages/Room/diagnostics]
     flows: [join]
