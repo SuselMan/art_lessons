@@ -38,6 +38,9 @@ export class WatercolorSettlePlan {
   diagnosticCostDomainPaths = false
   /** Exact upload-storage reuse candidate; isolated for hardware A/B. */
   diagnosticReuseFlowStorage = false
+  /** Exact landing candidate: remove temp/copy only without sampler aliasing. */
+  diagnosticDirectResample = false
+  readonly resampleLandingStats = { direct: 0, temporary: 0, copyPixelsAvoided: 0 }
   readonly flowUploadStats = { allocations: 0, updates: 0, bytes: 0 }
   private _brushFlowSize: [number, number] = [0, 0]
   /** Pack D1..D64 in seven byte bits; only eligible when cost-domain paths are enabled. */
@@ -264,10 +267,7 @@ export class WatercolorSettlePlan {
       const tx = wx0 - tile.originX, ty = tile.buffer.height - (wy1 - tile.originY)
       const fx = (wx0 - x0) / S, fy = field.h - (wy1 - y0) / S
       if (S === 1 || !fOld) { fNew.copyRegionInto(target, fx, fy, tx, ty, wx1 - wx0, wy1 - wy0); return }
-      const tmp = this.ctx.pool().acquire(tile.buffer.width, tile.buffer.height)
-      this.ctx.passes().wcResample(tmp, tx, ty, wx1 - wx0, wy1 - wy0, fNew, fx, fy, 1 / S, 1, fOld, base, fieldRect)
-      tmp.copyRegionInto(target, tx, ty, tx, ty, wx1 - wx0, wy1 - wy0)
-      this.ctx.pool().release(tmp)
+      this.landResampled(target, base, fNew, fOld, tx, ty, wx1 - wx0, wy1 - wy0, fx, fy, 1 / S, fieldRect)
     }
 
     // Every tile's overlap with the rect, and the settled records the tiles
@@ -1316,6 +1316,28 @@ export class WatercolorSettlePlan {
       const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
       ops.push(() => this.ctx.passes().fieldOp(outCol, outDep, outDep, 2, 1, { c: outDep, d: outDep, tau: [tau[0], tau[1], tau[2]] }))
     }
+  }
+
+  /** Sampling and writing the same texture is forbidden. Without that alias,
+   * a replace/scissored draw can land directly; the intermediate Q8 result
+   * formerly copied verbatim has exactly the destination's RGBA8 format. */
+  private landResampled(target: AccumulationBuffer, base: AccumulationBuffer,
+    source: AccumulationBuffer, old: AccumulationBuffer, tx: number, ty: number,
+    w: number, h: number, fx: number, fy: number, ratio: number,
+    clamp: [number, number, number, number]): void {
+    const direct = this.diagnosticDirectResample && target !== base && target !== source && target !== old
+    if (direct) {
+      this.ctx.passes().wcResample(target, tx, ty, w, h, source, fx, fy, ratio, 1, old, base, clamp)
+      this.resampleLandingStats.direct++
+      this.resampleLandingStats.copyPixelsAvoided += w * h
+      return
+    }
+    const tmp = this.ctx.pool().acquire(target.width, target.height)
+    try {
+      this.ctx.passes().wcResample(tmp, tx, ty, w, h, source, fx, fy, ratio, 1, old, base, clamp)
+      tmp.copyRegionInto(target, tx, ty, tx, ty, w, h)
+      this.resampleLandingStats.temporary++
+    } finally { this.ctx.pool().release(tmp) }
   }
 
   /** Complete RGBA upload: same bytes, order, filtering and texture name.
