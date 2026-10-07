@@ -886,6 +886,33 @@ describe('covered snapshot history mutation (#728)', () => {
     source.destroy(); reader.destroy()
   })
 
+  it.each([false, true])('repairs duplicate then merge back into its source without a dependency cycle (lost=%s)', async lost => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
+    await reader.restoreHistoricalOperations([two])
+    const undo: OperationUndoOperation = { id: 'chain-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }
+    reader['_contextLost'] = lost
+    const duplicate = makeLayerDuplicate('B', 'R', 'L', { seq: 4 })
+    const merge = makeLayerMerge('B', 'L', [{ id: 'R', opacity: 1 }], { seq: 5 })
+    for (const op of [undo, duplicate, merge]) { source.appendOperation(op, 'remote'); reader.appendOperation(op, 'remote') }
+    expect(reader.isSnapshotHistoryRepairPending('R')).toBe(true)
+    reader['_contextLost'] = false
+    reader.absorbHistoricalOperations([])
+    expect(reader.isSnapshotHistoryRepairPending('L')).toBe(true)
+    expect(reader.bakeNetworkSnapshot('L')).toBeNull()
+    reader.absorbHistoricalOperations([one])
+    expect(reader.isSnapshotHistoryRepairPending('L')).toBe(false)
+    expect(reader.isSnapshotHistoryRepairPending('R')).toBe(false)
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
+    expect([...reader['_layers'].keys()]).toEqual([...source['_layers'].keys()])
+    source.destroy(); reader.destroy()
+  })
+
   it('physically repairs a covered Undo delivered during loss after the complete prefix is available', async () => {
     const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
     source.setBaseLayers(['L'])

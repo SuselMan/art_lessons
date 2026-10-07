@@ -2743,17 +2743,12 @@ export class PencilEngine implements PencilEngineAPI {
         : op.type === 'operation_undo' ? this._log.applyUndo(op.targetOpId, op.userId)
         : op.type === 'operation_redo' ? this._log.applyRedo(op.targetOpId, op.userId) : null
       if (target) this._noteSnapshotHistoryMutation(target)
+      this._noteSnapshotReadDependencies(op)
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
-    const pendingReads = pixelReadLayerIds(op).filter(id => this.isSnapshotHistoryRepairPending(id))
-    if (pendingReads.length || pixelWriteLayerIds(op).some(id => this.isSnapshotHistoryRepairPending(id))) {
-      for (const target of pixelWriteLayerIds(op)) for (const dependency of pendingReads) {
-        if (dependency === target) continue
-        let deps = this._snapshotDependentLayers.get(target)
-        if (!deps) { deps = new Set(); this._snapshotDependentLayers.set(target, deps) }
-        deps.add(dependency)
-      }
+    const pendingReads = this._noteSnapshotReadDependencies(op)
+    if (pendingReads || pixelWriteLayerIds(op).some(id => this.isSnapshotHistoryRepairPending(id))) {
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
@@ -5019,6 +5014,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._pendingRebuilds.clear()
     for (const id of this._snapshotIO.resolveHistoryRepairs()) this._snapshotRepairRebuilds.add(id)
     this._syncBuffersToLog()
+    this._flushSnapshotDependentLayers()
     for (const id of this._snapshotRepairRebuilds) if (!this._rebuildJobs.has(id) && !this._pendingRebuilds.has(id)) this._snapshotRepairRebuilds.delete(id)
     this._display()
   }
@@ -5495,12 +5491,33 @@ export class PencilEngine implements PencilEngineAPI {
     return this._snapshotIO.pendingHistoryRepairs()
   }
 
+  private _noteSnapshotReadDependencies(op: Operation): boolean {
+    const pending = pixelReadLayerIds(op).filter(id => this.isSnapshotHistoryRepairPending(id))
+    for (const target of pixelWriteLayerIds(op)) for (const source of pending) {
+      if (source === target) continue
+      let deps = this._snapshotDependentLayers.get(target)
+      if (!deps) { deps = new Set(); this._snapshotDependentLayers.set(target, deps) }
+      deps.add(source)
+    }
+    return pending.length > 0
+  }
+
   private _flushSnapshotDependentLayers(): void {
     if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
-    for (const [id, deps] of [...this._snapshotDependentLayers]) {
-      if ([...deps].some(source => this.isSnapshotHistoryRepairPending(source))) continue
-      this._snapshotDependentLayers.delete(id)
-      this._syncBuffersToLog(false)
+    // The graph names logical layers, not chronological replay dependencies.
+    // L→R→L is safe: StructuralOps recursively reads each source before the
+    // operation's seq. Only a reachable unknown baked prefix prevents replay.
+    const unknown = (id: string, seen = new Set<string>()): boolean => {
+      if (this._snapshotIO.historyRepairPending(id)) return true
+      if (seen.has(id)) return false
+      seen.add(id)
+      return [...(this._snapshotDependentLayers.get(id) ?? [])].some(source => unknown(source, seen))
+    }
+    const ready = [...this._snapshotDependentLayers.keys()].filter(id => !unknown(id))
+    if (!ready.length) return
+    for (const id of ready) this._snapshotDependentLayers.delete(id)
+    this._syncBuffersToLog(false)
+    for (const id of ready) {
       if (!this._layers.has(id)) continue
       this._snapshotRepairRebuilds.add(id)
       this._rebuildLayerOrDefer(id)
