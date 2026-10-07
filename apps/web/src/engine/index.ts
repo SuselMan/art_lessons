@@ -4027,14 +4027,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  slow/offline first load makes the gap real. */
   async exportPNG(transparent = false): Promise<Blob | null> {
     await this._paper.ready()
-    if (this._wcAsyncFinish && (!await this._wcCanonical.ready() || this._strokeLayerId)) return null
+    if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.exportPNG(transparent)
   }
 
   async exportReviewImage(): Promise<import('./src/export/Exporter').ReviewExport | null> {
     await this._paper.ready()
     if (this._destroyed || this._contextLost) return null
-    if (this._wcAsyncFinish && (!await this._wcCanonical.ready() || this._strokeLayerId)) return null
+    if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.exportReviewImage()
   }
 
@@ -4043,7 +4043,7 @@ export class PencilEngine implements PencilEngineAPI {
   async bakePreview(maxSide = 320): Promise<Blob | null> {
     await this._paper.ready()
     if (this._destroyed || this._contextLost) return null
-    if (this._wcAsyncFinish && (!await this._wcCanonical.ready() || this._strokeLayerId)) return null
+    if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.bakePreview(maxSide)
   }
 
@@ -5351,7 +5351,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _takeCheckpoint(layerId: string): void {
     if (this.isSnapshotHistoryRepairPending(layerId)) return
-    if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
+    if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
     // what the log no longer has (the undone stroke): never bake it.
     if (this._rebuildJobs.has(layerId)) return
@@ -5423,7 +5423,7 @@ export class PencilEngine implements PencilEngineAPI {
     const last = opIds[opIds.length - 1]
     const step = (): void => {
       if (this._destroyed || this._contextLost || this._layers.get(layerId) !== buf) return
-      if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
+      if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
       const now = this._log.layerPixelOps(layerId)
       if (now.length !== opIds.length || now[now.length - 1]?.id !== last || this._settle
         || this._washReveals.size || this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)
@@ -5446,7 +5446,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _snapshotQuiet(layerId: string): boolean {
     if (this.isSnapshotHistoryRepairPending(layerId)) return false
     // A canonical request may be between solver steps, with no _settle yet.
-    if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
+    if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
     // unrecorded pixels belong to no confirmed watermark yet.
     if (this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
