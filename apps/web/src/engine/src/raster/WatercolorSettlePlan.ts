@@ -532,7 +532,9 @@ export class WatercolorSettlePlan {
     // mobile and fixed amounts at every step, so the colour cannot be
     // carried on its own afterwards. Diffusion likewise runs colour first
     // and pigment second against the unchanged pre-step pigment field.
-    const costPathsEnabled = this.diagnosticCostDomainPaths && presentationOwnerLocked && metadata.paints.size === 1
+    // Physical reachability must be identical for owned live and synchronous replay.
+    // Single-paint carry has no colour record: ca/cc are spare until reconstruction.
+    const costPathsEnabled = this.diagnosticCostDomainPaths && metadata.paints.size === 1
     const colour = metadata.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
     const singlePaint = [...metadata.paints][0]
     const singleTau: [number, number, number] = !colour && singlePaint ? pigmentAbsorption(singlePaint.split(',').map(Number) as [number, number, number]) : [0, 0, 0]

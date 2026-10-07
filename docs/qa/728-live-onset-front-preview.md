@@ -477,3 +477,29 @@ Raw HOME:680-puddle-outline/temp/cost-domain-e8-net39/temp/onset/sheet3-mask-adr
 Для общей фиксации требуется одинаковый физический оператор native/replay: eligibility
 по presentationOwnerLocked недопустимо включать defaultON. CPU proposal — отдельно
 доказать singlepaint ca/cc lifetime и route-independent маску; текущий prototype OFF.
+
+
+### Route-independent diagnostic eligibility — CPU proof
+
+Approved narrow change: costPathsEnabled depends only on its opt-in flag and exactly
+one paint, not presentationOwnerLocked. Split/lazy/partial presentation ownership
+requirements remain unchanged. Native owned finish and historical replay therefore
+select the same physical reachability operator. Mixed/pure-water records still skip.
+
+Borrow contract: singlepaint has colour=null; carry ping-pongs pigment a/c, while mask
+writes only ca/cc. Fixed C cb is never a mask destination; captured ca0 derives from cb
+before masks. Numerical optical C is reconstructed from the resulting P and captured
+singleTau after all14carry/56mask entries. Presentation reconstructs C in private
+buffers and does not treat mask RGBA as C. cc is used as later deposit spare only after
+carry, and its final colour reconstruction overwrites it. Existing completeSettle
+beforeprepare / sync try-finally dispose / async abort maintain exclusive field lifetime.
+
+57 actual Plan/primitive tests PASS. New trace equality verifies all physical field
+inputs, coefficients, mask destinations and colour-reconstruction order ownerfalse vs
+ownertrue,56mask/14carry both. Original default/explicitOFF traces exact for bothroutes;
+purewater and mixed exclusions retained. Abort/contextforget late-write negatives run
+for bothowner states. Actual old owner-gated source fails the new regression (0 vs56
+masks); old negative log saved temp/onset/costpath-route-old-negative.log.
+Targeted TypeScript including tests and gitdiffcheck PASS. MockGL tests prove command/
+resource contract, not numerical P/C pixels; actual full ON/OFF hardware remains pending.
+DefaultOFF/sourcepublication unchanged.
