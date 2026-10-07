@@ -46,3 +46,33 @@ Whole-web TypeScript PASS в отдельном локальном mirror с с�
 зависимостями; oxlint --fix и diff --check PASS. map:check покрывает 994 файла; map:rules — 0 ошибок, 5 существующих предупреждений. Логи `temp/qa/` сохранены.
 Это CPU/MockGL проверка исправления; новый аппаратный FPS/полный readback timing
 после изменения не измерялся. Стенды и устройства в этом задании не изменялись.
+
+## Samsung: настоящий Room/upload/restore
+
+07.10.2026, immutable root `1840f311`, 988 tracked SHA сверены с архивом.
+Отдельный HOME runtime `680-lifetime-hardware/temp/empty-retry1840`, HTTPS5330,
+backend4539; защищённый стенд5329 не изменялся. Adreno650/SM-T970/Chrome154,
+настоящая новая комната `3Y7jlUU7`, Custom640×480, native purewater80 и pigment80
+через PointerController, UI Dry. Все остальные флаги остаются исходными.
+
+Собственные Samsung targets1420/1421 закрыты; controller exit0. Это сценарий
+исправления snapshot retry, не проверка native400/FPS.
+
+- Первый подтверждённо пустой bake: revision26, readPixels1, output snapshot null.
+  `bytes0` в отчёте — длина выходного snapshot, не число прочитанных GPU байтов;
+  размер этого GPU чтения отдельно не считывался.
+  quiet/settled true, resident tile1. Двадцать повторов: readPixels0, snapshot output null,
+  upload0, dirty всё ещё true, GL0/lostfalse.
+- После настоящей новой краски: revision52, readPixels1, raw1,228,820B.
+  Обычный uploader POST вернул HTTP200, seq6; серверный snapshot index содержит
+  layer-1/seq6/hash `8d218e1615ce86440b82f6bbfd77a0c04547eac7222de06cd0cb72be52891f09`.
+- Четыре stroke и два paper_dry имеют ACK seq1..6, pending=false.
+- Fresh Room join: coverage layer-1/seq6, wholeRGBA1,228,800B совпадает с author
+  changed0/max0; author содержит30,648 непустых пикселей. GL0/lostfalse.
+
+Raw: `temp/device-runs/empty-retry1840/workerregion_1791357779761/report.json`,
+`empty-author.png`, source-passport.json рядом. Артефакты не включены в Git.
+
+После authenticatedclients[]/exactcwd/argv проверки SIGTERM получил только
+собственный Vite PID1287571. Порт5330 освобождён, исходники/логи сохранены.
+Samsung освобождён; пользовательские tabs/stand5329/backend4539 не трогались.
