@@ -13,3 +13,9 @@ CPU oracle сравнивает eager и lazy RGBA поля, crop/radius/order, 
 ## CPU worst-case probe
 
 Однократный HOME Node22 diagnostic (не device budget): 40 движений на 3072² domain, aspect2.5, alternating returns. Радиусы40/200/800: eager first field1.10/2.67/79.75ms; максимальный generator.next1.27/0.44/9.04ms; descriptor grouping0.31/0.05/0.04ms. Все generated pixels exact. Для brush400 (radius200) CPU continuation короткие, но allocation/GC и первый eager field всё ещё могут превысить бюджет на больших размерах. Нельзя объявлять общий hard bound по этому измерению. Артефакт benchmark.log и диагностический test лежат в temp/lazy-contacts; не входят в production tests.
+
+## Samsung matched material oracle (root5a102d54)
+
+Own1340 закрыт в finally; Adreno650, GL0/lostfalse. Один immutable loaded journal SHA1b6e411586ed268847e3d6f42f8e03f16f0b26eb09f3c681fe3f962c2c225b09. Одинаковые source/phaseON, fibresOFF, splitON и existing front/contact cap4 в обоих плечах; изменён только lazyContacts. Реальные reveal/fade callbacks принудительно сохранены в обоих плечах для restricted diagnostic scope, no concurrent native/remote writes.
+
+Все19 meaningful fullfield/wholeRGBA сравнения byte exact; material/V/coverage непустые, purple492523, carryP14 и late4 в обоих. Initial→final ops eager953→1358, lazy230→1462. Solver barrier с одинаковыми readbacks14.87→17.35s: отрицательный throughput, не perf win. Wall-clock presentation callbacks324→372 при сохранённом gate. Raw report/passport/controller: temp/lazy-contacts/fixed-report.json и соседние файлы. Это не actual newtouch/Room ownership proof.
