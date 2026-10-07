@@ -31,3 +31,12 @@ Owner retirement also covers the interval after a scope returns but before its
 encoder is submitted. A destroyed source remains physically alive until pending
 scope releases after queue completion; a software copy/readback gate verifies
 zero corruption and no validation errors. Release is idempotent.
+
+CanonicalBrushContact.encodeSingle(ctx, {pigment,color,flow,water,out},
+'pigment'|'color', stepUV, gain, flowRectUV, scissorGL?) uses one storage output.
+Both old P and old C still participate in the shared per-channel capacity solve.
+The WGSL is derived from the paired kernel's same math body and changes only the
+final store, plus an output-selection uniform. No in-place or paired schedule
+change is introduced. Software paired-vs-single fixtures cover nonzero Q8 fields,
+1-byte donors/near-full receivers, NEAREST/LINEAR water, midpoint dry gates,
+step1/2 and retained scissor exterior. Hardware parity remains unproven.
