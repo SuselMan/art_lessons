@@ -107,7 +107,7 @@ import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import { createSnapshotGate } from './net/snapshotGate'
 import type { RoomStatePayload } from './restoreRoomState'
-import { clearPrefixElisionRequested } from './diagnostics/clearPrefixElision'
+import { captureClearPrefixElision } from './diagnostics/clearPrefixElision'
 import { useRoomRestore } from './useRoomRestore'
 import { useTransformSession, type TransformSession } from './useTransformSession'
 import { initLayersFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
@@ -144,6 +144,8 @@ function RoomEditor() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const clearPrefixExperiment = useRef<ReturnType<typeof captureClearPrefixElision> | null>(null)
+  clearPrefixExperiment.current = captureClearPrefixElision(clearPrefixExperiment.current, id, import.meta.env.DEV, location.search)
   const t        = useT()
   // `t` changes identity when the reader switches language, and listing it as a
   // dependency of the socket effect would tear the connection down and rebuild
@@ -950,7 +952,7 @@ function RoomEditor() {
   // (#493) restoreRoomState with what its two callers — the mount effect and
   // the socket's catch-up — share bound once. See useRoomRestore.
   const restoreRoom = useRoomRestore({
-    diagnosticClearPrefixElision: clearPrefixElisionRequested(import.meta.env.DEV, location.search),
+    diagnosticClearPrefixElision: clearPrefixExperiment.current.enabled,
     restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
     replayGate: replayGateRef.current,
