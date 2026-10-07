@@ -48,6 +48,7 @@ export interface WatercolorSettleQueueContext {
   syncGpu?(): void
   /** Completion clock used only by experimental continuation tasks. */
   continuationSyncGpu?(): void
+  continuationFailed?(error: unknown): void
   noteActivity(now: number): void
   scheduleFieldRelease(): void
 }
@@ -104,7 +105,9 @@ export class WatercolorSettleQueue {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
     this.continuationCancel = () => { controller.abort(); if (timer !== undefined) clearTimeout(timer) }
+    let started = false
     const run = (): void => {
+      started = true
       this.continuationCancel = null
       if (controller.signal.aborted || this._settle !== s) return
       // Input may arrive between tasks: defer to the regular drawing policy.
@@ -114,11 +117,18 @@ export class WatercolorSettleQueue {
     const scheduler = (globalThis as typeof globalThis & {
       scheduler?: { postTask(callback: () => void, options: { signal: AbortSignal; priority: 'user-visible' }): Promise<unknown> }
     }).scheduler
-    if (scheduler) void scheduler.postTask(run, { signal: controller.signal, priority: 'user-visible' }).catch(() => {
+    if (scheduler) void scheduler.postTask(run, { signal: controller.signal, priority: 'user-visible' }).catch(error => {
+      if (started) { this.failContinuation(error); return }
       if (!controller.signal.aborted && this._settle === s) { this.continuationCancel = null; this.scheduleTick() }
     })
     else timer = setTimeout(run, 0)
     return true
+  }
+
+  private failContinuation(error: unknown): void {
+    this.cancel()
+    if (this.ctx.continuationFailed) this.ctx.continuationFailed(error)
+    else throw error
   }
 
   private _settleTickAt = 0
@@ -190,14 +200,16 @@ export class WatercolorSettleQueue {
     // the device is already behind.
     if (this.continuationTasksEnabled && !late && !this.ctx.isDrawing()
       && (s.lifecycle?.isExpedited?.() || (this.ctx.canonicalBacklogSize?.() ?? 0) > 0) && this.ctx.syncGpu) {
-      const syncGpu = this.ctx.continuationSyncGpu ?? this.ctx.syncGpu
-      const at = performance.now()
-      for (let n = 0; n < 4 && this._settle === s; n++) {
-        this.advance()
-        syncGpu.call(this.ctx)
-        if (this._settle !== s || !this.isAlive(s) || this.ctx.isDrawing() || performance.now() - at >= 4) break
-      }
-      if (this._settle === s && !this.scheduleContinuation(s)) this.scheduleTick()
+      try {
+        const syncGpu = this.ctx.continuationSyncGpu ?? this.ctx.syncGpu
+        const at = performance.now()
+        for (let n = 0; n < 4 && this._settle === s; n++) {
+          this.advance()
+          syncGpu.call(this.ctx)
+          if (this._settle !== s || !this.isAlive(s) || this.ctx.isDrawing() || performance.now() - at >= 4) break
+        }
+        if (this._settle === s && !this.scheduleContinuation(s)) this.scheduleTick()
+      } catch (error) { this.failContinuation(error) }
       return
     }
     const perTick = this.ctx.isDrawing() || late ? 1
