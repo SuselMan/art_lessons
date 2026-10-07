@@ -1620,6 +1620,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  pass, plus the world rect it covers and when it was last rebuilt. Null
    *  rect means nothing is wet and the whole overlay is off. */
   private _wetTex: WebGLTexture | null = null
+  private _wetTexSize: [number, number] = [0, 0]
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
   private _wetOverlayWorkspace: WetOverlayWorkspace | null = null
@@ -4142,7 +4143,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonScratchPool.destroy()
     if (this._dryingTimer) { clearTimeout(this._dryingTimer); this._dryingTimer = 0 }
     if (this._budgetTimer) { clearTimeout(this._budgetTimer); this._budgetTimer = 0 }
-    if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null }
+    if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null; this._wetTexSize = [0, 0] }
     this._wetOverlayWorkspace = null
     this._paperWet.clear()
     for (const { buf, timer } of this._peerPreviews.values()) {
@@ -5054,6 +5055,7 @@ export class PencilEngine implements PencilEngineAPI {
     // before _initGL / PaperState can request the first restored display;
     // deleting the old name would operate on a dead-context resource.
     this._wetTex = null
+    this._wetTexSize = [0, 0]
     this._wetTexAt = 0
     this._wetRect = [0, 0, -1, -1]
     this._wetShown = -1
@@ -9035,7 +9037,14 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    // Same bytes and filtering, but retain storage while dimensions agree.
+    // The dimensions are forgotten along with the GL name on context restore.
+    if (this._wetTexSize[0] === w && this._wetTexSize[1] === h) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+      this._wetTexSize = [w, h]
+    }
     // Bilinear and clamped: the map is deliberately coarse, and the one thing
     // it must not do is show its own texels as squares of wet paper.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
