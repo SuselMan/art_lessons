@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createTestEngine, dab } from '../../testing/engineTestUtils'
+import { createTestEngine, dab, makeStroke } from '../../testing/engineTestUtils'
 import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { ribbonProfileFor } from './ribbonProfile'
 import type { RibbonStrokePainterContext } from './RibbonStrokePainter'
@@ -123,5 +123,62 @@ describe('source copy boundary lifetime (#728)', () => {
         successor.destroy()
       }
     } finally { work.return(); minmax.mockRestore(); field.mockRestore(); composite.mockRestore(); if (scratch.live) scratch.destroy(); engine.destroy() }
+  })
+})
+
+describe('actual Engine sliced-job source boundary cancellation (#728)', () => {
+  it.each([['V', 'cancel'], ['PC', 'cancel'], ['V', 'context-loss'], ['PC', 'context-loss']] as const)('aborts registered Engine job after %s via %s', (boundary, teardown) => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    engine.initLayer('L')
+    engine['_minmaxExt'] = { MAX_EXT: 0x8008 }
+    engine['_sliceLimits'].budgetMs = 0
+    engine['_sliceLimits'].size = 1
+    const painter = engine['_ribbonPainter']
+    painter.diagnosticSegmentDelivery = 'combined'
+    painter.diagnosticSolventField = true
+    painter.diagnosticSourceCopySlices = true
+    const ctx = (painter as unknown as { ctx: RibbonStrokePainterContext }).ctx
+    const field = vi.spyOn(ctx, 'fieldOp'), composite = vi.spyOn(ctx, 'drawRibbonCompositeRect')
+    const work = engine['_ribbonDabsWork'].bind(engine)
+    const returns: ReturnType<typeof vi.fn>[] = []
+    const factory = vi.spyOn(engine as unknown as { _ribbonDabsWork: typeof work }, '_ribbonDabsWork').mockImplementation((...args) => {
+      const generator = work(...args)
+      returns.push(vi.spyOn(generator, 'return'))
+      return generator
+    })
+    try {
+      const op = makeStroke('remote', 'L', [dab(20, 24, { size: 12 })], { tool: 'watercolor', preset: 'normal:100:100:PB29:round', strokeId: 'boundary', washId: 'boundary', wet: '0' })
+      engine['_paintOpOverFrames'](engine['_layers'].get('L')!, op, op.dabs!)
+      let reached = false
+      for (let step = 0; step < 100 && engine['_settle']; step++) {
+        const before = field.mock.calls.length
+        engine['_settleQueue'].advance()
+        const copies = field.mock.calls.slice(before).filter(c => c[3] === 1 && c[4] === 1 && c[5]?.scissor)
+        if ((boundary === 'V' && copies.length === 1) || (boundary === 'PC' && copies.length === 2)) { reached = true; break }
+      }
+      expect(reached).toBe(true)
+      expect(engine['_settle']).not.toBeNull()
+      const scratch = engine['_settle']!.scratch
+      expect(scratch.live).toBe(true)
+      const writes = field.mock.calls.length, composites = composite.mock.calls.length
+      if (teardown === 'context-loss') engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+      else engine['_cancelSettle']()
+      engine['_settleQueue'].advance(); engine['_settleQueue'].complete(); engine['_cancelSettle']()
+      expect(field.mock.calls.length).toBe(writes)
+      expect(composite.mock.calls.length).toBe(composites)
+      expect(returns).toHaveLength(1)
+      expect(returns[0]).toHaveBeenCalledOnce()
+      expect(engine['_settle']).toBeNull()
+      // Loss closes the coroutine immediately; old replay handles are forgotten
+      // by the existing restoration owner, not by cancellation itself.
+      expect(scratch.live).toBe(true)
+      if (teardown === 'context-loss') {
+        engine['_handleContextRestored']()
+        expect(scratch.live).toBe(false)
+        expect(engine['_replayRibbonChunks'].size).toBe(0)
+        engine['_settleQueue'].advance()
+        expect(returns[0]).toHaveBeenCalledOnce()
+      }
+    } finally { factory.mockRestore(); field.mockRestore(); composite.mockRestore(); engine.destroy() }
   })
 })
