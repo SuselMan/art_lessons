@@ -104,3 +104,11 @@ PASS и финальный gesture identity guard 10 / 1 PASS. Whole-web TypeScr
 mixed-кандидата ещё нет. При переносе сохранить root typed `qaJoinedTouch`
 constructor option; данный коммит содержит только расширение диагностического
 private gate, не включение продуктового пути.
+
+Дополнительный no-overlap контроль: mixed ON и OFF подают одинаковые literal
+Plan.prepare bounds/scalars (bloom/radius/water/landedWet/standing/wetPeak/dwell),
+folded dry bounds/radius/standing, spacing/direction/diffusePending. 11/1 PASS.
+`noteDabSpacing(0)` и `noteDirection(0,0)` только читают ранее выбранные значения,
+не сбрасывают их; отсутствие этих вызовов в owned-ветке не меняет состояние.
+Захваченный dryCtx — отдельная копия с сохранением физического target identity.
+Это контроль параметров без перекрытия; full GPU material oracle остаётся открыт.
