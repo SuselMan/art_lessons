@@ -14,3 +14,7 @@ Handle99959 EXIT1/CLOSED. OFF seed/ordinary full47 exact (39 actual paint calls)
 ### Дополнительная защита seed перед повторным прогоном
 
 Общий mapped47 guard вызывается в браузере до первого append и на authoritative47 после загрузки REST. Он требует настоящего автора, единый новый UUID namespace, уникальность всех47 ID и замкнутость history targets. CPU negative controls проверяют local/wrong author, duplicate IDs, чужой namespace и escaped target; 6PASS вместе с исходными8PASS. Даты/dabs/wet/strokeId/washId не переписываются: historical material timestamps остаются исходными, snapshot/replay сравнение происходит на них. Report сохраняет фактический seedActor. Guard не доказывает глобальное отсутствие UUID collision сам по себе; серверный actual authoritative47/order остаётся обязательным.
+
+### Corrected identity run53431: OFF history valid, snapshot helper INVALID
+
+Actual OFF trueauthor/full47 ordinary load12760ms,39paints, seed/replay exact. Persisted REST48/49 проверены по count/order/author/target; Undo изменил1 368 645 RGBAbytes/max255,Redoexact. Затем helper ошибочно использовал window.__bootstrapIndex из waitForFunction utility realm в mainworld page.evaluate: undefined.layers. Это не snapshot model failure; report preserved result-corrected69a, EXIT1/ownedChromeClosed. Контроллер теперь поллит HTTP index из mainworld, сохраняет ответ в Node и передаёт его явным аргументом blob fetch; нормальный uploader не подменяется. ON отсутствует, actual snapshot49/fresh ещё не завершены.
