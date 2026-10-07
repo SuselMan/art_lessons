@@ -67,6 +67,8 @@ export interface SnapshotIOContext {
 }
 
 export class SnapshotIO {
+  private readonly _emptyRevision = new WeakMap<ILayerBuffer, number>()
+
   // (#474) One record per restore call since the last drain — see
   // takeRestoreAudit. Bounded by the number of layers in a room's snapshot
   // index and emptied by every read, so it cannot grow with session length the
@@ -155,6 +157,11 @@ export class SnapshotIO {
     // painted, looked empty while holding a full drawing. It was then left out
     // of the snapshot entirely, and the next client to restore that snapshot
     // saw a blank layer. That is #369, and this line is where it started.
+    // Only confirmed empty pixels are memoized. Guards (including settled's
+    // repair side effects) still run first on every attempt. A new write's
+    // ledger revision or replacement buffer makes the observation obsolete.
+    const revision = this.ctx.ledger.pixelRevision(layerId)
+    if (this._emptyRevision.get(buf) === revision) return null
     const tiles = this._bakeTiles(buf)
     // (#467) Since _bakeTiles drops fully transparent tiles, this now also
     // catches a layer that is resident but holds nothing — painted and then
@@ -165,7 +172,11 @@ export class SnapshotIO {
     // change — "no tiles" has meant "nothing to publish" since #373, and
     // giving it a second meaning is its own decision with its own blast
     // radius. The layer keeps whatever older snapshot it already had.
-    if (!tiles.length) return null
+    if (!tiles.length) {
+      this._emptyRevision.set(buf, revision)
+      return null
+    }
+    this._emptyRevision.delete(buf)
     // (#373) Whatever the caller does with these bytes, this layer's current
     // pixels have now left the engine — anything that changes them after this
     // point is what makes it dirty again.
@@ -245,6 +256,9 @@ export class SnapshotIO {
       })
       return
     }
+    // Restore may reuse this very buffer. Its old emptiness is no longer a
+    // fact about these pixels, regardless of publication/coverage bookkeeping.
+    this._emptyRevision.delete(buf)
     // (#469) A snapshot baked before bounded rooms were subdivided carries one
     // page-sized tile; this room's buffer now wants TILE_SIZE ones. Re-slicing
     // is not optional — uploading a 2480-wide array into a 1024-wide texture

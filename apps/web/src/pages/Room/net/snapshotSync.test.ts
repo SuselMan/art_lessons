@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../../engine'
+import { createTestEngine, fillStroke, makeLayerAdd } from '../../../engine/testing/engineTestUtils'
+import type { ILayerBuffer } from '../../../engine/src/buffers/ILayerBuffer'
+import type { SnapshotLedger } from '../../../engine/src/oplog/snapshotLedger'
 
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 
@@ -388,6 +391,37 @@ describe('a snapshot the server refuses as stale', () => {
 
 
 describe('first catch-up snapshot (#728)', () => {
+  it('does not reread confirmed empty pixels, but uploads later real paint at its new watermark', async () => {
+    const { engine } = createTestEngine({ userId: 'a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('a', 'layer-1'), 'remote')
+    engine.appendOperation(fillStroke('a', 'layer-1', 4, 4, 6), 'remote')
+    const internal = engine as unknown as {
+      gl: WebGLRenderingContext
+      _layers: Map<string, ILayerBuffer>
+      _snapshots: SnapshotLedger
+    }
+    for (const tile of internal._layers.get('layer-1')!.allResident()) tile.buffer.clear()
+    internal._snapshots.markDirty('layer-1')
+    const read = vi.spyOn(internal.gl, 'readPixels')
+    const state = layerState({
+      items: { 'layer-1': layerState().items['layer-1'] }, rootOrder: ['layer-1'], activeId: 'layer-1',
+    })
+    const uploader = createSnapshotUploader('room-1')
+    uploader.requestFirstSnapshot()
+    uploader.tryFirstSnapshot(47, engine, state)
+    expect(read.mock.calls.length).toBeGreaterThan(0)
+    read.mockClear()
+    for (let attempt = 0; attempt < 20; attempt++) uploader.tryFirstSnapshot(47, engine, state)
+    expect(read).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(engine.isLayerDirty('layer-1')).toBe(true)
+    engine.appendOperation(fillStroke('a', 'layer-1', 4, 4, 6), 'remote')
+    uploader.tryFirstSnapshot(48, engine, state)
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+    expect(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body).seq).toBe(48)
+    expect(read.mock.calls.length).toBeGreaterThan(0)
+  })
+
   it('does not publish until catch-up explicitly requests a first snapshot', () => {
     const uploader = createSnapshotUploader('room-1')
     const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) })

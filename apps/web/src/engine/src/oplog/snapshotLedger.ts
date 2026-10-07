@@ -43,6 +43,11 @@ export class SnapshotLedger {
     this.revision.set(layerId, (this.revision.get(layerId) ?? 0) + 1)
   }
 
+  /** Mutation token only: observing empty pixels never claims server coverage. */
+  pixelRevision(layerId: string): number {
+    return this.revision.get(layerId) ?? 0
+  }
+
   /** This layer's current pixels are now what the server holds — just baked
    *  and handed over, or just restored from what the server sent. */
   markPublished(layerId: string): void {
