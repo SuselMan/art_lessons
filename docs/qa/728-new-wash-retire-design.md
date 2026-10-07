@@ -36,3 +36,15 @@ Recorder sourceNib/sourceBands/sourceField не покрывает `importForeig
 - Latency отдельно: реальные first pigment pixels после DOWN без тяжёлого readback во время input. Барьер на UP и ограничения одного future owner фиксировать явно.
 
 До закрытия foreign-import/reset зависимости безопасный runtime кандидат не готов. Это не повод включать сломанную provisional presentation или менять физику.
+
+## Уточнение distinct-scratch после source sampler review
+
+Предыдущий план replay donor/source является консервативным вариантом, но может оказаться избыточным. Реальный `RibbonPasses.drawRibbonNibPass` связывает original/inkLoad samplers с paper placeholder; единственная заменяемая текстура — clipTo собственной будущей coverage. Bands читают paper/noise и переданный availableWater. Source field mode1 читает собственные будущие base/film. В отличие от same-scratch, старый Plan.land не пишет ни один из этих future buffers.
+
+Таким образом следующий минимальный adapter-кандидат — удержать **готовый future scratch целиком** (zero additional snapshot bytes), после старого complete+engine composite обновить только future.original из actual tile и повторить future composite. Ни deposit, ни импорт не replay; временный donor может быть уничтожен штатно, его результат уже находится в удержанных future.coverage/foreignSolventLoad. Для другого слоя original сохраняется. Это ещё не доказательство полей: требуется actual Plan oracle, в частности динамических foreignSources и shared-fluid availability.
+
+`Engine._paintRibbonDabs` строит foreignSources из done записей OperationLog с op timestamps, washId, записанными wet/chunks/seed; он не читает old solver V. `importForeignWater` восстанавливает donor из этих chunks. Старый completion сам по себе не добавляет журнал. Однако remote arrival/history reset между двумя source batch и завершением old job может менять лог; lease должна фиксировать уже выбранные source records/границы и не пересобирать их из нового лога при rebase. Настоящие live wet bytes тоже должны остаться bytes первого исполнения, а не пересчитываться по clock completion.
+
+Цену нового scratch всё равно нельзя объявлять нулевой: дополнительные future original/coverage/inkLoad/inkColor плюс lazy film/solvent буферы удерживаются одновременно со старым scratch. Каждый full1536² RGBA8 = 9 MiB. Foreign import marker snapshot пары coverage+foreignSolvent = 18 MiB/marker, поэтому вариант replay/import snapshots требует отдельного общего byte cap; предпочтительный distinct-scratch retain не добавляет эти marker snapshots. Admission обязана проверить общий live budget до input; нельзя принять deposit, потом молча отказаться из-за памяти.
+
+CPU-прототип `docs/qa/harness/728-future-source` пока моделирует более общий ordered replay contract. Его 7 tests не покрывают реальную эквивалентность этого zero-copy сокращения и не разрешают включение runtime.
