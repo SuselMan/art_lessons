@@ -18,6 +18,7 @@ import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { washRevealHold, washRevealStep, washRevealRemaining } from './src/raster/washReveal'
+import { adaptDiagnosticWebgl2 } from './src/raster/diagnosticWebgl2'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -248,6 +249,8 @@ export function previewDabShape(
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 export interface PencilEngineOptions {
+  /** Isolated WebGL2 compatibility/MRT prototype; default OFF, no fallback. */
+  diagnosticWebgl2?: boolean
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -2253,12 +2256,14 @@ export class PencilEngine implements PencilEngineAPI {
       measureRect: () => canvas.getBoundingClientRect(),
     })
 
-    const gl = canvas.getContext('webgl', {
+    const contextAttributes = {
       premultipliedAlpha: false,
       preserveDrawingBuffer: true,
       antialias: false,
-    })
-    if (!gl) throw new Error('WebGL not supported')
+    }
+    const raw = options.diagnosticWebgl2 ? canvas.getContext('webgl2', contextAttributes) : canvas.getContext('webgl', contextAttributes)
+    if (!raw) throw new Error(options.diagnosticWebgl2 ? 'Diagnostic WebGL2 unavailable' : 'WebGL not supported')
+    const gl = options.diagnosticWebgl2 ? adaptDiagnosticWebgl2(raw as WebGL2RenderingContext) : raw as WebGLRenderingContext
     this.gl = gl
   this._compositor = new LayerCompositor({
     gl,
