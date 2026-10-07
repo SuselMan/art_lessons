@@ -1,0 +1,10 @@
+/** EXT elapsed GPU time only. No finish/readback fallback. Owned queries. */
+export function createElapsedTimer(gl,webgl2,{now=()=>performance.now(),pause=()=>new Promise(r=>setTimeout(r,8)),timeoutMs=5000}={}){
+ const name=webgl2?'EXT_disjoint_timer_query_webgl2':'EXT_disjoint_timer_query',ext=gl.getExtension(name),owned=new Set();let active=null;
+ if(!ext)return{available:false,extension:name,begin:()=>null,end(){},result:async()=>({valid:false,reason:'timer-extension-unavailable',gpuNs:null}),dispose(){}};
+ const create=()=>webgl2?gl.createQuery():ext.createQueryEXT(),del=q=>webgl2?gl.deleteQuery(q):ext.deleteQueryEXT(q);
+ const end=()=>{if(active){if(webgl2)gl.endQuery(ext.TIME_ELAPSED_EXT);else ext.endQueryEXT(ext.TIME_ELAPSED_EXT);active=null}};
+ return{available:true,extension:name,begin(){if(active)throw Error('Nested elapsed query');if(gl.isContextLost())throw Error('Context lost before query');if(gl.getParameter(ext.GPU_DISJOINT_EXT))return null;const q=create();if(!q)throw Error('Query allocation failed');owned.add(q);if(webgl2)gl.beginQuery(ext.TIME_ELAPSED_EXT,q);else ext.beginQueryEXT(ext.TIME_ELAPSED_EXT,q);active=q;return q},end,
+ async result(q){if(!q)return{valid:false,reason:'disjoint-before-query',gpuNs:null};const at=now();try{gl.flush();while(now()-at<timeoutMs){if(gl.isContextLost())return{valid:false,reason:'context-lost',gpuNs:null};if(gl.getParameter(ext.GPU_DISJOINT_EXT))return{valid:false,reason:'gpu-disjoint',gpuNs:null};const ready=webgl2?gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE):ext.getQueryObjectEXT(q,ext.QUERY_RESULT_AVAILABLE_EXT);if(ready){const gpuNs=webgl2?gl.getQueryParameter(q,gl.QUERY_RESULT):ext.getQueryObjectEXT(q,ext.QUERY_RESULT_EXT);if(gl.getParameter(ext.GPU_DISJOINT_EXT))return{valid:false,reason:'gpu-disjoint',gpuNs:null};return Number.isFinite(gpuNs)&&gpuNs>=0?{valid:true,gpuNs}:{valid:false,reason:'invalid-query-result',gpuNs:null}}await pause()}return{valid:false,reason:'query-timeout',gpuNs:null}}finally{if(owned.delete(q))del(q)}},
+ dispose(){try{end()}finally{for(const q of owned)del(q);owned.clear()}}};
+}

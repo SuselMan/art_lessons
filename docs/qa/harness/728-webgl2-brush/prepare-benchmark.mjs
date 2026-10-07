@@ -1,0 +1,5 @@
+import{readFileSync,writeFileSync}from'node:fs';import{createHash}from'node:crypto';import{createElapsedTimer}from'./timer.mjs';
+if(!process.env.WC_PARITY_PREPARED_FILE||!process.env.WC_PREPARED_FILE)throw Error('Explicit parity input/output required; CPU only');
+const base=JSON.parse(readFileSync(process.env.WC_PARITY_PREPARED_FILE)),probe=readFileSync(new URL('./benchmark.js',import.meta.url),'utf8');new Function('return '+probe);
+const input={correctnessInput:base.input,correctnessProbe:base.probe,timerFactory:createElapsedTimer.toString()};new Function('return '+input.timerFactory);
+const sha=s=>createHash('sha256').update(s).digest('hex');writeFileSync(process.env.WC_PREPARED_FILE,JSON.stringify({input,probe,probeSHA:sha(probe),timerSHA:sha(input.timerFactory),scope:'CPU-only prepared timer benchmark; mandatory parity before warmed GPU measurement'}));console.log(JSON.stringify({compiled:true,probeSHA:sha(probe),timerSHA:sha(input.timerFactory),samplesPerPathAndRepeat:5,repeats:[2,4,8],maxSize:512}));
