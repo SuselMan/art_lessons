@@ -52,3 +52,34 @@ UI строка говорит capacity, однако сервер исполь�
 исключения prepareSnapshotReplay; по UI причину не классифицируем.
 Private raw: `temp/band-room/joined-typed-lifecycle-result.json`.
 Первичная попытка35817 остановилась RAM guard до Chrome; тестов не было.
+
+
+## Исправление контроллера и полный typed lifecycle
+
+Причина прежнего fresh join отказа установлена: глобальная подмена
+crypto.getRandomValues в тесте повторяла Operation.id между собственными
+комнатами. Prisma P2002 оставил в прежней комнате только Dry/Undo/Redo,
+без их stroke-зависимостей. Это ошибка контроллера, не capacity и не
+регрессия кандидата. Подмена удалена; фиксируются только физический strokeId
+и логический washId, operation IDs создаются настоящим nanoid.
+
+Повтор 80355 завершился до ввода на пустом create DOM. После восьми HTTP200
+проверок модулей, проверки Vite log и RAM≈1919MiB выполнен один контролируемый
+повтор62736. Он завершился EXIT0/CLOSED, источник049af326 неизменён.
+Новая комната qcpp4SdG: настоящий author совпал с store; constructor joinedTouch
+true до первого job. Перед fresh join HTTP API, читающий DB, подтвердил ровно
+пять уникальных операций seq1..5, включая обе stroke-зависимости.
+
+Dry, Redo и свежий вход побитно совпали по wholeRGBA SHA
+08136423df3b0882715e1d08619733b251a80e0085bcdb87fb33b13e84491829,
+purple287989. Undo действительно отменил второй stroke: purple252213,
+SHA4cd684e07535d0ebb3ffb32adb766276f0bdb929c1cd728dc98e8a58d5eb5280.
+GL0/lostfalse во всех стадиях. Raw:
+`temp/band-room/joined-typed-lifecycle-unique-pass.json`.
+
+Hot DOWN: CPU2.3ms, после него GPU-read верхняя граница4.1ms,
+25 изменённых pigment pixels. Предварительный baseline read синхронизирует
+старую GPU очередь: это изолированная стоимость нового DOWN, не полная
+аппаратная задержка пера. Несинхронизированный вариант ещё не проверен.
+Сфера PASS узкая: одинаковые RGB и exact preset, обычный Room с двумя
+фиксированными жестами, Dry/Undo/Redo и свежий вход. Не broad FPS PASS.
