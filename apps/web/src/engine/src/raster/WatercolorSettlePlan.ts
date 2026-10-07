@@ -19,7 +19,7 @@ export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationB
 
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
-  fieldFor(w: number, h: number): SettleField
+  fieldFor(w: number, h: number, captureClearsInputs?: boolean): SettleField
   paperWorldSize(): { w: number; h: number }
   pool(): RibbonScratchPool
   minmaxExt(): { MAX_EXT: number } | null
@@ -196,7 +196,7 @@ export class WatercolorSettlePlan {
     const w = x1 - x0, h = y1 - y0
     if (w <= 0 || h <= 0) return null
     scratch.noteStorageBounds({ minX: x0, minY: y0, maxX: x1, maxY: y1 })
-    const field = this.ctx.fieldFor(w / S, h / S)
+    const field = this.ctx.fieldFor(w / S, h / S, true)
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
     // (§17.44) At half resolution what goes home is the SETTLED wash at full
     // resolution plus the field's result less its own settled part: the

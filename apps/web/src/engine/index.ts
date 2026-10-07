@@ -1821,7 +1821,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private readonly _settlePlan = new WatercolorSettlePlan({
     gl: () => this.gl,
-    fieldFor: (w, h) => this._diffuseFieldFor(w, h),
+    fieldFor: (w, h, captureClearsInputs) => this._diffuseFieldFor(w, h, captureClearsInputs),
     paperWorldSize: () => this._paperWorldSize(),
     pool: () => this._ribbonScratchPool,
     minmaxExt: () => this._minmaxExt,
@@ -8065,7 +8065,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  before; what changed is only that it now always has empty paper to its
    *  right and below, where it used to meet the texture's clamped edge
    *  whenever its span was a multiple of 256. */
-  private _diffuseFieldFor(w: number, h: number): SettleField {
+  private _diffuseFieldFor(w: number, h: number, captureClearsInputs = false): SettleField {
     // A settle still spread over frames works in the field it was handed:
     // it lands first, before the field is cleared or replaced under it.
     if (this._settle) this._completeSettle()
@@ -8086,7 +8086,11 @@ export class PencilEngine implements PencilEngineAPI {
     // levels off, along a straight line).
     const cur = this._fieldCache[0]
     if (cur && cur.w === W && cur.h === H) {
-      for (const b of [cur.a, cur.b, cur.c, cur.coverage, cur.ca, cur.cb, cur.cc, cur.mask, cur.pressure, cur.band]) b.clear()
+      // Plan capture resets these five inputs before their first read. Keep
+      // all work textures clean; ordinary drying callers still reset all ten.
+      for (const b of captureClearsInputs
+        ? [cur.c, cur.cc, cur.mask, cur.pressure, cur.band]
+        : [cur.a, cur.b, cur.c, cur.coverage, cur.ca, cur.cb, cur.cc, cur.mask, cur.pressure, cur.band]) b.clear()
       return cur
     }
     if (cur) destroyField(cur)
