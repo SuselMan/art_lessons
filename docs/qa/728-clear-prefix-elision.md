@@ -84,3 +84,12 @@ finishMetadata/scratch paints.size, targetmode15/front и nonempty P/C/V/coverag
 всегда. Timing включает диагностический rAF dispatch cadence и не равен
 буквальному времени загрузки Room. Field readback вынесен в отдельную
 correctness-волну. Повтор аппаратного запуска ожидает review родителя.
+
+Третья попытка `clear47ca0_1791360028954` дошла до OFF seq47 с
+paints.size=1, front126/carryP14 и meaningful четырьмя каналами. Однако
+диагностический sequence не был обновлён перед Undo, поэтому rebuild
+повторно попал в target47 capture и вызвал duplicate guard. Собственная1431
+досрочно закрыта, controller terminalEXIT1/finallyclosed. Это ошибка fixture;
+ON и полный Undo/Redo gate по-прежнему не подтверждены. CPU runner теперь
+обновляет sequence48/49 перед этими двумя операциями; исходный renderer
+и полный сохранённый журнал не менялись.
