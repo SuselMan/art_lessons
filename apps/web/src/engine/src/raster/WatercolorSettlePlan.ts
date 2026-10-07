@@ -34,6 +34,10 @@ export interface WatercolorSettlePlanContext {
 /** Builds the ordered GPU steps and the final tile copy-back of one settle.
  * Working fields and frame scheduling remain separate owners. */
 export class WatercolorSettlePlan {
+  /** Immutable cost-domain reachability diagnostic; default OFF on every route. */
+  diagnosticCostDomainPaths = false
+  /** Pack D1..D64 in seven byte bits; only eligible when cost-domain paths are enabled. */
+  diagnosticPackedCostPaths = false
   /** Local diagnostic only, default OFF. V-phase is an experimental closure,
    * not an equality between solvent thickness and the PaperWetness clock. */
   diagnosticPlateauPhase = false
@@ -516,6 +520,9 @@ export class WatercolorSettlePlan {
     // mobile and fixed amounts at every step, so the colour cannot be
     // carried on its own afterwards. Diffusion likewise runs colour first
     // and pigment second against the unchanged pre-step pigment field.
+    // Physical reachability must be identical for owned live and synchronous replay.
+    // Single-paint carry has no colour record: ca/cc are spare until reconstruction.
+    const costPathsEnabled = this.diagnosticCostDomainPaths && metadata.paints.size === 1
     const colour = metadata.paints.size > 1 ? { a: field.ca, b: field.cb, c: field.cc } : null
     const singlePaint = [...metadata.paints][0]
     const singleTau: [number, number, number] = !colour && singlePaint ? pigmentAbsorption(singlePaint.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
@@ -662,19 +669,46 @@ export class WatercolorSettlePlan {
       // in lockstep, taking the deposit's fractions (mode 16).
       if (first && !this.ctx.ab().noCarry) {
         const carry = watercolorCarryStrides(budgetPx)
+        const costPaths = costPathsEnabled && !colour
+        const packedPaths = costPaths && this.diagnosticPackedCostPaths
+        let packedMask: AccumulationBuffer | undefined
+        if (packedPaths) {
+          const band = (budgetPx - 1.5) / costMax
+          ops.push(() => this.ctx.passes().costDomainStep(field.ca, field.pressure, fieldRect, band, 0, true))
+          let mask = field.ca, next = field.cc
+          for (let distance = 1; distance < 64; distance *= 2) {
+            const from = mask, to = next, step = distance
+            ops.push(() => this.ctx.passes().costDomainStep(to, from, fieldRect, band, step, true))
+            const previous = mask; mask = next; next = previous
+          }
+          packedMask = mask
+        }
+        const pathFor = (stride: number): AccumulationBuffer | undefined => {
+          if (!costPaths) return undefined
+          if (packedMask) return packedMask
+          const band = (budgetPx - 1.5) / costMax
+          ops.push(() => this.ctx.passes().costDomainStep(field.ca, field.pressure, fieldRect, band, 0))
+          let mask = field.ca, next = field.cc
+          for (let distance = 1; distance < stride; distance *= 2) {
+            const from = mask, to = next, step = distance
+            ops.push(() => this.ctx.passes().costDomainStep(to, from, fieldRect, band, step))
+            const previous = mask; mask = next; next = previous
+          }
+          return mask
+        }
         let src = c, dst = a
         let csrc = colour?.c, cdst = colour?.a
-        for (let i = 0; i < carry.length; i += splitQuanta ? 1 : 4) {
-          const n = Math.min(splitQuanta ? 1 : 4, carry.length - i)
-          const plan: Array<{ s: number; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
+        for (let i = 0; i < carry.length; i += splitQuanta || costPaths ? 1 : 4) {
+          const n = Math.min(splitQuanta || costPaths ? 1 : 4, carry.length - i)
+          const plan: Array<{ s: number; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer; path?: AccumulationBuffer }> = []
           for (let j = 0; j < n; j++) {
-            plan.push({ s: carry[i + j], src, dst, csrc, cdst })
+            plan.push({ s: carry[i + j], src, dst, csrc, cdst, path: pathFor(carry[i + j]) })
             const t = src; src = dst; dst = t
             const ct = csrc; csrc = cdst; cdst = ct
           }
           ops.push(frontStepOp(() => {
             for (const p of plan) {
-              const opts = { d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
+              const opts = { path: p.path, pathPacked: packedPaths, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }
@@ -1083,7 +1117,7 @@ export class WatercolorSettlePlan {
       minX: Math.min(bounds.minX, x0), minY: Math.min(bounds.minY, y0),
       maxX: Math.max(bounds.maxX, x1), maxY: Math.max(bounds.maxY, y1),
     }
-    if (splitQuanta || lazyContacts) {
+    if (splitQuanta || lazyContacts || costPathsEnabled) {
       // CPU fields and presentation use one ordered insertion cursor. Children
       // inherit physical tags; untimed CPU/upload/presentation steps are barriers.
       let insertedOffset = 0

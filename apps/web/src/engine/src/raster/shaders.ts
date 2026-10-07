@@ -3137,6 +3137,8 @@ export const WC_FIELD_OP_FRAG = `
   uniform vec2 u_dir;
   uniform sampler2D u_d;
   uniform sampler2D u_e;
+  uniform sampler2D u_path;
+  uniform float u_pathEnabled;
   uniform vec2 u_origin;
   uniform vec2 u_size;
   uniform vec2 u_band;
@@ -3248,6 +3250,14 @@ export const WC_FIELD_OP_FRAG = `
     float cj = texture2D(u_d, uvj).r;
     if (cj > u_band.x) return 0.0;
     float d = (cj - ci) * u_size.y;
+    if (d > 1e-3 && u_pathEnabled > 0.5) {
+      vec4 connected = texture2D(u_path, uvi);
+      vec2 delta = uvj - uvi;
+      float allowed = delta.x > 0.0 ? connected.r : delta.x < 0.0 ? connected.g
+        : delta.y > 0.0 ? connected.b : connected.a;
+      if (u_pathEnabled > 1.5) allowed = mod(floor(floor(allowed * 255.0 + 0.5) / u_origin.x), 2.0);
+      if (allowed < 0.5) return 0.0;
+    }
     if (d <= 1e-3) {
       // A wet source's interior must supply its draining edge. The positive
       // cost-gradient formula tends to 4^POW as the gradient tends to zero.
@@ -5813,3 +5823,45 @@ export const WC_BRUSH_DRAG_BASELINE_FRAG = `
 
 /** Same conservative operator; skips only proven zero faces before pigment reads. */
 export const WC_BRUSH_DRAG_FRAG = brushDragEarlyZero(WC_BRUSH_DRAG_BASELINE_FRAG)
+
+/** Diagnostic immutable transport-domain reachability, RGBA = +x,-x,+y,-y. */
+export const WC_COST_DOMAIN_FRAG = `
+  precision highp float;
+  varying vec2 v_uv;
+  uniform sampler2D u_source;
+  uniform vec2 u_resolution;
+  uniform vec4 u_rect;
+  uniform float u_band;
+  uniform float u_stride;
+  uniform float u_packed;
+  float channel(vec4 value, vec2 direction) {
+    if (direction.x > 0.0) return value.r;
+    if (direction.x < 0.0) return value.g;
+    if (direction.y > 0.0) return value.b;
+    return value.a;
+  }
+  bool inside(vec2 pixel) {
+    return pixel.x >= u_rect.x && pixel.y >= u_rect.y && pixel.x < u_rect.z && pixel.y < u_rect.w;
+  }
+  float path(vec2 pixel, vec2 direction) {
+    vec2 other = pixel + direction * max(u_stride, 1.0);
+    if (!inside(pixel)) return 0.0;
+    vec4 previous = texture2D(u_source, (pixel + 0.5) / u_resolution);
+    float code = floor(channel(previous, direction) * 255.0 + 0.5);
+    if (!inside(other)) return u_packed > 0.5 && u_stride >= 0.5 ? code / 255.0 : 0.0;
+    vec4 a = texture2D(u_source, (pixel + 0.5) / u_resolution);
+    vec4 b = texture2D(u_source, (other + 0.5) / u_resolution);
+    if (u_stride < 0.5) return a.r <= u_band && b.r <= u_band ? (u_packed > 0.5 ? 1.0 / 255.0 : 1.0) : 0.0;
+    if (u_packed > 0.5) {
+      float neighbour = floor(channel(b, direction) * 255.0 + 0.5);
+      float connected = mod(floor(code / u_stride), 2.0) * mod(floor(neighbour / u_stride), 2.0);
+      return (code + 2.0 * u_stride * connected) / 255.0;
+    }
+    return min(channel(a, direction), channel(b, direction));
+  }
+  void main() {
+    vec2 pixel = floor(v_uv * u_resolution);
+    gl_FragColor = vec4(path(pixel,vec2(1.0,0.0)),path(pixel,vec2(-1.0,0.0)),
+      path(pixel,vec2(0.0,1.0)),path(pixel,vec2(0.0,-1.0)));
+  }
+`;
