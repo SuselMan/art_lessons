@@ -19,6 +19,15 @@ export function inheritSettleOpTags(source: () => void, wrapped: () => void): vo
   if (token) presentationTokens.set(wrapped, token)
 }
 
+/** Read-only QA classification; does not grant batching eligibility. */
+export function diagnosticSettleOpTag(op: (() => void) | undefined): 'contact' | 'front' | 'presentation' | 'barrier' {
+  if (!op) return 'barrier'
+  if (contactPulses.has(op)) return 'contact'
+  if (frontSteps.has(op)) return 'front'
+  if (presentationTokens.has(op)) return 'presentation'
+  return 'barrier'
+}
+
 /** Drawing can pause before its recipient has any tiles; ownership, rather
  * than tile count, defines that coroutine's lifetime. Solver jobs keep the
  * existing scratch.live rule. */
