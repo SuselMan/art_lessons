@@ -42,3 +42,7 @@ samples и timestamps: OFF полный drain / ON overlap, полные пол�
 и native/Dry/replay/UndoRedo endpoints; отдельно penDOWN GPU-ready и penUP gap.
 Source/flags/preset/цвет и accepted journal должны совпадать. Нельзя выдавать
 разные adaptive input tapes за paired cause proof.
+
+## Интеграция root, 07.10 16:35
+
+Локальный74118d2e добавляет кандидат OFF. Конфликт exportPNG разрешён с сохранением ранее введённых asyncError guards до/после canonical.ready. Root focused joinedTouch/coverageFilm11PASS, asyncFailureMaterial2PASS; whole-web TypeScript exit0, lint exit0 с прежними предупреждениями, map:check1013files PASS. Это CPU/MockGL проверки, а не аппаратный паритет. Пользовательские стенды5329/5339 неизменны.
