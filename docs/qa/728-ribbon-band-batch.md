@@ -45,3 +45,11 @@ Current4b frozen: сначала actualnative400px6s capture truewater normal:10
 Low-water normal:10:100 native1352, matched fixed1353, SHAddb7419be27b5d6d27d6d7b78ac9f8609435e578eba929285f7954662c2622a6:19buffers+wholeRGBA EXACT0, purple309216, meaningfulV233600,carry12,late0,GL0. Все4ownedtargets CLOSED. Painter runtime profile для обоих tapes: waterDepletion=true,stampsOnly=false,solventFlag=true; ON diagnosticBandBatch=true. Это purewater/low-water material ветки, не stamps-only skipped branch; художественная сухая текстура не менялась и не оценивалась.
 
 Обе fixedarms сохраняют прежний modifiedreveal/owner14 isolated scope, не ordinaryRoom lifecycle. Снижение/рост wallclock solver не является физическим throughput утверждением. Нативные adaptive gestures служат записью tape, без pairedFPS claim.
+
+### Ordinary Room current backend ACK
+
+После закрытия1353 перезапущен только own5311 Vite (PID1180026), source4b неизменён, SERVER_PORT4539/current47e backend. Первый Room1354 остановлен до input из-за fixture ENOENT pageLib, target CLOSED, FAIL сохранён. Исправлен только абсолютный путь existinghelper.
+
+Retry1355 own Room CpqCxCHq1754×2480Fine: actual PointerController3s dense400+nexttouch с bandON и прежними lazy/FIFO/split/cap4/source+phaseON, fibresOFF. Дваstroke authoritativeACKseq1/2 done/pendingfalse, realUI paper_dryseq3. Final1754×2480PNG1890226paintedpx, GL0/lostfalse, owners0/presentations0, canonical/settle/rebuild idle. Target CLOSED. Это delivery/nonemptyendpoint проверка ordinaryRoom, не matchedhistory/reload parity.
+
+Active151frames/max50ms/28>33/0>100; nexttouch handler20.5ms послеlift100.3ms, tailmax100ms. Долгий solver остается:12canonical requests/reveals4 наблюдались в54.4s, canonicalidle59.4s затем revealendpoint. Standalone более быстрые rAF не подменяют этот Room результат. DefaultbandOFF сохраняется, smoothness не решена.
