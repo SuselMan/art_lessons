@@ -476,6 +476,27 @@ export class PaperWetness {
     return out
   }
 
+  /** Display's paired rasters: same per-channel iteration/Float32 rounding as
+   * raster() and rasterPool(), but one map walk and one decay per wet cell.
+   * No field mutation, and neither output is read by the canonical solver. */
+  rasterWetAndPool(minCx: number, minCy: number, step: number, inW: number, inH: number, now: number): { wet: Float32Array; pool: Float32Array } {
+    const wet = new Float32Array(inW * inH), pool = new Float32Array(inW * inH)
+    const pass = (cells: Map<number, WetCell>): void => {
+      for (const cell of cells.values()) {
+        const tx = Math.floor((cell.cx - minCx) / step), ty = Math.floor((cell.cy - minCy) / step)
+        if (tx < 0 || ty < 0 || tx >= inW || ty >= inH) continue
+        const w = PaperWetness._decayed(cell, now)
+        const i = ty * inW + tx
+        if (w > wet[i]) wet[i] = w
+        // Keep rasterPool's predicate, including its behavior for NaN decay.
+        if (cell.p && !(w <= 0) && cell.p > pool[i]) pool[i] = cell.p
+      }
+    }
+    for (const cells of this._layers.values()) pass(cells)
+    for (const cells of this._pending.values()) pass(cells)
+    return { wet, pool }
+  }
+
   /** Wetness at a cell, taking the wettest layer — see bounds() on why the
    *  layers are unioned rather than kept apart. */
   atCell(cx: number, cy: number, now: number): number {
