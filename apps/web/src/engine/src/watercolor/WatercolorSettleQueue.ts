@@ -46,6 +46,8 @@ export interface WatercolorSettleQueueContext {
   canonicalBacklogSize?(): number
   backlogMax(): number
   syncGpu?(): void
+  /** Completion clock used only by experimental continuation tasks. */
+  continuationSyncGpu?(): void
   noteActivity(now: number): void
   scheduleFieldRelease(): void
 }
@@ -188,10 +190,11 @@ export class WatercolorSettleQueue {
     // the device is already behind.
     if (this.continuationTasksEnabled && !late && !this.ctx.isDrawing()
       && (s.lifecycle?.isExpedited?.() || (this.ctx.canonicalBacklogSize?.() ?? 0) > 0) && this.ctx.syncGpu) {
+      const syncGpu = this.ctx.continuationSyncGpu ?? this.ctx.syncGpu
       const at = performance.now()
       for (let n = 0; n < 4 && this._settle === s; n++) {
         this.advance()
-        this.ctx.syncGpu()
+        syncGpu.call(this.ctx)
         if (this._settle !== s || !this.isAlive(s) || this.ctx.isDrawing() || performance.now() - at >= 4) break
       }
       if (this._settle === s && !this.scheduleContinuation(s)) this.scheduleTick()

@@ -1,3 +1,4 @@
+import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
@@ -1836,6 +1837,7 @@ export class PencilEngine implements PencilEngineAPI {
     backlogSize: () => this._opQueue.length,
     backlogMax: () => this.settleBacklogMax,
     syncGpu: () => this.gl.finish(),
+    continuationSyncGpu: () => this._syncContinuationGpu(),
     noteActivity: now => { this._washActiveAt = now },
     scheduleFieldRelease: () => this._scheduleFieldRelease(),
   })
@@ -4022,6 +4024,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._continuationGpuFence?.release()
+    this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
     if (this._opDrainRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._opDrainRaf)
     this._destroyed = true
@@ -4475,6 +4479,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  out on the GPU; stops early at the drawing's end (a yield of -1). */
   private _runSlice(work: Generator<number, ReadonlyMap<Dab, number> | undefined, void>): IteratorResult<number, ReadonlyMap<Dab, number> | undefined> {
     const g = this._sliceLimits
+    const canonicalClock = this._wcContinuationGpuFence && this._wcCanonical.pending
     const t0 = performance.now()
     let groupAt = t0
     let draws = 0, px = 0, groupDraws = 0, groupPx = 0
@@ -4485,10 +4490,12 @@ export class PencilEngine implements PencilEngineAPI {
       groupDraws++
       groupPx += r.value
       const byPx = groupPx >= g.px
-      if (byPx || groupDraws >= g.size) {
-        this.gl.finish()
+      if (byPx || groupDraws >= (canonicalClock ? 1 : g.size)) {
+        if (canonicalClock) this._syncContinuationGpu()
+        else this.gl.finish()
         const now = performance.now()
-        g.noteGroup(now - groupAt, byPx)
+        // A one-yield experiment cannot calibrate the default multi-yield group.
+        if (!canonicalClock) g.noteGroup(now - groupAt, byPx)
         groupAt = now
         groupDraws = 0
         groupPx = 0
@@ -4496,7 +4503,8 @@ export class PencilEngine implements PencilEngineAPI {
       }
       r = work.next()
     }
-    this.gl.finish()
+    if (canonicalClock) this._syncContinuationGpu()
+    else this.gl.finish()
     if (draws) {
       g.noteSlice(draws, px, performance.now() - t0)
       this._wcPerf.sliceWorst = g.worst
@@ -4538,6 +4546,16 @@ export class PencilEngine implements PencilEngineAPI {
       isAlive: () => this._replayRibbonChunks.get(op.washId ?? op.strokeId ?? '')?.scratch === scratch,
       abort: () => { work.return(undefined) },
     })
+  }
+
+  /** Default OFF: actual completion clock only for experimental canonical continuations. */
+  private _wcContinuationGpuFence = false
+  private _continuationGpuFence: GpuBudgetFence | null = null
+  private _syncContinuationGpu(): void {
+    if (!this._wcContinuationGpuFence) { this.gl.finish(); return }
+    if (this._contextLost || this.gl.isContextLost()) { this._continuationGpuFence?.forget(); return }
+    this._continuationGpuFence ??= new GpuBudgetFence(this.gl)
+    this._continuationGpuFence.sync()
   }
 
   /** (§17.70) How much a rebuild's watercolour slice may draw on this
@@ -4931,6 +4949,7 @@ export class PencilEngine implements PencilEngineAPI {
   // there) stalling the GPU pipeline long enough to trip a mobile browser's
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
+    this._continuationGpuFence?.forget()
     e.preventDefault()
     this._contextLost = true
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
@@ -4959,6 +4978,7 @@ export class PencilEngine implements PencilEngineAPI {
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
+    this._continuationGpuFence?.forget()
     // The replacement GL scene is rebuilt from the accepted journal.
     this._cancelledPeerLayers.clear()
     // Also forget anything an already-scheduled callback retained during loss.
@@ -8077,7 +8097,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Loss can synchronously cancel the request from inside a continuation.
       // Never fence a dead context or keep using a cancelled generator.
       if (!current() || this._contextLost || this.gl.isContextLost()) return step
-      this.gl.finish()
+      this._syncContinuationGpu()
       // A finish continuation may have started a solver. Its next step waits
       // for that solver, so only the ordinary settle scheduler may resume it.
       if (step.done || this._settle) return step
