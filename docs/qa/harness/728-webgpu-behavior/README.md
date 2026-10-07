@@ -1,0 +1,7 @@
+# Independent behavioral gate
+
+Run `node docs/qa/harness/728-webgpu-behavior/run.mjs URL output.json`. URL is an already served trusted or localhost PoC bundle. Default browser is software Dawn and reports softwareOnly; timings are never claimed. Root can set WC_CDP for its controlled browser. The runner owns a fresh tab and closes it, not other tabs. Hooks must already exist; initialize the PoC UI if the bundle requires this before using the exported `runBehaviorGate` through page.evaluate.
+
+The function pauses continuous UI before writing controlled Cell[16] data and restores fields/solver tick afterward. Only `step(dt,false)` controls evolution. Fixtures: pigment disk inside a wet disk, separated wet disks with a 32-cell dry gap, two disjoint colored tracers inside shared water. Reports at 0/30/120/360 steps: total mass, finite/negative cells, mass outside original pigment footprint, mass-weighted r50/r90, overlap mixing index, and leaked mass in disconnected puddle.
+
+Hard safety gates: all finite, nonnegative material channels, mass relative drift at most1e-4, disconnected leak at most1e-6 of mass. Dynamic floors declared independently before measurements: isolated r90 grows at least6 cells and10% mass leaves original disk after360 steps; tracer mixing at least0.1. These are visibility floors, not proof of realistic watercolor. Weak motion should FAIL; report all raw observations, do not retune floors to make a candidate pass. No production engine/UI changes; no device run performed by this agent.
