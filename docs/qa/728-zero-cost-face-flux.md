@@ -159,3 +159,31 @@ is valid because all initial fields byteexact. Fullsolver/Dry/png still
 UNTESTED: carry improvement is not final visual ring proof.
 CPU fullsolver-controller syntax PASS, separatefulloriginal42→execution41
 plus orderedfinalDry, OFF/ADD target-only diagnostic, no RoomFPS claim.
+
+## Полный solver и конечный PNG на Samsung
+
+OFF exec66759/own1407 и ADD29331/own1408 EXIT0/CLOSEDfinally, source07bb
+не менялся. Source909files и fixture42SHA проверены; execution41+ordered
+terminalDry даёт одинаковый journal42. Target61-onlyADD, прочие операции
+legacy. До target carry P/C/V/coverage/cost ROI SHA одинаковы; target14
+carry/56mask обязательны. Adreno650, GL0/lostfalse/errors[]/network[].
+Физическая3508×2480/Medium, paper texture и flags phase/baked/rebase/async
+одинаковы. Это standalone historical replay, не native latency/Room gate.
+
+Конечный wholeRGBA отличается6375px/max29, bbox[969,499,1211,681],
+alphaChanged0. Signed initialP-boundary finalRGB darkness: inner−1
+94.144144→98.514801, outer0 100.466413→100.607098; gap6.322269→2.092297
+(−66.91%). Профиль включает бумагу, диффузию, tide и последующиеoverlaps;
+не является directmobileC/mass oracle. Последиффузии P ROI sum736407→736362,
+послеdryP718498→718419; carry756292→756260. Это UNORM/FIT readout.
+Выемка/каёмка слабее на парном контакте, внешний контур/форма сохраняются.
+Нет утверждения всехколецисчезновения, mixedcolour/native/Undo parity
+этим опытом не доказаны. DefaultOFF и отсутствиеrootintegration сохраняются.
+
+Raw VPS/HOME: `temp/zero-cost-flux/hardware/results-fullsolver-{off,add}/`
+report.json/whole.png/controller.mjs/page-function.js/controller-passport.json.
+`fullsolver-analysis.json`, `fullsolver-OFF-ADD-signed-contact.png` (слеваOFF,
+центрADD, справаусиленныйsigneddiff), `analyze-full-solver.mjs`. Всё
+mirroredвHOME728-zero-cost-flux-runtime. СтараяREPLACEnegative evidence
+сохранена. Actual mobileC absent наsinglepaint; общийCbeforemaskSHAequal
+не заменяет mixedP/C transport hardware proof.
