@@ -4,12 +4,7 @@ import type { PencilEngineAPI } from '../../../engine'
 import { compressLayerTiles } from '../../../engine/snapshots'
 import { api, ApiError } from '../../../lib/api/api'
 import { reportInvariant } from '../../../lib/observability/reportInvariant'
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  return btoa(binary)
-}
+import { snapshotBase64 } from './snapshotBase64'
 
 /** (#371/#374) One gzipped `encodeLayerTiles` payload per layer, keyed by
  *  layerId — the server stores each as its own row, at its own coverage. There
@@ -23,7 +18,7 @@ async function uploadSnapshot(
   try {
     const encoded: Record<string, string> = {}
     for (const [layerId, raw] of layers) {
-      encoded[layerId] = bytesToBase64(await compressLayerTiles(raw))
+      encoded[layerId] = await snapshotBase64(await compressLayerTiles(raw))
     }
     await api('POST /api/rooms/:roomId/snapshots', { params: { roomId }, body: { seq, layerState, layers: encoded } })
     return true
@@ -84,7 +79,7 @@ export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): 
     const preview = await engine.bakePreview()
     if (!preview) return false
     const bytes = new Uint8Array(await preview.arrayBuffer())
-    await api('POST /api/rooms/:roomId/thumbnail', { params: { roomId }, body: { data: bytesToBase64(bytes) } })
+    await api('POST /api/rooms/:roomId/thumbnail', { params: { roomId }, body: { data: await snapshotBase64(bytes) } })
     // (#176) Reported back so the board strip can refresh the picture of the
     // page just left — thumbnails are not announced over the socket.
     return true
