@@ -1,0 +1,15 @@
+# #728: split physical and presentation continuation quanta
+
+Base f877b418, diagnostic only/default OFF. Principle: `cross-device-determinism` — scheduling boundaries may change, ordered material commands and canonical Operation Log do not.
+
+Surface measured a first carry+presentation continuation at approximately73ms synchronized versus0.6ms CPU. That continuation includes4 carry strides and reconstruction of overlapped preview tiles. Empty readPixels synchronization median1ms. Raw evidence and source passport remain in `680-lifetime-hardware/temp/contact-budget/surface-current-unit-paired-*`; this is a whole continuation price, not an individual shader price.
+
+The candidate emits one front pass and one colour→pigment carry pair per continuation. Carry presentation triggers retain their previous positions after every four strides, including the final partial group. A successful presentation captures field P/C immediately, then reconstructs one tile per inserted continuation before any subsequent material command. All tiles still receive the existing preview callback; the150ms trigger condition is retained. Captured P/C use the existing `_ownedInputs` resource owner, with generator return and idempotent dispose/abort. No48MiB copies of tile inputs are added.
+
+Opt-in requires both `plan.splitQuanta=true` and an explicit `presentationOwnerLocked` prepare capability: caller must prevent writes to the canonical scratch through finish/abort. Without that capability the complete original schedule is retained. FIFO7ace can provide this only for an owned finish while `_wcAsyncFinish && owned && _wcAsyncOwners.has(scratch)`; new gestures remain provisional and physical commands wait behind the active settle. No ordinary f877 native-newtouch lock is asserted by this patch.
+
+**API integration caveat:** f877 has preview/skipZeroPigmentContacts followed by this new owner argument13. FIFO7ace already adds finishMetadata13. Integration into7ace must keep finishMetadata13 and append ownerLocked14, preserving every existing metadata use and Engine `_prepareWetDiffuseSettle` forwarding. Do not copy this whole f877 Plan over the FIFO source.
+
+Dynamic presentation insertion uses the original physical entry index plus a monotonic inserted offset. There is no indexOf scan per quantum. Identity checks detect an incompatible consumer replacing/cloning the operation array. Queue.advance and synchronous Queue.complete retain the same mutable operation array and both see inserted steps. Wrappers preserve conservative front/contact WeakSet tags; presentation steps are not batch-tagged.
+
+CPU gates: Plan32+Queue9 tests pass, including ordered field/front/diffusion/colour/resample/preview sequences under a fixed clock, actual Queue.advance and Queue.complete dynamic insertion, missing-owner fallback, abort between capture and first tile, and preview callback failure. Existing paired colour-before-pigment assertions pass. Whole web TypeScript passes. These mock checks do not establish actual RGBA equality, GPU timing benefit, FIFO newtouch/loss safety, or visual presentation correctness; those gates remain pending.

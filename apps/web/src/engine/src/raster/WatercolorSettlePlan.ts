@@ -1,4 +1,4 @@
-import { contactPulseOp, frontStepOp } from '../watercolor/WatercolorSettleQueue'
+import { contactPulseOp, frontStepOp, inheritSettleOpTags } from '../watercolor/WatercolorSettleQueue'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -37,6 +37,8 @@ export class WatercolorSettlePlan {
    * not an equality between solvent thickness and the PaperWetness clock. */
   diagnosticPlateauPhase = false
   private readonly ctx: WatercolorSettlePlanContext
+  /** Scheduling diagnostic only; latched by prepare, default OFF. */
+  splitQuanta = false
   constructor(ctx: WatercolorSettlePlanContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
 
@@ -102,8 +104,11 @@ export class WatercolorSettlePlan {
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
     skipZeroPigmentContacts = false,
+    /** Caller retains immutable canonical scratch ownership through finish/abort. */
+    presentationOwnerLocked = false,
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     const { gl } = this
+    const splitQuanta = this.splitQuanta && presentationOwnerLocked
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
     // The rect: the settle's bounds plus the reach, clipped to the tiles that
@@ -185,14 +190,23 @@ export class WatercolorSettlePlan {
     this._coverageOwners.add(scratch)
     const owned = new Set<AccumulationBuffer>()
     let disposed = false
+    const presentations = new Set<Generator<void, void, unknown>>()
+    let queuedPresentation: Array<() => void> = []
     const acquireInput = (width: number, height: number): AccumulationBuffer => {
       const buffer = this.ctx.pool().acquire(width, height)
       owned.add(buffer); this._ownedInputs.add(buffer)
       return buffer
     }
+    const releaseInput = (buffer: AccumulationBuffer): void => {
+      owned.delete(buffer)
+      if (this._ownedInputs.delete(buffer)) this.ctx.pool().release(buffer)
+    }
     const dispose = (): void => {
       if (disposed) return
       disposed = true
+      for (const generator of presentations) generator.return()
+      presentations.clear()
+      queuedPresentation = []
       if (this._coverageOwners.delete(scratch)) scratch.releaseRunningCoverage()
       // Forget/destroy clears the outer owner first: dead-context names must
       // never return to the pool through a subsequently cancelled callback.
@@ -421,8 +435,8 @@ export class WatercolorSettlePlan {
       const pp = { src: field.pressure, dst: tmp }
       const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number, strides?: readonly number[]): void => {
         const list = strides ?? Array.from({ length: steps }, () => 1)
-        for (let i = 0; i < list.length; i += 4) {
-          const chunk = list.slice(i, i + 4)
+        for (let i = 0; i < list.length; i += splitQuanta ? 1 : 4) {
+          const chunk = list.slice(i, i + (splitQuanta ? 1 : 4))
           const last = i + chunk.length >= list.length
           ops.push(frontStepOp(() => {
             for (const st of chunk) { frontStep(pp.src, pp.dst, max, climb, floor, st); const t = pp.src; pp.src = pp.dst; pp.dst = t }
@@ -518,39 +532,55 @@ export class WatercolorSettlePlan {
     const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1): void => {
       if (!preview || this.ctx.shouldPreview?.() === false || performance.now() - previewAt < 150) return
       previewAt = performance.now()
-      const pool = this.ctx.pool()
-      const pigment = pool.acquire(field.w, field.h)
-      const color = pool.acquire(field.w, field.h)
-      try {
-        if (fixed) fieldOp(pigment, fixed, mobile, 1, afloat)
-        else mobile.copyTo(pigment)
-        if (mobileColor) {
-          if (fixedColor) fieldOp(color, fixedColor, mobileColor, 1, afloat)
-          else mobileColor.copyTo(color)
-        } else this.ctx.passes().pigmentColor(color, pigment, singleTau)
-        for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
-          const entry = scratch.peek(tile.buffer)
-          if (!entry?.inkLoad) continue
-          const load = pool.acquire(tile.buffer.width, tile.buffer.height)
-          const chroma = pool.acquire(tile.buffer.width, tile.buffer.height)
-          const coverage = pool.acquire(tile.buffer.width, tile.buffer.height)
-          try {
-            entry.inkLoad.copyTo(load)
-            if (entry.inkColor) entry.inkColor.copyTo(chroma)
-            entry.coverage.copyTo(coverage)
-            const snap = snapshots.get(tile.buffer)
-            fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
-            if (entry.inkColor) {
-              if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
-              else fromField(color, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
-            }
-            const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
-            if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
-            else this.ctx.passes().wcResample(coverage, tx, ty, ox1 - ox0, oy1 - oy0, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 0)
-            preview(tile, load, entry.inkColor ? chroma : null, coverage)
-          } finally { pool.release(load); pool.release(chroma); pool.release(coverage) }
+      const reconstruct = function* (this: WatercolorSettlePlan): Generator<void, void, unknown> {
+        const pool = this.ctx.pool()
+        const pigment = splitQuanta ? acquireInput(field.w, field.h) : pool.acquire(field.w, field.h)
+        const color = splitQuanta ? acquireInput(field.w, field.h) : pool.acquire(field.w, field.h)
+        try {
+          if (fixed) fieldOp(pigment, fixed, mobile, 1, afloat)
+          else mobile.copyTo(pigment)
+          if (mobileColor) {
+            if (fixedColor) fieldOp(color, fixedColor, mobileColor, 1, afloat)
+            else mobileColor.copyTo(color)
+          } else this.ctx.passes().pigmentColor(color, pigment, singleTau)
+          yield
+          for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+            const entry = scratch.peek(tile.buffer)
+            if (!entry?.inkLoad) { yield; continue }
+            const load = pool.acquire(tile.buffer.width, tile.buffer.height)
+            const chroma = pool.acquire(tile.buffer.width, tile.buffer.height)
+            const coverage = pool.acquire(tile.buffer.width, tile.buffer.height)
+            try {
+              entry.inkLoad.copyTo(load)
+              if (entry.inkColor) entry.inkColor.copyTo(chroma)
+              entry.coverage.copyTo(coverage)
+              const snap = snapshots.get(tile.buffer)
+              fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
+              if (entry.inkColor) {
+                if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
+                else fromField(color, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
+              }
+              const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
+              if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
+              else this.ctx.passes().wcResample(coverage, tx, ty, ox1 - ox0, oy1 - oy0, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 0)
+              preview(tile, load, entry.inkColor ? chroma : null, coverage)
+            } finally { pool.release(load); pool.release(chroma); pool.release(coverage) }
+            yield
+          }
+        } finally {
+          if (splitQuanta) { releaseInput(pigment); releaseInput(color) }
+          else { pool.release(pigment); pool.release(color) }
         }
-      } finally { pool.release(pigment); pool.release(color) }
+      }.bind(this)
+      const generator = reconstruct()
+      if (!splitQuanta) { while (!generator.next().done) { /* Preserve synchronous OFF path. */ } return }
+      presentations.add(generator)
+      try { generator.next() } catch (error) { generator.return(); presentations.delete(generator); throw error }
+      for (let i = 0; i <= overlaps.length; i++) queuedPresentation.push(() => {
+        if (disposed) return
+        try { if (generator.next().done) presentations.delete(generator) }
+        catch (error) { generator.return(); presentations.delete(generator); throw error }
+      })
     }
     let pairedColour: { out: AccumulationBuffer } | null = null
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
@@ -609,8 +639,8 @@ export class WatercolorSettlePlan {
         const carry = watercolorCarryStrides(budgetPx)
         let src = c, dst = a
         let csrc = colour?.c, cdst = colour?.a
-        for (let i = 0; i < carry.length; i += 4) {
-          const n = Math.min(4, carry.length - i)
+        for (let i = 0; i < carry.length; i += splitQuanta ? 1 : 4) {
+          const n = Math.min(splitQuanta ? 1 : 4, carry.length - i)
           const plan: Array<{ s: number; src: AccumulationBuffer; dst: AccumulationBuffer; csrc?: AccumulationBuffer; cdst?: AccumulationBuffer }> = []
           for (let j = 0; j < n; j++) {
             plan.push({ s: carry[i + j], src, dst, csrc, cdst })
@@ -624,7 +654,7 @@ export class WatercolorSettlePlan {
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }
             const last = plan[plan.length - 1]
-            present(last.dst, b, last.cdst, colour?.b)
+            if (!splitQuanta || (i + n) % 4 === 0 || i + n === carry.length) present(last.dst, b, last.cdst, colour?.b)
           }))
         }
         if (src !== c) { const from = src; ops.push(() => fieldOp(c, from, from, 1, 0)) }
@@ -1006,6 +1036,27 @@ export class WatercolorSettlePlan {
     const compositeDomain = {
       minX: Math.min(bounds.minX, x0), minY: Math.min(bounds.minY, y0),
       maxX: Math.max(bounds.maxX, x1), maxY: Math.max(bounds.maxY, y1),
+    }
+    if (splitQuanta) {
+      // Insert the captured presentation immediately after its physical entry.
+      // Queue.advance increments next before calling an entry; Array iteration
+      // in synchronous completion likewise sees these newly inserted entries.
+      let insertedOffset = 0
+      for (let i = 0; i < ops.length; i++) {
+        const physical = ops[i]
+        const entry = (): void => {
+          if (disposed) return
+          physical()
+          if (!queuedPresentation.length) return
+          const presentation = queuedPresentation
+          queuedPresentation = []
+          const at = i + insertedOffset
+          if (ops[at] !== entry) throw new Error('Missing split presentation owner')
+          ops.splice(at + 1, 0, ...presentation)
+          insertedOffset += presentation.length
+        }
+        ops[i] = inheritSettleOpTags(physical, entry)
+      }
     }
     return { ops, finish, dispose, compositeDomain }
   }
