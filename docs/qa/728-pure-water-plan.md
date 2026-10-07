@@ -73,3 +73,22 @@ board/paper/source passport и flags одинаковы; OFF/ON включает
 
 Никаких GPU запусков или изменений пользовательского стенда для этого кандидата
 пока не было. Публикация и default ON не разрешены этим QA.
+
+## Samsung fixed-tape gate
+
+Source f52a2b94/986trackedfiles, три неизменных журнала OFF/ON, actualAdreno650.
+Raw: `728-pure-water-plan/temp/pure-water-plan/hardware/
+run-zeroproof321d_1791358070578/report.json`. Root независимо прочитал итог:
+closedtrue/errors[], все три casescomplete; GL0/lostfalse обоих плеч.
+
+Pure:139comparisons,119canonical/source/whole exact; четыре отличия служебных
+field.b/pressure послеop1/op2. Paintednegative:139comparisons,119canonical
+exact и все служебные также exact. Pure→pigment:215comparisons,185canonical
+exact; те же четыре служебных отличия только до появления пигмента.
+Это не139/215 полностью одинаковых временных буферов. COST ping-pong отличия
+отдельно сохранены. Root compact review:temp/night-728/pure-water-full-review.json.
+
+Кандидат интегрирован как898cac3c с defaultOFF. Диагностические readbacks/SHA
+доминируют длительность: скорость и native tail этим gate не измерены.
+Дальше native400 с actual next touch/Dry/Undo/Redo; пользовательский5329
+по-прежнему d88.
