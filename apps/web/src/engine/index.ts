@@ -20,6 +20,7 @@ import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchSlot } from './src/buffers/scratchPools'
+import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { RibbonReplayCache, type ReplayRibbonChunk } from './src/buffers/RibbonReplayCache'
 import { RibbonScratchPool } from './src/buffers/RibbonScratchPool'
 import { RibbonStrokeScratch, scratchSnapshotBytes, freeScratchSnapshot, type RibbonTileScratch, type ScratchSnapshot, type RibbonCanonicalFinish } from './src/buffers/RibbonStrokeScratch'
@@ -1817,7 +1818,7 @@ export class PencilEngine implements PencilEngineAPI {
     isDrawing: () => !!this._strokeLayerId,
     backlogSize: () => this._opQueue.length,
     backlogMax: () => this.settleBacklogMax,
-    syncGpu: () => this.gl.finish(),
+    syncGpu: () => this._syncBudgetGpu(),
     noteActivity: now => { this._washActiveAt = now },
     scheduleFieldRelease: () => this._scheduleFieldRelease(),
   })
@@ -4020,6 +4021,8 @@ export class PencilEngine implements PencilEngineAPI {
     // are just a possibly-mid-stroke alias of the same object (see
     // ScratchSlot), so destroying via the pool alone avoids a
     // double-destroy of the same GL object.
+    this._gpuBudgetFence?.release()
+    this._gpuBudgetFence = null
     this._previewBufPool.destroy()
     this._previewBuf = null
     this._tipBufPool.destroy()
@@ -4451,7 +4454,7 @@ export class PencilEngine implements PencilEngineAPI {
       groupPx += r.value
       const byPx = groupPx >= g.px
       if (byPx || groupDraws >= g.size) {
-        this.gl.finish()
+        this._syncBudgetGpu()
         const now = performance.now()
         g.noteGroup(now - groupAt, byPx)
         groupAt = now
@@ -4461,7 +4464,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       r = work.next()
     }
-    this.gl.finish()
+    this._syncBudgetGpu()
     if (draws) {
       g.noteSlice(draws, px, performance.now() - t0)
       this._wcPerf.sliceWorst = g.worst
@@ -4509,6 +4512,16 @@ export class PencilEngine implements PencilEngineAPI {
    *  device. Both limits matter and differ by device: on the iPad every draw
    *  into its own target is a render pass, a few hundred in a slice cost more
    *  than their pixels, while on a desktop GPU the pixels dominate. */
+  /** Diagnostic scheduling capability; physical commands and their order stay unchanged. */
+  private _wcBudgetFence = false
+  private _gpuBudgetFence: GpuBudgetFence | null = null
+  private _syncBudgetGpu(): void {
+    if (!this._wcBudgetFence) { this.gl.finish(); return }
+    if (this._contextLost || this.gl.isContextLost()) { this._gpuBudgetFence?.forget(); return }
+    this._gpuBudgetFence ??= new GpuBudgetFence(this.gl)
+    this._gpuBudgetFence.sync()
+  }
+
   private readonly _sliceLimits = new SliceGroups()
 
   /** (§17.70) The buffers rebuild jobs are about to replace. */
@@ -4896,6 +4909,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._contextLost = true
+    this._gpuBudgetFence?.forget()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
     // buffers and cannot seed a restored context. Drop the whole mid-wash
     // checkpoint: retaining its prefix without open wash state loses the tail.
@@ -7943,7 +7957,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Loss can synchronously cancel the request from inside a continuation.
       // Never fence a dead context or keep using a cancelled generator.
       if (!current() || this._contextLost || this.gl.isContextLost()) return step
-      this.gl.finish()
+      this._syncBudgetGpu()
       // A finish continuation may have started a solver. Its next step waits
       // for that solver, so only the ordinary settle scheduler may resume it.
       if (step.done || this._settle) return step
