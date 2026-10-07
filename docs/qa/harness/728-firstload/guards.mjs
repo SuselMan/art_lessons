@@ -11,3 +11,12 @@ export function materialGuard(rgba) {
  if(!nonempty||nonempty===pixels||!coloured)throw Error('Meaningful transparent pigment required (not empty, opaque paper, or pure gray water)');
  return {nonempty,coloured,pixels};
 }
+
+/** Validate the real mapped seed before any append; authoritative replay uses the same guard. */
+export function mapped47(ops,author,namespace){
+ if(typeof author!=='string'||!author||author==='local')throw Error('Actual Room seed author required');
+ if(!Array.isArray(ops)||ops.length!==47||new Set(ops.map(o=>o.id)).size!==47)throw Error('Unique mapped47 IDs required');
+ if(typeof namespace!=='string'||!namespace||ops.some(o=>typeof o.id!=='string'||!o.id.startsWith(namespace+'-')||o.userId!==author))throw Error('Mapped IDs/author mismatch');
+ const ids=new Set(ops.map(o=>o.id));if(ops.some(o=>o.targetOpId&&!ids.has(o.targetOpId)))throw Error('Mapped history target escaped own journal');
+ return ops;
+}

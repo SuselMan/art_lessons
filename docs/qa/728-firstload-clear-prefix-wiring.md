@@ -135,3 +135,5 @@ Own HOME5341 PID1416563, immutable `680-puddle-outline/temp/firstload-sync-f0b78
 ## Проверенный авторский дефект fixture99959
 
 Readonly actualserver2ops подтвердили clear11.userId=local и Undo48.userId=настоящий Room participant при корректном targetID. Поэтому doneclear/zeroUndoPixels — штатный wrong-author no-op, не доказанная регрессия. Причина seed до applyIdentity; ready теперь требует store.userId !=local и engine._userId===store.userId, preseed повторяет guard. Root перенёс8caa patch controller/peer без изменения модели; оба node --check PASS. Старый invalidauthor report сохраняется; новый acceptedAuthor/47/48/49 hardware run обязательный.
+
+Root перенёс69a010a6 harness guards: actual mapped47 author/unique namespace/targetclosure проверяется до первого append и после authoritative REST47.6 negative/positive controls плюс8 старых controls PASS; node --check обоих контроллеров PASS. Runtime web940 unchanged, own5341 остановлен для памяти typed QA; recheck HTTP/assets/author/RAM обязателен при возобновлении.
