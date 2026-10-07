@@ -63,3 +63,21 @@ describe('whether a layer may be published (#522)', () => {
     expect(l.mayPublish('L') && l.mayPublish('M')).toBe(true)
   })
 })
+
+// Empty observations use this token, independently of server publication.
+describe('pixel mutation revision', () => {
+  it('changes for every write and stays stable across publication and guard changes', () => {
+    const ledger = new SnapshotLedger()
+    expect(ledger.pixelRevision('A')).toBe(0)
+    ledger.markDirty('A')
+    const first = ledger.pixelRevision('A')
+    ledger.markPublished('A')
+    ledger.refusePublishing('A')
+    ledger.allowPublishing('A')
+    ledger.setCoverage('A', 100)
+    expect(ledger.pixelRevision('A')).toBe(first)
+    ledger.markDirty('A')
+    expect(ledger.pixelRevision('A')).toBe(first + 1)
+    expect(ledger.pixelRevision('B')).toBe(0)
+  })
+})
