@@ -21,3 +21,11 @@ CPU profile OFF dense_end: body/buildRibbonBands~14.3ms, GC2.1ms. ON geometry pu
 Bounded GPU traces: circular buffer4MiB, expanded JSON20.6/21.2MiB (streamguard32MiB), categories gpu+blink.user_timing. Actual trace marks одновременно содержат trace ts и performance startTime: OFF offset range214724288.671–288.790ms, ON214798883.565–883.648ms. ON100.3ms tail gap совпал с CrGpuMain Scheduler::RunTask82.992ms / CommandBufferService:PutChanged82.914ms, main CPU~83.1msidle. Это доказывает GPU-service burst, но не конкретный shader/pass или hardware GPU elapsed. OFF117gap main113.3msidle, observed GPU-service max4.5ms: другой scheduling gap; эти причины нельзя смешивать. Полный Viz/compositor wait не покрыт категориями.
 
 RawVPS: temp/ribbon-band-batch/{fixed-report.json,native-off.json,native-on.json,passport.json,trace-summary.json}; raw/CPU/traces/контроллеры сохранены HOME680-lifetime-hardware/temp/plan-quantum/band-root4b. Samsung освобождён после1348.
+
+### Разбор вложенности tail GPU-service
+
+ON82.992ms Scheduler::RunTask содержит только общие WebGL/Flush/PutChanged envelopes; ни LinkProgram, ни shader compile, allocation или детализированного decoder event внутри нет. Все26 DoLinkProgram находятся на странице в1458.607–1544.357ms, задолго до tail23119.834ms. Это отрицательное свидетельство гипотезы поздней компиляции в доступных trace categories.
+
+Wall/thread CPU существенно различаются: Scheduler82.992/0.300ms, PutChanged82.914/0.235ms. GPU-service thread почти весь интервал не исполняет CPU; ожидание драйвера/синхронизация вероятно, но причина ожидания и физическая цена shader не установлены. Handler .WebGL-0x78028a7000, put_offset45571; flow23412 связывает renderer23911/tid23922 flush ts214821990307 с GPU flush ts214822003450. Это связь renderer→command buffer, без per-program attribution.
+
+Текущий4b native controller не записывал пассивный per-draw/program timeline, поэтому восстановить конкретную последовательность GL draw данного интервала из aggregatefieldModes нельзя. Предыдущий5a профиль относится к другому payload/source и не подменяет это доказательство. Дальнейший диагностический прогон потребует пассивные bounded draw/program/upload records и synchronized user marks, без дополнительных active readbacks/barriers. Детальный JSON: trace-burst-detail.json.
