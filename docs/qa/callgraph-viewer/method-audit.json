@@ -38,18 +38,6 @@
           "line": 2490,
           "caller": ".on('start', e => this._onStart(e))",
           "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 678,
-          "caller": "eng._onStart(pointerSample(first.x, first.y, overrides))",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 696,
-          "caller": "(engine as unknown as EngineInternals)._onStart(pointerSample(x, y, overrides))",
-          "kind": "static-reference"
         }
       ],
       "observedCallers": [
@@ -100,18 +88,6 @@
           "line": 2491,
           "caller": ".on('move',  e => this._onMove(e))",
           "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 679,
-          "caller": "for (const p of rest) eng._onMove(pointerSample(p.x, p.y, overrides))",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 703,
-          "caller": "(engine as unknown as EngineInternals)._onMove(pointerSample(x, y, overrides))",
-          "kind": "static-reference"
         }
       ],
       "observedCallers": [
@@ -161,18 +137,6 @@
           "path": "apps/web/src/engine/index.ts",
           "line": 2492,
           "caller": ".on('end',   e => this._onEnd(e))",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 681,
-          "caller": "eng._onEnd(pointerSample(last.x, last.y, overrides))",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 714,
-          "caller": "(engine as unknown as EngineInternals)._onEnd(pointerSample(x, y, overrides))",
           "kind": "static-reference"
         }
       ],
@@ -3500,12 +3464,6 @@
           "kind": "static-reference"
         },
         {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 598,
-          "caller": "internals(engine)._checkpoints.clear()",
-          "kind": "static-reference"
-        },
-        {
           "path": "apps/web/src/lib/browser/reloadSafety.ts",
           "line": 56,
           "caller": "releaseListeners.clear()",
@@ -4141,12 +4099,6 @@
           "line": 1138,
           "caller": "else settledColor.copyRegionInto(entry.colorDry, tx, ty, tx, ty, tw, th)",
           "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/mockGL.ts",
-          "line": 581,
-          "caller": "// Mirrors AccumulationBuffer.copyRegionInto (#514): same framebuffer-to-",
-          "kind": "static-reference"
         }
       ],
       "observedCallers": [
@@ -4306,36 +4258,6 @@
           "path": "apps/web/src/engine/src/raster/GpuBudgetFence.ts",
           "line": 52,
           "caller": "gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.pixel)",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 233,
-          "caller": "if (resident) return resident.buffer.readPixels()",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 279,
-          "caller": "return target ? target.buffer.readPixels() : null",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 308,
-          "caller": "return eng._compositeFBO.readPixels()",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 344,
-          "caller": "const pixels = result.buffer.readPixels()",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 367,
-          "caller": "return tiles.map(({ originX, originY, buffer }) => ({ originX, originY, pixels: buffer.readPixels() }))",
           "kind": "static-reference"
         }
       ],
@@ -5695,12 +5617,6 @@
           "kind": "static-reference"
         },
         {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 598,
-          "caller": "internals(engine)._checkpoints.clear()",
-          "kind": "static-reference"
-        },
-        {
           "path": "apps/web/src/lib/browser/reloadSafety.ts",
           "line": 56,
           "caller": "releaseListeners.clear()",
@@ -5949,36 +5865,6 @@
           "path": "apps/web/src/engine/src/raster/GpuBudgetFence.ts",
           "line": 52,
           "caller": "gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.pixel)",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 233,
-          "caller": "if (resident) return resident.buffer.readPixels()",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 279,
-          "caller": "return target ? target.buffer.readPixels() : null",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 308,
-          "caller": "return eng._compositeFBO.readPixels()",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 344,
-          "caller": "const pixels = result.buffer.readPixels()",
-          "kind": "static-reference"
-        },
-        {
-          "path": "apps/web/src/engine/testing/engineTestUtils.ts",
-          "line": 367,
-          "caller": "return tiles.map(({ originX, originY, buffer }) => ({ originX, originY, pixels: buffer.readPixels() }))",
           "kind": "static-reference"
         }
       ],
