@@ -22,7 +22,7 @@ const mockPrisma = vi.hoisted(() => ({
   roomPalette: { findUnique: vi.fn(), upsert: vi.fn() },
   roomLayerState: { findUnique: vi.fn() },
   assignment: { findMany: vi.fn(), update: vi.fn() },
-  roomLayerSnapshot: { groupBy: vi.fn() },
+  roomLayerSnapshot: { groupBy: vi.fn(), findMany: vi.fn() },
   operation: { create: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
   roomBlock: { findUnique: vi.fn() },
   roomInvite: { findUnique: vi.fn() },
@@ -174,6 +174,7 @@ beforeEach(async () => {
   mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
   mockPrisma.assignment.findMany.mockResolvedValue([])
   mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValue([])
+  mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([])
   mockPrisma.operation.findMany.mockResolvedValue([])
   mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: null } })
   mockPrisma.operation.groupBy.mockResolvedValue([])
@@ -419,5 +420,21 @@ describe('raised hands (#595)', () => {
     const lowered = next(alice, 'participant_hand_changed')
     teacher.emit('set_hand_raised', { raised: false, userId: 'alice' })
     expect(await lowered).toEqual({ userId: 'alice', raised: false })
+  })
+})
+
+
+it('joins a snapshot-free lesson through the real snapshot dependency loader', async () => {
+  const lessonId = fresh('snapshot-free-lesson')
+  rows.set(lessonId, row(lessonId))
+  const teacher = client('teacher')
+  await createLesson(teacher, lessonId)
+  const alice = client('alice')
+  const state = next(alice, 'room_state')
+  await join(alice, lessonId, 'Alice')
+  expect(await state).toMatchObject({ latestSnapshotSeq: null, tailOperations: [] })
+  expect(mockPrisma.roomLayerSnapshot.findMany).toHaveBeenCalledWith({
+    where: { roomId: lessonId }, orderBy: { seq: 'desc' },
+    select: { layerId: true, seq: true, hash: true },
   })
 })
