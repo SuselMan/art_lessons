@@ -1,0 +1,5 @@
+{
+  "baseline": "cba59dbd",
+  "bodySha256": "ca1b8453833a1f81ae6b7317a05a836f72605ead7dd550c48d04b6ad40972fb0",
+  "equivalence": "Original full method body identical after replacing only this.ctx access paths and this.diagnostic access paths. No arithmetic/control flow/state field changed."
+}
