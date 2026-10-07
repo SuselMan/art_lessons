@@ -73,3 +73,24 @@ export interface CanonicalGpuSnapshot {
   readonly height: number
 }
 export type CanonicalSupport = { supported: true; adapter: GPUAdapter } | { supported: false; reason: string }
+/** Prepared production RibbonPasses.drawRibbonStamp arguments. */
+export interface CanonicalStamp {
+ readonly center: readonly [number, number]
+ readonly radius: number
+ readonly aspect: number
+ readonly angle: number
+ readonly pressure: number
+ readonly opacity: number
+ readonly nibShape: 'ellipse' | 'roundedBox'
+ readonly cornerRadius: number
+ readonly inkEdge: number
+ readonly inkWater: number
+ readonly paperWet: number
+ readonly inkStrength: number
+ readonly puddle: number
+ readonly pigmentPool: number
+ readonly acrossLocal: readonly [number, number]
+ readonly inkClip: 0 | 1 | 2
+ readonly inkBlend: 'max' | 'add'
+ readonly uniforms: CanonicalDepositUniforms
+}

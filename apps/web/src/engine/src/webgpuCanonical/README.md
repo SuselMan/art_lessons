@@ -11,7 +11,9 @@ rgba8unorm. Noise — исходный offline asset251×251. Row0 — верх 
 Y воспроизводится явно. Paper transform хранит исходные GL origin/texSize/scale.
 
 Подготовка доз, тип наконечника, давление, wet/puddle/strength и ribbon geometry
-остаются задачей production CPU preparer. Stamps/caps и полный settle/composite
+остаются задачей production CPU preparer. Stamps/caps перенесены отдельным appendPreparedStamp: production DAB_VERT,
+markerNibDistPx, inkMode6/7, plateau2, pressure hair, roundedBox/ellipse,
+water/puddle/dose/tau и coverage clipping. Полный settle/composite
 ещё не перенесены. Методы present()/settle() явно бросают ошибку: скрытой подмены
 другой моделью нет. presentField(field) показывает сырые поля только для QA.
 
@@ -32,3 +34,6 @@ faithful parity. Smoke gate подтверждает только работос
 
 Отдельный прежний Q8 brush порт также имеет known Surface difference3–5bytes;
 его software exactness не подтверждает аппаратную эквивалентность.
+
+Stamp actual WebGL DAB_FRAG oracle на том же fixture: coverage/P/C0отличных
+bytes(max0), software only. Это один входной case, не аппаратное доказательство.
