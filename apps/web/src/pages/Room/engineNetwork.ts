@@ -9,7 +9,7 @@ import type { Outbox } from './net/outbox'
 import { commitRevealsBelow, type PendingPreviews } from './net/pendingPreviews'
 
 export type EngineNetworkCallbacks = Required<Pick<PencilEngineOptions,
-  'onLocalOperation' | 'onPreviewApplied' | 'onLiveStrokeDabs' | 'onLiveStrokeEnd'>>
+  'onLocalOperation' | 'onPreviewApplied' | 'onQueuedOperationApplied' | 'onLiveStrokeDabs' | 'onLiveStrokeEnd'>>
 
 export interface EngineNetworkDeps {
   /** For committing reveals out from under the one that just finished (#537). */
@@ -63,6 +63,12 @@ export function createEngineNetworkCallbacks({
       if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.add(op.layerId)
       void outbox.enqueue(op)
       if (op.type === 'stroke') markActive(useRoomStore.getState().userId)
+    },
+    onQueuedOperationApplied: () => {
+      // The earlier network callback ran before the deferred log append.
+      // Fold the current truth, never patch layer state from one operation.
+      syncFromLog()
+      checkSnapshotBoundary()
     },
     // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
     // commit it for real now, matching what's already visible on screen.
