@@ -3,7 +3,8 @@ import noiseAsset from '../raster/watercolorNoise.txt?raw'
 import { CanonicalRibbonDeposit } from './deposit'
 import { CanonicalStampDeposit } from './stamp'
 import { CanonicalComposite } from './render'
-import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
+import { CanonicalBrushContact } from './brush'
+import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRasterPhase, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
 
 export interface CanonicalWebGpuOptions {
  canvas: HTMLCanvasElement
@@ -25,6 +26,10 @@ export class CanonicalWatercolorWebGpu {
  private readonly deposit: CanonicalRibbonDeposit
  private readonly stamps: CanonicalStampDeposit
  private readonly composite: CanonicalComposite
+ private readonly brush:CanonicalBrushContact
+ private readonly brushOut:readonly[CanonicalGpuField,CanonicalGpuField]
+ private readonly ownedFields=new Set<CanonicalGpuField>()
+ private readonly clearPipeline:GPUComputePipeline
  private readonly context: GPUCanvasContext
  private readonly format: GPUTextureFormat
  private readonly preview: GPURenderPipeline
@@ -37,6 +42,12 @@ export class CanonicalWatercolorWebGpu {
   this.context = context; this.format = navigator.gpu.getPreferredCanvasFormat()
   options.canvas.width = options.viewportWidth ?? options.width; options.canvas.height = options.viewportHeight ?? options.height
   context.configure({ device, format: this.format, alphaMode: 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC })
+  const clearModule=device.createShaderModule({label:'exact canonical rectangular clear',code:`
+struct U { rect:vec4u }
+@group(0) @binding(0) var clearOut:texture_storage_2d<rgba8unorm,write>;
+@group(0) @binding(1) var<uniform> u:U;
+@compute @workgroup_size(8,8) fn clear(@builtin(global_invocation_id) t:vec3u){if(any(t.xy>=u.rect.zw)){return;}let q=t.xy+u.rect.xy;if(any(q>=textureDimensions(clearOut))){return;}textureStore(clearOut,vec2i(q),vec4f(0));}`})
+  this.clearPipeline=device.createComputePipeline({layout:'auto',compute:{module:clearModule,entryPoint:'clear'}})
   this.nearest = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' })
   this.linear = device.createSampler({ magFilter: 'linear', minFilter: 'linear' })
   this.fields = Object.fromEntries(names.map(name => [name, this.createField(name, options.width, options.height)])) as unknown as CanonicalWatercolorFields
@@ -48,6 +59,8 @@ export class CanonicalWatercolorWebGpu {
   this.deposit = new CanonicalRibbonDeposit(device, this.noise)
   this.stamps = new CanonicalStampDeposit(device, this.noise)
   this.composite = new CanonicalComposite(device)
+  this.brush = new CanonicalBrushContact(device)
+  this.brushOut=[this.createField('brush next pigment',options.width,options.height),this.createField('brush next color',options.width,options.height)]
   const module = device.createShaderModule({ label: 'diagnostic exact field presentation', code: `
 @group(0) @binding(0) var field:texture_2d<f32>;
 struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
@@ -73,24 +86,53 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  }
  createField(label: string, width: number, height: number): CanonicalGpuField {
   const texture = this.device.createTexture({ label, size: [width, height], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT })
-  return { width, height, label, format: 'rgba8unorm', texture, view: texture.createView() }
+  const field:CanonicalGpuField={ width, height, label, format: 'rgba8unorm', texture, view: texture.createView() };this.ownedFields.add(field);return field
  }
  upload(field: CanonicalGpuField, bytes: Uint8Array) {
   if (bytes.byteLength !== field.width * field.height * 4) throw new Error(`Canonical RGBA8 upload size mismatch: ${field.label}`)
   this.device.queue.writeTexture({ texture: field.texture }, bytes as Uint8Array<ArrayBuffer>, { bytesPerRow: field.width * 4 }, { width: field.width, height: field.height })
  }
- appendPreparedRibbon(batch: CanonicalRibbonBatch) {
+ appendPreparedRibbon(batch: CanonicalRibbonBatch, phase:CanonicalRasterPhase='all') {
   if (this.destroyed) throw new Error('Canonical WebGPU backend destroyed')
   if (!batch.vertices.length) return
   const encoder = this.device.createCommandEncoder({ label: 'canonical prepared ribbon' })
-  const transient = this.deposit.encode(encoder, batch, this.fields.coverage, this.fields.water, this.fields.pigment, this.fields.color)
+  const transient = this.deposit.encode(encoder, batch, this.fields.coverage, this.fields.water, this.fields.pigment, this.fields.color,phase)
   this.device.queue.submit([encoder.finish()]); void this.device.queue.onSubmittedWorkDone().finally(() => transient.forEach(buffer => buffer.destroy()))
  }
- appendPreparedStamp(stamp: CanonicalStamp) {
+ appendPreparedStamp(stamp: CanonicalStamp,phase:CanonicalRasterPhase='all') {
   if (this.destroyed) throw new Error('Canonical WebGPU backend destroyed')
   const encoder=this.device.createCommandEncoder({label:'canonical prepared nib stamp'})
-  const transient=this.stamps.encode(encoder,stamp,this.fields.coverage,this.fields.water,this.fields.pigment,this.fields.color)
+  const transient=this.stamps.encode(encoder,stamp,this.fields.coverage,this.fields.water,this.fields.pigment,this.fields.color,phase)
   this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
+ }
+ brushContact(step:readonly[number,number],gain:number,flowRect:readonly[number,number,number,number]) {
+  const encoder=this.device.createCommandEncoder({label:'canonical Q8 brush pulse'})
+  const ctx={device:this.device,encoder,nearest:this.nearest,linear:this.linear}
+  const transient=this.brush.encode(ctx,{pigment:this.fields.pigment,color:this.fields.color,flow:this.fields.flow,water:this.fields.water,outPigment:this.brushOut[0],outColor:this.brushOut[1]},step,gain,flowRect)
+  for(const [out,into] of [[this.brushOut[0],this.fields.pigment],[this.brushOut[1],this.fields.color]])encoder.copyTextureToTexture({texture:out.texture},{texture:into.texture},[into.width,into.height])
+  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
+ }
+ copyRegion(src:CanonicalGpuField,dst:CanonicalGpuField,srcOrigin:readonly[number,number],dstOrigin:readonly[number,number],size:readonly[number,number],encoder?:GPUCommandEncoder) {
+  const values=[...srcOrigin,...dstOrigin,...size];if(values.some(v=>!Number.isInteger(v)||v<0))throw new Error('Canonical copy requires nonnegative integer pixel coordinates')
+  if(srcOrigin[0]+size[0]>src.width||srcOrigin[1]+size[1]>src.height||dstOrigin[0]+size[0]>dst.width||dstOrigin[1]+size[1]>dst.height)throw new Error('Canonical copy region out of bounds')
+  if(src.texture===dst.texture)throw new Error('Canonical texture self-copy unsupported')
+  if(!size[0]||!size[1])return
+  const commands=encoder??this.device.createCommandEncoder();commands.copyTextureToTexture({texture:src.texture,origin:[...srcOrigin]},{texture:dst.texture,origin:[...dstOrigin]},[...size]);if(!encoder)this.device.queue.submit([commands.finish()])
+ }
+ copyField(src:CanonicalGpuField,dst:CanonicalGpuField,encoder?:GPUCommandEncoder) {
+  if(src.width!==dst.width||src.height!==dst.height)throw new Error('Canonical field copy dimensions mismatch')
+  this.copyRegion(src,dst,[0,0],[0,0],[src.width,src.height],encoder)
+ }
+ encodeClearField(encoder:GPUCommandEncoder,field:CanonicalGpuField,rect?:readonly[number,number,number,number]):GPUBuffer[] {
+  if(!rect){const pass=encoder.beginRenderPass({colorAttachments:[{view:field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.end();return[]}
+  if(rect.some(v=>!Number.isInteger(v))||rect[2]<0||rect[3]<0)throw new Error('Canonical clear rectangle requires integer coordinates and nonnegative size')
+  const x=Math.max(0,Math.min(field.width,rect[0])),y=Math.max(0,Math.min(field.height,rect[1])),right=Math.max(x,Math.min(field.width,rect[0]+rect[2])),bottom=Math.max(y,Math.min(field.height,rect[1]+rect[3]))
+  if(right===x||bottom===y)return[]
+  const buffer=this.device.createBuffer({size:16,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(buffer,0,new Uint32Array([x,y,right-x,bottom-y]))
+  const group=this.device.createBindGroup({layout:this.clearPipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view},{binding:1,resource:{buffer}}]}),pass=encoder.beginComputePass();pass.setPipeline(this.clearPipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil((right-x)/8),Math.ceil((bottom-y)/8));pass.end();return[buffer]
+ }
+ clearField(field:CanonicalGpuField,rect?:readonly[number,number,number,number]) {
+  const encoder=this.device.createCommandEncoder(),transient=this.encodeClearField(encoder,field,rect);this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().finally(()=>transient.forEach(buffer=>buffer.destroy()))
  }
  clear() {
   const encoder = this.device.createCommandEncoder()
@@ -132,5 +174,5 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   for (const name of names) this.upload(this.fields[name], snapshot.fields[name])
  }
  whenIdle() { return this.device.queue.onSubmittedWorkDone() }
- destroy() { if (this.destroyed) return; this.destroyed = true; for (const field of [...Object.values(this.fields), this.paper.field, this.noise]) field.texture.destroy(); this.context.unconfigure(); this.device.destroy() }
+ destroy() { if (this.destroyed) return; this.destroyed = true; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); this.context.unconfigure(); this.device.destroy() }
 }

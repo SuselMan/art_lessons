@@ -120,3 +120,5 @@ export interface CanonicalCompositeUniforms {
  /** Current production watercolor profile fixes this to zero. */
  readonly migrate: number
 }
+
+export type CanonicalRasterPhase = 'coverage' | 'pigment' | 'color' | 'all'

@@ -45,3 +45,34 @@ bytes(max0), software only. Это один входной case, не аппар
 Composite actual unchanged WebGL inkMode9 oracle при тех же P/C/cov input:
 0different bytes(max0) software fixture256×192, paper256×256 (POT repeat).
 Это stage parity, не гарантия wholeRoom/replay/device equivalence.
+
+## Контакт и команды владельца
+
+brushContact(stepUV,gain,flowRectUV) переносит канонический Q8 P/C из одного
+pre-contact состояния в два отдельных выхода и копирует обратно после pulse.
+Flow/coverage sampling LINEAR, compact normalized flowRect соответствует GL.
+Это отдельный literal port baseline brush shader, не float model.
+Smoke: zero contact identity0, active contact158changed bytes, суммы всех восьми
+каналов P/C изменились на0. Аппаратная эквивалентность contact пока не проверена.
+
+Для реального CPU command tape использовать отдельные phases:
+appendPreparedStamp(stamp,'coverage'|'pigment'|'color') и
+appendPreparedRibbon(batch,'coverage'|'pigment'|'color'). Это сохраняет порядок
+coverage→all pigment→all color и различия подготовленных аргументов, включая
+puddle и pool. Default'all' — только удобство stage QA, не Room batching.
+Single-phase и combined stamp в software fixture дают одинаковые bytes.
+
+copyField(src,dst,encoder?) и copyRegion(src,dst,srcOrigin,dstOrigin,size,encoder?)
+сохраняют Q8 напрямую, origins — integer world-top pixels.
+clearField(field,rect?) очищает только заданный прямоугольник. Для command tape
+encodeClearField(encoder,field,rect) возвращает transient buffers, которые caller
+освобождает после queue completion. Copy/rectclear smoke byte mismatch0.
+Все createField textures учитываются владельцем и удаляются в destroy.
+
+## Реальное устройство
+
+Root проверил предшествующий native stage на Samsung: GPU validation errors0,
+но побитного совпадения с WebGL нет. Composite174different bytes(max1),
+stamp coverage1164/P30/C7(max1), ribbon coverage47/P46/C5(max1).
+Software exactness некоторых fixtures не подтверждает hardware exactness.
+Поля water/flow в старом stage были нулевыми; это не тест целого watercolor Room.
