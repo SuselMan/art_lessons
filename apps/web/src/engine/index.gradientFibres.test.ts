@@ -20,7 +20,7 @@ describe('construction-time gradient fibres readiness', () => {
       const cached = passes['_gradientField']
       expect(cached).not.toBeNull()
       // No lazy program creation when the first actual marked-field operator runs.
-      const create = vi.spyOn(engine.gl, 'createProgram')
+      const create = vi.spyOn(engine['gl'], 'createProgram')
       const pool = engine['_ribbonScratchPool']
       const a = pool.acquire(8, 8), b = pool.acquire(8, 8), out = pool.acquire(8, 8)
       try {
