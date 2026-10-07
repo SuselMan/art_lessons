@@ -448,3 +448,32 @@ Session93308 завершился exit1, собственный target1384 за�
 Raw VPS: temp/onset/sheet3-mask-adreno-first/report.json. Копия HOME:
 680-puddle-outline/temp/cost-domain-e8-net39/temp/onset/sheet3-mask-adreno-first-report.json.
 Прежний smallmask/Adreno compiler PASS сохраняет свой узкий scope; полного solver PASS нет.
+
+
+### Split-prefix target OFF: сохранённые поля, owner eligibility отрицательный
+
+Повтор session23515 использовал тот же неизменный runtime/input, общий watchdog600с.
+Предыстория targetIndex23 /41renderer operations выполнена отдельно за154300мс;
+target61 за3589мс. Обе завершённые стадии GL0/contextlost=false. Это diagnostic wall,
+не native performance. Сохранены9 целевых planes /47lossless gzip ROI354×266;
+browser SHA256 совпал с SHA256 каждого streamed64KiB record на Node.
+JSON57830байт вместо передачи всей численной истории одним giant return.
+
+Actual target prepare: owner14=false, singlePaint=true; carry14, phase14, masks0.
+Поэтому текущий owner14-gated diagnostic ON не мог бы выполниться на этом historical
+append пути. ON не запускался. После сохранения target OFF controller был остановлен
+по eligibility guard в suffix; собственный1387 закрыт /json/close200, последующий
+/json/list подтвердил отсутствие. Второе finally close404 ожидаемо. Session exit1
+с pending Runtime.evaluate timeout — это следствие явного abort, не solver timeout.
+Whole endpoint/финальный GL/сравнение ON отсутствуют; частичные target-поля валидны.
+
+В closed ROI P.b code sum pre-carry758422, post-carry756328, post-diffuse736148,
+provisional dry718213. Original inner edge /first outside mean послеcarry51.00/72.61,
+послеdiffuse53.89/60.71, provisionaldry52.53/59.17. Это residualring базовой phaseON;
+массовой консервации целого поля по этим суммам НЕ утверждаем.
+
+Raw HOME:680-puddle-outline/temp/cost-domain-e8-net39/temp/onset/sheet3-mask-adreno-split1/
+(report.json, analysis.json,47*.rgba.gz); одноимённый localtemp на VPS сохранён.
+Для общей фиксации требуется одинаковый физический оператор native/replay: eligibility
+по presentationOwnerLocked недопустимо включать defaultON. CPU proposal — отдельно
+доказать singlepaint ca/cc lifetime и route-independent маску; текущий prototype OFF.
