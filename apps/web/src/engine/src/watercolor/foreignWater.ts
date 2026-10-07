@@ -1,4 +1,5 @@
 import type { Dab } from '@grafetto/shared'
+import type { LogEntry } from '../oplog/OperationLog'
 
 // #680: recorded wet contacts locate a preceding puddle; geometry comes from
 // the log, never the replay client's wall clock or its live wetness field.
@@ -57,4 +58,20 @@ export function foreignWaterStencil(
     }
   }
   return pixels.some(x => x !== 0) ? { width, height, pixels } : null
+}
+
+/** Earlier decoded sources would be discarded by the last active wet-domain
+ * reset. Find that reset before allocating dabs/footprints, without touching
+ * the log or consulting a clock. The first chunk of this gesture is still
+ * the exact original forward-loop boundary, even when it is undone. */
+export function foreignWaterSourceStart(
+  entries: readonly LogEntry[], gestureId: string | null | undefined, layerId: string | null | undefined,
+): number {
+  let start = 0
+  for (let i = 0; i < entries.length; i++) {
+    const { op, state } = entries[i]
+    if (gestureId && op.type === 'stroke' && op.strokeId === gestureId) break
+    if (state === 'done' && (op.type === 'paper_dry' || (op.type === 'layer_clear' && op.layerId === layerId))) start = i + 1
+  }
+  return start
 }

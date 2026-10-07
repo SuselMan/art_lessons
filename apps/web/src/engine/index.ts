@@ -97,7 +97,7 @@ import { wetOverlayPixels, wetOverlayWorkspace, type WetOverlayWorkspace } from 
 
 export { WATERCOLOR_ROUND } from './src/presets/watercolorPresets'
 
-import { type WaterSource } from './src/watercolor/foreignWater'
+import { foreignWaterSourceStart, type WaterSource } from './src/watercolor/foreignWater'
 
 import { isRibbonTool, ribbonProfileFor, type RibbonProfile } from './src/dabs/ribbonProfile'
 import {
@@ -7072,7 +7072,9 @@ export class PencilEngine implements PencilEngineAPI {
       const layerId = current && 'layerId' in current ? current.layerId : own ? this._strokeLayerId : undefined
       const at = current?.timestamp ?? Date.now()
       const sources: WaterSource[] = []
-      for (const e of entries) {
+      const start = foreignWaterSourceStart(entries, gestureId, layerId)
+      for (let i = start; i < entries.length; i++) {
+        const e = entries[i]
         const op = e.op
         if (gestureId && op.type === 'stroke' && op.strokeId === gestureId) break
         if (e.state !== 'done') continue
