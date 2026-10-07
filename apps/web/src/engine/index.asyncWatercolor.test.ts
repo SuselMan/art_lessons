@@ -326,3 +326,29 @@ it('forgets queued foreign pencil previews on loss without deleting stale GPU ha
     remove.mockRestore(); draw.mockRestore()
   } finally { engine.destroy() }
 })
+
+it('keeps unknown and gapped peer streams CPU-only while canonical solver is pending', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  const settle = vi.spyOn(engine, '_settle' as never, 'get').mockReturnValue({} as never)
+  const complete = vi.spyOn(engine as unknown as { _completeSettle(): void }, '_completeSettle').mockImplementation(() => { throw Error('unexpected drain') })
+  const packet = { strokeId: 'gap', layerId: 'L', packetSeq: 5, tool: 'pencil' as const, preset: 'HB', color: [0, 0, 0] as [number, number, number], dabs: [dab(16, 20)] }
+  try {
+    engine.appendPeerLiveDabs('peer', packet)
+    engine.appendPeerLiveDabs('peer', { ...packet, packetSeq: 6 })
+    expect(complete).not.toHaveBeenCalled()
+    expect([...engine['_peerLiveStrokes'].values()][0]).toMatchObject({ desynced: true, paintedTotal: 0 })
+    engine.appendPeerLiveDabs('peer', { ...packet, strokeId: 'next', packetSeq: 0 })
+    engine.appendPeerLiveDabs('peer', { ...packet, strokeId: 'next', packetSeq: 2 })
+    const cancelled = [...engine['_wcAsyncPeerStreams'].values()][0]
+    expect(cancelled.cancelled).toBe(true); expect(cancelled.buf).toBeNull()
+    engine.appendPeerLiveDabs('peer', { ...packet, strokeId: 'next', packetSeq: 1 })
+    expect(complete).not.toHaveBeenCalled()
+    settle.mockRestore()
+    engine.resetPeerLiveStrokes()
+    engine.appendPeerLiveDabs('peer', { ...packet, strokeId: 'fresh', packetSeq: 0 })
+    expect([...engine['_wcAsyncPeerStreams'].values()][0]).toMatchObject({ strokeId: 'fresh', cancelled: false, nextPacketSeq: 1 })
+  } finally { settle.mockRestore(); complete.mockRestore(); engine.destroy() }
+})
