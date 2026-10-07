@@ -75,3 +75,57 @@ Fresh rejoin1394 prematurely exported before asynchronous restore began (log onl
 ### Reviewed A2 transport size policy, still defaultOFF
 
 Ordinary A2 full3508×2480 RGBA/12tile headers occupies34,799,556B=33.187MiB, so former32MiB worker input cap necessarily used main-thread fallback. Reviewed input40MiB/output48MiB covers this board while bounding one extra transfer clone to40MiB; larger inputs deliberately retain old compressor. A2 callerraw+transferclone+existinggzip internalcopy already~99.56MiB, before Blob/compressed/retainedtiles/GPU; this is no memory reduction claim.64/80MiB caps rejected as unnecessarylarger ceiling. CPU actualA2-sized gzip/gunzip preserves everybyte/callerownership, Worker createdonce; >40MiB boundary uses no worker and old compressor preserves endpoints/length.43tests3files/wholewebTS/lint/workerbuild PASS. NativeA2memory/validreply/transport timing remain pending; productionoptin defaultOFF.
+
+### 2026-10-07 06:34 UTC: current zero-contact proof, Samsung 1412
+
+Источник — неизменный `321d0260`, собственный HOME runtime `zero-proof-321d`
+на 5330; backend 4539. Между плечами менялся только
+`_wcZeroPigmentContacts`. Source film ON, phase/fibres OFF;
+async/split/lazy/band/front/contact/presentation diagnostics одинаковы.
+Default OFF сохранён.
+
+Вход — явная производная родного журнала 1396: preset двух strokes изменён
+с `normal:100:100` на `normal:100:0`; packed dabs, wet, времена и Dry неизменны.
+SHA входа `5f026d02a6c5086e9e17dda10c0b10d8989c0cc73c57cf804de9234ca18302c5`.
+Это matched standalone NORMAL replay, без сокетов/новых gestures/forced reveal
+или подмены owner14; не проверка native FPS и не обычной Room загрузки.
+
+Вместо прежних 19 фактически сравнились **27** именованных результатов:
+6 canonical tiles × P/C/V/coverage, field cost, actual solvent field и whole RGBA.
+Все byte exact: changed=0/max=0. Whole RGBA — 17,399,680 bytes.
+P/C нулевые ожидаемо для чистой воды; solvent field имеет 493,700 ненулевых
+байтов, solvent и coverage ненулевые во всех шести tiles. Cost в этой
+конечной точке уже нулевой и сам по себе не служит guard.
+
+| Метрика | OFF | ON |
+| --- | ---: | ---: |
+| actual brushPass calls | 2596 | 0 |
+| actual waterFrontStep calls | 252 | 252 |
+| prepare skip=true calls | 0 | 2 |
+| Queue advance units | 1498 | 140 |
+| solver wall, seconds | 10.568 | 4.337 |
+| whole run including captures/export, seconds | 11.060 | 5.035 |
+
+Это причинный результат пропуска доказанно нулевого обмена на одном и том же
+журнале, не адаптивное сравнение различных native жестов. Сохранённый front и
+ненулевой V исключают пустой no-op PASS. GL=0/contextLost=false в обоих плечах.
+
+Дополнительные hardware guard probes использовали настоящий
+`appendPeerLiveDabs` pencil (paintedTotal=1, committedOffset=0), реальные
+appendOperation(pencil) и suspended appendUndo, затем настоящий pure-water
+RibbonStrokePainter scratch на canonical target. prepare argument11 лишь
+наблюдался, физический Plan в этих маленьких probes не исполнялся:
+peer на том же слое → false; peer на другом → true; pending Undo → false;
+предшествующая pencil history → false. GL=0/lost=false. Это actual guard
+reachability, не whole multiuser/Undo endpoint oracle.
+
+Первый собственный 1411 FAIL сохранён: старый passive helper ошибочно получал
+V через carry opts.e, который задан только при phase ON. При phase OFF
+undefined readback ломал finish wrapper; это fixture failure, не physics
+regression. Retry брал V из настоящего `diffuseStep` аргумента12 (solvent),
+подтверждённого source Plan. Flags/source не менялись.
+
+Raw: `temp/fence-hardware/native-room-zeroproof321d_1791354881103/report.json`;
+предыдущий FAIL: `..._1791354789958/report.json`. Passport:
+`temp/fence-hardware/zero321d-passport.json`. Собственный 1412 закрыт finally,
+Samsung освобождён. Никаких публикаций/default изменений.
