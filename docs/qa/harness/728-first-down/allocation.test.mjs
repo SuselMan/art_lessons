@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {installFirstDownAllocation} from './allocation.mjs';
+let textureCalls=0,queryCalls=0,clock=0;
+const gl={RGBA:1,UNSIGNED_BYTE:2,createTexture(){textureCalls++;return 'texture'},texImage2D(){},bindFramebuffer(){},drawArrays(){return 17},getParameter(){queryCalls++}};
+const scratch={getOrCreate(){gl.createTexture();gl.texImage2D(1,0,1,16,8,0,1,2,null);return 'scratch'}};
+const engine={gl,_paintRibbonDabs(...args){return args[5].getOrCreate()},_paintDabs(){return this._paintRibbonDabs(1,2,3,4,5,scratch)},_onStart(){return this._paintDabs()},_display(){gl.bindFramebuffer(1,null);return gl.drawArrays(1,0,6)}};
+const original=engine._onStart,trace=installFirstDownAllocation(engine,{now:()=>clock++});
+assert.equal(textureCalls,0);assert.equal(engine._onStart(),'scratch');assert.equal(engine._display(),17);
+assert.equal(trace.summary().textures,1);assert.equal(trace.summary().rgba8Bytes,512);assert.equal(queryCalls,0);
+assert.ok(trace.rows.some(r=>r.name==='draw-submitted'&&r.framebuffer==='screen'));
+trace.stop();engine._onStart();assert.equal(trace.summary().textures,1);trace.dispose();assert.equal(engine._onStart,original);
+const thrown={gl,_onStart(){throw Error('expected')}};const before=thrown._onStart,t=installFirstDownAllocation(thrown,{cap:1});assert.throws(()=>thrown._onStart(),/expected/);assert.ok(t.summary().dropped>0);t.dispose();assert.equal(thrown._onStart,before);
+console.log('4 passive return/throw/byte-count/no-query/restore controls PASS');
