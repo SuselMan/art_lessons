@@ -36,6 +36,10 @@ export interface WatercolorSettlePlanContext {
 export class WatercolorSettlePlan {
   /** Immutable cost-domain reachability diagnostic; default OFF on every route. */
   diagnosticCostDomainPaths = false
+  /** Exact upload-storage reuse candidate; isolated for hardware A/B. */
+  diagnosticReuseFlowStorage = false
+  readonly flowUploadStats = { allocations: 0, updates: 0, bytes: 0 }
+  private _brushFlowSize: [number, number] = [0, 0]
   /** Pack D1..D64 in seven byte bits; only eligible when cost-domain paths are enabled. */
   diagnosticPackedCostPaths = false
   /** Local diagnostic only, default OFF. V-phase is an experimental closure,
@@ -318,7 +322,7 @@ export class WatercolorSettlePlan {
     }
     if (flow) captureInputs.push(() => {
       bindFlowTexture()
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, flow.width, flow.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, flow.pixels)
+      this.uploadBrushFlow(flow.width, flow.height, flow.pixels)
     })
     if (foreign) captureInputs.push(() => {
       this._foreignWaterTex ??= gl.createTexture()
@@ -980,7 +984,7 @@ export class WatercolorSettlePlan {
         if (!flowTexture) bindFlowTexture()
         gl.activeTexture(gl.TEXTURE0)
         gl.bindTexture(gl.TEXTURE_2D, flowTexture)
-        try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, payload.pixels) }
+        try { this.uploadBrushFlow(width, height, payload.pixels) }
         finally {
           if (oneShot) { payload.pixels = null; contactPixels.delete(payload); this._ownedContactPixels.delete(payload) }
         }
@@ -1314,12 +1318,28 @@ export class WatercolorSettlePlan {
     }
   }
 
+  /** Complete RGBA upload: same bytes, order, filtering and texture name.
+   * The cache describes actual allocated storage, never logical field size. */
+  private uploadBrushFlow(width: number, height: number, pixels: Uint8Array): void {
+    const gl = this.gl
+    if (this.diagnosticReuseFlowStorage && this._brushFlowSize[0] === width && this._brushFlowSize[1] === height) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      this.flowUploadStats.updates++
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      this.flowUploadStats.allocations++
+      this._brushFlowSize = [width, height]
+    }
+    this.flowUploadStats.bytes += pixels.byteLength
+  }
+
   private _releaseContactPixels(): void {
     for (const payload of this._ownedContactPixels) payload.pixels = null
     this._ownedContactPixels.clear()
   }
 
   destroyTextures(): void {
+    this._brushFlowSize = [0, 0]
     this._releaseContactPixels()
     for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage()
     this._coverageOwners.clear()
@@ -1330,6 +1350,7 @@ export class WatercolorSettlePlan {
   }
 
   forgetTextures(): void {
+    this._brushFlowSize = [0, 0]
     this._releaseContactPixels()
     for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage(true)
     this._coverageOwners.clear()
