@@ -5,24 +5,26 @@ import { WC_BRUSH_DRAG_BASELINE_FRAG } from '../raster/shaders'
  * Only the full-resolution flow-rectangle fixture is supported by this oracle;
  * the full product's compact bilinear flow rectangle needs a separate port. */
 export const CANONICAL_BRUSH_WGSL = `
-struct Pair { pigment:vec4u, color:vec4u }
+struct Pair { pigment:u32, color:u32 }
 struct Params { grid:vec4u, rate:vec4f }
 @group(0) @binding(0) var<storage,read> before:array<Pair>;
 @group(0) @binding(1) var<storage,read_write> after:array<Pair>;
-@group(0) @binding(2) var<storage,read> flow:array<vec4u>;
-@group(0) @binding(3) var<storage,read> water:array<vec4u>;
+@group(0) @binding(2) var<storage,read> flow:array<u32>;
+@group(0) @binding(3) var<storage,read> water:array<u32>;
 @group(0) @binding(4) var<uniform> p:Params;
+fn rgba(value:u32)->vec4u { return vec4u(value&255u,(value>>8u)&255u,(value>>16u)&255u,value>>24u); }
+fn packed(value:vec4u)->u32 { return value.r|(value.g<<8u)|(value.b<<16u)|(value.a<<24u); }
 fn valid(q:vec2i)->bool { return all(q>=vec2i(0)) && all(q<vec2i(p.grid.xy)); }
 fn index(q:vec2i)->u32 { return u32(q.y)*p.grid.x+u32(q.x); }
 fn raw(donorPos:vec2i,to:vec2i,direction:vec2f)->f32 {
  if(!valid(donorPos)||!valid(to)){return 0;}
- let f=vec4f(flow[index(donorPos)])/255.0;let ft=vec4f(flow[index(to)])/255.0;
- let wf=f32(water[index(donorPos)].a)/255.0;let wt=f32(water[index(to)].a)/255.0;
+ let f=vec4f(rgba(flow[index(donorPos)]))/255.0;let ft=vec4f(rgba(flow[index(to)]))/255.0;
+ let wf=f32((water[index(donorPos)]>>24u))/255.0;let wt=f32((water[index(to)]>>24u))/255.0;
  let midpoint=vec2i(floor((vec2f(donorPos)+vec2f(to))*0.5+0.5));
  var contact=smoothstep(0.015,0.15,min(wf,wt));
- contact*=step(0.015,f32(water[index(midpoint)].a)/255.0);
- let donor=f32(before[index(donorPos)].pigment.a)/255.0;
- let neighbour=f32(before[index(to)].pigment.a)/255.0;
+ contact*=step(0.015,f32((water[index(midpoint)]>>24u))/255.0);
+ let donor=f32((before[index(donorPos)].pigment>>24u))/255.0;
+ let neighbour=f32((before[index(to)].pigment>>24u))/255.0;
  let mixFraction=0.02*max(donor-neighbour,0.0)/max(donor,5e-5);
  let dose=min(f.b,ft.b);let clock=-log(max(1.0-clamp(dose,0.0,1.0),1.0/255.0));
  return (0.3535533905932738*p.rate.x*abs(dot(0.5*((f.rg*2.0-1.0)+(ft.rg*2.0-1.0)),direction))*clock+mixFraction*dose)*contact;
@@ -30,29 +32,30 @@ fn raw(donorPos:vec2i,to:vec2i,direction:vec2f)->f32 {
 fn fraction(donorPos:vec2i,to:vec2i,direction:vec2f)->f32 {
  let amount=raw(donorPos,to,direction);if(amount<=0){return 0;}
  let donor=before[index(donorPos)];let receiver=before[index(to)];
- let roomP=(vec4u(255)-receiver.pigment)/4u;let roomC=(vec4u(255)-receiver.color)/4u;
+ let donorP=rgba(donor.pigment);let donorC=rgba(donor.color);
+ let roomP=(vec4u(255)-rgba(receiver.pigment))/4u;let roomC=(vec4u(255)-rgba(receiver.color))/4u;
  var limit=1.0;
  for(var k=0u;k<4u;k++) {
-  if(donor.pigment[k]>0u){limit=min(limit,f32(roomP[k])/(f32(donor.pigment[k])*amount));}
-  if(donor.color[k]>0u){limit=min(limit,f32(roomC[k])/(f32(donor.color[k])*amount));}
+  if(donorP[k]>0u){limit=min(limit,f32(roomP[k])/(f32(donorP[k])*amount));}
+  if(donorC[k]>0u){limit=min(limit,f32(roomC[k])/(f32(donorC[k])*amount));}
  }
  return amount*limit;
 }
 @compute @workgroup_size(8,8) fn brush(@builtin(global_invocation_id) tid:vec3u) {
  if(any(tid.xy>=p.grid.xy)){return;}
- let q=vec2i(tid.xy);let i=index(q);let own=before[i];var P=vec4i(own.pigment);var C=vec4i(own.color);
+ let q=vec2i(tid.xy);let i=index(q);let own=before[i];let ownP=rgba(own.pigment);let ownC=rgba(own.color);var P=vec4i(ownP);var C=vec4i(ownC);
  if(p.grid.w==1u && (any(tid.xy<p.grid.xy/4u)||any(tid.xy>=p.grid.xy*3u/4u))){after[i]=own;return;}
  let dirs=array<vec2i,4>(vec2i(1,0),vec2i(-1,0),vec2i(0,1),vec2i(0,-1));
  for(var k=0u;k<4u;k++) {
   let dir=dirs[k];let other=q+dir*i32(p.grid.z);if(!valid(other)){continue;}
   let give=fraction(q,other,vec2f(dir));let take=fraction(other,q,-vec2f(dir));
   let donor=before[index(other)];
-  P-=vec4i(floor(vec4f(own.pigment)*give));P+=vec4i(floor(vec4f(donor.pigment)*take));
-  C-=vec4i(floor(vec4f(own.color)*give));C+=vec4i(floor(vec4f(donor.color)*take));
+  P-=vec4i(floor(vec4f(ownP)*give));P+=vec4i(floor(vec4f(rgba(donor.pigment))*take));
+  C-=vec4i(floor(vec4f(ownC)*give));C+=vec4i(floor(vec4f(rgba(donor.color))*take));
  }
  // RGBA8 render targets clamp after each production pulse. Calibrated
  // gain has a positive donor budget; arbitrary stress fixtures can saturate.
- after[i]=Pair(vec4u(clamp(P,vec4i(0),vec4i(255))),vec4u(clamp(C,vec4i(0),vec4i(255))));
+ after[i]=Pair(packed(vec4u(clamp(P,vec4i(0),vec4i(255)))),packed(vec4u(clamp(C,vec4i(0),vec4i(255)))));
 }
 `;
 interface Fixture { name: string; size: number; step: number; pulses: number; zero?: boolean; partial?: boolean }
@@ -129,29 +132,46 @@ export async function checkCanonicalBrush(device: GPUDevice) {
   const rows = []
   for (const c of FIXTURES) {
     const data = fixture(c), resources: GPUBuffer[] = []
+    let query: GPUQuerySet | null = null
     const make = (size: number, usage: GPUBufferUsageFlags) => { const b = device.createBuffer({ size, usage }); resources.push(b); return b }
     try {
-      const cells = c.size * c.size, bytes = cells * 32, packed = new Uint32Array(cells * 8)
-      for (let i = 0; i < cells; i++) { packed.set(data.pigment.subarray(i * 4, i * 4 + 4), i * 8); packed.set(data.color.subarray(i * 4, i * 4 + 4), i * 8 + 4) }
+      const cells = c.size * c.size, bytes = cells * 8, packed = new Uint32Array(cells * 2)
+      const packBytes = (a: Uint8Array, i: number) => (a[i] | a[i + 1] << 8 | a[i + 2] << 16 | a[i + 3] << 24) >>> 0
+      for (let i = 0; i < cells; i++) { packed[i * 2] = packBytes(data.pigment, i * 4); packed[i * 2 + 1] = packBytes(data.color, i * 4) }
       const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
-      const bank = [make(bytes, usage), make(bytes, usage)], flow = make(cells * 16, usage), water = make(cells * 16, usage), uniform = make(32, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+      const bank = [make(bytes, usage), make(bytes, usage)], flow = make(cells * 4, usage), water = make(cells * 4, usage), uniform = make(32, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
       const read = make(bytes, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ)
       for (const b of bank) device.queue.writeBuffer(b, 0, packed)
-      device.queue.writeBuffer(flow, 0, Uint32Array.from(data.flow)); device.queue.writeBuffer(water, 0, Uint32Array.from(data.water))
+      device.queue.writeBuffer(flow, 0, Uint32Array.from({ length: cells }, (_, i) => packBytes(data.flow, i * 4))); device.queue.writeBuffer(water, 0, Uint32Array.from({ length: cells }, (_, i) => packBytes(data.water, i * 4)))
       const params = new ArrayBuffer(32); new Uint32Array(params).set([c.size, c.size, c.step, c.partial ? 1 : 0]); new Float32Array(params).set([0.84, 0, 0, 0], 4); device.queue.writeBuffer(uniform, 0, params)
+      const bind = (current: number) => device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [bank[current], bank[1 - current], flow, water, uniform].map((b, binding) => ({ binding, resource: { buffer: b } })) })
+      // Warm the actual compute pipeline outside queries, then restore inputs.
+      const warm = device.createCommandEncoder(), warmPass = warm.beginComputePass()
+      warmPass.setPipeline(pipeline); warmPass.setBindGroup(0, bind(0)); warmPass.dispatchWorkgroups(Math.ceil(c.size / 8), Math.ceil(c.size / 8)); warmPass.end()
+      device.queue.submit([warm.finish()]); for (const b of bank) device.queue.writeBuffer(b, 0, packed)
+      let timeResolve: GPUBuffer | null = null, timeRead: GPUBuffer | null = null
+      if (device.features.has('timestamp-query')) {
+        query = device.createQuerySet({ type: 'timestamp', count: 2 })
+        timeResolve = make(16, GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC)
+        timeRead = make(16, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ)
+      }
       let current = 0
       const encoder = device.createCommandEncoder()
       for (let pulse = 0; pulse < c.pulses; pulse++) {
-        const bindings = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [bank[current], bank[1 - current], flow, water, uniform].map((b, binding) => ({ binding, resource: { buffer: b } })) })
-        const pass = encoder.beginComputePass(); pass.setPipeline(pipeline); pass.setBindGroup(0, bindings); pass.dispatchWorkgroups(Math.ceil(c.size / 8), Math.ceil(c.size / 8)); pass.end(); current = 1 - current
+        const bindings = bind(current)
+        const timestamps: GPUComputePassTimestampWrites | undefined = query && (pulse === 0 || pulse === c.pulses - 1) ? { querySet: query, beginningOfPassWriteIndex: pulse === 0 ? 0 : undefined, endOfPassWriteIndex: pulse === c.pulses - 1 ? 1 : undefined } : undefined
+        const pass = encoder.beginComputePass({ timestampWrites: timestamps }); pass.setPipeline(pipeline); pass.setBindGroup(0, bindings); pass.dispatchWorkgroups(Math.ceil(c.size / 8), Math.ceil(c.size / 8)); pass.end(); current = 1 - current
       }
+      if (query && timeResolve && timeRead) { encoder.resolveQuerySet(query, 0, 2, timeResolve, 0); encoder.copyBufferToBuffer(timeResolve, 0, timeRead, 0, 16) }
       encoder.copyBufferToBuffer(bank[current], 0, read, 0, bytes); device.queue.submit([encoder.finish()]); await read.mapAsync(GPUMapMode.READ)
       const output = new Uint32Array(read.getMappedRange()), actual: [Uint8Array, Uint8Array] = [new Uint8Array(cells * 4), new Uint8Array(cells * 4)]
-      for (let i = 0; i < cells; i++) { actual[0].set(output.subarray(i * 8, i * 8 + 4), i * 4); actual[1].set(output.subarray(i * 8 + 4, i * 8 + 8), i * 4) }
+      for (let i = 0; i < cells; i++) { for (let channel = 0; channel < 4; channel++) { actual[0][i * 4 + channel] = output[i * 2] >>> (channel * 8) & 255; actual[1][i * 4 + channel] = output[i * 2 + 1] >>> (channel * 8) & 255 } }
       read.unmap()
       const expected = glBrush(c, data), comparison = actual.map((a, role) => compare(a, expected[role]))
-      rows.push({ fixture: c, comparison, identity: actual.map((a, role) => compare(a, role === 0 ? data.pigment : data.color)) })
-    } finally { for (const b of resources) b.destroy() }
+      let gpuMs: number | null = null
+      if (timeRead) { await timeRead.mapAsync(GPUMapMode.READ); const timestamps = new BigUint64Array(timeRead.getMappedRange()); gpuMs = Number(timestamps[1] - timestamps[0]) / 1e6; timeRead.unmap() }
+      rows.push({ fixture: c, gpuMs, gpuTimingScope: 'One warmed sample, all fixture compute pulses; excludes allocation/uploads/readback, not an FPS or comparative benchmark', comparison, identity: actual.map((a, role) => compare(a, role === 0 ? data.pigment : data.color)) })
+    } finally { query?.destroy(); for (const b of resources) b.destroy() }
   }
-  return { pass: rows.every(row => row.comparison.every(c => c.changed === 0)) && rows[0].identity.every(c => c.changed === 0), rows, scope: 'Canonical Q8 brush only; full-resolution flow rectangle, fixed-step pulse boundaries. Float transcendental parity is measured, not assumed.' }
+  return { pass: rows.every(row => row.comparison.every(c => c.changed === 0)) && rows[0].identity.every(c => c.changed === 0), rows, storage: 'Packed uint32 RGBA: 8 bytes per P/C cell, 4 bytes per flow/water cell', scope: 'Canonical Q8 brush only; full-resolution flow rectangle, fixed-step pulse boundaries. Float transcendental parity is measured, not assumed.' }
 }

@@ -49,6 +49,19 @@ try {
   fs.writeFileSync(path.join(out, 'software-render.png'), Buffer.from(result.field.readbackPng.split(',')[1], 'base64'))
   delete result.field.readbackPng
   result.canonicalBrush = await page.evaluate(() => window.__watercolorGpuPoc.checkCanonicalBrush())
+  if (process.env.WC_WEBGPU_COMPARE === '1') {
+    await page.getByRole('button', { name: 'Compare same dabs · WebGL1', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('img[alt="Current WebGL1 watercolor replay"]'), null, { timeout: 90000 })
+    result.baseline = await page.evaluate(() => {
+      const image = document.querySelector('img[alt="Current WebGL1 watercolor replay"]')
+      const c = document.createElement('canvas'); c.width = image.naturalWidth; c.height = image.naturalHeight
+      c.getContext('2d').drawImage(image, 0, 0)
+      const pixels = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+      let colored = 0
+      for (let k = 0; k < pixels.length; k += 4) if (Math.max(...pixels.subarray(k, k + 3)) - Math.min(...pixels.subarray(k, k + 3)) > 10) colored++
+      return { width: c.width, height: c.height, colored }
+    })
+  }
   result.oracle = await page.evaluate(() => window.__watercolorGpuPoc.checkOracle())
   await page.getByRole('button', { name: 'Dry all', exact: true }).click()
   result.dry = await page.evaluate(async () => {
