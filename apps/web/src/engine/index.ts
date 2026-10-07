@@ -1796,6 +1796,16 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcJoinedTouch = false
   /** Diagnostic OFF: immutable predecessor admits a changed watercolor mix/RGB. */
   private _wcJoinedTouchMixed = false
+  /** Diagnostic OFF: one joined native UP owns its finish behind the old solver. */
+  private _wcJoinedFinishDeferred = false
+  private _wcJoinedDeferredEpoch = 0
+  private _wcJoinedDeferredError: unknown = null
+  private readonly _wcJoinedRecoveryLayers = new Set<string>()
+  private _wcJoinedDeferred: {
+    job: NonNullable<WatercolorSettleQueue['current']>; scratch: RibbonStrokeScratch;
+    finish: RibbonCanonicalFinish; layerId: string; epoch: number;
+    reveal: boolean; fade: boolean; spread: boolean;
+  } | null = null
   private readonly _wcJoinedFinish = new WeakMap<RibbonStrokeScratch, RibbonCanonicalFinish>()
   private _wcJoinedTouchLease: WatercolorSettleQueue['current'] = null
   private readonly _wcJoinedTouchInputs = new WeakMap<NonNullable<WatercolorSettleQueue['current']>, {
@@ -4046,14 +4056,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  slow/offline first load makes the gap real. */
   async exportPNG(transparent = false): Promise<Blob | null> {
     await this._paper.ready()
-    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
+    if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.exportPNG(transparent)
   }
 
   async exportReviewImage(): Promise<import('./src/export/Exporter').ReviewExport | null> {
     await this._paper.ready()
-    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
+    if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.exportReviewImage()
@@ -4063,7 +4073,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the work is Exporter's (#494). */
   async bakePreview(maxSide = 320): Promise<Blob | null> {
     await this._paper.ready()
-    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
+    if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.bakePreview(maxSide)
@@ -4636,7 +4646,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _noteReplayedOrder(layerId: string): void {
     this._cancelledPeerLayers.delete(layerId)
     if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
-    else this._unsettledLayers.delete(layerId)
+    else {
+      this._unsettledLayers.delete(layerId)
+      if (!this.isSnapshotHistoryRepairPending(layerId)) {
+        this._wcJoinedRecoveryLayers.delete(layerId)
+        if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
+      }
+    }
   }
 
   private _swapRebuiltLayer(job: RebuildJob): void {
@@ -5189,7 +5205,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  checks the log itself when the checkpoint is used (crossesWash). */
   private _checkpointBeforeWash(layerId: string, washId: string, userId: string, now: number, opId?: string): void {
     if (this._contextLost || this._destroyed) return
-    if (this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
+    if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this._wcAsyncFinish && this._wcCanonical.pending) return
     if (this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)) return
     // (#537) Not a layer known to be out of the server's order: its pixels are
@@ -5373,7 +5389,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _takeCheckpoint(layerId: string): void {
-    if (this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
+    if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
     if (this.isSnapshotHistoryRepairPending(layerId)) return
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
@@ -5463,12 +5479,13 @@ export class PencilEngine implements PencilEngineAPI {
   // may be baked right now stays here (its quiet/settled context functions):
   // that is the replay and wash machinery's question, not the snapshot's.
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
+    if (this._wcJoinedDeferred || this._wcJoinedRecoveryLayers.has(layerId)) return null
     return this._snapshotIO.bake(layerId)
   }
 
   /** SnapshotIO's first bake gate — pure, see SnapshotIOContext.quiet. */
   private _snapshotQuiet(layerId: string): boolean {
-    if (this.isSnapshotHistoryRepairPending(layerId)) return false
+    if (this.isSnapshotHistoryRepairPending(layerId) || this._wcJoinedDeferred || this._wcJoinedRecoveryLayers.has(layerId)) return false
     // A canonical request may be between solver steps, with no _settle yet.
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
@@ -5512,7 +5529,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   bakeLayerByFullReplay(layerId: string): Uint8Array | null {
-    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
+    if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     return this._snapshotIO.bakeByFullReplay(layerId)
   }
 
@@ -5672,6 +5689,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    this._wcJoinedRecoveryLayers.delete(id)
+    if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
     this._cancelledPeerLayers.delete(id)
     this._cancelRebuildJob(id) // (§17.53)
     const boundary = this._washBoundaries.get(id) // (§17.55)
@@ -5873,7 +5892,7 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     const layerId = this._activeId
-    if (layerId && this.isSnapshotHistoryRepairPending(layerId)) {
+    if (layerId && (this.isSnapshotHistoryRepairPending(layerId) || this._wcJoinedRecoveryLayers.has(layerId))) {
       this._diagLog('[engine] stroke start REFUSED: snapshot history repair', { layerId })
       return
     }
@@ -7589,7 +7608,7 @@ export class PencilEngine implements PencilEngineAPI {
       skipContacts = !!layerId && !rebuildingLayer && !unrecordedPeerInk && pureWaterLayerProof(this._log.entries, layerId, this._snapshots.hasCoverage(layerId),
         this._strokeLayerId === layerId && (this._strokeTool !== 'watercolor' || watercolorMixFromPreset(this._opts.pencilType).pigment > 0))
     }
-    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: this._wcJoinedTouchMixed && scratch.dryCtx
+    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: (this._wcJoinedTouchMixed || this._wcJoinedFinishDeferred) && scratch.dryCtx
       ? { ...structuredClone({ ...scratch.dryCtx, target: undefined }), target: scratch.dryCtx.target }
       : scratch.dryCtx } : undefined, presentationOwnerLocked)
   }
@@ -7775,14 +7794,44 @@ export class PencilEngine implements PencilEngineAPI {
       // A drawing continuation can start the solver for this same scratch.
       if (!this._wcAsyncOwners.has(scratch) && this._settle?.scratch !== scratch) this._wcAsyncDryTo.delete(scratch)
     }
-    const ownedLifecycle = lifecycle ? {
+    const deferredEpoch = this._wcJoinedDeferredEpoch
+    const guardedCompletion = this._wcJoinedFinishDeferred
+    let completed = false
+    let completedJob: WatercolorSettleQueue['current'] = null
+    this._settleQueue.start(scratch, ops, () => {
+      if (guardedCompletion && (completed || deferredEpoch !== this._wcJoinedDeferredEpoch
+        || this._destroyed || this._contextLost || this.gl.isContextLost())) return
+      completed = true
+      try {
+        complete()
+        if (completedJob) this._resumeJoinedDeferred(completedJob)
+      } catch (error) {
+        if (this._wcJoinedDeferred?.job === completedJob) {
+          this._wcJoinedDeferredError = error
+          this._cancelSettle()
+        }
+        throw error
+      } finally { releaseDryTicket() }
+    }, guardedCompletion ? {
       ...lifecycle,
-      // Use the captured boundary; a later native film mutates scratch.gesture.
+      isAlive: () => lifecycle?.isAlive() ?? scratch.live,
       isExpedited: () => this._wcExpeditedDry && gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
-      abort: () => { try { lifecycle.abort() } finally { releaseDryTicket() } },
-    } : lifecycle
-    this._settleQueue.start(scratch, ops, () => { try { complete() } finally { releaseDryTicket() } }, ownedLifecycle)
-    const job = this._settle
+      abort: (error?: unknown) => {
+        try { lifecycle?.abort(error) } finally {
+          try {
+            if (this._wcJoinedDeferred?.job === completedJob) {
+              if (error !== undefined) this._wcJoinedDeferredError = error
+              this._cancelSettle()
+            }
+          } finally { releaseDryTicket() }
+        }
+      },
+    } : lifecycle ? {
+      ...lifecycle,
+      isExpedited: () => this._wcExpeditedDry && gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
+      abort: (error?: unknown) => { try { lifecycle.abort(error) } finally { releaseDryTicket() } },
+    } : lifecycle)
+    const job = completedJob = this._settle
     if (this._wcJoinedTouch && job && scratch === this._ribbonStrokeScratch) {
       // Context colour may alias opts: capture values before later UI mutation.
       this._wcJoinedTouchInputs.set(job, { preset: this._strokePreset, color: [...this._strokeColor], gesture: scratch.gesture, finish: this._wcJoinedFinish.get(scratch) })
@@ -7791,6 +7840,32 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _advanceSettle(): void {
     this._settleQueue.advance()
+  }
+  private _resumeJoinedDeferred(job: NonNullable<WatercolorSettleQueue['current']>): void {
+    const held = this._wcJoinedDeferred
+    if (!held || held.job !== job) return
+    this._wcJoinedDeferred = null
+    this._wcJoinedTouchLease = null
+    try {
+      if (held.epoch !== this._wcJoinedDeferredEpoch || this._destroyed || this._contextLost || this.gl.isContextLost()) return
+      if (this._layers.get(held.layerId) !== held.finish.finish?.target || !held.scratch.live) {
+        this._wcJoinedDeferredError = new Error('Joined future target/owner invalidated')
+        this._wcJoinedRecoveryLayers.add(held.layerId)
+        this._unsettledLayers.add(held.layerId)
+        return
+      }
+      this._finishRibbonStroke(held.scratch, held.reveal, held.fade, held.spread, held.finish)
+    } catch (error) {
+      this._wcJoinedDeferredError = error
+      this._wcJoinedRecoveryLayers.add(held.layerId)
+      this._unsettledLayers.add(held.layerId)
+      if (this._settle?.scratch === held.scratch) this._settleQueue.cancel()
+      this._sweepReveals(performance.now(), held.layerId)
+      if (this._wash?.scratch === held.scratch) this._clearWash(false)
+      throw error
+    } finally {
+      this._releaseAsyncScratch(held.scratch, this._contextLost || this.gl.isContextLost())
+    }
   }
   private _completeSettle(): void {
     try { this._settleQueue.complete() } finally { this._wcJoinedTouchLease = null }
@@ -7937,6 +8012,9 @@ export class PencilEngine implements PencilEngineAPI {
     return this._gpuBudget !== Infinity && this._washGpuBytes() > this._gpuBudget * GPU_HARD_CEILING
   }
   private _cancelSettle(): void {
+    const joined = this._wcJoinedDeferred
+    this._wcJoinedDeferred = null
+    this._wcJoinedDeferredEpoch++
     this._wcJoinedTouchLease = null
     const lost = this._contextLost || this.gl.isContextLost()
     // Cancelling an unrelated history action can interrupt accepted material.
@@ -7959,6 +8037,15 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     this._settleQueue.cancel()
+    if (joined) {
+      if (!lost && !this._destroyed) {
+        this._wcJoinedRecoveryLayers.add(joined.layerId)
+        this._unsettledLayers.add(joined.layerId)
+        this._sweepReveals(performance.now(), joined.layerId)
+        if (this._wash?.scratch === joined.scratch) this._clearWash(false)
+      }
+      this._releaseAsyncScratch(joined.scratch, lost)
+    }
     this._wcCanonical.cancel(lost)
     this._clearAsyncPresentations(lost)
     this._wcAsyncDryTo.clear()
@@ -8376,7 +8463,25 @@ export class PencilEngine implements PencilEngineAPI {
       })
       return
     }
-    if (this._wcJoinedTouch && this._wcJoinedTouchMixed && !this._wcAsyncFinish && !owned
+    if (this._wcJoinedFinishDeferred && this._wcJoinedTouch && !this._wcAsyncFinish
+      && !this._wcMaterialPresentation && this._wcSourceFilmRebase && !this._settlePlan.splitQuanta
+      && !owned && reveal && fade && scratch === this._ribbonStrokeScratch
+      && this._wcJoinedTouchLease === this._settle && this._settle?.scratch === scratch
+      && this._wcJoinedTouchInputs.get(this._settle)?.finish?.gesture === this._wcJoinedTouchInputs.get(this._settle)?.gesture
+      && this._wcJoinedTouchInputs.get(this._settle)?.finish !== undefined
+      && this._wcJoinedDeferred === null && this._strokeLayerId) {
+      if (this._liveComposite?.scratch === scratch) this._flushLiveComposite()
+      const finish = scratch.captureCanonicalFinish()
+      if (finish) {
+        this._holdAsyncScratch(scratch)
+        this._wcJoinedDeferred = {
+          job: this._settle, scratch, finish, layerId: this._strokeLayerId,
+          epoch: this._wcJoinedDeferredEpoch, reveal, fade, spread,
+        }
+        return
+      }
+    }
+    if (this._wcJoinedTouch && (this._wcJoinedTouchMixed || this._wcJoinedFinishDeferred) && !this._wcAsyncFinish && !owned
       && scratch === this._ribbonStrokeScratch) {
       owned = scratch.captureCanonicalFinish() ?? undefined
       if (owned) this._wcJoinedFinish.set(scratch, owned)

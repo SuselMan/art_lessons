@@ -232,3 +232,24 @@ describe('budgeted continuation task ownership', () => {
   })
 
 })
+
+it('old scheduling failure preserves a successor started by complete and aborts only the old lifecycle',()=>{
+ const f=fixture(),oldAbort=vi.fn(),newAbort=vi.fn(),newOp=vi.fn();Object.assign(f.scratch,{live:true})
+ const nextScratch={live:true} as RibbonStrokeScratch
+ const failure=Error('old scheduling failure');const ctx=f.queue['ctx'];vi.spyOn(ctx,'scheduleFieldRelease').mockImplementationOnce(()=>{throw failure})
+ f.queue.start(f.scratch,[()=>{},()=>{}],()=>f.queue.start(nextScratch,[()=>{},newOp],()=>{},{isAlive:()=>true,abort:newAbort}),{isAlive:()=>true,abort:oldAbort})
+ expect(()=>f.queue.advance()).toThrow(failure);expect(f.queue.current?.scratch).toBe(nextScratch);expect(oldAbort).toHaveBeenCalledExactlyOnceWith(failure);expect(newAbort).not.toHaveBeenCalled()
+ f.queue.complete();expect(newOp).toHaveBeenCalledOnce();expect(newAbort).not.toHaveBeenCalled()
+})
+it('operator and abort failures retain the original cause and cleanup error explicitly',()=>{
+ const f=fixture(),error=Error('physical'),cleanup=Error('cleanup');Object.assign(f.scratch,{live:true})
+ f.queue.start(f.scratch,[()=>{},()=>{throw error}],()=>{},{isAlive:()=>true,abort:()=>{throw cleanup}})
+ try{f.queue.advance();expect.fail('must fail')}catch(e){expect(e).toBeInstanceOf(AggregateError);expect((e as AggregateError).cause).toBe(error);expect((e as AggregateError).errors).toEqual([error,cleanup])}
+ expect(f.queue.current).toBeNull()
+})
+
+it('dead-owner cleanup throwing cannot invoke abort twice through the advance catch',()=>{
+ const f=fixture(),cleanup=Error('abort'),abort=vi.fn(()=>{throw cleanup});let alive=true
+ f.queue.start(f.scratch,[()=>{},()=>{}],()=>{},{isAlive:()=>alive,abort});alive=false
+ expect(()=>f.queue.advance()).toThrow(cleanup);expect(abort).toHaveBeenCalledOnce();expect(f.queue.current).toBeNull()
+})
