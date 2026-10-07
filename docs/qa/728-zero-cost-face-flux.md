@@ -94,3 +94,18 @@ zero flag. Immutable V/cost/coverage/fixedP/totalC и исходный checkpoin
 Checkpoint arms заканчиваются перед diffusion: это carry-only proof.
 Diffuse/tide/whole-room endpoint требует отдельного последующего прогона.
 Контроллер не называет этот ограниченный результат полной parity.
+
+## Отрицательный аппаратный результат REPLACE 5e621642
+
+Samsung Adreno650, собственная вкладка1398 закрыта finally. 12 salted links,
+GL0; full1536² OLD/OFF всех6 полей byteexact, initial10 полей exact.
+Carry-only14commands на реальном42op tape (исполнен41 без image-reference).
+ON заменял legacy zero-flow: профиль границы ухудшился: gap21.595→22.846
+(+5.79%), fullP OFF/ON1486px/max6. Масса UNORM allP756292→756220;
+дополнительная потеря72byteunits (.009493% initial), не continuous-mass proof.
+Immutable V/cost/coverage/fixedP/Ctotal exact. Mobile C на singlepaint не
+исполнялся. Это НЕ исправление кольца и НЕ whole-room endpoint proof.
+Raw HOME:728-zero-cost-flux-runtime/temp/zero-cost-flux/hardware/
+results-adreno-vps-old-off-on/report.json и offline-zero-face-analysis.json.
+VPS та же относительная папка в728-zero-cost-flux. Первый HOME launcher
+67057 завершился до вкладки: namespace cached helper; реальный59537 EXIT0.
