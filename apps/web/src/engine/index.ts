@@ -7475,7 +7475,11 @@ export class PencilEngine implements PencilEngineAPI {
       const layerId = [...this._layers].find(([, layer]) => layer === (finishMetadata?.finish ?? scratch.finishContext)?.target)?.[0]
       const unrecordedPeerInk = !!layerId && [...this._peerLiveStrokes.values()].some(live =>
         live.layerId === layerId && live.paintedTotal > live.committedOffset)
-      skipContacts = !!layerId && !unrecordedPeerInk && pureWaterLayerProof(this._log.entries, layerId, this._snapshots.hasCoverage(layerId),
+      // The log can already reflect Undo while the old physical layer is
+      // still waiting for its replacement. Zero provenance requires both.
+      const rebuildingLayer = !!layerId && (this._rebuildJobs.has(layerId) || this._pendingRebuilds.has(layerId)
+        || this.isSnapshotHistoryRepairPending(layerId))
+      skipContacts = !!layerId && !rebuildingLayer && !unrecordedPeerInk && pureWaterLayerProof(this._log.entries, layerId, this._snapshots.hasCoverage(layerId),
         this._strokeLayerId === layerId && (this._strokeTool !== 'watercolor' || watercolorMixFromPreset(this._opts.pencilType).pigment > 0))
     }
     return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: scratch.dryCtx } : undefined, presentationOwnerLocked)
