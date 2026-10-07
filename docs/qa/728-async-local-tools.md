@@ -215,3 +215,30 @@ Raw HOME `results-pending-owner-deferred-history/report.json`, VPS copy
 `temp/async-multiplayer/pending-owner-deferred-history-report.json`. Previous
 `results-pending-owner-cancel` timeout is retained with its limited callback
 capture; no operation/model flag or pixel tolerance was changed.
+
+### Local structural Undo cancels two queued finish requests
+
+A separate actual Room run captured two different native finish stroke IDs and
+logical gestures2/3 on one shared physical scratch. Both input finish boundaries
+were recorded before any owned finish execution. At the local layer_add boundary,
+there were21 retained scratch references and22 FIFO requests; the reference count
+includes deposition requests, so it is not described as21 finishes or21 distinct
+scratch owners. An earlier fixture's Map.size>=2 check failed fast because it
+confused distinct scratch count with retained request references; no app defect
+was inferred from that failure.
+
+Ordinary local Undo targeted that just-accepted layer_add with no active pen. A
+transparent delegate recorded actual _cancelSettle:20 held references→0,
+pendingtrue→false, and layer-1 marked unsettled for authoritative recovery. All
+three accepted watercolor operation IDs remained. Recovery and layer Redo matched
+both authors' wholeRGBA/premult exactly0; both endpoints were nonempty187018 alpha
+pixels. After closing both author contexts, independent fresh replay matched final
+wholeRGBA0/max0/alphaMax0, nonempty187018, GL0/lostfalse. Initial pigment positive
+control was nonempty22116 and peerRGBA0 before the pending workload.
+
+This is two queued logical finish requests sharing one scratch, cancelled by
+reachable local structural Undo; it does not claim two independent physical
+scratch owners or undo under a native active pen. Bound360s, RAM500MiB unchanged;
+exit0 and owned Chrome closed. Raw HOME
+`results-multiowner-local-history-finish-proof/report.json`, VPS copy
+`temp/async-multiplayer/multiowner-local-history-finish-proof-report.json`.
