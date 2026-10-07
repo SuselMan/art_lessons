@@ -61,3 +61,36 @@ CPU oracle содержит буквальную независимую gather-�
 Логи и временные конфигурации находятся в `temp/zero-cost-flux/`.
 Vitest и TypeScript используют реальные существующие зависимости
 680-device-qa-guards/node_modules через явные aliases/paths; установки и symlinks нет.
+
+## Подготовленный аппаратный controller (не запускался)
+
+`temp/zero-cost-flux/hardware/prepare.mjs` проверяет неизменный curated42
+SHA ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9,
+909 tracked source files и синтаксис всех внедряемых функций. Сохраняются все42
+операции; established helper исполняет41 без единственной reference image_import.
+Это диагностика physical checkpoint, не полное изображение комнаты.
+
+`run-adreno.mjs` требует явные WC_QA_RUNTIME_ROOT, APP_URL, WC_QA_OUT,
+WC_QA_DEPS_ROOT и собственную новую вкладку. Watchdog900s; prefix240s,
+ target180s, arm90s, RAM preflight1700MiB/guard500MiB, serial/actual Adreno.
+Никакие старые вкладки и runtime не меняет.
+
+`checkpoint-function.js` прозрачно копирует full P/fixedP/V/cost/coverage до
+первого реального mode15; TOTAL C сохраняется отдельно перед заимствованием
+ca/cc. Все фактические14 carry и последующие mask commands записываются
+с source/destination identity и immutable uniforms. Буферы сохраняют исходный
+sampler filter. Capture cap256MiB; raw readback стримится по одному буферу
+кусочками64KiB в INPUT-*.rgba.gz. ROI не растягивается до полного поля.
+
+Каждый OLD/OFF/ON arm создаёт новые копии этого checkpoint и записывает полный
+initialSHA; обязательны initial equality и old/off full output equality.
+OLD использует отдельно подготовленный исходный WatercolorPasses580, его
+исходные carry strings сверяются с текущими буквально. ON меняет только
+zero flag. Immutable V/cost/coverage/fixedP/totalC и исходный checkpoint должны
+сохраниться. Все полные выходы стримятся в lossless RGBA.gz. Singlepaint C
+не является mobile carry, поэтому mode16 на нём не исполняется; отдельно
+холодно компилируются исходный/новый P/C shaders с тремя salt (12 links).
+
+Checkpoint arms заканчиваются перед diffusion: это carry-only proof.
+Diffuse/tide/whole-room endpoint требует отдельного последующего прогона.
+Контроллер не называет этот ограниченный результат полной parity.
