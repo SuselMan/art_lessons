@@ -1,3 +1,4 @@
+import {installUploadProvenance,installOwnedCanvasUploadProvenance} from './upload-provenance.mjs';
 import {diffusionStencilCells,uploadViewDescriptor} from '../728-crossgpu-neighborhood/stencil.mjs';
 import {worldRead} from './neighborhood-base.mjs';
 import {copiedFrame,installPhysicalCapture} from './physical.mjs';
@@ -11,6 +12,7 @@ if(journal.length!==42||journalSHA!=='ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8
 const excluded=journal.filter(x=>x.type==='image_import');if(excluded.length!==1||excluded[0].id!=='Yr38r8lLbf')throw Error('Only actual reference image may be excluded');
 for(const[id,seq]of [['Gq9CPrzxWh',64],['ytlRBmw3Tg',65]])if(!journal.some(o=>o.id===id&&o.seq===seq&&o.type==='stroke'))throw Error('Affected actual op identity missing');
 const app=process.env.APP_URL;if(!app)throw Error('Explicit frozen app URL required');
-const input={revision:source.source??source.head??source.revision,policy:'DEFAULT',gradientFibres:false,physicalCapture:process.env.WC_PHYSICAL_CAPTURE==='1',moduleURL:app+'/src/engine/index.ts',paperLoaderURL:app+'/src/engine/src/paper/paperLoader.ts',bufferModuleURL:app+'/src/engine/src/buffers/AccumulationBuffer.ts',installer,ops:journal.filter(x=>x.type!=='image_import'),operationTimeout:180000};
+const uploadInstaller='(function(canvas,opts){const installUploadProvenance='+installUploadProvenance.toString()+';const installOwnedCanvasUploadProvenance='+installOwnedCanvasUploadProvenance.toString()+';return installOwnedCanvasUploadProvenance(canvas,opts)})';new Function('return '+uploadInstaller);
+const input={uploadInstaller,uploadProvenance:process.env.WC_UPLOAD_PROVENANCE==='1',revision:source.source??source.head??source.revision,policy:'DEFAULT',gradientFibres:false,physicalCapture:process.env.WC_PHYSICAL_CAPTURE==='1',moduleURL:app+'/src/engine/index.ts',paperLoaderURL:app+'/src/engine/src/paper/paperLoader.ts',bufferModuleURL:app+'/src/engine/src/buffers/AccumulationBuffer.ts',installer,ops:journal.filter(x=>x.type!=='image_import'),operationTimeout:180000};
 writeFileSync(process.env.WC_PREPARED_FILE,JSON.stringify({source,journalSHA,excluded:excluded.map(x=>x.id),input,probe,probeSHA:createHash('sha256').update(probe).digest('hex'),installerSHA:createHash('sha256').update(installer).digest('hex'),scope:'CPU-prepared only; no device/network/GPU; requires independent grant/RAM/source verification'}));
 console.log(JSON.stringify({compiled:true,physicalCapture:input.physicalCapture,retained:42,executed:41,journalSHA,prepared:process.env.WC_PREPARED_FILE}));

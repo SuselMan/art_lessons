@@ -98,17 +98,35 @@ its GL-instance observer is installed before engine initialization/paper upload.
 No WebGL prototypes or user pages change. `installUploadProvenance` defaults OFF;
 existing-context active unit starts unknown until an actual activeTexture call.
 A newly created owned context has the spec default unit0. State shadows update
-only after original GL calls return successfully; original this/return/throws
+only after original GL calls return (including calls which set a GL error); original this/return/throws
 are preserved. Texture identities and observed sampler parameters are recorded
 without getParameter or getTexParameter. Unobserved sampler defaults remain
 unknown; exact CPU input SHA does not imply identical GPU conversion/sampling.
 
 Max64 upload records and16MiB cumulative owned clones by default. Null/image
-sources, absent binding, unknown active unit, detached views, source-offset
-WebGL2 overloads, exhausted budget or digest errors cannot become known.
+sources, detached views, source-offset
+WebGL2 overloads, exhausted budget or digest errors cannot produce a captured CPU view hash.
 Exact typed subview is cloned before original upload and any later mutation or
 worker transfer. SHA operates asynchronously on that clone, never a whole
 backing buffer. `ready()` must finish before comparison; failures remain data.
 `dispose()` restores only its own wrappers, clears binding owners and preserves
 records. GPU source/stencil/sampler itself is never changed. This is CPU-tested
 QA preparation, not an executed capture or complete shader-input parity proof.
+
+Followup: `callReturned` is not GPU acceptance. Every row carries
+`GLacceptanceUnverified:true`; `capturedCPUViewKnown` means only that the exact
+typed CPU view was cloned and hashed, even for a throwing or invalid GL call.
+Binding, sampler and pixelStore shadows describe observed returned calls, never
+validated GL state. `texelInterpretationKnown:false` remains explicit: unknown
+unpack/default state and GPU conversion prohibit inferred texel equality.
+The caller must prove `freshOwnedCanvas:true` to initialize unit0; obtaining an
+existing canvas context does not establish freshness.
+
+`prepare.mjs` wires the installer into the actual same42 owned-canvas probe,
+with opt-in `WC_UPLOAD_PROVENANCE=1` (default OFF), before Engine construction.
+The probe's newly created canvas establishes freshness; it records the actual
+paperTex observer identity and awaits exact-view hashes before cleanup. The
+record cap is512 and cumulative clones remain16MiB, including paper8MiB.
+Uncovered uploads, image sources, exhausted budget and per-call GL acceptance
+stay unknown. Existing terminal GL observation is retained, no queries added.
+No hardware capture has run for this followup.
