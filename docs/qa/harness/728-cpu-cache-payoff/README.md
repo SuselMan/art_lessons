@@ -1,0 +1,9 @@
+# Actual engine contact-cache payoff
+
+Serve this directory and `728-gpu-method-timer/parity.mjs` beside the shared standalone engine bundle. Open `index.html?engine=../engine-webgl2-standalone/run.js`. Shared bundle must be built from root source containing `diagnosticContactFieldCache`, `diagnosticReuseFlowRaster`, and stats. Missing capabilities fail explicitly. No Room, server, production writes or journal transformations.
+
+Root hardware runner can import `run.mjs` and call `window.runCpuCachePayoff({engineUrl, scenario:'zigzag', paper:'fine', repetitions:3})`. Each variant constructs its own fresh engine. OFF/cache/workspace run in alternating order for three trials. Flags are mutually exclusive and affect only those owned engine instances; defaults remain OFF. Fixed source tape has size400 recorded dabs and includes pigment+water overlap plus dry-all, undo, redo. Both zigzag and puddle should be run. This is canonical replay; live packet splitting is not represented.
+
+Reports cache hits/misses/bypasses/retained bytes/entries, workspace allocations/reuses/requested bytes, plan preparation snapshots, and CPU counts/inclusive/own/max time. Ribbon generators measure actual `next()` bodies, preserving yielded values and execution order. CPU costs include GL submission. Own costs subtract only instrumented descendants. Never sum inclusive totals or claim FPS/pen latency from this tape. Final RGBA/tape/code/whole-layer/undo/redo parity is strict except generated undo/redo IDs; optional complete fields reports are compared when the shared bundle supplies them.
+
+Meaningful unit tests cover nested attribution, generator executed-body measurement and yielded values, method restoration, capability failure, and mutually exclusive flag selection. Actual cache hit ratio and performance remain unmeasured until root runs on hardware. Cache misses can cost more than baseline; no promotion justified solely by synthetic warm timings.
