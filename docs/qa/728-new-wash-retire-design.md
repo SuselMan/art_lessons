@@ -48,3 +48,21 @@ Recorder sourceNib/sourceBands/sourceField не покрывает `importForeig
 Цену нового scratch всё равно нельзя объявлять нулевой: дополнительные future original/coverage/inkLoad/inkColor плюс lazy film/solvent буферы удерживаются одновременно со старым scratch. Каждый full1536² RGBA8 = 9 MiB. Foreign import marker snapshot пары coverage+foreignSolvent = 18 MiB/marker, поэтому вариант replay/import snapshots требует отдельного общего byte cap; предпочтительный distinct-scratch retain не добавляет эти marker snapshots. Admission обязана проверить общий live budget до input; нельзя принять deposit, потом молча отказаться из-за памяти.
 
 CPU-прототип `docs/qa/harness/728-future-source` пока моделирует более общий ordered replay contract. Его 7 tests не покрывают реальную эквивалентность этого zero-copy сокращения и не разрешают включение runtime.
+
+## Реальный scratch adapter, CPU
+
+`DistinctScratchLease` добавлен в существующий RibbonStrokeScratch.ts, по умолчанию disabled и **не подключён к Engine input**. Он требует distinct live scratch и отдельно удерживает future через callback. Job/epoch/old-layer identity обязательны; same-layer после old composite копирует actual tile в future.original, другой слой сохраняет original. Source/import текстуры не очищаются/не копируются/не проигрываются повторно. Release обоих владельцев exactly-once даже при исключении. Частичный rebase/composite failure сохраняет publication block до scoped cancel и подтверждения authoritative recovery.
+
+CPU гейт: `index.distinctScratchLease.test.ts` + прежний joinedTouch, 14 tests/2 files PASS; whole-web TS exit0. Реальный тестовый Engine выполняет настоящий `_completeSettle` с Plan, затем lease вызывает реальный `AccumulationBuffer.copyTo`. Полные MockGL readback arrays future.original совпадают с завершённым tile; непустые sentinel coverage/P/C/import arrays остаются byte-identical. Это проверяет реальные вызовы, copyback и владение, но **MockGL не моделирует акварельные shader modes**, поэтому не является GPU P/C/V parity proof. Raw: temp/pure-water-plan/future-source/actual-scratch-{tests,types}.log.
+
+Admission reserve является договором будущего caller: он должен заранее ограничить весь reachable physical target и максимальное количество lazy planes. Сейчас input не подключён, поэтому метод не обещает ограничение последующих неизвестных tile allocation. Нельзя подключать только вычисление live byte count после первого dab — это слишком поздно.
+
+## Следующая wiring ступень: убрать барьер UP, сохранив canonical finish
+
+Новый actual trace root показал старый drain на UP: 724 units/30.1ms CPU, затем 800ms RAF gap. Предлагаемый bounded путь использует существующий `captureCanonicalFinish`, а не broken async/material presenter:
+
+- До будущего UP source уже в distinct scratch; UP фиксирует immutable finish metadata/target/preset/color/opacity/scalars и accepted native op как обычно. Один future finish помещается в lease, старый job не complete на UP.
+- Natural old completion выполняет Plan.finish, old composite, затем lease rebase и future composite в том же callback. На этот момент старые Plan snapshots disposed; только теперь запускается `_finishRibbonStroke(future, ..., capturedFinish)` и его следующий Plan.prepare.
+- Existing Queue.advance обнуляет current **до** complete callback, поэтому successor `_startSettle` не вызывает Queue.start synchronous complete. Прямой Queue.complete рекурсивно drain-ит successor и остаётся явным барьером для export/Dry/Undo/third gesture; нельзя использовать его для этого normal UP.
+- Natural completion до future UP только rebase/composite, без преждевременного finish. Future metadata захватывается именно на реальном UP. Scalar wet/time не пересчитываются при запуске successor.
+- Scope сначала один predecessor+future WC, sourceFilmRebase ON, async/material/split OFF. New-layer admission дополнительно требует scoped `_clearWash` retirement; до этого layer-change fallback сохраняется. Без реального memory reservation и journal/loss/reveal lifecycle wiring путь не готов к включению.

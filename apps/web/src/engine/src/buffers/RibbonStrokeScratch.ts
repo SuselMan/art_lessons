@@ -977,3 +977,64 @@ export interface SpilledScratch extends ScratchScalars {
   takeBuffer(buffer: AccumulationBuffer): void
   releaseBuffer(buffer: AccumulationBuffer): void
 }
+
+/** CPU-reviewed diagnostic seam, not enabled or connected to input admission.
+ * Owns a distinct future scratch across its predecessor's final layer composite.
+ * No source/import replay: only the new wash's frozen original is rebased.
+ * Caller must reserve the WHOLE allowed future target before accepting input. */
+export class DistinctScratchLease {
+  private state: 'disabled' | 'held' | 'ready' | 'cancelled' | 'failed' = 'disabled'
+  private future: RibbonStrokeScratch | null = null
+  private futureLayerId: string | null = null
+  private releaseFuture: ((lost: boolean) => void) | null = null
+  private released = false
+  private repairRequired = false
+  private readonly owner: {
+    enabled?: boolean; job: object; scratch: RibbonStrokeScratch; epoch: number; layerId: string;
+    reservedFutureBytes: number; liveBytes: number; byteCap: number;
+    retain(): void; release(lost: boolean): void;
+  }
+  constructor(owner: DistinctScratchLease['owner']) {
+    this.owner = owner
+    if (!owner.enabled) return
+    for (const n of [owner.epoch, owner.reservedFutureBytes, owner.liveBytes, owner.byteCap]) {
+      if (!Number.isSafeInteger(n) || n < 0) throw new Error('Invalid distinct scratch admission')
+    }
+    if (!owner.layerId || !owner.scratch.live || owner.reservedFutureBytes <= 0
+      || owner.liveBytes + owner.reservedFutureBytes > owner.byteCap) throw new Error('Distinct scratch budget/owner unavailable')
+    owner.retain(); this.state = 'held'
+  }
+  bindFuture(scratch: RibbonStrokeScratch, layerId: string, retain: () => void, release: (lost: boolean) => void): void {
+    if (this.state !== 'held' || this.future || !scratch.live || !layerId || scratch === this.owner.scratch) throw new Error('Distinct future owner required')
+    retain(); this.future = scratch; this.futureLayerId = layerId; this.releaseFuture = release
+  }
+  private releaseOnce(lost: boolean): void {
+    if (this.released) return
+    this.released = true
+    try { this.owner.release(lost) } finally { this.releaseFuture?.(lost) }
+  }
+  /** Must follow the actual old Plan.finish AND engine composite, not Plan.finish alone. */
+  afterComposite(job: object, epoch: number, layerId: string, compositeDone: boolean, compositeFuture: () => void): boolean {
+    if (this.state !== 'held' || job !== this.owner.job || epoch !== this.owner.epoch || layerId !== this.owner.layerId) return false
+    if (!compositeDone || !this.future?.live || !this.owner.scratch.live) throw new Error('Predecessor/future composite not ready')
+    try {
+      // Source arrays/imports remain owned and untouched. The predecessor only
+      // writes its own scratch and these canonical layer tiles.
+      if (this.futureLayerId === this.owner.layerId) {
+        for (const [tile, entry] of this.future.tileEntries()) tile.copyTo(entry.original)
+      }
+      compositeFuture()
+      this.releaseOnce(false); this.state = 'ready'; return true
+    } catch (error) { this.repairRequired = true; this.state = 'failed'; throw error }
+  }
+  cancel(lost = false): boolean {
+    if (this.state !== 'held' && this.state !== 'failed') return false
+    this.state = 'cancelled'; this.releaseOnce(lost); return true
+  }
+  /** Only authoritative rebuild/restore may acknowledge a partial physical failure. */
+  acknowledgeRecovery(job: object, epoch: number): boolean {
+    if (this.state !== 'cancelled' || job !== this.owner.job || epoch !== this.owner.epoch) return false
+    this.repairRequired = false; return true
+  }
+  get blocksPublication(): boolean { return this.repairRequired || this.state === 'held' || this.state === 'failed' }
+}
