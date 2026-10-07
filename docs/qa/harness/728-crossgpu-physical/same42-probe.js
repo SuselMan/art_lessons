@@ -2,7 +2,7 @@
   const {PencilEngine}=await import(input.moduleURL);
   const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=900;document.body.append(canvas);
   const out={revision:input.revision,policy:input.policy,events:[],errors:[],scope:'fresh packed full curated42; reference image explicitly excluded; no Room/snapshot/native/ACK/performance claim'};
-  let e,neighborhood;
+  let e,neighborhood,uploads;
   const raf=()=>new Promise(resolve=>requestAnimationFrame(resolve));
   const busy=()=>!!(e._settle||e._opQueue?.length||e._rebuildJobs?.size||e._pendingRebuilds?.size||e._wcCanonical?.pending);
   const event=(phase,details={})=>{window.__regressionProgress={phase,revision:input.revision,policy:input.policy,at:performance.now(),...details};out.events.push(window.__regressionProgress)};
@@ -10,6 +10,7 @@
   const bytes64=bytes=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s)};
   const encode=async blob=>{if(!blob)throw Error('empty export blob');return bytes64(new Uint8Array(await blob.arrayBuffer()))};
   try {
+    if(input.uploadProvenance===true){const install=new Function('return '+input.uploadInstaller)();uploads=install(canvas,{enabled:true,freshOwnedCanvas:true,maxRecords:512,maxBytes:16*1024*1024,domain:()=>({stage:out.events.at(-1)??null})});}
     event('construct');e=new PencilEngine(canvas,{pageWidth:3508,pageHeight:2480,paper:'medium',gradientFibres:input.gradientFibres});
     window.__regressionEngine=e;e.setBaseLayers(['layer-1']);e.setActiveLayer('layer-1');e.setCompositeOrder([{id:'layer-1',opacity:1}]);
     await e.paperReady();e.setLocked(false);
@@ -72,8 +73,8 @@
     captureWorst('post-final-Dry');out.journal=(e._log?.entries??[]).map(x=>({id:x.op.id,type:x.op.type,state:x.state}));
     event('export');out.finalPNG=await encode(await e.exportPNG(false));out.transparentPNG=await encode(await e.exportPNG(true));
     const gl=e.gl,ext=gl.getExtension('WEBGL_debug_renderer_info');out.gpu={gl:gl.getError(),lost:gl.isContextLost(),renderer:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
-    out.neighborhood={summary:neighborhood.summary(),rows:neighborhood.rows};out.completed=true;event('done');
+    out.neighborhood={summary:neighborhood.summary(),rows:neighborhood.rows};if(uploads?.capture){await uploads.capture.ready();out.uploadProvenance={summary:uploads.capture.summary(),rows:uploads.capture.rows,paperTextureId:uploads.capture.textureId(e._watercolorPasses.ctx.paperTex()),GLacceptance:'only final existing gl error observation; per-call acceptance unverified'};}out.completed=true;event('done');
   } catch(error){out.error=String(error);out.pending=e?{settle:e._settle?.next,length:e._settle?.ops?.length,queue:e._opQueue?.length,rebuild:e._rebuildJobs?.size,pendingRebuild:e._pendingRebuilds?.size}:null}
-  finally {if(neighborhood){out.neighborhood??={summary:neighborhood.summary(),rows:neighborhood.rows};neighborhood.dispose();}if(e)e.destroy();canvas.remove();delete window.__regressionEngine;out.engineClosed=true;}
+  finally {if(uploads){if(uploads.capture){await uploads.capture.ready();out.uploadProvenance??={summary:uploads.capture.summary(),rows:uploads.capture.rows};}uploads.dispose();}if(neighborhood){out.neighborhood??={summary:neighborhood.summary(),rows:neighborhood.rows};neighborhood.dispose();}if(e)e.destroy();canvas.remove();delete window.__regressionEngine;out.engineClosed=true;}
   return out;
 })

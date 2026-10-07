@@ -8,11 +8,18 @@ const qa=installUploadProvenance(gl,{enabled:true,digest,domain:()=>({op:'water6
 const input=new Uint8Array([99,1,2,3,4,88]);let view=input.subarray(1,5);
 assert.equal(gl.texImage2D(1,0,2,2,1,0,3,4,view),'uploaded');
 gl.activeTexture(101);gl.bindTexture(1,texture);gl.texParameteri(1,7,8);assert.equal(gl.texImage2D(1,0,2,2,1,0,3,4,view),'uploaded');input.fill(0);
-await qa.ready();assert.equal(qa.rows[0].known,false);assert.equal(qa.rows[1].known,true);assert.equal(qa.rows[1].byteOffset,1);assert.equal(qa.rows[1].byteLength,4);assert.equal(qa.rows[1].exactViewSHA,createHash('sha256').update(new Uint8Array([1,2,3,4])).digest('hex'));assert.equal(qa.rows[1].samplerObserved[7],8);
-const transferable=new Uint8Array([5,6,7]);gl.texSubImage2D(1,0,0,0,3,1,3,4,transferable);structuredClone(transferable.buffer,{transfer:[transferable.buffer]});await qa.ready();assert.equal(qa.rows[2].known,true);
-gl.texImage2D(1,0,2,3,4,{width:2,height:2});await qa.ready();assert.equal(qa.rows[3].known,false);
-thrown=true;assert.throws(()=>gl.texImage2D(1,0,2,2,1,0,3,4,new Uint8Array([8])),/original failed/);await qa.ready();assert.equal(qa.rows[4].submitted,false);assert.equal(qa.rows[4].known,false);thrown=false;
+await qa.ready();assert.equal(qa.rows[0].capturedCPUViewKnown,true);assert.equal(qa.rows[1].capturedCPUViewKnown,true);assert.equal(qa.rows[1].byteOffset,1);assert.equal(qa.rows[1].byteLength,4);assert.equal(qa.rows[1].exactViewSHA,createHash('sha256').update(new Uint8Array([1,2,3,4])).digest('hex'));assert.equal(qa.rows[1].samplerObserved[7],8);
+const transferable=new Uint8Array([5,6,7]);gl.texSubImage2D(1,0,0,0,3,1,3,4,transferable);structuredClone(transferable.buffer,{transfer:[transferable.buffer]});await qa.ready();assert.equal(qa.rows[2].capturedCPUViewKnown,true);
+gl.texImage2D(1,0,2,3,4,{width:2,height:2});await qa.ready();assert.equal(qa.rows[3].capturedCPUViewKnown,false);
+thrown=true;assert.throws(()=>gl.texImage2D(1,0,2,2,1,0,3,4,new Uint8Array([8])),/original failed/);await qa.ready();assert.equal(qa.rows[4].callReturned,false);assert.equal(qa.rows[4].capturedCPUViewKnown,true);thrown=false;
 assert.equal(calls,5);qa.dispose();assert.equal(gl.texImage2D,original);
-const bounded=installUploadProvenance(gl,{enabled:true,digest,maxBytes:1});gl.bindTexture(1,texture);gl.texImage2D(1,0,2,2,1,0,3,4,new Uint8Array([1,2]));await bounded.ready();assert.equal(bounded.rows[0].known,false);assert.equal(bounded.summary().truncated,true);bounded.dispose();
+const bounded=installUploadProvenance(gl,{enabled:true,digest,maxBytes:1});gl.bindTexture(1,texture);gl.texImage2D(1,0,2,2,1,0,3,4,new Uint8Array([1,2]));await bounded.ready();assert.equal(bounded.rows[0].capturedCPUViewKnown,false);assert.equal(bounded.summary().truncated,true);bounded.dispose();
 const canvas={getContext(){return gl}},get=canvas.getContext;const owned=installOwnedCanvasUploadProvenance(canvas,{enabled:true,digest});assert.equal(owned.capture,null);assert.equal(canvas.getContext('webgl'),gl);assert.ok(owned.capture);owned.dispose();assert.equal(canvas.getContext,get);assert.equal(gl.texImage2D,original);
 console.log('OFF/scoped-before-init/offset/hash/mutation/transfer/unbound/image/throw/budget/restore controls PASS');
+
+// Returning INVALID_OPERATION must never be promoted to accepted GPU input.
+const invalid={...gl,pixelStorei(){return undefined},bindTexture(){this.error=1282},texImage2D(){this.error=1282;return undefined}};
+const errQA=installUploadProvenance(invalid,{enabled:true,digest});invalid.bindTexture(1,{});invalid.pixelStorei(3317,8);invalid.texImage2D(1,0,2,1,1,0,3,4,new Uint8Array([9]));await errQA.ready();assert.equal(errQA.rows[0].callReturned,true);assert.equal(errQA.rows[0].GLacceptanceUnverified,true);assert.equal(errQA.rows[0].capturedCPUViewKnown,true);assert.equal(errQA.rows[0].texelInterpretationKnown,false);assert.equal(errQA.rows[0].unpackObserved[3317],8);errQA.dispose();
+const existing=installOwnedCanvasUploadProvenance(canvas,{enabled:true,digest});canvas.getContext('webgl');gl.texImage2D(1,0,2,1,1,0,3,4,new Uint8Array([1]));assert.equal(existing.capture.rows[0].unitKnown,false);existing.dispose();
+const fresh=installOwnedCanvasUploadProvenance(canvas,{enabled:true,digest,freshOwnedCanvas:true});canvas.getContext('webgl');gl.texImage2D(1,0,2,1,1,0,3,4,new Uint8Array([1]));assert.equal(fresh.capture.rows[0].unitKnown,true);fresh.dispose();
+console.log('Nonthrow GL error/unpack shadow/explicit fresh ownership controls PASS');
