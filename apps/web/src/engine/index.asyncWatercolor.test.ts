@@ -731,3 +731,25 @@ it('recovers accepted queued pencil pixels after unrelated local history cancell
     expect(engine['_layers'].get('L')!.allResident()[0].buffer.readPixels().some((v, i) => i % 4 === 3 && v > 0)).toBe(true)
   } finally { engine.destroy() }
 })
+
+it('closes only the cancelled local preview stream once without losing accepted operations', async () => {
+  const ended = vi.fn()
+  const { engine } = createTestEngine({ userId: 'author', onLiveStrokeEnd: ended }, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('pencil'); engine.setPencil('HB'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 36, y: 20 }])
+    const accepted = engine.getOperations().map(op => op.id)
+    ended.mockClear()
+    engine['_wcAsyncLocalStroke'] = 'unrecorded-tail'
+    engine['_strokeId'] = 'unrecorded-tail'
+    engine['_strokeLayerId'] = 'L'
+    engine['_clearAsyncPresentations'](false)
+    engine['_clearAsyncPresentations'](false)
+    expect(ended.mock.calls).toEqual([['unrecorded-tail']])
+    expect(engine.getOperations().map(op => op.id)).toEqual(accepted)
+    expect(engine['_strokeId']).toBeNull()
+  } finally { engine.destroy() }
+})
