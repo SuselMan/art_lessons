@@ -39,3 +39,27 @@ exact argv/cwd подтверждены, create/main HTTP200, originalvite.confi
 и existingdeps/node22, backend4539. Source-passport1840/988files сохранён.
 Controller скопирован наHOME и syntaxPASS. GPUконтекст ещё не запускался;
 5330 временный, пользовательский5329 не менялся.
+
+## Actual current-default matrix1840
+
+Handle15648 завершён exit0, ownedChromeClosedtrue. Два настоящих
+authenticated Room автора,640×480/Vega, currentasync/splitOFF.22barriers
+PASS: слои/структурныеUndoRedo, water→foreignpigment, второй цвет, sharedDry,
+авторскиеUndoRedo, layeradd/move/hide/show/remove+UndoRedo, reconnect и
+новый третий автор. Все проверенные peerRGBA count0/max0/premult0/alpha0,
+262003nonempty pixels. На каждом барьере idle/GL0/lostfalse/owners0.
+
+Отдельный CPU pixel audit подтвердил реальные изменения: sharedDry→Undo
+colour256473px/max197; Redo изменяет те же256473px. Hide→Show и
+Remove→Undo25538px/max53. Это не сравнение неподвижных пустых изображений.
+
+Actualpeerpacket получен, но peerDuringSettle=false: этот прогон не доказывает
+обработку пакета внутри незавершённого settle. Latejoin пошёл по ordinary
+historyfallback после отмены bakedoperations; actualsnapshotblob не скачивался.
+Bitmaprestore отдельно доказан cachegate1840. Широкий межустройственный
+midpen/contextloss gate всё ещё нужен.
+
+RawHOME:`680-water-wet-tone-qa/temp/night-current-default1840/
+{report.json,meaningful-mutations.json,*-0.png,*-1.png}`. Rootcopy:
+`temp/night-728/current-default-matrix1840-report.json`. User5329 неизменён,
+временный5330 пока сохранён.
