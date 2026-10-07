@@ -492,6 +492,8 @@ for (const [tool, preset] of [['pencil', 'HB'], ['marker', 'normal'], ['eraser',
     expect(engine['_wcCanonical'].pending).toBe(false)
     expect(engine['_wcAsyncLocalTools'].size).toBe(0)
     expect(local).toHaveBeenCalledTimes(1)
+    // No ACK was delivered: optimistic visibility must not wait for the server.
+    expect(engine['_log'].entries.find(e => e.op.id === recorded.id)).toMatchObject({ state: 'done', pending: true })
     fresh.appendOperation({ ...recorded, seq: 2 }, 'remote')
     expect(pixels()).toEqual(fresh['_layers'].get('L')!.allResident()[0].buffer.readPixels())
   } finally { complete.mockRestore(); engine.destroy(); fresh.destroy() }
