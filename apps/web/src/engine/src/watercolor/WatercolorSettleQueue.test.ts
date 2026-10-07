@@ -144,3 +144,73 @@ describe('synchronous drain presentation gate', () => {
   })
 
 })
+
+
+describe('budgeted continuation task ownership', () => {
+  function taskFixture() {
+    vi.useFakeTimers()
+    const f = fixture(), sync = vi.fn(), calls: number[] = []
+    let drawing = false
+    const ctx = (f.queue as unknown as { ctx: { syncGpu: () => void; canonicalBacklogSize: () => number; isDrawing: () => boolean } }).ctx
+    ctx.syncGpu = sync; ctx.canonicalBacklogSize = () => 3; ctx.isDrawing = () => drawing
+    vi.stubGlobal('scheduler', undefined)
+    f.queue.continuationTasksEnabled = true
+    f.queue.start(f.scratch, Array.from({ length: 30 }, (_, i) => () => calls.push(i)), () => calls.push(99), { isAlive: () => true, abort() {} })
+    return { ...f, calls, sync, draw: () => { drawing = true } }
+  }
+  afterEach(() => vi.useRealTimers())
+  it('retains exact order and forces a frame after two bounded tasks', () => {
+    const f = taskFixture(); f.frame()
+    expect(f.calls).toEqual([0, 1, 2, 3, 4])
+    vi.runAllTimers()
+    expect(f.calls).toEqual(Array.from({ length: 13 }, (_, i) => i))
+    expect(f.sync).toHaveBeenCalledTimes(12)
+    expect(f.frames.size).toBe(1)
+    f.queue.complete(); expect(f.calls).toEqual([...Array.from({ length: 30 }, (_, i) => i), 99])
+    vi.runAllTimers(); expect(f.calls).toHaveLength(31)
+  })
+  it('cancels the pending task before an ownership abort without late writes', () => {
+    const f = taskFixture(); f.frame(); f.queue.cancel(); vi.runAllTimers()
+    expect(f.calls).toEqual([0, 1, 2, 3, 4]); expect(f.frames.size).toBe(0)
+  })
+  it('yields to new input between continuation tasks', () => {
+    const f = taskFixture(); f.frame(); f.draw(); vi.runAllTimers()
+    expect(f.calls).toEqual([0, 1, 2, 3, 4]); expect(f.frames.size).toBe(1)
+    f.queue.cancel()
+  })
+  it('fences the final submitted unit before ending its budget', () => {
+    const f = taskFixture(); f.queue.complete(); f.calls.length = 0; f.sync.mockClear()
+    f.queue.start(f.scratch, [() => f.calls.push(0), () => f.calls.push(1)], () => f.calls.push(2), { isAlive: () => true, abort() {} })
+    f.frame(); expect(f.calls).toEqual([0, 1, 2]); expect(f.sync).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+  it('keeps default OFF on the old one-unit animation-frame policy', () => {
+    const f = taskFixture(); f.queue.continuationTasksEnabled = false; f.frame()
+    expect(f.calls).toEqual([0, 1]); expect(f.sync).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0)
+    f.queue.cancel()
+  })
+  it('aborts postTask ownership before an obsolete callback can write', () => {
+    const f = taskFixture(); let callback: (() => void) | undefined; let signal: AbortSignal | undefined
+    vi.stubGlobal('scheduler', { postTask: (fn: () => void, options: { signal: AbortSignal }) => { callback = fn; signal = options.signal; return new Promise(() => {}) } })
+    f.frame(); f.queue.cancel(); expect(signal?.aborted).toBe(true); callback?.()
+    expect(f.calls).toEqual([0, 1, 2, 3, 4])
+  })
+  it('returns to the animation-frame policy when postTask rejects', async () => {
+    const f = taskFixture(); vi.stubGlobal('scheduler', { postTask: () => Promise.reject(Error('unsupported')) })
+    f.frame(); await Promise.resolve(); await Promise.resolve()
+    expect(f.frames.size).toBe(1); expect(f.calls).toHaveLength(5); f.queue.cancel()
+  })
+  it('does not execute an old continuation after replacing its job', () => {
+    const f = taskFixture(); f.frame(); const newCalls: string[] = []
+    f.queue.start(f.scratch, [() => newCalls.push('capture'), () => newCalls.push('new')], () => newCalls.push('finish'), { isAlive: () => true, abort() {} })
+    expect(f.calls.at(-1)).toBe(99); vi.runAllTimers(); expect(newCalls).toEqual(['capture'])
+    f.frame(); expect(newCalls).toEqual(['capture', 'new', 'finish'])
+  })
+  it('stops after loss inside a submitted unit and closes the owned work', () => {
+    const f = taskFixture(); f.queue.complete(); f.calls.length = 0; f.sync.mockClear(); let alive = true; const abort = vi.fn()
+    f.queue.start(f.scratch, [() => f.calls.push(0), () => { f.calls.push(1); alive = false }, () => f.calls.push(2)], () => f.calls.push(3), { isAlive: () => alive, abort })
+    f.frame(); expect(f.calls).toEqual([0, 1]); expect(f.sync).toHaveBeenCalledTimes(1)
+    vi.runAllTimers(); f.frame(); expect(abort).toHaveBeenCalledTimes(1); expect(f.calls).toEqual([0, 1])
+  })
+
+})

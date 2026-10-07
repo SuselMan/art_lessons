@@ -25,6 +25,8 @@ export function inheritSettleOpTags(source: () => void, wrapped: () => void): vo
 export interface WatercolorSettleLifecycle {
   isAlive(): boolean
   abort(): void
+  /** Captured owner/gesture request; never reads the next gesture identity. */
+  isExpedited?(): boolean
 }
 
 export interface WatercolorSettleJob {
@@ -41,6 +43,7 @@ export interface WatercolorSettleQueueContext {
   perf(): { settleStart: number; settleOps: number; settleMs: number }
   isDrawing(): boolean
   backlogSize(): number
+  canonicalBacklogSize?(): number
   backlogMax(): number
   syncGpu?(): void
   noteActivity(now: number): void
@@ -80,6 +83,42 @@ export class WatercolorSettleQueue {
   /** Diagnostic only: snapshot/capture and other generators remain barriers. */
   presentationBatchEnabled = false
 
+  /** Experimental post-lift tasks; preserves mandatory animation-frame yields. */
+  continuationTasksEnabled = false
+  private continuationCount = 0
+  private continuationCancel: (() => void) | null = null
+
+  private cancelContinuation(): void {
+    this.continuationCancel?.()
+    this.continuationCancel = null
+    this.continuationCount = 0
+  }
+
+  private scheduleContinuation(s: WatercolorSettleJob): boolean {
+    if (!this.continuationTasksEnabled || this.ctx.isDrawing()
+      || !(s.lifecycle?.isExpedited?.() || (this.ctx.canonicalBacklogSize?.() ?? 0) > 0)
+      || this.continuationCount >= 2 || this.continuationCancel) return false
+    this.continuationCount++
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    this.continuationCancel = () => { controller.abort(); if (timer !== undefined) clearTimeout(timer) }
+    const run = (): void => {
+      this.continuationCancel = null
+      if (controller.signal.aborted || this._settle !== s) return
+      // Input may arrive between tasks: defer to the regular drawing policy.
+      if (this.ctx.isDrawing() || !this.isAlive(s)) { this.scheduleTick(); return }
+      this.tick(true)
+    }
+    const scheduler = (globalThis as typeof globalThis & {
+      scheduler?: { postTask(callback: () => void, options: { signal: AbortSignal; priority: 'user-visible' }): Promise<unknown> }
+    }).scheduler
+    if (scheduler) void scheduler.postTask(run, { signal: controller.signal, priority: 'user-visible' }).catch(() => {
+      if (!controller.signal.aborted && this._settle === s) { this.continuationCancel = null; this.scheduleTick() }
+    })
+    else timer = setTimeout(run, 0)
+    return true
+  }
+
   private _settleTickAt = 0
 
   private _settleSkipped = 0
@@ -113,12 +152,13 @@ export class WatercolorSettleQueue {
     const s = this._settle
     if (!s || s.raf) return
     s.raf = requestAnimationFrame(() => {
+      this.continuationCount = 0
       s.raf = 0
       this.tick()
     })
   }
 
-  private tick(): void {
+  private tick(continuation = false): void {
     const s = this._settle
     if (!s) return
     // The wash was torn down under it (undo, a new wash): nothing to land.
@@ -132,7 +172,8 @@ export class WatercolorSettleQueue {
     // Never more than three frames without one, or the settle stalls.
     const nowT = performance.now()
     const late = this._settleTickAt > 0 && nowT - this._settleTickAt > 20
-    this._settleTickAt = nowT
+    // Continuations must not disguise a missed animation-frame deadline.
+    if (!continuation) this._settleTickAt = nowT
     if (this.ctx.isDrawing() && late && this._settleSkipped < 3) {
       this._settleSkipped++
       this.scheduleTick()
@@ -145,6 +186,17 @@ export class WatercolorSettleQueue {
     // seconds late.
     // Only after an on-time frame, the same gate as the pen's: a late one means
     // the device is already behind.
+    if (this.continuationTasksEnabled && !late && !this.ctx.isDrawing()
+      && (s.lifecycle?.isExpedited?.() || (this.ctx.canonicalBacklogSize?.() ?? 0) > 0) && this.ctx.syncGpu) {
+      const at = performance.now()
+      for (let n = 0; n < 4 && this._settle === s; n++) {
+        this.advance()
+        this.ctx.syncGpu()
+        if (this._settle !== s || !this.isAlive(s) || this.ctx.isDrawing() || performance.now() - at >= 4) break
+      }
+      if (this._settle === s && !this.scheduleContinuation(s)) this.scheduleTick()
+      return
+    }
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
     for (let k = 0; k < perTick && this._settle === s; k++) {
@@ -180,6 +232,7 @@ export class WatercolorSettleQueue {
     if (s.next < s.ops.length) s.ops[s.next++]()
     if (s.next < s.ops.length) return
     this._settle = null
+    this.cancelContinuation()
     if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
     s.complete()
     this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
@@ -196,6 +249,7 @@ export class WatercolorSettleQueue {
     this._drainDepth++
     try {
       this._settle = null
+      this.cancelContinuation()
       if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
       if (!this.isAlive(s)) { s.lifecycle?.abort(); return }
       for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
@@ -218,6 +272,7 @@ export class WatercolorSettleQueue {
     const s = this._settle
     if (!s) return
     this._settle = null
+    this.cancelContinuation()
     if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
     s.lifecycle?.abort()
   }
