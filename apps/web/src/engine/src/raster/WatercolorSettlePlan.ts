@@ -295,14 +295,13 @@ export class WatercolorSettlePlan {
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
     const groups = lazyContacts && !skipZeroPigmentContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
-    const firstContact = groups.length ? { rect: groups[0].rect, radius: groups[0].radius, field: brushDragField(groups[0].travel, groups[0].rect)! } : null
     const contacts = skipZeroPigmentContacts || lazyContacts ? [] : brushDragContacts(metadata.brushTravel, contactRect)
-    const flow = firstContact?.field ?? contacts[0]?.field
+    const flow = contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
     const captureInputs: Array<() => void> = []
-    if (flow) captureInputs.push(() => {
+    const bindFlowTexture = (): void => {
       this._brushFlowTex ??= gl.createTexture()
       flowTexture = this._brushFlowTex
       gl.activeTexture(gl.TEXTURE0)
@@ -311,6 +310,9 @@ export class WatercolorSettlePlan {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    }
+    if (flow) captureInputs.push(() => {
+      bindFlowTexture()
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, flow.width, flow.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, flow.pixels)
     })
     if (foreign) captureInputs.push(() => {
@@ -965,7 +967,9 @@ export class WatercolorSettlePlan {
       let rect: [number, number, number, number], scissor: [number, number, number, number]
       let left: number, right: number, bottom: number, top: number
       commands.push(() => {
-        if (!flowTexture) return
+        // Lazy CPU fields have no redundant pre-stitch upload: the flow is
+        // first consumed here, after immutable canonical capture.
+        if (!flowTexture) bindFlowTexture()
         const cf = contact.field, cr = contact.rect
         gl.activeTexture(gl.TEXTURE0)
         gl.bindTexture(gl.TEXTURE_2D, flowTexture)
@@ -995,8 +999,7 @@ export class WatercolorSettlePlan {
       return commands
     }
     for (const contact of contacts) ops.push(...contactOps(contact))
-    if (firstContact) ops.push(...contactOps(firstContact))
-    for (const group of groups.slice(1)) {
+    for (const group of groups) {
       const generator = brushDragFieldWork(group.travel, group.rect)
       cpuFields.add(generator)
       const advanceField = (): void => {
