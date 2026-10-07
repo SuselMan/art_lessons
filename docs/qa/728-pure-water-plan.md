@@ -92,3 +92,20 @@ exact; те же четыре служебных отличия только д�
 доминируют длительность: скорость и native tail этим gate не измерены.
 Дальше native400 с actual next touch/Dry/Undo/Redo; пользовательский5329
 по-прежнему d88.
+
+## Ordinary native A4 — отдельная проверка
+
+Normaltrackedconfig f52/986sourceSHA, SamsungAdreno650, A4 1754×2480,
+water400/3s и настоящий следующий touch, без диагностического readback в
+active/tail. OFF/ON activeMax17/17мс, tail919/602мс, touchhandler66.2/58.9мс.
+Это одна adaptive пара, журналы не одинаковые; сокращение хвоста наблюдаемое,
+не доказанный общий выигрыш и не smoothPASS. Strongzero2prepare/2 в обоих.
+
+Последующая настоящая pigment100 nonempty112723/112492px. Все10opsACK,
+pendingfalse,GL0/lostfalse. Undo последнего nexttouch изменил17549px/max255;
+Redo вернул exact0 в каждом плече. Водяные DryPNG прозрачны, поэтому их
+равенство не заменяет ранее полученный meaningfulV/coverage fixed-tape gate.
+Raw:`728-pure-water-plan/temp/pure-water-plan/native/
+run-pureplanNative_1791358714375/{report.json,rgba-audit.json}`. Собственные
+1427/1428 закрыты, exit0. Два раннихcustomconfig bootstrapFAIL доengine
+сохранены отдельно и не считаются физическими результатами. DefaultOFF.
