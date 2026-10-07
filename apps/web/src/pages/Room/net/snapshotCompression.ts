@@ -1,7 +1,8 @@
 import { compressLayerTiles } from '../../../engine/snapshots'
 
-const MAX_WORKER_INPUT = 32 * 1024 * 1024
-const MAX_WORKER_OUTPUT = 40 * 1024 * 1024
+// Full A2 RGBA tiles occupy33.19MiB; cap bounds the extra transfer clone.
+const MAX_WORKER_INPUT = 40 * 1024 * 1024
+const MAX_WORKER_OUTPUT = 48 * 1024 * 1024
 
 async function workerCompression(bytes: Uint8Array): Promise<Uint8Array> {
   const worker = new Worker(new URL('./snapshotCompression.worker.ts', import.meta.url), { type: 'module' })

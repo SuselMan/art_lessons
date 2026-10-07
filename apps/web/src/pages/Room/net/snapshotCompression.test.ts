@@ -76,3 +76,32 @@ it('preserves uploads if CSP or an older browser rejects module-worker construct
   const raw = new Uint8Array([1, 2, 3, 255])
   expect(await decompressLayerTiles(await compressSnapshot(raw, true))).toEqual(raw)
 })
+
+
+it('keeps ordinary A2 transport off the main-thread size fallback', async () => {
+  const instances = fixture()
+  const raw = new Uint8Array(3508 * 2480 * 4 + 4 + 12 * 16)
+  for (let i = 0; i < raw.length; i += 4096) raw[i] = (i >>> 12) & 255
+  const result = await compressSnapshot(raw, true)
+  const decoded = await decompressLayerTiles(result)
+  expect(instances).toHaveLength(1)
+  expect(instances[0].sent?.byteLength).toBe(34_799_556)
+  expect(raw.byteLength).toBe(34_799_556)
+  expect(decoded.byteLength).toBe(raw.byteLength)
+  expect(decoded.every((value, index) => value === raw[index])).toBe(true)
+  expect(instances[0].terminate).toHaveBeenCalledOnce()
+})
+
+
+it('bounds worker cloning beyond forty MiB with the existing compressor', async () => {
+  const instances = fixture()
+  const raw = new Uint8Array(40 * 1024 * 1024 + 1)
+  raw[0] = 17
+  raw[raw.length - 1] = 93
+  const result = await compressSnapshot(raw, true)
+  expect(instances).toHaveLength(0)
+  const decoded = await decompressLayerTiles(result)
+  expect(decoded.byteLength).toBe(raw.byteLength)
+  expect(decoded[0]).toBe(17)
+  expect(decoded[decoded.length - 1]).toBe(93)
+})
