@@ -153,3 +153,39 @@ field difference, but no spatial localization outside ROI is claimed.
 Raw HOME `results-material-stream-7b11/report.json`, VPS copied
 `temp/async-multiplayer/material-stream-7b11-report.json`. No source/operator,
 production flag or pixel tolerance changed.
+
+### Deferred wet-profile key identity (e360f0f4)
+
+A read-only nib-uniform capture found the pure-water source coverage discrepancy:
+all sixteen native/remote mode6 nib commands had identical geometry, seed,
+across/puddle/pool scalars; only paperWet differed (native0, remote13/15).
+Deferred material cloned drawable Dab objects but retained wetIndex keys for the
+original objects. wetOf(clone) therefore returned0. The five-line fix copies the
+existing wetIndex entry to each immutable cloned dab. It changes neither water
+volume nor pigment/solver operators. The regression failed before the fix and
+passed after it;46 focused painter/async tests, web types and lint passed.
+
+Post-fix hardware captured both first operations' prepare/finish fields: all
+nine available full-tile SHA values, including coverage, matched native/remote.
+A first endpoint attempt stopped at466.84MiB. The sequential controller initially
+forgot freshEngine.setCompositeOrder: its fresh exports were transparent even
+though fields matched. Those two empty PNGs' equality is invalid evidence and is
+explicitly withdrawn. The corrected controller copies native composite order and
+requires nonempty fresh PNGs. NativeA after the first two operations then matched
+fresh2 wholeRGBA exactly0. Its final stage stopped at492.98MiB while holding two
+fresh engines; final B/fresh4 was not covered. Raw failed attempts are preserved.
+The final fresh-only oracle used one fresh engine at a time and the unchanged
+recorded four-operation journal plus saved B-native final PNG. Both independently
+replayed fresh engines had nonempty22642 alpha pixels, GL0/lostfalse and exact
+operation JSON. Every available field's full SHA matched saved nativeB at all six
+prepare/finish stages. B-native orderedDry versus fresh0 and fresh0 versus fresh1
+wholeRGBA both matched exactly0/max0/alphaMax0. It exited0 and closed its owned
+Chrome; preflight1837MiB, minimum1345MiB. The preceding nativeA2/fresh2 endpoint
+also matched exactly0. This proves this four-operation scope, not arbitrary
+multi-owner cancellation or device performance.
+
+Raw HOME `results-sequential-wet-index-composite-final/report.json` retains the
+partial run and A2 proof. `results-sequential-final-oracle/report.json` holds the
+completed B4/fresh oracle; VPS copy is
+`temp/async-multiplayer/sequential-final-oracle-report.json`. Old empty-export and
+resource-aborted attempts remain distinct and are not labelled parity PASS.
