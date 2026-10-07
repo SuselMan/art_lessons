@@ -53,3 +53,7 @@ Low-water normal:10:100 native1352, matched fixed1353, SHAddb7419be27b5d6d27d6d7
 Retry1355 own Room CpqCxCHq1754×2480Fine: actual PointerController3s dense400+nexttouch с bandON и прежними lazy/FIFO/split/cap4/source+phaseON, fibresOFF. Дваstroke authoritativeACKseq1/2 done/pendingfalse, realUI paper_dryseq3. Final1754×2480PNG1890226paintedpx, GL0/lostfalse, owners0/presentations0, canonical/settle/rebuild idle. Target CLOSED. Это delivery/nonemptyendpoint проверка ordinaryRoom, не matchedhistory/reload parity.
 
 Active151frames/max50ms/28>33/0>100; nexttouch handler20.5ms послеlift100.3ms, tailmax100ms. Долгий solver остается:12canonical requests/reveals4 наблюдались в54.4s, canonicalidle59.4s затем revealendpoint. Standalone более быстрые rAF не подменяют этот Room результат. DefaultbandOFF сохраняется, smoothness не решена.
+
+### Broad compositor trace1356: ограничение доказательства
+
+Own1356 actual nativebandON завершил physics/endpoint GL0/lostfalse, два rAFgap83.7ms. Расширенные categories gpu/userTiming/viz/cc/renderer.scheduler/toplevel с binary4MiB развернулись более32MiB JSON; hard streamguard остановил скачивание. Target CLOSED, rawreport/CPU/partialtrace сохранены HOME. Partialtrace невалиден, compositor attribution этим прогоном не установлена. Следующий подготовленный контроллер уменьшает circularbuffer до2048KiB, убирает toplevel и закрывает IOstream также в guard-finally. Source/shaders не менялись.
