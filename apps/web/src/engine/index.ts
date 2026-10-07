@@ -1,3 +1,4 @@
+import { ribbonDabTouchesTile } from './src/dabs/dabWorldHalfExtents'
 import { ribbonSegmentLength } from './src/dabs/ribbonDrawable'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
@@ -6991,10 +6992,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  every dab six times, and on the iPad each draw into its own target is a
    *  render pass whether or not it lands. */
   private _nibTouchesTile(tile: PaintTarget, dab: Dab, preset: PencilPreset): boolean {
-    const { hx, hy } = this._dabWorldHalfExtents(dab, false, preset)
-    const m = 2
-    return dab.x + hx + m > tile.originX && dab.x - hx - m < tile.originX + tile.buffer.width
-      && dab.y + hy + m > tile.originY && dab.y - hy - m < tile.originY + tile.buffer.height
+    return ribbonDabTouchesTile(tile, dab, preset)
   }
 
   /** (#494) One dab's world-space half-extents — see dabWorldHalfExtents
