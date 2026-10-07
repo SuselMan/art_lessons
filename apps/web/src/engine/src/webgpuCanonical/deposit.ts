@@ -1,6 +1,6 @@
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
-import type { CanonicalGpuField, CanonicalRibbonBatch } from './types'
+import type { CanonicalGpuField, CanonicalRasterPhase, CanonicalRibbonBatch } from './types'
 
 /** Literal RIBBON_VERT/FRAG port. Production uniforms and 11-float vertices
  * enter unchanged. Each target remains RGBA8; coverage and ink are separate
@@ -40,7 +40,7 @@ fn availableWet(v:VOut)->f32 {
  return vec4f((v.across*.5+.5)*amount,amount*wcPoolness(v.contact.x,wet,u.blot)*step(0.0,v.strength),amount*standing,amount);
 }
 struct InkOut { @location(0) pigment:vec4f,@location(1) color:vec4f }
-@fragment fn ink(v:VOut)->InkOut {
+fn paint(v:VOut)->InkOut {
  let cov=clamp(v.edge/u.aa,0,1);if(cov<=0){discard;}
  let wp=canonicalWp(v);let wet=clamp(availableWet(v),0,1);
  var water=0.0;if(v.ink>5e-7){water=clamp(v.water/v.ink,0,1);}
@@ -51,6 +51,10 @@ struct InkOut { @location(0) pigment:vec4f,@location(1) color:vec4f }
  o.pigment=vec4f(amount*water,amount*wet,amount*strength,amount);
  o.color=vec4f(amount*strength*u.tau.xyz/4.0,amount*strength);return o;
 }
+@fragment fn ink(v:VOut)->InkOut{return paint(v);}
+@fragment fn pigmentOnly(v:VOut)->@location(0) vec4f{return paint(v).pigment;}
+@fragment fn colorOnly(v:VOut)->@location(0) vec4f{return paint(v).color;}
+
 `;
 const layout: GPUVertexBufferLayout = { arrayStride: 44, attributes: [
  { shaderLocation: 0, offset: 0, format: 'float32x2' },
@@ -64,6 +68,7 @@ export class CanonicalRibbonDeposit {
  readonly coverage: GPURenderPipeline
  readonly ink: GPURenderPipeline
  readonly inkMax: GPURenderPipeline
+ private readonly single: Record<string,GPURenderPipeline>
  private readonly device: GPUDevice
  private readonly noise: CanonicalGpuField
  constructor(device: GPUDevice, noise: CanonicalGpuField) {
@@ -73,8 +78,9 @@ export class CanonicalRibbonDeposit {
   this.coverage = device.createRenderPipeline({ label: 'production coverage Q8 over', layout: 'auto', vertex, fragment: { module, entryPoint: 'coverage', targets: [{ format: 'rgba8unorm', blend: over }] }, primitive: { topology: 'triangle-list' } })
   this.inkMax = device.createRenderPipeline({ label: 'production ink/depth Q8 MAX film', layout: 'auto', vertex, fragment: { module, entryPoint: 'ink', targets: [{ format: 'rgba8unorm', blend: maximum }, { format: 'rgba8unorm', blend: maximum }] }, primitive: { topology: 'triangle-list' } })
   this.ink = device.createRenderPipeline({ label: 'production ink/depth Q8 add', layout: 'auto', vertex, fragment: { module, entryPoint: 'ink', targets: [{ format: 'rgba8unorm', blend: add }, { format: 'rgba8unorm', blend: add }] }, primitive: { topology: 'triangle-list' } })
+  this.single = Object.fromEntries((['pigmentOnly','colorOnly'] as const).flatMap(entryPoint => (['max','add'] as const).map(mode => [entryPoint+mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint,targets:[{format:'rgba8unorm',blend:mode==='max'?maximum:add}]},primitive:{topology:'triangle-list'}})])))
  }
- encode(encoder: GPUCommandEncoder, batch: CanonicalRibbonBatch, coverage: CanonicalGpuField, previousWater: CanonicalGpuField, pigment: CanonicalGpuField, color: CanonicalGpuField): GPUBuffer[] {
+ encode(encoder: GPUCommandEncoder, batch: CanonicalRibbonBatch, coverage: CanonicalGpuField, previousWater: CanonicalGpuField, pigment: CanonicalGpuField, color: CanonicalGpuField, phase:CanonicalRasterPhase='all'): GPUBuffer[] {
   if (batch.vertices.length % 33 !== 0) throw new Error('Canonical ribbon requires production 11-float triangle vertices')
   const v = batch.uniforms
   const uniform = this.device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
@@ -86,7 +92,10 @@ export class CanonicalRibbonDeposit {
    const pass = encoder.beginRenderPass({ colorAttachments: writes.map(field => ({ view: field.view, loadOp: 'load', storeOp: 'store' })) })
    pass.setPipeline(pipeline); pass.setBindGroup(0, group); pass.setVertexBuffer(0, vertices); pass.draw(batch.vertices.length / 11); pass.end()
   }
-  encode(this.coverage, previousWater, [coverage]); encode(batch.inkBlend === 'max' ? this.inkMax : this.ink, coverage, [pigment, color])
+  if(phase==='all'||phase==='coverage')encode(this.coverage, previousWater, [coverage])
+  if(phase==='all')encode(batch.inkBlend === 'max' ? this.inkMax : this.ink, coverage, [pigment,color])
+  if(phase==='pigment')encode(this.single['pigmentOnly'+batch.inkBlend],coverage,[pigment])
+  if(phase==='color')encode(this.single['colorOnly'+batch.inkBlend],coverage,[color])
   return [uniform, vertices]
  }
 }

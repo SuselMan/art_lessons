@@ -1,6 +1,6 @@
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
-import type { CanonicalGpuField, CanonicalStamp } from './types'
+import type { CanonicalGpuField, CanonicalRasterPhase, CanonicalStamp } from './types'
 /** Literal production DAB_VERT and markerNibDistPx/inkMode6+7 branches.
  * Parameters are prepared upstream by the production CPU path. */
 export const CANONICAL_STAMP_WGSL = `
@@ -35,7 +35,7 @@ fn covered(v:V)->vec4f {return textureLoad(coverageTex,clamp(vec2i(v.position.xy
  return vec4f((a*.5+.5)*cov,cov*wcPoolness(u.paint.w,u.paint.y,u.blot),cov*max(u.paint.y,u.wash*mix(u.retain,1.0,u.paint.y)*wcStandingGate(u.paint.x,u.wash)),cov);
 }
 struct InkOut { @location(0) pigment:vec4f,@location(1) color:vec4f }
-@fragment fn ink(v:V)->InkOut {
+fn paint(v:V)->InkOut {
  let distance=nibDistance(v);let cov=clamp(-distance/u.aa,0,1);if(cov<=0){discard;}
  let depth=clamp(-distance/max(u.pose.z,1e-4)*2.0,0,1);
  var amount=cov*mix(u.contact.w,1.0,depth)*u.shape.w;
@@ -47,12 +47,17 @@ struct InkOut { @location(0) pigment:vec4f,@location(1) color:vec4f }
  amount*=wcCloud(world,u.seed,u.cloud)*wcSettling(world,u.seed,u.gran)*wcFilmBlot(world,u.seed,u.clip.y,wet,u.blot,u.paint.x,step(5e-7,abs(u.paint.z)));
  var o:InkOut;o.pigment=vec4f(amount*u.paint.x,amount*wet,amount*u.paint.z,amount);o.color=vec4f(amount*u.paint.z*u.tau.xyz/4.0,amount*u.paint.z);return o;
 }
+@fragment fn ink(v:V)->InkOut{return paint(v);}
+@fragment fn pigmentOnly(v:V)->@location(0) vec4f{return paint(v).pigment;}
+@fragment fn colorOnly(v:V)->@location(0) vec4f{return paint(v).color;}
+
 `;
 export class CanonicalStampDeposit {
  private readonly device: GPUDevice
  private readonly noise: CanonicalGpuField
  private readonly coverage: GPURenderPipeline
  private readonly ink: Record<'max'|'add', GPURenderPipeline>
+ private readonly single: Record<string,GPURenderPipeline>
  constructor(device: GPUDevice, noise: CanonicalGpuField) {
   this.device=device;this.noise=noise
   const module=device.createShaderModule({label:'production watercolor nib deposit',code:CANONICAL_STAMP_WGSL})
@@ -60,8 +65,9 @@ export class CanonicalStampDeposit {
   const over:GPUBlendState={color:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'},alpha:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'}}
   this.coverage=device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint:'coverage',targets:[{format:'rgba8unorm',blend:over}]}})
   this.ink=Object.fromEntries((['max','add'] as const).map(mode=>{const blend:GPUBlendState={color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}};return[mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint:'ink',targets:[{format:'rgba8unorm',blend},{format:'rgba8unorm',blend}]}})]})) as Record<'max'|'add',GPURenderPipeline>
+  this.single=Object.fromEntries((['pigmentOnly','colorOnly'] as const).flatMap(entryPoint=>(['max','add'] as const).map(mode=>{const blend:GPUBlendState={color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}};return[entryPoint+mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint,targets:[{format:'rgba8unorm',blend}]}})]})))
  }
- encode(encoder:GPUCommandEncoder,stamp:CanonicalStamp,coverage:CanonicalGpuField,blank:CanonicalGpuField,pigment:CanonicalGpuField,color:CanonicalGpuField):GPUBuffer[] {
+ encode(encoder:GPUCommandEncoder,stamp:CanonicalStamp,coverage:CanonicalGpuField,blank:CanonicalGpuField,pigment:CanonicalGpuField,color:CanonicalGpuField,phase:CanonicalRasterPhase='all'):GPUBuffer[] {
   const v=stamp.uniforms,u=this.device.createBuffer({size:160,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST})
   this.device.queue.writeBuffer(u,0,new Float32Array([coverage.width,coverage.height,...v.worldOrigin,...v.mottleSeed,v.aaPx,v.washWater,v.waterRetain,v.bristleCombs,v.bristleInk,v.cloudDeposit,v.granDeposit,v.poolBlot,+v.useAvailableWater,0,...v.tau,0,...stamp.center,stamp.radius,stamp.aspect,stamp.angle,+(stamp.nibShape==='roundedBox'),stamp.cornerRadius,stamp.opacity,stamp.inkWater,stamp.paperWet,stamp.inkStrength,stamp.puddle,...stamp.acrossLocal,stamp.pressure,stamp.inkEdge,stamp.inkClip,stamp.pigmentPool,0,0]))
   const encode=(pipeline:GPURenderPipeline,read:CanonicalGpuField,writes:CanonicalGpuField[])=>{
@@ -71,6 +77,10 @@ export class CanonicalStampDeposit {
    const group=this.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries})
    const pass=encoder.beginRenderPass({colorAttachments:writes.map(field=>({view:field.view,loadOp:'load',storeOp:'store'}))});pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.draw(6);pass.end()
   }
-  encode(this.coverage,blank,[coverage]);encode(this.ink[stamp.inkBlend],coverage,[pigment,color]);return[u]
+  if(phase==='all'||phase==='coverage')encode(this.coverage,blank,[coverage])
+  if(phase==='all')encode(this.ink[stamp.inkBlend],coverage,[pigment,color])
+  if(phase==='pigment')encode(this.single['pigmentOnly'+stamp.inkBlend],coverage,[pigment])
+  if(phase==='color')encode(this.single['colorOnly'+stamp.inkBlend],coverage,[color])
+  return[u]
  }
 }
