@@ -64,3 +64,26 @@ web-empty-cache-types,map-empty-cache,map-empty-cache-rules}.log`.
 комната640×480. Его частичный результат не считается полным восстановлением:
 новая краска/upload/fresh join ещё должны быть проверены. Пользовательский
 стенд5329 по-прежнему d88; задержка первоначального растекания не закрыта.
+
+## Финальный gate интеграции
+
+Повторная полная engine suite: **1704PASS/16skip**,149filesPASS/1skip,
+137.50s. Все handles завершены. Исправление fixtures не меняло runtime.
+
+Samsung SM-T970, immutable1840/988trackedSHA, настоящий Room640×480,
+nativewater80→UI Dry: сначала quiet отказ не кэшировался, затем реальный
+null bake revision26 выполнил один readPixels. `bytes=0` в отчёте означает
+нулевой размер возвращённого snapshot, не число прочитанных GPU байтов.
+После этого двадцать повторов: readPixels0, snapshotbytes0, uploads0;
+слой resident1/dirtytrue.
+
+Настоящий pigment80 изменил revision52; следующий разрешённый bake снова
+выполнил readPixels и вернул1228820bytes. Обычный snapshot POST HTTP200,
+seq6. Все шесть операций ACK. Fresh Room получил coverage layer-1seq6;
+wholeRGBA1228800bytes changed0/max0,30648nonempty pixels. GL0/lostfalse;
+оба собственных контекста закрыты. Это проверка cache invalidation, upload
+и restore; не доказательство плавности большой кисти400.
+
+Raw (не коммитится):
+`728-empty-snapshot-retry/temp/device-runs/empty-retry1840/workerregion_1791357779761/report.json`.
+Пользовательский стенд5329 остаётся d88.
