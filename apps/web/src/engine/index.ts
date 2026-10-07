@@ -114,7 +114,7 @@ import {
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
-import { TILE_SIZE } from './src/buffers/tileMath'
+import { TILE_SIZE, tilesOverlappingRect, tileWorldRect, type WorldRect } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
@@ -1784,6 +1784,11 @@ export class PencilEngine implements PencilEngineAPI {
     peerId: string; strokeId: string; layerId: string; nextPacketSeq: number; ended: boolean; cancelled: boolean;
     buf: AccumulationBuffer | null; origin: { x: number; y: number }; pending: Map<object, PeerLivePacket>;
   }>()
+  private _wcAsyncLocalStroke: string | null = null
+  private readonly _wcAsyncLocalTools = new Map<string, {
+    layers: Map<string, { buffer: ILayerBuffer; copied: Set<string>; scratch: RibbonStrokeScratch }>
+    ended: boolean; queued: number
+  }>()
   private readonly _wcAsyncDryTo = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncOwners = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncPresentations = new Map<RibbonStrokeScratch, Map<number, { buf: AccumulationBuffer; origin: { x: number; y: number }; pending: Map<object, Dab[]>; preset: string; color: [number, number, number] }>>()
@@ -2173,6 +2178,7 @@ export class PencilEngine implements PencilEngineAPI {
     screenBuf: () => this._screenBuf,
     layers: () => this._layers,
     previews: () => this._previews,
+    transientPreviews: () => this._asyncLocalPreviewTiles(),
     reveals: () => this._washReveals,
     drawReveal: (...args) => this._drawTileReveal(...args),
     activeId: () => this._activeId,
@@ -5617,7 +5623,6 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _onStart(e: PointerData): void {
-    if (this._wcAsyncFinish && this._opts.tool !== 'watercolor' && this._wcCanonical.pending) return
     // (§17.58) Peers' queued watercolour stays queued: landing it here was a
     // one-second hitch on the iPad right at the pen's touch. It lands after
     // this stroke, one a frame - the same order this author already saw for
@@ -5648,7 +5653,7 @@ export class PencilEngine implements PencilEngineAPI {
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the
     // wash - replay order again.
-    if (this._settle && !(this._wcAsyncFinish && this._opts.tool === 'watercolor')) this._completeSettle()
+    if (this._settle && !this._wcAsyncFinish) this._completeSettle()
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
     // (#520) The eraser's cross-layer mode, resolved once here for the whole
@@ -5750,6 +5755,8 @@ export class PencilEngine implements PencilEngineAPI {
       this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
     this._strokeId = nanoid(10)
+    this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
+    if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
     // makes the first packet of a gesture go out with the first dabs painted
     // rather than one interval later, so a peer sees the stroke begin as
@@ -5986,6 +5993,7 @@ export class PencilEngine implements PencilEngineAPI {
   // _previewBuf below, so a since-superseded tangent estimate never lingers
   // or double-inks the real buffer.
   private _refreshTip(speed: number): void {
+    if (this._wcAsyncLocalStroke) return
     if (!this._tipBuf) return
     this._tipBuf.clear()
     const dabs = this._dabs.peekTipDabs(this._physicalSize, speed)
@@ -6012,6 +6020,7 @@ export class PencilEngine implements PencilEngineAPI {
   // layer's real buffer, never appended to `_strokeDabs`, so predictions can
   // never reach the recorded Operation or onLocalOperation/broadcast.
   private _onPredict(samples: PointerData[]): void {
+    if (this._wcAsyncLocalStroke) return
     if (!this._strokeLayerId || !this._previewBuf) return
     this._previewBuf.clear()
     if (!samples.length) { this._scheduleDisplay(); return }
@@ -6074,7 +6083,7 @@ export class PencilEngine implements PencilEngineAPI {
       appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
-    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
+    if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
     if (this._wash && this._wash.scratch === this._ribbonStrokeScratch) {
       // (#468 v7) A wash outlives its strokes — the paint is still on the paper
       // and still wet, so the buffers stay open for the next band to pool into.
@@ -6142,6 +6151,7 @@ export class PencilEngine implements PencilEngineAPI {
           ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
         }
         this._log.append(op, { pending: true })
+        if (this._wcAsyncLocalStroke) this._queueAsyncLocalToolOp(op, this._wcAsyncLocalStroke)
         // (#537) A peer's live ink still unrecorded on this layer went down
         // interleaved with this gesture's — see _foreignUnrecordedInk.
         if (this._foreignUnrecordedInk(targetId, op)) this._unsettledLayers.add(targetId)
@@ -6166,6 +6176,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._liveDabQueue = []
     // Only now: the operation built just above still needed it, and _onEnd
     // tears the marker scratch down well before reaching here.
+    const localHeld = this._wcAsyncLocalStroke ? this._wcAsyncLocalTools.get(this._wcAsyncLocalStroke) : undefined
+    if (localHeld) localHeld.ended = true
+    this._wcAsyncLocalStroke = null
     this._strokeId = null
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
@@ -6586,6 +6599,7 @@ export class PencilEngine implements PencilEngineAPI {
         ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
       }
       this._log.append(op, { pending: true })
+      if (this._wcAsyncLocalStroke) this._queueAsyncLocalToolOp(op, this._wcAsyncLocalStroke)
       if (this._foreignUnrecordedInk(targetId, op)) this._unsettledLayers.add(targetId)
       this._maybeCheckpoint(targetId)
       this._onLocalOperation?.(op)
@@ -6612,7 +6626,7 @@ export class PencilEngine implements PencilEngineAPI {
     // max, the film's base refreshed - see _diffuseWashOps' finish): the
     // synchronous form was a hitch of tens to hundreds of milliseconds every
     // chunk on a big brush ("слишком сильно тормозит при больших штрихах").
-    if (this._ribbonStrokeScratch) {
+    if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) {
       this._finishRibbonStroke(this._ribbonStrokeScratch, true, false)
       this._ribbonStrokeScratch.newFilm()
     }
@@ -6761,6 +6775,12 @@ export class PencilEngine implements PencilEngineAPI {
     spreadSettle = false,
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
+    // Logical input remains immediate. Only isolated display copies may change
+    // before the preceding canonical solver has landed.
+    if (!strokeId && this._wcAsyncLocalStroke && tool !== 'watercolor') {
+      const layerId = [...this._layers].find(([, buffer]) => buffer === target)?.[0]
+      if (layerId) { this._paintAsyncLocalTool(layerId, dabs, tool, presetName, color, prevDab); return undefined }
+    }
     if (tool === 'smudge') { this._smudge.paint(target, dabs, userId, prevDab, strokeId); return undefined }
     // #573 — the mixer brush paints through smudge's carried imprint with its
     // own colour loaded into it; every other digital brush is a ribbon-scratch
@@ -7703,6 +7723,88 @@ export class PencilEngine implements PencilEngineAPI {
   private _retireAsyncScratch(scratch: RibbonStrokeScratch | undefined): void {
     if (scratch && !this._wcAsyncOwners.has(scratch)) scratch.destroy()
   }
+  private _asyncLocalPreviewTiles(): ReadonlyMap<string, readonly { buffer: AccumulationBuffer; originX: number; originY: number }[]> {
+    const result = new Map<string, readonly { buffer: AccumulationBuffer; originX: number; originY: number }[]>()
+    for (const held of this._wcAsyncLocalTools.values()) for (const [id, layer] of held.layers) result.set(id, layer.buffer.allResident())
+    return result
+  }
+  private _releaseAsyncLocalTool(id: string, lost: boolean): void {
+    const held = this._wcAsyncLocalTools.get(id)
+    if (!held) return
+    this._wcAsyncLocalTools.delete(id)
+    for (const layer of held.layers.values()) {
+      if (!lost) layer.buffer.destroy()
+      if (lost) layer.scratch.forget(); else layer.scratch.destroy()
+    }
+    this._invalidateSplitCache()
+    this._scheduleDisplay()
+  }
+  private _queueAsyncLocalToolOp(op: Operation & { type: 'stroke' }, id: string): void {
+    const held = this._wcAsyncLocalTools.get(id)
+    if (!held) return
+    const immutable = structuredClone(op), owner = this
+    held.queued++
+    this._wcCanonical.enqueue({ execute: function* () {
+      // The operation is already in the journal and already dispatched once.
+      const entry = owner._log.entries.find(e => e.op.id === immutable.id)
+      const layer = owner._layers.get(immutable.layerId)
+      if (entry?.state === 'done' && layer) {
+        owner._applyPixelOp(layer, immutable.layerId, immutable)
+        owner._snapshots.markDirty(immutable.layerId)
+        owner._invalidateSplitCache()
+      }
+      held.queued--
+      if (held.ended && !held.queued) owner._releaseAsyncLocalTool(id, false)
+      owner._scheduleDisplay()
+    }, cancel: lost => owner._releaseAsyncLocalTool(id, lost) })
+  }
+  private _resolveAsyncLocalTargets(id: string, layerId: string, buffer: ILayerBuffer, rect: WorldRect): PaintTarget[] {
+    const held = this._wcAsyncLocalTools.get(id), layer = held?.layers.get(layerId)
+    const canonical = this._layers.get(layerId)
+    if (!held || !layer || !canonical || this._contextLost || this.gl.isContextLost()) return []
+    const { w, h } = this._tileSize(), cells = tilesOverlappingRect(rect, w, h)
+    let used = 0
+    for (const owner of this._wcAsyncLocalTools.values()) for (const clone of owner.layers.values()) used += clone.copied.size * w * h * 4 * 8
+    for (const films of this._wcAsyncPresentations.values()) for (const film of films.values()) used += film.buf.width * film.buf.height * 4
+    for (const peer of this._wcAsyncPeerStreams.values()) if (peer.buf) used += peer.buf.width * peer.buf.height * 4
+    const missing = cells.filter(c => !layer.copied.has(`${c.tileX},${c.tileY}`)).length
+    // Conservative allowance includes up to eight ribbon buffers per tile.
+    // Reaching the presentation cap never drops logical dabs or forces a drain.
+    if (used + missing * w * h * 4 * 8 > 64 * 1024 * 1024) return []
+    for (const c of cells) {
+      const key = `${c.tileX},${c.tileY}`
+      if (layer.copied.has(key)) continue
+      const tileRect = tileWorldRect(c.tileX, c.tileY, w, h)
+      const target = buffer.resolveForPaint(tileRect)[0]
+      const previous = [...this._wcAsyncLocalTools.values()].filter(owner => owner !== held).reverse().map(owner => owner.layers.get(layerId)?.buffer.resolveVisible(tileRect).find(t => t.originX === tileRect.minX && t.originY === tileRect.minY)).find(Boolean)
+      const source = previous ?? canonical.resolveVisible(tileRect).find(t => t.originX === tileRect.minX && t.originY === tileRect.minY)
+      if (source) source.buffer.copyTo(target.buffer)
+      layer.copied.add(key)
+    }
+    return buffer.resolveForPaint(rect)
+  }
+  private _paintAsyncLocalTool(layerId: string, dabs: Dab[], tool: ToolType, preset: string, color: [number, number, number], prev?: Dab): void {
+    const id = this._wcAsyncLocalStroke!, held = this._wcAsyncLocalTools.get(id)
+    const canonical = this._layers.get(layerId)
+    if (!held || !canonical || this._contextLost || this.gl.isContextLost()) return
+    let layer = held.layers.get(layerId)
+    if (!layer) {
+      const profile = ribbonProfileFor(tool, preset), real = this._makeLayerBuffer(), owner = this
+      // Intercept the painter's real patch rect, including smudge's pickup
+      // margin. Never allocate or read back a canonical target on this route.
+      const buffer = new Proxy(real, { get(target, key) {
+        if (key === 'resolveForPaint') return (rect: WorldRect) => owner._resolveAsyncLocalTargets(id, layerId, real, rect)
+        const value = Reflect.get(target, key, target)
+        return typeof value === 'function' ? value.bind(target) : value
+      } })
+      layer = { buffer, copied: new Set(), scratch: new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit) }
+      held.layers.set(layerId, layer)
+    }
+    this._paintDabs(layer.buffer, dabs, tool, preset, color, this._userId + ':async-preview', prev, layer.scratch, id + ':preview')
+    this._invalidateSplitCache()
+    this._scheduleDisplay()
+  }
+
   /** Provisional stamps are presentation only. The actual source commands
    * are queued separately and never sample this buffer. */
   private _showAsyncPresentation(scratch: RibbonStrokeScratch, gesture: number, dabs: readonly Dab[], preset: string, color: [number, number, number]): object | null {
@@ -7827,6 +7929,11 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _clearAsyncPresentations(lost: boolean): void {
+    for (const id of [...this._wcAsyncLocalTools.keys()]) this._releaseAsyncLocalTool(id, lost)
+    if (this._wcAsyncLocalStroke) {
+      this._wcAsyncLocalStroke = null
+      this._strokeLayerId = null; this._strokeId = null; this._strokeDabs = []
+    }
     for (const held of this._wcAsyncPeerStreams.values()) {
       if (held.buf && !lost) held.buf.destroy()
       held.buf = null

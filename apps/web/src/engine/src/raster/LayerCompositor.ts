@@ -4,7 +4,7 @@ import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { coarseFactorFor } from '../buffers/tileMath'
 import { frameEdgeX, frameEdgeY, type CameraFrame } from './cameraFrame'
-import type { LayerPreviews } from './layerPreviews'
+import type { LayerPreviews, PreviewTile } from './layerPreviews'
 import { DISPLAY_VERT, LAYER_COMPOSITE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 
@@ -39,6 +39,7 @@ export interface LayerCompositorContext {
   screenBuf(): WebGLBuffer
   layers(): ReadonlyMap<string, ILayerBuffer>
   previews(): LayerPreviews
+  transientPreviews?(): ReadonlyMap<string, readonly PreviewTile[]>
   reveals(): ReadonlyMap<AccumulationBuffer, WashReveal>
   drawReveal(frame: CameraFrame, reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number, opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number, minifying: boolean): void
   activeId(): string | null
@@ -129,12 +130,13 @@ export class LayerCompositor {
     // exactFrame.
     const minifying = frame.scale < 1
 
-    const preview = this.ctx.previews().tiles.get(id)
+    const transient = includeWashReveal ? this.ctx.transientPreviews?.().get(id) : undefined
+    const preview = transient ?? this.ctx.previews().tiles.get(id)
     // (#446) A selection preview shadows only the tiles it holds — the rest of
     // the layer is standing still and must still be drawn. A whole-layer
     // preview keeps the original behaviour of replacing the layer outright:
     // every pixel of it moved, so there is nothing left to draw underneath.
-    const areaPreview = preview ? this.ctx.previews().areaLayers.has(id) : false
+    const areaPreview = !!transient || (preview ? this.ctx.previews().areaLayers.has(id) : false)
     if (preview) {
       for (const { originX, originY, buffer } of preview) {
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
@@ -450,14 +452,14 @@ export class LayerCompositor {
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
     // (§17.46) The split caches are rebuilt (in full) before any scissor.
-    if (this.ctx.previews().tiles.size === 0) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
+    if (this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
     // (§17.46) A frame whose only change is the live stroke reassembles only
     // its rect (unrotated camera: the assembly is then the screen, padded):
     // clearing and redrawing the whole assembly - the caches and every
     // resident tile of the active layer - was the second-dearest thing in a
     // big stroke's frame on the tablet.
     let scissored = false
-    if (partialWorld && frame.angle === 0 && this.ctx.previews().tiles.size === 0) {
+    if (partialWorld && frame.angle === 0 && this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size) {
       const pad = 8
       const x0 = Math.max(0, frameEdgeX(frame, partialWorld.minX) - pad)
       const x1 = Math.min(targetW, frameEdgeX(frame, partialWorld.maxX) + pad)
@@ -471,7 +473,7 @@ export class LayerCompositor {
     }
     this.ctx.assembly().clear()
 
-    if (this.ctx.previews().tiles.size > 0) {
+    if (this.ctx.previews().tiles.size > 0 || this.ctx.transientPreviews?.().size) {
       for (const { id, opacity } of items) this.drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH)
       return
     }
