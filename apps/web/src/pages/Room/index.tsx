@@ -1,4 +1,3 @@
-import { joinedFinishDeferredQaEnabled } from './diagnostics/joinedFinishDeferredQa'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -19,6 +18,7 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from './diagnostics/devEngineHandle'
 import { joinedTouchQaEnabled } from './diagnostics/joinedTouchQa'
+import { joinedFinishDeferredQaEnabled } from './diagnostics/joinedFinishDeferredQa'
 import {
   eraseThroughTargets, isLayerLocked,
 } from '../../lib/layers/layers'
