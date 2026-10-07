@@ -64,14 +64,30 @@ fn fraction(startUv:vec2f,endUv:vec2f,direction:vec2f)->f32 {
  textureStore(outColor,vec2i(tid.xy),clamp(C/255.0,vec4f(0),vec4f(1)));
 }
 `;
+/** One storage target, derived from exactly the same donor/capacity body.
+ * Output selection changes only the final store, never the old P/C reads. */
+export const CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL=CANONICAL_TEXTURE_BRUSH_WGSL
+ .replace('scissor:vec4f }','scissor:vec4f,output:vec4f }')
+ .replace('@group(0) @binding(7) var outColor:texture_storage_2d<rgba8unorm,write>;','')
+ .replace(' textureStore(outPigment,vec2i(tid.xy),clamp(P/255.0,vec4f(0),vec4f(1)));\n textureStore(outColor,vec2i(tid.xy),clamp(C/255.0,vec4f(0),vec4f(1)));',
+  ' textureStore(outPigment,vec2i(tid.xy),clamp(select(P,C,u.output.x>.5)/255.0,vec4f(0),vec4f(1)));')
 export class CanonicalBrushContact {
  private readonly device: GPUDevice
  private readonly pipeline: GPUComputePipeline
- constructor(device:GPUDevice) {this.device=device;const module=device.createShaderModule({label:'canonical paired Q8 brush contact',code:CANONICAL_TEXTURE_BRUSH_WGSL});this.pipeline=device.createComputePipeline({layout:'auto',compute:{module,entryPoint:'brush'}})}
+ private readonly singlePipeline:GPUComputePipeline
+ constructor(device:GPUDevice) {this.device=device;const module=device.createShaderModule({label:'canonical paired Q8 brush contact',code:CANONICAL_TEXTURE_BRUSH_WGSL});this.pipeline=device.createComputePipeline({layout:'auto',compute:{module,entryPoint:'brush'}});const singleModule=device.createShaderModule({label:'canonical single Q8 brush contact',code:CANONICAL_SINGLE_TEXTURE_BRUSH_WGSL});this.singlePipeline=device.createComputePipeline({layout:'auto',compute:{module:singleModule,entryPoint:'brush'}})}
  encode(ctx:CanonicalGpuContext,fields:{pigment:CanonicalGpuField;color:CanonicalGpuField;flow:CanonicalGpuField;water:CanonicalGpuField;outPigment:CanonicalGpuField;outColor:CanonicalGpuField},step:readonly[number,number],gain:number,flowRect:readonly[number,number,number,number],scissor?:readonly[number,number,number,number]):GPUBuffer[] {
   const f=fields;if([f.pigment,f.color,f.flow,f.water].some(a=>a.texture===f.outPigment.texture||a.texture===f.outColor.texture)||f.outPigment.texture===f.outColor.texture)throw new Error('Canonical brush requires distinct read/write fields')
   const u=this.device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(u,0,new Float32Array([...step,1/f.pigment.width,1/f.pigment.height,...flowRect,gain,+(f.pigment.filter==='linear'),+(f.color.filter==='linear'),+(f.water.filter==='linear'),...(scissor??[0,0,f.outPigment.width,f.outPigment.height])]))
   const entries:GPUBindGroupEntry[]=[{binding:0,resource:{buffer:u}},...[f.pigment,f.color,f.flow,f.water].map((field,k)=>({binding:k+1,resource:field.view})),{binding:5,resource:ctx.linear},{binding:6,resource:f.outPigment.view},{binding:7,resource:f.outColor.view}]
   const group=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries}),pass=ctx.encoder.beginComputePass();pass.setPipeline(this.pipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(f.outPigment.width/8),Math.ceil(f.outPigment.height/8));pass.end();return[u]
  }
+ encodeSingle(ctx:CanonicalGpuContext,fields:{pigment:CanonicalGpuField;color:CanonicalGpuField;flow:CanonicalGpuField;water:CanonicalGpuField;out:CanonicalGpuField},output:'pigment'|'color',step:readonly[number,number],gain:number,flowRect:readonly[number,number,number,number],scissor?:readonly[number,number,number,number]):GPUBuffer[] {
+  const f=fields;if([f.pigment,f.color,f.flow,f.water].some(a=>a.texture===f.out.texture))throw new Error('Canonical single brush requires distinct read/write fields')
+  if(f.out.width!==f.pigment.width||f.out.height!==f.pigment.height||f.color.width!==f.pigment.width||f.color.height!==f.pigment.height)throw new Error('Canonical single brush P/C/output dimensions mismatch')
+  const u=this.device.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(u,0,new Float32Array([...step,1/f.pigment.width,1/f.pigment.height,...flowRect,gain,+(f.pigment.filter==='linear'),+(f.color.filter==='linear'),+(f.water.filter==='linear'),...(scissor??[0,0,f.out.width,f.out.height]),+(output==='color'),0,0,0]))
+  const entries:GPUBindGroupEntry[]=[{binding:0,resource:{buffer:u}},...[f.pigment,f.color,f.flow,f.water].map((field,k)=>({binding:k+1,resource:field.view})),{binding:5,resource:ctx.linear},{binding:6,resource:f.out.view}]
+  const group=this.device.createBindGroup({layout:this.singlePipeline.getBindGroupLayout(0),entries}),pass=ctx.encoder.beginComputePass();pass.setPipeline(this.singlePipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(f.out.width/8),Math.ceil(f.out.height/8));pass.end();return[u]
+ }
+
 }
