@@ -1,0 +1,79 @@
+{
+  "sourcePolicy": "each whole engine and shared tracked source from exact revision; no production code patch",
+  "page": [
+    3508,
+    2480
+  ],
+  "paper": "medium",
+  "journalSHA256": "ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9",
+  "originalCount": 42,
+  "phase": false,
+  "ADD": false,
+  "versions": [
+    {
+      "name": "0a78ab53",
+      "head": "0a78ab532951d37d7266ebf883a6f729ce0ea1da",
+      "treeSHA256": "201bfa1898f3b1b1d199ebaa7620f2679e4ca0d5dba0a7b47be06671c1a94d17"
+    },
+    {
+      "name": "2e6a6706",
+      "head": "2e6a670654bf2fc39aa25fa4ab6a953faf894c27",
+      "treeSHA256": "539abfcb8357272f4cce3f0277178229f14aa7db50fd2091bb99c2b01b8e1d5d"
+    },
+    {
+      "name": "78854286",
+      "head": "78854286e11699559a66b6be5ee2ca6290bc0ced",
+      "treeSHA256": "1622cfb79903f7cd1b2371c53049fba5dc4c87ad560c6bc1a2501eeb31f9a1c7"
+    },
+    {
+      "name": "11ee5ab6",
+      "head": "11ee5ab6bfeef0f6f7a8da65c3c4b84bd9fdada9",
+      "treeSHA256": "5e7d032e9edd79995e1af5195c0c86ab3be3f40abb9aa7fd0c47b157dc872888"
+    },
+    {
+      "name": "f2775adf",
+      "head": "f2775adfc81c5cff8945cf92d805270a5c6b75e3",
+      "treeSHA256": "8e568955933c15afd66ad5c9c686d564623b17844063beaa23f47e498a8080b8"
+    },
+    {
+      "name": "c1997fee",
+      "head": "c1997fee56175bddc99961604dc52f8add829a7a",
+      "treeSHA256": "2a46c7b8c58e2f79b2793e4cdbb15eb2fdd250ad909708c080b0f43afbe325ef"
+    }
+  ],
+  "build": {
+    "compiler": "esbuild 0.28.1",
+    "define": {
+      "import.meta.env": "{\"DEV\":true,\"PROD\":false,\"MODE\":\"development\",\"BASE_URL\":\"/\",\"VITE_WC_REVIEW\":\"0\",\"VITE_WC_FOREIGN_REVIEW\":\"0\"}"
+    },
+    "platform": "browser",
+    "format": "esm",
+    "minify": false,
+    "bundles": {
+      "78854286": {
+        "SHA256": "55f0821d964ce8134fb450b485ca1d380867b11f24a9920183e08c7df9ecfa99",
+        "bytes": 1430746
+      },
+      "0a78ab53": {
+        "SHA256": "748a2e52867d454f6aa7b6c6289f1e967429502e24013fa10bfccd1a2d56e587",
+        "bytes": 1400213
+      },
+      "2e6a6706": {
+        "SHA256": "d6b7d3c7412e3dafc614502225d00d6e724c436222b4e439d8ecc03c982c8e11",
+        "bytes": 1422992
+      },
+      "11ee5ab6": {
+        "SHA256": "8dcf20585fb2c746a96a4c61a1174a8c0e205c833f86b70aa5b11bd9ce946176",
+        "bytes": 1428916
+      },
+      "f2775adf": {
+        "SHA256": "cec6e75f7d9f13403e51325ac9d248b98b7f4757f739f32d874d70709d38ddf1",
+        "bytes": 1426133
+      },
+      "c1997fee": {
+        "SHA256": "64f74069b8ab47efbb3fd64528bc1c87e48b2cb73689af936d6b6ab256eeb134",
+        "bytes": 1447403
+      }
+    }
+  }
+}
