@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {worldRead,installNeighborhood} from './neighborhood.mjs';
+assert.deepEqual(worldRead({x0:100,y0:200,S:2,w:1536,h:1536},[994,1231]).center,[447,1020]);
+assert.deepEqual(worldRead({x0:0,y0:0,S:1,w:1024,h:1024},[0,0]),{x:0,y:1021,w:3,h:3,center:[0,1023]});
+assert.equal(worldRead({x0:0,y0:0,S:1,w:1024,h:1024},[1024,0]),null);
+assert.equal(worldRead({x0:100,y0:200,S:2,w:1536,h:1536},[99,200]),null);
+let bound='original',calls=0;const gl={FRAMEBUFFER:1,FRAMEBUFFER_BINDING:2,RGBA:3,UNSIGNED_BYTE:4,getParameter(){return bound},bindFramebuffer(_,v){bound=v},readPixels(x,y,w,h,f,t,bytes){assert.equal(bound,'field');bytes.fill(7);calls++}};
+const b=()=>({fbo:'field',width:16,height:16}),field={w:16,h:16};for(const k of ['a','b','c','ca','cb','cc','coverage','mask','pressure','band'])field[k]=b();
+const scratch={noteStorageBounds(){}},ctx={fieldFor(){return field},paperWorldSize(){return {w:3508,h:2480}}};
+const passes={fieldOp(){return 'original-return'},diffuseStep(){return 'diffuse-return'}};
+const plan={ctx,prepare(s){s.noteStorageBounds({minX:980,minY:1220,maxX:996,maxY:1236});ctx.fieldFor(16,16);return {ops:[]}}};
+const engine={gl,_settlePlan:plan,_watercolorPasses:passes,_paper:{scale:1}},oldPrepare=plan.prepare,oldFieldOp=passes.fieldOp;
+const qa=installNeighborhood(engine,{cap:2});qa.begin({id:'Gq9CPrzxWh',seq:64,type:'stroke'});plan.prepare(scratch);
+assert.equal(passes.diffuseStep(field,980,1220,1,3508,2480,field.a,field.b,1,false,field.coverage,field.a,null),'diffuse-return');
+assert.equal(bound,'original');assert.equal(qa.rows.length,2);assert.equal(qa.rows[0].fields.src.bytes.length,80);assert.equal(qa.rows[0].fields.src.read.center[1],4);assert.equal(qa.rows[0].fields.src.bytes[0],7);
+passes.diffuseStep(field,980,1220,1,3508,2480,field.b,field.a,1,false,field.coverage,field.b,null);assert.equal(qa.summary().truncated,true);
+qa.dispose();assert.equal(plan.prepare,oldPrepare);assert.equal(passes.fieldOp,oldFieldOp);assert.ok(calls>0);
+console.log('5 mapping/selection/GL-state/return/restore negative controls PASS');
