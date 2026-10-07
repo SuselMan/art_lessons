@@ -14,7 +14,7 @@ import { rectOnTile, ribbonWaterDelivery } from './src/dabs/ribbonStrokeMath'
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
 import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
-import { washRevealHold, washRevealStep } from './src/raster/washReveal'
+import { washRevealHold, washRevealStep, washRevealRemaining } from './src/raster/washReveal'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -1813,6 +1813,8 @@ export class PencilEngine implements PencilEngineAPI {
     layers: Map<string, { buffer: ILayerBuffer; copied: Set<string>; scratch: RibbonStrokeScratch }>
     ended: boolean; queued: number
   }>()
+  /** Default-OFF expedited Dry uses only owned scheduling/presentation metadata. */
+  private _wcExpeditedDry = false
   private readonly _wcAsyncDryTo = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncOwners = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncPresentations = new Map<RibbonStrokeScratch, Map<number, { buf: AccumulationBuffer; origin: { x: number; y: number }; pending: Map<object, Dab[]>; preset: string; color: [number, number, number] }>>()
@@ -7355,7 +7357,8 @@ export class PencilEngine implements PencilEngineAPI {
     reveal.frameAt = now
     const target = reveal.startedAt === null ? reveal.pending : buffer
     if (!target) return
-    const remaining = reveal.startedAt === null ? null : (reveal.durationMs ?? 8000) - (now - reveal.startedAt)
+    if (reveal.startedAt === null && reveal.dryRequested && reveal.dryPreviewStartedAt === undefined) reveal.dryPreviewStartedAt = now
+    const remaining = washRevealRemaining(reveal.startedAt, reveal.dryPreviewStartedAt, now, reveal.durationMs ?? 8000)
     const step = washRevealStep(dt, remaining)
     if (!(step > 0)) return
     const out = this._revealPoolAcquire(buffer.width, buffer.height)
@@ -7536,6 +7539,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   watercolorDryAll(): void {
     if (this._wcAsyncFinish && this._wcCanonical.pending) for (const scratch of this._wcAsyncOwners.keys()) this._wcAsyncDryTo.set(scratch, scratch.gesture)
+    if (this._wcExpeditedDry && this._wcAsyncFinish && this._settle) {
+      const scratch = this._settle.scratch
+      this._wcAsyncDryTo.set(scratch, scratch.gesture)
+    }
     // (§17.48) The open wash closes exactly as it does when it times out: the
     // next stroke cannot join it and starts its own. Its buffers stay until
     // then, so a settle still in flight lands as it would have. Mid-stroke (a
@@ -7549,6 +7556,10 @@ export class PencilEngine implements PencilEngineAPI {
     for (const reveal of this._washReveals.values()) if (reveal.progressive) {
       reveal.motionBaseGain = this._revealMotionTail(reveal, now)
       reveal.durationMs = 2000
+      if (this._wcExpeditedDry) {
+        reveal.dryRequested = true
+        reveal.dryPreviewStartedAt = reveal.startedAt === null && reveal.pending ? now : undefined
+      }
       if (reveal.startedAt !== null) reveal.startedAt = now
       reveal.frameAt = now
     }
@@ -7667,8 +7678,18 @@ export class PencilEngine implements PencilEngineAPI {
   private _skippedInBatch = new Set<string>()
   /** (§17.48) A paper_dry arrived mid-stroke: close the wash at pen-up. */
   private _dryAtPenUp = false
-  private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void, lifecycle?: WatercolorSettleLifecycle): void {
-    this._settleQueue.start(scratch, ops, complete, lifecycle)
+  private _startSettle(scratch: RibbonStrokeScratch, ops: Array<() => void>, complete: () => void, lifecycle?: WatercolorSettleLifecycle, gesture = scratch.gesture): void {
+    const releaseDryTicket = (): void => {
+      // A drawing continuation can start the solver for this same scratch.
+      if (!this._wcAsyncOwners.has(scratch) && this._settle?.scratch !== scratch) this._wcAsyncDryTo.delete(scratch)
+    }
+    const ownedLifecycle = lifecycle ? {
+      ...lifecycle,
+      // Use the captured boundary; a later native film mutates scratch.gesture.
+      isExpedited: () => this._wcExpeditedDry && gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1),
+      abort: () => { try { lifecycle.abort() } finally { releaseDryTicket() } },
+    } : lifecycle
+    this._settleQueue.start(scratch, ops, () => { try { complete() } finally { releaseDryTicket() } }, ownedLifecycle)
   }
   private _advanceSettle(): void {
     this._settleQueue.advance()
@@ -7839,6 +7860,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._settleQueue.cancel()
     this._wcCanonical.cancel(lost)
     this._clearAsyncPresentations(lost)
+    this._wcAsyncDryTo.clear()
   }
 
   /** The diffusion's stitched field, at least `w` × `h`.
@@ -8208,7 +8230,10 @@ export class PencilEngine implements PencilEngineAPI {
         held.wetMask = this._revealPoolAcquire(tile.buffer.width, tile.buffer.height)
         entry.coverage.copyTo(held.wetMask)
         held.progressive = true
-        if (owned && owned.gesture <= (this._wcAsyncDryTo.get(scratch) ?? -1)) held.durationMs = 2000
+        if ((owned || this._wcExpeditedDry) && settledGesture <= (this._wcAsyncDryTo.get(scratch) ?? -1)) {
+          held.durationMs = 2000
+          if (this._wcExpeditedDry) held.dryRequested = true
+        }
         held.frameAt = held.motionAt = performance.now()
         held.motionOrigin = [tile.originX, tile.originY]
       }
@@ -8349,7 +8374,7 @@ export class PencilEngine implements PencilEngineAPI {
         if ((reveal || spread) && typeof requestAnimationFrame === 'function') {
           // (§17.53) A sliced rebuild's buffer is not on screen yet: nothing to redraw.
           const shown = [...this._layers.values()].includes(target)
-          this._startSettle(scratch, job.ops, spread && !reveal && shown ? () => { complete(); this._displayIfNotSuspended() } : complete, { isAlive: () => scratch.live, abort: job.dispose })
+          this._startSettle(scratch, job.ops, spread && !reveal && shown ? () => { complete(); this._displayIfNotSuspended() } : complete, { isAlive: () => scratch.live, abort: job.dispose }, settledGesture)
           return
         }
         try {

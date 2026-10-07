@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { washRevealHold, washRevealStep } from './washReveal'
+import { washRevealHold, washRevealStep, washRevealRemaining } from './washReveal'
 
 describe('wet-to-dry presentation clock', () => {
   it('holds the wet image throughout a calculation longer than the transition', () => {
@@ -29,5 +29,23 @@ describe('continuous intermediate presentation', () => {
     expect(washRevealStep(16, 0)).toBe(1)
     expect(washRevealStep(16, 2000)).toBeLessThan(.03)
     expect(washRevealStep(16, 10)).toBe(1)
+  })
+})
+
+
+describe('Dry follows available material without inventing a final target', () => {
+  it('keeps the clock unarmed until a real intermediate exists', () => {
+    expect(washRevealRemaining(null, undefined, 90000, 2000)).toBeNull()
+    expect(washRevealRemaining(null, 90000, 90000, 2000)).toBe(2000)
+    expect(washRevealStep(0, 2000)).toBe(0)
+  })
+  it('clamps future timestamps and follows late intermediate stages continuously', () => {
+    expect(washRevealRemaining(null, 100, 50, 2000)).toBe(2000)
+    expect(washRevealRemaining(100, undefined, 50, 2000)).toBe(2000)
+    expect(washRevealRemaining(null, 100, 2100, 2000)).toBeNull()
+    expect(washRevealStep(40, washRevealRemaining(null, 100, 50000, 2000))).toBeLessThan(.03)
+  })
+  it('retains exact landing for an overdue actual final target', () => {
+    expect(washRevealStep(16, washRevealRemaining(100, 50, 2100, 2000))).toBe(1)
   })
 })

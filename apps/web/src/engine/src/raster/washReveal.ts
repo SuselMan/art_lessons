@@ -13,3 +13,13 @@ export function washRevealStep(dtMs: number, remainingMs: number | null): number
   if (remainingMs <= 0) return 1
   return 1 - Math.pow(Math.max(0, 1 - dt / remainingMs), 3)
 }
+
+/** A pending target has its own Dry clock, never the canonical landing clock.
+ * Once the short preview interval ends, keep following calculated changes
+ * with the existing smooth tail instead of snapping an unfinished solver. */
+export function washRevealRemaining(startedAt: number | null, dryPreviewAt: number | undefined, now: number, durationMs: number): number | null {
+  if (startedAt !== null) return durationMs - Math.max(0, now - startedAt)
+  if (dryPreviewAt === undefined) return null
+  const remaining = durationMs - Math.max(0, now - dryPreviewAt)
+  return remaining > 0 ? remaining : null
+}

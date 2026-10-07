@@ -27,6 +27,9 @@ export interface WashReveal {
   progressive?: boolean
   frameAt?: number
   durationMs?: number
+  /** Requested Dry may follow a real intermediate before the final target. */
+  dryRequested?: boolean
+  dryPreviewStartedAt?: number
   /** Display-only standing-water/coverage snapshot, never a paint input. */
   wetMask?: AccumulationBuffer
   motionAt?: number
