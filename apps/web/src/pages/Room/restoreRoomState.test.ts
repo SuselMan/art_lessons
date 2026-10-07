@@ -43,6 +43,7 @@ it('seeds inclusive undo5 before tail redo6 using actual engine history and pixe
 
 it.each([
   { name: 'opt-in complete fresh join', enabled: true, mode: 'join' as const, already: 0, snapshot: null, head: 3, paints: 1 },
+  { name: 'held peer undo after opt-in replay', enabled: true, mode: 'join' as const, already: 0, snapshot: null, head: 3, paints: 1, peer: true },
   { name: 'default OFF', enabled: false, mode: 'join' as const, already: 0, snapshot: null, head: 3, paints: 2 },
   { name: 'catch-up', enabled: true, mode: 'catchup' as const, already: 0, snapshot: null, head: 3, paints: 2 },
   { name: 'already held history', enabled: true, mode: 'join' as const, already: 1, snapshot: null, head: 3, paints: 2 },
@@ -70,17 +71,32 @@ it.each([
     replayIncompleteRef: { current: false }, pendingPreviewsRef: { current: createPendingPreviews() },
     openTimerRef: { current: null }, replayGate: createReplayGate(),
   }
+  const peerUndo: OperationUndoOperation = { id: 'peer-undo-before', type: 'operation_undo', userId: 'A', timestamp: 4, seq: 4, targetOpId: before.id }
+  const hasPeer = 'peer' in test && test.peer
+  const originalApply = deps.applyRemoteOp
+  deps.applyRemoteOp = op => {
+    originalApply(op)
+    if (hasPeer && op.id === before.id) expect(deps.replayGate.hold(peerUndo)).toBe(true)
+  }
+  deps.replayGate.setHandler(op => {
+    // The replay-local skipped set must already be gone when confirmed arrivals drain.
+    expect((engine as unknown as { _skippedInBatch: Set<string> })._skippedInBatch.size).toBe(0)
+    engine.appendOperation(op as Operation, 'remote')
+  })
   await restoreRoomState(engine, { latestSnapshotSeq: test.snapshot, tailOperations: ops, participants: [], palette: [], frozen: false }, { mode: test.mode, alreadyHadSeq: test.already }, deps)
   expect(deps.setRestoreFailure).not.toHaveBeenCalled()
   expect(paint).toHaveBeenCalledTimes(test.paints)
-  expect(engine.getOperations().map(op => op.id)).toEqual(ops.map(op => op.id))
-  expect(internals._log.entries.find(q => q.op.id === before.id)?.state).toBe('done')
+  expect(internals._log.entries.map(e => e.op.id)).toEqual([...ops.map(op => op.id), ...(hasPeer ? [peerUndo.id] : [])])
+  expect(internals._log.entries.find(q => q.op.id === before.id)?.state).toBe(hasPeer ? 'undone' : 'done')
+  expect(replay).toHaveBeenCalledTimes(hasPeer ? 1 : 0)
+  expect(deps.latestKnownSeqRef.current).toBe(test.head)
   engine.appendOperation({ id: 'undo-clear', type: 'operation_undo', userId: 'A', timestamp: 4, seq: 4, targetOpId: clear.id }, 'remote')
   expect(replay).toHaveBeenCalledWith('L')
-  expect(internals._log.layerPixelOps('L').some(op => op.id === before.id)).toBe(true)
+  expect(internals._log.entries.some(e => e.op.id === before.id)).toBe(true)
+  if (!hasPeer) expect(internals._log.layerPixelOps('L').some(op => op.id === before.id)).toBe(true)
   engine.appendOperation({ id: 'redo-clear', type: 'operation_redo', userId: 'A', timestamp: 5, seq: 5, targetOpId: clear.id }, 'remote')
-  expect(replay).toHaveBeenCalledTimes(2)
+  expect(replay).toHaveBeenCalledTimes(hasPeer ? 3 : 2)
   expect(internals._log.layerPixelOps('L').some(op => op.id === clear.id)).toBe(true)
-  expect(engine.getOperations().some(op => op.id === before.id)).toBe(true)
+  expect(internals._log.entries.some(e => e.op.id === before.id)).toBe(true)
   engine.destroy()
 })
