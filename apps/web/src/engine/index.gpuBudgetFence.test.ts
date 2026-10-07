@@ -6,7 +6,7 @@ describe('Engine GPU budget fence capability (#728)', () => {
     const { engine } = createTestEngine()
     const gl = engine['gl']
     const finish = vi.spyOn(gl, 'finish'), texture = vi.spyOn(gl, 'createTexture')
-    engine['_syncBudgetGpu'](); engine['_settleQueue']['ctx'].syncGpu!()
+    engine['_syncBudgetGpu']('drawing'); engine['_settleQueue']['ctx'].syncGpu!()
     expect(finish).toHaveBeenCalledTimes(2)
     expect(texture).not.toHaveBeenCalled()
     expect(engine['_gpuBudgetFence']).toBeNull()
@@ -16,7 +16,7 @@ describe('Engine GPU budget fence capability (#728)', () => {
     const { engine } = createTestEngine()
     const gl = engine['gl'], get = gl.getParameter.bind(gl)
     vi.spyOn(gl, 'getParameter').mockImplementation(p => p === gl.ACTIVE_TEXTURE ? gl.TEXTURE0 : p === gl.PACK_ALIGNMENT ? 4 : get(p))
-    engine['_wcBudgetFence'] = true
+    engine['_wcBudgetFenceScope'] = 'all'
     const finish = vi.spyOn(gl, 'finish'), reads = vi.spyOn(gl, 'readPixels')
     engine['_settleQueue']['ctx'].syncGpu!()
     expect(reads).toHaveBeenCalledTimes(1)
@@ -31,11 +31,24 @@ describe('Engine GPU budget fence capability (#728)', () => {
     drawing.return(undefined); engine.destroy()
   })
 
+  it.each(['drawing', 'settle'] as const)('keeps explicit %s scope separate without runtime wrappers', scope => {
+    const { engine } = createTestEngine()
+    const gl = engine['gl'], get = gl.getParameter.bind(gl)
+    vi.spyOn(gl, 'getParameter').mockImplementation(p => p === gl.ACTIVE_TEXTURE ? gl.TEXTURE0 : p === gl.PACK_ALIGNMENT ? 4 : get(p))
+    engine['_wcBudgetFenceScope'] = scope
+    const finish = vi.spyOn(gl, 'finish'), reads = vi.spyOn(gl, 'readPixels')
+    engine['_syncBudgetGpu']('drawing')
+    engine['_settleQueue']['ctx'].syncGpu!()
+    expect(finish).toHaveBeenCalledOnce()
+    expect(reads).toHaveBeenCalledOnce()
+    engine.destroy()
+  })
+
   it.each(['cancel', 'context-loss'] as const)('retains exactly owned fence lifetime through actual Engine %s', action => {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     const gl = engine['gl']
     engine.initLayer('L')
-    engine['_wcBudgetFence'] = true
+    engine['_wcBudgetFenceScope'] = 'all'
     engine['_minmaxExt'] = { MAX_EXT: 0x8008 }
     engine['_sliceLimits'].size = 1; engine['_sliceLimits'].budgetMs = 0
     const originalGet = gl.getParameter.bind(gl)
@@ -56,7 +69,7 @@ describe('Engine GPU budget fence capability (#728)', () => {
       expect(fence['texture']).toBeNull()
       expect(deletes.mock.calls.filter(c => c[0] === texture)).toHaveLength(0)
       engine['_handleContextRestored']()
-      engine['_syncBudgetGpu']()
+      engine['_syncBudgetGpu']('drawing')
       expect(fence['texture']).not.toBeNull()
       expect(fence['texture']).not.toBe(texture)
     }

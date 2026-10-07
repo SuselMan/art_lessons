@@ -1818,7 +1818,7 @@ export class PencilEngine implements PencilEngineAPI {
     isDrawing: () => !!this._strokeLayerId,
     backlogSize: () => this._opQueue.length,
     backlogMax: () => this.settleBacklogMax,
-    syncGpu: () => this._syncBudgetGpu(),
+    syncGpu: () => this._syncBudgetGpu('settle'),
     noteActivity: now => { this._washActiveAt = now },
     scheduleFieldRelease: () => this._scheduleFieldRelease(),
   })
@@ -4454,7 +4454,7 @@ export class PencilEngine implements PencilEngineAPI {
       groupPx += r.value
       const byPx = groupPx >= g.px
       if (byPx || groupDraws >= g.size) {
-        this._syncBudgetGpu()
+        this._syncBudgetGpu('drawing')
         const now = performance.now()
         g.noteGroup(now - groupAt, byPx)
         groupAt = now
@@ -4464,7 +4464,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       r = work.next()
     }
-    this._syncBudgetGpu()
+    this._syncBudgetGpu('drawing')
     if (draws) {
       g.noteSlice(draws, px, performance.now() - t0)
       this._wcPerf.sliceWorst = g.worst
@@ -4513,10 +4513,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  into its own target is a render pass, a few hundred in a slice cost more
    *  than their pixels, while on a desktop GPU the pixels dominate. */
   /** Diagnostic scheduling capability; physical commands and their order stay unchanged. */
-  private _wcBudgetFence = false
+  private _wcBudgetFenceScope: 'off' | 'drawing' | 'settle' | 'all' = 'off'
   private _gpuBudgetFence: GpuBudgetFence | null = null
-  private _syncBudgetGpu(): void {
-    if (!this._wcBudgetFence) { this.gl.finish(); return }
+  private _syncBudgetGpu(scope: 'drawing' | 'settle'): void {
+    if (this._wcBudgetFenceScope !== 'all' && this._wcBudgetFenceScope !== scope) { this.gl.finish(); return }
     if (this._contextLost || this.gl.isContextLost()) { this._gpuBudgetFence?.forget(); return }
     this._gpuBudgetFence ??= new GpuBudgetFence(this.gl)
     this._gpuBudgetFence.sync()
@@ -7957,7 +7957,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Loss can synchronously cancel the request from inside a continuation.
       // Never fence a dead context or keep using a cancelled generator.
       if (!current() || this._contextLost || this.gl.isContextLost()) return step
-      this._syncBudgetGpu()
+      this._syncBudgetGpu('drawing')
       // A finish continuation may have started a solver. Its next step waits
       // for that solver, so only the ordinary settle scheduler may resume it.
       if (step.done || this._settle) return step
