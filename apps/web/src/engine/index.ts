@@ -1,3 +1,4 @@
+import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
@@ -1824,7 +1825,7 @@ export class PencilEngine implements PencilEngineAPI {
     isDrawing: () => !!this._strokeLayerId,
     backlogSize: () => this._opQueue.length,
     backlogMax: () => this.settleBacklogMax,
-    syncGpu: () => this.gl.finish(),
+    syncGpu: () => this._syncSettleBudgetGpu(),
     noteActivity: now => { this._washActiveAt = now },
     scheduleFieldRelease: () => this._scheduleFieldRelease(),
   })
@@ -4016,6 +4017,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._cancelSpillJob()
     this._paper.destroy()
     for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
+    this._gpuBudgetFence?.release()
+    this._gpuBudgetFence = null
     this._dropWashBoundaries() // (§17.55)
     // Dwell (#245): the one non-rAF timer this engine owns — must not
     // outlive destroy() (e.g. a component unmounting mid-stroke).
@@ -4531,6 +4534,16 @@ export class PencilEngine implements PencilEngineAPI {
    *  device. Both limits matter and differ by device: on the iPad every draw
    *  into its own target is a render pass, a few hundred in a slice cost more
    *  than their pixels, while on a desktop GPU the pixels dominate. */
+  /** Diagnostic Queue-only completion clock; drawing/FIFO paths are unchanged. */
+  private _wcSettleBudgetFence = false
+  private _gpuBudgetFence: GpuBudgetFence | null = null
+  private _syncSettleBudgetGpu(): void {
+    if (!this._wcSettleBudgetFence) { this.gl.finish(); return }
+    if (this._contextLost || this.gl.isContextLost()) { this._gpuBudgetFence?.forget(); return }
+    this._gpuBudgetFence ??= new GpuBudgetFence(this.gl)
+    this._gpuBudgetFence.sync()
+  }
+
   private readonly _sliceLimits = new SliceGroups()
 
   /** (§17.70) The buffers rebuild jobs are about to replace. */
@@ -4920,6 +4933,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._contextLost = true
+    this._gpuBudgetFence?.forget()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
     // buffers and cannot seed a restored context. Drop the whole mid-wash
     // checkpoint: retaining its prefix without open wash state loses the tail.
