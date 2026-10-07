@@ -965,6 +965,8 @@ function RoomEditor() {
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       asyncFinish: false,
+      // Private QA opt-in; the ordinary room keeps the existing geometry path.
+      bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
       materialPresentation: false,
       diagLog,
       infinite: engineInfinite,

@@ -119,11 +119,11 @@ it('tracks exact cleared pigment provenance and rejects restored or legacy sourc
 })
 
 describe('geometry batching in physical painter', () => {
-  function draws(batch: boolean) {
-    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  function draws(batch?: boolean) {
+    const { engine } = createTestEngine({ paper: 'flat', bandBatch: batch }, { width: 64, height: 64 })
     engine.initLayer('source')
     const probe = engine as unknown as Probe, painter = probe._ribbonPainter
-    painter.diagnosticSegmentDelivery = 'combined'; painter.diagnosticSolventField = true; painter.diagnosticBandBatch = batch
+    painter.diagnosticSegmentDelivery = 'combined'; painter.diagnosticSolventField = true
     const ctx = (painter as unknown as { ctx: RibbonStrokePainterContext }).ctx
     const calls: Array<{ mode: string; bytes: number[]; args: unknown[] }> = []
     const original = ctx.drawRibbonBands.bind(ctx)
@@ -141,7 +141,9 @@ describe('geometry batching in physical painter', () => {
     } finally { bands.mockRestore(); scratch.destroy(); engine.destroy() }
   }
   it('preserves ordered physical band uploads, modes and uniforms', () => {
-    expect(draws(true)).toEqual(draws(false))
+    const original = draws()
+    expect(draws(false)).toEqual(original)
+    expect(draws(true)).toEqual(original)
   })
 })
 
