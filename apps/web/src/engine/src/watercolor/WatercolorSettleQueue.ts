@@ -24,7 +24,7 @@ export function inheritSettleOpTags(source: () => void, wrapped: () => void): vo
  * existing scratch.live rule. */
 export interface WatercolorSettleLifecycle {
   isAlive(): boolean
-  abort(): void
+  abort(error?: unknown): void
 }
 
 export interface WatercolorSettleJob {
@@ -58,6 +58,7 @@ export class WatercolorSettleQueue {
   /** Opt-in gate for copies whose downstream reveal callback rejects an active stroke. */
   suppressActivePreview = false
   private _drainDepth = 0
+  private readonly abortedJobs = new WeakSet<WatercolorSettleJob>()
   get allowProgressPreview(): boolean { return !this.suppressDrainPreview || this._drainDepth === 0 }
 
   /** (#536, §17.22) The author's pen-up settle in flight: the diffusion's
@@ -175,15 +176,22 @@ export class WatercolorSettleQueue {
   advance(): void {
     const s = this._settle
     if (!s) return
-    this.ctx.noteActivity(performance.now()) // (§17.68)
-    if (!this.isAlive(s)) { this.cancel(); return }
-    if (s.next < s.ops.length) s.ops[s.next++]()
-    if (s.next < s.ops.length) return
-    this._settle = null
-    if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
-    s.complete()
-    this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
-    this.ctx.scheduleFieldRelease()
+    try {
+      this.ctx.noteActivity(performance.now()) // (§17.68)
+      if (!this.isAlive(s)) { this.cancel(); return }
+      if (s.next < s.ops.length) s.ops[s.next++]()
+      if (s.next < s.ops.length) return
+      this._settle = null
+      if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+      s.complete()
+      this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
+      this.ctx.scheduleFieldRelease()
+    } catch (error) {
+      if (this._settle === s) this._settle = null
+      if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
+      this.abortFailedJob(s, error)
+      throw error
+    }
   }
 
   /** Runs whatever is left of the settle in flight, now. Called before
@@ -197,7 +205,7 @@ export class WatercolorSettleQueue {
     try {
       this._settle = null
       if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
-      if (!this.isAlive(s)) { s.lifecycle?.abort(); return }
+      if (!this.isAlive(s)) { this.abortJob(s); return }
       for (; s.next < s.ops.length; s.next++) s.ops[s.next]()
       s.complete()
       this.ctx.perf().settleMs = performance.now() - this.ctx.perf().settleStart
@@ -206,7 +214,22 @@ export class WatercolorSettleQueue {
       // stroke, which starts that stroke's own settle: "nothing in flight" is
       // what every caller of this is after.
       if (this._settle) this.complete()
+    } catch (error) {
+      this.abortFailedJob(s, error)
+      throw error
     } finally { this._drainDepth-- }
+  }
+
+  private abortFailedJob(s: WatercolorSettleJob, error: unknown): void {
+    try { this.abortJob(s, error) } catch (abortError) {
+      throw new AggregateError([error, abortError], 'Settle operator and owner cleanup failed', { cause: error })
+    }
+  }
+
+  private abortJob(s: WatercolorSettleJob, error?: unknown): void {
+    if (this.abortedJobs.has(s)) return
+    this.abortedJobs.add(s)
+    s.lifecycle?.abort(error)
   }
 
   private isAlive(s: WatercolorSettleJob): boolean {
@@ -219,6 +242,6 @@ export class WatercolorSettleQueue {
     if (!s) return
     this._settle = null
     if (s.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(s.raf)
-    s.lifecycle?.abort()
+    this.abortJob(s)
   }
 }

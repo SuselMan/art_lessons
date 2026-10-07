@@ -66,3 +66,17 @@ Admission reserve является договором будущего caller: �
 - Existing Queue.advance обнуляет current **до** complete callback, поэтому successor `_startSettle` не вызывает Queue.start synchronous complete. Прямой Queue.complete рекурсивно drain-ит successor и остаётся явным барьером для export/Dry/Undo/third gesture; нельзя использовать его для этого normal UP.
 - Natural completion до future UP только rebase/composite, без преждевременного finish. Future metadata захватывается именно на реальном UP. Scalar wet/time не пересчитываются при запуске successor.
 - Scope сначала один predecessor+future WC, sourceFilmRebase ON, async/material/split OFF. New-layer admission дополнительно требует scoped `_clearWash` retirement; до этого layer-change fallback сохраняется. Без реального memory reservation и journal/loss/reveal lifecycle wiring путь не готов к включению.
+
+## Same-scratch joined UP wiring: диагностический OFF
+
+`_wcJoinedFinishDeferred=false` оставляет старый UP barrier. В ON, только при existing joinedTouch lease и захваченном immutable old finish, реальный UP фиксирует один future finish; старый solver остаётся current. При natural completion old Plan.finish/source rebase и canonical composite выполняются до `_resumeJoinedDeferred`, затем запускается owned future finish. Async/material/split не включаются. Chunk boundary с fade=false и third touch сохраняют explicit drain.
+
+Future metadata deep-cloned через existing captureCanonicalFinish. Actual newly folded dryCtx передаётся в prepare отдельно от frozen finish; source/wet clocks не пересчитываются. Будущий scratch удержан до запуска finish. Old callback guarded epoch+exactonce, loss/cancel не оживляет его. Accepted операции не удаляются. UI `paper_dry` через OperationLog завершает old и future в порядке, затем закрывает wash; это всё ещё явный тяжёлый барьер.
+
+Pending/failed publication закрыта для PNG/review/preview/fullreplay/network bake и checkpoint. Error/invalid target/solver-unit failure ставит layer recovery; marker снимается только после actual authoritative replay `_noteReplayedOrder`, а не по одному отсутствию current solver. Thrown null тоже закрывает публикацию через recovery set. Queue error callback optional, cleanup exactly-once; при одновременно operator+cleanup failures AggregateError сохраняет исходную cause. Ошибка старой scheduleFieldRelease не уничтожает уже созданный successor.
+
+CPU final: 43 tests / 4 files PASS, whole-web TS exit0; `index.joinedDeferredFinish`, `index.joinedTouch`, `index.distinctScratchLease`, `WatercolorSettleQueue`. Actual Engine/Queue/Plan MockGL, НЕ GPU physical byte parity. Raw temp/pure-water-plan/future-source/deferred-{tests,types}.log. Runtime/private flag не включён ни на одном стенде, GPU не запускался.
+
+Это перенос работы, не уменьшение числа 724 solver units. Будущий аппаратный гейт обязан отдельно измерить UP handler, UP→RAF tail/max gap и полную settle duration, затем same-tape field/wholeRGBA/Dry/UndoRedo/fresh endpoints. New-wash/layer admission этим коммитом не включается.
+
+Интеграция с текущим root требует ручного сохранения releaseDryTicket/isExpedited/captured gesture в `_startSettle`, а также уже существующих root asyncError/export guards. Эти поля отсутствуют в старой базе данной рабочей ветки; нельзя заменять root файл целиком.
