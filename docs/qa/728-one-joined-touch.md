@@ -83,3 +83,9 @@ Root9af712c4 сохранил asyncError guards и captured-gesture expedited-Dr
 ## Отдельный DEV вход для ручной проверки
 
 Typed `joinedTouch` defaultfalse устанавливается конструктором до первого job; Room разрешает его только в DEV с `qaJoinedTouch=1`. Обычные URL и production остаются OFF. Это подготовка ручного сравнения после аппаратных gates, не включение пользовательского стенда. Room line budget увеличен на одну строку явного флага.
+
+## Повтор actual Vega на исправленном5e80
+
+41114 EXIT0/CLOSED: same-source OFF/ON, ordinary Room brush400, два фиксированных native pointer tapes, один RGB/preset. Hot secondDOWN GPU completion upperbound546.8→10.2ms, CPU9.7→8.0ms, readwait536.9→2.2ms; penUP56.8→52.5ms в этом прогоне. Ранний70 показывал penUP61.6→106.4ms, поэтому перенос общего барьера остаётся риском, а один быстрый UP не означает общего исправления плавности.
+
+24 полных buffer SHA exact, meaningful P/C/V/coverage; whole transparentRGBA SHA exact,287989 purple pixels обеих сторон, GL0/lostfalse. Material diff paths пусты после исключения только id/userId/layerId/outertimestamp/seq; wet/preset/RGB/packed dabs/times/strokeId/washId совпадают. Raw `728-one-band-room/temp/band-room/joined-fixed-result.json`, root inspected independently. Это не физическое аппаратное перо и не браузерный timestamp презентации; readPixels после DOWN измеряет upperbound готовности framebuffer. UIDry/UndoRedo/fresh/peer и другие GPU ещё обязательны.
