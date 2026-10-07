@@ -189,3 +189,29 @@ partial run and A2 proof. `results-sequential-final-oracle/report.json` holds th
 completed B4/fresh oracle; VPS copy is
 `temp/async-multiplayer/sequential-final-oracle-report.json`. Old empty-export and
 resource-aborted attempts remain distinct and are not labelled parity PASS.
+
+### Pending canonical owner and remote history: deferred contract
+
+Source970-file passport remained7b11+e360; two actual authenticated Room engines,
+physical640×480 and real watercolor300 stroke. Its accepted request was pending
+with one owned canonical scratch when a pencil tail began. B's Undo of its
+accepted layer_add arrived while A had pending=true/owners1/active tail. The
+operation stayed in _opQueue with no actual application. After the FIFO finished,
+the tail remained active and Undo still waited: _scheduleOpDrain explicitly waits
+for !_strokeLayerId. A controller that demanded immediate cancellation timed out;
+that demand contradicted this reachable queue contract, not a proven app defect.
+
+The corrected bounded run verified ordinary native pen-up accepted the pencil
+tail and emitted exactly one normal end (cancelledfalse). Only then remote Undo
+actually applied, with pendingfalse and activeNull. All accepted watercolor stroke
+IDs remained; the pencil tail was recorded. Recovery and layer Redo endpoints
+matched both authors' wholeRGBA exactly. After closing both author contexts, an
+independent fresh replay matched final wholeRGBA/premult0, had183017 nonzero-alpha
+pixels and GL0/lostfalse. The owned Chrome closed normally, exit0. This is one
+canonical-owner deferred-history gate, not cancellation during pending work or a
+multiple-owner PASS. Earlier canonical-idle cancelledtrue evidence stays separate.
+
+Raw HOME `results-pending-owner-deferred-history/report.json`, VPS copy
+`temp/async-multiplayer/pending-owner-deferred-history-report.json`. Previous
+`results-pending-owner-cancel` timeout is retained with its limited callback
+capture; no operation/model flag or pixel tolerance was changed.
