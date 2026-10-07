@@ -87,3 +87,45 @@ Clear-water job не запускал частные carry благодаря po
 разрыв прототипу. Natural final-visible наступил9361/9470мс. Более ранний callback
 не равен решению пользовательской претензии о заметной живости. Default OFF
 сохраняется; интеграция и расширение на большие поля не выполнены.
+
+### CPU-разбор слабого видимого onset, без нового аппаратного прогона
+
+`next4/front4` — индекс первого outward entry, не четыре шага перемещения
+пигмента. Один entry содержит четыре relaxations cost, затем прототип выполняет
+ровно один mode16/15 stride1. На S1 это максимум один world-pixel расширения
+поддержки за первый callback, то есть0.26% ширины384; в атласе256 это0.67px.
+Частный транспорт использует travelling share0.35 и rate0.5, поэтому новый
+внешний пиксель дополнительно слабее тела. Канонический carry после полного front
+использует цикл dyadic strides, частный — только единичные шаги. Это существенное
+различие скорости исследуемого presentation solver, не ошибка UV: S1copy без
+масштабирования и capturedcrop был exact.
+
+Pending появляется рано, однако `_advanceWashReveal` при startedAt=null следует
+за ним через `washRevealStep(dt,null)=1-exp(-dt/1400)`. За150мс фильтр показывает
+примерно10.2% постоянного target-delta, за400мс24.9%; меняющиеся targets могут
+отставать ещё больше. `hold=1` сохраняет before, но не запрещает pending-follow.
+Первый tiny pixel-step плюс этот фильтр объясняют слабость видимого раннего края
+на уровне кода. SeedP/C/V nonzero исключают пустой источник; только их начальная
+поддержка измерена. Cost/P непосредственно после первого partial шага не считаны:
+мы не доказали, что движение происходит исключительно внутри ядра или достигает
+границы wet domain. До такого считывания не объявляем этот механизм единственной
+причиной.
+
+Следующий узкий counterfactual, пока НЕ реализован: сохранить private operators и
+их расписание, но в отдельном presentation-only режиме показывать последнее
+реально рассчитанное partial состояние без дополнительного1400мс chasing.
+Это direct rendering текущего физического P/C с текущим partialcost, а не
+crossfade готовой сухой картинки. На first target сравнить private material
+support/delta с pending RGBA и displayed RGBA, отдельно cost-front support.
+Если private material-edge уже движется, а visible подавлен фильтром — эта
+абляция выделит reveal bottleneck; если private-edge почти стоит, reveal менять
+как исправление бессмысленно. Owner14/cancel/loss обязательны, final wholeRGBA
+должно остаться exact, private copies не возвращаются в canonical.
+
+Отдельный, не смешиваемый вариант для недостаточного material movement:
+один private unitcarry на каждую реально выполненную unitfront relaxation
+вместо одного на four-step entry, с прежним общим stencil-safe stepLimit и
+bounded quanta. Это синхронизирует presentation transport/front-clock, но
+ускоряет исследуемый private physical trajectory и требует самостоятельного
+проверяемого контракта; нельзя считать его канонической промежуточной стадией.
+Ни reveal, ни transport вариант не включён по умолчанию и не доказан hardware.
