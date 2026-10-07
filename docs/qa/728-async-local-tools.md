@@ -135,3 +135,58 @@ partial run and A2 proof. `results-sequential-final-oracle/report.json` holds th
 completed B4/fresh oracle; VPS copy is
 `temp/async-multiplayer/sequential-final-oracle-report.json`. Old empty-export and
 resource-aborted attempts remain distinct and are not labelled parity PASS.
+
+
+### Pending canonical owner and remote history: deferred contract
+
+Source970-file passport remained7b11+e360; two actual authenticated Room engines,
+physical640×480 and real watercolor300 stroke. Its accepted request was pending
+with one owned canonical scratch when a pencil tail began. B's Undo of its
+accepted layer_add arrived while A had pending=true/owners1/active tail. The
+operation stayed in _opQueue with no actual application. After the FIFO finished,
+the tail remained active and Undo still waited: _scheduleOpDrain explicitly waits
+for !_strokeLayerId. A controller that demanded immediate cancellation timed out;
+that demand contradicted this reachable queue contract, not a proven app defect.
+
+The corrected bounded run verified ordinary native pen-up accepted the pencil
+tail and emitted exactly one normal end (cancelledfalse). Only then remote Undo
+actually applied, with pendingfalse and activeNull. All accepted watercolor stroke
+IDs remained; the pencil tail was recorded. Recovery and layer Redo endpoints
+matched both authors' wholeRGBA exactly. After closing both author contexts, an
+independent fresh replay matched final wholeRGBA/premult0, had183017 nonzero-alpha
+pixels and GL0/lostfalse. The owned Chrome closed normally, exit0. This is one
+canonical-owner deferred-history gate, not cancellation during pending work or a
+multiple-owner PASS. Earlier canonical-idle cancelledtrue evidence stays separate.
+
+Raw HOME `results-pending-owner-deferred-history/report.json`, VPS copy
+`temp/async-multiplayer/pending-owner-deferred-history-report.json`. Previous
+`results-pending-owner-cancel` timeout is retained with its limited callback
+capture; no operation/model flag or pixel tolerance was changed.
+
+
+### Local structural Undo cancels two queued finish requests
+
+A separate actual Room run captured two different native finish stroke IDs and
+logical gestures2/3 on one shared physical scratch. Both input finish boundaries
+were recorded before any owned finish execution. At the local layer_add boundary,
+there were21 retained scratch references and22 FIFO requests; the reference count
+includes deposition requests, so it is not described as21 finishes or21 distinct
+scratch owners. An earlier fixture's Map.size>=2 check failed fast because it
+confused distinct scratch count with retained request references; no app defect
+was inferred from that failure.
+
+Ordinary local Undo targeted that just-accepted layer_add with no active pen. A
+transparent delegate recorded actual _cancelSettle:20 held references→0,
+pendingtrue→false, and layer-1 marked unsettled for authoritative recovery. All
+three accepted watercolor operation IDs remained. Recovery and layer Redo matched
+both authors' wholeRGBA/premult exactly0; both endpoints were nonempty187018 alpha
+pixels. After closing both author contexts, independent fresh replay matched final
+wholeRGBA0/max0/alphaMax0, nonempty187018, GL0/lostfalse. Initial pigment positive
+control was nonempty22116 and peerRGBA0 before the pending workload.
+
+This is two queued logical finish requests sharing one scratch, cancelled by
+reachable local structural Undo; it does not claim two independent physical
+scratch owners or undo under a native active pen. Bound360s, RAM500MiB unchanged;
+exit0 and owned Chrome closed. Raw HOME
+`results-multiowner-local-history-finish-proof/report.json`, VPS copy
+`temp/async-multiplayer/multiowner-local-history-finish-proof-report.json`.
