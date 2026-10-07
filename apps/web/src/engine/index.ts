@@ -251,6 +251,8 @@ export interface PencilEngineOptions {
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
   asyncFinish?: boolean
+  /** Diagnostic OFF: defer one admitted joined native UP behind its predecessor. */
+  joinedFinishDeferred?: boolean
   /** Experimental bounded live watercolor material presentation. */
   materialPresentation?: boolean
   /** (#650) Where the engine's own diagnostic lines go — the on-device ring
@@ -2221,6 +2223,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcAsyncFinish = options.asyncFinish ?? false
     this._wcMaterialPresentation = options.materialPresentation ?? false
     this._diagLog = options.diagLog ?? (() => {})

@@ -1,3 +1,4 @@
+import { joinedFinishDeferredQaEnabled } from './diagnostics/joinedFinishDeferredQa'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -965,6 +966,7 @@ function RoomEditor() {
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       asyncFinish: false,
+      joinedFinishDeferred: joinedFinishDeferredQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
       materialPresentation: false,
       diagLog,
       infinite: engineInfinite,
