@@ -254,6 +254,8 @@ export interface PencilEngineOptions {
   asyncFinish?: boolean
   /** (#728) Build the three physical ribbon band arrays in one geometry walk. */
   bandBatch?: boolean
+  /** Diagnostic: one same-preset native film may overlap its predecessor. */
+  joinedTouch?: boolean
   /** Experimental bounded live watercolor material presentation. */
   materialPresentation?: boolean
   /** (#650) Where the engine's own diagnostic lines go — the on-device ring
@@ -2216,6 +2218,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    this._wcJoinedTouch = options.joinedTouch ?? false
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
     this._wcAsyncFinish = options.asyncFinish ?? false
     this._wcMaterialPresentation = options.materialPresentation ?? false

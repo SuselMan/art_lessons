@@ -966,6 +966,7 @@ function RoomEditor() {
     const engine = new PencilEngine(canvasRef.current, {
       asyncFinish: false,
       // Private QA opt-in; the ordinary room keeps the existing geometry path.
+      joinedTouch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaJoinedTouch') === '1',
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
       materialPresentation: false,
       diagLog,

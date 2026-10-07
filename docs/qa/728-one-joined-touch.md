@@ -79,3 +79,7 @@ commands, новое поколение metadata не наследует ста�
 Финальный lifecycle контроль: 15/15 тестов PASS, whole-web TS exit0.
 
 Root9af712c4 сохранил asyncError guards и captured-gesture expedited-Dry lifecycle при разрешении конфликта _startSettle. Повтор root21tests/4files (joinedTouch, coverageFilm, asyncFailureMaterial, expeditedDry) PASS; whole-web TS0, lint0, map1013PASS. Неуспешный запуск до разрешения merge-конфликта сохранён только как ошибочный preflight и не считается проверкой. Пользовательские стенды не изменены; аппаратное доказательство фиксированного5e80 остаётся обязательным.
+
+## Отдельный DEV вход для ручной проверки
+
+Typed `joinedTouch` defaultfalse устанавливается конструктором до первого job; Room разрешает его только в DEV с `qaJoinedTouch=1`. Обычные URL и production остаются OFF. Это подготовка ручного сравнения после аппаратных gates, не включение пользовательского стенда. Room line budget увеличен на одну строку явного флага.
