@@ -45,3 +45,25 @@ whole PNG против full-journal fresh oracle. Snapshot HTTP index/blob/cover
 
 Никакой claim ordinary ON load/peer/whole material PASS до этого hardware gate.
 Следующие контакты/solver оптимизирует profiler; данный commit не меняет их cadence.
+
+## Синхронная база после отката пользовательского стенда
+
+Кандидат перенесён без конфликтов на 27ee2f12 в отдельный worktree
+`728-firstload-sync`, commit 44b00a7c. Room asyncFinish=false и
+materialPresentation=false сохраняются. При A/B меняется только query option;
+никакие shader/scheduler flags не включаются. Первоначальная база cd56 — только
+история CPU диагностики, её async ON не используется для следующего hardware.
+
+Private CPU-ready runner: `temp/ordinary-room-sync/controller.mjs` и
+`room-probe.js`. Нужны явные QA_URL, QA_SOURCE_PASSPORT, QA_INPUT, WC_RELEASE_ROOT
+и QA_GPU_GRANT; без них запуск запрещён. Одна Chrome/context, engines последовательно,
+RAM preflight1700/abort500, outer900s; finally закрывает собственные страницы/Chrome.
+Actual ordinary Create/Join/socket ACK, original A4/Fine47, Undo48/Redo49 и normal
+stored rejoin проверяются whole PNG. Есть source HTTP SHA, исходный input SHA,
+flags async/material=false, stored index49 и ненулевые blob200. Bake временно
+заблокирован только для собственного measured snapshotless arm; затем возвращается
+реальный normal first snapshot policy, без uploader-force.
+
+Это replay исходных packed операций в настоящем Room, не native pen benchmark.
+Held peer arrival сейчас CPU доказан; отдельный actual peer hardware остаётся
+обязательным до полного принятия оптимизации. GPU ещё не запускался.
