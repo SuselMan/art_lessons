@@ -215,3 +215,36 @@ describe('a room_state for the board already held', () => {
     expect(deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
   })
 })
+
+it.each([false, true])('first board parked bootstrap resets previous head and preserves held peer: %s', async peer => {
+  const { openParkedRoomState } = await import('../engineWiring')
+  const latestKnownSeqRef = { current: 900 }
+  const pendingSnapshotRef: RoomStateDeps<FakeEngine>['pendingSnapshotRef'] = { current: null }
+  const { handle, engine } = setup({
+    firstRoomStateReceivedRef: { current: false }, latestKnownSeqRef, pendingSnapshotRef,
+    enterBoard(board, stash) {
+      // Room's enterBoard resets the outgoing board stream before parking this payload.
+      latestKnownSeqRef.current = 0
+      pendingSnapshotRef.current = stash
+      useRoomStore.getState().setBoardId(board)
+    },
+  })
+  await handle(state('L', { tailOperations: [tailOp(47)] }))
+  expect(latestKnownSeqRef.current).toBe(0)
+  expect(pendingSnapshotRef.current?.tailOperations.at(-1)?.seq).toBe(47)
+  const restore = vi.fn(async pending => {
+    expect(latestKnownSeqRef.current).toBe(peer ? 48 : 47)
+    expect(pending.tailOperations.at(-1)?.seq === latestKnownSeqRef.current).toBe(!peer)
+  })
+  await openParkedRoomState(engine, {
+    pendingSnapshotRef, latestKnownSeqRef, isCreator: false, openTimerRef: { current: null },
+    awaitPaper: async () => {
+      expect(latestKnownSeqRef.current).toBe(47)
+      if (peer) latestKnownSeqRef.current = 48
+      return true
+    },
+    restore, setRoomContentReady: vi.fn(), finishOpenTimer: vi.fn(),
+  })
+  expect(restore).toHaveBeenCalledOnce()
+  expect(pendingSnapshotRef.current).toBeNull()
+})

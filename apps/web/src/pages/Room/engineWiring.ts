@@ -169,6 +169,13 @@ export function openParkedRoomState<Engine>(engine: Engine, {
   const pending = pendingSnapshotRef.current
   if (pending) {
     pendingSnapshotRef.current = null
+    // enterBoard reset this board's stream before parking its authoritative
+    // payload. Unlike same-board catch-up, that path returns before the
+    // handler folds the head. Do it before paper/replay; never overwrite a
+    // newer peer confirmation that arrived after the board reset.
+    let head = pending.latestSnapshotSeq ?? 0
+    for (const op of pending.tailOperations) head = Math.max(head, op.seq ?? 0)
+    latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, head)
     // Awaits engine.paperReady() first (see its own doc comment): a
     // stroke replayed before the real paper texture has loaded would
     // permanently bake in the placeholder's flat response, with nothing

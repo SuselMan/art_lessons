@@ -49,3 +49,32 @@ Actual HOME4539 snapshotRoutes92–93: null index→204; не-live participant�
 Process exit выполняется только после awaited own contexts cleanup/disconnect.
 Click noWaitAfter сам по себе не доказанным образом исправляет performing-click
 ожидание; нужен evidence-based ready helper с отдельным action/restore deadline.
+
+## Изолированный CPU кандидат после trace
+
+`openParkedRoomState` отмечает head из authoritative snapshot/tail перед
+awaitPaper/restore через Math.max с текущим ref. Existing enterBoard/resetStream
+сохраняются: уходящая доска сначала сбрасывается, её старый watermark не переносится.
+При peer48 во время бумажного ожидания restore видит48, а tail47 equality остаётся
+false. Eligibility/undoneInBatch/clearedInBatch, журнал и физические операторы
+не менялись. Знание head не означает, что пиксели уже готовы: прежние readiness,
+replay gate и snapshot gate остаются обязательными.
+
+Focused actual handler/parked/restore suite:34 PASS/3files. Проверены head47
+до бумаги, snapshot-only47/empty tail, snapshot45+tail46/47, empty room0,
+peer48 до/во время awaitPaper, first-board reset старого900 и обычный reconnect.
+На старом engineWiring с этими regression tests:6 FAIL/19 PASS/2files;
+новый source восстановлен. Log: temp/cpu/parked-watermark-old-negative.log.
+No GPU retry, immutable5341 остаётся source6b. Кандидат не включён в main.
+
+Открыто: actual OFF47/ON47 whole/census и six-condition event с новым bootstrap,
+held peer48 during restore/latestKnown48; Undo48 meaningful pixels vs full OFF48;
+Redo49/durable prefix/normal snapshot49/fresh paint0. До этого ускорение ordinary
+Room и source safety на устройстве не утверждаются. Click observation helper тоже
+нуждается в отдельном исправлении bounded ready;30s performing-click timeout
+не следует повторно трактовать как Engine error.
+
+Final CPU closure: whole own web TypeScript EXIT0 (real-deps closure config),
+34tests/3files PASS, targeted oxlint --fix EXIT0, git diff --check PASS.
+Logs: temp/cpu/parked-watermark-combined-final2.log,
+parked-watermark-types-final2.log (пустой, EXIT0).
