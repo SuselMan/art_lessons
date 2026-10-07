@@ -37,3 +37,18 @@ P/C/solvent/coverage содержат ненулевые данные. Solver ca
 fresh rejoin, live job completion/loss, иной preset/RGB и другие устройства
 ещё не дают product-safety PASS. Пен-UP barrier сохранён. Ранее70f4c5bb имел
 mutable-metadata guard holes; его provisional результат не разрешал включение.
+
+## Typed constructor UI lifecycle, источник049af326
+
+Отдельный обычный Room qaJoinedTouch=1: constructor-флаг проверен до input.
+Engine author не `local`, совпадает с roomStore author перед жестами.
+UI Dry seq3: purple287989; Undo seq4 действительно пометил stroke2 undone,
+purple252213 и другой wholeSHA; Redo seq5 вернул stroke2 done, purple287989
+и исходный wholeSHA. Все stroke server ACK seq1/2, GL0/lostfalse.
+
+Контроллер55712 завершён EXIT1/CLOSED при fresh join: форма получила
+`server_busy`, новый Engine не создан. Поэтому полного fresh-restore PASS нет.
+UI строка говорит capacity, однако сервер использует тот же error и для
+исключения prepareSnapshotReplay; по UI причину не классифицируем.
+Private raw: `temp/band-room/joined-typed-lifecycle-result.json`.
+Первичная попытка35817 остановилась RAM guard до Chrome; тестов не было.
