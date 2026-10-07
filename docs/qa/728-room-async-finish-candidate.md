@@ -21,3 +21,13 @@ Corrected actual matrix30107 EXIT0/ownedChromeClosed:22 barriers,18 whole peer c
 ## Продуктовый gate ещё нужен
 
 Hardware выше использует private opt-in прежнего source451 и доказывает путь; CPU доказывает public option forwarding. Перед интеграцией/включением на стенде проверить обычный Room на этой новой constructor опции **без private toggle**, поскольку caller bootstrap/snapshot readiness — отдельный контракт. Performance улучшение и same-tape Samsung proof описаны в `728-async-native400-clean.md`; оставшиеся50/67ms active и84/518ms tail не объявлены smooth60fps. Multiuser foreign pencil active856ms также остаётся performance ограничением.
+
+## Actual Room constructor на Samsung, интегрированный 67f076f2
+
+Полный источник `67f076f2865777ddbc070035ab7df9423fc9f76b`: 991 tracked web/shared SHA совпали в собственном HTTPS5331. Actual Adreno650, A4Fine1754×2480, обычный UI create/Room, `asyncFinish=true` уже после конструктора; private async setter отсутствует. Device fetch Engine/Room HTTP200 подтвердил constructor option и caller `asyncFinish: true`. Plan/rim/phase/fibres diagnostic OFF, sourceRebase/zeroContacts ON; intrinsic split=false. Backend4539 не менялся.
+
+Clean no-trace/no-label, native4003s + следующий touch: вода active max50ms/tail368ms, nextTouch100.4ms послеlift/handler37.8ms; пигмент50/67ms, nextTouch83.7ms/handler37.5ms. По9 подтверждённых stroke chunks, pendingACK0. Natural pigment FIFO183→0 занял около80s с дальнейшим завершением reveals; это незакрытая длительность оседания, не input lock. Эти две adaptive arms не причинный speed A/B и не smooth60fps.
+
+Обе arms завершили UI Dry/Undo/Redo и следующий pigment100/Dry/Undo/Redo. Whole straightRGBA nativeDry→Redo и nextpigmentDry→Redo: все4 сравнения0px/max0, GL0/lostfalse, owners0. Water export прозрачен ожидаемо; meaningful следующие pigment endpoints255771/2303848 alpha-positive pixels, исходный pigment4002303662. Самостоятельный fresh/multiuser здесь не заявлен; предыдущие gates выше отдельные.
+
+Raw VPS: `temp/pure-water-plan/causal-trace/native-product67_1791367801495/{report.json,rgba-comparison.json,*png}`. Tool65117 EXIT0, own1452/1453 closed finally. Более ранние raw `native-product67_1791367141714` — RAMpreflight1433<1700 до вкладки; `...1791367763927` — неверно escaped fixture regex доinput, own1451 closed. Исправление только контроллера, не продукта.
