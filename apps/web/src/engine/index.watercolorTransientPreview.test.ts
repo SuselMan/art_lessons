@@ -18,7 +18,7 @@ describe('watercolor unsupported transient previews (#728)', () => {
     simulateStrokeStart(engine, 8, 8)
     expect(engine['_tipBuf']).toBeNull()
     expect(engine['_previewBuf']).toBeNull()
-    const schedule = vi.spyOn(engine as never, '_scheduleDisplay' as never)
+    const schedule = vi.spyOn(engine as unknown as { _scheduleDisplay(): void }, '_scheduleDisplay')
     // A duplicate point produces no canonical dabs; there is no tip to refresh.
     simulateStrokeMove(engine, 8, 8)
     expect(schedule).not.toHaveBeenCalled()
@@ -50,7 +50,7 @@ describe('watercolor unsupported transient previews (#728)', () => {
     simulateStrokeStart(engine, 8, 8)
     expect(engine['_tipBuf']).not.toBeNull()
     expect(engine['_previewBuf']).not.toBeNull()
-    const tip = vi.spyOn(engine as never, '_refreshTip' as never)
+    const tip = vi.spyOn(engine as unknown as { _refreshTip(speed: number): void }, '_refreshTip')
     simulateStrokeMove(engine, 20, 8)
     expect(tip).toHaveBeenCalled()
     const clear = vi.spyOn(engine['_previewBuf']!, 'clear')
