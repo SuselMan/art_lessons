@@ -83,3 +83,32 @@ Hot DOWN: CPU2.3ms, после него GPU-read верхняя граница4.
 аппаратная задержка пера. Несинхронизированный вариант ещё не проверен.
 Сфера PASS узкая: одинаковые RGB и exact preset, обычный Room с двумя
 фиксированными жестами, Dry/Undo/Redo и свежий вход. Не broad FPS PASS.
+
+
+## Surface: парный first-pigment admission probe
+
+Контроллер94494 EXIT0/CLOSED, отдельный интерактивный Chrome QA profile.
+Исходник049af326: все1005 raw SHA совпали с immutable manifest до arms.
+Ordinary Room OFF/ON, только typed joinedTouch изменён; async/material/
+lazy/split/front/contact/presentation/band выключены. Actor настоящий,
+совпадает со store. Global crypto не изменён, физические stroke seeds и
+логические event timestamps фиксированы. HTTP DB200 после каждого arm
+подтвердил три уникальных stroke и Dry, seq1..4, собственные room0ECt3uhY
+и IbKxE2g8; предыдущие журналы не менялись.
+
+Hot OFF: previous job next10/92, completeSettle1, lease false; CPU15.6ms,
+GPU read579.3ms, real-pigment upperbound595.1ms. ON: previous8/92,
+completeSettle0, старый job сохранён и joined lease равен именно этому job;
+CPU8.8ms, read28.3ms, upperbound37.1ms. Cold39.2/33.5ms,
+afterDry16.1/15.6ms. Все ROI changed25/purple25, GL0/lostfalse.
+Пассивные wrappers сохраняют this/args/return, дополнительных barriers
+кроме диагностических5×5 baseline/postDOWN reads не добавляют.
+
+Это подтверждает admission и устранение синхронного drain в узком preset/RGB
+сценарии. Baseline read предварительно синхронизирует старую GPU очередь;
+метрика не browser-present или аппаратное перо. Предшествующий rAF next
+слегка различен, whole dry parity данным прогоном не измерена.
+Raw `temp/band-room/first-pixel-surface-1791384149972.json`, source proof
+`temp/band-room/surface-pair-source-proof.json`.
+Exact owned Chrome9844, task и SSH forward2488762 закрыты; профиль сохранён.
+User5330/qcpp4SdG/5329/5339 не изменены.
