@@ -78,3 +78,24 @@ strict server normalization, late packet and reset/clear/replay lifecycle.
 Logs: `temp/async-multiplayer/cancel-final-lifecycle.log` and final types/lint/map
 logs. This section makes no post-fix hardware or production claim; the ordinary
 Room retry requires matching updated frontend and backend.
+
+### Actual ordinary Room retry after cancellation integration
+
+Root source `7b11b29e` was copied as all 970 tracked web/shared files into own
+HOME5316 (every SHA matched). Current own backend4539 had all 131 server/shared
+files exact, shared build/web types passed. No production services changed.
+
+Two ordinary Room participants on real Radeon, physical 640×480, own room
+Y3GnGVSG: B's remote Undo `V_e_Mr82te` applied while A's pencil tail
+`jCFfsMOcbX` was active, canonical queue idle. A emitted exactly one matching
+`cancelled:true` end; the unrecorded tail was absent from the accepted journal.
+All four barriers became idle, both journals agreed, GL0/context not lost.
+Recovery and subsequent Redo whole RGBA were exact (0 changed pixels, max0,
+premult0), with 22,087 nonempty pixels. Accepted watercolor remained present.
+Owned Chrome closed, controller exit0. This verifies reachable cancellation;
+normal end before ACK and accepted-prefix cancellation remain CPU regressions.
+
+Raw: HOME `680-water-wet-tone-qa/temp/async-multiplayer/results-remote-midpen-7b11/`;
+VPS copied report `temp/async-multiplayer/remote-midpen-7b11-report.json`.
+The instrumentation forwards both end arguments; earlier one-argument wrappers
+would have erased the optional marker and are not used for this result.
