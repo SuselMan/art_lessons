@@ -15,6 +15,10 @@ export class AccumulationBuffer {
   // Prefixed _ but not private — internal methods use _fbo directly; public getter `fbo` is used externally.
   _texture: WebGLTexture
   _fbo: WebGLFramebuffer
+  // copyTo's legacy unequal-size path redefines physical storage without
+  // changing the public logical extent. Guards must use the physical extent.
+  private _storageWidth: number
+  private _storageHeight: number
 
   // Smudge's scratch "picked up patch" buffers requested 'nearest' until #416
   // (they are LINEAR since — see SmudgePainter's scratchPool; the ribbon's
@@ -32,6 +36,8 @@ export class AccumulationBuffer {
     this.gl = gl
     this.width = width
     this.height = height
+    this._storageWidth = width
+    this._storageHeight = height
     this._baseFilter = filter
     this._texture = this._makeTexture(filter)
     this._fbo     = this._makeFBO(this._texture)
@@ -349,7 +355,15 @@ export class AccumulationBuffer {
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    if (this._storageWidth === width && this._storageHeight === height && pixels.byteLength >= width * height * 4) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      // An invalid payload may leave old storage unchanged. Be conservative
+      // rather than admitting a later sub-image write with guessed dimensions.
+      this._storageWidth = pixels.byteLength >= width * height * 4 ? width : 0
+      this._storageHeight = pixels.byteLength >= width * height * 4 ? height : 0
+    }
   }
 
   /** (#536, ADR 011 §17.68) The whole texture overwritten in place with
@@ -401,17 +415,30 @@ export class AccumulationBuffer {
     this._invalidateMips()
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    this._storageWidth = width; this._storageHeight = height
     if (w > 0 && h > 0) {
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, height - h, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
     }
   }
 
   copyTo(dest: AccumulationBuffer): void {
-    dest._invalidateMips() // copyTexImage2D redefines dest's level 0
+    dest._invalidateMips()
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.bindTexture(gl.TEXTURE_2D, dest._texture)
-    gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, this.width, this.height, 0)
+    if (dest !== this && dest.gl === gl
+      && this._storageWidth === this.width && this._storageHeight === this.height
+      && dest._storageWidth === this.width && dest._storageHeight === this.height) {
+      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, this.width, this.height)
+    } else {
+      // Keep legacy resizing and invalid self/cross-context behavior intact.
+      gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, this.width, this.height, 0)
+      if (dest.gl === gl) {
+        const known = dest !== this && this._storageWidth === this.width && this._storageHeight === this.height
+        dest._storageWidth = known ? this.width : 0
+        dest._storageHeight = known ? this.height : 0
+      }
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
