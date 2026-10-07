@@ -149,3 +149,22 @@ fresh ordinary reader1447 и получил15s Runtime.evaluate timeout во в�
 bootstrap, stored rejoin и обычный Undo/Redo ещё не пройдены. Следующий прогон
 требует проверенного bounded CDP deadline для долгого restore; не отключать работу
 движка и не удалять историю ради результата.
+
+### Ordinary bootstrap проверен на c092
+
+После review сохранённый seed SNOONay_ использован повторно без повторного
+рисования. OFF ordinary reader1448:52.315с от начала создания/навигации своей
+вкладки до47 ACK/idle, actualpaint39 и полный RGBA17 399 680bytes совпал сseed.
+Undo48 восстановил1 362 943 отличающихся байта; Redo49 exact0. Настоящий
+bootstrap затем опубликовал один nonempty layer-1 bake, POST200 seq49. Fresh
+stored reader1449:5.017с, actualpaint0, coverage49, полная логическая история49,
+1 580 675 nonempty pixels, wholeRGBA exact0/GL0/lostfalse. Snapshot hash
+b4f56380bf2e72958f12d50a6efa76fbbe5ea906db2ab004a8ddd9eedf777f93.
+
+Это обычный Socket Room pipeline и реальный серверный bitmap, не standalone
+engine. Наблюдаемая разница больше10×, но последовательный порядок/cache и
+включённое создание вкладки не позволяют заявлять строгий causal load benchmark.
+Source c092 не включает более позднюю root физику800f. ON новыйCreate1450 получил
+fixture Illegal invocation до seed; сравнительный OFF/ON ordinary elision
+остаётся pending. Exec94402 EXIT1,1448/1449/1450 CLOSED. Полный raw и компактный
+off-complete-summary.json сохранены в ordinary47_1791366235739.
