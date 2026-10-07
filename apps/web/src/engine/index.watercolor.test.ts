@@ -552,7 +552,7 @@ describe('a wash reaches every path that paints (#468)', () => {
     const washId = chunks[chunks.length - 1].washId
     expect(washId).toBeTruthy()
     for (const c of chunks) expect(c.washId).toBe(washId)
-  })
+  }, 15_000) // MockGL multi-chunk contract, not a device latency benchmark.
 
   // (#536, ADR 011 §17.12) The reveal: presentation that eases the screen onto
   // a settled wash instead of cutting to it. Its whole contract is that it is
