@@ -1,5 +1,5 @@
 import { describe,it,expect,vi } from 'vitest'
-import type { Operation } from '@grafetto/shared'
+import { strokeDabs, type Operation } from '@grafetto/shared'
 import { createTestEngine,makeLayerAdd } from '../../testing/engineTestUtils'
 import { CanonicalWatercolorGesture,type BakedWatercolorChunk } from './CanonicalWatercolorGesture'
 import type { PointerData } from './PointerInput'
@@ -9,7 +9,7 @@ describe('canonical watercolor input boundary',()=>{
  it.each([['round',false],['chisel',false],['round',true],['chisel',true]] as const)('same production packed dabs/wet and event batches: %s wet=%s',async (nib,prewet)=>{
   const clock=vi.spyOn(performance,'now').mockReturnValue(1000)
   const preset=`normal:100:100:PB29:${nib}`,production:Operation[]=[],native:Operation[]=[],chunks:BakedWatercolorChunk[]=[],batches:unknown[]=[]
-  const {engine}=createTestEngine({tool:'watercolor',pencilType:preset,size:400,opacity:.75,graphiteColor:[.2,.3,.6],onLocalOperation:op=>production.push(op)},{width:64,height:64})
+  const {engine}=createTestEngine({pencilType:preset,size:400,opacity:.75,graphiteColor:[.2,.3,.6],onLocalOperation:op=>production.push(op)},{width:64,height:64})
   await engine.paperReady();engine.setTool('watercolor');engine.appendOperation(makeLayerAdd('u','L'));engine.setActiveLayer('L');production.length=0
   const e=engine as unknown as Record<string,any>
   vi.spyOn(e,'_paintDabs').mockImplementation((...args:any[])=>{batches.push({dabs:structuredClone(args[1]),wet:args[10]??''});return undefined})
@@ -24,6 +24,13 @@ describe('canonical watercolor input boundary',()=>{
   expect(normalized(native)).toEqual(normalized(production))
   expect(chunks.map(chunk=>({dabs:chunk.dabs,wet:chunk.wet}))).toEqual(batches)
   expect(native.length).toBeGreaterThan(1)
+  const strokes=native.filter(op=>op.type==='stroke')
+  for(let i=0;i<strokes.length;i++){
+   const recorded=strokeDabs(strokes[i]),parts=chunks.filter(chunk=>chunk.operationIndex===i)
+   expect(parts.reduce((sum,part)=>sum+part.dabs.length,0)).toBe(recorded.length)
+   expect(parts.map(part=>part.wet).join('')).toBe(strokes[i].wet??'0'.repeat(recorded.length))
+   expect(parts[0].dabOffset).toBe(strokes.slice(0,i).reduce((sum,op)=>sum+strokeDabs(op).length,0))
+  }
   expect(chunks.some(chunk=>chunk.operationIndex>0&&chunk.dabOffset>0)).toBe(true)
   engine.destroy();clock.mockRestore()
  })
