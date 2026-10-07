@@ -97,3 +97,25 @@ Raw: HOME `680-water-wet-tone-qa/temp/async-multiplayer/results-remote-midpen-7b
 VPS copied report `temp/async-multiplayer/remote-midpen-7b11-report.json`.
 The instrumentation forwards both end arguments; earlier one-argument wrappers
 would have erased the optional marker and are not used for this result.
+
+### Open foreign-pigment dry endpoint discrepancy
+
+A new short two-author scene on source7b11 (loaded A stroke, A clear water,
+B dry pigment, then ordered UI Dry) has a strict canonical endpoint failure.
+Corrected read-only captures were real (69/37 records): accepted four-op JSON
+was exact, both idle/reveals empty/GL0, native and remote profile/color plus
+finish bounds/radius/landedWet matched. Wet canonical export and final ordered
+Dry both differed by 271 pixels/max182, alphaMax132, premultMax51.13.
+
+An independent native repeat with material wrappers disabled also failed final
+Dry (246 pixels/max255, alphaMax128, premultMax42.58). This excludes those
+wrappers as a necessary trigger, but different rAF-driven gestures mean this
+is not a paired fixed-input cause proof. It does not establish a regression
+from 8aa or explain the earlier 150-pixel/max2 matrix discrepancy. Full staged
+P/C/coverage/V comparison and historical baseline remain required. Both owned
+Chrome runs closed; defaults and production were unchanged.
+
+Raw HOME folders: `results-wet-capture-corrected-7b11`, `results-wet-clean-7b11`
+under `680-water-wet-tone-qa/temp/async-multiplayer/`.
+The first `results-wet-capture-7b11` is a fixture failure: wrappers were not
+installed and mandatory capture correctly failed. Its raw report is retained.
