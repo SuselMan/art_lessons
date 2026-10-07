@@ -1,0 +1,321 @@
+{
+  "source": "cea6eff7d337b4fd6bd2eefc67404f6d55e91a3e",
+  "page": [
+    3508,
+    2480
+  ],
+  "paper": "Medium",
+  "cases": [
+    {
+      "sheet": 3,
+      "journal": "ops_3.json",
+      "journalSHA256": "ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9",
+      "operationCount": 42,
+      "imageImportIds": [
+        "Yr38r8lLbf"
+      ],
+      "targets": [
+        {
+          "seq": 59,
+          "id": "KXAm_PnUz2",
+          "preset": "normal:100:100:PB29:chisel",
+          "washId": "CEiuPnsbmF",
+          "dabCount": 25,
+          "packedSHA256": "5a0f58887bef6564ef9e18fa8cb6fc75a8514498143649be5ac987b1bf41678c",
+          "wetSHA256": "dc6486f6001dc3891e2dd597d79863bf805ee6c7d3984e2b12ded94029e6c115",
+          "geometryBounds": [
+            1051.539186000824,
+            273.76948261260986,
+            1098.1730222702026,
+            300.84664726257324
+          ]
+        },
+        {
+          "seq": 61,
+          "id": "GEiXT33N5K",
+          "preset": "normal:100:100:PB29:chisel",
+          "washId": "CEiuPnsbmF",
+          "dabCount": 77,
+          "packedSHA256": "de89e7c0b79a74b00d9cc9932fa444aa29494300fd147b936d3df5abd11d34e8",
+          "wetSHA256": "2753d0e5f20607a610761b3429cafad363f857b3e8853f88422abf081286ec89",
+          "geometryBounds": [
+            1043.2530603408813,
+            570.2775650024414,
+            1115.6178493499756,
+            615.1644554138184
+          ]
+        },
+        {
+          "seq": 63,
+          "id": "CKQTZkZdA3",
+          "preset": "normal:100:100:PB29:chisel",
+          "washId": "CEiuPnsbmF",
+          "dabCount": 29,
+          "packedSHA256": "8833ff898d9e173679c1eda23508b044686a9bd42d3d0f20489a4b61de06009f",
+          "wetSHA256": "ddf803d0e9cb849550858699b0a11129fc7bff65cfdd86dfeeb5da7a7920baeb",
+          "geometryBounds": [
+            1064.8730697631836,
+            874.1069812774658,
+            1091.623670578003,
+            906.6115007400513
+          ]
+        },
+        {
+          "seq": 65,
+          "id": "ytlRBmw3Tg",
+          "preset": "normal:100:100:PB29:chisel",
+          "washId": "CEiuPnsbmF",
+          "dabCount": 37,
+          "packedSHA256": "746d0c6b51765af972894169aa5d853219e61b2d3168a6cedc48c9ff33f63a32",
+          "wetSHA256": "a62aa5081784922f391e3959a357e42bec4940355823f85639fa01954b619049",
+          "geometryBounds": [
+            1052.705040693283,
+            1178.6828727722168,
+            1102.696907043457,
+            1213.3834602832794
+          ]
+        }
+      ],
+      "crops": {
+        "1": [
+          910,
+          154,
+          1264,
+          420
+        ],
+        "2": [
+          910,
+          455,
+          1264,
+          721
+        ],
+        "3": [
+          910,
+          756,
+          1264,
+          1022
+        ],
+        "4": [
+          910,
+          1057,
+          1264,
+          1323
+        ]
+      }
+    },
+    {
+      "sheet": 4,
+      "journal": "ops_4.json",
+      "journalSHA256": "bd0bfc4572486e567c6dac7b5e3ec6311a6b73704aad46e167c89e89e3dfc7cd",
+      "operationCount": 24,
+      "imageImportIds": [
+        "PuVB7D80T6"
+      ],
+      "targets": [
+        {
+          "seq": 39,
+          "id": "WSfGdMae5C",
+          "preset": "normal:100:26:PB29:round",
+          "washId": "jy3-K5VCk3",
+          "dabCount": 56,
+          "packedSHA256": "51682a1a388277b5863a8f0a7b62ba65b6c9509a7dd22e8a30fad7b7ddf043a7",
+          "wetSHA256": "16433ea9ad9d0051047b9f9884a26c9ef3f14d87a13ba2f09f1ff6117671696d",
+          "geometryBounds": [
+            1308.5678977966309,
+            238.69868087768555,
+            1757.2641830444336,
+            327.2137813568115
+          ]
+        },
+        {
+          "seq": 45,
+          "id": "0iI3jLw8sP",
+          "preset": "normal:100:28:PB29:round",
+          "washId": "JvBhnO6H9E",
+          "dabCount": 74,
+          "packedSHA256": "5d214fb0306a2af7dbe5837630eccc299f1c385d1c59598abe21d354bca8d8d3",
+          "wetSHA256": "b999d980025a40a5d265d7c821543ee171c105e2778709ec60d89d8a2c967b04",
+          "geometryBounds": [
+            1302.1433353424072,
+            606.0686531066895,
+            1849.1423225402832,
+            689.7009010314941
+          ]
+        },
+        {
+          "seq": 47,
+          "id": "Kxbn0GtGvU",
+          "preset": "normal:100:22:PB29:round",
+          "washId": "CK8L5CZEwX",
+          "dabCount": 60,
+          "packedSHA256": "9aff6cee75c9f921eeee11e97870e9a064d3bd6c9b20be16159d7c53221ba47e",
+          "wetSHA256": "084cb493e48966530666ba29d8cdbc3afd7c75163003ae6dc147ed4bcb4a3091",
+          "geometryBounds": [
+            1318.9422388076782,
+            944.3698768615723,
+            1753.018575668335,
+            1014.6766605377197
+          ]
+        },
+        {
+          "seq": 49,
+          "id": "Vn7akk9zjJ",
+          "preset": "normal:100:15:PB29:round",
+          "washId": "89xTdGCHsl",
+          "dabCount": 65,
+          "packedSHA256": "0e93176c64b71550c06c464165e63528e2fd86de779b3ca2e6f298861cfd42cf",
+          "wetSHA256": "6739d65bfbdbf9512f0626be7e11bb16ae7e3530206483cfc613ba0c4697ecb3",
+          "geometryBounds": [
+            1320.4259023666382,
+            1271.0462265014648,
+            1806.5939807891846,
+            1335.9732971191406
+          ]
+        }
+      ],
+      "crops": {
+        "1": [
+          1280,
+          154,
+          1776,
+          449
+        ],
+        "2": [
+          1280,
+          484,
+          1819,
+          779
+        ],
+        "3": [
+          1280,
+          814,
+          1797,
+          1109
+        ],
+        "4": [
+          1280,
+          1144,
+          1781,
+          1439
+        ]
+      }
+    },
+    {
+      "sheet": 10,
+      "journal": "ops_10.json",
+      "journalSHA256": "f8ef3e54b9bf4f95ea7fff7c3c5114653d04cd0b9ace0bd40d40ab673c5be1e7",
+      "operationCount": 26,
+      "imageImportIds": [
+        "ZrMOPvNX3t"
+      ],
+      "targets": [
+        {
+          "seq": 25,
+          "id": "B0YX9Lz7eg",
+          "preset": "normal:100:39:PB29:flex",
+          "washId": "Jj9lrpwTkC",
+          "dabCount": 106,
+          "packedSHA256": "a5aceb6cea4aee7d01d113b9b7eb6320440ea478c693e2c7c060930a805116a7",
+          "wetSHA256": "3129ce0dce304c91cf96f646f7f42ecf81315cf68e08573f0d343108f7ceac72",
+          "geometryBounds": [
+            1153.413631439209,
+            575.0808181762695,
+            1247.1496391296387,
+            657.5261898040771
+          ]
+        },
+        {
+          "seq": 31,
+          "id": "XXzYhPo3UF",
+          "preset": "normal:100:13:PB29:flex",
+          "washId": "th9peK2ZPS",
+          "dabCount": 480,
+          "packedSHA256": "8ad7979ae2d09b0192d4f6d849ead4c2a721662a78cb442c8524c4bc2cab51cb",
+          "wetSHA256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "geometryBounds": [
+            1088.851692199707,
+            861.2085647583008,
+            1366.329433441162,
+            1069.629981994629
+          ]
+        },
+        {
+          "seq": 33,
+          "id": "ntNUtm7fRC",
+          "preset": "normal:100:44:PB29:flex",
+          "washId": "CKKWy8gTWY",
+          "dabCount": 403,
+          "packedSHA256": "ed749ea3d3a4d36b123dcbad36ecd65fd6192c4034240c61eab2f3753e0530c2",
+          "wetSHA256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "geometryBounds": [
+            1069.0324783325195,
+            1177.4985485076904,
+            1329.3526000976562,
+            1388.7491912841797
+          ]
+        },
+        {
+          "seq": 35,
+          "id": "J-Gc4GZnA8",
+          "preset": "normal:100:35:PB29:flex",
+          "washId": "Wbp6bjcKMh",
+          "dabCount": 385,
+          "packedSHA256": "d6586e0e653956ba46240cfda29b2adfe0b6be8e1ee5b373733a41b852ad830e",
+          "wetSHA256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "geometryBounds": [
+            1043.977409362793,
+            1489.319829940796,
+            1340.06587600708,
+            1722.6646575927734
+          ]
+        }
+      ],
+      "crops": {
+        "2": [
+          1034,
+          473,
+          1368,
+          757
+        ],
+        "3": [
+          1034,
+          792,
+          1412,
+          1104
+        ],
+        "4": [
+          1034,
+          1139,
+          1379,
+          1434
+        ],
+        "5": [
+          1034,
+          1469,
+          1384,
+          1759
+        ]
+      }
+    }
+  ],
+  "arms": [
+    {
+      "name": "OFF",
+      "phase": false,
+      "add": false
+    },
+    {
+      "name": "PHASE",
+      "phase": true,
+      "add": false
+    },
+    {
+      "name": "PHASE_ADD",
+      "phase": true,
+      "add": true
+    }
+  ],
+  "bakedFibres": "fixed same ON in all arms",
+  "historyPolicy": "Full original curated journals; no remap, pruning, synthetic wet, extra Dry. Reference image may be excluded ONLY explicitly as separate background, never unreported.",
+  "status": "CPU validated; hardware pending"
+}
