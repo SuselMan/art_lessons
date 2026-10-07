@@ -92,22 +92,25 @@ export function isForeignPersonalBoard(
   return !!board?.ownerId && board.ownerId !== userId && !isTeacher
 }
 
-/** (#595, ADR 015 §5) Whether this client bakes the class grid's live picture
- *  of `board` — the board it is on. Only a personal board in the round that is
- *  running, and one baker per board: its student, or, while the student is not
- *  on it, the teacher, whose corrections must reach the grid too. */
+/** One publisher per board: prefer its student, then the teacher, then
+ *  the first participant by stable user id. Personal boards never use a
+ *  classmate's read-only canvas. Applies to every assignment and shared page. */
 export function bakesLivePreview(
   board: Pick<BoardSummary, 'id' | 'ownerId' | 'assignmentId'> | undefined,
-  activeAssignmentId: string | null,
+  boardId: string | null,
   userId: string,
   isTeacher: boolean,
-  participants: readonly Pick<Participant, 'userId' | 'boardId'>[],
+  participants: readonly Pick<Participant, 'userId' | 'boardId' | 'role'>[],
 ): boolean {
-  if (!board || !isPersonalBoard(board) || activeAssignmentId === null) return false
-  if (board.assignmentId !== activeAssignmentId) return false
-  if (board.ownerId === userId) return true
-  const ownerHere = participants.some(p => p.userId === board.ownerId && p.boardId === board.id)
-  return isTeacher && !ownerHere
+  if (!boardId) return false
+  const here = participants.filter(p => p.boardId === boardId)
+  if (board && isPersonalBoard(board)) {
+    if (board.ownerId === userId) return true
+    return isTeacher && !here.some(p => p.userId === board.ownerId)
+  }
+  const teacher = here.find(p => p.role === 'owner')
+  const publisher = teacher?.userId ?? here.map(p => p.userId).sort()[0]
+  return publisher === userId
 }
 
 /** (#595) Whether the store's own roster names this client the lesson's

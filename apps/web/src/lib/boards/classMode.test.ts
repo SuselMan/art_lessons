@@ -68,27 +68,29 @@ describe('class mode on the client (#595)', () => {
   })
 })
 
-describe('bakesLivePreview (#595, ADR 015 §5)', () => {
-  const aliceThere = [{ userId: 'alice', boardId: 'A1' }]
-  const aliceAway = [{ userId: 'alice', boardId: 'L' }]
+describe('bakesLivePreview', () => {
+  const aliceThere = [{ userId: 'alice', boardId: 'A1', role: 'member' as const }]
+  const teacherThere = { userId: 'teacher', boardId: 'L', role: 'owner' as const }
 
-  it('is the student on their own board in the running round', () => {
-    expect(bakesLivePreview(alice1, 'R1', 'alice', false, aliceThere)).toBe(true)
-  })
-
-  it('is nobody outside the running round, and nobody on a lesson page', () => {
-    expect(bakesLivePreview(alice2, 'R1', 'alice', false, aliceThere)).toBe(false)
+  it('publishes a personal board even outside the current assignment', () => {
+    expect(bakesLivePreview(alice1, 'A1', 'alice', false, aliceThere)).toBe(true)
+    expect(bakesLivePreview(alice2, 'A2', 'alice', false, [])).toBe(true)
     expect(bakesLivePreview(alice1, null, 'alice', false, aliceThere)).toBe(false)
-    expect(bakesLivePreview(lesson, 'R1', 'teacher', true, [])).toBe(false)
-    expect(bakesLivePreview(undefined, 'R1', 'alice', false, [])).toBe(false)
   })
 
-  it('is the teacher only while the student is not on the board', () => {
-    expect(bakesLivePreview(alice1, 'R1', 'teacher', true, aliceThere)).toBe(false)
-    expect(bakesLivePreview(alice1, 'R1', 'teacher', true, aliceAway)).toBe(true)
+  it('lets the teacher publish a personal board only when its student is away', () => {
+    expect(bakesLivePreview(alice1, 'A1', 'teacher', true, aliceThere)).toBe(false)
+    expect(bakesLivePreview(alice1, 'A1', 'teacher', true, [])).toBe(true)
+    expect(bakesLivePreview(alice1, 'A1', 'bob', false, [])).toBe(false)
   })
 
-  it('is never a classmate', () => {
-    expect(bakesLivePreview(alice1, 'R1', 'bob', false, aliceAway)).toBe(false)
+  it('prefers the teacher on shared boards and otherwise elects a stable user', () => {
+    const bob = { userId: 'bob', boardId: 'L', role: 'member' as const }
+    const ann = { userId: 'ann', boardId: 'L', role: 'member' as const }
+    expect(bakesLivePreview(lesson, 'L', 'teacher', true, [bob, teacherThere])).toBe(true)
+    expect(bakesLivePreview(lesson, 'L', 'bob', false, [bob, teacherThere])).toBe(false)
+    expect(bakesLivePreview(undefined, 'L', 'ann', false, [bob, ann])).toBe(true)
+    expect(bakesLivePreview(undefined, 'L', 'ann', false, [ann, bob])).toBe(true)
+    expect(bakesLivePreview(undefined, 'L', 'bob', false, [ann, bob])).toBe(false)
   })
 })

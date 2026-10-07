@@ -64,6 +64,8 @@ export interface SnapshotGate {
    *  is the same publishable lie as an empty one and would pass every
    *  consistency check we have. */
   restoreStarted(): void
+  /** Whether join/reconnect restoration finished successfully. */
+  ready(): boolean
   /** `null` when nothing should be baked. Otherwise the watermark pair, and
    *  the gate has already advanced past it. */
   observe(input: BakeObservation): BakePlan | null
@@ -101,6 +103,7 @@ export function createSnapshotGate(
       if (!pendingCommitSeqs[Symbol.iterator]().next().done) return null
       return latestKnownSeq
     },
+    ready() { return restoreDone },
 
     observe({ latestKnownSeq, pendingCommitSeqs, replayIncomplete }) {
       if (!restoreDone || replayIncomplete) return null

@@ -16,6 +16,7 @@ describe('createSnapshotGate', () => {
   it('refuses to bake before the catch-up has finished', () => {
     const gate = createSnapshotGate()
 
+    expect(gate.ready()).toBe(false)
     expect(gate.observe(observation(22437))).toBeNull()
   })
 
@@ -45,11 +46,14 @@ describe('createSnapshotGate', () => {
   it('closes again for the length of a reconnect catch-up', () => {
     const gate = createSnapshotGate()
     gate.restoreCompleted(100)
+    expect(gate.ready()).toBe(true)
 
     gate.restoreStarted()
+    expect(gate.ready()).toBe(false)
     expect(gate.observe(observation(9000))).toBeNull()
 
     gate.restoreCompleted(9000)
+    expect(gate.ready()).toBe(true)
     expect(gate.observe(observation(9100))).toEqual({ previous: 9000, watermark: 9100 })
   })
 
