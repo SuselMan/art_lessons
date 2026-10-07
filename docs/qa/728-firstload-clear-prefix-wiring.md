@@ -131,3 +131,7 @@ tracked web/shared files. Это SHA исходников ownworktree, НЕ veri
 ## Изолированный runtime готов, аппаратный gate ожидает Vega
 
 Own HOME5341 PID1416563, immutable `680-puddle-outline/temp/firstload-sync-f0b784ed`:940 исходных SHA exact, HTTP raw engine/useRoomRestore/helper exact, create200,7 paper SHA, authenticated clients[]. Runtime источник44/f0; QA config явно направляет @shared в свою копию, backend4539 общий существующий. Это временный QA стенд; пользовательские5329/5339 не менялись. CPU dry-run47/head47/SHAdec30b PASS. ACK/seq, bitmap и snapshot49 ещё не доказаны. `guards.test.mjs` принимает QA_INPUT; default приватный VPS fixture сохраняется для текущей рабочей среды.
+
+## Проверенный авторский дефект fixture99959
+
+Readonly actualserver2ops подтвердили clear11.userId=local и Undo48.userId=настоящий Room participant при корректном targetID. Поэтому doneclear/zeroUndoPixels — штатный wrong-author no-op, не доказанная регрессия. Причина seed до applyIdentity; ready теперь требует store.userId !=local и engine._userId===store.userId, preseed повторяет guard. Root перенёс8caa patch controller/peer без изменения модели; оба node --check PASS. Старый invalidauthor report сохраняется; новый acceptedAuthor/47/48/49 hardware run обязательный.
