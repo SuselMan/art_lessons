@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {compareRows} from './compare.mjs';
+const row={op:{id:'water',seq:64},stage:'diffuse-before',meta:{S:2},radius:64,knight:false,fields:{src:{buffer:1,read:{x:4,y:5,w:1,h:1},bytes:[1,2,3,4]}},cells:[{cell:[4,5]}],donors:{ink:{known:true,buffer:2,patches:[{cell:[4,5],uv:[.1,.2],read:[4,5,1,1],bytes:[1,2,3,4]},{cell:[-1,5],outside:true}]}},unusedArguments:{density:{bound:false,buffer:1},solvent:{bound:false,buffer:2}},paperDonors:{known:true,uploadBindingVerified:false,samples:[{cell:[4,5],paperUV:[.4,-.2],paperCells:[[1,2],[2,2],[1,3],[2,3]],fraction:[.2,.3],heightBytes:[1,2,3,4]}]},externalUpload:{known:false}};
+const cp=()=>structuredClone(row);
+let b=cp();b.fields.src.buffer=999;b.donors.ink.buffer=888;b.unusedArguments.density.buffer=111;let r=compareRows([row],[b]);assert.equal(r.validAligned,true);assert.equal(r.capturedBytesEqual,true);assert.equal(r.allInputsEqual,false);assert.ok(r.unknowns.some(x=>x.key==='externalUpload'));
+b=cp();b.donors.ink.patches[0].bytes[0]=9;r=compareRows([row],[b]);assert.equal(r.first.key,'donors.ink.0');assert.equal(r.first.max,8);
+b=cp();b.donors.ink.patches[1].outside=false;assert.match(compareRows([row],[b]).invalid,/outside/);
+b=cp();delete b.donors.ink;assert.match(compareRows([row],[b]).invalid,/presence/);
+b=cp();b.donors.ink={known:false};assert.match(compareRows([row],[b]).invalid,/known/);
+b=cp();b.paperDonors.samples[0].heightBytes[2]=7;assert.equal(compareRows([row],[b]).first.key,'paper.height.0');
+b=cp();b.unusedArguments.density.bound=true;assert.match(compareRows([row],[b]).invalid,/binding/);
+b=cp();b.donors.ink.patches[0].bytes=[];assert.match(compareRows([row],[b]).invalid,/sized/);
+const unknown=cp();unknown.donors.ink={known:false};unknown.paperDonors={known:false};r=compareRows([unknown],[structuredClone(unknown)]);assert.equal(r.capturedBytesEqual,true);assert.equal(r.allInputsEqual,false);assert.ok(r.unknowns.length>=3);
+console.log('9 comparator alignment/donor/outside/unbound/unknown controls PASS');
