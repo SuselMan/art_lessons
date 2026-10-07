@@ -47,3 +47,43 @@ Partial experiment дополнительно требует `presentationOwnerL
 HOME own5325, root-base47f1d339 +prototype,969 tracked files exact;14CPU tests/typecheck были зелёными. Один bounded OFF/ON run handle5457: OFF завершён GL0 ибезprivate operators, ON невалиден. Диагностический wrapper требовал nonzero P/C от самого первого private carry, но это был clear-water job1 (radius45, water1, landed0), не целевой pigment. Captured384² P/C полностью0, V ненулевая (9268 texels), canonical field1536². Paint signature setsize1 не является доказательством pigment input: clear water также сохраняет цветовую signature. Throw самого fixture внутри fieldOp остановил async job; затем wait вернул Idle deadline. Это не воспроизведение app deadlock и не аппаратный PASS. Outer finally закрыл Chrome, GPU освобождён. Сравнение нулевых P/C не выдаётся за meaningful crop/material proof; early/final preview result не заявлен.
 
 Исправление scope: partial допускается только при положительной pigmentStrength из immutable finish profile, дополнительно к owner14 иone-signature guard. Pure-water profile0 с signature1 отдельным actual prepare CPU negative исключается. Следующий harness не бросает исключение внутри canonical операторов: собирает scoped seed stats, пропускает пустой preview source и проверяет nonzero/copy/envelope после возврата actual result. При idle failure сохраняет queue/settle/canonical/asyncError state. Raw первоначального невалидного опыта сохранён неизменным: HOME680-puddle-outline/temp/onset-runtime/temp/onset/partial-c3e-first/report.json, копия VPS temp/onset/partial-c3e-first-report.json.
+
+### Аппаратный положительный контроль 4cd44b3d — 7 октября
+
+Один собственный Vega Chrome, controller `temp/onset/partial-run.mjs`, terminal
+30265 exit0 и `ownedChromeClosed=true`. HOME raw:
+`680-puddle-outline/temp/onset-runtime/temp/onset/partial-4cd-positive/`;
+`report.json`, `early-atlas.jpg` и исходные OFF/ON PNG сохранены.
+Runtime5325: root47f1d339 + prototype4cd44b3d, 969 tracked web/shared files
+byte-exact; archiveSHA265542fed1c5dc56244a912df3b3cca0aa5b605b6d03405e8727528413d67d1c.
+Чужие5316/4539 не изменялись. Standalone Fine384×384, без Room/serverACK.
+
+OFF записал настоящий callback tape: water100/pigment0 размер100, затем
+water100/pigment100 размер48. ON использовал тот же tape, IDs и время.
+Packed/wet/preset/color/strokeId/washId равны. Phase, baked, sourceRebase,
+async и frontBatch включены в обоих вариантах; partial только ON,
+owner14 locked=true, splitQuanta=false, contactBatch=false, debug=false.
+Без PaperDry, canonical export только после естественного idle.
+
+Достигнуты реальные частные операторы: OFF0, ON56 (28 пар C/P).
+Перед первым частным carry seedP/C имеют2129 ненулевых alpha-пикселей,
+V9177; bboxP/C GL[165,170,229,213], V[129,147,262,236]. P crop384²
+совпал с соответствующим canonical1536² crop:0 отличий, вне source envelope0.
+Суммы P=[381503,381503,381503,381503], C=[144398,100140,45603,381503],
+V=[669193,0,0,669193]. Это проверка captured inputs, не доказательство
+сохранения массы частным переносом. Итоговые полные384×384 decodedRGBA
+OFF/ON exact0/max0; GL0/lostfalse/errors[]. Trace349/434 rows, cap768 не достигнут.
+
+Первый pigment-job preview callback: OFF476.5мс после start, next36/front118;
+ON104.8мс, next4/front4. Следующий ON callback513.0мс уже next36/front118.
+Clear-water job не запускал частные carry благодаря positive-profile guard.
+Это доказательство более раннего физического partial preview до полного front.
+Один диагностический seed readback в ON принудительно синхронизировал GL:
+данные не являются FPS или парным performance benchmark.
+
+В атласе первые изменения края ON очень небольшие. До примерно1с заметного
+широкого роста всё ещё мало; основное видимое растекание1–4с почти одинаковое.
+Номинальный t500 фактически OFF541мс/ON622мс: нельзя приписывать весь визуальный
+разрыв прототипу. Natural final-visible наступил9361/9470мс. Более ранний callback
+не равен решению пользовательской претензии о заметной живости. Default OFF
+сохраняется; интеграция и расширение на большие поля не выполнены.
