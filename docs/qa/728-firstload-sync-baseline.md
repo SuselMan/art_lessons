@@ -10,3 +10,7 @@ Undo/Redo в этом контроллере выполняются через a
 ### Первый ordinary прогон: readiness INVALID, не элиминация FAIL
 
 Handle99959 EXIT1/CLOSED. OFF seed/ordinary full47 exact (39 actual paint calls), но Undo48 не меняет clear11/pixels. Выборка собственного QA backend доказала: clear11.author=local, Undo48.author=настоящий UUID. Это предусмотренный OperationLog wrong-author no-op. Seed helper ждал engine/paperReady, но не завершения applyIdentity; guard до input теперь требует настоящего store.userId !=local и совпадения engine._userId. Автор не подменяется в Undo. Исправлены оба ready helper и дополнительный pre-seed guard. Серверный selected evidence — runtime/result-firstload-off-on/undo-authority.json; исходный INCOMPLETE отчёт и PNG сохранены. GPU освобождён, ON не запускался, retry требует следующего grant.
+
+### Дополнительная защита seed перед повторным прогоном
+
+Общий mapped47 guard вызывается в браузере до первого append и на authoritative47 после загрузки REST. Он требует настоящего автора, единый новый UUID namespace, уникальность всех47 ID и замкнутость history targets. CPU negative controls проверяют local/wrong author, duplicate IDs, чужой namespace и escaped target; 6PASS вместе с исходными8PASS. Даты/dabs/wet/strokeId/washId не переписываются: historical material timestamps остаются исходными, snapshot/replay сравнение происходит на них. Report сохраняет фактический seedActor. Guard не доказывает глобальное отсутствие UUID collision сам по себе; серверный actual authoritative47/order остаётся обязательным.
