@@ -640,6 +640,7 @@ export class WatercolorSettlePlan {
     let partialSteps = 0
     const partialEnabled = presentationOwnerLocked && partialStepLimit > 0 && this.diagnosticPartialFrontPreview && !!preview && S === 1
       && w <= 512 && h <= 512 && overlaps.length === 1 && metadata.paints.size === 1
+      && ((finishMetadata ? finishMetadata.finish : scratch.finishContext)?.profile.pigmentStrength ?? 0) > 0
       && overlaps[0].tile.buffer.width <= 512 && overlaps[0].tile.buffer.height <= 512
       && !this.ctx.ab().noCarry
     let partial: {

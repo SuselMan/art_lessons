@@ -6,10 +6,14 @@ import type { WatercolorPasses } from './WatercolorPasses'
 import type { WatercolorSettlePlan } from './WatercolorSettlePlan'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { SettleField } from '../buffers/SettleField'
+import type { ILayerBuffer } from '../buffers/ILayerBuffer'
+import type { PencilPreset } from '../presets/pencilPresets'
+import { ribbonProfileFor } from '../dabs/ribbonProfile'
 
 type Probe = { _ribbonScratchPool: RibbonScratchPool; _watercolorPasses: WatercolorPasses; _settlePlan: WatercolorSettlePlan; _fieldCache: SettleField[] }
-function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, oy = 0, edge = false, narrow = false, owner = true) {
+function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, oy = 0, edge = false, narrow = false, owner = true, strength = 100) {
   const { engine } = createTestEngine({ paper: 'flat' }, { width: side, height: side })
+  engine.initLayer('source')
   const p = engine as unknown as Probe, pool = p._ribbonScratchPool, tile = pool.acquire(side, side)
   const scratch = new RibbonStrokeScratch(pool, true, true)
   scratch.filmBuffers(tile); scratch.solventFilm(tile)
@@ -18,6 +22,11 @@ function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, o
   p._settlePlan.diagnosticPartialFrontPreview = enabled
   p._settlePlan.diagnosticPlateauPhase = true
   p._settlePlan.splitQuanta = split
+  const profile = ribbonProfileFor('watercolor', `normal:100:${strength}:PB29:round`)
+  const access = engine as unknown as { _layers: Map<string, ILayerBuffer>; _resolvePreset: (tool: string, preset: string) => PencilPreset }
+  scratch.noteFinish({ target: access._layers.get('source')!, preset: access._resolvePreset('watercolor', `normal:100:${strength}:PB29:round`), profile,
+    color: [1, 0, 0], opacity: 1, bounds: { minX: ox + 20, minY: oy + 20, maxX: ox + 44, maxY: oy + 44 },
+    fieldSeed: [1, 2], landedWet: 1, wetPeak: 1, radiusPx: 8, dwellMs: 0 })
   const fieldOp = vi.spyOn(p._watercolorPasses, 'fieldOp')
   const preview = vi.fn()
   const plan = p._settlePlan.prepare(scratch, [{ buffer: tile, originX: ox, originY: oy, contentRect: null }],
@@ -91,6 +100,12 @@ describe('cropped presentation-only partial front', () => {
         }
       } finally { for (const spy of spies) spy.mockRestore() }
     } finally { f.cleanup() }
+  })
+
+  it('rejects real zero-strength profile even when its paint signature set contains one color', () => {
+    const f = fixture(true, false, 64, 1, 0, 0, false, false, true, 0)
+    try { expect(f.scratch.paints.size).toBe(1); f.plan.ops[0](); f.plan.ops[1](); expect(f.owned.size).toBe(1) }
+    finally { f.cleanup() }
   })
 
   it('requires immutable presentation owner even when splitQuanta is off', () => {
