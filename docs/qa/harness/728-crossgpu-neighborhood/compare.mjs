@@ -1,16 +1,16 @@
 import {readFileSync,writeFileSync} from 'node:fs';
 export function compareRows(a,b){
   if(a.length!==b.length)return{invalid:'different actual capture counts',counts:[a.length,b.length]};
-  const deltas=[],unknowns=[];let previousEqual=null;
+  const deltas=[],unknowns=[];let previousCapturedBytesEqual=null,previousFullyKnownInput=null;
   const geometry=r=>JSON.stringify({op:r.op,stage:r.stage,meta:r.meta,radius:r.radius,knight:r.knight,primary:r.primary,cells:r.cells});
   const keys=o=>Object.keys(o??{}).sort();
   function bytes(u,v,path,row){
     if(!Array.isArray(u)||!Array.isArray(v)||u.length!==v.length)return{invalid:'missing or differently sized captured bytes',ordinal:row.ordinal,key:path};
     let n=0,max=0;for(let i=0;i<u.length;i++){const d=Math.abs(u[i]-v[i]);if(d)n++;max=Math.max(max,d)}
-    if(n)deltas.push({ordinal:row.ordinal,op:row.op,stage:row.stage,key:path,numDiff:n,max,previousEqual});
+    if(n)deltas.push({ordinal:row.ordinal,op:row.op,stage:row.stage,key:path,numDiff:n,max,previousCapturedBytesEqual,previousFullyKnownInput});
   }
   for(let i=0;i<a.length;i++){
-    const x=a[i],y=b[i],row={ordinal:i,op:x.op,stage:x.stage};
+    const unknownStart=unknowns.length;const x=a[i],y=b[i],row={ordinal:i,op:x.op,stage:x.stage};
     if(geometry(x)!==geometry(y))return{invalid:'capture geometry/order differs',ordinal:i,a:geometry(x),b:geometry(y)};
     if(JSON.stringify(keys(x.fields))!==JSON.stringify(keys(y.fields)))return{invalid:'field presence differs',ordinal:i};
     for(const key of keys(x.fields)){
@@ -47,9 +47,12 @@ export function compareRows(a,b){
     const unbound=o=>Object.fromEntries(Object.entries(o??{}).map(([k,v])=>[k,!!v.bound]));
     if(JSON.stringify(unbound(x.unusedArguments))!==JSON.stringify(unbound(y.unusedArguments)))return{invalid:'actual binding status differs',ordinal:i};
     if(x.externalUpload||y.externalUpload)unknowns.push({ordinal:i,key:'externalUpload',reason:'no exact bound upload byte capture; cannot infer equality'});
-    if(!deltas.length||deltas.at(-1).ordinal!==i)previousEqual=i;
+    if(!deltas.length||deltas.at(-1).ordinal!==i)previousCapturedBytesEqual=i;
+    // No all-shader-input coverage proof exists; unknowns break any stronger chain.
+    if(unknowns.length>unknownStart||x.fullyKnownShaderInputs!==true||y.fullyKnownShaderInputs!==true)previousFullyKnownInput=null;
+    else if(!deltas.length||deltas.at(-1).ordinal!==i)previousFullyKnownInput=i;
   }
-  return{validAligned:true,rows:a.length,first:deltas[0]??null,deltas,unknowns,capturedBytesEqual:deltas.length===0,allInputsEqual:false,scope:'first captured byte divergence only; unknown uploads/GPU paper sampling prevent all-input equality'};
+  return{validAligned:true,rows:a.length,firstCaptured:deltas[0]??null,first:deltas[0]??null,deltas,unknowns,capturedBytesEqual:deltas.length===0,allInputsEqual:false,scope:'first captured byte divergence only; unknown uploads/GPU paper sampling prevent all-input equality'};
 }
 if(process.argv[2]){
   const ar=JSON.parse(readFileSync(process.argv[2])),br=JSON.parse(readFileSync(process.argv[3])),a=ar.result??ar,b=br.result??br;

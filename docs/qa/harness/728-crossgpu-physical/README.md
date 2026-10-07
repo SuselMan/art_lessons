@@ -70,3 +70,23 @@ summary.enabled/rows и !incomplete, обязательные local checkpoints.
 `compare.mjs` отвергает различие actual op/ordinal/stage/options/frame/sampler,
 возвращает firstCaptured и unmapped список. Даже нулевые captured deltas не
 означают, что все физические shader inputs равны. Hardware ещё не запускался.
+
+## Diffuse donor adapter
+
+The older `728-crossgpu-neighborhood` controller and the physical controller
+are distinct entry paths. The physical `prepare.mjs` now serializes stencil
+helpers into its own installer; `same42-probe.js` supplies the exact CPU paper
+view. Its actual `passes.diffuseStep` wrapper captures ink/coverage at all nine
+stencil centers before the original method. Density and solvent arguments are
+not bound by the current production diffuse and are explicitly excluded.
+Donor bytes live in options.donorCapture and are compared separately from
+physical command options. Existing other physical-pass captures still cover
+local neighborhoods; no claim of complete inputs for front/carry/brush/external
+textures is made. CPU fake actual-call test proves this entry path is reached.
+
+`previousCapturedBytesEqual` describes only observed byte captures.
+`previousFullyKnownInput` remains null unless a real complete-input contract is
+proven; unknown paper upload binding, GPU sampling and external textures break
+that chain. An equal→unknown→different regression prevents the old ambiguous
+precedingEqual inference. No GPU or actual paper-sampler equality gate has run
+for this adapter yet.

@@ -1,8 +1,9 @@
+import {diffusionStencilCells,uploadViewDescriptor} from '../728-crossgpu-neighborhood/stencil.mjs';
 import {worldRead} from './neighborhood-base.mjs';
 import {copiedFrame,installPhysicalCapture} from './physical.mjs';
 import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
 const probe=readFileSync(new URL('./same42-probe.js',import.meta.url),'utf8');new Function('return '+probe);
-const installer='(function(e,opts){const worldRead='+worldRead.toString()+';const copiedFrame='+copiedFrame.toString()+';const installPhysicalCapture='+installPhysicalCapture.toString()+';return installPhysicalCapture(e,opts)})';new Function('return '+installer);
+const installer='(function(e,opts){const diffusionStencilCells='+diffusionStencilCells.toString()+';const uploadViewDescriptor='+uploadViewDescriptor.toString()+';const worldRead='+worldRead.toString()+';const copiedFrame='+copiedFrame.toString()+';const installPhysicalCapture='+installPhysicalCapture.toString()+';return installPhysicalCapture(e,opts)})';new Function('return '+installer);
 if(!process.env.WC_OPS_FILE||!process.env.WC_SOURCE_PASSPORT||!process.env.WC_PREPARED_FILE)throw Error('Explicit journal/passport/output required; CPU only');
 const bytes=readFileSync(process.env.WC_OPS_FILE),journal=JSON.parse(bytes),source=JSON.parse(readFileSync(process.env.WC_SOURCE_PASSPORT));
 const journalSHA=createHash('sha256').update(bytes).digest('hex');
