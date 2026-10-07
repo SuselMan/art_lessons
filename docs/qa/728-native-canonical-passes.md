@@ -61,3 +61,11 @@ CanonicalSettleCommand discriminated tape exposes original primitive arguments.
 CanonicalSettleCommands.encode encodes exactly one primitive/Q8 boundary; it does
 not choose new iterations, reorder, fuse, submit, read back or wait. Caller owns
 encoder, frame timing, buffers and returned uniform cleanup after completion.
+
+Stronger field fixture now exercises 28 cases: all21 modes plus gradient fibre,
+plain addition, physical-remob18, packed pigment/colour carry and additive
+zero-face pigment/colour. Every case has nonzero output and changes at least one
+input byte; no empty/noop pass is accepted. All28 compare byte-exact on software
+GL/WebGPU, ditherOFF, errors absent. Mode1 smooth-across changed1024bytes,
+carry16 changed13; packedcarry16 changed113; physical18 changed1024. This remains
+bounded component evidence; compiler/hardware/output-tape gates are separate.
