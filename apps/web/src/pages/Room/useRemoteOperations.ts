@@ -4,7 +4,8 @@ import type { LayerState, Operation } from '@grafetto/shared'
 import { IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
-import { computeCompositeOrder } from '../../lib/layers/layers'
+import { makeInitialLayerState } from '../../stores/slices/layerSlice'
+import { computeCompositeOrder, replayLayerState } from '../../lib/layers/layers'
 import { reportSnapshotRestore } from './diagnostics/reportRestore'
 import { drainDeferredOps } from './net/deferredOps'
 import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './net/snapshotRestore'
@@ -159,8 +160,12 @@ export function useRemoteOperations({
     } catch { /* a report we couldn't build is not worth a room we can't open */ }
     if (outcome.status !== 'restored') return outcome.status
     const { head } = outcome
-    engine.setActiveLayer(head.layerState.activeId)
-    engine.setCompositeOrder(computeCompositeOrder(head.layerState))
+    // A structural fallback has rebuilt its prefix from the original base;
+    // the uploaded tree is no longer the authoritative input to these setters.
+    const folded = head.replayStructure
+      ? replayLayerState(makeInitialLayerState(), engine.getOperations()) : head.layerState
+    engine.setActiveLayer(folded.activeId)
+    engine.setCompositeOrder(computeCompositeOrder(folded))
     restoredLayerStateRef.current = head.replayStructure ? null : head.layerState
     return 'restored'
   }, [restoredLayerStateRef])

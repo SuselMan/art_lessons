@@ -87,3 +87,13 @@ and exactly one call for the retained earlier source bitmap. Undo/redo UI trees,
 buffer IDs, and complete layer pixels remain equal to the full-history oracle.
 74 relevant tests across engine structural/network snapshots and client restore
 pass. This removes a duplicate replay; it is not a hardware speedup claim.
+
+### Restore base and presentation setters
+
+Structural restore now initializes active layer and composite order from the folded
+original prefix state, rather than the superseded uploaded structural tree.
+`setBaseLayers` resets historical structural derivation when the same engine begins
+a new ordinary snapshot restore. A real same-engine regression confirms that
+historical `layer_add` is exposed in structural mode and excluded again in ordinary
+snapshot mode. The hardware controller records activeId, UI tree and composite
+order after Room synchronization; this does not assume authors share local selection.
