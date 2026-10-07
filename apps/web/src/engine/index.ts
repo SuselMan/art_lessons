@@ -7965,8 +7965,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _clearAsyncPresentations(lost: boolean): void {
     for (const id of [...this._wcAsyncLocalTools.keys()]) this._releaseAsyncLocalTool(id, lost)
     if (this._wcAsyncLocalStroke) {
+      const endedStroke = this._strokeId
       this._wcAsyncLocalStroke = null
       this._strokeLayerId = null; this._strokeId = null; this._strokeDabs = []
+      // Only the unrecorded tail is discarded. Confirmed chunks remain in
+      // the journal; peers still need the matching ephemeral stream closed.
+      if (endedStroke) this._onLiveStrokeEnd?.(endedStroke)
     }
     for (const held of this._wcAsyncPeerStreams.values()) {
       if (held.buf && !lost) held.buf.destroy()
