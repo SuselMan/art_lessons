@@ -119,3 +119,13 @@ must measure parity rather than assume transcendental results are identical.
 The stress fixture gain=.84 is reused to match existing tests; positivity bounds
 for arbitrary gains are not asserted. This is an algorithm-port gate, not a
 whole-engine fidelity or throughput claim.
+
+The faithful compute fixture now packs each RGBA field into oneuint32 word:
+P/C cell8bytes, flow/water4bytes each, instead of expanding every byte into
+uint32. Shift/mask unpacking retains the exact byte values. The same4software
+fixtures remain byte-identical. Optional timestamp queries surround the warmed
+compute pulses, with input restore/upload before the query and readback after.
+A single warmed sample per fixture is labelled as such; no FPS or comparative
+speed claim follows from it. The same-dab comparison preset now uses the
+production `watercolorPresetString` serializer, preserving water/pigment order
+and the fifth-field nib. Sixunit tests include this contract gate.

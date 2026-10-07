@@ -121,9 +121,10 @@ export function WatercolorGpuPocPage() {
     const tape = journal(), before = await engine.current.readState()
     await replay(tape)
     const after = await engine.current.readState()
+    const beforeBits = new Uint32Array(before.buffer, before.byteOffset, before.length), afterBits = new Uint32Array(after.buffer, after.byteOffset, after.length)
     let different = 0, max = 0
-    for (let k = 0; k < before.length; k++) { if (before[k] !== after[k]) different++; max = Math.max(max, Math.abs(before[k] - after[k])) }
-    setStatus(`Same-device replay: ${different} different floats, max |Δ|=${max}. Float compute is not cross-device bitwise guaranteed.`)
+    for (let k = 0; k < before.length; k++) { if (beforeBits[k] !== afterBits[k]) different++; max = Math.max(max, Math.abs(before[k] - after[k])) }
+    setStatus(`Same-device replay: ${different} different floats (bitwise), max |Δ|=${max}. Float compute is not cross-device bitwise guaranteed.`)
   }
   function sample(which: 'zigzag' | 'water' | 'mix') {
     clear()
