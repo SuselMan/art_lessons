@@ -39,3 +39,35 @@ Dense_onEnd26.1ms/8 final dabs: _paintRibbonDabs16.4ms, _paintStrokeDabs17.6ms. 
 One tail rAF gap100.2ms has~95.1ms CPU idle, no wrapped JS call above1ms,18 existing finish calls0–0.1ms. CPU profiling does not establish GPU/compositor cause; no invented root cause. Capture readPixels60.1ms happens only after tail and is not included in this finding.
 
 Clock mapping uses two ordered _onEnd ancestor sample groups within matching passive method entry/exit intervals: offset interval213748360.331–213748360.909ms. Independent Performance.getMetrics→Runtime clock pair has tunnel delay (~42ms here), so cannot be treated as exact mapping. Full raw profile and derived windows retained in attribution-cpu-profile.json, attribution-report.json and profile-summary.json.
+
+## Отложить также первый контакт: кандидат от ebeaf5ab
+
+`lazyContacts` остаётся выключенным по умолчанию и требует прежнего owner14.
+Все группы теперь используют уже существующий `brushDragFieldWork`, включая
+первую. Формулы, последовательность dab/y/x, crop/radius, коэффициенты и
+порядок контактов не изменены. `splitQuanta` не включается автоматически.
+
+Удалён один дублирующий upload первого flow из входного prefix. Аудит всех
+читателей `flowTexture` в Plan показывает только contact upload и два
+`brushPass`: ни front, ни diffuse, ни stitch его не читают. Texture создаётся
+перед первым настоящим contact upload; перед любым brush sampler уже существует
+непустой upload. Первый op по-прежнему немедленно захватывает immutable material.
+Cached `_brushFlowTex` сохраняет прежний общий lifetime и reset на destroy/loss;
+отложенные callback после dispose не могут создать или загрузить его.
+
+Рабочие checkpoints уменьшены до 256 посещённых raster cells и 256 encoded
+cells. Продолжение всё ещё проверяет прежний 2 ms clock между checkpoints.
+Это ограничение числа операций, не жёсткая гарантия wall time: allocation трёх
+Float32 массивов и Uint8 результата, дескрипторы групп, foreign stencil,
+contact maximum/exposure и остальные prepare шаги остаются синхронными внутри
+своих единиц. Устранение остальных измеренных 41 ms этим кандидатом не обещается.
+
+Actual Plan/Queue command tests сравнивают OFF и ON для iterate/advance/complete:
+исчезает ровно один ранний upload; оставшийся первый upload имеет идентичные
+RGBA bytes, все физические команды и presentation порядок совпадают.
+Отдельно проверяются отсутствие raster Math.exp в lazy prepare, немедленный
+stitch, none-contact no-texture, cancellation до создания texture, ownerfalse
+fallback, reentrant cancel/loss и наличие actual upload перед brush sampler.
+Producer oracle проверяет точные bytes первого поля и максимум 256 exp за
+один generator.next. MockGL не выполняет GLSL, аппаратный endpoint и timing
+ещё не проверены. Нужен paired same-tape hardware gate, без изменения userstand.

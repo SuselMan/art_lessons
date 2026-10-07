@@ -423,11 +423,15 @@ describe('opt-in split continuation quanta', () => {
       return (upload as (...args: unknown[]) => void)(...args)
     })
     const clock = vi.spyOn(performance, 'now').mockReturnValue(0)
+    const raster = vi.spyOn(Math, 'exp')
     let previewCount = 0
     const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
       { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.2, 8, 1, 1, 1, 1, 0,
       () => { commands.push('preview'); previewCount++; if (cancelInPreview) plan.dispose(); if (abortPreview) throw new Error('preview abort') }, false, undefined, ownerLocked)!
     const initialOps = plan.ops.length
+    const preparedRasterCalls = raster.mock.calls.length
+    const flowBeforeOps = (probe._settlePlan as unknown as { _brushFlowTex: unknown })._brushFlowTex
+    raster.mockRestore()
     let cpuCancelled = false
     const realExp = Math.exp
     const expSpy = cancelDuringCpu || loseDuringCpu ? vi.spyOn(Math, 'exp').mockImplementation(value => {
@@ -473,7 +477,7 @@ describe('opt-in split continuation quanta', () => {
         plan.finish()
       }
       expect((probe._settlePlan as unknown as { _ownedInputs: Set<unknown> })._ownedInputs.size).toBe(0)
-      return { commands, previewCount, initialOps, finalOps: plan.ops.length }
+      return { commands, previewCount, initialOps, finalOps: plan.ops.length, preparedRasterCalls, flowBeforeOps }
     } finally {
       plan.dispose(); expSpy?.mockRestore(); clock.mockRestore(); uploadSpy.mockRestore(); spies.forEach(spy => spy.mockRestore())
       scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
@@ -510,7 +514,17 @@ describe('opt-in split continuation quanta', () => {
   for (const scheduler of ['iterate', 'advance', 'complete'] as const) it(`retains lazy field upload/pulse/material order through ${scheduler}`, () => {
     const eager = run(true, false, false, true, scheduler, false, false, true)
     const lazy = run(true, false, false, true, scheduler, false, true, true)
-    expect(lazy.commands).toEqual(eager.commands)
+    // Only the redundant pre-stitch contact upload disappears. The same
+    // complete pixel payload remains at its first actual brush consumer.
+    const firstBrush = eager.commands.findIndex(c => c.startsWith('brushPass:'))
+    const payloadUploads = eager.commands.map((c, i) => ({ c, i })).filter(({ c, i }) => i < firstBrush && c.startsWith('upload:') && c.includes('"pixels"'))
+    expect(payloadUploads.length).toBe(2)
+    expect(payloadUploads[0].c).toBe(payloadUploads[1].c)
+    const withoutPreupload = eager.commands.filter((_, i) => i !== payloadUploads[0].i)
+    expect(lazy.commands).toEqual(withoutPreupload)
+    expect(eager.preparedRasterCalls).toBeGreaterThan(0)
+    expect(lazy.preparedRasterCalls).toBe(0)
+    expect(lazy.flowBeforeOps).toBeNull()
     expect(lazy.initialOps).toBeLessThan(eager.initialOps)
     expect(lazy.finalOps).toBeGreaterThan(lazy.initialOps)
   })
@@ -991,4 +1005,69 @@ describe('diagnostic zero-pigment rim liveness', () => {
   it('captures eligibility before later flags/next-film proof change', () => {
     expect(trace(true, true, true, true, false, true)).toEqual(trace(true, true, true, true))
   })
+})
+
+describe('fully deferred first contact ownership', () => {
+  for (const contacts of [false, true]) it(`does not create flow texture before its consumer or after cancelled capture (contacts=${contacts})`, () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    probe._settlePlan.lazyContacts = true
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+    if (contacts) scratch.brushTravel.push({ x: 32, y: 32, radius: 8, aspect: 1, angle: 0, dx: 32, dy: 0, water: 1 })
+    const flow = () => (probe._settlePlan as unknown as { _brushFlowTex: WebGLTexture | null })._brushFlowTex
+    const brush = vi.spyOn(probe._watercolorPasses, 'brushPass')
+    const capture = vi.spyOn(scratch.peek(tile)!.inkLoad!, 'copyRegionInto')
+    try {
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, true)!
+      expect(flow()).toBeNull()
+      plan.ops[0]()
+      expect(capture).toHaveBeenCalled()
+      expect(flow()).toBeNull()
+      expect(brush).not.toHaveBeenCalled()
+      if (contacts) {
+        plan.dispose(); plan.dispose()
+        for (let i = 1; i < plan.ops.length; i++) plan.ops[i]()
+      } else {
+        for (let i = 1; i < plan.ops.length; i++) plan.ops[i]()
+        plan.finish()
+      }
+      expect(flow()).toBeNull()
+      expect(brush).not.toHaveBeenCalled()
+    } finally { brush.mockRestore(); capture.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+  })
+})
+
+it('binds and uploads the deferred first flow before every actual contact sampler consumer', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  probe._settlePlan.lazyContacts = true
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+  scratch.brushTravel.push({ x: 32, y: 32, radius: 8, aspect: 1, angle: 0, dx: 32, dy: 0, water: 1 })
+  const gl = engine['gl']
+  let binding: WebGLTexture | null = null
+  const uploaded = new Set<WebGLTexture>()
+  const bind = gl.bindTexture.bind(gl), upload = gl.texImage2D.bind(gl)
+  const bindSpy = vi.spyOn(gl, 'bindTexture').mockImplementation((target, texture) => { binding = texture; bind(target, texture) })
+  const uploadSpy = vi.spyOn(gl, 'texImage2D').mockImplementation((...args: unknown[]) => {
+    if (binding && args[8] instanceof Uint8Array && args[8].some(x => x > 0)) uploaded.add(binding)
+    return (upload as (...args: unknown[]) => void)(...args)
+  })
+  const brush = probe._watercolorPasses.brushPass.bind(probe._watercolorPasses)
+  const brushSpy = vi.spyOn(probe._watercolorPasses, 'brushPass').mockImplementation((...args) => {
+    expect(args[1]).not.toBeNull()
+    expect(uploaded.has(args[1])).toBe(true)
+    return brush(...args)
+  })
+  try {
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, true)!
+    for (let i = 0; i < plan.ops.length; i++) plan.ops[i]()
+    plan.finish()
+    expect(brushSpy).toHaveBeenCalled()
+  } finally { brushSpy.mockRestore(); uploadSpy.mockRestore(); bindSpy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
 })

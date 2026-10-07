@@ -39,3 +39,23 @@ describe('bounded CPU contact producer', () => {
     expect(work.next().done).toBe(true)
   })
 })
+
+it('bounds raster checkpoints while retaining the actual encoded first contact', () => {
+  const rect = { x: 0, y: 0, w: 1024, h: 1024 }
+  const eager = brushDragField([motion], rect)!
+  const work = brushDragFieldWork([motion], rect)
+  // Every accepted cell invokes exp once; skipped cells also count toward
+  // the generator checkpoint. This is a work bound, not a wall-time promise.
+  const original = Math.exp
+  let cells = 0, maxCells = 0
+  Math.exp = value => { cells++; return original(value) }
+  try {
+    let result: ReturnType<typeof work.next>
+    do {
+      cells = 0; result = work.next(); maxCells = Math.max(maxCells, cells)
+    } while (!result.done)
+    expect(maxCells).toBeGreaterThan(0)
+    expect(maxCells).toBeLessThanOrEqual(256)
+    expect(result.value?.pixels).toEqual(eager.pixels)
+  } finally { Math.exp = original; work.return(null) }
+})

@@ -17,7 +17,7 @@ export function* brushDragFieldWork(travel: readonly BrushTravel[], rect: { x: n
     const y0 = Math.max(0, Math.floor((d.y - ey - rect.y) / sy)), y1 = Math.min(height - 1, Math.ceil((d.y + ey - rect.y) / sy))
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
-        if (cells++ > 0 && cells % 2048 === 0) yield
+        if (cells++ > 0 && cells % 256 === 0) yield
         const px = rect.x + (x + 0.5) * sx - d.x, py = rect.y + (y + 0.5) * sy - d.y
         const r2 = ((px * c + py * s) / rx) ** 2 + ((-px * s + py * c) / ry) ** 2
         if (r2 >= 1) continue
@@ -39,7 +39,7 @@ export function* brushDragFieldWork(travel: readonly BrushTravel[], rect: { x: n
     pixels[i * 4 + 1] = Math.round(127.5 + 127.5 * (weight[i] > 0 ? vy[i] / weight[i] : 0))
     pixels[i * 4 + 2] = Math.round(255 * weight[i])
     pixels[i * 4 + 3] = 255
-    if (i % 4096 === 4095) yield
+    if (i % 256 === 255) yield
   }
   return { width, height, pixels }
 }
