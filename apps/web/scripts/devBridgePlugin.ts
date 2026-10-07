@@ -132,6 +132,10 @@ export function devBridge(): Plugin {
           req.on('end', () => {
             let body: { client: string; code: string; timeoutMs?: number }
             try { body = JSON.parse(raw) } catch { send(400, { error: 'bad json' }); return }
+            if (!body || typeof body !== 'object' || typeof body.client !== 'string' || typeof body.code !== 'string'
+              || (body.timeoutMs !== undefined && (typeof body.timeoutMs !== 'number' || !Number.isFinite(body.timeoutMs) || body.timeoutMs <= 0))) {
+              send(400, { error: 'invalid eval request' }); return
+            }
             const targets = pick(body.client)
             if (!targets.length) { send(404, { error: `no live page matches "${body.client}"`, pages: listPages() }); return }
             const timeoutMs = Math.min(body.timeoutMs ?? 60_000, 15 * 60_000)
