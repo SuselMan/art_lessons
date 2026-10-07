@@ -7,7 +7,7 @@ import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import type { PencilPreset } from '../presets/pencilPresets'
 import { ribbonProfileFor } from './ribbonProfile'
 import type { WatercolorSettleQueue } from '../watercolor/WatercolorSettleQueue'
-import type { RibbonStrokePainter, RibbonStrokePainterContext } from './RibbonStrokePainter'
+import type { PreparedRibbonMaterial, RibbonStrokePainter, RibbonStrokePainterContext } from './RibbonStrokePainter'
 
 type Probe = { gl: WebGLRenderingContext; _settleQueue: WatercolorSettleQueue; _handleContextLost(e: Event): void; _ribbonPainter: RibbonStrokePainter; _ribbonScratchPool: RibbonScratchPool; _layers: Map<string, ILayerBuffer>; _resolvePreset(tool: string, preset: string): PencilPreset }
 const presetName = 'normal:100:15:PB29:round'
@@ -115,4 +115,27 @@ it('tracks exact cleared pigment provenance and rejects restored or legacy sourc
     paint('normal:100:0:PB29:round')
     expect(scratch.pigmentInputsKnownZero).toBe(false)
   } finally { scratch.destroy(); engine.destroy() }
+})
+
+
+it('retains recorded contact wetness when deferred material owns copied dab keys', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  engine.initLayer('recipient')
+  const probe = engine as unknown as Probe, painter = probe._ribbonPainter
+  const ctx = (painter as unknown as { ctx: RibbonStrokePainterContext }).ctx
+  const nib = vi.spyOn(ctx, 'drawRibbonNibPass')
+  const presetName = 'normal:100:0:PB29:round'
+  const preset = probe._resolvePreset('watercolor', presetName)
+  const profile = ribbonProfileFor('watercolor', presetName, 13 / 15)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  const requests: PreparedRibbonMaterial[] = []
+  try {
+    for (const _ of painter.paint(probe._layers.get('recipient')!, dabs, preset, presetName, profile, [.2,.3,.6], scratch, undefined, 'ddd', [1,2], false, 0, { waterOnly: false, segmented: false, deferMaterial: r => requests.push(r) })) void _
+    expect(nib).not.toHaveBeenCalled()
+    expect(requests.length).toBeGreaterThan(0)
+    for (const request of requests) for (const _ of request.execute()) void _
+    const coverage = nib.mock.calls.filter(args => args[5] === 6)
+    expect(coverage.length).toBeGreaterThan(0)
+    expect(coverage.map(args => args[10])).toEqual(coverage.map(() => 13 / 15))
+  } finally { nib.mockRestore(); scratch.destroy(); engine.destroy() }
 })
