@@ -1,5 +1,6 @@
 /// <reference types="@webgpu/types" />
 /** Dev-only experimental backend, deliberately outside PencilEngineAPI. */
+import { checkCanonicalBrush } from './src/webgpu/canonicalBrush'
 import { SOLVER_WGSL, DISPLAY_WGSL } from './src/webgpu/shaders'
 import { GPU_GRID, makePocPaper, oracleFixture } from './src/webgpu/model'
 import { makeWetGrid, wetDiffuseStepMany } from './src/watercolor/wetDiffusion'
@@ -166,6 +167,7 @@ export class WatercolorGpuPoc {
   }
   draw() { if (this.dead) return; const encoder = this.device.createCommandEncoder(); this.render(encoder); this.device.queue.submit([encoder.finish()]) }
   clear() { const encoder = this.device.createCommandEncoder(); for (const b of this.cells) encoder.clearBuffer(b); this.device.queue.submit([encoder.finish()]); this.index = 0; this.draw() }
+  async checkCanonicalBrush() { return checkCanonicalBrush(this.device) }
   async checkOracle() {
     const saved = await this.readState(), fixture = oracleFixture(GPU_GRID.width, GPU_GRID.height)
     try {
