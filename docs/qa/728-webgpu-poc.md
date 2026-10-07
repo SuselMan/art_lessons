@@ -166,3 +166,27 @@ right-side pigment mass stays exactly zero after30/120 ticks despite maxhop32.
 Fixture drift at120 ticks is1.62e-8. Reusable harness:
 `WC_WEBGPU_BUNDLE=temp/webgpu-poc-physical-dist node docs/qa/harness/728-webgpu/behaviour.mjs`.
 Full software replay, dry, Undo/Redo and explicitly legacy CPU oracle PASS.
+
+## Exact wet-path early rejection
+
+The follow-up optimization supplies the already loaded endpoint minimum to
+wetPath and rejects a face whose endpoint is below the existing .0001 path
+threshold before inspecting interior cells. The legacy oracle branches
+explicitly and no longer eagerly evaluates wetPath through WGSL select.
+No stencil, phase, transport fraction or contact exchange changed.
+Full-state SHA256 hashes before/after are identical for puddle-dab and
+two-colors at0/30 ticks (all16floats/cell), and software replay/dry/Undo/Redo
+and legacy oracle PASS. Outputs: temp/webgpu-poc/optimization-{before,after}.
+Real GPU cost reduction remains unmeasured; software timing is unsuitable.
+
+Parent measured previous physical model on Surface: median GPU5.70ms,
+p9513.63ms over500 valid samples, replay/dry/Undo/Redo PASS. By10seconds the
+large mixed puddle becomes aggressively pale; quality tuning remains open.
+
+Contact remobilization still uses per-dab base fraction .15: n identical
+contacts dissolve1−(1−.15wet*contact)^n of the initial settled pigment,
+so denser sampling changes the result. A separate prospective experiment
+should replace it with1−exp(−lambda*contactExposure), where exposure comes
+from recorded travel/dwell; that is a model change and is excluded from this
+performance commit. Reducing radius cadence alone would change the physical
+result and is likewise excluded from the exact optimization.

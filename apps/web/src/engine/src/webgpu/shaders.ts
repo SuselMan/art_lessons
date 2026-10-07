@@ -42,11 +42,11 @@ fn height(q: vec2u) -> f32 { return paper[idx(q)]; }
 }
 // Canonical endpoint ordering makes the ray's wet gate identical for i→j/j→i.
 // Supercover includes both orthogonal cells at diagonal corner crossings.
-fn wetPath(qa:vec2i,qb:vec2i)->f32 {
+fn wetPath(qa:vec2i,qb:vec2i,endpointGate:f32)->f32 {
  var start=qa;var end=qb;
  if(start.y>end.y||(start.y==end.y&&start.x>end.x)){start=qb;end=qa;}
  let delta=end-start;let count=max(abs(delta.x),abs(delta.y));
- var last=start;var gate=clamp(src[idx(vec2u(start))].liquid.x,0,1);
+ var last=start;var gate=endpointGate;
  for(var k=1;k<=count;k++) {
   let at=vec2i(round(vec2f(start)+vec2f(delta)*(f32(k)/f32(count))));
   gate=min(gate,clamp(src[idx(vec2u(at))].liquid.x,0,1));
@@ -78,7 +78,14 @@ fn wetPath(qa:vec2i,qb:vec2i)->f32 {
   let b=src[idx(vec2u(n))];
   if(a.mobile.w+b.mobile.w<=0.0){continue;}
   let wb=clamp(b.liquid.x,0.0,1.0);
-  let gate=select(wetPath(vec2i(q),n),min(wa,wb),p.clock.z<0.0);if(gate<=0.0){continue;}
+  // Endpoints are necessary members of every supercover path. Reject before
+  // visiting interior cells; legacy oracle deliberately has no path threshold.
+  var gate=min(wa,wb);
+  if(p.clock.z>=0.0) {
+   if(gate<=0.0001){continue;}
+   gate=wetPath(vec2i(q),n,gate);
+  }
+  if(gate<=0.0){continue;}
   let dh=h-height(vec2u(n));let unit=normalize(vec2f(v));
   let faceFlow=0.5*(a.flow.xy*a.flow.z+b.flow.xy*b.flow.z);
   let velocity=dot(faceFlow,unit);
