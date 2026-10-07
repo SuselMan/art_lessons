@@ -1,0 +1,24 @@
+import { DAB_VERT, DAB_FRAG } from '../raster/shaders'
+import noiseAsset from '../raster/watercolorNoise.txt?raw'
+import type { CanonicalCompositeUniforms, CanonicalGpuSnapshot } from './types'
+/** Actual unchanged production inkMode9 program. QA only, never backend fallback. */
+export function compositeGlOracle(snapshot:CanonicalGpuSnapshot,paperBytes:Uint8Array,v:CanonicalCompositeUniforms) {
+ const {width,height}=snapshot,canvas=document.createElement('canvas');canvas.width=width;canvas.height=height
+ const gl=canvas.getContext('webgl',{antialias:false,preserveDrawingBuffer:true});if(!gl)throw new Error('GL composite oracle unavailable')
+ const compile=(type:number,code:string)=>{const s=gl.createShader(type)!;gl.shaderSource(s,code);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s)||'GL shader');return s}
+ const program=gl.createProgram()!;gl.attachShader(program,compile(gl.VERTEX_SHADER,DAB_VERT));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,DAB_FRAG));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'GL link');gl.useProgram(program)
+ const upload=(w:number,h:number,bytes:Uint8Array,luminance=false,repeat=false)=>{const t=gl.createTexture()!;gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);const f=luminance?gl.LUMINANCE:gl.RGBA;gl.texImage2D(gl.TEXTURE_2D,0,f,w,h,0,f,gl.UNSIGNED_BYTE,bytes);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,luminance?gl.NEAREST:gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,luminance?gl.NEAREST:gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,repeat?gl.REPEAT:gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,repeat?gl.REPEAT:gl.CLAMP_TO_EDGE);return t}
+ const flip=(bytes:Uint8Array)=>{const b=new Uint8Array(bytes.length);for(let y=0;y<height;y++)b.set(bytes.subarray((height-y-1)*width*4,(height-y)*width*4),y*width*4);return b}
+ const empty=upload(width,height,new Uint8Array(width*height*4)),paper=upload(width,paperBytes.length/(width*4),paperBytes,false,true),noise=upload(251,251,Uint8Array.from(atob(noiseAsset),c=>c.charCodeAt(0)),true),coverage=upload(width,height,flip(snapshot.fields.coverage)),pigment=upload(width,height,flip(snapshot.fields.pigment)),color=upload(width,height,flip(snapshot.fields.color))
+ const uniform=(name:string)=>gl.getUniformLocation(program,name)
+ for(let i=0;i<gl.getProgramParameter(program,gl.ACTIVE_UNIFORMS);i++){const a=gl.getActiveUniform(program,i)!;if(a.type===gl.SAMPLER_2D)gl.uniform1i(uniform(a.name),0)}
+ for(const [k,t] of [empty,paper,noise,coverage,pigment,color].entries()){gl.activeTexture(gl.TEXTURE0+k);gl.bindTexture(gl.TEXTURE_2D,t)}
+ for(const [name,unit] of Object.entries({u_original:0,u_paperHeightMap:1,u_wcNoiseTex:2,u_strokeCoverage:3,u_inkLoad:4,u_inkColor:5}))gl.uniform1i(uniform(name),unit)
+ const values={u_inkMode:9,u_dabRadius:height*.5,u_aspectRatio:width/height,u_opacity:v.opacity,u_inkSmoothPx:v.inkSmoothPx,u_water:v.water,u_inkStrength:v.inkStrength,u_spreadPx:v.spreadPx,u_edgeWander:v.edgeWander,u_edgeSoft:v.edgeSoft,u_bristleCombs:v.bristleCombs,u_dryContact:v.dryContact,u_granulation:v.granulation,u_wetEdge:v.wetEdge,u_wetEdgeRadiusPx:v.wetEdgeRadiusPx,u_tideLo:v.tideLo,u_tideHi:v.tideHi,u_paperRim:v.paperRim,u_pigmentOpacity:v.pigmentOpacity,u_wcDebugView:v.debugView,u_rectComposite:+v.rectComposite,u_migrate:v.migrate}
+ for(const [name,value] of Object.entries(values))gl.uniform1f(uniform(name),value)
+ gl.uniform2f(uniform('u_resolution'),width,height);gl.uniform2f(uniform('u_dabCenter'),width*.5,height*.5)
+ for(const [name,value] of [['u_paperOrigin',v.paperOrigin],['u_paperTexSize',v.paperTexSize],['u_paperScale',v.paperScale],['u_fieldOffset',v.fieldOffset]] as const)gl.uniform2fv(uniform(name),Array.from(value))
+ const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-.5,-.5,.5,-.5,-.5,.5,-.5,.5,.5,-.5,.5,.5]),gl.STATIC_DRAW);const loc=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,8,0)
+ const output=upload(width,height,new Uint8Array(width*height*4)),fbo=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,output,0);for(const [k,t] of [empty,paper,noise,coverage,pigment,color].entries()){gl.activeTexture(gl.TEXTURE0+k);gl.bindTexture(gl.TEXTURE_2D,t)}gl.viewport(0,0,width,height);gl.disable(gl.BLEND);gl.drawArrays(gl.TRIANGLES,0,6)
+ const raw=new Uint8Array(width*height*4);gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,raw);const error=gl.getError();gl.getExtension('WEBGL_lose_context')?.loseContext();if(error!==gl.NO_ERROR)throw new Error('GL composite oracle error '+error);return flip(raw)
+}
