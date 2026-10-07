@@ -48,3 +48,30 @@ CPU typed writer и paired wet raster включены локально, GPU к�
 под diagnostic flags OFF. Следующий гейт — frozen combined аппаратный replay,
 потом undo/redo и живое рисование. 65selectedtests/types/lint прошли;
 новые добавленные позже файлы требуют соответствующих дополнительных гейтов.
+
+## Контрольная точка после полуночи
+
+Samsung SM-T970/Chrome154: trusted HTTPS origin, все4 fixtures WebGL1/WebGL2/MRT
+побайтно совпали, GL errors отсутствуют. GPU timer extension отсутствует во всех
+трёх путях, поэтому speedup Samsung не заявляется. Raw1791407001965.
+Первый dev self-signed origin не имел crypto.subtle; это ошибка условий harness,
+не ошибка шейдера. Свои тестовые вкладки закрыты, осталась исходная1475.
+
+Combined87f frozen QA Surface: активные кадры max34ms, tail600ms,
+следующий handler124.8ms; wholeRGBA fixed tape совпал686485f8…5944.
+Одна arm полностью прошла; старый epilogue ошибочно обращался к отсутствующей
+второй arm, raw error сохранён. Derived combined-summary подтверждает только arm.
+
+Новый GPU dead first upload OFF и bounded4MiB/128 CPU contact cache OFF локально
+сохранены. Конфликт workspace/cache разрешён приоритетом cache: workspace создаётся
+только без cache; оба очищаются на destroy/forget. 97mergedPlantests прошли.
+Реальные cache hits пока не измерены; синтетическое warm ускорение не FPS.
+
+Илья00:01 запросил отдельный полный WebGPU watercolor PoC; агент
+watercolor_webgpu_poc начал отдельный728-webgpu-poc, dev-only solver/страница,
+с явными границами fidelity и одинаковыми input cases. Production не меняется.
+
+Mixed Room прогон прерван потерей HOME ноутбука: SSH tunnel banner timeout,
+прямой home-laptop No route to host. Surface прямой SSH жив; CDP перенесён на
+собственный9455. Данный mixed прогон не считается hardware PASS. Новые самостоятельные
+WebGL2/WebGPU fixtures возможны через trusted private static gallery без HOME backend.

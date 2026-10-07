@@ -1,0 +1,194 @@
+{
+  "scope": "warmed immutable brush-contact operator GPU timer; not Room/native FPS",
+  "extensions": [
+    {
+      "mode": "gl1",
+      "available": true,
+      "name": "EXT_disjoint_timer_query"
+    },
+    {
+      "mode": "gl2",
+      "available": true,
+      "name": "EXT_disjoint_timer_query_webgl2"
+    },
+    {
+      "mode": "mrt",
+      "available": true,
+      "name": "EXT_disjoint_timer_query_webgl2"
+    }
+  ],
+  "summary": [
+    {
+      "mode": "gl1",
+      "repeats": 2,
+      "validSamples": 5,
+      "medianGpuNs": 7209322,
+      "medianGpuNsPerPair": 3604661,
+      "sufficient": true
+    },
+    {
+      "mode": "gl1",
+      "repeats": 4,
+      "validSamples": 5,
+      "medianGpuNs": 13878958,
+      "medianGpuNsPerPair": 3469739.5,
+      "sufficient": true
+    },
+    {
+      "mode": "gl1",
+      "repeats": 8,
+      "validSamples": 5,
+      "medianGpuNs": 18310729,
+      "medianGpuNsPerPair": 2288841.125,
+      "sufficient": true
+    },
+    {
+      "mode": "gl2",
+      "repeats": 2,
+      "validSamples": 5,
+      "medianGpuNs": 6936250,
+      "medianGpuNsPerPair": 3468125,
+      "sufficient": true
+    },
+    {
+      "mode": "gl2",
+      "repeats": 4,
+      "validSamples": 5,
+      "medianGpuNs": 14093645,
+      "medianGpuNsPerPair": 3523411.25,
+      "sufficient": true
+    },
+    {
+      "mode": "gl2",
+      "repeats": 8,
+      "validSamples": 5,
+      "medianGpuNs": 17583802,
+      "medianGpuNsPerPair": 2197975.25,
+      "sufficient": true
+    },
+    {
+      "mode": "mrt",
+      "repeats": 2,
+      "validSamples": 5,
+      "medianGpuNs": 4116979,
+      "medianGpuNsPerPair": 2058489.5,
+      "sufficient": true
+    },
+    {
+      "mode": "mrt",
+      "repeats": 4,
+      "validSamples": 5,
+      "medianGpuNs": 8000260,
+      "medianGpuNsPerPair": 2000065,
+      "sufficient": true
+    },
+    {
+      "mode": "mrt",
+      "repeats": 8,
+      "validSamples": 5,
+      "medianGpuNs": 10356614,
+      "medianGpuNsPerPair": 1294576.75,
+      "sufficient": true
+    }
+  ],
+  "gpuMeasurementsValid": true,
+  "pass": true,
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+  "parity": {
+    "pass": true,
+    "fixtures": [
+      {
+        "name": "zero-flow",
+        "gl1VsGl2": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ],
+        "gl2VsMrt": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ]
+      },
+      {
+        "name": "wet-capacity",
+        "gl1VsGl2": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ],
+        "gl2VsMrt": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ]
+      },
+      {
+        "name": "partial-scissor",
+        "gl1VsGl2": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ],
+        "gl2VsMrt": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ]
+      },
+      {
+        "name": "brush400-field",
+        "gl1VsGl2": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ],
+        "gl2VsMrt": [
+          {
+            "changed": 0,
+            "max": 0
+          },
+          {
+            "changed": 0,
+            "max": 0
+          }
+        ]
+      }
+    ]
+  }
+}
