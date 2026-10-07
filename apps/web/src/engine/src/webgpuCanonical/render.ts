@@ -12,7 +12,7 @@ export class CanonicalComposite {
   this.device=device
   const module=device.createShaderModule({label:'canonical production watercolor composite',code:CANONICAL_COMPOSITE_WGSL})
   this.pipeline=device.createRenderPipeline({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format:'rgba8unorm'}]}})
-  this.clamp=device.createSampler({minFilter:'linear',magFilter:'linear'})
+  this.clamp=device.createSampler({minFilter:'nearest',magFilter:'nearest'})
   this.repeat=device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'repeat',addressModeV:'repeat'})
  }
  encode(encoder:GPUCommandEncoder,fields:CanonicalWatercolorFields,original:CanonicalGpuField,paper:CanonicalGpuField,noise:CanonicalGpuField,out:CanonicalGpuField,v:CanonicalCompositeUniforms):GPUBuffer[] {
