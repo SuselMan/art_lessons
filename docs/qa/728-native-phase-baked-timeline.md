@@ -21,3 +21,11 @@ Vega, отдельный настоящий PointerInput движок 640×480 F
 ## Артефакты
 
 HOME: `680-water-wet-tone-qa/temp/timeline/native-cbe-retry1/`: report.json, presentation-deltas.json, OFF/ON PNG frames, final-canonical PNG, timeline-atlas.jpg. VPS task temp/timeline содержит копии report/deltas/atlas и controller native-function.js/run.mjs. Исходная невалидная попытка: native-cbe/. Аппаратный запуск handle46742 завершён exit0, ownedChromeClosed=true.
+
+## Естественный переход без Dry: отдельный повтор
+
+Handle21241, HOME temp/timeline/native-cbe-noDry, source/flags те же. Реальный OFF PointerInput и его exact callback tape ON; stroke packed/wet payload exact, бумага/видимый canvas/layer preflight пройден. Paper_dry не выполнялся. ON30phase=30solvent, baked8; обаGL0/lostfalse, собственный Chrome закрыт finally, exit0.
+
+Кадры100/250/500/750/1000/1500/2000/3000/4000/5000/6000мс +final после idle показывают: до500мс движение визуально слабое, к1сек появляется периферийная дымка, к2сек заметно растекание, к4–6сек большой постепенный рост. ON убирает светлое кольцо и в естественном переходе; явных треугольников данный круг не воспроизводит. Atlas: noDry-atlas.jpg.
+
+Actual pending presentation target отсутствует до500мс, имеется с750 до3000мс. При lift job next1/221; на500мс33/221, на1000мс63(OFF)/65(ON), на3000мс195/194. К4000мс job завершён, reveal.startedAt установлен, pendingfalse. Окончательно reveal исчезает только кfinal11.45(OFF)/11.47(ON)сек после lift. StartedAt/pending/progressive и jobnext взяты пассивно, без field readback. Эти временные данные включают diagnostic snapshots и не являются performance измерением. Слабую видимость начала нельзя считать уже идеальной отзывчивостью перехода.
