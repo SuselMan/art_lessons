@@ -112,3 +112,39 @@ folded dry bounds/radius/standing, spacing/direction/diffusePending. 11/1 PASS.
 не сбрасывают их; отсутствие этих вызовов в owned-ветке не меняет состояние.
 Захваченный dryCtx — отдельная копия с сохранением физического target identity.
 Это контроль параметров без перекрытия; full GPU material oracle остаётся открыт.
+
+### Portable ordinary Room mixed gate (подготовлен, не запускался)
+
+CPU helpers:
+`temp/pure-water-plan/causal-trace/joined-mixed-room-function.js`
+(SHA256 `87b0766dd40b2a478438e892c96ca0cb2748e4f1f6500756b476fb8ea5a68ccc`)
+и `joined-mixed-room-controller.mjs`
+(`718f74f60bf35767555c0876a7e3a35f02e5c171351f4ce44a5c7b11722a34bb`).
+Оба `node --check` PASS; три отрицательных actor preflight проверки PASS без GPU.
+
+Запуск требует явных QA_APP, QA_RUNTIME, QA_MANIFEST (files:path/sha256), QA_OUT,
+QA_DEPS. Controller перед браузером проверяет все manifest SHA, затем обычный
+UI Create создаёт отдельную A4 комнату для каждого из шести arm. Один собственный
+headed Chrome, один context одновременно, RAM1700/500 MiB, 240s arm bound,
+finally закрывает только собственный browser. Порты пользовательских стендов
+не разрешены. Источник должен включать fa72+9dda, а не только старый narrow.
+
+Две real native фиксированные gestures: water100/pigment0 → water100/pigment100;
+пигмент → другой RGB. Отдельный no-overlap OFF/ON case. Перед input обязателен
+Room actor не local и engine._userId === store.userId. Native источник сохраняет
+реальный wet sampling; time/packed wet НЕ исключаются из сравнения. Из material
+сравнения убираются только верхние id/userId/layerId/timestamp/seq. Различие packed
+wet — FAIL данного paired invariant, не повод ослабить критерий.
+
+Фиксируются только физические strokeId/washId, глобальный crypto и operation.id
+не изменяются. ACK дополняется ordinary authenticated API /operations: этот
+endpoint читает Postgres непосредственно; все actual expected IDs данной комнаты
+должны появиться за 30s. Strokes требуют разных настоящих nanoid, журнал никогда
+не удаляется и не remap-ится. Ошибка persistence сохраняет expected IDs и partial.
+
+24 роли на tile/field: 14 scratch (original/coverage/P/C/dry/settled/film/bases/V)
++ 10 solver a/b/c/ca/cb/cc/coverage/mask/pressure/band. Null роли записываются явно,
+не считаются нулевыми. P/C/V/coverage обязаны иметь nonzero; whole PNG alpha>0.
+Сравнения OFF/ON строгие SHA full buffers, whole RGBA и material journal; диагностические
+scratch-роли здесь также не получают автоматической tolerance. Whole PNG сохраняется.
+Все readback вне active input. Это CPU подготовка: аппаратных результатов пока нет.
