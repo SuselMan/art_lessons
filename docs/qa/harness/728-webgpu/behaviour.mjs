@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';import fs from'node:fs';import http from'node:http';import path from'node:path';
+const root=path.resolve(process.env.WC_WEBGPU_BUNDLE || 'temp/webgpu-poc-dist');const server=http.createServer((req,res)=>{const p=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname);try{res.setHeader('Content-Type',p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(p))}catch{res.writeHead(404).end()}});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,args:['--enable-unsafe-webgpu','--use-angle=swiftshader','--enable-features=Vulkan','--disable-vulkan-surface']});const page=await browser.newPage();const errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});page.on('pageerror',e=>errors.push(String(e)));
+const out=process.env.WC_BEHAVIOUR_OUT||'temp/webgpu-poc/behaviour-before';fs.mkdirSync(out,{recursive:true});const result={errors};
+try{await page.goto('http://127.0.0.1:'+server.address().port+'/webgpu-poc.html');await page.waitForFunction(()=>window.__watercolorGpuPoc);await page.getByRole('button',{name:'Pause',exact:true}).click();
+for(const scenario of ['puddle-dab','two-colors','dry-gap']){
+result[scenario]=await page.evaluate(async({scenario})=>{const e=window.__watercolorGpuPoc;e.clear();const dab=(x,y,r,w,p,c)=>new Float32Array([x,y,r,w,1,0,p,1,...c,0,0,0,0,0]);
+const yellow=[-Math.log(.9),-Math.log(.75),-Math.log(.12)],blue=[-Math.log(.1),-Math.log(.45),-Math.log(.75)];
+if(scenario==='dry-gap'){e.addDabs(dab(225,192,12,1,.5,blue));e.addDabs(dab(287,192,12,1,0,yellow));}
+else if(scenario==='puddle-dab'){e.addDabs(dab(256,192,100,1,0,yellow));e.addDabs(dab(256,192,8,0,.5,blue));}
+else{e.addDabs(dab(242,192,24,1,.5,yellow));e.addDabs(dab(278,192,24,1,.5,blue));}
+const metric=async()=>{const s=await e.readState();let mass=0,outer=0,crossBlue=0,crossYellow=0,mobile=0,rightMass=0;for(let y=0;y<384;y++)for(let x=0;x<512;x++){const i=(y*512+x)*16;const m=s[i+3]+s[i+7],d=s[i]+s[i+4];mass+=m;if(x>270)rightMass+=m;mobile+=s[i+3];if(Math.hypot(x+.5-256,y+.5-192)>20)outer+=m;if(scenario==='two-colors'){const mb=Math.max(0,Math.min(m,(d-yellow[0]*m)/(blue[0]-yellow[0])));if(x<250)crossBlue+=mb;if(x>270)crossYellow+=m-mb;}}return{rightMass,mass,mobile,outerShare:outer/mass,crossBlueShare:crossBlue/mass,crossYellowShare:crossYellow/mass};};
+const shot=async()=>{const p=await e.readPixels();const c=document.createElement('canvas');c.width=p.width;c.height=p.height;c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(p.rgba),p.width,p.height),0,0);return c.toDataURL();};
+const rows=[{ticks:0,metric:await metric(),png:await shot()}];for(let n=1;n<=120;n++){e.step();if(n%8===0)await e.whenIdle();if(n===30||n===120)rows.push({ticks:n,metric:await metric(),png:await shot()});}return rows;},{scenario});
+for(const row of result[scenario]){fs.writeFileSync(out+'/'+scenario+'-'+row.ticks+'.png',Buffer.from(row.png.split(',')[1],'base64'));delete row.png;}
+}fs.writeFileSync(out+'/result.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));}finally{await browser.close();await new Promise(r=>server.close(r));}

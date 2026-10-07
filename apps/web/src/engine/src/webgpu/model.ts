@@ -55,3 +55,9 @@ export function oracleFixture(width: number, height: number) {
   }
   return cells
 }
+
+/** One positive conservative stencil per fixed tick, not a sum of operators. */
+export function transportStep(tick: number) {
+  const radii = [1, 2, 4, 8, 12, 16, 8, 4, 2]
+  return { radius: radii[tick % radii.length], knight: tick % 2 === 1 }
+}

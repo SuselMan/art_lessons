@@ -129,3 +129,40 @@ A single warmed sample per fixture is labelled as such; no FPS or comparative
 speed claim follows from it. The same-dab comparison preset now uses the
 production `watercolorPresetString` serializer, preserving water/pigment order
 and the fifth-field nib. Sixunit tests include this contract gate.
+
+## Interactive physics follow-up (2026-10-08)
+
+The original live model was too slow at brush scale, and diagnostics could
+leave it paused. Commit 10850786 fixes pause lifecycle; parent verified real
+Surface pointer input, running/paused restoration and sample auto-resume.
+
+The next experimental model uses one multiscale wet-path stencil per tick
+and local conservative contact remobilization. This is a physical model
+change, not a faithful production port. A mathematical review bounds outgoing
+pigment fractions below .98808 and liquid fractions below .344. Symmetric
+path gates and paired reverse directions preserve each pigment channel.
+
+Software fixed-input comparison, 30 ticks (0.5 simulation seconds):
+
+| Gate | Previous | Experimental |
+|---|---:|---:|
+| Blue pigment in water, mass beyond radius20 | 0.031% | 85.90% |
+| Two colors, blue crosses left threshold | 0.059% | 10.44% |
+| Two colors, yellow crosses right threshold | 0.024% | 9.82% |
+
+At 120 ticks, outer mass is 90.79%, color cross shares 16.32%/15.60%.
+Mass drift remains below 1e-8 in these fixtures. Actual GPU canvas readback
+PNGs and JSON are under temp/webgpu-poc/behaviour-before and behaviour-after.
+This proves visible motion/mutual mixing for those inputs, not final quality
+or real-device speed. Large brush behavior needs a separate hardware gate.
+
+The separate canonical Q8 comparison was exact on software, but FAILED on
+real Surface: capacity max byte difference3, partial5, brush4004; therefore
+no hardware byte-exact claim is made. This discrepancy is independent of
+the interactive Float32 model and remains unresolved.
+
+Dry-gap fixture: two radius12 puddles at x225/287, pigment only left;
+right-side pigment mass stays exactly zero after30/120 ticks despite maxhop32.
+Fixture drift at120 ticks is1.62e-8. Reusable harness:
+`WC_WEBGPU_BUNDLE=temp/webgpu-poc-physical-dist node docs/qa/harness/728-webgpu/behaviour.mjs`.
+Full software replay, dry, Undo/Redo and explicitly legacy CPU oracle PASS.

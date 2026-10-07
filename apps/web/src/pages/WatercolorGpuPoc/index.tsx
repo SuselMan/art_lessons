@@ -197,6 +197,7 @@ export function WatercolorGpuPocPage() {
   }
   async function inspectMass() {
     await runDiagnostic(async () => {
+      const savedTick = engine.current!.tickCount
       const before = await engine.current!.readState()
       const total = (field: Float32Array) => {
         const mass = [0, 0, 0, 0]; let negative = 0
@@ -206,10 +207,11 @@ export function WatercolorGpuPocPage() {
         }
         return { mass, negative }
       }
+      try {
       for (let n = 0; n < 30; n++) engine.current!.step(0)
       const after = await engine.current!.readState(), a = total(before), b = total(after)
-      engine.current!.writeState(before)
       setStatus(`30 transport ticks / no evaporation: relative mass drift ${Math.max(...a.mass.map((v, k) => Math.abs(b.mass[k] - v) / Math.max(v, 1e-8))).toExponential(3)}; negative channels ${b.negative}. Float rounding remains.`)
+      } finally { engine.current!.writeState(before, savedTick) }
     })
   }
   function download() {
@@ -250,6 +252,6 @@ export function WatercolorGpuPocPage() {
       <figure hidden={!baselineVisible}><figcaption>Current WebGL1 · same stroke inputs · dry output</figcaption><canvas ref={comparison} hidden={!!baselineImage} />{baselineImage && <img src={baselineImage} alt="Current WebGL1 watercolor replay" />}<p>{baselineStatus}</p></figure>
     </div>
     <p className={styles.metrics}>{metrics}</p>
-    <details><summary>What differs from production?</summary><p>Shared Dab geometry, pressure response, travel depletion and logarithmic pigment absorption. Conservative eight-neighbor donor diffusion follows the production reference. Float32 fields replace Q8 writes; the continuous water solver, paper seed, contact advection and deposition normalisation are experimental. Current production tide/front schedules, ribbons, bristle gaps, baked paper, live peers and production layer/undo contracts are not ported yet. WebGPU availability and speed do not establish watercolor quality.</p></details>
+    <details><summary>What differs from production?</summary><p>Shared Dab geometry, pressure response, travel depletion and logarithmic pigment absorption. Experimental multiscale conservative donor transport follows continuous wet paths; a separate legacy nearest-neighbor oracle checks production algebra. Float32 fields replace Q8 writes; the continuous water solver, paper seed, contact advection and deposition normalisation are experimental. Current production tide/front schedules, ribbons, bristle gaps, baked paper, live peers and production layer/undo contracts are not ported yet. WebGPU availability and speed do not establish watercolor quality.</p></details>
   </main>
 }
