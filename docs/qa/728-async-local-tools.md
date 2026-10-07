@@ -242,3 +242,26 @@ scratch owners or undo under a native active pen. Bound360s, RAM500MiB unchanged
 exit0 and owned Chrome closed. Raw HOME
 `results-multiowner-local-history-finish-proof/report.json`, VPS copy
 `temp/async-multiplayer/multiowner-local-history-finish-proof-report.json`.
+
+### Pending requests, actual context loss, arriving ACK and snapshot gate
+
+On the same frozen970-file source, two native finish boundaries were pending.
+After confirmed prefix ACK, the owner map held22 request references on one scratch.
+Actual bakeNetworkSnapshot returned null while canonical pending, with dirtytrue
+preserved before/after; it did not falsely acknowledge unfinished pixels.
+
+The owned context was lost through WEBGL_lose_context. A new actual native B
+stroke reached A's authoritative log, with serverSeq/ACK, while A.gl.isContextLost
+was true and owners had been forgotten. Both real events were recorded (lost at
+17496.8ms, restored at19810.6ms). No getError oracle was queried while lost. After
+restore and ordinary UI orderedDry, both authors' wholeRGBA/premult matched0;
+confirmed prefix watercolor IDs survived. Snapshot API readiness resumed with a
+nonnull1228820-byte layer bake. After closing both authors, independent fresh
+replay matched final wholeRGBA0/max0/alphaMax0, nonempty183297 and GL0/lostfalse.
+
+Exit0, owned Chrome closed, bound360s/RAM500MiB unchanged. This is accepted pending
+requests plus actual lost-interval arrival and snapshot readiness/resumption; it
+does not claim preservation of an unrecorded tail, a carried checkpoint, uploaded
+snapshot persistence or stored-blob restore. Raw HOME
+`results-pending-loss-snapshot/report.json`, VPS copy
+`temp/async-multiplayer/pending-loss-snapshot-report.json`.
