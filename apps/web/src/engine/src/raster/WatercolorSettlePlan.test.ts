@@ -532,15 +532,15 @@ describe('opt-in split continuation quanta', () => {
 })
 
 describe('diagnostic single-paint cost-domain paths', () => {
-  for (const owner of [false, true]) for (const mixed of [false, true]) {
-    it(`preserves ownership and schedules masks before carry (owner=${owner}, mixed=${mixed})`, () => {
+  for (const enabled of [false, true]) for (const owner of [false, true]) for (const mixed of [false, true]) {
+    it(`preserves ownership and schedules masks before carry (enabled=${enabled}, owner=${owner}, mixed=${mixed})`, () => {
       const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
       const probe = engine as unknown as Probe
       const tile = probe._ribbonScratchPool.acquire(64, 64)
       const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
       scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
       if (mixed) scratch.paints.add('0,0,1')
-      probe._settlePlan.diagnosticCostDomainPaths = true
+      probe._settlePlan.diagnosticCostDomainPaths = enabled
       const calls: string[] = []
       const masks: AccumulationBuffer[] = []
       let expectedMasks = 0
@@ -554,7 +554,7 @@ describe('diagnostic single-paint cost-domain paths', () => {
           expect(args[4]).toBe(WC_CARRY_RATE)
           expect(args[5]?.origin?.[1]).toBe(WC_CARRY_TRAVEL)
           expectedMasks += 1 + Math.log2(args[5]?.origin?.[0] ?? 1)
-          if (owner && !mixed) { expect(args[5]?.path).toBe(masks[masks.length - 1]); expect(calls[calls.length - 2]).toMatch(/^mask:/) }
+          if (enabled && owner && !mixed) { expect(args[5]?.path).toBe(masks[masks.length - 1]); expect(calls[calls.length - 2]).toMatch(/^mask:/) }
           else expect(args[5]?.path).toBeUndefined()
         }
         field(...args)
@@ -562,11 +562,18 @@ describe('diagnostic single-paint cost-domain paths', () => {
       try {
         const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
           { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, owner)!
-        for (const op of plan.ops) op()
+        for (const op of plan.ops) {
+          const before = calls.length
+          op()
+          if (enabled && owner && !mixed) {
+            const commands = calls.slice(before)
+            expect(commands.length).toBeLessThanOrEqual(1)
+          }
+        }
         expect(calls).toContain('carry')
-        expect(masks.length > 0).toBe(owner && !mixed)
-        if (owner && !mixed) expect(masks.length).toBe(expectedMasks)
-        expect(new Set(masks).size).toBe(owner && !mixed ? 2 : 0)
+        expect(masks.length > 0).toBe(enabled && owner && !mixed)
+        if (enabled && owner && !mixed) expect(masks.length).toBe(expectedMasks)
+        expect(new Set(masks).size).toBe(enabled && owner && !mixed ? 2 : 0)
         plan.dispose(); plan.dispose()
       } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
     })
@@ -613,6 +620,7 @@ for (const lost of [false, true]) it(`retires borrowed mask state on plan abort 
     const land = vi.spyOn(probe._watercolorPasses, 'fieldOp')
     if (lost) probe._settlePlan.forgetTextures()
     plan.dispose(); plan.dispose(); plan.finish()
+    for (; next < plan.ops.length; next++) plan.ops[next]()
     expect(count).toBe(completed)
     expect(land).not.toHaveBeenCalled()
   } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }

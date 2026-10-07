@@ -368,3 +368,36 @@ VPS `temp/onset/mask-retry1-report.json`. Старый `onset-runtime` не из
 Default OFF, no root integration. Следующие обязательные gates: salted whole
 LOW/HIGH/CARRY/COLOUR + independent mask compile Adreno, actual stage delta/ring/
 outward и full-field cost с owner14; mixedpaint исключён.
+
+### Разделение scheduling единиц маски (CPU, hardware pending)
+
+Следующий default-OFF net меняет только diagnostic ON scheduling: D1 seed и каждый
+следующий dyadic pass становятся самостоятельными, не front-batched Plan entries.
+Carry каждого stride следует после полной соответствующей маски, со статически
+захваченными src/dst/path. Donor rule, rate, travel и draw order остаются прежними.
+Для fourteen-stride schedule это56 отдельных mask entries +14 carry entries;
+mask barriers не позволяют contact/front batching скрыть их в одной большой GPU единице.
+Default OFF/mixed/ownerfalse сохраняют прежнюю группировку carry по4 (или existing
+splitQuanta). Diagnostic captured owner flag не перечитывается в середине job.
+
+Diagnostic ON ops получают existing disposed wrapper. CPU abort/context-forget
+тест останавливается после первой mask entry ДО carry, вызывает dispose/finish,
+затем намеренно пытается исполнить весь оставшийся ops массив: никаких поздних
+mask/material writes. Маски по-прежнему не имеют отдельного pooled lifetime.
+51 targeted tests PASS, including disabled/owner/mixed combinations; per-entry
+assertion максимум одна mask либо carry command. Это не аппаратный endpoint proof.
+
+План следующего аппаратного этапа (после отдельного grant):
+1. Самостоятельный mask primitive с one-sync1x1 стоимостью единицы, затем поле
+   фактического размера1536: не экстраполировать128 `.2ms` на whole field. Warm-up
+   отдельно, лимит единицы согласовать до запуска; при превышении не запускать14 strides.
+2. Curated sheet3 full42 journal (41 pixel ops безimage), target seq61 only,
+   baked/phase/rebase фиксированы; mask OFF/ON только выбранный target. Assert
+   actual owner14 и paints.size1, actual mask56/carry14/order; skip не считается gate.
+3. Exact meaningful pre-carry P/V/cost/coverage, actual mask before stride,
+   before/after carry+diffuse+tide ROI и итоговый wholePNG. Separate physical
+   edge/outward/support/ROI sums, не обещать global mass из закрытого ROI.
+4. Один engine за раз, bounded saved progress, RAM1700/500, finally close;
+   нет full14 stress до маленького unit-cost и salted Adreno full-program gate.
+
+Runtime пока остаётся прежним e8+39; scheduling net не синхронизирован на HOME.
