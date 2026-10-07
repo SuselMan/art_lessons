@@ -136,3 +136,36 @@ Dry PNG ожидаемо прозрачны: их equality0 сама по себ
 Здесь нет независимого fresh-reader/контекст-loss native endpoint.
 Полный fixed-tape V/coverage и следующий P/C доказаны предыдущим gate.
 Raw `rgba-audit.json`, исходный native helper и runner сохранены рядом.
+
+## Следующая причинная диагностика tail602ms — только CPU-подготовка
+
+Подготовлены ignored `temp/pure-water-plan/causal-trace/observer.js` и
+`controller.mjs`, Node syntax и `observer.test.mjs` PASS. GPU не запускался.
+При следующем разрешённом trace требуется исходный current source passport
+(включая c740 suppression), обычный ready/idle Room и existing RAM guard.
+Контроллер требует явные ROOT_GPU_GRANTED, OWN_TARGET_ID, OWN_NONCE и APP_URL,
+не создаёт/не навигирует пользовательские вкладки. Прямой запуск пока не заменяет
+существующие outer source/RAM проверки аппаратного controller.
+
+Observer хранит identity фактически исполняемых job.ops, job/scratch, cursor,
+порядок primitive pass/copy/draw вызовов. Наблюдает queue.start/advance/complete,
+Plan.prepare, waterFrontStep/fieldOp.mode/resample и остальные passes, pool buffer
+copy/clear и drawRibbonBands. Синхронный complete очищает queue.current прежде
+чем выполнит остаток: observer удерживает именно прежний job и читает его cursor,
+а не приписывает всё «outside queue». Во время последнего advance completion
+отдельно распознаётся по снятому текущему job. Исторические op labels определяются
+по identity, а не по приблизительному номеру shader или порядку массива отчёта.
+
+Никакие ops/finish/generator не заменяются. Painter.paint возвращает прежний
+итератор без next()/return(). Аргументы/receiver/exception identity/командный порядок
+и возврат исходных методов проверены CPU counterexample. Обёртки добавляют только
+наблюдения и userTiming markers; источник данных и shader uniforms не меняются.
+Buffer copy и вложенный fieldOp могут относиться к одному submission: длительности
+вложенных CPU spans нельзя суммировать как GPU стоимость.
+
+Trace должен разделить waterFront252, копии/landing/source-command rebase и
+presentation. Это обозначения CPU submission, не GPU completion. External GPU
+trace нужен для связи userTiming с реальным graphic pipeline gap; readPixels,
+GPU fences и новую бюджетную синхронизацию не добавляем. No-front ablation отвергнута:
+front сохраняет V/геометрию и не является доказанно нулевым оператором. Следующий
+валидный кандидат может устранять лишь реально неиспользуемый preview/copy, не воду.
