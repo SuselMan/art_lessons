@@ -1,4 +1,4 @@
-/** #728 diagnostic: one paper-fixed field, avoiding three intersecting grids.
+/** #728: one paper-fixed field, avoiding three intersecting grids.
  * The immutable lattice is the existing #691 texture; no GPU float hash.
  * This changes late deposition texture only, never water, travel or the log. */
 export const GRADIENT_FIBRE_STRENGTH = 0.25

@@ -289,6 +289,10 @@ export interface PencilEngineOptions {
   size?: number
   opacity?: number
   paperScale?: number
+  /** #728: paper-fixed gradient fibres for watercolor deposition.
+   * Fixed at construction; the program is warmed after GL uniforms/attributes
+   * are ready, including context restoration. Standalone callers opt in. */
+  gradientFibres?: boolean
   graphiteColor?: [number, number, number]
   userId?: string
   // Fired for operations genuinely originated by this engine instance: both
@@ -2177,6 +2181,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._wcAsyncFinish = options.asyncFinish ?? false
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
+    this._wcGradientFibres = options.gradientFibres ?? false
     // (#494) The first frame's pose (centred on the sheet for a bounded room)
     // is decided inside — see Camera's constructor. The rect read is the
     // engine's own DOM call, handed in so Camera.ts stays DOM-free.
@@ -3423,7 +3428,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** (#536, §17.24) Applied in _drawRibbonCompositeDab, so a replay under the
    *  switch recomposites the same deposit without the effect. */
-  /** #728 diagnostic opt-in; fifth low program is warmed separately in QA. */
+  /** #728 construction option; warmed during GL initialization/restoration. */
   private _wcGradientFibres = false
   private _wcAb = { noSpread: false, noMigrate: false, noDiffuse: false, noCarry: false, opDry: false }
   setWatercolorAb(ab: { noSpread: boolean; noMigrate: boolean; noDiffuse?: boolean; noCarry?: boolean; opDry?: boolean }): void {
@@ -5667,6 +5672,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositor.initAttributes()
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._watercolorPasses.initFieldAttributes()
+    if (this._wcGradientFibres) this._watercolorPasses.warmGradientFibres()
 
     this._screenBlitPosLoc     = gl.getAttribLocation(this._screenBlitProg, 'a_position')
     this._screenBlitTexLoc     = gl.getUniformLocation(this._screenBlitProg, 'u_tex')

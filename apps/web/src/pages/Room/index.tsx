@@ -972,6 +972,7 @@ function RoomEditor() {
       pageWidth: engineInfinite ? undefined : enginePageW,
       pageHeight: engineInfinite ? undefined : enginePageH,
       paper: enginePaper,
+      gradientFibres: true,
       paperColor: enginePaperColor ? hexToRgb(enginePaperColor) : undefined,
       pencilType: initialToolRef.current.pencil,
       size: initialToolRef.current.size,
