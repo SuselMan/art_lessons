@@ -403,3 +403,46 @@ HOME raw/summary:
 и поддержал следующий broad-gallery gate. Actual27 current mass/visual,
 широкая галерея и производительность остаются отдельными проверками;
 текущий результат не означает default ON или production publication.
+
+### Current Surface performance: новый touch после dense400
+
+Frozen f877/HTTP5319, standalone1754×2480 Fine / viewport768², Intel Iris Xe.
+Native rAF6s zigzag400 с jitter pressure0.65±0.15, затем20ms pause и следующий
+штрих100 с запланированными500ms. SourceRebaseON; phase/baked/contactBatch/
+frontBatch OFF, cap4, asyncFinish API отсутствует. В данном компактном bbox
+нет span split: две операции за два жеста. Это actual callbacks движка,
+а не RoomFPS/полный сетевой UI или worst-case live chunk benchmark.
+
+| Материал | active RAF max | pending при новом touch | CPU synchronous drain | фактический новый жест | inclusive newtouch RAF max |
+|---|---:|---:|---:|---:|---:|
+| purewater100:0 |66.5ms|853|8.9ms|525.8ms|49.5ms|
+| loaded100:100 |333.3ms|852|9.9ms|3913.8ms|3866.7ms|
+
+Loaded `_onStart` CPU11.6ms, `_paintStrokeDabs` max43.7ms;
+`Plan.prepare`53.2ms, `_onEnd`104.5ms. Purewater prepare85.9ms,
+`_onEnd`122.4ms. Новый touch начинается ровно20.2ms/21.5ms после возврата
+первого `_onEnd`. Длинный loaded3866.7ms RAF callback записал уже
+`settle-tail`, потому что secondgesture до callback завершился; правильное
+пересечение frame interval с `[touchAt,newtouchEnd]` относит gap к новому
+жесту. Это не исчезнувшая задержка: запланированные500ms растянулись почти
+до4s при коротком CPU возврате и synchronous submission852 physics steps.
+Связь с GPU burst сильная, но в этой серии GPU trace не записан: не выдаём
+RAF за точный GPU elapsed или полную причинную trace-атрибуцию.
+
+JS Self-Profiling API имеется, но `Profiler` отказал с Document Policy
+NotAllowedError; политика не менялась. Existing Chrome metadata не содержит
+remote-debugging-port. CPU timings — instance wrappers +bounded stacks,
+без readback/GL sync во время активного рисунка. GL0/lostfalse,
+nonempty loaded purple guard, native logs сохранены. Все temporary engines
+и canvases уничтожены. Нативные payloads разных water/loaded запусков не
+образуют paired model AB.
+
+HOME raw/fixture:
+`.../680-lifetime-hardware/temp/contact-budget/surface-current-perf{,-function}.mjs/js`
+(точное имя функции `surface-current-perf-function.js`),
+`surface-current-perf-{water,loaded}.json`,
+`surface-current-perf-{water,loaded}-{summary,journal}.json`.
+Journal SHA в summaries, целые исходные журналы immutable. Controller и
+границы времени переданы FIFO агенту для subsequent current comparison.
+До/после FIFO должны сохранить тот же source/settings/fixture scope,
+canonical payload oracle отдельно от независимого native sampling.
