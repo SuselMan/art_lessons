@@ -135,4 +135,12 @@ describe('synchronous drain presentation gate', () => {
     expect(f.events).toEqual(['tile']); expect(abort).toHaveBeenCalledTimes(1); expect(finish).not.toHaveBeenCalled()
   })
 
+  it('keeps one unit while drawing even with an identical presentation token', () => {
+    const f = setup(), token = {}
+    Object.assign(f.queue, { ctx: { beforeStart() {}, perf: () => ({settleStart: 0, settleOps: 0, settleMs: 0}), isDrawing: () => true, backlogSize: () => 0, backlogMax: () => 4, noteActivity() {}, scheduleFieldRelease() {}, syncGpu: f.sync } })
+    f.queue.presentationBatchEnabled = true
+    f.queue.start(f.scratch, [() => {}, ...Array.from({length: 3}, (_, i) => presentationStepOp(() => f.events.push(String(i)), token))], () => {})
+    f.frame(); expect(f.events).toEqual(['0']); expect(f.sync).not.toHaveBeenCalled()
+  })
+
 })
