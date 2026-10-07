@@ -322,7 +322,8 @@ export function buildRibbonBands(
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
 
-  let out = new Float32Array(Math.max(1, chain.length - 1) * (12 + OUTLINE_SEGMENTS * 9) * FLOATS_PER_VERTEX)
+  let out = new Float32Array(Math.max(1, chain.length - 1)
+    * (12 + (fillEveryPose ? OUTLINE_SEGMENTS * 9 : 0)) * FLOATS_PER_VERTEX)
   let written = 0
   const reserve = (required: number): void => {
     if (required <= out.length) return
