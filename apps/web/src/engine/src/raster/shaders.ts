@@ -4145,6 +4145,14 @@ ${WC_NOISE_GLSL}
   }
 `;
 
+/** #728 diagnostic: film depends only on this fragment, not its neighbour.
+ * Keep the expression unchanged; preserve every relaxation and Q8 write. */
+const WC_FRONT_FILM_EXPRESSION = 'float film = smoothstep(WC_FILM_LO, WC_FILM_HI, max(texture2D(u_film, v_uv).a, u_foreignWet * texture2D(u_foreignFilm, v_uv).r));'
+export const WC_WATER_FRONT_INVARIANT_FRAG = WC_WATER_FRONT_FRAG
+  .replace('      ' + WC_FRONT_FILM_EXPRESSION, '')
+  .replace('    for (int k = 0; k < 8; k++) {', '    ' + WC_FRONT_FILM_EXPRESSION + '\n    for (int k = 0; k < 8; k++) {')
+
+
 export const IMAGE_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_image;

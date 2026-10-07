@@ -1,4 +1,4 @@
-import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_WATER_FRONT_INVARIANT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
@@ -71,6 +71,10 @@ export class WatercolorPasses {
 
   private _brushDragPosLoc = -1
 
+  /** Fragment-invariant film candidate; default OFF, optional program lazily linked. */
+  diagnosticWaterFrontInvariant = false
+  readonly waterFrontStats = { baseline: 0, invariant: 0, pixels: 0 }
+  private _waterFrontInvariant: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } | null = null
   private _waterFrontProg!: WebGLProgram
 
   private _waterFrontUni!: Record<string, WebGLUniformLocation | null>
@@ -179,13 +183,17 @@ export class WatercolorPasses {
   ): void {
     const { gl } = this
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
+    const invariant = this.diagnosticWaterFrontInvariant ? this.waterFrontInvariant() : null
+    const u = invariant?.uniforms ?? this._waterFrontUni
+    const position = invariant?.position ?? this._waterFrontPosLoc
     dst.beginReplaceDraw()
-    gl.useProgram(this._waterFrontProg)
-    this.ctx.stamps().bindNoise(this._waterFrontUni.u_wcNoiseTex)
-    const u = this._waterFrontUni
+    gl.useProgram(invariant?.program ?? this._waterFrontProg)
+    this.ctx.stamps().bindNoise(u.u_wcNoiseTex)
+    this.waterFrontStats[invariant ? 'invariant' : 'baseline']++
+    this.waterFrontStats.pixels += field.w * field.h
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
-    gl.enableVertexAttribArray(this._waterFrontPosLoc)
-    gl.vertexAttribPointer(this._waterFrontPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, src.texture)
     gl.uniform1i(u.u_cost, 0)
@@ -427,8 +435,34 @@ export class WatercolorPasses {
     this._resampleProg        = createProgram(gl, DISPLAY_VERT, WC_RESAMPLE_FRAG)
   }
 
+  /** Explicit warm-up permits hardware measurement to exclude first link. */
+  warmWaterFrontInvariant(): void { this.waterFrontInvariant() }
+
+  private waterFrontInvariant(): NonNullable<WatercolorPasses['_waterFrontInvariant']> {
+    if (!this._waterFrontInvariant) {
+      const gl = this.gl
+      const program = createProgram(gl, DISPLAY_VERT, WC_WATER_FRONT_INVARIANT_FRAG)
+      this._waterFrontInvariant = {
+        program,
+        uniforms: getUniforms(gl, program, Object.keys(this._waterFrontUni)),
+        position: gl.getAttribLocation(program, 'a_position'),
+      }
+    }
+    return this._waterFrontInvariant
+  }
+
+  private releaseWaterFrontInvariant(): void {
+    const cached = this._waterFrontInvariant
+    if (!cached) return
+    const gl = this.gl
+    if (gl.getParameter(gl.CURRENT_PROGRAM) === cached.program) gl.useProgram(null)
+    if (gl.isProgram?.(cached.program) !== false) gl.deleteProgram(cached.program)
+    this._waterFrontInvariant = null
+  }
+
   initSettlePrograms(): void {
     const { gl } = this
+    this.releaseWaterFrontInvariant()
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
     this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect', 'u_color', 'u_contactGain', 'u_texel'])
@@ -469,6 +503,7 @@ export class WatercolorPasses {
   }
 
   destroy(): void {
+    this.releaseWaterFrontInvariant()
     // Deleting the currently bound program is deferred until it is unbound.
     // A final field pass may still be active when a connected canvas is retired.
     const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
