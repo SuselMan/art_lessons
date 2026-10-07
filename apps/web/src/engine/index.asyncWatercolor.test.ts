@@ -491,6 +491,8 @@ for (const [tool, preset] of [['pencil', 'HB'], ['marker', 'normal'], ['eraser',
     expect(engine['_wcAsyncError']).toBeNull()
     expect(engine['_wcCanonical'].pending).toBe(false)
     expect(engine['_wcAsyncLocalTools'].size).toBe(0)
+    expect(engine['_smudge']['imprints'].has('owner:async-preview')).toBe(false)
+    expect(engine['_smudge']['replayChunks'].has('owner:async-preview')).toBe(false)
     expect(local).toHaveBeenCalledTimes(1)
     // No ACK was delivered: optimistic visibility must not wait for the server.
     expect(engine['_log'].entries.find(e => e.op.id === recorded.id)).toMatchObject({ state: 'done', pending: true })
@@ -558,5 +560,23 @@ it('keeps both local pencil previews when two strokes wait behind older canonica
       if (!first[i] && second[i]) added++
     }
     expect(retained).toBeGreaterThan(0); expect(added).toBeGreaterThan(0)
+  } finally { engine.destroy() }
+})
+
+
+it('retains an earlier preview tile when the next waiting local stroke paints a different tile', async () => {
+  const { engine } = createTestEngine({ infinite: true }, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('pencil'); engine.setPencil('HB'); engine.setSize(8); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 16 }, { x: 40, y: 16 }])
+    const first = engine['_asyncLocalPreviewTiles']().get('L')![0]
+    const width = engine['_tileSize']().w
+    simulateStroke(engine, [{ x: width + 12, y: 44 }, { x: width + 40, y: 44 }])
+    const tiles = engine['_asyncLocalPreviewTiles']().get('L')!
+    expect(tiles.some(t => t.buffer === first.buffer)).toBe(true)
+    expect(new Set(tiles.map(t => t.originX)).size).toBeGreaterThan(1)
   } finally { engine.destroy() }
 })

@@ -218,6 +218,16 @@ export class SmudgePainter {
     gl.deleteProgram(this.pickupProg)
   }
 
+  /** Release a presentation-only owner without touching a newer gesture. */
+  releaseGesture(userId: string, strokeId: string, lost: boolean): void {
+    const imprint = this.imprints.get(userId)
+    if (imprint?.strokeId === strokeId) {
+      if (!lost) imprint.buf?.destroy()
+      this.imprints.delete(userId)
+    }
+    if (this.replayChunks.get(userId)?.strokeId === strokeId) this.replayChunks.delete(userId)
+  }
+
   /** (#554) The smudge half of the engine's _dropCarriedGestureState: every
    *  user's replay chunk goes except `live`'s — the local gesture actually
    *  in progress, still being painted by paint() and not to be reset under
