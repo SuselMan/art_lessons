@@ -672,3 +672,62 @@ it('abandons partial checkpoint readback if new canonical work starts between ti
     expect(add).toHaveBeenCalledOnce()
   } finally { add.mockRestore(); vi.unstubAllGlobals(); vi.useRealTimers(); engine.destroy() }
 })
+
+it('rebuilds accepted watercolor interrupted by an unrelated queued structural undo', async () => {
+  const { engine } = createTestEngine({ userId: 'author' }, { width: 64, height: 64 })
+  const { engine: fresh } = createTestEngine({ userId: 'reader' }, { width: 64, height: 64 })
+  await Promise.all([engine.paperReady(), fresh.paperReady()])
+  for (const e of [engine, fresh]) { e.initLayer('L'); e.initLayer('Q'); e.setActiveLayer('L') }
+  engine.setTool('watercolor'); engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcAsyncFinish'] = true
+  const frames = new Map<number, () => void>(); let n = 0
+  engine['_wcCanonical']['ctx'].schedule = cb => { frames.set(++n, cb); return n }
+  engine['_wcCanonical']['ctx'].unschedule = id => { frames.delete(id) }
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 24, y: 20 }, { x: 40, y: 20 }])
+    for (let i = 0; i < 100 && !engine['_settle']; i++) {
+      const frame = frames.entries().next().value
+      if (frame) { frames.delete(frame[0]); frame[1]() }
+    }
+    expect(engine['_settle']).not.toBeNull()
+    expect(engine['_washReveals'].size).toBeGreaterThan(0)
+    engine.setActiveLayer('Q')
+    simulateStroke(engine, [{ x: 12, y: 36 }, { x: 36, y: 36 }])
+    expect(engine['_wcAsyncOwners'].size).toBeGreaterThan(1)
+    const add = makeLayerAdd('author', 'R')
+    engine.appendOperation(add)
+    engine.undo()
+    expect(engine['_log'].entries.find(e => e.op.id === add.id)?.state).toBe('undone')
+    expect(engine['_rebuildJobs'].has('L') || engine['_unsettledLayers'].has('L')).toBe(true)
+    expect(engine['_rebuildJobs'].has('Q') || engine['_unsettledLayers'].has('Q')).toBe(true)
+    expect(engine['_log'].entries.filter(e => e.op.type === 'stroke' && e.state === 'done')).toHaveLength(2)
+    // Replay is intentionally synchronous here, isolating the cancellation
+    // contract from MockGL's unsupported intermediate field presentation.
+    vi.spyOn(engine as unknown as { _rebuildWantsSlicing(): boolean }, '_rebuildWantsSlicing').mockReturnValue(false)
+    engine['_rebuildLayer']('L'); engine['_rebuildLayer']('Q')
+    const ops = engine.getOperations()
+    fresh.suspendDisplay()
+    for (const op of ops) fresh.appendOperation(op, 'remote')
+    fresh.resumeDisplay()
+    expect(engine['_layers'].get('L')!.allResident()[0].buffer.readPixels()).toEqual(fresh['_layers'].get('L')!.allResident()[0].buffer.readPixels())
+    expect(engine['_layers'].get('Q')!.allResident()[0].buffer.readPixels()).toEqual(fresh['_layers'].get('Q')!.allResident()[0].buffer.readPixels())
+    expect(engine['_washReveals'].size).toBe(0)
+  } finally { engine.destroy(); fresh.destroy() }
+})
+
+it('recovers accepted queued pencil pixels after unrelated local history cancellation', async () => {
+  const { engine } = createTestEngine({ userId: 'author' }, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('pencil'); engine.setPencil('HB'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 36, y: 20 }])
+    engine.appendOperation(makeLayerAdd('author', 'Q'))
+    engine.undo()
+    expect(engine['_wcAsyncLocalTools'].size).toBe(0)
+    expect(engine['_wcCanonical'].pending).toBe(false)
+    expect(engine['_log'].entries.filter(e => e.op.type === 'stroke' && e.state === 'done')).toHaveLength(1)
+    expect(engine['_layers'].get('L')!.allResident()[0].buffer.readPixels().some((v, i) => i % 4 === 3 && v > 0)).toBe(true)
+  } finally { engine.destroy() }
+})
