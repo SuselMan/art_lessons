@@ -563,14 +563,19 @@ export class WatercolorSettlePlan {
       const reconstruct = function* (this: WatercolorSettlePlan): Generator<void, void, unknown> {
         const pool = this.ctx.pool()
         const pigment = splitQuanta ? acquireInput(field.w, field.h) : pool.acquire(field.w, field.h)
-        const color = splitQuanta ? acquireInput(field.w, field.h) : pool.acquire(field.w, field.h)
+        // At half resolution a single paint is reconstructed from each full-resolution
+        // tile load below; that path never reads an intermediate field colour.
+        const color = S > 1 && !colour ? null
+          : splitQuanta ? acquireInput(field.w, field.h) : pool.acquire(field.w, field.h)
         try {
           if (fixed) fieldOp(pigment, fixed, mobile, 1, afloat)
           else mobile.copyTo(pigment)
-          if (mobileColor) {
-            if (fixedColor) fieldOp(color, fixedColor, mobileColor, 1, afloat)
-            else mobileColor.copyTo(color)
-          } else this.ctx.passes().pigmentColor(color, pigment, singleTau)
+          if (color) {
+            if (mobileColor) {
+              if (fixedColor) fieldOp(color, fixedColor, mobileColor, 1, afloat)
+              else mobileColor.copyTo(color)
+            } else this.ctx.passes().pigmentColor(color, pigment, singleTau)
+          }
           yield
           for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
             const entry = scratch.peek(tile.buffer)
@@ -586,7 +591,7 @@ export class WatercolorSettlePlan {
               fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
               if (entry.inkColor) {
                 if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
-                else fromField(color, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
+                else fromField(color!, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
               }
               const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
               if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
@@ -596,8 +601,8 @@ export class WatercolorSettlePlan {
             yield
           }
         } finally {
-          if (splitQuanta) { releaseInput(pigment); releaseInput(color) }
-          else { pool.release(pigment); pool.release(color) }
+          if (splitQuanta) { releaseInput(pigment); if (color) releaseInput(color) }
+          else { pool.release(pigment); if (color) pool.release(color) }
         }
       }.bind(this)
       const generator = reconstruct()
