@@ -70,3 +70,17 @@ it('reconciles post-watermark source pixels after applying a retained earlier sa
  expect(readLayerPixels(restored,'S')).toEqual(readLayerPixels(source,'S'))
  source.destroy();restored.destroy()
 })
+
+
+it('resets historical structural derivation when the same engine starts an ordinary snapshot base',async()=>{
+ const {engine}=createTestEngine({userId:'reader'},{width:8,height:8})
+ engine.setBaseLayers(Object.keys(empty.items))
+ const add=makeLayerAdd('A','S','S',{id:'S-add',seq:1})
+ await engine.restoreHistoricalOperations([add],true)
+ expect(engine.getOperationsSinceRestore().map(op=>op.id)).toContain(add.id)
+ engine.setBaseLayers(['S'])
+ await engine.restoreHistoricalOperations([add])
+ expect(engine.getOperationsSinceRestore().map(op=>op.id)).not.toContain(add.id)
+ expect([...engine['_layers'].keys()]).toEqual(['S'])
+ engine.destroy()
+})
