@@ -126,3 +126,13 @@ describe('the live stroke channel', () => {
     expect(deps.sendLiveEnd).not.toHaveBeenCalled()
   })
 })
+
+
+it('derives state after deferred log application without sending or appending again', () => {
+  const { deps, on } = setup()
+  on.onQueuedOperationApplied(layerAdd('queued', 'L'))
+  expect(deps.syncFromLog).toHaveBeenCalledOnce()
+  expect(deps.checkSnapshotBoundary).toHaveBeenCalledOnce()
+  expect(deps.applyRemoteOp).not.toHaveBeenCalled()
+  expect(deps.outbox.enqueue).not.toHaveBeenCalled()
+})

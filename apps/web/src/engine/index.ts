@@ -299,6 +299,8 @@ export interface PencilEngineOptions {
   // ('remote') and re-sync derived state at that point, not on arrival, so
   // the log/layer-thumbnail state matches what's actually visible on screen.
   onPreviewApplied?: (op: StrokeOperation) => void
+  /** A deferred peer operation has actually entered the log. Derive UI state now. */
+  onQueuedOperationApplied?: (op: Operation) => void
   // (#480) Движок заметил, что его собственный инвариант не держится. Опцией,
   // а не импортом отчёта: engine/ не знает ни про Sentry, ни про комнату, и
   // единственное, чем он может помочь, — сказать наружу, что именно он
@@ -1461,6 +1463,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
+  private _onQueuedOperationApplied?: (op: Operation) => void
   private _onInvariant?: (name: string, context: Record<string, string | number>) => void
   // (#480) Подряд идущие отказы _takeCheckpoint по слою. Единичный отказ —
   // норма и вся суть защиты из #479: перо опущено, чекпойнт подождёт границы.
@@ -2362,6 +2365,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
     this._onPreviewApplied = options.onPreviewApplied
+    this._onQueuedOperationApplied = options.onQueuedOperationApplied
     this._onInvariant = options.onInvariant
     this._onLiveStrokeDabs = options.onLiveStrokeDabs
     this._onLiveStrokeEnd = options.onLiveStrokeEnd
@@ -2658,6 +2662,7 @@ export class PencilEngine implements PencilEngineAPI {
     while (this._opQueue.length) {
       const { op, source } = this._opQueue.shift()!
       this._appendOperationNow(op, source)
+      this._onQueuedOperationApplied?.(op)
     }
   }
 
@@ -2673,6 +2678,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!this._settle && !this._strokeLayerId && !(this._wcAsyncFinish && this._wcCanonical.pending)) {
         const { op, source } = this._opQueue.shift()!
         this._appendOperationNow(op, source)
+        this._onQueuedOperationApplied?.(op)
       }
       if (this._opQueue.length) this._scheduleOpDrain()
     })

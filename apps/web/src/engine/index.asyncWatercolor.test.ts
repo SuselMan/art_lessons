@@ -580,3 +580,26 @@ it('retains an earlier preview tile when the next waiting local stroke paints a 
     expect(new Set(tiles.map(t => t.originX)).size).toBeGreaterThan(1)
   } finally { engine.destroy() }
 })
+
+it('notifies a derived Room state only after deferred remote add and undo enter the log', async () => {
+  let engine: ReturnType<typeof createTestEngine>['engine']
+  const applied: Array<{ id: string; state: string | undefined }> = []
+  const local = vi.fn()
+  ;({ engine } = createTestEngine({ userId: 'reader', onLocalOperation: local, onQueuedOperationApplied: op => applied.push({ id: op.id, state: engine['_log'].entries.find(e => e.op.id === 'queued-add')?.state }) }, { width: 64, height: 64 }))
+  await engine.paperReady(); engine.initLayer('L'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  engine['_wcCanonical'].enqueue({ execute: function* () {}, cancel: () => {} })
+  try {
+    const add = { ...makeLayerAdd('author', 'Q'), id: 'queued-add', seq: 1 }
+    engine.appendOperation(add, 'remote')
+    engine.appendOperation({ id: 'queued-undo', userId: 'author', type: 'operation_undo', targetOpId: add.id, timestamp: Date.now(), seq: 2 }, 'remote')
+    expect(applied).toEqual([])
+    expect(engine['_log'].entries.some(e => e.op.id === add.id)).toBe(false)
+    engine['_wcCanonical'].cancel(false)
+    engine['_flushOpQueue']()
+    expect(applied).toEqual([{ id: 'queued-add', state: 'done' }, { id: 'queued-undo', state: 'undone' }])
+    expect(local).not.toHaveBeenCalled()
+    expect(engine['_layers'].has('Q')).toBe(false)
+  } finally { engine.destroy() }
+})
