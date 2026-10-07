@@ -26,8 +26,7 @@ Window.__prototypeEngine присваивается до await paperReady; вн�
 
 Результат содержит tapeSha256, renderer, glError/lost, materialWholeLayer tile
 RGBA SHA256, decoded exportRGBA SHA256, MRT pairs/pixels, meaningful undo,
-exact redo. Здесь materialWholeLayer означает итоговые layer pixels; каждый
-внутренний suspension record данным harness не захвачен. Runtime timings —
+exact redo. Здесь materialWholeLayer означает итоговые layer pixels; внутренние поля также захватываются в `fields` после timed paint и до undo. Runtime timings —
 полный replay включая renderer/RAF/join wait/rebuild, не чистое device GPU time.
 Hash/readback/export идут после timed paint и должны быть исключены из GPU samples.
 
@@ -38,3 +37,13 @@ as parity gate. Code identity в provenance.json и result.code; build отме�
 
 План аппаратного gate — ../../728-engine-webgl2-mrt-prototype.md. До него это
 не user stand и не production backend.
+
+`fields.records[]` содержит `{key,role,width,height,channels,byteLength,nonzero,max,sum,sha256}`.
+P/C/cov берутся из фактических live/replay scratch; water — plane coverage.a.
+Рабочие pooled поля имеют роль `working:<slot>` без предположения о текущей физической
+семантике. h считывается из настоящей paper texture в отдельный RGBA8 FBO на
+нативном разрешении bake; paperCatch — её alpha. Raw bytes в payload не входят.
+`fields.coverage.nonemptyRequiredRoles` должен быть true для parity физических
+ролей; `mrtExercised` отдельно требует pairs > 0. Пустые/уже освобождённые scratch
+после dry явно не доказывают parity: смотреть unavailable и coverage gate.
+Сравнивать одинаковые key/role/dimensions/hash, а не только финальный PNG.
