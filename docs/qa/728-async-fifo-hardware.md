@@ -69,3 +69,18 @@ Raw HOME artifacts: `/home/suselman/projects/pencil-agents/680-water-wet-tone-qa
 Foreign non-watercolor live packets receive a separate bounded presentation buffer while canonical execution is pending. Their original material application remains FIFO-owned and advances the painted watermark only when it actually executes. End, sequence gaps, resize, reset, and context loss detach presentation ownership. The shared 64MiB transient budget includes own and peer buffers. OFF behavior is unchanged.
 
 The engine FIFO runner now fences each continuation with `gl.finish()` before measuring its existing slice budget. It stops immediately if a continuation starts a solver, the context is lost, or its epoch is cancelled. This bounds submission backlog but cannot subdivide an indivisible continuation that itself exceeds the budget. Hardware responsiveness and canonical parity for this subsequent candidate remain unverified; the Samsung result above belongs to 9df.
+
+## 7ace fenced FIFO: Samsung corrected baseline
+
+The first 7ace four-arm run inherited `_wcSourceFilmRebase=false` from this isolated prototype branch. Its pigment OFF native/Redo/fresh mismatch is the previously diagnosed source-film chronology defect, not a current-root regression. Preserve these original artifacts separately: `temp/device-runs/samsung-async-room-fifo_1791332033670/`. The original water comparisons are transparent after Dry and cannot prove solvent/material invariants. Do not use its timings as the comparison against the current rebase-enabled baseline.
+
+The corrected run explicitly enabled sourceFilmRebase in BOTH native arms and recorded engine/queue flags: `temp/device-runs/samsung-async-room-fifo_1791332553950/` on VPS and HOME mirror. For each of pigment OFF and ON, native Dry versus Redo and versus fresh reader compared exactly in complete RGBA (0 changed pixels/max0, alpha0). This covers ordinary Room history endpoints; it does not assert checkpoint-free full material replay. All recorded phase GL checks were0, owned targets closed, and Adreno650 was confirmed.
+
+| Native input case | Active rAF max | Next-touch handler | Next-touch after lift |
+| --- | ---: | ---: | ---: |
+| rebaseON, FIFO OFF |1070ms|842.3ms|1069.9ms|
+| rebaseON, FIFO ON |50ms|21.9ms|100.3ms|
+
+The realtime pointer generator uses rAF, so sampling counts and resulting chunk counts differ with responsiveness. This is an interactive script comparison, NOT a fixed packed-journal benchmark or a proof that all long-stroke workloads are smooth. A continuation that itself costs73ms remains indivisible despite a12ms fenced budget. Fixed-material and multi-peer tests remain required before enabling the prototype.
+
+CPU follow-up:136 engine files/1498 tests passed;37 focused FIFO/peer/loss tests passed; an additional unknown/gapped-stream test passed with the14 async tests. The latter proves that fallback remains CPU-only during a pending solver and that reset admits a new gesture. Source passport: index `c6ea439968ebf0e6c1e5b0f00cbcbb356df80751cf8f9cfd35f61fbac9d52fe7`, FIFO `8ea5218dace6668c1eac49b871b91bfee66410e59a5badeb2c24939af927efc8`. Shader source was unchanged; no salted compilation is claimed in these runs.
