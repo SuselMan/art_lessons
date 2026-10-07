@@ -1762,11 +1762,16 @@ export class PencilEngine implements PencilEngineAPI {
   /** Isolated responsiveness prototype. Not a production default. */
   private _wcAsyncFinish = false
   private _wcAsyncError: unknown = null
+  private readonly _wcAsyncPeerStreams = new Map<string, {
+    peerId: string; strokeId: string; layerId: string; nextPacketSeq: number; ended: boolean; cancelled: boolean;
+    buf: AccumulationBuffer | null; origin: { x: number; y: number }; pending: Map<object, PeerLivePacket>;
+  }>()
   private readonly _wcAsyncDryTo = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncOwners = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncPresentations = new Map<RibbonStrokeScratch, Map<number, { buf: AccumulationBuffer; origin: { x: number; y: number }; pending: Map<object, Dab[]>; preset: string; color: [number, number, number] }>>()
   private readonly _wcCanonical = new WatercolorCanonicalFIFO({
-    blocked: () => !!this._settle,
+    blocked: () => !!this._settle || this._contextLost || this.gl.isContextLost(),
+    advance: (work, current) => this._advanceAsyncCanonical(work, current),
     schedule: callback => requestAnimationFrame(callback),
     unschedule: handle => cancelAnimationFrame(handle),
     changed: () => this._scheduleDisplay(),
@@ -3635,8 +3640,9 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See PencilEngineAPI's doc comment. */
-  appendPeerLiveDabs(peerId: string, packet: PeerLivePacket): void {
+  appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
     if (this._contextLost || this.gl.isContextLost()) return
+    if (!canonicalExecution && this._wcAsyncFinish && packet.tool !== 'watercolor' && this._wcCanonical.pending && this._queueAsyncPeerLive(peerId, packet)) return
     const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
     if (!live) {
@@ -3715,6 +3721,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   endPeerLiveStroke(peerId: string, strokeId?: string): number {
+    for (const held of this._wcAsyncPeerStreams.values()) if (held.peerId === peerId && (!strokeId || held.strokeId === strokeId)) held.ended = true
     // With `strokeId`, exactly the gesture whose pen came up. Without it (a
     // peer leaving), every gesture of theirs that is still open.
     //
@@ -3754,6 +3761,12 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   resetPeerLiveStrokes(): void {
+    for (const held of this._wcAsyncPeerStreams.values()) {
+      held.cancelled = true
+      if (held.buf && !this._contextLost && !this.gl.isContextLost()) held.buf.destroy()
+      held.buf = null
+    }
+    this._wcAsyncPeerStreams.clear()
     // (#699) A reset retires the pixels as well as their claims. A gesture
     // with no accepted operation never marked its layer out of order, so
     // merely clearing this map left its ink behind forever (freeze/reject,
@@ -7631,6 +7644,7 @@ export class PencilEngine implements PencilEngineAPI {
     const bytes = this.canvas.width * this.canvas.height * 4
     let used = 0
     for (const films of this._wcAsyncPresentations.values()) for (const held of films.values()) used += held.buf.width * held.buf.height * 4
+    for (const held of this._wcAsyncPeerStreams.values()) if (held.buf) used += held.buf.width * held.buf.height * 4
     let films = this._wcAsyncPresentations.get(scratch)
     if (!films) { films = new Map(); this._wcAsyncPresentations.set(scratch, films) }
     let held = films.get(gesture)
@@ -7668,7 +7682,90 @@ export class PencilEngine implements PencilEngineAPI {
     if (!films!.size) this._wcAsyncPresentations.delete(scratch)
     if (!lost) held.buf.destroy()
   }
+  /** Unrecorded foreign live packets must not drain the canonical solver.
+   * Their original watermark advances only after queued physical execution. */
+  private _advanceAsyncCanonical(work: Generator<number, void, void>, current: () => boolean): IteratorResult<number, void> {
+    const start = performance.now()
+    let step: IteratorResult<number, void>
+    do {
+      step = work.next()
+      // Loss can synchronously cancel the request from inside a continuation.
+      // Never fence a dead context or keep using a cancelled generator.
+      if (!current() || this._contextLost || this.gl.isContextLost()) return step
+      this.gl.finish()
+      // A finish continuation may have started a solver. Its next step waits
+      // for that solver, so only the ordinary settle scheduler may resume it.
+      if (step.done || this._settle) return step
+    } while (performance.now() - start < this._sliceLimits.budgetMs)
+    return step
+  }
+
+  private _queueAsyncPeerLive(peerId: string, packet: PeerLivePacket): boolean {
+    const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
+    let held = this._wcAsyncPeerStreams.get(key)
+    const live = this._peerLiveStrokes.get(key)
+    if (!held) {
+      // Unknown/gapped streams take the existing CPU-only desync path.
+      if (live?.desynced || packet.packetSeq !== (live?.nextPacketSeq ?? 0)) return false
+      let bytes = 0
+      for (const films of this._wcAsyncPresentations.values()) for (const h of films.values()) bytes += h.buf.width * h.buf.height * 4
+      for (const h of this._wcAsyncPeerStreams.values()) if (h.buf) bytes += h.buf.width * h.buf.height * 4
+      const requested = this.canvas.width * this.canvas.height * 4
+      const buf = bytes + requested <= 64 * 1024 * 1024 ? new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height) : null
+      buf?.clear()
+      held = { peerId, strokeId: packet.strokeId, layerId: packet.layerId, nextPacketSeq: packet.packetSeq,
+        ended: false, cancelled: false, buf, origin: this._cameraCenteredOrigin(), pending: new Map() }
+      this._wcAsyncPeerStreams.set(key, held)
+    }
+    if (held.cancelled || packet.packetSeq !== held.nextPacketSeq) {
+      held.cancelled = true
+      held.buf?.destroy(); held.buf = null
+      this._scheduleDisplay()
+      if (live) live.desynced = true
+      return true
+    }
+    held.nextPacketSeq++
+    const owned = structuredClone(packet), token = {}
+    held.pending.set(token, owned)
+    if (held.buf) this._stamps.paint(held.buf, this._translateDabs(owned.dabs, held.origin), owned.tool, owned.preset, owned.color)
+    this._scheduleDisplay()
+    const owner = this, state = held
+    let released = false
+    const release = (lost: boolean): void => {
+      if (released) return
+      released = true
+      state.pending.delete(token)
+      if (!state.pending.size) {
+        if (state.buf && !lost) state.buf.destroy()
+        state.buf = null
+        if (owner._wcAsyncPeerStreams.get(key) === state) owner._wcAsyncPeerStreams.delete(key)
+      } else if (state.buf && !lost && !state.cancelled) {
+        state.buf.clear()
+        for (const p of state.pending.values()) owner._stamps.paint(state.buf, owner._translateDabs(p.dabs, state.origin), p.tool, p.preset, p.color)
+      }
+      owner._scheduleDisplay()
+    }
+    this._wcCanonical.enqueue({ execute: function* () {
+      if (!state.cancelled) {
+        owner.appendPeerLiveDabs(peerId, owned, true)
+        if (state.ended) { const physical = owner._peerLiveStrokes.get(key); if (physical) physical.ended = true }
+      }
+      release(false)
+    }, cancel: lost => {
+      state.cancelled = true
+      const physical = owner._peerLiveStrokes.get(key)
+      if (physical && physical.paintedTotal > physical.committedOffset) owner._unsettledLayers.add(physical.layerId)
+      owner._peerLiveStrokes.delete(key)
+      release(lost)
+    } })
+    return true
+  }
+
   private _clearAsyncPresentations(lost: boolean): void {
+    for (const held of this._wcAsyncPeerStreams.values()) {
+      if (held.buf && !lost) held.buf.destroy()
+      held.buf = null
+    }
     for (const [scratch, films] of this._wcAsyncPresentations) for (const gesture of [...films.keys()]) this._releaseAsyncPresentation(scratch, gesture, lost)
   }
 
@@ -8499,6 +8596,7 @@ export class PencilEngine implements PencilEngineAPI {
     // visual only, never written into any layer's real buffer.
     if (this._previewBuf) blendPreview(this._previewBuf.texture, this._previewBufOrigin)
     for (const films of this._wcAsyncPresentations.values()) for (const held of films.values()) blendPreview(held.buf.texture, held.origin)
+    for (const held of this._wcAsyncPeerStreams.values()) if (held.buf) blendPreview(held.buf.texture, held.origin)
 
     // Live remote-stroke reveals (#37 follow-up v2): one per peer currently
     // replaying a stroke, same blend, on top of everything else — see

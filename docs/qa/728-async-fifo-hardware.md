@@ -55,3 +55,17 @@ Vega передана следующей snapshot/reconnect проверке.
 multi-peer/Dry/layer/history/snapshot ordering и ресурсные ограничения.
 Peer-preview bypass исходного e73 — известный блокер, исправляется отдельно.
 Текущий прототип не включён в production и не обещает гладкость на Samsung/Surface.
+
+## Samsung: WC-scoped peer/structural revision 9df7dffe
+
+The ordinary Room test used a physical 3200×1000 Fine board, an Adreno 650, eight natural loaded-400 chunks, then a new short gesture during the tail. Native Dry, Redo, and a separate fresh reader exported identical complete RGBA PNGs (0 changed pixels, max 0). Undo removed only the final short gesture; this test does not assert that the original long stroke disappeared. The fresh reader had a separate guest identity. GL remained 0; both owned targets 1309/1310 closed. Shader source did not change, and this run does not claim salted compilation.
+
+Active rAF maximum was 50ms with 16 intervals over 33ms and none over 100ms; the tail maximum was 67ms. New input was accepted 83.6ms after lift and its handler took 18.1ms. These are measured responsiveness limits, not a smoothness PASS and not a matched OFF/ON pair.
+
+Raw HOME artifacts: `/home/suselman/projects/pencil-agents/680-water-wet-tone-qa/temp/device-runs/samsung-async-room-fifo_1791331320800/` (`report.json`, `pigment-nativeDry.png`, `pigment-redo.png`, `pigment-fresh.png`). Index SHA was `dbcd4dafbb94acf61142294292c10f09912de102089374bc306e444bee785728` (see the raw passport for the authoritative SHA).
+
+## Subsequent CPU-only peer/GPU-budget candidate
+
+Foreign non-watercolor live packets receive a separate bounded presentation buffer while canonical execution is pending. Their original material application remains FIFO-owned and advances the painted watermark only when it actually executes. End, sequence gaps, resize, reset, and context loss detach presentation ownership. The shared 64MiB transient budget includes own and peer buffers. OFF behavior is unchanged.
+
+The engine FIFO runner now fences each continuation with `gl.finish()` before measuring its existing slice budget. It stops immediately if a continuation starts a solver, the context is lost, or its epoch is cancelled. This bounds submission backlog but cannot subdivide an indivisible continuation that itself exceeds the budget. Hardware responsiveness and canonical parity for this subsequent candidate remain unverified; the Samsung result above belongs to 9df.

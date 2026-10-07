@@ -267,3 +267,62 @@ it('holds a committed peer preview until queued canonical work is ready and forg
     draw.mockRestore(); remove.mockRestore()
   } finally { engine.destroy() }
 })
+
+it('shows foreign pencil packets without draining a pending solver or claiming ink early', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine['_wcAsyncFinish'] = true
+  const frames = new Map<number, () => void>(); let next = 0
+  engine['_wcCanonical']['ctx'].schedule = callback => { frames.set(++next, callback); return next }
+  engine['_wcCanonical']['ctx'].unschedule = handle => { frames.delete(handle) }
+  engine['_wcCanonical'].enqueue({ execute: function* () { yield 0 }, cancel: () => {} })
+  const complete = vi.spyOn(engine as unknown as { _completeSettle(): void }, '_completeSettle').mockImplementation(() => { throw new Error('input drained solver') })
+  const packet = { strokeId: 'peer-pencil', layerId: 'L', packetSeq: 0, tool: 'pencil' as const, preset: 'HB', color: [0, 0, 0] as [number, number, number], dabs: [dab(16, 20), dab(32, 20)] }
+  try {
+    engine.appendPeerLiveDabs('peer', packet)
+    expect(complete).not.toHaveBeenCalled(); expect(engine['_peerLiveStrokes'].size).toBe(0)
+    expect([...engine['_wcAsyncPeerStreams'].values()][0].buf!.readPixels().some(v => v > 0)).toBe(true)
+    engine.endPeerLiveStroke('peer', packet.strokeId)
+    for (let tick = 0; tick < 100 && engine['_wcCanonical'].pending; tick++) {
+      const frame = frames.entries().next().value
+      if (frame) { frames.delete(frame[0]); frame[1]() }
+    }
+    expect(engine['_wcAsyncError']).toBeNull(); expect(engine['_wcAsyncPeerStreams'].size).toBe(0)
+    expect([...engine['_peerLiveStrokes'].values()][0]).toMatchObject({ paintedTotal: 2, ended: true })
+    expect(complete).not.toHaveBeenCalled()
+  } finally { complete.mockRestore(); engine.destroy() }
+})
+
+it('fences GPU units and stops when a continuation starts a solver', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady()
+  const fence = vi.spyOn(engine['gl'], 'finish'); let steps = 0; let solving = false
+  const settle = vi.spyOn(engine, '_settle' as never, 'get').mockImplementation(() => solving ? {} as never : null as never)
+  function* work(): Generator<number, void, void> {
+    steps++; yield 1
+    steps++; solving = true; yield 1
+    steps++; yield 1
+  }
+  try {
+    engine['_sliceLimits'].budgetMs = 1000
+    engine['_advanceAsyncCanonical'](work(), () => true)
+    expect(steps).toBe(2); expect(fence).toHaveBeenCalledTimes(2)
+  } finally { settle.mockRestore(); fence.mockRestore(); engine.destroy() }
+})
+
+it('forgets queued foreign pencil previews on loss without deleting stale GPU handles', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  engine['_wcCanonical'].enqueue({ execute: function* () { yield 0 }, cancel: () => {} })
+  try {
+    engine.appendPeerLiveDabs('peer', { strokeId: 'p', layerId: 'L', packetSeq: 0, tool: 'pencil', preset: 'HB', color: [0, 0, 0], dabs: [dab(16, 20)] })
+    expect(engine['_wcAsyncPeerStreams'].size).toBe(1)
+    const remove = vi.spyOn(engine['gl'], 'deleteTexture'), draw = vi.spyOn(engine['gl'], 'drawArrays')
+    engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    expect(engine['_wcAsyncPeerStreams'].size).toBe(0)
+    expect(engine['_peerLiveStrokes'].size).toBe(0)
+    expect(remove).not.toHaveBeenCalled(); expect(draw).not.toHaveBeenCalled()
+    remove.mockRestore(); draw.mockRestore()
+  } finally { engine.destroy() }
+})

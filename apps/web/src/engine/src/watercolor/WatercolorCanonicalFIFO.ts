@@ -6,6 +6,7 @@ export interface CanonicalWatercolorRequest {
   cancel(contextLost: boolean): void
 }
 export interface CanonicalWatercolorFIFOContext {
+  advance?(work: Generator<number, void, void>, current: () => boolean): IteratorResult<number, void>
   blocked(): boolean
   schedule(callback: () => void): number
   unschedule(handle: number): void
@@ -47,7 +48,7 @@ export class WatercolorCanonicalFIFO {
       const epoch = this.epoch
       try {
         this.work ??= request.execute()
-        const step = this.work.next()
+        const step = this.ctx.advance ? this.ctx.advance(this.work, () => epoch === this.epoch) : this.work.next()
         if (epoch !== this.epoch) return
         if (step.done) { this.requests.shift(); this.work = null }
         this.ctx.changed()
