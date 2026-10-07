@@ -3989,7 +3989,12 @@ export const WC_DIFFUSE_FRAG = `
           density = max(2.0 * texture2D(u_density, v_uv).b / max(vi, 0.002),
                         2.0 * texture2D(u_density, uvj).b / max(vj, 0.002));
         }
-        float gate = min(wi, wj) / (1.0 + 8.0 * density * density);
+        // #728: diffusion exchanges a suspension inside its water domain.
+        // The max-density face limiter introduced in 8f7e4ca3 prevented
+        // replenishing the original dab edge while the water front drained
+        // it, leaving the pale closed inner ring. Keep the domain and the
+        // shared donor fractions; shipped D/B already bound outflow <= .96.
+        float gate = min(wi, wj);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);
         // On .a, give * ink.a - take * inkj.a is gate * (D (ci - cj)
