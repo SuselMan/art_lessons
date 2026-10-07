@@ -11,7 +11,7 @@ import type { PencilPreset } from '../presets/pencilPresets'
 import { ribbonProfileFor } from '../dabs/ribbonProfile'
 
 type Probe = { _ribbonScratchPool: RibbonScratchPool; _watercolorPasses: WatercolorPasses; _settlePlan: WatercolorSettlePlan; _fieldCache: SettleField[] }
-function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, oy = 0, edge = false, narrow = false, owner = true, strength = 100) {
+function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, oy = 0, edge = false, narrow = false, owner = true, strength = 100, progress = false) {
   const { engine } = createTestEngine({ paper: 'flat' }, { width: side, height: side })
   engine.initLayer('source')
   const p = engine as unknown as Probe, pool = p._ribbonScratchPool, tile = pool.acquire(side, side)
@@ -20,6 +20,7 @@ function fixture(enabled = true, split = false, side = 64, paints = 1, ox = 0, o
   if (paints > 0) scratch.paints.add('1,0,0')
   if (paints > 1) scratch.paints.add('0,0,1')
   p._settlePlan.diagnosticPartialFrontPreview = enabled
+  p._settlePlan.diagnosticPartialFrontProgress = progress
   p._settlePlan.diagnosticPlateauPhase = true
   p._settlePlan.splitQuanta = split
   const profile = ribbonProfileFor('watercolor', `normal:100:${strength}:PB29:round`)
@@ -124,6 +125,50 @@ describe('cropped presentation-only partial front', () => {
       const unitP = f.fieldOp.mock.calls.filter(c => c[0].width === 64 && c[3] === 15)
       expect(unitP.length).toBeGreaterThan(0); expect(unitP.length).toBeLessThanOrEqual(20 - 5)
     } finally { f.cleanup() }
+  })
+
+  it('progress mode follows actual outward quanta without changing canonical operands or steps', () => {
+    const schedules: unknown[][] = []
+    for (const progress of [false, true]) {
+      const f = fixture(true, false, 64, 1, 0, 0, false, false, true, 100, progress)
+      const clock = vi.spyOn(performance, 'now'); let at = 100
+      clock.mockImplementation(() => (at += 200))
+      try {
+        for (const op of f.plan.ops) op()
+        const fields = new Map(Object.entries(f.field).filter(([, b]) => typeof b === 'object').map(([k, b]) => [b, k]))
+        schedules.push(f.fieldOp.mock.calls.filter(c => fields.has(c[0])).map(c => [fields.get(c[0]), fields.get(c[1]), fields.get(c[2]), c[3], c[4], c[5]?.band, c[5]?.dir]))
+        const p = f.fieldOp.mock.calls.filter(c => c[0].width === 64 && c[3] === 15)
+        expect(p.length).toBeGreaterThan(0); expect(p.length).toBeLessThanOrEqual(15)
+        const targets = f.preview.mock.calls.map(c => c[4]).filter(Boolean)
+        if (progress) {
+          expect(targets.length).toBeGreaterThan(0)
+          expect(targets[0].steps).toBe(4)
+          for (let i = 1; i < targets.length; i++) {
+            expect(targets[i].steps).toBeGreaterThanOrEqual(targets[i - 1].steps)
+            expect(targets[i].at).toBeGreaterThan(targets[i - 1].at)
+          }
+          expect(targets.every(t => t.steps <= 15 && t.tauMs >= 150 && t.tauMs <= 1400)).toBe(true)
+        } else expect(targets).toHaveLength(0)
+      } finally { clock.mockRestore(); f.cleanup() }
+    }
+    expect(schedules[1]).toEqual(schedules[0])
+  })
+
+  it('progress clock is invocation-local and retired together with owner14 inputs', () => {
+    for (let invocation = 0; invocation < 2; invocation++) {
+      const f = fixture(true, true, 64, 1, 0, 0, false, false, true, 100, true)
+      const clock = vi.spyOn(performance, 'now'); let at = invocation * 10000
+      clock.mockImplementation(() => (at += 200))
+      try {
+        f.preview.mockImplementationOnce(() => f.plan.dispose())
+        for (const op of f.plan.ops) { op(); if (f.preview.mock.calls.length) break }
+        expect(f.preview.mock.calls[0][4].steps).toBe(1)
+        expect(f.owned.size).toBe(0)
+        const writes = f.fieldOp.mock.calls.length
+        for (const op of f.plan.ops) op()
+        expect(f.fieldOp.mock.calls.length).toBe(writes)
+      } finally { clock.mockRestore(); f.cleanup() }
+    }
   })
 
   it('preserves absolute S1 records at nonzero world origin without adding the background twice', () => {

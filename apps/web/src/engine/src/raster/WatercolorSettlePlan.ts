@@ -13,9 +13,10 @@ import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { watercolorDampOver, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME, watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_POOL_STREAK, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE } from '../presets/watercolorPresets'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { SettleField } from '../buffers/SettleField'
+import { PartialFrontProgress, PARTIAL_PREVIEW_INTERVAL_MS, type PartialFrontTarget } from './partialFrontProgress'
 import { WC_HALF_RES_RADIUS_PX, WC_HALF_RES_SPAN_PX } from '../watercolor/settleResolution'
 
-export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationBuffer, color: AccumulationBuffer | null, coverage: AccumulationBuffer) => void
+export type WatercolorSettlePreview = (tile: PaintTarget, pigment: AccumulationBuffer, color: AccumulationBuffer | null, coverage: AccumulationBuffer, partialTarget?: PartialFrontTarget) => void
 
 export interface WatercolorSettlePlanContext {
   gl(): WebGLRenderingContext
@@ -39,6 +40,8 @@ export class WatercolorSettlePlan {
   diagnosticPlateauPhase = false
   /** Presentation-only cropped partial-front transport; local, default OFF. */
   diagnosticPartialFrontPreview = false
+  /** Follow actual outward unit progress on private presentation copies only. */
+  diagnosticPartialFrontProgress = false
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   splitQuanta = false
@@ -455,7 +458,7 @@ export class WatercolorSettlePlan {
     // footprint into `pressure`, the inward cost from past-the-budget into
     // `mask`, then the band texture, the coverage extended over the domain,
     // and the band gathered into `mask` for the rims.
-    let partialFrontPreview: ((cost: AccumulationBuffer) => void) | null = null
+    let partialFrontPreview: ((cost: AccumulationBuffer, relaxations: number) => void) | null = null
     const frontOps = (mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
       const pp = { src: field.pressure, dst: tmp }
       const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number, strides?: readonly number[]): void => {
@@ -466,7 +469,7 @@ export class WatercolorSettlePlan {
           ops.push(frontStepOp(() => {
             for (const st of chunk) { frontStep(pp.src, pp.dst, max, climb, floor, st); const t = pp.src; pp.src = pp.dst; pp.dst = t }
             if (last && pp.src !== home) this.ctx.passes().fieldOp(home, pp.src, pp.src, 1, 0)
-            if (home === field.pressure) partialFrontPreview?.(pp.src)
+            if (home === field.pressure) partialFrontPreview?.(pp.src, chunk.length)
           }))
         }
       }
@@ -555,9 +558,10 @@ export class WatercolorSettlePlan {
     // Presentation copies only: never write the intermediate state into the
     // wash records. Reconstruct against the same captured base as finish().
     let previewAt = -Infinity
-    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1, crop?: { w: number; h: number; coverage: AccumulationBuffer }): void => {
-      if (!preview || this.ctx.shouldPreview?.() === false || performance.now() - previewAt < 150) return
+    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1, crop?: { w: number; h: number; coverage: AccumulationBuffer; progress?: PartialFrontProgress }): void => {
+      if (!preview || this.ctx.shouldPreview?.() === false || performance.now() - previewAt < PARTIAL_PREVIEW_INTERVAL_MS) return
       previewAt = performance.now()
+      const partialTarget = crop?.progress?.target(previewAt)
       const reconstruct = function* (this: WatercolorSettlePlan): Generator<void, void, unknown> {
         const pool = this.ctx.pool()
         const pw = crop?.w ?? field.w, ph = crop?.h ?? field.h
@@ -599,7 +603,7 @@ export class WatercolorSettlePlan {
                 if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
                 else this.ctx.passes().wcResample(coverage, tx, ty, ox1 - ox0, oy1 - oy0, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 0)
               }
-              preview(tile, load, entry.inkColor ? chroma : null, coverage)
+              preview(tile, load, entry.inkColor ? chroma : null, coverage, partialTarget)
             } finally { pool.release(load); pool.release(chroma); pool.release(coverage) }
             yield
           }
@@ -638,6 +642,8 @@ export class WatercolorSettlePlan {
     const partialStepLimit = Math.max(0, Math.floor(Math.min(bounds.minX - x0, bounds.minY - y0,
       x1 - bounds.maxX, y1 - bounds.maxY)) - 5)
     let partialSteps = 0
+    let partialProgress: PartialFrontProgress | undefined
+    const progressEnabled = this.diagnosticPartialFrontProgress
     const partialEnabled = presentationOwnerLocked && partialStepLimit > 0 && this.diagnosticPartialFrontPreview && !!preview && S === 1
       && w <= 512 && h <= 512 && overlaps.length === 1 && metadata.paints.size === 1
       && ((finishMetadata ? finishMetadata.finish : scratch.finishContext)?.profile.pigmentStrength ?? 0) > 0
@@ -652,6 +658,7 @@ export class WatercolorSettlePlan {
       source.copyRegionInto(target, 0, field.h - h, 0, 0, w, h)
     const capturePartial = (): void => {
       if (!partialEnabled || disposed) return
+      if (progressEnabled) partialProgress = new PartialFrontProgress(partialStepLimit, performance.now())
       const nearest = (): AccumulationBuffer => acquireInput(w, h)
       partial = { seedP: nearest(), fixedP: nearest(), seedC: nearest(), fixedC: nearest(),
         p: nearest(), pNext: nearest(), c: nearest(), cNext: nearest(),
@@ -666,10 +673,12 @@ export class WatercolorSettlePlan {
       cropSource(field.coverage, partial.coverage)
       if (solvent) cropSource(solvent, partial.volume); else partial.volume.clear()
     }
-    if (partialEnabled) partialFrontPreview = cost => {
+    if (partialEnabled) partialFrontPreview = (cost, relaxations) => {
       if (!partial || disposed || partialSteps >= partialStepLimit || this.ctx.shouldPreview?.() === false) return
-      partialSteps++
-      // One unit exchange per existing outward entry, evolving only the
+      const count = partialProgress?.advance(relaxations) ?? 1
+      if (!count) return
+      // Old mode: one exchange per entry. Progress mode: one per actual
+      // unit front relaxation, with the same total safe margin. Evolve only the
       // private presentation copy. The four seed records remain immutable.
       cropSource(cost, partial.cost)
       const opts = { d: partial.cost, e: plateauPhase ? partial.volume : undefined,
@@ -677,13 +686,18 @@ export class WatercolorSettlePlan {
         size: [WC_CARRY_POW, costMax] as [number, number],
         tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number],
         origin: [1, WC_CARRY_TRAVEL] as [number, number] }
-      this.ctx.passes().fieldOp(partial.cNext, partial.c, partial.fixedP, 16, WC_CARRY_RATE, { ...opts, c: partial.p })
-      this.ctx.passes().fieldOp(partial.pNext, partial.p, partial.fixedP, 15, WC_CARRY_RATE, opts)
-      ;[partial.p, partial.pNext] = [partial.pNext, partial.p]
-      ;[partial.c, partial.cNext] = [partial.cNext, partial.c]
+      for (let step = 0; step < count; step++) {
+        if (disposed || this.ctx.shouldPreview?.() === false) return
+        partialSteps++
+        this.ctx.passes().fieldOp(partial.cNext, partial.c, partial.fixedP, 16, WC_CARRY_RATE, { ...opts, c: partial.p })
+        this.ctx.passes().fieldOp(partial.pNext, partial.p, partial.fixedP, 15, WC_CARRY_RATE, opts)
+        ;[partial.p, partial.pNext] = [partial.pNext, partial.p]
+        ;[partial.c, partial.cNext] = [partial.cNext, partial.c]
+        partialProgress?.commit()
+      }
       this.ctx.passes().fieldOp(partial.coverageNext, partial.coverage, partial.coverage, 11, standing,
         { d: partial.cost, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
-      present(partial.p, partial.fixedP, partial.c, partial.fixedC, 1, { w, h, coverage: partial.coverageNext })
+      present(partial.p, partial.fixedP, partial.c, partial.fixedC, 1, { w, h, coverage: partial.coverageNext, progress: partialProgress })
     }
     let pairedColour: { out: AccumulationBuffer } | null = null
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {

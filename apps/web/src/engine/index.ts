@@ -7198,7 +7198,7 @@ export class PencilEngine implements PencilEngineAPI {
     const target = reveal.startedAt === null ? reveal.pending : buffer
     if (!target) return
     const remaining = reveal.startedAt === null ? null : (reveal.durationMs ?? 8000) - (now - reveal.startedAt)
-    const step = washRevealStep(dt, remaining)
+    const step = washRevealStep(dt, remaining, reveal.partialTargetTauMs)
     if (!(step > 0)) return
     const out = this._revealPoolAcquire(buffer.width, buffer.height)
     out.beginReplaceDraw()
@@ -8057,6 +8057,8 @@ export class PencilEngine implements PencilEngineAPI {
       const now = performance.now()
       for (const { buffer, held } of revealCopies) {
         if (this._washReveals.get(buffer) === held) {
+          held.partialTargetTauMs = undefined
+          held.partialTargetAt = undefined
           held.startedAt = now
           if (held.pending) {
             this._revealPoolRelease(held.pending)
@@ -8138,11 +8140,19 @@ export class PencilEngine implements PencilEngineAPI {
         scratch, targets, bounds, bloom, ctx.radiusPx,
         profile.waterLevel, ctx.landedWet, standing,
         ctx.wetPeak, ctx.dwellMs,
-        reveal && fade ? (tile, pigment, chroma, coverage) => {
+        reveal && fade ? (tile, pigment, chroma, coverage, partialTarget) => {
           const owned = revealCopies.find(copy => copy.buffer === tile.buffer)
           if (!owned || this._washReveals.get(tile.buffer) !== owned.held || this._strokeLayerId) return
           const entry = scratch.peek(tile.buffer)
           if (!entry) return
+          if (partialTarget && partialTarget.at <= (owned.held.partialTargetAt ?? -Infinity)) return
+          if (partialTarget && partialTarget.at > (owned.held.partialTargetAt ?? -Infinity)) {
+            owned.held.partialTargetAt = partialTarget.at
+            owned.held.partialTargetTauMs = partialTarget.tauMs
+          } else if (!partialTarget) {
+            owned.held.partialTargetTauMs = undefined
+            owned.held.partialTargetAt = undefined
+          }
           if (owned.held.wetMask) coverage.copyTo(owned.held.wetMask)
           if (!owned.held.pending) {
             owned.held.pending = this._revealPoolAcquire(tile.buffer.width, tile.buffer.height)

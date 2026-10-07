@@ -25,6 +25,9 @@ export interface WashReveal {
   /** Intermediate target; only presentation buffers read this. */
   pending?: AccumulationBuffer
   progressive?: boolean
+  /** Opt-in private physical target cadence, never a canonical clock. */
+  partialTargetTauMs?: number
+  partialTargetAt?: number
   frameAt?: number
   durationMs?: number
   /** Display-only standing-water/coverage snapshot, never a paint input. */

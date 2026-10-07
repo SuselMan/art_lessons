@@ -129,3 +129,34 @@ bounded quanta. Это синхронизирует presentation transport/front
 ускоряет исследуемый private physical trajectory и требует самостоятельного
 проверяемого контракта; нельзя считать его канонической промежуточной стадией.
 Ни reveal, ни transport вариант не включён по умолчанию и не доказан hardware.
+
+### Opt-in CPU prototype actual-progress + physical-target cadence
+
+Новый независимый `diagnosticPartialFrontProgress=false` меняет только уже
+разрешённый private preview (сам `diagnosticPartialFrontPreview` тоже требуется).
+Canonical front/carry/diffuse/backwrite не переставлены. Outward callback сообщает
+фактическое количество unit relaxations (1 при splitQuanta,4 в обычном entry).
+Частный P/C выполняет столько же unit-exchanges, но не более оставшегося
+source-margin−5. Никаких новых stride/radius/rate/volume constants. Это progress
+clock частной физической траектории, не утверждение эквивалентности canonical
+intermediate. Cost текущего entry общий для его ограниченных1/4 paired exchanges.
+
+Timestamp каждого реально опубликованного physical target фиксируется до
+reconstruction и передаётся отдельной immutable metadata; clock локальный для
+одного prepare/capture. Tau равен интервалу между такими targets (первый от seed
+capture), ограниченному прежними150мс publication cadence и1400мс default.
+Нижняя граница150 означает при существующем clampdt40 не более23.41% одного
+рассчитанного target-delta за display-frame. Повторные/backwards/nonfinite clocks
+не меняют adaptive state. Каждая операция — convex interpolation before→current
+partial, без overshoot, fade конечного dry target или canonical writes. Первый
+обычный canonical preview и окончательный startReveal сбрасывают этот opt-in tau
+к прежнему поведению. Новые поля только ephemeral WashReveal, не log/snapshot.
+
+CPU tests: actualPlan17 +clock/reveal3 =20 PASS; canonical destinations/operands/
+mode/band/dir sequence старого partial и progress варианта совпадает. Actual first
+private metadata steps4 (или1 при split), total≤stencil15 в64²fixture; повторный
+prepare начинает clock сначала, owner14 cancel освобождает inputs и запрещает
+последующие writes. Purewater/ownerfalse/cropedge/oversize guards прежние.
+Скалярная monotonicity относится к cumulative steps/timestamps/reachable-domain
+allowance, НЕ к pixel contour/mass. Byte support/mass/crop-edge behavior нового
+operator count требуют отдельного аппаратного контроля. Hardware ещё НЕ запускался.
