@@ -299,3 +299,8 @@ water overlay/reveal triggers. Сначала по одному семейств
 coverage/endpoint, positive/unknown/Undo/peer negatives, реальный nexttouch
 пигментом во время water settle, cancellation/contextloss. До них нет кода,
 никакого утверждения математической эквивалентности всей fast ветки.
+
+После аппаратных гейтов собственный временный Vite5330 остановлен SIGTERM:
+PID1278595, argv/cwd `zero-proof-321d/apps/web` и authenticated clients[]
+проверены непосредственно перед остановкой. Исходники, raw илоги сохранены.
+Rootstand5329, backend4539, пользовательские вкладки/стенды не затрагивались.
