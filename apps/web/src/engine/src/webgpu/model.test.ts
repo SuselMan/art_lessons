@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { makeDab, makePocPaper, packGpuDabs } from './model'
+import { makeDab, makePocPaper, packGpuDabs, pocPreset } from './model'
 import type { BrushOptions } from './model'
+import { watercolorMixFromPreset, watercolorNibFromPreset } from '../presets/watercolorPresets'
 import { makeWetGrid, wetDiffuseStepMany } from '../watercolor/wetDiffusion'
 const brush: BrushOptions = { size: 400, water: 1, pigment: 1, color: [0.5, 0.25, 0.8], nib: 'round' }
 describe('WebGPU prototype input / mathematical bounds', () => {
@@ -12,6 +13,11 @@ describe('WebGPU prototype input / mathematical bounds', () => {
     expect(joined).toEqual(all.data)
     expect(b.travelled).toBe(all.travelled)
     expect(dabs[0].size).toBeLessThanOrEqual(400)
+  })
+  it('serializes the baseline preset with the production water/pigment order and nib', () => {
+    const preset = pocPreset({ ...brush, water: 1, pigment: 0.13, nib: 'chisel' })
+    expect(watercolorMixFromPreset(preset)).toEqual({ water: 1, pigment: 0.13 })
+    expect(watercolorNibFromPreset(preset)).toBe('chisel')
   })
   it('separates clean water from pigment; pure water deposits no optical depth', () => {
     const d = makeDab({ x: 300, y: 300, pressure: 1, t: 0 }, brush)
