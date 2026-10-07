@@ -175,3 +175,19 @@ Raw: `temp/fence-hardware/native-room-zeroproof321d_1791354881103/report.json`;
 предыдущий FAIL: `..._1791354789958/report.json`. Passport:
 `temp/fence-hardware/zero321d-passport.json`. Собственный 1412 закрыт finally,
 Samsung освобождён. Никаких публикаций/default изменений.
+
+### Current loaded negative, Samsung 1414
+
+После 1412 проверен **оригинальный**, не pure-derived, журнал1396 (100:100).
+Тот же immutable321d runtime/flags, normal finish/owner, только zeroContacts
+OFF/ON. Все 27 field/wholeRGBA comparisons exact0; meaningful cost840,228,
+V493,702, tile0 P1,726,140/C1,725,875 nonzero. Обе arms реально исполняют
+brushPass2596/front252, skipTrue0/skipFalse2. GL0/lostfalse, собственный1414
+закрыт. Wall11.305/11.744s не утверждение улучшения скорости: положительный
+пигмент правильно не оптимизирован. Raw:
+`temp/fence-hardware/native-room-zeroloaded321d_1791355079228/report.json`.
+
+Рекомендация: guard-backed zero-contact identity допустима для default ON;
+доказательства включают pure matched hardware, positive P/C negative,
+conservative unknown-prefix/live/peer/rebuild rejection. Оптимизация не меняет
+front и не является решением всей плавности или native loaded tail.
