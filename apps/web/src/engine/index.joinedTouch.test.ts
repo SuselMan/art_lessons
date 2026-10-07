@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { createTestEngine, makeLayerAdd, paperReady, simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd } from './testing/engineTestUtils'
 import type { PencilEngine } from './index'
 const engines: PencilEngine[] = []
-afterEach(() => { for (const e of engines.splice(0)) e.destroy() })
+afterEach(() => { for (const e of engines.splice(0)) if (!e['_destroyed']) e.destroy() })
 async function setup(enabled: boolean) {
   const { engine: e } = createTestEngine({ userId: 'a' }, { width: 64, height: 64 })
   engines.push(e)
@@ -93,10 +93,61 @@ it('overlap refuses exported/checkpoint prefixes and loss forgets the lease with
   simulateStrokeStart(e, 24, 32)
   expect(await e.exportPNG(true)).toBeNull()
   expect(await e.exportReviewImage()).toBeNull()
+  expect(await e.bakePreview()).toBeNull()
   expect(e.bakeNetworkSnapshot('L')).toBeNull()
+  expect(e.bakeLayerByFullReplay('L')).toBeNull()
   const commands = e['_ribbonStrokeScratch']!.runningSourceCommands.map(c => vi.fn(c))
   e['_ribbonStrokeScratch']!.runningSourceCommands = commands
   e['_handleContextLost']({ preventDefault() {} } as Event)
   expect(e['_wcJoinedTouchLease']).toBeNull()
   for (const command of commands) expect(command).not.toHaveBeenCalled()
+})
+
+it('natural completion replays the one next film and releases its old-job lease while input remains active', async () => {
+  const e = await setup(true)
+  const nib = vi.spyOn(e as unknown as { _drawRibbonNibPass: typeof e['_drawRibbonNibPass'] }, '_drawRibbonNibPass')
+  simulateStrokeStart(e, 24, 32)
+  const sourceCalls = nib.mock.calls.slice()
+  expect(sourceCalls.length).toBeGreaterThan(0)
+  const old = e['_settle']!
+  expect(old).not.toBeNull()
+  let steps = 0
+  while (e['_settleQueue'].current === old && steps++ < 10000) e['_settleQueue'].advance()
+  expect(steps).toBeLessThan(10000)
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  expect(e['_strokeLayerId']).toBe('L')
+  expect(e['_ribbonStrokeScratch']!.trackRunningSource).toBe(false)
+  expect(e['_ribbonStrokeScratch']!.runningSourceCommands).toEqual([])
+  expect(nib.mock.calls.slice(sourceCalls.length)).toEqual(sourceCalls)
+  simulateStrokeEnd(e, 40, 32)
+})
+it('in-place colour mutation and another preset also reject the same-wash admission', async () => {
+  for (const kind of ['in-place colour', 'preset']) {
+    const e = await setup(true)
+    if (kind === 'preset') e.setPencil('normal:100:80:PB29:round')
+    else e['_opts'].graphiteColor[0] = 0.92
+    const drain = vi.spyOn(e as unknown as { _completeSettle(): void }, '_completeSettle')
+    simulateStrokeStart(e, 24, 32)
+    expect(drain).toHaveBeenCalled()
+    simulateStrokeEnd(e, 40, 32)
+  }
+})
+it('destroy forgets the joined lease and does not resume its next-film source commands', async () => {
+  const e = await setup(true)
+  simulateStrokeStart(e, 24, 32)
+  const commands=e['_ribbonStrokeScratch']!.runningSourceCommands.map(c=>vi.fn(c))
+  e['_ribbonStrokeScratch']!.runningSourceCommands=commands
+  e.destroy()
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  for(const command of commands)expect(command).not.toHaveBeenCalled()
+})
+
+it('enabling after an uncaptured predecessor conservatively uses the original drain', async () => {
+  const e=await setup(false)
+  e['_wcJoinedTouch']=true
+  const drain=vi.spyOn(e as unknown as { _completeSettle(): void }, '_completeSettle')
+  simulateStrokeStart(e,24,32)
+  expect(drain).toHaveBeenCalled()
+  expect(e['_wcJoinedTouchLease']).toBeNull()
+  simulateStrokeEnd(e,40,32)
 })

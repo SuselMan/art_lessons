@@ -1793,6 +1793,9 @@ export class PencilEngine implements PencilEngineAPI {
   /** Diagnostic OFF: at most one joined native film may overlap its predecessor. */
   private _wcJoinedTouch = false
   private _wcJoinedTouchLease: WatercolorSettleQueue['current'] = null
+  private readonly _wcJoinedTouchInputs = new WeakMap<NonNullable<WatercolorSettleQueue['current']>, {
+    readonly preset: string; readonly color: readonly number[]; readonly gesture: number
+  }>()
   /** Preserve the next film after the preceding settle lands (ADR 011). */
   private _wcSourceFilmRebase = true
   /** Skip pigment contact operators only with complete zero provenance;
@@ -4054,6 +4057,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the work is Exporter's (#494). */
   async bakePreview(maxSide = 320): Promise<Blob | null> {
     await this._paper.ready()
+    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
     return this._exporter.bakePreview(maxSide)
@@ -5502,6 +5506,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   bakeLayerByFullReplay(layerId: string): Uint8Array | null {
+    if (this._wcJoinedTouchLease && this._strokeLayerId) return null
     return this._snapshotIO.bakeByFullReplay(layerId)
   }
 
@@ -5879,14 +5884,17 @@ export class PencilEngine implements PencilEngineAPI {
     const oldJob = this._settle
     if (this._wcJoinedTouchLease !== oldJob) this._wcJoinedTouchLease = null
     const openTouch = this._wash
+    const touchInputs = oldJob ? this._wcJoinedTouchInputs.get(oldJob) : undefined
     const touchNow = performance.now()
     const touchSignature = watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
     const joinedTouch = this._wcJoinedTouch && !this._wcAsyncFinish && !this._wcMaterialPresentation
       && this._wcSourceFilmRebase && !this._settlePlan.splitQuanta
       && this._opts.tool === 'watercolor' && oldJob !== null && openTouch !== null
       && oldJob.scratch === openTouch.scratch && this._wcJoinedTouchLease === null
-      && this._strokePreset === this._opts.pencilType && oldJob.scratch.finishContext !== null
-      && oldJob.scratch.finishContext.color.every((c, i) => c === this._opts.graphiteColor[i])
+      && oldJob.scratch.live
+      && touchInputs !== undefined && touchInputs.gesture === oldJob.scratch.gesture
+      && touchInputs.preset === this._opts.pencilType
+      && touchInputs.color.every((c, i) => c === this._opts.graphiteColor[i])
       && openTouch.layerId === layerId && openTouch.signature === touchSignature
       && touchNow - openTouch.endedAt <= WASH_JOIN_MS
       && (this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow)
@@ -7765,6 +7773,12 @@ export class PencilEngine implements PencilEngineAPI {
       abort: () => { try { lifecycle.abort() } finally { releaseDryTicket() } },
     } : lifecycle
     this._settleQueue.start(scratch, ops, () => { try { complete() } finally { releaseDryTicket() } }, ownedLifecycle)
+    const job = this._settle
+    if (this._wcJoinedTouch && job && scratch === this._ribbonStrokeScratch) {
+      // Context colour may alias opts: capture values before later UI mutation.
+      this._wcJoinedTouchInputs.set(job, { preset: this._strokePreset, color: [...this._strokeColor], gesture: scratch.gesture })
+    }
+
   }
   private _advanceSettle(): void {
     this._settleQueue.advance()
@@ -7776,6 +7790,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.22) The diffusion field is freed WET_FIELD_RELEASE_MS after
    *  the last settle landed; the next settle simply allocates it again. */
   private _scheduleFieldRelease(): void {
+    // Natural queue completion bypasses _completeSettle: drop only its old lease.
+    if (this._wcJoinedTouchLease && this._wcJoinedTouchLease !== this._settle) this._wcJoinedTouchLease = null
     if (this._fieldReleaseTimer) clearTimeout(this._fieldReleaseTimer)
     this._scheduleBudgetCheck()
     // (§17.57) Past the device's budget the field goes now, not in 45 s.

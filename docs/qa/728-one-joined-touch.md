@@ -46,3 +46,34 @@ Source/flags/preset/цвет и accepted journal должны совпадать
 ## Интеграция root, 07.10 16:35
 
 Локальный74118d2e добавляет кандидат OFF. Конфликт exportPNG разрешён с сохранением ранее введённых asyncError guards до/после canonical.ready. Root focused joinedTouch/coverageFilm11PASS, asyncFailureMaterial2PASS; whole-web TypeScript exit0, lint exit0 с прежними предупреждениями, map:check1013files PASS. Это CPU/MockGL проверки, а не аппаратный паритет. Пользовательские стенды5329/5339 неизменны.
+## Дополнительный lifecycle review
+
+`bakePreview` и независимый `bakeLayerByFullReplay` также отказывают при joined lease и активной кисти. Natural
+completion сбрасывает старую lease через существующий scheduleFieldRelease
+callback; отмена и destroy идут через cancel. Job metadata хранится в WeakMap:
+только маленькая копия preset/RGB/gesture, без дополнительных GL handles. Она
+создаётся при start только с включённым диагностическим флагом. Включение флага
+после создания незаписанного predecessor консервативно оставляет старый drain.
+
+Новый тест изменения RGB на месте показал, что `finishContext.color` может
+ссылаться на mutable opts. Поэтому это поле больше не используется как proof
+для admission: guard читает immutable job metadata. Старый физический путь
+не изменён; произвольная мутация private opts не является новым публичным API.
+
+При prepare старый job синхронно выполняет captureInputs как op0; это граница
+P/C/V/coverage и S2 snapshots до следующего source draw. Scalar/contact/tide
+данные читаются во время prepare. Поздний present читает mutable tile records
+только в отдельные временные буферы; при активной кисти его callback не публикует
+картинку. Поздний physical land намеренно выбирает текущий film base; finish
+восстанавливает coverage base, lands старые fields, очищает новый film,
+переигрывает owned source commands, освобождает captured inputs и только старый
+film. Это требует actual whole-field oracle, особенно wet metadata/front:
+совпадающая pointer tape сама по себе не доказывает одинаковый recorded wet.
+
+Lifecycle CPU retry: natural replay ровно один раз, destroy/loss не выполняют
+commands, новое поколение metadata не наследует старую lease, in-place RGB и
+изменение preset запрещают admission. Один ошибочный тестовый while(null===null)
+остановлен как fixture loop; исправлен обязательной проверкой job non-null и
+границей 10 000 шагов. Не ошибка физики, raw сохранён.
+
+Финальный lifecycle контроль: 15/15 тестов PASS, whole-web TS exit0.
