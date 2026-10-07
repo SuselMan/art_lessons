@@ -74,3 +74,30 @@ it('retries a no-snapshot metadata read when the resident watermark changes', as
   expect(plan.watermark).toBe(7)
   expect(mocks.state).toHaveBeenCalledTimes(2)
 })
+
+
+it('serves the lightweight original structural prefix and only deleted-source pixel history', async () => {
+  const add: Operation = { id: 'add1', seq: 1, timestamp: 1, userId: 'A', type: 'layer_add', layerId: 'S', name: 'S' }
+  const del: Operation = { id: 'delete3', seq: 3, timestamp: 3, userId: 'A', type: 'layer_delete', layerIds: ['S'] }
+  const u: Operation = { id: 'undo6', seq: 6, timestamp: 6, userId: 'A', type: 'operation_undo', targetOpId: del.id }
+  mocks.rooms.set('room', { nextSeq: 7, operations: [u], aliveIds: new Set(['S','background','layer-1']) })
+  mocks.state.mockResolvedValue({ seq: 5, state: { items: { background: {}, 'layer-1': {} } } })
+  mocks.snapshots.mockResolvedValue([{ layerId: 'background', seq: 5, hash: 'safe' }])
+  mocks.operations.mockImplementation(async ({ where }) => (where.id ? [del] : [add,del,u]).map(data => ({data})))
+  const p = await prepareSnapshotReplay('room')
+  expect(p.index?.replayStructure).toBe(true)
+  expect(p.index?.layers).toEqual([{ layerId: 'background', seq: 5, hash: 'safe' }])
+  expect(p.index?.historyLayers).toContain('S')
+  expect(p.historicalIds).toContain('add1')
+  expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where: expect.objectContaining({OR: expect.arrayContaining([{layerId: {in: ['S']}}])})}))
+})
+
+it('refuses an unknown snapshot-only structural base instead of manufacturing layer_add', async () => {
+  const del: Operation = { id: 'delete3', seq: 3, timestamp: 3, userId: 'A', type: 'layer_delete', layerIds: ['S'] }
+  const u: Operation = { id: 'undo6', seq: 6, timestamp: 6, userId: 'A', type: 'operation_undo', targetOpId: del.id }
+  mocks.rooms.set('room', { nextSeq: 7, operations: [del,u], aliveIds: new Set(['legacy']) })
+  mocks.state.mockResolvedValue({ seq: 5, state: { items: { legacy: {} } } })
+  mocks.snapshots.mockResolvedValue([{layerId:'legacy',seq:5,hash:'legacy'}])
+  mocks.operations.mockResolvedValue([{data:del},{data:u}])
+  await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
+})

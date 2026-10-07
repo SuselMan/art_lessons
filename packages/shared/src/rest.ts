@@ -105,6 +105,9 @@ export interface SnapshotIndexEntry {
  *  is what a client uploaded, stored as JSON the server never reads — so it is
  *  `unknown` on the wire, and the client narrows it where it restores it. */
 export interface SnapshotIndex {
+  /** Computed join mode, never persisted with the blob. */
+  replayStructure?: true
+  historyLayers?: string[]
   seq: number
   layerState: unknown
   layers: SnapshotIndexEntry[]

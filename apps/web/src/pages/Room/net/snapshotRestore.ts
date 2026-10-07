@@ -8,6 +8,7 @@ import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../..
  *  in here on purpose — see restoreLatestSnapshot. */
 export interface RestoredSnapshotHead {
   seq: number
+  replayStructure?: true
   layerState: LayerState
 }
 
@@ -21,10 +22,10 @@ export interface RestoredSnapshotHead {
 export interface SnapshotRestoreSink {
   /** Called once, after every blob has arrived and before any pixels are
    *  applied, so the layers exist to receive them. */
-  beginLayers: (layerState: LayerState) => void
+  beginLayers: (layerState: LayerState, replayStructure?: boolean) => void
   /** Scoped original prefix after pixel handover. Unlike applyLayer this
    * carries journal data, never inflated pixel views, and may await rebuild. */
-  restoreHistory?: (operations: Operation[]) => Promise<void>
+  restoreHistory?: (operations: Operation[], replayStructure?: boolean) => Promise<void>
   /** Called once per covered layer, in index order. The tiles are views into a
    *  buffer released as soon as this returns — a caller that needs them later
    *  has to copy. */
@@ -292,6 +293,8 @@ export async function restoreLatestSnapshot(
       const coverage = new Map(body.layers.map(layer => [layer.layerId, layer.seq]))
       const missing = Object.values(layerState.items).filter(item => item.kind === 'layer'
         && (coverage.get(item.id) ?? 0) < body.seq).map(item => item.id)
+      for (const id of body.historyLayers ?? []) if (!missing.includes(id)) missing.push(id)
+      if (body.replayStructure && !missing.length) missing.push('background')
       if (missing.length) {
         let cursor = body.seq + 1 // inclusive snapshot structural boundary
         while (cursor > 0) {
@@ -321,7 +324,11 @@ export async function restoreLatestSnapshot(
     // is still available, and where the layers must be created before pixels
     // can be put into them.
     stage = 'apply'
-    sink.beginLayers(layerState)
+    sink.beginLayers(layerState, body.replayStructure)
+    if (body.replayStructure) {
+      if (!sink.restoreHistory) throw new Error('Structural history restore is unavailable')
+      await sink.restoreHistory(dependencyHistory, true)
+    }
 
     for (let i = 0; i < body.layers.length; i++) {
       const layer = body.layers[i]
@@ -339,8 +346,10 @@ export async function restoreLatestSnapshot(
       appliedLayerIds.push(layer.layerId)
     }
 
+    // Structural buffers must exist before blobs, but a retained earlier
+    // source snapshot must precede replay of its later dependency pixels.
     if (dependencyHistory.length) await sink.restoreHistory!(dependencyHistory)
-    return { status: 'restored', head: { seq: body.seq, layerState }, plan }
+    return { status: 'restored', head: { seq: body.seq, layerState, ...(body.replayStructure ? { replayStructure: true as const } : {}) }, plan }
   } catch (error) {
     return { status: 'failed', stage, plan, appliedLayerIds, error }
   }

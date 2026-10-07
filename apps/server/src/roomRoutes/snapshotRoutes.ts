@@ -101,6 +101,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
       // which operations still have to be replayed onto it (#371). The seq is
       // also half the address of the blob to fetch next.
       layers: index.layers,
+      ...(index.replayStructure ? { replayStructure: true as const, historyLayers: index.historyLayers } : {}),
     }
   })
 

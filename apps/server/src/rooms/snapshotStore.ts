@@ -314,7 +314,7 @@ export interface SnapshotIndexEntry {
  *  they're only needed at join time). */
 export async function getSnapshotIndex(
   roomId: string,
-): Promise<{ seq: number; layerState: unknown; layers: SnapshotIndexEntry[] } | null> {
+): Promise<{ seq: number; layerState: unknown; layers: SnapshotIndexEntry[]; replayStructure?: true; historyLayers?: string[] } | null> {
   return (await prepareSnapshotReplay(roomId)).index
 }
 
@@ -390,7 +390,7 @@ export async function getOperationsBefore(roomId: string, beforeSeq: number, lim
   const rows = await prisma.operation.findMany({
     where: { roomId, seq: { lt: beforeSeq }, ...(needed ? { OR: [
       { layerId: { in: [...needed] } },
-      { type: { in: ['operation_undo', 'operation_redo', 'operation_revoke', 'paper_dry', 'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_duplicate', 'layer_transform'] } },
+      { type: { in: ['operation_undo', 'operation_redo', 'operation_revoke', 'paper_dry', 'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_duplicate', 'layer_transform', 'layer_move', 'layer_opacity', 'layer_visibility', 'layer_rename', 'layer_owner_lock', 'layer_lock'] } },
     ] } : {}) },
     orderBy: { seq: 'desc' },
     take: limit,

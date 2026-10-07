@@ -706,7 +706,7 @@ export interface PencilEngineAPI {
   absorbHistoricalOperations(ops: Operation[]): void
   /** Inclusive snapshot prefix plus dependency source history; seeds the log
    * before tail meta-ops and rebuilds only live layers not covered by restored pixels. */
-  restoreHistoricalOperations(ops: Operation[]): Promise<void>
+  restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void>
   // (#289 epic, reliable history spec v0.2 §13) Bakes the same bytes
   // bakeNetworkSnapshot would, but reached by a deliberately *independent*
   // route: a scratch buffer replayed from zero through every one of this
@@ -5289,12 +5289,24 @@ export class PencilEngine implements PencilEngineAPI {
   /** Restore dependency prefix without replaying already baked structure or
    * revoking historical strokes whose source layer has since been consumed.
    * The original prefix fold (including boundary undo) precedes tail redo. */
-  async restoreHistoricalOperations(ops: Operation[]): Promise<void> {
+  private _replayRestoredStructure = false
+
+  async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void> {
     const affected = new Set<string>()
     for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
       if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
     }
     this.absorbHistoricalOperations(ops)
+    // Structural seeding precedes safe blob handover. A second dependency
+    // pass must mark already-seeded ids against those newly pinned snapshots.
+    if (this._replayRestoredStructure) this._checkpoints.markCovered(ops)
+    if (replayStructure) {
+      this._replayRestoredStructure = true
+      this._syncBuffersToLog()
+      for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
+        if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
+      }
+    }
     await this.preloadImages(ops)
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
     // Tail merge/copy reads live source buffers. Deferring these until the
@@ -5312,7 +5324,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   getOperationsSinceRestore(): Operation[] {
-    return this._snapshotIO.operationsSinceRestore()
+    return this._replayRestoredStructure ? this.getOperations() : this._snapshotIO.operationsSinceRestore()
   }
 
   // ─── Internal ────────────────────────────────────────────────────────────────
