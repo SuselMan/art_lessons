@@ -7,12 +7,14 @@ import { GRADIENT_FIBRE_GLSL, withGradientFibres } from './gradientFibres'
 
 describe('optional baked gradient fibres', () => {
   it('preserves the four frozen OFF shader strings exactly', () => {
-    // Combined ring baseline efe5dea9; fibre integration leaves shaders.ts byte-identical.
+    // Packed-path baseline 054446e8 adds explicitly gated uniforms/reachability.
+    // Vega full phase1 gate7714 proves OLD/OFF identity; gradient fibres must
+    // leave these independently verified baseline shaders byte-identical.
     const expected = [
-      '68be1a68251727abd3b06849903c6c2050fdfaecb078f0f0fdbf1e713d0ade1f',
-      '4d87a6d4afca39acf0681e2304f7517b7f19397b62d4aa74fd6e17fa0e31c020',
-      '0b28e2c3a464c1aabd92d4a31a1631dd170c7136d335895df0bf6bbcf961c486',
-      'd7ab8fcd84686fc2401edc5e702445d130b4f4a9e9181d9d2cb5cb635613be50',
+      'ae45ac70c5af4da78450da2d380312fb7ecde0ec954a579056b79734cf7e22c6',
+      'be7e70306bfeef67019f3003615c2227fb79a4798a0d6b2f057e20d05b41f256',
+      'e21e0db898bed543f61c0fe20145dfe131a10fd894d439ba6209b1d938ef580f',
+      'e7e5b25bf6fbe2e26806f447a3d70758493da2cde66545b3fb51a7b825cda494',
     ]
     const actual = [WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG]
       .map(s => createHash('sha256').update(s).digest('hex'))
