@@ -76,3 +76,31 @@ Root проверил предшествующий native stage на Samsung: GP
 stamp coverage1164/P30/C7(max1), ribbon coverage47/P46/C5(max1).
 Software exactness некоторых fixtures не подтверждает hardware exactness.
 Поля water/flow в старом stage были нулевыми; это не тест целого watercolor Room.
+
+## Завершение одного тайла и бумага
+
+`CanonicalSingleTileFinish(backend, scratch, [tile]).encode(encoder, input)`
+вызывается после настоящего `job.finish()` общего canonical planner. Input:
+`settleComplete:true`, production `profile`, `opacity`, `fieldSeed`, `spreadPx`,
+`water`, `bristleRadiusPx`, `settledGesture`, `materialGesture`, мировые `bounds`.
+Выбор полей буквально соответствует `_finishRibbonStroke`: `original/coverage`,
+`inkDry ?? inkLoad`, `colorDry ?? inkColor`; при более новом running film берутся
+`inkLoad/inkColor`. `inkSettled/colorSettled` не подставляются вместо сухого
+результата: это самостоятельные записи settle/remobilization. Сглаживание дозы
+на finish равно нулю, прямоугольник имеет production floor−1/ceil+1 границы.
+Caller отправляет общий encoder и освобождает возвращённые uniforms после GPU
+completion; film release остаётся у planner/scratch owner.
+
+`CanonicalDryPaperPresentation(backend).present(tile, {paperColor})` выводит
+премультиплицированный слой над бумагой через существующую сухую формулу
+`PAPER_COMPOSE_FRAG`: paper tone ±0.035, unpremultiply/clamp и graphite texture.
+Stored layer не меняется. Это одна плитка на весь viewport, bilinear.
+`wetPresentation`, rotation, sharp resample, desk/camera, многослойная сборка и
+морфинг не реализованы; соответствующие опции отвергаются явно. Нельзя называть
+этот вывод полной презентацией обычной Room.
+
+Software finish fixture с ненулевым original и намеренно непригодными settled
+base records: 4 отличных байта/max1 против настоящего WebGL composite,
+вне finish bounds изменений0. Dry presentation против независимой CPU формулы:
+max0. GPU validation errors0. Это проверка ресурсов/формулы, не доказательство
+полной акварели или аппаратной эквивалентности.
