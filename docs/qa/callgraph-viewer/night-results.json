@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-08",
+  "scope": "Новые эксперименты не заменяют запись графа6aa14a43. Каждый замер относится к своему устройству и сценарию; радиусы узлов остаются метриками исходной записи.",
+  "results": [
+    {
+      "methods": [
+        "Engine._onStart",
+        "Queue.complete"
+      ],
+      "name": "Mixed water→pigment admission",
+      "result": "Surface actual Room: верхняя граница DOWN715→63мс. Samsung standalone:1246→157мс;2/4быстрых жеста, одинаковые поля и итог.",
+      "limits": "Sync read5×5, не physical pen/FPS. Third touch может законно блокироваться; default OFF.",
+      "status": "Аппаратно проверенный кандидат"
+    },
+    {
+      "methods": [
+        "Plan.prepare"
+      ],
+      "name": "CPU contact-field cache",
+      "result": "Surface два прогона: prepare176→86 и182→99мс; hitratio60%,1.27MiB. Во втором прогоне whole replay21141→21051мс: общий эффект мал.",
+      "limits": "Standalone400/Fine, поля/Undo/Redo exact. Обратный порядок ещё измеряется; workspace отдельно не ускорил.",
+      "status": "CPU выигрыш, общий выигрыш не установлен"
+    },
+    {
+      "methods": [
+        "Queue.tick",
+        "Queue.advance"
+      ],
+      "name": "Front batching",
+      "result": "Surface replay21179→19547мс,1239→1143среза, поля/whole exact; presentation отдельно почти без эффекта.",
+      "limits": "Один порядок, fixed replay;124дополнительные GPU sync. Не ускорение GPU-оператора, default OFF.",
+      "status": "Около8% в одном контрольном прогоне"
+    }
+  ]
+}
