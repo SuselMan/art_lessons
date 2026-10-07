@@ -37,3 +37,11 @@ Current4b bandON, прочие flags как1348. Own1349 CLOSED, GL0/lostfalse/n
 Новый117ms tail gap23343.1ms **не воспроизвёл** прошлый82ms GPU-service wait: mark offset215211194.351–194.448ms, maximum Scheduler4.260ms/threadCPU2.203ms внутриgap. Следовательно программа прежнегоwait этим новым опытом не установлена, compositor/scheduling вне выбранных trace categories остаётся неизвестным.
 
 Последние150ms содержат183draws/51bufferData/16texImage2D/36copyTexSubImage2D/50existingFinish:48WC_FIELD_OP,40WASH_REVEAL,32DAB,18RIBBON,12WC_RESAMPLE,8WC_BRUSH_DRAG,7WC_WATER_FRONT,5LAYER_COMPOSITE,5PAPER_COMPOSE,5SCREEN_BLIT,3FIELD_HIGH. Последние RIBBON/DAB submission23229.6ms означают исполнение следующего queuedgesture послеclosure: нельзя назвать весь antecedent dryingpass. LinkProgram вgap отсутствует. Artifact native-program-on{,-cpu,-trace}.json и program-gap-summary.txt сохранены HOME band-root4b. Нужен отдельный широкий compositor trace или matched конкретный операторный контроль; слепое shader tuning этим результатом не обосновано.
+
+### Truewater и low-water matched negative gates
+
+Current4b frozen: сначала actualnative400px6s capture truewater normal:100:0 (own1350), затем fixed single-op tape OFF/ON (1351). SHA67ff2184348868ecd445606b971e96b91d47c7acbb5418bf098bcf64528af679. Все19buffers+wholeRGBA EXACT0, GL0/lostfalse, P/Color/purple0 ожидаемо, meaningfulV229524/solventtile0 205854/coverage328756 nonzero. Carry14/late4; не пустой очищенный oracle.
+
+Low-water normal:10:100 native1352, matched fixed1353, SHAddb7419be27b5d6d27d6d7b78ac9f8609435e578eba929285f7954662c2622a6:19buffers+wholeRGBA EXACT0, purple309216, meaningfulV233600,carry12,late0,GL0. Все4ownedtargets CLOSED. Painter runtime profile для обоих tapes: waterDepletion=true,stampsOnly=false,solventFlag=true; ON diagnosticBandBatch=true. Это purewater/low-water material ветки, не stamps-only skipped branch; художественная сухая текстура не менялась и не оценивалась.
+
+Обе fixedarms сохраняют прежний modifiedreveal/owner14 isolated scope, не ordinaryRoom lifecycle. Снижение/рост wallclock solver не является физическим throughput утверждением. Нативные adaptive gestures служат записью tape, без pairedFPS claim.
