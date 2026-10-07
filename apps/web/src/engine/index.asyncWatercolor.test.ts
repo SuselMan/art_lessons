@@ -423,3 +423,114 @@ it('forgets suspended split presentation snapshots on context loss without stale
     remove.mockRestore(); draw.mockRestore()
   } finally { prepare.mockRestore(); physical.mockRestore(); engine.destroy() }
 })
+
+for (const [tool, preset] of [['pencil', 'HB'], ['marker', 'normal'], ['eraser', 'HB'], ['smudge', 'HB']] as const) it(`accepts ${tool} during pending canonical work with isolated layer pixels and one logical delivery`, async () => {
+  const local = vi.fn()
+  const { engine } = createTestEngine({ userId: 'owner', onLocalOperation: local }, { width: 64, height: 64 })
+  const { engine: fresh } = createTestEngine({ userId: 'reader' }, { width: 64, height: 64 })
+  await Promise.all([engine.paperReady(), fresh.paperReady()])
+  for (const e of [engine, fresh]) { e.initLayer('L'); e.setActiveLayer('L') }
+  const base = makeStroke('old', 'L', [dab(16, 20), dab(24, 20), dab(32, 20)])
+  engine.appendOperation(base, 'remote'); fresh.appendOperation(base, 'remote')
+  const pixels = () => engine['_layers'].get('L')!.allResident()[0].buffer.readPixels()
+  const before = pixels()
+  engine.setTool(tool); engine.setPencil(preset); engine.setSize(12); engine.setColor([.7, .2, .1])
+  engine['_wcAsyncFinish'] = true
+  const frames = new Map<number, () => void>(); let handle = 0
+  engine['_wcCanonical']['ctx'].schedule = cb => { frames.set(++handle, cb); return handle }
+  engine['_wcCanonical']['ctx'].unschedule = id => { frames.delete(id) }
+  const complete = vi.spyOn(engine as unknown as { _completeSettle(): void }, '_completeSettle')
+  engine['_wcCanonical'].enqueue({ execute: function* () { /* Older material request. */ }, cancel: () => {} })
+  try {
+    simulateStrokeStart(engine, 16, 20)
+    expect(engine['_strokeId']).not.toBeNull()
+    simulateStrokeMove(engine, 32, 20)
+    expect(pixels()).toEqual(before)
+    expect(engine['_asyncLocalPreviewTiles']().get('L')?.length).toBeGreaterThan(0)
+    if (tool === 'eraser') {
+      const preview = engine['_asyncLocalPreviewTiles']().get('L')![0].buffer.readPixels()
+      const alpha = (a: Uint8Array) => a.reduce((sum, value, i) => sum + (i % 4 === 3 ? value : 0), 0)
+      expect(alpha(preview)).toBeLessThan(alpha(before))
+    }
+    engine.setColor([0, 1, 0]); engine.setPencil('changed-after-start') // Immutable start settings.
+    simulateStrokeEnd(engine, 40, 20)
+    expect(local).toHaveBeenCalledTimes(1)
+    const recorded = local.mock.calls[0][0]
+    expect(recorded.tool).toBe(tool); expect(recorded.preset).toBe(preset); expect(recorded.layerId).toBe('L'); expect(recorded.color).toEqual([.7, .2, .1])
+    expect(pixels()).toEqual(before)
+    expect(complete).not.toHaveBeenCalled()
+    for (let i = 0; i < 1000 && engine['_wcCanonical'].pending; i++) {
+      const frame = frames.entries().next().value
+      if (frame) { frames.delete(frame[0]); frame[1]() }
+      while (engine['_settle']) engine['_advanceSettle']()
+    }
+    expect(engine['_wcAsyncError']).toBeNull()
+    expect(engine['_wcCanonical'].pending).toBe(false)
+    expect(engine['_wcAsyncLocalTools'].size).toBe(0)
+    expect(local).toHaveBeenCalledTimes(1)
+    fresh.appendOperation({ ...recorded, seq: 2 }, 'remote')
+    expect(pixels()).toEqual(fresh['_layers'].get('L')!.allResident()[0].buffer.readPixels())
+  } finally { complete.mockRestore(); engine.destroy(); fresh.destroy() }
+})
+
+it('retains accepted other-tool journal on loss and drops only its transient handles', async () => {
+  const local = vi.fn()
+  const { engine } = createTestEngine({ userId: 'owner', onLocalOperation: local }, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('pencil'); engine.setPencil('HB'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  const draw = vi.spyOn(engine['gl'], 'drawArrays'), remove = vi.spyOn(engine['gl'], 'deleteTexture')
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 36, y: 20 }])
+    expect(local).toHaveBeenCalledTimes(1)
+    const id = local.mock.calls[0][0].id
+    draw.mockClear(); remove.mockClear()
+    engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    expect(engine['_log'].entries.some(e => e.op.id === id)).toBe(true)
+    expect(engine['_wcAsyncLocalTools'].size).toBe(0)
+    expect(draw).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled()
+  } finally { draw.mockRestore(); remove.mockRestore(); engine.destroy() }
+})
+
+it('limits other-tool preview allocation without losing logical input or forcing canonical work', async () => {
+  const local = vi.fn()
+  const { engine } = createTestEngine({ onLocalOperation: local }, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('pencil'); engine.setPencil('HB'); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  const complete = vi.spyOn(engine as unknown as { _completeSettle(): void }, '_completeSettle')
+  try {
+    simulateStrokeStart(engine, 16, 20)
+    const id = engine['_wcAsyncLocalStroke']!, layer = engine['_wcAsyncLocalTools'].get(id)!.layers.get('L')!
+    const count = layer.copied.size
+    expect(engine['_resolveAsyncLocalTargets'](id, 'L', layer.buffer, { minX: 0, minY: 0, maxX: 100000, maxY: 1000 })).toEqual([])
+    expect(layer.copied.size).toBe(count)
+    simulateStrokeMove(engine, 32, 20); simulateStrokeEnd(engine, 40, 20)
+    expect(local).toHaveBeenCalledTimes(1)
+    expect(engine['_log'].entries.some(e => e.op.id === local.mock.calls[0][0].id)).toBe(true)
+    expect(complete).not.toHaveBeenCalled()
+  } finally { complete.mockRestore(); engine.destroy() }
+})
+
+it('keeps both local pencil previews when two strokes wait behind older canonical work', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady(); engine.initLayer('L'); engine.setActiveLayer('L')
+  engine.setTool('pencil'); engine.setPencil('HB'); engine.setSize(8); engine['_wcAsyncFinish'] = true
+  engine['_wcCanonical']['ctx'].schedule = () => 1
+  engine['_wcCanonical']['ctx'].unschedule = () => {}
+  try {
+    simulateStroke(engine, [{ x: 12, y: 16 }, { x: 40, y: 16 }])
+    const first = engine['_asyncLocalPreviewTiles']().get('L')![0].buffer.readPixels()
+    simulateStroke(engine, [{ x: 12, y: 44 }, { x: 40, y: 44 }])
+    const second = engine['_asyncLocalPreviewTiles']().get('L')![0].buffer.readPixels()
+    expect(engine['_wcAsyncLocalTools'].size).toBe(2)
+    let retained = 0, added = 0
+    for (let i = 3; i < first.length; i += 4) {
+      if (first[i]) { expect(second[i]).toBeGreaterThanOrEqual(first[i]); retained++ }
+      if (!first[i] && second[i]) added++
+    }
+    expect(retained).toBeGreaterThan(0); expect(added).toBeGreaterThan(0)
+  } finally { engine.destroy() }
+})
