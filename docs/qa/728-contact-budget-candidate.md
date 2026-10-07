@@ -446,3 +446,27 @@ Journal SHA в summaries, целые исходные журналы immutable. 
 границы времени переданы FIFO агенту для subsequent current comparison.
 До/после FIFO должны сохранить тот же source/settings/fixture scope,
 canonical payload oracle отдельно от независимого native sampling.
+
+### 2026-10-07: Surface f877 — actual span-split and unit-cost controls
+
+Immutable HTTP5319, Intel Iris Xe, A4/Fine1754×2480, standalone768² actual native callbacks. No Room FPS claim; no physics/shader changes. Source rebase ON, fibres/phase/contact/front batching OFF. Fixtures/raw journals stay HOME `680-lifetime-hardware/temp/contact-budget/surface-current-{page-span-perf,unit}*`; compact summaries in this worktree `temp/profile`.
+
+Initial wider1150×550 fixture still gave2ops and zero `_flushStrokeChunk`, because the actual nib selected doubled2200px chunk span. It is explicitly **not** span-split coverage. Revised y120→2360/x300↔1450 six-second400 gesture produced3ops and one real `_flushStrokeChunk` for both water100:0 and loaded100:100. Both engines destroyed sequentially; GL0/lostfalse.
+
+| Phase / measured wrapper | Pure water | Loaded |
+|---|---:|---:|
+| Active max rAF |83.3ms|66.3ms|
+| Postlift max rAF |166.7ms|283.3ms|
+| Inclusive newtouch max rAF |900.2ms|783.3ms|
+| Tail max rAF |266.7ms|416.6ms|
+| `_flushStrokeChunk` CPU |80.4ms|60.2ms|
+| First pen-up CPU maximum |170.3ms|292.8ms|
+| `_completeSettle` CPU maximum |101.8ms|223.7ms|
+| Newtouch pending |493|492|
+| Newtouch `_onStart` CPU maximum |8.8ms|6.1ms|
+
+The large frame gaps exceed CPU wrapper time. These runs did not capture GPU trace; GPU elapsed is not inferred from their CPU timings. Inclusive attribution intersects frame interval with the actual second gesture interval, rather than relying only on callback phase labels.
+
+A separate pending-unit diagnostic executed the first36 actual continuation closures in original order, never replayed a closure, then completed remaining physics. Tiny independent RGBA FBO/readPixels1×1 synchronized before/after each unit; first4 marked warm-up. Index36 (mode1 + mode15×4) cost68.6–74.8ms synchronized versus0.6–0.7ms CPU. Front-like units showed≈15ms synchronized, but that number includes unmeasured readback overhead. **Do not treat these as pure GPU operator prices** until the paired empty-sync follow-up. Full semantic endpoint and GL guards passed; no source optimization enabled.
+
+Paired follow-up completed sequentially on the same immutable Surface runtime. Empty readPixels synchronization median1.0ms in each arm, GL0/lostfalse and semantic endpoint guards healthy. Actual pass census identifies front closures3–30 as `waterFrontStep×4`, synchronized14.5–15.5ms including roughly1ms empty-sync cost; closure33 front×4 takes21.5–22.6ms. Closure36 includes field mode15×4 + mode1 + `pigmentColor×5` + `wcResample×8`, synchronized72.6/72.8ms, approximately0.6ms CPU. These are **whole continuation closure** costs, not individual pass costs and not native Room frame timings. First4 closures marked warm-up; each closure executed once in canonical order. No shader/source/model change, no extra physics passes, all owned engines/canvases destroyed. Raw paired files HOME `surface-current-unit-paired-{water,loaded}.json` and ignored compact copies preserve exact census. A FIFO scheduling budget must account for the already-large startup closure; a callback count alone does not establish a safe GPU quantum.
