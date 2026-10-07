@@ -42,3 +42,23 @@ C. Mandatory Calpha==Palpha byteexact, независимые red/blue component
 контекста64²; это explicit shader fixture, НЕ naturalRoom mixedwash. Mixed
 Plan costmask по existing singlePaint eligibility fallback сохраняется,
 не заявляем connectedguard execution для mixed route. GPU ещё НЕ запускался.
+
+### Direct mixed fixture: две отозванные попытки
+
+Аппаратный запуск 46831 завершился до оператора: fixture не вызвал
+`initSettlePrograms()` перед `initFieldUniforms()`. Собственная Samsung-вкладка
+1409 закрыта. Это не ошибка normal Engine и не результат shader gate.
+
+Повтор 69261 исправил инициализацию: Adreno 650, восемь реальных программ,
+15 salted compile/link успешны. Однако fixture создал screen buffer без данных
+fullscreen quad. Во всех восьми случаях входная mobile-alpha mass 178310,
+выходная 0, GL0. Поэтому нулевые различия P/C/composition **отозваны**: это
+сравнение пустых выходов, не доказательство. Обязательный ADD-effect assert
+завершил запуск EXIT1; собственная вкладка закрыта finally. Raw сохранён в
+`temp/zero-cost-flux/hardware/results-root-add-mixed-retry1/report.json`.
+
+Следующий fixture использует те же fullscreen vertices, что успешный full-field
+checkpoint runner, и требует ненулевую массу P и C до сравнений. Tracked runtime
+57713c66 не менялся. Natural Room helper подготовлен отдельно: реальные native
+pointer/rAF две краски на одном wet wash, проверка paints>1 и фактического mode16.
+Он пока не запущен и не считается аппаратным доказательством Room mixed route.
