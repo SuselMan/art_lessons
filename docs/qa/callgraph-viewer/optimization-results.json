@@ -1,0 +1,64 @@
+{
+  "source": "ffd3fdc8",
+  "baseline": "6aa14a43",
+  "status": "Surface canonical replay byte parity passed; performance gain not established",
+  "changes": [
+    {
+      "commit": "75f10444",
+      "methods": [
+        "GL.texImage2D",
+        "Engine._display"
+      ],
+      "change": "Stable-size wet overlay texture upload",
+      "verification": "exact uploaded bytes CPU; Surface full canonical RGBA replay"
+    },
+    {
+      "commit": "df1d8098",
+      "methods": [
+        "Buffer.copyTo",
+        "GL.texImage2D",
+        "Buffer.readPixels"
+      ],
+      "change": "Same-size RGBA storage copy/full restore",
+      "verification": "Surface raw independent RGBA copy/restore POT/NPOT linear/nearest; full replay"
+    },
+    {
+      "commit": "ffd3fdc8",
+      "methods": [
+        "Engine._diffuseFieldFor",
+        "Plan.prepare",
+        "Buffer.clear",
+        "GL.clear",
+        "Queue.start"
+      ],
+      "change": "Remove five repeated reused-field clears before mandatory capture clears",
+      "verification": "Read-before-clear invariant tests; Surface exact whole replay"
+    }
+  ],
+  "parity": {
+    "sha": "686485f844beb52585d647efeab53f8f9766616bf381efaa535bce893ea57944",
+    "visible": 1130425,
+    "gl": 0,
+    "scope": "same immutable2stroke journal; NO full device/undo/contextloss coverage claim"
+  },
+  "measurements": [
+    {
+      "version": "baseline",
+      "activeMax": 50,
+      "tailMax": 617,
+      "nextHandlerMs": 121.70000004768372
+    },
+    {
+      "version": "candidate",
+      "activeMax": 50,
+      "tailMax": 617,
+      "nextHandlerMs": 132.19999998807907
+    }
+  ],
+  "limitations": [
+    "One instrumented run per arm, scripted RAF input creates slightly different live dab counts; not statistical benchmark.",
+    "No performance improvement established: tail617ms both, next handler121.7→132.2ms.",
+    "Full undo/redo/contextloss/multiuser and Samsung checks pending.",
+    "Other method proposals remain unimplemented; some marked no-change in audit."
+  ]
+}
