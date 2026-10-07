@@ -739,3 +739,49 @@ describe('restore prefix precedes live tail source reads while display is suspen
     engine.destroy(); source.destroy()
   })
 })
+
+
+describe('covered snapshot history mutation (#728)', () => {
+  it('undoes a covered stroke after its complete original prefix has been backfilled', async () => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4, opacity: 0.5 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4, opacity: 0.5 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const tiles = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L', 'safe']); reader.restoreLayerFromSnapshot('L', tiles, 2)
+    reader.restoreLayerFromSnapshot('safe', tiles, 2)
+    const safeBefore = readLayerPixels(reader, 'safe')
+    await reader.restoreHistoricalOperations([one, two])
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
+    const undo: OperationUndoOperation = { id: 'covered-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }
+    source.appendOperation(undo, 'remote'); reader.appendOperation(undo, 'remote')
+    expect(reader['_log'].entries.find(e => e.op.id === two.id)?.state).toBe('undone')
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
+    expect(readLayerPixels(reader, 'safe')).toEqual(safeBefore)
+    const redo: OperationRedoOperation = { id: 'covered-redo', type: 'operation_redo', userId: 'A', timestamp: 4, seq: 4, targetOpId: two.id }
+    source.appendOperation(redo, 'remote'); reader.appendOperation(redo, 'remote')
+    expect(readLayerPixels(reader, 'L')).toEqual(readLayerPixels(source, 'L'))
+    expect(reader.bakeNetworkSnapshot('L')).not.toBeNull()
+    source.destroy(); reader.destroy()
+  })
+  it('keeps the only baked base when original history is incomplete', async () => {
+    const source = createTestEngine({ userId: 'A' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['L'])
+    const one = makeStroke('A', 'L', [dab(2, 4, { size: 4 })], { seq: 1 })
+    const two = makeStroke('A', 'L', [dab(6, 4, { size: 4 })], { seq: 2 })
+    source.appendOperation(one, 'remote'); source.appendOperation(two, 'remote')
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['L']); reader.restoreLayerFromSnapshot('L', decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles, 2)
+    await reader.restoreHistoricalOperations([two])
+    reader.appendOperation({ id: 'incomplete-undo', type: 'operation_undo', userId: 'A', timestamp: 3, seq: 3, targetOpId: two.id }, 'remote')
+    // Safety only: this case still requires fetching a complete prefix before
+    // the covered Undo can be physically repaired. It must not silently wipe
+    // the unavailable first stroke by discarding its only base.
+    expect(reader['_checkpoints'].hasSnapshotFor('L')).toBe(true)
+    expect(reader['_snapshots'].hasCoverage('L')).toBe(true)
+    source.destroy(); reader.destroy()
+  })
+
+})

@@ -76,6 +76,11 @@ export class SnapshotLedger {
     return covered !== undefined && seq !== undefined && seq <= covered
   }
 
+  /** Full authoritative history replaces a stale baked base. */
+  forgetCoverage(layerId: string): void {
+    this.coverage.delete(layerId)
+  }
+
   /** (#522) Publishing this layer would overwrite the room's record of it
    *  with less than it has. */
   refusePublishing(layerId: string): void {

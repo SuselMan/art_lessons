@@ -4107,6 +4107,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     if (this._contextLost || this.gl.isContextLost()) return
+    this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(op), op.id)
     switch (op.type) {
       // (#520) Every layer of the gesture, not only this operation's own:
       // undo/redo flip a whole gesture at once (OperationLog._gestureEntries),
