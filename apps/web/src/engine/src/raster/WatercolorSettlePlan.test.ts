@@ -382,7 +382,7 @@ for (const enabled of [false, true]) for (const hasSolvent of [false, true]) {
 }
 
 describe('opt-in split continuation quanta', () => {
-  function run(split: boolean, abortPreview = false, abortBeforeTile = false, ownerLocked = true, scheduler: 'iterate' | 'advance' | 'complete' = 'iterate') {
+  function run(split: boolean, abortPreview = false, abortBeforeTile = false, ownerLocked = true, scheduler: 'iterate' | 'advance' | 'complete' = 'iterate', cancelInPreview = false) {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     const probe = engine as unknown as Probe
     probe._settlePlan.splitQuanta = split
@@ -391,11 +391,24 @@ describe('opt-in split continuation quanta', () => {
     scratch.getOrCreate(tile)
     scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
     const commands: string[] = []
+    const ids = new WeakMap<object, number>()
+    let nextId = 0
+    const argument = (value: unknown): unknown => {
+      if (value && typeof value === 'object') {
+        if ('copyRegionInto' in value && 'width' in value && 'height' in value) {
+          if (!ids.has(value)) ids.set(value, ++nextId)
+          return { buffer: ids.get(value), width: value.width, height: value.height }
+        }
+        if (Array.isArray(value)) return value.map(argument)
+        return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, argument(item)]))
+      }
+      return value
+    }
     const spies = ['fieldOp', 'waterFrontStep', 'diffuseStep', 'pigmentColor', 'wcResample'].map(name => {
       const key = name as 'fieldOp'
       const original = probe._watercolorPasses[key].bind(probe._watercolorPasses)
       return vi.spyOn(probe._watercolorPasses, key).mockImplementation((...args) => {
-        commands.push(name === 'fieldOp' ? `${name}:${args[3]}:${args[4]}` : name)
+        commands.push(name + ':' + JSON.stringify(args.map(argument)))
         return original(...args)
       })
     })
@@ -403,7 +416,7 @@ describe('opt-in split continuation quanta', () => {
     let previewCount = 0
     const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
       { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.2, 8, 1, 1, 1, 1, 0,
-      () => { commands.push('preview'); previewCount++; if (abortPreview) throw new Error('preview abort') }, false, ownerLocked)!
+      () => { commands.push('preview'); previewCount++; if (cancelInPreview) plan.dispose(); if (abortPreview) throw new Error('preview abort') }, false, ownerLocked)!
     const initialOps = plan.ops.length
     try {
       if (abortBeforeTile) {
@@ -457,6 +470,9 @@ describe('opt-in split continuation quanta', () => {
   })
   it('aborts between snapshot and tile without running later material or preview commands', () => {
     expect(run(true, false, true).previewCount).toBe(0)
+  })
+  it('supports synchronous cancellation from inside a running preview callback', () => {
+    expect(run(true, false, false, true, 'iterate', true).previewCount).toBe(1)
   })
   it('releases held presentation snapshots on preview failure and idempotent abort', () => {
     expect(run(true, true).previewCount).toBe(1)

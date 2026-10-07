@@ -191,6 +191,7 @@ export class WatercolorSettlePlan {
     const owned = new Set<AccumulationBuffer>()
     let disposed = false
     const presentations = new Set<Generator<void, void, unknown>>()
+    const runningPresentations = new Set<Generator<void, void, unknown>>()
     let queuedPresentation: Array<() => void> = []
     const acquireInput = (width: number, height: number): AccumulationBuffer => {
       const buffer = this.ctx.pool().acquire(width, height)
@@ -204,7 +205,7 @@ export class WatercolorSettlePlan {
     const dispose = (): void => {
       if (disposed) return
       disposed = true
-      for (const generator of presentations) generator.return()
+      for (const generator of presentations) if (!runningPresentations.has(generator)) generator.return()
       presentations.clear()
       queuedPresentation = []
       if (this._coverageOwners.delete(scratch)) scratch.releaseRunningCoverage()
@@ -575,10 +576,21 @@ export class WatercolorSettlePlan {
       const generator = reconstruct()
       if (!splitQuanta) { while (!generator.next().done) { /* Preserve synchronous OFF path. */ } return }
       presentations.add(generator)
-      try { generator.next() } catch (error) { generator.return(); presentations.delete(generator); throw error }
+      const resume = (): IteratorResult<void, void> => {
+        runningPresentations.add(generator)
+        try { return generator.next() }
+        finally {
+          runningPresentations.delete(generator)
+          // A preview callback may synchronously cancel/loss-retire the owner.
+          // Calling return() while its generator runs would throw; close it
+          // immediately after this quantum suspends instead.
+          if (disposed) { generator.return(); presentations.delete(generator) }
+        }
+      }
+      try { resume() } catch (error) { generator.return(); presentations.delete(generator); throw error }
       for (let i = 0; i <= overlaps.length; i++) queuedPresentation.push(() => {
         if (disposed) return
-        try { if (generator.next().done) presentations.delete(generator) }
+        try { if (resume().done) presentations.delete(generator) }
         catch (error) { generator.return(); presentations.delete(generator); throw error }
       })
     }
