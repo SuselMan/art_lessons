@@ -1,3 +1,5 @@
+import { prepareRibbonHalo } from './ribbonHalo'
+import { prepareRibbonGestureScalars } from './ribbonGestureScalars'
 import { prepareDrawableRibbonDabs, noteRibbonWetContacts } from './ribbonDrawable'
 import { prepareRibbonDelivery } from './ribbonDelivery'
 import { canonicalMajorRadius } from '../watercolor/canonicalRadius'
@@ -13,8 +15,8 @@ import { buildRibbonBands } from '../dabs/markerRibbon'
 import { buildRibbonBandBatch } from './ribbonBandBatch'
 import { wetAt, wetPeak } from '../paper/paperWetness'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
-import { WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, ribbonProfileFor, type RibbonProfile } from '../dabs/ribbonProfile'
-import { watercolorFerrulePx, WC_FILM_DOSE, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius, watercolorSpreadRadius } from '../presets/watercolorPresets'
+import { WATERCOLOR_SPREAD, ribbonProfileFor, type RibbonProfile } from '../dabs/ribbonProfile'
+import { WC_FILM_DOSE, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM, WATERCOLOR_HALO_DRAWN, watercolorTravelRadius } from '../presets/watercolorPresets'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { EMPTY_BANDS, rectOnTile, ribbonBandPieceCost, ribbonBandPieces, ribbonBristleCombs, ribbonWaterDelivery } from './ribbonStrokeMath'
 
@@ -366,75 +368,7 @@ export class RibbonStrokePainter {
     const landedWet = scratch.finishContext?.landedWet ?? wetAt(wetProfile, 0)
     const wetPeakHere = wetPeak(wetProfile)
     noteRibbonWetContacts(scratch, drawable, preset, wetOf)
-    const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = scratch.compositeScalars(() => {
-      // #489: the bloom is isotropic, so a nib that is not round is measured by
-      // the circle with its area rather than by either axis. Identical to the
-      // old `size * 0.5` for a round nib.
-      const first = drawable[0]
-      const firstMinor = first.size * 0.5 * preset.sizeMultiplier
-      const firstRadius = Math.max(
-        watercolorSpreadRadius(firstMinor * Math.max(first.aspectRatio, 1), firstMinor), 0.5,
-      )
-      return {
-        // (#536) No longer gated by the wetness under the landing point, and
-        // that gate was the single worst thing about wet-in-wet.
-        //
-        // The bloom used to be baked into this gesture-wide number out of the
-        // one digit under the first dab. So a brush set down *in* a puddle
-        // spread three times as far for the whole of its travel, including the
-        // dry paper it went on to cross, and a brush that started on dry paper
-        // and ran through the puddle got no bloom anywhere — "если веду с
-        // сухого через лужу на сухое, штрих ложится полностью сухим". Worse, at
-        // a 16 px cell the first dab landing in a wet cell or a dry one near the
-        // edge is close to a coin toss, which is the "иногда" in every one of
-        // those reports.
-        //
-        // The bloom is now applied per pixel in the composite, off the deposit's
-        // own record of what the paper under it was carrying (DAB_FRAG's
-        // paperWetHere). This stays the *dry* reach, i.e. the ceiling the
-        // shader scales up from where the paper was actually wet — so a stroke
-        // blooms in the puddle and stays tight either side of it, inside one
-        // mark.
-        spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
-          ? Math.min(
-            profile.spreadPx,
-            Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius),
-          )
-          : 0,
-        inkSmoothPx: 0, // resolved separately, see noteDabSpacing
-        // (#468 v11) How far one exchange moves pigment. A constant of the
-        // gesture for exactly the reason every other scalar here is one: the
-        // composite recomputes whole rects, so whichever batch wrote a pixel
-        // last would otherwise decide how far its paint had travelled.
-        migratePx: profile.migrate > 0 && profile.migrateOfRadius > 0
-          ? Math.min(
-            WATERCOLOR_MIGRATION.maxPx,
-            Math.max(WATERCOLOR_MIGRATION.minPx, firstRadius * profile.migrateOfRadius),
-          )
-          : 0,
-        // The fallback the composite uses outside the mark, where there is no
-        // deposit to read a per-pixel level from. The stroke's starting load,
-        // not its current one, for the same no-seams reason.
-        water: profile.waterLevel,
-        fieldSeed: [drawable[0].x, drawable[0].y],
-        // (#536) A constant of the gesture like every other scalar here, so
-        // the hair does not change frequency between a live batch and the
-        // final recomposite.
-        // The nib's *long* axis, not the equal-area radius. A flat brush is a
-        // row of hairs held in a ferrule, and the ferrule's width is the long
-        // axis: measured by area it came out as a couple of bundles and read
-        // as broad waves rather than as hair, which is what "на chisel не вижу
-        // щетинки" was. For a round nib the two are the same number.
-        //
-        // (#536) …and the ferrule, not this footprint: the first dab of a
-        // gesture carries both the pressure it was begun with and the head
-        // taper, and on a small brush those two together cost most of the hair.
-        // See watercolorFerrulePx.
-        bristleRadiusPx: watercolorFerrulePx(
-          firstMinor, first.aspectRatio, first.pressure, presetName,
-        ),
-      }
-    })
+    const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = scratch.compositeScalars(() => prepareRibbonGestureScalars(drawable[0], preset, profile, presetName))
 
     // (#468 v4, ADR 011 §4.4) The composite rect a *live* batch redraws, padded
     // past the dabs it just painted.
@@ -585,44 +519,10 @@ export class RibbonStrokePainter {
     // copies carry over every per-dab reading of the original, so the bands
     // and stamps of the halo agree with the mark's own about water, hair
     // direction and paper.
-    const haloDabs: Dab[] = []
-    const haloDoseByDab = new Map<Dab, number>()
-    /** What each ORIGINAL dab gave up to its halo, so the core is laid lighter
-     *  by exactly that share — conservation, and the "dissolves in water" feel. */
-    const haloShedByDab = new Map<Dab, number>()
-    let anyHalo = false
-    // A flat disc, not the tool's cone. The ink stamp is a cone that is zero at
-    // the nib's rim (inkEdgeFalloff 0 — see the shader's mix(u_inkEdge, 1, depth)),
-    // so a stamp merely made wider puts only the cone's outer slope over the
-    // ring that is the halo: measured on a replay of Ilya's own stroke through
-    // the density view, a halo 2.9x wider at nearly full dose registered at a
-    // few per cent of the core. The halo is a plateau of migrated pigment, and
-    // a plateau is what this profile lays.
     const haloProfile: RibbonProfile = { ...profile, inkEdgeFalloff: 1 }
-    if (profile.normalizeDeposit) {
-      for (const dab of drawable) {
-        const { scale, shed, wet } = watercolorHalo(paperWetByDab.get(dab) ?? 0, waterByDab.get(dab) ?? 0)
-        // Past the composite's bloom, not merely past the dab — see
-        // WATERCOLOR_HALO_PAST_BLOOM. spreadPx is the gesture's reach in world
-        // px and dab.size is a diameter, hence the factor of two.
-        const grown: Dab = { ...dab, size: dab.size * scale + 2 * WATERCOLOR_HALO_PAST_BLOOM * spreadPx * wet }
-        haloDabs.push(grown)
-        // The shed share as the halo stamp's dose, un-compensated for the wider
-        // radius on purpose — see watercolorHalo on why per pixel it comes out
-        // as shed / scale, a ring's worth rather than a disc's.
-        haloDoseByDab.set(grown, shed)
-        haloShedByDab.set(dab, shed)
-        if (shed > 0) anyHalo = true
-        const across = acrossByDab.get(dab)
-        if (across) acrossByDab.set(grown, across)
-        waterByDab.set(grown, waterByDab.get(dab) ?? 0)
-        pigmentByDab.set(grown, pigmentByDab.get(dab) ?? 1)
-        pigmentPoolByDab.set(grown, pigmentPoolByDab.get(dab) ?? 0.5)
-        excessByDab.set(grown, excessByDab.get(dab) ?? 1)
-        puddleByDab.set(grown, puddleByDab.get(dab) ?? 1)
-        paperWetByDab.set(grown, paperWetByDab.get(dab) ?? 0)
-      }
-    }
+    const { haloDabs, haloDoseByDab, haloShedByDab, anyHalo } = prepareRibbonHalo(drawable, spreadPx, profile.normalizeDeposit, {
+      waterByDab, pigmentByDab, pigmentPoolByDab, excessByDab, puddleByDab, paperWetByDab, acrossByDab,
+    })
 
     // Bands share the stamps' scale, or they would swamp it: the two overlap
     // almost everywhere and each carries half a dose, so a band still on the
