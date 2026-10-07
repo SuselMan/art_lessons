@@ -43,6 +43,8 @@ export class WatercolorSettlePlan {
   diagnosticPlateauPhase = false
   /** Extra conservative zero-face flow; literal legacy carry still runs. */
   diagnosticAdditiveZeroFaces = false
+  /** Requires the caller's full layer/snapshot/live-stream zero proof; default OFF. */
+  diagnosticPureWaterPlan = false
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   splitQuanta = false
@@ -121,6 +123,8 @@ export class WatercolorSettlePlan {
     const metadata = finishMetadata ?? scratch
     const splitQuanta = this.splitQuanta && presentationOwnerLocked
     const lazyContacts = this.lazyContacts && presentationOwnerLocked
+    // Never infer zero from water/preset alone: water can remobilize old paint.
+    const pureWater = this.diagnosticPureWaterPlan && skipZeroPigmentContacts && scratch.pigmentInputsKnownZero
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
     // The rect: the settle's bounds plus the reach, clipped to the tiles that
@@ -893,13 +897,33 @@ export class WatercolorSettlePlan {
     // The deposit's spare: the colour record's deposit buffer once the
     // record is split (its mobile part lives in cc from the first op on),
     // else the unused cc.
-    const dep = settle(field.a, field.b, field.c, true, colour ? field.ca : field.cc)
+    let dep: { out: AccumulationBuffer }
+    if (pureWater) {
+      // Keep the original front inputs and every water draw. Its temporary a
+      // becomes COST even with zero P; it must not become a pigment result.
+      ops.push(() => {
+        fieldOp(field.c, field.a, field.b, 0, mobileShare)
+        this.ctx.passes().fieldOp(field.band, field.b, field.b, 4, 0.002)
+        fieldOp(field.b, field.a, field.c, 1, -1)
+      })
+      frontOps(field.c, field.a)
+      ops.push(() => {
+        // The proof covers P/C, not arbitrary previously pooled temporaries.
+        // Explicitly retire the front's COST alias before exposing zero paint.
+        field.a.clear()
+        field.c.clear()
+        field.cc.clear()
+        present(field.c, null, field.cc)
+      })
+      dep = { out: field.c }
+    } else dep = settle(field.a, field.b, field.c, true, colour ? field.ca : field.cc)
     // (#536, §17.20) One paint so far: its colour record is its deposit's
     // mass times one absorption everywhere, so it is rebuilt from the moved
     // deposit in a single pass instead of carried through the schedule
     // again — half the settle's cost, which was "всё это дело притормаживает".
     let col: { out: AccumulationBuffer }
-    if (metadata.paints.size <= 1) {
+    if (pureWater) col = { out: field.cc }
+    else if (metadata.paints.size <= 1) {
       const only = [...metadata.paints][0]
       const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
       col = { out: field.cc }
@@ -987,7 +1011,7 @@ export class WatercolorSettlePlan {
       const dc = metadata.dryCtx
       this.groupTideOps(
         ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0) / S, Math.max(standing, dc?.standing ?? 0), metadata.paints,
-        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S,
+        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S, pureWater,
       )
       dry = { dep: dryDep, col: dryCol }
     }
@@ -1163,6 +1187,8 @@ export class WatercolorSettlePlan {
     free: [AccumulationBuffer, AccumulationBuffer, AccumulationBuffer],
     /** (§17.44) World px per field cell; radiusPx is in cells already. */
     scale = 1,
+    /** Captured full P/C-zero proof from prepare; never guessed from colour/standing. */
+    zeroPigment = false,
   ): void {
     // (§17.44) A world width in cells - see the settle's own `width`.
     const width = Math.max(1, Math.round(Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx * scale / 5))) / scale))
@@ -1219,6 +1245,12 @@ export class WatercolorSettlePlan {
       })
       blurTo(field.mask, field.band, t1, t3)
     })
+    if (zeroPigment) {
+      // Geometry above is unchanged. Its temporaries contain COST, not paint;
+      // no zero-input pigment tide may expose those as a dry deposit/colour.
+      ops.push(() => { outDep.clear(); outCol.clear() })
+      return
+    }
     // The tide: `share` of ALL the paint inside (mode 7 by band .g, the whole
     // union) gathered onto the band (mode 14) - the deposit and, with two
     // paints or more, the colour record by the same fractions.

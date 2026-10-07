@@ -738,3 +738,124 @@ for (const enabled of [false, true]) for (const wet of [0, 1]) {
     } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
   })
 }
+
+describe('diagnostic pure-water plan', () => {
+  function run(enabled: boolean, proof: boolean, knownZero: boolean, opDry = false, mixed = false) {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    probe._wcAb.opDry = opDry
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.filmBuffers(tile); scratch.solventFilm(tile)
+    scratch.paints.add('1,0,0')
+    if (mixed) scratch.paints.add('0,0,1')
+    scratch.pigmentInputsKnownZero = knownZero
+    scratch.brushTravel = [{ x: 32, y: 32, radius: 20, aspect: 1, angle: 0, dx: 15, dy: 0, water: 1 }]
+    const passes = probe._watercolorPasses
+    const modes: number[] = [], water: Array<unknown[]> = []
+    const field = vi.spyOn(passes, 'fieldOp'), diffuse = vi.spyOn(passes, 'diffuseStep')
+    const pigment = vi.spyOn(passes, 'pigmentColor'), contacts = vi.spyOn(passes, 'brushPass')
+    const front = vi.spyOn(passes, 'waterFrontStep')
+    const tide = vi.spyOn(probe._settlePlan, 'groupTideOps')
+    probe._settlePlan.diagnosticPureWaterPlan = enabled
+    try {
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 12, minY: 12, maxX: 52, maxY: 52 }, .2, 20, 1, 1, 1, 1, 0, undefined, proof)!
+      expect(plan).not.toBeNull()
+      for (const op of plan.ops) op()
+      plan.finish()
+      for (const call of field.mock.calls) modes.push(call[3])
+      // Water-front scalar/geometry order is invariant; buffer identities differ per engine.
+      for (const call of front.mock.calls) water.push([call[1], call[2], call[3], ...call.slice(6)])
+      return { modes, water, diffuse: diffuse.mock.calls.length, pigment: pigment.mock.calls.length,
+        contacts: contacts.mock.calls.length, tide: tide.mock.calls.length, domain: plan.compositeDomain }
+    } finally {
+      vi.restoreAllMocks(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  }
+  for (const opDry of [false, true]) for (const mixed of [false, true]) {
+    it(`keeps all water/front steps without pigment transport (${opDry}/${mixed})`, () => {
+      const off = run(false, true, true, opDry, mixed), on = run(true, true, true, opDry, mixed)
+      expect(on.water).toEqual(off.water)
+      expect(on.water.length).toBeGreaterThan(0)
+      expect(on.domain).toEqual(off.domain)
+      expect(off.diffuse).toBeGreaterThan(0)
+      expect(off.modes).toContain(15)
+      expect(on.diffuse).toBe(0); expect(on.pigment).toBe(0)
+      expect(on.contacts).toBe(0); expect(on.tide).toBe(opDry ? 0 : 1)
+      expect(on.modes).not.toContain(15); expect(on.modes).not.toContain(16)
+      expect(on.modes).not.toContain(18)
+      expect(on.modes).toContain(10); expect(on.modes).toContain(11); expect(on.modes).toContain(20)
+    })
+  }
+  for (const [proof, known] of [[false, true], [true, false], [false, false]]) {
+    it(`retains ordinary command order when proof is missing (${proof}/${known})`, () => {
+      expect(run(true, proof, known, false, true)).toEqual(run(false, proof, known, false, true))
+    })
+  }
+  it('retires COST alias and stale colour before zero landing; following paint takes ordinary path', () => {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.filmBuffers(tile); scratch.solventFilm(tile); scratch.paints.add('1,0,0')
+    const ctx = (probe._settlePlan as unknown as { ctx: { fieldFor(w: number, h: number): SettleField } }).ctx
+    const field = ctx.fieldFor(64, 64)
+    const acquire = vi.spyOn(ctx, 'fieldFor').mockReturnValue(field)
+    const resetA = vi.spyOn(field.a, 'clear'), resetC = vi.spyOn(field.c, 'clear'), resetColour = vi.spyOn(field.cc, 'clear')
+    const front = vi.spyOn(probe._watercolorPasses, 'waterFrontStep')
+    const diffuse = vi.spyOn(probe._watercolorPasses, 'diffuseStep')
+    const writes = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    probe._settlePlan.diagnosticPureWaterPlan = true
+    try {
+      const targets = [{ buffer: tile, originX: 0, originY: 0, contentRect: null }]
+      const bounds = { minX: 12, minY: 12, maxX: 52, maxY: 52 }
+      const zero = probe._settlePlan.prepare(scratch, targets, bounds, 0, 20, 1, 0, 1, 0, 0, undefined, true)!
+      zero.ops.forEach(op => op()); zero.finish()
+      const lastFront = Math.max(...front.mock.invocationCallOrder)
+      expect(resetA.mock.invocationCallOrder.at(-1)).toBeGreaterThan(lastFront)
+      expect(resetC.mock.invocationCallOrder.at(-1)).toBeGreaterThan(front.mock.invocationCallOrder[0])
+      expect(resetColour.mock.invocationCallOrder.at(-1)).toBeGreaterThan(front.mock.invocationCallOrder[0])
+      // Group tide's inward geometry runs later but must never overwrite either wet P/C result.
+      for (let i = 0; i < writes.mock.calls.length; i++) {
+        if (writes.mock.calls[i][0] === field.c) expect(writes.mock.invocationCallOrder[i]).toBeLessThan(resetC.mock.invocationCallOrder.at(-1)!)
+        if (writes.mock.calls[i][0] === field.cc) expect(writes.mock.invocationCallOrder[i]).toBeLessThan(resetColour.mock.invocationCallOrder.at(-1)!)
+      }
+      expect(diffuse).not.toHaveBeenCalled()
+      scratch.pigmentInputsKnownZero = false
+      scratch.newFilm(); scratch.filmBuffers(tile)
+      const paint = probe._settlePlan.prepare(scratch, targets, bounds, 0, 20, 1, 0, 1, 0, 0, undefined, false)!
+      paint.ops.forEach(op => op()); paint.finish()
+      expect(diffuse).toHaveBeenCalled()
+    } finally {
+      acquire.mockRestore(); vi.restoreAllMocks(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  })
+})
+
+it('captures pure-water permission at prepare and forgets owned inputs without dead-context release', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.filmBuffers(tile); scratch.solventFilm(tile); scratch.paints.add('1,0,0')
+  const passes = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+  const diffuse = vi.spyOn(probe._watercolorPasses, 'diffuseStep')
+  try {
+    probe._settlePlan.diagnosticPureWaterPlan = true
+    const job = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 12, minY: 12, maxX: 52, maxY: 52 }, 0, 20, 1, 0, 1, 0, 0, undefined, true)!
+    job.ops[0]()
+    // Later UI/gesture state cannot change a captured canonical permission.
+    probe._settlePlan.diagnosticPureWaterPlan = false
+    scratch.pigmentInputsKnownZero = false
+    job.ops.slice(1).forEach(op => op())
+    expect(diffuse).not.toHaveBeenCalled()
+    expect(passes.mock.calls.some(call => call[3] === 15 || call[3] === 16)).toBe(false)
+    const release = vi.spyOn(probe._ribbonScratchPool, 'release')
+    probe._settlePlan.forgetTextures()
+    release.mockClear()
+    job.dispose(); job.dispose(); job.finish()
+    expect(release).not.toHaveBeenCalled()
+  } finally { vi.restoreAllMocks(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+})
