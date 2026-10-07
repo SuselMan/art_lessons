@@ -89,3 +89,32 @@ Typed `joinedTouch` defaultfalse устанавливается конструк
 41114 EXIT0/CLOSED: same-source OFF/ON, ordinary Room brush400, два фиксированных native pointer tapes, один RGB/preset. Hot secondDOWN GPU completion upperbound546.8→10.2ms, CPU9.7→8.0ms, readwait536.9→2.2ms; penUP56.8→52.5ms в этом прогоне. Ранний70 показывал penUP61.6→106.4ms, поэтому перенос общего барьера остаётся риском, а один быстрый UP не означает общего исправления плавности.
 
 24 полных buffer SHA exact, meaningful P/C/V/coverage; whole transparentRGBA SHA exact,287989 purple pixels обеих сторон, GL0/lostfalse. Material diff paths пусты после исключения только id/userId/layerId/outertimestamp/seq; wet/preset/RGB/packed dabs/times/strokeId/washId совпадают. Raw `728-one-band-room/temp/band-room/joined-fixed-result.json`, root inspected independently. Это не физическое аппаратное перо и не браузерный timestamp презентации; readPixels после DOWN измеряет upperbound готовности framebuffer. UIDry/UndoRedo/fresh/peer и другие GPU ещё обязательны.
+### Следующая CPU-ступень: вода → пигмент / другой RGB
+
+Отдельный `_wcJoinedTouchMixed=false` допускает изменение watercolor preset/RGB
+только при наличии захваченного `RibbonCanonicalFinish` предыдущего job.
+Захват происходит до будущего `beginStroke`: finish/color, paints, gesture,
+foreign/contact inputs, composite/spacing/direction принадлежат старому job.
+Plan получает собственную копию объединённого dryCtx после fold bounds.
+Новый source deposition использует новый профиль и сохраняется существующим
+immutable source recorder; старый land затем выполняет прежний ordered rebase.
+Дополнительных GPU-команд сам захват не создаёт. Legacy OFF путь не захватывает
+этот контекст и сохраняет прежнее ограничение одинакового preset/RGB.
+
+Сохраняются одна lease/один будущий film, точное совпадение scratch/layer/wash,
+sourceFilmRebase ON, async/material/split OFF, прежние loss/export/checkpoint
+границы. UP всё ещё является барьером. Другая layer/new wash не допускается.
+CPU-тест использует настоящие source calls для чистой воды → красный пигмент и
+старого пигмента → другой RGB; проверяет неизменность старых metadata и наличие
+новых source commands. Это не доказательство GPU P/C/V parity или ускорения:
+следующий обязательный gate — одинаковая material tape/wet metadata, полный
+native/replay P/C/V/coverage и Dry/UndoRedo на железе.
+
+CPU результаты mixed-кандидата: 101 тест / 3 файла PASS (joinedTouch,
+coverageFilm, watercolor), затем усиленные mixed recorder/export/loss 16 / 2
+PASS и финальный gesture identity guard 10 / 1 PASS. Whole-web TypeScript exit0.
+Логи: `temp/pure-water-plan/causal-trace/joined-mixed-{final-tests,recorder-tests,final-guard-tests,types}.log`.
+Ни одна пользовательская сборка не изменена, аппаратного результата у этого
+mixed-кандидата ещё нет. При переносе сохранить root typed `qaJoinedTouch`
+constructor option; данный коммит содержит только расширение диагностического
+private gate, не включение продуктового пути.
