@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>GPU method tape</title>
+<style>body{font:16px system-ui;background:#eee;margin:24px}canvas{max-width:100%}pre{white-space:pre-wrap}</style>
+<h1>GPU method tape</h1><select id="scenario"><option>zigzag</option><option>puddle</option></select>
+<select id="paper"><option>flat</option><option>fine</option></select>
+<label>Every Nth <input id="nth" type="number" min="1" value="8"></label><button id="start">Run baseline + sampled</button>
+<button id="download">Download JSON</button><div id="surface"></div><pre id="output"></pre>
+<script type="module">
+import { GpuMethodTimer } from './timer.mjs';
+const engineUrl = new URL(new URLSearchParams(location.search).get('engine') || '../engine-webgl2-standalone/run.js', location.href);
+const engine = await import(engineUrl.href); let result;
+window.runGpuMethodTape = async (options = {}) => {
+ const config = {backend:'webgl1',scenario:document.querySelector('#scenario').value,paper:document.querySelector('#paper').value,...options};
+ const out = document.querySelector('#output'); out.textContent = 'Running baseline…';
+ const baseline = await engine.runPrototype(config); engine.disposePrototype();
+ let timer, instance, raf; const prior = Object.getOwnPropertyDescriptor(window,'__prototypeEngine');
+ Object.defineProperty(window,'__prototypeEngine',{configurable:true,get:()=>instance,set:e=>{
+   instance=e; const passes=e._watercolorPasses; const gl=passes.gl || passes._gl || e.gl || e._gl;
+   if (!gl) throw new Error('Cannot find actual engine GL context');
+   timer=new GpuMethodTimer(gl,{everyNth:Number(options.everyNth || document.querySelector('#nth').value)});
+   timer.wrap(passes,['brushPass','waterFrontStep','diffuseStep','fieldOp']);
+ }});
+ const poll=()=>{timer?.poll();raf=requestAnimationFrame(poll)};raf=requestAnimationFrame(poll);
+ try {
+   out.textContent='Running sampled tape…'; const measured=await engine.runPrototype(config);
+   const deadline=performance.now()+16000;
+   while(timer?.pending.length && performance.now()<deadline) await new Promise(requestAnimationFrame);
+   timer?.poll('Drain deadline');
+   const keys=['tapeSha256','code','operations','materialWholeLayer','rgbaSha256','exportSize','undo','redo'];
+   const parity=Object.fromEntries(keys.map(k=>[k,JSON.stringify(baseline[k])===JSON.stringify(measured[k])]));
+   result={config,baseline,measured,parity,valid: Object.values(parity).every(Boolean)&&!baseline.lost&&!measured.lost&&baseline.glError===0&&measured.glError===0,timer:timer?.report(),engineUrl:engineUrl.href};
+   out.textContent=JSON.stringify(result,null,2); return result;
+ } finally {cancelAnimationFrame(raf);timer?.dispose();engine.disposePrototype();if(prior)Object.defineProperty(window,'__prototypeEngine',prior);else delete window.__prototypeEngine;}
+};
+document.querySelector('#start').onclick=()=>window.runGpuMethodTape().catch(e=>document.querySelector('#output').textContent=e.stack);
+document.querySelector('#download').onclick=()=>{if(!result)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json'}));a.download='gpu-method-tape.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+</script>
