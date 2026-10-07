@@ -2412,6 +2412,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  layer missing from the snapshot's structure is therefore one the structure
    *  outlived, never one created after it. */
   setBaseLayers(ids: readonly string[]): void {
+    this._replayRestoredStructure = false
     const next = new Set(ids)
     for (const id of this._baseLayerIds) {
       if (!next.has(id)) this._destroyBuffer(id)
