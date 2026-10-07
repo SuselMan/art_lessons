@@ -7654,9 +7654,29 @@ export class PencilEngine implements PencilEngineAPI {
     return this._gpuBudget !== Infinity && this._washGpuBytes() > this._gpuBudget * GPU_HARD_CEILING
   }
   private _cancelSettle(): void {
+    const lost = this._contextLost || this.gl.isContextLost()
+    // Cancelling an unrelated history action can interrupt accepted material.
+    // Its transient reveal cannot become the new canonical endpoint: recover
+    // only the interrupted physical targets from their journal afterwards.
+    if (this._wcAsyncFinish && !lost && !this._destroyed) {
+      const targets = new Set<ILayerBuffer>()
+      for (const scratch of this._wcAsyncOwners.keys()) {
+        const target = scratch.finishContext?.target
+        if (target) targets.add(target)
+      }
+      for (const held of this._wcAsyncLocalTools.values()) if (held.queued > 0) {
+        for (const id of held.layers.keys()) { const buffer = this._layers.get(id); if (buffer) targets.add(buffer) }
+      }
+      const target = this._settle?.scratch.finishContext?.target
+      if (target) targets.add(target)
+      for (const [id, buffer] of this._layers) if (targets.has(buffer)) {
+        this._unsettledLayers.add(id)
+        if (this._wash?.layerId === id) this._clearWash(false)
+      }
+    }
     this._settleQueue.cancel()
-    this._wcCanonical.cancel(this._contextLost || this.gl.isContextLost())
-    this._clearAsyncPresentations(this._contextLost || this.gl.isContextLost())
+    this._wcCanonical.cancel(lost)
+    this._clearAsyncPresentations(lost)
   }
 
   /** The diffusion's stitched field, at least `w` × `h`.
