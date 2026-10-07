@@ -255,8 +255,9 @@ export class WatercolorPasses {
   diffuseStep(
     field: WatercolorPassField, x0: number, y0: number, S: number, paperTexW: number, paperTexH: number,
     src: AccumulationBuffer, dst: AccumulationBuffer, radius: number, knight: boolean, gate: AccumulationBuffer,
-    density: AccumulationBuffer = src,
-    solvent: AccumulationBuffer | null = null,
+    // Preserve the settle caller signature; these records no longer gate diffusion.
+    _density: AccumulationBuffer = src,
+    _solvent: AccumulationBuffer | null = null,
   ): void {
     const { gl } = this
     dst.beginReplaceDraw()
@@ -274,13 +275,6 @@ export class WatercolorPasses {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this.ctx.paperTex())
     gl.uniform1i(u.u_paperHeightMap, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, density.texture)
-    gl.uniform1i(u.u_density, 3)
-    gl.activeTexture(gl.TEXTURE4)
-    gl.bindTexture(gl.TEXTURE_2D, (solvent ?? density).texture)
-    gl.uniform1i(u.u_solvent, 4)
-    gl.uniform1f(u.u_useSolvent, solvent ? 1 : 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform2f(u.u_resolution, field.w, field.h)
     // The paper at the world position of a texel. A tile passes
@@ -454,7 +448,7 @@ export class WatercolorPasses {
       'u_climb', 'u_floor', 'u_costMax', 'u_film', 'u_dryCost', 'u_stride', 'u_foreignFilm', 'u_foreignWet',
     ])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
-      'u_ink', 'u_density', 'u_solvent', 'u_useSolvent', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
+      'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
       'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
     ])
   }
