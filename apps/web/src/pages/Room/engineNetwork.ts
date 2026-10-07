@@ -110,9 +110,9 @@ export function createEngineNetworkCallbacks({
         ...liveTiming(packet.dabs),
       })
     },
-    onLiveStrokeEnd: strokeId => {
+    onLiveStrokeEnd: (strokeId, cancelled) => {
       if (editingBlockedRef.current) return
-      sendLiveEnd({ strokeId })
+      sendLiveEnd({ strokeId, ...(cancelled === true ? { cancelled: true } : {}) })
     },
   }
 }

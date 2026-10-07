@@ -45,3 +45,34 @@ Mid-pen CPU correction sends matching live-end once when cancelling the async no
 `results-wc-underpen` on47f1 passed exit0/finallyClosed. Physical1800×1200, size32; ordinary native PointerInput crossed the unchanged1100px spatial threshold. Stroke rIwyLyE1jB had confirmed chunk1vfF3BF2bn before local Undo. Layer remained layer-1 and Undo returnednull under the active pen (existing guard, not cancellation). Pen-up emitted one matching live-end and recorded second chunk gqOU0Sc6Dq. Both accepted chunks survived ACK/idle; strict peer whole1800×1200RGBA after pen-up and subsequent Redo exact0/max0, GL0. No private chunk flush or changed threshold was used.
 
 Strengthened `results-nonwc-guard` also passed: immediately before Undo, pencil stroke0LUz6cHJ-d retained matching active layer and held-preview identity, no end callback yet. Undo returnednull; ordinary up then emitted one live-end and recorded tail operation wGRYmcy5Ee. Strict peer endpoints exact0/GL0. Thus previous apparent cancellation was ordinary guarded input followed by normal pen-up; helper cancellation correctness remains a CPU/lifecycle contract, not an observed local-Undo cancellation path.
+
+## Scoped ephemeral cancellation: CPU gate
+
+The reachable remote-history case (`results-remote-midpen`, room AX5TWblh,
+source 47f1d339) applied B's layer-add Undo while A's pencil tail was active.
+A emitted one end and cancelled the unrecorded tail. B retained an ended live
+claim (`paintedTotal=1`, `committedOffset=0`) awaiting an operation that would
+never exist. The 120 s idle barrier failed; the owned Chrome closed. This is
+separate from the guarded local Undo cases above.
+
+The proposed optional `cancelled: true` travels through shared protocol,
+server strict-boolean normalization, Room sender/receiver and Engine. It
+retires only the matching author/stroke preview and its affected-layer repair
+provenance. Accepted journal chunks and late confirmed operations are retained.
+Normal end before ACK still waits for its confirmed operation. Recovery waits
+for canonical owners, local pen and unrelated live claims, then rebuilds the
+changed layer from the authoritative journal; it does not merely hide pixels.
+
+Socket.io preserves packet/end order on each connection. A bounded 64-entry
+scoped tombstone set additionally rejects delayed duplicate live packets, while
+cancelled FIFO closures remain inert. Scene reset/restore clears tombstones;
+clear, layer removal/replacement and completed replay retire repair flags.
+Lost-context cleanup does not delete invalid GL handles.
+
+CPU gate: 83 tests in six files passed (22.42 s), including normal end before
+ACK, accepted prefix plus cancelled tail with exact MockGL endpoint, late
+confirmed operation, unrelated active pen/canonical owner, lost queued preview,
+strict server normalization, late packet and reset/clear/replay lifecycle.
+Logs: `temp/async-multiplayer/cancel-final-lifecycle.log` and final types/lint/map
+logs. This section makes no post-fix hardware or production claim; the ordinary
+Room retry requires matching updated frontend and backend.

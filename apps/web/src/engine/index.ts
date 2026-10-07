@@ -321,7 +321,7 @@ export interface PencilEngineOptions {
   // (#429) The pen came up on a locally-drawn stroke. Peers use it to close
   // their bookkeeping for the gesture without waiting for the operation, which
   // arrives later and, for a frozen or rejected author, may never arrive.
-  onLiveStrokeEnd?: (strokeId: string) => void
+  onLiveStrokeEnd?: (strokeId: string, cancelled?: boolean) => void
   // When true, tracks per-stroke input/render timing (real pointermove/
   // coalesced-event count and gaps, WebGL paint duration) and reports it via
   // onStrokeDebugStats after each stroke. Off by default — the timing calls
@@ -1013,7 +1013,10 @@ export interface PencilEngineAPI {
   // were painted live but not yet claimed by an operation — non-zero means a
   // gesture ended without ever being recorded, and the layer needs repairing
   // from the log rather than being left with ink nothing owns.
-  endPeerLiveStroke(peerId: string, strokeId?: string): number
+  // Explicit cancelled=true removes only this user/stroke's unrecorded tail
+  // and repairs its layers from accepted history; normal end still waits for
+  // the final operation and never mistakes delayed ACK for cancellation.
+  endPeerLiveStroke(peerId: string, strokeId?: string, cancelled?: boolean): number
   // (#429) Forgets every peer's live bookkeeping at once — for a full resync,
   // where the layers are rebuilt from the log and any pre-painted ink ceases
   // to exist along with the claims against it.
@@ -1190,6 +1193,7 @@ function liveStrokeKey(peerId: string, strokeId: string, layerId: string): strin
  *  lesson. Comfortably more than the handful of gestures that can plausibly be
  *  in flight at once. */
 const MAX_LIVE_GESTURES_PER_PEER = 8
+const MAX_CANCELLED_LIVE_GESTURES = 64
 
 interface EngineOpts {
   deskColor: [number, number, number]
@@ -1475,7 +1479,7 @@ export class PencilEngine implements PencilEngineAPI {
   // last packet went out, plus when that was and how many packets this gesture
   // has sent — all three reset at pen-down.
   private _onLiveStrokeDabs?: (packet: PeerLivePacket) => void
-  private _onLiveStrokeEnd?: (strokeId: string) => void
+  private _onLiveStrokeEnd?: (strokeId: string, cancelled?: boolean) => void
   private _liveDabQueue: Dab[] = []
   private _liveLastEmitAt = 0
   private _livePacketSeq = 0
@@ -1729,6 +1733,7 @@ export class PencilEngine implements PencilEngineAPI {
   // stroke at a time, and a packet carrying a new strokeId retires the old
   // entry.
   private _peerLiveStrokes = new Map<string, PeerLiveStroke>()
+  private _cancelledPeerStreams = new Set<string>()
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
   private _revealProg!: WebGLProgram
@@ -1911,6 +1916,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  rebuilt from the log (which is in true order) as soon as nothing is being
    *  painted into it live: see _settleLayers. */
   private _unsettledLayers = new Set<string>()
+  private _cancelledPeerLayers = new Set<string>()
   /** A settle put off by an open watercolor wash — retried once it can no
    *  longer be joined. */
   private _settleRetryTimer: ReturnType<typeof setTimeout> | null = null
@@ -2717,6 +2723,8 @@ export class PencilEngine implements PencilEngineAPI {
     // duplicate checkpoints its result on the spot, and a layer already known
     // to be out of order must refuse that checkpoint (_takeCheckpoint).
     this._noteOvertaken(op, overtaken)
+    if (op.type === 'layer_clear') this._cancelledPeerLayers.delete(op.layerId)
+    else if (op.type === 'layer_delete') for (const id of op.layerIds) this._cancelledPeerLayers.delete(id)
     // The confirmed journal keeps advancing while the GPU is unavailable.
     // Restore replays that journal; interim paint must not create dead handles.
     if (lost) {
@@ -3105,13 +3113,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  it began. Each of those clears on its own (pen-up, the operation
    *  arriving, the wash drying), and each of those moments calls this again. */
   private _settleLayers(): void {
-    if (this._wcAsyncFinish && this._wcCanonical.pending && !this._contextLost && !this.gl.isContextLost()) { this._retrySettleIn(16); return }
+    if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size > 0) && !this._contextLost && !this.gl.isContextLost()) { this._retrySettleIn(16); return }
     if (this._contextLost || this.gl.isContextLost()) return
     if (!this._unsettledLayers.size || this._strokeLayerId) return
     let settled = false
     for (const layerId of [...this._unsettledLayers]) {
-      if (!this._layers.has(layerId)) { this._unsettledLayers.delete(layerId); continue }
+      if (!this._layers.has(layerId)) { this._unsettledLayers.delete(layerId); this._cancelledPeerLayers.delete(layerId); continue }
       if (this._hasUnrecordedInk(layerId)) continue
+      // An explicitly cancelled stream owes no final operation. Repair its
+      // landed tail once owners/other live ink are quiet, without waiting for
+      // the accepted wash's usual joining window.
+      if (this._cancelledPeerLayers.delete(layerId) && this._wash?.layerId === layerId) this._clearWash(false)
       const wash = this._wash
       if (wash && wash.layerId === layerId) {
         const openFor = WASH_JOIN_MS - (performance.now() - wash.endedAt)
@@ -3676,6 +3688,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
     if (this._contextLost || this.gl.isContextLost()) return
+    if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
     if (!canonicalExecution && this._wcAsyncFinish && packet.tool !== 'watercolor' && this._wcCanonical.pending && this._queueAsyncPeerLive(peerId, packet)) return
     const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
@@ -3754,7 +3767,34 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See PencilEngineAPI's doc comment. */
-  endPeerLiveStroke(peerId: string, strokeId?: string): number {
+  endPeerLiveStroke(peerId: string, strokeId?: string, cancelled = false): number {
+    if (cancelled && !strokeId) return 0
+    if (cancelled && strokeId) {
+      // Socket.io preserves packet/end order. Also reject already queued or
+      // repeated packets for recent cancellations; held FIFO closures are
+      // independently marked cancelled below. This cache is bounded.
+      this._cancelledPeerStreams.add(liveStrokeKey(peerId, strokeId, ''))
+      if (this._cancelledPeerStreams.size > MAX_CANCELLED_LIVE_GESTURES) this._cancelledPeerStreams.delete(this._cancelledPeerStreams.values().next().value!)
+      for (const [key, held] of this._wcAsyncPeerStreams) {
+        if (held.peerId !== peerId || held.strokeId !== strokeId) continue
+        held.cancelled = true
+        if (held.buf && !this._contextLost && !this.gl.isContextLost()) held.buf.destroy()
+        held.buf = null
+        this._wcAsyncPeerStreams.delete(key)
+      }
+      let orphaned = 0
+      for (const [key, live] of this._peerLiveStrokes) {
+        if (live.peerId !== peerId || live.strokeId !== strokeId) continue
+        const owed = Math.max(0, live.paintedTotal - live.committedOffset)
+        orphaned += owed
+        if (owed) { this._unsettledLayers.add(live.layerId); this._cancelledPeerLayers.add(live.layerId) }
+        this._peerLiveStrokes.delete(key)
+      }
+      this._settleLayers()
+      this._invalidateSplitCache()
+      if (!this._contextLost && !this.gl.isContextLost()) this._displayIfNotSuspended()
+      return orphaned
+    }
     for (const held of this._wcAsyncPeerStreams.values()) if (held.peerId === peerId && (!strokeId || held.strokeId === strokeId)) held.ended = true
     // With `strokeId`, exactly the gesture whose pen came up. Without it (a
     // peer leaving), every gesture of theirs that is still open.
@@ -3811,6 +3851,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (live.paintedTotal > live.committedOffset) this._unsettledLayers.add(live.layerId)
     }
     this._peerLiveStrokes.clear()
+    this._cancelledPeerStreams.clear()
     // (#537) Nothing foreign is unrecorded now, so its settle can proceed.
     this._settleLayers()
   }
@@ -3963,6 +4004,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
     if (this._settleRetryTimer !== null) { clearTimeout(this._settleRetryTimer); this._settleRetryTimer = null }
     this._unsettledLayers.clear()
+    this._cancelledPeerLayers.clear()
     cancelAnimationFrame(this._raf)
     if (this._displayRafId !== null) cancelAnimationFrame(this._displayRafId)
     this.canvas.removeEventListener('webglcontextlost', this._handleContextLost)
@@ -4015,6 +4057,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
+    this._cancelledPeerStreams.clear()
     this._previews.clear()
     this._checkpoints.clear()
     // (#381) Nothing left to rebuild into — the buffers are gone.
@@ -4492,6 +4535,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  already painted (#429's claim). Leaving the layer unsettled brings them
    *  back: the next settle, after that operation lands, replays it whole. */
   private _noteReplayedOrder(layerId: string): void {
+    this._cancelledPeerLayers.delete(layerId)
     if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
     else this._unsettledLayers.delete(layerId)
   }
@@ -4878,6 +4922,8 @@ export class PencilEngine implements PencilEngineAPI {
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
+    // The replacement GL scene is rebuilt from the accepted journal.
+    this._cancelledPeerLayers.clear()
     // Also forget anything an already-scheduled callback retained during loss.
     this._ribbonPainter.releaseWaterSources(true)
     this._settlePlan.forgetTextures()
@@ -4936,6 +4982,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
+    this._cancelledPeerStreams.clear()
     this._previews.forget() // handles dead too; a mid-drag gizmo just loses its live preview
     // (#381) _syncBuffersToLog below replays every live layer from the log
     // outright, which is strictly more than any deferred rebuild was going to
@@ -5453,6 +5500,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    this._cancelledPeerLayers.delete(id)
     this._cancelRebuildJob(id) // (§17.53)
     const boundary = this._washBoundaries.get(id) // (§17.55)
     if (boundary) { this._freeBoundary(boundary); this._washBoundaries.delete(id) }
@@ -7970,7 +8018,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._strokeLayerId = null; this._strokeId = null; this._strokeDabs = []
       // Only the unrecorded tail is discarded. Confirmed chunks remain in
       // the journal; peers still need the matching ephemeral stream closed.
-      if (endedStroke) this._onLiveStrokeEnd?.(endedStroke)
+      if (endedStroke) this._onLiveStrokeEnd?.(endedStroke, true)
     }
     for (const held of this._wcAsyncPeerStreams.values()) {
       if (held.buf && !lost) held.buf.destroy()

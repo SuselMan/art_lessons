@@ -87,7 +87,7 @@ export function createPeerEventHandlers({
       markLayerActive(data.userId, data.layerId)
     },
 
-    peer_stroke_live_end: ({ userId: authorId, strokeId }) => {
+    peer_stroke_live_end: ({ userId: authorId, strokeId, cancelled }) => {
       // Only marks the gesture ended. Dabs still unaccounted for at this point
       // are the normal case, not a fault: the operation recording the end of
       // the gesture is dispatched at pen-up and arrives a moment after this
@@ -95,7 +95,8 @@ export function createPeerEventHandlers({
       // handler did) forced a resync that wiped the live bookkeeping, so the
       // operation then repainted the streamed tail on top of itself — a
       // visibly darker last stretch of every long stroke.
-      engineRef.current?.endPeerLiveStroke(authorId, strokeId)
+      if (cancelled === true) engineRef.current?.endPeerLiveStroke(authorId, strokeId, true)
+      else engineRef.current?.endPeerLiveStroke(authorId, strokeId)
     },
 
     peer_left: leftUserId => {

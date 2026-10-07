@@ -20,7 +20,7 @@ const mockPrisma = vi.hoisted(() => ({
   roomPalette: { findUnique: vi.fn(), upsert: vi.fn() },
   roomLayerState: { findUnique: vi.fn() },
   assignment: { findMany: vi.fn() },
-  roomLayerSnapshot: { groupBy: vi.fn() },
+  roomLayerSnapshot: { groupBy: vi.fn(), findMany: vi.fn() },
   operation: { create: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
   roomBlock: { findUnique: vi.fn() },
   roomInvite: { findUnique: vi.fn() },
@@ -142,6 +142,7 @@ beforeEach(async () => {
   mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
   mockPrisma.assignment.findMany.mockResolvedValue([])
   mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValue([])
+  mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([])
   mockPrisma.operation.findMany.mockResolvedValue([])
   mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: null } })
   mockPrisma.operation.groupBy.mockResolvedValue([])
@@ -279,5 +280,19 @@ describe('set_active_board (#176)', () => {
 
     await silent(teacher, 'active_board_changed')
     expect(mockPrisma.room.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('explicit cancellation of an ephemeral live tail', () => {
+  it('forwards only a true cancellation marker, keeping ordinary end backward compatible', async () => {
+    const { teacher, student } = await classroom()
+    for (const [strokeId, marker, expected] of [
+      ['ordinary', undefined, undefined], ['cancelled', true, true],
+      ['not-cancelled', false, undefined], ['malformed-marker', 'true', undefined],
+    ] as const) {
+      const received = next(student, 'peer_stroke_live_end')
+      teacher.emit('stroke_live_end', { strokeId, ...(marker === undefined ? {} : { cancelled: marker }) } as never)
+      expect(await received).toEqual({ userId: 'teacher', strokeId, ...(expected === true ? { cancelled: true } : {}) })
+    }
   })
 })

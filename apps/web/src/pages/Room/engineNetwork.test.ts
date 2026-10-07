@@ -136,3 +136,10 @@ it('derives state after deferred log application without sending or appending ag
   expect(deps.applyRemoteOp).not.toHaveBeenCalled()
   expect(deps.outbox.enqueue).not.toHaveBeenCalled()
 })
+
+it('sends the optional cancellation marker only for a cancelled live tail', () => {
+  const { deps, on } = setup()
+  on.onLiveStrokeEnd('tail', true)
+  on.onLiveStrokeEnd('normal')
+  expect(deps.sendLiveEnd.mock.calls).toEqual([[{ strokeId: 'tail', cancelled: true }], [{ strokeId: 'normal' }]])
+})

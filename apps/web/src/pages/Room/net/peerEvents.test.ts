@@ -149,3 +149,10 @@ describe('peer_joined', () => {
     expect(useRoomStore.getState().participants.map(p => p.userId)).toEqual(['new'])
   })
 })
+
+it('forwards explicit cancelled live end without treating a normal end as cancellation', () => {
+  const { fake, deps, on } = setup()
+  on.peer_stroke_live_end({ userId: 'peer', strokeId: 'tail', cancelled: true })
+  expect(fake.endPeerLiveStroke).toHaveBeenCalledWith('peer', 'tail', true)
+  expect(deps.requestFullResync).not.toHaveBeenCalled()
+})

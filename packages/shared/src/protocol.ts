@@ -308,7 +308,7 @@ export type ServerToClientEvents = {
   // operation_confirmed, the author gains nothing from receiving their own
   // (their own ink is already on their own layer, painted at pen time).
   peer_stroke_live: (data: StrokeLiveData & { userId: string }) => void
-  peer_stroke_live_end: (data: { userId: string; strokeId: string }) => void
+  peer_stroke_live_end: (data: { userId: string; strokeId: string; cancelled?: boolean }) => void
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
   peer_joined: (participant: Participant) => void
   peer_left: (userId: string) => void
@@ -491,7 +491,7 @@ export type ClientToServerEvents = {
   // their bookkeeping for this gesture immediately, rather than inferring the
   // end from the committed operation — which can arrive later, and which a
   // frozen/rejected author may never send at all.
-  stroke_live_end: (data: { strokeId: string }) => void
+  stroke_live_end: (data: { strokeId: string; cancelled?: boolean }) => void
   cursor_move: (data: CursorMoveData) => void
   // Appends one hex color to the room's palette (see DEFAULT_PALETTE_COLORS'
   // doc comment in room.ts). Server dedups and broadcasts the result via
