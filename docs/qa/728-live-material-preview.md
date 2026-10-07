@@ -55,3 +55,9 @@ Immutable79, 999 SHA; raw HOME `680-lifetime-hardware/temp/live-material-preview
 После ordered UI Dry native/fresh пять accepted операций; fullRGBA1754×2480 exact0/max0, nonemptyAlpha137970 у обоих. Отдельный rgba-oracle.json сохранён рядом с локальной копией PNG в temp. Экспорт не доказывает качество живого перехода.
 
 Room включает типизированную constructor option materialPresentation; standalone defaultOFF. Видимая база с незавершённым reveal пока требует отдельного исправления; её неподтверждённый patch сохранён в temp, в этот источник не включён.
+
+## Отзыв живого предпросмотра и временный откат
+
+Илья15:18–15:22 подтвердил liveUX FAIL: размытый предварительный материал долго заменяется настоящим мазком, пропадает при zoom. Причина: fullview replacement owner перекрывает canonical/reveal весь solver; cameraextent fallback или camera cleanup удаляет единственный pending visible deposit. Immediatecolor и finalDryRGBA не закрывали этот контракт.
+
+Временный кандидат отключает обе Room constructor options asyncFinish/materialPresentation, сохраняя canonicalring/tone/fibres f685. Отключение только materialPresentation возвращало бы genericStamp и потому недостаточно. Известный sync-drain/newtouch performance риск остаётся; откат направлен на настоящий живой материал, morph и zoom, а не на обещание плавности400.
