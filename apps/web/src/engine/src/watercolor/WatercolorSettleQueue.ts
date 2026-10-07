@@ -2,6 +2,11 @@ import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 
 const contactPulses = new WeakSet<() => void>()
 const frontSteps = new WeakSet<() => void>()
+const presentationTokens = new WeakMap<() => void, object>()
+/** Only adjacent resumptions of this captured presentation may share a tick. */
+export function presentationStepOp(op: () => void, token: object): () => void {
+  presentationTokens.set(op, token); return op
+}
 /** Only conservative paired contact exchanges may share a post-lift tick. */
 export function contactPulseOp(op: () => void): () => void { contactPulses.add(op); return op }
 /** Existing front/carry chunks retain their internal pass order and state. */
@@ -10,6 +15,8 @@ export function frontStepOp(op: () => void): () => void { frontSteps.add(op); re
 export function inheritSettleOpTags(source: () => void, wrapped: () => void): void {
   if (contactPulses.has(source)) contactPulses.add(wrapped)
   if (frontSteps.has(source)) frontSteps.add(wrapped)
+  const token = presentationTokens.get(source)
+  if (token) presentationTokens.set(wrapped, token)
 }
 
 /** Drawing can pause before its recipient has any tiles; ownership, rather
@@ -69,6 +76,9 @@ export class WatercolorSettleQueue {
 
   /** Separate diagnostic: never enables contact batching or crosses uploads. */
   frontBatchEnabled = false
+
+  /** Diagnostic only: snapshot/capture and other generators remain barriers. */
+  presentationBatchEnabled = false
 
   private _settleTickAt = 0
 
@@ -140,11 +150,14 @@ export class WatercolorSettleQueue {
     for (let k = 0; k < perTick && this._settle === s; k++) {
       const batchable = this.contactBatchEnabled && contactPulses.has(s.ops[s.next]) ? contactPulses
         : this.frontBatchEnabled && frontSteps.has(s.ops[s.next]) ? frontSteps : null
-      if (batchable && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
+      const presentationToken = this.presentationBatchEnabled ? presentationTokens.get(s.ops[s.next]) : undefined
+      const sameBatch = (op: () => void): boolean => batchable ? batchable.has(op)
+        : !!presentationToken && presentationTokens.get(op) === presentationToken
+      if ((batchable || presentationToken) && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
         const batchAt = performance.now()
         const cap = batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
           ? this.contactBatchMax : 4
-        for (let n = 0; n < cap && this._settle === s && batchable.has(s.ops[s.next]); n++) {
+        for (let n = 0; n < cap && this._settle === s && sameBatch(s.ops[s.next]); n++) {
           this.advance()
           // Submission time alone does not bound queued GPU work. Synchronize
           // every pulse, so a slow device overruns by only one existing step.
