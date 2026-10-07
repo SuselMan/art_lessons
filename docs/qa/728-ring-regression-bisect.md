@@ -32,3 +32,12 @@ Corrected session17153 завершён EXIT0, completed=true, ownedChromeClosed
 Фиксированный левый boundary darkness dip: old DEFAULT0, c199 DEFAULT0.048832, c199 REVIEW0.034578. Это PNG-профиль, не физическая масса. P/C capture используется как nonempty guard; headroom между историческими версиями отличается, raw byte sums нельзя сравнивать как conserved mass. Первичный static-first guard после Dry был неверным и остаётся INVALID; corrected capture непосредственно после target61 сохраняет числовые результаты до retirement scratch.
 
 Следующий условно разрешённый midpoint: 11ee5ab6 DEFAULT, session16825, тот же журнал/bundle passport, raw `temp/midpoint-11ee-default`. При запуске MemAvailable2047MiB, append originalseq48 после27.1s, error=null. Hardware midpoint ещё pending; первый bad не объявляется до одинаковой parent/child пары.
+
+
+## Сужение до введения выбранной модели
+
+11ee DEFAULT (16825), 2e DEFAULT (58795), непосредственный parent2e 5cb DEFAULT (87682) — все completed/closed/GL0/nonempty и имеют замкнутую бледную линию. Left darkness dip соответственно0.044405/0.038656/0.041615. Значит2e не первоначальная причина; 11ee/f277 также позже уже существующего дефекта. First-parent0a58 DEFAULT (35480) completed/closed/GL0/nonempty, линии нет, профиль0/.004534/0/0 совпадает good0a78.
+
+Точная граница render-source по first-parent: 0a58a08251ba8cade99921ccb8cf002f8ee3ad56 GOOD → merge8f7e4ca31ba43aab353660da5b8fff9d929eda28 BAD. BAD аппаратно проверен в5cb04f46 с byte-identical engine/shared source8f; diff остальных websrc — только PrecisionSlider.module.css, SettingField.module.css/index.tsx, не зависимости standalone engine. Public assets diff пуст; бумаги всех arms те же. Engine/shared0a78→0a58 diff пуст. Merge8f имеет второй parent653d0fac: это введение выбранной модели в main, не утверждение даты появления на экспериментальной ветке.
+
+В 8f меняются FilmDose.62→1.4, StartExcess2→5, poolBlot, brushDrag domain cov.b→cov.a, а diffuse использует coverage.a вместоcoverage.b и снижает pair gate делением1+8density². Extraction itself сохраняет множество old operators. Нужна отдельная same-journal ablation действительного diff до физического исправления; сам regression bracket не доказывает конкретную формулу. Crops VPS temp/regression/{11ee,2e,5cb,0a58}-slot2.png. Raw HOME остаётся в immutable runtime temp/{midpoint-11ee-default,midpoint-2e-default,parent-5cb-default,merge-parent-0a58-default}.
