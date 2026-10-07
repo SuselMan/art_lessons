@@ -1,0 +1,72 @@
+import {original47,materialGuard} from './guards.mjs';
+import { createRequire } from 'node:module';import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';
+const req=createRequire(process.env.WC_RELEASE_ROOT + '/package.json');
+const {chromium}=req('playwright'),{PNG}=req(path.join(path.dirname(req.resolve('playwright-core/package.json')),'lib/utilsBundle.js'));
+if(process.env.QA_DRY_RUN!=='1'&&process.env.QA_GPU_GRANT!=='explicit-root-grant')throw Error('Explicit ordinary Room GPU grant required');
+const APP=process.env.QA_URL,passportPath=process.env.QA_SOURCE_PASSPORT,inputPath=process.env.QA_INPUT;
+if(!APP||!passportPath||!inputPath||!process.env.WC_RELEASE_ROOT)throw Error('Explicit owned runtime/actual passport/immutable input required');
+const passport=JSON.parse(fs.readFileSync(passportPath,'utf8')),original=original47(JSON.parse(fs.readFileSync(inputPath,'utf8')));
+if(original.length!==47||original.some((o,i)=>o.seq!==i+1)||passport.files?.some(f=>f.exact===false))throw Error('Full47/passport');
+if(process.env.QA_DRY_RUN==='1'){console.log(JSON.stringify({compiled:true,ops:original.length,head:original.at(-1).seq,inputSHA:crypto.createHash('sha256').update(fs.readFileSync(inputPath)).digest('hex'),scope:'CPU only; no browser/network'}));process.exit(0)}
+const OUT=process.env.QA_OUT??'temp/ordinary-room-gate/runs/join-'+Date.now();fs.mkdirSync(OUT,{recursive:true});
+const report={baseline:'27ee2f12',candidate:'44b00a7c',scope:'Two auth contexts; real server peer Undo arrives inside ordered prefix, never injects operation into reader; Ordinary own Room socket state -> real useRoomRestore -> restoreRoomState; full47 history; diagnostic snapshot baking suppressed until measured replay and UndoRedo complete, then real normal bootstrap and stored rejoin; ordered OFF/ON observations, no production/cold GPU causality claim',passport,inputSHA:crypto.createHash('sha256').update(fs.readFileSync(inputPath)).digest('hex'),arms:[],errors:[]};
+const save=()=>fs.writeFileSync(OUT+'/report.json',JSON.stringify(report,null,2));let browser,page,sender,readerContext;
+const memory=setInterval(()=>{const available=Number(fs.readFileSync('/proc/meminfo','utf8').match(/^MemAvailable:\s+(\d+)/m)[1])/1024;report.lastMemory=available;if(available<500){report.memoryAbort=true;save();void browser?.close()}},2000);
+const wall=setTimeout(()=>{report.wallTimeout=true;save();void browser?.close()},900000);
+const waitIdle=async(p,count)=>p.waitForFunction(n=>{const e=window.__engine;return e&&e._log.entries.length===n&&!e._log.entries.some(q=>q.pending)&&e._displaySuspendDepth===0&&!e._settle&&!e._opQueue.length&&!e._rebuildJobs.size&&!e._pendingRebuilds.size&&!e._wcCanonical.pending&&!e._washReveals.size&&!e.gl.isContextLost()},count,{timeout:180000});
+async function ready(p,name){await p.waitForFunction(()=>window.__engine||(document.querySelector('form input[type=text]')&&document.querySelector('form button[type=submit]')&&!document.querySelector('form button[type=submit]').disabled),null,{timeout:60000});if(!await p.evaluate(()=>!!window.__engine)){await p.locator('form input[type=text]').fill(name);await p.locator('form button[type=submit]').click()}await p.waitForFunction(()=>!!window.__engine,null,{timeout:60000});await p.evaluate(()=>window.__engine.paperReady())}
+function compare(a,b){const x=PNG.sync.read(a),y=PNG.sync.read(b);if(x.width!==y.width||x.height!==y.height)throw Error('dimensions');let changed=0,max=0;for(let i=0;i<x.data.length;i++){const d=Math.abs(x.data[i]-y.data[i]);changed+=d!==0;max=Math.max(max,d)}return{changed,max,bytes:x.data.length}}
+async function capture(p,label){const result=await p.evaluate(async()=>{const e=window.__engine,b=await e.exportPNG(true);if(!b)throw Error('missing export');return{png:await new Promise(resolve=>{const f=new FileReader;f.onload=()=>resolve(f.result.split(',')[1]);f.readAsDataURL(b)}),gl:e.gl.getError(),lost:e.gl.isContextLost(),flags:{async:e._wcAsyncFinish,zero:e._wcZeroPigmentContacts,phase:e._settlePlan.diagnosticPlateauPhase,fibres:e._wcGradientFibres,material:e._wcMaterialPresentation,costPaths:e._settlePlan.diagnosticCostDomainPaths,packedPaths:e._settlePlan.diagnosticPackedCostPaths,ADD:e._settlePlan.diagnosticAdditiveZeroFaces,purePlan:e._settlePlan.diagnosticPureWaterPlan,lazyContacts:e._settlePlan.lazyContacts,splitQuanta:e._settlePlan.splitQuanta,expeditedDry:e._wcExpeditedDry},log:e._log.entries.map(q=>({id:q.op.id,seq:q.serverSeq,state:q.state,pending:q.pending})),trace:window.__loadTrace}});const png=Buffer.from(result.png,'base64');delete result.png;const rgba=PNG.sync.read(png).data;Object.assign(result,materialGuard(rgba));fs.writeFileSync(OUT+'/'+label+'.png',png);if(result.log.some((q,i)=>q.seq!==i+1||q.pending))throw Error('Authoritative sequential ACK log '+label);if(result.flags.async!==false||result.flags.material!==false||result.flags.phase===true||[result.flags.phase,result.flags.costPaths,result.flags.packedPaths,result.flags.ADD,result.flags.purePlan,result.flags.lazyContacts,result.flags.splitQuanta,result.flags.expeditedDry].some(v=>v!==false))throw Error('Single-change sync Room baseline required');if(result.gl||result.lost||!result.nonempty)throw Error('material/GL '+label);return{png,result}}
+const endpoints=new Map();
+try{
+ const ram=Number(fs.readFileSync('/proc/meminfo','utf8').match(/^MemAvailable:\s+(\d+)/m)[1])/1024;report.memAvailable=ram;if(ram<1700)throw Error('RAM guard1700');save();
+ browser=await chromium.launch({channel:'chrome',headless:false,env:{...process.env,DISPLAY:':0'},args:['--disable-background-timer-throttling','--disable-renderer-backgrounding']});
+ const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:640,height:480}});await context.addInitScript({path:process.env.QA_PROBE??new URL('./room-probe.js',import.meta.url).pathname});
+ for(const elide of [false,true]){
+  const arm={elide};report.arms.push(arm);page=await readerContext.newPage();page.on('dialog',d=>void d.accept());page.on('pageerror',e=>{report.errors.push(String(e));save()});
+  arm.stage='create';save();await page.goto(APP+'/create');await page.waitForFunction(()=>{const input=document.querySelector('form input[type=text]');const button=document.querySelector('form button[type=submit]');return !!input&&!!button&&!button.disabled},null,{timeout:60000});arm.loadedSource=await page.evaluate(async()=>{const paths=['/src/pages/Room/index.tsx','/src/pages/Room/useRoomRestore.ts','/src/pages/Room/restoreRoomState.ts','/src/pages/Room/clearedInBatch.ts','/src/pages/Room/diagnostics/clearPrefixElision.ts','/src/engine/index.ts'];const out=[];for(const path of paths){const raw=(await import(path+'?raw')).default;const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw)))].map(b=>b.toString(16).padStart(2,'0')).join('');out.push({path,hash})}return out});for(const r of arm.loadedSource){const expected=passport.files.find(f=>f.path==='apps/web'+r.path);if(!expected||expected.sha256!==r.hash)throw Error('Loaded source '+r.path)}save();await page.locator('input[type=text]').fill('Clear47 ordinary join '+Number(elide));await page.getByText(/^(Custom|Свой)$/,{exact:true}).click();await page.locator('input[type=number]').nth(0).fill('1754');await page.locator('input[type=number]').nth(1).fill('2480');await page.getByRole('button',{name:/^(Fine|Мелкая)/}).click();await page.getByRole('button',{name:/Create project|Создать проект/}).click();await page.waitForURL(/\/room\//);await ready(page,'Seed47');
+  arm.room=page.url().split('?')[0];arm.roomMetadata=await page.evaluate(()=>window.__roomStore.getState().room);if(arm.roomMetadata.width!==1754||arm.roomMetadata.height!==2480||arm.roomMetadata.paper!=='fine'||arm.roomMetadata.paperColor?.toLowerCase()!=='#fdfdfc')throw Error('Original A4/Fine/paperColour metadata required');
+  arm.stage='seed';save();arm.mapped=await page.evaluate(async ops=>{const e=window.__engine,userId=window.__roomStore.getState().userId,prefix=crypto.randomUUID(),ids=new Map(ops.map(o=>[o.id,prefix+'-'+o.id]));const mapped=ops.map(raw=>{const o=structuredClone(raw);delete o.seq;o.id=ids.get(o.id);o.userId=userId;if(o.targetOpId)o.targetOpId=ids.get(o.targetOpId);return o});for(const op of mapped){e.appendOperation(op);await new Promise(r=>requestAnimationFrame(r))}return mapped},original);await waitIdle(page,47);
+  arm.seedACK=await page.evaluate(()=>window.__engine._log.entries.map(q=>({id:q.op.id,seq:q.serverSeq,pending:q.pending})));if(arm.seedACK.some((q,i)=>q.seq!==i+1||q.pending))throw Error('ACK47');
+  arm.snapshotStatus=await page.evaluate(async()=>{const id=window.__roomStore.getState().room.id;return(await fetch('/api/rooms/'+id+'/snapshots/index')).status});if(arm.snapshotStatus!==204)throw Error('Actual server snapshot absence required');
+  arm.authoritative=await page.evaluate(async()=>{const{api}=await import('/src/lib/api/api.ts');return api('GET /api/rooms/:roomId/operations',{params:{roomId:window.__roomStore.getState().room.id},query:{beforeSeq:1000000000,limit:500}})});if(arm.authoritative.length!==47)throw Error('Authoritative47');
+  for(let i=0;i<47;i++){const originalMaterial={...original[i]},actual={...arm.authoritative[i]};delete originalMaterial.id;delete actual.id;delete originalMaterial.userId;delete actual.userId;if(originalMaterial.targetOpId){delete originalMaterial.targetOpId;delete actual.targetOpId}if(JSON.stringify(originalMaterial)!==JSON.stringify(actual)){// Key order is not part of the contract.
+    for(const k of Object.keys(originalMaterial))if(JSON.stringify(originalMaterial[k])!==JSON.stringify(actual[k]))throw Error('Authoritative material mutated '+i+':'+k);
+  }}
+  const seed=await capture(page,'seed-'+Number(elide));arm.seed=seed.result;sender=page;page=null;readerContext=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:640,height:480}});await readerContext.addInitScript({path:process.env.QA_PROBE??new URL('./room-probe.js',import.meta.url).pathname});
+  page=await readerContext.newPage();page.on('dialog',d=>void d.accept());page.on('pageerror',e=>{report.errors.push(String(e));save()});
+  arm.stage='ordinary-join-await-batch';save();await page.goto(arm.room+'?qaClearPrefixElision='+Number(elide));await ready(page,'Independent reader47');
+  await page.waitForFunction(()=>window.__engine?._displaySuspendDepth>0&&window.__loadTrace.calls.some(q=>q.name==='setUnpaintedInBatch'&&q.unpaintedIds),null,{timeout:60000});
+  arm.readerIdentity=await page.evaluate(()=>window.__roomStore.getState().userId);
+  arm.senderIdentity=await sender.evaluate(()=>window.__roomStore.getState().userId);
+  if(arm.readerIdentity===arm.senderIdentity)throw Error('Independent auth contexts required');
+  const clear=arm.authoritative.find(o=>o.type==='layer_clear');
+  arm.stage='author-send-undo-during-prefix';save();
+  arm.undoId='qa-peer-undo-'+crypto.randomUUID();
+  await sender.evaluate(({id,targetOpId})=>window.__engine.appendOperation({id,type:'operation_undo',targetOpId,userId:window.__roomStore.getState().userId,timestamp:Date.now()}),{id:arm.undoId,targetOpId:clear.id});
+  await waitIdle(page,48);await waitIdle(sender,48);
+  const undoA=await capture(sender,'undo-author-'+Number(elide)),undoB=await capture(page,'undo-reader-'+Number(elide));
+  arm.undoPeer=compare(undoA.png,undoB.png);arm.undoReader=undoB.result;
+  const arrival=undoB.result.trace.peerArrivals?.find(q=>q.id===arm.undoId&&q.seq===48);
+  if(!arrival||!arrival.skipActive||arrival.suspended<=0||arrival.logCount>=47)throw Error('Server event did not arrive inside restore prefix; fixture inconclusive');
+  if(arm.undoPeer.changed||!compare(seed.png,undoA.png).changed)throw Error('Held peer Undo semantics mismatch');
+  const clearEntry=undoB.result.log.find(q=>q.id===clear.id);if(clearEntry?.state!=='undone')throw Error('Clear target not undone');
+  arm.stage='reader-publish-real48';save();await page.evaluate(()=>window.__enableRealSnapshotBake());
+  await page.waitForFunction(async()=>{const r=await fetch('/api/rooms/'+window.__roomStore.getState().room.id+'/snapshots/index');if(r.status===204)return false;if(r.status!==200)throw Error('index status '+r.status);const index=await r.json();window.__peerIndex48=index;return index.layers.some(q=>q.seq===48)},null,{timeout:45000});
+  arm.published48=await page.evaluate(()=>({index:window.__peerIndex48,uploads:window.__loadTrace.uploads}));
+  if(!arm.published48.uploads.some(q=>q.seq===48&&q.status===200))throw Error('Real reader watermark48 publication missing');
+  arm.stage='author-redo';save();arm.redoId='qa-peer-redo-'+crypto.randomUUID();
+  await sender.evaluate(({id,targetOpId})=>window.__engine.appendOperation({id,type:'operation_redo',targetOpId,userId:window.__roomStore.getState().userId,timestamp:Date.now()}),{id:arm.redoId,targetOpId:clear.id});
+  await waitIdle(sender,49);await waitIdle(page,49);
+  const redoA=await capture(sender,'redo-author-'+Number(elide)),redoB=await capture(page,'redo-reader-'+Number(elide));
+  arm.redoPeer=compare(redoA.png,redoB.png);arm.redoVsOriginal=compare(seed.png,redoB.png);
+  if(arm.redoPeer.changed||arm.redoVsOriginal.changed)throw Error('Redo/full original mismatch');
+  if(!elide){endpoints.set('undo',undoA.png);endpoints.set('final',seed.png)}else{
+   arm.offVsOnUndo=compare(endpoints.get('undo'),undoA.png);arm.offVsOnFinal=compare(endpoints.get('final'),seed.png);
+   if(arm.offVsOnUndo.changed||arm.offVsOnFinal.changed)throw Error('OFF/ON held peer endpoints mismatch');
+  }
+  await page.close();page=null;await readerContext.close();readerContext=null;await sender.close();sender=null;arm.complete=true;save();
+ }
+ report.complete=true;save();
+}catch(error){report.error=String(error);save();process.exitCode=1}finally{clearTimeout(wall);clearInterval(memory);await page?.close().catch(()=>{});await sender?.close().catch(()=>{});await readerContext?.close().catch(()=>{});await browser?.close();report.ownedChromeClosed=true;save()}
+console.log(JSON.stringify({OUT,complete:report.complete,error:report.error,closed:report.ownedChromeClosed}));

@@ -5,6 +5,8 @@ import { createTestEngine, dab, makeStroke, readLayerPixels } from '../../engine
 import { restoreRoomState, type RestoreRoomStateDeps } from './restoreRoomState'
 import { createPendingPreviews } from './net/pendingPreviews'
 import { createReplayGate } from './replayGate'
+import { createConfirmedStreamHandler } from './net/confirmedStream'
+import { createSnapshotUploader } from './net/snapshotSync'
 
 vi.mock('@sentry/react', () => ({ captureException: vi.fn() }))
 
@@ -99,4 +101,49 @@ it.each([
   expect(internals._log.layerPixelOps('L').some(op => op.id === clear.id)).toBe(true)
   expect(internals._log.entries.some(e => e.op.id === before.id)).toBe(true)
   engine.destroy()
+})
+
+
+it('drains the real confirmed stream before requesting first snapshot at the advanced watermark', async () => {
+  const engine = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+  engine.setBaseLayers(['L'])
+  const before: Operation = { ...makeStroke('A', 'L', [dab(2, 4)]), tool: 'watercolor', strokeId: 'before', seq: 1 }
+  const clear: Operation = { id: 'clear2', type: 'layer_clear', layerId: 'L', userId: 'A', timestamp: 2, seq: 2 }
+  const after: Operation = { ...makeStroke('A', 'L', [dab(6, 4)]), tool: 'watercolor', strokeId: 'after', seq: 3 }
+  const undo: OperationUndoOperation = { id: 'peerUndo4', type: 'operation_undo', userId: 'A', timestamp: 4, targetOpId: clear.id }
+  const latestKnownSeqRef = { current: 3 }, lastConfirmedSeqRef = { current: 3 }
+  const replayGate = createReplayGate<{ seq: number; operation: Operation }>()
+  const pendingPreviewsRef = { current: createPendingPreviews() }
+  const appliedOpIdsRef = { current: new Set<string>() }
+  const apply = (op: Operation) => {
+    if (op.id === undo.id) expect((engine as unknown as { _skippedInBatch: Set<string> })._skippedInBatch.size).toBe(0)
+    appliedOpIdsRef.current.add(op.id); engine.appendOperation(op, 'remote')
+  }
+  const resync = vi.fn(), uploader = createSnapshotUploader('room')
+  const arm = vi.spyOn(uploader, 'requestFirstSnapshot')
+  const observe = vi.spyOn(uploader, 'onSeqObserved')
+  const confirm = createConfirmedStreamHandler({
+    engineRef: { current: engine }, latestKnownSeqRef, lastConfirmedSeqRef, replayGate, pendingPreviewsRef, appliedOpIdsRef,
+    catchingUpRef: { current: false }, streamedStrokeIdsRef: { current: new Set<string>() }, deferredOpsQueueRef: { current: [] },
+    previewScheduleRef: { current: null }, confirmOwnOperation: vi.fn(), markLayerActive: vi.fn(),
+    applyRemoteOp: apply, syncFromLog: vi.fn(), checkSnapshotBoundary: vi.fn(), requestFullResync: resync,
+  })
+  const deps: RestoreRoomStateDeps = {
+    boardId: 'room', diagnosticClearPrefixElision: true,
+    restoreFromSnapshot: vi.fn().mockResolvedValue('none'), backfillHistory: vi.fn().mockResolvedValue(undefined),
+    applyRemoteOp(op) { apply(op); if (op.id === before.id) { confirm({ seq: 4, operation: undo }); expect(latestKnownSeqRef.current).toBe(3) } },
+    syncFromLogNow: vi.fn(), markJoinRestoreDone: vi.fn(), dispatchParticipants: vi.fn(), setRestoreFailure: vi.fn(),
+    setRoomContentReady: vi.fn(), finishOpenTimer: vi.fn(), notifyReplayIncomplete: vi.fn(), getSnapshotUploader: () => uploader,
+    latestKnownSeqRef, replayIncompleteRef: { current: false }, pendingPreviewsRef, openTimerRef: { current: null },
+    replayGate: replayGate as RestoreRoomStateDeps['replayGate'],
+  }
+  try {
+    await restoreRoomState(engine, { latestSnapshotSeq: null, tailOperations: [before, clear, after], participants: [], palette: [], frozen: false }, { mode: 'join', alreadyHadSeq: 0 }, deps)
+    expect(deps.setRestoreFailure).not.toHaveBeenCalled(); expect(resync).not.toHaveBeenCalled()
+    expect(lastConfirmedSeqRef.current).toBe(4); expect(latestKnownSeqRef.current).toBe(4)
+    expect(arm).toHaveBeenCalledOnce(); expect(observe.mock.calls[0]?.slice(0, 2)).toEqual([0, 4])
+    const log = (engine as unknown as { _log: { entries: Array<{ op: Operation; state: string }> } })._log.entries
+    expect(log.map(q => q.op.id)).toEqual([before.id, clear.id, after.id, undo.id])
+    expect(log.find(q => q.op.id === clear.id)?.state).toBe('undone')
+  } finally { engine.destroy() }
 })

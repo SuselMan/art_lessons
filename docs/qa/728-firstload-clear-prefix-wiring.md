@@ -96,3 +96,34 @@ head3 не доказывает правильность watermark после pe
 до Redo49 разрешает настоящую публикацию B и требует POST200/index48; без этого gate
 не принимается. First-load основной runner отдельно проверяет index49. Peer waveform
 не обещает snapshot49, потому что уже сохранённый48 не обязан обновляться до100.
+
+## Повторный CPU review перед аппаратным слотом
+
+21 targeted tests /4 files PASS; own web closure TS0, session30032 EXIT0.
+Новый тест подключает настоящий createConfirmedStreamHandler к настоящему restore:
+при seq4 Undo gate удерживает watermark3; после end() ref становится4, исходный
+prefix/Undo остаются в полном journal, clear undone, requestFirstSnapshot вызывается
+после release, onSeqObserved получает0→4. Это устраняет ограничение прежнего mock
+handler; HTTP48/49 аппаратное доказательство всё ещё отдельно обязательно.
+
+Исправлены конкретные fixture ошибки: raw immutable47 — массив, а не только `{ops}`;
+реальное поле diagnosticCostDomainPaths вместо вымышленного diagnosticCostPaths.
+Проверяются ВСЕ доступные scheduling/physics diagnostics OFF, async/materialfalse.
+Transparent PNG guard теперь отклоняет empty, полностью opaque paper и чистую серую
+воду: требуются partial alpha support и coloured alpha>=16. Это не P-field mass claim.
+
+Переносимые контроллеры сохранены tracked `docs/qa/harness/728-firstload`:
+controller.mjs ordinary47/Undo48/Redo49/snapshot49/reentry; peer-arrival.mjs отдельный
+2auth actual-arrival waveform/index48 доRedo. Guard controls8 PASS; оба CPU dry-run
+на исходном raw journal PASS, SHAdec30b3a6399c3835819b71fa651cd41f213394ff4bba6f51a7df30292ca1266.
+Новая immutable исходная manifest подготовлена private source-passport.json:940
+tracked web/shared files. Это SHA исходников ownworktree, НЕ verified HOME runtime.
+
+Следующие safe actions: root review единственного DEV wiring; затем по GPU grant
+отдельный own immutable runtime с exact HTTP module SHA/940manifest и syncbaseline.
+Первый hardware ordinary OFF/ON последовательно (1engine); после его успешного
+полного endpoint/snapshot49/reentry — независимый peer48 waveform (2auth/2engines).
+Индекс49 не позволяет заново измерить snapshotless47 в том же room: два плеча
+создают две собственные комнаты и сохраняют тот же материальный payload.
+Без успешного whole/ACK/nonempty аппаратного результата не включать ON пользовательскому
+стенду и не переносить прежние standalone14% в claim ordinary Room load.
