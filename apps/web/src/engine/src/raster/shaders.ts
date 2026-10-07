@@ -3883,11 +3883,6 @@ export const LAYER_COMPOSITE_FRAG = `
 export const WC_DIFFUSE_FRAG = `
   precision highp float;
   uniform sampler2D u_ink;
-  // Both pigment and absorption records read the same pre-step mobile
-  // pigment here. Never derive mobility from the colour record itself.
-  uniform sampler2D u_density;
-  uniform sampler2D u_solvent;
-  uniform float u_useSolvent;
   uniform sampler2D u_coverage;
   uniform sampler2D u_paperHeightMap;
   uniform vec2 u_resolution;
@@ -3902,25 +3897,10 @@ export const WC_DIFFUSE_FRAG = `
   uniform float u_stencil;
   varying vec2 v_uv;
 
-  // Standing water at a texel: the wash's silhouette, times the wetter of two
-  // records - what the last pass that covered it wrote into coverage .b (the
-  // free water of a clean pass, or the wetness a pigment pass recorded under
-  // itself; see u_washWater) and the paper wetness the paint here was laid
-  // into, deposit-weighted (ink .g, the same digits).
-  //
-  // Not the brush's depleted load (ink .r). That was the first version, and
-  // measured on a replay of Ilya's puddle it gated the pass shut: a puddle
-  // laid by one long stroke has its load run down over most of its area, so
-  // the water read 0.15 in patches and 0 in between, and the pigment dropped
-  // into it stayed where it was. How wet a patch of paper is barely cares
-  // which end of the stroke wetted it - the same argument that feeds the
-  // live field the mix rather than the load (see _paintDabs).
-  // (#536, s17.19) From the coverage alone, on purpose: the pass now runs
-  // over two fields - the deposit and its optical depth - and both must move
-  // by the same fractions, so the gate may not read the field it moves. The
-  // Accepted covered-film mobility uses the connected coverage .a domain;
-  // higher pre-step pigment density slows the same pairwise transfer for
-  // both records. Standing-water appearance remains a separate record.
+  // Connected coverage is the diffusion domain, not pigment amplitude.
+  // Both deposit and absorption draws use this unchanged field, so their
+  // donor fractions agree. A dry endpoint closes the face; standing-water
+  // appearance and solvent concentration belong to their other operators.
   float wcWaterAt(vec4 cov) {
     if (cov.a <= 0.002) return 0.0;
     return clamp(cov.a, 0.0, 1.0);
@@ -3980,15 +3960,6 @@ export const WC_DIFFUSE_FRAG = `
         vec4 inkj = texture2D(u_ink, uvj);
         vec4 covj = texture2D(u_coverage, uvj);
         float wj = wcWaterAt(covj);
-        float density = max((2.0 * texture2D(u_density, v_uv).a) / max(cov.a, 0.002), (2.0 * texture2D(u_density, uvj).a) / max(covj.a, 0.002));
-        if (u_useSolvent > 0.5) {
-          // Independent diagnostic thickness V/4. Pigment mass P comes from
-          // .b, never from the solvent's representational headroom.
-          float vi = 4.0 * texture2D(u_solvent, v_uv).a;
-          float vj = 4.0 * texture2D(u_solvent, uvj).a;
-          density = max(2.0 * texture2D(u_density, v_uv).b / max(vi, 0.002),
-                        2.0 * texture2D(u_density, uvj).b / max(vj, 0.002));
-        }
         // #728: diffusion exchanges a suspension inside its water domain.
         // The max-density face limiter introduced in 8f7e4ca3 prevented
         // replenishing the original dab edge while the water front drained
