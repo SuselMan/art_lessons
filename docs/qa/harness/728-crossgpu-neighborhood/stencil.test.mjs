@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {diffusionStencilCells,uploadViewDescriptor} from './stencil.mjs';
+const meta={x0:100,y0:200,S:2,w:1536,h:1536,paper:{w:3508,h:2480},paperScale:1};
+const a=diffusionStencilCells(meta,[994,1231],64,false);
+assert.equal(a.length,9);assert.deepEqual(a[0].cell,[447,1020]);assert.deepEqual(a[1].cell,[479,1020]);
+assert.equal(a[0].paperUV[0],(447.5*2+100)/3508);assert.equal(a[0].paperUV[1],(1020.5*2-200-3072)/2480);
+assert.deepEqual(diffusionStencilCells(meta,[994,1231],64,true)[1].offset,[64,32]);
+const edge=diffusionStencilCells({...meta,x0:994,y0:1231,S:1,w:16,h:16},[994,1231],2,false);assert.equal(edge[2].outside,true);
+const view=new Uint8Array(new ArrayBuffer(20),4,8);assert.deepEqual(uploadViewDescriptor(view),{kind:'Uint8Array',byteOffset:4,byteLength:8,backingByteLength:20,exactView:true});
+assert.equal(uploadViewDescriptor(null).exactView,false);
+console.log('stencil geometry/view provenance PASS');
