@@ -36,7 +36,8 @@ fn fit(v:vec4f)->vec4f { return v/max(1.0,max(max(v.r,v.g),max(v.b,v.a))); }
 `;
 export class CanonicalBasicFieldPass {
   private pipeline: GPUComputePipeline | null = null
-  constructor(private readonly device: GPUDevice) {}
+  private readonly device: GPUDevice
+  constructor(device: GPUDevice) { this.device = device }
   run(ctx: CanonicalGpuContext, resources: CanonicalPassResources, mode: BasicFieldMode, k: number, opts: { dir?: readonly [number, number]; tau?: readonly [number, number, number]; scissor?: readonly [number, number, number, number]; world?: readonly [number, number, number] } = {}) {
     if (![0,1,2,3,4,5,20].includes(mode)) throw new Error('Canonical field mode not yet ported')
     if (mode === 1 && (opts.world?.[2] ?? 0) > 0) throw new Error('Canonical fibre/comb mode1 pending; cannot silently use plain addition')

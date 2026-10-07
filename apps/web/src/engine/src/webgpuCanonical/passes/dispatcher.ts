@@ -6,7 +6,8 @@ import { CANONICAL_DIFFUSE_WGSL, CANONICAL_WATER_FRONT_WGSL } from './kernels'
 export class CanonicalFieldPasses {
   private readonly pipelines = new Map<'diffuse' | 'waterFront', GPUComputePipeline>()
   readonly counters = { diffuse: 0, waterFront: 0, pixels: 0 }
-  constructor(private readonly device: GPUDevice) {}
+  private readonly device: GPUDevice
+  constructor(device: GPUDevice) { this.device = device }
   private pipeline(kind: 'diffuse' | 'waterFront') {
     let pipeline = this.pipelines.get(kind)
     if (!pipeline) {

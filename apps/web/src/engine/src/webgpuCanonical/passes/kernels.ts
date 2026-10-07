@@ -22,6 +22,11 @@ fn fieldAt(t: texture_2d<f32>, uv: vec2f)->vec4f {
  let glq=clamp(vec2i(floor(uv*vec2f(dims))),vec2i(0),dims-vec2i(1));
  return textureLoad(t,vec2i(glq.x,dims.y-1-glq.y),0);
 }
+fn fieldLinear(t:texture_2d<f32>,uv:vec2f)->vec4f {
+ let dims=vec2f(textureDimensions(t));let g=uv*dims-.5;let i=floor(g);let f=fract(g);
+ let a=fieldAt(t,(i+.5)/dims);let b=fieldAt(t,(i+vec2f(1,0)+.5)/dims);let c=fieldAt(t,(i+vec2f(0,1)+.5)/dims);let d=fieldAt(t,(i+vec2f(1,1)+.5)/dims);
+ return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+}
 fn repeatAt(q:vec2i,dims:vec2i)->vec2i { return ((q%dims)+dims)%dims; }
 fn paperAt(uv:vec2f)->vec4f {
  let dims=vec2i(textureDimensions(paper));let g=uv*vec2f(dims)-0.5;
@@ -83,7 +88,7 @@ fn fbm(p:vec2f)->f32 { return 0.63*wcNoise(p)+0.37*wcNoise(p*2.7+vec2f(31.4,17.9
   let ci=fieldAt(input,uvj).r;if(ci>=0.999){continue;}
   var len=1.41421356;if(k<4){len=1;}
   let relief=max(u.coefficients.y*stride,stride+climb*(hj-heightAt(px+o*stride)));
-  let film=smoothstep(0.02,0.15,max(fieldAt(coverage,uv).a,u.wet.y*fieldAt(foreignFilm,uv).r));
+  let film=smoothstep(0.02,0.15,max(fieldAt(coverage,uv).a,u.wet.y*fieldLinear(foreignFilm,uv).r));
   let edge=len*relief*mix(u.wet.x,1.0,film);best=min(best,ci*u.coefficients.z+edge);
  }
  textureStore(output,vec2i(q),vec4f(min(best,u.coefficients.z)/u.coefficients.z,hj,source.b,1));
