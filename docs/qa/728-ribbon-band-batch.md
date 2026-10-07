@@ -18,7 +18,7 @@ Native1347OFF/1348ON последовательно CLOSED, source4b неизм�
 
 CPU profile OFF dense_end: body/buildRibbonBands~14.3ms, GC2.1ms. ON geometry push~2.2ms/lerp1.2/nibSupport1.1; commitPending~5.6ms стал крупнейшим sampled residual. Не выдавать маленькую выборку за точную долю каждого метода.
 
-Bounded GPU traces: circular buffer4MiB, expanded JSON20.6/21.2MiB (streamguard32MiB), categories gpu+blink.user_timing. Actual trace marks одновременно содержат trace ts и performance startTime: OFF offset range214724288.671–288.790ms, ON214798883.565–883.648ms. ON100.3ms tail gap совпал с CrGpuMain Scheduler::RunTask82.992ms / CommandBufferService:PutChanged82.914ms, main CPU~83.1msidle. Это доказывает GPU-service burst, но не конкретный shader/pass или hardware GPU elapsed. OFF117gap main113.3msidle, observed GPU-service max4.5ms: другой scheduling gap; эти причины нельзя смешивать. Полный Viz/compositor wait не покрыт категориями.
+GPU traces: запрошенное неверным верхнеуровневым bufferSizeInKb ограничение4MiB НЕ применялось (исправление ниже), expanded JSON20.6/21.2MiB (streamguard32MiB), categories gpu+blink.user_timing. Actual trace marks одновременно содержат trace ts и performance startTime: OFF offset range214724288.671–288.790ms, ON214798883.565–883.648ms. ON100.3ms tail gap совпал с CrGpuMain Scheduler::RunTask82.992ms / CommandBufferService:PutChanged82.914ms, main CPU~83.1msidle. Это доказывает GPU-service burst, но не конкретный shader/pass или hardware GPU elapsed. OFF117gap main113.3msidle, observed GPU-service max4.5ms: другой scheduling gap; эти причины нельзя смешивать. Полный Viz/compositor wait не покрыт категориями.
 
 RawVPS: temp/ribbon-band-batch/{fixed-report.json,native-off.json,native-on.json,passport.json,trace-summary.json}; raw/CPU/traces/контроллеры сохранены HOME680-lifetime-hardware/temp/plan-quantum/band-root4b. Samsung освобождён после1348.
 
@@ -32,7 +32,7 @@ Wall/thread CPU существенно различаются: Scheduler82.992/0
 
 ### Дополнительная пассивная native wave1349
 
-Current4b bandON, прочие flags как1348. Own1349 CLOSED, GL0/lostfalse/nonempty. ShaderSource/attachShader/linkProgram пассивно записаны с начала constructor; FNV32+length сопоставлены с exact transferred shaders.ts (диагностическая identity, не SHA). GLqueries/extra compile/readback/barriers не добавлены. Ring4096records, максимум3gapcaptures; wrappers восстановлены finally. Trace/CPU profiler прежние bounded limits; дополнительный overhead wrappers не выдаётся за pairedFPS.
+Current4b bandON, прочие flags как1348. Own1349 CLOSED, GL0/lostfalse/nonempty. ShaderSource/attachShader/linkProgram пассивно записаны с начала constructor; FNV32+length сопоставлены с exact transferred shaders.ts (диагностическая identity, не SHA). GLqueries/extra compile/readback/barriers не добавлены. Ring4096records, максимум3gapcaptures; wrappers восстановлены finally. Trace/CPU profiler прежний stream32MiB limit; circular bound не применялся (исправление ниже); дополнительный overhead wrappers не выдаётся за pairedFPS.
 
 Новый117ms tail gap23343.1ms **не воспроизвёл** прошлый82ms GPU-service wait: mark offset215211194.351–194.448ms, maximum Scheduler4.260ms/threadCPU2.203ms внутриgap. Следовательно программа прежнегоwait этим новым опытом не установлена, compositor/scheduling вне выбранных trace categories остаётся неизвестным.
 
@@ -57,3 +57,10 @@ Active151frames/max50ms/28>33/0>100; nexttouch handler20.5ms послеlift100.3
 ### Broad compositor trace1356: ограничение доказательства
 
 Own1356 actual nativebandON завершил physics/endpoint GL0/lostfalse, два rAFgap83.7ms. Расширенные categories gpu/userTiming/viz/cc/renderer.scheduler/toplevel с binary4MiB развернулись более32MiB JSON; hard streamguard остановил скачивание. Target CLOSED, rawreport/CPU/partialtrace сохранены HOME. Partialtrace невалиден, compositor attribution этим прогоном не установлена. Следующий подготовленный контроллер уменьшает circularbuffer до2048KiB, убирает toplevel и закрывает IOstream также в guard-finally. Source/shaders не менялись.
+
+
+### Исправление trace buffer configuration
+
+Обнаружена ошибка диагностического контроллера: bufferSizeInKb на верхнем уровне Tracing.start не является полем CDP и игнорируется. Правильное поле — traceConfig.traceBufferSizeInKb; официальная schema указывает default200MB. Поэтому прежние утверждения о4/2MiB circular buffer отзываются; реально проверялся только stream32MiB hardguard. Полные raw traces/timestamps/correlations не становятся от этого невалидными, но memorybound не доказан. Broad1356/1357 остановлены на streamguard и CLOSED, partialtraces сохраняются какFAIL.
+
+Исправленный CPU-ready controller использует только traceConfig(recordMode=recordContinuously,traceBufferSizeInKb=2048,includedCategories), bufferUsageReportingInterval1000, записывает Tracing.bufferUsage и закрывает IO stream finally. До запуска/ответа actualdevice bound не подтверждён. Schema: https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/browser_protocol.json (Tracing.TraceConfig).
