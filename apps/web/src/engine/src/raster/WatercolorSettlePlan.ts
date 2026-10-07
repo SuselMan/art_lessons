@@ -45,6 +45,8 @@ export class WatercolorSettlePlan {
   diagnosticAdditiveZeroFaces = false
   /** Requires the caller's full layer/snapshot/live-stream zero proof; default OFF. */
   diagnosticPureWaterPlan = false
+  /** Diagnostic OFF: proven-zero pigment has no inward rim/tide consumer. */
+  diagnosticSkipZeroPigmentRim = false
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   splitQuanta = false
@@ -125,6 +127,7 @@ export class WatercolorSettlePlan {
     const lazyContacts = this.lazyContacts && presentationOwnerLocked
     // Never infer zero from water/preset alone: water can remobilize old paint.
     const pureWater = this.diagnosticPureWaterPlan && skipZeroPigmentContacts && scratch.pigmentInputsKnownZero
+    const skipZeroPigmentRim = pureWater && this.diagnosticSkipZeroPigmentRim
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
     // The rect: the settle's bounds plus the reach, clipped to the tiles that
@@ -456,7 +459,7 @@ export class WatercolorSettlePlan {
     // footprint into `pressure`, the inward cost from past-the-budget into
     // `mask`, then the band texture, the coverage extended over the domain,
     // and the band gathered into `mask` for the rims.
-    const frontOps = (mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
+    const frontOps = (mobile: AccumulationBuffer, tmp: AccumulationBuffer, skipPigmentRim = false): void => {
       const pp = { src: field.pressure, dst: tmp }
       const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number, strides?: readonly number[]): void => {
         const list = strides ?? Array.from({ length: steps }, () => 1)
@@ -478,6 +481,15 @@ export class WatercolorSettlePlan {
       // Ilya's circles). The big sweeps get their speed from the
       // half-resolution field instead, exactly.
       run(frontSteps, costMax, field.pressure, WC_FRONT_CLIMB, WC_FRONT_FLOOR)
+      if (skipPigmentRim) {
+        // Mode 11 reads outward pressure/coverage only. Inward mask, band and
+        // gathered rim feed pigment operators; none remains under full zero proof.
+        ops.push(() => {
+          this.ctx.passes().fieldOp(tmp, field.coverage, field.coverage, 11, standing, { d: field.pressure, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
+          this.ctx.passes().fieldOp(field.coverage, tmp, tmp, 1, 0)
+        })
+        return
+      }
       ops.push(() => { this.ctx.passes().fieldOp(field.mask, field.pressure, field.pressure, 12, budgetPx / costMax, { d: field.band }); pp.src = field.mask; pp.dst = tmp })
       // Inward over a gentler relief: the band's inner edge follows the
       // valleys a few cells in (the photo's streaks pointing into the light
@@ -911,7 +923,7 @@ export class WatercolorSettlePlan {
         this.ctx.passes().fieldOp(field.band, field.b, field.b, 4, 0.002)
         fieldOp(field.b, field.a, field.c, 1, -1)
       })
-      frontOps(field.c, field.a)
+      frontOps(field.c, field.a, skipZeroPigmentRim)
       ops.push(() => {
         // The proof covers P/C, not arbitrary previously pooled temporaries.
         // Explicitly retire the front's COST alias before exposing zero paint.
@@ -1016,7 +1028,7 @@ export class WatercolorSettlePlan {
       const dc = metadata.dryCtx
       this.groupTideOps(
         ops, field, x0, y0, Math.max(radiusPx, dc?.radiusPx ?? 0) / S, Math.max(standing, dc?.standing ?? 0), metadata.paints,
-        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S, pureWater,
+        dep.out, colour ? col.out : null, dryDep, dryCol, [field.b, field.cb, field.pressure], S, pureWater, skipZeroPigmentRim,
       )
       dry = { dep: dryDep, col: dryCol }
     }
@@ -1194,7 +1206,13 @@ export class WatercolorSettlePlan {
     scale = 1,
     /** Captured full P/C-zero proof from prepare; never guessed from colour/standing. */
     zeroPigment = false,
+    /** Captured zero proof and opt-in: pigment-only tide geometry is dead. */
+    skipZeroPigmentRim = false,
   ): void {
+    if (zeroPigment && skipZeroPigmentRim) {
+      ops.push(() => { outDep.clear(); outCol.clear() })
+      return
+    }
     // (§17.44) A world width in cells - see the settle's own `width`.
     const width = Math.max(1, Math.round(Math.max(2, Math.min(WC_RIM_BAND_PX, Math.round(radiusPx * scale / 5))) / scale))
     const costMaxIn = width + 3
