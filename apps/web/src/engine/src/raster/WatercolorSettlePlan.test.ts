@@ -1071,3 +1071,76 @@ it('binds and uploads the deferred first flow before every actual contact sample
     expect(brushSpy).toHaveBeenCalled()
   } finally { brushSpy.mockRestore(); uploadSpy.mockRestore(); bindSpy.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
 })
+
+for (const end of ['finish', 'cancel', 'loss'] as const) it(`releases each lazy CPU payload after upload or ${end}, while executed ops remain retained`, () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  probe._settlePlan.lazyContacts = true
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+  scratch.brushTravel = Array.from({ length: 8 }, (_, i) => ({ x: 22 + i * 2, y: 28 + i % 2 * 6, radius: 8, aspect: 1.5, angle: i * .21, dx: i % 2 ? -5 : 5, dy: 1, water: 1 }))
+  const owned = (probe._settlePlan as unknown as { _ownedContactPixels: Set<{ pixels: Uint8Array | null }> })._ownedContactPixels
+  const retained: Array<{ pixels: Uint8Array | null }> = []
+  const upload = vi.spyOn(engine['gl'], 'texImage2D')
+  const clock = vi.spyOn(performance, 'now').mockReturnValue(0)
+  let plan: ReturnType<WatercolorSettlePlan['prepare']> = null
+  try {
+    plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, true)!
+    let peakPayloads = 0, firstPayloadIndex = -1
+    const retainedOps = plan.ops
+    for (let i = 0; i < plan.ops.length; i++) {
+      plan.ops[i]()
+      peakPayloads = Math.max(peakPayloads, owned.size)
+      if (owned.size && firstPayloadIndex < 0) firstPayloadIndex = i
+      for (const payload of owned) if (!retained.includes(payload)) retained.push(payload)
+      if (owned.size && end !== 'finish') {
+        const count = upload.mock.calls.length
+        if (end === 'loss') probe._settlePlan.forgetTextures()
+        plan.dispose(); plan.dispose()
+        for (let j = i + 1; j < plan.ops.length; j++) plan.ops[j]()
+        expect(upload.mock.calls.length).toBe(count)
+        break
+      }
+    }
+    if (end === 'finish') plan.finish()
+    expect(retained.length).toBeGreaterThan(0)
+    expect(peakPayloads).toBe(1)
+    expect(owned.size).toBe(0)
+    expect(retained.every(p => p.pixels === null)).toBe(true)
+    expect(plan.ops).toBe(retainedOps)
+    expect(plan.ops.length).toBeGreaterThan(firstPayloadIndex + 1)
+  } finally { plan?.dispose(); clock.mockRestore(); upload.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+})
+
+it('releases a one-shot contact payload on failed upload and aborts before any brush consumer', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+  const probe = engine as unknown as Probe
+  probe._settlePlan.lazyContacts = true
+  const tile = probe._ribbonScratchPool.acquire(64, 64)
+  const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+  scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
+  scratch.brushTravel.push({ x: 32, y: 32, radius: 8, aspect: 1, angle: 0, dx: 32, dy: 0, water: 1 })
+  const owned = (probe._settlePlan as unknown as { _ownedContactPixels: Set<{ pixels: Uint8Array | null }> })._ownedContactPixels
+  const brush = vi.spyOn(probe._watercolorPasses, 'brushPass')
+  const clock = vi.spyOn(performance, 'now').mockReturnValue(0)
+  let plan: ReturnType<WatercolorSettlePlan['prepare']> = null
+  let restoreUpload: (() => void) | undefined
+  try {
+    plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 20, minY: 20, maxX: 44, maxY: 44 }, .2, 8, 1, 1, 1, 1, 0, undefined, false, undefined, true)!
+    let i = 0
+    while (i < plan.ops.length && !owned.size) plan.ops[i++]()
+    expect(owned.size).toBe(1)
+    const payload = [...owned][0]
+    const upload = vi.spyOn(engine['gl'], 'texImage2D').mockImplementation(() => { throw new Error('contact upload failed') })
+    restoreUpload = () => upload.mockRestore()
+    expect(() => plan!.ops[i]()).toThrow('contact upload failed')
+    expect(payload.pixels).toBeNull()
+    expect(owned.size).toBe(0)
+    plan.dispose()
+    for (; i < plan.ops.length; i++) plan.ops[i]()
+    expect(brush).not.toHaveBeenCalled()
+  } finally { plan?.dispose(); restoreUpload?.(); clock.mockRestore(); brush.mockRestore(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy() }
+})

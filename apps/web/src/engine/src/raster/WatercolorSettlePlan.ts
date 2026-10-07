@@ -62,6 +62,8 @@ export class WatercolorSettlePlan {
   /** Checked-out captured inputs survive asynchronous settle steps until landing or abort. */
   private readonly _ownedInputs = new Set<AccumulationBuffer>()
   private readonly _coverageOwners = new Set<RibbonStrokeScratch>()
+  /** Lazy CPU upload payloads do not survive their last JS consumer. */
+  private readonly _ownedContactPixels = new Set<{ pixels: Uint8Array | null }>()
 
   /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
    *  laid (the deposit less what was settled before it) is split into a
@@ -212,7 +214,8 @@ export class WatercolorSettlePlan {
     const presentations = new Set<Generator<void, void, unknown>>()
     const runningPresentations = new Set<Generator<void, void, unknown>>()
     let queuedContinuation: Array<() => void> = []
-    const cpuFields = new Set<ReturnType<typeof brushDragFieldWork>>()
+    const contactPixels = new Set<{ pixels: Uint8Array | null }>()
+    const releaseCpuFields = new Set<() => void>()
     const runningCpuFields = new Set<ReturnType<typeof brushDragFieldWork>>()
     const acquireInput = (width: number, height: number): AccumulationBuffer => {
       const buffer = this.ctx.pool().acquire(width, height)
@@ -228,8 +231,10 @@ export class WatercolorSettlePlan {
       disposed = true
       for (const generator of presentations) if (!runningPresentations.has(generator)) generator.return()
       presentations.clear()
-      for (const generator of cpuFields) if (!runningCpuFields.has(generator)) generator.return(null)
-      cpuFields.clear()
+      for (const release of releaseCpuFields) release()
+      releaseCpuFields.clear()
+      for (const payload of contactPixels) { payload.pixels = null; this._ownedContactPixels.delete(payload) }
+      contactPixels.clear()
       queuedContinuation = []
       if (this._coverageOwners.delete(scratch)) scratch.releaseRunningCoverage()
       // Forget/destroy clears the outer owner first: dead-context names must
@@ -957,23 +962,28 @@ export class WatercolorSettlePlan {
 
     // Sweep contacts in recorded order. Optical depth and pigment use the
     // same pre-contact pigment, before either result is copied back.
-    const contactOps = (contact: ReturnType<typeof brushDragContacts>[number]): Array<() => void> => {
+    const contactOps = ({ rect: cr, radius, field: { width, height, pixels } }: ReturnType<typeof brushDragContacts>[number], oneShot = false): Array<() => void> => {
       const commands: Array<() => void> = []
       // Split the accumulated contact exposure into one-cell exchanges.
       // Each pulse stays within the shared pigment/colour capacity bound.
-      const maxExposure = brushDragMaxExposure(contact.field.pixels)
-      const substeps = Math.max(1, Math.ceil(0.2 * contact.radius / S * maxExposure * Math.SQRT2 / 0.84))
-      const contactGain = 0.2 * contact.radius / (substeps * S)
+      const maxExposure = brushDragMaxExposure(pixels)
+      const substeps = Math.max(1, Math.ceil(0.2 * radius / S * maxExposure * Math.SQRT2 / 0.84))
+      const contactGain = 0.2 * radius / (substeps * S)
+      const payload = { pixels: pixels as Uint8Array | null }
+      if (oneShot) { contactPixels.add(payload); this._ownedContactPixels.add(payload) }
       let rect: [number, number, number, number], scissor: [number, number, number, number]
       let left: number, right: number, bottom: number, top: number
       commands.push(() => {
         // Lazy CPU fields have no redundant pre-stitch upload: the flow is
         // first consumed here, after immutable canonical capture.
+        if (!payload.pixels) return
         if (!flowTexture) bindFlowTexture()
-        const cf = contact.field, cr = contact.rect
         gl.activeTexture(gl.TEXTURE0)
         gl.bindTexture(gl.TEXTURE_2D, flowTexture)
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cf.width, cf.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, cf.pixels)
+        try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, payload.pixels) }
+        finally {
+          if (oneShot) { payload.pixels = null; contactPixels.delete(payload); this._ownedContactPixels.delete(payload) }
+        }
         rect = [(cr.x - x0) / (field.w * S), 1 - (cr.y + cr.h - y0) / (field.h * S), cr.w / (field.w * S), cr.h / (field.h * S)]
         // The face stencil reaches one canonical texel beyond the flow rect.
         // Draw and copy both records over that same halo to retain every pair.
@@ -1000,22 +1010,31 @@ export class WatercolorSettlePlan {
     }
     for (const contact of contacts) ops.push(...contactOps(contact))
     for (const group of groups) {
-      const generator = brushDragFieldWork(group.travel, group.rect)
-      cpuFields.add(generator)
+      let generator: ReturnType<typeof brushDragFieldWork> | null = brushDragFieldWork(group.travel, group.rect)
+      const releaseCpuField = (): void => {
+        const work = generator
+        generator = null
+        releaseCpuFields.delete(releaseCpuField)
+        if (work) {
+          if (!runningCpuFields.has(work)) work.return(null)
+        }
+      }
+      releaseCpuFields.add(releaseCpuField)
       const advanceField = (): void => {
-        if (disposed) return
+        if (disposed || !generator) return
+        const work = generator
         const started = performance.now()
         let result: IteratorResult<void, ReturnType<typeof brushDragField>>
-        runningCpuFields.add(generator)
+        runningCpuFields.add(work)
         try {
-          do { result = generator.next() }
+          do { result = work.next() }
           while (!result.done && !disposed && performance.now() - started < 2)
-        } finally { runningCpuFields.delete(generator) }
-        if (disposed) { generator.return(null); cpuFields.delete(generator); return }
+        } finally { runningCpuFields.delete(work) }
+        if (disposed) { work.return(null); releaseCpuField(); return }
         if (!result.done) { queuedContinuation.push(advanceField); return }
-        cpuFields.delete(generator)
+        releaseCpuField()
         if (!result.value) throw new Error('Missing generated contact field')
-        queuedContinuation.push(...contactOps({ rect: group.rect, radius: group.radius, field: result.value }))
+        queuedContinuation.push(...contactOps({ rect: group.rect, radius: group.radius, field: result.value }, true))
       }
       ops.push(advanceField)
     }
@@ -1295,7 +1314,13 @@ export class WatercolorSettlePlan {
     }
   }
 
+  private _releaseContactPixels(): void {
+    for (const payload of this._ownedContactPixels) payload.pixels = null
+    this._ownedContactPixels.clear()
+  }
+
   destroyTextures(): void {
+    this._releaseContactPixels()
     for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage()
     this._coverageOwners.clear()
     for (const field of this._ownedInputs) field.destroy()
@@ -1305,6 +1330,7 @@ export class WatercolorSettlePlan {
   }
 
   forgetTextures(): void {
+    this._releaseContactPixels()
     for (const scratch of this._coverageOwners) scratch.releaseRunningCoverage(true)
     this._coverageOwners.clear()
     this._ownedInputs.clear()
