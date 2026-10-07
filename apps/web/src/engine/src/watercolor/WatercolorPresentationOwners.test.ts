@@ -44,6 +44,8 @@ describe('bounded watercolor material presentation owners', () => {
     owners.retire(next, [...next.pending][0])
     expect(owners.releaseReady(old, true)).toBe(false)
     expect(owners.layers.get('paint')).toBe(next)
+    owners.cancelOwner(old, false)
+    expect(owners.layers.get('paint')).toBe(next)
     expect(releases).toEqual([{ material: old.material, lost: true }])
     expect(() => owners.hold(old)).toThrow('Stale')
   })

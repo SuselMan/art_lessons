@@ -79,6 +79,9 @@ export class WatercolorPresentationOwners<T> {
     this.release(owner.material, false)
     return true
   }
+  cancelOwner(owner: MaterialPresentationOwner<T>, lost: boolean): void {
+    if (this.owners.get(owner.layerId) === owner) this.cancel(owner.layerId, lost)
+  }
   cancel(layerId: string, lost: boolean): void {
     const owner = this.owners.get(layerId)
     if (!owner) return
