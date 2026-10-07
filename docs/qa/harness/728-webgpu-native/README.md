@@ -40,3 +40,5 @@ final store, plus an output-selection uniform. No in-place or paired schedule
 change is introduced. Software paired-vs-single fixtures cover nonzero Q8 fields,
 1-byte donors/near-full receivers, NEAREST/LINEAR water, midpoint dry gates,
 step1/2 and retained scissor exterior. Hardware parity remains unproven.
+
+Actual Samsung Chrome154, corrected native stage6ee4f091 (hosted assets repaired b41c6c2b): owner ordering/region copy/retirement/scissor and paired-vs-single brush all zero byte differences; validation errors0. GLSL/native image parity remains approximate: composite41bytes/max1, stamp coverage1060/max1/P31max1/C4max1; ribbon coverage277/max4/P49max1/C5max1; nonzero-origin coverage0/P44max1/C4max1. Raw `temp/fast-watercolor-night/native-stage-samsung-1791417369716.json`. The controller pass boolean means no validation errors, NOT exact artistic/image parity. Two earlier retries failed to load nested-host assets; they are retained as harness failures, not GPU failures.
