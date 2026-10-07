@@ -6,7 +6,7 @@ import type { RibbonStrokeScratch, RibbonFinishMetadata } from '../buffers/Ribbo
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
-import { brushDragContacts } from '../watercolor/brushDrag'
+import { brushDragContacts, brushDragMaxExposure } from '../watercolor/brushDrag'
 import { foreignWaterStencil } from '../watercolor/foreignWater'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { watercolorDampOver, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME, watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_POOL_STREAK, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE } from '../presets/watercolorPresets'
@@ -869,10 +869,7 @@ export class WatercolorSettlePlan {
     for (const contact of contacts) {
       // Split the accumulated contact exposure into one-cell exchanges.
       // Each pulse stays within the shared pigment/colour capacity bound.
-      let maxExposure = 0
-      for (let i = 2; i < contact.field.pixels.length; i += 4) {
-        maxExposure = Math.max(maxExposure, -Math.log(Math.max(1 - contact.field.pixels[i] / 255, 1 / 255)))
-      }
+      const maxExposure = brushDragMaxExposure(contact.field.pixels)
       const substeps = Math.max(1, Math.ceil(0.2 * contact.radius / S * maxExposure * Math.SQRT2 / 0.84))
       const contactGain = 0.2 * contact.radius / (substeps * S)
       let rect: [number, number, number, number], scissor: [number, number, number, number]

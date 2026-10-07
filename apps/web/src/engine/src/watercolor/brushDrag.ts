@@ -78,3 +78,12 @@ export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: num
   flush()
   return contacts
 }
+
+/** The exposure transform is monotone on encoded contact bytes. Taking the
+ * maximum byte first preserves the exact original winning transform and avoids
+ * evaluating log once per field cell. Zero keeps the original positive zero. */
+export function brushDragMaxExposure(pixels: Uint8Array): number {
+  let peak = 0
+  for (let i = 2; i < pixels.length; i += 4) peak = Math.max(peak, pixels[i])
+  return peak === 0 ? 0 : -Math.log(Math.max(1 - peak / 255, 1 / 255))
+}
