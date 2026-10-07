@@ -263,6 +263,8 @@ export interface PencilEngineOptions {
   joinedTouch?: boolean
   /** Diagnostic OFF: defer one admitted joined native UP behind its predecessor. */
   joinedFinishDeferred?: boolean
+  /** Diagnostic OFF: preserve prior material ownership across RGB/preset change. */
+  joinedTouchMixed?: boolean
   /** Experimental bounded live watercolor material presentation. */
   materialPresentation?: boolean
   /** (#650) Where the engine's own diagnostic lines go — the on-device ring
@@ -2242,6 +2244,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
+    this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
     this._wcAsyncFinish = options.asyncFinish ?? false
     this._wcMaterialPresentation = options.materialPresentation ?? false
     this._diagLog = options.diagLog ?? (() => {})
