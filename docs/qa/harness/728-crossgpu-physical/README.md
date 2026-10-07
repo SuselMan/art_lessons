@@ -90,3 +90,25 @@ proven; unknown paper upload binding, GPU sampling and external textures break
 that chain. An equal→unknown→different regression prevents the old ambiguous
 precedingEqual inference. No GPU or actual paper-sampler equality gate has run
 for this adapter yet.
+
+## Exact CPU upload provenance observer (OFF)
+
+`installOwnedCanvasUploadProvenance` wraps only an owned canvas getContext so
+its GL-instance observer is installed before engine initialization/paper upload.
+No WebGL prototypes or user pages change. `installUploadProvenance` defaults OFF;
+existing-context active unit starts unknown until an actual activeTexture call.
+A newly created owned context has the spec default unit0. State shadows update
+only after original GL calls return successfully; original this/return/throws
+are preserved. Texture identities and observed sampler parameters are recorded
+without getParameter or getTexParameter. Unobserved sampler defaults remain
+unknown; exact CPU input SHA does not imply identical GPU conversion/sampling.
+
+Max64 upload records and16MiB cumulative owned clones by default. Null/image
+sources, absent binding, unknown active unit, detached views, source-offset
+WebGL2 overloads, exhausted budget or digest errors cannot become known.
+Exact typed subview is cloned before original upload and any later mutation or
+worker transfer. SHA operates asynchronously on that clone, never a whole
+backing buffer. `ready()` must finish before comparison; failures remain data.
+`dispose()` restores only its own wrappers, clears binding owners and preserves
+records. GPU source/stencil/sampler itself is never changed. This is CPU-tested
+QA preparation, not an executed capture or complete shader-input parity proof.
