@@ -1,3 +1,5 @@
+import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
+import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 export type { CompositeItem } from './src/raster/LayerCompositor'
@@ -9,7 +11,7 @@ import { destroyField, type SettleField } from './src/buffers/SettleField'
 import { WC_HALF_RES_RADIUS_PX } from './src/watercolor/settleResolution'
 import { WatercolorPasses } from './src/raster/WatercolorPasses'
 import { RibbonPasses } from './src/raster/RibbonPasses'
-import { RibbonStrokePainter, type RibbonLiveComposite } from './src/dabs/RibbonStrokePainter'
+import { RibbonStrokePainter, type RibbonLiveComposite, type RibbonStrokePainterContext } from './src/dabs/RibbonStrokePainter'
 import { rectOnTile, ribbonWaterDelivery } from './src/dabs/ribbonStrokeMath'
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill, LayerFilter } from '@grafetto/shared'
@@ -1816,6 +1818,25 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _wcAsyncDryTo = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncOwners = new Map<RibbonStrokeScratch, number>()
   private readonly _wcAsyncPresentations = new Map<RibbonStrokeScratch, Map<number, { buf: AccumulationBuffer; origin: { x: number; y: number }; pending: Map<object, Dab[]>; preset: string; color: [number, number, number] }>>()
+  /** Local material presentation experiment. Canonical operators unchanged. */
+  private _wcMaterialPresentation = false
+  private readonly _wcMaterialOwners = new WatercolorPresentationOwners<{
+    buffer: AccumulationBuffer; pool: RibbonScratchPool; raster: WatercolorPresentationRaster; scratches: Set<RibbonStrokeScratch>
+  }>(64 * 1024 * 1024, 24, extent => {
+    const buffer = new AccumulationBuffer(this.gl, extent.width, extent.height)
+    buffer.clear()
+    const pool = new RibbonScratchPool(this.gl)
+    const raster = new WatercolorPresentationRaster(buffer, extent, pool,
+      { ...this._ribbonPainterContext, markPaperDamage: () => {} })
+    return { buffer, pool, raster, scratches: new Set<RibbonStrokeScratch>() }
+  }, (material, lost) => {
+    material.raster.release(lost)
+    if (lost) material.pool.forget(); else { material.pool.destroy(); material.buffer.destroy() }
+  })
+  private readonly _wcMaterialKeys = new Map<object, {
+    scratch: RibbonStrokeScratch; gesture: number
+    owner: MaterialPresentationOwner<{ buffer: AccumulationBuffer; pool: RibbonScratchPool; raster: WatercolorPresentationRaster; scratches: Set<RibbonStrokeScratch> }>
+  }>()
   private readonly _wcCanonical = new WatercolorCanonicalFIFO({
     blocked: () => !!this._settle || this._contextLost || this.gl.isContextLost(),
     advance: (work, current) => this._advanceAsyncCanonical(work, current),
@@ -1861,7 +1882,7 @@ export class PencilEngine implements PencilEngineAPI {
     paperWorldSize: () => this._paperWorldSize(),
   })
 
-  private readonly _ribbonPainter = new RibbonStrokePainter({
+  private readonly _ribbonPainterContext: RibbonStrokePainterContext = {
     dabPool: () => this._dabPool,
     scratchPool: () => this._ribbonScratchPool,
     resolveWaterPreset: name => this._resolvePreset('watercolor', name),
@@ -1884,7 +1905,8 @@ export class PencilEngine implements PencilEngineAPI {
     revealBeforeBatch: (tile, bounds) => this._revealBeforeBatch(tile, bounds),
     revealRect: (tile, bounds) => this._revealRect(tile, bounds),
     wcSheetClamp: (r) => this._wcSheetClamp(r),
-  })
+  }
+  private readonly _ribbonPainter = new RibbonStrokePainter(this._ribbonPainterContext)
 
   private _liveComposite: RibbonLiveComposite | null = null
   /** (#536, §17.22) Frees the diffusion field a while after the last settle:
@@ -2206,6 +2228,7 @@ export class PencilEngine implements PencilEngineAPI {
     layers: () => this._layers,
     previews: () => this._previews,
     transientPreviews: () => this._asyncLocalPreviewTiles(),
+    materialPresentations: () => this._materialPresentationLayers(),
     reveals: () => this._washReveals,
     drawReveal: (...args) => this._drawTileReveal(...args),
     activeId: () => this._activeId,
@@ -8003,7 +8026,57 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Provisional stamps are presentation only. The actual source commands
    * are queued separately and never sample this buffer. */
+  private _materialPresentationLayers(): ReadonlyMap<string, {
+    buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number
+  }> {
+    const result = new Map<string, { buffer: AccumulationBuffer; originX: number; originY: number; worldWidth: number; worldHeight: number }>()
+    for (const owner of this._wcMaterialOwners.layers.values()) {
+      const ready = [...owner.material.scratches].every(scratch => !this._wcAsyncOwners.has(scratch)
+        && this._settle?.scratch !== scratch)
+        && ![...this._washReveals.values()].some(reveal => reveal.layerId === owner.layerId)
+        && this._strokeLayerId !== owner.layerId
+      if (this._wcMaterialOwners.releaseReady(owner, ready)) { this._wetTexAt = 0; continue }
+      result.set(owner.layerId, { buffer: owner.material.buffer, ...owner.extent })
+    }
+    return result
+  }
+  private _showMaterialPresentation(scratch: RibbonStrokeScratch, gesture: number,
+    dabs: readonly Dab[], preset: string, color: [number, number, number]): object {
+    const layerId = this._strokeLayerId
+    if (!layerId) throw new Error('Material preview requires a layer owner')
+    const view = this._camera.liveFrame().view
+    const existed = this._wcMaterialOwners.layers.has(layerId)
+    const owner = this._wcMaterialOwners.acquire(layerId, { originX: view.minX, originY: view.minY,
+      worldWidth: view.maxX - view.minX, worldHeight: view.maxY - view.minY }, 512)
+    if (!existed) {
+      const e = owner.extent
+      const frame: CameraFrame = { wx: e.originX + e.worldWidth / 2, wy: e.originY + e.worldHeight / 2,
+        centerX: e.width / 2, centerY: e.height / 2, scale: e.width / e.worldWidth, angle: 0, view }
+      for (const tile of this._layers.get(layerId)?.resolveVisible(view) ?? []) {
+        this._drawTileComposite(frame, tile.buffer.texture, tile.originX, tile.originY,
+          tile.buffer.width, tile.buffer.height, 1, owner.material.buffer.fbo, e.width, e.height)
+      }
+    }
+    owner.material.scratches.add(scratch)
+    const key = this._wcMaterialOwners.hold(owner)
+    this._wcMaterialKeys.set(key, { scratch, gesture, owner })
+    this._wetTexAt = 0
+    try {
+      owner.material.raster.paint(this._strokeId ?? `local:${gesture}`, dabs,
+        this._resolvePreset('watercolor', preset), preset, ribbonProfileFor('watercolor', preset), color)
+    } catch (error) {
+      this._wcMaterialKeys.delete(key)
+      this._wcMaterialOwners.retire(owner, key)
+      // A failed partially-drawn presentation must not shadow canonical paint.
+      this._wcMaterialOwners.cancelOwner(owner, this._contextLost || this.gl.isContextLost())
+      throw error
+    }
+    this._invalidateSplitCache()
+    this._scheduleDisplay()
+    return key
+  }
   private _showAsyncPresentation(scratch: RibbonStrokeScratch, gesture: number, dabs: readonly Dab[], preset: string, color: [number, number, number]): object | null {
+    if (this._wcMaterialPresentation) return this._showMaterialPresentation(scratch, gesture, dabs, preset, color)
     const bytes = this.canvas.width * this.canvas.height * 4
     let used = 0
     for (const films of this._wcAsyncPresentations.values()) for (const held of films.values()) used += held.buf.width * held.buf.height * 4
@@ -8030,6 +8103,15 @@ export class PencilEngine implements PencilEngineAPI {
     return key
   }
   private _releaseAsyncPresentationItem(scratch: RibbonStrokeScratch, gesture: number, key: object | null, lost: boolean): void {
+    const material = key ? this._wcMaterialKeys.get(key) : undefined
+    if (material && key) {
+      this._wcMaterialKeys.delete(key)
+      this._wcMaterialOwners.retire(material.owner, key)
+      if (lost) this._wcMaterialOwners.cancelOwner(material.owner, true)
+      this._scheduleDisplay()
+      return
+    }
+
     const held = this._wcAsyncPresentations.get(scratch)?.get(gesture)
     if (!held || !key) return
     held.pending.delete(key)
@@ -8039,6 +8121,12 @@ export class PencilEngine implements PencilEngineAPI {
     for (const marks of held.pending.values()) this._stamps.paint(held.buf, this._translateDabs(marks, held.origin), 'watercolor', held.preset, waterOnly ? [0.5, 0.5, 0.5] : held.color)
   }
   private _releaseAsyncPresentation(scratch: RibbonStrokeScratch, gesture: number, lost: boolean): void {
+    for (const [key, item] of this._wcMaterialKeys) if (item.scratch === scratch && item.gesture === gesture) {
+      this._wcMaterialKeys.delete(key)
+      this._wcMaterialOwners.retire(item.owner, key)
+      if (lost) this._wcMaterialOwners.cancelOwner(item.owner, true)
+    }
+
     const films = this._wcAsyncPresentations.get(scratch), held = films?.get(gesture)
     if (!held) return
     films!.delete(gesture)
@@ -8125,6 +8213,9 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _clearAsyncPresentations(lost: boolean): void {
+    this._wcMaterialKeys.clear()
+    this._wcMaterialOwners.clear(lost)
+    this._wetTexAt = 0
     for (const id of [...this._wcAsyncLocalTools.keys()]) this._releaseAsyncLocalTool(id, lost)
     if (this._wcAsyncLocalStroke) {
       const endedStroke = this._strokeId
@@ -8673,11 +8764,17 @@ export class PencilEngine implements PencilEngineAPI {
   private _updateWetTexture(now: number): void {
     if (now - this._wetTexAt < 120) return
     this._wetTexAt = now
-    // O(1) before the O(cells) walk: a dry sheet is the common case and must
-    // not pay for the overlay at all.
-    if (this._paperWet.peak(now) <= 0.01) { this._wetRect = [0, 0, -1, -1]; return }
-    const b = this._paperWet.bounds(now)
-    if (!b) { this._wetRect = [0, 0, -1, -1]; return }
+    // Display-only material water is unioned here, never written to canonical
+    // PaperWet or read by the solver. Hidden target layers do not add a preview.
+    const visible = new Set(this._displayOrder().map(item => item.id))
+    const wetSources = [this._paperWet, ...[...this._wcMaterialOwners.layers.values()]
+      .filter(owner => visible.has(owner.layerId)).map(owner => owner.material.raster.paperWet)]
+      .filter(source => source.peak(now) > 0.01)
+    if (!wetSources.length) { this._wetRect = [0, 0, -1, -1]; return }
+    const bounds = wetSources.map(source => source.bounds(now)).filter((b): b is NonNullable<typeof b> => !!b)
+    if (!bounds.length) { this._wetRect = [0, 0, -1, -1]; return }
+    const b = { minCx: Math.min(...bounds.map(b => b.minCx)), minCy: Math.min(...bounds.map(b => b.minCy)),
+      maxCx: Math.max(...bounds.map(b => b.maxCx)), maxCy: Math.max(...bounds.map(b => b.maxCy)) }
     const CAP = 160
     const cols = b.maxCx - b.minCx + 1
     const rows = b.maxCy - b.minCy + 1
@@ -8691,11 +8788,19 @@ export class PencilEngine implements PencilEngineAPI {
     const w = inW + 2, h = inH + 2
     // (§17.44) One pass over the field, then the two filters separably: the
     // 5x5 max of the body as two 5-tap passes, the tent as it was.
-    const raster = this._paperWet.raster(b.minCx, b.minCy, step, inW, inH, now)
+    const raster = new Float32Array(inW * inH)
+    for (const source of wetSources) {
+      const next = source.raster(b.minCx, b.minCy, step, inW, inH, now)
+      for (let i = 0; i < raster.length; i++) raster[i] = Math.max(raster[i], next[i])
+    }
     const cells = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) cells.set(raster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
     // (#680, s17.81) The pool share, for the pool's tone (s17.83).
-    const poolRaster = this._paperWet.rasterPool(b.minCx, b.minCy, step, inW, inH, now)
+    const poolRaster = new Float32Array(inW * inH)
+    for (const source of wetSources) {
+      const next = source.rasterPool(b.minCx, b.minCy, step, inW, inH, now)
+      for (let i = 0; i < poolRaster.length; i++) poolRaster[i] = Math.max(poolRaster[i], next[i])
+    }
     const pools = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) pools.set(poolRaster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
     if (!this._wetOverlayWorkspace || this._wetOverlayWorkspace.rgba.length !== w * h * 4) {
