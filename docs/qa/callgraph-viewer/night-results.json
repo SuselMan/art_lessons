@@ -27,9 +27,9 @@
         "Queue.advance"
       ],
       "name": "Front batching",
-      "result": "Surface replay21179→19547мс,1239→1143среза, поля/whole exact; presentation отдельно почти без эффекта.",
-      "limits": "Один порядок, fixed replay;124дополнительные GPU sync. Не ускорение GPU-оператора, default OFF.",
-      "status": "Около8% в одном контрольном прогоне"
+      "result": "Surface direct/reverse: replay21179→19547 и20957→19424мс, около7–8%; поля/whole exact, Undo/Redo PASS. Presentation отдельно без эффекта.",
+      "limits": "Fixed replay,124дополнительные GPU sync. Не ускорение GPU-оператора; live/Room/Samsung gates ещё нужны, default OFF.",
+      "status": "7–8% в двух порядках на Surface"
     }
   ]
 }
