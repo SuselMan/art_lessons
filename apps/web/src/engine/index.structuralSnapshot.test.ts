@@ -1,4 +1,4 @@
-import {expect,it} from 'vitest'
+import {expect,it,vi} from 'vitest'
 import type {LayerState,Operation} from '@grafetto/shared'
 import {createTestEngine,dab,makeLayerAdd,makeLayerDelete,makeLayerMerge,makeLayerDuplicate,makeStroke,readLayerPixels} from './testing/engineTestUtils'
 import {replayLayerState} from '../lib/layers/layers'
@@ -19,7 +19,11 @@ it.each(['delete','merge','duplicate'] as const)('restores covered structural %s
 
  const restored=createTestEngine({userId:'reader'},{width:8,height:8}).engine
  restored.setBaseLayers(Object.keys(empty.items));restored.suspendDisplay()
+ const rebuild=vi.spyOn(restored as unknown as {_rebuildLayer:(id:string)=>void},'_rebuildLayer')
  await restored.restoreHistoricalOperations(prefix, true)
+ expect(rebuild).not.toHaveBeenCalled()
+ await restored.restoreHistoricalOperations(prefix)
+ expect(rebuild.mock.calls.length).toBe(new Set(rebuild.mock.calls.map(([id])=>id)).size)
  const undo:Operation={id:'undo6',type:'operation_undo',userId:'A',timestamp:6,seq:6,targetOpId:'target3'}
  source.appendOperation(undo,'remote');restored.appendOperation(undo,'remote');restored.resumeDisplay()
  const expectedUI=replayLayerState(empty,source.getOperations())
@@ -52,10 +56,13 @@ it('reconciles post-watermark source pixels after applying a retained earlier sa
  source.appendOperation(rename,'remote');source.appendOperation(second,'remote')
  const restored=createTestEngine({userId:'reader'},{width:8,height:8}).engine
  restored.setBaseLayers(Object.keys(empty.items));restored.suspendDisplay()
+ const rebuild=vi.spyOn(restored as unknown as {_rebuildLayer:(id:string)=>void},'_rebuildLayer')
  await restored.restoreHistoricalOperations(prefix,true)
+ expect(rebuild).not.toHaveBeenCalled()
  restored.restoreLayerFromSnapshot('S',tiles,2)
  expect(readLayerPixels(restored,'S')).not.toEqual(readLayerPixels(source,'S'))
  await restored.restoreHistoricalOperations(prefix)
+ expect(rebuild).toHaveBeenCalledTimes(1)
  expect(readLayerPixels(restored,'S')).toEqual(readLayerPixels(source,'S'))
  const undo:Operation={id:'undo6',seq:6,timestamp:6,userId:'A',type:'operation_undo',targetOpId:'rename3'}
  source.appendOperation(undo,'remote');restored.appendOperation(undo,'remote');restored.resumeDisplay()

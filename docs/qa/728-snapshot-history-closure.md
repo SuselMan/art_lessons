@@ -71,3 +71,19 @@ Original negative artifacts remain in ignored `temp/closure/structural-negative/
 old-source failure is `temp/closure/structural-corrected-negative.log`, positive aggregate
 is `temp/closure/structural-final.log`. No production source or frozen f877 QA stand
 was changed during this preparation.
+
+### Topology-only initial handover
+
+Review identified redundant heavy replay before bitmap application. The first
+`restoreHistory(prefix, true)` now absorbs the prefix, synchronizes buffer topology
+with `rebuildNewLayers=false`, and preloads images; it does not rebuild any pixel
+layer. After safe blobs are pinned, the normal scoped dependency pass marks seeded
+IDs against that coverage and performs the sole prefix pixel reconstruction.
+All other `_syncBuffersToLog` callers keep their existing rebuild behavior.
+
+Actual engine test spies assert zero `_rebuildLayer` calls in the first phase,
+unique per-layer calls in the dependency phase for all three structural cases,
+and exactly one call for the retained earlier source bitmap. Undo/redo UI trees,
+buffer IDs, and complete layer pixels remain equal to the full-history oracle.
+74 relevant tests across engine structural/network snapshots and client restore
+pass. This removes a duplicate replay; it is not a hardware speedup claim.

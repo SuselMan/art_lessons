@@ -4043,7 +4043,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  (base init or a done layer_add/layer_merge/layer_duplicate) and not
    *  destroyed (listed in a done layer_delete or consumed as a done merge
    *  source). Ids are never reused, so no ordering analysis is needed. */
-  private _syncBuffersToLog(): void {
+  private _syncBuffersToLog(rebuildNewLayers = true): void {
     // #122: called for undo/redo/revoke of layer_add/layer_delete/
     // layer_merge/layer_duplicate and from context restore — both can create/destroy an
     // arbitrary set of layers relative to what the cache last saw.
@@ -4076,7 +4076,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const id of created) {
       if (destroyed.has(id) || this._layers.has(id)) continue
       this._createBuffer(id)
-      this._rebuildLayer(id)
+      if (rebuildNewLayers) this._rebuildLayer(id)
     }
   }
 
@@ -5302,13 +5302,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._replayRestoredStructure) this._checkpoints.markCovered(ops)
     if (replayStructure) {
       this._replayRestoredStructure = true
-      this._syncBuffersToLog()
-      for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
-        if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
-      }
+      // Topology only: safe snapshots have not been handed over yet.
+      this._syncBuffersToLog(false)
     }
     await this.preloadImages(ops)
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
+    if (replayStructure) return
     // Tail merge/copy reads live source buffers. Deferring these until the
     // eventual resumeDisplay would let that tail copy an empty source. Run
     // the existing rebuild machinery now, preserving its GPU slicing.
