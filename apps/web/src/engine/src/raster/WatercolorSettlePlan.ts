@@ -1,6 +1,6 @@
 import { contactPulseOp, frontStepOp, inheritSettleOpTags } from '../watercolor/WatercolorSettleQueue'
 import type { WatercolorPasses } from './WatercolorPasses'
-import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
+import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { RibbonStrokeScratch, RibbonFinishMetadata } from '../buffers/RibbonStrokeScratch'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
@@ -37,6 +37,8 @@ export class WatercolorSettlePlan {
   /** Local diagnostic only, default OFF. V-phase is an experimental closure,
    * not an equality between solvent thickness and the PaperWetness clock. */
   diagnosticPlateauPhase = false
+  /** Presentation-only cropped partial-front transport; local, default OFF. */
+  diagnosticPartialFrontPreview = false
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   splitQuanta = false
@@ -195,20 +197,25 @@ export class WatercolorSettlePlan {
     // stitch - a running gesture's next batch refreshes the film's base).
     this._coverageOwners.add(scratch)
     const owned = new Set<AccumulationBuffer>()
+    const directInputs = new Set<AccumulationBuffer>()
     let disposed = false
     const presentations = new Set<Generator<void, void, unknown>>()
     const runningPresentations = new Set<Generator<void, void, unknown>>()
     let queuedContinuation: Array<() => void> = []
     const cpuFields = new Set<ReturnType<typeof brushDragFieldWork>>()
     const runningCpuFields = new Set<ReturnType<typeof brushDragFieldWork>>()
-    const acquireInput = (width: number, height: number): AccumulationBuffer => {
-      const buffer = this.ctx.pool().acquire(width, height)
+    const acquireInput = (width: number, height: number, filter: 'nearest' | 'linear' = 'nearest'): AccumulationBuffer => {
+      // The pool owns only NEAREST buffers. Never return a LINEAR cost crop
+      // through that free list and silently change a later material sampler.
+      const buffer = filter === 'linear' ? new AccumulationBuffer(gl, width, height, filter) : this.ctx.pool().acquire(width, height)
+      if (filter === 'linear') directInputs.add(buffer)
       owned.add(buffer); this._ownedInputs.add(buffer)
       return buffer
     }
     const releaseInput = (buffer: AccumulationBuffer): void => {
       owned.delete(buffer)
-      if (this._ownedInputs.delete(buffer)) this.ctx.pool().release(buffer)
+      const direct = directInputs.delete(buffer)
+      if (this._ownedInputs.delete(buffer)) { if (direct) buffer.destroy(); else this.ctx.pool().release(buffer) }
     }
     const dispose = (): void => {
       if (disposed) return
@@ -221,8 +228,11 @@ export class WatercolorSettlePlan {
       if (this._coverageOwners.delete(scratch)) scratch.releaseRunningCoverage()
       // Forget/destroy clears the outer owner first: dead-context names must
       // never return to the pool through a subsequently cancelled callback.
-      for (const buffer of owned) if (this._ownedInputs.delete(buffer)) this.ctx.pool().release(buffer)
-      owned.clear()
+      for (const buffer of owned) {
+        const direct = directInputs.delete(buffer)
+        if (this._ownedInputs.delete(buffer)) { if (direct) buffer.destroy(); else this.ctx.pool().release(buffer) }
+      }
+      owned.clear(); directInputs.clear()
     }
     const a0 = S > 1 ? acquireInput(field.w, field.h) : null
     const ca0 = S > 1 ? acquireInput(field.w, field.h) : null
@@ -445,6 +455,7 @@ export class WatercolorSettlePlan {
     // footprint into `pressure`, the inward cost from past-the-budget into
     // `mask`, then the band texture, the coverage extended over the domain,
     // and the band gathered into `mask` for the rims.
+    let partialFrontPreview: ((cost: AccumulationBuffer) => void) | null = null
     const frontOps = (mobile: AccumulationBuffer, tmp: AccumulationBuffer): void => {
       const pp = { src: field.pressure, dst: tmp }
       const run = (steps: number, max: number, home: AccumulationBuffer, climb: number, floor: number, strides?: readonly number[]): void => {
@@ -455,6 +466,7 @@ export class WatercolorSettlePlan {
           ops.push(frontStepOp(() => {
             for (const st of chunk) { frontStep(pp.src, pp.dst, max, climb, floor, st); const t = pp.src; pp.src = pp.dst; pp.dst = t }
             if (last && pp.src !== home) this.ctx.passes().fieldOp(home, pp.src, pp.src, 1, 0)
+            if (home === field.pressure) partialFrontPreview?.(pp.src)
           }))
         }
       }
@@ -543,13 +555,14 @@ export class WatercolorSettlePlan {
     // Presentation copies only: never write the intermediate state into the
     // wash records. Reconstruct against the same captured base as finish().
     let previewAt = -Infinity
-    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1): void => {
+    const present = (mobile: AccumulationBuffer, fixed: AccumulationBuffer | null, mobileColor?: AccumulationBuffer, fixedColor?: AccumulationBuffer, afloat = 1, crop?: { w: number; h: number; coverage: AccumulationBuffer }): void => {
       if (!preview || this.ctx.shouldPreview?.() === false || performance.now() - previewAt < 150) return
       previewAt = performance.now()
       const reconstruct = function* (this: WatercolorSettlePlan): Generator<void, void, unknown> {
         const pool = this.ctx.pool()
-        const pigment = splitQuanta ? acquireInput(field.w, field.h) : pool.acquire(field.w, field.h)
-        const color = splitQuanta ? acquireInput(field.w, field.h) : pool.acquire(field.w, field.h)
+        const pw = crop?.w ?? field.w, ph = crop?.h ?? field.h
+        const pigment = splitQuanta ? acquireInput(pw, ph) : pool.acquire(pw, ph)
+        const color = splitQuanta ? acquireInput(pw, ph) : pool.acquire(pw, ph)
         try {
           if (fixed) fieldOp(pigment, fixed, mobile, 1, afloat)
           else mobile.copyTo(pigment)
@@ -569,14 +582,23 @@ export class WatercolorSettlePlan {
               if (entry.inkColor) entry.inkColor.copyTo(chroma)
               entry.coverage.copyTo(coverage)
               const snap = snapshots.get(tile.buffer)
-              fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
-              if (entry.inkColor) {
-                if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
-                else fromField(color, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
-              }
               const tx = ox0 - tile.originX, ty = tile.buffer.height - (oy1 - tile.originY)
-              if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
-              else this.ctx.passes().wcResample(coverage, tx, ty, ox1 - ox0, oy1 - oy0, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 0)
+              if (crop) {
+                // Prototype is S=1 only. All copied source records, cost and
+                // volume share this cropped GL origin and pixel resolution.
+                const fx = ox0 - x0, fy = crop.h - (oy1 - y0)
+                pigment.copyRegionInto(load, fx, fy, tx, ty, ox1 - ox0, oy1 - oy0)
+                if (entry.inkColor) color.copyRegionInto(chroma, fx, fy, tx, ty, ox1 - ox0, oy1 - oy0)
+                crop.coverage.copyRegionInto(coverage, fx, fy, tx, ty, ox1 - ox0, oy1 - oy0)
+              } else {
+                fromField(pigment, a0, tile, ox0, oy0, ox1, oy1, load, snap?.ink ?? entry.inkLoad)
+                if (entry.inkColor) {
+                  if (S > 1 && !colour) this.ctx.passes().pigmentColor(chroma, load, singleTau)
+                  else fromField(color, ca0, tile, ox0, oy0, ox1, oy1, chroma, snap?.color ?? entry.inkColor)
+                }
+                if (S === 1) field.coverage.copyRegionInto(coverage, ox0 - x0, field.h - (oy1 - y0), tx, ty, ox1 - ox0, oy1 - oy0)
+                else this.ctx.passes().wcResample(coverage, tx, ty, ox1 - ox0, oy1 - oy0, field.coverage, (ox0 - x0) / S, field.h - (oy1 - y0) / S, 1 / S, 0)
+              }
               preview(tile, load, entry.inkColor ? chroma : null, coverage)
             } finally { pool.release(load); pool.release(chroma); pool.release(coverage) }
             yield
@@ -606,6 +628,53 @@ export class WatercolorSettlePlan {
         try { if (resume().done) presentations.delete(generator) }
         catch (error) { generator.return(); presentations.delete(generator); throw error }
       })
+    }
+    // The real field is at least 1536². Crop the active S=1 rectangle, not
+    // field.w/h; no canonical field resize, scissor or UV change is allowed.
+    const partialEnabled = this.diagnosticPartialFrontPreview && !!preview && S === 1
+      && w <= 512 && h <= 512 && overlaps.length === 1 && metadata.paints.size === 1
+      && overlaps[0].tile.buffer.width <= 512 && overlaps[0].tile.buffer.height <= 512
+      && !this.ctx.ab().noCarry
+    let partial: {
+      seedP: AccumulationBuffer; fixedP: AccumulationBuffer; seedC: AccumulationBuffer; fixedC: AccumulationBuffer
+      p: AccumulationBuffer; pNext: AccumulationBuffer; c: AccumulationBuffer; cNext: AccumulationBuffer
+      coverage: AccumulationBuffer; coverageNext: AccumulationBuffer; cost: AccumulationBuffer; volume: AccumulationBuffer
+    } | null = null
+    const cropSource = (source: AccumulationBuffer, target: AccumulationBuffer): void =>
+      source.copyRegionInto(target, 0, field.h - h, 0, 0, w, h)
+    const capturePartial = (): void => {
+      if (!partialEnabled || disposed) return
+      const nearest = (): AccumulationBuffer => acquireInput(w, h)
+      partial = { seedP: nearest(), fixedP: nearest(), seedC: nearest(), fixedC: nearest(),
+        p: nearest(), pNext: nearest(), c: nearest(), cNext: nearest(),
+        coverage: nearest(), coverageNext: nearest(), cost: acquireInput(w, h, 'linear'), volume: nearest() }
+      cropSource(field.c, partial.seedP); cropSource(field.b, partial.fixedP)
+      // Single-paint canonical path reconstructs colour later; presentation
+      // splits its captured optical-depth record by the same mobile share.
+      cropSource(field.ca, partial.c); cropSource(field.cb, partial.cNext)
+      fieldOp(partial.seedC, partial.c, partial.cNext, 0, mobileShare)
+      fieldOp(partial.fixedC, partial.c, partial.seedC, 1, -1)
+      partial.seedP.copyTo(partial.p); partial.seedC.copyTo(partial.c)
+      cropSource(field.coverage, partial.coverage)
+      if (solvent) cropSource(solvent, partial.volume); else partial.volume.clear()
+    }
+    if (partialEnabled) partialFrontPreview = cost => {
+      if (!partial || disposed || this.ctx.shouldPreview?.() === false) return
+      // One unit exchange per existing outward entry, evolving only the
+      // private presentation copy. The four seed records remain immutable.
+      cropSource(cost, partial.cost)
+      const opts = { d: partial.cost, e: plateauPhase ? partial.volume : undefined,
+        dir: [1, 1] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number],
+        size: [WC_CARRY_POW, costMax] as [number, number],
+        tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number],
+        origin: [1, WC_CARRY_TRAVEL] as [number, number] }
+      this.ctx.passes().fieldOp(partial.cNext, partial.c, partial.fixedP, 16, WC_CARRY_RATE, { ...opts, c: partial.p })
+      this.ctx.passes().fieldOp(partial.pNext, partial.p, partial.fixedP, 15, WC_CARRY_RATE, opts)
+      ;[partial.p, partial.pNext] = [partial.pNext, partial.p]
+      ;[partial.c, partial.cNext] = [partial.cNext, partial.c]
+      this.ctx.passes().fieldOp(partial.coverageNext, partial.coverage, partial.coverage, 11, standing,
+        { d: partial.cost, band: [budgetPx / costMax, 0], size: [1 / costMax, 1] })
+      present(partial.p, partial.fixedP, partial.c, partial.fixedC, 1, { w, h, coverage: partial.coverageNext })
     }
     let pairedColour: { out: AccumulationBuffer } | null = null
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
@@ -640,6 +709,7 @@ export class WatercolorSettlePlan {
           fieldOp(colour.c, colour.a, colour.b, 0, mobileShare)
           fieldOp(colour.b, colour.a, colour.c, 1, -1)
         }
+        if (first) capturePartial()
       })
       // The water front, its band and the extended coverage come from the
       // deposit's mobile field, once; the colour record rides the same.
