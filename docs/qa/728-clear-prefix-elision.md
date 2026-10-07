@@ -127,3 +127,25 @@ useRoomRestore → actualrestoreRoomState. Real hook/real MockGL Engine regressi
 unchanged render сохраняет callback identity и не запускает дополнительный
 restore; opt-inpaint1/fullhistory3, undefinedpaint2. 22tests4files, whole-web TS
 и targeted lint PASS. Production Room caller не включает эту опцию.
+
+### Подготовка обычной загрузки на объединённом c092
+
+Обычный Samsung Room controller использует source c092bb925532de903fcaf61d50bced6cb39766d8
+(990 файлов совпали), с одной объявленной QA query overlay в Room caller. Лог
+содержит все исходные47 операции; реальные socket ACK и server operations проверены.
+В новой локальной комнате SNOONay_ подтверждены A4/Fine1754×2480/#fdfdfc, отсутствие
+snapshot index (204), unchanged packed dabs/wet/timestamps и seed bitmap с
+1 580 675 непрозрачными пикселями, GL0/lostfalse. Default flags: asyncfalse,
+zeroContactstrue, phasefalse, fibresfalse.
+
+Первый1445 отказал до комнаты из-за fixture попытки сериализовать DOM object.
+После Boolean(await expression) CPU проверки второй запуск завершил seed, открыл
+fresh ordinary reader1447 и получил15s Runtime.evaluate timeout во время настоящей
+загрузки. Exec34159 EXIT1;1446/1447 закрыты вfinally. Последний отдельный пассивный
+опрос seed до его завершения показывал47ACK/pending0/rebuildJobs1, но не является
+состоянием уже открытого fresh reader. Raw ordinary47_1791365784081 сохранён.
+
+Это **INCONCLUSIVE**, не ordinary-load timing PASS и не regression helper. Bitmap
+bootstrap, stored rejoin и обычный Undo/Redo ещё не пройдены. Следующий прогон
+требует проверенного bounded CDP deadline для долгого restore; не отключать работу
+движка и не удалять историю ради результата.
