@@ -61,3 +61,9 @@ Room включает типизированную constructor option materialPr
 Илья15:18–15:22 подтвердил liveUX FAIL: размытый предварительный материал долго заменяется настоящим мазком, пропадает при zoom. Причина: fullview replacement owner перекрывает canonical/reveal весь solver; cameraextent fallback или camera cleanup удаляет единственный pending visible deposit. Immediatecolor и finalDryRGBA не закрывали этот контракт.
 
 Временный кандидат отключает обе Room constructor options asyncFinish/materialPresentation, сохраняя canonicalring/tone/fibres f685. Отключение только materialPresentation возвращало бы genericStamp и потому недостаточно. Известный sync-drain/newtouch performance риск остаётся; откат направлен на настоящий живой материал, morph и zoom, а не на обещание плавности400.
+
+## Fresh-only с подтверждённым Redo, 7 октября
+
+ReadonlyDB подтвердил семь операций комнаты1fQL29E2: RedoAAvjyCuOrq seq7 targetingLSi8WRFDAu. Первый freshresourcepreflightFAIL:1427.6MiB<1700, Chrome не создавался. После остановки толькоownunused5331/1401253 (cwd/argv/clients[] проверены) новыйreader запущен на5329 с тем жеsource208/999SHA. Пользовательские вкладки/операции не затрагивались.
+
+Session75355 EXIT0/ownChromeClosed; HOME raw `680-lifetime-hardware/temp/live-material-rollback-208/fresh-ack-1791377697340/report.json`. Pre1750.9/min1346.7MiB; AMD Radeon/GL0/lostfalse; constructorasync/materialfalse. Exact7IDs+serverSeq1–7 awaited beforeexport, paperReady/displaySuspendDepth0/settle/rebuild/pendingquiet. NativeRedo→fresh wholeRGBA1754×2480 exact0/max0; both nonemptyAlpha138696. Oracle VPS `temp/pure-water-plan/causal-trace/rollback-ui-1791375948540/fresh-ack7-rgba.json`. Старыйemptyfresh6ops/безRedo не переписан: это отдельный beforeACK/readiness fixture failure. Новый контроль закрывает только существующий180/86/zoom/DryUndoRedo room, не400perf/peer/storedsnapshot.
