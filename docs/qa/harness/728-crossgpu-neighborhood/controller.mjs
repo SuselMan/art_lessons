@@ -1,3 +1,4 @@
+import {diffusionStencilCells,uploadViewDescriptor} from './stencil.mjs';
 import {worldRead,installNeighborhood} from './neighborhood.mjs';
 import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
@@ -9,7 +10,7 @@ const APP=process.env.APP_URL;if(!APP)throw Error('explicit immutable app URL');
 const probe=readFileSync(new URL('./same42-probe.js',import.meta.url),'utf8');new Function('return '+probe);
 if(!process.env.WC_OPS_FILE)throw Error('explicit immutable ops path');const journalBytes=readFileSync(process.env.WC_OPS_FILE);const full=JSON.parse(journalBytes);
 if(full.length!==42||full.filter(o=>o.type==='image_import').length!==1||JSON.stringify(full).includes('[cycle]'))throw Error('full immutable42 required');
-const installer='(function(e,opts){const worldRead='+worldRead.toString()+';const installNeighborhood='+installNeighborhood.toString()+';return installNeighborhood(e,opts)})';new Function('return '+installer);
+const installer='(function(e,opts){const diffusionStencilCells='+diffusionStencilCells.toString()+';const uploadViewDescriptor='+uploadViewDescriptor.toString()+';const worldRead='+worldRead.toString()+';const installNeighborhood='+installNeighborhood.toString()+';return installNeighborhood(e,opts)})';new Function('return '+installer);
 const input={revision:'f685fe1c',policy:'DEFAULT',gradientFibres:false,baked:false,moduleURL:APP+'/src/engine/index.ts',paperLoaderURL:APP+'/src/engine/src/paper/paperLoader.ts',installer,ops:full.filter(o=>o.type!=='image_import'),operationTimeout:180000};
 if(process.env.WC_DRY_RUN==='1'){console.log(JSON.stringify({compiled:true,ops:input.ops.length,excludedImageIds:full.filter(o=>o.type==='image_import').map(o=>o.id),gradientFibres:input.gradientFibres,targets:['Gq9CPrzxWh','ytlRBmw3Tg'],scope:'prepared only, no device/network'}));process.exit(0)}
 if(process.env.WC_GPU_SLOT!=='granted')throw Error('explicit device grant required');
