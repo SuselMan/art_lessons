@@ -337,3 +337,34 @@ GPU gate и endpoint invariance default-OFF ещё требуют аппарат
 CPU tests проверяют реальные schedule masks-before-carry, unchanged rate/travel,
 owner-false/mixed skip, два borrowed buffers без новых текстур, endDraw и program
 reinitialization. Старые отмена/context loss ownership tests также остаются в suite.
+
+### HOME small-mask аппаратный gate, 2026-10-07 04:01 UTC
+
+Изолированный runtime `680-puddle-outline/temp/cost-domain-e8-net39`: base
+`e8f93b6f54393c9345fa6b1c0fcabd3b7251af7d` + net `39e1a488`, 906 web/shared
+исходников проверены SHA перед запуском. Только собственный Chrome, DISPLAY=:0,
+один engine; не Room, не native, не полный solver. Controller `cost-mask-run.mjs`
+с watchdog180s, RAM preflight1700/abort500. Фактический preflight2019 MiB,
+exec58913 exit0, engineClosed/ownedChromeClosed=true, GPU освобождён.
+
+Первый запуск INVALID bootstrap до GL: в новом архиве отсутствовал referenced
+`tsconfig.sw.json`. После добавления точных e8 sw/shared tsconfig HTTP119 module
+preflight дал200 во всех случаях. Первичный отчёт сохранён, не shader failure.
+
+Actual GPU readback: 722400 значений четырёх каналов binary mask exact с direct
+inclusive CPU oracle. Explicit offset rect [1,1,128,7], оба endpoints, out-of-bounds
+и сухой разрыв1px PASS. Для одного stride64 rate.5/travel.35: старый positive-cost
+оператор переносит8568 codes P в соседний бассейн через разрыв; mask ON переносит0.
+Toy totalP52000 exact в обоих arms. Immutable cost/P/V readback exact, GL0,
+isContextLost=false, pageerrors[]. Это не доказательство общей mass conservation.
+
+128×128 primitive seed+шесть dyadic growth draws, после прогрева пять samples
+с единственным1×1 readback sync: .2/.3/.2/.3/.2 ms, median.2 ms. Это стоимость
+малого примитива, не14-stride solver/1536field/nativeFPS или Adreno benchmark.
+Renderer report masked `WebKit WebGL`; no unmasked-device/crossGPU assertion.
+
+Raw HOME `temp/cost-domain-e8-net39/temp/onset/mask-retry1/report.json`;
+VPS `temp/onset/mask-retry1-report.json`. Старый `onset-runtime` не изменён.
+Default OFF, no root integration. Следующие обязательные gates: salted whole
+LOW/HIGH/CARRY/COLOUR + independent mask compile Adreno, actual stage delta/ring/
+outward и full-field cost с owner14; mixedpaint исключён.
