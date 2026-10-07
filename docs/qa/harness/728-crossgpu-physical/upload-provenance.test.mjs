@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {installUploadProvenance,installOwnedCanvasUploadProvenance} from './upload-provenance.mjs';
+const digest=async b=>createHash('sha256').update(b).digest();let thrown=false,calls=0;
+const gl={TEXTURE0:100,activeTexture(){return 'active'},bindTexture(){return 'bound'},texParameteri(){return 'param'},texImage2D(){calls++;if(thrown)throw Error('original failed');assert.equal(this,gl);return 'uploaded'},texSubImage2D(){calls++;return 'sub'}};
+const original=gl.texImage2D;const off=installUploadProvenance(gl);assert.equal(gl.texImage2D,original);off.dispose();
+const qa=installUploadProvenance(gl,{enabled:true,digest,domain:()=>({op:'water64'})}),texture={};
+const input=new Uint8Array([99,1,2,3,4,88]);let view=input.subarray(1,5);
+assert.equal(gl.texImage2D(1,0,2,2,1,0,3,4,view),'uploaded');
+gl.activeTexture(101);gl.bindTexture(1,texture);gl.texParameteri(1,7,8);assert.equal(gl.texImage2D(1,0,2,2,1,0,3,4,view),'uploaded');input.fill(0);
+await qa.ready();assert.equal(qa.rows[0].known,false);assert.equal(qa.rows[1].known,true);assert.equal(qa.rows[1].byteOffset,1);assert.equal(qa.rows[1].byteLength,4);assert.equal(qa.rows[1].exactViewSHA,createHash('sha256').update(new Uint8Array([1,2,3,4])).digest('hex'));assert.equal(qa.rows[1].samplerObserved[7],8);
+const transferable=new Uint8Array([5,6,7]);gl.texSubImage2D(1,0,0,0,3,1,3,4,transferable);structuredClone(transferable.buffer,{transfer:[transferable.buffer]});await qa.ready();assert.equal(qa.rows[2].known,true);
+gl.texImage2D(1,0,2,3,4,{width:2,height:2});await qa.ready();assert.equal(qa.rows[3].known,false);
+thrown=true;assert.throws(()=>gl.texImage2D(1,0,2,2,1,0,3,4,new Uint8Array([8])),/original failed/);await qa.ready();assert.equal(qa.rows[4].submitted,false);assert.equal(qa.rows[4].known,false);thrown=false;
+assert.equal(calls,5);qa.dispose();assert.equal(gl.texImage2D,original);
+const bounded=installUploadProvenance(gl,{enabled:true,digest,maxBytes:1});gl.bindTexture(1,texture);gl.texImage2D(1,0,2,2,1,0,3,4,new Uint8Array([1,2]));await bounded.ready();assert.equal(bounded.rows[0].known,false);assert.equal(bounded.summary().truncated,true);bounded.dispose();
+const canvas={getContext(){return gl}},get=canvas.getContext;const owned=installOwnedCanvasUploadProvenance(canvas,{enabled:true,digest});assert.equal(owned.capture,null);assert.equal(canvas.getContext('webgl'),gl);assert.ok(owned.capture);owned.dispose();assert.equal(canvas.getContext,get);assert.equal(gl.texImage2D,original);
+console.log('OFF/scoped-before-init/offset/hash/mutation/transfer/unbound/image/throw/budget/restore controls PASS');
