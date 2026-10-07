@@ -42,7 +42,8 @@ export class CanonicalWatercolorGesture {
  private index=0
  private offset=0
  private box:{minX:number;minY:number;maxX:number;maxY:number;half:number}|null=null
- constructor(private readonly owner:WatercolorGestureOwner){}
+ private readonly owner:WatercolorGestureOwner
+ constructor(owner:WatercolorGestureOwner){this.owner=owner}
  begin(e:PointerData,settings:WatercolorGestureSettings,provenance:GestureProvenance):void {
   if(settings.tool!=='watercolor')throw new Error('Only canonical watercolor is supported')
   if(this.provenance)throw new Error('Finish the current gesture before beginning another')
@@ -75,7 +76,9 @@ export class CanonicalWatercolorGesture {
  }
  /** Uses the actual DOM normalizer, including coalesced events and calibrated pressure. */
  attach(canvas:HTMLCanvasElement,begin:()=>{settings:WatercolorGestureSettings;provenance:GestureProvenance},transform:(x:number,y:number)=>{x:number;y:number},pressureMap:PressureMap|null=null):()=>void {
-  const input=new PointerInput(canvas).setTransform(transform).setPressureMap(pressureMap)
+  const input=new PointerInput(canvas)
+  input.setTransform(transform)
+  input.setPressureMap(pressureMap)
   input.on('start',e=>{const data=begin();this.begin(e,data.settings,data.provenance)}).on('move',e=>this.move(e)).on('end',e=>this.end(e))
   return ()=>input.destroy()
  }

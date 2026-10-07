@@ -42,3 +42,9 @@ onPreparedChunk(chunk) {
 ```
 
 Многоплиточное исполнение требует отдельного разделения delivery и per-tile emission. Текущий tile-specific builder не следует вызывать несколько раз с одним mutable state для одной партии. Это явно оставленный owner integration blocker, не скрытое доказательство готовности native Room.
+
+## Независимый повторный review
+
+Исправлена ошибочная первоначальная команда typecheck: `tsconfig.json` содержит references и не является app check. Обязательная команда — `npm run typecheck --workspace=apps/web` (app + service worker). Исправлены erasableSyntaxOnly constructor, void setters PointerInput и неизвестное test option.
+
+Для каждой partial operation отдельно проверяются число исходных дабов, конкатенация quantized wet и абсолютный dabOffset. Wet не пересчитывается при flush: профили сбрасываются вместе с той operation, которой принадлежат. DabSystem/taper/lift остаются исходными функциями; lift получает chunk tail до flush, paint затем перезаписывает t партии, как production. PaperWetness имеет отдельные clock samples до source preparation и после него; commit только при end, dropPending при begin. Callback обязан вернуть standing и dabPool от той же единственной source preparation; fallback nominal water/zero pool сохранён ровно как production, не является заменой реальной delivery.
