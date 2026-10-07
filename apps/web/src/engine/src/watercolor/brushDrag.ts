@@ -49,8 +49,8 @@ export function brushDragField(travel: readonly BrushTravel[], rect: { x: number
 
 /** Sweep contacts in recorded order. An average over the entire zigzag loses
  * the fact that the return pass crossed and displaced the previous pass. */
-export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: number; y: number; w: number; h: number }) {
-  const contacts: Array<{ rect: typeof rect; field: NonNullable<ReturnType<typeof brushDragField>>; radius: number }> = []
+export function brushDragContactGroups(travel: readonly BrushTravel[], rect: { x: number; y: number; w: number; h: number }) {
+  const contacts: Array<{ rect: typeof rect; travel: readonly BrushTravel[]; radius: number }> = []
   let group: BrushTravel[] = [], distance = 0
   const flush = () => {
     if (!group.length) return
@@ -66,7 +66,7 @@ export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: num
     x1 = Math.min(rect.x + rect.w, Math.ceil(x1) + 4); y1 = Math.min(rect.y + rect.h, Math.ceil(y1) + 4)
     if (x1 > x0 && y1 > y0) {
       const bounds = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
-      contacts.push({ rect: bounds, field: brushDragField(group, bounds)!, radius })
+      contacts.push({ rect: bounds, travel: group, radius })
     }
     group = []; distance = 0
   }
@@ -77,6 +77,13 @@ export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: num
   }
   flush()
   return contacts
+}
+
+/** Existing eager API; descriptors preserve its exact grouping and fields. */
+export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: number; y: number; w: number; h: number }) {
+  return brushDragContactGroups(travel, rect).map(group => ({
+    rect: group.rect, radius: group.radius, field: brushDragField(group.travel, group.rect)!,
+  }))
 }
 
 /** The exposure transform is monotone on encoded contact bytes. Taking the

@@ -6,7 +6,8 @@ import type { RibbonStrokeScratch, RibbonFinishMetadata } from '../buffers/Ribbo
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
-import { brushDragContacts, brushDragMaxExposure } from '../watercolor/brushDrag'
+import { brushDragContacts, brushDragContactGroups, brushDragField, brushDragMaxExposure } from '../watercolor/brushDrag'
+import { brushDragFieldWork } from '../watercolor/brushDragFieldWork'
 import { foreignWaterStencil } from '../watercolor/foreignWater'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
 import { watercolorDampOver, watercolorPuddleMerge, watercolorRimShare, WC_BLOOM_SHARE, WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, WC_TIDE_STANDING_FULL, WC_TIDE_RIM, WC_RIM_BAND_PX, WC_REMOB_DOME, watercolorSpreadBudget, watercolorCarryStrides, watercolorFrontSteps, WC_CARRY_RATE, WC_CARRY_POW, WC_CARRY_TRAVEL, watercolorDwellWater, WC_POOL_STREAK, WC_FRONT_CLIMB, WC_FRONT_FLOOR, WC_FRONT_CLIMB_IN, WC_FRONT_FLOOR_IN, WC_FRONT_DRY_COST, WC_FRONT_DRY_SHARE } from '../presets/watercolorPresets'
@@ -39,6 +40,8 @@ export class WatercolorSettlePlan {
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   splitQuanta = false
+  /** CPU scheduling diagnostic; requires the same canonical owner capability. */
+  lazyContacts = false
   constructor(ctx: WatercolorSettlePlanContext) { this.ctx = ctx }
   private get gl(): WebGLRenderingContext { return this.ctx.gl() }
 
@@ -111,6 +114,7 @@ export class WatercolorSettlePlan {
     const { gl } = this
     const metadata = finishMetadata ?? scratch
     const splitQuanta = this.splitQuanta && presentationOwnerLocked
+    const lazyContacts = this.lazyContacts && presentationOwnerLocked
     const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
     if (!tiles.length) return null
     // The rect: the settle's bounds plus the reach, clipped to the tiles that
@@ -194,7 +198,9 @@ export class WatercolorSettlePlan {
     let disposed = false
     const presentations = new Set<Generator<void, void, unknown>>()
     const runningPresentations = new Set<Generator<void, void, unknown>>()
-    let queuedPresentation: Array<() => void> = []
+    let queuedContinuation: Array<() => void> = []
+    const cpuFields = new Set<ReturnType<typeof brushDragFieldWork>>()
+    const runningCpuFields = new Set<ReturnType<typeof brushDragFieldWork>>()
     const acquireInput = (width: number, height: number): AccumulationBuffer => {
       const buffer = this.ctx.pool().acquire(width, height)
       owned.add(buffer); this._ownedInputs.add(buffer)
@@ -209,7 +215,9 @@ export class WatercolorSettlePlan {
       disposed = true
       for (const generator of presentations) if (!runningPresentations.has(generator)) generator.return()
       presentations.clear()
-      queuedPresentation = []
+      for (const generator of cpuFields) if (!runningCpuFields.has(generator)) generator.return(null)
+      cpuFields.clear()
+      queuedContinuation = []
       if (this._coverageOwners.delete(scratch)) scratch.releaseRunningCoverage()
       // Forget/destroy clears the outer owner first: dead-context names must
       // never return to the pool through a subsequently cancelled callback.
@@ -271,8 +279,11 @@ export class WatercolorSettlePlan {
     const plateauPhase = this.diagnosticPlateauPhase && solvent !== null
     const foreign = foreignWaterStencil(metadata.foreignSources ?? [], metadata.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const contacts = skipZeroPigmentContacts ? [] : brushDragContacts(metadata.brushTravel, { x: x0, y: y0, w: field.w * S, h: field.h * S })
-    const flow = contacts[0]?.field
+    const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
+    const groups = lazyContacts && !skipZeroPigmentContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
+    const firstContact = groups.length ? { rect: groups[0].rect, radius: groups[0].radius, field: brushDragField(groups[0].travel, groups[0].rect)! } : null
+    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : brushDragContacts(metadata.brushTravel, contactRect)
+    const flow = firstContact?.field ?? contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
     const ops: Array<() => void> = []
@@ -590,7 +601,7 @@ export class WatercolorSettlePlan {
         }
       }
       try { resume() } catch (error) { generator.return(); presentations.delete(generator); throw error }
-      for (let i = 0; i <= overlaps.length; i++) queuedPresentation.push(() => {
+      for (let i = 0; i <= overlaps.length; i++) queuedContinuation.push(() => {
         if (disposed) return
         try { if (resume().done) presentations.delete(generator) }
         catch (error) { generator.return(); presentations.delete(generator); throw error }
@@ -866,7 +877,8 @@ export class WatercolorSettlePlan {
 
     // Sweep contacts in recorded order. Optical depth and pigment use the
     // same pre-contact pigment, before either result is copied back.
-    for (const contact of contacts) {
+    const contactOps = (contact: ReturnType<typeof brushDragContacts>[number]): Array<() => void> => {
+      const commands: Array<() => void> = []
       // Split the accumulated contact exposure into one-cell exchanges.
       // Each pulse stays within the shared pigment/colour capacity bound.
       const maxExposure = brushDragMaxExposure(contact.field.pixels)
@@ -874,7 +886,7 @@ export class WatercolorSettlePlan {
       const contactGain = 0.2 * contact.radius / (substeps * S)
       let rect: [number, number, number, number], scissor: [number, number, number, number]
       let left: number, right: number, bottom: number, top: number
-      ops.push(() => {
+      commands.push(() => {
         if (!flowTexture) return
         const cf = contact.field, cr = contact.rect
         gl.activeTexture(gl.TEXTURE0)
@@ -901,7 +913,30 @@ export class WatercolorSettlePlan {
       }
       // Pulses share immutable contact geometry; reuse one closure while
       // retaining every scheduler operation and its chronological order.
-      for (let sub = 0; sub < substeps; sub++) ops.push(contactPulseOp(exchange))
+      for (let sub = 0; sub < substeps; sub++) commands.push(contactPulseOp(exchange))
+      return commands
+    }
+    for (const contact of contacts) ops.push(...contactOps(contact))
+    if (firstContact) ops.push(...contactOps(firstContact))
+    for (const group of groups.slice(1)) {
+      const generator = brushDragFieldWork(group.travel, group.rect)
+      cpuFields.add(generator)
+      const advanceField = (): void => {
+        if (disposed) return
+        const started = performance.now()
+        let result: IteratorResult<void, ReturnType<typeof brushDragField>>
+        runningCpuFields.add(generator)
+        try {
+          do { result = generator.next() }
+          while (!result.done && !disposed && performance.now() - started < 2)
+        } finally { runningCpuFields.delete(generator) }
+        if (disposed) { generator.return(null); cpuFields.delete(generator); return }
+        if (!result.done) { queuedContinuation.push(advanceField); return }
+        cpuFields.delete(generator)
+        if (!result.value) throw new Error('Missing generated contact field')
+        queuedContinuation.push(...contactOps({ rect: group.rect, radius: group.radius, field: result.value }))
+      }
+      ops.push(advanceField)
     }
 
     // (§17.42) The provisional dry target: the wet result with the one tide
@@ -1048,27 +1083,28 @@ export class WatercolorSettlePlan {
       minX: Math.min(bounds.minX, x0), minY: Math.min(bounds.minY, y0),
       maxX: Math.max(bounds.maxX, x1), maxY: Math.max(bounds.maxY, y1),
     }
-    if (splitQuanta) {
-      // Insert the captured presentation immediately after its physical entry.
-      // Queue.advance increments next before calling an entry; Array iteration
-      // in synchronous completion likewise sees these newly inserted entries.
+    if (splitQuanta || lazyContacts) {
+      // CPU fields and presentation use one ordered insertion cursor. Children
+      // inherit physical tags; untimed CPU/upload/presentation steps are barriers.
       let insertedOffset = 0
-      for (let i = 0; i < ops.length; i++) {
-        const physical = ops[i]
+      const wrap = (physical: () => void, baseIndex: number): (() => void) => {
         const entry = (): void => {
           if (disposed) return
           physical()
-          if (!queuedPresentation.length) return
-          const presentation = queuedPresentation
-          queuedPresentation = []
-          const at = i + insertedOffset
-          if (ops[at] !== entry) throw new Error('Missing split presentation owner')
-          ops.splice(at + 1, 0, ...presentation)
-          insertedOffset += presentation.length
+          if (!queuedContinuation.length) return
+          const children = queuedContinuation
+          queuedContinuation = []
+          const at = baseIndex + insertedOffset
+          if (ops[at] !== entry) throw new Error('Missing continuation owner')
+          const after = insertedOffset + children.length
+          const wrapped = children.map((child, j) => wrap(child, at + 1 + j - after))
+          ops.splice(at + 1, 0, ...wrapped)
+          insertedOffset = after
         }
         inheritSettleOpTags(physical, entry)
-        ops[i] = entry
+        return entry
       }
+      for (let i = 0; i < ops.length; i++) ops[i] = wrap(ops[i], i)
     }
     return { ops, finish, dispose, compositeDomain }
   }
