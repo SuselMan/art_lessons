@@ -100,3 +100,39 @@ P/C нулевые, V и coverage положительны. Цветной от�
 не физики. Исправленный parser проверен на реальном /proc/meminfo.
 Raw и точные runner/input/source manifest находятся в
 `temp/pure-water-plan/hardware/`; они не входят в коммит.
+
+## Обычный Room: native Samsung OFF/ON
+
+`temp/pure-water-plan/native/run-pureplanNative_1791358714375`:
+exit0, errors[], закрыты собственные 1427/1428, Adreno650/GL0/lost=false.
+Полный f52 source986 SHA совпадает. Обычный tracked Vite config в
+HOME `680-lifetime-hardware/temp/f52-room-native`, HTTPS5331, backend4539
+не менялся. Два прежних bootstrap FAIL сохранены отдельно: custom standalone
+config не разрешал React, затем virtual:pwa-register; до engine/рисования.
+
+Физический холст1754×2480, round watercolor water100/pigment0/size400,
+3s input с двумя coalesced samples/rAF и следующим коротким touch.
+Исходные flags: async/split/lazy/phase/fibres/band/batches/source-copy OFF,
+sourceFilmRebase/zeroContacts ON. Только diagnosticPureWaterPlan OFF/ON.
+Два реальных stroke ACK до Dry, strongzero prepare2/2 в обеих arms.
+
+| Показатель | OFF | ON |
+| --- | ---: | ---: |
+| Active max rAF, ms |17|17|
+| Tail max rAF, ms |919|602|
+| Next touch handler, ms |66.2|58.9|
+| Next touch after lift, ms |83.6|83.6|
+
+Это одна последовательная native пара одинаковой геометрии/длительности:
+rAF-адаптивные журналы различаются, не fixed-tape причинный field oracle.
+Readback/export выполнены только после измеряемого tail/orderedDry.
+Задержка602ms остаётся; smooth PASS отсутствует.
+
+После водяного Redo следующий native пигмент100 на том же слое видим:
+112723/112492 nonempty pixels. Последний короткий пигментный touch Undo
+удаляет17549px/max255 в каждой arm; Redo возвращает nativeDry wholeRGBA0.
+Все10 серверных операций каждой arm имеют ACK, pending=false. Чисто-водные
+Dry PNG ожидаемо прозрачны: их equality0 сама по себе не доказательство V.
+Здесь нет независимого fresh-reader/контекст-loss native endpoint.
+Полный fixed-tape V/coverage и следующий P/C доказаны предыдущим gate.
+Raw `rgba-audit.json`, исходный native helper и runner сохранены рядом.
