@@ -121,3 +121,57 @@ Parent-owned Chrome profile/root5329 GW74BiKV, exacttarget3920BC4BADDCB960052B50
 Surface newtarget certificate control: first Runtime responsive on certificate interstitial, notapp. Corrected ownaboutblank→Securityignoretrue→Page.navigate/create reached actualCreateDOM(forms1/canvas4 paperpreviews/enginefalse), newtarget2A69F0C04423E6B13B03D67E1238F226 CLOSED. Rawsurface-bootstrap-1791352864823 and1791352930811. Original3920 untouched. Parent corrected process roles:18256 browserCPU1809s,5088renderer1758s,10760actualGPU20s; earlierGPUrole guess was wrong. No GPUcompile/Roomrestore diagnosis from those counters; only currentownprofile/newappbootstrap responsiveness established.
 
 ScopedDebugger probe on original3920: enable2s timeout, thus pause NEVER sent and no callstack. finallydisable2s timeout, browserTarget.detach replied{}, connectionCLOSED. Rawsurface-debugger-1791353602114/report.json. No repeated Profiler/Runtime/trace attempts; parent owns retirement of this isolated profile. This negative diagnostic adds no engine/physics verdict.
+
+### 2026-10-07 06:34 UTC: current zero-contact proof, Samsung 1412
+
+Источник — неизменный `321d0260`, собственный HOME runtime `zero-proof-321d`
+на 5330; backend 4539. Между плечами менялся только
+`_wcZeroPigmentContacts`. Source film ON, phase/fibres OFF;
+async/split/lazy/band/front/contact/presentation diagnostics одинаковы.
+Default OFF сохранён.
+
+Вход — явная производная родного журнала 1396: preset двух strokes изменён
+с `normal:100:100` на `normal:100:0`; packed dabs, wet, времена и Dry неизменны.
+SHA входа `5f026d02a6c5086e9e17dda10c0b10d8989c0cc73c57cf804de9234ca18302c5`.
+Это matched standalone NORMAL replay, без сокетов/новых gestures/forced reveal
+или подмены owner14; не проверка native FPS и не обычной Room загрузки.
+
+Вместо прежних 19 фактически сравнились **27** именованных результатов:
+6 canonical tiles × P/C/V/coverage, field cost, actual solvent field и whole RGBA.
+Все byte exact: changed=0/max=0. Whole RGBA — 17,399,680 bytes.
+P/C нулевые ожидаемо для чистой воды; solvent field имеет 493,700 ненулевых
+байтов, solvent и coverage ненулевые во всех шести tiles. Cost в этой
+конечной точке уже нулевой и сам по себе не служит guard.
+
+| Метрика | OFF | ON |
+| --- | ---: | ---: |
+| actual brushPass calls | 2596 | 0 |
+| actual waterFrontStep calls | 252 | 252 |
+| prepare skip=true calls | 0 | 2 |
+| Queue advance units | 1498 | 140 |
+| solver wall, seconds | 10.568 | 4.337 |
+| whole run including captures/export, seconds | 11.060 | 5.035 |
+
+Это причинный результат пропуска доказанно нулевого обмена на одном и том же
+журнале, не адаптивное сравнение различных native жестов. Сохранённый front и
+ненулевой V исключают пустой no-op PASS. GL=0/contextLost=false в обоих плечах.
+
+Дополнительные hardware guard probes использовали настоящий
+`appendPeerLiveDabs` pencil (paintedTotal=1, committedOffset=0), реальные
+appendOperation(pencil) и suspended appendUndo, затем настоящий pure-water
+RibbonStrokePainter scratch на canonical target. prepare argument11 лишь
+наблюдался, физический Plan в этих маленьких probes не исполнялся:
+peer на том же слое → false; peer на другом → true; pending Undo → false;
+предшествующая pencil history → false. GL=0/lost=false. Это actual guard
+reachability, не whole multiuser/Undo endpoint oracle.
+
+Первый собственный 1411 FAIL сохранён: старый passive helper ошибочно получал
+V через carry opts.e, который задан только при phase ON. При phase OFF
+undefined readback ломал finish wrapper; это fixture failure, не physics
+regression. Retry брал V из настоящего `diffuseStep` аргумента12 (solvent),
+подтверждённого source Plan. Flags/source не менялись.
+
+Raw: `temp/fence-hardware/native-room-zeroproof321d_1791354881103/report.json`;
+предыдущий FAIL: `..._1791354789958/report.json`. Passport:
+`temp/fence-hardware/zero321d-passport.json`. Собственный 1412 закрыт finally,
+Samsung освобождён. Никаких публикаций/default изменений.
