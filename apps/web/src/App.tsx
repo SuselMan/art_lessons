@@ -15,6 +15,7 @@ import { useBanned } from './lib/api/banned'
 // Route-level code splitting (#130): Room alone pulls in the WebGL pencil
 // engine, @dnd-kit, and socket.io-client — none of which /login, /create, or
 // /my-lessons need. Each page ships as its own chunk, fetched on navigation.
+const WatercolorGpuPoc = import.meta.env.DEV ? lazy(() => import('./pages/WatercolorGpuPoc').then(m => ({ default: m.WatercolorGpuPocPage }))) : null
 const CreateRoom = lazy(() => import('./pages/CreateRoom').then(m => ({ default: m.CreateRoom })))
 // Through `importRoomPage` rather than an inline `import()` so the pages that
 // preload this chunk share one specifier with it — see lib/api/roomChunk.ts.
@@ -95,6 +96,7 @@ export function App() {
             <Suspense fallback={<RouteFallback />}>
               {banned ? <Banned /> : <Routes>
                 <Route path="/" element={<Navigate to="/create" replace />} />
+                {WatercolorGpuPoc && <Route path="/dev/watercolor-webgpu" element={<WatercolorGpuPoc />} />}
                 <Route path="/create" element={<CreateRoom />} />
                 <Route path="/room/:id" element={<Room />} />
                 <Route path="/login" element={<Auth />} />

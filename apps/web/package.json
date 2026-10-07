@@ -52,6 +52,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/subset-font": "^2.3.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "@webgpu/types": "^0.1.74",
     "fontkit": "^2.0.4",
     "material-symbols": "0.45.9",
     "oxlint": "^1.69.0",

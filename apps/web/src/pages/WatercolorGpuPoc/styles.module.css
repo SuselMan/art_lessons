@@ -1,0 +1,18 @@
+.page { max-width: 1600px; margin: 0 auto; padding: 20px; color: var(--color-text); background: var(--color-bg); min-height: 100vh; }
+.page h1 { font-size: 24px; font-weight: 500; }
+.notice { max-width: 80ch; line-height: 1.5; opacity: .8; }
+.controls, .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; align-items: center; }
+.controls label { display: flex; gap: 8px; align-items: center; }
+.controls input, .controls select { min-height: 44px; }
+.actions button { min-height: 44px; padding: 8px 14px; border: 1px solid #777; border-radius: 6px; color: inherit; background: transparent; cursor: pointer; }
+.actions button:disabled { opacity: .45; cursor: default; }
+.canvases { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,480px),1fr)); gap: 18px; }
+.canvases figure { margin: 0; min-width: 0; }
+.canvases figure[hidden] { display: none; }
+.canvases figcaption { min-height: 36px; font-size: 13px; }
+.canvases canvas, .canvases img { display: block; width: 100%; aspect-ratio: 4 / 3; background: #fff; touch-action: none; border-radius: 3px; }
+.metrics { font: 12px/1.5 monospace; overflow-wrap: anywhere; }
+.page details { max-width: 100ch; line-height: 1.5; }
+@media (max-width: 600px) { .page { padding: 12px; } .controls label { width: 100%; } .controls input[type="range"] { flex: 1; } }
+
+.canvases canvas[hidden] { display: none; }
