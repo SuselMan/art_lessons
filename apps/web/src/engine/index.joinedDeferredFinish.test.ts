@@ -108,3 +108,11 @@ it('typed constructor option defaults OFF and cannot enable joined admission, as
  for(const enabled of [undefined,true]){const {engine:e}=createTestEngine({joinedFinishDeferred:enabled},{width:64,height:64});engines.push(e)
  expect(e['_wcJoinedFinishDeferred']).toBe(enabled??false);expect(e['_wcJoinedTouch']).toBe(false);expect(e['_wcAsyncFinish']).toBe(false);expect(e['_wcMaterialPresentation']).toBe(false)}
 })
+
+it('joined budget hook accepts only held exact epoch owner and null failure keeps every publication blocked',async()=>{
+ const {e,job}=await setup();simulateStrokeEnd(e,48,32);const q=e['_settleQueue'],hook=q['ctx'].joinedSuccessorBudget!
+ expect(q.joinedSuccessorBudgetEnabled).toBe(false);const owned=hook(job)!;expect(owned.isAlive()).toBe(true)
+ expect(hook({...job})).toBeNull();const target=e['_layers'].get('L')!;e['_layers'].delete('L');expect(owned.isAlive()).toBe(false);e['_layers'].set('L',target);expect(owned.isAlive()).toBe(true);e['_wcJoinedDeferredEpoch']++;expect(owned.isAlive()).toBe(false);e['_wcJoinedDeferredEpoch']--
+ owned.abort(null);expect(e['_wcJoinedDeferred']).toBeNull();expect(e['_wcJoinedRecoveryLayers'].has('L')).toBe(true);expect(e['_wcAsyncOwners'].has(job.scratch)).toBe(false)
+ expect(await e.exportPNG(true)).toBeNull();expect(await e.bakePreview()).toBeNull();expect(e.bakeNetworkSnapshot('L')).toBeNull();expect(e.bakeLayerByFullReplay('L')).toBeNull()
+})

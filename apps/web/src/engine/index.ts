@@ -1886,6 +1886,29 @@ export class PencilEngine implements PencilEngineAPI {
     canonicalBacklogSize: () => this._wcCanonical.queuedRequestCount,
     backlogMax: () => this.settleBacklogMax,
     syncGpu: () => this.gl.finish(),
+    joinedSuccessorBudget: job => {
+      const held = this._wcJoinedDeferred
+      if (!held || held.job !== job || !this._wcJoinedFinishDeferred || !this._wcJoinedTouch
+        || this._wcAsyncFinish || this._wcMaterialPresentation || !this._wcSourceFilmRebase || this._settlePlan.splitQuanta) return null
+      return {
+        isAlive: () => this._wcJoinedDeferred === held && held.job === this._settle
+          && held.epoch === this._wcJoinedDeferredEpoch && held.scratch.live
+          && this._layers.get(held.layerId) === held.finish.finish?.target
+          && this._wcAsyncOwners.has(held.scratch) && !this._destroyed && !this._contextLost && !this.gl.isContextLost(),
+        abort: error => {
+          this._wcJoinedDeferredError = error
+          try { this._cancelSettle() } finally {
+            if (!this._destroyed && !this._contextLost && !this.gl.isContextLost()) {
+              this._wcJoinedRecoveryLayers.add(held.layerId)
+              this._unsettledLayers.add(held.layerId)
+              this._sweepReveals(performance.now(), held.layerId)
+              if (this._wash?.layerId === held.layerId) this._clearWash(false)
+              this._scheduleDisplay()
+            }
+          }
+        },
+      }
+    },
     continuationSyncGpu: () => this._syncContinuationGpu(),
     continuationFailed: error => { this._wcAsyncError = error; this._cancelSettle() },
     noteActivity: now => { this._washActiveAt = now },

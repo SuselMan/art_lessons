@@ -46,6 +46,8 @@ export interface WatercolorSettleQueueContext {
   canonicalBacklogSize?(): number
   backlogMax(): number
   syncGpu?(): void
+  /** Exact old job owning one held joined finish; absent means normal scheduling. */
+  joinedSuccessorBudget?(job: WatercolorSettleJob): WatercolorSettleLifecycle | null
   /** Completion clock used only by experimental continuation tasks. */
   continuationSyncGpu?(): void
   continuationFailed?(error: unknown): void
@@ -77,6 +79,9 @@ export class WatercolorSettleQueue {
 
   /** Candidate remains opt-in until physical-device budget and parity gates pass. */
   contactBatchEnabled = false
+
+  /** OFF diagnostic: at most four synced old-job units per on-time RAF. */
+  joinedSuccessorBudgetEnabled = false
 
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
@@ -211,6 +216,27 @@ export class WatercolorSettleQueue {
         }
         if (this._settle === s && !this.scheduleContinuation(s)) this.scheduleTick()
       } catch (error) { this.failContinuation(error) }
+      return
+    }
+    const joined = this.joinedSuccessorBudgetEnabled && !late && !this.ctx.isDrawing() && this.ctx.syncGpu
+      ? this.ctx.joinedSuccessorBudget?.(s) : null
+    if (joined?.isAlive()) {
+      const at = performance.now()
+      try {
+        for (let n = 0; n < 4 && this._settle === s && joined.isAlive() && !this.ctx.isDrawing(); n++) {
+          this.advance()
+          // Includes any existing completion/successor preparation submitted by
+          // this unit. A single indivisible operator can exceed the soft 4 ms.
+          this.ctx.syncGpu!()
+          if (performance.now() - at >= 4) break
+        }
+      } catch (error) {
+        try { joined.abort(error) } catch (cleanup) {
+          throw new AggregateError([error, cleanup], 'Joined budget cleanup failed', { cause: error })
+        }
+        throw error
+      }
+      if (this._settle === s) this.scheduleTick()
       return
     }
     const perTick = this.ctx.isDrawing() || late ? 1

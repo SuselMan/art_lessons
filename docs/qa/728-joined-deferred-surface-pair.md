@@ -35,3 +35,9 @@ Raw: `/home/suselman/projects/pencil-agents/728-pure-water-plan/temp/pure-water-
 - pair3: OFF native завершён, UI Dry selector искал innerText, тогда как кнопка icon-only с title/aria-label. Сохранён partial; исправлен только selector.
 
 Полный pair4 выполнен после этих исправлений в новом owned profile. Точное cleanup: собственный browser4456/profile/task удалены, HOME forward1449105 остановлен, VPS handle45502 EXIT255, contexts/transport закрыты. Surface после cleanup 3765.5 MiB. Own5343 immutable runtime сохранён для воспроизводимости; source/raw не удалены. Ни одной публикации.
+
+## Незавершённый аппаратно CPU-кандидат bounded old-job tick
+
+После анализа подготовлен отдельный **OFF** `joinedSuccessorBudgetEnabled`. Он не меняет общий backlog и не включает async/material. Optional Engine-owned lifecycle допустим только для exact held predecessor, текущего epoch, живого удержанного scratch и того же canonical target. При on-time RAF и отсутствии input выполняются максимум четыре прежних ordered units; после каждого `syncGpu`, через 4 ms wall CPU+GPU цикл прекращается. Следующий запуск — RAF, без цепочки немедленных tasks. При natural successor handoff будущий job не получает дополнительных advance; sync последней old unit может включать уже прежнюю initial prepare нового job и превысить soft budget. Один неделимый тяжёлый оператор тоже способен превысить бюджет. Default false, Room opt-in отсутствует, на устройстве **не запускался**.
+
+CPU tests: cap/time/order, active/late/input-between-units, exact old→future handoff, epoch/target invalidation, no-job, sync thrown null и layer-scoped recovery/publication null. Эти тесты проверяют JS ordering/ownership с MockGL, а не время GPU и не полную физику. После нового запроса Ильи дополнительные эксперименты остановлены; готовится только reviewable local commit. Проверенная same-preset joined DOWN и экспериментальные deferred UP/budget — разные разрешения и уровни доказательств.
