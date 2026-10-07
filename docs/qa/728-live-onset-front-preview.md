@@ -300,3 +300,40 @@ Signed-Manhattan профиль относительно **первоначал�
 Таким образом phase существенно уменьшает исходный carry-провал; остаток уже присутствует до diffusion, а groupTide не вводит новый провал. Это ROI средние, не точечный luma и не независимая абляция tide. Cost у inner(-1) ≈0.03 code, outer(0)≈3.97: plateau closure работает на zero-cost ядре, далее остаётся directional positive-cost drain. Прерывание этой closure на границе — конкретная следующая гипотеза, а не доказанный новый исправляющий оператор.
 
 Суммы P.b внутри ROI OFF:758185→754289(carry)→730830(diffuse)→712801(dry); ON:758185→753424→730235→712311. V ROI2845621 неизменна. ROI конечен, поле RGBA8, поэтому ни глобальная сохранность массы, ни причина потерь по одним суммам не заявляются. Новые shader/model изменения не выполнялись; GPU после finally передан следующему агенту.
+
+### Диагностическая связность transport domain, CPU prototype (не аппаратный PASS)
+
+Отдельный default-OFF флаг `diagnosticCostDomainPaths` допускается только при
+`presentationOwnerLocked` и ровно одной краске. Он не меняет physical carry
+coefficient/rate/travel: исключает positive-cost faces, путь которых содержит
+cost выше band, затем нормализует оставшиеся faces. Порог V здесь не используется.
+Mixed paints остаются на прежнем операторе; этот прототип не является общим fix.
+
+Независимый binary CPU oracle проверил 722400 сравнений direct inclusive path
+против dyadic min (strides 1..64, четыре направления, случайные cost/band,
+оба конца, out-of-bounds=0), плюс explicit dry1px/start/end negatives.
+В dry-gap mixed-pressure fixture перенос 284886 codes стал 0. На actual закрытом
+ROI outward mirrored mass 378607→378308 (−0.079%); edge 70.14/74.27→70.27/74.42.
+Frozen-denominator counterfactual 378227 отделяет малое влияние нормализации.
+Это CPU Float64/UNORM oracle; не GPU byte-exact или глобальная mass conservation.
+
+Независимый маленький mask shader записывает четыре направления в RGBA:
+D1 seed проверяет центр и сосед; D2s=min(Ds(i),Ds(i+s*dir)). Все чтения в
+pixel centers, outside immutable fieldRect=0. Carry проверяет donor-owned mask
+и в собственном нормализаторе, и при incoming donor recomputation. Шесть samplers
+carry укладываются в минимум WebGL1 восемь; настоящий Adreno compile ещё НЕ выполнен.
+
+Mask ping-pong использует ca/cc только в single-paint carry: цвет preview
+восстанавливается из P в private buffers, cc становится spare только после carry,
+затем pigmentColor перезаписывает его. cb, captured ca0 и tile snapshots не меняются.
+Новых текстур/пуловых allocations нет. Owner14 и one-settle field exclusivity
+обязательны; cancel/context loss используют существующее field ownership.
+Mask program ленивый, удаляется при destroy/переинициализации с проверкой handle.
+
+Для четырнадцати strides 1,2,4,8,16,32,64,64,32,16,8,4,2,1 требуется 56 mask draws
+(1+log2(stride) каждый). Пока они внутри существующей carry entry: это может сильно
+увеличить hitch; производительность, UV/LINEAR byte-identity, true disconnected
+GPU gate и endpoint invariance default-OFF ещё требуют аппаратного разрешения.
+CPU tests проверяют реальные schedule masks-before-carry, unchanged rate/travel,
+owner-false/mixed skip, два borrowed buffers без новых текстур, endDraw и program
+reinitialization. Старые отмена/context loss ownership tests также остаются в suite.
