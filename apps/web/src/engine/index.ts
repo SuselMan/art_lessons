@@ -9011,18 +9011,17 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.44) One pass over the field, then the two filters separably: the
     // 5x5 max of the body as two 5-tap passes, the tent as it was.
     const raster = new Float32Array(inW * inH)
+    const poolRaster = new Float32Array(inW * inH)
     for (const source of wetSources) {
-      const next = source.raster(b.minCx, b.minCy, step, inW, inH, now)
-      for (let i = 0; i < raster.length; i++) raster[i] = Math.max(raster[i], next[i])
+      const next = source.rasterWetAndPool(b.minCx, b.minCy, step, inW, inH, now)
+      for (let i = 0; i < raster.length; i++) {
+        raster[i] = Math.max(raster[i], next.wet[i])
+        poolRaster[i] = Math.max(poolRaster[i], next.pool[i])
+      }
     }
     const cells = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) cells.set(raster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
     // (#680, s17.81) The pool share, for the pool's tone (s17.83).
-    const poolRaster = new Float32Array(inW * inH)
-    for (const source of wetSources) {
-      const next = source.rasterPool(b.minCx, b.minCy, step, inW, inH, now)
-      for (let i = 0; i < poolRaster.length; i++) poolRaster[i] = Math.max(poolRaster[i], next[i])
-    }
     const pools = new Float32Array(w * h)
     for (let ty = 0; ty < inH; ty++) pools.set(poolRaster.subarray(ty * inW, ty * inW + inW), (ty + 1) * w + 1)
     if (!this._wetOverlayWorkspace || this._wetOverlayWorkspace.rgba.length !== w * h * 4) {
