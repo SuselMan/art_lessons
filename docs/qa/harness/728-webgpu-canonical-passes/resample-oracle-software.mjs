@@ -1,0 +1,32 @@
+/** Actual production resample shader versus native primitive; software only. */
+import { build } from 'esbuild';import {chromium} from 'playwright';import fs from 'node:fs';import http from 'node:http';
+const dir='temp/canonical-passes';fs.mkdirSync(dir,{recursive:true});
+await build({entryPoints:['apps/web/src/engine/src/webgpuCanonical/passes/resample.ts','apps/web/src/engine/src/raster/shaders.ts'],outdir:dir,entryNames:'[name]',bundle:true,format:'esm',platform:'browser'});
+const sources=await import('../../../../temp/canonical-passes/shaders.js');
+const server=http.createServer((req,res)=>{if(req.url==='/resample.js'){res.setHeader('Content-Type','application/javascript');res.end(fs.readFileSync(dir+'/resample.js'));}else res.end('<html/>')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,args:['--enable-unsafe-webgpu','--use-angle=swiftshader','--enable-features=Vulkan','--disable-vulkan-surface']});
+try{const page=await browser.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
+const report=await page.evaluate(async source=>{
+const {CanonicalResamplePass}=await import('/resample.js');const adapter=await navigator.gpu.requestAdapter();const device=await adapter.requestDevice();
+const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const gl=canvas.getContext('webgl',{preserveDrawingBuffer:true});gl.disable(gl.DITHER);gl.disable(gl.BLEND);
+const compile=(kind,s)=>{const shader=gl.createShader(kind);gl.shaderSource(shader,s);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(shader));return shader};
+const program=gl.createProgram();gl.attachShader(program,compile(gl.VERTEX_SHADER,source.vert));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,source.frag));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.useProgram(program);
+const quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);const pos=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+const bytes=(w,h,j)=>Uint8Array.from({length:w*h*4},(_,i)=>(i*17+(i>>5)*7+j*31)%190+20);
+const rgba=[bytes(32,32,0),bytes(32,32,1),bytes(64,64,2),bytes(64,64,3)];
+const glTex=(data,w,h)=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,data);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return t};
+const native=(data,w,h)=>{const texture=device.createTexture({size:[w,h],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.COPY_SRC|GPUTextureUsage.COPY_DST});const flip=new Uint8Array(data.length);for(let y=0;y<h;y++)flip.set(data.subarray(y*w*4,(y+1)*w*4),(h-1-y)*w*4);device.queue.writeTexture({texture},flip,{bytesPerRow:w*4},{width:w,height:h});return{texture,view:texture.createView(),width:w,height:h,format:'rgba8unorm',label:'resample oracle'}};
+const glInputs=rgba.slice(0,3).map((b,j)=>glTex(b,j===2?64:32,j===2?64:32));const fields=rgba.slice(0,3).map((b,j)=>native(b,j===2?64:32,j===2?64:32));const pass=new CanonicalResamplePass(device);const rows=[];
+for(const mode of [0,1,2])for(const defaultBase of [false,true]){
+const outGL=glTex(rgba[3],64,64);const framebuffer=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,outGL,0);gl.viewport(0,0,64,64);
+const boundBase=defaultBase?0:2;for(let j=0;j<3;j++){gl.activeTexture(gl.TEXTURE0+j);gl.bindTexture(gl.TEXTURE_2D,glInputs[j===2?boundBase:j]);gl.uniform1i(gl.getUniformLocation(program,['u_src','u_old','u_base'][j]),j)}
+for(const[name,value]of Object.entries({u_srcSize:[32,32],u_baseSize:[64,64],u_dstOrigin:[4,7],u_srcOrigin:[2,3]}))gl.uniform2fv(gl.getUniformLocation(program,name),value);
+const ratio=mode===0?2:.5;gl.uniform1f(gl.getUniformLocation(program,'u_ratio'),ratio);gl.uniform1f(gl.getUniformLocation(program,'u_mode'),mode);gl.uniform4fv(gl.getUniformLocation(program,'u_clamp'),[1,2,30,29]);gl.enable(gl.SCISSOR_TEST);gl.scissor(4,7,40,36);gl.drawArrays(gl.TRIANGLES,0,6);gl.disable(gl.SCISSOR_TEST);
+const expected=new Uint8Array(64*64*4);gl.readPixels(0,0,64,64,gl.RGBA,gl.UNSIGNED_BYTE,expected);
+const out=native(rgba[3],64,64);device.pushErrorScope('validation');const encoder=device.createCommandEncoder();const uniform=pass.run({device,encoder},out,fields[0],fields[1],fields[boundBase],{dstOrigin:[4,7],srcOrigin:[2,3],ratio,mode,clamp:[1,2,30,29],scissor:[4,7,40,36],baseSize:[64,64]});
+const read=device.createBuffer({size:64*64*4,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});encoder.copyTextureToBuffer({texture:out.texture},{buffer:read,bytesPerRow:256},{width:64,height:64});device.queue.submit([encoder.finish()]);await read.mapAsync(GPUMapMode.READ);const raw=new Uint8Array(read.getMappedRange());let different=0,maxByteDifference=0,outsideChanges=0;
+for(let y=0;y<64;y++)for(let x=0;x<64;x++)for(let c=0;c<4;c++){const i=(y*64+x)*4+c,diff=Math.abs(raw[((63-y)*64+x)*4+c]-expected[i]);if(diff)different++;maxByteDifference=Math.max(maxByteDifference,diff);if((x<4||x>=44||y<7||y>=43)&&raw[((63-y)*64+x)*4+c]!==rgba[3][i])outsideChanges++}
+read.unmap();read.destroy();uniform.destroy();const validation=await device.popErrorScope();rows.push({mode,defaultBase,different,maxByteDifference,outsideChanges,changedFromInput:expected.reduce((n,v,i)=>n+(v!==rgba[3][i]),0),validation:validation?.message??null,glError:gl.getError()});out.texture.destroy();gl.deleteTexture(outGL);gl.deleteFramebuffer(framebuffer);
+}device.destroy();return{softwareOnly:true,rows,pass:rows.every(r=>r.different===0&&r.outsideChanges===0&&r.changedFromInput>0&&!r.validation&&!r.glError)};
+},{vert:sources.DISPLAY_VERT,frag:sources.WC_RESAMPLE_FRAG});fs.writeFileSync(dir+'/resample-oracle.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));if(!report.pass)process.exitCode=1;
+}finally{await browser.close();server.close()}
