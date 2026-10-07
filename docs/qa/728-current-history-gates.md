@@ -25,8 +25,11 @@ snapshot, удержанную догрузку prefix, Undo/Redo и context los
 не заменяют. Samsung сейчас занят causal pure-water экспериментом.
 
 Подготовлен current-default controller: `temp/night-728/matrix-current-default.mjs`,
-SHA256 `29f710a4c947c6f59c74f9ee3a2996eac1498fd8bc7109e59ff5df0e5bf15fb1`. Node syntax PASS.
+SHA256 `642b96ddd1fd938cacabd794ecae698a891a34d05e15852bf4aaaa3a231b9f79`. Node syntax PASS.
 Убраны принудительные async/split и wrapper, запрещавший обычный drain.
 Observer только регистрирует реальные peer packets; current flags проверяются
 как OFF. Наблюдение settle-overlap сохраняется отдельно от успешного журнала.
 Controller ещё не запускался: syntax не является аппаратной проверкой.
+
+Финальные барьеры также отказывают при незавершённых async owners или asyncError;
+нулевой GL error сам по себе не означает завершённый расчёт.
