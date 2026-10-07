@@ -84,3 +84,34 @@ The corrected run explicitly enabled sourceFilmRebase in BOTH native arms and re
 The realtime pointer generator uses rAF, so sampling counts and resulting chunk counts differ with responsiveness. This is an interactive script comparison, NOT a fixed packed-journal benchmark or a proof that all long-stroke workloads are smooth. A continuation that itself costs73ms remains indivisible despite a12ms fenced budget. Fixed-material and multi-peer tests remain required before enabling the prototype.
 
 CPU follow-up:136 engine files/1498 tests passed;37 focused FIFO/peer/loss tests passed; an additional unknown/gapped-stream test passed with the14 async tests. The latter proves that fallback remains CPU-only during a pending solver and that reset admits a new gesture. Source passport: index `c6ea439968ebf0e6c1e5b0f00cbcbb356df80751cf8f9cfd35f61fbac9d52fe7`, FIFO `8ea5218dace6668c1eac49b871b91bfee66410e59a5badeb2c24939af927efc8`. Shader source was unchanged; no salted compilation is claimed in these runs.
+
+## Surface: настоящий ввод после отрыва, 2026-10-07
+
+Замороженный 7ace0530 на собственном HTTP5324, Intel Surface, Fine A4
+1754×2480; standalone engine callbacks/rAF, не Room FPS. В обеих arms
+sourceFilmRebase=true, phase/fibres=false; меняется только asyncFinish.
+Гест: кисть400, плотный зигзаг6s с пересечением пространственного chunk,
+20ms после отрыва, новый жест кистью100/500ms. Все4 arms записали3 stroke
+operations, GL0/lost=false; собственные engines уничтожены finally.
+
+| Прогон | Самый длинный active кадр | Самый длинный кадр нового жеста | Кадров нового жеста |
+| --- | ---: | ---: | ---: |
+| Вода OFF | 167.14ms | 699.9ms | 1 |
+| Вода ON | 216.7ms | 17ms | 31 |
+| Пигмент OFF | 166.2ms | 800.1ms | 1 |
+| Пигмент ON | 216.6ms | 17ms | 31 |
+
+FIFO устраняет блокировку следующего касания в этом сценарии, однако не
+обеспечивает плавность всей работы: activeON содержит кадры>100ms,
+pigmentON tail max166.6ms. Plan.prepare достигает77.4ms CPU. Дабы генерируются
+по реальным rAF, поэтому OFF/ON имеют разные временные выборки: это сравнение
+интерактивного сценария, не benchmark одинакового записанного журнала.
+
+Первый fixture остановился по30s watchdog без сохранённых последних полей —
+результат inconclusive, не доказательство deadlock. Исправленный120s idle
+с5s progress capture завершил все4 arms. Контроллер напрямую вызывает Dry
+без paper_dry operation; этот прогон не является доказательством replay parity.
+
+Артефакты HOME: `680-water-wet-tone-qa/temp/surface-fifo/report-retry.json`,
+`run-retry.log`, `phase-function.js`, `run.mjs`; копия report на VPS в
+`680-device-qa-guards/temp/surface-fifo/report-retry.json`.
