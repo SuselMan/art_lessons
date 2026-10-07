@@ -566,3 +566,27 @@ Raw report/planes/PNGs remain on HOME under
 `680-puddle-outline/temp/cost-domain-e8-net39-route52/temp/onset/sheet3-mask-route52-vega-full900-first/`;
 `target61-whole-crop-atlas.png` uses matching crop/white composite. This route52
 hardware does not validate the newer packed7-bit candidate.
+
+### Packed candidate Vega primitive gate
+
+Separate HTTP5332 runtime is frozen e8+net39+580+route52+cb188 runtime netpatch,
+not the whole earlier onset branch. Its906 tracked files were hash-verified.
+The initial CLI/bootstrap and source-import mistakes produced INVALID/CLOSED
+artifacts; a further context-destroyed HMR bootstrap was also excluded. Corrected
+warm run `packed-warm-retry3` completed and closed its own engine/Chrome.
+
+722400 full-rect and722400 offset-subrect directional paths matched literal
+inclusive CPU traversal byte-exact across40 RNG inputs and D1..D64. All128 UNORM
+codes survived both enabled/disabled DITHER entry states (256 checks), and the
+prior DITHER state was restored. Actual mask texture filters MIN/MAG=9728 NEAREST.
+Fourteen full-buffer OLD e8/OFF carry comparisons (P and C, seven strides, phase
+flag0) were exact. Fourteen current binary/packed mask carry outputs were exact
+on the same synthetic inputs; P/V/cost remained unchanged. This is not an actual
+sheet3 whole solver endpoint or phase1 equivalence claim.
+
+Seven mask draws at129×5 with a single1×1 sync took warm .2/.3/.2/.2/.3ms; these
+primitive samples do not establish1536 full-field cost or native responsiveness.
+GL0/contextalive/errorsnone; RAM preflight1903.2MiB. Report lives on HOME:
+`680-puddle-outline/temp/packed-cost-domain-cb188/temp/onset/packed-warm-retry3/report.json`.
+The LOW/HIGH/CARRY/COLOUR/MASK salted Adreno controller is CPU-parsed and ready,
+but has not run while the sibling owns Samsung.
