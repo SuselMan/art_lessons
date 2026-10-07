@@ -1,0 +1,187 @@
+{
+  "source": "f7dc9c3d:markerRibbon.ts before CPU changes",
+  "dabs": [
+    {
+      "x": 0,
+      "y": 0,
+      "pressure": 0.03,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 0,
+      "aspectRatio": 0.3,
+      "angle": 0,
+      "opacity": 0.937,
+      "t": 0
+    },
+    {
+      "x": 5,
+      "y": -7,
+      "pressure": 0.14,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 230,
+      "aspectRatio": 1.1,
+      "angle": 0.61,
+      "opacity": -0.1,
+      "t": 17
+    },
+    {
+      "x": 5,
+      "y": -7,
+      "pressure": 0.25,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 230,
+      "aspectRatio": 1.9000000000000001,
+      "angle": 1.22,
+      "opacity": 0.937,
+      "t": 34
+    },
+    {
+      "x": 0,
+      "y": -7,
+      "pressure": 0.36,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 0,
+      "aspectRatio": 2.7,
+      "angle": 1.83,
+      "opacity": -0.1,
+      "t": 51
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "pressure": 0.47,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 230,
+      "aspectRatio": 3.5,
+      "angle": 2.44,
+      "opacity": 0.937,
+      "t": 68
+    },
+    {
+      "x": 10,
+      "y": -7,
+      "pressure": 0.5800000000000001,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 230,
+      "aspectRatio": 4.3,
+      "angle": 3.05,
+      "opacity": -0.1,
+      "t": 85
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "pressure": 0.6900000000000001,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 0,
+      "aspectRatio": 5.1000000000000005,
+      "angle": 3.66,
+      "opacity": 0.937,
+      "t": 102
+    },
+    {
+      "x": 5,
+      "y": -7,
+      "pressure": 0,
+      "tiltX": 0,
+      "tiltY": 0,
+      "size": 230,
+      "aspectRatio": 5.9,
+      "angle": 4.27,
+      "opacity": -0.1,
+      "t": 119
+    }
+  ],
+  "cases": [
+    {
+      "shape": "ellipse",
+      "film": false,
+      "scale": 0.63,
+      "length": 114048,
+      "sha256": "04ed24e1cbe85c30c3e141db12a0a9a09d83727f74577c0c90a4668110dd308d"
+    },
+    {
+      "shape": "ellipse",
+      "film": false,
+      "scale": 1,
+      "length": 114048,
+      "sha256": "a7ae1e9c313944f06254a372c64ff73f4a1c219608bb3657dc8567bc72862579"
+    },
+    {
+      "shape": "ellipse",
+      "film": false,
+      "scale": 2,
+      "length": 114048,
+      "sha256": "31e7d56f1dec27f37cd0532dafa13606c885c2cd0e0821d232bc7982ae80fbdd"
+    },
+    {
+      "shape": "ellipse",
+      "film": true,
+      "scale": 0.63,
+      "length": 123552,
+      "sha256": "b5fa70e70943433a50d079894fa5e0c4c0fa42156e4ac0b729452b145f25e234"
+    },
+    {
+      "shape": "ellipse",
+      "film": true,
+      "scale": 1,
+      "length": 123552,
+      "sha256": "d54f81cff22849c809ca620de6e2759b892a62ef11c63b6db23ae752caf80fb4"
+    },
+    {
+      "shape": "ellipse",
+      "film": true,
+      "scale": 2,
+      "length": 123552,
+      "sha256": "7957e27e2bb0c8e249d1e8a095284fb8292b80989bf1f9f3d979abdb02afb39a"
+    },
+    {
+      "shape": "roundedBox",
+      "film": false,
+      "scale": 0.63,
+      "length": 114048,
+      "sha256": "67008c1a231989a045c9f16f5555f87d185a3a467d585b59a5cc081ad530bcde"
+    },
+    {
+      "shape": "roundedBox",
+      "film": false,
+      "scale": 1,
+      "length": 114048,
+      "sha256": "01dd455c90148108bffb8d62a039201add6d9321e7bcd7ca3dfe8a11ce432384"
+    },
+    {
+      "shape": "roundedBox",
+      "film": false,
+      "scale": 2,
+      "length": 114048,
+      "sha256": "bdce5296c489667a2eba8da8327013f5029fa0cb57aa1be6d29a04613095976f"
+    },
+    {
+      "shape": "roundedBox",
+      "film": true,
+      "scale": 0.63,
+      "length": 123552,
+      "sha256": "360df2184167b133dc9398f31fa980428784dc387903dea8e468c9b0c1e255d6"
+    },
+    {
+      "shape": "roundedBox",
+      "film": true,
+      "scale": 1,
+      "length": 123552,
+      "sha256": "eaf00cef67fcf0464d539feecabedb3e77fc66d37333231c9aa1872509421703"
+    },
+    {
+      "shape": "roundedBox",
+      "film": true,
+      "scale": 2,
+      "length": 123552,
+      "sha256": "49312c6950ce734c42a9738b33bdb779b0b3e33590856819387fcc3ac27e2a93"
+    }
+  ]
+}

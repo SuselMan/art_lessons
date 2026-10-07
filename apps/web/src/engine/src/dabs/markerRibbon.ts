@@ -312,7 +312,13 @@ export function buildRibbonBands(
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
 
-  const out: number[] = []
+  let out = new Float32Array(Math.max(1, chain.length - 1) * (12 + OUTLINE_SEGMENTS * 9) * FLOATS_PER_VERTEX)
+  let written = 0
+  const reserve = (required: number): void => {
+    if (required <= out.length) return
+    const grown = new Float32Array(Math.max(required, out.length * 2))
+    grown.set(out); out = grown
+  }
   let ink = 0 // deposit carried by whichever segment is currently being emitted
   let inkWater = 0 // the same deposit, weighted by that segment's own water
   let inkWet = 0 // …and by how wet the paper under it already was (#536)
@@ -322,7 +328,13 @@ export function buildRibbonBands(
   let pigmentPool = 0.5
   let puddle = 1 // (s17.27) how deep the water stands here
   const push = (x: number, y: number, edge: number, across: number, press = pressure): void => {
-    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength, puddle, press, pigmentPool)
+    // Round only at final vertex encoding, exactly as new Float32Array(out)
+    // did. Encoded values never feed back into geometry or material math.
+    out[written] = x; out[written + 1] = y; out[written + 2] = edge
+    out[written + 3] = ink; out[written + 4] = inkWater; out[written + 5] = across
+    out[written + 6] = inkWet; out[written + 7] = inkStrength; out[written + 8] = puddle
+    out[written + 9] = press; out[written + 10] = pigmentPool
+    written += FLOATS_PER_VERTEX
   }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
@@ -396,6 +408,8 @@ export function buildRibbonBands(
       nibGeometry(d0, sizeMultiplier, shape, cornerFraction),
       nibGeometry(d1, sizeMultiplier, shape, cornerFraction),
     )
+    reserve(written + (steps * 12
+      + (fillEveryPose ? steps : Math.max(0, steps - 1)) * OUTLINE_SEGMENTS * 9) * FLOATS_PER_VERTEX)
 
     for (let k = 0; k < steps; k++) {
       const a = k === 0 ? d0 : lerpDab(d0, d1, k / steps)
@@ -422,7 +436,7 @@ export function buildRibbonBands(
     }
   }
 
-  return new Float32Array(out)
+  return written === out.length ? out : out.slice(0, written)
 }
 
 export { FLOATS_PER_VERTEX as RIBBON_FLOATS_PER_VERTEX }
