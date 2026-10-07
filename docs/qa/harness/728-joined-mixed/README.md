@@ -76,3 +76,10 @@ payload checks are retained. At final pair require aligned full fields/dimension
 materialSHA and wholeRGBA equality. Failure partial/DOM/state retained; own
 contexts/CDP disconnected in finally. External exact task/profile process
 cleanup stays with root and is explicitly NOT claimed by controller.
+
+In the water→pigment fixture, Undo removes the only pigment stroke. Its transparent
+export is therefore required to have zero alpha pixels, while still verifying
+that the exact second pigment operation is authoritative `undone` and that the
+whole hash changed. Redo and fresh must recover the nonempty exact dry picture.
+A nonempty Undo requirement inherited from pigment→pigment would reject this
+valid fixture; the original failed hardware evidence is retained.
