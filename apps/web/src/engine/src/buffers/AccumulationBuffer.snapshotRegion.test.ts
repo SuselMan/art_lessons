@@ -4,6 +4,7 @@ import { AccumulationBuffer } from './AccumulationBuffer'
 import { clipTileToPage } from './retileSnapshot'
 import { SnapshotIO, type SnapshotIOContext } from '../oplog/SnapshotIO'
 import { encodeLayerTiles } from '../oplog/snapshotCodec'
+import { SnapshotLedger } from '../oplog/snapshotLedger'
 
 function fixture() {
   const gl = new MockGL() as unknown as WebGLRenderingContext
@@ -42,9 +43,10 @@ it('owns distinct outputs and skips zero-area reads', () => {
 
 it('bakes the same encoded snapshot while reading only clipped geometry', () => {
   const { buffer, source, read } = fixture()
-  const markPublished = vi.fn()
+  const ledger = new SnapshotLedger()
+  const markPublished = vi.spyOn(ledger, 'markPublished')
   const ctx = { infinite: false, pageSize: () => ({ w: 11, h: 11 }), quiet: () => true,
-    settled: () => true, ledger: { mayPublish: () => true, markPublished },
+    settled: () => true, ledger,
     layer: () => ({ allResident: () => [{ buffer, originX: 8, originY: 8 }] }),
   } as unknown as SnapshotIOContext
   const result = new SnapshotIO(ctx).bake('A')
@@ -70,9 +72,10 @@ it('keeps full/infinite reads on the original API and leaves empty extents unpub
     const { buffer, source } = fixture()
     const full = vi.spyOn(buffer, 'readPixels')
     const region = vi.spyOn(buffer, 'readPixelsRegion')
-    const markPublished = vi.fn()
+    const ledger = new SnapshotLedger()
+    const markPublished = vi.spyOn(ledger, 'markPublished')
     const ctx = { infinite, pageSize: () => ({ w: 8, h: 8 }), quiet: () => true,
-      settled: () => true, ledger: { mayPublish: () => true, markPublished },
+      settled: () => true, ledger,
       layer: () => ({ allResident: () => [{ buffer, originX, originY: 0 }] }),
     } as unknown as SnapshotIOContext
     const result = new SnapshotIO(ctx).bake('A')
