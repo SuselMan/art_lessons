@@ -3804,6 +3804,23 @@ ${WC_FIELD_OP_FRAG}`
 export const WC_FIELD_OP_CARRY_COLOUR_FRAG = `#define FIELD_OP_COLOUR
 ${WC_FIELD_OP_CARRY_FRAG}`
 
+/** ADD diagnostic: entire literal legacy operator executes after this extra flux. */
+export const WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG = WC_FIELD_OP_CARRY_FRAG.replace(
+  '          if (ci <= 1e-5 && cj <= 1e-5) capIJ *= ws[k] / pow(4.0, u_size.x);',
+  `          if (ci <= 1e-5 && cj <= 1e-5 && abs((cj - ci) * u_size.y) <= 1e-3) {
+            // Both flows use immutable input. Entire legacy out <= k*trav;
+            // extra four faces out <= k*trav; current total <= .35.
+            float zeroPhase = ws[k] / pow(4.0, u_size.x);
+            float zeroGive = u_k * 0.25 * zeroPhase * min(max(Ti - Tj, 0.0) * capIJ, trav * m.a);
+            float zeroTake = u_k * 0.25 * zeroPhase * min(max(Tj - Ti, 0.0) * capIJ, trav * mj.a);
+            out4 -= a * (zeroGive / max(m.a, 5e-5));
+            out4 += aj * (zeroTake / max(mj.a, 5e-5));
+          }
+          if (ci <= 1e-5 && cj <= 1e-5) capIJ *= ws[k] / pow(4.0, u_size.x);`,
+)
+export const WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG = `#define FIELD_OP_COLOUR
+${WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG}`
+
 export const LAYER_COMPOSITE_FRAG = `
   precision mediump float;
   uniform sampler2D u_layer;

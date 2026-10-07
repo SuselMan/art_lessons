@@ -41,6 +41,8 @@ export class WatercolorSettlePlan {
   /** Local diagnostic only, default OFF. V-phase is an experimental closure,
    * not an equality between solvent thickness and the PaperWetness clock. */
   diagnosticPlateauPhase = false
+  /** Extra conservative zero-face flow; literal legacy carry still runs. */
+  diagnosticAdditiveZeroFaces = false
   private readonly ctx: WatercolorSettlePlanContext
   /** Scheduling diagnostic only; latched by prepare, default OFF. */
   splitQuanta = false
@@ -281,6 +283,7 @@ export class WatercolorSettlePlan {
       ? acquireInput(field.w, field.h) : null
 
     const plateauPhase = this.diagnosticPlateauPhase && solvent !== null
+    const additiveZeroFaces = this.diagnosticAdditiveZeroFaces && plateauPhase
     const foreign = foreignWaterStencil(metadata.foreignSources ?? [], metadata.wetContacts,
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
@@ -708,7 +711,7 @@ export class WatercolorSettlePlan {
           }
           ops.push(frontStepOp(() => {
             for (const p of plan) {
-              const opts = { path: p.path, pathPacked: packedPaths, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
+              const opts = { path: p.path, pathPacked: packedPaths, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number], additiveZeroFaces }
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }
