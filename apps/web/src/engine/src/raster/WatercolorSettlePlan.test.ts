@@ -919,3 +919,76 @@ describe('preview colour intermediate consumers', () => {
     })
   }
 })
+
+// #728: only proven-zero pigment's inward rim is dead. The outward water
+// pressure and the mode-11 coverage extension must retain literal inputs.
+describe('diagnostic zero-pigment rim liveness', () => {
+  function trace(pure: boolean, rim: boolean, proof: boolean, known: boolean, opDry = false, invalidateAfterPrepare = false) {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.filmBuffers(tile); scratch.solventFilm(tile); scratch.paints.add('1,0,0')
+    scratch.pigmentInputsKnownZero = known
+    probe._wcAb.opDry = opDry
+    probe._settlePlan.diagnosticPureWaterPlan = pure
+    probe._settlePlan.diagnosticSkipZeroPigmentRim = rim
+    const ctx = (probe._settlePlan as unknown as { ctx: { fieldFor(w: number, h: number): SettleField } }).ctx
+    const field = ctx.fieldFor(64, 64)
+    const lookup = vi.spyOn(ctx, 'fieldFor').mockReturnValue(field)
+    const roles = new Map<unknown, string>()
+    for (const key of ['a', 'b', 'c', 'ca', 'cb', 'cc', 'pressure', 'mask', 'band', 'coverage'] as const) roles.set(field[key], key)
+    const normalize = (v: unknown): unknown => {
+      if (roles.has(v)) return roles.get(v)
+      if (Array.isArray(v)) return v.map(normalize)
+      if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) return Object.fromEntries(Object.entries(v).map(([k, value]) => [k, normalize(value)]))
+      return v
+    }
+    const front = vi.spyOn(probe._watercolorPasses, 'waterFrontStep')
+    const writes = vi.spyOn(probe._watercolorPasses, 'fieldOp')
+    try {
+      const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+        { minX: 12, minY: 12, maxX: 52, maxY: 52 }, .2, 20, 1, 1, 1, 1, 0, undefined, proof)!
+      if (invalidateAfterPrepare) { probe._settlePlan.diagnosticSkipZeroPigmentRim = false; scratch.pigmentInputsKnownZero = false }
+      for (const op of plan.ops) op()
+      plan.finish()
+      const seedInward = writes.mock.calls.findIndex(a => a[3] === 12)
+      const inwardOrder = seedInward < 0 ? Infinity : writes.mock.invocationCallOrder[seedInward]
+      const fronts = front.mock.calls.map((a, i) => ({ args: [a[1], a[2], a[3], normalize(a[4]), normalize(a[5]), ...a.slice(6)], order: front.mock.invocationCallOrder[i] }))
+      const commandModes = writes.mock.calls.map(a => a[3])
+      return {
+        modes: commandModes,
+        water: fronts.map(x => x.args),
+        outward: fronts.filter(x => x.order < inwardOrder).map(x => x.args),
+        seed: writes.mock.calls.filter(a => a[3] === 10).map(a => a.map(normalize)),
+        extend: writes.mock.calls.filter(a => a[3] === 11).map(a => a.map(normalize)),
+        // Mode 20 merges extended water into coverage, overwriting the dead
+        // inward band. Compare operands, not pooled scratch object identities.
+        merge: writes.mock.calls.filter(a => a[3] === 20).map(a => a.map(normalize)),
+        domain: plan.compositeDomain,
+      }
+    } finally {
+      lookup.mockRestore(); vi.restoreAllMocks(); scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  }
+  for (const opDry of [false, true]) it(`preserves literal outward/front coverage and removes only pigment-rim consumers (opDry=${opDry})`, () => {
+    const baseline = trace(true, false, true, true, opDry)
+    const candidate = trace(true, true, true, true, opDry)
+    expect(baseline.outward.length).toBeGreaterThan(0)
+    expect(candidate.water).toEqual(baseline.outward)
+    expect(candidate.seed).toEqual(baseline.seed)
+    expect(candidate.extend).toEqual(baseline.extend)
+    expect(candidate.merge).toEqual(baseline.merge)
+    expect(candidate.domain).toEqual(baseline.domain)
+    for (const mode of [5, 6, 12, 19]) expect(candidate.modes).not.toContain(mode)
+    expect(candidate.modes).toContain(10); expect(candidate.modes).toContain(11); expect(candidate.modes).toContain(20)
+  })
+  for (const [pure, proof, known] of [[false, true, true], [true, false, true], [true, true, false]]) {
+    it(`leaves ordinary/unknown/nonzero command trace unchanged (${pure}/${proof}/${known})`, () => {
+      expect(trace(pure, true, proof, known)).toEqual(trace(pure, false, proof, known))
+    })
+  }
+  it('captures eligibility before later flags/next-film proof change', () => {
+    expect(trace(true, true, true, true, false, true)).toEqual(trace(true, true, true, true))
+  })
+})
