@@ -37,11 +37,19 @@ export interface WashReveal {
   motionOrigin?: [number, number]
 }
 
+/** A projected material raster replaces the complete visible layer, including
+ * its canonical base. It is never alpha-added on top of canonical pigment. */
+export interface LayerMaterialPresentation {
+  buffer: AccumulationBuffer
+  originX: number; originY: number; worldWidth: number; worldHeight: number
+}
+
 export interface LayerCompositorContext {
   readonly gl: WebGLRenderingContext
   screenBuf(): WebGLBuffer
   layers(): ReadonlyMap<string, ILayerBuffer>
   previews(): LayerPreviews
+  materialPresentations?(): ReadonlyMap<string, LayerMaterialPresentation>
   transientPreviews?(): ReadonlyMap<string, readonly PreviewTile[]>
   reveals(): ReadonlyMap<AccumulationBuffer, WashReveal>
   drawReveal(frame: CameraFrame, reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number, opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number, minifying: boolean): void
@@ -133,6 +141,22 @@ export class LayerCompositor {
     // exactFrame.
     const minifying = frame.scale < 1
 
+    const material = includeWashReveal ? this.ctx.materialPresentations?.().get(id) : undefined
+    if (material && !this.ctx.previews().tiles.has(id)
+      && material.originX <= viewRect.minX && material.originY <= viewRect.minY
+      && material.originX + material.worldWidth >= viewRect.maxX
+      && material.originY + material.worldHeight >= viewRect.maxY) {
+      // The caller owns a canonical-base copy in this raster. Replacing the
+      // layer here preserves its stack position and opacity and cannot double
+      // dose a retired chunk underneath. Export without reveals reads only the
+      // canonical layer. Camera changes require owner reprojection first.
+      const materialMinifying = frame.scale * material.worldWidth / material.buffer.width < 1
+        && frame.scale * material.worldHeight / material.buffer.height < 1
+      material.buffer.setMipSampling(materialMinifying && material.buffer.ensureMipmaps())
+      this.drawTileComposite(frame, material.buffer.texture, material.originX, material.originY,
+        material.worldWidth, material.worldHeight, opacity, targetFbo, targetW, targetH)
+      return
+    }
     const transient = includeWashReveal ? this.ctx.transientPreviews?.().get(id) : undefined
     const preview = transient ?? this.ctx.previews().tiles.get(id)
     // (#446) A selection preview shadows only the tiles it holds — the rest of
@@ -455,14 +479,14 @@ export class LayerCompositor {
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
     // (§17.46) The split caches are rebuilt (in full) before any scissor.
-    if (this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
+    if (this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.materialPresentations?.().size) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
     // (§17.46) A frame whose only change is the live stroke reassembles only
     // its rect (unrotated camera: the assembly is then the screen, padded):
     // clearing and redrawing the whole assembly - the caches and every
     // resident tile of the active layer - was the second-dearest thing in a
     // big stroke's frame on the tablet.
     let scissored = false
-    if (partialWorld && frame.angle === 0 && this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size) {
+    if (partialWorld && frame.angle === 0 && this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.materialPresentations?.().size) {
       const pad = 8
       const x0 = Math.max(0, frameEdgeX(frame, partialWorld.minX) - pad)
       const x1 = Math.min(targetW, frameEdgeX(frame, partialWorld.maxX) + pad)
@@ -476,7 +500,7 @@ export class LayerCompositor {
     }
     this.ctx.assembly().clear()
 
-    if (this.ctx.previews().tiles.size > 0 || this.ctx.transientPreviews?.().size) {
+    if (this.ctx.previews().tiles.size > 0 || this.ctx.transientPreviews?.().size || this.ctx.materialPresentations?.().size) {
       for (const { id, opacity } of items) this.drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH)
       return
     }
