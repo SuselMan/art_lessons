@@ -1028,8 +1028,11 @@ export class WatercolorSettlePlan {
         if (!flowTexture) return
         // Both draws read the same pre-pulse P/C. Copy back only after both
         // outputs exist; the existing settle scheduler yields between pulses.
-        this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, col.out, field.band, dep.out, rect, scissor, col.out, contactGain)
-        this.ctx.passes().brushPass(field, flowTexture, 4 * S, S, dep.out, field.pressure, dep.out, rect, scissor, col.out, contactGain)
+        const passes = this.ctx.passes()
+        if (!passes.diagnosticBrushMrt || !passes.brushPair(field, flowTexture, 4 * S, S, dep.out, field.pressure, col.out, field.band, rect, scissor, contactGain)) {
+          passes.brushPass(field, flowTexture, 4 * S, S, col.out, field.band, dep.out, rect, scissor, col.out, contactGain)
+          passes.brushPass(field, flowTexture, 4 * S, S, dep.out, field.pressure, dep.out, rect, scissor, col.out, contactGain)
+        }
         field.pressure.copyRegionInto(dep.out, left, bottom, left, bottom, right - left, top - bottom)
         field.band.copyRegionInto(col.out, left, bottom, left, bottom, right - left, top - bottom)
         present(dep.out, null, col.out)

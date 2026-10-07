@@ -1,4 +1,6 @@
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_WATER_FRONT_INVARIANT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
+import { diagnosticWebgl2Raw } from './diagnosticWebgl2'
+import { brushMrt300 } from './brushMrt'
 import { createProgram, getUniforms } from './utils'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { StampPainter } from '../dabs/StampPainter'
@@ -65,6 +67,10 @@ export class WatercolorPasses {
    *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
   private _diffuseProg!: WebGLProgram
 
+  /** WebGL2-only paired pulse experiment. Default OFF. */
+  diagnosticBrushMrt = false
+  readonly brushPairStats = { pairs: 0, fallbacks: 0, pixels: 0 }
+  private _brushMrt: { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number; fbo: WebGLFramebuffer; checked: boolean } | null = null
   private _brushDragProg!: WebGLProgram
 
   private _brushDragUni!: Record<string, WebGLUniformLocation | null>
@@ -335,6 +341,80 @@ export class WatercolorPasses {
     out.endDraw(); gl.activeTexture(gl.TEXTURE0)
   }
 
+  warmBrushMrt(): boolean {
+    const raw = diagnosticWebgl2Raw(this.gl)
+    if (!raw) return false
+    if (!this._brushMrt) {
+      if (raw.getParameter(raw.MAX_DRAW_BUFFERS) < 2 || raw.getParameter(raw.MAX_COLOR_ATTACHMENTS) < 2) return false
+      const program = createProgram(this.gl, DISPLAY_VERT, brushMrt300(WC_BRUSH_DRAG_FRAG))
+      const fbo = raw.createFramebuffer()
+      if (!fbo) { raw.deleteProgram(program); throw new Error('Brush MRT framebuffer unavailable') }
+      this._brushMrt = { program, fbo, checked: false,
+        uniforms: getUniforms(this.gl, program, Object.keys(this._brushDragUni)),
+        position: raw.getAttribLocation(program, 'a_position') }
+    }
+    return true
+  }
+
+  /** Both original brushPass draws consume unchanged pre-contact records.
+   * MRT merely shares their integerFraction evaluation; copy-back stays after
+   * this method, in the original chronological order. */
+  brushPair(field: WatercolorPassField, flow: WebGLTexture, radiusPx: number, S: number,
+    pigment: AccumulationBuffer, outPigment: AccumulationBuffer,
+    color: AccumulationBuffer, outColor: AccumulationBuffer,
+    flowRect: [number, number, number, number], scissor: [number, number, number, number], gain: number): boolean {
+    const raw = diagnosticWebgl2Raw(this.gl)
+    if (!this.diagnosticBrushMrt || !raw || !this.warmBrushMrt()) { this.brushPairStats.fallbacks++; return false }
+    if (outPigment === outColor || [pigment, color, field.coverage].some(input => input === outPigment || input === outColor)
+      || outPigment.width !== outColor.width || outPigment.height !== outColor.height
+      || outPigment.width !== field.w || outPigment.height !== field.h
+      || [outPigment.texture, outColor.texture].includes(flow)) throw new Error('Brush MRT unsafe framebuffer alias/dimensions')
+    const state = this._brushMrt!, u = state.uniforms
+    // Retain each buffer's mip invalidation and replace-draw setup.
+    outColor.beginReplaceDraw(); outPigment.beginReplaceDraw()
+    raw.bindFramebuffer(raw.FRAMEBUFFER, state.fbo)
+    raw.framebufferTexture2D(raw.FRAMEBUFFER, raw.COLOR_ATTACHMENT0, raw.TEXTURE_2D, outPigment.texture, 0)
+    raw.framebufferTexture2D(raw.FRAMEBUFFER, raw.COLOR_ATTACHMENT1, raw.TEXTURE_2D, outColor.texture, 0)
+    raw.drawBuffers([raw.COLOR_ATTACHMENT0, raw.COLOR_ATTACHMENT1])
+    try {
+      if (!state.checked) {
+        if (raw.checkFramebufferStatus(raw.FRAMEBUFFER) !== raw.FRAMEBUFFER_COMPLETE) throw new Error('Brush MRT framebuffer incomplete')
+        state.checked = true
+      }
+      raw.useProgram(state.program)
+      raw.bindBuffer(raw.ARRAY_BUFFER, this.ctx.screenBuf())
+      raw.enableVertexAttribArray(state.position); raw.vertexAttribPointer(state.position, 2, raw.FLOAT, false, 0, 0)
+      const textures = [pigment.texture, flow, field.coverage.texture, pigment.texture, color.texture]
+      const names = ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_color']
+      for (let i = 0; i < textures.length; i++) { raw.activeTexture(raw.TEXTURE0 + i); raw.bindTexture(raw.TEXTURE_2D, textures[i]); raw.uniform1i(u[names[i]], i) }
+      const step = Math.max(1, Math.round(radiusPx * .25 / S))
+      raw.uniform2f(u.u_step, step / field.w, step / field.h)
+      raw.uniform1f(u.u_contactGain, gain); raw.uniform2f(u.u_texel, 1 / pigment.width, 1 / pigment.height)
+      raw.uniform4fv(u.u_flowRect, flowRect)
+      raw.enable(raw.SCISSOR_TEST); raw.scissor(...scissor)
+      raw.drawArrays(raw.TRIANGLES, 0, 6)
+      this.brushPairStats.pairs++; this.brushPairStats.pixels += scissor[2] * scissor[3]
+      return true
+    } finally {
+      raw.disable(raw.SCISSOR_TEST); outPigment.endDraw(); raw.activeTexture(raw.TEXTURE0)
+      // Do not retain pooled output textures through the long-lived MRT FBO.
+      raw.bindFramebuffer(raw.FRAMEBUFFER, state.fbo)
+      raw.framebufferTexture2D(raw.FRAMEBUFFER, raw.COLOR_ATTACHMENT0, raw.TEXTURE_2D, null, 0)
+      raw.framebufferTexture2D(raw.FRAMEBUFFER, raw.COLOR_ATTACHMENT1, raw.TEXTURE_2D, null, 0)
+      raw.bindFramebuffer(raw.FRAMEBUFFER, null)
+    }
+  }
+
+  private releaseBrushMrt(): void {
+    const state = this._brushMrt
+    if (!state) return
+    if (this.gl.getParameter(this.gl.CURRENT_PROGRAM) === state.program) this.gl.useProgram(null)
+    if (this.gl.isProgram?.(state.program) !== false) this.gl.deleteProgram(state.program)
+    const raw = diagnosticWebgl2Raw(this.gl)
+    if (raw?.isFramebuffer(state.fbo)) raw.deleteFramebuffer(state.fbo)
+    this._brushMrt = null
+  }
+
   /** Single-paint shortcut: absorption times the settled pigment deposit. */
   pigmentColor(outColor: AccumulationBuffer, deposit: AccumulationBuffer, tau: readonly number[]): void {
     const { gl } = this
@@ -463,6 +543,7 @@ export class WatercolorPasses {
   initSettlePrograms(): void {
     const { gl } = this
     this.releaseWaterFrontInvariant()
+    this.releaseBrushMrt()
     this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
     this._brushDragProg = createProgram(gl, DISPLAY_VERT, WC_BRUSH_DRAG_FRAG)
     this._brushDragUni = getUniforms(gl, this._brushDragProg, ['u_paint', 'u_flow', 'u_water', 'u_pigment', 'u_step', 'u_flowRect', 'u_color', 'u_contactGain', 'u_texel'])
@@ -503,6 +584,7 @@ export class WatercolorPasses {
   }
 
   destroy(): void {
+    this.releaseBrushMrt()
     this.releaseWaterFrontInvariant()
     // Deleting the currently bound program is deferred until it is unbound.
     // A final field pass may still be active when a connected canvas is retired.
