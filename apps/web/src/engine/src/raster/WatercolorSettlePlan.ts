@@ -38,6 +38,9 @@ export class WatercolorSettlePlan {
   diagnosticCostDomainPaths = false
   /** Exact upload-storage reuse candidate; isolated for hardware A/B. */
   diagnosticReuseFlowStorage = false
+  /** First eager upload is overwritten by contact upload before any flow sample. */
+  diagnosticSkipInitialFlowUpload = false
+  readonly initialFlowUploadStats = { retained: 0, skipped: 0, bytesAvoided: 0 }
   /** Eager CPU raster scratch reuse only; does not share suspended generators. */
   diagnosticReuseFlowRaster = false
   readonly flowRasterStats = { allocations: 0, reuses: 0, bytesAllocated: 0, bytesRequested: 0 }
@@ -330,7 +333,14 @@ export class WatercolorSettlePlan {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
     }
+    const skipInitialFlowUpload = this.diagnosticSkipInitialFlowUpload
     if (flow) captureInputs.push(() => {
+      if (skipInitialFlowUpload) {
+        this.initialFlowUploadStats.skipped++
+        this.initialFlowUploadStats.bytesAvoided += flow.pixels.byteLength
+        return
+      }
+      this.initialFlowUploadStats.retained++
       bindFlowTexture()
       this.uploadBrushFlow(flow.width, flow.height, flow.pixels)
     })
