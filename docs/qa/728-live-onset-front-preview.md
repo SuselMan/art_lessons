@@ -401,3 +401,32 @@ assertion максимум одна mask либо carry command. Это не а�
    нет full14 stress до маленького unit-cost и salted Adreno full-program gate.
 
 Runtime пока остаётся прежним e8+39; scheduling net не синхронизирован на HOME.
+
+### Adreno full1536 primitive + whole-program salt gate, 04:21 UTC
+
+Own target1382, controller exec78910, terminal exit0/ownTargetClosed=true.
+Root-authorized Samsung slot после profiler1381 CLOSED; cached9338 неизменён.
+Actual serialR52RB0JXVSY, renderer ANGLE Qualcomm Adreno650/OpenGL ES3.2.
+Device MemAvailable2292 MiB перед запуском. Source e8 +39 +580,906 web/shared SHA
+проверены; actual Plan overlay SHA `d8e98e663697ddcabba39b62f0dcd35db13fe6de5b3fd9dc78fad254b3f573fb`.
+Защищённые stands/pages не изменялись.
+
+Первым выполнен реальный mask primitive1536²: три диагностические текстуры
+(cost+pingpong)28311552 bytes, не новые production textures. Seed и каждый
+из шести dyadic steps измерены отдельно с1×1 FBO readback sync, после трёх warm
+iterations пять samples. Medians: seed3.10ms; distance1/2/4/8/16/32 =
+2.10/2.10/2.30/2.10/2.30/2.20ms. Maximum sample3.60ms, scoped unitbudget8ms PASS.
+Отдельная серия семи draws с ЕДИНСТВЕННЫМ sync:11.10/12.50/12.00/11.40/11.40ms,
+median11.40. Эти две серии НЕ суммируются; это не14-stride solver/nativeFPS.
+Immutable whole cost source readback exactzero. Diagnostic resources закрыты.
+
+Затем три salted full-source компиляции/links каждого emitted LOW/HIGH/CARRY/
+COLOUR/MASK. Все15links PASS, shader/program статусы прочитаны ДОdeleteShader.
+Full source sizes соответственно39410/39432/39455/39479/1136bytes, ветки не урезались.
+GL0, contextlost=false, pageerrors/networkfailures[]. No SIGSEGV observed.
+Это подтверждает compiler gate на данном Adreno, не final physical endpoint parity.
+
+Raw `temp/onset/adreno-mask580-first/report.json` на VPS; controller/function
+`cost-mask-adreno-{run.mjs,function.js}`. Samsung немедленно освобождён и передан
+profiler после finally. DefaultOFF/root integration не выполнялась; real sheet3
+fullsolver/operator/mixedpaint gates по-прежнему pending.
