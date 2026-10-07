@@ -1,3 +1,4 @@
+import { ribbonSegmentLength } from './src/dabs/ribbonDrawable'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
@@ -8712,12 +8713,9 @@ export class PencilEngine implements PencilEngineAPI {
    *    the same "same idea, taken to the limit of speed→0" unification
    *    ADR 003 already established for liner's own dwell/speed relationship. */
   private _markerSegmentLength(dab: Dab, prevDab: Dab | undefined, radius: number): number {
-    const MARKER_FIRST_DAB_DISTANCE_FACTOR = 0.5 // uncalibrated first pass
-    const MARKER_DWELL_CREEP_DISTANCE_FACTOR = 0.12 // uncalibrated first pass
-    if (!prevDab) return radius * MARKER_FIRST_DAB_DISTANCE_FACTOR
-    const dist = Math.hypot(dab.x - prevDab.x, dab.y - prevDab.y)
-    return dist > 0.01 ? dist : radius * MARKER_DWELL_CREEP_DISTANCE_FACTOR
+    return ribbonSegmentLength(dab, prevDab, radius)
   }
+
   private _drawRibbonNibPass(
     dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
     profile: RibbonProfile, inkMode: 6 | 7 | 10, opacity: number, ownTarget = true,
