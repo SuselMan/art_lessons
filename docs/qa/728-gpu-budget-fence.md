@@ -222,3 +222,12 @@ worker/upload не наблюдалось: pure-water dry endpoint пустой,
 Raw/compact summary:
 `temp/fence-hardware/native-room-currentdefaultwater_1791355595790/{report,summary}.json`.
 Собственный1415 закрыт finally; Samsung освобождён. Новых публикаций нет.
+
+Passive Queue chronology уточняет это последнее окно: tick6 закончился9704.5,
+tick7 начался10620.7, разрыв916.2ms. Соседние advance job1 op4→5/op5→6
+заняли≈0.1ms JS, tick≈0.2ms. V diagnostic начинается11244.3, позже этого
+разрыва. Это исключает наш aftergesture readback как причину919ms, но не
+называет конкретный shader/GPU duration: другие display/browser/submit
+операции в этом окне не профилировались. Наблюдались38 async advances;
+синхронный complete не проходит тот же advance wrapper, поэтому38 не полное
+число физических шагов.
