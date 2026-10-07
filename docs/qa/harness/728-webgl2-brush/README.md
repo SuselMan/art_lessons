@@ -51,3 +51,45 @@ increase shader/register pressure; WebGL2 compilers can change rounding. First
 require WebGL1→WebGL2 two-pass byte equality, then WebGL2 two-pass→MRT equality,
 including saturation/edge/water/partial/repeated cases on both actual devices.
 Only later measure bounded warmed operator GPU cost and lifecycle/context-loss.
+
+## Warmed bounded timing followup
+
+Surface initial4 fixtures already independently ran and matched all bytes
+(root raw `temp/fast-watercolor-night/webgl2-surface-1791405763385.json`).
+This preparation does not itself repeat that hardware evidence.
+
+```
+node docs/qa/harness/728-webgl2-brush/timer.test.mjs
+WC_PARITY_PREPARED_FILE=temp/webgl2/prepared.json WC_PREPARED_FILE=temp/webgl2/benchmark.json node docs/qa/harness/728-webgl2-brush/prepare-benchmark.mjs
+```
+
+Benchmark runs full original parity first; failure forbids measurement. Then
+owned contexts allocate/compile all resources and cache uniform locations.
+Three draws plus a1×1 read warm each program OUTSIDE query windows; no warm
+readback is counted as time evidence. Fixture512, same immutable material
+inputs/step100 and all three paths. Timed repetition means repeating the same
+contact on immutable inputs, NOT advancing a gesture/solver/paint history.
+Counts2/4/8 ×5 samples/path, reproducibly shuffled path order, one active query
+at a time. No allocation/upload/readback/checkFramebufferStatus inside timed
+window. Uniform/sampler setup CPU reported separately; submissionCpuMs reports
+JS/driver enqueue, never GPU duration. Two-pass draw includes C/P bind/output
+switches as production would; MRT has one draw and two output writes.
+
+WebGL1 uses EXT_disjoint_timer_query queryEXT API; WebGL2 uses
+EXT_disjoint_timer_query_webgl2 with core queries. Async availability polling,
+GPU_DISJOINT before/during/after, context-loss and5s per-query timeout; total
+60s wall guard. No extension produces explicit gpuNs:null/none, no gl.finish
+fallback. `gpuMeasurementsValid` requires5 VALID samples for all9 groups;
+`pass` alone means protocol/parity completed, not available valid GPU timing.
+All queries/resources/canvases are deleted in finally, including interrupted
+active query. CPU adapter mocks cover both APIs/disjoint/loss/timeout/absence.
+Driver query execution still requires actual hardware grant.
+
+MRT is not guaranteed faster: sharing fractions removes repeated texture reads,
+but keeping two own/result vec4s and eight-capacity samples live can increase
+register pressure, spill/local-memory traffic and reduce SIMD occupancy. Two
+render targets increase output bandwidth. Extra compiler optimization and
+pipeline choices are device-specific; query timings establish operator cost
+but do not identify register spills. A shader vendor profiler or carefully
+isolated followup is required for that attribution. Draw count alone gives
+no performance claim, and this synthetic operator excludes Room/FPS/settle.
