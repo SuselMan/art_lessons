@@ -1,3 +1,4 @@
+import { captureFieldRoles } from './fieldCapture'
 import { PencilEngine } from '../../../../apps/web/src/engine/index'
 import type { Operation, StrokeOperation, Dab, PaperType } from '@grafetto/shared'
 import { AccumulationBuffer } from '../../../../apps/web/src/engine/src/buffers/AccumulationBuffer'
@@ -88,6 +89,7 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   }
   await idle(probe)
   const paintMs = performance.now() - startedPaint
+  const fields = await captureFieldRoles(current as unknown as Parameters<typeof captureFieldRoles>[0], paper, probe._watercolorPasses.brushPairStats.pairs)
   const materialWholeLayer = await hashLayer(probe)
   const blob = await current.exportPNG(true)
   if (!blob) throw new Error('Export not ready')
@@ -104,10 +106,10 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   const report = { backend, scenario, paper, tapeSha256, code: '__CODE__', initMs, paintMs, phaseMs,
     canvas: [canvas.width, canvas.height], renderer: ext ? probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null,
     glError: probe.gl.getError(), lost: probe.gl.isContextLost(), operations: current.getOperations().map(op => ({ id: op.id, type: op.type })),
-    materialWholeLayer, rgbaSha256, exportSize: [result.width, result.height], mrt: { ...probe._watercolorPasses.brushPairStats },
+    fields, materialWholeLayer, rgbaSha256, exportSize: [result.width, result.height], mrt: { ...probe._watercolorPasses.brushPairStats },
     undo: { id: undo?.id, meaningful: JSON.stringify(undone) !== JSON.stringify(beforeUndo) },
     redo: { id: redo?.id, exact: JSON.stringify(redone) === JSON.stringify(beforeUndo) },
-    limitations: ['No Room/socket/ACK/REST or human touch benchmark', 'Hash/readback/export follows timed paint; timings include driver/JS/RAF, not GPU timer', 'Whole-layer RGBA/export hashes do not cover every intermediate material record', 'Undo/redo source timestamps vary; original tape hash is fixed'] }
+    limitations: ['No Room/socket/ACK/REST or human touch benchmark', 'Hash/readback/export follows timed paint; timings include driver/JS/RAF, not GPU timer', 'Field capture covers retained canonical scratch and named working slots, not every intermediate iteration', 'Undo/redo source timestamps vary; original tape hash is fixed'] }
   show(report)
   ;(window as unknown as { __prototypeReport: unknown }).__prototypeReport = report
   return report
