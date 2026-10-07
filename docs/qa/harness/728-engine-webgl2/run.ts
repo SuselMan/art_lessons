@@ -1,3 +1,4 @@
+import { watercolorPresetString } from '../../../../apps/web/src/engine/src/presets/watercolorPresets'
 import { captureQueue, type BatchSchedule } from './queueCapture'
 import type { WatercolorSettleQueue } from '../../../../apps/web/src/engine/src/watercolor/WatercolorSettleQueue'
 import { captureFieldRoles } from './fieldCapture'
@@ -27,7 +28,7 @@ const clockBase = 1791400000000
 
 function stroke(id: string, points: Array<[number, number]>, pigment: number, color: [number, number, number], wet = '0'): StrokeOperation {
   const dabs: Dab[] = points.map(([x, y], i) => ({ x, y, pressure: .8, tiltX: 0, tiltY: 0, size: 400, aspectRatio: 1, angle: 0, opacity: 1, t: i * 16 }))
-  return { id, type: 'stroke', userId: 'qa-webgl2', timestamp: clockBase + Number(id.slice(-1)) * 1000, layerId: 'L', tool: 'watercolor', preset: `normal:${pigment}:100`, color, dabs, strokeId: id, washId: 'wash-' + id, wet: wet.repeat(dabs.length) }
+  return { id, type: 'stroke', userId: 'qa-webgl2', timestamp: clockBase + Number(id.slice(-1)) * 1000, layerId: 'L', tool: 'watercolor', preset: watercolorPresetString('normal', { water: 1, pigment: pigment / 100 }), color, dabs, strokeId: id, washId: 'wash-' + id, wet: wet.repeat(dabs.length) }
 }
 function tape(scenario: string): Operation[] {
   const zigzag = Array.from({ length: 37 }, (_, i): [number, number] => {
