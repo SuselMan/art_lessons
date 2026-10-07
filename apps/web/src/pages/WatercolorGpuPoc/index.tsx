@@ -12,6 +12,7 @@ export function WatercolorGpuPocPage() {
   const engine = useRef<WatercolorGpuPoc | null>(null), baseline = useRef<PencilEngine | null>(null)
   const tick = useRef(0), events = useRef<TickEvent[]>([]), strokes = useRef<GpuStroke[]>([])
   const pointer = useRef<{ id: number; options: BrushOptions; previous: Dab | null; used: number; dabs: Dab[]; started: number } | null>(null)
+  const busyRef = useRef(false)
   const redoTape = useRef<Journal | null>(null)
   const paused = useRef(false), replaying = useRef(false), mounted = useRef(true)
   const [size, setSize] = useState(400), [water, setWater] = useState(100), [pigment, setPigment] = useState(100)
@@ -58,14 +59,14 @@ export function WatercolorGpuPocPage() {
     return { x: (event.clientX - box.left) / box.width * GPU_WORLD.width, y: (event.clientY - box.top) / box.height * GPU_WORLD.height, pressure: event.pointerType === 'mouse' ? 0.8 : Math.max(event.pressure, 0.03), t: performance.now() - (pointer.current?.started ?? performance.now()) }
   }
   function begin(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (!ready || busy || event.button !== 0) return
-    event.preventDefault(); redoTape.current = null; event.currentTarget.setPointerCapture(event.pointerId)
+    if (!ready || busyRef.current || event.button !== 0) return
+    event.preventDefault(); paused.current = false; setPausedUi(false); redoTape.current = null; event.currentTarget.setPointerCapture(event.pointerId)
     pointer.current = { id: event.pointerId, options: options(), previous: null, used: 0, dabs: [], started: performance.now() }
     move(event)
   }
   function move(event: React.PointerEvent<HTMLCanvasElement>) {
     const active = pointer.current
-    if (!active || active.id !== event.pointerId || busy) return
+    if (!active || active.id !== event.pointerId || busyRef.current) return
     event.preventDefault()
     const p = point(event), target = makeDab(p, active.options), from = active.previous
     const batch: Dab[] = []
@@ -96,9 +97,10 @@ export function WatercolorGpuPocPage() {
     engine.current?.clear(); tick.current = 0; events.current = []; strokes.current = []; pointer.current = null; redoTape.current = null; setBaselineVisible(false)
   }
   function journal(): Journal { return { version: 1, events: events.current, ticks: tick.current, strokes: strokes.current } }
-  async function replay(tape = journal()) {
-    if (!engine.current || busy) return
-    setBusy(true); replaying.current = true; engine.current.clear()
+  async function replay(tape = journal(), nested = false) {
+    if (!engine.current || (busyRef.current && !nested)) return
+    const alreadyBusy = busyRef.current
+    busyRef.current = true; setBusy(true); replaying.current = true; engine.current.clear()
     let k = 0
     try {
       for (let t = 0; t <= tape.ticks; t++) {
@@ -113,21 +115,29 @@ export function WatercolorGpuPocPage() {
       }
       tick.current = tape.ticks; events.current = tape.events; strokes.current = tape.strokes; engine.current.draw()
       setStatus('Replay complete: same recorded deposits and fixed simulation ticks.')
-    } finally { replaying.current = false; setBusy(false) }
+    } finally { replaying.current = false; if (!alreadyBusy) { busyRef.current = false; setBusy(false) } }
+  }
+  async function runDiagnostic(task: () => Promise<void>) {
+    if (!engine.current || busyRef.current) return
+    const wasPaused = paused.current
+    busyRef.current = true; setBusy(true); paused.current = true; setPausedUi(true)
+    try { await engine.current.whenIdle(); await task() }
+    catch (error) { setStatus(String(error)) }
+    finally { paused.current = wasPaused; setPausedUi(wasPaused); busyRef.current = false; setBusy(false) }
   }
   async function checkReplay() {
-    if (!engine.current || busy) return
-    paused.current = true; setPausedUi(true)
-    const tape = journal(), before = await engine.current.readState()
-    await replay(tape)
-    const after = await engine.current.readState()
-    const beforeBits = new Uint32Array(before.buffer, before.byteOffset, before.length), afterBits = new Uint32Array(after.buffer, after.byteOffset, after.length)
-    let different = 0, max = 0
-    for (let k = 0; k < before.length; k++) { if (beforeBits[k] !== afterBits[k]) different++; max = Math.max(max, Math.abs(before[k] - after[k])) }
-    setStatus(`Same-device replay: ${different} different floats (bitwise), max |Δ|=${max}. Float compute is not cross-device bitwise guaranteed.`)
+    await runDiagnostic(async () => {
+      const tape = journal(), before = await engine.current!.readState()
+      await replay(tape, true)
+      const after = await engine.current!.readState()
+      const beforeBits = new Uint32Array(before.buffer, before.byteOffset, before.length), afterBits = new Uint32Array(after.buffer, after.byteOffset, after.length)
+      let different = 0, max = 0
+      for (let k = 0; k < before.length; k++) { if (beforeBits[k] !== afterBits[k]) different++; max = Math.max(max, Math.abs(before[k] - after[k])) }
+      setStatus(`Same-device replay: ${different} different floats (bitwise), max |Δ|=${max}. Float compute is not cross-device bitwise guaranteed.`)
+    })
   }
   function sample(which: 'zigzag' | 'water' | 'mix') {
-    clear()
+    clear(); paused.current = false; setPausedUi(false)
     const base = options()
     const paths: { points: [number, number][]; brush: BrushOptions }[] = []
     if (which === 'water') {
@@ -149,12 +159,14 @@ export function WatercolorGpuPocPage() {
     }
   }
   async function compare() {
-    if (!comparison.current || busy) return
-    setBusy(true); paused.current = true; setPausedUi(true); setBaselineVisible(true); setBaselineImage(''); setBaselineStatus('Replaying the same recorded elliptical dabs in the current WebGL1 engine…')
+    const target = comparison.current
+    if (!target) return
+    await runDiagnostic(async () => {
+    setBaselineVisible(true); setBaselineImage(''); setBaselineStatus('Replaying the same recorded elliptical dabs in the current WebGL1 engine…')
     try {
       baseline.current?.destroy()
       const { PencilEngine } = await import('../../engine')
-      const target = comparison.current; target.width = 1024; target.height = 768
+      target.width = 1024; target.height = 768
       const value = new PencilEngine(target, { pageWidth: 1024, pageHeight: 768, paper: 'flat', userId: 'webgpu-baseline', joinedTouch: true })
       baseline.current = value
       await value.paperReady()
@@ -174,19 +186,18 @@ export function WatercolorGpuPocPage() {
       const image = document.createElement('canvas'); image.width = 1024; image.height = 768
       image.getContext('2d')!.drawImage(bitmap, 0, 0); bitmap.close()
       setBaselineImage(image.toDataURL())
-    } catch (error) { setBaselineStatus(String(error)) } finally { setBusy(false) }
+    } catch (error) { setBaselineStatus(String(error)) }
+    })
   }
   async function undo() {
-    if (!strokes.current.length || busy) return
+    if (!strokes.current.length || busyRef.current) return
     const saved = journal(); redoTape.current = saved
     await replay({ ...saved, strokes: saved.strokes.slice(0, -1), events: saved.events.filter(e => e.stroke === undefined || e.stroke < saved.strokes.length - 1) })
     setStatus('Prototype undo recomputed the complete fixed-tick history.')
   }
   async function inspectMass() {
-    if (!engine.current || busy) return
-    paused.current = true; setPausedUi(true); setBusy(true)
-    try {
-      const before = await engine.current.readState()
+    await runDiagnostic(async () => {
+      const before = await engine.current!.readState()
       const total = (field: Float32Array) => {
         const mass = [0, 0, 0, 0]; let negative = 0
         for (let k = 0; k < field.length; k += 16) for (let ch = 0; ch < 4; ch++) {
@@ -195,11 +206,11 @@ export function WatercolorGpuPocPage() {
         }
         return { mass, negative }
       }
-      for (let n = 0; n < 30; n++) engine.current.step(0)
-      const after = await engine.current.readState(), a = total(before), b = total(after)
-      engine.current.writeState(before)
+      for (let n = 0; n < 30; n++) engine.current!.step(0)
+      const after = await engine.current!.readState(), a = total(before), b = total(after)
+      engine.current!.writeState(before)
       setStatus(`30 transport ticks / no evaporation: relative mass drift ${Math.max(...a.mass.map((v, k) => Math.abs(b.mass[k] - v) / Math.max(v, 1e-8))).toExponential(3)}; negative channels ${b.negative}. Float rounding remains.`)
-    } finally { setBusy(false) }
+    })
   }
   function download() {
     const link = document.createElement('a'), url = URL.createObjectURL(new Blob([JSON.stringify(journal())], { type: 'application/json' }))
@@ -228,11 +239,12 @@ export function WatercolorGpuPocPage() {
       <button disabled={!ready || busy} onClick={() => void undo()}>Undo</button>
       <button disabled={!ready || busy || !redoTape.current} onClick={() => { const tape = redoTape.current; if (tape) void replay(tape) }}>Redo</button>
       <button disabled={!ready || busy} onClick={() => void inspectMass()}>Check mass</button>
-      <button disabled={!ready || busy} onClick={() => { paused.current = true; setPausedUi(true); setBusy(true); void engine.current?.checkOracle().then(result => setStatus(`Production CPU oracle: ${JSON.stringify(result)}`)).finally(() => setBusy(false)) }}>Check CPU oracle</button>
-      <button disabled={!ready || busy} onClick={() => { paused.current = true; setPausedUi(true); setBusy(true); void engine.current?.checkCanonicalBrush().then(result => setStatus(`Canonical Q8 brush: ${JSON.stringify(result)}`)).catch(error => setStatus(String(error))).finally(() => setBusy(false)) }}>Check Q8 brush · WebGL1</button>
+      <button disabled={!ready || busy} onClick={() => void runDiagnostic(async () => { const result = await engine.current!.checkOracle(); setStatus(`Production CPU oracle: ${JSON.stringify(result)}`) })}>Check CPU oracle</button>
+      <button disabled={!ready || busy} onClick={() => void runDiagnostic(async () => { const result = await engine.current!.checkCanonicalBrush(); setStatus(`Canonical Q8 brush: ${JSON.stringify(result)}`) })}>Check Q8 brush · WebGL1</button>
       <button disabled={!ready || busy} onClick={download}>Export journal</button>
     </div>
     <p role="status">{busy ? 'Working… ' : ''}{status}</p>
+    <p className={styles.notice}>{pausedUi ? 'Simulation paused. Resume or start a new stroke to continue water movement.' : 'Simulation running: water and pigment evolve continuously.'}</p>
     <div className={styles.canvases}>
       <figure><figcaption>WebGPU · live float fields · 512 × 384 simulation / 1024 × 768 world</figcaption><canvas ref={canvas} onPointerDown={begin} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} /></figure>
       <figure hidden={!baselineVisible}><figcaption>Current WebGL1 · same stroke inputs · dry output</figcaption><canvas ref={comparison} hidden={!!baselineImage} />{baselineImage && <img src={baselineImage} alt="Current WebGL1 watercolor replay" />}<p>{baselineStatus}</p></figure>
