@@ -1,4 +1,4 @@
-import { contactPulseOp, frontStepOp, inheritSettleOpTags } from '../watercolor/WatercolorSettleQueue'
+import { contactPulseOp, frontStepOp, inheritSettleOpTags, presentationStepOp } from '../watercolor/WatercolorSettleQueue'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -601,11 +601,11 @@ export class WatercolorSettlePlan {
         }
       }
       try { resume() } catch (error) { generator.return(); presentations.delete(generator); throw error }
-      for (let i = 0; i <= overlaps.length; i++) queuedContinuation.push(() => {
+      for (let i = 0; i <= overlaps.length; i++) queuedContinuation.push(presentationStepOp(() => {
         if (disposed) return
         try { if (resume().done) presentations.delete(generator) }
         catch (error) { generator.return(); presentations.delete(generator); throw error }
-      })
+      }, generator))
     }
     let pairedColour: { out: AccumulationBuffer } | null = null
     const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer, first: boolean, spare: AccumulationBuffer, follow = false): { out: AccumulationBuffer } => {
