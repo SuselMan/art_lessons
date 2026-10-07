@@ -326,3 +326,74 @@ it('forgets queued foreign pencil previews on loss without deleting stale GPU ha
     remove.mockRestore(); draw.mockRestore()
   } finally { engine.destroy() }
 })
+
+it('keeps canonical tile inputs locked while split presentation admits a new provisional gesture', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcAsyncFinish'] = true; engine['_settlePlan'].splitQuanta = true
+  const frames = new Map<number, () => void>(); let next = 0
+  engine['_wcCanonical']['ctx'].schedule = callback => { frames.set(++next, callback); return next }
+  engine['_wcCanonical']['ctx'].unschedule = handle => { frames.delete(handle) }
+  const prepare = vi.spyOn(engine['_settlePlan'], 'prepare')
+  const physical = vi.spyOn(engine['_ribbonPainter']['ctx'], 'drawRibbonNibPass')
+  const tick = () => { const frame = frames.entries().next().value; if (frame) { frames.delete(frame[0]); frame[1]() } }
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 24, y: 20 }, { x: 40, y: 20 }])
+    for (let i = 0; i < 100 && !engine['_settle']; i++) tick()
+    const job = engine['_settle']!
+    expect(job).not.toBeNull()
+    const initial = job.ops.length
+    for (let i = 0; i < 2000 && job.ops.length === initial && engine['_settle'] === job; i++) engine['_advanceSettle']()
+    expect(job.ops.length).toBeGreaterThan(initial)
+    expect(engine['_wcAsyncOwners'].has(job.scratch)).toBe(true)
+    const entries = [...job.scratch.tileEntries()]
+    const before = entries.flatMap(([, entry]) => [entry.inkLoad, entry.inkColor, entry.solventLoad, entry.coverage].filter(Boolean).map(b => b!.readPixels()))
+    const count = physical.mock.calls.length
+    simulateStroke(engine, [{ x: 12, y: 36 }, { x: 24, y: 36 }, { x: 40, y: 36 }])
+    expect(physical.mock.calls.length).toBe(count)
+    const after = entries.flatMap(([, entry]) => [entry.inkLoad, entry.inkColor, entry.solventLoad, entry.coverage].filter(Boolean).map(b => b!.readPixels()))
+    expect(after).toEqual(before)
+    for (let i = 0; i < 3000 && engine['_wcCanonical'].pending; i++) { while (engine['_settle']) engine['_advanceSettle'](); tick() }
+    expect(engine['_wcAsyncError']).toBeNull()
+    expect(engine['_wcCanonical'].pending).toBe(false)
+    expect(engine['_wcAsyncOwners'].size).toBe(0)
+    expect(engine['_log'].entries.filter(e => e.op.type === 'stroke')).toHaveLength(2)
+    expect(prepare.mock.calls.length).toBeGreaterThan(0)
+    for (const args of prepare.mock.calls) { expect(args[12]).toBeDefined(); expect(args[13]).toBe(true) }
+  } finally { prepare.mockRestore(); physical.mockRestore(); engine.destroy() }
+})
+
+it('forgets suspended split presentation snapshots on context loss without stale GPU calls', async () => {
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  await engine.paperReady()
+  engine.initLayer('L'); engine.setActiveLayer('L'); engine.setTool('watercolor')
+  engine.setPencil('normal:100:100:PB29:round'); engine.setSize(16)
+  engine['_wcAsyncFinish'] = true; engine['_settlePlan'].splitQuanta = true
+  const frames = new Map<number, () => void>(); let next = 0
+  engine['_wcCanonical']['ctx'].schedule = callback => { frames.set(++next, callback); return next }
+  engine['_wcCanonical']['ctx'].unschedule = handle => { frames.delete(handle) }
+  const prepare = vi.spyOn(engine['_settlePlan'], 'prepare')
+  const physical = vi.spyOn(engine['_ribbonPainter']['ctx'], 'drawRibbonNibPass')
+  const tick = () => { const frame = frames.entries().next().value; if (frame) { frames.delete(frame[0]); frame[1]() } }
+  try {
+    simulateStroke(engine, [{ x: 12, y: 20 }, { x: 24, y: 20 }, { x: 40, y: 20 }])
+    for (let i = 0; i < 100 && !engine['_settle']; i++) tick()
+    const job = engine['_settle']!
+    expect(job).not.toBeNull()
+    const initial = job.ops.length
+    for (let i = 0; i < 2000 && job.ops.length === initial && engine['_settle'] === job; i++) engine['_advanceSettle']()
+    expect(job.ops.length).toBeGreaterThan(initial)
+    expect(engine['_wcAsyncOwners'].has(job.scratch)).toBe(true)
+    const remove = vi.spyOn(engine['gl'], 'deleteTexture')
+    const draw = vi.spyOn(engine['gl'], 'drawArrays')
+    engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    expect(engine['_settle']).toBeNull()
+    expect(engine['_wcAsyncOwners'].size).toBe(0)
+    // The accepted finish remains queued for restoration; its obsolete GPU owner is gone.
+    expect(remove).not.toHaveBeenCalled()
+    expect(draw).not.toHaveBeenCalled()
+    remove.mockRestore(); draw.mockRestore()
+  } finally { prepare.mockRestore(); physical.mockRestore(); engine.destroy() }
+})
