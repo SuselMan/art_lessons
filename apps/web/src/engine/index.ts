@@ -1777,8 +1777,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Preserve the next film after the preceding settle lands (ADR 011). */
   private _wcSourceFilmRebase = true
-  /** Opt-in diagnostic: only proven-zero pigment contact operators. */
-  private _wcZeroPigmentContacts = false
+  /** Skip pigment contact operators only with complete zero provenance;
+   * water/front work is retained, and pending repair/peer ink rejects the proof. */
+  private _wcZeroPigmentContacts = true
 
   private readonly _settlePlan = new WatercolorSettlePlan({
     gl: () => this.gl,
