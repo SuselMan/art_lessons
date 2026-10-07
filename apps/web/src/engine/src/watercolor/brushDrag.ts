@@ -7,13 +7,34 @@ export interface BrushTravel extends WaterFootprint {
   settleRadius?: number
 }
 
+/** Synchronous producer scratch only; returned RGBA payloads never alias it. */
+export class BrushDragRasterWorkspace {
+  private vx = new Float32Array(0)
+  private vy = new Float32Array(0)
+  private weight = new Float32Array(0)
+  allocations = 0
+  reuses = 0
+  bytesAllocated = 0
+  bytesRequested = 0
+  take(size: number): [Float32Array, Float32Array, Float32Array] {
+    this.bytesRequested += size * 12
+    if (size > this.vx.length) {
+      this.vx = new Float32Array(size); this.vy = new Float32Array(size); this.weight = new Float32Array(size)
+      this.allocations += 3; this.bytesAllocated += size * 12
+    } else this.reuses++
+    const views: [Float32Array, Float32Array, Float32Array] = [this.vx.subarray(0, size), this.vy.subarray(0, size), this.weight.subarray(0, size)]
+    for (const view of views) view.fill(0)
+    return views
+  }
+}
+
 /** Local recent brush velocity, RG signed direction, B contact strength.
  * Bottom-up for GL. Travel weights keep resampling density from changing flow. */
-export function brushDragField(travel: readonly BrushTravel[], rect: { x: number; y: number; w: number; h: number }, cellPx = 4) {
+export function brushDragField(travel: readonly BrushTravel[], rect: { x: number; y: number; w: number; h: number }, cellPx = 4, workspace?: BrushDragRasterWorkspace) {
   if (!travel.length) return null
   const width = Math.ceil(rect.w / cellPx), height = Math.ceil(rect.h / cellPx)
   const sx = rect.w / width, sy = rect.h / height
-  const vx = new Float32Array(width * height), vy = new Float32Array(width * height), weight = new Float32Array(width * height)
+  const [vx, vy, weight] = workspace?.take(width * height) ?? [new Float32Array(width * height), new Float32Array(width * height), new Float32Array(width * height)]
   for (const d of travel) {
     const length = Math.hypot(d.dx, d.dy)
     if (length < 0.01 || d.water <= 0) continue
@@ -80,9 +101,9 @@ export function brushDragContactGroups(travel: readonly BrushTravel[], rect: { x
 }
 
 /** Existing eager API; descriptors preserve its exact grouping and fields. */
-export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: number; y: number; w: number; h: number }) {
+export function brushDragContacts(travel: readonly BrushTravel[], rect: { x: number; y: number; w: number; h: number }, workspace?: BrushDragRasterWorkspace) {
   return brushDragContactGroups(travel, rect).map(group => ({
-    rect: group.rect, radius: group.radius, field: brushDragField(group.travel, group.rect)!,
+    rect: group.rect, radius: group.radius, field: brushDragField(group.travel, group.rect, 4, workspace)!,
   }))
 }
 

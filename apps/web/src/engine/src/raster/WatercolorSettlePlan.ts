@@ -6,7 +6,7 @@ import type { RibbonStrokeScratch, RibbonFinishMetadata } from '../buffers/Ribbo
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from '../dabs/ribbonProfile'
 
 import { WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_PUDDLE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE, watercolorPuddleSettleWeights, WET_SETTLE_SMOOTH, WET_SETTLE_FIBRE_FROM, type WetDiffuseStep } from '../watercolor/wetDiffusion'
-import { brushDragContacts, brushDragContactGroups, brushDragField, brushDragMaxExposure } from '../watercolor/brushDrag'
+import { brushDragContacts, brushDragContactGroups, brushDragField, brushDragMaxExposure, BrushDragRasterWorkspace } from '../watercolor/brushDrag'
 import { brushDragFieldWork } from '../watercolor/brushDragFieldWork'
 import { foreignWaterStencil } from '../watercolor/foreignWater'
 import { pigmentAbsorption } from '../watercolor/pigmentOptics'
@@ -36,6 +36,9 @@ export interface WatercolorSettlePlanContext {
 export class WatercolorSettlePlan {
   /** Immutable cost-domain reachability diagnostic; default OFF on every route. */
   diagnosticCostDomainPaths = false
+  /** Eager CPU raster scratch reuse only; does not share suspended generators. */
+  diagnosticReuseFlowRaster = false
+  readonly flowRasterStats = { allocations: 0, reuses: 0, bytesAllocated: 0, bytesRequested: 0 }
   /** Pack D1..D64 in seven byte bits; only eligible when cost-domain paths are enabled. */
   diagnosticPackedCostPaths = false
   /** Local diagnostic only, default OFF. V-phase is an experimental closure,
@@ -300,7 +303,14 @@ export class WatercolorSettlePlan {
       { x: x0, y: y0, w: field.w * S, h: field.h * S })
     const contactRect = { x: x0, y: y0, w: field.w * S, h: field.h * S }
     const groups = lazyContacts && !skipZeroPigmentContacts ? brushDragContactGroups(metadata.brushTravel, contactRect) : []
-    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : brushDragContacts(metadata.brushTravel, contactRect)
+    const workspace = this.diagnosticReuseFlowRaster && !lazyContacts && !skipZeroPigmentContacts ? new BrushDragRasterWorkspace() : undefined
+    const contacts = skipZeroPigmentContacts || lazyContacts ? [] : brushDragContacts(metadata.brushTravel, contactRect, workspace)
+    if (workspace) {
+      this.flowRasterStats.allocations += workspace.allocations
+      this.flowRasterStats.reuses += workspace.reuses
+      this.flowRasterStats.bytesAllocated += workspace.bytesAllocated
+      this.flowRasterStats.bytesRequested += workspace.bytesRequested
+    }
     const flow = contacts[0]?.field
     let flowTexture: WebGLTexture | null = null
     let foreignTexture: WebGLTexture | null = null
