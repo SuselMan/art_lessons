@@ -2815,8 +2815,8 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
-        // (#536, §17.49) Undone later in this same history batch: logged
-        // (above), not painted - see setUnpaintedInBatch.
+        // (#536, §17.49; #728) Not needed for this history batch's final
+        // pixels: logged (above), not painted - see setUnpaintedInBatch.
         if (this._unpaintedInBatch?.has(op.id)) { this._skippedInBatch.add(op.id); break }
         const buf = this._layers.get(op.layerId)
         // (#374) Already in the restored pixels. The server withholds these,

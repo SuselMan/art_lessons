@@ -9,6 +9,7 @@ import { useRoomStore } from '../../stores/roomStore'
 import type { OpenTimer } from './diagnostics/openTiming'
 import { type ReplayGate, yieldToEventLoop } from './replayGate'
 import { undoneInBatch } from './undoneInBatch'
+import { clearedInBatch } from './clearedInBatch'
 import type { createPendingPreviews } from './net/pendingPreviews'
 import type { RestoreFailureReason } from './status/RestoreFailedOverlay'
 import type { createSnapshotUploader } from './net/snapshotSync'
@@ -36,6 +37,8 @@ export type RestoreMode = 'join' | 'catchup'
 export interface RestoreRoomStateDeps {
   /** (#176) Snapshots belong to a board, not to the lesson it is in. */
   boardId: string
+  /** Default OFF until full-journal material/lifecycle hardware gates. */
+  diagnosticClearPrefixElision?: boolean
   restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string) => Promise<SnapshotRestoreOutcome['status']>
   backfillHistory: (boardId: string, engine: PencilEngineAPI, fromSeq: number) => Promise<void>
   applyRemoteOp: (op: Operation) => void
@@ -206,7 +209,12 @@ export async function restoreRoomState(
     }
     // (#536, §17.49) In slices, yielding between them, behind the gate - see
     // replayGate.ts on why it is not one piece any more, and why the gate.
-    engine?.setUnpaintedInBatch(undoneInBatch(replayOperations))
+    const unpainted = undoneInBatch(replayOperations)
+    if (engine && deps.diagnosticClearPrefixElision && mode === 'join' && alreadyHadSeq === 0 && latestSnapshotSeq === null
+      && engine.getOperations().length === 0 && replayOperations.at(-1)?.seq === deps.latestKnownSeqRef.current) {
+      for (const id of clearedInBatch(replayOperations, engine.liveLayerIds())) unpainted.add(id)
+    }
+    engine?.setUnpaintedInBatch(unpainted)
     try {
       let sliceStart = performance.now()
       for (const op of replayOperations) {

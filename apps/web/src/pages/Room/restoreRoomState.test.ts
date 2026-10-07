@@ -39,3 +39,48 @@ it('seeds inclusive undo5 before tail redo6 using actual engine history and pixe
   expect([...readLayerPixels(target, 'L')!]).toEqual([...readLayerPixels(source, 'L')!])
   expect(target.getOperationsSinceRestore().map(op => op.id)).toEqual(['r6'])
 })
+
+
+it.each([
+  { name: 'opt-in complete fresh join', enabled: true, mode: 'join' as const, already: 0, snapshot: null, head: 3, paints: 1 },
+  { name: 'default OFF', enabled: false, mode: 'join' as const, already: 0, snapshot: null, head: 3, paints: 2 },
+  { name: 'catch-up', enabled: true, mode: 'catchup' as const, already: 0, snapshot: null, head: 3, paints: 2 },
+  { name: 'already held history', enabled: true, mode: 'join' as const, already: 1, snapshot: null, head: 3, paints: 2 },
+  { name: 'snapshot authority present', enabled: true, mode: 'join' as const, already: 0, snapshot: 0, head: 3, paints: 2 },
+  { name: 'tail does not reach known head', enabled: true, mode: 'join' as const, already: 0, snapshot: null, head: 4, paints: 2 },
+])('clear-prefix gate: $name preserves real history and later undo of clear', async test => {
+  const engine = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+  engine.setBaseLayers(['L'])
+  const wc = (x: number, seq: number): Operation => ({
+    ...makeStroke('A', 'L', [dab(x, 4, { size: 2, opacity: 0.5 })]),
+    tool: 'watercolor', preset: 'normal:100:60:PB29:round', strokeId: 'gesture-' + seq, seq,
+  })
+  const before = wc(2, 1), after = wc(6, 3)
+  const clear: Operation = { id: 'clear2', type: 'layer_clear', layerId: 'L', userId: 'A', timestamp: 2, seq: 2 }
+  const ops = [before, clear, after]
+  const internals = engine as unknown as { _paintDabs: (...args: unknown[]) => unknown; _startRebuildJob: (...args: unknown[]) => unknown; _log: { entries: Array<{op: Operation; state: string}>; layerPixelOps: (id: string) => Operation[] } }
+  const paint = vi.spyOn(internals, '_paintDabs')
+  const replay = vi.spyOn(internals, '_startRebuildJob')
+  const deps: RestoreRoomStateDeps = {
+    boardId: 'room', diagnosticClearPrefixElision: test.enabled,
+    restoreFromSnapshot: vi.fn().mockResolvedValue('none'), backfillHistory: vi.fn().mockResolvedValue(undefined),
+    applyRemoteOp: op => { engine.appendOperation(op, 'remote') }, syncFromLogNow: vi.fn(), markJoinRestoreDone: vi.fn(),
+    dispatchParticipants: vi.fn(), setRestoreFailure: vi.fn(), setRoomContentReady: vi.fn(), finishOpenTimer: vi.fn(),
+    notifyReplayIncomplete: vi.fn(), getSnapshotUploader: () => null, latestKnownSeqRef: { current: test.head },
+    replayIncompleteRef: { current: false }, pendingPreviewsRef: { current: createPendingPreviews() },
+    openTimerRef: { current: null }, replayGate: createReplayGate(),
+  }
+  await restoreRoomState(engine, { latestSnapshotSeq: test.snapshot, tailOperations: ops, participants: [], palette: [], frozen: false }, { mode: test.mode, alreadyHadSeq: test.already }, deps)
+  expect(deps.setRestoreFailure).not.toHaveBeenCalled()
+  expect(paint).toHaveBeenCalledTimes(test.paints)
+  expect(engine.getOperations().map(op => op.id)).toEqual(ops.map(op => op.id))
+  expect(internals._log.entries.find(q => q.op.id === before.id)?.state).toBe('done')
+  engine.appendOperation({ id: 'undo-clear', type: 'operation_undo', userId: 'A', timestamp: 4, seq: 4, targetOpId: clear.id }, 'remote')
+  expect(replay).toHaveBeenCalledWith('L')
+  expect(internals._log.layerPixelOps('L').some(op => op.id === before.id)).toBe(true)
+  engine.appendOperation({ id: 'redo-clear', type: 'operation_redo', userId: 'A', timestamp: 5, seq: 5, targetOpId: clear.id }, 'remote')
+  expect(replay).toHaveBeenCalledTimes(2)
+  expect(internals._log.layerPixelOps('L').some(op => op.id === clear.id)).toBe(true)
+  expect(engine.getOperations().some(op => op.id === before.id)).toBe(true)
+  engine.destroy()
+})
