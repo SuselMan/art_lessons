@@ -116,3 +116,30 @@ it('tracks exact cleared pigment provenance and rejects restored or legacy sourc
     expect(scratch.pigmentInputsKnownZero).toBe(false)
   } finally { scratch.destroy(); engine.destroy() }
 })
+
+describe('geometry batching in physical painter', () => {
+  function draws(batch: boolean) {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    engine.initLayer('source')
+    const probe = engine as unknown as Probe, painter = probe._ribbonPainter
+    painter.diagnosticSegmentDelivery = 'combined'; painter.diagnosticSolventField = true; painter.diagnosticBandBatch = batch
+    const ctx = (painter as unknown as { ctx: RibbonStrokePainterContext }).ctx
+    const calls: Array<{ mode: string; bytes: number[]; args: unknown[] }> = []
+    const original = ctx.drawRibbonBands.bind(ctx)
+    const bands = vi.spyOn(ctx, 'drawRibbonBands').mockImplementation((...args) => {
+      calls.push({ mode: args[3], bytes: [...new Uint8Array(args[2].buffer, args[2].byteOffset, args[2].byteLength)], args: args.slice(4).map(value => value && typeof value === 'object' && 'width' in value ? { width: value.width, height: value.height } : value) })
+      return original(...args)
+    })
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    const preset = probe._resolvePreset('watercolor', presetName)
+    try {
+      for (const _ of painter.paint(probe._layers.get('source')!, dabs, preset, presetName, ribbonProfileFor('watercolor', presetName, 1), [0.2, 0, 0.6], scratch, undefined, 'fff', [1, 2], false, 256)) void _
+      expect(calls.length).toBeGreaterThan(0)
+      expect(scratch.finishContext).not.toBeNull()
+      return calls
+    } finally { bands.mockRestore(); scratch.destroy(); engine.destroy() }
+  }
+  it('preserves ordered physical band uploads, modes and uniforms', () => {
+    expect(draws(true)).toEqual(draws(false))
+  })
+})
