@@ -10,3 +10,11 @@ CPU13tests PASS: existing wetDiffusion invariants (mass, positivity, dry confine
 
 
 Typed activation: optional PencilEngineOptions.gradientFibres (standalone omitted=false); Room passes true. Constructor sets flag before _initGL; warm runs after initFieldUniforms AND initFieldAttributes. Existing program-cache invalidation in initFieldPrograms enables one synchronous rewarm on context restore. Readiness regressions verify exact actual init order, no createProgram on first marked mode1 operator, fresh program after restore, and no warm for default standalone boot/restore. Two new tests PASS; types/full source review pending. No asynchronous prewarm API is invented: existing warm is synchronous.
+
+### Два текущих сохранённых рисунка и Adreno
+
+Свежий полный curated42 sheet3, без Room/snapshot/native/ACK claims: очищенный diffuse + baked выполнил 68 фактических gradient-операторов, GL0, непустые P/C. Закрытая светлая линия и треугольная решётка исчезли; ядро и внешний halo сохранились. Сумма P в scoped target ROI изменилась 730830→731479 (+0.089%); это не доказательство глобального сохранения массы. Whole endpoint и исходный журнал сохранены HOME `ring-regression-cea/temp/clean-baked-pair`.
+
+Foreign sheet4: неизменные 24 исходные операции, исключён только reference image (23 исполняемых), target WSfGdMae5C/seq39, полный водный/структурный prefix сохранён. Оба плеча выполнили 64 gradient-оператора, GL0, непустые material, собственные Chrome закрыты. Форма и цвет пересекающего лужу мазка сохранились; scoped optical core alpha −1.15%, support +0.16% — оптические метрики, не масса. Raw HOME `ring-regression-cea/temp/foreign-clean-baked-pair`; VPS atlas/report `728-ring-expanded-gates/temp/regression/foreign-clean-baked-*`.
+
+Samsung salted whole-program cold 2026-10-07: Chrome154, Adreno650; baseline diffuse5913B, clean diffuse4372B, полный baked field40170B — три успешных link, GL0/context intact. Свой target1455 закрыт. Raw `728-ring-expanded-gates/temp/regression/samsung-clean-cold-retry1/report.json`. Первое создание target через /json/new HTTP500 не создало GPU контекст; сохранено отдельно. CrossGPU typed-constructor replay остаётся отдельным текущим gate.
