@@ -503,3 +503,66 @@ masks); old negative log saved temp/onset/costpath-route-old-negative.log.
 Targeted TypeScript including tests and gitdiffcheck PASS. MockGL tests prove command/
 resource contract, not numerical P/C pixels; actual full ON/OFF hardware remains pending.
 DefaultOFF/sourcepublication unchanged.
+
+### Packed cost-domain levels: CPU candidate, hardware pending
+
+Separate branch based on52fe; both diagnostic flags remain OFF. Each RGBA8 channel
+stores seven inclusive reachability bits D1..D64, code0..127. Seed plus six dyadic
+operations run before any carry (7 mask draws instead of56). Carry selects the bit
+with its existing power-of-two stride. Positive-cost coefficient and donor
+normalizer are unchanged; this is a scheduling/storage optimization, not a rim fix.
+
+The literal oracle `scripts/qa/728-packed-cost-domain-oracle.mjs` checks722400 paths
+including exterior cells and128 Float32/UNORM byte roundtrips. Both borrowed field
+buffers ca/cc are actually allocated NEAREST (`index.ts`, field allocation), and
+mask sampling uses pixel centers. Codes below128 and power-of-two bit divisions
+fit the fragment highp minimum precision; the stored code is decoded with
+floor(channel*255+.5), never interpolated. Real-device shader precision and salted
+compiler acceptance remain hardware gates, not CPU claims.
+
+The final packed ca mask remains read-only through all14 carry operations. cc is
+only its construction spare; numerical C reconstruction follows carry as before.
+No new textures, shared colour storage or presentation ownership changes. Default
+packed OFF preserves the56-operation implementation. Tests cover ownertrue/false,
+fixed colour reconstruction, abort/context-forget between mask and carry, and no
+late writes. Mixed and pure-water paths still skip. Hardware endpoint equality,
+all-channel bit parity and cost are pending; the frozen5325 route52 service was
+not updated by this CPU work.
+
+Packed mask draws explicitly disable DITHER and restore its prior enabled state,
+so integer codes do not depend on raster dithering. This state handling is scoped
+to packed ON; the existing mask OFF draw state is unchanged. Hardware must still
+verify all128 codes and every directional bit before any full solver claim.
+
+### Route52 full sheet3 targeted hardware (before packed candidate)
+
+The600s attempt `sheet3-mask-route52-vega-first` stopped at the90s suffix budget,
+not a model failure. Its OFF prefix151482ms and target2630ms produced valid stage
+planes, but no complete endpoint or ON arm. The artifact remains preserved.
+
+The separately authorized900s run `sheet3-mask-route52-vega-full900-first` completed
+both whole42 journals (41 rendering operations; original image exclusion explicit),
+with targetseq61 only diagnostic ON. Source906-file passport, immutable curatedSHA
+`ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9`, phase/baked/rebase
+both ON. OFF prefix151451ms/target2651ms; ON prefix151329ms/target3795ms. These are
+readback-instrumented diagnostic walls, not native performance attribution.
+
+Actual ownerfalse was retained. ON executed56 mask and14 masked carry draws; pre
+P/C/V/coverage/cost were exact. Two stride64 mask captures checked376656 directional
+channels each against literal cost-domain paths, zero differences and48214 nonzero
+channels. Every captured GL stage was0/contextalive; no page/network errors; own
+Chrome and engines closed in finally. RAM preflight2109.8MiB passed.
+
+Final3508×2480 opaque/nonempty RGBA differed3525pixels/max53, confined to bbox
+[969,499,1212,678]. OFF PNG SHA
+`f135da929eacb2eec1820b3ef50901a8e602d8fc748404fb7c89281ec40dd59b`, ON SHA
+`19837b73c6944e5e9a3079954bef39c22c7d4daa303da04409e480598f808d7b`.
+Closed ROI postcarry P.b sums753424→753397 and outside-original-support369085→368669;
+provisional dry sums712311→712413 and outside429289→429040. These are bounded ROI
+amounts, not global conservation. The soft inner chisel outline remains visible;
+this validates reachable positive-cost masking, not removal of the rim.
+
+Raw report/planes/PNGs remain on HOME under
+`680-puddle-outline/temp/cost-domain-e8-net39-route52/temp/onset/sheet3-mask-route52-vega-full900-first/`;
+`target61-whole-crop-atlas.png` uses matching crop/white composite. This route52
+hardware does not validate the newer packed7-bit candidate.

@@ -3255,6 +3255,7 @@ export const WC_FIELD_OP_FRAG = `
       vec2 delta = uvj - uvi;
       float allowed = delta.x > 0.0 ? connected.r : delta.x < 0.0 ? connected.g
         : delta.y > 0.0 ? connected.b : connected.a;
+      if (u_pathEnabled > 1.5) allowed = mod(floor(floor(allowed * 255.0 + 0.5) / u_origin.x), 2.0);
       if (allowed < 0.5) return 0.0;
     }
     if (d <= 1e-3) {
@@ -5832,6 +5833,7 @@ export const WC_COST_DOMAIN_FRAG = `
   uniform vec4 u_rect;
   uniform float u_band;
   uniform float u_stride;
+  uniform float u_packed;
   float channel(vec4 value, vec2 direction) {
     if (direction.x > 0.0) return value.r;
     if (direction.x < 0.0) return value.g;
@@ -5843,10 +5845,18 @@ export const WC_COST_DOMAIN_FRAG = `
   }
   float path(vec2 pixel, vec2 direction) {
     vec2 other = pixel + direction * max(u_stride, 1.0);
-    if (!inside(pixel) || !inside(other)) return 0.0;
+    if (!inside(pixel)) return 0.0;
+    vec4 previous = texture2D(u_source, (pixel + 0.5) / u_resolution);
+    float code = floor(channel(previous, direction) * 255.0 + 0.5);
+    if (!inside(other)) return u_packed > 0.5 && u_stride >= 0.5 ? code / 255.0 : 0.0;
     vec4 a = texture2D(u_source, (pixel + 0.5) / u_resolution);
     vec4 b = texture2D(u_source, (other + 0.5) / u_resolution);
-    if (u_stride < 0.5) return a.r <= u_band && b.r <= u_band ? 1.0 : 0.0;
+    if (u_stride < 0.5) return a.r <= u_band && b.r <= u_band ? (u_packed > 0.5 ? 1.0 / 255.0 : 1.0) : 0.0;
+    if (u_packed > 0.5) {
+      float neighbour = floor(channel(b, direction) * 255.0 + 0.5);
+      float connected = mod(floor(code / u_stride), 2.0) * mod(floor(neighbour / u_stride), 2.0);
+      return (code + 2.0 * u_stride * connected) / 255.0;
+    }
     return min(channel(a, direction), channel(b, direction));
   }
   void main() {

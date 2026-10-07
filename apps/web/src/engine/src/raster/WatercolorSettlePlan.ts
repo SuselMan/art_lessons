@@ -38,6 +38,7 @@ export class WatercolorSettlePlan {
   /** Local diagnostic only, default OFF. V-phase is an experimental closure,
    * not an equality between solvent thickness and the PaperWetness clock. */
   diagnosticCostDomainPaths = false
+  diagnosticPackedCostPaths = false
   diagnosticPlateauPhase = false
   /** Presentation-only cropped partial-front transport; local, default OFF. */
   diagnosticPartialFrontPreview = false
@@ -760,8 +761,22 @@ export class WatercolorSettlePlan {
       if (first && !this.ctx.ab().noCarry) {
         const carry = watercolorCarryStrides(budgetPx)
         const costPaths = costPathsEnabled && !colour
+        const packedPaths = costPaths && this.diagnosticPackedCostPaths
+        let packedMask: AccumulationBuffer | undefined
+        if (packedPaths) {
+          const band = (budgetPx - 1.5) / costMax
+          ops.push(() => this.ctx.passes().costDomainStep(field.ca, field.pressure, fieldRect, band, 0, true))
+          let mask = field.ca, next = field.cc
+          for (let distance = 1; distance < 64; distance *= 2) {
+            const from = mask, to = next, step = distance
+            ops.push(() => this.ctx.passes().costDomainStep(to, from, fieldRect, band, step, true))
+            const previous = mask; mask = next; next = previous
+          }
+          packedMask = mask
+        }
         const pathFor = (stride: number): AccumulationBuffer | undefined => {
           if (!costPaths) return undefined
+          if (packedMask) return packedMask
           const band = (budgetPx - 1.5) / costMax
           ops.push(() => this.ctx.passes().costDomainStep(field.ca, field.pressure, fieldRect, band, 0))
           let mask = field.ca, next = field.cc
@@ -784,7 +799,7 @@ export class WatercolorSettlePlan {
           }
           ops.push(frontStepOp(() => {
             for (const p of plan) {
-              const opts = { path: p.path, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
+              const opts = { path: p.path, pathPacked: packedPaths, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number] }
               if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
               this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
             }

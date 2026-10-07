@@ -84,7 +84,7 @@ export class WatercolorPasses {
    *  pixels) limits the write to a rect, everything outside it untouched. */
   fieldOp(
     out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number,
-    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer } = {},
+    opts: { c?: AccumulationBuffer; scissor?: [number, number, number, number]; dir?: [number, number]; d?: AccumulationBuffer; e?: AccumulationBuffer; origin?: [number, number]; band?: [number, number]; size?: [number, number]; tau?: [number, number, number]; world?: [number, number, number]; gradientFibres?: boolean; path?: AccumulationBuffer; pathPacked?: boolean } = {},
   ): void {
     const { gl } = this
     out.beginReplaceDraw()
@@ -125,7 +125,7 @@ export class WatercolorPasses {
       gl.activeTexture(gl.TEXTURE0 + 5)
       gl.bindTexture(gl.TEXTURE_2D, (opts.path ?? b).texture)
       gl.uniform1i(u.u_path, 5)
-      gl.uniform1f(u.u_pathEnabled, opts.path ? 1 : 0)
+      gl.uniform1f(u.u_pathEnabled, opts.path ? (opts.pathPacked ? 2 : 1) : 0)
     }
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform1f(u.u_k, k)
@@ -142,13 +142,15 @@ export class WatercolorPasses {
   }
 
   /** No new textures: the owner supplies two otherwise unused single-paint C fields. */
-  costDomainStep(out: AccumulationBuffer, source: AccumulationBuffer, rect: [number, number, number, number], band: number, stride: number): void {
+  costDomainStep(out: AccumulationBuffer, source: AccumulationBuffer, rect: [number, number, number, number], band: number, stride: number, packed = false): void {
     const { gl } = this
     if (!this._costDomain) {
       const program = createProgram(gl, DISPLAY_VERT, WC_COST_DOMAIN_FRAG)
-      this._costDomain = { program, uniforms: getUniforms(gl, program, ['u_source', 'u_resolution', 'u_rect', 'u_band', 'u_stride']), position: gl.getAttribLocation(program, 'a_position') }
+      this._costDomain = { program, uniforms: getUniforms(gl, program, ['u_source', 'u_resolution', 'u_rect', 'u_band', 'u_stride', 'u_packed']), position: gl.getAttribLocation(program, 'a_position') }
     }
     const { program, uniforms: u, position } = this._costDomain
+    const dithered = packed && gl.isEnabled(gl.DITHER)
+    if (packed) gl.disable(gl.DITHER)
     out.beginReplaceDraw()
     try {
       gl.useProgram(program)
@@ -158,8 +160,9 @@ export class WatercolorPasses {
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, source.texture)
       gl.uniform1i(u.u_source, 0); gl.uniform2f(u.u_resolution, out.width, out.height)
       gl.uniform4fv(u.u_rect, rect); gl.uniform1f(u.u_band, band); gl.uniform1f(u.u_stride, stride)
+      gl.uniform1f(u.u_packed, packed ? 1 : 0)
       gl.drawArrays(gl.TRIANGLES, 0, 6)
-    } finally { out.endDraw() }
+    } finally { out.endDraw(); if (dithered) gl.enable(gl.DITHER) }
   }
 
   /** (#536, §17.24) One relaxation step of the water front's cost (WC_WATER_FRONT_FRAG)

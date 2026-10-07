@@ -580,7 +580,7 @@ describe('diagnostic single-paint cost-domain paths', () => {
     })
   }
 
-  function execution(enabled: boolean | undefined, owner: boolean, pureWater = false) {
+  function execution(enabled: boolean | undefined, owner: boolean, pureWater = false, packed = false) {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     const probe = engine as unknown as Probe
     const tile = probe._ribbonScratchPool.acquire(64, 64)
@@ -588,6 +588,7 @@ describe('diagnostic single-paint cost-domain paths', () => {
     scratch.getOrCreate(tile)
     if (!pureWater) scratch.paints.add('1,0,0')
     if (enabled !== undefined) probe._settlePlan.diagnosticCostDomainPaths = enabled
+    probe._settlePlan.diagnosticPackedCostPaths = packed
     const calls: unknown[][] = []
     const identities = new Map<AccumulationBuffer, number>()
     const id = (buffer: AccumulationBuffer | undefined) => {
@@ -618,7 +619,7 @@ describe('diagnostic single-paint cost-domain paths', () => {
     vi.spyOn(probe._watercolorPasses, 'pigmentColor').mockImplementation((...args) => {
       if (args[0] === field?.cc && enabled && !pureWater) {
         // Borrowing ends before the numerical colour record is reconstructed.
-        expect(calls.filter(call => call[0] === 'mask')).toHaveLength(56)
+        expect(calls.filter(call => call[0] === 'mask')).toHaveLength(packed ? 7 : 56)
         expect(calls.filter(call => call[0] === 'field' && call[1] === 15)).toHaveLength(14)
       }
       calls.push(['color', id(args[0]), id(args[1]), args[2]])
@@ -633,6 +634,18 @@ describe('diagnostic single-paint cost-domain paths', () => {
       return { entries, calls }
     } finally { scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy(); vi.restoreAllMocks() }
   }
+
+  it('packs seven levels before all fourteen carries and retains one immutable mask', () => {
+    const historical = execution(true, false, false, true)
+    expect(historical).toEqual(execution(true, true, false, true))
+    const masks = historical.calls.filter(call => call[0] === 'mask')
+    expect(masks.map(call => call[1])).toEqual([0, 1, 2, 4, 8, 16, 32])
+    const carries = historical.calls.filter(call => call[0] === 'field' && call[1] === 15)
+    expect(carries).toHaveLength(14)
+    expect(new Set(carries.map(call => call[8])).size).toBe(1)
+    expect(historical.calls.indexOf(masks[6])).toBeLessThan(historical.calls.indexOf(carries[0]))
+    expect(execution(false, false, false, true)).toEqual(execution(false, false))
+  })
 
   it('executes identical physical inputs and colour reconstruction on owned and historical routes', () => {
     const historical = execution(true, false)
@@ -673,13 +686,14 @@ it('cost mask primitive balances draw ownership and retires its program without 
   } finally { probe._ribbonScratchPool.release(a); probe._ribbonScratchPool.release(b); engine.destroy(); vi.restoreAllMocks() }
 })
 
-for (const owner of [false, true]) for (const lost of [false, true]) it(`retires borrowed mask state on plan abort (owner=${owner}, contextLost=${lost})`, () => {
+for (const packed of [false, true]) for (const owner of [false, true]) for (const lost of [false, true]) it(`retires borrowed mask state on plan abort (owner=${owner}, contextLost=${lost}, packed=${packed})`, () => {
   const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
   const probe = engine as unknown as Probe
   const tile = probe._ribbonScratchPool.acquire(64, 64)
   const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
   scratch.getOrCreate(tile); scratch.paints.add('1,0,0')
   probe._settlePlan.diagnosticCostDomainPaths = true
+  probe._settlePlan.diagnosticPackedCostPaths = packed
   let count = 0
   vi.spyOn(probe._watercolorPasses, 'costDomainStep').mockImplementation(() => { count++ })
   try {
