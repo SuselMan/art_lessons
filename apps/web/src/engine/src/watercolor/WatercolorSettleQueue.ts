@@ -6,6 +6,11 @@ const frontSteps = new WeakSet<() => void>()
 export function contactPulseOp(op: () => void): () => void { contactPulses.add(op); return op }
 /** Existing front/carry chunks retain their internal pass order and state. */
 export function frontStepOp(op: () => void): () => void { frontSteps.add(op); return op }
+/** Preserve scheduling classes when a continuation gains an ownership wrapper. */
+export function inheritSettleOpTags(source: () => void, wrapped: () => void): void {
+  if (contactPulses.has(source)) contactPulses.add(wrapped)
+  if (frontSteps.has(source)) frontSteps.add(wrapped)
+}
 
 /** Drawing can pause before its recipient has any tiles; ownership, rather
  * than tile count, defines that coroutine's lifetime. Solver jobs keep the

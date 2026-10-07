@@ -4,6 +4,7 @@ import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { WatercolorPasses } from './WatercolorPasses'
 import type { WatercolorSettlePlan } from './WatercolorSettlePlan'
+import type { WatercolorSettleQueue } from '../watercolor/WatercolorSettleQueue'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { WC_BLOOM_WET_LO, WC_BLOOM_WET_HI } from '../presets/watercolorPresets'
 
@@ -11,6 +12,7 @@ type Probe = {
   _ribbonScratchPool: RibbonScratchPool
   _watercolorPasses: WatercolorPasses
   _settlePlan: WatercolorSettlePlan
+  _settleQueue: WatercolorSettleQueue
   _wcAb: { opDry: boolean }
 }
 
@@ -378,3 +380,101 @@ for (const enabled of [false, true]) for (const hasSolvent of [false, true]) {
     }
   })
 }
+
+describe('opt-in split continuation quanta', () => {
+  function run(split: boolean, abortPreview = false, abortBeforeTile = false, ownerLocked = true, scheduler: 'iterate' | 'advance' | 'complete' = 'iterate', cancelInPreview = false) {
+    const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
+    const probe = engine as unknown as Probe
+    probe._settlePlan.splitQuanta = split
+    const tile = probe._ribbonScratchPool.acquire(64, 64)
+    const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
+    scratch.getOrCreate(tile)
+    scratch.paints.add('1,0,0'); scratch.paints.add('0,0,1')
+    const commands: string[] = []
+    const ids = new WeakMap<object, number>()
+    let nextId = 0
+    const argument = (value: unknown): unknown => {
+      if (value && typeof value === 'object') {
+        if ('copyRegionInto' in value && 'width' in value && 'height' in value) {
+          if (!ids.has(value)) ids.set(value, ++nextId)
+          return { buffer: ids.get(value), width: value.width, height: value.height }
+        }
+        if (Array.isArray(value)) return value.map(argument)
+        return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, argument(item)]))
+      }
+      return value
+    }
+    const spies = ['fieldOp', 'waterFrontStep', 'diffuseStep', 'pigmentColor', 'wcResample'].map(name => {
+      const key = name as 'fieldOp'
+      const original = probe._watercolorPasses[key].bind(probe._watercolorPasses)
+      return vi.spyOn(probe._watercolorPasses, key).mockImplementation((...args) => {
+        commands.push(name + ':' + JSON.stringify(args.map(argument)))
+        return original(...args)
+      })
+    })
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(0)
+    let previewCount = 0
+    const plan = probe._settlePlan.prepare(scratch, [{ buffer: tile, originX: 0, originY: 0, contentRect: null }],
+      { minX: 20, minY: 20, maxX: 44, maxY: 44 }, 0.2, 8, 1, 1, 1, 1, 0,
+      () => { commands.push('preview'); previewCount++; if (cancelInPreview) plan.dispose(); if (abortPreview) throw new Error('preview abort') }, false, undefined, ownerLocked)!
+    const initialOps = plan.ops.length
+    try {
+      if (abortBeforeTile) {
+        let i = 0
+        while (plan.ops.length === initialOps && i < plan.ops.length) plan.ops[i++]()
+        expect(plan.ops.length).toBeGreaterThan(initialOps)
+        expect(previewCount).toBe(0)
+        expect((probe._settlePlan as unknown as { _ownedInputs: Set<unknown> })._ownedInputs.size).toBeGreaterThan(0)
+        plan.dispose(); plan.dispose()
+        const count = commands.length
+        for (; i < plan.ops.length; i++) plan.ops[i]()
+        expect(commands.length).toBe(count)
+      } else if (abortPreview) {
+        expect(() => { for (let i = 0; i < plan.ops.length; i++) plan.ops[i]() }).toThrow('preview abort')
+        plan.dispose(); plan.dispose()
+      } else if (scheduler !== 'iterate') {
+        probe._settleQueue.start(scratch, plan.ops, plan.finish, { isAlive: () => scratch.live, abort: plan.dispose })
+        if (scheduler === 'complete') probe._settleQueue.complete()
+        else while (probe._settleQueue.current) probe._settleQueue.advance()
+      } else {
+        // Same mutable-index iteration used by Queue.complete; inserted tile
+        // continuations must run before the next original physical closure.
+        for (let i = 0; i < plan.ops.length; i++) plan.ops[i]()
+        plan.finish()
+      }
+      expect((probe._settlePlan as unknown as { _ownedInputs: Set<unknown> })._ownedInputs.size).toBe(0)
+      return { commands, previewCount, initialOps, finalOps: plan.ops.length }
+    } finally {
+      plan.dispose(); clock.mockRestore(); spies.forEach(spy => spy.mockRestore())
+      scratch.destroy(); probe._ribbonScratchPool.release(tile); engine.destroy()
+    }
+  }
+  it('retains all ordered physical and presentation draws with more scheduling boundaries', () => {
+    const off = run(false), on = run(true)
+    expect(on.commands).toEqual(off.commands)
+    expect(on.previewCount).toBeGreaterThan(0)
+    expect(on.previewCount).toBe(off.previewCount)
+    expect(on.initialOps).toBeGreaterThan(off.initialOps)
+    expect(on.finalOps).toBeGreaterThan(on.initialOps)
+  })
+  for (const scheduler of ['advance', 'complete'] as const) it(`preserves actual Queue.${scheduler} dynamic-insertion command order`, () => {
+    const off = run(false), on = run(true, false, false, true, scheduler)
+    expect(on.commands).toEqual(off.commands)
+    expect(on.previewCount).toBe(off.previewCount)
+  })
+  it('retains the unsplit schedule without an explicit canonical-owner lock', () => {
+    const off = run(false), unsafe = run(true, false, false, false)
+    expect(unsafe.commands).toEqual(off.commands)
+    expect(unsafe.initialOps).toBe(off.initialOps)
+    expect(unsafe.finalOps).toBe(off.finalOps)
+  })
+  it('aborts between snapshot and tile without running later material or preview commands', () => {
+    expect(run(true, false, true).previewCount).toBe(0)
+  })
+  it('supports synchronous cancellation from inside a running preview callback', () => {
+    expect(run(true, false, false, true, 'iterate', true).previewCount).toBe(1)
+  })
+  it('releases held presentation snapshots on preview failure and idempotent abort', () => {
+    expect(run(true, true).previewCount).toBe(1)
+  })
+})

@@ -7295,6 +7295,7 @@ export class PencilEngine implements PencilEngineAPI {
     dwellMs = 0,
     preview?: WatercolorSettlePreview,
     finishMetadata?: RibbonCanonicalFinish,
+    presentationOwnerLocked = false,
   ): { ops: Array<() => void>; finish: () => void; dispose: () => void; compositeDomain: { minX: number; minY: number; maxX: number; maxY: number } } | null {
     let skipContacts = false
     if (this._wcZeroPigmentContacts && scratch.pigmentInputsKnownZero) {
@@ -7302,7 +7303,7 @@ export class PencilEngine implements PencilEngineAPI {
       skipContacts = !!layerId && pureWaterLayerProof(this._log.entries, layerId, this._snapshots.hasCoverage(layerId),
         this._strokeLayerId === layerId && (this._strokeTool !== 'watercolor' || watercolorMixFromPreset(this._opts.pencilType).pigment > 0))
     }
-    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: scratch.dryCtx } : undefined)
+    return this._settlePlan.prepare(scratch, targets, bounds, bloom, radiusPx, water, landedWet, standing, wetPeak, dwellMs, preview, skipContacts, finishMetadata ? { ...finishMetadata, dryCtx: scratch.dryCtx } : undefined, presentationOwnerLocked)
   }
   private _groupTideOps(
     ops: Array<() => void>, field: SettleField, x0: number, y0: number,
@@ -8011,6 +8012,7 @@ export class PencilEngine implements PencilEngineAPI {
           this._displayIfNotSuspended()
         } : undefined,
         owned,
+        this._wcAsyncFinish && !!owned && this._wcAsyncOwners.has(scratch),
       )
       if (job) {
         compositeBounds = job.compositeDomain
