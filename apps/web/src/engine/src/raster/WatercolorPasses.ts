@@ -359,8 +359,8 @@ export class WatercolorPasses {
     outColor.endDraw()
   }
 
-  /** Diagnostic opt-in only. Before enabling by default, warm this at boot,
-   * not on the first production stroke. Existing four programs stay unchanged. */
+  /** Called by engine GL initialization after uniforms and attributes exist,
+   * so the first watercolor mark does not compile the optional program. */
   warmGradientFibres(): void { this.gradientField() }
 
   private gradientField(): NonNullable<WatercolorPasses['_gradientField']> {
