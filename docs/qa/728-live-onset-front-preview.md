@@ -160,3 +160,52 @@ prepare начинает clock сначала, owner14 cancel освобожда
 Скалярная monotonicity относится к cumulative steps/timestamps/reachable-domain
 allowance, НЕ к pixel contour/mass. Byte support/mass/crop-edge behavior нового
 operator count требуют отдельного аппаратного контроля. Hardware ещё НЕ запускался.
+
+### Hardware progress-clock eeb4b7fd — отрицательный результат заметной живости
+
+Own Vega handle55389 exit0, Chrome finally CLOSED; runtime5325/sourceeeb4b7fd,
+971trackedfiles byte-exact, archive00c760b24607370587522c8680abc87281f22d1a564744bc2e273d25e745f17d.
+HOME `680-puddle-outline/temp/onset-runtime/temp/onset/progress-eeb-first/`
+содержит report/rawPNG/early-atlas.jpg; исходный4cdконтроль сохранён отдельно.
+OFF/ON тот же native tape и packed/wet, finalwhole384×384RGBAexact0; GL0,
+lostfalse/errors[]. Частные ops OFF0/ON194=97пар C/P, ровно stencil-safe limit97.
+
+Первый pigment callback OFF533.3мс/next36/front118; ON106.7мс/next4/front4,
+metadata steps4/tau150. Второй ON435.8мс/next28/front100: steps97/tau329.2.
+Первый ordinary callback593.5мс сбросил adaptive tau. Trace349/570 rows<cap768.
+Readback seed и двух private steps диагностический, НЕ performance benchmark.
+Кадр t500 фактически OFF515мс/ON608мс; визуальное сравнение не точно time-paired.
+Атлас показывает более раннюю тонкую перемену края, но не широкое заметное
+растекание<1с. Основной рост1–4с сохраняется; дальнейшее наращивание этих unit
+steps или ускорение tau не обосновано. Кандидат не предлагается к интеграции.
+
+Материальные probes теперь отделяют transport от reveal:
+- seedP alphaNonzero2129, bboxGL[165,170,229,213], sum381503 во всех4channels;
+- private4:2134 (+5new support), bbox[165,169,229,214], Psum381325;
+  openCost3039, Pnonzero с cost.r=0:2123;
+- private97:2147 (+18new support), bbox[165,167,229,214], Psum384278;
+  openCost7472, Pnonzero с cost.r=0:2123.
+Расширение cost-domain произошло, пигмент практически остался в начальном ядре.
+2123 — количество поддержанных пикселей, НЕ равенство их amounts или identities.
+Psum drift+2775/+0.727% относительно seed: RGBA8 private mass НЕ сохранена строго.
+Csum seed[144398,100140,45603,381503], finalprivate
+[145467,100751,45635,384278]. Source P/C/V nonzero/crop exact/envelope guards PASS.
+
+Причина на уровне действующего оператора: unitcarry equalises соседнюю travelling
+concentration, а не advects packet по всей достигнутой cost области. При fullphase,
+равной capacity и4равных axisweights локальный коэффициент приблизительно
+rate0.5×travel0.35×1/4=0.04375 на adjacent density-excess. Это медленная локальная
+релаксация; типичная diffusion длина97шагов sqrt(2×0.04375×97)≈2.9px/axis,
+согласованная с измеренным bbox. Эта оценка не точный oracle фактического relief:
+weights, Vphase и capacity неоднородны. Отдельный flux<0.5byte округляется;
+в локальной равномерной оценке adjacent excess<≈11.4codes уже не даёт одного
+полного code transfer по face. Все входы писать RGBA8 после каждого tiny exchange
+может остановить слабый край и накопить measured mass drift. Fixed25% seed не
+участвует, mobile75% участвует; travel35% снижает обмен, но не следует объявлять
+остальные65% mobile математически навсегда фиксированными при повторных шагах.
+
+Нужный следующий proof — actual per-cell cost/V/P face excess/rounding у края,
+а не новые tuned steps/rates/tau. Existing canonical dyadic carry + diffusion
+не равны нашему97unitcarry trajectory; широкий canonical финал не доказывает,
+что ранний локальный private solver обязан прийти к нему с этой скоростью.
+Никакого нового GPU прогона или physics-source изменения после negative не было.
