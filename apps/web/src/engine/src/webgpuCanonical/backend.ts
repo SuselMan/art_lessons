@@ -33,6 +33,8 @@ export class CanonicalWatercolorWebGpu {
  private readonly context: GPUCanvasContext
  private readonly format: GPUTextureFormat
  private readonly preview: GPURenderPipeline
+ private pendingScopes=0
+ private readonly pendingRetired=new Set<CanonicalGpuField>()
  private activeEncoder:GPUCommandEncoder|null=null
  private activeBuffers:GPUBuffer[]=[]
  private activeRetired:CanonicalGpuField[]=[]
@@ -53,8 +55,8 @@ struct U { rect:vec4u }
   this.clearPipeline=device.createComputePipeline({layout:'auto',compute:{module:clearModule,entryPoint:'clear'}})
   this.nearest = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' })
   this.linear = device.createSampler({ magFilter: 'linear', minFilter: 'linear' })
-  this.fields = Object.fromEntries(names.map(name => [name, this.createField(name, options.width, options.height)])) as unknown as CanonicalWatercolorFields
-  this.paper = { field: this.createField('production baked paper', options.paper.width, options.paper.height), origin: options.paper.origin, texSize: options.paper.texSize, scale: options.paper.scale }
+  this.fields = Object.fromEntries(names.map(name => [name, this.createField(name, options.width, options.height,name==='flow'?'linear':'nearest')])) as unknown as CanonicalWatercolorFields
+  this.paper = { field: this.createField('production baked paper', options.paper.width, options.paper.height,'linear'), origin: options.paper.origin, texSize: options.paper.texSize, scale: options.paper.scale }
   this.upload(this.paper.field, options.paper.bytes)
   const lattice = Uint8Array.from(atob(noiseAsset), c => c.charCodeAt(0)), rgba = new Uint8Array(lattice.length * 4)
   for (let k = 0; k < lattice.length; k++) rgba.set([lattice[k], lattice[k], lattice[k], 255], k * 4)
@@ -87,12 +89,12 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
    return backend
   } catch (error) { device.destroy(); throw error }
  }
- createField(label: string, width: number, height: number): CanonicalGpuField {
+ createField(label: string, width: number, height: number, filter:'nearest'|'linear'='nearest'): CanonicalGpuField {
   const texture = this.device.createTexture({ label, size: [width, height], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT })
-  const field:CanonicalGpuField={ width, height, label, format: 'rgba8unorm', texture, view: texture.createView() };this.ownedFields.add(field);return field
+  const field:CanonicalGpuField={ width, height, label, filter, format: 'rgba8unorm', texture, view: texture.createView() };this.ownedFields.add(field);return field
  }
  destroyField(field:CanonicalGpuField) {
-  if(this.ownedFields.delete(field)){if(this.activeEncoder)this.activeRetired.push(field);else field.texture.destroy()}
+  if(this.ownedFields.delete(field)){if(this.activeEncoder)this.activeRetired.push(field);else if(this.pendingScopes)this.pendingRetired.add(field);else field.texture.destroy()}
  }
  /** Synchronous planner quantum: owner operations join the caller's encoder.
   * Caller submits it, then invokes release after queue completion. */
@@ -101,8 +103,9 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   this.activeEncoder=encoder;this.activeBuffers=[];this.activeRetired=[]
   try {
    const value=task(),buffers=this.activeBuffers,retired=this.activeRetired
-   return{value,release:()=>{buffers.forEach(b=>b.destroy());retired.forEach(f=>f.texture.destroy())}}
-  } catch(error) {this.activeBuffers.forEach(b=>b.destroy());this.activeRetired.forEach(f=>f.texture.destroy());throw error}
+   this.pendingScopes++;let released=false
+   return{value,release:()=>{if(released)return;released=true;buffers.forEach(b=>b.destroy());for(const f of retired)this.pendingRetired.add(f);this.pendingScopes--;if(!this.pendingScopes){for(const f of this.pendingRetired)f.texture.destroy();this.pendingRetired.clear()}}}
+  } catch(error) {this.activeBuffers.forEach(b=>b.destroy());this.activeRetired.forEach(f=>{if(this.pendingScopes)this.pendingRetired.add(f);else f.texture.destroy()});throw error}
   finally {this.activeEncoder=null;this.activeBuffers=[];this.activeRetired=[]}
  }
  /** Immutable staging payload is recorded in the same command stream as its

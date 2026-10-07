@@ -8,6 +8,7 @@ export interface CanonicalGpuField {
   readonly height: number
   readonly texture: GPUTexture
   readonly view: GPUTextureView
+  readonly filter: 'nearest' | 'linear'
   readonly format: 'rgba8unorm'
   readonly label: string
 }

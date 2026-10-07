@@ -23,3 +23,11 @@ these tests do not establish hardware byte parity or full Room watercolor.
 Brush encoder accepts an optional GL-bottom-up scissor; invocations outside it
 perform no output writes. Caller retains output contents there. Software sentinel
 check confirms zero changes outside the scissor for both paired P/C outputs.
+
+The field itself now carries its filter, not just the buffer wrapper. Brush P/C
+and water sampling follows that metadata; compact flow stays LINEAR. This is
+especially important for midpoint water gates on a NEAREST coverage field.
+Owner retirement also covers the interval after a scope returns but before its
+encoder is submitted. A destroyed source remains physically alive until pending
+scope releases after queue completion; a software copy/readback gate verifies
+zero corruption and no validation errors. Release is idempotent.

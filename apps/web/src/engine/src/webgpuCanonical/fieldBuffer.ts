@@ -13,7 +13,7 @@ export class CanonicalFieldBuffer {
  private released = false
  constructor(owner:CanonicalWatercolorWebGpu,width:number,height:number,filter:'nearest'|'linear'='nearest',label='canonical scratch') {
   this.owner=owner;this.width=width;this.height=height;this.filter=filter
-  this.field=owner.createField(label,width,height)
+  this.field=owner.createField(label,width,height,filter)
  }
  get texture():GPUTexture {this.assertLive();return this.field.texture}
  get view():GPUTextureView {this.assertLive();return this.field.view}
