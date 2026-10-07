@@ -80,6 +80,8 @@ export class RibbonStrokePainter {
   diagnosticSolventField = true
   /** CPU-only geometry reuse; material doubles and draw order stay unchanged. */
   diagnosticBandBatch = false
+  /** Diagnostic scheduling only: account for source copies in sliced work. */
+  diagnosticSourceCopySlices = false
   /** Solver uniforms use the radius recoverable from the recorded dabs. */
   diagnosticCanonicalSettleRadius = true
   diagnosticLandingPolicy: 'dry' | 'fluid' = 'fluid'
@@ -389,8 +391,9 @@ export class RibbonStrokePainter {
     deferComposite = false,
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
-    mode: Readonly<{ waterOnly: boolean; segmented: boolean; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
+    mode: Readonly<{ waterOnly: boolean; segmented: boolean; sourceCopySlices?: boolean; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
+    const sourceCopySlices = pieceTris > 0 && (mode.sourceCopySlices ?? this.diagnosticSourceCopySlices)
     if (mode.deferMaterial) {
       if (!profile.normalizeDeposit || mode.waterOnly) throw new Error('Deferred source prototype is watercolor-only')
       preset = { ...preset }; profile = { ...profile }; color = [...color]
@@ -441,7 +444,7 @@ export class RibbonStrokePainter {
       scratch.standing.clear()
       for (let i = 0; i < dabs.length; i++) {
         yield* this.paint(target, [dabs[i]], preset, presetName, profile, color, scratch,
-            i === 0 ? prevDab : scratch.lastKept, wetProfile?.slice(i, i + 1), strokeSeed, deferComposite, pieceTris, { ...mode, segmented: true })
+            i === 0 ? prevDab : scratch.lastKept, wetProfile?.slice(i, i + 1), strokeSeed, deferComposite, pieceTris, { ...mode, segmented: true, sourceCopySlices })
       }
       return
     }
@@ -1065,7 +1068,10 @@ export class RibbonStrokePainter {
           // Independent V cap4 is an explicit reservoir limit. It cannot
           // rescale the material P/C records; source P still uses the old film.
           const solventRect = this.ctx.revealRect(tile, compositeBounds)
-          if (solventRect) sourceField(solvent.load, solvent.base, solvent.film, 1, 1, { scissor: solventRect })
+          if (solventRect) {
+            sourceField(solvent.load, solvent.base, solvent.film, 1, 1, { scissor: solventRect })
+            if (sourceCopySlices) yield solventRect[2] * solventRect[3]
+          }
         }
 
         }.bind(this)
@@ -1191,11 +1197,15 @@ export class RibbonStrokePainter {
         // (§17.28) The deposit the composite and the settle read: the wash as it
         // stood before this gesture plus the gesture's film, over this batch's
         // rect (the film outside it is unchanged since the last batch).
+        let sourceCopyCost = 0
         if (fb && inkLoad) {
           const rect = this.ctx.revealRect(tile, compositeBounds)
           if (rect) {
             sourceField(inkLoad, fb.inkBase, fb.strokeInk, 1, 1, { scissor: rect })
-            if (inkColor && fb.strokeColor && fb.colorBase) sourceField(inkColor, fb.colorBase, fb.strokeColor, 1, 1, { scissor: rect })
+            const hasColor = !!(inkColor && fb.strokeColor && fb.colorBase)
+            if (hasColor) sourceField(inkColor!, fb.colorBase!, fb.strokeColor!, 1, 1, { scissor: rect })
+            // P/C are one indivisible material pair. Never yield between them.
+            sourceCopyCost = rect[2] * rect[3] * (hasColor ? 2 : 1)
           }
         }
 
@@ -1223,8 +1233,10 @@ export class RibbonStrokePainter {
             scratch, preset, profile, color, opacity: drawable[0].opacity, fieldSeed, spreadPx, fringeWater, migratePx,
             inkSmoothPx: profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
           })
+          if (sourceCopySlices && sourceCopyCost) yield sourceCopyCost
           continue
         }
+        if (sourceCopySlices && sourceCopyCost) yield sourceCopyCost
         const revealPrev = this.ctx.revealBeforeBatch(tile, compositeBounds)
         this.ctx.drawRibbonCompositeRect(
           tile, compositeBounds, preset, profile, original, coverage, inkLoad, inkColor, color, drawable[0].opacity,

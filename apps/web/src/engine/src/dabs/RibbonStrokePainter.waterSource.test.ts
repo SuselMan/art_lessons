@@ -64,11 +64,12 @@ describe('auxiliary water source execution', () => {
     } finally { work.return(); nib.mockRestore(); composite.mockRestore(); aux.destroy(); pigment.destroy(); engine.destroy() }
   })
 
-  it.each(['destroy', 'context-loss'] as const)('closes a queued auxiliary source before %s teardown', teardown => {
+  it.each([['destroy', false], ['destroy', true], ['context-loss', false], ['context-loss', true]] as const)('closes a queued auxiliary source before %s teardown (copy slices=%s)', (teardown, copySlices) => {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     engine.initLayer('source')
     const probe = engine as unknown as Probe, painter = probe._ribbonPainter
     painter.diagnosticSegmentDelivery = 'combined'; painter.diagnosticSolventField = true; painter.diagnosticForeignSolvent = true
+    painter.diagnosticSourceCopySlices = copySlices
     const scratch = new RibbonStrokeScratch(probe._ribbonScratchPool, true, true)
     scratch.foreignSources = [{ gesture: 'donor', footprints: [{ x: 20, y: 32, radius: 20, aspect: 1, angle: 0 }], chunks: [{ id: 'donor-op', preset: presetName, color: [0.2, 0, 0.6], dabs, wet: '000', seed: [1, 2] }] }]
     const work = painter.paint(probe._layers.get('source')!, dabs, probe._resolvePreset('watercolor', presetName), presetName, ribbonProfileFor('watercolor', presetName, 1), [0.2, 0, 0.6], scratch, undefined, 'fff', [1, 2], false, 256)
