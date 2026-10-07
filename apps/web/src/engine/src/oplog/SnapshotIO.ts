@@ -375,7 +375,7 @@ export class SnapshotIO {
     if (ops.length === 0) return
     const scratch = new OperationLog()
     for (const op of ops) {
-      scratch.append(op)
+      scratch.append(op, op.seq === undefined ? undefined : { serverSeq: op.seq })
       if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
       else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
       else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
@@ -395,6 +395,25 @@ export class SnapshotIO {
     // Decoding in the background now is what lets it find the image ready;
     // deliberately not awaited, since backfill itself never blocks anything.
     this.ctx.preloadImages(ops)
+  }
+
+  /** A covered history mutation cannot be subtracted from a baked tile.
+   *  Discard that base only when every original server operation up to it is
+   *  available, so rebuilding from empty cannot discard an unknown prefix. */
+  invalidateCoveredHistory(layerIds: readonly string[], targetId: string): void {
+    const checkpoints = this.ctx.checkpoints()
+    const entries = this.ctx.log().entries
+    const sequences = new Set(entries.map(e => e.serverSeq).filter((n): n is number => n !== undefined && n > 0))
+    for (const layerId of layerIds) {
+      const snapshot = checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))
+      if (!snapshot || snapshot.coveredSeq === undefined || sequences.size < snapshot.coveredSeq) continue
+      let complete = true
+      for (let seq = 1; seq <= snapshot.coveredSeq; seq++) if (!sequences.has(seq)) { complete = false; break }
+      if (!complete) continue
+      // Derived checkpoints include the same baked prefix too.
+      for (const cp of [...checkpoints.all()]) if (cp.layerId === layerId) checkpoints.remove(cp)
+      this.ctx.ledger.forgetCoverage(layerId)
+    }
   }
 
   /** PencilEngineAPI.getOperationsSinceRestore. */
