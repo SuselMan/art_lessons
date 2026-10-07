@@ -27,3 +27,47 @@
 Review обнаружил порядок, который одного absorbHistorical недостаточно закрыть: при suspendDisplay prefix source S откладывается, а tail merge/copy сразу читает live S. Теперь restoreHistoricalOperations запускает существующий rebuild (включая существующую нарезку GPU), асинхронно ждёт окончания только затронутых jobs и проверяет destroy/context loss. После него хвост видит реконструированный источник. CPU regression suspendDisplay→prefix S→tail merge/copy проверяет nonempty S и точные пиксели R; первоначальная deferred реализация это условие не выполняет. No-snapshot fast loader также повторяет чтение при изменившемся watermark. 49 тестов трёх затронутых файлов проходят; server/web types проходят. Hardware gate должен отдельно наблюдать отсутствие prefix rebuild jobs при первом tail redo/copy.
 
 Подготовлен controller temp/hardware/snapshot-closure.mjs (ignored artifact, node --check PASS): тот же P8TL9XaE, оригинальный persisted blob layer-1/5 HTTP200, проверка реальных undo5/redo6 target IDs, оба обычных restore, чистый full authoritative journal oracle, обычный reconnect и новый auth late join; one Chrome/two contexts максимум,180s finally. Подавляется только новая публикация снимков из собственных QA pages, чтобы не замаскировать прежний снимок новой копией. Исходники/операции/пиксели не переписываются. Контроллер пока не запускался.
+
+## Issue #737: structural coverage is independent from pixel coverage
+
+CPU review found a separate failure: restoring the uploaded structural tree as
+an immutable base cannot undo a structural operation covered by that tree. With
+real `makeInitialLayerState()` (implicit `background` and `layer-1`), covered
+`layer_delete`, `layer_merge`, and `layer_duplicate` followed by tail undo produce
+incorrect UI layer IDs; merge/copy also keep a result buffer as a false base layer.
+The earlier L1 colour redo hardware PASS does not cover these structural cases.
+
+The proposed computed join mode `replayStructure` is set only when a later
+history change names a structural target at or below the uploaded tree watermark.
+It does not mutate stored blobs, stored coverage, or the uploaded tree. The loader
+resolves cold targets, fetches the complete lightweight structural/history prefix,
+and retains per-layer safe pixel snapshots; only affected/source layers load heavy
+pixel history. Both Socket and HTTP selection use the same plan. Scoped HTTP prefix
+includes deleted layers absent from the uploaded tree and is pinned inclusively to
+that structural watermark.
+
+In this mode the engine starts from the original implicit base, folds the prefix
+before safe bitmap handover, and does not treat snapshot-created layers as permanent
+base layers. Room UI derives structure from the same original base plus the full
+done journal. The usual snapshot mode and its historical-prefix exclusion remain
+unchanged. Existing fork #498 retains structural operations, so a normal fork can
+reconstruct its original structure without fetching every covered stroke.
+
+A legacy snapshot-only root whose layer/folder creation is absent from the prefix
+is refused explicitly; currently alive IDs are not evidence of its original base.
+This is a conservative unresolved legacy limitation, not proof that such a room
+can be repaired from missing data.
+
+CPU gates: 173 targeted tests across eight files pass; three actual engine tests
+compare covered delete/merge/copy undo and redo against the full-history engine, including
+UI IDs, buffer IDs, and complete layer pixel arrays. A harness-only old-source
+negative removes structural prefix reconstruction and all three tests fail. Loader
+tests preserve a safe unrelated bitmap, restore deleted-source history, refuse an
+unknown base, and keep ordinary snapshot acceleration. Client tests require prefix
+fold before safe bitmap application, followed by scoped pixel reconciliation. A retained-earlier-source fixture proves why the second pass is required: it preserves post-watermark pixels after the earlier bitmap is applied. Already seeded IDs are re-marked against the newly pinned snapshot coverage. These are CPU/mock-GL and transport tests;
+actual Room UI/stored snapshot/reconnect structural hardware gates are pending.
+
+Original negative artifacts remain in ignored `temp/closure/structural-negative/`;
+old-source failure is `temp/closure/structural-corrected-negative.log`, positive aggregate
+is `temp/closure/structural-final.log`. No production source or frozen f877 QA stand
+was changed during this preparation.

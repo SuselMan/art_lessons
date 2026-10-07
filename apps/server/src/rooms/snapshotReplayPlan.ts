@@ -14,6 +14,8 @@ export interface SnapshotReplayPlan {
   coverage: Map<string, number>
   historyLayers: Set<string>
   unresolvedTargets: Set<string>
+  /** The uploaded structural tree predates a changed historical structure. */
+  replayStructure?: true
 }
 
 const isHistoryChange = (op: Operation): op is Extract<Operation, {
@@ -32,12 +34,13 @@ function pixelLayers(op: Operation): string[] {
  * pure rule; an unresolved target fails closed rather than guessing a layer. */
 export function planSnapshotReplay(
   candidates: readonly SnapshotCandidate[], operations: readonly Operation[],
-  liveLayers?: ReadonlySet<string>,
+  liveLayers?: ReadonlySet<string>, structuralSeq?: number,
 ): SnapshotReplayPlan {
   const byId = new Map(operations.map(op => [op.id, op]))
   const cutoff = new Map<string, number>()
   const historyLayers = new Set<string>()
   const unresolvedTargets = new Set<string>()
+  let replayStructure = false
   const before = (layerId: string, seq: number): boolean => {
     const old = cutoff.get(layerId)
     if (old !== undefined && old <= seq) return false
@@ -53,9 +56,19 @@ export function planSnapshotReplay(
   }
   for (const change of operations) {
     if (!isHistoryChange(change)) continue
-    if (candidates.length && (change.seq ?? 0) <= Math.min(...candidates.map(s => s.seq))) continue
+    if (candidates.length && (change.seq ?? 0) <= Math.min(...candidates.map(s => s.seq))
+      && (structuralSeq === undefined || (change.seq ?? 0) <= structuralSeq)) continue
     const target = resolve(change.targetOpId, new Set())
     if (!target) continue
+    if (structuralSeq !== undefined && (target.seq ?? 0) <= structuralSeq
+      && structuralSeq < (change.seq ?? 0)
+      && (target.type.startsWith('layer_') || target.type === 'folder_add')
+      && target.type !== 'layer_clear' && target.type !== 'layer_transform') {
+      replayStructure = true
+      // A deleted source may have no current snapshot candidate at all.
+      // Restoring its structure still requires its original pixels.
+      for (const id of pixelLayers(target)) before(id, target.seq ?? 0)
+    }
     for (const layerId of pixelLayers(target)) {
       // A mutation already represented in a candidate is not a reason to
       // reject it. Equality matters: undo5 is in snapshot5; redo6 is not.
@@ -95,5 +108,5 @@ export function planSnapshotReplay(
   const snapshots = select()
   const coverage = new Map(snapshots.map(s => [s.layerId, s.seq]))
   for (const [layerId] of cutoff) if (!coverage.has(layerId)) historyLayers.add(layerId)
-  return { snapshots, coverage, historyLayers, unresolvedTargets }
+  return { snapshots, coverage, historyLayers, unresolvedTargets, ...(replayStructure ? { replayStructure: true as const } : {}) }
 }

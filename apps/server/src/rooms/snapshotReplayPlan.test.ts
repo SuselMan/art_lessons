@@ -47,3 +47,21 @@ describe('snapshot history dependency selection', () => {
     expect(p.snapshots).toEqual([])
   })
 })
+
+
+describe('structural coverage independently from pixel candidates', () => {
+  it('requires original structure and deleted source history even with no source blob', () => {
+    const target: Operation = { id: 'delete3', seq: 3, timestamp: 3, userId: 'A', type: 'layer_delete', layerIds: ['S'] }
+    const plan = planSnapshotReplay([snapshot(5, 'unrelated')], [target, change('undo6', 6, target.id)], undefined, 5)
+    expect(plan.replayStructure).toBe(true)
+    expect(plan.historyLayers).toContain('S')
+    expect(plan.snapshots).toEqual([snapshot(5, 'unrelated')])
+  })
+  it('does not rebuild an uploaded tree for a mutation already included at its boundary', () => {
+    const target: Operation = { id: 'delete3', seq: 3, timestamp: 3, userId: 'A', type: 'layer_delete', layerIds: ['S'] }
+    expect(planSnapshotReplay([snapshot(5)], [target, change('undo5', 5, target.id)], undefined, 5).replayStructure).toBeUndefined()
+  })
+  it('does not substitute structural replay for ordinary covered pigment undo', () => {
+    expect(planSnapshotReplay([snapshot(5)], [stroke('s', 3), change('undo6', 6, 's')], undefined, 5).replayStructure).toBeUndefined()
+  })
+})

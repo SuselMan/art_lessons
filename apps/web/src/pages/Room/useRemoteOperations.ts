@@ -1,7 +1,7 @@
 import { useCallback, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'
-import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
 import { computeCompositeOrder } from '../../lib/layers/layers'
@@ -139,10 +139,10 @@ export function useRemoteOperations({
     engine: PencilEngineAPI, roomId: string,
   ): Promise<SnapshotRestoreOutcome['status']> => {
     const outcome = await restoreLatestSnapshot(roomId, {
-      beginLayers: layerState => engine.setBaseLayers(
-        Object.values(layerState.items).filter(item => item.kind === 'layer').map(item => item.id),
+      beginLayers: (layerState, replayStructure) => engine.setBaseLayers(
+        replayStructure ? IMPLICIT_LAYER_IDS : Object.values(layerState.items).filter(item => item.kind === 'layer').map(item => item.id),
       ),
-      restoreHistory: operations => engine.restoreHistoricalOperations(operations),
+      restoreHistory: (operations, replayStructure) => engine.restoreHistoricalOperations(operations, replayStructure),
       applyLayer: (layerId, tiles, coveredSeq) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq),
     })
     // (#474) Drained here and nowhere else, on every path including failure:
@@ -161,7 +161,7 @@ export function useRemoteOperations({
     const { head } = outcome
     engine.setActiveLayer(head.layerState.activeId)
     engine.setCompositeOrder(computeCompositeOrder(head.layerState))
-    restoredLayerStateRef.current = head.layerState
+    restoredLayerStateRef.current = head.replayStructure ? null : head.layerState
     return 'restored'
   }, [restoredLayerStateRef])
 

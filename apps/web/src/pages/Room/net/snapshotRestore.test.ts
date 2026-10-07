@@ -522,3 +522,26 @@ describe('index coverage invalidated after room_state (#728)', () => {
     expect(fetch.mock.calls.some(([url]) => url.includes('/operations'))).toBe(false)
   })
 })
+
+
+it('restores structural prefix before safe bitmap handover, including a deleted layer absent from the uploaded tree', async () => {
+  const tile = {originX:0,originY:0,width:1,height:1,pixels:new Uint8Array([1,2,3,255])}
+  const bytes = await compressLayerTiles(encodeLayerTiles([tile]))
+  const prefix: Operation[] = [{id:'S-add',seq:1,timestamp:1,userId:'A',type:'layer_add',layerId:'S',name:'S'}, {id:'S-delete',seq:3,timestamp:3,userId:'A',type:'layer_delete',layerIds:['S']}]
+  const urls:string[]=[]
+  global.fetch = vi.fn(async (url:string) => {
+    urls.push(url)
+    if(url.endsWith('/snapshots/index')) return {status:200,ok:true,json:async()=>({seq:5,layerState:ONE_LAYER_STATE,layers:[{layerId:'background',seq:5,hash:'safe'}],replayStructure:true,historyLayers:['S']})}
+    if(url.includes('/operations')) return {status:200,ok:true,json:async()=>url.includes('beforeSeq=6')?prefix:[]}
+    return {status:200,ok:true,arrayBuffer:async()=>bytes.slice().buffer}
+  }) as unknown as typeof fetch
+  const order:string[]=[]
+  const outcome=await restoreLatestSnapshot('room-1',{
+    beginLayers:(_state,structural)=>{expect(structural).toBe(true);order.push('base')},
+    restoreHistory:async(ops,structural)=>{expect(ops).toEqual(prefix);order.push(structural ? 'prefix' : 'pixel-reconcile')},
+    applyLayer:id=>{expect(id).toBe('background');order.push('safe-bitmap')},
+  })
+  expect(outcome).toMatchObject({status:'restored',head:{replayStructure:true}})
+  expect(order).toEqual(['base','prefix','safe-bitmap','pixel-reconcile'])
+  expect(urls.find(url=>url.includes('beforeSeq=6'))).toContain('S')
+})
