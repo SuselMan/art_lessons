@@ -66,6 +66,7 @@ export interface SnapshotGate {
   restoreStarted(): void
   /** `null` when nothing should be baked. Otherwise the watermark pair, and
    *  the gate has already advanced past it. */
+  ready(): boolean
   observe(input: BakeObservation): BakePlan | null
 }
 
@@ -91,6 +92,8 @@ export function createSnapshotGate(
     restoreStarted() {
       restoreDone = false
     },
+
+    ready() { return restoreDone },
 
     observe({ latestKnownSeq, pendingCommitSeqs, replayIncomplete }) {
       if (!restoreDone || replayIncomplete) return null

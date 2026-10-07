@@ -43,8 +43,7 @@ import { residentOperationWhere } from '../rooms/snapshotCoverage.js'
  *
  *  What deliberately does NOT come across: the password (the fork belongs to
  *  whoever made it, and inheriting a lesson's password would lock them out of
- *  their own work), `closedAt` (a fork exists to be drawn in), the thumbnail
- *  (it will be re-baked from the fork's own content), and — same reasoning as
+ *  their own work), `closedAt` (a fork exists to be drawn in), and — same reasoning as
  *  the password — `accessMode` and the access rows behind it (#224). The
  *  invites, join requests and blocks belong to the lesson they were decided
  *  for, not to a student's copy of it; and since they don't travel, an
@@ -100,6 +99,7 @@ const BULK_COPY_CHUNK = 10_000
 /** Everything one board's copy needs, read and rewritten in memory before
  *  the transaction opens — so the transaction's 30 s hold only the writes. */
 type BoardSeed = {
+  sourceId: string
   layerState: { seq: number; state: Prisma.InputJsonValue } | null
   /** Source `RoomLayerSnapshot` ids to copy — the newest row per layer. */
   snapshotIds: string[]
@@ -228,6 +228,7 @@ async function prepareSeed(sourceId: string, forkId: string): Promise<BoardSeed>
   }
 
   return {
+    sourceId,
     layerState: layerState ? { seq: layerState.seq, state: layerState.state as Prisma.InputJsonValue } : null,
     snapshotIds: [...newestPerLayer.values()].map(row => row.id),
     bulkOperationIds,
@@ -238,6 +239,13 @@ async function prepareSeed(sourceId: string, forkId: string): Promise<BoardSeed>
 /** The content half of one board's copy. Runs after the Room row exists —
  *  every table here has a foreign key to it. */
 async function writeSeed(tx: Prisma.TransactionClient, forkId: string, seed: BoardSeed): Promise<void> {
+  // The fork has the same visible content. Keep its existing small preview
+  // until a client renders it; copy the bytes within Postgres.
+  await tx.$executeRaw`
+    INSERT INTO "RoomThumbnail" ("id", "roomId", "data", "contentType", "updatedAt")
+    SELECT gen_random_uuid()::text, ${forkId}, "data", "contentType", "updatedAt"
+    FROM "RoomThumbnail" WHERE "roomId" = ${seed.sourceId}
+  `
   if (seed.layerState) {
     await tx.roomLayerState.create({ data: { roomId: forkId, seq: seed.layerState.seq, state: seed.layerState.state } })
   }

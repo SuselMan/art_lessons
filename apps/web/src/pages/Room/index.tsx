@@ -661,9 +661,7 @@ function RoomEditor() {
   // fresh layers and reported — see useLostWork.
   const { lostWork, setLostWork, scheduleLostWorkRecovery, resetLostWork } =
     useLostWork({ engineRef, restoredLayerStateRef, syncFromLog })
-  // (#493) Where this client stands in the board's operation stream — applied,
-  // pending, last seen, still revealing — reset together on a page turn. See
-  // useBoardStream.
+  // (#493) Per-board operation stream — see useBoardStream.
   const { stream, resetStream } = useBoardStream()
   const { appliedOpIdsRef, pendingIdsRef, latestKnownSeqRef, deferredOpsQueueRef, pendingPreviewsRef } = stream
   const strokeActiveRef   = useRef(false)
@@ -682,15 +680,17 @@ function RoomEditor() {
   // room_state yet" the way it does for a joiner (whose `room` is only ever
   // learned from that same first event).
   const firstRoomStateReceivedRef = useRef(false)
-  // (#493) Whether and when this client writes its canvas back as the room's
-  // snapshot — the per-board uploader, the gate, the replay-incomplete flag —
-  // see useSnapshotPublishing.
+  // (#493) Snapshot publisher and restore gate — see useSnapshotPublishing.
   const {
     snapshotUploader, snapshotUploaderRef, snapshotGateRef, replayIncompleteRef, checkSnapshotBoundary,
     markJoinRestoreDone,
   } = useSnapshotPublishing({ boardId, engineRef, latestKnownSeqRef, pendingPreviewsRef })
   // (#595) The class grid's live picture of this board — see useLivePreviewBake.
-  const previewScheduleRef = useLivePreviewBake({ engineRef, boardId, active: bakesPreviewHere })
+  const previewScheduleRef = useLivePreviewBake({
+    engineRef, boardId, active: bakesPreviewHere,
+    canBake: () => roomContentReadyRef.current && snapshotGateRef.current.ready() && !replayIncompleteRef.current
+      && !pendingSnapshotRef.current && Array.from(pendingPreviewsRef.current.commitSeqs()).length === 0,
+  })
   // (#487) The open's own measurement and its slow-open alarm — see
   // useOpenTimer.
   const { openTimerRef, startOpenTimer, finishOpenTimer } = useOpenTimer({ id, engineRef })

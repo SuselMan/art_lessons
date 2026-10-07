@@ -10,25 +10,27 @@ export interface LivePreviewBakeDeps {
   boardId: string | null
   /** Whether this client is the board's baker — see bakesLivePreview. */
   active: boolean
+  canBake: () => boolean
 }
 
-/** (#595, ADR 015 §5) The class grid's live picture of a student's board:
- *  re-baked a few seconds after the pen comes to rest, never during a stroke,
- *  only when something changed, and no more often than every five seconds —
- *  see previewSchedule.ts. One baker per board: its student, or, while the
- *  student is not on it, the teacher (whose corrections must reach the grid
- *  too). Annotations never reach a preview, so a teacher who only remarks
- *  changes nothing to bake.
- *
- *  (#493) Out of Room. The schedule comes back as a ref because the confirmed
- *  stream tells it about other people's changes to this board, and that
- *  handler is wired once per socket, not once per board. */
-export function useLivePreviewBake({ engineRef, boardId, active }: LivePreviewBakeDeps) {
+/** Keeps every open board's stored preview current, including its first
+ *  picture after restore. One elected client publishes while the pen rests;
+ *  failed uploads are retried at the normal interval. The caller guards
+ *  completed restore and pending peer strokes through canBake.
+ *  The ref also receives confirmed operations from the socket stream. */
+export function useLivePreviewBake({ engineRef, boardId, active, canBake }: LivePreviewBakeDeps) {
+  const canBakeRef = useRef(canBake)
+  canBakeRef.current = canBake
   const previewScheduleRef = useRef<ReturnType<typeof createPreviewSchedule> | null>(null)
   useEffect(() => {
     if (!active || !boardId) return
     const schedule = createPreviewSchedule()
     previewScheduleRef.current = schedule
+    // Opening an old room without a thumbnail must also create its first
+    // picture. Leave the schedule dirty until restore actually completes.
+    schedule.noteOperation(Date.now())
+    if (useRoomStore.getState().strokeActive) schedule.notePenDown(Date.now())
+    let inFlight = false
     const unsubscribe = useRoomStore.subscribe((next, prev) => {
       if (next.strokeActive === prev.strokeActive) return
       if (next.strokeActive) schedule.notePenDown(Date.now())
@@ -37,11 +39,13 @@ export function useLivePreviewBake({ engineRef, boardId, active }: LivePreviewBa
     const timer = window.setInterval(() => {
       const now = Date.now()
       const engine = engineRef.current
-      if (!engine || !schedule.shouldBake(now)) return
+      if (!engine || inFlight || !canBakeRef.current() || !schedule.shouldBake(now)) return
+      inFlight = true
       schedule.noteBaked(now)
       void uploadThumbnail(boardId, engine).then(ok => {
         if (ok) useRoomStore.getState().applyBoardsAction({ type: 'thumbnail_baked', boardId, at: new Date().toISOString() })
-      })
+        else schedule.noteOperation(Date.now()) // Retry a failed first upload.
+      }).finally(() => { inFlight = false })
     }, 500)
     return () => {
       window.clearInterval(timer)
