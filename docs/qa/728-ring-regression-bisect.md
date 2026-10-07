@@ -57,3 +57,6 @@ Corrected session17153 завершён EXIT0, completed=true, ownedChromeClosed
 Target61 ROI inkLoad sum732155→729329(−.386%), inkDry714131→713718(−.058%), coverage/V sums unchanged. Fixedcore alpha233.23→222.02, wholetransparent support177734→197689, optical alpha12504725→13580239. ROI sums не fullfield mass, PNG support не физическийmass. Redistribution меняет исходный дефектный contrast; само4.8% core ослабление не исключает кандидат, необходимо visual+foreign/native/replay approval.
 
 Изолированный current candidate65d2546b (gate only), cleanup894ec09c (dead diffuse sampler reads/bindings removed) в728-ring-diffusion-current отc092; no push. CPU13testsPASS, oldsource newactualgate test negative EXIT1. Bakedcombo controller и sheet4full24 foreign fixture prepared CPU; GPU послеliveMorphrelease, не integrated default по этим материалам.
+
+
+Emitted-bundle dependency proof: 5cb and8f wholeengine `.mjs` byte-identical after replacing only `sources/<revision>/` filename comments; normalizedSHA665d832b53b3f412c78fe89a002e153f07a3600d691c5134c95dd1448094dad3. Thus hardware BAD5cb executes the exact8f emitted program, not merely selected files with presumed external dependencies. Assets/defines are shared immutable passports.
