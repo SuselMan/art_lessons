@@ -62,3 +62,26 @@ checkpoint runner, и требует ненулевую массу P и C до �
 57713c66 не менялся. Natural Room helper подготовлен отдельно: реальные native
 pointer/rAF две краски на одном wet wash, проверка paints>1 и фактического mode16.
 Он пока не запущен и не считается аппаратным доказательством Room mixed route.
+
+### Meaningful mixed mobile P/C Adreno gate
+
+Исправленный запуск39067 завершён EXIT0, собственная вкладка закрыта finally.
+Источник57713c66,919 tracked web/shared файлов проверены на HOME. Реальный
+Adreno650; init8 и15 salted P/C/front/diffuse/brushDrag compile/link успешны,
+GL0, lost=false, errors/network=[].
+
+Восемь случаев64×64 имеют ненулевые выходы mobileP и mobileC. Во всех случаях
+P.alpha=C.alpha байт-в-байт; отдельный красный компонент не меняется от наличия
+синего и наоборот. Positive-only, dry-volume и phase-off OFF/ADD целые поля P/C
+байт-в-байт одинаковы. Plateau ADD действительно работает:63px, max1; P252
+изменённых байта, C125. Alpha mass input178310, OFF178300, ADD178325; это RGBA8
+UNORM округление, не непрерывная математическая масса. Математическое сохранение
+массы/positivity отдельно проверено CPU oracle, а этот аппаратный результат не
+объявляется точной суммой целых байтов.
+
+Raw: `temp/zero-cost-flux/hardware/results-root-add-mixed-retry2/report.json`,
+`summary.json`, точные helper/controller/manifest рядом. Scope — прямой настоящий
+mode16 mobileC на общем immutable P, не TOTAL C checkpoint singlePaint и не
+обычный Room. Natural two-colour Room helper/protocol сохранены рядом как CPU
+подготовка; этот сценарий пока не запущен. Default OFF остаётся; полного исчезновения
+каёмки этот гейт не доказывает.
