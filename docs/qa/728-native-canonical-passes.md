@@ -6,10 +6,12 @@ including every intermediate pass. Caller preserves production order/ping-pong,
 scissor, schedule and prepared uniforms. This is an incomplete integration,
 not a production-ready backend.
 
-Available: full WC_DIFFUSE_FRAG and WC_WATER_FRONT_FRAG; basic fieldOp modes
-0/1(world=0)/2/3/4/5/20. Unsupported mode1 fibre/comb world>0 explicitly throws.
-Pending: complex mode1, band6, take/land7/8/9 and high modes10–19, carry path,
-resample and end-to-end settle. Never substitute approximate equations.
+Available: full WC_DIFFUSE_FRAG and WC_WATER_FRONT_FRAG, fieldOp0–20 including
+original/gradient fibres, band, physical remobilization, carry pigment/colour,
+packed paths and optional additive zero-face variant; resample0/1/2 and packed
+costDomain. BasicFieldPass remains a small explicit subset; full FieldOps is the
+complete implementation. End-to-end native production settle producer is pending.
+Never substitute approximate equations.
 
 Coordinates: logical field row0=world top. Each invocation forms production GL
 pixel `(x+.5,h-y-.5)`; field samples map GL uv back into top-row texture storage.
@@ -41,3 +43,21 @@ any tolerance. Whole actual-engine tape/export/undo/replay remains required.
 
 Software compile command: `node docs/qa/harness/728-webgpu-canonical-passes/compile-software.mjs`.
 Report is retained at `temp/canonical-passes/compile.json`. Hardware root-only.
+
+Second boundary: software production GL versus actual native WebGPU dispatched
+fieldOps0–20 on one nonempty16×16 four-channel fixture gave **zero differing
+bytes in every mode**, no GL errors or WebGPU validation errors. Dither explicitly
+OFF. This includes world/comb mode1 and both carry record variants, but not yet
+additional gradient-lattice/packed-path/additive/physical-remob/scissor fixtures.
+Not hardware or whole-engine parity. Report temp/canonical-passes/field-oracle.json;
+reproduce with field-oracle-software.mjs in the harness directory.
+
+Foreign water source uses production LINEAR clamp, not nearest; front now ports
+that separately. CPU raw foreign stencil bytes uploaded to GL without flip must
+be vertically flipped when stored as native logical world-top fields. Paper/noise
+retain raw upload ordering, separately from logical field orientation.
+
+CanonicalSettleCommand discriminated tape exposes original primitive arguments.
+CanonicalSettleCommands.encode encodes exactly one primitive/Q8 boundary; it does
+not choose new iterations, reorder, fuse, submit, read back or wait. Caller owns
+encoder, frame timing, buffers and returned uniform cleanup after completion.
