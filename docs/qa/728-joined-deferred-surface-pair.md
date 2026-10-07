@@ -24,7 +24,9 @@ Raw: `/home/suselman/projects/pencil-agents/728-pure-water-plan/temp/pure-water-
 
 Большая no-overlap пауза остаётся при `oldOps=0`, held=false и явном отсутствии predecessor на втором DOWN. Поэтому устранение только старого UP drain не закрывает brush400: собственная подготовка/первые физические units/queued GPU нового finish остаются кандидатами, точный проход пока не установлен.
 
-Следующий изолированный эксперимент: на no-overlap неизменном tape агрегировать границы `_finishRibbonStroke`/Plan.prepare и первые actual Queue.advance units (без per-pass performance marks и активного readback), отдельно подтвердить, какие GPU команды были отправлены до первого RAF и внутри первой тяжёлой continuation. Сначала readonly причинный профиль, затем разрезать лишь найденную тяжёлую closure по существующему command order. Не удваивать произвольно число solver units/rAF и не включать старый async/material preview. Deferred default остаётся OFF, пользовательский кандидат до разбора natural-duration регрессии не предлагается.
+Следующий изолированный эксперимент нашей ветки ограничен **overlap scheduled waiting**: readonly `scheduled-probe.js` снимает job identity, исходное/последнее next, количество actual tick/advance, held/backlog, CPU суммы и handoff old→future. Нет per-pass marks, GL sync/readbacks или обёрток самого operator; порядок, аргументы, return/error сохраняются. Probe default не установлен, CPU transparency test PASS. Эти счётчики проверят, что +314 RAF соответствует оставшимся old units, а не повторному prepare/execute. Они не дадут GPU service-time и не докажут performance transparency без контрольного no-probe прогона. Отдельную no-overlap ~0.9 s паузу исследует profiler; здесь её не локализуем и не правим.
+
+Не удваивать произвольно solver units/rAF до causal gate. Deferred default остаётся OFF, пользовательский кандидат до разбора natural-duration регрессии не предлагается.
 
 ## Сохранённые ошибки fixture
 
