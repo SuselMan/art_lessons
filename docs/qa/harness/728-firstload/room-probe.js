@@ -1,12 +1,14 @@
 (() => {
  const trace=window.__loadTrace={start:performance.now(),calls:[],engineSet:null}
  const wrapped=new WeakSet();let current
+ trace.navigation=[];const locationState=()=>({at:performance.now(),timeOrigin:performance.timeOrigin,path:location.pathname,qaClearPrefixElision:new URLSearchParams(location.search).get('qaClearPrefixElision')});trace.navigation.push({...locationState(),kind:'initial'});for(const name of ['replaceState','pushState']){const original=history[name];history[name]=function(...args){const before=locationState();const result=original.apply(this,args);if(trace.navigation.length<32)trace.navigation.push({kind:name,before,after:locationState()});return result}}
  const NativeSocket=window.WebSocket
  window.WebSocket=new Proxy(NativeSocket,{construct(Target,args){
   const socket=Reflect.construct(Target,args)
   socket.addEventListener('message',event=>{
    if(typeof event.data!=='string'||!event.data.startsWith('42'))return
    try{const [kind,payload]=JSON.parse(event.data.slice(event.data.indexOf('[')))
+    if(kind==='room_state'){(trace.roomStates??=[]).push({...locationState(),latestSnapshotSeq:payload?.latestSnapshotSeq,tailCount:payload?.tailOperations?.length,tailHead:payload?.tailOperations?.at(-1)?.seq});return}
     if(kind!=='operation_confirmed'||!payload?.operation?.id?.startsWith('qa-peer-'))return
     ;(trace.peerArrivals??=[]).push({at:performance.now(),id:payload.operation.id,seq:payload.seq,
       suspended:current?._displaySuspendDepth??null,logCount:current?._log.entries.length??null,
