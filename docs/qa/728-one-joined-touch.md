@@ -126,3 +126,5 @@ folded dry bounds/radius/standing, spacing/direction/diffusePending. 11/1 PASS.
 не сбрасывают их; отсутствие этих вызовов в owned-ветке не меняет состояние.
 Захваченный dryCtx — отдельная копия с сохранением физического target identity.
 Это контроль параметров без перекрытия; full GPU material oracle остаётся открыт.
+
+Root mixed5473c3ec+0250ae51:23focused tests/4files (joinedTouch/coverageFilm/asyncFailure/expeditedDry) PASS, whole-web TS0, lint0, map1013PASS. Diagnosticmixed defaultfalse; no hardware mixed proof yet. Typed049 UI lifecycle55712 verified nonlocal actualactor beforeinput, Dry/Undo/Redo meaningful; fresh remains pending, not yet full gate.
