@@ -210,6 +210,15 @@ export async function restoreRoomState(
     // (#536, §17.49) In slices, yielding between them, behind the gate - see
     // replayGate.ts on why it is not one piece any more, and why the gate.
     const unpainted = undoneInBatch(replayOperations)
+    if (import.meta.env.DEV && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('qa-clear-prefix-eligibility', { detail: {
+        engine: engine !== null, flag: deps.diagnosticClearPrefixElision,
+        mode, alreadyHadSeq, snapshotSeq: latestSnapshotSeq === undefined ? 'undefined' : latestSnapshotSeq,
+        engineOpsLength: engine?.getOperations().length, replayTail: replayOperations.at(-1)?.seq,
+        latestKnownSeq: deps.latestKnownSeqRef.current, liveLayerIds: engine?.liveLayerIds(),
+      } }))
+    }
+
     if (engine && deps.diagnosticClearPrefixElision && mode === 'join' && alreadyHadSeq === 0 && latestSnapshotSeq === null
       && engine.getOperations().length === 0 && replayOperations.at(-1)?.seq === deps.latestKnownSeqRef.current) {
       for (const id of clearedInBatch(replayOperations, engine.liveLayerIds())) unpainted.add(id)
