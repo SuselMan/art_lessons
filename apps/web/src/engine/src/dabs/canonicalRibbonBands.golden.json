@@ -1,0 +1,18 @@
+{
+  "round-true-12-false": "9bfd450907394288216b735974fdfa3b27830e8576b74440b43b778925c7e875",
+  "round-true-12-true": "a82a226d5f37de3fe7fa50aa26bc66c88ef52113a04c68342bfddc26329aac72",
+  "round-true-400-false": "08f36da0a6b67cac6f640cc9537f61b66297e6e950822fe03dc4929c7902d763",
+  "round-true-400-true": "96fc51c226f99376bb51ba5df92ac90d89df61fda7e77bdeb7b06b84f8519127",
+  "round-false-12-false": "ea8b272896a1baf74868ebe1deccbfe1297ba916c939dd544ea223e495e8c677",
+  "round-false-12-true": "5da77e17aa74e1c2938035f4f16625e7b7946a3810915b0edc7cbf87252c2b7f",
+  "round-false-400-false": "e6f4b62888c3e191f5d769c55ea284c7dbf89bd5ae0bd3760a35d713e326c30e",
+  "round-false-400-true": "8ff3a4fb2c17c6fc9b450c60767caeb2c5b96812e38a1b94374d68faa3ca0bef",
+  "chisel-true-12-false": "dde74ea301928387f88efb51fcdb4cff5f80963a924f682ebb8e694474711b88",
+  "chisel-true-12-true": "dceebf5480c5a5b5d8f75e6f71a1f6b45016cecbc8f1590ea99de2dcc8eca2f4",
+  "chisel-true-400-false": "9854a21be99ca35466a450dfd364512218f0d2be2139081811146a574f40505f",
+  "chisel-true-400-true": "1c18066fadadbffa5c99fbf6c1764277ef80a96a116137d497cee292c2cc01f5",
+  "chisel-false-12-false": "44e30bc498eb8918c79b7deb21ae77a2480b198522cf8061d3e9088b860d0fb2",
+  "chisel-false-12-true": "23b57bf519f338ba07693923fb6bbe02482e97c11b1094b0b71e7d25b8cd60ed",
+  "chisel-false-400-false": "54fd644cdae49d9011a3ac8917bdd84cc12d9bc71fa8eb09aaa893969d19f8e4",
+  "chisel-false-400-true": "f670fd75041eb79ab43a887056c2ddb14572115e9946eb16bba08d89b11e6f75"
+}
