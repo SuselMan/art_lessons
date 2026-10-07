@@ -89,3 +89,10 @@ pixel delta и whole A/B exact. Redo49 возвращает original47 endpoint 
 сравниваются также между собой. Проверка parser трёх scripts `node --check` PASS;
 реальные timing/arrival/bitmap результаты ещё отсутствуют. На hardware отдельно
 повторить RAM preflight и source passport; runtime/stand пока не изменены.
+
+Уточнение watermark: CPU held-peer handler только append/rebuild, он не является
+production confirmedStreamHandler и не advances latestKnownSeqRef. Проверка неизменного
+head3 не доказывает правильность watermark после peer4. Hardware peer runner теперь
+до Redo49 разрешает настоящую публикацию B и требует POST200/index48; без этого gate
+не принимается. First-load основной runner отдельно проверяет index49. Peer waveform
+не обещает snapshot49, потому что уже сохранённый48 не обязан обновляться до100.
