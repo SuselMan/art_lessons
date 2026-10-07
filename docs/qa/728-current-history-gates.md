@@ -33,3 +33,9 @@ Controller ещё не запускался: syntax не является апп
 
 Финальные барьеры также отказывают при незавершённых async owners или asyncError;
 нулевой GL error сам по себе не означает завершённый расчёт.
+
+Собственный QA runtime1840 повторно поднят на5330 (HOME PID1294964):
+exact argv/cwd подтверждены, create/main HTTP200, originalvite.config.ts
+и existingdeps/node22, backend4539. Source-passport1840/988files сохранён.
+Controller скопирован наHOME и syntaxPASS. GPUконтекст ещё не запускался;
+5330 временный, пользовательский5329 не менялся.
