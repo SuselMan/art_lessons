@@ -145,3 +145,34 @@ brushPass2596/front252, skipTrue0/skipFalse2. GL0/lostfalse, собственн�
 доказательства включают pure matched hardware, positive P/C negative,
 conservative unknown-prefix/live/peer/rebuild rejection. Оптимизация не меняет
 front и не является решением всей плавности или native loaded tail.
+
+### d88 default native pure water, Samsung 1415
+
+После нового source passport rootstand5329 d88bb738 на Adreno650 создана
+обычная собственная A4/Fine1754×2480 Room `r3w_mPWB`. Rootstand index
+81b85164…1d36b34 / Plan aa8d4c4c…42ed222 совпали с git show; ни один
+experimental flag не переключался. Default zeroContacts ON; async/split/
+lazy/band/front/contact/presentation/sourceCopySlices OFF, sourceFilm ON,
+phase/fibres OFF.
+
+Настоящий pointer controller рисовал чистой водой brush400 три секунды,
+затем второй touch. Две authoritative strokes ACK seq1/2, UI Dry3, Undo4,
+Redo5; GL0/lostfalse. Фактический prepare skip=true дважды, false0.
+До Dry прочитан настоящий owned wash solventLoad:4,194,304 bytes,
+848,160 nonzero. Этот диагностический readback после gesture занял121.7ms
+и может изменить поздний tail; blank высохшая pure-water картинка не была
+единственным PASS guard. Author→Redo full17,399,680RGBA bytes exact0;
+для воды это только endpoint/sequence correctness, не доказательство
+перераспределения пигмента.
+
+Active180frames/max33.5ms/1>33/0>100; nexttouch handler55.8ms. **До**
+диагностического readback native controller уже зафиксировал tail919ms,
+2>100, поэтому default плавность всё ещё не решена. Whole rAF monitor
+max919.4ms/3>100 включает дополнительный readback и15s ожидания transport;
+это не clean native FPS и не сравнение с предыдущим payload. Ни одного
+worker/upload не наблюдалось: pure-water dry endpoint пустой, соответствующее
+15s ожидание записано как timeout, без заявления upload PASS.
+
+Raw/compact summary:
+`temp/fence-hardware/native-room-currentdefaultwater_1791355595790/{report,summary}.json`.
+Собственный1415 закрыт finally; Samsung освобождён. Новых публикаций нет.
