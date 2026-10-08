@@ -1,0 +1,94 @@
+{
+  "softwareOnly": true,
+  "errors": [],
+  "result": {
+    "rows": [
+      {
+        "value": 0.0019590260926634073,
+        "native": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "gl": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "idealUnquantized": 6.487797497073188,
+        "sourceByte": 0
+      },
+      {
+        "value": 0.0019673111382871866,
+        "native": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "gl": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "idealUnquantized": 6.4898604734335095,
+        "sourceByte": 1
+      },
+      {
+        "value": 0.0019607844296842813,
+        "native": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "gl": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "idealUnquantized": 6.488235322991386,
+        "sourceByte": 1
+      },
+      {
+        "value": 0.0019000000320374966,
+        "native": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "gl": [
+          0,
+          0,
+          6,
+          6
+        ],
+        "idealUnquantized": 6.473100007977337,
+        "sourceByte": 0
+      },
+      {
+        "value": 0.002099999925121665,
+        "native": [
+          0,
+          0,
+          7,
+          7
+        ],
+        "gl": [
+          0,
+          0,
+          7,
+          7
+        ],
+        "idealUnquantized": 6.522899981355295,
+        "sourceByte": 1
+      }
+    ],
+    "scope": "One1px RGBA8 OVER, identical F32 source uniform and initial[0,0,6,6], DITHERdisabled, no watercolor. Boundary-only driver behavior, not generalized model parity."
+  }
+}
