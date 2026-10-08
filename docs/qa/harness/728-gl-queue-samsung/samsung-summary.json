@@ -1,0 +1,228 @@
+{
+  "code": "f9be0d84",
+  "bundleSha256": "693565d67b86e0b2814c7c7e042106fea1ccfd104799cb2e766f21930280ec73",
+  "device": "Samsung SM-T970",
+  "serial": "R52RB0JXVSY",
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "scenario": "WebGL2 mixed400/Fine/page2048x1024 fixed packed replay",
+  "paperManifestSha256": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+  "paperAsset": {
+    "name": "fine.e59ea6fa.paper",
+    "compressedSha256": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+    "bytes": 3983406
+  },
+  "all26FieldsMaterialRgbaTapeExact": true,
+  "allMeaningfulUndoExactRedo": true,
+  "valid": true,
+  "rows": [
+    {
+      "enabled": false,
+      "paintMs": 5817,
+      "phaseMs": [
+        13.899999976158142,
+        2858.899999976158,
+        2842.7000000476837,
+        49.299999952316284
+      ],
+      "fieldsCount": 26,
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 335,
+      "flags": {
+        "diagnosticSolverBatch": false,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 61
+      },
+      "tickCpuWallSumMs": 165.89999961853027,
+      "tickMaxMs": 27.900000035762787,
+      "tickP95Ms": 0.8999999761581421,
+      "gapP95Ms": 18.399999976158142,
+      "gapMaxMs": 48,
+      "syncCallbackCount": 0,
+      "syncCallbackCpuMs": 0,
+      "wholeArmRaf": {
+        "count": 413,
+        "p95": 16.800000000000182,
+        "max": 2440.2999999999993,
+        "over33": 9,
+        "over100": 7
+      }
+    },
+    {
+      "enabled": true,
+      "paintMs": 2810,
+      "phaseMs": [
+        19.900000035762787,
+        1150.8999999761581,
+        1121.199999988079,
+        255.5
+      ],
+      "fieldsCount": 26,
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 132,
+      "flags": {
+        "diagnosticSolverBatch": true,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 62
+      },
+      "tickCpuWallSumMs": 196.19999992847443,
+      "tickMaxMs": 19.69999998807907,
+      "tickP95Ms": 3.899999976158142,
+      "gapP95Ms": 17.69999998807907,
+      "gapMaxMs": 49.59999996423721,
+      "syncCallbackCount": 274,
+      "syncCallbackCpuMs": 31.299999952316284,
+      "wholeArmRaf": {
+        "count": 199,
+        "p95": 33.399999999999636,
+        "max": 2123.0999999999995,
+        "over33": 10,
+        "over100": 8
+      }
+    },
+    {
+      "enabled": true,
+      "paintMs": 2553.800000011921,
+      "phaseMs": [
+        13.099999964237213,
+        1137.2000000476837,
+        1120.2999999523163,
+        237.10000002384186
+      ],
+      "fieldsCount": 26,
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 131,
+      "flags": {
+        "diagnosticSolverBatch": true,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 61
+      },
+      "tickCpuWallSumMs": 184.4999998807907,
+      "tickMaxMs": 20.19999998807907,
+      "tickP95Ms": 3,
+      "gapP95Ms": 17.599999964237213,
+      "gapMaxMs": 49.10000002384186,
+      "syncCallbackCount": 274,
+      "syncCallbackCpuMs": 32.300000071525574,
+      "wholeArmRaf": {
+        "count": 199,
+        "p95": 16.800000000000182,
+        "max": 2156.499999999999,
+        "over33": 8,
+        "over100": 7
+      }
+    },
+    {
+      "enabled": false,
+      "paintMs": 5776.400000035763,
+      "phaseMs": [
+        6.700000047683716,
+        2841.699999988079,
+        2826.5,
+        49.60000002384186
+      ],
+      "fieldsCount": 26,
+      "undo": {
+        "id": "stroke-2",
+        "meaningful": true
+      },
+      "redo": {
+        "id": "stroke-2",
+        "exact": true
+      },
+      "glError": 0,
+      "lost": false,
+      "ticks": 335,
+      "flags": {
+        "diagnosticSolverBatch": false,
+        "front": false,
+        "presentation": false,
+        "contact": false,
+        "continuation": false
+      },
+      "tagAdvanceCounts": {
+        "contact": 204,
+        "front": 70,
+        "presentation": 0,
+        "barrier": 61
+      },
+      "tickCpuWallSumMs": 158.59999972581863,
+      "tickMaxMs": 15,
+      "tickP95Ms": 0.8999999761581421,
+      "gapP95Ms": 18.5,
+      "gapMaxMs": 47.10000002384186,
+      "syncCallbackCount": 0,
+      "syncCallbackCpuMs": 0,
+      "wholeArmRaf": {
+        "count": 427,
+        "p95": 16.800000000000182,
+        "max": 2473.1000000000004,
+        "over33": 7,
+        "over100": 6
+      }
+    }
+  ],
+  "offMeanPaintMs": 5796.700000017881,
+  "onMeanPaintMs": 2681.9000000059605,
+  "observedWallReductionFraction": 0.5373402108099975,
+  "minimumMemAvailableMiB": 1362.96875,
+  "powerOriginal": "7",
+  "powerAfter": "7",
+  "limitations": [
+    "Frozen WebGL2 mixed400/Fine 2048x1024, not Room or human pointer",
+    "paintMs is whole fixed packed replay wall, not GPU time",
+    "rAF intervals cover entire arm including init/export/UndoRedo, not isolated drawing FPS",
+    "WholeArm rAF includes export/readback/UndoRedo and cannot substantiate drawing FPS gain",
+    "Four sequential own tabs closed; no native/WebGPU runs or Chrome restart"
+  ]
+}
