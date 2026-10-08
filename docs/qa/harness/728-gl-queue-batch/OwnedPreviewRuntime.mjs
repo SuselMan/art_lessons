@@ -28,7 +28,7 @@ export function bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event=()=>{}})
   beforeRebase(owner){const s=states.get(owner.token);if(s)retired.push(retire(s))},
   /** Do not release pooled textures on land/DOWN. Physical reuse only after idle fence. */
   retire(owner){const s=states.get(owner.token);if(s)retired.push(retire(s))},
-  ownsPending:field=>pool.owns(field),handleContextLoss:lost,
+  ownsPending:field=>pool.owns(field),retirePending(field){for(const s of [...states.values()])if(s.transport.lease.pending===field)retired.push(retire(s))},handleContextLoss:lost,
   disposeAfterFence(){if(disposed)return;disposed=true;if(frame!==null)cancelAnimationFrame(frame);for(const s of [...states.values()])retired.push(retire(s));if(!e.gl.isContextLost())e.gl.finish();for(const s of retired)s.transport.releaseAfterFence(s.fence);pool.disposeAfterFence();domain.disposeAfterFence()}
  }
 }
