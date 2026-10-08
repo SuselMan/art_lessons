@@ -9,6 +9,9 @@ const sha=async(b:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.dig
  * No intervening upload/field operation, no generated arbitrary repetitions. */
 export function validateBrush14Chronology(){
  if(chronology.ops.length!==14)throw Error('Original contact count')
+ const events=chronology.ops[0].events as any[],c=events[0],p=events[1]
+ for(const pass of[c,p])if(pass[1].w!==1536||pass[1].h!==1536||pass[3]!==4||pass[4]!==1||pass[11]!==.6437950134277344||JSON.stringify(pass[8])!==JSON.stringify(BRUSH68_FLOW_RECT)||JSON.stringify(pass[9])!==JSON.stringify(BRUSH68_SCISSOR))throw Error('Original contact parameters differ')
+ if(c[5].buffer!==c[10].buffer||p[5].buffer!==p[7].buffer||c[7].buffer!==p[7].buffer||c[10].buffer!==p[10].buffer||events[2][1].buffer!==p[6].buffer||events[2][2].buffer!==p[5].buffer||events[3][1].buffer!==c[6].buffer||events[3][2].buffer!==c[5].buffer)throw Error('Original pair/copy order differs')
  const first=JSON.stringify(chronology.ops[0].events)
  for(const[o,i]of chronology.ops.map((o,i)=>[o,i] as const)){
   if(o.index!==68+i||JSON.stringify(o.events)!==first||o.events.map(e=>e[0]).join(',')!=='brush,brush,region,region')throw Error('Original contact chronology changed')
