@@ -18,3 +18,4 @@ test('reject invalid budget and mismatched paired channels',()=>{
  assert.throws(()=>new PreviewSettlingBudget({durationMs:0,smooth:[],puddle:[],fine:[],core:.45,settleStep:.2}));
  assert.throws(()=>addPairedSlice([1],[1,2],[1],[1],.2));
 });
+test('noneligible owner timestamps advance while paused, switching latest cannot accrue old dt',()=>{const older=make(),younger=make();older.tick(0);younger.tick(0);for(const t of[500,1000,1500]){older.tick(t,{penActive:true});younger.tick(t)}assert.equal(older.elapsed,0);assert.equal(older.tick(1550),null);assert.equal(older.elapsed,50);assert.equal(older.tick(1600).index,0)});
