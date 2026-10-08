@@ -1,9 +1,12 @@
 import fs from 'node:fs';import path from 'node:path';import{createHash}from'node:crypto';
 const root=process.cwd(),out=path.join(root,'temp/owner-fifo-runtime');fs.mkdirSync(out,{recursive:true});
 const source=fs.readFileSync('apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts','utf8');
-const start=source.indexOf(' const combs=ribbonBristleCombs('),end=source.indexOf(' if(!input.waterOnly)state.landedWet=landedWet',start);
+const start=source.indexOf(' const combs=ribbonBristleCombs('),end=source.indexOf(' return {drawable,commands}',start);
 if(start<0||end<0)throw Error('Canonical source command extraction anchors missing');
-let body=source.slice(start,end).replace(' const combs=ribbonBristleCombs(profile,scalars.bristleRadiusPx),tau=pigmentAbsorption(input.color),sourceDelivery=ribbonWaterDelivery(profile)',' const {combs,tau}=input,sourceDelivery=ribbonWaterDelivery(profile)');
+const extracted=source.slice(start,end).replace(/ if\(!input.waterOnly\)state.landedWet=landedWet\n$/, '')
+if(createHash('sha256').update(extracted).digest('hex')!=='f65c2c254cb9d202c8b109e245607ccbd00e0821a2ea83b5881c629a318e163e')throw Error('Canonical command tail changed: review corpus before regenerating owner runtime')
+if(extracted.includes('state.')||extracted.includes('prepareRibbonDelivery(')||extracted.includes('prepareCanonicalRibbonBands('))throw Error('Command-only extraction contains preparation/state mutation')
+let body=extracted.replace(' const combs=ribbonBristleCombs(profile,scalars.bristleRadiusPx),tau=pigmentAbsorption(input.color),sourceDelivery=ribbonWaterDelivery(profile)',' const {combs,tau}=input,sourceDelivery=ribbonWaterDelivery(profile)');
 const base=path.join(root,'apps/web/src/engine/src/dabs');const rel=p=>'./'+path.relative(out,p).split(path.sep).join('/');
 const header=`import type {Dab} from '@grafetto/shared'\nimport type {PencilPreset} from '${rel(path.join(base,'../presets/pencilPresets'))}'\nimport type {RibbonProfile} from '${rel(path.join(base,'ribbonProfile'))}'\nimport type {CanonicalDrawCommand,CanonicalDrawPhase,CanonicalPreparedUniforms} from '${rel(path.join(base,'canonicalStrokeChunk'))}'\nimport type {prepareRibbonDelivery} from '${rel(path.join(base,'ribbonDelivery'))}'\nimport {ribbonDabTouchesTile} from '${rel(path.join(base,'dabWorldHalfExtents'))}'\nimport {ribbonWaterDelivery} from '${rel(path.join(base,'ribbonStrokeMath'))}'\n`;
 const definition=`
