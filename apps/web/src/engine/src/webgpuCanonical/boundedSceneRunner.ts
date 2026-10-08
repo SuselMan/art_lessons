@@ -26,6 +26,8 @@ export interface BoundedSceneOptions {
  sourceOptions:CanonicalStrokeChunkInput['options']
  /** Diagnostic only: same serial passes/Q8 order, fewer submissions. Default false. */
  groupedSettleSubmission?:boolean
+ /** OFF by default; source and live draws share one encoder, without fusing passes. */
+ diagnosticSourceLiveSubmission?:boolean
  diagnosticPairedCarry?:boolean
  diagnosticCarryOracleIndex?:number
  diagnosticHardwareLinearInputs?:boolean
@@ -129,8 +131,10 @@ export class CanonicalBoundedSceneRunner {
    if(!result.drawable.length)continue
    state.landedWet??=wetAt(wet,0)
    const geometry=canonicalSourceGeometry(result.drawable,previous,preset,profile,wet,state,this.geometry,{w:1024,h:1024},this.options.sourceOptions.diagnosticCanonicalSettleRadius)
-   this.adapter.runQuantum(ctx=>this.adapter.retain(this.source.execute(ctx.encoder,{commands:result.commands,rect:canonicalSourceRevealRect(this.target,geometry.compositeBounds),film:true,waterOnly:false},this.scratch.materialGesture)))
-   this.adapter.runQuantum(ctx=>this.adapter.retain(this.finish.encodeLive(ctx.encoder,{profile,opacity:result.drawable[0].opacity,fieldSeed:geometry.scalars.fieldSeed,spreadPx:geometry.scalars.spreadPx,water:geometry.scalars.water,bristleRadiusPx:geometry.scalars.bristleRadiusPx,inkSmoothPx:this.geometry.dabSpacing,bounds:geometry.compositeBounds})))
+   const encodeSource=(ctx:CanonicalGpuContext)=>this.adapter.retain(this.source.execute(ctx.encoder,{commands:result.commands,rect:canonicalSourceRevealRect(this.target,geometry.compositeBounds),film:true,waterOnly:false},this.scratch.materialGesture))
+   const encodeLive=(ctx:CanonicalGpuContext)=>this.adapter.retain(this.finish.encodeLive(ctx.encoder,{profile,opacity:result.drawable[0].opacity,fieldSeed:geometry.scalars.fieldSeed,spreadPx:geometry.scalars.spreadPx,water:geometry.scalars.water,bristleRadiusPx:geometry.scalars.bristleRadiusPx,inkSmoothPx:this.geometry.dabSpacing,bounds:geometry.compositeBounds}))
+   if(this.options.diagnosticSourceLiveSubmission===true)this.adapter.runQuantum(ctx=>{encodeSource(ctx);encodeLive(ctx)})
+   else{this.adapter.runQuantum(encodeSource);this.adapter.runQuantum(encodeLive)}
    this.scratch.paints.add(s.color.join(','));if(profile.pigmentStrength>0)this.scratch.pigmentInputsKnownZero=false
    this.scratch.noteFinish({target:this.target,preset,profile,color:s.color,opacity:result.drawable[0].opacity,bounds:geometry.bounds,fieldSeed:geometry.scalars.fieldSeed,landedWet:this.scratch.finishContext?.landedWet??wetAt(wet,0),wetPeak:wetPeak(wet),radiusPx:geometry.nibRadius,dwellMs:state.dwellMs})
   }

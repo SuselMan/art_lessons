@@ -15,9 +15,9 @@ import { CanonicalBoundedSceneRunner } from './boundedSceneRunner'
 import type { PointerData } from '../input/PointerInput'
 import type { WatercolorGestureSettings } from '../input/CanonicalWatercolorGesture'
 const options={diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true} as const
-function fixture(groupedSettleSubmission=false,progressiveSettle=false,yieldSettleFrame=()=>Promise.resolve()){
+function fixture(groupedSettleSubmission=false,progressiveSettle=false,yieldSettleFrame=()=>Promise.resolve(),diagnosticSourceLiveSubmission=false){
  const backend={paper:{texSize:[1024,1024]},device:{queue:{onSubmittedWorkDone:()=>Promise.resolve()}},createField:(label:string,width:number,height:number)=>({label,width,height,texture:{},view:{},format:'rgba8unorm'}),clearField:()=>{},copyField:()=>{},destroyField:()=>{},encodePreparedStamp:(_encoder:any,stamp:any,phase:any)=>{trace.commands.push({stamp,phase});return[]},encodePreparedRibbon:(_encoder:any,batch:any,phase:any)=>{trace.commands.push({batch,phase});return[]}} as any
- const operations:Operation[]=[],runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions:options,groupedSettleSubmission,progressiveSettle,yieldSettleFrame,now:()=>1000,timestamp:()=>100,operationId:()=>`op${operations.length}`,onLocalOperation:op=>operations.push(op)})
+ const operations:Operation[]=[],runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions:options,diagnosticSourceLiveSubmission,groupedSettleSubmission,progressiveSettle,yieldSettleFrame,now:()=>1000,timestamp:()=>100,operationId:()=>`op${operations.length}`,onLocalOperation:op=>operations.push(op)})
  const settings:WatercolorGestureSettings={tool:'watercolor',preset:'normal:100:0:PB29:round',size:100,opacity:1,color:[.3,.4,.5],nibAngle:{angle:0,anchor:'canvas'},tiltResponse:'smooth'}
  const pointer=(x:number,t:number):PointerData=>({x,y:500,pressure:.8,tiltX:0,tiltY:0,speed:.2,timeStamp:t,pointerType:'pen'})
  return{runner,settings,pointer,operations}
@@ -104,4 +104,20 @@ it('active owner retirement creates no synthetic pen-up or recorded operation',a
  await runner.retire();expect(operations).toHaveLength(before)
  expect(()=>runner.end(pointer(450,40))).toThrow('retired');expect(()=>runner.move(pointer(450,20))).toThrow('retired')
  expect(trace.events).not.toContain('settleFinish');runner.destroy()
+})
+
+it('diagnostic source/live grouping preserves ordered commands and live profiles with one fewer scope per chunk',async()=>{
+ const record=async(grouped:boolean)=>{
+  trace.events=[];trace.commands=[];trace.liveProfiles=[]
+  const {runner,settings,pointer,operations}=fixture(false,false,()=>Promise.resolve(),grouped)
+  runner.begin(pointer(440,0),{...settings,preset:'normal:100:100:PB29:chisel'},{strokeId:'fixed',washId:'wash',layerId:'L',userId:'u'})
+  runner.move(pointer(500,40));runner.move(pointer(560,70));runner.end(pointer(560,80));await runner.drain()
+  const result={commands:structuredClone(trace.commands),profiles:structuredClone(trace.liveProfiles),operations:structuredClone(operations),events:[...trace.events]}
+  runner.destroy();return result
+ }
+ const off=await record(false),on=await record(true)
+ expect(on.commands).toEqual(off.commands);expect(on.profiles).toEqual(off.profiles);expect(on.operations).toEqual(off.operations)
+ expect(on.events.filter(x=>x!=='quantum')).toEqual(off.events.filter(x=>x!=='quantum'))
+ expect(off.events.filter(x=>x==='quantum').length-on.events.filter(x=>x==='quantum').length).toBe(off.profiles.length)
+ expect(off.profiles.length).toBeGreaterThan(1)
 })
