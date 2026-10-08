@@ -11,3 +11,7 @@ OFF модуль `ContinuationFenceProbe.mjs` оборачивает тольк�
 Минимальный следующий dataset: те же четыре bounded starts, records со временем/label/serial и отдельными console HTTP paths; финальный material/tape даже при известном noncritical resource status только после строгой классификации каждого ресурса. Old 404 не классифицирован, blanket-ignore запрещён. Freeze исходники новых probe/controller через immutable manifest, старый5365 не изменять. Аппаратного запуска сейчас нет.
 
 Два Node fixtures проверяют реальные existing readPixels mock calls (ровно три, без новых), между ними draw invalidation, throw preservation, bounded records и restoration. Это CPU orchestration proof, не измерение Surface latency.
+
+## CPU zero-work decision oracle
+
+`ZeroWorkFenceReference.mjs` — только решение, никаких GPU вызовов/пропусков. Требует явно coverageComplete=true, той же generation, успешного предыдущего actual barrier и равенства submission serial. Любая draw/copy/clear/upload/done-cleanup submission делает следующий барьер обязательным. Unknown coverage, failed sync и loss сбрасывают/отвергают сертификат. Два CPU fixtures закрывают эти условия. Реальный probe имеет неполное покрытие cached/extension calls, поэтому его coverageComplete остаётся недоказанным: нельзя использовать эту модель для оптимизации runtime. Даже нулевая работа не разрешает менять scheduling budget/clock без отдельной проверки.
