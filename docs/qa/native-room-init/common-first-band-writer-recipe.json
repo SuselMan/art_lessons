@@ -1,0 +1,296 @@
+{
+  "scope": "Actual CPU shared-planner first band writer recipe; no pixel proof or new hardware",
+  "sourceCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "packetSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+  "traceFileSha256": "fda8405d0662c05534055bf86d0577da413f67113733043a331c46746a620780",
+  "opIndex": 44,
+  "modeOrder": [
+    11,
+    1,
+    6,
+    5,
+    5,
+    5,
+    5,
+    5,
+    1
+  ],
+  "events": [
+    [
+      "fieldOp",
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1019,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1019,
+        "w": 1536,
+        "h": 1536
+      },
+      11,
+      1,
+      {
+        "d": {
+          "buffer": 1021,
+          "w": 1536,
+          "h": 1536
+        },
+        "band": [
+          0.9617441184796373,
+          0
+        ],
+        "size": [
+          0.009563970380090697,
+          1
+        ]
+      }
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1019,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      1,
+      0
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1022,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1021,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1019,
+        "w": 1536,
+        "h": 1536
+      },
+      6,
+      1,
+      {
+        "c": {
+          "buffer": 1020,
+          "w": 1536,
+          "h": 1536
+        },
+        "d": {
+          "buffer": 1021,
+          "w": 1536,
+          "h": 1536
+        },
+        "band": [
+          0.9617441184796373,
+          0.75
+        ],
+        "size": [
+          0.009563970380090697,
+          0.08333333333333333
+        ],
+        "origin": [
+          1,
+          1
+        ],
+        "dir": [
+          1,
+          1
+        ],
+        "tau": [
+          0,
+          0,
+          0
+        ],
+        "world": [
+          0,
+          -1576,
+          1
+        ]
+      }
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1022,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1022,
+        "w": 1536,
+        "h": 1536
+      },
+      5,
+      0,
+      {
+        "dir": [
+          1,
+          1
+        ]
+      }
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1020,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      5,
+      0,
+      {
+        "dir": [
+          2,
+          2
+        ]
+      }
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1020,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1020,
+        "w": 1536,
+        "h": 1536
+      },
+      5,
+      0,
+      {
+        "dir": [
+          4,
+          4
+        ]
+      }
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1020,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      5,
+      0,
+      {
+        "dir": [
+          8,
+          8
+        ]
+      }
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1020,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1020,
+        "w": 1536,
+        "h": 1536
+      },
+      5,
+      0,
+      {
+        "dir": [
+          16,
+          16
+        ]
+      }
+    ],
+    [
+      "fieldOp",
+      {
+        "buffer": 1020,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      {
+        "buffer": 1013,
+        "w": 1536,
+        "h": 1536
+      },
+      1,
+      0
+    ]
+  ],
+  "inputRequirements": [
+    "Retain common GL outbound pressure1021 after141; not reconstruct from finalpressure rewritten late",
+    "Retain common GL inward mask1020 after11; current9f44 is mode12 seed, NOT band mode6 input",
+    "Mode11 output a1013 depends on coverage1019 and dpressure1021; identitycopy a→coverage beforemode6",
+    "Mode6 uses pressureLINEAR/inwardmaskLINEAR; fractional cos/sinring taps demand actualfilter contract",
+    "Then maxspread mode5 uses steps1/2/4/8/16 in unchanged order/Q8"
+  ],
+  "limits": [
+    "Current inward11 has3Rdiff; a future common-inputmode11/6 gate must seed actualGLinward final notnativeapprox",
+    "Finalcoverage was exact in earlier common-sourcewhole case, but that is not intermediate mode11/6 proof",
+    "Do not substitute current9f44seed for after11 or silentzeroearlierbuffers",
+    "No new artistic formulas or sourceownership changes"
+  ]
+}
