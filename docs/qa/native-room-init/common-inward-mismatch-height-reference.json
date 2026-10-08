@@ -1,0 +1,735 @@
+{
+  "scope": "CPU-double raw Fine height neighborhood at actual three mismatch cells; not actual GPU float intermediate values",
+  "paperAssetSha256": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+  "paperDimensions": [
+    2048,
+    2048
+  ],
+  "worldOrigin": [
+    0,
+    40
+  ],
+  "paperWorld": [
+    1024,
+    1024
+  ],
+  "paperScale": 1,
+  "rows": [
+    {
+      "centre": {
+        "field": [
+          683,
+          346
+        ],
+        "worldCenter": [
+          683.5,
+          386.5
+        ],
+        "paperTexelBase": [
+          1366,
+          -774
+        ],
+        "weights": [
+          0.5,
+          0.5
+        ],
+        "heightBytes": [
+          165,
+          151,
+          97,
+          73
+        ],
+        "heightDouble": 0.4764705882352941
+      },
+      "neighbors": [
+        {
+          "field": [
+            684,
+            346
+          ],
+          "worldCenter": [
+            684.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1368,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            78,
+            120,
+            75,
+            29
+          ],
+          "heightDouble": 0.296078431372549,
+          "heightDeltaDouble": 0.18039215686274507
+        },
+        {
+          "field": [
+            682,
+            346
+          ],
+          "worldCenter": [
+            682.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            119,
+            110,
+            140,
+            137
+          ],
+          "heightDouble": 0.49607843137254903,
+          "heightDeltaDouble": -0.019607843137254943
+        },
+        {
+          "field": [
+            683,
+            345
+          ],
+          "worldCenter": [
+            683.5,
+            385.5
+          ],
+          "paperTexelBase": [
+            1366,
+            -772
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            169,
+            151,
+            136,
+            179
+          ],
+          "heightDouble": 0.6225490196078431,
+          "heightDeltaDouble": -0.14607843137254906
+        },
+        {
+          "field": [
+            683,
+            347
+          ],
+          "worldCenter": [
+            683.5,
+            387.5
+          ],
+          "paperTexelBase": [
+            1366,
+            -776
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            148,
+            74,
+            68,
+            124
+          ],
+          "heightDouble": 0.40588235294117647,
+          "heightDeltaDouble": 0.07058823529411762
+        },
+        {
+          "field": [
+            684,
+            345
+          ],
+          "worldCenter": [
+            684.5,
+            385.5
+          ],
+          "paperTexelBase": [
+            1368,
+            -772
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            170,
+            157,
+            158,
+            187
+          ],
+          "heightDouble": 0.6588235294117647,
+          "heightDeltaDouble": -0.1823529411764706
+        },
+        {
+          "field": [
+            682,
+            345
+          ],
+          "worldCenter": [
+            682.5,
+            385.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -772
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            127,
+            127,
+            160,
+            113
+          ],
+          "heightDouble": 0.5166666666666667,
+          "heightDeltaDouble": -0.04019607843137263
+        },
+        {
+          "field": [
+            684,
+            347
+          ],
+          "worldCenter": [
+            684.5,
+            387.5
+          ],
+          "paperTexelBase": [
+            1368,
+            -776
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            109,
+            141,
+            117,
+            119
+          ],
+          "heightDouble": 0.4764705882352941,
+          "heightDeltaDouble": 0.0
+        },
+        {
+          "field": [
+            682,
+            347
+          ],
+          "worldCenter": [
+            682.5,
+            387.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -776
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            129,
+            144,
+            105,
+            9
+          ],
+          "heightDouble": 0.37941176470588234,
+          "heightDeltaDouble": 0.09705882352941175
+        }
+      ]
+    },
+    {
+      "centre": {
+        "field": [
+          682,
+          347
+        ],
+        "worldCenter": [
+          682.5,
+          387.5
+        ],
+        "paperTexelBase": [
+          1364,
+          -776
+        ],
+        "weights": [
+          0.5,
+          0.5
+        ],
+        "heightBytes": [
+          129,
+          144,
+          105,
+          9
+        ],
+        "heightDouble": 0.37941176470588234
+      },
+      "neighbors": [
+        {
+          "field": [
+            683,
+            347
+          ],
+          "worldCenter": [
+            683.5,
+            387.5
+          ],
+          "paperTexelBase": [
+            1366,
+            -776
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            148,
+            74,
+            68,
+            124
+          ],
+          "heightDouble": 0.40588235294117647,
+          "heightDeltaDouble": -0.026470588235294135
+        },
+        {
+          "field": [
+            681,
+            347
+          ],
+          "worldCenter": [
+            681.5,
+            387.5
+          ],
+          "paperTexelBase": [
+            1362,
+            -776
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            100,
+            89,
+            129,
+            159
+          ],
+          "heightDouble": 0.4676470588235294,
+          "heightDeltaDouble": -0.08823529411764708
+        },
+        {
+          "field": [
+            682,
+            346
+          ],
+          "worldCenter": [
+            682.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            119,
+            110,
+            140,
+            137
+          ],
+          "heightDouble": 0.49607843137254903,
+          "heightDeltaDouble": -0.1166666666666667
+        },
+        {
+          "field": [
+            682,
+            348
+          ],
+          "worldCenter": [
+            682.5,
+            388.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -778
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            129,
+            100,
+            118,
+            177
+          ],
+          "heightDouble": 0.5137254901960784,
+          "heightDeltaDouble": -0.13431372549019605
+        },
+        {
+          "field": [
+            683,
+            346
+          ],
+          "worldCenter": [
+            683.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1366,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            165,
+            151,
+            97,
+            73
+          ],
+          "heightDouble": 0.4764705882352941,
+          "heightDeltaDouble": -0.09705882352941175
+        },
+        {
+          "field": [
+            681,
+            346
+          ],
+          "worldCenter": [
+            681.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1362,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            130,
+            146,
+            129,
+            137
+          ],
+          "heightDouble": 0.5313725490196078,
+          "heightDeltaDouble": -0.1519607843137255
+        },
+        {
+          "field": [
+            683,
+            348
+          ],
+          "worldCenter": [
+            683.5,
+            388.5
+          ],
+          "paperTexelBase": [
+            1366,
+            -778
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            52,
+            113,
+            94,
+            51
+          ],
+          "heightDouble": 0.30392156862745096,
+          "heightDeltaDouble": 0.07549019607843138
+        },
+        {
+          "field": [
+            681,
+            348
+          ],
+          "worldCenter": [
+            681.5,
+            388.5
+          ],
+          "paperTexelBase": [
+            1362,
+            -778
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            126,
+            111,
+            111,
+            87
+          ],
+          "heightDouble": 0.4264705882352941,
+          "heightDeltaDouble": -0.047058823529411764
+        }
+      ]
+    },
+    {
+      "centre": {
+        "field": [
+          683,
+          347
+        ],
+        "worldCenter": [
+          683.5,
+          387.5
+        ],
+        "paperTexelBase": [
+          1366,
+          -776
+        ],
+        "weights": [
+          0.5,
+          0.5
+        ],
+        "heightBytes": [
+          148,
+          74,
+          68,
+          124
+        ],
+        "heightDouble": 0.40588235294117647
+      },
+      "neighbors": [
+        {
+          "field": [
+            684,
+            347
+          ],
+          "worldCenter": [
+            684.5,
+            387.5
+          ],
+          "paperTexelBase": [
+            1368,
+            -776
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            109,
+            141,
+            117,
+            119
+          ],
+          "heightDouble": 0.4764705882352941,
+          "heightDeltaDouble": -0.07058823529411762
+        },
+        {
+          "field": [
+            682,
+            347
+          ],
+          "worldCenter": [
+            682.5,
+            387.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -776
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            129,
+            144,
+            105,
+            9
+          ],
+          "heightDouble": 0.37941176470588234,
+          "heightDeltaDouble": 0.026470588235294135
+        },
+        {
+          "field": [
+            683,
+            346
+          ],
+          "worldCenter": [
+            683.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1366,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            165,
+            151,
+            97,
+            73
+          ],
+          "heightDouble": 0.4764705882352941,
+          "heightDeltaDouble": -0.07058823529411762
+        },
+        {
+          "field": [
+            683,
+            348
+          ],
+          "worldCenter": [
+            683.5,
+            388.5
+          ],
+          "paperTexelBase": [
+            1366,
+            -778
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            52,
+            113,
+            94,
+            51
+          ],
+          "heightDouble": 0.30392156862745096,
+          "heightDeltaDouble": 0.10196078431372552
+        },
+        {
+          "field": [
+            684,
+            346
+          ],
+          "worldCenter": [
+            684.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1368,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            78,
+            120,
+            75,
+            29
+          ],
+          "heightDouble": 0.296078431372549,
+          "heightDeltaDouble": 0.10980392156862745
+        },
+        {
+          "field": [
+            682,
+            346
+          ],
+          "worldCenter": [
+            682.5,
+            386.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -774
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            119,
+            110,
+            140,
+            137
+          ],
+          "heightDouble": 0.49607843137254903,
+          "heightDeltaDouble": -0.09019607843137256
+        },
+        {
+          "field": [
+            684,
+            348
+          ],
+          "worldCenter": [
+            684.5,
+            388.5
+          ],
+          "paperTexelBase": [
+            1368,
+            -778
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            120,
+            63,
+            84,
+            77
+          ],
+          "heightDouble": 0.33725490196078434,
+          "heightDeltaDouble": 0.06862745098039214
+        },
+        {
+          "field": [
+            682,
+            348
+          ],
+          "worldCenter": [
+            682.5,
+            388.5
+          ],
+          "paperTexelBase": [
+            1364,
+            -778
+          ],
+          "weights": [
+            0.5,
+            0.5
+          ],
+          "heightBytes": [
+            129,
+            100,
+            118,
+            177
+          ],
+          "heightDouble": 0.5137254901960784,
+          "heightDeltaDouble": -0.10784313725490191
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Ideal native center transform yields half-texel bilerp weights .5/.5 here; GL interpolated UV precision not captured.",
+    "Raw scalar height comparison does not include FBM climb or cost neighbors; no cause or FMA claim.",
+    "Q8 G exact does not establish equal prequantized GPU height."
+  ]
+}
