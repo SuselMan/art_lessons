@@ -87,6 +87,10 @@ export class WatercolorSettleQueue {
   /** Candidate remains opt-in until physical-device budget and parity gates pass. */
   contactBatchEnabled = false
 
+  /** OFF diagnostic: contiguous contact/front units, max4 and 8ms measured
+   * after syncGpu EACH unit. No capture/upload/presentation barrier crossing. */
+  diagnosticSolverBatchEnabled = false
+
   /** Diagnostic cap variants share the same wall budget and lifecycle guards. */
   contactBatchMax: 4 | 8 | 16 = 4
 
@@ -225,8 +229,8 @@ export class WatercolorSettleQueue {
     const perTick = this.ctx.isDrawing() || late ? 1
       : Math.min(this.ctx.backlogMax(), WatercolorSettleQueue.WET_SETTLE_OPS_PER_TICK + this.ctx.backlogSize())
     for (let k = 0; k < perTick && this._settle === s; k++) {
-      const batchable = this.contactBatchEnabled && contactPulses.has(s.ops[s.next]) ? contactPulses
-        : this.frontBatchEnabled && frontSteps.has(s.ops[s.next]) ? frontSteps : null
+      const batchable = (this.contactBatchEnabled || this.diagnosticSolverBatchEnabled) && contactPulses.has(s.ops[s.next]) ? contactPulses
+        : (this.frontBatchEnabled || this.diagnosticSolverBatchEnabled) && frontSteps.has(s.ops[s.next]) ? frontSteps : null
       const presentationToken = this.presentationBatchEnabled ? presentationTokens.get(s.ops[s.next]) : undefined
       const sameBatch = (op: () => void): boolean => batchable ? batchable.has(op)
         : !!presentationToken && presentationTokens.get(op) === presentationToken
@@ -239,7 +243,7 @@ export class WatercolorSettleQueue {
           // Submission time alone does not bound queued GPU work. Synchronize
           // every pulse, so a slow device overruns by only one existing step.
           this.ctx.syncGpu()
-          if (performance.now() - batchAt >= 4 || this.ctx.isDrawing()) break
+          if (performance.now() - batchAt >= (this.diagnosticSolverBatchEnabled ? 8 : 4) || this.ctx.isDrawing()) break
         }
         break // Per-tick backlog acceleration must not multiply this budget.
       }
