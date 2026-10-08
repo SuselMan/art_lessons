@@ -301,5 +301,14 @@
     }
   ],
   "raw": "temp/device-runs/first-band-seeded-c5/report.json",
-  "limits": "No default, production or full Room change. No whole dry final/max36 improvement demonstrated. Remaining R3 same coords, G9 likely later interpolation/Q8 arithmetic but instruction not localized; B exact for this seeded case."
+  "limits": "No default, production or full Room change. No whole dry final/max36 improvement demonstrated. Remaining R3 same coords, G9 likely later interpolation/Q8 arithmetic but instruction not localized; B exact for this seeded case.",
+  "pngValidation": {
+    "sha256": {
+      "baseline": "c42c2dfc09ea3beb961c6750fa86aa8d479373ba49e2a936628d9cbfe2f604b9",
+      "seededGl": "3017dddcc6367635a92b326fc2d715134eba150aae1a5c85ba639db90eba8350",
+      "seededNative": "3017dddcc6367635a92b326fc2d715134eba150aae1a5c85ba639db90eba8350"
+    },
+    "seededGlNativePngByteIdentical": true,
+    "scope": "Every4px downsample misses tiny9G differences. Apparent black native viewer rendering is not present in the serialized PNG bytes: native equals visibly nonblack GL PNG exactly."
+  }
 }
