@@ -21,6 +21,8 @@ it('foreign-water merge checks the captured recipient and actual layer target be
  state.central={enqueueSource:(emit:()=>void)=>emit()}
  expect(()=>runtime.importForeign(recipient as never,anotherLayer as never,'water')).toThrow('recipient layer/generation mismatch')
  expect(merge).not.toHaveBeenCalled()
+ state.foreignPrepared.set(recipient,new Set(['water']))
  runtime.importForeign(recipient as never,layer as never,'water');expect(merge).toHaveBeenCalledWith('water')
  runtime.importForeign(recipient as never,anotherLayer as never,'wholly-off-tile');expect(merge).toHaveBeenCalledTimes(1)
+ runtime.importForeign(recipient as never,anotherLayer as never,'water');expect(merge).toHaveBeenCalledTimes(1) // Reused recipient has no fresh auxiliary proof.
 })
