@@ -1,0 +1,1 @@
+{"extends":"../../../../apps/web/tsconfig.app.json","compilerOptions":{"tsBuildInfoFile":"../../../../temp/gl-colour-snapshot/harness.tsbuildinfo"},"include":["../728-engine-webgl2/run.ts"]}
