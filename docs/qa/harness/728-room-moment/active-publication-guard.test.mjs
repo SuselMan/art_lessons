@@ -1,0 +1,5 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{auditReadonlyPublication}from'./active-publication-guard.mjs'
+const fixture=()=>Array.from({length:3},(_,i)=>({published:true,stages:['P','C','inkBase','colorBase','strokeInk','strokeColor','inkSettled','colorSettled'].flatMap(role=>['source-','post-'].map(prefix=>({stage:prefix+role,...(role==='inkSettled'?{absent:true}:{sha:i+role})})))}))
+test('publication retains each observed role including explicit absence',()=>assert.equal(auditReadonlyPublication(fixture()).valid,true))
+test('rebase mutation and absent settled allocation are detected',()=>{const r=fixture();r[1].stages.find(x=>x.stage==='post-inkBase').sha='different';assert.equal(auditReadonlyPublication(r).valid,false);const s=fixture();s[2].stages.find(x=>x.stage==='post-inkSettled').absent=false;assert.equal(auditReadonlyPublication(s).valid,false)})
+test('failed publish and incomplete observation cannot pass',()=>{const r=fixture();r[0].published=false;assert.equal(auditReadonlyPublication(r).valid,false);assert.equal(auditReadonlyPublication(fixture().slice(0,2)).valid,false)})
