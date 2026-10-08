@@ -5,13 +5,13 @@ export function gestureFraction(rafTimestamp,downAt,duration){
 }
 /** Runs real Room PointerInput handlers with coalesced in-page pen samples.
  * CPU submission onset is NOT measured physical touch-to-screen latency. */
-export async function runOwnerFifoScenario({onPhase=()=>{}}={}){
+export async function runOwnerFifoScenario({onPhase=()=>{},collectAllocationStacks=false}={}){
  const E=window.__engine,S=window.__roomStore.getState(),c=[...document.querySelectorAll('canvas')].find(n=>n.className.includes('canvas')&&n.width>500)
  if(!E||!c||getComputedStyle(c).pointerEvents==='none'||E._locked||!E._paper.loaded||E.gl.isContextLost())throw Error('Room not drawable')
  const r=c.getBoundingClientRect(),p=E._pointer,rows=[],frames=[],start=performance.now();let collecting=true,active=null,raf=0
  const capture=c.setPointerCapture,release=c.releasePointerCapture;c.setPointerCapture=()=>{};c.releasePointerCapture=()=>{}
  const origDraw=E.gl.drawArrays,origDisplay=E._display,origTexture=E.gl.createTexture,origComplete=E._completeSettle
- E.gl.createTexture=function(...args){if(active?.stage==='down')active.downTextureAllocations++;return origTexture.apply(this,args)}
+ E.gl.createTexture=function(...args){if(active?.stage==='down'){active.downTextureAllocations++;if(collectAllocationStacks&&active.downTextureAllocationStacks.length<8)active.downTextureAllocationStacks.push(new Error('QA allocation caller').stack)}return origTexture.apply(this,args)}
  E._completeSettle=function(...args){if(active?.stage==='down')active.downCompleteSettle++;return origComplete.apply(this,args)}
  E.gl.drawArrays=function(...a){if(active&&active.firstDrawSubmitMs===null)active.firstDrawSubmitMs=performance.now()-active.downAt;return origDraw.apply(this,a)}
  E._display=function(...a){const result=origDisplay.apply(this,a);if(active&&active.firstDisplaySubmitMs===null)active.firstDisplaySubmitMs=performance.now()-active.downAt;return result}
@@ -21,7 +21,7 @@ export async function runOwnerFifoScenario({onPhase=()=>{}}={}){
  const stroke=async(name,pigment,pts,ms=500)=>{
   S.setToolSetting('watercolor','pigment',pigment);await frame();await frame()
   E.setTool('watercolor');E.setSize(400);E.setPencil(`normal:100:${Math.round(pigment*100)}:PB29:round`);E.setColor([.3,.15,.55])
-  const row={name,pigment,stage:'down',downTextureAllocations:0,downCompleteSettle:0,beforeDown:{settle:!!E._settle,settleNext:E._settle?.next??null,settleOps:E._settle?.ops.length??0,canonicalQueued:E._wcCanonical?.queuedRequestCount??null,owners:window.__ownerFifo.snapshot(),locked:E._locked},downAt:performance.now(),firstDrawSubmitMs:null,firstDisplaySubmitMs:null};active=row;onPhase(name)
+  const row={name,pigment,stage:'down',downTextureAllocations:0,downTextureAllocationStacks:[],downCompleteSettle:0,beforeDown:{settle:!!E._settle,settleNext:E._settle?.next??null,settleOps:E._settle?.ops.length??0,canonicalQueued:E._wcCanonical?.queuedRequestCount??null,owners:window.__ownerFifo.snapshot(),locked:E._locked},downAt:performance.now(),firstDrawSubmitMs:null,firstDisplaySubmitMs:null};active=row;onPhase(name)
   p._handleDown(event(...pts[0],row.downAt,1));row.downCpuMs=performance.now()-row.downAt;row.stage='move';row.started=!!E._strokeId;row.gestureId=E._strokeId
   if(!row.started)throw Error('No actual pointer stroke')
   row.ownersAfterDown=window.__ownerFifo.snapshot();let last=row.downAt
