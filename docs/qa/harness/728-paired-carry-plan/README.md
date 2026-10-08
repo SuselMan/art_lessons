@@ -86,3 +86,5 @@ Optional `captureFirstSolventInit:true` (requires firstOpSolventStages) records 
 The full-clear arm now uses explicit backend create option diagnosticComputeFullClear, including the five constructor-owned field clears. The per-instance option is OFF by default; no prototype/global patch. computeFullClears includes constructor calls.
 
 `captureFirstTargetInit:true` requires firstOpSolventStages and forbids solvent init copies. It freezes layer/original/inkLoad immediately after first getOrCreate copy+clear in the original source encoder before raster, then maps after first normal drain. At first-op source/finish the expanded 40MiB-bounded role set also includes original/inkLoad/inkColor. This separates initial target/copy from live composite input corruption. Snapshot intervention remains explicit, not a fix or timing proof.
+
+Expanded first-op role captures omit working field.pressure at BOTH source and finish: nine 1024² tiles are 36MiB, while adding a 1536² pressure role would exceed the 40MiB bound (45MiB). Later operations retain pressure. firstOpPressureOmitted is reported explicitly.
