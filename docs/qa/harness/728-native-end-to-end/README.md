@@ -150,3 +150,14 @@ results explicitly preserve this narrow scope. GL uses its default enabled
 DITHER; Q8 inputs/nearest samplers and Float32 uniforms match both APIs. GPU
 fields:27MiB perAPI, plus native9MiB readback; GL retires before native allocation.
 No large numeric arrays are sent through CDP. Deadline120s/preflight1700/abort500.
+
+First front control: offline `addFirstFrontRecipe` requires the completed real
+Surface pressure proof and byte-identical CPU planner recipe. It adds ONE stride1
+front step to the same pressure oracle. Captured FineLA SHA is checked before
+context creation; GL paper LINEARrepeat/raw rows and production251 noise NEAREST
+are preserved. The pressure input uses LINEAR metadata, coverage NEAREST; native
+legacy sampling remains unchanged to expose any mismatch. GL seeds are validated
+against the real captured pressure SHA, then GL retires before native allocation.
+PerAPI GPU working textures are≈91MiB including actual64MiB paper; native9MiB
+readback and≈140MiB CPU packet/LA/RGBA working bytes are additional. One own page,
+120s hard limit,1700MiB initial/500MiB abort. No complete171step solver repeats.
