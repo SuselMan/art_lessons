@@ -15,5 +15,7 @@ it('supplies identical F32 amounts straddling the measured source half-byte, whi
 })
 import {noisePointShaders} from '../../../../../../docs/qa/harness/728-native-end-to-end/noisePointOracle'
 it('supplied noise coordinate oracle has no interpolated varying and keeps literal lattice',()=>{
- for(let i=0;i<8;i++){const s=noisePointShaders(i);expect(s.native).toContain('var<uniform> point:vec4f');expect(s.native).toContain('textureLoad(noiseTex');expect(s.gl).toContain('uniform vec2 p');expect(s.gl).toContain('mod(p, 251.0)');expect(s.gl).not.toContain('varying')}
+ for(let i=0;i<14;i++){const s=noisePointShaders(i);expect(s.native).toContain('var<uniform> point:vec4f');expect(s.native).toContain('textureLoad(noiseTex');expect(s.gl).toContain('uniform vec2 p');expect(s.gl).toContain('mod(p, 251.0)');expect(s.gl).not.toContain('varying')}
 })
+
+it('explicit FMA changes only diagnostic second-octave expression',()=>{expect(noisePointShaders(13).native).toContain('wcNoise(fma(point.xy,vec2f(2.7),vec2f(31.4,17.9)))');expect(noisePointShaders(13).gl).toContain('wcFbm(p)')})
