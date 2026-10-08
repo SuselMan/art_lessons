@@ -10,8 +10,8 @@ import type {PreparedSourceSegment} from '../webgpuCanonical/sourcePhaseExecutor
  * when enabled; the parent owner must gate carrier/format before presentation. */
 export class WetBrushMomentSourceSeam {
  private readonly backend:CanonicalWatercolorWebGpu
- private readonly operator:WetBrushMomentTextureOwner
- constructor(backend:CanonicalWatercolorWebGpu){this.backend=backend;this.operator=new WetBrushMomentTextureOwner(backend.device)}
+ private readonly operator:Pick<WetBrushMomentTextureOwner,'encode'>
+ constructor(backend:CanonicalWatercolorWebGpu,operator?:Pick<WetBrushMomentTextureOwner,'encode'>){this.backend=backend;this.operator=operator??new WetBrushMomentTextureOwner(backend.device)}
  encodeAfterLanding(encoder:GPUCommandEncoder,input:{scratch:CanonicalTileScratch;tile:CanonicalFieldBuffer;segment:PreparedSourceSegment;availableWater:CanonicalFieldBuffer;materialGesture:number;recipe:MomentContactRecipe},enabled=false):{buffers:GPUBuffer[];invalid:GPUBuffer|null;release:()=>void} {
   if(!enabled)return{buffers:[],invalid:null,release:()=>{}}
   const {scratch,tile,segment,availableWater,materialGesture,recipe}=input,e=scratch.peek(tile)
@@ -19,9 +19,11 @@ export class WetBrushMomentSourceSeam {
   if(segment.film&&(e.filmGesture!==materialGesture||!e.inkBase||!e.strokeInk||!e.colorBase||!e.strokeColor))throw Error('DEV moment seam requires initialized current film')
   const [x,yGl,width,height]=segment.rect,y=tile.height-yGl-height
   if(width*height>512*512)throw Error('DEV moment seam bounded contact ROI exceeded')
-  const contact=scratch.pool.acquire(tile.width,tile.height),outP=scratch.pool.acquire(tile.width,tile.height),outC=scratch.pool.acquire(tile.width,tile.height),buffers:GPUBuffer[]=[]
-  let released=false;const release=()=>{if(released)return;released=true;for(const field of [contact,outP,outC])scratch.pool.release(field)}
+  const leases:CanonicalFieldBuffer[]=[],buffers:GPUBuffer[]=[]
+  const acquire=()=>{const field=scratch.pool.acquire(tile.width,tile.height);leases.push(field);return field}
+  let released=false;const release=()=>{if(released)return;released=true;for(const field of leases)scratch.pool.release(field)}
   try{
+   const contact=acquire(),outP=acquire(),outC=acquire()
    contact.clear()
    // Rasterize ONLY the exact current segment coverage commands, not accumulated
    // wash coverage. Existing source vertices/uniforms are immutable and retained.
