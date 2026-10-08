@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-08",
+  "device": "Surface Intel / Chrome154",
+  "sourceHead": "97e31b45",
+  "helperSHA": "50a930dfa2e4f540e6f07bf358c3d03663e89482f2b79eb5680a79b0b2d4241a",
+  "paper": {
+    "source": "Existing deterministic baked assets, no regeneration",
+    "files": [
+      {
+        "path": "coarse.6e885150.preview",
+        "sha256": "8ff2ceaee5a6a5f0e432c05757bda87144dc4f40511dbbad933c75b15e432c4e",
+        "bytes": 62323
+      },
+      {
+        "path": "coarse.a07d25c7.paper",
+        "sha256": "2095c71db236d84c7eec87f0cc0bd3264f5790c828f92433139eb3eba1da2168",
+        "bytes": 3992389
+      },
+      {
+        "path": "fine.a19fcf63.preview",
+        "sha256": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d",
+        "bytes": 59686
+      },
+      {
+        "path": "fine.e59ea6fa.paper",
+        "sha256": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "bytes": 3983406
+      },
+      {
+        "path": "manifest.json",
+        "sha256": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "bytes": 6532
+      },
+      {
+        "path": "medium.1690c0e9.paper",
+        "sha256": "db1726163027e36e170503d75f046dd3570ba3587722772243524b90c515d599",
+        "bytes": 3984794
+      },
+      {
+        "path": "medium.44d7c449.preview",
+        "sha256": "6c2d693c14ba6e08ebb0f14d675eb0811f272e72e2d6fca9afcd65a61b0875a2",
+        "bytes": 61834
+      }
+    ]
+  },
+  "scope": "Actual ordinary Room, 400 water then pigment, one author, one layer; GL1 vs GL2/MRT/front; joined/deferred enabled in both, mixed OFF. Not native WebGPU.",
+  "quality": {
+    "orderedFieldsExact": true,
+    "materialExact": true,
+    "wholeExact": true,
+    "closureHashesExact": {
+      "dry": true,
+      "undo": true,
+      "redo": true,
+      "fresh": true
+    }
+  },
+  "arms": [
+    {
+      "enabled": false,
+      "constructor": {
+        "gl2": false,
+        "mrt": false,
+        "front": false,
+        "presentation": false
+      },
+      "mrt": {
+        "pairs": 0,
+        "fallbacks": 0,
+        "pixels": 0
+      },
+      "complete": true,
+      "preflightRAMMiB": 1812.14453125,
+      "whole": {
+        "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+        "alpha": 266290,
+        "width": 1754,
+        "height": 2480
+      },
+      "fieldCount": 38,
+      "settleDurationMs": 2615.699999988079,
+      "raf": {
+        "maxRafMs": 39.200000047683716,
+        "over33": 1,
+        "over100": 0
+      },
+      "gestures": [
+        {
+          "downCpuMs": 35.89999997615814,
+          "upMs": 58.60000002384186,
+          "pixelUpperBoundMs": null
+        },
+        {
+          "downCpuMs": 27.599999964237213,
+          "upMs": 65.69999998807907,
+          "pixelUpperBoundMs": 836
+        }
+      ],
+      "closures": {
+        "dry": {
+          "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+          "alpha": 266290,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 3565.100000023842
+        },
+        "undo": {
+          "sha": "1233ef0a509c5f88209a30cf999d057e5ed71e8bcf59cb08982e26d2c4cf4a16",
+          "alpha": 0,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 989.1000000238419
+        },
+        "redo": {
+          "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+          "alpha": 266290,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 6614.099999964237
+        },
+        "fresh": {
+          "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+          "alpha": 266290,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 424
+        }
+      }
+    },
+    {
+      "enabled": true,
+      "constructor": {
+        "gl2": true,
+        "mrt": true,
+        "front": true,
+        "presentation": false
+      },
+      "mrt": {
+        "pairs": 87,
+        "fallbacks": 0,
+        "pixels": 3029758
+      },
+      "complete": true,
+      "preflightRAMMiB": 1777.0234375,
+      "whole": {
+        "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+        "alpha": 266290,
+        "width": 1754,
+        "height": 2480
+      },
+      "fieldCount": 38,
+      "settleDurationMs": 2270.300000011921,
+      "raf": {
+        "maxRafMs": 71.10000002384186,
+        "over33": 3,
+        "over100": 0
+      },
+      "gestures": [
+        {
+          "downCpuMs": 39.89999997615814,
+          "upMs": 43.69999998807907,
+          "pixelUpperBoundMs": null
+        },
+        {
+          "downCpuMs": 10.300000011920929,
+          "upMs": 68.69999998807907,
+          "pixelUpperBoundMs": 720.3000000119209
+        }
+      ],
+      "closures": {
+        "dry": {
+          "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+          "alpha": 266290,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 2646.600000023842
+        },
+        "undo": {
+          "sha": "1233ef0a509c5f88209a30cf999d057e5ed71e8bcf59cb08982e26d2c4cf4a16",
+          "alpha": 0,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 669.5
+        },
+        "redo": {
+          "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+          "alpha": 266290,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 1204.7000000476837
+        },
+        "fresh": {
+          "sha": "3a29293dfcf8df3bb6c6934b8bba063b7874cda3ad2dda86f15a5fd0e8228117",
+          "alpha": 266290,
+          "allPersisted": true,
+          "gl": 0,
+          "waitMs": 402.89999997615814
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "One pair only; no robust speed estimate.",
+    "Synchronous first-pixel readback confounds submission cadence; not physical pen/display latency.",
+    "Private raw retained outside Git.",
+    "OFF completed then inter-arm RAM1700 guard stopped controller. ON ran separately after memory recovered.",
+    "Earlier pre-input attempt failed paperLoaded because frozen baked assets were missing; assets restored unchanged before both valid arms."
+  ]
+}
