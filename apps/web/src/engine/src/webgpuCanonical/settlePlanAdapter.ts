@@ -5,6 +5,7 @@ import type { CanonicalWatercolorWebGpu } from './backend'
 import type { CanonicalFieldBuffer } from './fieldBuffer'
 import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } from './types'
 import { CanonicalSettleCommands } from './passes/commands'
+import { CanonicalCarryOracle } from './pairedCarryOracle'
 import { CanonicalPairedCarry } from './passes/pairedCarry'
 import { CanonicalBrushContact } from './brush'
 
@@ -22,6 +23,10 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  /** OFF-default paired carry, no planner cadence/presentation changes. */
  diagnosticPairedCarry=false
  pairedCarryCalls=0
+ diagnosticCarryOracleIndex:number|undefined
+ private carryOracle:CanonicalCarryOracle|null=null
+ async readCarryOracle(){return this.carryOracle?{pairIndex:this.diagnosticCarryOracleIndex,hardwareLinear:this.diagnosticHardwareLinearInputs,...await this.carryOracle.read()}:null}
+ disposeCarryOracle(){this.carryOracle?.destroy();this.carryOracle=null}
  private pairedCarry:CanonicalPairedCarry|null=null
  readonly uploads: SettlePlanUploads<CanonicalUploadSlot>
  private readonly owner: CanonicalWatercolorWebGpu
@@ -92,8 +97,11 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
   const {c,d,e,path,...scalars}=options
   if(c)throw new Error('Paired carry receives OLD pigment explicitly')
   for(const b of [outPigment,pigment,outColor,color,fixed,d,e,path])if(b&&b.owner!==this.owner)throw new Error('Paired carry crosses field owners')
-  this.pairedCarry??=new CanonicalPairedCarry(this.owner.device)
-  this.transient.push(this.pairedCarry.run(this.ctx(),{pigment:pigment.field,color:color.field,fixed:fixed.field,outPigment:outPigment.field,outColor:outColor.field},k,{...scalars,diagnosticHardwareLinearInputs:this.diagnosticHardwareLinearInputs,d:d?.field,e:e?.field,path:path?.field,noise:this.owner.noise}))
+  const pairedCarry=this.pairedCarry??=new CanonicalPairedCarry(this.owner.device)
+  const draw=()=>{
+  this.transient.push(pairedCarry.run(this.ctx(),{pigment:pigment.field,color:color.field,fixed:fixed.field,outPigment:outPigment.field,outColor:outColor.field},k,{...scalars,diagnosticHardwareLinearInputs:this.diagnosticHardwareLinearInputs,d:d?.field,e:e?.field,path:path?.field,noise:this.owner.noise}))
+  }
+  if(this.pairedCarryCalls===this.diagnosticCarryOracleIndex){if(this.carryOracle)throw new Error('Only one actual carry oracle allowed');this.carryOracle=new CanonicalCarryOracle(this.ctx(),this.owner,{p:pigment,c:color,fixed,outP:outPigment,outC:outColor},k,options,draw,(p,c)=>{this.fieldOp(c,color,fixed,16,k,{...options,c:pigment});this.fieldOp(p,pigment,fixed,15,k,options)})}else draw()
   this.pairedCarryCalls++;return true
  }
  pigmentColor(out: CanonicalFieldBuffer, deposit: CanonicalFieldBuffer, tau: readonly number[]) {
