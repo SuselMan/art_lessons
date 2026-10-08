@@ -1,0 +1,78 @@
+{
+  "scope": "Surface same original first carry mode15 stride1; only native pressureLINEAR sampler implementation changed",
+  "source": "93e196d8929ab67b9dbca2923476c823a1687cc4",
+  "bundleSha256": "1c9cab3d29ef87fcbb1eac3cc2e0c83906080c992596d33e2aa966ceb83c76f9",
+  "memory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 2132.9
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 2123.7
+    }
+  ],
+  "sourceFilter": "hardware LINEAR pressure / NEAREST mobile",
+  "channels": [
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "exact": true,
+  "expectedSha256": "d70fae52c63d1ec6bf8930cc258f503656a418a32659b43fd334a0e5b33f0d11",
+  "actualSha256": "d70fae52c63d1ec6bf8930cc258f503656a418a32659b43fd334a0e5b33f0d11",
+  "expectedReferenceSha256": "d70fae52c63d1ec6bf8930cc258f503656a418a32659b43fd334a0e5b33f0d11",
+  "glMovement": [
+    {
+      "changed": 4923,
+      "max": 62,
+      "sum": 48646
+    },
+    {
+      "changed": 4923,
+      "max": 62,
+      "sum": 48646
+    },
+    {
+      "changed": 4923,
+      "max": 62,
+      "sum": 48646
+    },
+    {
+      "changed": 4923,
+      "max": 62,
+      "sum": 48646
+    }
+  ],
+  "errors": [],
+  "glError": 0,
+  "validation": null,
+  "lost": false,
+  "baseline": {
+    "source": "4d403b391173a5c4b684c48b4f8822ae0301454c",
+    "mismatchBytes": 260,
+    "max": 38,
+    "nativeSha256": "09179dd2fc62586a0faf00f9339046557880c223870c84423fda4c2d3efe205d"
+  },
+  "causalConclusion": "For this same-device operator and frozen inputs, replacing manualbilerp by hardwareLINEAR pressure removes all260bytes/max38. Mobile NEAREST, formula/scalars/order unchanged.",
+  "next": "Full original carry chain with same initial GLmobile+pressure, bothAPI independently propagate Q8 outputs; no perstepreference reset. Then actual firstbrush68.",
+  "limits": "No default promotion. No full dry final/Room/allGPUs claim. capillaryDCE or other optimizations not included.",
+  "raw": "temp/device-runs/first-carry-pressure-93/report.json"
+}
