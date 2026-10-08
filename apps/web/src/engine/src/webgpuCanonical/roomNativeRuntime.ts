@@ -49,7 +49,6 @@ export class RoomNativeRuntime {
   const targets=request.targets??this.ctx.resolve(target,request.compositeBounds)
   if(targets.length!==1||targets[0].originX!==0||targets[0].originY!==0||targets[0].buffer.width!==1024||targets[0].buffer.height!==1024)throw new Error('DEV WebGPU Room supports exactly one actual 1024 origin-zero tile')
   const layerId=this.ctx.layerId(target);if(!layerId)throw new Error('Native watercolor requires an actual authoritative Room layer')
-  if(request.scratch.foreignSources?.length)throw new Error('DEV WebGPU Room foreign-wash import is not yet wired')
   const {commands}=buildCanonicalStrokeCommandsFromDelivery({...request.input,tile:targets[0]})
   const metadata=request.scratch.captureFinishMetadata();metadata.paints.add(request.input.color.join(','))
   const bounds={...request.compositeBounds}
@@ -57,6 +56,12 @@ export class RoomNativeRuntime {
   const tile=targets[0],scratch=request.scratch,scalars={...request.input.scalars},ordinal=this.ordinal++
   const live={profile:request.input.profile,opacity:request.input.drawable[0].opacity,fieldSeed:scalars.fieldSeed,spreadPx:scalars.spreadPx,water:scalars.water,bristleRadiusPx:scalars.bristleRadiusPx,inkSmoothPx:scalars.inkSmoothPx,bounds:{...bounds}}
   const film=request.input.film,waterOnly=request.input.waterOnly===true
+  if(request.auxiliary){
+   const auxiliary=request.auxiliary
+   this.queued=true
+   this.central.enqueueSource(()=>{const owner=this.ownerFor(auxiliary.recipient,tile,layerId);owner.emitForeignSegment(auxiliary.gesture,{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly:true},metadata.gesture)},async()=>{})
+   return true
+  }
   this.finishScalars=scalars
   // Freeze command geometry and metadata NOW, before subsequent CPU delivery advances.
   this.queued=true
@@ -65,6 +70,10 @@ export class RoomNativeRuntime {
    owner.emitPrepared({path,layerId,generation:this.generation,strokeId:`cpu-gesture-${metadata.gesture}`,ordinal,segment:{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly},materialGesture:metadata.gesture,metadata,live})
   },async()=>{if(sourceOwner)await sourceOwner.publishCurrentToGl()})
   return true
+ }
+ importForeign(recipient:RibbonStrokeScratch,_target:ILayerBuffer,gesture:string):void {
+  this.queued=true
+  this.central.enqueueSource(()=>{if(this.scratch===recipient)this.owner?.importForeign(gesture)},async()=>{})
  }
  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string){
   if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer)){this.retirements.push(this.owner.retire('rebuild',false));this.owner=null}
