@@ -1,0 +1,801 @@
+{
+  "computedPassport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "apps/web/src/engine/src/raster/RibbonPasses.ts": "5c4b67290da13fa4eb2db648ff798eb92b8b3074aa4b79f948bb8d05ec22839e",
+    "docs/qa/harness/728-gl-queue-batch/PreparedGlSourceDraw.ts": "1a64ba13e061977c3440dd334acc35e784e7a6ba983f300debd6fb86d832c5e1",
+    "docs/qa/harness/728-gl-queue-batch/preparedGlSourceGpu.mjs": "78d823c29879af303b2c290e2b8fd1b1eadcaf2ab14b2329a125c6a9770007ad"
+  },
+  "comparisons": [
+    {
+      "fixture": {
+        "nib": "round",
+        "segment": true,
+        "film": true
+      },
+      "exact": true,
+      "commandsEqual": true,
+      "negativeDetected": true
+    },
+    {
+      "fixture": {
+        "nib": "chisel",
+        "segment": true,
+        "film": true
+      },
+      "exact": true,
+      "commandsEqual": true,
+      "negativeDetected": null
+    },
+    {
+      "fixture": {
+        "nib": "round",
+        "segment": false,
+        "film": false
+      },
+      "exact": true,
+      "commandsEqual": true,
+      "negativeDetected": null
+    }
+  ],
+  "valid": true,
+  "memoryAbort": null,
+  "scope": "Actual Surface GL source-only original vs prepared primitive binders. Source clear/copy/sum/composite unchanged. Not typed FIFO/finish/presentation/Room parity.",
+  "device": {
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (Intel)",
+    "canvas": [
+      64,
+      64
+    ],
+    "paper": "fine",
+    "glVersion": "WebGL 1.0 (OpenGL ES 2.0 Chromium)"
+  },
+  "minRAMMiB": 1625,
+  "releaseRAMMiB": 1892,
+  "arms": [
+    {
+      "fixture": {
+        "nib": "round",
+        "segment": true,
+        "film": true
+      },
+      "arm": {
+        "prepared": false,
+        "negative": false
+      },
+      "commands": 28,
+      "stamps": 16,
+      "bands": 12,
+      "fields": [
+        {
+          "role": "target",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 628876,
+          "sha": "49ba04e8e7f242f3c94ba5fba7cfcb3a534a60dbb079fd9bcd249317f7a37537"
+        },
+        {
+          "role": "original",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "coverage",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 789624,
+          "sha": "d0cce359fb52bb57a5b716a0a41ef6ff35b1f1dd0e09adf5cc35e19b22debfa1"
+        },
+        {
+          "role": "inkLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 829980,
+          "sha": "d30625cb1edfb1f08010c18cd44b52a0e1dbcdcc8aedb188b2e28b71f4fdfa78"
+        },
+        {
+          "role": "inkColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 826701,
+          "sha": "311b273c403b4e3a40f2528f5a0262abbe249cc6711f113467d9f51301f2e68c"
+        },
+        {
+          "role": "inkBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "colorBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeInk",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 829980,
+          "sha": "d30625cb1edfb1f08010c18cd44b52a0e1dbcdcc8aedb188b2e28b71f4fdfa78"
+        },
+        {
+          "role": "strokeColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 826701,
+          "sha": "311b273c403b4e3a40f2528f5a0262abbe249cc6711f113467d9f51301f2e68c"
+        },
+        {
+          "role": "solventLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 417624,
+          "sha": "3808d86a5ff46cf8215bd7f32f359e72ee365ae9a446954fe474bd9bcde4b8b6"
+        },
+        {
+          "role": "solventBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeSolvent",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 417624,
+          "sha": "3808d86a5ff46cf8215bd7f32f359e72ee365ae9a446954fe474bd9bcde4b8b6"
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "fixture": {
+        "nib": "round",
+        "segment": true,
+        "film": true
+      },
+      "arm": {
+        "prepared": true,
+        "negative": false
+      },
+      "commands": 28,
+      "stamps": 16,
+      "bands": 12,
+      "fields": [
+        {
+          "role": "target",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 628876,
+          "sha": "49ba04e8e7f242f3c94ba5fba7cfcb3a534a60dbb079fd9bcd249317f7a37537"
+        },
+        {
+          "role": "original",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "coverage",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 789624,
+          "sha": "d0cce359fb52bb57a5b716a0a41ef6ff35b1f1dd0e09adf5cc35e19b22debfa1"
+        },
+        {
+          "role": "inkLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 829980,
+          "sha": "d30625cb1edfb1f08010c18cd44b52a0e1dbcdcc8aedb188b2e28b71f4fdfa78"
+        },
+        {
+          "role": "inkColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 826701,
+          "sha": "311b273c403b4e3a40f2528f5a0262abbe249cc6711f113467d9f51301f2e68c"
+        },
+        {
+          "role": "inkBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "colorBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeInk",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 829980,
+          "sha": "d30625cb1edfb1f08010c18cd44b52a0e1dbcdcc8aedb188b2e28b71f4fdfa78"
+        },
+        {
+          "role": "strokeColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 826701,
+          "sha": "311b273c403b4e3a40f2528f5a0262abbe249cc6711f113467d9f51301f2e68c"
+        },
+        {
+          "role": "solventLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 417624,
+          "sha": "3808d86a5ff46cf8215bd7f32f359e72ee365ae9a446954fe474bd9bcde4b8b6"
+        },
+        {
+          "role": "solventBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeSolvent",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 417624,
+          "sha": "3808d86a5ff46cf8215bd7f32f359e72ee365ae9a446954fe474bd9bcde4b8b6"
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "fixture": {
+        "nib": "round",
+        "segment": true,
+        "film": true
+      },
+      "arm": {
+        "prepared": true,
+        "negative": true
+      },
+      "commands": 28,
+      "stamps": 16,
+      "bands": 12,
+      "fields": [
+        {
+          "role": "target",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 625011,
+          "sha": "c502b732f570afd26c370503c9d7c9b16161778c7f1cc5709432d355fe2286fa"
+        },
+        {
+          "role": "original",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "coverage",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 789624,
+          "sha": "d0cce359fb52bb57a5b716a0a41ef6ff35b1f1dd0e09adf5cc35e19b22debfa1"
+        },
+        {
+          "role": "inkLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 829980,
+          "sha": "d30625cb1edfb1f08010c18cd44b52a0e1dbcdcc8aedb188b2e28b71f4fdfa78"
+        },
+        {
+          "role": "inkColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 821176,
+          "sha": "ca2a460ecb405462405d58cf537990f96754394aec16e588bbdf98ef28633a88"
+        },
+        {
+          "role": "inkBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "colorBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeInk",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 829980,
+          "sha": "d30625cb1edfb1f08010c18cd44b52a0e1dbcdcc8aedb188b2e28b71f4fdfa78"
+        },
+        {
+          "role": "strokeColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 821176,
+          "sha": "ca2a460ecb405462405d58cf537990f96754394aec16e588bbdf98ef28633a88"
+        },
+        {
+          "role": "solventLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 417624,
+          "sha": "3808d86a5ff46cf8215bd7f32f359e72ee365ae9a446954fe474bd9bcde4b8b6"
+        },
+        {
+          "role": "solventBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeSolvent",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 417624,
+          "sha": "3808d86a5ff46cf8215bd7f32f359e72ee365ae9a446954fe474bd9bcde4b8b6"
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "fixture": {
+        "nib": "chisel",
+        "segment": true,
+        "film": true
+      },
+      "arm": {
+        "prepared": false,
+        "negative": false
+      },
+      "commands": 28,
+      "stamps": 16,
+      "bands": 12,
+      "fields": [
+        {
+          "role": "target",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1071786,
+          "sha": "b5b3613ac9cf69521196032d58099511346997bfb58a7b204de1d2cc3e3ce101"
+        },
+        {
+          "role": "original",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "coverage",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1384468,
+          "sha": "f594eab25addfc82fbeff046da7ddb09c038e6100cb744fcc80c1238382af410"
+        },
+        {
+          "role": "inkLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1419568,
+          "sha": "8796225e4779c8253e1cc408722320a2e6561f47d43dc4831412e836e0078c97"
+        },
+        {
+          "role": "inkColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1414925,
+          "sha": "c71443d643a58a27de902f386ac931a3d1f056d2c174fa91c6bc74a05956f119"
+        },
+        {
+          "role": "inkBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "colorBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeInk",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1419568,
+          "sha": "8796225e4779c8253e1cc408722320a2e6561f47d43dc4831412e836e0078c97"
+        },
+        {
+          "role": "strokeColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1414925,
+          "sha": "c71443d643a58a27de902f386ac931a3d1f056d2c174fa91c6bc74a05956f119"
+        },
+        {
+          "role": "solventLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 713354,
+          "sha": "d7664f47630371c4021812fc8b820df08feb221008a8deb8bd1c01b5de9d2d2d"
+        },
+        {
+          "role": "solventBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeSolvent",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 713354,
+          "sha": "d7664f47630371c4021812fc8b820df08feb221008a8deb8bd1c01b5de9d2d2d"
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "fixture": {
+        "nib": "chisel",
+        "segment": true,
+        "film": true
+      },
+      "arm": {
+        "prepared": true,
+        "negative": false
+      },
+      "commands": 28,
+      "stamps": 16,
+      "bands": 12,
+      "fields": [
+        {
+          "role": "target",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1071786,
+          "sha": "b5b3613ac9cf69521196032d58099511346997bfb58a7b204de1d2cc3e3ce101"
+        },
+        {
+          "role": "original",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "coverage",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1384468,
+          "sha": "f594eab25addfc82fbeff046da7ddb09c038e6100cb744fcc80c1238382af410"
+        },
+        {
+          "role": "inkLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1419568,
+          "sha": "8796225e4779c8253e1cc408722320a2e6561f47d43dc4831412e836e0078c97"
+        },
+        {
+          "role": "inkColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1414925,
+          "sha": "c71443d643a58a27de902f386ac931a3d1f056d2c174fa91c6bc74a05956f119"
+        },
+        {
+          "role": "inkBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "colorBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeInk",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1419568,
+          "sha": "8796225e4779c8253e1cc408722320a2e6561f47d43dc4831412e836e0078c97"
+        },
+        {
+          "role": "strokeColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 1414925,
+          "sha": "c71443d643a58a27de902f386ac931a3d1f056d2c174fa91c6bc74a05956f119"
+        },
+        {
+          "role": "solventLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 713354,
+          "sha": "d7664f47630371c4021812fc8b820df08feb221008a8deb8bd1c01b5de9d2d2d"
+        },
+        {
+          "role": "solventBase",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "strokeSolvent",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 713354,
+          "sha": "d7664f47630371c4021812fc8b820df08feb221008a8deb8bd1c01b5de9d2d2d"
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "fixture": {
+        "nib": "round",
+        "segment": false,
+        "film": false
+      },
+      "arm": {
+        "prepared": false,
+        "negative": false
+      },
+      "commands": 15,
+      "stamps": 12,
+      "bands": 3,
+      "fields": [
+        {
+          "role": "target",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 590327,
+          "sha": "9415a2fd5d7de48568ca38edb70e454479a796d34b6714451fe96091137841bf"
+        },
+        {
+          "role": "original",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "coverage",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 786600,
+          "sha": "17b6fe7e4dc629ea805ac5f73ed905bf5e56576ffef9647b24464fdc7d4abc2d"
+        },
+        {
+          "role": "inkLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 819914,
+          "sha": "085dab23b518f277371460d57ca559c5f886d5d9a5de9acbfe1fae2695e7809d"
+        },
+        {
+          "role": "inkColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 817725,
+          "sha": "8214f0024745db960d3224a703b39dfbfa750e40391e4460157d675218e09237"
+        },
+        {
+          "role": "inkBase",
+          "absent": true
+        },
+        {
+          "role": "colorBase",
+          "absent": true
+        },
+        {
+          "role": "strokeInk",
+          "absent": true
+        },
+        {
+          "role": "strokeColor",
+          "absent": true
+        },
+        {
+          "role": "solventLoad",
+          "absent": true
+        },
+        {
+          "role": "solventBase",
+          "absent": true
+        },
+        {
+          "role": "strokeSolvent",
+          "absent": true
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "fixture": {
+        "nib": "round",
+        "segment": false,
+        "film": false
+      },
+      "arm": {
+        "prepared": true,
+        "negative": false
+      },
+      "commands": 15,
+      "stamps": 12,
+      "bands": 3,
+      "fields": [
+        {
+          "role": "target",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 590327,
+          "sha": "9415a2fd5d7de48568ca38edb70e454479a796d34b6714451fe96091137841bf"
+        },
+        {
+          "role": "original",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 0,
+          "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        },
+        {
+          "role": "coverage",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 786600,
+          "sha": "17b6fe7e4dc629ea805ac5f73ed905bf5e56576ffef9647b24464fdc7d4abc2d"
+        },
+        {
+          "role": "inkLoad",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 819914,
+          "sha": "085dab23b518f277371460d57ca559c5f886d5d9a5de9acbfe1fae2695e7809d"
+        },
+        {
+          "role": "inkColor",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 4194304,
+          "nonzero": 817725,
+          "sha": "8214f0024745db960d3224a703b39dfbfa750e40391e4460157d675218e09237"
+        },
+        {
+          "role": "inkBase",
+          "absent": true
+        },
+        {
+          "role": "colorBase",
+          "absent": true
+        },
+        {
+          "role": "strokeInk",
+          "absent": true
+        },
+        {
+          "role": "strokeColor",
+          "absent": true
+        },
+        {
+          "role": "solventLoad",
+          "absent": true
+        },
+        {
+          "role": "solventBase",
+          "absent": true
+        },
+        {
+          "role": "strokeSolvent",
+          "absent": true
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    }
+  ]
+}
