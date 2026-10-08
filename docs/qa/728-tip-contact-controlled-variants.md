@@ -153,3 +153,23 @@ the explicit original layer before append, and verifies real UI+engine400 settin
 It records source proof, image changes (deliberate model difference, no expectation
 of exact literal/A equality) and meaningful Undo/Redo. Four controller semantic
 regressions pass. This paired Room hardware cohort has not run yet.
+
+### Actual5362 paired literal Room replay
+
+One allocated fresh Surface replay of the exact prior25-dab tape completed.
+Frozen5362 `6a5449c66dca47f14417e3e6f604a2833cd768fe`, controller `03ff866a`.
+Initial UI store and actual engine agree: size400, water/pigment100%, round,
+normal response, purple. Screenshot explicitly shows400px and both100% sliders;
+the named mix shortcut stays stale (`damp`), as it normally does after manual
+slider changes. Literal source proof: disabled, zero patched modules. Original
+packed stroke preserved except structural sequence. GL0/no context loss/errors[].
+
+Literal export alpha support122,242 versus retained A author122,251. Literal SHA
+`31e9ae2ebe78d171bf0912653ff71e2e15ba6dc2a5db4d6e84d69442e05f6154`
+differs from A deliberately; no global quality verdict follows from this metric.
+Undo selects the original stroke, clears alpha to0; Redo selects the same target
+and restores this literal export exactly. Own target closed; preflight2108MiB,
+minimum1099MiB. Evidence ignored `temp/fast-watercolor-night/room-tip-literal-paired-surface-20261008`.
+The screenshot was inspected: the broad silhouette matches the retained A case,
+with subtly different internal grain. One paired stroke does not prove wet-mix,
+live latency, multiple layers or participant behavior.
