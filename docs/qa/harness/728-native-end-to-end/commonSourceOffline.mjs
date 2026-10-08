@@ -14,6 +14,7 @@ if(fs.statfsSync(output).bavail*fs.statfsSync(output).bsize<512*1024*1024)throw 
 const artifact=path.join(output,'checkpoint.json'),reportPath=path.join(output,arm+'-report.json')
 if(fs.existsSync(reportPath))throw Error('Immutable report already exists')
 if(arm==='producer'&&fs.existsSync(artifact))throw Error('Checkpoint already exists; never recapture GL')
+if(arm!=='producer'){const captured=JSON.parse(fs.readFileSync(path.join(output,'producer-report.json')));if(!captured.valid||captured.stage!=='complete'||captured.code!==provenance.code||captured.bundleSha256!==sha(js)||captured.checkpointSha256!==sha(fs.readFileSync(artifact)))throw Error('Durable checkpoint/source passport differs before browser allocation')}
 const report={code:provenance.code,bundleSha256:sha(js),softwareOnly:true,arm,stage:'preflight',valid:false,errors:[]},save=()=>fs.writeFileSync(reportPath,JSON.stringify(report,null,2))
 save()
 const server=http.createServer((req,res)=>{const file=path.resolve(bundle,'.'+new URL(req.url,'http://localhost').pathname);if(!file.startsWith(bundle+'/'))return res.writeHead(403).end();try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.json')?'application/json':'text/html');res.end(fs.readFileSync(file.endsWith('/')?file+'index.html':file))}catch{res.writeHead(404).end()}})
