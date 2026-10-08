@@ -1,0 +1,262 @@
+{
+  "sourceCode": "2ca81cef6260d5668a0ae5820e23afe81056fa70",
+  "softwareOnly": true,
+  "raw": "temp/native-source-offline/brush-cancellation-2ca81cef-software.json",
+  "valid": true,
+  "arms": [
+    {
+      "candidate": false,
+      "channels": [
+        {
+          "role": "a",
+          "stats": [
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            }
+          ],
+          "integrals": {
+            "before": [
+              1881805,
+              1881805,
+              1881805,
+              1881805
+            ],
+            "actual": [
+              1881805,
+              1881805,
+              1881805,
+              1881805
+            ],
+            "expected": [
+              1881805,
+              1881805,
+              1881805,
+              1881805
+            ],
+            "actualMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "expectedMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "role": "cc",
+          "stats": [
+            {
+              "changed": 24,
+              "max": 1,
+              "sum": 24
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 2,
+              "max": 1,
+              "sum": 2
+            },
+            {
+              "changed": 226,
+              "max": 3,
+              "sum": 250
+            }
+          ],
+          "integrals": {
+            "before": [
+              757158,
+              1083078,
+              325910,
+              1881805
+            ],
+            "actual": [
+              757158,
+              1083078,
+              325910,
+              1881805
+            ],
+            "expected": [
+              757158,
+              1083078,
+              325910,
+              1881805
+            ],
+            "actualMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "expectedMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "errors": [],
+      "validation": null,
+      "lost": false
+    },
+    {
+      "candidate": true,
+      "channels": [
+        {
+          "role": "a",
+          "stats": [
+            {
+              "changed": 1078,
+              "max": 2,
+              "sum": 1164
+            },
+            {
+              "changed": 1078,
+              "max": 2,
+              "sum": 1164
+            },
+            {
+              "changed": 1078,
+              "max": 2,
+              "sum": 1164
+            },
+            {
+              "changed": 1078,
+              "max": 2,
+              "sum": 1164
+            }
+          ],
+          "integrals": {
+            "before": [
+              1881805,
+              1881805,
+              1881805,
+              1881805
+            ],
+            "actual": [
+              1881805,
+              1881805,
+              1881805,
+              1881805
+            ],
+            "expected": [
+              1881805,
+              1881805,
+              1881805,
+              1881805
+            ],
+            "actualMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "expectedMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "role": "cc",
+          "stats": [
+            {
+              "changed": 116,
+              "max": 2,
+              "sum": 118
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 2,
+              "max": 1,
+              "sum": 2
+            },
+            {
+              "changed": 1078,
+              "max": 2,
+              "sum": 1164
+            }
+          ],
+          "integrals": {
+            "before": [
+              757158,
+              1083078,
+              325910,
+              1881805
+            ],
+            "actual": [
+              757158,
+              1083078,
+              325910,
+              1881805
+            ],
+            "expected": [
+              757158,
+              1083078,
+              325910,
+              1881805
+            ],
+            "actualMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "expectedMinusBefore": [
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "errors": [],
+      "validation": null,
+      "lost": false
+    }
+  ],
+  "actualHardware": "NOTRUN",
+  "validation": {
+    "unit": 11,
+    "serializedController": 3,
+    "ts": true,
+    "lint": true,
+    "finiteReferenceDomain": "q0..255×cap0..63×5rawincluding0 (81920 cases), real formula equivalence; shaderprefix raw/sampling andsuffix floor/store unchanged"
+  },
+  "interpretation": "Software residual count WORSENS226->1078 perPchannel whilemax3->2; allP/C8channel ROIinteger sums conservedexact0. Not a faithfulGL improvement, notpromoted. OriginalGLreference fixed, nativeONLY algebra variant, floating/Q8 order intentionally changed. Noepsilon/thresholdtuning.",
+  "control": "QA OFFdefault cancellation-free min(raw,min(cap/q)) instead raw*min(1,min(cap/(q*raw))). Oldpositive/zero donor guards; noother shaderexprchange."
+}
