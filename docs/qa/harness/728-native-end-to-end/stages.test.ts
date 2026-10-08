@@ -47,3 +47,12 @@ test('prediffuse coarse checkpoints skip basic outputs and stay in fixed one-sho
  const before=gate.chronology.length;passes.fieldOp(b,b,b,0,0);assert.equal(gate.chronology.length,before)
  gate.detach();gate.destroy()
 })
+
+test('mode11 correlation separates changed input from unexplained output',async()=>{
+ const {correlateMode11}=await import('./stages')
+ const stage=(key:string,bytes:number[])=>({key:'mode11:'+key,w:1,h:1,bytes:new Uint8Array(bytes)})
+ const n=[stage('pressure',[246,0,0,255]),stage('coverage',[0,0,0,0]),stage('output',[50,0,100,100])]
+ const g=[stage('pressure',[247,0,0,255]),stage('coverage',[0,0,0,0]),stage('output',[25,0,50,50])]
+ const result=correlateMode11(n,g);assert.equal(result.pressureCorrelated,1);assert.equal(result.unexplainedBySamePixelInputs,0)
+ g[0]=stage('pressure',[246,0,0,255]);assert.equal(correlateMode11(n,g).unexplainedBySamePixelInputs,1)
+})
