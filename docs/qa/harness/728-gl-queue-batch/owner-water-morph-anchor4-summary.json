@@ -1,0 +1,119 @@
+{
+  "frames": [
+    {
+      "at": 30396.900000035763,
+      "elapsed": 0,
+      "changedPixels": 0,
+      "changedPixelsOver5": 0,
+      "maxRGBDelta": 0,
+      "paintMaskSymmetricDifference": 0
+    },
+    {
+      "at": 30507.400000035763,
+      "elapsed": 110.5,
+      "changedPixels": 52377,
+      "changedPixelsOver5": 81,
+      "maxRGBDelta": 26,
+      "paintMaskSymmetricDifference": 36
+    },
+    {
+      "at": 30707.19999998808,
+      "elapsed": 310.2999999523163,
+      "changedPixels": 60409,
+      "changedPixelsOver5": 6906,
+      "maxRGBDelta": 45,
+      "paintMaskSymmetricDifference": 72
+    },
+    {
+      "at": 31107,
+      "elapsed": 710.0999999642372,
+      "changedPixels": 63400,
+      "changedPixelsOver5": 18405,
+      "maxRGBDelta": 47,
+      "paintMaskSymmetricDifference": 124
+    },
+    {
+      "at": 31607.100000023842,
+      "elapsed": 1210.199999988079,
+      "changedPixels": 64496,
+      "changedPixelsOver5": 23444,
+      "maxRGBDelta": 61,
+      "paintMaskSymmetricDifference": 164
+    },
+    {
+      "at": 32507,
+      "elapsed": 2110.099999964237,
+      "changedPixels": 64968,
+      "changedPixelsOver5": 28603,
+      "maxRGBDelta": 77,
+      "paintMaskSymmetricDifference": 228
+    }
+  ],
+  "paintMaskDefinition": "max(RGB)-min(RGB)>20 and min(RGB)<200; RGB output, not material alpha",
+  "scope": "Rendered post-UP thumbnails. Diagnostic display/readback, not physical latency or working-field parity.",
+  "sourceCommit": "1706d959",
+  "validHistory": true,
+  "before": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 763436,
+    "sha": "fcf9e188728ce610603480005654a596c0398878adf4caf379f906f99120f1c1"
+  },
+  "undo": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 762777,
+    "sha": "c210f48fbae2e391990db98ef01e13196f556d8864af6592c7a5b816618f6631"
+  },
+  "redo": {
+    "width": 1024,
+    "height": 1024,
+    "nonzero": 763436,
+    "sha": "fcf9e188728ce610603480005654a596c0398878adf4caf379f906f99120f1c1"
+  },
+  "landTimeline": [
+    {
+      "kind": "land",
+      "at": 23695.19999998808,
+      "sequence": 1,
+      "landedVersion": 1
+    },
+    {
+      "kind": "land",
+      "at": 25980.80000001192,
+      "sequence": 2,
+      "landedVersion": 2
+    },
+    {
+      "kind": "land",
+      "at": 27991.19999998808,
+      "sequence": 3,
+      "landedVersion": 3
+    },
+    {
+      "kind": "land",
+      "at": 30357.900000035763,
+      "sequence": 4,
+      "landedVersion": 4
+    }
+  ],
+  "firstFrameAfterLastLandMs": 39.0,
+  "downAllocations": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "downDrains": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "memoryPreMinPostMiB": [
+    2121,
+    877,
+    1970
+  ],
+  "assessment": "RGB changes grow gradually, but footprint moves only228 thumbnail pixels. Visual spread remains weak; first39ms after last land and pre-land deformation are not captured. Not artist-ready evidence."
+}
