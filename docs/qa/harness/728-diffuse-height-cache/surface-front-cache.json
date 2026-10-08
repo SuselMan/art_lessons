@@ -1,0 +1,33 @@
+{
+  "evidence": "native-static-front-surface-1791424896471.json",
+  "code": "b6679d4af74690796942e3e56b5d9569ababbac2",
+  "dimensions": [
+    1536,
+    1536
+  ],
+  "iterations": 171,
+  "allExact": true,
+  "errors": [],
+  "cacheCounters": {
+    "prep": 1,
+    "hits": 204,
+    "fallbacks": 0
+  },
+  "prepMs": 1.703936,
+  "baseline": {
+    "n": 32,
+    "minMs": 4.25984,
+    "medianMs": 4.325376,
+    "p95Ms": 4.653056,
+    "maxMs": 4.718592
+  },
+  "cached": {
+    "n": 32,
+    "minMs": 2.752512,
+    "medianMs": 2.850816,
+    "p95Ms": 2.883584,
+    "maxMs": 3.080192
+  },
+  "estimated171BaselineMs": 739.6392960000001,
+  "estimated171CachedMs": 489.193472
+}

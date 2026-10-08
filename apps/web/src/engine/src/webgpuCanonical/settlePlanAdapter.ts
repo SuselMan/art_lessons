@@ -21,6 +21,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  /** Diagnostic-only hardware sampling arm for existing LINEAR non-paper field inputs. */
  diagnosticHardwareLinearInputs=false
  /** OFF-default paired carry, no planner cadence/presentation changes. */
+ diagnosticStaticDiffuseHeight=false
  diagnosticStaticFrontCache=false
  diagnosticLazyFrontClimb=false
  diagnosticPairedCarry=false
@@ -117,7 +118,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  diffuseStep(field: BufferField, x0: number, y0: number, scale: number, paperWidth: number, paperHeight: number, source: CanonicalFieldBuffer, out: CanonicalFieldBuffer, radius: number, knight: boolean, gate: CanonicalFieldBuffer) {
   const resources = this.resources(out, source, source, gate)
   const paper = { ...resources.paper, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [paperWidth / scale, paperHeight / scale] as const }
-  this.transient.push(this.commands.encode(this.ctx(), { kind: 'diffuse', resources: { ...resources, paper }, radius: Math.max(1, Math.round(radius / scale)), knight, d: WET_DIFFUSE_D, b: WET_DIFFUSE_B }))
+  this.transient.push(this.commands.encode(this.ctx(), { kind: 'diffuse', resources: { ...resources, paper }, radius: Math.max(1, Math.round(radius / scale)), knight, d: WET_DIFFUSE_D, b: WET_DIFFUSE_B,options:{diagnosticStaticHeightCache:this.diagnosticStaticDiffuseHeight,noise:this.owner.noise} }))
  }
  waterFrontStep(field: BufferField, x0: number, y0: number, dryCost: number, source: CanonicalFieldBuffer, out: CanonicalFieldBuffer, max: number, climb: number, floor: number, stride = 1, scale = 1, foreignWater: CanonicalUploadSlot | null = null) {
   const resources = this.resources(out, source, source, field.coverage)

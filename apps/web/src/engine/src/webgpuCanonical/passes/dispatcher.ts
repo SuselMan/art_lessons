@@ -1,7 +1,7 @@
 import {CanonicalStaticFrontCache} from './staticFrontCache'
 /// <reference types="@webgpu/types" />
 import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } from '../types'
-import { CANONICAL_DIFFUSE_WGSL, CANONICAL_WATER_FRONT_WGSL,CANONICAL_CACHED_WATER_FRONT_WGSL } from './kernels'
+import { CANONICAL_DIFFUSE_WGSL, CANONICAL_WATER_FRONT_WGSL,CANONICAL_CACHED_WATER_FRONT_WGSL,CANONICAL_CACHED_DIFFUSE_WGSL } from './kernels'
 /** Pass wrappers preserve individual Q8 storage boundaries and caller order.
  * Caller retains uniform buffers until submitted work has finished. */
 export class CanonicalFieldPasses {
@@ -13,7 +13,7 @@ export class CanonicalFieldPasses {
   private pipeline(kind: 'diffuse' | 'waterFront',lazyClimb=false,staticCache=false) {
     let pipeline = this.pipelines.get(kind+':'+lazyClimb+':'+staticCache)
     if (!pipeline) {
-      pipeline = this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code: kind === 'diffuse' ? CANONICAL_DIFFUSE_WGSL : staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
+      pipeline = this.device.createComputePipeline({ label: 'Canonical ' + kind, layout: 'auto', compute: { module: this.device.createShaderModule({ label: 'Canonical ' + kind, code: kind === 'diffuse' ? (staticCache?CANONICAL_CACHED_DIFFUSE_WGSL:CANONICAL_DIFFUSE_WGSL) : staticCache?CANONICAL_CACHED_WATER_FRONT_WGSL:CANONICAL_WATER_FRONT_WGSL }), entryPoint: 'main',constants:kind==='waterFront'?staticCache?{DIAGNOSTIC_LAZY_CLIMB:0,DIAGNOSTIC_STATIC_FRONT_CACHE:1}:{DIAGNOSTIC_LAZY_CLIMB:lazyClimb?1:0}:undefined } })
       this.pipelines.set(kind+':'+lazyClimb+':'+staticCache, pipeline)
     }
     return pipeline
@@ -26,7 +26,7 @@ export class CanonicalFieldPasses {
     const uniforms = packPassUniforms(resources, coefficients, wet)
     const uniform = this.device.createBuffer({ label: 'Canonical ' + kind + ' uniforms', size: uniforms.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
     this.device.queue.writeBuffer(uniform, 0, uniforms)
-    const cache=kind==='waterFront'&&staticCache?(this.staticCache??=new CanonicalStaticFrontCache(this.device)).getOrEncode(ctx,resources,noise!,coefficients,uniforms,cachePrepTimestampWrites):null
+    const cache=staticCache?(this.staticCache??=new CanonicalStaticFrontCache(this.device)).getOrEncode(ctx,resources,noise!,kind==='diffuse'?[0,0,0,coefficients[2]]:coefficients,kind==='diffuse'?packPassUniforms(resources,[0,0,0,coefficients[2]],wet):uniforms,cachePrepTimestampWrites,kind==='diffuse'):null
     const pipeline = this.pipeline(kind,lazyClimb,!!cache)
     // Auto layouts strip statically unused bindings. Diffusion has no foreign/noise.
     const entries: GPUBindGroupEntry[] = [
@@ -35,6 +35,7 @@ export class CanonicalFieldPasses {
       { binding: 5, resource: resources.out.view }, { binding: 6, resource: { buffer: uniform } },
     ]
     if (kind === 'waterFront') entries.push({ binding: 3, resource: (foreignFilm ?? resources.paper.field).view }, { binding: 4, resource: noise!.view })
+    if(cache&&kind==='diffuse')entries.splice(entries.findIndex(e=>e.binding===2),1)
     if(cache)entries.push({binding:7,resource:cache})
     const bind = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries })
     const pass = ctx.encoder.beginComputePass({ label: 'Canonical ' + kind,timestampWrites })
@@ -45,9 +46,9 @@ export class CanonicalFieldPasses {
     return uniform
   }
   get staticCacheCounters(){return this.staticCache?{prep:this.staticCache.prepCalls,hits:this.staticCache.hitCalls,fallbacks:this.staticCache.fallbackCalls}:null}
-  diffuse(ctx: CanonicalGpuContext, resources: CanonicalPassResources, radius: number, knight: boolean, d = 0.09, b = 0.03) {
+  diffuse(ctx: CanonicalGpuContext, resources: CanonicalPassResources, radius: number, knight: boolean, d = 0.09, b = 0.03,options:{diagnosticStaticHeightCache?:boolean;noise?:CanonicalGpuField;timestampWrites?:GPUComputePassTimestampWrites;cachePrepTimestampWrites?:GPUComputePassTimestampWrites}={}) {
     if (!(radius >= 1) || !Number.isInteger(radius)) throw new Error('Canonical diffusion radius must be prepared integer field radius')
-    return this.dispatch(ctx, resources, 'diffuse', [d, b, radius, knight ? 1 : 0], [0, 0, 0, 0])
+    return this.dispatch(ctx, resources, 'diffuse', [d, b, radius, knight ? 1 : 0], [0, 0, 0, 0],options.noise,undefined,false,options.timestampWrites,options.diagnosticStaticHeightCache??false,options.cachePrepTimestampWrites)
   }
   waterFront(ctx: CanonicalGpuContext, resources: CanonicalPassResources, noise: CanonicalGpuField, params: { dryCost: number; costMax: number; climb: number; floor: number; stride: number; foreignFilm?: CanonicalGpuField;diagnosticLazyClimb?:boolean;timestampWrites?:GPUComputePassTimestampWrites;diagnosticStaticCache?:boolean;cachePrepTimestampWrites?:GPUComputePassTimestampWrites }) {
     if (!(params.costMax > 0) || !(params.stride >= 1)) throw new Error('Canonical front invalid cost/stride')

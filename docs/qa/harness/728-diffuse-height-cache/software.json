@@ -1,0 +1,129 @@
+{
+  "experiment": "diffuseHeight",
+  "cachePrepNanoseconds": 251560,
+  "cacheCounters": {
+    "prep": 1,
+    "hits": 41,
+    "fallbacks": 0
+  },
+  "dimensions": [
+    32,
+    32
+  ],
+  "perIteration": [
+    {
+      "iteration": 1,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 2,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 3,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 4,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 5,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 6,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 7,
+      "changed": 0,
+      "max": 0
+    },
+    {
+      "iteration": 8,
+      "changed": 0,
+      "max": 0
+    }
+  ],
+  "exact": true,
+  "timestampAvailable": true,
+  "gpuNanoseconds": {
+    "baseline": [
+      444605,
+      433018,
+      366476,
+      353341,
+      407436,
+      400723,
+      356967,
+      372459,
+      367407,
+      374096,
+      342246,
+      311647,
+      343202,
+      325356,
+      341556,
+      338619,
+      361724,
+      332084,
+      371079,
+      387163,
+      363350,
+      385076,
+      378107,
+      336380,
+      355958,
+      353350,
+      391367,
+      425122,
+      367337,
+      424968,
+      345279,
+      385460
+    ],
+    "lazy": [
+      204914,
+      188080,
+      219382,
+      230929,
+      205943,
+      203769,
+      202139,
+      235728,
+      225970,
+      189751,
+      232423,
+      219864,
+      216090,
+      264181,
+      208266,
+      198971,
+      223857,
+      191171,
+      216932,
+      209145,
+      191336,
+      192300,
+      187793,
+      189039,
+      264947,
+      213048,
+      223914,
+      210135,
+      244660,
+      199987,
+      206899,
+      219597
+    ]
+  },
+  "errors": [],
+  "limits": "Actual captured Q8 front input/coverage; same immutable paper/lattice, no foreignFilm; 171 repeated fixed stride gates, not a replacement planner schedule. Timestamp AB32 excludes readback and covers one front compute pass. Whole tape separately diagnostic OFF by default."
+}

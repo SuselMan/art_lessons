@@ -146,3 +146,9 @@ export const CANONICAL_FRONT_CACHE_PREP_WGSL=CANONICAL_CACHED_WATER_FRONT_WGSL.s
  let climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));
  textureStore(staticFrontCache,vec2i(q),vec4f(hj,climb,0,0));
 }`;
+
+/** Original diffusion arithmetic with static height loads only. */
+export const CANONICAL_CACHED_DIFFUSE_WGSL=CANONICAL_DIFFUSE_WGSL
+ .replace('@compute @workgroup_size','@group(0) @binding(7) var staticHeight:texture_2d<f32>;\n@compute @workgroup_size')
+ .replace('let hi=heightAt(px);','let hi=textureLoad(staticHeight,vec2i(q),0).r;')
+ .replace('let dh=hi-heightAt(px+o);','let dh=hi-textureLoad(staticHeight,vec2i(q)+vec2i(vec2f(o.x,-o.y)),0).r;');
