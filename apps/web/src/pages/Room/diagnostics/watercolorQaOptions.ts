@@ -4,7 +4,7 @@ import { joinedFinishDeferredQaEnabled } from './joinedFinishDeferredQa'
 
 /** Constructor flags only. Production values and existing explicit DEV opt-ins
  * stay identical; diagnostic selection does not own material or scheduling. */
-export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor'> {
+export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticSolverBatch'> {
  const query = new URLSearchParams(search)
  const flag=(name:string)=>{
   if(!dev)return false
@@ -23,5 +23,6 @@ export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: str
   bandBatch: dev && query.get('qaBandBatch') === '1',
   joinedFinishDeferred: joinedFinishDeferredQaEnabled(dev, deferred, search),
   materialPresentation: false,
+  diagnosticSolverBatch: dev && query.get('qaSolverBatch') === '1',
  }
 }
