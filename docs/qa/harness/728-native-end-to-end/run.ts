@@ -1,5 +1,5 @@
 import {persistCommonSourceCheckpoint,restoreCommonSourceCheckpoint} from './commonSourceCheckpoint'
-import {runCommonSourceSolver,prepareCommonSourceCheckpoint} from './commonSourceRunner'
+import {runCommonSourceSolver,prepareCommonSourceCheckpoint,inspectCommonSourceShape} from './commonSourceRunner'
 import {sourceContribution} from './sourceContribution'
 import {replaySourceCoverage} from './sourceReplay'
 import {sourceCommandManifest} from './sourceManifest'
@@ -176,4 +176,6 @@ export async function runSourceContribution({operation,substitutions=[]}:{operat
  for(let i=0;i<la.length/2;i++){paper[i*4]=paper[i*4+1]=paper[i*4+2]=la[i*2];paper[i*4+3]=la[i*2+1]}
  return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),sourceCommands:sourceCommandManifest(commands),oracle:await sourceContribution(commands,paper,side,substitutions),limits:'All original coverage commands only; GL Q8 coverage replacement immediately after selected command; no P/C/settle or Room fidelity/performance claim. Persistent GL target with three readback checkpoints; readbacks invalidate timing comparisons.'}
 }
-Object.assign(window,{runEndToEnd,runSourceCoverage,runSourceContribution,runCommonSourceSolver,prepareCommonSourceCheckpoint,persistCommonSourceCheckpoint,restoreCommonSourceCheckpoint})
+Object.assign(window,{runEndToEnd,runSourceCoverage,runSourceContribution,runCommonSourceSolver,prepareCommonSourceCheckpoint,inspectCommonSourceShape,persistCommonSourceCheckpoint,restoreCommonSourceCheckpoint})
+
+Object.assign(window,{inspectCommonSourceShape})
