@@ -63,3 +63,23 @@ final composite, baseline vs grouped on identical captures; then actual native
 source+packed replay whole layer. Device submit counts and elapsed/GPU timers must
 be reported separately. Do not apply this to live frame/morph scheduling or
 concurrent ownership by inference. No speedup is claimed without measurement.
+
+## Diagnostic implementation
+
+`BoundedSceneOptions.groupedSettleSubmission` is optional and defaults OFF.
+`runCanonicalSettleJob` uses the existing adapter scope: grouped ops/finish/final
+composite/dispose share one encoder, with dispose in finally. Baseline remains
+one scope per op plus finish/composite and disposal; its disposal is now also in
+finally on failure. No shader, pixel, uniform value or Q8 boundary is changed.
+The adapter remains responsible for discarding an unsent encoder and releasing
+its retained uniforms/staging on a thrown error. A failed scene needs clear/replay;
+this option does not introduce recovery or rollback of CPU metadata.
+
+Four real generic-planner trace cases (full/half field, single/mixed) compare the
+entire ordered pass/copy/upload/resource trace between scope policies. Foreign
+and contact inputs are active. Submission count is N+2 versus1 in the successful
+execution. Three injected failures (op/finish/composite) preserve the same command
+trace up to failure, invoke dispose exactly once, preserve the original exception
+and make zero successful grouped submissions. A real CPU gesture test checks that
+the option leaves prepared source commands and non-scope trace unchanged. These
+are CPU command/protocol proofs, not native GPU byte parity or measured speedup.

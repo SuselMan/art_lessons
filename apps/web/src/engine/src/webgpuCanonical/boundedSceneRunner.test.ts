@@ -14,9 +14,9 @@ import { CanonicalBoundedSceneRunner } from './boundedSceneRunner'
 import type { PointerData } from '../input/PointerInput'
 import type { WatercolorGestureSettings } from '../input/CanonicalWatercolorGesture'
 const options={diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true} as const
-function fixture(){
+function fixture(groupedSettleSubmission=false){
  const backend={paper:{texSize:[1024,1024]},device:{queue:{onSubmittedWorkDone:()=>Promise.resolve()}},createField:(label:string,width:number,height:number)=>({label,width,height,texture:{},view:{},format:'rgba8unorm'}),clearField:()=>{},copyField:()=>{},destroyField:()=>{},encodePreparedStamp:(_encoder:any,stamp:any,phase:any)=>{trace.commands.push({stamp,phase});return[]},encodePreparedRibbon:(_encoder:any,batch:any,phase:any)=>{trace.commands.push({batch,phase});return[]}} as any
- const operations:Operation[]=[],runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions:options,now:()=>1000,timestamp:()=>100,operationId:()=>`op${operations.length}`,onLocalOperation:op=>operations.push(op)})
+ const operations:Operation[]=[],runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions:options,groupedSettleSubmission,now:()=>1000,timestamp:()=>100,operationId:()=>`op${operations.length}`,onLocalOperation:op=>operations.push(op)})
  const settings:WatercolorGestureSettings={tool:'watercolor',preset:'normal:100:0:PB29:round',size:100,opacity:1,color:[.3,.4,.5],nibAngle:{angle:0,anchor:'canvas'},tiltResponse:'smooth'}
  const pointer=(x:number,t:number):PointerData=>({x,y:500,pressure:.8,tiltX:0,tiltY:0,speed:.2,timeStamp:t,pointerType:'pen'})
  return{runner,settings,pointer,operations}
@@ -55,4 +55,18 @@ it('anchors the source and live profile to gesture landing while later chunks en
  for(const profile of trace.liveProfiles)expect(profile).toEqual(ribbonProfileFor('watercolor',preset,0))
  expect(runner.scratch.finishContext?.wetPeak).toBeGreaterThan(0)
  runner.destroy();expect(trace.events.at(-1)).toBe('destroyTextures')
+})
+
+it('diagnostic grouping changes only settle scopes in a real CPU gesture',async()=>{
+ const run=async(grouped:boolean)=>{
+  trace.events=[];trace.commands=[]
+  const {runner,settings,pointer}=fixture(grouped)
+  runner.begin(pointer(440,0),settings,{strokeId:'grouped-seed',washId:'wash',layerId:'L',userId:'u'})
+  runner.move(pointer(500,40));runner.end(pointer(500,50));await runner.drain()
+  const result={events:[...trace.events],commands:structuredClone(trace.commands)};runner.destroy();return result
+ }
+ const serial=await run(false),grouped=await run(true)
+ expect(grouped.commands).toEqual(serial.commands)
+ expect(grouped.events.filter(e=>e!=='quantum')).toEqual(serial.events.filter(e=>e!=='quantum'))
+ expect(serial.events.filter(e=>e==='quantum').length-grouped.events.filter(e=>e==='quantum').length).toBe(2)
 })
