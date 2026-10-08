@@ -1,0 +1,320 @@
+{
+  "engineCode": "21ec7a6d",
+  "runJsSha256": "e416ccb02f8b65ff9dbc5fc56df5bb6102eb07a357b68dcc5f62275372ae43ed",
+  "device": "Surface Intel Iris Xe",
+  "scenario": "mixed400/Fine/page2048x1024",
+  "exact26FieldsMaterialExportTape": true,
+  "rows": [
+    {
+      "cohort": "baseline",
+      "paintMs": 5869.800000011921,
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "cohort": "passes",
+      "paintMs": 5881.799999952316,
+      "glError": 0,
+      "lost": false,
+      "groups": {
+        "fieldOp": {
+          "rows": 215,
+          "gpuMs": 372.82750099999976,
+          "cpuSubmissionMs": 40.60000026226044
+        },
+        "wcResample": {
+          "rows": 40,
+          "gpuMs": 9.631649,
+          "cpuSubmissionMs": 6.299999892711639
+        },
+        "waterFrontStep": {
+          "rows": 252,
+          "gpuMs": 687.5727529999998,
+          "cpuSubmissionMs": 33.300000071525574
+        },
+        "diffuseStep": {
+          "rows": 39,
+          "gpuMs": 83.92951199999999,
+          "cpuSubmissionMs": 7.4999998807907104
+        },
+        "pigmentColor": {
+          "rows": 1,
+          "gpuMs": 1.419114,
+          "cpuSubmissionMs": 0.5
+        },
+        "brushPass": {
+          "rows": 408,
+          "gpuMs": 81.29695900000006,
+          "cpuSubmissionMs": 57.999999940395355
+        },
+        "carryPair": {
+          "rows": 14,
+          "gpuMs": 0.0029639999999999996,
+          "cpuSubmissionMs": 1.8999998569488525
+        }
+      },
+      "counts": {
+        "fieldOp": {
+          "calls": 215,
+          "sampled": 215,
+          "nested": 0,
+          "capacity": 0
+        },
+        "wcResample": {
+          "calls": 40,
+          "sampled": 40,
+          "nested": 0,
+          "capacity": 0
+        },
+        "waterFrontStep": {
+          "calls": 252,
+          "sampled": 252,
+          "nested": 0,
+          "capacity": 0
+        },
+        "diffuseStep": {
+          "calls": 39,
+          "sampled": 39,
+          "nested": 0,
+          "capacity": 0
+        },
+        "pigmentColor": {
+          "calls": 1,
+          "sampled": 1,
+          "nested": 0,
+          "capacity": 0
+        },
+        "brushPass": {
+          "calls": 408,
+          "sampled": 408,
+          "nested": 0,
+          "capacity": 0
+        },
+        "carryPair": {
+          "calls": 14,
+          "sampled": 14,
+          "nested": 0,
+          "capacity": 0
+        }
+      },
+      "pending": 0,
+      "unavailable": null,
+      "invalid": 0,
+      "targets": [
+        {
+          "requested": [
+            "fieldOp",
+            "waterFrontStep",
+            "diffuseStep",
+            "brushPass",
+            "brushPair",
+            "carryPair",
+            "costDomainStep",
+            "wcResample",
+            "pigmentColor"
+          ],
+          "present": [
+            "fieldOp",
+            "waterFrontStep",
+            "diffuseStep",
+            "brushPass",
+            "brushPair",
+            "carryPair",
+            "costDomainStep",
+            "wcResample",
+            "pigmentColor"
+          ],
+          "missing": []
+        }
+      ],
+      "cpuApi": {}
+    },
+    {
+      "cohort": "transfers",
+      "paintMs": 5893.899999976158,
+      "glError": 0,
+      "lost": false,
+      "groups": {
+        "clear": {
+          "rows": 44,
+          "gpuMs": 11.136593999999999,
+          "cpuSubmissionMs": 20.200000047683716
+        },
+        "copyTo": {
+          "rows": 22,
+          "gpuMs": 7.036241,
+          "cpuSubmissionMs": 3.9999999403953552
+        },
+        "copyRegionInto": {
+          "rows": 444,
+          "gpuMs": 11.531358999999998,
+          "cpuSubmissionMs": 37.200000047683716
+        }
+      },
+      "counts": {
+        "clear": {
+          "calls": 44,
+          "sampled": 44,
+          "nested": 0,
+          "capacity": 0
+        },
+        "copyTo": {
+          "calls": 22,
+          "sampled": 22,
+          "nested": 0,
+          "capacity": 0
+        },
+        "copyRegionInto": {
+          "calls": 444,
+          "sampled": 444,
+          "nested": 0,
+          "capacity": 0
+        }
+      },
+      "pending": 0,
+      "unavailable": null,
+      "invalid": 0,
+      "targets": [
+        {
+          "requested": [
+            "finish",
+            "flush",
+            "readPixels"
+          ],
+          "present": [],
+          "missing": [
+            "finish",
+            "flush",
+            "readPixels"
+          ],
+          "reason": "GL2 adapter caches bound methods; raw monkeypatch cannot faithfully intercept existing calls"
+        },
+        {
+          "requested": [
+            "copyTo",
+            "copyRegionInto",
+            "clear",
+            "restorePixels",
+            "writePixels",
+            "restorePixelsRect"
+          ],
+          "present": [
+            "copyTo",
+            "copyRegionInto",
+            "clear",
+            "restorePixels",
+            "writePixels",
+            "restorePixelsRect"
+          ],
+          "missing": []
+        },
+        {
+          "requested": [
+            "texImage2D",
+            "texSubImage2D",
+            "generateMipmap"
+          ],
+          "present": [],
+          "missing": [
+            "texImage2D",
+            "texSubImage2D",
+            "generateMipmap"
+          ],
+          "reason": "Do not wrap adapted GL proxy: override/raw recursion and bound-cache bypass"
+        }
+      ],
+      "cpuApi": {}
+    },
+    {
+      "cohort": "raster",
+      "paintMs": 6184.5,
+      "glError": 0,
+      "lost": false,
+      "groups": {
+        "_display": {
+          "rows": 5,
+          "gpuMs": 6.461977,
+          "cpuSubmissionMs": 6.000000059604645
+        }
+      },
+      "counts": {
+        "_display": {
+          "calls": 5,
+          "sampled": 5,
+          "nested": 0,
+          "capacity": 0
+        },
+        "_composeToFBO": {
+          "calls": 5,
+          "sampled": 0,
+          "nested": 5,
+          "capacity": 0
+        }
+      },
+      "pending": 0,
+      "unavailable": null,
+      "invalid": 0,
+      "targets": [
+        {
+          "requested": [
+            "finish",
+            "flush",
+            "readPixels"
+          ],
+          "present": [],
+          "missing": [
+            "finish",
+            "flush",
+            "readPixels"
+          ],
+          "reason": "GL2 adapter caches bound methods; raw monkeypatch cannot faithfully intercept existing calls"
+        },
+        {
+          "requested": [
+            "paint"
+          ],
+          "present": [
+            "paint"
+          ],
+          "missing": []
+        },
+        {
+          "requested": [
+            "drawArrays",
+            "drawElements",
+            "drawArraysInstanced",
+            "drawElementsInstanced"
+          ],
+          "present": [],
+          "missing": [
+            "drawArrays",
+            "drawElements",
+            "drawArraysInstanced",
+            "drawElementsInstanced"
+          ],
+          "reason": "Bound GL2 proxy methods cannot be faithfully monkeypatched after init"
+        },
+        {
+          "requested": [
+            "_composeToFBO",
+            "_display"
+          ],
+          "present": [
+            "_composeToFBO",
+            "_display"
+          ],
+          "missing": []
+        }
+      ],
+      "cpuApi": {}
+    }
+  ],
+  "minimumFreeMiB": 1438,
+  "excluded": [
+    "Init/paper/compile",
+    "Raw uploads and ribbon draw/CPU finish cached GL2 proxy methods",
+    "Browser composition/vsync",
+    "CPU preparation outside measured outer methods",
+    "No Room/livepointer/network"
+  ]
+}

@@ -28,3 +28,50 @@ rAF ожидания, все CPU подготовительные участки
 и CPU fence-call intervals, затем локальный candidate по ведущей категории.
 
 Модуль проверен `node --check`; ещё НЕ выполнялся на аппаратном устройстве.
+
+## Измерено на Surface
+
+Frozen engine 21ec7a6d, тот же Fine/mixed400/page2048×1024. Все три серии
+совпали с uninstrumented baseline по 26 полям/material/RGBA/tape.
+GPU query supported, invalid/disjoint/pending/capacity=0; compose вложен в
+_display и отдельно не суммируется. Wall baseline 5869.8 мс; passes5881.8,
+transfers5893.9, raster6184.5. Это по одной серии, не статистическая оценка.
+
+| Оператор | Calls | GPU ms | CPU submission ms |
+|---|---:|---:|---:|
+| waterFrontStep |252|687.57|33.30|
+| fieldOp |215|372.83|40.60|
+| diffuseStep |39|83.93|7.50|
+| brushPass |408|81.30|58.00|
+| wcResample |40|9.63|6.30|
+| pigmentColor |1|1.42|0.50|
+| clear |44|11.14|20.20|
+| copyTo |22|7.04|4.00|
+| copyRegionInto |444|11.53|37.20|
+| _display (включает compose) |5|6.46|6.00|
+
+Самый тяжёлый **из измеренных** оператор — front, затем fieldOp. В passes
+front занимает около 56% суммы GPU-интервалов, не 56% задержки пользователя.
+Carry MRT ранее снимал примерно30GPUмс, но whole gain не проявился.
+Отсюда priority: сначала lifetime/schedule/fence критического пути и оставшееся
+покрытие, параллельно proof-safe сокращение поддержки/front invocations;
+повторная произвольная оптимизация копий в этом сценарии имеет малый масштаб.
+Static GL cache на1536 уже не прошёл exact gate — его нельзя включить ради
+687мс. Сокращение front требует сохранить донорные границы, paper coordinates,
+Q8 порядок и halo, а не заменить модель более быстрым приближением.
+
+Важное ограничение инструмента: прямой wrapper adaptedGL.texImage2D рекурсирует
+из-за override→raw обращения; другие методы уже cached/bound и обходят подмену.
+Первый transfers arm был безопасно прекращён и собственный target закрыт;
+failed raw сохранён отдельно. Успешный harness больше НЕ подменяет эти методы.
+Upload/raw draw/CPU finish явно отсутствуют в targets; cpuApi={} — **нет
+замера**, а не нулевые затраты. Для них нужен hook до cache-bind на уровне
+адаптера/создания контекста, отдельный frozen вариант и повторный exact gate.
+Этот gap запрещает называть wall−GPU «CPU тормозом» или выдавать строгую
+границу Амдала. CPU submission в таблице — только тело соответствующего
+обёрнутого метода, включая инструментальный overhead.
+
+Собственные вкладки закрыты, post-run free2041MiB. Для повторения:
+`node build.mjs frozenBundle out`, затем существующий private preview,
+`GATE_URL=... GATE_OUT=... node controller.mjs`. Требуется эксклюзивное
+согласование Surface, preflight1700/abort500; URL не хранится в Git.
