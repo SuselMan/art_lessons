@@ -33,3 +33,10 @@ it('DEV OFF publish never reads actual material or creates transport work',async
  Object.assign(owner,{pendingMoment:null,scratch:new Proxy({},{get(){throw Error('OFF source read')}}),publishWithoutDrain:published})
  await owner.publishCurrentToGl();expect(published).toHaveBeenCalledOnce()
 })
+it('retirement during actual carrier read stops before transport or publishing to the new generation',async()=>{
+ const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor;let resolve:(v:Uint8Array)=>void=()=>{}
+ const pending=new Promise<Uint8Array>(r=>{resolve=r}),transport=vi.fn(),published=vi.fn()
+ Object.assign(owner,{retired:false,pendingMoment:{chunk:{ordinal:0,segment:{rect:[0,0,1,1]},momentRecipe:{}}},target:{buffer:{height:1,width:1}},scratch:{tiles:{peek:()=>({inkLoad:{readBytes:()=>pending},inkColor:{readBytes:async()=>new Uint8Array(4)},coverage:{}})}},momentSeam:{encodeAfterLanding:transport},momentReport:[],publishWithoutDrain:published})
+ const task=owner.publishCurrentToGl();Object.assign(owner,{retired:true});resolve(new Uint8Array(4))
+ await expect(task).rejects.toThrow('generation retired');expect(transport).not.toHaveBeenCalled();expect(published).not.toHaveBeenCalled()
+})
