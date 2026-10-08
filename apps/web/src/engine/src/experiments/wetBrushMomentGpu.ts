@@ -18,7 +18,7 @@ fn main(@builtin(global_invocation_id) gid:vec3u){
  let matched=v%2u==u.parity && v+1u<limit;
  let a=i*10u;var b=a;if(matched){b=(i+select(u.width,1u,u.axis==0u))*10u;}
  for(var k=0u;k<10u;k++){dst[a+k]=src[a+k];if(matched){dst[b+k]=src[b+k];}}
- if(!matched){return;}
+ if(!matched||atomicLoad(&invalid)>0u){return;}
  var ma=src[a+2u];var mb=src[b+2u];var ca:array<u32,4>;var cb:array<u32,4>;
  var bad=ma>255u||mb>255u;
  for(var c=0u;c<4u;c++){ca[c]=src[a+4u+c];cb[c]=src[b+4u+c];bad=bad||ca[c]>ma||cb[c]>mb;}
