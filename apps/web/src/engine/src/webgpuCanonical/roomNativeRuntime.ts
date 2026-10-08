@@ -17,6 +17,8 @@ import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 
 export interface RoomNativeRuntimeContext {
  /** DEV QA only: pressure D sampler in canonical carry15/16; OFF default. */
+ /** QA-only detached raw canvas warmup; no source/settle warmup. */
+ diagnosticRawCanvasWarmup?:boolean
  diagnosticCarryHardwarePressure?:boolean
  diagnosticTipContactA?:boolean
  diagnosticMomentTransport?:boolean
@@ -57,7 +59,19 @@ export class RoomNativeRuntime {
   console.info('[native-room-init]','paper:expand-done',bytes.length)
   const canvas=document.createElement('canvas')
   const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
-  try{return new RoomNativeRuntime(backend,ctx)}catch(error){backend.destroy();throw error}
+  try{
+   if(import.meta.env.DEV&&ctx.diagnosticRawCanvasWarmup===true){
+    const started=performance.now()
+    console.info('[native-room-init]','raw-warm:start',started)
+    const [{CanonicalRoomTileBridge},{warmDetachedRawCanvas}]=await Promise.all([import('./roomTileBridge'),import('./detachedWarmup')])
+    const bridge=new CanonicalRoomTileBridge(backend.device,document.createElement('canvas'),1024,1024)
+    try{
+     const ledger=await warmDetachedRawCanvas(backend,bridge)
+     console.info('[native-room-init]','raw-warm:completed',JSON.stringify({scope:'raw canvas only',completedAt:performance.now(),wallMs:performance.now()-started,peakBytes:ledger.peakBytes,sourceWarmed:false,pressureWarmed:false,compositeWarmed:false}))
+    }finally{bridge.destroy()}
+   }
+   return new RoomNativeRuntime(backend,ctx)
+  }catch(error){backend.destroy();throw error}
  }
  consume(request:PreparedRibbonCpuDelivery,target:ILayerBuffer,path:'live'|'append'|'rebuild'):boolean {
   if(this.retired)throw new Error('Native Room runtime retired')

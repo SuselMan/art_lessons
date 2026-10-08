@@ -54,3 +54,10 @@ it('carry pressure sampling is strict DEV native-only and OFF by default',()=>{
  for(const q of ['?wcNative=1&wcCarryHardwarePressure=yes','?wcNative=1&wcCarryHardwarePressure=1&wcCarryHardwarePressure=0'])expect(()=>parse(true,q)).toThrow('Invalid')
  expect(parse(true,'?wcNative=1&wcCarryHardwarePressure=0').diagnosticCarryHardwarePressure).toBe(false)
 })
+
+it('detached raw warmup requires native DEV owner and is ignored in production',()=>{
+ expect(parse(true,'').diagnosticRawCanvasWarmup).toBe(false)
+ expect(parse(true,'?wcNative=1&wcRawCanvasWarmup=1').diagnosticRawCanvasWarmup).toBe(true)
+ for(const q of ['?wcRawCanvasWarmup=1','?wcNative=1&wcRawCanvasWarmup=yes','?wcNative=1&wcRawCanvasWarmup=1&wcRawCanvasWarmup=0'])expect(()=>parse(true,q)).toThrow()
+ for(const q of ['?wcNative=1&wcRawCanvasWarmup=1','?wcRawCanvasWarmup=bad&wcRawCanvasWarmup=1'])expect(parse(false,q).diagnosticRawCanvasWarmup).toBe(false)
+})
