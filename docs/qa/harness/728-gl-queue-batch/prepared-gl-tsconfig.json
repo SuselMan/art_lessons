@@ -14,7 +14,8 @@
   "OwnedGlPreparedSource.ts",
   "PrewarmedGlOwnerPool.ts",
   "PrewarmedEngineRevealSlots.ts",
-  "prewarmedEngineRevealSlots.test.ts"
+  "prewarmedEngineRevealSlots.test.ts",
+  "ownedGlPreparedSource.test.ts"
  ],
  "exclude": []
 }
