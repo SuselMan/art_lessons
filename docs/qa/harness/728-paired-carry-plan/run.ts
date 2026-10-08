@@ -34,7 +34,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
   const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
   const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));let lost=false
   void backend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
-  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,groupedSettleSubmission:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:op=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}})
+  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,groupedSettleSubmission:false,diagnosticStaticFrontCache:false,diagnosticStaticDiffuseHeight:false,diagnosticLazyFrontClimb:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:op=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}})
   const destroy=async()=>{try{await runner.drain();runner.destroy()}finally{backend.destroy();canvas.remove()}}
   return{backend,runner,errors,get lost(){return lost},destroy}
  }
