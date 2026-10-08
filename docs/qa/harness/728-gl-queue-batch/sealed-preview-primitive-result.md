@@ -20,3 +20,22 @@ channel sums/max, bbox, wet count and wet pixels outside pigment footprint.
 `RETAINED_WATER_PROBE=1` marks controller timing readback-perturbed. No canonical
 or production shader changes. Corrected primitive and actual own400water→70dab
 V content must be checked before Room preview wiring.
+
+## Corrected actual-pack RA/B0 primitive
+
+Fresh Surface raw `temp/device-runs/sealed-preview-primitive-RA-surface.json`:
+RA/B0 input and R/A-domain conversion now match source pack. Source8 SHA unchanged,
+GL0/context alive, initial60→334cells, mass5750→5583 (−2.904%), rightpond0.
+Footprint-only60→67; no full-domain expansion with footprint-only input.
+Pre2143/min1982/postclose2075MiB, own target CLOSED/Surface RELEASE.
+This closes the wrong-channel primitive gate; retained real-water pack/domain
+is separately proven in `retained-water-actual-result.md`. Neither primitive
+proves Room presentation/canonical endpoint; those are the next bounded gates.
+
+OFF Room entry `diagEarlyPreview=1`/controller `EARLY_PREVIEW=1` wired247315f2.
+Awaited prewarm21textures before input, explicit13.125MiB extra. Maximum **three
+preview admissions per QA session**, not reusable unlimited pending queue;
+retired slots stay owned until session GPUidle disposal. Original5352 unaffected.
+One material transport step/globalframe, active pen priority. Detach pending
+before exact rebase/land/cancel/contextloss, dispose only after actual fence.
+CPU existing installer7 + preview11 PASS; hardware Room still untested here.
