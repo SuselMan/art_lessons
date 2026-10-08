@@ -36,18 +36,19 @@ export class CanonicalRoomTileBridge {
   const module=device.createShaderModule({label:'DEV raw Q8 Room tile bridge',code:shader})
   this.pipeline=device.createRenderPipeline({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format:'rgba8unorm'}]},primitive:{topology:'triangle-list'}})
  }
- async copyByReadback(field:CanonicalGpuField,target:AccumulationBuffer,read:(field:CanonicalGpuField)=>Promise<Uint8Array>):Promise<void> {
+ async copyByReadback(field:CanonicalGpuField,target:AccumulationBuffer,read:(field:CanonicalGpuField)=>Promise<Uint8Array>,current:()=>boolean=()=>true):Promise<void> {
   this.guard(field,target)
   const bytes=await read(field);this.guard(field,target)
+  if(!current())throw new Error('Room tile bridge publication retired')
   target.restorePixels(canonicalTopRowsToGlRows(bytes,field.width,field.height))
  }
- async copyByCanvas(field:CanonicalGpuField,target:AccumulationBuffer):Promise<void> {
+ async copyByCanvas(field:CanonicalGpuField,target:AccumulationBuffer,current:()=>boolean=()=>true):Promise<void> {
   this.guard(field,target)
   const encoder=this.device.createCommandEncoder({label:'DEV raw tile to Room bridge'})
   const pass=encoder.beginRenderPass({colorAttachments:[{view:this.context.getCurrentTexture().createView(),clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]})
   pass.setPipeline(this.pipeline);pass.setBindGroup(0,this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view}]}));pass.draw(3);pass.end()
   this.device.queue.submit([encoder.finish()]);await this.device.queue.onSubmittedWorkDone()
-  this.guard(field,target);target.restoreCanvasPixels(this.canvas)
+  this.guard(field,target);if(!current())throw new Error('Room tile bridge publication retired');target.restoreCanvasPixels(this.canvas)
  }
  private guard(field:CanonicalGpuField,target:AccumulationBuffer) {
   if(this.disposed)throw new Error('Room tile bridge disposed')
