@@ -3,7 +3,7 @@ export async function runMixedQuality(input) {
   const {PencilEngine}=await import(input.engineUrl);
   const ownedCanvas=document.createElement('canvas');ownedCanvas.width=ownedCanvas.height=1024;
   document.querySelector('#surface').replaceChildren(ownedCanvas);
-  const e=new PencilEngine(ownedCanvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'standalone-qa',joinedTouch:true,joinedFinishDeferred:false,gradientFibres:true});
+  const e=new PencilEngine(ownedCanvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'standalone-qa',joinedTouch:true,joinedFinishDeferred:input.deferred??false,gradientFibres:true});
   window.__standaloneMixedEngine=e;e._settleQueue.diagnosticSolverBatchEnabled=true;
   await e.paperReady();
   e.appendOperation({id:'layer-0',type:'layer_add',userId:'standalone-qa',timestamp:1791400000000,layerId:'L',name:'QA'},'remote');
@@ -14,7 +14,7 @@ export async function runMixedQuality(input) {
   await e.paperReady();
   const original=e._paintStrokeDabs,tape=[[[220,300],[500,300],[720,320]],[[430,310],[650,330],[840,340]]];
   const beforeIDs=new Set(e.getOperations().map(x=>x.id));let gesture=0,seeded=false,scratch;
-  const stages=[];if(!e._wcJoinedTouch||e._wcJoinedFinishDeferred)throw Error('Required narrow joined/deferred baseline absent');
+  const stages=[];if(!e._wcJoinedTouch||e._wcJoinedFinishDeferred!==(input.deferred??false))throw Error('Required narrow joined/deferred baseline absent');
   if(typeof input.on!=='boolean')throw Error('Explicit ONE mixed flag required');e._wcJoinedTouchMixed=input.on;
   if(input.kind!=='water-pigment')throw Error('Only controlled water→pigment first-pixel fixture approved');
   let completeCalls=0;const originalComplete=e._completeSettle;e._completeSettle=function(...args){completeCalls++;return originalComplete.apply(this,args)};
@@ -37,7 +37,7 @@ export async function runMixedQuality(input) {
       e._onMove(sample(p[1],gesture*10+1));e._onMove(sample(p[2],gesture*10+2));
       const commands=scratch.runningSourceCommands.length;if(gesture&&!input.noOverlap&&input.on&&!commands)throw Error('Mandatory mixed source commands absent');const up=performance.now();e._onEnd(sample(p[2],gesture*10+3));
       Object.assign(stages.at(-1),{downAndMoveMs:up-at,upMs:performance.now()-up,oldOps:old?.ops.length??0,oldNext:old?.next??0,commands,held:!!e._wcJoinedDeferred,oldStillCurrent:e._settle===old});
-      if(gesture&&!input.noOverlap&&input.on&&e._wcJoinedDeferred)throw Error('Unexpected deferred UP');
+      if(gesture&&!input.noOverlap&&input.on&&!!e._wcJoinedDeferred!==(input.deferred??false))throw Error('Deferred UP ownership mismatch');
     }
     // No synchronous completion and no readback during input/canonical tail.
     const liftedAt=performance.now(),rafIntervals=[];let lastFrame=liftedAt,observing=true;
@@ -64,6 +64,6 @@ export async function runMixedQuality(input) {
     const layerHash=async()=>{const out=[];for(const tile of e._layers.get('L').allResident())out.push({x:tile.originX,y:tile.originY,sha:await hash(tile.buffer.readPixels())});return JSON.stringify(out)};
     const beforeUndo=await layerHash();e.undo();await idle();const afterUndo=await layerHash();e.redo();await idle();const afterRedo=await layerHash();const history={undoMeaningful:beforeUndo!==afterUndo,redoExact:beforeUndo===afterRedo};
     const gl=e.gl.getError();if(gl||e.gl.isContextLost())throw Error('GL/loss '+gl);
-    return{input,actor: e._userId,stages,timing,fields,material,materialSHA,journal,whole,history,gl,gpu:e.gpuInfo(),model:{deferred:e._wcJoinedFinishDeferred,joined:e._wcJoinedTouch,mixed:e._wcJoinedTouchMixed,async:e._wcAsyncFinish,material:e._wcMaterialPresentation,rebase:e._wcSourceFilmRebase,split:e._settlePlan.splitQuanta},scope:'Queue ON/deferred OFF. No post-DOWN readback. Standalone actual-engine fixed400 water→pigment; ONE mixed flag; No physical pen/compositor/FPS proof; no Room, server, ACK or persistence gate; natural finish/fields gates separate'};
+    return{input,actor: e._userId,stages,timing,fields,material,materialSHA,journal,whole,history,gl,gpu:e.gpuInfo(),model:{deferred:e._wcJoinedFinishDeferred,joined:e._wcJoinedTouch,mixed:e._wcJoinedTouchMixed,async:e._wcAsyncFinish,material:e._wcMaterialPresentation,rebase:e._wcSourceFilmRebase,split:e._settlePlan.splitQuanta},scope:'Queue ON; deferred explicitly reported in model. No post-DOWN readback. Standalone actual-engine fixed400 water→pigment; ONE mixed flag; No physical pen/compositor/FPS proof; no Room, server, ACK or persistence gate; natural finish/fields gates separate'};
   }finally{e._paintStrokeDabs=original;e._completeSettle=originalComplete;e.destroy();window.__standaloneMixedEngine=null;}
 }
