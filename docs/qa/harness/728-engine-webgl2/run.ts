@@ -69,7 +69,7 @@ export function disposePrototype() {
   engine?.destroy(); engine = null
   document.querySelector('#surface')!.replaceChildren()
 }
-export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline' }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule } = {}) {
+export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', paper = 'flat', schedule = 'baseline', onPaintPhase }: { backend?: Backend; scenario?: string; paper?: PaperType; schedule?: BatchSchedule; onPaintPhase?:(phase:'start'|'end',engine:PencilEngine)=>void } = {}) {
   disposePrototype()
   const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024
   document.querySelector('#surface')!.append(canvas)
@@ -87,12 +87,14 @@ export async function runPrototype({ backend = 'webgl1', scenario = 'zigzag', pa
   const initMs = performance.now() - started
   const operations = tape(scenario)
   const tapeSha256 = await digest(new TextEncoder().encode(JSON.stringify(operations)))
+  onPaintPhase?.('start',current)
   const phaseMs: number[] = [], startedPaint = performance.now()
   for (const operation of operations) {
     const before = performance.now(); current.appendOperation(operation, 'remote'); await idle(probe); phaseMs.push(performance.now() - before)
   }
   await idle(probe)
   const paintMs = performance.now() - startedPaint
+  onPaintPhase?.('end',current)
   const queue = queueCapture.snapshot(); queueCapture.detach()
   const fields = await captureFieldRoles(current as unknown as Parameters<typeof captureFieldRoles>[0], paper, probe._watercolorPasses.brushPairStats.pairs)
   const materialWholeLayer = await hashLayer(probe)
