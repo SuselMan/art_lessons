@@ -44,7 +44,23 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000}:{
   native=await runner.target.buffer.readBytes()
  }finally{await runner.drain();runner.destroy();backend.destroy();surface.replaceChildren()}
  console.info('E2E native readback complete');const nativeMs=performance.now()-started
- // Sequential owners: no simultaneous native+GL1536 allocation.
+ // Third fresh owner isolates event-batch delivery from authoritative packed replay.
+ const originalTapeSha256=await hash(new TextEncoder().encode(JSON.stringify(tape)))
+ const replayCanvas=document.createElement('canvas');surface.append(replayCanvas)
+ const replayBackend=await CanonicalWatercolorWebGpu.create({canvas:replayCanvas,width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
+ replayBackend.device.addEventListener('uncapturederror',event=>errors.push('nativeReplay: '+event.error.message))
+ void replayBackend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
+ let replayClock=1000
+ const replayRunner=new CanonicalBoundedSceneRunner(replayBackend,{sourceOptions,now:()=>replayClock,timestamp:()=>1791400000000+replayClock,operationId:()=>{throw new Error('Replay must preserve original operation IDs')}})
+ let nativeReplay:Uint8Array
+ const replayStarted=performance.now()
+ try{
+  for(const operation of tape){if(operation.type!=='stroke')throw new Error('Native tape contains unsupported control operation');replayClock=operation.timestamp-1791400000000;replayRunner.replay(operation);await replayRunner.drain();console.info('E2E native packed replay drained',operation.id)}
+  nativeReplay=await replayRunner.target.buffer.readBytes()
+ }finally{await replayRunner.drain();replayRunner.destroy();replayBackend.destroy();surface.replaceChildren()}
+ const nativeReplayMs=performance.now()-replayStarted
+ const replayPreservedTape=originalTapeSha256===await hash(new TextEncoder().encode(JSON.stringify(tape)))
+ // Sequential owners: no simultaneous native+nativeReplay+GL1536 allocation.
  const glCanvas=document.createElement('canvas');glCanvas.width=1024;glCanvas.height=1024;surface.append(glCanvas)
  const engine=new PencilEngine(glCanvas,{paper:'fine',pageWidth:1024,pageHeight:1024,userId:'qa-native',joinedTouch:true,gradientFibres:true})
  const probe=engine as unknown as {_ribbonPainter:Record<string,unknown>;gl:WebGLRenderingContext;_settle:unknown;_rebuildJobs:Map<string,unknown>;_pendingRebuilds:Set<string>;_unsettledLayers:Set<string>;_layers:Map<string,ILayerBuffer>}
@@ -58,6 +74,6 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000}:{
   const tiles=probe._layers.get('L')!.allResident();for(const tile of tiles){const bytes=flip(tile.buffer.readPixels(),tile.buffer.width,tile.buffer.height);for(let y=0;y<tile.buffer.height;y++){const yy=tile.originY+y;if(yy<0||yy>=1024)continue;const x=Math.max(0,tile.originX),end=Math.min(1024,tile.originX+tile.buffer.width);if(end>x)legacy.set(bytes.subarray((y*tile.buffer.width+x-tile.originX)*4,(y*tile.buffer.width+end-tile.originX)*4),(yy*1024+x)*4)}}
   const ext=probe.gl.getExtension('WEBGL_debug_renderer_info');renderer=ext?String(probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):null;glError=probe.gl.getError()
  }finally{engine.destroy();surface.replaceChildren()}
- return{code:'__CODE__',size,memoryGiB,estimatedPeakMiB,nativeMs,legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
+ return{code:'__CODE__',size,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
 }
 Object.assign(window,{runEndToEnd})
