@@ -159,3 +159,46 @@ Review manifest содержит runtime SHA и query flags, private host/room U
 хранятся вне Git. Runtime unchanged, defaults OFF. Для смотрин проверять
 отдельно: foreground water→pigment, второй цвет касается мокрого первого,
 а также задержку UP/следующего DOWN. Filmstrip до сих пор не записан.
+
+### Следующий UP кандидат, пока CPU-only
+
+Никаких изменений source/runtime смотрин. Existing opt-in
+`qaJoinedFinishDeferred=1` совместно с joined/mixed сохраняет immutable
+successor finish и lease-owner при UP. Старый job завершается в обычной
+очереди; затем его complete запускает captured successor exactly once.
+Q8 passes/order не меняются, publication/checkpoint/export блокируются,
+пока held successor не готов. Это ещё не аппаратный proof качества/плавности.
+Третий DOWN при незавершённом successor сохраняет conservative drain,
+поэтому бесконечную цепочку без задержек этот кандидат не обещает.
+
+Новые CPU edge fixtures: water100/pigment0 → pigment100, queue ON;
+OFF/ON UP barrier, captured pigment profile/colour после изменения tool,
+ordered Dry с обоими accepted strokes, Undo pending owner/stale resume.
+Вместе с существующими joined/deferred suites: 27tests PASS.
+Команда из repo root:
+`npx vitest run --config docs/qa/harness/728-gl-queue-batch/mixed-deferred-vitest.config.mjs --maxWorkers=2`.
+MockGL не доказывает actual RGBA; next hardware требует separate passive
+Room cohort и same-input exact/history, после освобождения Surface.
+
+### ONE deferred-UP Surface cohort
+
+Queue/mixed ON, async/material OFF. Constructor deferred OFF/ON independently
+verified. OFF max rAFgap500ms/scene7045ms; ON max133ms/scene8876ms. ON has
+zero _completeSettle calls during observed scene; OFF second UP drains29.2ms,
+water→pigment UP13.8ms. Corresponding full UP74.2→39ms and49.9→33ms.
+First UP remains96.5ms ON; fully smooth UX is not claimed. Canonical idle
+completion is slower26% in this one instrumental pair, not throughput gain.
+
+Separate exact fixture: same fixed400 water→pigment inputs, queue/mixed ON,
+deferred OFF→ON, ALL24 named retained roles/wholeRGBA/packedmaterial EXACT;
+meaningful Undo/exact Redo both arms, errors0/lostfalse. No readback/query/fence
+added during input. MinRAM1166(Room)/1493(quality), release2076MiB. Local CDP
+forward had disappeared before target creation; read-only remote9352 verified,
+only own SSH forward9455 restored, no Chrome restart. Failure raw preserved.
+
+Compact `room-deferred-surface-summary.json`, raw
+`temp/device-runs/queue-{room-deferred,deferred-quality}-surface.json`.
+No review source mutation. Optional user review is another Room URL with
+explicit `qaJoinedFinishDeferred=1`, not a default promotion. Third rapid DOWN
+and peer/layer/live-filmstrip remain bounded future gates. Surface released
+before further offline analysis.
