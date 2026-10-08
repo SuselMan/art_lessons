@@ -1,0 +1,71 @@
+{
+  "scope": "First observed nonexact checkpoint status; no new GPU run or cause claim",
+  "baselineActual": {
+    "report": "docs/qa/native-room-init/common-inward11-surface-summary.json",
+    "raw": "temp/device-runs/inward-steps-ee/report.json",
+    "code": "ee8350a5cc9d92b6502fdf4085cd83ed24bad347",
+    "inputMaskSha256": "9f44c7d06acd3b66e460cb7e806c59faeb4af74152d4739bb7a63de8f2a54eb2",
+    "operator": "waterFrontInward",
+    "steps": 11,
+    "channels": [
+      {
+        "changed": 3,
+        "max": 1,
+        "sum": 3
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "coordinatesAvailable": false,
+    "reason": "Previous frozen reporter retained counts and hashes only; coordinates cannot be recovered from SHA"
+  },
+  "nextPrepared": {
+    "code": "4ec4d259c5a49c36c9bb4faf641c5e6865ed2f1e",
+    "bundleSha256": "1be92150d527c59271cee3d95f4626df558b991821a95e5b84406c0f927b93ed",
+    "controls": [
+      {
+        "stopAfter": 11,
+        "sourceFilter": "manual"
+      },
+      {
+        "stopAfter": 2,
+        "sourceFilter": "legacy default"
+      }
+    ],
+    "coordinates": {
+      "rowConvention": "world-top",
+      "recordLimit": 32,
+      "fields": [
+        "x",
+        "y",
+        "channel",
+        "expected",
+        "actual"
+      ],
+      "truncationFlag": true
+    },
+    "runtimeDefault": "11 steps with LEGACY; diagnostics OFF"
+  },
+  "interpretationRules": [
+    "manual11 exact would implicate sampling for this primitive; it would not prove final49052/max36 is solved",
+    "stopAfter2 exact would restrict first observed mismatch to following nine steps; it does not identify a single iteration",
+    "No actual mismatch coordinates, pressure histogram bin or CPU texel sensitivity may be asserted as causal",
+    "Compare controls only on identical actual mask9f44, coverage/paper/noise and per-stepQ8, with source SHA recorded",
+    "GL producer remains retired before native allocation; no Samsung hardware"
+  ],
+  "tests": "4 bounded schema/serializer unit tests plus harness TS and oxlint PASS",
+  "hardware": "Not allocated for next packet; no device calls by this report"
+}
