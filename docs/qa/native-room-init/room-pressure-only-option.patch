@@ -1,0 +1,51 @@
+--- a/apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts
++++ b/apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts
+@@ -16,6 +16,8 @@
+ import {canonicalSourceRevealRect} from './strokeScratchMetadata'
+ 
+ export interface RoomNativeRuntimeContext {
++ /** DEV QA only: pressure D sampler in canonical carry15/16; OFF default. */
++ diagnosticCarryHardwarePressure?:boolean
+  diagnosticTipContactA?:boolean
+  diagnosticMomentTransport?:boolean
+  diagnosticMomentGpuAudit?:boolean
+--- a/apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts
++++ b/apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts
+@@ -76,12 +76,13 @@
+  private retired=false
+  private retirement:Promise<void>|null=null
+  private readonly ready:Promise<void>
+- constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticMomentGpuAudit?:boolean;diagnosticMomentVector?:boolean}) {
++ constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticMomentGpuAudit?:boolean;diagnosticMomentVector?:boolean;diagnosticCarryHardwarePressure?:boolean}) {
+   if(options.tile.width!==1024||options.tile.height!==1024||options.originX!==0||options.originY!==0)throw new Error('DEV Room native executor requires one origin-zero1024 tile; no silent GL fallback')
+   if(options.diagnosticMomentVector&&!options.diagnosticMomentGpuAudit)throw Error('DEV vector moment requires GPU audit')
+   if(!options.central.isIdle)throw new Error('Seed native Room tile only at a central idle boundary')
+   this.backend=backend;this.glTile=options.tile;this.layerId=options.layerId;this.generation=options.generation;this.central=options.central;this.bridgeMode=options.bridgeMode
+-  this.adapter=new CanonicalPlanAdapter(backend);this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
++  this.adapter=new CanonicalPlanAdapter(backend);
++  installRoomCarryPressureControl(this.adapter,import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true);this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
+   this.target={buffer:new CanonicalFieldBuffer(backend,1024,1024,'linear','DEV actual Room watercolor tile'),originX:0,originY:0,contentRect:null}
+   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),{brushTravel:[],wetContacts:[]},[this.target])
+   this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})},()=>this.scratch.trackRunningSource)
+@@ -225,3 +226,21 @@
+ export function assertRoomNativeChunkIdentity(chunk:Pick<RoomNativePreparedChunk,'path'|'layerId'|'generation'|'strokeId'|'ordinal'>,layerId:string,generation:number):void {
+  if(!['live','append','rebuild'].includes(chunk.path)||chunk.layerId!==layerId||chunk.generation!==generation||!chunk.strokeId||!Number.isInteger(chunk.ordinal)||chunk.ordinal<0)throw new Error('Native Room prepared chunk identity mismatch')
+ }
++
++/** QA-only owner-local wrapper. No global sampler/pipeline/default changes. */
++export function installRoomCarryPressureControl(adapter:CanonicalPlanAdapter,enabled=false){
++ if(typeof enabled!=='boolean')throw Error('Explicit Room carry pressure control')
++ if(enabled&&(adapter.diagnosticHardwareLinearInputs||adapter.diagnosticPairedCarry))throw Error('Room pressure-only control requires original unpaired baseline')
++ const original=adapter.fieldOp
++ const counters={mode15:0,mode16:0,other:0}
++ if(!enabled)return counters
++ adapter.fieldOp=function(out,a,b,mode,k,options={}){
++  if(mode!==15&&mode!==16){counters.other++;return original.call(this,out,a,b,mode,k,options)}
++  if(options.d?.field.filter!=='linear'||[a,b,options.c,options.e,options.path].some(f=>f&&f.field.filter!=='nearest'))throw Error('Pressure D must be ONLY LINEAR Room carry input')
++  if(this.diagnosticHardwareLinearInputs||this.diagnosticPairedCarry)throw Error('Room carry sampling configuration changed')
++  if(mode===15)counters.mode15++;else counters.mode16++
++  const before=this.diagnosticHardwareLinearInputs;this.diagnosticHardwareLinearInputs=true
++  try{return original.call(this,out,a,b,mode,k,options)}finally{this.diagnosticHardwareLinearInputs=before}
++ }
++ return counters
++}
