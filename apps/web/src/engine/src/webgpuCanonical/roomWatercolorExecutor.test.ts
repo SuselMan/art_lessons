@@ -1,5 +1,6 @@
 import {describe,it,expect,vi} from 'vitest'
-import {CanonicalRoomWatercolorExecutor,assertRoomNativeChunkIdentity} from './roomWatercolorExecutor'
+import {CanonicalRoomWatercolorExecutor,assertRoomNativeChunkIdentity,installRoomCarryPressureControl} from './roomWatercolorExecutor'
+import type {CanonicalPlanAdapter} from './settlePlanAdapter'
 describe('one native renderer identity across real engine routes',()=>{
  it('admits existing live, append and rebuild provenance through the same contract',()=>{
   for(const path of ['live','append','rebuild'] as const)expect(()=>assertRoomNativeChunkIdentity({path,layerId:'layer-a',generation:3,strokeId:'packed-source',ordinal:0},'layer-a',3)).not.toThrow()
@@ -10,6 +11,26 @@ describe('one native renderer identity across real engine routes',()=>{
   expect(()=>assertRoomNativeChunkIdentity(op,'layer-b',3)).toThrow()
   expect(()=>assertRoomNativeChunkIdentity({...op,ordinal:-1},'layer-a',3)).toThrow()
  })
+})
+
+it('pressure QA leaves OFF identity and restores sampling after a failed carry',()=>{
+ const submitted=vi.fn()
+ const source={diagnosticHardwareLinearInputs:false,diagnosticPairedCarry:false,fieldOp:submitted}
+ const adapter=source as unknown as CanonicalPlanAdapter
+ const original=adapter.fieldOp
+ installRoomCarryPressureControl(adapter,false)
+ expect(adapter.fieldOp).toBe(original)
+ const counters=installRoomCarryPressureControl(adapter,true)
+ const nearest={field:{filter:'nearest'}},linear={field:{filter:'linear'}}
+ const invoke=(mode:number,d=linear)=>Reflect.apply(adapter.fieldOp,adapter,[nearest,nearest,nearest,mode,0,{d}])
+ invoke(6)
+ expect(source.diagnosticHardwareLinearInputs).toBe(false)
+ submitted.mockImplementation(()=>{expect(source.diagnosticHardwareLinearInputs).toBe(true);throw Error('carry failed')})
+ expect(()=>invoke(15)).toThrow('carry failed')
+ expect(source.diagnosticHardwareLinearInputs).toBe(false)
+ expect(counters).toEqual({mode15:1,mode16:0,other:1})
+ expect(()=>invoke(15,nearest)).toThrow('ONLY LINEAR')
+ expect(counters.mode15).toBe(1)
 })
 
 it('retirement releases owner-local resources even when shared GPU completion rejects',async()=>{

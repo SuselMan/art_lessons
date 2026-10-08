@@ -4,7 +4,7 @@ import { joinedFinishDeferredQaEnabled } from './joinedFinishDeferredQa'
 
 /** Constructor flags only. Production values and existing explicit DEV opt-ins
  * stay identical; diagnostic selection does not own material or scheduling. */
-export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA'> {
+export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticCarryHardwarePressure'> {
  const query = new URLSearchParams(search)
  const flag=(name:string)=>{
   if(!dev)return false
@@ -12,10 +12,12 @@ export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: str
   if(values.length>1||values.some(value=>value!=='0'&&value!=='1'))throw new Error(`Invalid watercolor QA flag ${name}`)
   return values[0]==='1'
  }
+ const diagnosticCarryHardwarePressure=flag('wcCarryHardwarePressure')
  const diagnosticTipContactA=flag('wcTipA')
  const diagnosticMomentVector=flag('wcMomentVector')
  const diagnosticMomentGpuAudit=flag('wcMomentGpuAudit')
  const nativeWatercolor=flag('wcNative'),diagnosticMomentTransport=flag('wcMomentTransport')
+ if(diagnosticCarryHardwarePressure&&!nativeWatercolor)throw new Error('wcCarryHardwarePressure requires wcNative=1')
  if(diagnosticTipContactA&&!nativeWatercolor)throw new Error('wcTipA requires wcNative=1')
  if(diagnosticMomentVector&&!diagnosticMomentGpuAudit)throw new Error('wcMomentVector requires wcMomentGpuAudit=1')
  if(diagnosticMomentGpuAudit&&!diagnosticMomentTransport)throw new Error('wcMomentGpuAudit requires wcMomentTransport=1')
@@ -23,7 +25,7 @@ export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: str
  const diagnosticWebgl2=flag('wcGl2'),diagnosticBrushMrt=flag('wcMrt'),diagnosticFrontBatch=flag('wcFrontBatch')
  if(diagnosticBrushMrt&&!diagnosticWebgl2)throw new Error('wcMrt requires wcGl2=1')
  return {
-  diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
+  diagnosticCarryHardwarePressure,diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
   asyncFinish: false,
   joinedTouch: !dev || joinedTouchQaEnabled(dev, joined, search),
   joinedTouchMixed: dev && query.get('qaJoinedTouchMixed') === '1',

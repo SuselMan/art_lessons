@@ -45,3 +45,12 @@ it('native rare-gap A is explicit DEV-only and requires native owner',()=>{
  expect(()=>parse(true,'?wcNative=1&wcTipA=1&wcTipA=0')).toThrow('Invalid')
  expect(parse(true,'?wcNative=1&wcTipA=1').diagnosticTipContactA).toBe(true)
 })
+
+it('carry pressure sampling is strict DEV native-only and OFF by default',()=>{
+ expect(parse(false,'?wcCarryHardwarePressure=1').diagnosticCarryHardwarePressure).toBe(false)
+ expect(parse(true,'').diagnosticCarryHardwarePressure).toBe(false)
+ expect(parse(true,'?wcNative=1&wcCarryHardwarePressure=1').diagnosticCarryHardwarePressure).toBe(true)
+ expect(()=>parse(true,'?wcCarryHardwarePressure=1')).toThrow('requires wcNative')
+ for(const q of ['?wcNative=1&wcCarryHardwarePressure=yes','?wcNative=1&wcCarryHardwarePressure=1&wcCarryHardwarePressure=0'])expect(()=>parse(true,q)).toThrow('Invalid')
+ expect(parse(true,'?wcNative=1&wcCarryHardwarePressure=0').diagnosticCarryHardwarePressure).toBe(false)
+})

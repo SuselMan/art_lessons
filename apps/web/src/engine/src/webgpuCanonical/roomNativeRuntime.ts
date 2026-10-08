@@ -16,6 +16,8 @@ import {RoomNativeCentralAdapter} from './roomNativeCentralAdapter'
 import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 
 export interface RoomNativeRuntimeContext {
+ /** DEV QA only: pressure D sampler in canonical carry15/16; OFF default. */
+ diagnosticCarryHardwarePressure?:boolean
  diagnosticTipContactA?:boolean
  diagnosticMomentTransport?:boolean
  diagnosticMomentGpuAudit?:boolean
@@ -96,9 +98,10 @@ export class RoomNativeRuntime {
   this.queued=true
   this.central.enqueueSource(()=>{if(this.scratch!==recipient||this.targetLayer!==target||!this.owner)throw new Error('Native foreign-water recipient layer/generation mismatch');this.owner.importForeign(gesture)},async()=>{})
  }
+ get carryPressureDiagnostics(){return this.owner?.carryPressureDiagnostics??null}
  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
   if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}
-  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
+  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,diagnosticCarryHardwarePressure:this.ctx.diagnosticCarryHardwarePressure,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
   return this.owner
  }
  finish(scratch:RibbonStrokeScratch,metadata:RibbonFinishMetadata):void {
