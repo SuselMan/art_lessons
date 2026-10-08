@@ -1,6 +1,6 @@
 # #728: ожидаемый прирост и границы доказательств, 08.10.2026
 
-Это прогноз по измеренным кандидатам, а не обещание FPS и не готовность production. Проценты не складываются: варианты затрагивают общие проходы. Источник ordinary Room QA — frozen97e31b45; аппаратная проверка этой комнаты ещё выполняется.
+Это прогноз по измеренным кандидатам, а не обещание FPS и не готовность production. Проценты не складываются: варианты затрагивают общие проходы. Ordinary Room QA frozen97e31b45 на Surface прошёл: кисть400, вода→пигмент, exact fields/material/whole, Dry/meaningful Undo/Redo/fresh. MRT87pairs/fallback0. В одной паре максимальный rAF39.2→71.1ms; общий выигрыш времени нельзя выдавать за улучшение каждого кадра.
 
 | Направление | Измеренный эффект | Что можно ожидать сейчас |
 |---|---|---|
@@ -14,7 +14,8 @@
 | Native WebGPU static cache | Отдельные front/diffuse kernels34%/29%; прогретый whole100 около8% в малой серии | Перспективный локальный кандидат; переносить на Room400/Samsung нельзя |
 | Native progressive queue | Pointer400 release→idle в последовательной серии39–73% быстрее | Потенциал очереди есть; unperturbed400 material parity и actual Room ещё не закрыты |
 | WebGPU→GL canvas bridge | Surface1024 warm4.2/6.9ms против readback17.6/16.4ms; premultiplied fixture exact | Перенос без CPU RGBA readback дешевле, но это часть стоимости, не общий прирост WebGPU |
-| Полная акварель WebGPU в Grafetto | Actual engine wiring готовится; ограничение один origin-zero tile, unsupported foreign wash явно отвергается | Честного прогноза общего выигрыша пока нет |
+| WebGPU в Grafetto | Actual Room routing подключён, один origin-zero tile; foreign wash пока unsupported. Samsung pen40 записал stroke, затем общий GPU process exit0 | Прогноз общего выигрыша отсутствует; Samsung gate FAIL, причина driver/OOM/watchdog/compiler пока не установлена |
+| Удаление dead colour snapshot | Single-paint/S>1: softwareGL400 все26fields/material/export/tape exact, skip1;9MiB storage и18MiB copytraffic при1536 | Аппаратный выигрыш неизвестен; mixed negative control ещё выполняется, кандидат OFF |
 
 ## Проверки перед включением
 
@@ -24,3 +25,5 @@
 4. Новые математические кандидаты: сначала доказательство области вычисления/Float32 порядка и exact gate, затем hardware timing. Не менять физику ради ускорения.
 
 Подробные данные: [полный factorial](728-webgl-factorial-surface.md), [SMT поиск](harness/728-fit-superopt/README.md), [GL cache FAIL](harness/728-gl-static-paper/README.md), [bridge](harness/728-room-webgpu-bridge/README.md), [ночные результаты](728-morning-2026-10-08.md).
+
+Дополнительно: [ordinary Room GL gate](728-room-webgl-factorial-surface.md), [статусы36 методов](callgraph-viewer/method-status-2026-10-08.md), [memory/ownership proof альтернативы кешу](harness/728-gl-static-paper/stencil-alternative.md). Исследования отдельных кандидатов закончены положительными или отрицательными gates;17 методов по-прежнему имеют непроверенные предложения. «Все методы оптимизированы» было бы неверным итогом.
