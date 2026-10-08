@@ -1,5 +1,5 @@
 import { StageAudit,compareStages,type StageRow } from './stageAudit'
-import type { StrokeOperation } from '@grafetto/shared'
+import type { Operation,StrokeOperation } from '@grafetto/shared'
 import { getPaperBytes } from '../../../../apps/web/src/engine/src/paper/paperLoader'
 import { CanonicalWatercolorWebGpu } from '../../../../apps/web/src/engine/src/webgpuCanonical/backend'
 import { CanonicalBoundedSceneRunner } from '../../../../apps/web/src/engine/src/webgpuCanonical/boundedSceneRunner'
@@ -16,7 +16,8 @@ interface Counts {submits:number;commandBuffers:number;submitCpuMs:number;quanta
 interface RoleCapture {width:number;height:number;nonzero:number;sha256:string;difference:ReturnType<typeof diff>}
 interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;stages:StageRow[];carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
 const count=():Counts=>({submits:0,commandBuffers:0,submitCpuMs:0,quanta:0,encodeCpuMs:0})
-export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,perOperationStages=false,oraclePairIndex}:{perOperationStages?:boolean;controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,perOperationStages=false,firstOpSolventStages=false,oraclePairIndex}:{firstOpSolventStages?:boolean;perOperationStages?:boolean;controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+ if(firstOpSolventStages&&!perOperationStages)throw new Error('First-op solvent gate requires perOperationStages')
  if(perOperationStages&&(!controlRepeat||progressive||captureSolvent||oraclePairIndex!==undefined))throw new Error('Per-op stage gate is isolated serial OFF/OFF only')
  if(progressive&&captureSolvent)throw new Error('Solvent source/finish captures require serial synchronous settle; progressive final-role gate remains supported')
  if(controlRepeat&&oraclePairIndex!==undefined)throw new Error('OFF/OFF repeat has no paired oracle; run separately')
@@ -34,7 +35,9 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
   const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
   const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));let lost=false
   void backend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
-  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,groupedSettleSubmission:false,diagnosticStaticFrontCache:false,diagnosticStaticDiffuseHeight:false,diagnosticLazyFrontClimb:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:op=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}})
+  const runnerOptions={sourceOptions,groupedSettleSubmission:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:(op:Operation)=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}}
+  const runner=new CanonicalBoundedSceneRunner(backend,runnerOptions)
+  runner.adapter.diagnosticStaticFrontCache=false;runner.adapter.diagnosticStaticDiffuseHeight=false;runner.adapter.diagnosticLazyFrontClimb=false
   const destroy=async()=>{try{await runner.drain();runner.destroy()}finally{backend.destroy();canvas.remove()}}
   return{backend,runner,errors,get lost(){return lost},destroy}
  }
@@ -83,10 +86,11 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    }
   }
   const audit=perOperationStages?new StageAudit():null,stages:StageRow[]=[],sourceStages:Array<Promise<StageRow>>=[]
-  const stageBuffers=()=>{const e=runner.scratch.peek(runner.target.buffer);return{layer:runner.target.buffer,'tile.colorBase':e?.colorBase,'tile.solventLoad':e?.solventLoad,'field.pressure':field?.pressure}}
+  let revealRect:readonly number[]|null=null
+  const stageBuffers=()=>{const e=runner.scratch.peek(runner.target.buffer);return{layer:runner.target.buffer,'tile.colorBase':e?.colorBase,'tile.solventLoad':e?.solventLoad,'field.pressure':field?.pressure,...(firstOpSolventStages&&replayIndex===1?{'tile.solventBase':e?.solventBase,'tile.strokeSolvent':e?.strokeSolvent,'tile.coverage':e?.coverage}:{})}}
   const stageRead=(b:CanonicalFieldBuffer)=>{const hook=backend.device.queue.submit;backend.device.queue.submit=submit;try{return b.readBytes()}finally{backend.device.queue.submit=hook}}
-  const settle=internals.settle.bind(runner);internals.settle=()=>{if(audit)sourceStages.push(audit.snapshot(replayIndex,'source-before-settle',stageBuffers(),stageRead));capture('source');phase='settle';try{const result=settle();capture('finish');return result}finally{phase='source'}}
-  const execute=internals.source.execute.bind(internals.source);internals.source.execute=(...args)=>{phase='source';audit?.record('source',args.slice(1));return execute(...args)}
+  const settle=internals.settle.bind(runner);internals.settle=()=>{if(audit)sourceStages.push(audit.snapshot(replayIndex,'source-before-settle',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));capture('source');phase='settle';try{const result=settle();capture('finish');return result}finally{phase='source'}}
+  const execute=internals.source.execute.bind(internals.source);internals.source.execute=(...args)=>{phase='source';const r=(args[1] as {rect:readonly number[]|null}).rect;if(r){if(!revealRect)revealRect=[...r];else{const x=Math.min(revealRect[0],r[0]),y=Math.min(revealRect[1],r[1]);revealRect=[x,y,Math.max(revealRect[0]+revealRect[2],r[0]+r[2])-x,Math.max(revealRect[1]+revealRect[3],r[1]+r[3])-y]}}audit?.record('source',args.slice(1));return execute(...args)}
   const live=internals.finish.encodeLive.bind(internals.finish);internals.finish.encodeLive=(...args)=>{phase='live';return live(...args)}
   const prepare=internals.planner.prepare.bind(internals.planner);internals.planner.prepare=(...args)=>{phase='prepare';audit?.record('plan',args.slice(2));return prepare(...args)}
   let field:CanonicalSettleField|null=null
@@ -105,7 +109,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    await runner.drain();for(const m of Object.values(metrics))Object.assign(m,count())
    backend.device.pushErrorScope('validation')
    const started=performance.now()
-   for(const operation of tape){audit?.reset();replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id);if(audit){const sources=sourceStages.splice(0);for(const pending of sources)stages.push(await pending);stages.push(await audit.snapshot(replayIndex,'after-finish',stageBuffers(),stageRead));}}
+   for(const operation of tape){audit?.reset();revealRect=null;replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id);if(audit){const sources=sourceStages.splice(0);for(const pending of sources)stages.push(await pending);stages.push(await audit.snapshot(replayIndex,'after-finish',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));}}
    wallMs=performance.now()-started;progress('readback '+(paired?'ON':'OFF'))
    if(!field)throw new Error('No canonical settle field captured')
    const capturedField=field as CanonicalSettleField
