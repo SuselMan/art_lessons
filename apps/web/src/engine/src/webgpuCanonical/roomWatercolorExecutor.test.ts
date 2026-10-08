@@ -19,3 +19,17 @@ it('retirement releases owner-local resources even when shared GPU completion re
  await expect(owner.retire('context-loss',false)).rejects.toBe(gpuLost)
  expect(cancel).not.toHaveBeenCalled();expect(destroyed).toHaveBeenCalledTimes(7)
 })
+
+it('DEV actual unsupported carrier publishes the unchanged source without transport or film rebase',async()=>{
+ const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor
+ const p=new Uint8Array([0,0,10,100]),c=new Uint8Array([11,0,0,10]),transport=vi.fn(()=>{throw Error('unsupported transport called')}),published=vi.fn(async()=>{}),reports:unknown[]=[]
+ Object.assign(owner,{retired:false,pendingMoment:{chunk:{ordinal:3,segment:{rect:[0,0,1,1]},momentRecipe:{}}},target:{buffer:{height:1,width:1}},scratch:{tiles:{peek:()=>({inkLoad:{readBytes:async()=>p},inkColor:{readBytes:async()=>c},coverage:{}})}},momentSeam:{encodeAfterLanding:transport},momentReport:reports,publishWithoutDrain:published})
+ const originalP=p.slice(),originalC=c.slice();await owner.publishCurrentToGl()
+ expect(transport).not.toHaveBeenCalled();expect(published).toHaveBeenCalledOnce();expect(p).toEqual(originalP);expect(c).toEqual(originalC)
+ expect(reports).toEqual([expect.objectContaining({ordinal:3,supported:false,violations:1,maxExcess:1,applied:false})])
+})
+it('DEV OFF publish never reads actual material or creates transport work',async()=>{
+ const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor,published=vi.fn(async()=>{})
+ Object.assign(owner,{pendingMoment:null,scratch:new Proxy({},{get(){throw Error('OFF source read')}}),publishWithoutDrain:published})
+ await owner.publishCurrentToGl();expect(published).toHaveBeenCalledOnce()
+})

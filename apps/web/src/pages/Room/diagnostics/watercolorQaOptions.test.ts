@@ -24,3 +24,11 @@ it('solver batching is OFF unless exact explicit DEV query is enabled',()=>{
  expect(watercolorQaOptions(true,undefined,undefined,'?qaSolverBatch=1').diagnosticSolverBatch).toBe(true)
  expect(watercolorQaOptions(false,undefined,undefined,'?qaSolverBatch=1').diagnosticSolverBatch).toBe(false)
 })
+it('new-model transport is DEV OFF and requires actual native Room owner',()=>{
+ expect(parse(true,'').diagnosticMomentTransport).toBe(false)
+ expect(parse(false,'?wcMomentTransport=1').diagnosticMomentTransport).toBe(false)
+ expect(parse(false,'?wcMomentTransport=bad&wcMomentTransport=1').diagnosticMomentTransport).toBe(false)
+ expect(()=>parse(true,'?wcMomentTransport=1')).toThrow('requires wcNative')
+ expect(()=>parse(true,'?wcNative=1&wcMomentTransport=yes')).toThrow('Invalid')
+ expect(parse(true,'?wcNative=1&wcMomentTransport=1')).toMatchObject({nativeWatercolor:true,diagnosticMomentTransport:true})
+})

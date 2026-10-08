@@ -1,3 +1,6 @@
+import {WetBrushMomentSourceSeam} from '../experiments/wetBrushMomentSourceSeam'
+import {auditMomentRecords} from '../experiments/wetBrushMomentGpu'
+import type {MomentContactRecipe} from '../experiments/wetBrushMomentRecipe'
 import type {AccumulationBuffer} from '../buffers/AccumulationBuffer'
 import type {CanonicalStrokeChunkState} from '../dabs/canonicalStrokeChunk'
 import {CanonicalWatercolorSettlePlan} from '../raster/CanonicalWatercolorSettlePlan'
@@ -36,6 +39,7 @@ export interface RoomNativePreparedChunk {
  readonly segment:PreparedSourceSegment
  readonly materialGesture:number
  readonly metadata:SettlePlanMetadata
+ readonly momentRecipe?:MomentContactRecipe
  readonly live:CanonicalTileLiveInput
 }
 export type RoomNativeSettleInput=Omit<CanonicalTileFinishInput,'settleComplete'|'settledGesture'|'materialGesture'>&{
@@ -63,6 +67,9 @@ export class CanonicalRoomWatercolorExecutor {
  private readonly finish:CanonicalSingleTileFinish
  private readonly planner:CanonicalWatercolorSettlePlan<CanonicalFieldBuffer,import('./settlePlanAdapter').CanonicalUploadSlot>
  private readonly accepted=new Set<string>()
+ private momentSeam:WetBrushMomentSourceSeam|null=null
+ private pendingMoment:{chunk:RoomNativePreparedChunk}|null=null
+ readonly momentReport:{ordinal:number;supported:boolean;violations:number;maxExcess:number;examples:unknown[];applied:boolean}[]=[]
  private readonly foreignAux=new Map<string,{scratch:CanonicalTileScratch;source:CanonicalSourcePhaseExecutor}>()
  private retired=false
  private retirement:Promise<void>|null=null
@@ -84,6 +91,7 @@ export class CanonicalRoomWatercolorExecutor {
   * unchanged CPU preparer has advanced once. No decoding/preparing here. */
  emitPrepared(chunk:RoomNativePreparedChunk):void {
   this.assertLive()
+  if(chunk.momentRecipe&&this.pendingMoment)throw new Error('DEV moment source must publish before next contact')
   if(!this.central.isIdle)throw new Error('Central Room owner must drain before source material mutation')
   assertRoomNativeChunkIdentity(chunk,this.layerId,this.generation)
   if(chunk.metadata.gesture< this.scratch.gesture)throw new Error('Native Room material chronology moved backwards')
@@ -98,6 +106,7 @@ export class CanonicalRoomWatercolorExecutor {
   this.scratch.delivery.wetContacts=chunk.metadata.wetContacts.map(v=>({...v}))
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.source.execute(ctx.encoder,chunk.segment,chunk.materialGesture)))
   this.adapter.runQuantum(ctx=>this.adapter.retain(this.finish.encodeLive(ctx.encoder,chunk.live)))
+  if(chunk.momentRecipe)this.pendingMoment={chunk}
   this.accepted.add(key)
  }
  emitForeignSegment(gesture:string,segment:PreparedSourceSegment,filmGesture:number):void {
@@ -138,7 +147,27 @@ export class CanonicalRoomWatercolorExecutor {
   await this.central.drain();await this.seedReady();this.assertLive()
   await this.publishWithoutDrain()
  }
- publishCurrentToGl():Promise<void> {return this.publishWithoutDrain()}
+ async publishCurrentToGl():Promise<void> {
+  if(this.pendingMoment){
+   const {chunk}=this.pendingMoment;this.pendingMoment=null
+   const e=this.scratch.tiles.peek(this.target.buffer),rect=chunk.segment.rect
+   if(!e?.inkLoad||!e.inkColor||!rect)throw new Error('DEV moment actual source fields unavailable')
+   // Diagnostics ONLY: readback gates precede new operator. No UX/perf claim.
+   const p=await e.inkLoad.readBytes(),c=await e.inkColor.readBytes();this.assertLive()
+   const [x,yGl,w,h]=rect,y=this.target.buffer.height-yGl-h
+   const region=(bytes:Uint8Array)=>{const out=new Uint8Array(w*h*4);for(let row=0;row<h;row++)out.set(bytes.subarray(((y+row)*this.target.buffer.width+x)*4,((y+row)*this.target.buffer.width+x+w)*4),row*w*4);return out}
+   const audit=auditMomentRecords(region(p),region(c))
+   const observation={ordinal:chunk.ordinal,supported:audit.supported,violations:audit.violations,maxExcess:audit.maxExcess,examples:audit.examples,applied:false}
+   if(audit.supported){
+    this.momentSeam??=new WetBrushMomentSourceSeam(this.backend)
+    let lease:ReturnType<WetBrushMomentSourceSeam['encodeAfterLanding']>|undefined,read:GPUBuffer|undefined
+    try{this.adapter.runQuantum(ctx=>{lease=this.momentSeam!.encodeAfterLanding(ctx.encoder,{scratch:this.scratch.tiles,tile:this.target.buffer,segment:chunk.segment,availableWater:e.coverage,materialGesture:chunk.materialGesture,recipe:chunk.momentRecipe!},true);this.adapter.retain(lease.buffers);read=this.backend.device.createBuffer({size:4,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});ctx.encoder.copyBufferToBuffer(lease.invalid!,0,read,0,4);this.adapter.retain(this.finish.encodeLive(ctx.encoder,chunk.live))});await this.backend.whenIdle();await read!.mapAsync(GPUMapMode.READ);const invalidPairs=new Uint32Array(read!.getMappedRange())[0];read!.unmap();if(invalidPairs)throw new Error(`DEV moment GPU carrier disagreed with actual CPU audit: ${invalidPairs}`);observation.applied=true}finally{read?.destroy();lease?.release()}
+   }
+   this.momentReport.push(observation)
+   console.info('[native-moment-transport]',observation)
+  }
+  return this.publishWithoutDrain()
+ }
  private async publishWithoutDrain():Promise<void> {
   this.assertLive()
   if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile,()=>!this.retired)
