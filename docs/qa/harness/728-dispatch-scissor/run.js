@@ -1,0 +1,50 @@
+export async function runDispatchScissor(){
+ const old=await import('./old.js'),fresh=await import('./new.js'),adapter=await navigator.gpu.requestAdapter(),device=await adapter.requestDevice(),W=32,H=40,errors=[];device.addEventListener('uncapturederror',e=>errors.push(e.error.message));device.pushErrorScope('validation');
+ const nearest=device.createSampler({magFilter:'nearest',minFilter:'nearest'}),linear=device.createSampler({magFilter:'linear',minFilter:'linear'});
+ const initial=new Uint8Array(W*H*4).fill(17);
+ const field=(j,filter='nearest')=>{const texture=device.createTexture({size:[W,H],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.COPY_SRC|GPUTextureUsage.COPY_DST}),bytes=j<0?initial:Uint8Array.from({length:W*H*4},(_,i)=>(i*17+j*31+(i>>4)*3)%190+20);device.queue.writeTexture({texture},bytes,{bytesPerRow:W*4},{width:W,height:H});return{width:W,height:H,texture,view:texture.createView(),filter,format:'rgba8unorm',label:'scissor fixture'}};
+ const read=async f=>{const pitch=256,b=device.createBuffer({size:pitch*H,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),e=device.createCommandEncoder();e.copyTextureToBuffer({texture:f.texture},{buffer:b,bytesPerRow:pitch},{width:W,height:H});device.queue.submit([e.finish()]);await b.mapAsync(GPUMapMode.READ);const source=new Uint8Array(b.getMappedRange()),out=new Uint8Array(W*H*4);for(let y=0;y<H;y++)out.set(source.subarray(y*pitch,y*pitch+W*4),y*W*4);b.unmap();b.destroy();return out};
+ const constructors=[old,fresh].map(m=>({brush:new m.CanonicalBrushContact(device),field:new m.CanonicalFieldOps(device)}));
+ const rects=[undefined,[3,5,7,9],[-3,-5,11,13],[30,38,9,9],[8,10,0,4],[5,7,-3,2],[100,100,2,2],[2.50000001,4.49999999,7.0000001,9.5]],rows=[];
+ for(const scissor of rects)for(const kind of ['field1','field6','paired','singleP','singleC']){
+  const outputs=[],dispatches=[];
+  for(const kernels of constructors){const inputs=Array.from({length:6},(_,i)=>field(i,i===2?'linear':'nearest')),a=field(-1),b=field(-1),encoder=device.createCommandEncoder(),groups=[];const begin=encoder.beginComputePass.bind(encoder);encoder.beginComputePass=(...args)=>{const p=begin(...args),dispatch=p.dispatchWorkgroups.bind(p);p.dispatchWorkgroups=(x,y=1,z=1)=>{groups.push([x,y,z]);dispatch(x,y,z)};return p};const ctx={device,encoder,nearest,linear};let buffers;
+   if(kind.startsWith('field'))buffers=[kernels.field.run(ctx,{out:a,a:inputs[0],b:inputs[1],coverage:inputs[3],paper:{field:inputs[4],origin:[0,0],texSize:[W,H],scale:1},world:{x:0,y:0,width:W,height:H}},kind==='field1'?1:6,.25,{c:inputs[2],d:inputs[3],scissor,band:[.5,.1],size:[.1,.1],origin:[1,.2]})];
+   else if(kind==='paired')buffers=kernels.brush.encode(ctx,{pigment:inputs[0],color:inputs[1],flow:inputs[2],water:inputs[3],outPigment:a,outColor:b},[1/W,1/H],.38,[0,0,1,1],scissor);
+   else buffers=kernels.brush.encodeSingle(ctx,{pigment:inputs[0],color:inputs[1],flow:inputs[2],water:inputs[3],out:a},kind==='singleP'?'pigment':'color',[1/W,1/H],.38,[0,0,1,1],scissor);
+   device.queue.submit([encoder.finish()]);await device.queue.onSubmittedWorkDone();const data=[await read(a)];if(kind==='paired')data.push(await read(b));outputs.push(data);dispatches.push(groups);buffers.forEach(x=>x.destroy());[...inputs,a,b].forEach(f=>f.texture.destroy());
+  }
+  let different=0,changed=0,outside=0;const s=(scissor??[0,0,W,H]).map(Math.fround);
+  for(let r=0;r<outputs[0].length;r++)for(let i=0;i<initial.length;i++){different+=+(outputs[0][r][i]!==outputs[1][r][i]);changed+=+(outputs[1][r][i]!==17);const x=Math.floor(i/4)%W,y=Math.floor(i/4/W),gy=H-y-.5,inside=x+.5>=s[0]&&gy>=s[1]&&x+.5<Math.fround(s[0]+s[2])&&gy<Math.fround(s[1]+s[3]);if(!inside&&outputs[1][r][i]!==17)outside++}
+  rows.push({scissor,kind,different,changed,outside,dispatches});
+ }
+ const validation=await device.popErrorScope();device.destroy();return{hardwarePreviouslyUnproven:true,baseline:'9d6f41f1',rows,errors,validation:validation?.message??null,pass:!validation&&!errors.length&&rows.every(r=>!r.different&&!r.outside)&&rows.some(r=>r.changed>0)}
+}
+Object.assign(window,{runDispatchScissor});
+export async function runDispatchTiming({width=1536,height=1536,iterations=8,scissor=[600,650,100,200],newFirst=false}={}){
+ if(![width,height,iterations].every(Number.isInteger)||width<1||height<1||width>1536||height>1536||iterations<1||iterations>32)throw new Error('Bounded benchmark dimensions/iterations invalid');
+ const old=await import('./old.js'),fresh=await import('./new.js'),adapter=await navigator.gpu.requestAdapter();if(!adapter)throw new Error('WebGPU adapter unavailable');
+ const timestamps=adapter.features.has('timestamp-query'),device=await adapter.requestDevice({requiredFeatures:timestamps?['timestamp-query']:[]}),errors=[];device.addEventListener('uncapturederror',e=>errors.push(e.error.message));device.pushErrorScope('validation');
+ const W=width,H=height,nearest=device.createSampler({magFilter:'nearest',minFilter:'nearest'}),linear=device.createSampler({magFilter:'linear',minFilter:'linear'}),initial=new Uint8Array(W*H*4).fill(17);
+ const field=j=>{const texture=device.createTexture({size:[W,H],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.COPY_SRC|GPUTextureUsage.COPY_DST}),bytes=j<0?initial:Uint8Array.from({length:W*H*4},(_,i)=>(i*17+j*31+(i>>4)*3)%190+20);device.queue.writeTexture({texture},bytes,{bytesPerRow:W*4},{width:W,height:H});return{width:W,height:H,texture,view:texture.createView(),filter:j===2?'linear':'nearest',format:'rgba8unorm',label:'timing fixture'}};
+ const read=async f=>{const pitch=Math.ceil(W*4/256)*256,b=device.createBuffer({size:pitch*H,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),e=device.createCommandEncoder();e.copyTextureToBuffer({texture:f.texture},{buffer:b,bytesPerRow:pitch},{width:W,height:H});device.queue.submit([e.finish()]);await b.mapAsync(GPUMapMode.READ);const source=new Uint8Array(b.getMappedRange()),out=new Uint8Array(W*H*4);for(let y=0;y<H;y++)out.set(source.subarray(y*pitch,y*pitch+W*4),y*W*4);b.unmap();b.destroy();return out};
+ const rows=[],outputs=[];
+ try{
+  for(const candidate of newFirst?['new','old']:['old','new']){
+   const kernels=new(candidate==='new'?fresh:old).CanonicalBrushContact(device),inputs=Array.from({length:4},(_,j)=>field(j)),out=field(-1),fields={pigment:inputs[0],color:inputs[1],flow:inputs[2],water:inputs[3],out};
+   // Warm pipeline and one identical contact; reset output before measured work.
+   let encoder=device.createCommandEncoder(),buffers=kernels.encodeSingle({device,encoder,nearest,linear},fields,'pigment',[1/W,1/H],.38,[0,0,1,1],scissor);device.queue.submit([encoder.finish()]);await device.queue.onSubmittedWorkDone();buffers.forEach(b=>b.destroy());device.queue.writeTexture({texture:out.texture},initial,{bytesPerRow:W*4},{width:W,height:H});await device.queue.onSubmittedWorkDone();
+   const query=timestamps?device.createQuerySet({type:'timestamp',count:2*iterations}):null;let queryIndex=0;const groups=[];
+   encoder=device.createCommandEncoder();const begin=encoder.beginComputePass.bind(encoder);encoder.beginComputePass=options=>{const descriptor={...options};if(query){descriptor.timestampWrites={querySet:query,beginningOfPassWriteIndex:queryIndex++,endOfPassWriteIndex:queryIndex++}}const p=begin(descriptor),dispatch=p.dispatchWorkgroups.bind(p);p.dispatchWorkgroups=(x,y=1,z=1)=>{groups.push([x,y,z]);dispatch(x,y,z)};return p};
+   const started=performance.now();buffers=[];for(let i=0;i<iterations;i++)buffers.push(...kernels.encodeSingle({device,encoder,nearest,linear},fields,'pigment',[1/W,1/H],.38,[0,0,1,1],scissor));const encodeCpuMs=performance.now()-started;
+   const submitStarted=performance.now();device.queue.submit([encoder.finish()]);const submitCpuMs=performance.now()-submitStarted,waitStarted=performance.now();await device.queue.onSubmittedWorkDone();const waitWallMs=performance.now()-waitStarted,wallMs=performance.now()-started;
+   buffers.forEach(b=>b.destroy());const readStarted=performance.now();let gpuSpanMs=null;
+   if(query&&queryIndex){const resolve=device.createBuffer({size:16*iterations,usage:GPUBufferUsage.QUERY_RESOLVE|GPUBufferUsage.COPY_SRC}),mapped=device.createBuffer({size:16*iterations,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),e=device.createCommandEncoder();e.resolveQuerySet(query,0,queryIndex,resolve,0);e.copyBufferToBuffer(resolve,0,mapped,0,16*iterations);device.queue.submit([e.finish()]);await mapped.mapAsync(GPUMapMode.READ);const times=new BigUint64Array(mapped.getMappedRange());if(times[queryIndex-1]>=times[0])gpuSpanMs=Number(times[queryIndex-1]-times[0])/1e6;mapped.unmap();mapped.destroy();resolve.destroy()}query?.destroy();
+   const bytes=await read(out);outputs.push(bytes);let changed=0;for(let i=0;i<bytes.length;i++)changed+=+(bytes[i]!==17);
+   rows.push({candidate,groups,encodeCpuMs,submitCpuMs,waitWallMs,wallMs,gpuSpanMs,captureWallMs:performance.now()-readStarted,changed,submitsTimed:1});[...inputs,out].forEach(f=>f.texture.destroy());
+  }
+  let different=0,max=0;for(let i=0;i<outputs[0].length;i++){const d=Math.abs(outputs[0][i]-outputs[1][i]);different+=+(d>0);max=Math.max(max,d)}const validation=await device.popErrorScope();
+  return{baseline:'9d6f41f1',width,height,iterations,scissor,newFirst,timestamps,rows,different,max,errors,validation:validation?.message??null,pass:!validation&&!errors.length&&!different&&rows.every(r=>r.changed>0),limitations:['Isolated SAME fixed Q8 inputs/contact repeated; no feedback or physical model change','Warmup/reset, readback and query resolution excluded from wallMs','gpuSpanMs is first compute begin to last compute end; unavailable without timestamp-query','CPU/submit/wait intervals separate; no whole Room/runner performance inference','Repeat reversed order to check cache/thermal variance']};
+ }finally{device.destroy()}
+}
+Object.assign(window,{runDispatchTiming});
