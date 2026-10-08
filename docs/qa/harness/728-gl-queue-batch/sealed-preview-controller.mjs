@@ -8,16 +8,17 @@ const browserEvents=[];let target;const base=process.env.CDP_BASE??'http://127.0
 const freeMiB=()=>Number(execFileSync('ssh',['surface','powershell -NoProfile -Command "[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1024)"'],{encoding:'utf8',timeout:15000}).trim());
 const save=()=>fs.writeFileSync(out,JSON.stringify({rows,memory,memoryAbort},null,2));
 const passportPaths=['apps/web/src/engine/index.ts','apps/web/src/engine/src/dabs/RibbonStrokePainter.ts','apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts','apps/web/src/engine/src/raster/RibbonPasses.ts','docs/qa/harness/728-gl-queue-batch/PreparedGlSourceDraw.ts','docs/qa/harness/728-gl-queue-batch/sealedPreviewGpu.mjs','docs/qa/harness/728-gl-queue-batch/PreviewWaterDomain.mjs','docs/qa/harness/728-gl-queue-batch/SealedPreviewGlPort.mjs','docs/qa/harness/728-gl-queue-batch/SealedPreviewTransport.mjs'];
+passportPaths.push('apps/web/src/engine/src/raster/shaders.ts','apps/web/src/engine/src/presets/watercolorPresets.ts','docs/qa/harness/728-gl-queue-batch/PreviewCarryContract.mjs','docs/qa/harness/728-gl-queue-batch/PreviewFrontCarryGlPort.mjs','docs/qa/harness/728-gl-queue-batch/previewFrontCarryGpu.mjs');
 const computedPassport=Object.fromEntries(passportPaths.map(p=>[p,createHash('sha256').update(fs.readFileSync(p)).digest('hex')]));
-const tapeSHA='synthetic-70px-two-water-domains';
+const carry=process.env.PREVIEW_CARRY==='1';const tapeSHA=carry?'synthetic128-Q8-two-ponds-unit-carry':'synthetic-70px-two-water-domains';
 try{
  const free=freeMiB();memory.push({stage:'preflight',freeMiB:free});if(free<1700)throw Error('preflight below1700');
  stage='navigation';await ownedPage(origin+'/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/owner-original-entry.html');await send('Page.bringToFront');console.log(JSON.stringify({ownTarget:target.id,freeMiB:free,tapeSHA}));
  interval=setInterval(()=>{if(busy)return;busy=true;try{const free=freeMiB();memory.push({stage:'monitor',freeMiB:free});if(free<500){memoryAbort='below500';closeOwn().catch(()=>{})}}finally{busy=false}},5000);
  stage='bootstrap';await wait(()=>evaluate('document.readyState==="complete" && window.__ownerOriginalPageReady===true && !!document.getElementById("surface")'));
  stage='module-import';
- const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/sealedPreviewGpu.mjs';
- const report=await evaluate(async({url})=>(await import(url)).runSealedPreviewGpu(),{url:moduleUrl});rows.push(report);
- result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,valid:!memoryAbort&&!report.glError&&!report.lost&&report.sourceReadonly&&report.disconnected&&report.faint70Nonzero&&report.materialMoved};fs.writeFileSync(out,JSON.stringify(result,null,2));
+ const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/'+(carry?'previewFrontCarryGpu.mjs':'sealedPreviewGpu.mjs');
+ const report=await evaluate(async({url,carry})=>{const m=await import(url);return carry?m.runPreviewFrontCarryGpu():m.runSealedPreviewGpu()},{url:moduleUrl,carry});rows.push(report);
+ result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,valid:!memoryAbort&&!report.glError&&!report.lost&&report.sourceReadonly&&report.disconnected&&(carry?report.pairedAlpha&&report.evolved.outside===0:report.faint70Nonzero&&report.materialMoved)};fs.writeFileSync(out,JSON.stringify(result,null,2));
 }catch(e){result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,stage,navigation:{expected:navigationGate?.navigation,frame:navigationGate?.frame,contextId:navigationGate?.contextId,contexts:[...(navigationGate?.contexts.values()??[])]},error:String(e),valid:false};fs.writeFileSync(out,JSON.stringify(result,null,2));process.exitCode=1}
 finally{clearInterval(interval);await closeOwn();console.log(JSON.stringify({out,valid:result.valid,error:result.error}))}
