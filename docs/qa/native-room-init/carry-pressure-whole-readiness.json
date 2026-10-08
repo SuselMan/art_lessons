@@ -1,0 +1,137 @@
+{
+  "code": "c65c9834c45f6087ad7f65be5a107b4aded909a2",
+  "bundleSha256": "a10f3a90782f9a00e8e40f7e8a9808680af52d1f5120c32faa2e0621f03b6cfd",
+  "sourcePacketSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+  "producerCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+  "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "config": {
+    "paperWorld": {
+      "w": 1024,
+      "h": 1024
+    },
+    "paperScale": 1,
+    "gradientFibres": true,
+    "supportsFilm": true,
+    "ab": {
+      "noSpread": false,
+      "noMigrate": false,
+      "noDiffuse": false,
+      "noCarry": false,
+      "opDry": false
+    },
+    "plannerFlags": {
+      "diagnosticCostDomainPaths": false,
+      "diagnosticReuseFlowStorage": false,
+      "diagnosticSkipInitialFlowUpload": false,
+      "diagnosticReuseFlowRaster": false,
+      "diagnosticDirectResample": false,
+      "diagnosticPackedCostPaths": false,
+      "diagnosticPlateauPhase": false,
+      "diagnosticAdditiveZeroFaces": false,
+      "diagnosticPureWaterPlan": false,
+      "diagnosticSkipZeroPigmentRim": false,
+      "diagnosticContactFieldCache": false
+    }
+  },
+  "sourcePhysicalBytes": 50331648,
+  "savedGlFinalSha256": "50e0e70bbcb5b76128efcb64016600502f998f276f95e2c0d1e33fcaf5220bf3",
+  "knownOff": {
+    "raw": "temp/device-runs/common-partition-5f2/common/report.json",
+    "valid": true,
+    "nativeFinalSha256": "ba981eac8bae86e355968895965397fc154aebeeff52baaffc443e2d00451ec4",
+    "comparison": {
+      "key": "material",
+      "w": 1024,
+      "h": 1024,
+      "comparedBytes": 4194304,
+      "changed": 49052,
+      "max": 36,
+      "mean": 0.01647663116455078,
+      "exact": false
+    },
+    "fieldSha256": [
+      {
+        "role": "a",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "ac261830f5216d4a0008ed6f4688e7436e08113a7c58fa3a0aa027abf7bf1112"
+      },
+      {
+        "role": "b",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "88a30266dc76d0cc34f8d81a7ef2cc02010a80ca15371a1c76598ea9f022ee39"
+      },
+      {
+        "role": "c",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "572b46ee5fd1fc1a82532215c47094a8a08c2ab6294b6b514fa03a679b38ca64"
+      },
+      {
+        "role": "ca",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "8355ba8e9c26a0aedea69b9deba63ab55ceb0a9b4d4a0a14f5e9801e02754c11"
+      },
+      {
+        "role": "cb",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "d0f25c306b9b660c1a632c4800e4251dfb6e9ac3dba9bc940b7d9324696706f0"
+      },
+      {
+        "role": "cc",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "d7a05355151883fe3dac5d7030ef6d5e644ac2ac85419ecb2f6461b34e266df5"
+      },
+      {
+        "role": "coverage",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf"
+      },
+      {
+        "role": "mask",
+        "w": 1536,
+        "h": 1536,
+        "filter": "linear",
+        "sha256": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+      },
+      {
+        "role": "pressure",
+        "w": 1536,
+        "h": 1536,
+        "filter": "linear",
+        "sha256": "d3ccc8e53ce8c016caa0d33278f4c81dc94c0486d442616016a17c38bd9898c6"
+      },
+      {
+        "role": "band",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "sha256": "45f47d18000c9ed57012330cbecf9f5ab18f6ba593eaf3517d0c29a7cf44dacf"
+      }
+    ]
+  },
+  "criticalShaderIdentity": "git diff5f2..c65 --apps/web/src/engine/src/webgpuCanonical isEMPTY, including defaultbrush, fieldOps and plannerbackend; only QA-harness wrapper changed.",
+  "diagnostic": "OFFdefault; hardware LINEAR for Dpressure in unpairedcarry15/16 only, allother livefieldsNEAREST strict guard, flagrestore finally. No globalLINEAR/paired control orsource change.",
+  "readiness": {
+    "unitTests": 9,
+    "serializedTests": 4,
+    "ts": true,
+    "lint": true,
+    "softwareWhole": "NOTRUN/NOTPASS; existingSurface firstmode15+carry14 common-inputexact gate establishes individual operator only",
+    "hardwareWhole": "HOLD, awaits explicitallocation"
+  },
+  "budget": "NoGLproducer/fullsource duplicate. Reuse durable48MiB ALLphysicalsource and savedGLfinal; full1536 native solver, full material4MiB+10field90MiB read/hash +optional originalboundary readbacks. StrictRAM1700/abort500/hard120. Timing includes all diagnosticreadbacks, NOTFPS/GPU/displaytime."
+}
