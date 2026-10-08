@@ -1,3 +1,4 @@
+import {ribbonOctaveFmaShader} from './ribbonOctaveFma'
 import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
@@ -73,9 +74,9 @@ export class CanonicalRibbonDeposit {
  get coverage(){return this.pipeline('coverage')}
  get ink(){return this.pipeline('inkadd')}
  get inkMax(){return this.pipeline('inkmax')}
- constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false){
+ constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false,diagnosticFmaOctave=false){
   this.device=device;this.noise=noise
-  this.module=device.createShaderModule({label:'production ribbon deposit',code:CANONICAL_RIBBON_WGSL})
+  this.module=device.createShaderModule({label:'production ribbon deposit',code:ribbonOctaveFmaShader(CANONICAL_RIBBON_WGSL,diagnosticFmaOctave)})
   if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
  private pipeline(key:string){

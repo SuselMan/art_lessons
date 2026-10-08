@@ -1,3 +1,4 @@
+import {CanonicalRibbonDeposit} from '../../../../apps/web/src/engine/src/webgpuCanonical/deposit'
 import {ribbonDebug} from './ribbonDebug'
 import { consistentNoiseShader,type ConsistentNoiseVariant } from './consistentNoise'
 import { DAB_FRAG,RIBBON_FRAG } from '../../../../apps/web/src/engine/src/raster/shaders'
@@ -27,7 +28,7 @@ export async function coveragePrimitiveOracle(commands:readonly CanonicalDrawCom
 }
 
 /** Ordered Q8 blend oracle; no changes to production source state or draw grouping. */
-export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false,consistentNoise?:ConsistentNoiseVariant,blankSelected=false,literalStampVertex=false,cpuStampTrig=false,probeSites?:readonly(readonly[number,number])[],singleDither=false,debugRibbonTriangles?:readonly number[]){
+export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false,consistentNoise?:ConsistentNoiseVariant,blankSelected=false,literalStampVertex=false,cpuStampTrig=false,probeSites?:readonly(readonly[number,number])[],singleDither=false,debugRibbonTriangles?:readonly number[],ribbonFmaOctave=false){
  if(probeSites&&(probeSites.length>8||probeSites.some(([x,y])=>!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>=1024||y>=1024)))throw new Error('Source probe sites must be integer bounded tile pixels')
  if(blankSelected&&sameInputIndices?.length!==1)throw new Error('Blank/accum gate requires exactly one selected command')
  if(sameInputIndices&&(!sameInputIndices.length||sameInputIndices.some(i=>!Number.isInteger(i)||i<0||i>=commands.length)))throw new Error('Same-input indices must identify actual ordered commands')
@@ -35,6 +36,8 @@ export async function coverageSequenceOracle(commands:readonly CanonicalDrawComm
  for(const command of commands){const u=command.kind==='ribbon'?command.batch.uniforms:command.stamp.uniforms;if(u.useAvailableWater)throw new Error('Coverage sequence requires captured availability for this command; blank substitution refused')}
  const owner=await CanonicalWatercolorWebGpu.create({canvas:document.createElement('canvas'),width:1024,height:1024,roomOwnedResources:true,diagnosticLiteralStampVertex:literalStampVertex,diagnosticCpuStampTrig:cpuStampTrig,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
  const out=new CanonicalFieldBuffer(owner,1024,1024,'nearest','sequence coverage'),empty=new CanonicalFieldBuffer(owner,1024,1024,'nearest','sequence availability')
+ if(ribbonFmaOctave&&(sameInputIndices?.length!==1||commands[sameInputIndices[0]].kind!=='ribbon')){owner.destroy();throw Error('FMA source oracle requires one selected ribbon')}
+ const selectedDeposit=ribbonFmaOctave?new CanonicalRibbonDeposit(owner.device,owner.noise,true,true):null
  const errors:string[]=[];owner.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));const rows=[]
  try{for(const dither of (blankSelected||singleDither?[true]:[true,false])){
  let expected:Uint8Array=new Uint8Array(1024*1024*4),index=0
@@ -43,7 +46,7 @@ export async function coverageSequenceOracle(commands:readonly CanonicalDrawComm
   const targets={coverage:out.field,pigment:out.field,color:out.field,availableWater:empty.field}
   const seed=expected,selected=sameInputIndices?.includes(index)??false
   if(selected)owner.device.queue.writeTexture({texture:out.texture},seed.slice(),{bytesPerRow:1024*4},[1024,1024])
-  const owned=owner.encodeOwnerCommands(encoder,()=>{if(index===0){out.clear();empty.clear()}buffers=command.kind==='ribbon'?owner.encodePreparedRibbon(encoder,command.batch,'coverage',targets):owner.encodePreparedStamp(encoder,command.stamp,'coverage',targets)})
+  const owned=owner.encodeOwnerCommands(encoder,()=>{if(index===0){out.clear();empty.clear()}buffers=command.kind==='ribbon'?(selected&&selectedDeposit?selectedDeposit.encode(encoder,command.batch,out.field,empty.field,out.field,out.field,'coverage'):owner.encodePreparedRibbon(encoder,command.batch,'coverage',targets)):owner.encodePreparedStamp(encoder,command.stamp,'coverage',targets)})
   owner.device.queue.submit([encoder.finish()]);const bytes=await out.readBytes();owned.release();buffers.forEach(b=>b.destroy())
   expected=command.kind==='ribbon'?ribbonGlOracle(command.batch,1024,1024,dither,expected,true,consistentNoise?consistentNoiseShader(RIBBON_FRAG,consistentNoise):undefined).coverage:stampGlOracle(command.stamp,1024,1024,dither,expected,true,consistentNoise?consistentNoiseShader(DAB_FRAG,consistentNoise):undefined,cpuStampTrig).coverage
   const comparison=compareStages([{key:'coverage',w:1024,h:1024,bytes}],[{key:'coverage',w:1024,h:1024,bytes:expected}])[0]
@@ -67,5 +70,5 @@ export async function coverageSequenceOracle(commands:readonly CanonicalDrawComm
   rows.push({ribbonDiagnostics,probes:probeSites?.map(([x,y])=>{const i=(y*1024+x)*4;return{x,y,native:Array.from(bytes.subarray(i,i+4)),gl:Array.from(expected.subarray(i,i+4)),previousGl:Array.from(seed.subarray(i,i+4))}}),blank,debug,index:index++,kind:command.kind,dither,changedChannels,sameInput:selected,pixels,stamp:selected&&command.kind==='stamp'?command.stamp:null,vertexCount:command.kind==='ribbon'?command.batch.vertices.length/11:null,vertexBytesSha256:command.kind==='ribbon'?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',command.batch.vertices.slice().buffer)),v=>v.toString(16).padStart(2,'0')).join(''):null,comparison,validation:(await owner.device.popErrorScope())?.message??null})
   if(sameInputIndices&&index>Math.max(...sameInputIndices))break
  }}}finally{out.destroy();empty.destroy();owner.destroy()}
- return{literalStampVertex,cpuStampTrig,probeSites:probeSites??null,singleDither,blankSelected,ditherArms:blankSelected||singleDither?[true]:[true,false],diagnosticGlNoise:consistentNoise??null,sameInputIndices:sameInputIndices??null,commands:commands.length,rows,firstDifferenceOn:rows.find(r=>r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,firstDifferenceOff:rows.find(r=>!r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,errors,selectedGate:sameInputIndices?'Selected commands receive exact same previous GL coverage; nonselected later comparisons are not independent accumulated baseline':null,scope:'All captured coverage commands in original order; independent native/GL accumulation starting from identical zero Q8. Availability-consuming commands explicitly refused. GL context recreated between commands with lossless Q8 upload, no resample; not full compound source executor parity.'}
+ return{literalStampVertex,cpuStampTrig,ribbonFmaOctave,probeSites:probeSites??null,singleDither,blankSelected,ditherArms:blankSelected||singleDither?[true]:[true,false],diagnosticGlNoise:consistentNoise??null,sameInputIndices:sameInputIndices??null,commands:commands.length,rows,firstDifferenceOn:rows.find(r=>r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,firstDifferenceOff:rows.find(r=>!r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,errors,selectedGate:sameInputIndices?'Selected commands receive exact same previous GL coverage; nonselected later comparisons are not independent accumulated baseline':null,scope:'All captured coverage commands in original order; independent native/GL accumulation starting from identical zero Q8. Availability-consuming commands explicitly refused. GL context recreated between commands with lossless Q8 upload, no resample; not full compound source executor parity.'}
 }
