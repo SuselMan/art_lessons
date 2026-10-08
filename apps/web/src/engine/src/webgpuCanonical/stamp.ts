@@ -54,20 +54,25 @@ fn paint(v:V)->InkOut {
 
 `;
 export class CanonicalStampDeposit {
- private readonly device: GPUDevice
- private readonly noise: CanonicalGpuField
- private readonly coverage: GPURenderPipeline
- private readonly ink: Record<'max'|'add', GPURenderPipeline>
- private readonly single: Record<string,GPURenderPipeline>
- constructor(device: GPUDevice, noise: CanonicalGpuField) {
+ private readonly device:GPUDevice
+ private readonly noise:CanonicalGpuField
+ private readonly module:GPUShaderModule
+ private readonly pipelines=new Map<string,GPURenderPipeline>()
+ private get coverage(){return this.pipeline('coverage')}
+ constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false){
   this.device=device;this.noise=noise
-  const module=device.createShaderModule({label:'production watercolor nib deposit',code:CANONICAL_STAMP_WGSL})
-  const vertex={module,entryPoint:'vs'}
-  const over:GPUBlendState={color:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'},alpha:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'}}
-  this.coverage=device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint:'coverage',targets:[{format:'rgba8unorm',blend:over}]}})
-  this.ink=Object.fromEntries((['max','add'] as const).map(mode=>{const blend:GPUBlendState={color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}};return[mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint:'ink',targets:[{format:'rgba8unorm',blend},{format:'rgba8unorm',blend}]}})]})) as Record<'max'|'add',GPURenderPipeline>
-  this.single=Object.fromEntries((['pigmentOnly','colorOnly'] as const).flatMap(entryPoint=>(['max','add'] as const).map(mode=>{const blend:GPUBlendState={color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}};return[entryPoint+mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint,targets:[{format:'rgba8unorm',blend}]}})]})))
+  this.module=device.createShaderModule({label:'production watercolor nib deposit',code:CANONICAL_STAMP_WGSL})
+  if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
+ private pipeline(key:string){
+  const existing=this.pipelines.get(key);if(existing)return existing
+  const mode=key.endsWith('max')?'max':'add',entryPoint=key==='coverage'?'coverage':key.slice(0,-3)
+  const blend:GPUBlendState=key==='coverage'?{color:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'},alpha:{operation:'add',srcFactor:'one',dstFactor:'one-minus-src-alpha'}}:{color:{operation:mode,srcFactor:'one',dstFactor:'one'},alpha:{operation:mode,srcFactor:'one',dstFactor:'one'}}
+  const targets=Array.from({length:entryPoint==='ink'?2:1},()=>({format:'rgba8unorm' as const,blend}))
+  const pipeline=this.device.createRenderPipeline({layout:'auto',vertex:{module:this.module,entryPoint:'vs'},fragment:{module:this.module,entryPoint,targets}})
+  this.pipelines.set(key,pipeline);return pipeline
+ }
+
  encode(encoder:GPUCommandEncoder,stamp:CanonicalStamp,coverage:CanonicalGpuField,blank:CanonicalGpuField,pigment:CanonicalGpuField,color:CanonicalGpuField,phase:CanonicalRasterPhase='all'):GPUBuffer[] {
   return withTransientGpuBuffers(retain=>{
   const v=stamp.uniforms,u=retain(this.device.createBuffer({size:160,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}))
@@ -75,14 +80,14 @@ export class CanonicalStampDeposit {
   const encode=(pipeline:GPURenderPipeline,read:CanonicalGpuField,writes:CanonicalGpuField[])=>{
    // Coverage entry does not statically use binding1; auto layout omits it.
    const entries:GPUBindGroupEntry[]=[{binding:0,resource:{buffer:u}},{binding:2,resource:this.noise.view}]
-   if(pipeline!==this.coverage)entries.push({binding:1,resource:read.view})
+   if(pipeline!==this.pipelines.get('coverage'))entries.push({binding:1,resource:read.view})
    const group=this.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries})
    const pass=encoder.beginRenderPass({colorAttachments:writes.map(field=>({view:field.view,loadOp:'load',storeOp:'store'}))});pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.draw(6);pass.end()
   }
   if(phase==='all'||phase==='coverage')encode(this.coverage,blank,[coverage])
-  if(phase==='all')encode(this.ink[stamp.inkBlend],coverage,[pigment,color])
-  if(phase==='pigment')encode(this.single['pigmentOnly'+stamp.inkBlend],coverage,[pigment])
-  if(phase==='color')encode(this.single['colorOnly'+stamp.inkBlend],coverage,[color])
+  if(phase==='all')encode(this.pipeline('ink'+stamp.inkBlend),coverage,[pigment,color])
+  if(phase==='pigment')encode(this.pipeline('pigmentOnly'+stamp.inkBlend),coverage,[pigment])
+  if(phase==='color')encode(this.pipeline('colorOnly'+stamp.inkBlend),coverage,[color])
   return[u]
  
   })

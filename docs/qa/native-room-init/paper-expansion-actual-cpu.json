@@ -1,0 +1,33 @@
+{
+  "scope": "VPS CPU, actual frozen Fine height + production buildPaperCatch, not GPU/RAM peak",
+  "asset": "fine.e59ea6fa.paper",
+  "resolution": 2048,
+  "heightSha256": "e59ea6fafc9c21dac73fd31d7e7ebb9e86ad5545af46b6b3b1605a5ce84955fb",
+  "laSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "inputBytes": 8388608,
+  "outputBytes": 16777216,
+  "oldPerTexelTemporaryArrays": 4194304,
+  "runs": [
+    {
+      "name": "old",
+      "wallMs": 318.10669099999996,
+      "sha256": "31fdd40322f108302f3452c6427a82ddfc8a540819f4a1a356998838d0db63a4"
+    },
+    {
+      "name": "indexed",
+      "wallMs": 52.855383000000074,
+      "sha256": "31fdd40322f108302f3452c6427a82ddfc8a540819f4a1a356998838d0db63a4"
+    },
+    {
+      "name": "indexed",
+      "wallMs": 50.82778099999996,
+      "sha256": "31fdd40322f108302f3452c6427a82ddfc8a540819f4a1a356998838d0db63a4"
+    },
+    {
+      "name": "old",
+      "wallMs": 321.9368280000001,
+      "sha256": "31fdd40322f108302f3452c6427a82ddfc8a540819f4a1a356998838d0db63a4"
+    }
+  ],
+  "exactHash": true
+}
