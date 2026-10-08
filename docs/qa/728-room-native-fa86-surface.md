@@ -1,3 +1,5 @@
+> Исправление: описанная ниже water→pigment40 рука INVALID FIXTURE: контроллер передавал `normal:0:100` (вода0, пигмент100). Она доказывает только выполнение двух пигментных штрихов. First40 `normal:100:100` остаётся валидным.
+
 # Native ordinary Room: Surface fa86, два pointer40 gate
 
 На frozen `fa86fd7f` (1138 source SHA, 7 baked paper SHA, HTTP source passport)

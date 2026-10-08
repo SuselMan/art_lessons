@@ -347,7 +347,9 @@
           },
           "pendingAtLift": true
         }
-      ]
+      ],
+      "fixtureValid": false,
+      "fixtureCorrection": "normal:0:100 means water0/pigment100; not water→pigment"
     }
   ],
   "limitations": [
