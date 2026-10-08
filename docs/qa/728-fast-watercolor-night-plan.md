@@ -161,3 +161,25 @@ First carry WebGPU на общих оригинальных mobile/pressure вх
 чем остаточные max1 у каймы. Следующий OFF диагностический вариант сравнит manual
 bilinear и аппаратный LINEAR только для pressure; input passport и оригинальная
 формула сохраняются. Причина ещё не доказана.
+
+### Подтверждения к 09 октября, 00:42
+
+- Actual water-dab запись от UP: пигмент неподвижен 2188 ms до первого material
+  reveal / predecessor land. Все шесть кадров до этого события имеют MAX RGB1.
+  Сохранённая двухоперационная лента отдельно отрисована исходным движком:
+  конечный PNG exact; undo совпадает с чистой водой, redo exact. Это проблема
+  presentation, а не доказательство неправильного canonical endpoint.
+- Замена только manual bilinear pressure на hardware LINEAR в WebGPU дала
+  exact first carry. Затем все 14 оригинальных strides с независимым Q8
+  ping-pong каждой API дали exact конечный RGBA/SHA без oracle reset. Причина
+  данного расхождения локализована в выборке pressure. Brush68 и весь Room
+  ещё не подтверждены.
+- Actual common-ROI wetmix: три контакта × 21 стадия, восемь material ролей и
+  две V-карты publication сохранены exact. settled и foreignV отсутствуют,
+  ownV присутствует; V нельзя заменять P.R. Наблюдаемое межконтактное изменение
+  проверяется отдельно на границе canonical settle, не объявляется потерей
+  массы по crop.
+- Ранний preview: CPU lease/epochs/cancel и вызовы existing GL material
+  diffusion проверены, но primitive ещё не подключён к Room. Уменьшение 8×
+  четырьмя samples — аппроксимация; actual inherited water domain, faint dab,
+  readonly source SHA и GPU timing остаются обязательными gates.
