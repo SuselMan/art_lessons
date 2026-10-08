@@ -20,6 +20,12 @@ Raw `temp/device-runs/owner-water-dab-artifact-surface.json`, compact `owner-wat
 
 Captured inkSmoothPx87.999908 derives from production wash scratch, not a preview override. `RibbonStrokePainter.ts:358` calls `scratch.noteDabSpacing(firstGap)`. `RibbonStrokeScratch.ts:376` caches the first nonzero gap; `beginStroke():501` does NOT reset spacing or composite. Only destroy/restore assign it later. Actual scalar-lifecycle fixture: water spacing88→beginStroke→pigment gap0 or15.4 still88. Generated source capture clones this exact recipe; normal canonical composite also passes it. Production `wcInkAvg` ring radius is half-spacing44worldpx, larger than a nominal70dab half-width35. Sparse-ring reconstruction is a concrete candidate cause; no shader/default/canonical change is justified by this provenance alone.
 
+Clarification after actual settle-path review: the captured recipe is LIVE
+material normalization. Settled reconstruction in current `index.ts` passes
+`inkSmoothPx=0` (the dry scratch and canonical copyback paths). Reapplying the
+LIVE ring to an already-diffused preview is a separate semantic mismatch; the
+cached wash spacing alone is not evidence of a production bug.
+
 ## Next OFF control: own-source reconstruction spacing
 
 `CURRENT_SOURCE_SPACING=1` changes ONLY visual material reconstruction. Original recipe.dabSpacing/canonical draws and transport pass order remain unchanged. Generated capture adds immutable `{firstGap,tipDiameter}` directly from the prepared current drawable batch, before consulting cached wash spacing. First actual own gap>.01 wins; a single-dab gesture with no gap uses largest actual prepared tip diameter×production DEFAULT_DAB_SPACING_FACTOR0.22. This is pressure/taper-adjusted footprint, not reconstructed nominal slider size; it need not equal15.4 in the real captured70 scene.
