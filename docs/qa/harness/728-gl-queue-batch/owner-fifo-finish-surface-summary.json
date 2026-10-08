@@ -1,0 +1,97 @@
+{
+  "valid": true,
+  "passport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-install.mjs": "4aa0a30f0785a6417d1d527bf677b5ba50c38c14fe505d7ec3ab910ebdffa176",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-entry.html": "727fe7339a44b92d3bb093e43e51e582b795cad3923c60695bb451ed09c921ee",
+    "docs/qa/harness/728-gl-queue-batch/ownerFifoRoomScenario.mjs": "385daaad839b47df33770413d46d722b75f1ea0f4f54ad670489d98cc2bc323a",
+    "temp/owner-fifo-runtime/source-passport.json": "f413afd46dd5e3e53a5f3a4f6ba3834faef757ddcad7de4a0fdf2b8bce9dbf4d"
+  },
+  "tapeSHA": "7a9dbeeb381c1515857bffc4ddf6781aa20fa26ebcf88aba7a2a89c0ad25a660",
+  "flags": {
+    "solver": true,
+    "joinedTouch": false,
+    "joinedMixed": false,
+    "deferred": false,
+    "asyncFinish": true,
+    "material": false
+  },
+  "down": [
+    {
+      "name": "first-pigment",
+      "cpuMs": 38.69999998807907,
+      "completeSettle": 0,
+      "textureAllocations": 1,
+      "firstDrawSubmitMs": 21.69999998807907,
+      "firstDisplaySubmitMs": 36.39999997615814,
+      "started": true
+    },
+    {
+      "name": "second-pigment-during-settle",
+      "cpuMs": 7.199999988079071,
+      "completeSettle": 0,
+      "textureAllocations": 0,
+      "firstDrawSubmitMs": 4.800000011920929,
+      "firstDisplaySubmitMs": 6.5,
+      "started": true
+    },
+    {
+      "name": "third-pigment-held-future",
+      "cpuMs": 2.600000023841858,
+      "completeSettle": 0,
+      "textureAllocations": 0,
+      "firstDrawSubmitMs": 1.800000011920929,
+      "firstDisplaySubmitMs": 2.300000011920929,
+      "started": true
+    }
+  ],
+  "timing": {
+    "elapsedMs": 8014.600000023842,
+    "frameP95": 17,
+    "frameMax": 116.79999999999927,
+    "over33": 16,
+    "over100": 1
+  },
+  "quality": {
+    "before": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 777078,
+      "sha": "a82430ae55a73c4e735e2ee2cd1ff985bb1241879c71c34506d7504e87000bc2"
+    },
+    "undone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 775287,
+      "sha": "2fddea04661785c9a6d84e209f81e9ba3474dda4154ca9ac9af9827d8677f603"
+    },
+    "redone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 777078,
+      "sha": "a82430ae55a73c4e735e2ee2cd1ff985bb1241879c71c34506d7504e87000bc2"
+    },
+    "meaningful": true,
+    "exact": true,
+    "glError": 0,
+    "lost": false,
+    "limitations": [
+      "Final target exact history gate; working scratch fields are not asserted across rebuild",
+      "Readback AFTER measured drawing only"
+    ]
+  },
+  "memory": {
+    "preMiB": 2061,
+    "minMiB": 961,
+    "afterCloseMiB": 1983
+  },
+  "limitations": [
+    "ONE actual Room samewash rapid3; 1024 single tile",
+    "CPU submission onset is not physical scanout",
+    "No morphing owner presentation integration",
+    "Original same-new-packed standalone comparison pending; self redo exact passed",
+    "No comparison to broken missing-solver tail timings"
+  ]
+}
