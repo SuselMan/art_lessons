@@ -2691,7 +2691,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   paperReady(): Promise<void> {
-    if(!this._wcNativeEnabled)return this._paper.ready()
+    if(!import.meta.env.DEV||!this._wcNativeEnabled)return this._paper.ready()
     const epoch=this._wcNativeInitEpoch
     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
