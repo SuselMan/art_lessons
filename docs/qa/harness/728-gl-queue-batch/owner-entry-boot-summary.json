@@ -1,0 +1,32 @@
+{
+  "rows": [
+    {
+      "negative": true,
+      "report": {
+        "ready": false,
+        "stubRoom": false,
+        "stubAdapter": false,
+        "path": "/room/qaBootStub",
+        "status": "Подготовка QA; рисование ещё недоступно",
+        "ownerError": null
+      },
+      "errors": [
+        "Error: @vitejs/plugin-react can't detect preamble. Something is wrong."
+      ]
+    },
+    {
+      "negative": false,
+      "report": {
+        "ready": true,
+        "stubRoom": true,
+        "stubAdapter": true,
+        "path": "/room/qaBootStub",
+        "status": "QA owner FIFO: 1024, 3 pending; смена wash только после завершения",
+        "ownerError": null
+      },
+      "errors": []
+    }
+  ],
+  "valid": true,
+  "scope": "VPS browser entry + real React/ReactDOM + actual served App preamble guard; main/Room/GL adapter explicitly stubbed. Boot-only, no full App/GPU/Room watercolor proof"
+}
