@@ -3918,7 +3918,7 @@
       "summary": "Полная копия через copyTexImage2D, storage redefine.",
       "complexity": "O(W·H),247вызовов.",
       "priority": "P1",
-      "status": "implemented",
+      "status": "validated",
       "metrics": {
         "id": "Buffer.copyTo",
         "calls": 247,
@@ -4203,9 +4203,9 @@
         "date": "2026-10-08",
         "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
         "backendScope": "See evidence; GL and native are not interchangeable",
-        "note": "Same-size storage reuse and exact copies reviewed/tested; no separate robust copyTo whole payoff.",
-        "evidence": "../728-night-2026-10-08.md",
-        "wholeGain": "No measured whole gain.",
+        "note": "Same-size storage reuse and exact copies reviewed/tested; no separate robust copyTo whole payoff. Dead single-paint colour snapshot: actual GL400/Fine Surface six-arm whole/fields/material/export exact; removed1copy/9MiB.",
+        "evidence": "../harness/728-gl-colour-snapshot/README.md",
+        "wholeGain": "No measured whole gain: OFF2984.0ms /ON2988.5ms. Removed GPU copy0.598ms; memory saving9MiB, not an FPS improvement.",
         "productionReady": false
       }
     },

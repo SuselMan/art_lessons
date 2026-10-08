@@ -33,7 +33,7 @@ Statuses refer to named candidates, not exhaustive research. Historical source/m
 | Passes.pigmentColor | pending | Not measured. |
 | Passes.gradientField | pending | Not measured. |
 | Buffer.clear | pending | Not measured. |
-| Buffer.copyTo | implemented | No measured whole gain. |
+| Buffer.copyTo | validated | Dead colour snapshot: Surface exact whole400;9MiB/0.598ms operator saving, no whole gain. |
 | Buffer.copyRegionInto | pending | Not measured. |
 | Buffer.readPixels | pending | Not measured. |
 | GL.drawArrays | validated | Shared brush/front results, not additive. |

@@ -15,7 +15,7 @@
 | Native progressive queue | Pointer400 release→idle в последовательной серии39–73% быстрее | Потенциал очереди есть; unperturbed400 material parity и actual Room ещё не закрыты |
 | WebGPU→GL canvas bridge | Surface1024 warm4.2/6.9ms против readback17.6/16.4ms; premultiplied fixture exact | Перенос без CPU RGBA readback дешевле, но это часть стоимости, не общий прирост WebGPU |
 | WebGPU в Grafetto | Actual Room routing подключён, один origin-zero tile; foreign wash пока unsupported. Samsung pen40 записал stroke, затем общий GPU process exit0 | Прогноз общего выигрыша отсутствует; Samsung gate FAIL, причина driver/OOM/watchdog/compiler пока не установлена |
-| Удаление dead colour snapshot | Single-paint/S>1: softwareGL400 все26fields/material/export/tape exact, skip1;9MiB storage и18MiB copytraffic при1536 | Аппаратный выигрыш неизвестен; mixed negative control ещё выполняется, кандидат OFF |
+| Удаление dead colour snapshot | Surface6arms GL400 все26fields/material/export/tape exact;9MiB storage,18MiB copytraffic, removed copy0.598msGPU | Whole OFF2984.0/ON2988.5ms: общего выигрыша не обнаружено; memory-only benefit, кандидат OFF |
 
 ## Проверки перед включением
 
@@ -27,3 +27,10 @@
 Подробные данные: [полный factorial](728-webgl-factorial-surface.md), [SMT поиск](harness/728-fit-superopt/README.md), [GL cache FAIL](harness/728-gl-static-paper/README.md), [bridge](harness/728-room-webgpu-bridge/README.md), [ночные результаты](728-morning-2026-10-08.md).
 
 Дополнительно: [ordinary Room GL gate](728-room-webgl-factorial-surface.md), [статусы36 методов](callgraph-viewer/method-status-2026-10-08.md), [memory/ownership proof альтернативы кешу](harness/728-gl-static-paper/stencil-alternative.md). Исследования отдельных кандидатов закончены положительными или отрицательными gates;17 методов по-прежнему имеют непроверенные предложения. «Все методы оптимизированы» было бы неверным итогом.
+
+### Дальнейшая практическая работа
+
+- Сначала закрыть production-path admission/peer/history матрицу и физический первый видимый пигмент. Для непрерывного рисования это важнее процентного выигрыша dry replay.
+- GPU: измерить долю carry15/16 и проверить MRT именно этих двух операторов с общими OLD inputs, сохранив каждую Q8 границу. Brush MRT дал небольшой whole gain; переносить40% на carry нельзя.
+- Native Room: Surface pre-input init guard остановил запуск1751→364MiB (конкретный await не установлен), Samsung first40 GPU process потерян. Устранять доказанные ненужные eager resources/allocations, сохранять init markers до abort, затем повторить ограниченный gate. Не списывать1.4GiB на28MiB полей или объявлять compiler причиной без трассы.
+- Native foreign-water auxiliary импорт реализован по прежней CPU chronology/modes20/1, но ещё не прошёл аппаратный Room gate. Production build исключает backend explicit DEV guard; default flags OFF.
