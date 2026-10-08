@@ -11,3 +11,9 @@ export function decodeSettleMaterial(packet,variant){
 export function assertPairedSettleInputs(arms){
  if(arms.length!==2||arms[0].variant!=='literal'||arms[1].variant!=='A'||arms[0].tapeSha256!==arms[1].tapeSha256||JSON.stringify(arms[0].paper)!==JSON.stringify(arms[1].paper))throw Error('Paired tape/paper/arm identity mismatch')
 }
+export function assertSavedLiteral(saved,current,bytes){
+ if(saved.arms?.length!==1||saved.arms[0].variant!=='literal'||saved.arms[0].errors.length||saved.http?.['run.js']?.sha256!==current.http?.['run.js']?.sha256||JSON.stringify(saved.paperPassport)!==JSON.stringify(current.paperPassport))throw Error('Saved literal/source/paper resume guard failed')
+ const literal=saved.arms[0]
+ if(bytes.length!==4194304||crypto.createHash('sha256').update(bytes).digest('hex')!==literal.material.sha256||literal.material.nonzeroAlpha<1)throw Error('Saved literal material invalid')
+ return literal
+}

@@ -1,4 +1,4 @@
-import{decodeSettleMaterial,assertPairedSettleInputs}from './settle-packet.mjs'
+import{decodeSettleMaterial,assertPairedSettleInputs,assertSavedLiteral}from './settle-packet.mjs'
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import {createRequire} from 'node:module';import {remoteMemoryMiB} from '../728-joined-deferred/remote-device.mjs';
 const require=createRequire(new URL('../../../../package.json',import.meta.url)),WebSocket=require('ws')
 const base=process.env.CDP_BASE,url=process.env.GATE_URL,out=process.env.GATE_OUT
@@ -19,7 +19,15 @@ try{
  await send('Runtime.enable');await send('Page.bringToFront');report.stage='one-factor-run';save()
  timer=setInterval(()=>{try{if(memory()<500){report.error='RAM abort below500MiB';save();void close()}}catch(e){report.error=String(e);save();void close()}},3000)
  report.arms=[]
- for(const variant of ['literal','A']){
+ let variants=['literal','A']
+ if(process.env.QA_RESUME_LITERAL){
+  const saved=JSON.parse(fs.readFileSync(path.join(process.env.QA_RESUME_LITERAL,'report.json')))
+  const bytes=fs.readFileSync(path.join(process.env.QA_RESUME_LITERAL,'literal-material.rgba')),literal=assertSavedLiteral(saved,report,bytes)
+  report.arms.push(literal);report.resumedLiteral={scope:'Saved actual literal owner; no original rendering repeated',materialSha:literal.material.sha256}
+  fs.symlinkSync(path.resolve(process.env.QA_RESUME_LITERAL,'literal-material.rgba'),path.join(out,'literal-material.rgba'))
+  variants=['A'];save()
+ }
+ for(const variant of variants){
   if(memory()<1700)throw Error('Between-arm RAM preflight below1700MiB')
   const packet=await evaluate(`import(${JSON.stringify(new URL('run.js',url).href)}).then(m=>m.runMovingContactSettle(${JSON.stringify(variant)}))`)
   const g=packet.material,bytes=decodeSettleMaterial(packet,variant)
