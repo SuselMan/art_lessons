@@ -36,3 +36,17 @@ it('solvent init snapshots are encoded synchronously and reject resource aliasin
  const pending=captureSolventInit(device,encoder,{load,base});expect(events).toEqual(['copy','copy']);pending.dispose();expect(events).toEqual(['copy','copy','destroy','destroy'])
  expect(()=>captureSolventInit(device,encoder,{load,base:load})).toThrow('alias')
 })
+
+it('nine 1024 tile roles fit but adding 1536 pressure exceeds bounded stage budget',async()=>{
+ const audit=new StageAudit(),tiles=Object.fromEntries(Array.from({length:9},(_,i)=>['tile'+i,{width:1024,height:1024} as CanonicalFieldBuffer]));let reads=0
+ expect(()=>audit.snapshot(1,'finish',{...tiles,pressure:{width:1536,height:1536} as CanonicalFieldBuffer},async()=>{reads++;return new Uint8Array()})).toThrow('40MiB');expect(reads).toBe(0)
+ // Empty result bytes here test scheduling/budget, not field pixel quality.
+ await audit.snapshot(1,'finish',tiles,async()=>{reads++;return new Uint8Array()});expect(reads).toBe(9)
+})
+
+it('CPU-only source ordering preserves stable owner IDs, bounded events and stop boundary',async()=>{
+ const {SourceOrderTrace,traceBytes}=await import('../../../../../../docs/qa/harness/728-paired-carry-plan/sourceOrderTrace')
+ const trace=new SourceOrderTrace(3),texture={},encoder={};expect(trace.id(texture)).toBe(trace.id(texture));expect(trace.id(texture)).not.toBe(trace.id(encoder))
+ trace.record('copy',{texture:trace.id(texture),encoder:trace.id(encoder)});trace.record('submit',{});trace.record('write',traceBytes(new Uint8Array([1,2,3])));trace.record('raster',{});trace.stop();trace.record('solver',{})
+ const r=trace.result();expect(r.events.map(e=>e.kind)).toEqual(['copy','submit','write']);expect(r.counts).toEqual({copy:1,submit:1,write:1,raster:1});expect(r.truncated).toBe(true)
+})

@@ -37,3 +37,10 @@ it('forwards world vertices unchanged; backend owns the single localization',()=
  f.owner.execute({} as any,{commands:[command],rect:null,film:true,waterOnly:false},1)
  expect(f.backend.encodePreparedRibbon.mock.calls[0][1].vertices).toBe(vertices);expect(vertices).toEqual(original)
 })
+
+it('split initialization uses actual predicates without source commands or landing',()=>{
+ const f=fixture(),calls:string[]=[];f.scratch.runningCoverage=()=>calls.push('coverage');f.scratch.filmBuffers=()=>{calls.push('film');return f.film};f.scratch.solventFilm=()=>{calls.push('solvent');return f.solvent}
+ f.owner.initialize({commands:[stamp('coverage'),stamp('solvent')],rect:[0,0,32,32],film:true,waterOnly:false},1)
+ expect(calls).toEqual(['coverage','film','solvent']);expect(f.events).toEqual([])
+ calls.length=0;f.owner.initialize({commands:[stamp('coverage')],rect:null,film:false,waterOnly:true},1);expect(calls).toEqual(['coverage']);expect(f.events).toEqual([])
+})

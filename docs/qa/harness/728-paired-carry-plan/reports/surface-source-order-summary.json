@@ -1,0 +1,82 @@
+{
+  "arms": [
+    {
+      "mode": "plain",
+      "raw": "native-order-plain400-surface-1791429277756.json",
+      "code": "00faf4e8999c60c1a101846bb9fcfdbe26155ef5",
+      "exact": true,
+      "tapeSha256": "9b905b07f19a61634aa636002e1d17f285f322c4a27ab86c59f77e88dbcd187e",
+      "cpuTracePerturbsTiming": true,
+      "eventCounts": [
+        341,
+        341
+      ],
+      "traceOwnersEqual": true,
+      "rows": [
+        {
+          "layerSha256": "3b2a6e53f014439c701315b5722e4ab75ec3a72ac7d5f5daf29954e4c83c626e",
+          "errors": [],
+          "lost": false
+        },
+        {
+          "layerSha256": "3b2a6e53f014439c701315b5722e4ab75ec3a72ac7d5f5daf29954e4c83c626e",
+          "errors": [],
+          "lost": false
+        }
+      ]
+    },
+    {
+      "mode": "split",
+      "raw": "native-order-split400-surface-1791429300766.json",
+      "code": "00faf4e8999c60c1a101846bb9fcfdbe26155ef5",
+      "exact": true,
+      "tapeSha256": "9b905b07f19a61634aa636002e1d17f285f322c4a27ab86c59f77e88dbcd187e",
+      "cpuTracePerturbsTiming": true,
+      "eventCounts": [
+        345,
+        345
+      ],
+      "traceOwnersEqual": true,
+      "rows": [
+        {
+          "layerSha256": "3b2a6e53f014439c701315b5722e4ab75ec3a72ac7d5f5daf29954e4c83c626e",
+          "errors": [],
+          "lost": false
+        },
+        {
+          "layerSha256": "3b2a6e53f014439c701315b5722e4ab75ec3a72ac7d5f5daf29954e4c83c626e",
+          "errors": [],
+          "lost": false
+        }
+      ]
+    },
+    {
+      "mode": "prime",
+      "raw": "native-order-prime400-surface-1791429320652.json",
+      "code": "00faf4e8999c60c1a101846bb9fcfdbe26155ef5",
+      "exact": true,
+      "tapeSha256": "9b905b07f19a61634aa636002e1d17f285f322c4a27ab86c59f77e88dbcd187e",
+      "cpuTracePerturbsTiming": true,
+      "eventCounts": [
+        347,
+        347
+      ],
+      "traceOwnersEqual": true,
+      "rows": [
+        {
+          "layerSha256": "3b2a6e53f014439c701315b5722e4ab75ec3a72ac7d5f5daf29954e4c83c626e",
+          "errors": [],
+          "lost": false
+        },
+        {
+          "layerSha256": "3b2a6e53f014439c701315b5722e4ab75ec3a72ac7d5f5daf29954e4c83c626e",
+          "errors": [],
+          "lost": false
+        }
+      ]
+    }
+  ],
+  "writePayloadsFNVEqual": true,
+  "writeBufferCalls": 106,
+  "splitPrimeOrderEqualIgnoringCPUMarkers": true
+}

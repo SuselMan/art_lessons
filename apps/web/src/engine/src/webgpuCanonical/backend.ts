@@ -10,6 +10,8 @@ export interface CanonicalWebGpuOptions {
  canvas: HTMLCanvasElement
  width: number
  height: number
+ /** OFF diagnostic: exact full zero clears through compute, including constructor. */
+ diagnosticComputeFullClear?:boolean
  viewportWidth?: number
  viewportHeight?: number
  paper: { bytes: Uint8Array; width: number; height: number; origin: readonly [number, number]; texSize: readonly [number, number]; scale: number }
@@ -40,6 +42,7 @@ export class CanonicalWatercolorWebGpu {
  private activeRetired:CanonicalGpuField[]=[]
  private destroyed = false
  readonly device: GPUDevice
+ diagnosticComputeFullClearCalls=0
  readonly options: CanonicalWebGpuOptions
  private constructor(device: GPUDevice, options: CanonicalWebGpuOptions) {
   this.device=device;this.options=options
@@ -168,6 +171,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   this.copyRegion(src,dst,[0,0],[0,0],[src.width,src.height],encoder)
  }
  encodeClearField(encoder:GPUCommandEncoder,field:CanonicalGpuField,rect?:readonly[number,number,number,number]):GPUBuffer[] {
+  if(!rect&&this.options.diagnosticComputeFullClear){this.diagnosticComputeFullClearCalls++;rect=[0,0,field.width,field.height]}
   if(!rect){const pass=encoder.beginRenderPass({colorAttachments:[{view:field.view,loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0]}]});pass.end();return[]}
   if(rect.some(v=>!Number.isInteger(v))||rect[2]<0||rect[3]<0)throw new Error('Canonical clear rectangle requires integer coordinates and nonnegative size')
   const x=Math.max(0,Math.min(field.width,rect[0])),y=Math.max(0,Math.min(field.height,rect[1])),right=Math.max(x,Math.min(field.width,rect[0]+rect[2])),bottom=Math.max(y,Math.min(field.height,rect[1]+rect[3]))
@@ -181,8 +185,9 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  }
  clear() {
   const encoder = this.device.createCommandEncoder()
-  for (const field of Object.values(this.fields)) { const pass = encoder.beginRenderPass({ colorAttachments: [{ view: field.view, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }] }); pass.end() }
-  this.device.queue.submit([encoder.finish()])
+  const transient:GPUBuffer[]=[]
+  for (const field of Object.values(this.fields)) transient.push(...this.encodeClearField(encoder,field))
+  this.device.queue.submit([encoder.finish()]);if(transient.length)void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(b=>b.destroy()),()=>transient.forEach(b=>b.destroy()))
  }
  /** Exact field view for stage tests. This is deliberately NOT a substitute
   * for production DAB_FRAG watercolor composite. Room must supply that pass. */

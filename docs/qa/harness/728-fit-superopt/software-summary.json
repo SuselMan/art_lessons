@@ -1,0 +1,69 @@
+{
+  "softwareOnly": true,
+  "rows": {
+    "forward": [
+      {
+        "name": "baseline",
+        "gpuMs": 0.576843,
+        "wallMs": 2.900000035762787,
+        "sha256": "6d1a3ee33bf6384af496d4c1f7d976168e7efd5628d367994f5f800846ffa488",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "enumeratedBalanced",
+        "gpuMs": 0.679451,
+        "wallMs": 2.800000011920929,
+        "sha256": "6d1a3ee33bf6384af496d4c1f7d976168e7efd5628d367994f5f800846ffa488",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "enumeratedChain",
+        "gpuMs": 0.491611,
+        "wallMs": 2.600000023841858,
+        "sha256": "6d1a3ee33bf6384af496d4c1f7d976168e7efd5628d367994f5f800846ffa488",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      }
+    ],
+    "reverse": [
+      {
+        "name": "enumeratedChain",
+        "gpuMs": 0.709032,
+        "wallMs": 2.800000011920929,
+        "sha256": "6d1a3ee33bf6384af496d4c1f7d976168e7efd5628d367994f5f800846ffa488",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "enumeratedBalanced",
+        "gpuMs": 0.764608,
+        "wallMs": 2.699999988079071,
+        "sha256": "6d1a3ee33bf6384af496d4c1f7d976168e7efd5628d367994f5f800846ffa488",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      },
+      {
+        "name": "baseline",
+        "gpuMs": 0.754526,
+        "wallMs": 2.900000035762787,
+        "sha256": "6d1a3ee33bf6384af496d4c1f7d976168e7efd5628d367994f5f800846ffa488",
+        "difference": {
+          "changed": 0,
+          "max": 0
+        }
+      }
+    ]
+  }
+}

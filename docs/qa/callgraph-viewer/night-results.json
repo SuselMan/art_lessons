@@ -49,6 +49,16 @@
       "result": "Surface: front GPU median4.325→2.851мс; diffuse1.114→0.786мс.171 промежуточных поля exact в каждом gate. Combined warm whole100 около8% быстрее,6author/6replay hashes одинаковые.",
       "limits": "RG32FLOAT18MiB при1536; prep1.7мс отдельно. Один tile/layer/wash, не полный Room. DefaultOFF. Whole400 ещё нестабилен дажеOFF/OFF.",
       "status": "Аппаратный выигрыш отдельного оператора; bounded whole100 PASS"
+    },
+    {
+      "methods": [
+        "Queue.tick",
+        "Queue.advance"
+      ],
+      "name": "WebGPU: bounded progressive",
+      "result": "Surface full1536:75originalops/75yields→11yields, final exact0, три различныхmaterialframes. Actualpointer400 currentOFF→ON release→idle4733/4677/1594/1591→1797/1268/851/964мс; replay12596→4449мс.",
+      "limits": "Opt-in QA на одномtile; не first-visible pigment/GPUduration.400 materialrepeat нестабилен, inputво времяsettleблокируется. Не переносится наproductionRoom.",
+      "status": "Hardware UX proxy gain, bounded byte gate PASS;400 повторяемость открыта"
     }
   ]
 }

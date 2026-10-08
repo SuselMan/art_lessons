@@ -1,3 +1,5 @@
+import {SourceOrderTrace,traceBytes} from './sourceOrderTrace'
+import {watercolorMixFromPreset} from '../../../../apps/web/src/engine/src/presets/watercolorPresets'
 import {captureSolventInit} from './solventInit'
 import { StageAudit,compareStages,type StageRow } from './stageAudit'
 import type { Operation,StrokeOperation } from '@grafetto/shared'
@@ -15,9 +17,13 @@ const hash=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtl
 const diff=(a:Uint8Array,b:Uint8Array)=>{if(a.length!==b.length)throw new Error('Capture dimensions changed');let changed=0,max=0,total=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=+(d>0);max=Math.max(max,d);total+=d}return{changed,max,total}}
 interface Counts {submits:number;commandBuffers:number;submitCpuMs:number;quanta:number;encodeCpuMs:number}
 interface RoleCapture {width:number;height:number;nonzero:number;sha256:string;difference:ReturnType<typeof diff>}
-interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;stages:StageRow[];solventInitialization:unknown;carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
+interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;stages:StageRow[];sourceOrder:unknown;targetInitialization:unknown;solventInitialization:unknown;computeSolventInitClears:number;computeFullClears:number;carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
 const count=():Counts=>({submits:0,commandBuffers:0,submitCpuMs:0,quanta:0,encodeCpuMs:0})
-export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,perOperationStages=false,firstOpSolventStages=false,captureFirstSolventInit=false,oraclePairIndex}:{captureFirstSolventInit?:boolean;firstOpSolventStages?:boolean;perOperationStages?:boolean;controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,perOperationStages=false,firstOpSolventStages=false,captureFirstSolventInit=false,diagnosticComputeSolventInit=false,diagnosticComputeFullClear=false,captureFirstTargetInit=false,diagnosticSplitFirstSourceInit=false,diagnosticPrimeFirstWaterInit=false,traceFirstSource=false,oraclePairIndex}:{traceFirstSource?:boolean;diagnosticPrimeFirstWaterInit?:false|'submit'|'complete';diagnosticSplitFirstSourceInit?:boolean;captureFirstTargetInit?:boolean;diagnosticComputeFullClear?:boolean;diagnosticComputeSolventInit?:boolean;captureFirstSolventInit?:boolean;firstOpSolventStages?:boolean;perOperationStages?:boolean;controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+ if(diagnosticPrimeFirstWaterInit&&(!controlRepeat||diagnosticSplitFirstSourceInit||perOperationStages||captureFirstSolventInit||captureFirstTargetInit))throw new Error('Prime firstwater init requires isolated OFF/OFF without source split/captures')
+ if(captureFirstTargetInit&&(!firstOpSolventStages||captureFirstSolventInit))throw new Error('Target init requires first-op gate without solvent init copies')
+ if(diagnosticComputeFullClear&&(!controlRepeat||captureFirstSolventInit||diagnosticComputeSolventInit))throw new Error('Full compute clear requires isolated OFF/OFF without init copies/solvent arm')
+ if(diagnosticComputeSolventInit&&(!controlRepeat||captureFirstSolventInit))throw new Error('Compute solvent init diagnostic requires OFF/OFF without init copies')
  if(captureFirstSolventInit&&!firstOpSolventStages)throw new Error('Solvent init capture requires firstOpSolventStages')
  if(firstOpSolventStages&&!perOperationStages)throw new Error('First-op solvent gate requires perOperationStages')
  if(perOperationStages&&(!controlRepeat||progressive||captureSolvent||oraclePairIndex!==undefined))throw new Error('Per-op stage gate is isolated serial OFF/OFF only')
@@ -34,14 +40,34 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
  let now=1000,timestamp=1791400001000,index=0
  const create=async(paired:boolean,record=false)=>{
   const canvas=document.createElement('canvas');surface.append(canvas)
-  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,diagnosticComputeFullClear,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
   const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));let lost=false
   void backend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
-  const runnerOptions={sourceOptions,groupedSettleSubmission:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:(op:Operation)=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}}
+  const sourceOrder=traceFirstSource?new SourceOrderTrace():null
+  if(sourceOrder){
+   const t=sourceOrder,create=backend.createField.bind(backend),clear=backend.encodeClearField.bind(backend),copy=backend.copyField.bind(backend),scope=backend.encodeOwnerCommands.bind(backend)
+   backend.createField=(...args)=>{const f=create(...args);t.record('field.allocate',{id:t.id(f),texture:t.id(f.texture),label:f.label,width:f.width,height:f.height});return f}
+   backend.encodeClearField=(encoder,field,rect)=>{t.record('field.clear',{encoder:t.id(encoder),field:t.id(field),rect:rect?[...rect]:null,compute:!!rect||backend.options.diagnosticComputeFullClear===true});return clear(encoder,field,rect)}
+   backend.copyField=(src,dst,encoder)=>{t.record('field.copy',{src:t.id(src),dst:t.id(dst),explicitEncoder:encoder?t.id(encoder):null});return copy(src,dst,encoder)}
+   backend.encodeOwnerCommands=(encoder,task)=>{t.record('owner.begin',{encoder:t.id(encoder)});try{return scope(encoder,task)}finally{t.record('owner.end',{encoder:t.id(encoder)})}}
+   const queue=backend.device.queue,write=queue.writeBuffer.bind(queue),submit=queue.submit.bind(queue),allocate=backend.device.createBuffer.bind(backend.device),commands=backend.device.createCommandEncoder.bind(backend.device)
+   queue.writeBuffer=(...args)=>{t.record('queue.writeBuffer',{buffer:t.id(args[0]),offset:args[1],payload:traceBytes(args[2]),dataOffset:args[3]??null,size:args[4]??null});write(...args)}
+   queue.submit=commands=>{const list=Array.from(commands);t.record('queue.submit',{buffers:list.map(b=>t.id(b))});submit(list)}
+   backend.device.createBuffer=desc=>{const b=allocate(desc);t.record('buffer.allocate',{id:t.id(b),size:desc.size,usage:desc.usage});return b}
+   backend.device.createCommandEncoder=desc=>{const e=commands(desc);t.record('encoder.allocate',{id:t.id(e),label:desc?.label??null});return e}
+  }
+  const runnerOptions={sourceOptions,diagnosticSplitFirstSourceInit,groupedSettleSubmission:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:(op:Operation)=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}}
   const runner=new CanonicalBoundedSceneRunner(backend,runnerOptions)
   runner.adapter.diagnosticStaticFrontCache=false;runner.adapter.diagnosticStaticDiffuseHeight=false;runner.adapter.diagnosticLazyFrontClimb=false
+  let computeSolventInitClears=0
+  if(diagnosticComputeSolventInit){
+   const clear=backend.encodeClearField.bind(backend),film=runner.scratch.tiles.solventFilm.bind(runner.scratch.tiles)
+   let initializingSolvent=false
+   backend.encodeClearField=(encoder,field,rect)=>{if(initializingSolvent&&!rect){computeSolventInitClears++;return clear(encoder,field,[0,0,field.width,field.height])}return clear(encoder,field,rect)}
+   runner.scratch.tiles.solventFilm=(tile,gesture)=>{initializingSolvent=true;try{return film(tile,gesture)}finally{initializingSolvent=false}}
+  }
   const destroy=async()=>{try{await runner.drain();runner.destroy()}finally{backend.destroy();canvas.remove()}}
-  return{backend,runner,errors,get lost(){return lost},destroy}
+  return{backend,runner,sourceOrder,errors,get computeFullClears(){return backend.diagnosticComputeFullClearCalls},get computeSolventInitClears(){return computeSolventInitClears},get lost(){return lost},destroy}
  }
  if(!provided){
   // Untimed canonical pointer authoring produces ONE authoritative packed tape.
@@ -75,16 +101,18 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
   // QA-only inspection/instrumentation. Source metadata/solver values unchanged.
   const internals=runner as unknown as {source:{execute:(...args:any[])=>GPUBuffer[]};finish:{encodeLive:(...args:any[])=>GPUBuffer[]};planner:{prepare:(...args:any[])=>unknown};settle:()=>void}
   let replayIndex=0
+  let targetInitRead:ReturnType<typeof captureSolventInit>|null=null,targetInitialization:unknown=null
   let activeSourceEncoder:GPUCommandEncoder|null=null,initRead:ReturnType<typeof captureSolventInit>|null=null
-  if(captureFirstSolventInit){
+  if(captureFirstSolventInit||captureFirstTargetInit){
    const scope=backend.encodeOwnerCommands.bind(backend)
    backend.encodeOwnerCommands=(encoder,task)=>scope(encoder,()=>{activeSourceEncoder=encoder;try{return task()}finally{activeSourceEncoder=null}})
-   const solventFilm=runner.scratch.tiles.solventFilm.bind(runner.scratch.tiles)
+   if(captureFirstSolventInit){const solventFilm=runner.scratch.tiles.solventFilm.bind(runner.scratch.tiles)
    runner.scratch.tiles.solventFilm=(tile,gesture)=>{
     const result=solventFilm(tile,gesture)
     if(replayIndex===1&&!initRead){if(!activeSourceEncoder)throw new Error('Solvent init requires actual active encoder');initRead=captureSolventInit(backend.device,activeSourceEncoder,{load:result.load,base:result.base,film:result.film})}
     return result
-   }
+   }}
+   if(captureFirstTargetInit){const createTile=runner.scratch.tiles.getOrCreate.bind(runner.scratch.tiles);runner.scratch.tiles.getOrCreate=tile=>{const e=createTile(tile);if(replayIndex===1&&!targetInitRead){if(!activeSourceEncoder)throw new Error('Target init capture needs source encoder');const roles={layer:tile,original:e.original,...(e.inkLoad?{inkLoad:e.inkLoad}:{})};targetInitRead=captureSolventInit(backend.device,activeSourceEncoder,roles)}return e}}
   }
   let solventInitialization:unknown=null
   const pendingSolvent:Array<{key:string;width:number;height:number;bytes:Promise<Uint8Array>}>=[]
@@ -101,10 +129,10 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
   }
   const audit=perOperationStages?new StageAudit():null,stages:StageRow[]=[],sourceStages:Array<Promise<StageRow>>=[]
   let revealRect:readonly number[]|null=null
-  const stageBuffers=()=>{const e=runner.scratch.peek(runner.target.buffer);return{layer:runner.target.buffer,'tile.colorBase':e?.colorBase,'tile.solventLoad':e?.solventLoad,'field.pressure':field?.pressure,...(firstOpSolventStages&&replayIndex===1?{'tile.solventBase':e?.solventBase,'tile.strokeSolvent':e?.strokeSolvent,'tile.coverage':e?.coverage}:{})}}
+  const stageBuffers=()=>{const e=runner.scratch.peek(runner.target.buffer);return{layer:runner.target.buffer,'tile.colorBase':e?.colorBase,'tile.solventLoad':e?.solventLoad,'field.pressure':firstOpSolventStages&&replayIndex===1?undefined:field?.pressure,...(firstOpSolventStages&&replayIndex===1?{'tile.solventBase':e?.solventBase,'tile.strokeSolvent':e?.strokeSolvent,'tile.coverage':e?.coverage,'tile.original':e?.original,'tile.inkLoad':e?.inkLoad,'tile.inkColor':e?.inkColor}:{})}}
   const stageRead=(b:CanonicalFieldBuffer)=>{const hook=backend.device.queue.submit;backend.device.queue.submit=submit;try{return b.readBytes()}finally{backend.device.queue.submit=hook}}
-  const settle=internals.settle.bind(runner);internals.settle=()=>{if(audit)sourceStages.push(audit.snapshot(replayIndex,'source-before-settle',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));capture('source');phase='settle';try{const result=settle();capture('finish');return result}finally{phase='source'}}
-  const execute=internals.source.execute.bind(internals.source);internals.source.execute=(...args)=>{phase='source';const r=(args[1] as {rect:readonly number[]|null}).rect;if(r){if(!revealRect)revealRect=[...r];else{const x=Math.min(revealRect[0],r[0]),y=Math.min(revealRect[1],r[1]);revealRect=[x,y,Math.max(revealRect[0]+revealRect[2],r[0]+r[2])-x,Math.max(revealRect[1]+revealRect[3],r[1]+r[3])-y]}}audit?.record('source',args.slice(1));return execute(...args)}
+  const settle=internals.settle.bind(runner);internals.settle=()=>{if(replayIndex===1){run.sourceOrder?.record('firstsource.complete',{});run.sourceOrder?.stop()}if(audit)sourceStages.push(audit.snapshot(replayIndex,'source-before-settle',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));capture('source');phase='settle';try{const result=settle();capture('finish');return result}finally{phase='source'}}
+  const execute=internals.source.execute.bind(internals.source);internals.source.execute=(...args)=>{phase='source';run.sourceOrder?.record('source.execute',{commands:(args[1] as {commands:unknown[]}).commands.length});const r=(args[1] as {rect:readonly number[]|null}).rect;if(r){if(!revealRect)revealRect=[...r];else{const x=Math.min(revealRect[0],r[0]),y=Math.min(revealRect[1],r[1]);revealRect=[x,y,Math.max(revealRect[0]+revealRect[2],r[0]+r[2])-x,Math.max(revealRect[1]+revealRect[3],r[1]+r[3])-y]}}audit?.record('source',args.slice(1));return execute(...args)}
   const live=internals.finish.encodeLive.bind(internals.finish);internals.finish.encodeLive=(...args)=>{phase='live';return live(...args)}
   const prepare=internals.planner.prepare.bind(internals.planner);internals.planner.prepare=(...args)=>{phase='prepare';audit?.record('plan',args.slice(2));return prepare(...args)}
   let field:CanonicalSettleField|null=null
@@ -122,8 +150,16 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
   try{
    await runner.drain();for(const m of Object.values(metrics))Object.assign(m,count())
    backend.device.pushErrorScope('validation')
+   if(diagnosticPrimeFirstWaterInit){
+    run.sourceOrder?.record('prime.begin',{mode:diagnosticPrimeFirstWaterInit})
+    const first=tape[0],mix=first?.preset?watercolorMixFromPreset(first.preset):null
+    if(!first||first.tool!=='watercolor'||!mix||mix.water!==1||mix.pigment!==0)throw new Error('Prime init only supports recorded first water100 pigment0 operation')
+    const tile=runner.target.buffer,gesture=runner.scratch.gesture+1
+    runner.adapter.runQuantum(()=>{runner.scratch.tiles.getOrCreate(tile);runner.scratch.tiles.runningCoverage(tile,gesture);runner.scratch.tiles.filmBuffers(tile,gesture);runner.scratch.tiles.solventFilm(tile,gesture)})
+    if(diagnosticPrimeFirstWaterInit==='complete'){run.sourceOrder?.record('prime.wait',{});await backend.device.queue.onSubmittedWorkDone()}run.sourceOrder?.record('prime.end',{})
+   }
    const started=performance.now()
-   for(const operation of tape){audit?.reset();revealRect=null;replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;if(replayIndex===1&&initRead)solventInitialization=await (initRead as ()=>Promise<Record<string,unknown>>)();progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id);if(audit){const sources=sourceStages.splice(0);for(const pending of sources)stages.push(await pending);stages.push(await audit.snapshot(replayIndex,'after-finish',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));}}
+   for(const operation of tape){audit?.reset();revealRect=null;replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();run.sourceOrder?.record('replay.begin',{operation:replayIndex});runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;if(replayIndex===1&&targetInitRead)targetInitialization=await (targetInitRead as ReturnType<typeof captureSolventInit>)();if(replayIndex===1&&initRead)solventInitialization=await (initRead as ()=>Promise<Record<string,unknown>>)();progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id);if(audit){const sources=sourceStages.splice(0);for(const pending of sources)stages.push(await pending);stages.push(await audit.snapshot(replayIndex,'after-finish',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));}}
    wallMs=performance.now()-started;progress('readback '+(paired?'ON':'OFF'))
    if(!field)throw new Error('No canonical settle field captured')
    const capturedField=field as CanonicalSettleField
@@ -152,12 +188,80 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    if(paired&&oraclePairIndex!==undefined&&!carryOracle)throw new Error('Selected actual carry pair was not exercised')
    readbackWallMs=performance.now()-readStarted
    const validation=await backend.device.popErrorScope();if(validation)run.errors.push(validation.message)
-   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls,stages,solventInitialization,carryOracle})
-  }finally{(initRead as ReturnType<typeof captureSolventInit>|null)?.dispose();queue.submit=submit;await run.destroy()}
+   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls,stages,sourceOrder:run.sourceOrder?.result()??null,targetInitialization,solventInitialization,computeSolventInitClears:run.computeSolventInitClears,computeFullClears:run.computeFullClears,carryOracle})
+  }finally{(targetInitRead as ReturnType<typeof captureSolventInit>|null)?.dispose();(initRead as ReturnType<typeof captureSolventInit>|null)?.dispose();queue.submit=submit;await run.destroy()}
  }
  surface.replaceChildren()
  const stageComparison=perOperationStages?compareStages(rows[0].stages,rows[1].stages):null
  const exact=(!stageComparison||stageComparison.exact)&&(controlRepeat||rows.some(row=>row.paired&&row.pairedCarryCalls>0))&&rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&(!row.carryOracle||row.carryOracle.exact)&&[...Object.values(row.roles),...Object.values(row.solventCheckpoints)].every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
- return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,controlRepeat,perOperationStages,firstOpSolventStages,captureFirstSolventInit,stageComparison,timingPerturbedByStages:perOperationStages,oraclePairIndex,timingPerturbedByOracle:oraclePairIndex!==undefined,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
+ return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,controlRepeat,perOperationStages,firstOpSolventStages,captureFirstSolventInit,diagnosticComputeSolventInit,diagnosticComputeFullClear,captureFirstTargetInit,diagnosticSplitFirstSourceInit,diagnosticPrimeFirstWaterInit,traceFirstSource,firstOpPressureOmitted:firstOpSolventStages,stageComparison,timingPerturbedByStages:perOperationStages,oraclePairIndex,timingPerturbedByOracle:oraclePairIndex!==undefined,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
 }
 Object.assign(window,{runPairedCarryAB})
+/** Bounded clear/copy primitive: nonzero initial pixels, full clear, immediate copy,
+ * another render load pass, then readback. No extra copy/fence at clear boundary. */
+export async function runFullClearFixture(){
+ const rows=[]
+ for(const compute of [false,true]){
+  const canvas=document.createElement('canvas');document.querySelector('#surface')!.append(canvas)
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:17,height:19,paper:{bytes:new Uint8Array(4*4*4).fill(255),width:4,height:4,origin:[0,0],texSize:[4,4],scale:1}})
+  const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));backend.device.pushErrorScope('validation')
+  const src=backend.createField('clear fixture src',17,19),dst=backend.createField('clear fixture dst',17,19)
+  try{
+   backend.upload(src,new Uint8Array(17*19*4).fill(173));backend.upload(dst,new Uint8Array(17*19*4).fill(91))
+   const encoder=backend.device.createCommandEncoder(),buffers=backend.encodeClearField(encoder,src,compute?[0,0,17,19]:undefined)
+   encoder.copyTextureToTexture({texture:src.texture},{texture:dst.texture},[17,19])
+   const load=encoder.beginRenderPass({colorAttachments:[{view:src.view,loadOp:'load',storeOp:'store'}]});load.end()
+   backend.device.queue.submit([encoder.finish()]);await backend.device.queue.onSubmittedWorkDone();buffers.forEach(b=>b.destroy())
+   const a=await backend.readField(src),b=await backend.readField(dst),validation=await backend.device.popErrorScope();if(validation)errors.push(validation.message)
+   rows.push({compute,width:17,height:19,srcNonzero:a.reduce((n,v)=>n+ +(v!==0),0),dstNonzero:b.reduce((n,v)=>n+ +(v!==0),0),srcSha256:await hash(a),dstSha256:await hash(b),errors})
+  }finally{backend.destroy();canvas.remove()}
+ }
+ return{rows,exact:rows.every(r=>r.srcNonzero===0&&r.dstNonzero===0&&!r.errors.length)}
+}
+Object.assign(window,{runFullClearFixture})
+/** Minimal production-size allocation/clear/copy sequence; no solver or raster. */
+export async function runTargetCopyFixture({compute=false}:{compute?:boolean}={}){
+ const rows=[]
+ for(let repeat=0;repeat<2;repeat++){
+  const canvas=document.createElement('canvas');document.querySelector('#surface')!.append(canvas)
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,diagnosticComputeFullClear:compute,paper:{bytes:new Uint8Array(4*4*4).fill(255),width:4,height:4,origin:[0,0],texSize:[1024,1024],scale:1}})
+  const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));backend.device.pushErrorScope('validation')
+  const src=backend.createField('minimal target',1024,1024,'linear'),dst=backend.createField('minimal original',1024,1024)
+  try{
+   // SAME runner order: independent target clear submitted, then original copy
+   // within first source owner scope followed by other scratch allocations.
+   backend.clearField(src)
+   const encoder=backend.device.createCommandEncoder(),extra=[]
+   const owned=backend.encodeOwnerCommands(encoder,()=>{
+    backend.copyField(src,dst)
+    for(let i=0;i<10;i++){const f=backend.createField('minimal scratch '+i,1024,1024);extra.push(f);backend.clearField(f)}
+   })
+   backend.device.queue.submit([encoder.finish()]);await backend.device.queue.onSubmittedWorkDone();owned.release()
+   const a=await backend.readField(src),b=await backend.readField(dst),validation=await backend.device.popErrorScope();if(validation)errors.push(validation.message)
+   const summary=(bytes:Uint8Array)=>({nonzero:bytes.reduce((n,v)=>n+ +(v!==0),0),rgba0:Array.from(bytes.subarray(0,4)),rgbaCenter:Array.from(bytes.subarray(1024*512*4,1024*512*4+4))})
+   rows.push({repeat,src:summary(a),dst:summary(b),srcSha256:await hash(a),dstSha256:await hash(b),errors,computeFullClears:backend.diagnosticComputeFullClearCalls})
+  }finally{backend.destroy();canvas.remove()}
+ }
+ return{compute,rows,exact:rows.every(r=>r.src.nonzero===0&&r.dst.nonzero===0&&!r.errors.length),limitations:['Two fresh devices; production1024 allocation/copy order, no planner/raster','Readback only after submitted original commands finish']}
+}
+Object.assign(window,{runTargetCopyFixture})
+/** Actual runner resource preparation without raster, source model, or settle. */
+export async function runScratchInitFixture({compute=false}:{compute?:boolean}={}){
+ const rows=[]
+ for(let repeat=0;repeat<2;repeat++){
+  const canvas=document.createElement('canvas');document.querySelector('#surface')!.append(canvas)
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,diagnosticComputeFullClear:compute,paper:{bytes:new Uint8Array(4*4*4).fill(255),width:4,height:4,origin:[0,0],texSize:[1024,1024],scale:1}})
+  const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));backend.device.pushErrorScope('validation')
+  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,now:()=>1000,timestamp:()=>1791400001000,operationId:()=>`init-${repeat}`})
+  try{
+   runner.adapter.runQuantum(()=>{const tile=runner.target.buffer,gesture=runner.scratch.materialGesture;runner.scratch.tiles.getOrCreate(tile);runner.scratch.tiles.runningCoverage(tile,gesture);runner.scratch.tiles.filmBuffers(tile,gesture);runner.scratch.tiles.solventFilm(tile,gesture)})
+   await runner.drain()
+   const e=runner.scratch.peek(runner.target.buffer)!,roles:Record<string,unknown>={}
+   for(const [role,field] of Object.entries({layer:runner.target.buffer,original:e.original,inkLoad:e.inkLoad,inkBase:e.inkBase,strokeInk:e.strokeInk,colorBase:e.colorBase,solventLoad:e.solventLoad,solventBase:e.solventBase,strokeSolvent:e.strokeSolvent})){if(!field)throw new Error('Actual init role absent '+role);const bytes=await field.readBytes();roles[role]={nonzero:bytes.reduce((n,v)=>n+ +(v!==0),0),sha256:await hash(bytes),rgba0:Array.from(bytes.subarray(0,4)),rgbaCenter:Array.from(bytes.subarray(1024*512*4,1024*512*4+4))}}
+   const validation=await backend.device.popErrorScope();if(validation)errors.push(validation.message)
+   rows.push({repeat,roles,errors,computeFullClears:backend.diagnosticComputeFullClearCalls})
+  }finally{await runner.drain();runner.destroy();backend.destroy();canvas.remove()}
+ }
+ return{compute,rows,exact:rows.every(r=>!r.errors.length&&Object.values(r.roles).every(v=>(v as {nonzero:number}).nonzero===0)),limitations:['Actual runner/getOrCreate/filmBuffers/solventFilm, no raster or solver','Readbacks serial only after normal queue completion']}
+}
+Object.assign(window,{runScratchInitFixture})

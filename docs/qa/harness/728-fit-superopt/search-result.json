@@ -1,0 +1,936 @@
+{
+  "solver": "5.1.0",
+  "literalFp32Checks": [
+    {
+      "expression": "max(1.0,max(max(v.r,v.g),max(v.b,v.a)))",
+      "check": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,v.b),max(v.g,v.a)))",
+      "check": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(v.r,max(v.g,max(v.b,v.a))))",
+      "check": "unsat"
+    }
+  ],
+  "grammar": "binary max trees, each of 5 leaves exactly once, commutative partitions canonicalized",
+  "domain": "nonnegative finite f32 bit patterns 0..0x7f7fffff; unchanged constant1+channel leaf arithmetic+finaldivision",
+  "baseline": {
+    "expression": "max(1.0,max(max(v.r,v.g),max(v.b,v.a)))",
+    "maxOps": 4,
+    "depth": 3
+  },
+  "enumerated": 105,
+  "proved": 105,
+  "unknown": 0,
+  "counterexamples": 0,
+  "bestMaxOps": 4,
+  "bestDepth": 3,
+  "paretoCandidates": [
+    {
+      "expression": "max(1.0,max(max(v.r,v.g),max(v.b,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,v.b),max(v.g,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,v.a),max(v.g,v.b)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.r),max(v.g,max(v.b,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.r),max(max(v.g,v.b),v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.r),max(max(v.g,v.a),v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.g),max(v.r,max(v.b,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.g),max(max(v.r,v.b),v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.g),max(max(v.r,v.a),v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.b),max(v.r,max(v.g,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.b),max(max(v.r,v.g),v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.b),max(max(v.r,v.a),v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.a),max(v.r,max(v.g,v.b)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.a),max(max(v.r,v.g),v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.a),max(max(v.r,v.b),v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,v.g)),max(v.b,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),v.g),max(v.b,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),v.r),max(v.b,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,v.b)),max(v.g,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),v.b),max(v.g,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),v.r),max(v.g,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,v.a)),max(v.g,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),v.a),max(v.g,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),v.r),max(v.g,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.g,v.b)),max(v.r,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),v.b),max(v.r,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),v.g),max(v.r,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.g,v.a)),max(v.r,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),v.a),max(v.r,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),v.g),max(v.r,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.b,v.a)),max(v.r,v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),v.a),max(v.r,v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),v.b),max(v.r,v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),max(v.g,v.b)),v.a)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),max(v.r,v.b)),v.a)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),max(v.r,v.g)),v.a)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),max(v.g,v.a)),v.b)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),max(v.r,v.a)),v.b)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),max(v.r,v.g)),v.b)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),max(v.b,v.a)),v.g)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),max(v.r,v.a)),v.g)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),max(v.r,v.b)),v.g)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),max(v.b,v.a)),v.r)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),max(v.g,v.a)),v.r)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),max(v.g,v.b)),v.r)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    }
+  ],
+  "searchSeconds": 7.363045112986583,
+  "rows": [
+    {
+      "expression": "max(1.0,max(v.r,max(v.g,max(v.b,v.a))))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(v.r,max(max(v.g,v.b),v.a)))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(v.r,max(max(v.g,v.a),v.b)))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,v.g),max(v.b,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,v.b),max(v.g,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,v.a),max(v.g,v.b)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,max(v.g,v.b)),v.a))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(max(v.r,v.g),v.b),v.a))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(max(v.r,v.b),v.g),v.a))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,max(v.g,v.a)),v.b))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(max(v.r,v.g),v.a),v.b))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(max(v.r,v.a),v.g),v.b))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(v.r,max(v.b,v.a)),v.g))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(max(v.r,v.b),v.a),v.g))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(1.0,max(max(max(v.r,v.a),v.b),v.g))",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.r),max(v.g,max(v.b,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.r),max(max(v.g,v.b),v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.r),max(max(v.g,v.a),v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.g),max(v.r,max(v.b,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.g),max(max(v.r,v.b),v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.g),max(max(v.r,v.a),v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.b),max(v.r,max(v.g,v.a)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.b),max(max(v.r,v.g),v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.b),max(max(v.r,v.a),v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.a),max(v.r,max(v.g,v.b)))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.a),max(max(v.r,v.g),v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,v.a),max(max(v.r,v.b),v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,v.g)),max(v.b,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),v.g),max(v.b,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),v.r),max(v.b,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,v.b)),max(v.g,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),v.b),max(v.g,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),v.r),max(v.g,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,v.a)),max(v.g,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),v.a),max(v.g,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),v.r),max(v.g,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.g,v.b)),max(v.r,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),v.b),max(v.r,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),v.g),max(v.r,v.a))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.g,v.a)),max(v.r,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),v.a),max(v.r,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),v.g),max(v.r,v.b))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.b,v.a)),max(v.r,v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),v.a),max(v.r,v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),v.b),max(v.r,v.g))",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,max(v.g,v.b))),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.r,v.g),v.b)),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.r,v.b),v.g)),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),max(v.g,v.b)),v.a)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),max(v.r,v.b)),v.a)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),max(v.r,v.g)),v.a)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.r,v.g)),v.b),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.r),v.g),v.b),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.g),v.r),v.b),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.r,v.b)),v.g),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.r),v.b),v.g),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.b),v.r),v.g),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.g,v.b)),v.r),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.g),v.b),v.r),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.b),v.g),v.r),v.a)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,max(v.g,v.a))),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.r,v.g),v.a)),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.r,v.a),v.g)),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),max(v.g,v.a)),v.b)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),max(v.r,v.a)),v.b)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),max(v.r,v.g)),v.b)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.r,v.g)),v.a),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.r),v.g),v.a),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.g),v.r),v.a),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.r,v.a)),v.g),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.r),v.a),v.g),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.a),v.r),v.g),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.g,v.a)),v.r),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.g),v.a),v.r),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.a),v.g),v.r),v.b)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.r,max(v.b,v.a))),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.r,v.b),v.a)),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.r,v.a),v.b)),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.r),max(v.b,v.a)),v.g)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),max(v.r,v.a)),v.g)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),max(v.r,v.b)),v.g)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.r,v.b)),v.a),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.r),v.b),v.a),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.b),v.r),v.a),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.r,v.a)),v.b),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.r),v.a),v.b),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.a),v.r),v.b),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.b,v.a)),v.r),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.b),v.a),v.r),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.a),v.b),v.r),v.g)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(v.g,max(v.b,v.a))),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.g,v.b),v.a)),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(1.0,max(max(v.g,v.a),v.b)),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.g),max(v.b,v.a)),v.r)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.b),max(v.g,v.a)),v.r)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,v.a),max(v.g,v.b)),v.r)",
+      "maxOps": 4,
+      "depth": 3,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.g,v.b)),v.a),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.g),v.b),v.a),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.b),v.g),v.a),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.g,v.a)),v.b),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.g),v.a),v.b),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.a),v.g),v.b),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(1.0,max(v.b,v.a)),v.g),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.b),v.a),v.g),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    },
+    {
+      "expression": "max(max(max(max(1.0,v.a),v.b),v.g),v.r)",
+      "maxOps": 4,
+      "depth": 4,
+      "equivalence": "unsat"
+    }
+  ],
+  "limitation": "Bounded grammar optimum only; no reassociation/division reciprocal/NaN-domain proof or GPU speed claim"
+}
