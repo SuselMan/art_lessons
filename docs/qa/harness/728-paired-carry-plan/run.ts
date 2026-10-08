@@ -1,3 +1,4 @@
+import { StageAudit,compareStages,type StageRow } from './stageAudit'
 import type { StrokeOperation } from '@grafetto/shared'
 import { getPaperBytes } from '../../../../apps/web/src/engine/src/paper/paperLoader'
 import { CanonicalWatercolorWebGpu } from '../../../../apps/web/src/engine/src/webgpuCanonical/backend'
@@ -13,9 +14,10 @@ const hash=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtl
 const diff=(a:Uint8Array,b:Uint8Array)=>{if(a.length!==b.length)throw new Error('Capture dimensions changed');let changed=0,max=0,total=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=+(d>0);max=Math.max(max,d);total+=d}return{changed,max,total}}
 interface Counts {submits:number;commandBuffers:number;submitCpuMs:number;quanta:number;encodeCpuMs:number}
 interface RoleCapture {width:number;height:number;nonzero:number;sha256:string;difference:ReturnType<typeof diff>}
-interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
+interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;stages:StageRow[];carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
 const count=():Counts=>({submits:0,commandBuffers:0,submitCpuMs:0,quanta:0,encodeCpuMs:0})
-export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,oraclePairIndex}:{controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,perOperationStages=false,oraclePairIndex}:{perOperationStages?:boolean;controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+ if(perOperationStages&&(!controlRepeat||progressive||captureSolvent||oraclePairIndex!==undefined))throw new Error('Per-op stage gate is isolated serial OFF/OFF only')
  if(progressive&&captureSolvent)throw new Error('Solvent source/finish captures require serial synchronous settle; progressive final-role gate remains supported')
  if(controlRepeat&&oraclePairIndex!==undefined)throw new Error('OFF/OFF repeat has no paired oracle; run separately')
  if(oraclePairIndex!==undefined&&(!Number.isInteger(oraclePairIndex)||oraclePairIndex<0||oraclePairIndex>128))throw new Error('Bounded actual oracle pair index invalid')
@@ -55,6 +57,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    if(author.errors.length||author.lost)throw new Error('Authoring GPU failure '+JSON.stringify(author.errors))
   }finally{await author.destroy()}
  }
+ if(perOperationStages&&tape.length>8)throw new Error('Per-op stage gate bounded to eight operations')
  if(!tape.length||tape.some(op=>op.type!=='stroke'||op.tool!=='watercolor'||!op.dabsPacked))throw new Error('Requires nonempty canonical packed watercolor tape')
  if(captureSolvent&&tape.length>8)throw new Error('Solvent localization is bounded to eight packed operations')
  const tapeSha256=await hash(new TextEncoder().encode(JSON.stringify(tape)))
@@ -79,12 +82,17 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
     try{pendingSolvent.push({key:`${replayIndex}.${stage}.${role}`,width:b.width,height:b.height,bytes:b.readBytes()})}finally{backend.device.queue.submit=hooked}
    }
   }
-  const settle=internals.settle.bind(runner);internals.settle=()=>{capture('source');phase='settle';try{const result=settle();capture('finish');return result}finally{phase='source'}}
-  const execute=internals.source.execute.bind(internals.source);internals.source.execute=(...args)=>{phase='source';return execute(...args)}
+  const audit=perOperationStages?new StageAudit():null,stages:StageRow[]=[],sourceStages:Array<Promise<StageRow>>=[]
+  const stageBuffers=()=>{const e=runner.scratch.peek(runner.target.buffer);return{layer:runner.target.buffer,'tile.colorBase':e?.colorBase,'tile.solventLoad':e?.solventLoad,'field.pressure':field?.pressure}}
+  const stageRead=(b:CanonicalFieldBuffer)=>{const hook=backend.device.queue.submit;backend.device.queue.submit=submit;try{return b.readBytes()}finally{backend.device.queue.submit=hook}}
+  const settle=internals.settle.bind(runner);internals.settle=()=>{if(audit)sourceStages.push(audit.snapshot(replayIndex,'source-before-settle',stageBuffers(),stageRead));capture('source');phase='settle';try{const result=settle();capture('finish');return result}finally{phase='source'}}
+  const execute=internals.source.execute.bind(internals.source);internals.source.execute=(...args)=>{phase='source';audit?.record('source',args.slice(1));return execute(...args)}
   const live=internals.finish.encodeLive.bind(internals.finish);internals.finish.encodeLive=(...args)=>{phase='live';return live(...args)}
-  const prepare=internals.planner.prepare.bind(internals.planner);internals.planner.prepare=(...args)=>{phase='prepare';return prepare(...args)}
+  const prepare=internals.planner.prepare.bind(internals.planner);internals.planner.prepare=(...args)=>{phase='prepare';audit?.record('plan',args.slice(2));return prepare(...args)}
   let field:CanonicalSettleField|null=null
   const fieldFor=runner.fieldOwner.fieldFor.bind(runner.fieldOwner);runner.fieldOwner.fieldFor=(...args)=>field=fieldFor(...args)
+  if(audit){const target=runner.adapter as unknown as Record<string,(...args:unknown[])=>unknown>;for(const name of ['fieldOp','pigmentColor','costDomainStep','diffuseStep','wcResample','waterFrontStep','brushPass','brushPair','carryPair']){const original=target[name].bind(runner.adapter);target[name]=(...args)=>{audit.record('pass',[name,...args]);return original(...args)}}}
+  if(audit){for(const name of ['uploadFlow','uploadForeign'] as const){const original=runner.adapter.uploads[name].bind(runner.adapter.uploads);(runner.adapter.uploads as unknown as Record<string,(...args:unknown[])=>unknown>)[name]=(...args)=>{audit.record('pass',[name,...args.slice(1)]);return (original as (...args:unknown[])=>unknown)(...args)}}}
   const queue=backend.device.queue,submit=queue.submit.bind(queue)
   queue.submit=(buffers)=>{const b=Array.from(buffers),m=metrics[phase],t=performance.now();submit(b);m.submitCpuMs+=performance.now()-t;m.submits++;m.commandBuffers+=b.length}
   const quantum=runner.adapter.runQuantum.bind(runner.adapter)
@@ -97,7 +105,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    await runner.drain();for(const m of Object.values(metrics))Object.assign(m,count())
    backend.device.pushErrorScope('validation')
    const started=performance.now()
-   for(const operation of tape){replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id)}
+   for(const operation of tape){audit?.reset();replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id);if(audit){const sources=sourceStages.splice(0);for(const pending of sources)stages.push(await pending);stages.push(await audit.snapshot(replayIndex,'after-finish',stageBuffers(),stageRead));}}
    wallMs=performance.now()-started;progress('readback '+(paired?'ON':'OFF'))
    if(!field)throw new Error('No canonical settle field captured')
    const capturedField=field as CanonicalSettleField
@@ -126,11 +134,12 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    if(paired&&oraclePairIndex!==undefined&&!carryOracle)throw new Error('Selected actual carry pair was not exercised')
    readbackWallMs=performance.now()-readStarted
    const validation=await backend.device.popErrorScope();if(validation)run.errors.push(validation.message)
-   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls,carryOracle})
+   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls,stages,carryOracle})
   }finally{queue.submit=submit;await run.destroy()}
  }
  surface.replaceChildren()
- const exact=(controlRepeat||rows.some(row=>row.paired&&row.pairedCarryCalls>0))&&rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&(!row.carryOracle||row.carryOracle.exact)&&[...Object.values(row.roles),...Object.values(row.solventCheckpoints)].every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
- return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,controlRepeat,oraclePairIndex,timingPerturbedByOracle:oraclePairIndex!==undefined,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
+ const stageComparison=perOperationStages?compareStages(rows[0].stages,rows[1].stages):null
+ const exact=(!stageComparison||stageComparison.exact)&&(controlRepeat||rows.some(row=>row.paired&&row.pairedCarryCalls>0))&&rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&(!row.carryOracle||row.carryOracle.exact)&&[...Object.values(row.roles),...Object.values(row.solventCheckpoints)].every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
+ return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,controlRepeat,perOperationStages,stageComparison,timingPerturbedByStages:perOperationStages,oraclePairIndex,timingPerturbedByOracle:oraclePairIndex!==undefined,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
 }
 Object.assign(window,{runPairedCarryAB})

@@ -57,3 +57,19 @@ Example: `runPairedCarryAB({size:400,allowLarge:true,tape,hardwareLinear:true,
 controlRepeat:true})`, then SAME tape with `controlRepeat:false,oraclePairIndex:0`.
 If the selected pair is not exercised the harness throws, rather than false-pass.
 Whole final roles remain checked even when a local pair oracle passes.
+
+Baseline400 per-operation localization: `runPairedCarryAB({size:400,allowLarge:true,
+tape,hardwareLinear:true,controlRepeat:true,perOperationStages:true})`. Requires
+serial OFF/OFF, no oracle/progressive/solvent capture combination, at most8ops.
+Captures layer/colorBase/solventLoad/pressure just before settle (queue snapshots
+freeze real source bytes) and after drain/finish for EACH packed operation. Only
+SHA256/dimensions/nonzero are retained for comparison; source readbacks total
+≤40MiB, released per operation; no large per-op baseline pixel arrays retained.
+CPU source/plan/pass/upload payload fingerprints are FNV diagnostic hashes of
+normalized parameters/typed-byte payloads, not a cryptographic byte-parity proof.
+Plan arguments are also returned (bounded4 prepare calls perop), field filter and
+allocation identities normalized. firstDivergence reports operation/stage and BOTH
+CPU and GPU-role differences. This readback intervention perturbs scheduling and
+may mask/expose driver nondeterminism; timings must not be interpreted as normal.
+Default flags and input tape remain unchanged. A hash change localizes a role;
+this bounded stage gate deliberately does not report unsupported maxbyte counts.
