@@ -2,7 +2,7 @@ import { strokeDabs,type Operation,type StrokeOperation } from '@grafetto/shared
 import { CanonicalSingleTileFinish } from './finishTile'
 import type { CanonicalWatercolorWebGpu } from './backend'
 import { CanonicalFieldBuffer,CanonicalScratchPool } from './fieldBuffer'
-import { CanonicalTileScratch } from './tileScratch'
+import { CanonicalTileScratch,type CanonicalLayerTile } from './tileScratch'
 import { CanonicalStrokeScratchMetadata,canonicalSourceRevealRect } from './strokeScratchMetadata'
 import { CanonicalSourcePhaseExecutor } from './sourcePhaseExecutor'
 import { CanonicalPlanAdapter,type CanonicalUploadSlot } from './settlePlanAdapter'
@@ -18,12 +18,18 @@ import { presetForTool } from '../presets/resolvePreset'
 import { PaperWetness,wetAt,wetPeak,WET_DRY_MS } from '../paper/paperWetness'
 import { watercolorBloomStrength,watercolorBloomPush,mottleSeedFromStrokeId,watercolorMixFromPreset } from '../presets/watercolorPresets'
 import { runCanonicalSettleJob } from './runSettleJob'
+import { CanonicalPlannerPreviewBridge } from './previewBridge'
+import type { CanonicalGpuContext } from './types'
 import { ribbonWaterDelivery } from '../dabs/ribbonStrokeMath'
 
 export interface BoundedSceneOptions {
  sourceOptions:CanonicalStrokeChunkInput['options']
  /** Diagnostic only: same serial passes/Q8 order, fewer submissions. Default false. */
  groupedSettleSubmission?:boolean
+ /** OFF by default. Same solver with actual intermediate presentation; incompatible with grouped. */
+ progressiveSettle?:boolean
+ onSettlePreview?():void
+ yieldSettleFrame?():Promise<void>
  now():number;timestamp():number;operationId():string
  onLocalOperation?(operation:Operation):void
 
@@ -42,6 +48,12 @@ export class CanonicalBoundedSceneRunner {
  private source:CanonicalSourcePhaseExecutor
  private finish:CanonicalSingleTileFinish
  private readonly planner:CanonicalWatercolorSettlePlan<CanonicalFieldBuffer,CanonicalUploadSlot>
+ private preview:CanonicalPlannerPreviewBridge
+ private pendingSettle:Promise<void>|null=null
+ private settleFailure:unknown
+ private previewEnabled=false
+ private activePreviewContext:CanonicalGpuContext|null=null
+ private previewReady=false
  private settings?:WatercolorGestureSettings
  private active=false
  private busy=false
@@ -50,13 +62,15 @@ export class CanonicalBoundedSceneRunner {
  private washId?:string
  private readonly geometry={dabSpacing:0}
  constructor(backend:CanonicalWatercolorWebGpu,options:BoundedSceneOptions){
+  if(options.progressiveSettle&&options.groupedSettleSubmission)throw new Error('Progressive and grouped native settle are incompatible')
   this.backend=backend;this.options=options;this.adapter=new CanonicalPlanAdapter(backend);this.fieldOwner=new CanonicalPlanFieldOwner(backend);this.pool=new CanonicalScratchPool(backend)
   const buffer=new CanonicalFieldBuffer(backend,1024,1024,'linear','bounded native layer');buffer.clear()
   this.target={buffer,originX:0,originY:0,contentRect:null}
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])
   this.finish=new CanonicalSingleTileFinish(backend,this.scratch.tiles,[this.target])
+  this.preview=new CanonicalPlannerPreviewBridge(backend,this.scratch.tiles,this.target)
   this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})})
-  this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fieldOwner.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>false,passes:()=>this.adapter,uploads:this.adapter.uploads})
+  this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fieldOwner.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>this.previewEnabled,passes:()=>this.adapter,uploads:this.adapter.uploads})
   this.gesture=new CanonicalWatercolorGesture({paperWet:this.paperWet,now:options.now,timestamp:options.timestamp,operationId:options.operationId,onPreparedChunk:chunk=>this.prepare(chunk),onLocalStroke:(op)=>options.onLocalOperation?.(op),onChunkBoundary:()=>{this.settle();this.scratch.newFilm();this.scratch.activateMaterialFilm(this.scratch.gesture)}})
  }
  get isIdle(){return !this.active&&!this.busy}
@@ -65,7 +79,7 @@ export class CanonicalBoundedSceneRunner {
   await this.drain();this.scratch.tiles.destroy();this.target.buffer.clear();this.paperWet.clear();this.geometry.dabSpacing=0;this.replayStrokeId=undefined;this.layerId=undefined;this.washId=undefined
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])
   this.source=new CanonicalSourcePhaseExecutor(this.backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})})
-  this.finish=new CanonicalSingleTileFinish(this.backend,this.scratch.tiles,[this.target]);await this.backend.device.queue.onSubmittedWorkDone()
+  this.finish=new CanonicalSingleTileFinish(this.backend,this.scratch.tiles,[this.target]);this.preview=new CanonicalPlannerPreviewBridge(this.backend,this.scratch.tiles,this.target);await this.backend.device.queue.onSubmittedWorkDone()
  }
  attach(canvas:HTMLCanvasElement,getStroke:()=>{settings:WatercolorGestureSettings;provenance:GestureProvenance},transform:(x:number,y:number)=>{x:number;y:number},pressureMap:PressureMap|null=null):()=>void {
   const input=new PointerInput(canvas);input.setTransform(transform);input.setPressureMap(pressureMap)
@@ -84,7 +98,7 @@ export class CanonicalBoundedSceneRunner {
  }
  move(e:PointerData):void {this.guardPoint(e);if(!this.active)throw new Error('No active native gesture');this.gesture.move(e)}
  end(e:PointerData):void {this.guardPoint(e);if(!this.active)throw new Error('No active native gesture');this.gesture.end(e);this.active=false;this.settle();this.busy=true}
- async drain():Promise<void>{await this.backend.device.queue.onSubmittedWorkDone();this.busy=false}
+ async drain():Promise<void>{await this.pendingSettle;await this.backend.device.queue.onSubmittedWorkDone();if(this.settleFailure){const failure=this.settleFailure;this.settleFailure=undefined;throw failure}this.busy=false}
  private resetGesture(){
   this.scratch.beginStroke(()=>{
    const cached=this.scratch.delivery.gestureScalars
@@ -116,8 +130,35 @@ export class CanonicalBoundedSceneRunner {
   const profile=finish.profile as ReturnType<typeof ribbonProfileFor>,scalars=this.scratch.delivery.gestureScalars!,bounds=finish.bounds
   const delivery=ribbonWaterDelivery(profile),standing=delivery.water*(delivery.retain+(1-delivery.retain)*Math.min(1,finish.landedWet)),previous=this.scratch.dryCtx
   this.scratch.dryCtx={...finish,bounds:previous?{minX:Math.min(previous.bounds.minX,bounds.minX),minY:Math.min(previous.bounds.minY,bounds.minY),maxX:Math.max(previous.bounds.maxX,bounds.maxX),maxY:Math.max(previous.bounds.maxY,bounds.maxY)}:{...bounds},radiusPx:Math.max(previous?.radiusPx??0,finish.radiusPx),standing:Math.max(previous?.standing??0,standing)}
-  const job=this.adapter.runQuantum(()=>this.planner.prepare(this.scratch,[this.target],bounds,watercolorBloomStrength(finish.landedWet,profile.pigmentLevel)*watercolorBloomPush(profile.pigmentLevel),finish.radiusPx,profile.waterLevel,finish.landedWet,standing,finish.wetPeak,finish.dwellMs,undefined,false,this.scratch.captureMetadata(),true))
-  if(job)runCanonicalSettleJob(this.adapter,job,ctx=>{this.adapter.retain(this.finish.encode(ctx.encoder,{settleComplete:true,profile,opacity:finish.opacity as number,fieldSeed:scalars.fieldSeed,spreadPx:scalars.spreadPx,water:scalars.water,bristleRadiusPx:scalars.bristleRadiusPx,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}));},this.options.groupedSettleSubmission===true)
+  // Chunk boundaries within an active gesture must stay synchronous: delivery state
+  // immediately proceeds to the next material film on the same CPU stack.
+  const progressive=this.options.progressiveSettle===true&&!this.active
+  this.previewEnabled=progressive
+  const compositeMetadata={profile,opacity:finish.opacity as number,fieldSeed:scalars.fieldSeed,spreadPx:scalars.spreadPx,water:scalars.water,bristleRadiusPx:scalars.bristleRadiusPx,bounds}
+  const preview=progressive?((tile:CanonicalLayerTile,pigment:CanonicalFieldBuffer,color:CanonicalFieldBuffer|null,coverage:CanonicalFieldBuffer)=>{
+   const ctx=this.activePreviewContext,original=this.scratch.tiles.peek(tile.buffer)?.original
+   if(!ctx||!original)throw new Error('Native preview must run inside its owner quantum')
+   this.adapter.retain(this.preview.encodePreview(ctx,tile,{pigment,color,coverage},original,compositeMetadata));this.previewReady=true
+  }):undefined
+  const job=this.adapter.runQuantum(ctx=>{this.activePreviewContext=ctx;try{return this.planner.prepare(this.scratch,[this.target],bounds,watercolorBloomStrength(finish.landedWet,profile.pigmentLevel)*watercolorBloomPush(profile.pigmentLevel),finish.radiusPx,profile.waterLevel,finish.landedWet,standing,finish.wetPeak,finish.dwellMs,preview,false,this.scratch.captureMetadata(),true)}finally{this.activePreviewContext=null}})
+  if(!job){this.previewEnabled=false;return}
+  compositeMetadata.bounds=job.compositeDomain
+  const composite=(ctx:CanonicalGpuContext)=>{this.adapter.retain(this.finish.encode(ctx.encoder,{settleComplete:true,...compositeMetadata,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}))}
+  if(!progressive){runCanonicalSettleJob(this.adapter,job,composite,this.options.groupedSettleSubmission===true);return}
+  this.busy=true
+  this.pendingSettle=this.runProgressive(job,composite).catch(error=>{this.settleFailure=error}).finally(()=>{this.previewEnabled=false;this.activePreviewContext=null})
+ }
+ private async runProgressive(job:Parameters<typeof runCanonicalSettleJob>[1],composite:(ctx:CanonicalGpuContext)=>void):Promise<void>{
+  try{
+   for(const op of job.ops){
+    this.previewReady=false
+    this.adapter.runQuantum(ctx=>{this.activePreviewContext=ctx;try{op()}finally{this.activePreviewContext=null}})
+    if(this.previewReady)this.options.onSettlePreview?.()
+    await (this.options.yieldSettleFrame?.()??new Promise<void>(resolve=>requestAnimationFrame(()=>resolve())))
+   }
+   this.adapter.runQuantum(ctx=>{job.finish();composite(ctx)});this.options.onSettlePreview?.()
+  }finally{this.adapter.runQuantum(()=>job.dispose())}
+
  }
  replay(operation:StrokeOperation):void {
   if(this.active||this.busy)throw new Error('Native debug scene is busy')
