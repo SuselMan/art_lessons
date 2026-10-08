@@ -26,3 +26,5 @@ export async function runWetTransport(scene:'zigzag'|'unified',transport=true){i
 const button=document.querySelector<HTMLButtonElement>('#run');button?.addEventListener('click',async()=>{button.disabled=true;try{document.querySelector('#status')!.textContent=JSON.stringify(await runWetTransport((document.querySelector<HTMLSelectElement>('#scene')!.value) as 'zigzag'|'unified',document.querySelector<HTMLInputElement>('#on')!.checked),null,2)}catch(e){document.querySelector('#status')!.textContent=String(e)}finally{button.disabled=false}})
 
 export {runMomentGate} from "./moment-gate"
+
+export {runMomentTextureGate} from "./moment-texture-gate"
