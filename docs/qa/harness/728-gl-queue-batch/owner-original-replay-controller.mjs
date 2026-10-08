@@ -17,7 +17,7 @@ try{
  stage='bootstrap';await wait(()=>evaluate('document.readyState==="complete" && window.__ownerOriginalPageReady===true && !!document.getElementById("surface")'));
  stage='module-import';
  const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/ownerOriginalReplay.mjs';
- const report=await evaluate(async({url,input})=>(await import(url)).runOwnerOriginalReplay(input),{url:moduleUrl,input:{tape,expectedStrokes:Number(process.env.EXPECTED_STROKES??3),engineUrl:'/src/engine/index.ts'}});rows.push(report);
+ const report=await evaluate(async({url,input})=>(await import(url)).runOwnerOriginalReplay(input),{url:moduleUrl,input:{tape,allowWaterFirst:process.env.ALLOW_WATER_FIRST==='1',expectedStrokes:Number(process.env.EXPECTED_STROKES??3),engineUrl:'/src/engine/index.ts'}});rows.push(report);
  result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,valid:!memoryAbort&&!report.glError&&!report.lost};fs.writeFileSync(out,JSON.stringify(result,null,2));
 }catch(e){result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,stage,navigation:{expected:navigationGate?.navigation,frame:navigationGate?.frame,contextId:navigationGate?.contextId,contexts:[...(navigationGate?.contexts.values()??[])]},error:String(e),valid:false};fs.writeFileSync(out,JSON.stringify(result,null,2));process.exitCode=1}
 finally{clearInterval(interval);await closeOwn();console.log(JSON.stringify({out,valid:result.valid,error:result.error}))}
