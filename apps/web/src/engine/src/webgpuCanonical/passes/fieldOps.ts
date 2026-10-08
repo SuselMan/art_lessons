@@ -1,7 +1,8 @@
+import { canonicalDispatchRect } from '../dispatchRect'
 /// <reference types="@webgpu/types" />
 import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } from '../types'
 export const CANONICAL_FIELD_OPS_WGSL = `
-struct Params { dimsDir:vec4f,tau:vec4f,scalars:vec4f,scissor:vec4f,originSize:vec4f,bandWorld:vec4f,worldExtra:vec4f }
+struct Params { dimsDir:vec4f,tau:vec4f,scalars:vec4f,scissor:vec4f,originSize:vec4f,bandWorld:vec4f,worldExtra:vec4f,dispatch:vec4u }
 @group(0) @binding(0) var aTex:texture_2d<f32>;
 @group(0) @binding(1) var bTex:texture_2d<f32>;
 @group(0) @binding(2) var cTex:texture_2d<f32>;
@@ -156,7 +157,7 @@ fn evaluate(uv:vec2f,px:vec2f)->vec4f {
  if(mode<.5){return max(a-b,vec4f(0))*k;}return fit(a+b*k*f);
 }
 @compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) tid:vec3u){
- let q=tid.xy;let dims=u.dimsDir.xy;if(any(q>=vec2u(dims))){return;}
+ if(any(tid.xy>=u.dispatch.zw)){return;}let q=tid.xy+u.dispatch.xy;let dims=u.dimsDir.xy;if(any(q>=vec2u(dims))){return;}
  let px=vec2f(f32(q.x)+.5,dims.y-f32(q.y)-.5);if(any(px<u.scissor.xy)||any(px>=u.scissor.xy+u.scissor.zw)){return;}
  textureStore(outTex,vec2i(q),evaluate(px/dims,px));
 }
@@ -182,14 +183,15 @@ export class CanonicalFieldOps {
   const inferredMask=fields.slice(0,6).reduce((mask,field,index)=>mask|('filter' in field&&field.filter==='linear'?1<<index:0),0)
   const linearMask=o.linearInputMask??inferredMask
   if(!Number.isInteger(linearMask)||linearMask<0||linearMask>63)throw new Error('Canonical input filter mask invalid')
-  const w=r.out.width,h=r.out.height;const values=new Float32Array(28)
+  const w=r.out.width,h=r.out.height;const values=new Float32Array(32)
   values.set([w,h,(o.dir?.[0]??0)/w,(o.dir?.[1]??0)/h,...(o.tau??[0,0,0]),0,k,mode,o.path?(o.pathPacked?2:1):0,o.gradientFibres?1:0,...(o.scissor??[0,0,w,h]),...(o.origin??[0,0]),...(o.size??[w,h]),...(o.band??[0,0]),o.world?.[0]??0,o.world?.[1]??0,o.world?.[2]??0,o.additiveZeroFaces?1:0,linearMask,0])
-  if(values.some(v=>!Number.isFinite(v)))throw new Error('Canonical uniforms must be finite')
+  const rect=canonicalDispatchRect(w,h,o.scissor);new Uint32Array(values.buffer).set(rect,28)
+  if(values.slice(0,28).some(v=>!Number.isFinite(v)))throw new Error('Canonical uniforms must be finite')
   if(!this.pipeline)this.pipeline=this.device.createComputePipeline({label:'Canonical field ops',layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_FIELD_OPS_WGSL}),entryPoint:'main'}})
-  const uniform=this.device.createBuffer({size:112,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
+  const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
   // All sampled fields have distinct output storage; preserve packed path semantics.
   const entries:GPUBindGroupEntry[]=fields.map((f,binding)=>({binding,resource:f.view}))
   entries.push({binding:7,resource:r.out.view},{binding:8,resource:{buffer:uniform}})
-  const bind=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries});const pass=ctx.encoder.beginComputePass({label:'Canonical fieldOp '+mode});pass.setPipeline(this.pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(w/8),Math.ceil(h/8));pass.end();return uniform
+  const bind=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries});const pass=ctx.encoder.beginComputePass({label:'Canonical fieldOp '+mode});pass.setPipeline(this.pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return uniform
  }
 }
