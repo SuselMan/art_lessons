@@ -9,6 +9,15 @@
   diagnosticTipContactA?:boolean
   diagnosticMomentTransport?:boolean
   diagnosticMomentGpuAudit?:boolean
+@@ -98,7 +100,7 @@
+  }
+  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
+   if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}
+-  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
++  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,diagnosticCarryHardwarePressure:this.ctx.diagnosticCarryHardwarePressure,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
+   return this.owner
+  }
+  finish(scratch:RibbonStrokeScratch,metadata:RibbonFinishMetadata):void {
 --- a/apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts
 +++ b/apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts
 @@ -76,12 +76,13 @@
@@ -49,3 +58,88 @@
 + }
 + return counters
 +}
+--- a/apps/web/src/engine/index.ts
++++ b/apps/web/src/engine/index.ts
+@@ -265,6 +265,8 @@
+    * Omitted, standalone callers retain synchronous completion. */
+   /** DEV single-tile native watercolor executor, normal tools remain WebGL. */
+   nativeWatercolor?: boolean
++  /** DEV sampling parity control; requires nativeWatercolor. OFF default. */
++  diagnosticCarryHardwarePressure?: boolean
+   /** DEV new-model coupled brush transport. Requires nativeWatercolor. */
+   diagnosticMomentTransport?: boolean
+   diagnosticMomentGpuAudit?: boolean
+@@ -1856,6 +1858,7 @@
+   })
+   /** Isolated responsiveness prototype. Not a production default. */
+   private _wcNativeEnabled=false
++  private _wcCarryHardwarePressureEnabled=false
+   private _wcMomentTransportEnabled=false
+   private _wcMomentGpuAuditEnabled=false
+   private _wcMomentVectorEnabled=false
+@@ -2277,6 +2280,8 @@
+     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
+     this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
+     this._wcNativeEnabled=import.meta.env.DEV&&options.nativeWatercolor===true
++    this._wcCarryHardwarePressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true
++    if(this._wcCarryHardwarePressureEnabled&&!this._wcNativeEnabled)throw Error('DEV carry pressure sampling requires nativeWatercolor')
+     this._wcTipContactAEnabled=import.meta.env.DEV&&options.diagnosticTipContactA===true
+     if(this._wcTipContactAEnabled&&!this._wcNativeEnabled)throw Error('DEV tipA requires nativeWatercolor')
+     this._wcMomentTransportEnabled=import.meta.env.DEV&&options.diagnosticMomentTransport===true
+@@ -2716,7 +2721,7 @@
+     const epoch=this._wcNativeInitEpoch
+     if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
+       const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
+-      const runtime=await RoomNativeRuntime.create({diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
++      const runtime=await RoomNativeRuntime.create({diagnosticCarryHardwarePressure:this._wcCarryHardwarePressureEnabled,diagnosticTipContactA:this._wcTipContactAEnabled,diagnosticMomentVector:this._wcMomentVectorEnabled,diagnosticMomentGpuAudit:this._wcMomentGpuAuditEnabled,diagnosticMomentTransport:this._wcMomentTransportEnabled,fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
+         resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0]??this._wcNativeReplayTargets.get(target),changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
+       if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
+       this._wcNative=runtime
+--- a/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts
++++ b/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.ts
+@@ -4,7 +4,7 @@
+ 
+ /** Constructor flags only. Production values and existing explicit DEV opt-ins
+  * stay identical; diagnostic selection does not own material or scheduling. */
+-export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA'> {
++export function watercolorQaOptions(dev: boolean, joined: unknown, deferred: string | undefined, search: string): Pick<PencilEngineOptions, 'asyncFinish' | 'joinedTouch' | 'joinedTouchMixed' | 'bandBatch' | 'joinedFinishDeferred' | 'materialPresentation' | 'diagnosticWebgl2' | 'diagnosticBrushMrt' | 'diagnosticFrontBatch' | 'nativeWatercolor' | 'diagnosticSolverBatch' | 'diagnosticMomentTransport' | 'diagnosticMomentGpuAudit' | 'diagnosticMomentVector' | 'diagnosticTipContactA' | 'diagnosticCarryHardwarePressure'> {
+  const query = new URLSearchParams(search)
+  const flag=(name:string)=>{
+   if(!dev)return false
+@@ -12,10 +12,12 @@
+   if(values.length>1||values.some(value=>value!=='0'&&value!=='1'))throw new Error(`Invalid watercolor QA flag ${name}`)
+   return values[0]==='1'
+  }
++ const diagnosticCarryHardwarePressure=flag('wcCarryHardwarePressure')
+  const diagnosticTipContactA=flag('wcTipA')
+  const diagnosticMomentVector=flag('wcMomentVector')
+  const diagnosticMomentGpuAudit=flag('wcMomentGpuAudit')
+  const nativeWatercolor=flag('wcNative'),diagnosticMomentTransport=flag('wcMomentTransport')
++ if(diagnosticCarryHardwarePressure&&!nativeWatercolor)throw new Error('wcCarryHardwarePressure requires wcNative=1')
+  if(diagnosticTipContactA&&!nativeWatercolor)throw new Error('wcTipA requires wcNative=1')
+  if(diagnosticMomentVector&&!diagnosticMomentGpuAudit)throw new Error('wcMomentVector requires wcMomentGpuAudit=1')
+  if(diagnosticMomentGpuAudit&&!diagnosticMomentTransport)throw new Error('wcMomentGpuAudit requires wcMomentTransport=1')
+@@ -23,7 +25,7 @@
+  const diagnosticWebgl2=flag('wcGl2'),diagnosticBrushMrt=flag('wcMrt'),diagnosticFrontBatch=flag('wcFrontBatch')
+  if(diagnosticBrushMrt&&!diagnosticWebgl2)throw new Error('wcMrt requires wcGl2=1')
+  return {
+-  diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
++  diagnosticCarryHardwarePressure,diagnosticTipContactA,nativeWatercolor,diagnosticMomentTransport,diagnosticMomentGpuAudit,diagnosticMomentVector,diagnosticWebgl2,diagnosticBrushMrt,diagnosticFrontBatch,
+   asyncFinish: false,
+   joinedTouch: !dev || joinedTouchQaEnabled(dev, joined, search),
+   joinedTouchMixed: dev && query.get('qaJoinedTouchMixed') === '1',
+--- a/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.test.ts
++++ b/apps/web/src/pages/Room/diagnostics/watercolorQaOptions.test.ts
+@@ -45,3 +45,12 @@
+  expect(()=>parse(true,'?wcNative=1&wcTipA=1&wcTipA=0')).toThrow('Invalid')
+  expect(parse(true,'?wcNative=1&wcTipA=1').diagnosticTipContactA).toBe(true)
+ })
++
++it('carry pressure sampling is strict DEV native-only and OFF by default',()=>{
++ expect(parse(false,'?wcCarryHardwarePressure=1').diagnosticCarryHardwarePressure).toBe(false)
++ expect(parse(true,'').diagnosticCarryHardwarePressure).toBe(false)
++ expect(parse(true,'?wcNative=1&wcCarryHardwarePressure=1').diagnosticCarryHardwarePressure).toBe(true)
++ expect(()=>parse(true,'?wcCarryHardwarePressure=1')).toThrow('requires wcNative')
++ for(const q of ['?wcNative=1&wcCarryHardwarePressure=yes','?wcNative=1&wcCarryHardwarePressure=1&wcCarryHardwarePressure=0'])expect(()=>parse(true,q)).toThrow('Invalid')
++ expect(parse(true,'?wcNative=1&wcCarryHardwarePressure=0').diagnosticCarryHardwarePressure).toBe(false)
++})
