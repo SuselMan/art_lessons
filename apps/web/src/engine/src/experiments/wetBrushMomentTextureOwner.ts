@@ -52,8 +52,25 @@ export class WetBrushMomentTextureOwner {
   const d=this.device,buffers:GPUBuffer[]=[],make=(size:number,usage:GPUBufferUsageFlags)=>{const b=d.createBuffer({size,usage});buffers.push(b);return b}
   const a=make(width*height*40,GPUBufferUsage.STORAGE),b=make(width*height*40,GPUBufferUsage.STORAGE),invalid=make(4,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST),u=make(16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST)
   d.queue.writeBuffer(u,0,new Uint32Array([x,y,width,height]));encoder.clearBuffer(invalid)
-  this.pack??=d.createComputePipeline({layout:'auto',compute:{module:d.createShaderModule({code:this.diagnosticVector?PACK.replace('if(cc[k]>pp.b){atomicAdd(&invalid,1u);}',''):PACK}),entryPoint:'main'}})
-  this.unpack??=d.createComputePipeline({layout:'auto',compute:{module:d.createShaderModule({code:UNPACK}),entryPoint:'main'}})
+  if(!this.pack){
+   const layout=this.diagnosticVector?d.createPipelineLayout({bindGroupLayouts:[d.createBindGroupLayout({entries:[
+    ...[0,1,2,3].map(binding=>({binding,visibility:GPUShaderStage.COMPUTE,texture:{sampleType:'unfilterable-float' as const,viewDimension:'2d' as const}})),
+    {binding:4,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage',minBindingSize:4}},
+    // Explicit legally-unused atomic binding: vector admission imposes no
+    // C<=PB predicate. Auto layout may remove this declared shader binding.
+    {binding:5,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage',minBindingSize:4}},
+    {binding:6,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform',minBindingSize:16}},
+   ]})]}):'auto'
+   this.pack=d.createComputePipeline({layout,compute:{module:d.createShaderModule({code:this.diagnosticVector?PACK.replace('if(cc[k]>pp.b){atomicAdd(&invalid,1u);}',''):PACK}),entryPoint:'main'}})
+  }
+  if(!this.unpack){
+   const layout=this.diagnosticVector?d.createPipelineLayout({bindGroupLayouts:[d.createBindGroupLayout({entries:[
+    {binding:0,visibility:GPUShaderStage.COMPUTE,buffer:{type:'read-only-storage',minBindingSize:4}},
+    ...[1,2].map(binding=>({binding,visibility:GPUShaderStage.COMPUTE,storageTexture:{access:'write-only' as const,format:'rgba8unorm' as const,viewDimension:'2d' as const}})),
+    {binding:3,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform',minBindingSize:16}},
+   ]})]}):'auto'
+   this.unpack=d.createComputePipeline({layout,compute:{module:d.createShaderModule({code:UNPACK}),entryPoint:'main'}})
+  }
   const execute=(pipeline:GPUComputePipeline,entries:GPUBindGroupEntry[])=>{const cp=encoder.beginComputePass();cp.setPipeline(pipeline);cp.setBindGroup(0,d.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries}));cp.dispatchWorkgroups(Math.ceil(width*height/64));cp.end()}
   execute(this.pack,[...textures.slice(0,4).map((t,binding)=>({binding,resource:t.createView()})),{binding:4,resource:{buffer:a}},{binding:5,resource:{buffer:invalid}},{binding:6,resource:{buffer:u}}])
   let source=a,target=b
