@@ -12,6 +12,18 @@ export interface PreparedOwnedComposite {
  color:[number,number,number];opacity:number;fieldSeed:[number,number];spreadPx:number;fringeWater:number;migratePx:number;dabSpacing:number;strokeDir:[number,number];bristleRadiusPx:number
 }
 export interface OwnedSourceChunk {commands:readonly CanonicalDrawCommand[];rect:readonly[number,number,number,number]|null;film:boolean;waterOnly:boolean;composite:PreparedOwnedComposite}
+/** Binary typed-array payload plus serialized descriptors/options; NOT a JavaScript heap bound. */
+export function retainedSourcePayloadBytes(input:OwnedSourceChunk):number{
+ let binary=0
+ const buffers=new Set<ArrayBufferLike>()
+ const descriptor=JSON.stringify(input,(_key,value:unknown)=>{
+  if(ArrayBuffer.isView(value)){if(!(value.buffer instanceof ArrayBuffer))throw Error('Shared retained geometry is mutable');if(!buffers.has(value.buffer)){buffers.add(value.buffer);binary+=value.buffer.byteLength}if(!Number.isSafeInteger(binary))throw Error('Retained payload accounting overflow');return {typedArray:value.constructor.name,byteLength:value.byteLength,byteOffset:value.byteOffset}}
+  return value
+ })
+ const bytes=binary+new TextEncoder().encode(descriptor).byteLength
+ if(!Number.isSafeInteger(bytes))throw Error('Retained payload accounting overflow')
+ return bytes
+}
 export type PresentationPredecessorFields=Readonly<Record<'presentation'|'original'|'coverage'|'pigmentLoad'|'colourLoad'|'solventLoad',OwnedGlSourceFields['fields']['presentation']>>
 /** Own physical visual/source fields only. Canonical FIFO must replay separately against current predecessor base. */
 export class OwnedGlPreparedSource {
@@ -20,6 +32,7 @@ export class OwnedGlPreparedSource {
  private retired=false
  private poisoned=false
  private readonly retainForRebase:boolean
+ private readonly retainedPayloadBudgetBytes:number
  private readonly chunks:OwnedSourceChunk[]=[]
  private presentationEpoch=0
  private readonly ownerToken:Readonly<{layerId:string;gesture:number}>|null
@@ -28,15 +41,15 @@ export class OwnedGlPreparedSource {
  private readonly context:RibbonPassesContext
  private readonly ribbon:RibbonPasses
  private readonly watercolor:WatercolorPasses
- constructor(input:{lease:OwnedGlSourceFields;context:RibbonPassesContext;ribbon:RibbonPasses;watercolor:WatercolorPasses;retainForRebase?:boolean;ownerToken?:Readonly<{layerId:string;gesture:number}>}){
-  this.retainForRebase=input.retainForRebase??false;if(this.retainForRebase&&(!input.ownerToken?.layerId||!Number.isSafeInteger(input.ownerToken.gesture)||input.ownerToken.gesture<1))throw Error('Immutable owner token required for material rebase');this.ownerToken=input.ownerToken?Object.freeze({...input.ownerToken}):null;this.lease=input.lease;this.context=input.context;this.ribbon=input.ribbon;this.watercolor=input.watercolor
+ constructor(input:{lease:OwnedGlSourceFields;context:RibbonPassesContext;ribbon:RibbonPasses;watercolor:WatercolorPasses;retainForRebase?:boolean;retainedPayloadBudgetBytes?:number;ownerToken?:Readonly<{layerId:string;gesture:number}>}){
+  this.retainedPayloadBudgetBytes=input.retainedPayloadBudgetBytes??16*1024*1024;if(!Number.isSafeInteger(this.retainedPayloadBudgetBytes)||this.retainedPayloadBudgetBytes<1)throw Error('Explicit retained source payload budget required');this.retainForRebase=input.retainForRebase??false;if(this.retainForRebase&&(!input.ownerToken?.layerId||!Number.isSafeInteger(input.ownerToken.gesture)||input.ownerToken.gesture<1))throw Error('Immutable owner token required for material rebase');this.ownerToken=input.ownerToken?Object.freeze({...input.ownerToken}):null;this.lease=input.lease;this.context=input.context;this.ribbon=input.ribbon;this.watercolor=input.watercolor
  }
  get rebaseToken(){return this.ownerToken}
  get retainedPayloadBytes(){return this.retainedSerializedBytes}
  get epoch():number{return this.presentationEpoch}
  paint(input:OwnedSourceChunk):PaintTarget{
   if(this.poisoned)throw Error('Poisoned presentation requires fenced cancellation');if(this.retired)throw Error('Retired presentation cannot receive source')
-  const bytes=this.retainForRebase?new TextEncoder().encode(JSON.stringify(input)).byteLength:0;if(this.retainForRebase&&(this.chunks.length>=2048||this.retainedSerializedBytes+bytes>2*1024*1024))throw Error('Explicit retained source payload capacity');const snapshot=this.retainForRebase?structuredClone(input):null
+  const bytes=this.retainForRebase?retainedSourcePayloadBytes(input):0;if(this.retainForRebase&&(this.chunks.length>=2048||this.retainedSerializedBytes+bytes>this.retainedPayloadBudgetBytes))throw Error('Explicit retained source payload capacity');const snapshot=this.retainForRebase?structuredClone(input):null
   const tile=this.executeChunk(input);if(snapshot){this.chunks.push(snapshot);this.retainedSerializedBytes+=bytes}return tile
  }
  /** Presentation-only rebase: canonical source/future does NOT read or write these fields. */
