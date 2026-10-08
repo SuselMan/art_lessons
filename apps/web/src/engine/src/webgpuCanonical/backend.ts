@@ -11,6 +11,8 @@ export interface CanonicalWebGpuOptions {
  roomOwnedResources?:boolean
  /** OFF diagnostic: production DAB_VERT arithmetic order before interpolation. */
  diagnosticLiteralStampVertex?:boolean
+ /** OFF diagnostic: common CPU f32 trig in GL/native source primitive oracle. */
+ diagnosticCpuStampTrig?:boolean
  onInitStage?:(stage:string)=>void
  canvas: HTMLCanvasElement
  width: number
@@ -37,7 +39,7 @@ export class CanonicalWatercolorWebGpu {
  private _brush:CanonicalBrushContact|null=null
  private readonly brushOut:readonly[CanonicalGpuField,CanonicalGpuField]|null
  private get deposit(){return this._deposit??=new CanonicalRibbonDeposit(this.device,this.noise,!!this.options.roomOwnedResources)}
- private get stamps(){return this._stamps??=new CanonicalStampDeposit(this.device,this.noise,!!this.options.roomOwnedResources,!!this.options.diagnosticLiteralStampVertex)}
+ private get stamps(){return this._stamps??=new CanonicalStampDeposit(this.device,this.noise,!!this.options.roomOwnedResources,!!this.options.diagnosticLiteralStampVertex,!!this.options.diagnosticCpuStampTrig)}
  private get composite(){if(this.options.roomOwnedResources)throw new Error('Room owns its composite');return this._composite??=new CanonicalComposite(this.device)}
  private get brush(){if(this.options.roomOwnedResources)throw new Error('Room owns its brush executor');return this._brush??=new CanonicalBrushContact(this.device)}
  private fallbackWater:CanonicalGpuField|null=null
@@ -80,7 +82,7 @@ struct U { rect:vec4u }
   for (let k = 0; k < lattice.length; k++) rgba.set([lattice[k], lattice[k], lattice[k], 255], k * 4)
   this.noise = this.createField('production 251x251 watercolor lattice', 251, 251); this.upload(this.noise, rgba)
   if(!options.roomOwnedResources)this._deposit = new CanonicalRibbonDeposit(device, this.noise)
-  if(!options.roomOwnedResources)this._stamps = new CanonicalStampDeposit(device, this.noise,false,!!options.diagnosticLiteralStampVertex)
+  if(!options.roomOwnedResources)this._stamps = new CanonicalStampDeposit(device, this.noise,false,!!options.diagnosticLiteralStampVertex,!!options.diagnosticCpuStampTrig)
   if(!options.roomOwnedResources)this._composite = new CanonicalComposite(device)
   if(!options.roomOwnedResources)this._brush = new CanonicalBrushContact(device)
   this.brushOut=options.roomOwnedResources?null:[this.createField('brush next pigment',options.width,options.height),this.createField('brush next color',options.width,options.height)]

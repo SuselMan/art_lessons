@@ -7,3 +7,12 @@ it('preserves default and fragment bytes while matching production vertex expres
  expect(s).toContain('let screenPos=rotated*u.pose.z*2.0+u.pose.xy;')
  expect(s).toContain('var clip=(screenPos/u.resolution)*2.0-1.0;clip.y=-clip.y;')
 })
+
+it('CPU trig diagnostic replaces only vertex transcendental calls independently of literal layout',()=>{
+ for(const literal of [false,true]){
+ const shader=canonicalStampShader(literal,true)
+ expect(shader).toContain('let c=u.clip.z;let s=u.clip.w;')
+ expect(shader).not.toContain('cos(u.shape.x)')
+ expect(shader.slice(shader.indexOf('fn nibDistance'))).toBe(CANONICAL_STAMP_WGSL.slice(CANONICAL_STAMP_WGSL.indexOf('fn nibDistance')))
+ }
+})
