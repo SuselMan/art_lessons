@@ -1,0 +1,7 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {captureOwnerFields} from './capture-fields.mjs'
+const buffer=bytes=>({width:1,height:1,readBytes:async()=>new Uint8Array(bytes)})
+const setup=(pigment=[0,0,0,0])=>{const entry={coverage:buffer([0,0,0,255]),inkLoad:buffer(pigment),solventLoad:buffer([0,0,0,255])};globalThis.window={__engine:{_wcCanonical:{pending:false},_settle:null,_wcNative:{owner:{target:{buffer:buffer([0,0,0,0])},scratch:{tileEntries:()=>[[{},entry]]},fields:{current:null},foreignAux:new Map()}}}};return entry}
+test('water gate requires actual zero pigment and nonempty solvent; no false pass by missing fields',async()=>{setup();const r=await captureOwnerFields({waterOnly:true});assert.equal(r.pigmentZero,true);assert.equal(r.waterNonempty,true);assert.equal(r.records.find(x=>x.role==='tile0:inkLoad').sha.length,64);const e=setup();e.inkLoad=null;await assert.rejects(captureOwnerFields({waterOnly:true}),/missing actual pigment/);setup([1,0,0,0]);await assert.rejects(captureOwnerFields({waterOnly:true}),/not zero/)})
+test('capture refuses active canonical work or released resources',async()=>{setup();window.__engine._wcCanonical.pending=true;await assert.rejects(captureOwnerFields(),/idle boundary/);setup().coverage.destroyed=true;await assert.rejects(captureOwnerFields(),/Released owner field/)})
