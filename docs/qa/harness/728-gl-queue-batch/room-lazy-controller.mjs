@@ -13,7 +13,7 @@ const joinIfNeeded=async()=>{
 }
 const hashLayer=()=>evaluate(async()=>{const E=window.__engine,records=[];for(const [id,layer]of E._layers)for(const t of layer.allResident()){const px=t.buffer.readPixels(),sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',px))].map(x=>x.toString(16).padStart(2,'0')).join('');records.push({id,x:t.originX,y:t.originY,width:t.buffer.width,height:t.buffer.height,sha,nonzero:px.reduce((n,v)=>n+(v!==0),0)})}return records.sort((a,b)=>a.id.localeCompare(b.id)||a.x-b.x||a.y-b.y)})
 try{
- for(const lazy of [false,true]){const enabled=true,mixed=true,deferred=true;
+ for(const lazy of (process.env.REVERSE_ORDER==='1'?[true,false]:[false,true])){const enabled=true,mixed=true,deferred=true;
   const deadline=Date.now()+60000;let free=freeMiB();while(free<1700&&Date.now()<deadline){await new Promise(r=>setTimeout(r,2000));free=freeMiB()}memory.push({stage:'preflight',freeMiB:free});if(free<1700)throw Error('preflight below1700')
   const page=await ownedPage(origin+'/create');console.log(JSON.stringify({ownedTarget:target.id,freeMiB:free,enabled}));await send('Page.bringToFront');interval=setInterval(()=>{if(busy)return;busy=true;try{const f=freeMiB();memory.push({stage:'monitor',freeMiB:f});if(f<500){memoryAbort='below500';closeOwn().catch(()=>{})}}catch(e){memoryAbort=String(e);closeOwn().catch(()=>{})}finally{busy=false}},5000)
   await page.waitForFunction(()=>!!document.querySelector('form input[type="text"]'))
