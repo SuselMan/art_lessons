@@ -11,8 +11,9 @@ const computedPassport=Object.fromEntries(passportPaths.map(p=>[p,createHash('sh
 const tapePath=process.env.TAPE_PATH??'temp/device-runs/owner-fifo-original-tape.json',tape=JSON.parse(fs.readFileSync(tapePath,'utf8'));const tapeSHA=createHash('sha256').update(JSON.stringify(tape)).digest('hex');
 try{
  const free=freeMiB();memory.push({stage:'preflight',freeMiB:free});if(free<1700)throw Error('preflight below1700');
- await ownedPage(origin+'/qa-joined-quality.html');await send('Page.bringToFront');console.log(JSON.stringify({ownTarget:target.id,freeMiB:free,tapeSHA}));
+ await ownedPage(origin+'/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/owner-original-entry.html');await send('Page.bringToFront');console.log(JSON.stringify({ownTarget:target.id,freeMiB:free,tapeSHA}));
  interval=setInterval(()=>{if(busy)return;busy=true;try{const free=freeMiB();memory.push({stage:'monitor',freeMiB:free});if(free<500){memoryAbort='below500';closeOwn().catch(()=>{})}}finally{busy=false}},5000);
+ await wait(()=>evaluate('document.readyState!=="loading"'));await wait(()=>evaluate('window.__ownerOriginalPageReady===true'));
  await evaluate(()=>{const root=document.createElement('div');root.id='surface';document.body.replaceChildren(root)});
  const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/ownerOriginalReplay.mjs';
  const report=await evaluate(async({url,input})=>(await import(url)).runOwnerOriginalReplay(input),{url:moduleUrl,input:{tape,engineUrl:'/src/engine/index.ts'}});rows.push(report);
