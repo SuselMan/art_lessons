@@ -5,7 +5,7 @@ test('returned result survives subsequent source validation rejection',()=>{cons
 import vm from 'node:vm'
 import {invokeGate} from './controllerGuards.mjs'
 test('serialized page invocation has no outer api capture for each actual gate',async()=>{
- for(const [api,name]of [['source','runSourceCoverage'],['contribution','runSourceContribution'],['endToEnd','runEndToEnd'],['brushFlow','runPreBrush68FlowControl'],['brushChain','runBrush14Chain'],['brushNative','runPreBrush68NativeGate'],['preBrush','runPreBrush68Gate'],['pressure','runPressureSeedOracle']]){
+ for(const [api,name]of [['source','runSourceCoverage'],['contribution','runSourceContribution'],['endToEnd','runEndToEnd'],['brushFlow','runPreBrush68FlowControl'],['brushFraction','runBrushFractionGate'],['brushChain','runBrush14Chain'],['brushNative','runPreBrush68NativeGate'],['preBrush','runPreBrush68Gate'],['pressure','runPressureSeedOracle']]){
   const options={substitutions:[44]},fn=vm.runInNewContext('('+invokeGate.toString()+')',{window:{[name]:received=>({name,received})}})
   const result=await fn({api,options});assert.equal(result.name,name);assert.equal(result.received,options)
  }

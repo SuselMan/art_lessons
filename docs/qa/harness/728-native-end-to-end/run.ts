@@ -1,3 +1,4 @@
+import {runBrushFractionGate} from './brushFractionOracle'
 import {runBrush14Chain} from './brush14Chain'
 import {runPreBrush68NativeGate,runPreBrush68FlowControl} from './preBrush68NativeGate'
 import {runPreBrush68Producer,runPreBrush68Gate} from './preBrush68Producer'
@@ -180,6 +181,6 @@ export async function runSourceContribution({operation,substitutions=[]}:{operat
  for(let i=0;i<la.length/2;i++){paper[i*4]=paper[i*4+1]=paper[i*4+2]=la[i*2];paper[i*4+3]=la[i*2+1]}
  return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),sourceCommands:sourceCommandManifest(commands),oracle:await sourceContribution(commands,paper,side,substitutions),limits:'All original coverage commands only; GL Q8 coverage replacement immediately after selected command; no P/C/settle or Room fidelity/performance claim. Persistent GL target with three readback checkpoints; readbacks invalidate timing comparisons.'}
 }
-Object.assign(window,{runBrush14Chain,runPreBrush68FlowControl,runPreBrush68NativeGate,runPreBrush68Gate,runPreBrush68Producer,runPressureSeedOracle,runEndToEnd,runSourceCoverage,runSourceContribution,runCommonSourceSolver,prepareCommonSourceCheckpoint,inspectCommonSourceShape,persistCommonSourceCheckpoint,restoreCommonSourceCheckpoint})
+Object.assign(window,{runBrushFractionGate,runBrush14Chain,runPreBrush68FlowControl,runPreBrush68NativeGate,runPreBrush68Gate,runPreBrush68Producer,runPressureSeedOracle,runEndToEnd,runSourceCoverage,runSourceContribution,runCommonSourceSolver,prepareCommonSourceCheckpoint,inspectCommonSourceShape,persistCommonSourceCheckpoint,restoreCommonSourceCheckpoint})
 
 Object.assign(window,{inspectCommonSourceShape})

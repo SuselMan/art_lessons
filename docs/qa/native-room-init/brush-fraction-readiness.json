@@ -1,0 +1,43 @@
+{
+  "sourceCode": "9b8a029602b90aff0857dbf0ec23d6e4f3497a65",
+  "raw": "temp/native-source-offline/brush-fraction-gate-software.json",
+  "softwareOnly": true,
+  "valid": true,
+  "floatMaterialAgreement": true,
+  "reconstruction": [
+    {
+      "x": 349,
+      "y": 288,
+      "old": 186,
+      "glFloatReconstruction": 187,
+      "nativeFloatReconstruction": 187,
+      "glOriginal": 187,
+      "nativeOriginal": 187,
+      "glAgrees": true,
+      "nativeAgrees": true
+    },
+    {
+      "x": 350,
+      "y": 288,
+      "old": 185,
+      "glFloatReconstruction": 186,
+      "nativeFloatReconstruction": 186,
+      "glOriginal": 186,
+      "nativeOriginal": 186,
+      "glAgrees": true,
+      "nativeAgrees": true
+    }
+  ],
+  "scope": "16 directed faces at TWO actual mismatch cells. GL raw/fraction/product/floor RGBA32F and native storagef32. Original material shader corroborates floors; different compiler optimisation remains a limitation.",
+  "hardware": "NOT RUN",
+  "budget": {
+    "GLMiB": 27.004,
+    "nativeFloatMiB": 27.005,
+    "nativeMaterialMiB": 45.004,
+    "sequentialOwners": 3,
+    "floatReadbackBytes": 512,
+    "materialRoiReadbackBytes": 109728,
+    "newProducer": false
+  },
+  "next": "Actual Surface identicalhardware4901 compactpacket; compare float transfer reconstruction to originalQ8 before calling difference causal. Noepsilon/formulachange."
+}
