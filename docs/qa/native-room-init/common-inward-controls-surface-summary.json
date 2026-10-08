@@ -1,0 +1,131 @@
+{
+  "scope": "Actual Surface manual11 control and first two flat inward steps; no new model or final-image cause claim",
+  "code": "4ec4d259c5a49c36c9bb4faf641c5e6865ed2f1e",
+  "runJsSha256": "1be92150d527c59271cee3d95f4626df558b991821a95e5b84406c0f927b93ed",
+  "manual11": {
+    "raw": "temp/device-runs/inward11-manual-4ec/report.json",
+    "diagnostic": {
+      "stopAfter": 11,
+      "sourceFilter": "manual"
+    },
+    "channels": [
+      {
+        "changed": 3,
+        "max": 1,
+        "sum": 3
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "differences": [
+      {
+        "x": 683,
+        "y": 346,
+        "channel": 0,
+        "expected": 224,
+        "actual": 225
+      },
+      {
+        "x": 682,
+        "y": 347,
+        "channel": 0,
+        "expected": 228,
+        "actual": 229
+      },
+      {
+        "x": 683,
+        "y": 347,
+        "channel": 0,
+        "expected": 205,
+        "actual": 206
+      }
+    ],
+    "expectedSha256": "1f786696b913e5fd261f565fe7af4d0f262d8f09e94f67101bb94f9154dfc5b6",
+    "actualSha256": "408008505a2ecdd27a8169ffe44c45e68630943635f936e9823fe64c44cb622e",
+    "sameAsLegacyHashes": true,
+    "memoryPre": [
+      {
+        "stage": "before-own-tab",
+        "availableMiB": 2096
+      },
+      {
+        "stage": "arm-0-preflight",
+        "availableMiB": 2095.4
+      }
+    ]
+  },
+  "stop2Legacy": {
+    "raw": "temp/device-runs/inward2-legacy-4ec/report.json",
+    "diagnostic": {
+      "stopAfter": 2
+    },
+    "channels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "differences": [],
+    "sha256": "4371f7d02546ae4a1dfda32ef09a950101e30e590f534a17c1f5675c4da8057f",
+    "exact": true,
+    "memoryPre": [
+      {
+        "stage": "before-own-tab",
+        "availableMiB": 1963.3
+      },
+      {
+        "stage": "arm-0-preflight",
+        "availableMiB": 1972
+      }
+    ]
+  },
+  "errors": [],
+  "glErrors": [
+    0,
+    0
+  ],
+  "lost": [
+    false,
+    false
+  ],
+  "validation": [
+    null,
+    null
+  ],
+  "conclusions": [
+    "Manual LINEAR replacement leaves exact same three bytes and finalSHA; this control does not improve fidelity.",
+    "First two flat climb0/floor1 steps match allRGBA. First difference arises in following nine climb15/floor.5 steps, exact iteration unknown.",
+    "Three coordinates are world-top FIELD coordinates; add y0=40 for world position. This is not pressure original243/246 evidence.",
+    "Do not attribute final49052/max36 to these three bytes without downstream amplification control."
+  ],
+  "next": "Offline height/relief neighbors at actual three cells, then bounded stopAfter diagnostic if separately allocated"
+}
