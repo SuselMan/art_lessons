@@ -1,3 +1,4 @@
+import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_COMPOSITE_WGSL } from './compositeShader'
 import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalWatercolorFields } from './types'
@@ -16,11 +17,14 @@ export class CanonicalComposite {
   this.repeat=device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'repeat',addressModeV:'repeat'})
  }
  encode(encoder:GPUCommandEncoder,fields:CanonicalWatercolorFields,original:CanonicalGpuField,paper:CanonicalGpuField,noise:CanonicalGpuField,out:CanonicalGpuField,v:CanonicalCompositeUniforms,scissor?:readonly[number,number,number,number]):GPUBuffer[] {
+  return withTransientGpuBuffers(retain=>{
   if(v.migrate!==0)throw new Error('Canonical composite migration is unsupported; production profile requires migrate=0')
   if([original,fields.coverage,fields.pigment,fields.color,paper,noise].some(field=>field.texture===out.texture))throw new Error('Canonical composite requires a distinct output texture')
-  const uniform=this.device.createBuffer({size:112,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST})
+  const uniform=retain(this.device.createBuffer({size:112,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}))
   this.device.queue.writeBuffer(uniform,0,new Float32Array([out.width,out.height,...v.paperOrigin,...v.paperTexSize,...v.paperScale,...v.fieldOffset,v.inkSmoothPx,v.water,v.inkStrength,v.spreadPx,v.edgeWander,v.edgeSoft,v.bristleCombs,v.dryContact,v.granulation,v.wetEdge,v.wetEdgeRadiusPx,v.tideLo,v.tideHi,v.paperRim,v.opacity,v.pigmentOpacity,v.debugView,+v.rectComposite]))
   const group=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},...[original,fields.coverage,fields.pigment,fields.color,paper,noise].map((field,index)=>({binding:index+1,resource:field.view})),{binding:7,resource:this.clamp},{binding:8,resource:this.repeat}]})
   const pass=encoder.beginRenderPass({colorAttachments:[{view:out.view,loadOp:'load',storeOp:'store'}]});if(scissor){const [x,y,w,h]=scissor;if(w<=0||h<=0){pass.end();return[uniform]}pass.setScissorRect(x,out.height-y-h,w,h)}pass.setPipeline(this.pipeline);pass.setBindGroup(0,group);pass.draw(3);pass.end();return[uniform]
+ 
+  })
  }
 }

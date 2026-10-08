@@ -64,6 +64,7 @@ export class CanonicalSourcePhaseExecutor {
    if(command.kind==='stamp')transient.push(...this.backend.encodePreparedStamp(encoder,command.stamp,phase,targets))
    else transient.push(...this.backend.encodePreparedRibbon(encoder,command.batch,phase,targets))
   }
+  try {
   for(const command of segment.commands){
    const phase=command.phase
    if(phase==='coverage'){
@@ -87,5 +88,6 @@ export class CanonicalSourcePhaseExecutor {
    if(e.inkColor&&fb.colorBase&&fb.strokeColor)this.passes.fieldOp(e.inkColor,fb.colorBase,fb.strokeColor,1,1,segment.rect)
   }
   return transient
+  } catch(error) {transient.forEach(buffer=>buffer.destroy());throw error}
  }
 }

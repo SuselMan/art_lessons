@@ -1,3 +1,4 @@
+import { withTransientGpuBuffers } from './transientBuffers'
 import { PAPER_TONE_AMPLITUDE } from '../paper/paperTone'
 import type { CanonicalWatercolorWebGpu } from './backend'
 import type { CanonicalLayerTile } from './tileScratch'
@@ -74,12 +75,15 @@ export class CanonicalDryPaperPresentation {
  }
  /** Same algebra into a caller-owned rgba8unorm target, useful for QA/export. */
  encodeField(encoder:GPUCommandEncoder,source:CanonicalGpuField,origin:readonly[number,number],paperColor:readonly[number,number,number],target:GPUTextureView,viewport:readonly[number,number],format:GPUTextureFormat='rgba8unorm',wet?:CanonicalDryPaperView['wet']):GPUBuffer[] {
+  return withTransientGpuBuffers(retain=>{
   if(wet&&(wet.kind!=='production-overlay'||wet.field.filter!=='linear'))throw new Error('Native wet presentation requires the production LINEAR overlay map')
-  const backend=this.backend,uniform=backend.device.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});backend.device.queue.writeBuffer(uniform,0,new Float32Array([...viewport,source.width,source.height,...origin,...backend.paper.texSize,backend.paper.scale,backend.paper.scale,0,0,...paperColor,0,...(wet?.rect??[0,0,-1,-1])]))
+  const backend=this.backend,uniform=retain(backend.device.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}));backend.device.queue.writeBuffer(uniform,0,new Float32Array([...viewport,source.width,source.height,...origin,...backend.paper.texSize,backend.paper.scale,backend.paper.scale,0,0,...paperColor,0,...(wet?.rect??[0,0,-1,-1])]))
   if(format!=='rgba8unorm'&&format!==navigator.gpu.getPreferredCanvasFormat())throw new Error('Native paper view target format unsupported')
   const pipeline=format==='rgba8unorm'?this.rgbaPipeline:this.pipeline
   const group=backend.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:source.view},{binding:2,resource:backend.paper.field.view},{binding:3,resource:this.clamp},{binding:4,resource:this.repeat},{binding:5,resource:(wet?.field??backend.fields.water).view}]})
   const pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'clear',storeOp:'store',clearValue:[1,1,1,1]}]});pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.draw(3);pass.end();return[uniform]
+ 
+  })
  }
  present(tile:CanonicalLayerTile,view:CanonicalDryPaperView):Promise<void> {
   const encoder=this.backend.device.createCommandEncoder({label:'canonical tile on paper'}),buffers=this.encode(encoder,tile,view);this.backend.device.queue.submit([encoder.finish()]);return this.backend.device.queue.onSubmittedWorkDone().finally(()=>buffers.forEach(b=>b.destroy()))

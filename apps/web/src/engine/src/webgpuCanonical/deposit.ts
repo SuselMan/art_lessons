@@ -1,3 +1,4 @@
+import { withTransientGpuBuffers } from './transientBuffers'
 /// <reference types="@webgpu/types" />
 import { CANONICAL_NOISE_WGSL } from './noise'
 import type { CanonicalGpuField, CanonicalRasterPhase, CanonicalRibbonBatch } from './types'
@@ -81,11 +82,12 @@ export class CanonicalRibbonDeposit {
   this.single = Object.fromEntries((['pigmentOnly','colorOnly'] as const).flatMap(entryPoint => (['max','add'] as const).map(mode => [entryPoint+mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint,targets:[{format:'rgba8unorm',blend:mode==='max'?maximum:add}]},primitive:{topology:'triangle-list'}})])))
  }
  encode(encoder: GPUCommandEncoder, batch: CanonicalRibbonBatch, coverage: CanonicalGpuField, previousWater: CanonicalGpuField, pigment: CanonicalGpuField, color: CanonicalGpuField, phase:CanonicalRasterPhase='all'): GPUBuffer[] {
+  return withTransientGpuBuffers(retain=>{
   if (batch.vertices.length % 33 !== 0) throw new Error('Canonical ribbon requires production 11-float triangle vertices')
   const v = batch.uniforms
-  const uniform = this.device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
+  const uniform = retain(this.device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }))
   this.device.queue.writeBuffer(uniform, 0, new Float32Array([coverage.width, coverage.height, ...v.worldOrigin, ...v.mottleSeed, v.aaPx, v.washWater, v.waterRetain, v.bristleCombs, v.bristleInk, v.cloudDeposit, v.granDeposit, v.poolBlot, +v.useAvailableWater, 0, ...v.tau, 0]))
-  const vertices = this.device.createBuffer({ size: Math.max(batch.vertices.byteLength, 4), usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST })
+  const vertices = retain(this.device.createBuffer({ size: Math.max(batch.vertices.byteLength, 4), usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST }))
   const local=batch.vertices.slice();for(let i=0;i<local.length;i+=11){local[i]=batch.vertices[i]-v.worldOrigin[0];local[i+1]=batch.vertices[i+1]+v.worldOrigin[1]}
   this.device.queue.writeBuffer(vertices, 0, local as Float32Array<ArrayBuffer>)
   const encode = (pipeline: GPURenderPipeline, read: CanonicalGpuField, writes: CanonicalGpuField[]) => {
@@ -98,5 +100,7 @@ export class CanonicalRibbonDeposit {
   if(phase==='pigment')encode(this.single['pigmentOnly'+batch.inkBlend],coverage,[pigment])
   if(phase==='color')encode(this.single['colorOnly'+batch.inkBlend],coverage,[color])
   return [uniform, vertices]
+ 
+  })
  }
 }
