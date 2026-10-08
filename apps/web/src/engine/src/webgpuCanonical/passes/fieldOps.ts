@@ -173,7 +173,19 @@ export interface CanonicalFieldOptions {
 export class CanonicalFieldOps {
  private pipeline: GPUComputePipeline | null=null
  private readonly device: GPUDevice
- constructor(device: GPUDevice){this.device=device}
+ private readonly specializeModes: boolean
+ private readonly specialized = new Map<number,GPUComputePipeline>()
+ private layout: GPUBindGroupLayout|null=null
+ private module: GPUShaderModule|null=null
+ constructor(device: GPUDevice, diagnostic:{specializeModes?:boolean}={}){this.device=device;this.specializeModes=diagnostic.specializeModes===true}
+ private pipelineFor(mode:number):GPUComputePipeline {
+  if(!this.specializeModes){if(!this.pipeline)this.pipeline=this.device.createComputePipeline({label:'Canonical field ops',layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_FIELD_OPS_WGSL}),entryPoint:'main'}});return this.pipeline}
+  const cached=this.specialized.get(mode);if(cached)return cached
+  if(!this.layout)this.layout=this.device.createBindGroupLayout({entries:[...Array.from({length:7},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,texture:{sampleType:'float' as const,viewDimension:'2d' as const}})),{binding:7,visibility:GPUShaderStage.COMPUTE,storageTexture:{access:'write-only',format:'rgba8unorm',viewDimension:'2d'}},{binding:8,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform',minBindingSize:128}}]})
+  if(!this.module)this.module=this.device.createShaderModule({code:'override FIELD_MODE:i32=-1;\n'+CANONICAL_FIELD_OPS_WGSL.replace('let mode=u.scalars.y;','let mode=f32(FIELD_MODE);')})
+  const pipeline=this.device.createComputePipeline({label:'Diagnostic canonical field mode '+mode,layout:this.device.createPipelineLayout({bindGroupLayouts:[this.layout]}),compute:{module:this.module,entryPoint:'main',constants:{FIELD_MODE:mode}}})
+  this.specialized.set(mode,pipeline);return pipeline
+ }
  run(ctx:CanonicalGpuContext,r:CanonicalPassResources,mode:number,k:number,o:CanonicalFieldOptions={}){
   if(!Number.isInteger(mode)||mode<0||mode>20)throw new Error('Canonical field mode not yet ported')
   if(ctx.device!==this.device)throw new Error('Canonical device mismatch')
@@ -187,11 +199,11 @@ export class CanonicalFieldOps {
   values.set([w,h,(o.dir?.[0]??0)/w,(o.dir?.[1]??0)/h,...(o.tau??[0,0,0]),0,k,mode,o.path?(o.pathPacked?2:1):0,o.gradientFibres?1:0,...(o.scissor??[0,0,w,h]),...(o.origin??[0,0]),...(o.size??[w,h]),...(o.band??[0,0]),o.world?.[0]??0,o.world?.[1]??0,o.world?.[2]??0,o.additiveZeroFaces?1:0,linearMask,0])
   const rect=canonicalDispatchRect(w,h,o.scissor);new Uint32Array(values.buffer).set(rect,28)
   if(values.slice(0,28).some(v=>!Number.isFinite(v)))throw new Error('Canonical uniforms must be finite')
-  if(!this.pipeline)this.pipeline=this.device.createComputePipeline({label:'Canonical field ops',layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_FIELD_OPS_WGSL}),entryPoint:'main'}})
+  const pipeline=this.pipelineFor(mode)
   const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
   // All sampled fields have distinct output storage; preserve packed path semantics.
   const entries:GPUBindGroupEntry[]=fields.map((f,binding)=>({binding,resource:f.view}))
   entries.push({binding:7,resource:r.out.view},{binding:8,resource:{buffer:uniform}})
-  const bind=this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries});const pass=ctx.encoder.beginComputePass({label:'Canonical fieldOp '+mode});pass.setPipeline(this.pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return uniform
+  const bind=this.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries});const pass=ctx.encoder.beginComputePass({label:'Canonical fieldOp '+mode});pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return uniform
  }
 }
