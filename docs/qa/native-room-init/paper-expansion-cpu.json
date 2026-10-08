@@ -1,0 +1,30 @@
+{
+  "scope": "VPS Node CPU synthetic LA bytes, not real paper or GPU/RAM peak",
+  "resolution": 4096,
+  "inputBytes": 33554432,
+  "outputBytes": 67108864,
+  "oldPerTexelTemporaryArrays": 16777216,
+  "runs": [
+    {
+      "name": "old",
+      "wallMs": 1317.223256,
+      "sha256": "7143acfd65feb22c616e065b9bcb9fc4fe4161695b8b000c39dc76b8013c94e9"
+    },
+    {
+      "name": "indexed",
+      "wallMs": 212.76105099999995,
+      "sha256": "7143acfd65feb22c616e065b9bcb9fc4fe4161695b8b000c39dc76b8013c94e9"
+    },
+    {
+      "name": "indexed",
+      "wallMs": 206.205696,
+      "sha256": "7143acfd65feb22c616e065b9bcb9fc4fe4161695b8b000c39dc76b8013c94e9"
+    },
+    {
+      "name": "old",
+      "wallMs": 1292.1985829999999,
+      "sha256": "7143acfd65feb22c616e065b9bcb9fc4fe4161695b8b000c39dc76b8013c94e9"
+    }
+  ],
+  "exactHash": true
+}

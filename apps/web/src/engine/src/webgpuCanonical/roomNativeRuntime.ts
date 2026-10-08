@@ -1,3 +1,4 @@
+import {expandCanonicalPaperLa} from './paperExpansion'
 import type {PaperType} from '@grafetto/shared'
 import type {PaintTarget,ILayerBuffer} from '../buffers/ILayerBuffer'
 import type {RibbonStrokeScratch,RibbonFinishMetadata} from '../buffers/RibbonStrokeScratch'
@@ -39,10 +40,13 @@ export class RoomNativeRuntime {
  private retirements:Promise<void>[]=[]
  private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
  static async create(ctx:RoomNativeRuntimeContext){
-  const la=await getPaperBytes(ctx.paper),resolution=Math.sqrt(la.length/2),bytes=new Uint8Array(resolution*resolution*4)
-  for(let i=0;i<la.length/2;i++)bytes.set([la[i*2],la[i*2],la[i*2],la[i*2+1]],i*4)
+  console.info('[native-room-init]','paper:load-start')
+  const la=await getPaperBytes(ctx.paper),resolution=Math.sqrt(la.length/2)
+  console.info('[native-room-init]','paper:expand-start',la.length)
+  const bytes=expandCanonicalPaperLa(la)
+  console.info('[native-room-init]','paper:expand-done',bytes.length)
   const canvas=document.createElement('canvas')
-  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,roomOwnedResources:true,onInitStage:stage=>console.info('[native-room-init]',stage),width:1024,height:1024,paper:{bytes,width:resolution,height:resolution,origin:[0,0],texSize:[ctx.paperWorld.w,ctx.paperWorld.h],scale:ctx.paperScale}})
   return new RoomNativeRuntime(backend,ctx)
  }
  consume(request:PreparedRibbonCpuDelivery,target:ILayerBuffer,path:'live'|'append'|'rebuild'):boolean {

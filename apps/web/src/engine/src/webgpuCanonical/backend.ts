@@ -7,6 +7,9 @@ import { CanonicalBrushContact } from './brush'
 import type { CanonicalCompositeUniforms, CanonicalGpuField, CanonicalGpuSnapshot, CanonicalPaper, CanonicalRasterPhase, CanonicalRasterTargets, CanonicalRibbonBatch, CanonicalSupport, CanonicalStamp, CanonicalWatercolorFields } from './types'
 
 export interface CanonicalWebGpuOptions {
+ /** Room owns its material fields and presentation; default prototype remains eager. */
+ roomOwnedResources?:boolean
+ onInitStage?:(stage:string)=>void
  canvas: HTMLCanvasElement
  width: number
  height: number
@@ -20,21 +23,29 @@ const names = ['pigment', 'color', 'coverage', 'water', 'flow'] as const
 /** Experimental native resource owner. Contains no alternative watercolor
  * physics and never creates a WebGL fallback. Missing canonical stages fail. */
 export class CanonicalWatercolorWebGpu {
- readonly fields: CanonicalWatercolorFields
+ private standaloneFields:CanonicalWatercolorFields|null=null
+ get fields():CanonicalWatercolorFields {if(!this.standaloneFields)throw new Error('Room-owned backend has no standalone material fields');return this.standaloneFields}
  readonly paper: CanonicalPaper
  readonly noise: CanonicalGpuField
  readonly nearest: GPUSampler
  readonly linear: GPUSampler
- private readonly deposit: CanonicalRibbonDeposit
- private readonly stamps: CanonicalStampDeposit
- private readonly composite: CanonicalComposite
- private readonly brush:CanonicalBrushContact
- private readonly brushOut:readonly[CanonicalGpuField,CanonicalGpuField]
+ private _deposit: CanonicalRibbonDeposit|null=null
+ private _stamps: CanonicalStampDeposit|null=null
+ private _composite: CanonicalComposite|null=null
+ private _brush:CanonicalBrushContact|null=null
+ private readonly brushOut:readonly[CanonicalGpuField,CanonicalGpuField]|null
+ private get deposit(){return this._deposit??=new CanonicalRibbonDeposit(this.device,this.noise,!!this.options.roomOwnedResources)}
+ private get stamps(){return this._stamps??=new CanonicalStampDeposit(this.device,this.noise,!!this.options.roomOwnedResources)}
+ private get composite(){if(this.options.roomOwnedResources)throw new Error('Room owns its composite');return this._composite??=new CanonicalComposite(this.device)}
+ private get brush(){if(this.options.roomOwnedResources)throw new Error('Room owns its brush executor');return this._brush??=new CanonicalBrushContact(this.device)}
+ private fallbackWater:CanonicalGpuField|null=null
+ private get sourceWater(){return this.standaloneFields?.water??(this.fallbackWater??=this.createZeroSourceWater())}
+ private createZeroSourceWater(){const field=this.createField('constant zero source water',1,1);this.clearField(field);return field}
  private readonly ownedFields=new Set<CanonicalGpuField>()
  private readonly clearPipeline:GPUComputePipeline
- private readonly context: GPUCanvasContext
+ private readonly context: GPUCanvasContext|null
  private readonly format: GPUTextureFormat
- private readonly preview: GPURenderPipeline
+ private readonly preview: GPURenderPipeline|null
  private pendingScopes=0
  private readonly pendingRetired=new Set<CanonicalGpuField>()
  private activeEncoder:GPUCommandEncoder|null=null
@@ -46,10 +57,11 @@ export class CanonicalWatercolorWebGpu {
  readonly options: CanonicalWebGpuOptions
  private constructor(device: GPUDevice, options: CanonicalWebGpuOptions) {
   this.device=device;this.options=options
-  const context = options.canvas.getContext('webgpu'); if (!context) throw new Error('WebGPU canvas unavailable')
+  options.onInitStage?.('backend:start')
+  const context = options.roomOwnedResources?null:options.canvas.getContext('webgpu'); if (!options.roomOwnedResources&&!context) throw new Error('WebGPU canvas unavailable')
   this.context = context; this.format = navigator.gpu.getPreferredCanvasFormat()
-  options.canvas.width = options.viewportWidth ?? options.width; options.canvas.height = options.viewportHeight ?? options.height
-  context.configure({ device, format: this.format, alphaMode: 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC })
+  if(!options.roomOwnedResources){options.canvas.width = options.viewportWidth ?? options.width; options.canvas.height = options.viewportHeight ?? options.height}
+  context?.configure({ device, format: this.format, alphaMode: 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC })
   const clearModule=device.createShaderModule({label:'exact canonical rectangular clear',code:`
 struct U { rect:vec4u }
 @group(0) @binding(0) var clearOut:texture_storage_2d<rgba8unorm,write>;
@@ -58,24 +70,27 @@ struct U { rect:vec4u }
   this.clearPipeline=device.createComputePipeline({layout:'auto',compute:{module:clearModule,entryPoint:'clear'}})
   this.nearest = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' })
   this.linear = device.createSampler({ magFilter: 'linear', minFilter: 'linear' })
-  this.fields = Object.fromEntries(names.map(name => [name, this.createField(name, options.width, options.height,name==='flow'?'linear':'nearest')])) as unknown as CanonicalWatercolorFields
+  if(!options.roomOwnedResources)this.standaloneFields = Object.fromEntries(names.map(name => [name, this.createField(name, options.width, options.height,name==='flow'?'linear':'nearest')])) as unknown as CanonicalWatercolorFields
+  options.onInitStage?.('backend:material-resources')
   this.paper = { field: this.createField('production baked paper', options.paper.width, options.paper.height,'linear'), origin: options.paper.origin, texSize: options.paper.texSize, scale: options.paper.scale }
   this.upload(this.paper.field, options.paper.bytes)
   const lattice = Uint8Array.from(atob(noiseAsset), c => c.charCodeAt(0)), rgba = new Uint8Array(lattice.length * 4)
   for (let k = 0; k < lattice.length; k++) rgba.set([lattice[k], lattice[k], lattice[k], 255], k * 4)
   this.noise = this.createField('production 251x251 watercolor lattice', 251, 251); this.upload(this.noise, rgba)
-  this.deposit = new CanonicalRibbonDeposit(device, this.noise)
-  this.stamps = new CanonicalStampDeposit(device, this.noise)
-  this.composite = new CanonicalComposite(device)
-  this.brush = new CanonicalBrushContact(device)
-  this.brushOut=[this.createField('brush next pigment',options.width,options.height),this.createField('brush next color',options.width,options.height)]
-  const module = device.createShaderModule({ label: 'diagnostic exact field presentation', code: `
+  if(!options.roomOwnedResources)this._deposit = new CanonicalRibbonDeposit(device, this.noise)
+  if(!options.roomOwnedResources)this._stamps = new CanonicalStampDeposit(device, this.noise)
+  if(!options.roomOwnedResources)this._composite = new CanonicalComposite(device)
+  if(!options.roomOwnedResources)this._brush = new CanonicalBrushContact(device)
+  this.brushOut=options.roomOwnedResources?null:[this.createField('brush next pigment',options.width,options.height),this.createField('brush next color',options.width,options.height)]
+  options.onInitStage?.('backend:paper-noise')
+  const module = options.roomOwnedResources?null:device.createShaderModule({ label: 'diagnostic exact field presentation', code: `
 @group(0) @binding(0) var field:texture_2d<f32>;
 struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
 @vertex fn vs(@builtin(vertex_index) n:u32)->V { let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));var o:V;o.p=vec4f(p[n],0,1);o.uv=p[n]*vec2f(.5,-.5)+.5;return o; }
 @fragment fn fs(v:V)->@location(0) vec4f {let dims=vec2i(textureDimensions(field));return textureLoad(field,clamp(vec2i(v.uv*vec2f(dims)),vec2i(0),dims-1),0);}` })
-  this.preview = device.createRenderPipeline({ layout: 'auto', vertex: { module, entryPoint: 'vs' }, fragment: { module, entryPoint: 'fs', targets: [{ format: this.format }] } })
-  this.clear()
+  this.preview = module?device.createRenderPipeline({ layout: 'auto', vertex: { module, entryPoint: 'vs' }, fragment: { module, entryPoint: 'fs', targets: [{ format: this.format }] } }):null
+  if(!options.roomOwnedResources)this.clear()
+  options.onInitStage?.('backend:ready')
  }
  static async support(): Promise<CanonicalSupport> {
   if (!isSecureContext) return { supported: false, reason: 'Native WebGPU requires a secure HTTPS context' }
@@ -83,8 +98,11 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   const adapter = await navigator.gpu.requestAdapter(); return adapter ? { supported: true, adapter } : { supported: false, reason: 'No WebGPU adapter available' }
  }
  static async create(options: CanonicalWebGpuOptions) {
+  options.onInitStage?.('adapter:request-start')
   const support = await this.support(); if (!support.supported) throw new Error(support.reason)
+  options.onInitStage?.('device:request-start')
   const device = await support.adapter.requestDevice()
+  options.onInitStage?.('device:request-done')
   device.pushErrorScope('validation')
   try {
    const backend = new CanonicalWatercolorWebGpu(device, options)
@@ -133,11 +151,11 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
  encodePreparedRibbon(encoder:GPUCommandEncoder,batch:CanonicalRibbonBatch,phase:CanonicalRasterPhase,targets:CanonicalRasterTargets):GPUBuffer[] {
   if(this.destroyed)throw new Error('Canonical WebGPU backend destroyed')
   if(!batch.vertices.length)return[]
-  return this.deposit.encode(encoder,batch,targets.coverage,targets.availableWater??this.fields.water,targets.pigment,targets.color,phase)
+  return this.deposit.encode(encoder,batch,targets.coverage,targets.availableWater??this.sourceWater,targets.pigment,targets.color,phase)
  }
  encodePreparedStamp(encoder:GPUCommandEncoder,stamp:CanonicalStamp,phase:CanonicalRasterPhase,targets:CanonicalRasterTargets):GPUBuffer[] {
   if(this.destroyed)throw new Error('Canonical WebGPU backend destroyed')
-  return this.stamps.encode(encoder,stamp,targets.coverage,targets.availableWater??this.fields.water,targets.pigment,targets.color,phase)
+  return this.stamps.encode(encoder,stamp,targets.coverage,targets.availableWater??this.sourceWater,targets.pigment,targets.color,phase)
  }
  appendPreparedRibbon(batch: CanonicalRibbonBatch, phase:CanonicalRasterPhase='all') {
   if (this.destroyed) throw new Error('Canonical WebGPU backend destroyed')
@@ -153,6 +171,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(buffer=>buffer.destroy()),()=>transient.forEach(buffer=>buffer.destroy()))
  }
  brushContact(step:readonly[number,number],gain:number,flowRect:readonly[number,number,number,number]) {
+  if(!this.brushOut)throw new Error('Room owns its brush output fields')
   const encoder=this.device.createCommandEncoder({label:'canonical Q8 brush pulse'})
   const ctx={device:this.device,encoder,nearest:this.nearest,linear:this.linear}
   const transient=this.brush.encode(ctx,{pigment:this.fields.pigment,color:this.fields.color,flow:this.fields.flow,water:this.fields.water,outPigment:this.brushOut[0],outColor:this.brushOut[1]},step,gain,flowRect)
@@ -195,6 +214,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   this.options.canvas.width=Math.max(1,Math.floor(width));this.options.canvas.height=Math.max(1,Math.floor(height))
  }
  presentField(field: CanonicalGpuField) {
+  if(!this.context||!this.preview)throw new Error('Room owns its presentation')
   const encoder = this.device.createCommandEncoder(), pass = encoder.beginRenderPass({ colorAttachments: [{ view: this.context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store' }] })
   pass.setPipeline(this.preview); pass.setBindGroup(0, this.device.createBindGroup({ layout: this.preview.getBindGroupLayout(0), entries: [{ binding: 0, resource: field.view }] })); pass.draw(3); pass.end(); this.device.queue.submit([encoder.finish()])
  }
@@ -224,5 +244,5 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   for (const name of names) this.upload(this.fields[name], snapshot.fields[name])
  }
  whenIdle() { return this.device.queue.onSubmittedWorkDone() }
- destroy() { if (this.destroyed) return; this.destroyed = true; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]; this.context.unconfigure(); this.device.destroy() }
+ destroy() { if (this.destroyed) return; this.destroyed = true; for (const field of this.ownedFields) field.texture.destroy(); this.ownedFields.clear(); for(const field of this.pendingRetired)field.texture.destroy(); this.pendingRetired.clear(); this.activeRetired.forEach(field=>field.texture.destroy()); this.activeRetired=[]; this.activeBuffers.forEach(buffer=>buffer.destroy()); this.activeBuffers=[]; this.context?.unconfigure(); this.device.destroy() }
 }

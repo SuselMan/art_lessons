@@ -66,21 +66,27 @@ const over: GPUBlendState = { color: { operation: 'add', srcFactor: 'one', dstFa
 const maximum: GPUBlendState = { color: { operation: 'max', srcFactor: 'one', dstFactor: 'one' }, alpha: { operation: 'max', srcFactor: 'one', dstFactor: 'one' } }
 const add: GPUBlendState = { color: { operation: 'add', srcFactor: 'one', dstFactor: 'one' }, alpha: { operation: 'add', srcFactor: 'one', dstFactor: 'one' } }
 export class CanonicalRibbonDeposit {
- readonly coverage: GPURenderPipeline
- readonly ink: GPURenderPipeline
- readonly inkMax: GPURenderPipeline
- private readonly single: Record<string,GPURenderPipeline>
- private readonly device: GPUDevice
- private readonly noise: CanonicalGpuField
- constructor(device: GPUDevice, noise: CanonicalGpuField) {
+ private readonly pipelines=new Map<string,GPURenderPipeline>()
+ private readonly device:GPUDevice
+ private readonly noise:CanonicalGpuField
+ private readonly module:GPUShaderModule
+ get coverage(){return this.pipeline('coverage')}
+ get ink(){return this.pipeline('inkadd')}
+ get inkMax(){return this.pipeline('inkmax')}
+ constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false){
   this.device=device;this.noise=noise
-  const module = device.createShaderModule({ label: 'production ribbon deposit', code: CANONICAL_RIBBON_WGSL })
-  const vertex = { module, entryPoint: 'vs', buffers: [layout] }
-  this.coverage = device.createRenderPipeline({ label: 'production coverage Q8 over', layout: 'auto', vertex, fragment: { module, entryPoint: 'coverage', targets: [{ format: 'rgba8unorm', blend: over }] }, primitive: { topology: 'triangle-list' } })
-  this.inkMax = device.createRenderPipeline({ label: 'production ink/depth Q8 MAX film', layout: 'auto', vertex, fragment: { module, entryPoint: 'ink', targets: [{ format: 'rgba8unorm', blend: maximum }, { format: 'rgba8unorm', blend: maximum }] }, primitive: { topology: 'triangle-list' } })
-  this.ink = device.createRenderPipeline({ label: 'production ink/depth Q8 add', layout: 'auto', vertex, fragment: { module, entryPoint: 'ink', targets: [{ format: 'rgba8unorm', blend: add }, { format: 'rgba8unorm', blend: add }] }, primitive: { topology: 'triangle-list' } })
-  this.single = Object.fromEntries((['pigmentOnly','colorOnly'] as const).flatMap(entryPoint => (['max','add'] as const).map(mode => [entryPoint+mode,device.createRenderPipeline({layout:'auto',vertex,fragment:{module,entryPoint,targets:[{format:'rgba8unorm',blend:mode==='max'?maximum:add}]},primitive:{topology:'triangle-list'}})])))
+  this.module=device.createShaderModule({label:'production ribbon deposit',code:CANONICAL_RIBBON_WGSL})
+  if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
+ private pipeline(key:string){
+  const existing=this.pipelines.get(key);if(existing)return existing
+  const mode=key.endsWith('max')?'max':'add',entryPoint=key==='coverage'?'coverage':key.slice(0,-3)
+  const blend=key==='coverage'?over:mode==='max'?maximum:add
+  const targets=Array.from({length:entryPoint==='ink'?2:1},()=>({format:'rgba8unorm' as const,blend}))
+  const pipeline=this.device.createRenderPipeline({label:'production ribbon '+key,layout:'auto',vertex:{module:this.module,entryPoint:'vs',buffers:[layout]},fragment:{module:this.module,entryPoint,targets},primitive:{topology:'triangle-list'}})
+  this.pipelines.set(key,pipeline);return pipeline
+ }
+
  encode(encoder: GPUCommandEncoder, batch: CanonicalRibbonBatch, coverage: CanonicalGpuField, previousWater: CanonicalGpuField, pigment: CanonicalGpuField, color: CanonicalGpuField, phase:CanonicalRasterPhase='all'): GPUBuffer[] {
   return withTransientGpuBuffers(retain=>{
   if (batch.vertices.length % 33 !== 0) throw new Error('Canonical ribbon requires production 11-float triangle vertices')
@@ -97,8 +103,8 @@ export class CanonicalRibbonDeposit {
   }
   if(phase==='all'||phase==='coverage')encode(this.coverage, previousWater, [coverage])
   if(phase==='all')encode(batch.inkBlend === 'max' ? this.inkMax : this.ink, coverage, [pigment,color])
-  if(phase==='pigment')encode(this.single['pigmentOnly'+batch.inkBlend],coverage,[pigment])
-  if(phase==='color')encode(this.single['colorOnly'+batch.inkBlend],coverage,[color])
+  if(phase==='pigment')encode(this.pipeline('pigmentOnly'+batch.inkBlend),coverage,[pigment])
+  if(phase==='color')encode(this.pipeline('colorOnly'+batch.inkBlend),coverage,[color])
   return [uniform, vertices]
  
   })
