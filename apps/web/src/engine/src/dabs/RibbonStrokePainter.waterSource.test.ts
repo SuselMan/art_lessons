@@ -14,6 +14,21 @@ const presetName = 'normal:100:15:PB29:round'
 const dabs: Dab[] = [0, 1, 2].map(i => ({ x: 20 + i * 6, y: 32, pressure: 0.7, tiltX: 0, tiltY: 0, size: 12, aspectRatio: 1, angle: 0, opacity: 1, t: i * 20 }))
 
 describe('auxiliary water source execution', () => {
+  it('routes prepared native material once per canonical segment and preserves finish without GL deposits',()=>{
+    const {engine}=createTestEngine({paper:'flat'},{width:64,height:64});engine.initLayer('source')
+    const probe=engine as unknown as Probe,painter=probe._ribbonPainter,ctx=(painter as unknown as {ctx:RibbonStrokePainterContext}).ctx
+    const target=probe._layers.get('source')!,scratch=new RibbonStrokeScratch(probe._ribbonScratchPool,true,true)
+    const preset=probe._resolvePreset('watercolor',presetName),profile=ribbonProfileFor('watercolor',presetName,0)
+    const route=vi.fn(()=>true),nib=vi.spyOn(ctx,'drawRibbonNibPass'),composite=vi.spyOn(ctx,'drawRibbonCompositeRect')
+    ctx.nativeWatercolorRouting=()=>true;ctx.routePreparedWatercolorDelivery=route
+    try{
+      for(const value of painter.paint(target,dabs,preset,presetName,profile,[.2,0,.6],scratch,undefined,'000',[1,2]))void value
+      expect(route).toHaveBeenCalledTimes(dabs.length);expect(nib).not.toHaveBeenCalled();expect(composite).not.toHaveBeenCalled()
+      expect(scratch.finishContext?.target).toBe(target);expect(scratch.diffusePending).toBe(true)
+      expect(scratch.paints.has([.2,0,.6].join(','))).toBe(true)
+    }finally{delete ctx.nativeWatercolorRouting;delete ctx.routePreparedWatercolorDelivery;nib.mockRestore();composite.mockRestore();scratch.destroy();engine.destroy()}
+  })
+
   it('retains source profile and emits no pigment, composite or finish', () => {
     const { engine } = createTestEngine({ paper: 'flat' }, { width: 64, height: 64 })
     engine.initLayer('source')

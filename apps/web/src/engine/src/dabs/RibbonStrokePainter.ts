@@ -57,6 +57,9 @@ export interface PreparedRibbonCpuDelivery {
 }
 export interface RibbonStrokePainterContext {
   onPreparedWatercolorDelivery?(request:PreparedRibbonCpuDelivery):void
+  /** DEV executor ownership, only canonical watercolor; default delegates to GL. */
+  nativeWatercolorRouting?():boolean
+  routePreparedWatercolorDelivery?(request:PreparedRibbonCpuDelivery,target:ILayerBuffer):boolean
   dabPool(): WeakMap<Dab, number>
   scratchPool(): RibbonScratchPool
   resolveWaterPreset(name: string): PencilPreset
@@ -271,7 +274,8 @@ export class RibbonStrokePainter {
       return
     }
     const importForeign = segmentMode && this.diagnosticForeignSolvent && this.diagnosticSolventField && !mode.waterOnly
-    if (importForeign && !mode.deferMaterial) {
+    const nativeRoute=profile.normalizeDeposit&&this.ctx.nativeWatercolorRouting?.()===true
+    if (importForeign && !mode.deferMaterial && !nativeRoute) {
       yield* this.importForeignWater(target, scratch, dabs, preset, wetProfile)
     }
     if (segmentMode && this.diagnosticSharedFluid) profile = { ...profile, diagnosticReadFluid: true }
@@ -514,15 +518,23 @@ export class RibbonStrokePainter {
     const delivery = this.prepareDelivery(drawable, prevDab, preset, profile, scratch, wetOf, landedWet, segmentMode, mode.segmented, film)
     const { deposits, waterByDab, pigmentByDab, acrossByDab, movingByDab,
       paperWetByDab, pigmentPoolByDab, excessByDab, puddleByDab, thinNibGain } = delivery
-    if (this.ctx.onPreparedWatercolorDelivery && profile.normalizeDeposit && !profile.stampFlow && !profile.brushStamp && profile.coverageInkMode === 6) {
-      this.ctx.onPreparedWatercolorDelivery({
+    if ((this.ctx.onPreparedWatercolorDelivery||this.ctx.routePreparedWatercolorDelivery) && profile.normalizeDeposit && !profile.stampFlow && !profile.brushStamp && profile.coverageInkMode === 6) {
+      const prepared:PreparedRibbonCpuDelivery={
         input:{preset,presetName,profile,color,wetProfile,strokeSeed,film,segmentMode,segmented:mode.segmented,waterOnly:mode.waterOnly,
           drawable,previous:prevDab,wetOf,delivery,scalars:gestureScalars,
           materialEnabled:mode.deferMaterial?Number.isFinite(reachRect.minX):!!targets?.length,
           options:{diagnosticWaterPolicy:this.diagnosticWaterPolicy,diagnosticSharedFluid:this.diagnosticSharedFluid,diagnosticLandingReservoir:this.diagnosticLandingReservoir,
             diagnosticLandingPolicy:this.diagnosticLandingPolicy,diagnosticCanonicalSettleRadius:this.diagnosticCanonicalSettleRadius,diagnosticSolventField:this.diagnosticSolventField,diagnosticPigmentRecord:this.diagnosticPigmentRecord}},
         targets,scratch,bounds:{...bounds},compositeBounds:{...compositeBounds},landedWet,wetPeak:wetPeakHere,strokeDir,
-      })
+      }
+      this.ctx.onPreparedWatercolorDelivery?.(prepared)
+      if(nativeRoute){
+        if(!this.ctx.routePreparedWatercolorDelivery?.(prepared,target))throw new Error('Native watercolor routing must consume prepared source; no GL fallback')
+        scratch.paints.add(color.join(','))
+        scratch.noteFinish({target,preset,profile,color,opacity:drawable[0].opacity,bounds:reachBounds,fieldSeed,landedWet,wetPeak:wetPeakHere,radiusPx:nibRadius,dwellMs:scratch.dwellMs})
+        scratch.diffusePending=true
+        return
+      }
     }
     // (#536, §17.63) Only now. Everything above is the gesture's bookkeeping -
     // the brush's water and pigment clocks, the landing and its dwell, the dab
