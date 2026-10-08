@@ -99,3 +99,28 @@ Port must supply a real GPU-idle fence; metadata does not prove completion.
 Next GPU fixture MUST hash all eight original source fields before/after
 init/step/reset/cancel, compare positivity/mass drift and separated domains,
 then original2 saved-tape endpoint. No Room wiring and no hardware gain claimed.
+
+## Retained water ownership before predecessor land
+
+Concrete admission path `owner-fifo-install.mjs` sets
+`initial.solventLoad = prior.lease.fields.solventLoad` (same-wash restriction),
+then `PrewarmedGlOwnerPool.take(initial)` calls `source.copyTo(destination)` for
+that role. The destination is the new owner's **distinct owned1024 texture**;
+it is not a later borrow of canonical fields. The same GL context preserves
+previous source draws → copy → new source draws command order. Admission rejects
+feedback aliases and different dimensions; prior source lease remains alive
+until its FIFO land/cancellation fence. No readback/fence is needed on DOWN for
+this immutable snapshot copy. Actual GPU contents are still a required gate.
+
+Later own material source chunks merge new solvent film over that retained own
+base. Preview reduction after seal reads own `solventLoad` only; it derives
+visual donor coverage alpha from `clamp(V.b/max(V.a,.002),0,1)` for V.a>.002.
+It must not use `source.coverage` alpha as substitute for inherited water.
+This conversion is **presentation approximation**, not canonical domain code.
+
+A predecessor land can trigger exact source rebase and mutate own retained
+material under a new epoch. Before that mutation, preview must stop producing,
+ensure any issued old preview commands precede rebase in GL command order, then
+reset its epoch and reinitialize from the newly owned source. Cancellation must
+retain physical resources until true GPUidle; matching metadata alone is not
+an implementation of that fence. Preview output is never used by canonical.
