@@ -21,6 +21,7 @@ import type { PaperType, Dab, ToolType, Operation, StrokeOperation, ImageImportO
 import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } from './src/raster/shaders'
 import { washRevealHold, washRevealStep, washRevealRemaining } from './src/raster/washReveal'
 import { adaptDiagnosticWebgl2 } from './src/raster/diagnosticWebgl2'
+import { configureWatercolorDiagnosticOwners, validateWatercolorDiagnosticBackend } from './src/raster/watercolorDiagnosticOwners'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
@@ -253,6 +254,9 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 export interface PencilEngineOptions {
   /** Isolated WebGL2 compatibility/MRT prototype; default OFF, no fallback. */
   diagnosticWebgl2?: boolean
+  /** QA-only constructor opt-ins; defaults remain OFF. */
+  diagnosticBrushMrt?: boolean
+  diagnosticFrontBatch?: boolean
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -2266,6 +2270,7 @@ export class PencilEngine implements PencilEngineAPI {
       preserveDrawingBuffer: true,
       antialias: false,
     }
+    validateWatercolorDiagnosticBackend(options)
     const raw = options.diagnosticWebgl2 ? canvas.getContext('webgl2', contextAttributes) : canvas.getContext('webgl', contextAttributes)
     if (!raw) throw new Error(options.diagnosticWebgl2 ? 'Diagnostic WebGL2 unavailable' : 'WebGL not supported')
     const gl = options.diagnosticWebgl2 ? adaptDiagnosticWebgl2(raw as WebGL2RenderingContext) : raw as WebGLRenderingContext
@@ -2478,6 +2483,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._charcoalGrainMode = options.charcoalGrainMode
 
     this._initGL()
+    configureWatercolorDiagnosticOwners(options, this._watercolorPasses, this._settleQueue)
     // Placeholder now, the real bake once it has loaded — see PaperState.init.
     this._paper.init()
     this._pointer = new PointerInput(canvas, this._diagLog)
