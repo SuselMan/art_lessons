@@ -1,3 +1,4 @@
+import type { CanonicalSourcePhaseExecutor } from '../../../../apps/web/src/engine/src/webgpuCanonical/sourcePhaseExecutor'
 import { captureStages,compareStages,type Stage } from './stages'
 import { PencilEngine } from '../../../../apps/web/src/engine/index'
 import { getPaperBytes } from '../../../../apps/web/src/engine/src/paper/paperLoader'
@@ -14,7 +15,18 @@ const frame=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))
 const sourceOptions={diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true} as const
 function flip(bytes:Uint8Array,w:number,h:number){const out=new Uint8Array(bytes.length);for(let y=0;y<h;y++)out.set(bytes.subarray(y*w*4,(y+1)*w*4),(h-1-y)*w*4);return out}
 function difference(a:Uint8Array,b:Uint8Array){let changed=0,max=0,sum=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=Number(d>0);max=Math.max(max,d);sum+=d}return{changed,max,mean:sum/a.length,exact:changed===0}}
-export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean|'prediffuse'}={}){
+function configureDiagnosticSampling(runner:CanonicalBoundedSceneRunner,enabled:boolean){
+ runner.adapter.diagnosticHardwareLinearInputs=enabled
+ // Keep landing/source commands on the frozen baseline. This private seam is diagnostic only.
+ const source=(runner as unknown as {source:CanonicalSourcePhaseExecutor}).source
+ const execute=source.execute.bind(source)
+ source.execute=(...args:Parameters<CanonicalSourcePhaseExecutor['execute']>)=>{
+  const previous=runner.adapter.diagnosticHardwareLinearInputs
+  runner.adapter.diagnosticHardwareLinearInputs=false
+  try{return execute(...args)}finally{runner.adapter.diagnosticHardwareLinearInputs=previous}
+ }
+}
+export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false,diagnosticHardwareLinearInputs=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean|'prediffuse';diagnosticHardwareLinearInputs?:boolean}={}){
  // Conservative soft policy, NOT available VRAM measurement. Full canonical1536 fields remain enabled.
  const memoryGiB=(navigator as Navigator&{deviceMemory?:number}).deviceMemory??null
  const estimatedPeakMiB=512
@@ -29,6 +41,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  let lost=false;void backend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
  const tape:Operation[]=[];let time=1000,index=0
  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,now:()=>time,timestamp:()=>1791400000000+time,operationId:()=>`fixed-operation-${index++}`,onLocalOperation:op=>tape.push(op)})
+ configureDiagnosticSampling(runner,diagnosticHardwareLinearInputs)
  let native:Uint8Array
  console.info('E2E native owner ready');const started=performance.now()
  try{
@@ -53,6 +66,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  void replayBackend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
  let replayClock=1000
  const replayRunner=new CanonicalBoundedSceneRunner(replayBackend,{sourceOptions,now:()=>replayClock,timestamp:()=>1791400000000+replayClock,operationId:()=>{throw new Error('Replay must preserve original operation IDs')}})
+ configureDiagnosticSampling(replayRunner,diagnosticHardwareLinearInputs)
  const nativeCapture=stages?captureStages(replayRunner,true,96*1024*1024,stages==='prediffuse'?'prediffuse':'basic'):null
  let nativeStages:Stage[]=[]
  let nativeReplay:Uint8Array
@@ -80,6 +94,6 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
   glStages=await glCapture?.read()??[]
   const ext=probe.gl.getExtension('WEBGL_debug_renderer_info');renderer=ext?String(probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):null;glError=probe.gl.getError()
  }finally{glCapture?.detach();glCapture?.destroy();engine.destroy();surface.replaceChildren()}
- return{code:'__CODE__',size,stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata,nativeChronology:nativeCapture?.chronology,glChronology:glCapture?.chronology}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
+ return{code:'__CODE__',size,diagnosticHardwareLinearInputs,diagnosticSamplingScope:'Native settle only; source and GL baseline unchanged',stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata,nativeChronology:nativeCapture?.chronology,glChronology:glCapture?.chronology}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
 }
 Object.assign(window,{runEndToEnd})

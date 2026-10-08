@@ -90,3 +90,5 @@ until first diffusion. Buffer roles are identified from actual source scratch an
 planner fieldFor; no guessed CPU physics or new settle steps. A differing coarse
 checkpoint localizes an interval; earlier operator inputs still need an isolated
 same-input gate before fixing any shader. Use100, not multiple jobs/400 yet.
+
+Для независимой диагностической выборки: `await window.runEndToEnd({size:100,stages:'prediffuse',diagnosticHardwareLinearInputs:true})`. Одинаковый флаг включает аппаратную LINEAR выборку только native settle у author и packed replay. Landing/source executor временно возвращает baseline; GL неизменён. Отчёт явно содержит флаг и область. OFF остаётся default; это эксперимент, не production fix. Не сочетать с диагностической специализацией mode, пока root не разрешил комбинацию явно.
