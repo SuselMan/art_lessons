@@ -68,3 +68,19 @@ missing/NaN/range failclosed. Retained captured4dab payload стал760228bytes
 После cherry обязательно снова `prepare-owner-fifo-runtime.mjs`; старый
 ignored generated painter не имеет новых scalar descriptors. Original production
 source/render uniforms/orderedcommands остаются неизменными.
+
+## Pressure checkpoint ONE: фронт действует, carry пока нет
+
+Raw `temp/device-runs/preview-front-carry-pressure-surface.json`: fresh2090,
+controller2093,min1844/post1999MiB, собственная страница закрыта/RELEASE.
+GL0/lostfalse/source8same. Seed61 reached→front208 reached. На краю dab
+(44,64)pressureR0,height187, сосед(45,64)R14/255,height110; band=.65625.
+Этот face не закрыт cost threshold. P/C SHA всё равно неизменны step1/4/16,
+positivegate теперь корректно false. Причина не объявляется quantization:
+при плоской capacity donor оценка .5*.25*.35*80≈3.5byte>0.5. Actual paper/
+neighbour-normalization отличаются, поэтому это не полное численное GPUproof.
+
+Следующий offline packet добавляет actual program getUniform snapshot после
+первой пары16/15 (без дополнительного draw/readback), чтобы проверить rate,
+normalizeddir, band, plateau tau и sampler indices на реальном program. Пока
+аппаратно не запускался; коэффициенты остались прежними.
