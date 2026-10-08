@@ -1,0 +1,87 @@
+{
+  "scope": "OFF QA original14carry passes with independently propagated Q8 state in eachAPI. Common GLinitial mobile/pressure; no oracle reset betweenpasses, no seededhash.",
+  "strides": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    64,
+    32,
+    16,
+    8,
+    4,
+    2,
+    1
+  ],
+  "firstReferenceGuard": "GLfirststride SHA mustequal previous Surface d70fa... before proceeding; end SHA independentlycomputed. GL retiredbeforeNative.",
+  "inputs": "Same original Surfaceop1 c/GLoutward141 pressure exactSHA/filter/dims. ALL LIVEinputs mode15; unusedbindingsaliasmobile explicit.",
+  "sampling": "Dpressure hardwareLINEAR, P nearest. Originalexpressions+orderQ8 everypass unchanged.",
+  "capture": "Only GLfirst and GLend/fullRGBA readback; nativeend. CompactSHA/counts/examples serialized; no full arrays saved. No persubstepreadback/CPUfeedback.",
+  "software": {
+    "scope": "Synthetic64 fourteenpass fullreport wiring; alteredfixture/dims/passport, not hardwareproof",
+    "channels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "movementChannels": [
+      {
+        "changed": 2180,
+        "max": 41,
+        "sum": 14236
+      },
+      {
+        "changed": 1851,
+        "max": 21,
+        "sum": 6959
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 2180,
+        "max": 41,
+        "sum": 14236
+      }
+    ],
+    "firstSha256": "0dc2fc0708f3ea2a895667554218e6ad2068567429b28988a751775db3587b9e",
+    "endSha256": "24f3383dcac4e061a785227ac7cea8b248932a583e5da23d52d744b8bc6c7fa5",
+    "noPerStepReset": true,
+    "errors": [],
+    "glError": 0,
+    "validation": null
+  },
+  "entry": "runPressureSeedOracle diagnosticFirstCarry=true +hardwareLinear=true +referenceSHA=d70...+diagnosticCarryChain=true; originaloutbound141 only",
+  "budget": {
+    "preflightMiB": 1700,
+    "abortMiB": 500,
+    "deadlineSeconds": 120,
+    "arms": 1,
+    "readbackMiB": "GL18+native9, not27MiBpersisted",
+    "GPU": "producer62MiBretire ->GL27retire ->native36, transientuniforms14x128B",
+    "CPUConservativeMiB": 170
+  },
+  "limits": "READY notSurfacePASS. If exact, excludes entire14step carry chain from remainingerror for thiscase; next op49..67 then firstbrush68 commoninputs. No full Room/wholeRGBA/perf claim."
+}

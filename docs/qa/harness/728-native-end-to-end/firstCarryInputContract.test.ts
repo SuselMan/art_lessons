@@ -1,5 +1,5 @@
 import {it,expect}from'vitest'
-import{FIRST_CARRY_INPUTS,FIRST_CARRY_RECIPE,validateFirstCarryInputs,type FirstCarrySnapshot}from'./firstCarryInputContract'
+import{FIRST_CARRY_INPUTS,FIRST_CARRY_RECIPE,ORIGINAL_CARRY_STRIDES,validateFirstCarryInputs,type FirstCarrySnapshot}from'./firstCarryInputContract'
 const packet='1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f'
 const valid=()=>Object.entries(FIRST_CARRY_INPUTS).map(([role,x])=>({role,...x,width:1536,height:1536,bytes:9437184,sourceApi:'GL',rowConvention:'world-top',packetSha256:packet}))as FirstCarrySnapshot[]
 it('requires actual common mobile and pressure metadata, rejects swapped filters/hash/role',()=>{expect(()=>validateFirstCarryInputs(valid(),packet)).not.toThrow();for(const patch of[{filter:'linear'},{width:1024},{sha256:'0'.repeat(64)},{sourceApi:'native'},{rowConvention:'bottom'},{role:'pressure'}])expect(()=>validateFirstCarryInputs([{...valid()[0],...patch}as FirstCarrySnapshot,valid()[1]],packet)).toThrow()})
@@ -15,3 +15,5 @@ it('rejects a hardware sampler pair without frozen GL reference before browser/G
  await expect(runPressureSeedOracle(input as never)).rejects.toThrow('Sampler pair requires frozen GL output reference')
  await expect(runPressureSeedOracle({...input,diagnosticFirstCarryReferenceSha256:'bad'} as never)).rejects.toThrow('First carry reference SHA')
 })
+
+it('freezes all original14carry strides with Q8 feedback, not isolated repeatedfirststep',()=>{expect(ORIGINAL_CARRY_STRIDES).toEqual([1,2,4,8,16,32,64,64,32,16,8,4,2,1])})
