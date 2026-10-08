@@ -48,3 +48,23 @@ receiver pressure>band(.65625) закрывает face; nonpositivegradient ра
 seedcoverage.B=1/standing1⇒deepseed1. Эти input свойства НЕдоказывают actual
 pressurecostпослеGLseed/front. Реальная причина неподвижности пока не установлена;
 увеличениеrate/шага/D не проводится.
+
+## SOURCE scalar capture (offline)
+
+Generated painter capture теперь сохраняет actual `profile.waterLevel`,
+`landedWet`, `wetPeakHere` и максимум `scratch.standing.get(d)` по текущим own
+drawable dabs. Это input-time scalars после existing delivery, без повторного
+расчёта/GL/readback и без borrowing parent pressure. Они structuredClone в
+immutable retained composite. Own radius для visual budget =max tipDiameter/2;
+канонический mean/globalwashradius может отличаться — explicit SOURCE-only.
+
+`PreviewCarrySourceOptions.mjs` получает production constants/functions от
+caller, effectiveWet=max(capturedlanding,peak,standing), production spreadBudget
+/S8 и frontSteps. Cap≤32 сообщает requestedFrontSteps/capped отдельно; он не
+притворяется завершённым каноническим front. Scalar state/geometry обязательны,
+missing/NaN/range failclosed. Retained captured4dab payload стал760228bytes
+(раньше759885), +343 descriptors, ниже прежнего16MiB/owner bound.
+
+После cherry обязательно снова `prepare-owner-fifo-runtime.mjs`; старый
+ignored generated painter не имеет новых scalar descriptors. Original production
+source/render uniforms/orderedcommands остаются неизменными.
