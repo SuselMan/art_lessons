@@ -35,3 +35,11 @@ Prewarmed owner pool даёт0texture allocations при DOWN2/3, но DOWN1 в�
 Нельзя переносить RGB delta `oldLayerAfter−oldLayerBefore` поверх нового fullsnapshot: composite нелинеен по P/C/coverage, clamp/Q8 и optical-depth нормализация нарушают такое сложение. Нужен retained per-gesture **material** contribution: собственные MAX P/C/V film и own coverage command record отдельно от predecessor base. При old land видимые younger P/C base можно latebind к реально landed prior материалу и пересчитать presentation `base+ownfilm` теми же mode1 passes; canonical FIFO input остаётся неизменным. Coverage union нельзя получить вычитанием — нужен own coverage film/typed command replay над обновлённой predecessor coverage.
 
 Сначала CPU/gpu same-record два epoch: predecessor changes, own film unchanged, no doubleprepare/no canonical writes, oldland cannot retire younger; затем visual timeline. Только после proof разрешается убрать diagnostic backpressure. Это отдельная работа, не реализована текущим fullsnapshot adapter.
+
+## Material rebase API (diagnostic, not Room wiring)
+
+OwnedGlPreparedSource optionally retains cloned canonical commands and composite inputs. A rebase validates owner-token identity, layer, predecessor gesture, monotonic epoch, dimensions and all borrowed-versus-owned texture aliases before any write. It copies six predecessor roles into owned storage, then executes the immutable source commands through the existing prepared GL port. No geometry or delivery is prepared again. Canonical FIFO inputs remain separate.
+
+A submission exception poisons this presentation owner without releasing its lease; the coordinator must apply its cancellation fence before physical retirement. Epoch advances only after submission succeeds. The 2 MiB serialized-payload/2048-chunk cap bounds serialized inputs, not actual JavaScript heap usage. GPU ownership remains thirteen 1024² RGBA fields per owner.
+
+CPU tests cover mutation after capture, stale/foreign/future callbacks, alias rejection before writes, correct six copy destinations, replayed F32 input and composite bounds, and failure without premature release. These are command/resource-contract checks; they do not establish GPU field parity or smooth morphing. Next boundary is actual prepared GL replay against a changed predecessor, then Room epoch wiring without rejecting a new DOWN.
