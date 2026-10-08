@@ -20,7 +20,7 @@ export async function runFactorial(engine,{gpu=true}={}){
    const poll=()=>{timer?.poll();raf=requestAnimationFrame(poll)}
    try{
     const report=await engine.runPrototype({...arm,scenario:'zigzag',paper:'fine',onPaintPhase(phase,value){
-     if(phase==='start'){timer=new GpuMethodTimer(value.gl,{everyNth:1,maxPending:256});timer.wrap(value._watercolorPasses,arm.backend==='mrt'?['brushPair','brush']:['brush']);raf=requestAnimationFrame(poll)}
+     if(phase==='start'){timer=new GpuMethodTimer(value.gl,{everyNth:1,maxPending:256});timer.wrap(value._watercolorPasses,arm.backend==='mrt'?['brushPair','brushPass']:['brushPass']);raf=requestAnimationFrame(poll)}
      else for(const restore of timer?.restores.splice(0)??[])restore()
     }})
     // Completion poll is outside paint timing and does not force synchronous GPU waits.
@@ -38,4 +38,4 @@ export function compareFields(a,b){
  const same=JSON.stringify(records(a))===JSON.stringify(records(b))
  return{valid:same&&a?.coverage?.nonemptyRequiredRoles===true&&b?.coverage?.nonemptyRequiredRoles===true,sameRecords:same,coverage:[a?.coverage,b?.coverage]}
 }
-const limitations=['No Room/server/network/pen-to-visible or power forecast','Wall cohort has no queries; paintMs excludes verification/export/Undo readbacks','Query cohort instrumentation changes CPU submission timing; not a wall benchmark','GPU queries wrap only paint phase; verification/export/Undo/Redo excluded','brushPair and brush are disjoint outer queries; pair samples process P/C together, singles process one field','First full arm includes cold compiler effects; retain forward/reverse individual values, no isolated42% whole claim']
+const limitations=['No Room/server/network/pen-to-visible or power forecast','Wall cohort has no queries; paintMs excludes verification/export/Undo readbacks','Query cohort instrumentation changes CPU submission timing; not a wall benchmark','GPU queries wrap only paint phase; verification/export/Undo/Redo excluded','brushPair and brushPass are disjoint outer queries; pair samples process P/C together, singles process one field','First full arm includes cold compiler effects; retain forward/reverse individual values, no isolated42% whole claim']
