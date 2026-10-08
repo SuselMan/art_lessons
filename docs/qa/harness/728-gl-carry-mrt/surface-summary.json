@@ -1,0 +1,232 @@
+{
+  "code": "21ec7a6d",
+  "device": "Surface Intel Iris Xe",
+  "paper": "Fine actual2048 asset",
+  "page": [
+    2048,
+    1024
+  ],
+  "baseline": {
+    "paintMs": 5873,
+    "timerCounts": {
+      "fieldOp": {
+        "calls": 215,
+        "sampled": 215,
+        "nested": 0,
+        "capacity": 0
+      }
+    },
+    "pending": 0,
+    "gpuGroups": {
+      "fieldOp:1": {
+        "calls": 95,
+        "gpuMs": 132.74719599999997
+      },
+      "fieldOp:0": {
+        "calls": 3,
+        "gpuMs": 6.909582
+      },
+      "fieldOp:4": {
+        "calls": 2,
+        "gpuMs": 4.467499
+      },
+      "fieldOp:10": {
+        "calls": 2,
+        "gpuMs": 2.077343
+      },
+      "fieldOp:12": {
+        "calls": 2,
+        "gpuMs": 1.756249
+      },
+      "fieldOp:11": {
+        "calls": 2,
+        "gpuMs": 1.978124
+      },
+      "fieldOp:6": {
+        "calls": 4,
+        "gpuMs": 8.34328
+      },
+      "fieldOp:5": {
+        "calls": 42,
+        "gpuMs": 114.77055299999999
+      },
+      "fieldOp:15": {
+        "calls": 28,
+        "gpuMs": 63.132903999999996
+      },
+      "fieldOp:18": {
+        "calls": 3,
+        "gpuMs": 3.103541
+      },
+      "fieldOp:3": {
+        "calls": 3,
+        "gpuMs": 5.023123
+      },
+      "fieldOp:19": {
+        "calls": 4,
+        "gpuMs": 3.93703
+      },
+      "fieldOp:7": {
+        "calls": 3,
+        "gpuMs": 3.534478
+      },
+      "fieldOp:14": {
+        "calls": 3,
+        "gpuMs": 4.413645
+      },
+      "fieldOp:2": {
+        "calls": 5,
+        "gpuMs": 5.6416129999999995
+      },
+      "fieldOp:16": {
+        "calls": 14,
+        "gpuMs": 32.515930999999995
+      }
+    },
+    "glError": 0,
+    "lost": false
+  },
+  "paired": {
+    "paintMs": 6034.600000023842,
+    "timerCounts": {
+      "fieldOp": {
+        "calls": 187,
+        "sampled": 187,
+        "nested": 0,
+        "capacity": 0
+      },
+      "carryPair": {
+        "calls": 14,
+        "sampled": 14,
+        "nested": 0,
+        "capacity": 0
+      }
+    },
+    "pending": 0,
+    "gpuGroups": {
+      "fieldOp:1": {
+        "calls": 95,
+        "gpuMs": 125.570005
+      },
+      "fieldOp:0": {
+        "calls": 3,
+        "gpuMs": 5.5957799999999995
+      },
+      "fieldOp:4": {
+        "calls": 2,
+        "gpuMs": 3.841145
+      },
+      "fieldOp:10": {
+        "calls": 2,
+        "gpuMs": 2.154895
+      },
+      "fieldOp:12": {
+        "calls": 2,
+        "gpuMs": 1.7619259999999999
+      },
+      "fieldOp:11": {
+        "calls": 2,
+        "gpuMs": 1.976614
+      },
+      "fieldOp:6": {
+        "calls": 4,
+        "gpuMs": 7.3773420000000005
+      },
+      "fieldOp:5": {
+        "calls": 42,
+        "gpuMs": 97.529514
+      },
+      "fieldOp:15": {
+        "calls": 14,
+        "gpuMs": 31.724995
+      },
+      "fieldOp:18": {
+        "calls": 3,
+        "gpuMs": 3.068332
+      },
+      "fieldOp:3": {
+        "calls": 3,
+        "gpuMs": 4.981353
+      },
+      "fieldOp:19": {
+        "calls": 4,
+        "gpuMs": 4.096457
+      },
+      "fieldOp:7": {
+        "calls": 3,
+        "gpuMs": 2.8725509999999996
+      },
+      "fieldOp:14": {
+        "calls": 3,
+        "gpuMs": 4.756041
+      },
+      "fieldOp:2": {
+        "calls": 5,
+        "gpuMs": 3.630883
+      },
+      "carryPair:None": {
+        "calls": 14,
+        "gpuMs": 33.613639
+      }
+    },
+    "glError": 0,
+    "lost": false
+  },
+  "wholeExact": true,
+  "wholeArms": [
+    {
+      "enabled": false,
+      "paintMs": 5817.5,
+      "pairs": {
+        "pairs": 0,
+        "fallbacks": 14,
+        "pixels": 0
+      },
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "enabled": true,
+      "paintMs": 6601.900000035763,
+      "pairs": {
+        "pairs": 14,
+        "fallbacks": 0,
+        "pixels": 33030144
+      },
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "enabled": true,
+      "paintMs": 5881.800000011921,
+      "pairs": {
+        "pairs": 14,
+        "fallbacks": 0,
+        "pixels": 33030144
+      },
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "enabled": false,
+      "paintMs": 5871.100000023842,
+      "pairs": {
+        "pairs": 0,
+        "fallbacks": 14,
+        "pixels": 0
+      },
+      "glError": 0,
+      "lost": false
+    }
+  ],
+  "roles": 26,
+  "rgbaSha256": "abb95e886a353237cac01bd52b4cf9cee6cc7f9dd00749cddd35f1916baae5a1",
+  "minimumFreeMiB": 1314,
+  "limitations": [
+    "One wall OFF/ON/ON/OFF cohort; no positive whole gain",
+    "GPU cost arms independent earlier/later order, not warmed randomized causal estimate",
+    "GPU fieldOp query excludes other GPU passes and CPU/RAF scheduling; wall minus GPU is not CPU time",
+    "Fine/mixed400 packed replay, not live pointer or Room; no Samsung proof",
+    "All defaults remain OFF"
+  ]
+}
