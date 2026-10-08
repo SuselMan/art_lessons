@@ -11,3 +11,9 @@ Original waterline centreY575.715576 and maximum dab diameter90.1313 imply nib t
 PNG conversion remains valid: raw material premultiplied bytes are unpremultiplied once for alpha PNG export; paper outputs are opaque actual display bytes. Hidden RGB in transparent pixels is not the visible hard edge.
 
 Limits: snapshots are after serial settle; no full camera/page/sharp-resample parity, moving reveal/morph, pointer latency, two independent wetness models, other papers or hardware claim. Centre-pointer fixture is a separate control using actual PointerInput/DabSystem and recorded operations, to remove ambiguous tap placement; original evidence remains primary.
+
+## Actual centre-pointer control
+
+Root also supplied `native-centre-wet-surface-1791423219232.json`. Packed original input confirms39 water dabs ALL atY512 (firstX256, finalX798.503 due actual release/dab tail) and one pigment dab exactly[512,512], size64.89454. This removes the first fixture's placement ambiguity. Native vs productionGL full material still differs6451 bytes/max16; that comparison is not exact. Both post-op shared-input presentation compares remain dry0/wet0/errors[]/GL0; wet effects32853/max15 and32674/max23 respectively.
+
+The centre PNG shows pigment spreading inside the water stripe with a diffuse central concentration, rather than the first fixture's blob above a sharply entering stripe. The stripe's roughly horizontal outer support remains visible, now above/below the centred deposit. Thus tap placement explains the first hard edge through the blob's lower region, while the bounded water stripe still constrains material spread in both implementations. This control does not prove that coverage transport is artistically correct or eliminate the remaining native/GL material difference. No camera/reveal/morph conclusion follows from these serial settled snapshots.
