@@ -26,6 +26,16 @@ export function installOwnedQaReuseHooks({engine,generation,mainFree,previewFree
   },
   refreshAfterJobs(){bundles.refreshAfterJobs()},
   handleContextLoss(){bundles.contextLost()},
+  destroyLostGeneration({stopProducers,cancelFutureJobs,destroyOldPool}){
+   if(!engine.gl.isContextLost())throw Error('Lost context required; no forced certificate');
+   for(const fn of [stopProducers,cancelFutureJobs,destroyOldPool])if(typeof fn!=='function')throw Error('Explicit owned lost cleanup required');
+   bundles.contextLost();stopProducers();cancelFutureJobs();
+   // Restore original source retire: this is CPU payload cleanup, not certified reuse.
+   // Caller closes old pool admission before invoking this method.
+   for(const {source,original}of tracked.values()){source.retire=original;original.call(source)}
+   tracked.clear();destroyOldPool();
+   for(const r of restore.reverse())r();
+  },
   uninstallAfterKnownIdle(){if(bundles.snapshot().admitted||tracked.size)throw Error('Live bundle hooks cannot be uninstalled');for(const r of restore.reverse())r()}
  }
 }

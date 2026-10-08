@@ -1,0 +1,39 @@
+--- a/docs/qa/harness/728-gl-queue-batch/PrewarmedGlOwnerPool.ts
++++ b/docs/qa/harness/728-gl-queue-batch/PrewarmedGlOwnerPool.ts
+@@ -9,7 +9,10 @@
+  private readonly available:OwnedGlSourceFields[]=[]
+  private readonly leased=new Set<OwnedGlSourceFields>()
+  private disposed=false
++ private lostClosed=false
++ private readonly gl:WebGLRenderingContext
+  constructor(gl:WebGLRenderingContext,capacity:number,budgetBytes:number){
++  this.gl=gl
+   if(!Number.isInteger(capacity)||capacity<1||capacity>3||!Number.isSafeInteger(budgetBytes)||budgetBytes<capacity*ownerBytes)throw Error('Explicit prewarm owner budget required')
+   this.bytes=capacity*ownerBytes
+   const empty=Object.fromEntries(roles.map(role=>[role,null]))as Record<OwnedGlRole,AccumulationBuffer|null>
+@@ -18,7 +21,7 @@
+  get physicalIdentities():ReadonlySet<object>{return new Set(this.owners.flatMap(owner=>owner.resources.map(resource=>resource.identity)))}
+  get free():number{return this.available.length}
+  take(initial:Readonly<Record<OwnedGlRole,AccumulationBuffer|null>>):OwnedGlSourceFields|null{
+-  if(this.disposed)throw Error('Disposed owner pool')
++  if(this.disposed||this.lostClosed)throw Error('Disposed/lost owner pool')
+   // Validate all borrowed fields before mutating/removing any prewarmed slot.
+   for(const role of roles){const f=initial[role];if(f&&(f.width!==1024||f.height!==1024))throw Error('Owner requires bounded1024 source')}
+   const slot=this.available.pop();if(!slot)return null
+@@ -26,7 +29,15 @@
+   try{for(const role of roles){const source=initial[role],destination=slot.fields[role];if(source?.texture===destination.texture)throw Error('Owner admission feedback alias');if(source)source.copyTo(destination);else destination.clear()}}
+   catch(error){this.leased.delete(slot);this.available.push(slot);throw error}
+   let released=false
+-  return Object.freeze({fields:slot.fields,resources:slot.resources,bytes:slot.bytes,release:()=>{if(released)return;released=true;this.leased.delete(slot);if(!this.disposed)this.available.push(slot)}})
++  return Object.freeze({fields:slot.fields,resources:slot.resources,bytes:slot.bytes,release:()=>{if(released)return;released=true;this.leased.delete(slot);if(!this.disposed&&!this.lostClosed)this.available.push(slot)}})
++ }
++ /** Close admission BEFORE retiring old source leases; never reuse this generation. */
++ closeLostGeneration():void{if(!this.gl.isContextLost())throw Error('Lost context required');this.lostClosed=true;this.available.length=0}
++ destroyLostGeneration():void{
++  if(!this.gl.isContextLost()||!this.lostClosed)throw Error('Closed lost generation required');
++  if(this.leased.size)throw Error('Stop producers and retire owned sources first');
++  if(this.disposed)return;this.disposed=true;
++  for(const owner of this.owners)owner.release()
+  }
+  /** Caller must first stop producers/cancel FIFO and establish GPU-safe ownership fence. */
+  disposeAfterFence():void{
