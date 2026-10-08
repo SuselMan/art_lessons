@@ -7,7 +7,7 @@ it('exactly covers original f32 GL scissor pixel-centre predicate including clip
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
    const glY=H-y-.5,written=x+.5>=s[0]&&glY>=s[1]&&x+.5<Math.fround(s[0]+s[2])&&glY<Math.fround(s[1]+s[3])
    const launched=x>=r[0]&&y>=r[1]&&x<r[0]+r[2]&&y<r[1]+r[3]
-   expect(launched,JSON.stringify({scissor,x,y})).toBe(written)
+   if (launched !== written) throw new Error(JSON.stringify({scissor,x,y,launched,written}))
   }
  }
 })
