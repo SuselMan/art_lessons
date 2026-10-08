@@ -12,4 +12,4 @@ export function validateFirstBandInputs(rows:readonly FirstBandSnapshot[],packet
  for(const row of rows){const expected=FIRST_BAND_INPUTS[row.role];if(!expected||seen.has(row.role)||row.sha256!==expected.sha256||row.filter!==expected.filter||row.width!==1536||row.height!==1536||row.bytes!==1536*1536*4||row.rowConvention!=='world-top'||row.packetSha256!==packetSha256||row.sourceApi!=='GL')throw Error('Common GL first band input passport differs');seen.add(row.role)}
  return true
 }
-export const FIRST_BAND_RECIPE=Object.freeze({worldOrigin:[0,40],worldScale:1,mode11:{k:1,band:[.9617441184796373,0],size:[.009563970380090697,1]},mode6:{k:1,band:[.9617441184796373,.75],size:[.009563970380090697,1/12],origin:[1,1],dir:[1,1],tau:[0,0,0],world:[0,-1576,1]}})
+export const FIRST_BAND_RECIPE=Object.freeze({worldOrigin:[0,40],worldScale:1,mode11:{k:1,band:[.9617441184796373,0],size:[.009563970380090697,1]},mode6:{k:1,band:[.9617441184796373,.75],size:[.009563970380090697,1/12],origin:[1,1],dir:[1,1],tau:[0,0,0],world:[0,-1576,1]}} as const)

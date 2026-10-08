@@ -1,0 +1,58 @@
+{
+  "scope": "Runnable OFF QA first-band primitive readiness; no actual hardware run",
+  "entry": "runPressureSeedOracle(input with diagnosticFirstBand=6 or11)",
+  "strictCommonInputs": [
+    "GLoutward141pressure SHA288caf3f… LINEAR",
+    "GLafter11inward SHA1f786696… LINEAR; mode12seed9f44 rejected",
+    "ReconstructedGLcoverage SHA b6e964b3… NEAREST"
+  ],
+  "nativeExecuted": "ONLY selected mode; mode6 uses COMMON GLmode11extendedcoverage, not nativeapproximate extension",
+  "boundaries": "GLproducer retired→freshGLreference mode11+6 retired→freshnative selectedmode; source/planner input preparation once, no nativefront rerun",
+  "durableExporter": "packFirstBandCommonInput explicit-only gzip/base64 sequential3roles, fullrawSHA/gzipSHA/dims/filter/packet; no Array<number>",
+  "memoryBudgetEstimate": {
+    "glProducerTextureBytesApprox": 65273856,
+    "glBandTexturesBytes": 47185920,
+    "nativeBandTexturesBytes": 47185920,
+    "nativeReadbackBytes": 9437184,
+    "cpuConservativePeakMiB": 240,
+    "limits": "Estimates only; shader/driver memory unknown. Actual pre1700MiB/abort500/hard120 controller guard required."
+  },
+  "softwareWiring": {
+    "raw": "temp/native-source-offline/first-band-wiring-software.json",
+    "scope": "EXPLICIT synthetic64 wiring only; modified fixture passport/dimensions, NOT actual Surface1536/model parity",
+    "channels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "errors": [],
+    "glError": 0,
+    "lost": false,
+    "validation": null
+  },
+  "tests": "Input/filter/dim/packet and invalid-mode/role-byte negativeguards + harnessTS/oxlint",
+  "limitations": [
+    "Synthetic64 software fixture changeddimensions/passport explicitly; NOT real1536Surfaceparity",
+    "No maxspread/carry/brush/finalRGB/Room/performanceclaim",
+    "Actual mode6 commonextension generated with same GLpipeline, itsSHA recorded",
+    "Defaultpressure/front/inward unchanged when diagnosticFirstBand absent",
+    "Next device run ONLY parent allocation; Samsung forbidden"
+  ]
+}
