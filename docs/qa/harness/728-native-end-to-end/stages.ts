@@ -6,11 +6,11 @@ type Buffer=AccumulationBuffer|CanonicalFieldBuffer
 export interface Stage {key:string;w:number;h:number;bytes:Uint8Array;writtenRect?:readonly[number,number,number,number]}
 function flip(bytes:Uint8Array,w:number,h:number){const out=new Uint8Array(bytes.length);for(let y=0;y<h;y++)out.set(bytes.subarray(y*w*4,(y+1)*w*4),(h-1-y)*w*4);return out}
 /** Diagnostic COPY snapshots, never synchronous readback in physical pass. */
-export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,native:boolean,maxBytes=96*1024*1024,probe:'basic'|'prediffuse'|'coverage'='basic'){
+export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,native:boolean,maxBytes=96*1024*1024,probe:'basic'|'prediffuse'|'coverage'|'pressure'='basic',frontIndex=1){
  const e=engine as any,passes=native?e.adapter:e._watercolorPasses,planner=native?e.planner:e._settlePlan
  if(!passes||!planner)throw new Error('Missing actual planner/pass stage hooks')
  const snapshots:Array<{key:string;buffer:Buffer;writtenRect?:readonly[number,number,number,number]}>=[],restorers:Array<()=>void>=[],seen=new Set<string>()
- let bytes=0,job=0
+ let bytes=0,job=0,frontCount=0
  const metadata:Array<{job:number;bounds:unknown;bloom:unknown;radius:unknown;water:unknown;landedWet:unknown;standing:unknown;wetPeak:unknown;dwell:unknown}>=[]
  const primitiveMetadata:Record<string,unknown>={}
  const chronology:unknown[]=[],roles=new WeakMap<object,string>();let beforeDiffuse=true,unknownRole=0
@@ -37,7 +37,7 @@ export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,na
   const scratch=args[0],target=args[1][0],entry=scratch.peek(target.buffer)
   if(!entry)throw new Error('Source snapshot missing actual scratch entry')
   for(const [name,buffer] of Object.entries(entry))if(buffer&&typeof buffer==='object'&&'width' in buffer)roles.set(buffer,`source:${name}`)
-  for(const [role,buffer] of Object.entries({coverage:entry.coverage,P:entry.inkLoad,C:entry.inkColor,V:entry.solventLoad}))if(probe!=='coverage'&&(probe!=='prediffuse'||role!=='C'))copy(`source:${job}:${role}`,buffer as Buffer)
+  for(const [role,buffer] of Object.entries({coverage:entry.coverage,P:entry.inkLoad,C:entry.inkColor,V:entry.solventLoad}))if(probe!=='coverage'&&probe!=='pressure'&&(probe!=='prediffuse'||role!=='C'))copy(`source:${job}:${role}`,buffer as Buffer)
  },true)
  // Record primitive chronology only until the first diffusion; no unbounded trace.
  if(planner.ctx?.fieldFor)wrap(planner.ctx,'fieldFor',(_args,field)=>{for(const name of ['a','b','c','ca','cb','cc','coverage','mask','pressure','band'])if(field[name])roles.set(field[name],`field:${name}`)})
@@ -45,7 +45,8 @@ export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,na
  if(typeof passes.pigmentColor==='function')wrap(passes,'pigmentColor',args=>{if(beforeDiffuse)record({kind:'absorption',out:role(args[0]),source:role(args[1]),tau:[...args[2]]})})
  wrap(passes,'fieldOp',args=>{
   if(beforeDiffuse){if(chronology.length>=512)throw new Error('Pre-diffuse chronology budget exceeded');const o=args[5]??{};record({kind:'fieldOp',mode:args[3],k:args[4],out:role(args[0]),a:role(args[1]),b:role(args[2]),c:role(o.c),d:role(o.d),e:role(o.e),scalars:Object.fromEntries(['dir','tau','scissor','origin','size','band','world'].filter(k=>o[k]!==undefined).map(k=>[k,structuredClone(o[k])]))})}
-  if(probe!=='coverage'&&args[3]===10)copy('first:frontSeed',args[0])
+  if(probe!=='coverage'&&probe!=='pressure'&&args[3]===10)copy('first:frontSeed',args[0])
+  if(probe==='pressure'&&frontIndex===0&&args[3]===1&&args[4]===0&&role(args[0])?.name==='field:pressure')copy('pressure:copyOutput',args[0])
   if(probe==='coverage'&&args[3]===11)copy('mode11:output',args[0])
   if(probe==='prediffuse'){
    if(args[3]===0)copy('coarse:mobileSplit',args[0])
@@ -56,7 +57,8 @@ export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,na
   }
  })
  wrap(passes,'fieldOp',args=>{if(probe==='coverage'&&args[3]===11){copy('mode11:coverage',args[1]);copy('mode11:pressure',args[5]?.d);primitiveMetadata.mode11={k:args[4],band:[...args[5].band],size:[...args[5].size]}}},true)
- wrap(passes,'waterFrontStep',args=>{
+ wrap(passes,'fieldOp',args=>{if(probe==='pressure'&&frontIndex===0&&args[3]===1&&args[4]===0&&role(args[0])?.name==='field:pressure')copy('pressure:copyInput',args[1])},true)
+ wrap(passes,'waterFrontStep',args=>{frontCount++;if(probe==='pressure'&&frontCount===frontIndex)copy('pressure:frontOutput',args[5]);
   primitiveMetadata.front??={field:[args[0].w,args[0].h],x0:args[1],y0:args[2],dryCost:args[3],max:args[6],climb:args[7],floor:args[8],stride:args[9]??1,scale:args[10]??1}
   if(beforeDiffuse&&chronology.length>=512)throw new Error('Pre-diffuse chronology budget exceeded')
   if(beforeDiffuse)record({kind:'front',out:role(args[5]),source:role(args[4]),max:args[6],climb:args[7],floor:args[8],stride:args[9]??1})
@@ -66,9 +68,10 @@ export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,na
  wrap(passes,'diffuseStep',args=>{
   primitiveMetadata.diffuse??={field:[args[0].w,args[0].h],x0:args[1],y0:args[2],scale:args[3],paper:[args[4],args[5]],radius:args[8],preparedRadius:Math.max(1,Math.round(args[8]/args[3])),knight:args[9],sourceRole:args[6]===args[11]?'pigment':'color',sourceFilter:args[6].filter??args[6]._baseFilter,gateFilter:args[10].filter??args[10]._baseFilter}
   if(beforeDiffuse){record({kind:'diffuse',out:role(args[7]),source:role(args[6]),gate:role(args[10]),radius:args[8],knight:args[9]});beforeDiffuse=false}
-  if(probe!=='coverage'){copy('first:diffuseInput',args[6]);copy('first:diffuseGate',args[10])}
+  if(probe!=='coverage'&&probe!=='pressure'){copy('first:diffuseInput',args[6]);copy('first:diffuseGate',args[10])}
  },true)
  wrap(passes,'brushPass',args=>{primitiveMetadata.brush??={field:[args[0].w,args[0].h],radius:args[2],scale:args[3],sourceRole:args[4]===args[9]?'color':'pigment',flowRect:[...args[7]],scissor:[...args[8]],gain:args[10]};if(probe==='basic')copy('first:brush',args[5],args[8])})
+ wrap(passes,'waterFrontStep',args=>{if(probe==='pressure'&&frontCount+1===frontIndex){copy('pressure:frontInput',args[4]);copy('pressure:frontCoverage',args[0].coverage);primitiveMetadata.selectedFront={index:frontIndex,source:role(args[4]),destination:role(args[5]),x0:args[1],y0:args[2],dryCost:args[3],max:args[6],climb:args[7],floor:args[8],stride:args[9]??1,scale:args[10]??1}}},true)
  return{
   metadata,primitiveMetadata,chronology,
   detach(){restorers.reverse().forEach(f=>f())},
@@ -103,4 +106,10 @@ export function correlateMode11(native:Stage[],gl:Stage[]){
   if(pixels.length<128)pixels.push({x:(i/4)%no.w,yTop:Math.floor(i/4/no.w),pressure:[np.bytes[i],gp.bytes[i]],coverageNative:Array.from(nc.bytes.subarray(i,i+4)),coverageGl:Array.from(gc.bytes.subarray(i,i+4)),outputNative:Array.from(no.bytes.subarray(i,i+4)),outputGl:Array.from(go.bytes.subarray(i,i+4))})
  }
  return{differingPixels,pressureCorrelated,coverageCorrelated,unexplainedBySamePixelInputs,pixels,truncated:differingPixels>pixels.length,limitation:'Same-pixel byte correlation; LINEAR neighboring samples/UV interpolation and arithmetic are not proven equivalent.'}
+}
+
+export function pressureCopyInvariant(stages:Stage[]){
+ const a=stages.find(v=>v.key==='pressure:copyInput'),b=stages.find(v=>v.key==='pressure:copyOutput')
+ if(!a||!b)return null
+ return compareStages([{...a,key:'copy'}],[{...b,key:'copy'}])
 }

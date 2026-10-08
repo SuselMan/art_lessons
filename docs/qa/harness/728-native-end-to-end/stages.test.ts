@@ -56,3 +56,11 @@ test('mode11 correlation separates changed input from unexplained output',async(
  const result=correlateMode11(n,g);assert.equal(result.pressureCorrelated,1);assert.equal(result.unexplainedBySamePixelInputs,0)
  g[0]=stage('pressure',[246,0,0,255]);assert.equal(correlateMode11(n,g).unexplainedBySamePixelInputs,1)
 })
+
+test('pressure copy oracle rejects changed byte independent of other backend',async()=>{
+ const {pressureCopyInvariant}=await import('./stages')
+ const input={key:'pressure:copyInput',w:1,h:1,bytes:new Uint8Array([246,0,0,255])}
+ const output={...input,key:'pressure:copyOutput',bytes:input.bytes.slice()}
+ assert.equal(pressureCopyInvariant([input,output])?.[0].exact,true)
+ output.bytes[0]=243;assert.equal(pressureCopyInvariant([input,output])?.[0].exact,false)
+})
