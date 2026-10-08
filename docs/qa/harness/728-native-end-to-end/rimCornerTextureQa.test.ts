@@ -18,3 +18,9 @@ it('all actual first/second octave corners remain within identical noise-row tab
  }
  expect(()=>rimCornerQaShaders({...t,seed:1})).toThrow();expect(()=>rimCornerQaShaders({...t,origin:[0,-35]})).toThrow();const altered=t.values.slice();altered[0]=.5;expect(()=>rimCornerQaShaders({...t,values:altered})).toThrow()
 })
+
+import {seededRimPatternDifferences} from './firstBandOracle'
+it('actual report uses valid balanced32cap for seeded-vs-legacy pattern metrics',()=>{
+ const r=seededRimPatternDifferences(new Uint8Array([1,2,3,4,5,6,7,8]),new Uint8Array(8),2)
+ expect(r.channels.map(c=>c.changed)).toEqual([2,2,2,2]);expect(r.differences).toHaveLength(8)
+})

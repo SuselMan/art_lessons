@@ -1,0 +1,83 @@
+{
+  "hardwareAttempt": {
+    "source": "1f9270af1ed44f4c0e5a1dbc2bfbf4d6c4c9f295",
+    "bundleSha256": "c429862f44eb716e31820531ade434c5ada659f65688a59a5f71f2e77c225958",
+    "valid": false,
+    "failureType": "Instrumentation, NOT model negative",
+    "error": "Error: Error: Balanced channel records require32cap\n    at boundedByteDifferences (https://gallery.pecni.com/gallery/e_k7O-iXUQDQWNE7BqN8v89aZqJ__6Ba/preview/first-band-seeded-1f/run.js:20227:47)\n    at runFirstBandCommonOracle (https://gallery.pecni.com/gallery/e_k7O-iXUQDQWNE7BqN8v89aZqJ__6Ba/preview/first-band-seeded-1f/run.js:20498:436)\n    at async runPressureSeedOracle (https://gallery.pecni.com/gallery/e_k7O-iXUQDQWNE7BqN8v89aZqJ__6Ba/preview/first-band-seeded-1f/run.js:20774:20)",
+    "memory": [
+      {
+        "stage": "before-own-tab",
+        "availableMiB": 2168.5
+      },
+      {
+        "stage": "arm-0-preflight",
+        "availableMiB": 2169.8
+      },
+      {
+        "stage": "arm-0-OFF-run",
+        "availableMiB": 1524.8
+      }
+    ],
+    "raw": "temp/device-runs/first-band-seeded-1f/report.json",
+    "ownTabClosed": true,
+    "repeat": false
+  },
+  "fix": "pattern metric helper always calls boundedByteDifferences cap32/balanced true; regression exercised full returned report",
+  "softwareIntegration": {
+    "scope": "EXPLICIT synthetic64 wiring only; modified fixture passport/dimensions; includes full seeded report + PNG serialization, NOT actual Surface1536/model parity",
+    "allChannels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "glError": 0,
+    "validation": null,
+    "errors": [],
+    "pngs": {
+      "baseline": 362,
+      "seededGl": 630,
+      "seededNative": 630
+    },
+    "patternChannels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 1265,
+        "max": 229,
+        "sum": 141820
+      },
+      {
+        "changed": 143,
+        "max": 73,
+        "sum": 1680
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ]
+  },
+  "limits": "Synthetic64 uses explicitly altered fixture dimensions/passport, not physical Surface1536. No full physical result was serialized from failed hardware attempt."
+}
