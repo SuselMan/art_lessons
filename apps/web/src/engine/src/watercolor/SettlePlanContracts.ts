@@ -52,6 +52,9 @@ export interface SettlePlanFieldOptions<B> {
 export interface SettlePlanPasses<B, T> {
   diagnosticBrushMrt: boolean
   fieldOp(out: B, a: B, b: B, mode: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20, k: number, options?: SettlePlanFieldOptions<B>): void
+  /** Optional diagnostic replacement for adjacent mode16 then15, both reading
+   * OLD P/C. Returning false leaves the original calls untouched. */
+  carryPair?(outPigment:B,pigment:B,outColor:B,color:B,fixed:B,k:number,options:SettlePlanFieldOptions<B>):boolean
   pigmentColor(out: B, deposit: B, tau: readonly number[]): void
   costDomainStep(out: B, source: B, rect: SettlePlanRect, band: number, stride: number, packed?: boolean): void
   diffuseStep(field: Pick<SettlePlanField<B>, 'w' | 'h' | 'coverage'>, x0: number, y0: number, scale: number, paperWidth: number, paperHeight: number, src: B, dst: B, radius: number, knight: boolean, gate: B, density?: B, solvent?: B | null): void

@@ -5,6 +5,7 @@ import type { CanonicalWatercolorWebGpu } from './backend'
 import type { CanonicalFieldBuffer } from './fieldBuffer'
 import type { CanonicalGpuContext, CanonicalGpuField, CanonicalPassResources } from './types'
 import { CanonicalSettleCommands } from './passes/commands'
+import { CanonicalPairedCarry } from './passes/pairedCarry'
 import { CanonicalBrushContact } from './brush'
 
 /** Mutable upload slot, corresponding to one legacy texture identity. Bind
@@ -18,6 +19,10 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  readonly diagnosticBrushMrt = false
  /** Diagnostic-only hardware sampling arm for existing LINEAR non-paper field inputs. */
  diagnosticHardwareLinearInputs=false
+ /** OFF-default paired carry, no planner cadence/presentation changes. */
+ diagnosticPairedCarry=false
+ pairedCarryCalls=0
+ private pairedCarry:CanonicalPairedCarry|null=null
  readonly uploads: SettlePlanUploads<CanonicalUploadSlot>
  private readonly owner: CanonicalWatercolorWebGpu
  private readonly commands: CanonicalSettleCommands
@@ -81,6 +86,15 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  fieldOp(out: CanonicalFieldBuffer, a: CanonicalFieldBuffer, b: CanonicalFieldBuffer, mode: Parameters<SettlePlanPasses<CanonicalFieldBuffer, CanonicalUploadSlot>['fieldOp']>[3], k: number, options: SettlePlanFieldOptions<CanonicalFieldBuffer> = {}) {
   const { c, d, e, path, ...scalars } = options
   this.transient.push(this.commands.encode(this.ctx(), { kind: 'fieldOp', resources: this.resources(out, a, b), mode, k, options: { ...scalars, diagnosticHardwareLinearInputs:this.diagnosticHardwareLinearInputs, c: c?.field, d: d?.field, e: e?.field, path: path?.field, noise: this.owner.noise } }))
+ }
+ carryPair(outPigment:CanonicalFieldBuffer,pigment:CanonicalFieldBuffer,outColor:CanonicalFieldBuffer,color:CanonicalFieldBuffer,fixed:CanonicalFieldBuffer,k:number,options:SettlePlanFieldOptions<CanonicalFieldBuffer>):boolean {
+  if(!this.diagnosticPairedCarry)return false
+  const {c,d,e,path,...scalars}=options
+  if(c)throw new Error('Paired carry receives OLD pigment explicitly')
+  for(const b of [outPigment,pigment,outColor,color,fixed,d,e,path])if(b&&b.owner!==this.owner)throw new Error('Paired carry crosses field owners')
+  this.pairedCarry??=new CanonicalPairedCarry(this.owner.device)
+  this.transient.push(this.pairedCarry.run(this.ctx(),{pigment:pigment.field,color:color.field,fixed:fixed.field,outPigment:outPigment.field,outColor:outColor.field},k,{...scalars,diagnosticHardwareLinearInputs:this.diagnosticHardwareLinearInputs,d:d?.field,e:e?.field,path:path?.field,noise:this.owner.noise}))
+  this.pairedCarryCalls++;return true
  }
  pigmentColor(out: CanonicalFieldBuffer, deposit: CanonicalFieldBuffer, tau: readonly number[]) {
   if (tau.length < 3) throw new Error('Canonical absorption requires three channels')
