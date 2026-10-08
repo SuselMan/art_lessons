@@ -11,7 +11,7 @@ import type {PreparedSourceSegment} from '../webgpuCanonical/sourcePhaseExecutor
 export class WetBrushMomentSourceSeam {
  private readonly backend:CanonicalWatercolorWebGpu
  private readonly operator:Pick<WetBrushMomentTextureOwner,'encode'>
- constructor(backend:CanonicalWatercolorWebGpu,operator?:Pick<WetBrushMomentTextureOwner,'encode'>){this.backend=backend;this.operator=operator??new WetBrushMomentTextureOwner(backend.device)}
+ constructor(backend:CanonicalWatercolorWebGpu,operator?:Pick<WetBrushMomentTextureOwner,'encode'>,diagnosticVector=false){this.backend=backend;this.operator=operator??new WetBrushMomentTextureOwner(backend.device,diagnosticVector)}
  encodeAfterLanding(encoder:GPUCommandEncoder,input:{scratch:CanonicalTileScratch;tile:CanonicalFieldBuffer;segment:PreparedSourceSegment;availableWater:CanonicalFieldBuffer;materialGesture:number;recipe:MomentContactRecipe;diagnosticInPlace?:boolean},enabled=false):{buffers:GPUBuffer[];invalid:GPUBuffer|null;release:()=>void} {
   if(!enabled)return{buffers:[],invalid:null,release:()=>{}}
   const {scratch,tile,segment,availableWater,materialGesture,recipe}=input,e=scratch.peek(tile)

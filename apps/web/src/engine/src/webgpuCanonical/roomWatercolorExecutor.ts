@@ -67,16 +67,18 @@ export class CanonicalRoomWatercolorExecutor {
  private readonly finish:CanonicalSingleTileFinish
  private readonly planner:CanonicalWatercolorSettlePlan<CanonicalFieldBuffer,import('./settlePlanAdapter').CanonicalUploadSlot>
  private readonly accepted=new Set<string>()
+ private readonly diagnosticMomentVector:boolean
  private readonly diagnosticMomentGpuAudit:boolean
  private momentSeam:WetBrushMomentSourceSeam|null=null
  private pendingMoment:{chunk:RoomNativePreparedChunk}|null=null
- readonly momentReport:{ordinal:number;supported:boolean;violations:number;maxExcess:number|null;examples:unknown[];applied:boolean;auditMode?:'cpu-rgba'|'gpu-counter'}[]=[]
+ readonly momentReport:{ordinal:number;supported:boolean;violations:number;maxExcess:number|null;examples:unknown[];applied:boolean;auditMode?:'cpu-rgba'|'gpu-counter'|'gpu-vector'}[]=[]
  private readonly foreignAux=new Map<string,{scratch:CanonicalTileScratch;source:CanonicalSourcePhaseExecutor}>()
  private retired=false
  private retirement:Promise<void>|null=null
  private readonly ready:Promise<void>
- constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticMomentGpuAudit?:boolean}) {
+ constructor(backend:CanonicalWatercolorWebGpu,options:{tile:AccumulationBuffer;originX:number;originY:number;layerId:string;generation:number;delivery:Pick<CanonicalStrokeChunkState,'brushTravel'|'wetContacts'>;central:RoomNativeCentralOwner;bridgeMode:'readback'|'canvas';bridgeCanvas:HTMLCanvasElement;diagnosticMomentGpuAudit?:boolean;diagnosticMomentVector?:boolean}) {
   if(options.tile.width!==1024||options.tile.height!==1024||options.originX!==0||options.originY!==0)throw new Error('DEV Room native executor requires one origin-zero1024 tile; no silent GL fallback')
+  if(options.diagnosticMomentVector&&!options.diagnosticMomentGpuAudit)throw Error('DEV vector moment requires GPU audit')
   if(!options.central.isIdle)throw new Error('Seed native Room tile only at a central idle boundary')
   this.backend=backend;this.glTile=options.tile;this.layerId=options.layerId;this.generation=options.generation;this.central=options.central;this.bridgeMode=options.bridgeMode
   this.adapter=new CanonicalPlanAdapter(backend);this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
@@ -85,6 +87,7 @@ export class CanonicalRoomWatercolorExecutor {
   this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})})
   this.finish=new CanonicalSingleTileFinish(backend,this.scratch.tiles,[this.target]);this.bridge=new CanonicalRoomTileBridge(backend.device,options.bridgeCanvas,1024,1024)
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fields.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>false,passes:()=>this.adapter,uploads:this.adapter.uploads})
+  this.diagnosticMomentVector=options.diagnosticMomentVector===true
   this.diagnosticMomentGpuAudit=options.diagnosticMomentGpuAudit===true
   backend.upload(this.target.buffer.field,canonicalTopRowsToGlRows(options.tile.readPixels(),1024,1024));this.ready=backend.whenIdle()
  }
@@ -159,9 +162,9 @@ export class CanonicalRoomWatercolorExecutor {
    const [x,yGl,w,h]=rect,y=this.target.buffer.height-yGl-h
    const region=(bytes:Uint8Array)=>{const out=new Uint8Array(w*h*4);for(let row=0;row<h;row++)out.set(bytes.subarray(((y+row)*this.target.buffer.width+x)*4,((y+row)*this.target.buffer.width+x+w)*4),row*w*4);return out}
    const audit=p&&c?auditMomentRecords(region(p),region(c)):{supported:true,violations:0,maxExcess:null,examples:[]}
-   const observation={ordinal:chunk.ordinal,supported:audit.supported,violations:audit.violations,maxExcess:audit.maxExcess,examples:audit.examples,applied:false,auditMode:this.diagnosticMomentGpuAudit?'gpu-counter' as const:'cpu-rgba' as const}
+   const observation={ordinal:chunk.ordinal,supported:audit.supported,violations:audit.violations,maxExcess:audit.maxExcess,examples:audit.examples,applied:false,auditMode:this.diagnosticMomentVector?'gpu-vector' as const:this.diagnosticMomentGpuAudit?'gpu-counter' as const:'cpu-rgba' as const}
    if(audit.supported){
-    this.momentSeam??=new WetBrushMomentSourceSeam(this.backend)
+    this.momentSeam??=new WetBrushMomentSourceSeam(this.backend,undefined,this.diagnosticMomentVector)
     let lease:ReturnType<WetBrushMomentSourceSeam['encodeAfterLanding']>|undefined,read:GPUBuffer|undefined
     try{
      this.adapter.runQuantum(ctx=>{

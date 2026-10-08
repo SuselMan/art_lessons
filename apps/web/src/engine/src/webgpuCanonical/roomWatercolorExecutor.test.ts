@@ -51,3 +51,5 @@ describe('GPU-only carrier candidate',()=>{
   if(invalid===2)await expect(owner.publishCurrentToGl()).rejects.toThrow('generation retired');else await owner.publishCurrentToGl();expect(material.readBytes).not.toHaveBeenCalled();expect(copy).toHaveBeenCalledTimes(invalid?0:2);expect(clear).toHaveBeenCalledTimes(invalid?0:2);expect(release).toHaveBeenCalledOnce();expect(read.destroy).toHaveBeenCalledOnce();if(invalid!==2)expect(owner.momentReport[0]).toMatchObject({supported:!invalid,applied:!invalid,violations:invalid});else expect(publish).not.toHaveBeenCalled()
  })
 })
+
+it('rejects vector without GPU audit before GPU resource initialization',()=>{const backend=new Proxy({},{get(){throw Error('GPU touched')}});expect(()=>new CanonicalRoomWatercolorExecutor(backend as never,{tile:{width:1024,height:1024},originX:0,originY:0,diagnosticMomentVector:true} as never)).toThrow('requires GPU audit')})

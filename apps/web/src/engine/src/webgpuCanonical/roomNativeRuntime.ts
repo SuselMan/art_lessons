@@ -17,6 +17,7 @@ import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 export interface RoomNativeRuntimeContext {
  diagnosticMomentTransport?:boolean
  diagnosticMomentGpuAudit?:boolean
+ diagnosticMomentVector?:boolean
  fifo:WatercolorCanonicalFIFO
  paper:PaperType;paperScale:number;paperWorld:{w:number;h:number};board:{w:number;h:number}
  resolve(target:ILayerBuffer,bounds:PreparedRibbonCpuDelivery['compositeBounds']):PaintTarget[]
@@ -94,7 +95,7 @@ export class RoomNativeRuntime {
  }
  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
   if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}
-  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
+  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
   return this.owner
  }
  finish(scratch:RibbonStrokeScratch,metadata:RibbonFinishMetadata):void {
