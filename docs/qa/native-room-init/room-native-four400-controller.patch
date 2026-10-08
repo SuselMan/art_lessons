@@ -35,11 +35,11 @@
 + return{request(method,params={}){return new Promise((resolve,reject)=>{const id=++next,timer=setTimeout(()=>{requests.delete(id);reject(Error('Browser CDP timeout '+method))},10000);requests.set(id,{resolve,reject,timer});socket.send(JSON.stringify({id,method,params}))})},close(){socket.close();rejectAll()}}
 +}
 +async function createOwnTarget(url){
-+ const v=await(await fetch(base+'/json/version')).json();if(!v.webSocketDebuggerUrl)throw Error('Browser websocket required for isolated context')
-+ browserSession=await browserConnection(v.webSocketDebuggerUrl)
-+ const result=await browserSession.request('Target.createBrowserContext',{disposeOnDetach:true});ownedContext=result.browserContextId;if(!ownedContext)throw Error('Isolated browser context absent')
++ if(closed)throw Error('Owned context creation cancelled');const v=await(await fetch(base+'/json/version')).json();if(closed)throw Error('Owned context creation cancelled');if(!v.webSocketDebuggerUrl)throw Error('Browser websocket required for isolated context')
++ browserSession=await browserConnection(v.webSocketDebuggerUrl);if(closed){browserSession.close();throw Error('Owned context creation cancelled')}
++ const result=await browserSession.request('Target.createBrowserContext',{disposeOnDetach:true});ownedContext=result.browserContextId;if(closed){browserSession.close();throw Error('Owned context creation cancelled')}if(!ownedContext)throw Error('Isolated browser context absent')
 + report.ownedBrowserContext=ownedContext;save()
-+ const created=await browserSession.request('Target.createTarget',{url,browserContextId:ownedContext});if(!created.targetId)throw Error('Owned isolated target absent')
++ const created=await browserSession.request('Target.createTarget',{url,browserContextId:ownedContext});if(closed)throw Error('Owned target creation cancelled');if(!created.targetId)throw Error('Owned isolated target absent')
 + target={id:created.targetId}
 + const deadline=Date.now()+10000
 + while(Date.now()<deadline){const rows=await(await fetch(base+'/json/list')).json(),page=rows.find(p=>p.id===target.id);if(page?.webSocketDebuggerUrl){target=page;return page}await new Promise(resolve=>setTimeout(resolve,100))}
