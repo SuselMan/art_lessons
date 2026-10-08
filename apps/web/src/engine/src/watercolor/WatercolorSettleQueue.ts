@@ -227,7 +227,7 @@ export class WatercolorSettleQueue {
         : !!presentationToken && presentationTokens.get(op) === presentationToken
       if ((batchable || presentationToken) && !late && !this.ctx.isDrawing() && this.ctx.syncGpu) {
         const batchAt = performance.now()
-        const cap = batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
+        const cap = !this.diagnosticSolverBatchEnabled && batchable === contactPulses && (this.contactBatchMax === 8 || this.contactBatchMax === 16)
           ? this.contactBatchMax : 4
         for (let n = 0; n < cap && this._settle === s && sameBatch(s.ops[s.next]); n++) {
           this.advance()

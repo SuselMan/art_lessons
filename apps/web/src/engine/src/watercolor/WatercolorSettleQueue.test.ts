@@ -264,7 +264,7 @@ describe('bounded diagnostic solver batching', () => {
   Object.assign(f.scratch,{live:true});return{...f,events,sync,setDrawing:(v:boolean)=>{drawing=v},addTime:(n:number)=>{time+=n}}
  }
  it('default performs one unit; ON preserves original operation order and every Q8 boundary',()=>{
-  const execute=(enabled:boolean)=>{const f=solverFixture();f.queue.diagnosticSolverBatchEnabled=enabled;let q8=31;const results:number[]=[]
+  const execute=(enabled:boolean)=>{const f=solverFixture();f.queue.diagnosticSolverBatchEnabled=enabled;f.queue.contactBatchMax=16;let q8=31;const results:number[]=[]
    const ops=[()=>{},...Array.from({length:8},(_,i)=>contactPulseOp(()=>{q8=Math.round((q8*0.71+i*5.3)%256);results.push(q8)}))]
    f.queue.start(f.scratch,ops,()=>results.push(q8));f.frame();const firstCount=results.length;while(f.queue.current)f.frame();return{results,firstCount,syncs:f.sync.mock.calls.length}}
   const off=execute(false),on=execute(true);expect(off.results).toEqual(on.results);expect(off.firstCount).toBe(1);expect(on.firstCount).toBe(4);expect(off.syncs).toBe(0);expect(on.syncs).toBe(8)
