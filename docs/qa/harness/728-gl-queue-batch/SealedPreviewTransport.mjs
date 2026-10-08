@@ -32,8 +32,9 @@ export class SealedPreviewTransport {
     if (this.state !== 'SEALED' || ticket.epoch !== this.epoch || ticket.token !== this.token) return false
     this.front = 1 - this.front; return true
   }
-  retire() { if (this.state === 'RELEASED') return null; this.state = 'RETIRING'; this.epoch++; return Object.freeze({ token: this.token, epoch: this.epoch }) }
+  retire() { if (this.retirement) return this.retirement; this.state = 'RETIRING'; this.epoch++; this.retirement = Object.freeze({ token: this.token, epoch: this.epoch }); return this.retirement }
   releaseAfterFence(fence) {
+    if (this.state === 'RELEASED' && fence === this.retirement) return
     if (this.state !== 'RETIRING' || fence?.token !== this.token || fence.epoch !== this.epoch) throw new Error('Physical release requires matching GPU-idle fence')
     this.inFlight = null; this.state = 'RELEASED'; this.lease.release()
   }
