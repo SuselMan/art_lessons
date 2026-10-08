@@ -84,3 +84,10 @@ neighbour-normalization отличаются, поэтому это не пол�
 первой пары16/15 (без дополнительного draw/readback), чтобы проверить rate,
 normalizeddir, band, plateau tau и sampler indices на реальном program. Пока
 аппаратно не запускался; коэффициенты остались прежними.
+
+Actual program probe также проверяет texture-unitbindings символическими ownrole
+labels, restoring ACTIVE_TEXTURE. Никаких secret/device fields. Для16 ожидаются
+oldC/fixedP/oldP/pressure/V, для15 oldP/fixedP/fixedP/pressure/V.
+`WC_CARRY_RIDGE=1` в literalshader делает capillarycapacity1 независимо отpaper
+height; missingworld не объясняет неподвижность этого carry. Реальные bindings
+ещё предстоит подтвердить, shader parameters не меняются.
