@@ -1,4 +1,7 @@
 <!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Grafetto — QA owner FIFO</title><style>#owner-status{position:fixed;z-index:2147483647;left:12px;top:12px;background:#fff;padding:8px;border:1px solid #777;max-width:480px;font:14px sans-serif}#owner-status:empty{display:none}</style></head><body><div id="root"></div><div id="owner-status">Подготовка QA; рисование ещё недоступно</div><script type="module">
+import {injectIntoGlobalHook} from '/@react-refresh';
+import '/@vite/client';
+injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;
 import {installOwnerFifo} from './owner-fifo-install.mjs';
 const params=new URLSearchParams(location.search),room=params.get('room');if(!room||!/^[A-Za-z0-9_-]+$/.test(room))throw Error('Explicit existing bounded1024 room query required');
 let engine,generation=0;globalThis.__ownerFifoReady=false;document.addEventListener('pointerdown',event=>{if(!globalThis.__ownerFifoReady&&event.target instanceof HTMLCanvasElement){event.preventDefault();event.stopImmediatePropagation()}},true);const badge=document.getElementById('owner-status');

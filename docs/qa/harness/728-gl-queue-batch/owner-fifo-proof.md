@@ -42,3 +42,22 @@ parity. GPU/Room execution remains unproven until the controller actually runs.
 Presentation morphing from owned source to canonical settled material has not
 been integrated. This entry is a latency/ownership diagnostic, not complete
 watercolor UX or a production migration. No Samsung access is authorized.
+
+## Entry bootstrap correction
+
+The first actual Surface Room attempt was invalid before pointer input:
+condition timeout, zero scenario rows, memory remained above the abort guard.
+The own page was closed; no renderer/correctness/performance result was produced.
+The old controller did not preserve its failing stage, so that stage is unknown.
+The corrected controller saves stage and bounded own DOM/engine status before close.
+
+A concrete independent bootstrap gap was found: raw `/@fs` HTML does not receive
+the React refresh preamble included in the normal Vite index. The actual served
+App module throws when `window.$RefreshReg$` is missing. Entry now includes the
+same hook initialization as the actual index. A bounded VPS browser check uses
+real React/ReactDOM and that actual served guard, with explicit main/Room/owner
+stubs: negative entry without the hook throws the preamble error, corrected
+entry reaches its route and ready adapter without page errors. This proves the
+narrow bootstrap seam, not full App initialization or GPU watercolor. An earlier
+full-App stub run exceeded its budget and was stopped; it is not a positive gate.
+The new full actual Room controller still must run on Surface after allocation.
