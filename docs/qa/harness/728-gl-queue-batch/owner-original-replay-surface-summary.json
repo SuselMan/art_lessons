@@ -1,0 +1,85 @@
+{
+  "valid": true,
+  "tapeSHA": "27a0d2656a2b348d8baae6d3793fadc88f29f76573389ba8fd600bcb4c17eb56",
+  "passport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "apps/web/src/engine/src/raster/RibbonPasses.ts": "5c4b67290da13fa4eb2db648ff798eb92b8b3074aa4b79f948bb8d05ec22839e",
+    "docs/qa/harness/728-gl-queue-batch/PreparedGlSourceDraw.ts": "1a64ba13e061977c3440dd334acc35e784e7a6ba983f300debd6fb86d832c5e1",
+    "docs/qa/harness/728-gl-queue-batch/ownerOriginalReplay.mjs": "271488d656250bf01e012dd99824b9a605cbd97abbd6ae95636fc8f9a2fc977a"
+  },
+  "flags": {
+    "gradientFibres": true,
+    "joinedTouch": false,
+    "deferred": false,
+    "async": false,
+    "solver": true
+  },
+  "stages": [
+    {
+      "type": "stroke",
+      "id": "3Kk2tZB_dc",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 738023,
+        "sha": "c7b74d67abdad0f12f3e5d40f313a0e0402a4310b17464319d58bbe8b41ce215"
+      }
+    },
+    {
+      "type": "stroke",
+      "id": "NgFypar9Po",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 765006,
+        "sha": "1d22806283c40ce621b2949631460dfbf2ec5bc3d9888f9759d8649020f1708c"
+      }
+    },
+    {
+      "type": "stroke",
+      "id": "yyWdmA8ihD",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 766824,
+        "sha": "45dc5b53248b3fcff749513743c2f8442e8f7af0f65ff036ed180c6bb7ec9b2a"
+      }
+    },
+    {
+      "type": "operation_undo",
+      "id": "QjYSSkr6Mx",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 765006,
+        "sha": "1d22806283c40ce621b2949631460dfbf2ec5bc3d9888f9759d8649020f1708c"
+      }
+    },
+    {
+      "type": "operation_redo",
+      "id": "X-KJ3jn5bw",
+      "target": {
+        "width": 1024,
+        "height": 1024,
+        "nonzero": 766824,
+        "sha": "45dc5b53248b3fcff749513743c2f8442e8f7af0f65ff036ed180c6bb7ec9b2a"
+      }
+    }
+  ],
+  "comparison": {
+    "originalLoadEqualsOriginalRedo": true,
+    "originalUndoEqualsOwnerUndo": true,
+    "originalRedoEqualsOwnerRedo": true,
+    "ownerFinalEqualsOriginalFinal": false
+  },
+  "memory": {
+    "preMiB": 2080,
+    "minMiB": 1561,
+    "afterCloseMiB": 1950
+  },
+  "glError": 0,
+  "lost": false,
+  "scope": "Same packed input original load/rebuild paths; per-operation readback perturbs cadence; not live replay proof"
+}
