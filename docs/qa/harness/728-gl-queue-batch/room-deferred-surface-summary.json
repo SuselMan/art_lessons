@@ -1,0 +1,207 @@
+{
+  "frozenController": "cb352da9",
+  "ordinaryRoom": [
+    {
+      "deferred": false,
+      "flags": {
+        "solver": true,
+        "joinedTouch": true,
+        "joinedMixed": true,
+        "deferred": false,
+        "asyncFinish": false,
+        "material": false
+      },
+      "sceneMs": 7045.5,
+      "maxFrameGapMs": 500.1000000000022,
+      "over33": 30,
+      "over100": 3,
+      "gestures": [
+        {
+          "name": "first-pigment",
+          "downCpuMs": 28.80000001192093,
+          "upCpuMs": 78,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        },
+        {
+          "name": "second-pigment-during-settle",
+          "downCpuMs": 3.700000047683716,
+          "upCpuMs": 74.19999998807907,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 26,
+            "settleOps": 365,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        },
+        {
+          "name": "pure-water",
+          "downCpuMs": 5.199999988079071,
+          "upCpuMs": 34.19999998807907,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        },
+        {
+          "name": "pigment-over-water",
+          "downCpuMs": 4.200000047683716,
+          "upCpuMs": 49.89999997615814,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 34,
+            "settleOps": 187,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        }
+      ],
+      "drains": [
+        {
+          "phase": "second-pigment-during-settle",
+          "parent": "_onEnd",
+          "cpuMs": 29.19999998807907
+        },
+        {
+          "phase": "pigment-over-water",
+          "parent": "_onEnd",
+          "cpuMs": 13.800000011920929
+        }
+      ],
+      "glError": 0,
+      "lost": false
+    },
+    {
+      "deferred": true,
+      "flags": {
+        "solver": true,
+        "joinedTouch": true,
+        "joinedMixed": true,
+        "deferred": true,
+        "asyncFinish": false,
+        "material": false
+      },
+      "sceneMs": 8876.399999976158,
+      "maxFrameGapMs": 133.29999999999927,
+      "over33": 25,
+      "over100": 1,
+      "gestures": [
+        {
+          "name": "first-pigment",
+          "downCpuMs": 20.700000047683716,
+          "upCpuMs": 96.5,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        },
+        {
+          "name": "second-pigment-during-settle",
+          "downCpuMs": 4.699999988079071,
+          "upCpuMs": 39,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 16,
+            "settleOps": 338,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        },
+        {
+          "name": "pure-water",
+          "downCpuMs": 4.099999964237213,
+          "upCpuMs": 29,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        },
+        {
+          "name": "pigment-over-water",
+          "downCpuMs": 4.800000011920929,
+          "upCpuMs": 33,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 32,
+            "settleOps": 187,
+            "canonicalQueued": 0,
+            "locked": false
+          }
+        }
+      ],
+      "drains": [],
+      "glError": 0,
+      "lost": false
+    }
+  ],
+  "quality": {
+    "valid": true,
+    "exact": true,
+    "roleCount": 24,
+    "wholeSha": "808dc830cb4aa8c968b14d68adb38714103aeb1a1d57246541bcfb831f243fd8",
+    "materialSha": "50ad0f204b84b1ced4dafad145cf3dcef8898508b6712d71e8210bcdfca139a5",
+    "history": [
+      {
+        "deferred": false,
+        "undoMeaningful": true,
+        "redoExact": true,
+        "model": {
+          "deferred": false,
+          "joined": true,
+          "mixed": true,
+          "async": false,
+          "material": false,
+          "rebase": true,
+          "split": false
+        }
+      },
+      {
+        "deferred": true,
+        "undoMeaningful": true,
+        "redoExact": true,
+        "model": {
+          "deferred": true,
+          "joined": true,
+          "mixed": true,
+          "async": false,
+          "material": false,
+          "rebase": true,
+          "split": false
+        }
+      }
+    ]
+  },
+  "ram": {
+    "roomMinimumMiB": 1166,
+    "qualityMinimumMiB": 1493,
+    "releaseMiB": 2076
+  },
+  "findings": [
+    "Deferred successor removed all synchronous completeSettle calls from observed 4gesture scene",
+    "Worst rAF timestamp gap500\u2192133ms in one instrumented pair",
+    "Second UP74\u219239ms, water-pigment UP50\u219233ms; first UP96.5ms remains",
+    "Canonical completion scene duration7045\u21928876ms increased; not whole throughput speedup"
+  ],
+  "limits": [
+    "One instrumented pair, not physical screen latency or guaranteed animation quality",
+    "24 named fields plus material/export exact; not every transient role or Room peer/layers matrix",
+    "Third rapid DOWN with held successor still retains conservative drain",
+    "First UP gap remains; attribution outside covered wrappers incomplete",
+    "Review runtime unchanged; constructor flags diagnostic-only, defaults OFF"
+  ]
+}

@@ -179,3 +179,26 @@ ordered Dry с обоими accepted strokes, Undo pending owner/stale resume.
 `npx vitest run --config docs/qa/harness/728-gl-queue-batch/mixed-deferred-vitest.config.mjs --maxWorkers=2`.
 MockGL не доказывает actual RGBA; next hardware требует separate passive
 Room cohort и same-input exact/history, после освобождения Surface.
+
+### ONE deferred-UP Surface cohort
+
+Queue/mixed ON, async/material OFF. Constructor deferred OFF/ON independently
+verified. OFF max rAFgap500ms/scene7045ms; ON max133ms/scene8876ms. ON has
+zero _completeSettle calls during observed scene; OFF second UP drains29.2ms,
+water→pigment UP13.8ms. Corresponding full UP74.2→39ms and49.9→33ms.
+First UP remains96.5ms ON; fully smooth UX is not claimed. Canonical idle
+completion is slower26% in this one instrumental pair, not throughput gain.
+
+Separate exact fixture: same fixed400 water→pigment inputs, queue/mixed ON,
+deferred OFF→ON, ALL24 named retained roles/wholeRGBA/packedmaterial EXACT;
+meaningful Undo/exact Redo both arms, errors0/lostfalse. No readback/query/fence
+added during input. MinRAM1166(Room)/1493(quality), release2076MiB. Local CDP
+forward had disappeared before target creation; read-only remote9352 verified,
+only own SSH forward9455 restored, no Chrome restart. Failure raw preserved.
+
+Compact `room-deferred-surface-summary.json`, raw
+`temp/device-runs/queue-{room-deferred,deferred-quality}-surface.json`.
+No review source mutation. Optional user review is another Room URL with
+explicit `qaJoinedFinishDeferred=1`, not a default promotion. Third rapid DOWN
+and peer/layer/live-filmstrip remain bounded future gates. Surface released
+before further offline analysis.
