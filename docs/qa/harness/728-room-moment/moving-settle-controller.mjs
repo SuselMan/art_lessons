@@ -1,3 +1,4 @@
+import{decodeSettleMaterial,assertPairedSettleInputs}from './settle-packet.mjs'
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import {createRequire} from 'node:module';import {remoteMemoryMiB} from '../728-joined-deferred/remote-device.mjs';
 const require=createRequire(new URL('../../../../package.json',import.meta.url)),WebSocket=require('ws')
 const base=process.env.CDP_BASE,url=process.env.GATE_URL,out=process.env.GATE_OUT
@@ -21,17 +22,12 @@ try{
  for(const variant of ['literal','A']){
   if(memory()<1700)throw Error('Between-arm RAM preflight below1700MiB')
   const packet=await evaluate(`import(${JSON.stringify(new URL('run.js',url).href)}).then(m=>m.runMovingContactSettle(${JSON.stringify(variant)}))`)
-  if(packet.errors?.length||packet.variant!==variant)throw Error('Settle packet invalid')
-  if(variant==='A'&&!packet.patches?.length)throw Error('A source specialization not exercised')
-  const g=packet.material
-  if(g?.width!==1024||g.height!==1024||g.byteLength!==4194304||g.base64?.length!==5592408||g.nonzeroAlpha<1)throw Error('Full material budget/nonempty mismatch')
-  const bytes=Buffer.from(g.base64,'base64')
-  if(bytes.length!==g.byteLength||crypto.createHash('sha256').update(bytes).digest('hex')!==g.sha256)throw Error('Settle material SHA mismatch')
+  const g=packet.material,bytes=decodeSettleMaterial(packet,variant)
   fs.writeFileSync(path.join(out,variant+'-material.rgba'),bytes)
   const {base64,...material}=g
   report.arms.push({...packet,material});save()
  }
- if(report.arms[0].tapeSha256!==report.arms[1].tapeSha256||report.arms[0].paper.RGBAsha256!==report.arms[1].paper.RGBAsha256)throw Error('Moving canonical input differs')
+ assertPairedSettleInputs(report.arms)
  report.valid=true;report.stage='complete';save()
 }catch(e){report.error=String(e);report.stage='failed';save();process.exitCode=1}
 finally{await close();try{report.afterCloseFreeMiB=memory()}catch(e){report.cleanupMemoryError=String(e)}save();console.log(JSON.stringify({out,valid:report.valid,error:report.error,afterCloseFreeMiB:report.afterCloseFreeMiB}))}
