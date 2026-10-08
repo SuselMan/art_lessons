@@ -1,0 +1,93 @@
+{
+  "scope": "Six actual post-UP rendered frames; extra display/readback perturbs cadence",
+  "frames": [
+    {
+      "elapsed": 0,
+      "maskPixels": 63838,
+      "changedRGBComponents": 0,
+      "maxDelta": 0,
+      "meanRGB": [
+        72.37761208057897,
+        47.42932109401924,
+        126.29043829693913
+      ],
+      "brightPaperFraction": 0.0
+    },
+    {
+      "elapsed": 174.5,
+      "maskPixels": 63838,
+      "changedRGBComponents": 597,
+      "maxDelta": 1,
+      "meanRGB": [
+        72.38077634011091,
+        47.43264200006266,
+        126.29330492809925
+      ],
+      "brightPaperFraction": 0.0
+    },
+    {
+      "elapsed": 309.80000001192093,
+      "maskPixels": 63838,
+      "changedRGBComponents": 1040,
+      "maxDelta": 1,
+      "meanRGB": [
+        72.38340800150381,
+        47.434803721921114,
+        126.29545098530656
+      ],
+      "brightPaperFraction": 0.0
+    },
+    {
+      "elapsed": 706.8999999761581,
+      "maskPixels": 63838,
+      "changedRGBComponents": 2017,
+      "maxDelta": 1,
+      "meanRGB": [
+        72.38849901312697,
+        47.43998872145117,
+        126.30041667972054
+      ],
+      "brightPaperFraction": 0.0
+    },
+    {
+      "elapsed": 1209.5999999642372,
+      "maskPixels": 63838,
+      "changedRGBComponents": 3810,
+      "maxDelta": 1,
+      "meanRGB": [
+        72.39819543218772,
+        47.44921520097748,
+        126.30954917133995
+      ],
+      "brightPaperFraction": 0.0
+    },
+    {
+      "elapsed": 2109.800000011921,
+      "maskPixels": 63838,
+      "changedRGBComponents": 7464,
+      "maxDelta": 1,
+      "meanRGB": [
+        72.41779191077414,
+        47.46701024468185,
+        126.32933362574015
+      ],
+      "brightPaperFraction": 0.0
+    }
+  ],
+  "visualInspection": "Pigment remains visible in sampled transition; gradual subtle edge/interior changes on dense purple scene.",
+  "firstDownAllocation": "_updateWetTexture -> _takePaperPartial -> _display -> _onStart; captured actual stack, checkpoint guess refuted",
+  "historyExact": true,
+  "glError": 0,
+  "lost": false,
+  "memoryPreMinPostMiB": [
+    2082,
+    958,
+    1994
+  ],
+  "limitations": [
+    "No physical stylus/scanout timing claim",
+    "Screenshot alpha is canvas output, not material alpha",
+    "RAF tape differs: prior actual4 parity applies to its own tape only",
+    "Dense same-color scene makes visual changes subtle; full water/pigment/clipping matrix untested"
+  ]
+}
