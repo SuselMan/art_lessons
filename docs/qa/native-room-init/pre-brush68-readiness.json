@@ -1,8 +1,8 @@
 {
   "task": "#728: Первый brush68, реальный общий вход",
-  "status": "CPU/code candidate; actual software GL prefix and compressed payload PASS. Hardware/native comparison pending.",
-  "softwareRaw": "temp/native-source-offline/pre-brush68-software3.json",
-  "softwareSourceLimit": "Dirty worktree bundle, local software-only integration; frozen hardware passport will be separate.",
+  "status": "Frozen d807 actual software GL prefix and strict compressed codec PASS; native/hardware comparison pending.",
+  "softwareRaw": "temp/native-source-offline/pre-brush68-frozen-software.json",
+  "softwareSourceLimit": "Frozen d807b461 fullHEAD bundle, clean at build; strict runtime packet codec PASS.",
   "scope": "Reuse existing durable ALL-source packet5f2, original ops0..68 only. Before/after oldP=a,oldC=cc,water=coverage; original paired order cc then a, same precontact references.",
   "roi": {
     "x": 269,
@@ -124,5 +124,13 @@
     "hardSeconds": 120,
     "repeat": false
   },
-  "limits": "No native comparison, whole-final result, fullfield SHA, Room or performance claim. Cropped ROI includes2px halo, no field/UV resolution change."
+  "limits": "No native comparison, whole-final result, fullfield SHA, Room or performance claim. Cropped ROI includes2px halo, no field/UV resolution change.",
+  "nativeConsumer": {
+    "api": "runPreBrush68NativeGate",
+    "input": "Exact producer packet, independent producerCode",
+    "fieldsGpuMiB": 45,
+    "readbackRawBytes": 109728,
+    "order": "C then P, same oldP/oldC, original region-copyback material outputs",
+    "limits": "Outside2px halo uncaptured; no fullfield working scratch SHA; no paper reads in this operator"
+  }
 }
