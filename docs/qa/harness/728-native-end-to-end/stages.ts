@@ -10,7 +10,7 @@ export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,na
  const e=engine as any,passes=native?e.adapter:e._watercolorPasses,planner=native?e.planner:e._settlePlan
  if(!passes||!planner)throw new Error('Missing actual planner/pass stage hooks')
  const snapshots:Array<{key:string;buffer:Buffer;writtenRect?:readonly[number,number,number,number]}>=[],restorers:Array<()=>void>=[],seen=new Set<string>()
- let bytes=0,job=0,frontCount=0
+ let bytes=0,job=0,frontCount=0,selectedFrontArgs:any[]|null=null
  const metadata:Array<{job:number;bounds:unknown;bloom:unknown;radius:unknown;water:unknown;landedWet:unknown;standing:unknown;wetPeak:unknown;dwell:unknown}>=[]
  const primitiveMetadata:Record<string,unknown>={}
  const chronology:unknown[]=[],roles=new WeakMap<object,string>();let beforeDiffuse=true,unknownRole=0
@@ -71,10 +71,21 @@ export function captureStages(engine:PencilEngine|CanonicalBoundedSceneRunner,na
   if(probe!=='coverage'&&probe!=='pressure'){copy('first:diffuseInput',args[6]);copy('first:diffuseGate',args[10])}
  },true)
  wrap(passes,'brushPass',args=>{primitiveMetadata.brush??={field:[args[0].w,args[0].h],radius:args[2],scale:args[3],sourceRole:args[4]===args[9]?'color':'pigment',flowRect:[...args[7]],scissor:[...args[8]],gain:args[10]};if(probe==='basic')copy('first:brush',args[5],args[8])})
- wrap(passes,'waterFrontStep',args=>{if(probe==='pressure'&&frontCount+1===frontIndex){copy('pressure:frontInput',args[4]);copy('pressure:frontCoverage',args[0].coverage);primitiveMetadata.selectedFront={index:frontIndex,source:role(args[4]),destination:role(args[5]),x0:args[1],y0:args[2],dryCost:args[3],max:args[6],climb:args[7],floor:args[8],stride:args[9]??1,scale:args[10]??1}}},true)
+ wrap(passes,'waterFrontStep',args=>{if(probe==='pressure'&&frontCount+1===frontIndex){selectedFrontArgs=[...args];copy('pressure:frontInput',args[4]);copy('pressure:frontCoverage',args[0].coverage);primitiveMetadata.selectedFront={index:frontIndex,source:role(args[4]),destination:role(args[5]),x0:args[1],y0:args[2],dryCost:args[3],max:args[6],climb:args[7],floor:args[8],stride:args[9]??1,scale:args[10]??1}}},true)
  return{
   metadata,primitiveMetadata,chronology,
-  detach(){restorers.reverse().forEach(f=>f())},
+  replayFrontGl():Stage {
+   if(native||!selectedFrontArgs)throw new Error('GL front fixture missing')
+   const find=(key:string)=>{const s=snapshots.find(v=>v.key===key);if(!s)throw new Error('Missing '+key);return s.buffer as AccumulationBuffer}
+   const source=find('pressure:frontInput'),coverage=find('pressure:frontCoverage'),out=find('pressure:frontOutput'),args=[...selectedFrontArgs]
+   if(args[11])throw new Error('Same-input oracle does not support foreign film yet')
+   const gl=e.gl as WebGLRenderingContext,filter=(selectedFrontArgs[4].filter??selectedFrontArgs[4]._baseFilter)==='linear'?gl.LINEAR:gl.NEAREST
+   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,source.texture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter)
+   args[0]={w:source.width,h:source.height,coverage};args[4]=source;args[5]=out
+   passes.waterFrontStep(...args)
+   return{key:'sameInput:GL',w:out.width,h:out.height,bytes:flip(out.readPixels(),out.width,out.height)}
+  },
+  detach(){restorers.reverse().forEach(f=>f());restorers.length=0},
   async read():Promise<Stage[]>{const out:Stage[]=[];for(const {key,buffer,writtenRect} of snapshots){const raw=native?await(buffer as CanonicalFieldBuffer).readBytes():(buffer as AccumulationBuffer).readPixels();out.push({key,w:buffer.width,h:buffer.height,bytes:native?raw:flip(raw,buffer.width,buffer.height),writtenRect})}return out},
   destroy(){snapshots.forEach(({buffer})=>buffer.destroy());snapshots.length=0},
  }
