@@ -1,0 +1,55 @@
+{
+  "scope": "OFF QA changed lattice hash, both full mode6 shaders. Original noise frequency, interpolation and rim thresholds retained; no runtime/default/paper changes.",
+  "api": "runPressureSeedOracle",
+  "options": "same original first-band common input packet; diagnosticFirstBand=6, diagnosticFirstBandSeededRimCorners=true; noiseProbe/rimPatchOff absent",
+  "table": {
+    "width": 85,
+    "height": 54,
+    "origin": [
+      -1,
+      -35
+    ],
+    "bytes": 18360,
+    "seed": 728,
+    "seedScope": "explicit QA seed, not alleged original paper seed",
+    "rowConvention": "noise coordinate row, no field/world flip",
+    "values": "shared CPU uint32hash upper24bits /2^24, exactly Float32",
+    "gl": "LUMINANCE FLOAT, NEAREST CLAMP; sampled integer corners at halftexel",
+    "native": "r32float unfilterable, integer textureLoad, same origin/dimensions"
+  },
+  "software": {
+    "scope": "Software full mode6 shader/descriptor/upload compile and dispatch; ZERO inputs no quality equality proof",
+    "table": {
+      "width": 85,
+      "height": 54,
+      "bytes": 18360,
+      "origin": [
+        -1,
+        -35
+      ]
+    },
+    "validation": null,
+    "errors": []
+  },
+  "guards": [
+    "strict common GL pressure/inward/coverage original SHA/filter/dimensions",
+    "world [0,-1576,1] and1536 dimensions",
+    "bounded all lattice corners in both octaves validated including negative coordinates",
+    "invalid combined flags rejected before GPU producer",
+    "GL retired before native; transient resources finally destroyed"
+  ],
+  "outputs": [
+    "fullRGBA perchannel parity GLseeded vsnativeSeeded",
+    "GLseeded vslegacy pattern-change perchannel metrics",
+    "384pixel G-channel PNG: legacyGL/seededGL/seededNative; diagnostic field only, not composed artwork"
+  ],
+  "budget": {
+    "preflightMiB": 1700,
+    "abortMiB": 500,
+    "deadlineSeconds": 120,
+    "arms": 1,
+    "gpuMiB": "GL producer~62 -> retire -> GLband45 -> retire -> native45 plus18KiBtable",
+    "cpuConservativeMiB": 250
+  },
+  "limits": "No hardware proof yet. Pattern differs deliberately, original image equivalence not asserted. Even G parity does not resolve remaining R/B or whole dry final/max36."
+}
