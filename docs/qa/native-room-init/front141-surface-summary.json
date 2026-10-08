@@ -1,0 +1,110 @@
+{
+  "scope": "One hardware sameGLinput outward front141 baseline/manual oracle, main model unchanged",
+  "code": "cc41de62350702442a7b0eb1116770fb5d8ce435",
+  "bundleSha256": "2f7648a8dde7d197453f0f8d9c019431abeec3298b006c1db5178dd480a3178e",
+  "sameTapeJson": true,
+  "tapeSha256": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+  "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "baselineOracle": {
+    "sourceSampling": "legacy-nearest",
+    "sourceFilter": "linear",
+    "lazyClimb": null,
+    "staticCache": null,
+    "comparison": [
+      {
+        "key": "sameInput",
+        "w": 1536,
+        "h": 1536,
+        "comparedBytes": 9437184,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      }
+    ],
+    "errors": [],
+    "paperSha256": "31fdd40322f108302f3452c6427a82ddfc8a540819f4a1a356998838d0db63a4",
+    "noiseAssetSha256": "e9f8daa19424c91c5b1785b8cbcaeabb8ec82daa3ec6d20d3099b81dd2c61203",
+    "foreignFilm": "absent: explicitly guarded in actual GL capture",
+    "validation": null,
+    "input": "Actual GL captured Q8 input/coverage; same baked Fine paper, source/destination filters and original coordinates/scalars",
+    "limits": "One selected front operator, no foreign film; native baseline manual paper sampling unchanged"
+  },
+  "manualOracle": {
+    "sourceSampling": "manual",
+    "sourceFilter": "linear",
+    "lazyClimb": null,
+    "staticCache": null,
+    "comparison": [
+      {
+        "key": "sameInput",
+        "w": 1536,
+        "h": 1536,
+        "comparedBytes": 9437184,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      }
+    ],
+    "errors": [],
+    "paperSha256": "31fdd40322f108302f3452c6427a82ddfc8a540819f4a1a356998838d0db63a4",
+    "noiseAssetSha256": "e9f8daa19424c91c5b1785b8cbcaeabb8ec82daa3ec6d20d3099b81dd2c61203",
+    "foreignFilm": "absent: explicitly guarded in actual GL capture",
+    "validation": null,
+    "input": "Actual GL captured Q8 input/coverage; same baked Fine paper, source/destination filters and original coordinates/scalars",
+    "limits": "One selected front operator, no foreign film; native baseline manual paper sampling unchanged"
+  },
+  "mainNativeLayerHashEqual": true,
+  "mainNativeVsGl": {
+    "changed": 43282,
+    "max": 36,
+    "mean": 0.01488947868347168,
+    "exact": false
+  },
+  "inheritedStageDifferences": [
+    {
+      "key": "pressure:frontInput",
+      "w": 1536,
+      "h": 1536,
+      "comparedBytes": 9437184,
+      "changed": 3,
+      "max": 3,
+      "mean": 8.477105034722222e-07,
+      "exact": false
+    },
+    {
+      "key": "pressure:frontCoverage",
+      "w": 1536,
+      "h": 1536,
+      "comparedBytes": 9437184,
+      "changed": 29,
+      "max": 1,
+      "mean": 3.0729505750868056e-06,
+      "exact": false
+    },
+    {
+      "key": "pressure:frontOutput",
+      "w": 1536,
+      "h": 1536,
+      "comparedBytes": 9437184,
+      "changed": 3,
+      "max": 3,
+      "mean": 8.477105034722222e-07,
+      "exact": false
+    }
+  ],
+  "errors": [
+    [],
+    []
+  ],
+  "gl": [
+    0,
+    0
+  ],
+  "lost": [
+    false,
+    false
+  ],
+  "minRamMiB": 1007.6
+}
