@@ -20,8 +20,8 @@ Statuses refer to named candidates, not exhaustive research. Historical source/m
 | PointerInput._handleMove | pending | Not measured. |
 | PointerInput._handleUp | pending | Not measured. |
 | Queue.start | pending | Not measured. |
-| Queue.tick | validated | Observed replay range5.3–9.7% GL1; not universal. |
-| Queue.advance | validated | Shares Queue.tick result; do not add percentages. |
+| Queue.tick | validated | New solver batch ~59% fixed Surface replay; Room/live pending. |
+| Queue.advance | validated | Shares Queue.tick ~59% replay result; do not add percentages. |
 | Queue.complete | implemented | No independent measured whole gain. |
 | Queue.scheduleTick | pending | Not measured. |
 | Plan.prepare | implemented | No independent whole preparation gain. |

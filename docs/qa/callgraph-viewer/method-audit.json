@@ -1553,9 +1553,9 @@
         "date": "2026-10-08",
         "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
         "backendScope": "See evidence; GL and native are not interchangeable",
-        "note": "Original ordered front operations grouped: actual engine Surface/Samsung field/whole parity. Full factorial Surface replay~7.5% front, combined~9.2%; Room closure pending.",
-        "evidence": "../728-webgl-factorial-surface.md",
-        "wholeGain": "Observed replay range5.3–9.7% GL1; not universal.",
+        "note": "Solver-tag batch candidate max4/8ms, Surface mixed400Fine mean5986.7→2451.9ms,334→133/134ticks, all26fields/material/RGBA/tape exact+meaningfulUndo/exactRedo; actualRoom/live/Samsung pending, defaultOFF.",
+        "evidence": "../harness/728-gl-queue-batch/README.md",
+        "wholeGain": "~59% observed fixed replay wall in one OFF/ON/ON/OFF cohort; not physical input/Room/FPS guarantee.",
         "productionReady": false
       }
     },
@@ -1643,9 +1643,9 @@
         "date": "2026-10-08",
         "statusScope": "Named candidate/evidence, not proof all possible optimization exhausted",
         "backendScope": "See evidence; GL and native are not interchangeable",
-        "note": "Same per-operation Q8/order; batching removes frame boundaries, not mathematical iterations. Native bounded progressive is separate OFF candidate.",
-        "evidence": "../728-webgl-factorial-surface.md",
-        "wholeGain": "Shares Queue.tick result; do not add percentages.",
+        "note": "Solver-tag batch candidate max4/8ms, Surface mixed400Fine mean5986.7→2451.9ms,334→133/134ticks, all26fields/material/RGBA/tape exact+meaningfulUndo/exactRedo; actualRoom/live/Samsung pending, defaultOFF.",
+        "evidence": "../harness/728-gl-queue-batch/README.md",
+        "wholeGain": "~59% observed fixed replay wall in one OFF/ON/ON/OFF cohort; not physical input/Room/FPS guarantee.",
         "productionReady": false
       }
     },

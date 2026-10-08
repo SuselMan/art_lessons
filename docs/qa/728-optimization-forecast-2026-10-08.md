@@ -7,6 +7,7 @@
 | WebGL2 + MRT | Surface, весь фиксированный engine400 replay: среднее2.25%; sampled GPU brush P/C около40% | Небольшое ускорение всего сценария, не40% приложения |
 | Front batching | Тот же Surface replay: среднее7.5%; Samsung отдельная серия около16.5% | Наиболее подтверждённый общий выигрыш, при этом длинный CPU slice может ухудшить отдельный кадр |
 | MRT + batching | Surface forward/reverse:7–11.4%, среднее9.2% | Реалистичный текущий ориентир для этого сценария; Room/device matrix обязательна |
+| Bounded solver queue batching | Surface400/Fine OFF/ON/ON/OFF: mean5986.7→2451.9ms (~59%),334→133–134ticks,26fields/material/RGBA/tape exact и meaningfulUndo/exactRedo | Существенный replay выигрыш; actualRoom/live/animation/Samsung проверяются, defaultOFF |
 | Mixed admission | Actual Surface Room400 DOWN→sync readback715→63ms; Samsung standalone1246→157ms | Устранение конкретного барьера старта мокрого штриха; это верхняя граница readback, не физическая задержка пера |
 | CPU contact cache | Подготовка заметно быстрее, whole replay без устойчивого выигрыша | Пока0 в плане общего ускорения; OFF |
 | Bounded SMT superoptimization |105 max-деревьев, все эквивалентны в заданном домене; исходное уже оптимально по числу операций/глубине | Выигрыш не найден; это завершённый отрицательный поиск, не предел всех оптимизаций |
@@ -48,3 +49,5 @@ Surface mixed400/Fine: отдельный passes cohort без ошибок и �
 4. WebGPU: следующий gate400 и exact source/settle material относительно GL, затем Undo/Redo/участники; первые Room40 функциональные PASS не доказывают ускорения.
 
 Расширенный профиль: [аппаратные данные](harness/728-gl-gpu-coverage/README.md). Baseline334ticks (contact204/front70/barrier60), tickbody сумма140.6ms/max46.3ms, фазы мазков2850/2900ms. Timestamp кадров в этом snapshot отсутствует, поэтому очередные интервалы нельзя назвать чистым CPU временем. Приоритет: bounded группировка нескольких исходных операций за кадр с сохранением каждой Q8 границы и обязательных barrier/presentation/admission контрактов; нужна OFF/ON quality+timing проверка. Измеренный9.2% предыдущего batching не означает предел новой группировки, но новый процент ещё неизвестен.
+
+Новый кандидат очереди: [аппаратный результат](harness/728-gl-queue-batch/README.md). Расчёт выполняет до4 одинаково помеченных исходных единиц заtick под8ms budget после sync каждой единицы; capture/upload/class/presentation границы не пересекаются. Финальные данные exact не доказывают удовлетворительную промежуточную анимацию.
