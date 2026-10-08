@@ -3,15 +3,16 @@
  * This explicit display approximation must pass faint-dab/shape gates before wiring.
  */
 export class SealedPreviewGlPort {
- constructor(passes,{world={x:0,y:0,width:1024,height:1024},paperWidth,paperHeight}={}) {
+ constructor(passes,{world={x:0,y:0,width:1024,height:1024},paperWidth,paperHeight,domainFromWater=null}={}) {
   if(world.width!==1024||world.height!==1024||!Number.isFinite(world.x)||!Number.isFinite(world.y)||!(paperWidth>0&&paperHeight>0)) throw Error('Explicit preview world/paper contract')
-  this.passes=passes;this.world=Object.freeze({...world});this.paperWidth=paperWidth;this.paperHeight=paperHeight;this.stats={initializations:0,steps:0,draws:0,pixels:0}
+  this.domainFromWater=domainFromWater;this.passes=passes;this.world=Object.freeze({...world});this.paperWidth=paperWidth;this.paperHeight=paperHeight;this.stats={initializations:0,steps:0,draws:0,pixels:0}
  }
  initialize(record) {
   // No writes to source: only reserved visual destinations. The canonical source
   // and original material remain the authoritative high-resolution endpoint.
   const pairs=[[record.out.p,record.source.pigmentLoad],[record.out.c,record.source.colourLoad],[record.out.water,record.source.solventLoad],[record.out.coverage,record.source.coverage]]
   for(const [out,src] of pairs){if(out.texture===src.texture)throw Error('Readonly preview initialization alias');this.passes.wcResample(out,0,0,128,128,src,0,0,8,0)}
+  if(this.domainFromWater){this.domainFromWater.draw(record.out.coverage,record.out.water);this.stats.draws++;this.stats.pixels+=128*128}
   this.stats.initializations++;this.stats.draws+=4;this.stats.pixels+=4*128*128
  }
  step(ticket) {
