@@ -126,3 +126,20 @@ QA backend/frontend созданы наVPS без productionDB, доступны
 домашнийтуннель. iPad не проверен.
 Кайма, полная долгая загрузка и multiuser регрессии этойточкой не закрыты.
 Новый main/push/deploy не выполнялись.
+
+## Контрольная точка 09 октября, 00:18 (Europe/Vilnius)
+
+Все варианты ниже остаются QA, defaults production не включены.
+
+| Направление | Подтверждено | Следующая проверка |
+|---|---|---|
+| Раздельные владельцы мазков / FIFO | Surface: четыре мазка, исходный canonical итог и Dry/Undo/Redo exact; общий owner suite 75 tests PASS | Samsung, несколько участников, другие слои/тайлы и физическая задержка пера |
+| Первое касание | Caller создания мокрой текстуры: `_onStart → _display → _takePaperPartial → _updateWetTexture`. QA заранее создаёт только GL texture name | Upload/storage остаются внутри исходного пути; измерить отдельно CPU и GPU, не выдавать name prewarm за устранение всех затрат |
+| Переход вода → пигмент → другой цвет | Surface: четыре DOWN без texture allocation и synchronous settle drain, history exact, GL0/lost=false; шесть кадров после четвёртого canonical landing | Пигмент не исчезает, но видимое изменение формы слабое. Записать от UP, включая время до landing; художественная готовность не подтверждена |
+| WebGPU кайма / шум | Общая seeded corner texture: mode6 G отличается в 9 значениях max1 вместо 3254 max5; B/A exact, R3 max1 остаются | Это иной пространственный рисунок, а не exact original port. Проверить first carry mode15 на общих оригинальных входах |
+| Активный перенос / base / film | CPU-контрпример доказывает изменение source формулы при rebase/clear film; удаление rebase само по себе ведёт к перезаписи переноса следующим source pass | Реальный A wetmix: readonly снимки восьми ролей, explicit absence, контакт2/epochs/settled budget; физику пока не менять |
+
+Actual 25-dab Room-пара проверяет source/visibility/history, но её плотная
+клякса почти не показывает художественную разницу. Она не является доказательством
+«акварель стала лучше». Новые смотрины должны содержать движение и wetmix на
+одинаковых UI/camera. Исходные frozen стенды сохранены. Push/main/deploy не было.
