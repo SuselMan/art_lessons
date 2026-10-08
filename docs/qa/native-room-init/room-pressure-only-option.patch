@@ -9,8 +9,11 @@
   diagnosticTipContactA?:boolean
   diagnosticMomentTransport?:boolean
   diagnosticMomentGpuAudit?:boolean
-@@ -98,7 +100,7 @@
+@@ -96,9 +98,10 @@
+   this.queued=true
+   this.central.enqueueSource(()=>{if(this.scratch!==recipient||this.targetLayer!==target||!this.owner)throw new Error('Native foreign-water recipient layer/generation mismatch');this.owner.importForeign(gesture)},async()=>{})
   }
++ get carryPressureDiagnostics(){return this.owner?.carryPressureDiagnostics??null}
   private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string,targetLayer:ILayerBuffer){
    if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer||this.targetLayer!==targetLayer)){this.trackRetirement(this.owner.retire('rebuild',false));this.owner=null}
 -  if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.targetLayer=targetLayer;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,diagnosticMomentVector:this.ctx.diagnosticMomentVector,diagnosticMomentGpuAudit:this.ctx.diagnosticMomentGpuAudit,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
@@ -20,7 +23,15 @@
   finish(scratch:RibbonStrokeScratch,metadata:RibbonFinishMetadata):void {
 --- a/apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts
 +++ b/apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts
-@@ -76,12 +76,13 @@
+@@ -67,6 +67,7 @@
+  private readonly finish:CanonicalSingleTileFinish
+  private readonly planner:CanonicalWatercolorSettlePlan<CanonicalFieldBuffer,import('./settlePlanAdapter').CanonicalUploadSlot>
+  private readonly accepted=new Set<string>()
++ readonly carryPressureDiagnostics:{enabled:boolean;counters:{mode15:number;mode16:number;other:number}}
+  private readonly diagnosticMomentVector:boolean
+  private readonly diagnosticMomentGpuAudit:boolean
+  private momentSeam:WetBrushMomentSourceSeam|null=null
+@@ -76,12 +77,14 @@
   private retired=false
   private retirement:Promise<void>|null=null
   private readonly ready:Promise<void>
@@ -32,11 +43,12 @@
    this.backend=backend;this.glTile=options.tile;this.layerId=options.layerId;this.generation=options.generation;this.central=options.central;this.bridgeMode=options.bridgeMode
 -  this.adapter=new CanonicalPlanAdapter(backend);this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
 +  this.adapter=new CanonicalPlanAdapter(backend);
-+  installRoomCarryPressureControl(this.adapter,import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true);this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
++  const carryPressureEnabled=import.meta.env.DEV&&options.diagnosticCarryHardwarePressure===true;
++  this.carryPressureDiagnostics={enabled:carryPressureEnabled,counters:installRoomCarryPressureControl(this.adapter,carryPressureEnabled)};this.pool=new CanonicalScratchPool(backend);this.fields=new CanonicalPlanFieldOwner(backend)
    this.target={buffer:new CanonicalFieldBuffer(backend,1024,1024,'linear','DEV actual Room watercolor tile'),originX:0,originY:0,contentRect:null}
    this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),{brushTravel:[],wetContacts:[]},[this.target])
    this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})},()=>this.scratch.trackRunningSource)
-@@ -225,3 +226,21 @@
+@@ -225,3 +228,21 @@
  export function assertRoomNativeChunkIdentity(chunk:Pick<RoomNativePreparedChunk,'path'|'layerId'|'generation'|'strokeId'|'ordinal'>,layerId:string,generation:number):void {
   if(!['live','append','rebuild'].includes(chunk.path)||chunk.layerId!==layerId||chunk.generation!==generation||!chunk.strokeId||!Number.isInteger(chunk.ordinal)||chunk.ordinal<0)throw new Error('Native Room prepared chunk identity mismatch')
  }
