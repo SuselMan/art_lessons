@@ -1,0 +1,159 @@
+{
+  "task": "#728: Контроль отражения flow на Surface",
+  "status": "Functional PASS; causal control NEGATIVE, baseline/raw outputs identical",
+  "raw": "temp/device-runs/pre-brush68-flow-09351/report.json",
+  "source": "09351c4cf6cda0be206a29440fabc115ce9a688d",
+  "bundleSha256": "5f24f106e054f319980e54f2e033b476af28845d78f32aa5c8de84a96d626a19",
+  "memory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 2204.3
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 2195.9
+    }
+  ],
+  "arms": [
+    {
+      "diagnosticRawGlFlow": false,
+      "flowOrientation": "world-top rows + reflected localUV",
+      "producerCode": "4901a7d56b576406195af014d5c485ba51fcafe6",
+      "flowSha256": "3be5473ac4b1fbe38bc49c2ffc943126572e988416f5b9b3694cd6e511bee43b",
+      "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+      "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "validation": null,
+      "errors": [],
+      "lost": false,
+      "comparisons": [
+        {
+          "role": "a",
+          "channels": [
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            }
+          ],
+          "expectedSha256": "ab2aa158216c23046d8f862b0831980d23fed88a8cdbeebfccd3a6a0efc5bed3",
+          "actualSha256": "eb920c7bb4d4b67e169aa65ff7480edb106d926ddcff5ceb13f160e4ad9a1fa5",
+          "exact": false
+        },
+        {
+          "role": "cc",
+          "channels": [
+            {
+              "changed": 14,
+              "max": 1,
+              "sum": 14
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 2,
+              "max": 1,
+              "sum": 2
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            }
+          ],
+          "expectedSha256": "4791febbbd06b1e3e3cba1c543ae2a5cea2faacf0385fb9a6e2d1bb811e57087",
+          "actualSha256": "de08efedbca7cae78d63a2d11943b838b45296baa49870f560f21766455861f6",
+          "exact": false
+        }
+      ]
+    },
+    {
+      "diagnosticRawGlFlow": true,
+      "flowOrientation": "GL-raw rows + direct localUV",
+      "producerCode": "4901a7d56b576406195af014d5c485ba51fcafe6",
+      "flowSha256": "3be5473ac4b1fbe38bc49c2ffc943126572e988416f5b9b3694cd6e511bee43b",
+      "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+      "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "validation": null,
+      "errors": [],
+      "lost": false,
+      "comparisons": [
+        {
+          "role": "a",
+          "channels": [
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            }
+          ],
+          "expectedSha256": "ab2aa158216c23046d8f862b0831980d23fed88a8cdbeebfccd3a6a0efc5bed3",
+          "actualSha256": "eb920c7bb4d4b67e169aa65ff7480edb106d926ddcff5ceb13f160e4ad9a1fa5",
+          "exact": false
+        },
+        {
+          "role": "cc",
+          "channels": [
+            {
+              "changed": 14,
+              "max": 1,
+              "sum": 14
+            },
+            {
+              "changed": 0,
+              "max": 0,
+              "sum": 0
+            },
+            {
+              "changed": 2,
+              "max": 1,
+              "sum": 2
+            },
+            {
+              "changed": 303,
+              "max": 2,
+              "sum": 306
+            }
+          ],
+          "expectedSha256": "4791febbbd06b1e3e3cba1c543ae2a5cea2faacf0385fb9a6e2d1bb811e57087",
+          "actualSha256": "de08efedbca7cae78d63a2d11943b838b45296baa49870f560f21766455861f6",
+          "exact": false
+        }
+      ]
+    }
+  ],
+  "interpretation": "Software max3→0 does not transfer to Surface. On actual Surface both orientations retain max2 and exact same native P/C SHA. Do not enable raw flow control as a Surface fix. Next isolate fractional transfer/floor or measure bounded brush-chain amplification.",
+  "limits": "One original COMMON brush68 contact only; no full solver/Room/performance claim. No runtime/default changes."
+}
