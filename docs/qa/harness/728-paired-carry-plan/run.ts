@@ -221,3 +221,23 @@ export async function runTargetCopyFixture({compute=false}:{compute?:boolean}={}
  return{compute,rows,exact:rows.every(r=>r.src.nonzero===0&&r.dst.nonzero===0&&!r.errors.length),limitations:['Two fresh devices; production1024 allocation/copy order, no planner/raster','Readback only after submitted original commands finish']}
 }
 Object.assign(window,{runTargetCopyFixture})
+/** Actual runner resource preparation without raster, source model, or settle. */
+export async function runScratchInitFixture({compute=false}:{compute?:boolean}={}){
+ const rows=[]
+ for(let repeat=0;repeat<2;repeat++){
+  const canvas=document.createElement('canvas');document.querySelector('#surface')!.append(canvas)
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,diagnosticComputeFullClear:compute,paper:{bytes:new Uint8Array(4*4*4).fill(255),width:4,height:4,origin:[0,0],texSize:[1024,1024],scale:1}})
+  const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));backend.device.pushErrorScope('validation')
+  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,now:()=>1000,timestamp:()=>1791400001000,operationId:()=>`init-${repeat}`})
+  try{
+   runner.adapter.runQuantum(()=>{const tile=runner.target.buffer,gesture=runner.scratch.materialGesture;runner.scratch.tiles.getOrCreate(tile);runner.scratch.tiles.runningCoverage(tile,gesture);runner.scratch.tiles.filmBuffers(tile,gesture);runner.scratch.tiles.solventFilm(tile,gesture)})
+   await runner.drain()
+   const e=runner.scratch.peek(runner.target.buffer)!,roles:Record<string,unknown>={}
+   for(const [role,field] of Object.entries({layer:runner.target.buffer,original:e.original,inkLoad:e.inkLoad,inkBase:e.inkBase,strokeInk:e.strokeInk,colorBase:e.colorBase,solventLoad:e.solventLoad,solventBase:e.solventBase,strokeSolvent:e.strokeSolvent})){if(!field)throw new Error('Actual init role absent '+role);const bytes=await field.readBytes();roles[role]={nonzero:bytes.reduce((n,v)=>n+ +(v!==0),0),sha256:await hash(bytes),rgba0:Array.from(bytes.subarray(0,4)),rgbaCenter:Array.from(bytes.subarray(1024*512*4,1024*512*4+4))}}
+   const validation=await backend.device.popErrorScope();if(validation)errors.push(validation.message)
+   rows.push({repeat,roles,errors,computeFullClears:backend.diagnosticComputeFullClearCalls})
+  }finally{await runner.drain();runner.destroy();backend.destroy();canvas.remove()}
+ }
+ return{compute,rows,exact:rows.every(r=>!r.errors.length&&Object.values(r.roles).every(v=>(v as {nonzero:number}).nonzero===0)),limitations:['Actual runner/getOrCreate/filmBuffers/solventFilm, no raster or solver','Readbacks serial only after normal queue completion']}
+}
+Object.assign(window,{runScratchInitFixture})
