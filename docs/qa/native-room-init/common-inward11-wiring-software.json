@@ -1,0 +1,137 @@
+{
+  "softwareWiringFixtureOnly": true,
+  "actualSurfaceProof": false,
+  "syntheticFixture": {
+    "width": 64,
+    "height": 64,
+    "pigmentSha256": "51e63b788ac1c0563ca0d19a15e6da945f2a73925a7e0e96848285821fe40816",
+    "coverageSha256": "939d9e24716bd1b466746d6639c0e1c2db6f3a00962161156f939864590e3c95",
+    "copyRect": [
+      0,
+      0,
+      0,
+      0,
+      64,
+      64
+    ],
+    "phases": [
+      {
+        "steps": 2,
+        "climb": 0,
+        "floor": 1
+      },
+      {
+        "steps": 9,
+        "climb": 15,
+        "floor": 0.5
+      }
+    ]
+  },
+  "referenceShaGuardsReassigned": true,
+  "sourceModuleSha256": "30452f708518426881de1f3567c0bd93868c65a1ec39c621bd2b024c3145f572",
+  "transformedModuleSha256": "e0d35117914c642591c86b55b7a4900156bc41a18fae15d955ed92b111acbb42",
+  "limits": "SOFTWARE64x64 synthetic fixture only; transforms dimensions and reference SHA guards explicitly, no actual1536/Surface fidelity. Functionally errors0/GL0/validationnull; G131max1 is software-only mismatch, R/B/A exact.",
+  "code": "e36f7bf20d41c0a65936d6d2337cb0971a44a135",
+  "producerCode": "e36f7bf20d41c0a65936d6d2337cb0971a44a135",
+  "inputHashes": {
+    "pigment": "51e63b788ac1c0563ca0d19a15e6da945f2a73925a7e0e96848285821fe40816",
+    "coverageSource": "939d9e24716bd1b466746d6639c0e1c2db6f3a00962161156f939864590e3c95",
+    "coverageField": "089b7972cef7b3ea336becdc276e23b211d7d70fc5aa18800c7b19dacb68dbc9"
+  },
+  "recipe": {
+    "k": 0.003,
+    "band": [
+      0.009563970380090697,
+      1
+    ],
+    "size": [
+      0.9521801480995465,
+      0
+    ]
+  },
+  "copyRect": [
+    0,
+    0,
+    0,
+    0,
+    64,
+    64
+  ],
+  "operator": "waterFrontInward",
+  "frontSteps": 141,
+  "nativeFrontSteps": 11,
+  "inwardStats": {
+    "outside": 3764,
+    "inside": 332
+  },
+  "inwardRecipe": {
+    "k": 0.9617441184796373,
+    "outwardSha256": "21a63731e03cd7c51bb6748d32205e5bb4962f5b6f6d2e85caf86726570e1aa5",
+    "earlierBaseSha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+  },
+  "pressureSeedSha256": "d3a1c229edad38a765745a5164ee9c1db2fbaca0212153755241b7daa0990e87",
+  "frontRecipe": {
+    "x0": 0,
+    "y0": 40,
+    "scale": 1,
+    "dryCost": 50.27954292297363,
+    "max": 104.55908584594727,
+    "climb": 30,
+    "floor": 0.85,
+    "stride": 1,
+    "paperWorld": {
+      "w": 1024,
+      "h": 1024
+    },
+    "paperScale": 1,
+    "pressureSeedSha256": "d3a1c229edad38a765745a5164ee9c1db2fbaca0212153755241b7daa0990e87",
+    "steps": 141,
+    "inwardSeed": {
+      "k": 0.9617441184796373,
+      "outwardSha256": "21a63731e03cd7c51bb6748d32205e5bb4962f5b6f6d2e85caf86726570e1aa5",
+      "earlierBaseSha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+    },
+    "inwardSteps": 11,
+    "inwardMaskSha256": "788b1119827f6d7277d422740ff884b84928e976ee6983059528073af681fac8"
+  },
+  "sourceFilter": "legacy mask LINEAR metadata, alternating NEAREST a",
+  "mode": null,
+  "width": 64,
+  "height": 64,
+  "filter": "nearest",
+  "glDither": true,
+  "pigmentNonzeroBytes": 256,
+  "glOwnerRetired": true,
+  "glError": 0,
+  "lost": false,
+  "errors": [],
+  "validation": null,
+  "expectedSha256": "958f6a416d27ed287a285e540b0cb9f5d5118370ed30dfb1d9737315e6cd6c20",
+  "actualSha256": "d475852306db96355569bc4cf159a56a18ac76a2741cfaf8b71c413841beda88",
+  "channels": [
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 131,
+      "max": 1,
+      "sum": 131
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "exact": false,
+  "raw": "temp/native-source-offline/inward11-wiring/report.json",
+  "reproduce": "WIRING_OUT=<new ignored dir> WIRING_PAPER_DIR=<frozen paper dir> node docs/qa/harness/728-native-end-to-end/inwardWiringSoftwareFixture.mjs",
+  "functional": true
+}
