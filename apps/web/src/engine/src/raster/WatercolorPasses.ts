@@ -1,3 +1,4 @@
+import {StaticPaperCache} from './staticPaperCache'
 import { DISPLAY_VERT, WC_COST_DOMAIN_FRAG, WC_DIFFUSE_FRAG, WC_FIELD_OP_FRAG, WC_FIELD_OP_HIGH_FRAG, WC_FIELD_OP_CARRY_FRAG, WC_FIELD_OP_CARRY_COLOUR_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG, WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG, WC_WATER_FRONT_FRAG, WC_WATER_FRONT_INVARIANT_FRAG, WC_BRUSH_DRAG_FRAG, WC_RESAMPLE_FRAG } from './shaders'
 import { diagnosticWebgl2Raw } from './diagnosticWebgl2'
 import { brushMrt300 } from './brushMrt'
@@ -65,6 +66,16 @@ export class WatercolorPasses {
 
   /** (#536) One step of pigment diffusion in standing water — see
    *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
+  /** OFF diagnostic only; float capability/budget fall back to untouched original. */
+  diagnosticStaticPaperCache=false
+  diagnosticStaticPaperBudgetBytes=18*1024*1024
+  private _staticPaperCache:StaticPaperCache|null=null
+  get staticPaperCacheStats(){return this._staticPaperCache?.stats??null}
+  private staticPaper(p:Parameters<StaticPaperCache['ensure']>[0]):StaticPaperCache|null {
+    if(!this.diagnosticStaticPaperCache)return null
+    const cache=this._staticPaperCache??=new StaticPaperCache(this.ctx)
+    return cache.ensure(p,this.diagnosticStaticPaperBudgetBytes)?cache:null
+  }
   private _diffuseProg!: WebGLProgram
 
   /** WebGL2-only paired pulse experiment. Default OFF. */
@@ -189,7 +200,9 @@ export class WatercolorPasses {
   ): void {
     const { gl } = this
     const { w: paperTexW, h: paperTexH } = this.ctx.paperWorldSize()
-    const invariant = this.diagnosticWaterFrontInvariant ? this.waterFrontInvariant() : null
+    const cache=Number.isInteger(stride)&&stride>=1?this.staticPaper({w:field.w,h:field.h,origin:[x0/scale,-(y0/scale+field.h)],paperSize:[paperTexW/scale,paperTexH/scale],paperScale:this.ctx.paperScale(),climb}):null
+    const cached=cache?.bind('front')
+    const invariant = cached??(this.diagnosticWaterFrontInvariant ? this.waterFrontInvariant() : null)
     const u = invariant?.uniforms ?? this._waterFrontUni
     const position = invariant?.position ?? this._waterFrontPosLoc
     dst.beginReplaceDraw()
@@ -274,12 +287,14 @@ export class WatercolorPasses {
     _solvent: AccumulationBuffer | null = null,
   ): void {
     const { gl } = this
+    const cache=this.staticPaper({w:field.w,h:field.h,origin:[x0/S,-(y0/S+field.h)],paperSize:[paperTexW/S,paperTexH/S],paperScale:this.ctx.paperScale(),climb:0})
+    const cached=cache?.bind('diffuse'),position=cached?.position??this._diffusePosLoc
     dst.beginReplaceDraw()
-    gl.useProgram(this._diffuseProg)
-    const u = this._diffuseUni
+    gl.useProgram(cached?.program??this._diffuseProg)
+    const u = cached?.uniforms??this._diffuseUni
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
-    gl.enableVertexAttribArray(this._diffusePosLoc)
-    gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, src.texture)
     gl.uniform1i(u.u_ink, 0)
@@ -541,6 +556,7 @@ export class WatercolorPasses {
   }
 
   initSettlePrograms(): void {
+    this._staticPaperCache?.destroy();this._staticPaperCache=null
     const { gl } = this
     this.releaseWaterFrontInvariant()
     this.releaseBrushMrt()
@@ -584,6 +600,7 @@ export class WatercolorPasses {
   }
 
   destroy(): void {
+    this._staticPaperCache?.destroy();this._staticPaperCache=null
     this.releaseBrushMrt()
     this.releaseWaterFrontInvariant()
     // Deleting the currently bound program is deferred until it is unbound.
