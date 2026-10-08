@@ -26,14 +26,15 @@ export async function coveragePrimitiveOracle(commands:readonly CanonicalDrawCom
 }
 
 /** Ordered Q8 blend oracle; no changes to production source state or draw grouping. */
-export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false,consistentNoise?:ConsistentNoiseVariant){
+export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false,consistentNoise?:ConsistentNoiseVariant,blankSelected=false){
+ if(blankSelected&&sameInputIndices?.length!==1)throw new Error('Blank/accum gate requires exactly one selected command')
  if(sameInputIndices&&(!sameInputIndices.length||sameInputIndices.some(i=>!Number.isInteger(i)||i<0||i>=commands.length)))throw new Error('Same-input indices must identify actual ordered commands')
  if(!commands.length||commands.length>200)throw new Error('Coverage sequence must contain 1..200 complete commands')
  for(const command of commands){const u=command.kind==='ribbon'?command.batch.uniforms:command.stamp.uniforms;if(u.useAvailableWater)throw new Error('Coverage sequence requires captured availability for this command; blank substitution refused')}
  const owner=await CanonicalWatercolorWebGpu.create({canvas:document.createElement('canvas'),width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
  const out=new CanonicalFieldBuffer(owner,1024,1024,'nearest','sequence coverage'),empty=new CanonicalFieldBuffer(owner,1024,1024,'nearest','sequence availability')
  const errors:string[]=[];owner.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));const rows=[]
- try{for(const dither of [true,false]){
+ try{for(const dither of (blankSelected?[true]:[true,false])){
  let expected:Uint8Array=new Uint8Array(1024*1024*4),index=0
  for(const command of commands){
   owner.device.pushErrorScope('validation');const encoder=owner.device.createCommandEncoder();let buffers:GPUBuffer[]=[]
@@ -46,10 +47,21 @@ export async function coverageSequenceOracle(commands:readonly CanonicalDrawComm
   const comparison=compareStages([{key:'coverage',w:1024,h:1024,bytes}],[{key:'coverage',w:1024,h:1024,bytes:expected}])[0]
   const changedChannels=[0,0,0,0];for(let i=0;i<bytes.length;i++)if(bytes[i]!==expected[i])changedChannels[i%4]++
   const pixels=[];if(selected)for(let i=0;i<bytes.length&&pixels.length<64;i+=4)if(bytes.subarray(i,i+4).some((v,c)=>v!==expected[i+c]))pixels.push({x:i/4%1024,yTop:Math.floor(i/4/1024),initialGl:Array.from(seed.subarray(i,i+4)),native:Array.from(bytes.subarray(i,i+4)),gl:Array.from(expected.subarray(i,i+4))})
+  let blank=null
+  if(blankSelected&&selected){
+   const blankEncoder=owner.device.createCommandEncoder();let transient:GPUBuffer[]=[]
+   const isolated=owner.encodeOwnerCommands(blankEncoder,()=>{out.clear();transient=command.kind==='ribbon'?owner.encodePreparedRibbon(blankEncoder,command.batch,'coverage',targets):owner.encodePreparedStamp(blankEncoder,command.stamp,'coverage',targets)})
+   owner.device.queue.submit([blankEncoder.finish()]);const blankNative=await out.readBytes();isolated.release();transient.forEach(b=>b.destroy())
+   const blankGl=command.kind==='ribbon'?ribbonGlOracle(command.batch,1024,1024,dither,undefined,true,consistentNoise?consistentNoiseShader(RIBBON_FRAG,consistentNoise):undefined).coverage:stampGlOracle(command.stamp,1024,1024,dither,undefined,true,consistentNoise?consistentNoiseShader(DAB_FRAG,consistentNoise):undefined).coverage
+   const channels=[0,0,0,0],differentPixels=[]
+   for(let i=0;i<blankNative.length;i+=4){let changed=false;for(let c=0;c<4;c++)if(blankNative[i+c]!==blankGl[i+c]){channels[c]++;changed=true}if(changed&&differentPixels.length<64)differentPixels.push({x:i/4%1024,yTop:Math.floor(i/4/1024),native:Array.from(blankNative.subarray(i,i+4)),gl:Array.from(blankGl.subarray(i,i+4))})}
+   blank={comparison:compareStages([{key:'blank',w:1024,h:1024,bytes:blankNative}],[{key:'blank',w:1024,h:1024,bytes:blankGl}])[0],changedChannels:channels,pixels:differentPixels,atAccumulatedDifferences:pixels.map(p=>{const i=(p.yTop*1024+p.x)*4;return{...p,blankNative:Array.from(blankNative.subarray(i,i+4)),blankGl:Array.from(blankGl.subarray(i,i+4))}})}
+   owner.device.queue.writeTexture({texture:out.texture},bytes.slice(),{bytesPerRow:4096},[1024,1024])
+  }
   const debug=debugStamps&&selected&&dither&&command.kind==='stamp'?await stampDebug(owner,out,command.stamp,[{x:457,yTop:372},...pixels.slice(0,4).map(p=>({x:p.x,yTop:p.yTop}))],consistentNoise):null
   if(debug)owner.device.queue.writeTexture({texture:out.texture},bytes.slice(),{bytesPerRow:1024*4},[1024,1024])
-  rows.push({debug,index:index++,kind:command.kind,dither,changedChannels,sameInput:selected,pixels,stamp:selected&&command.kind==='stamp'?command.stamp:null,vertexCount:command.kind==='ribbon'?command.batch.vertices.length/11:null,vertexBytesSha256:command.kind==='ribbon'?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',command.batch.vertices.slice().buffer)),v=>v.toString(16).padStart(2,'0')).join(''):null,comparison,validation:(await owner.device.popErrorScope())?.message??null})
+  rows.push({blank,debug,index:index++,kind:command.kind,dither,changedChannels,sameInput:selected,pixels,stamp:selected&&command.kind==='stamp'?command.stamp:null,vertexCount:command.kind==='ribbon'?command.batch.vertices.length/11:null,vertexBytesSha256:command.kind==='ribbon'?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',command.batch.vertices.slice().buffer)),v=>v.toString(16).padStart(2,'0')).join(''):null,comparison,validation:(await owner.device.popErrorScope())?.message??null})
   if(sameInputIndices&&index>Math.max(...sameInputIndices))break
  }}}finally{out.destroy();empty.destroy();owner.destroy()}
- return{diagnosticGlNoise:consistentNoise??null,sameInputIndices:sameInputIndices??null,commands:commands.length,rows,firstDifferenceOn:rows.find(r=>r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,firstDifferenceOff:rows.find(r=>!r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,errors,selectedGate:sameInputIndices?'Selected commands receive exact same previous GL coverage; nonselected later comparisons are not independent accumulated baseline':null,scope:'All captured coverage commands in original order; independent native/GL accumulation starting from identical zero Q8. Availability-consuming commands explicitly refused. GL context recreated between commands with lossless Q8 upload, no resample; not full compound source executor parity.'}
+ return{blankSelected,ditherArms:blankSelected?[true]:[true,false],diagnosticGlNoise:consistentNoise??null,sameInputIndices:sameInputIndices??null,commands:commands.length,rows,firstDifferenceOn:rows.find(r=>r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,firstDifferenceOff:rows.find(r=>!r.dither&&(!('exact' in r.comparison)||!r.comparison.exact))??null,errors,selectedGate:sameInputIndices?'Selected commands receive exact same previous GL coverage; nonselected later comparisons are not independent accumulated baseline':null,scope:'All captured coverage commands in original order; independent native/GL accumulation starting from identical zero Q8. Availability-consuming commands explicitly refused. GL context recreated between commands with lossless Q8 upload, no resample; not full compound source executor parity.'}
 }
