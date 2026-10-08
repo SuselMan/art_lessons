@@ -1,3 +1,4 @@
+import type {RoomNativeRuntime} from './src/webgpuCanonical/roomNativeRuntime'
 import { ribbonDabTouchesTile } from './src/dabs/dabWorldHalfExtents'
 import { ribbonSegmentLength } from './src/dabs/ribbonDrawable'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
@@ -260,6 +261,8 @@ export interface PencilEngineOptions {
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
+  /** DEV single-tile native watercolor executor, normal tools remain WebGL. */
+  nativeWatercolor?: boolean
   asyncFinish?: boolean
   /** (#728) Build the three physical ribbon band arrays in one geometry walk. */
   bandBatch?: boolean
@@ -1844,6 +1847,10 @@ export class PencilEngine implements PencilEngineAPI {
       && (!this._settleQueue.suppressActivePreview || !this._strokeLayerId),
   })
   /** Isolated responsiveness prototype. Not a production default. */
+  private _wcNativeEnabled=false
+  private _wcNative:RoomNativeRuntime|null=null
+  private _wcNativeReady:Promise<void>|null=null
+  private _wcNativeInitEpoch=0
   private _wcAsyncFinish = false
   private _wcAsyncError: unknown = null
   private readonly _wcAsyncPeerStreams = new Map<string, {
@@ -1881,7 +1888,7 @@ export class PencilEngine implements PencilEngineAPI {
   }>()
   private readonly _wcCanonical = new WatercolorCanonicalFIFO({
     blocked: () => !!this._settle || this._contextLost || this.gl.isContextLost(),
-    advance: (work, current) => this._advanceAsyncCanonical(work, current),
+    advance: (work, current, request) => request?.gpuBackend==='webgpu' ? work.next() : this._advanceAsyncCanonical(work, current),
     schedule: callback => requestAnimationFrame(callback),
     unschedule: handle => cancelAnimationFrame(handle),
     changed: () => this._scheduleDisplay(),
@@ -1931,6 +1938,11 @@ export class PencilEngine implements PencilEngineAPI {
     dabPool: () => this._dabPool,
     scratchPool: () => this._ribbonScratchPool,
     resolveWaterPreset: name => this._resolvePreset('watercolor', name),
+    nativeWatercolorRouting:()=>this._wcNativeEnabled,
+    routePreparedWatercolorDelivery:(request,target)=>{
+      if(!this._wcNative)throw new Error('Native Room watercolor is not initialized; await paperReady')
+      return this._wcNative.consume(request,target,request.scratch===this._ribbonStrokeScratch?'live':[...this._rebuildJobs.values()].some(job=>job.fresh===target)?'rebuild':'append')
+    },
     infinite: () => this._infinite,
     minmaxExt: () => this._minmaxExt,
     setLiveComposite: value => { this._liveComposite = value },
@@ -2249,7 +2261,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false
     this._wcJoinedFinishDeferred = options.joinedFinishDeferred ?? false
     this._wcJoinedTouchMixed = options.joinedTouchMixed ?? false
-    this._wcAsyncFinish = options.asyncFinish ?? false
+    this._wcNativeEnabled=import.meta.env.DEV&&options.nativeWatercolor===true
+    this._wcAsyncFinish = this._wcNativeEnabled || (options.asyncFinish ?? false)
     this._wcMaterialPresentation = options.materialPresentation ?? false
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
@@ -2675,7 +2688,18 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See PencilEngineAPI's doc comment. */
-  paperReady(): Promise<void> { return this._paper.ready() }
+  paperReady(): Promise<void> {
+    if(!this._wcNativeEnabled)return this._paper.ready()
+    const epoch=this._wcNativeInitEpoch
+    if(!this._wcNativeReady)this._wcNativeReady=this._paper.ready().then(async()=>{
+      const {RoomNativeRuntime}=await import('./src/webgpuCanonical/roomNativeRuntime')
+      const runtime=await RoomNativeRuntime.create({fifo:this._wcCanonical,paper:this._paper.type,paperScale:this._paper.scale,paperWorld:this._paper.worldSize(),board:this._pageSize(),
+        resolve:(target,bounds)=>this._resolveWithinSheet(target,this._wcSheetClamp(bounds)),layerId:target=>[...this._layers].find(([,buffer])=>buffer===target)?.[0]??[...this._rebuildJobs].find(([,job])=>job.fresh===target)?.[0],changed:()=>this._scheduleDisplay(),failed:error=>{this._wcAsyncError=error}})
+      if(this._destroyed||epoch!==this._wcNativeInitEpoch){await runtime.retire('unmount');return}
+      this._wcNative=runtime
+    }).catch(error=>{this._wcAsyncError=error;throw error})
+    return this._wcNativeReady
+  }
 
   /** See PencilEngineAPI's doc comment. */
   retryPaper(): Promise<void> { return this._paper.retry() }
@@ -3399,7 +3423,12 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── Tool API ────────────────────────────────────────────────────────────────
 
   setPaper(type: PaperType): void {
+    if(this._wcNativeEnabled&&type!==this._paper.type){
+      this._wcNativeInitEpoch++;if(this._wcNative)void this._wcNative.retire('clear')
+      this._wcNative=null;this._wcNativeReady=null
+    }
     this._paper.setType(type)
+    if(this._wcNativeEnabled)void this.paperReady().catch(error=>{this._wcAsyncError=error})
     this._display()
   }
 
@@ -3426,6 +3455,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  anything that changes what is in the brush, or what it is being laid on,
    *  ends it at once regardless of timing. */
   private _clearWash(land = true): void {
+    this._wcNative?.invalidate('clear',!land)
     // (#536, §17.47) A settle still in flight lands first. Tearing the scratch
     // down under it dropped it (_tickSettle: "nothing to land"), so switching
     // tool or layer within a second of a pen-up left the author looking at an
@@ -4100,6 +4130,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    if(this._wcNative)void this._wcNative.retire('unmount')
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
@@ -4350,6 +4381,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** Restores a layer's buffer to replay state: nearest valid checkpoint plus
    *  the tail of its done pixel operations. */
   private _rebuildLayer(layerId: string): void {
+    this._wcNative?.invalidate('rebuild',true)
     if (this._snapshotIO.historyRepairPending(layerId) || this._snapshotDependentLayers.has(layerId)) return
     const buf = this._layers.get(layerId)
     if (!buf) return
@@ -4794,7 +4826,15 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudge.dropReplayChunks({ userId: this._userId, strokeId: this._strokeId })
   }
 
-  private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
+  private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false, nativeBoundary=false): void {
+    if(this._wcNativeEnabled&&!(op.type==='stroke'&&op.tool==='watercolor')){
+      if(this._wcCanonical.pending&&!nativeBoundary){
+        const apply=()=>this._applyPixelOp(buf,layerId,op,spreadSettle,true)
+        this._wcCanonical.enqueue({execute:function*(){apply()},cancel:()=>{}})
+        return
+      }
+      this._wcNative?.invalidateAtBoundary('clear')
+    }
     switch (op.type) {
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
@@ -5033,6 +5073,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     this._continuationGpuFence?.forget()
     e.preventDefault()
+    this._wcNative?.invalidate('context-loss',true)
     this._contextLost = true
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
     // buffers and cannot seed a restored context. Drop the whole mid-wash
@@ -5555,6 +5596,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+    this._wcNative?.invalidate('snapshot',true)
     this._snapshotIO.restore(layerId, tiles, coveredSeq)
   }
 
@@ -7303,7 +7345,7 @@ export class PencilEngine implements PencilEngineAPI {
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
   ): Generator<number, void, void> {
-    const deferred = this._wcAsyncFinish && deferComposite && scratch === this._ribbonStrokeScratch
+    const deferred = !this._wcNativeEnabled && this._wcAsyncFinish && deferComposite && scratch === this._ribbonStrokeScratch
     yield* this._ribbonPainter.paint(target, dabs, preset, presetName, profile, color, scratch, prevDab, wetProfile, strokeSeed, deferComposite, pieceTris,
       { waterOnly: false, segmented: false, ...(deferred ? { deferMaterial: request => {
         this._holdAsyncScratch(scratch)
@@ -8461,6 +8503,11 @@ export class PencilEngine implements PencilEngineAPI {
     /** Owned logical boundary, used only by the opt-in canonical FIFO. */
     owned?: RibbonCanonicalFinish,
   ): void {
+    if(this._wcNativeEnabled){
+      if(!this._wcNative)throw new Error('Native Room watercolor is not initialized')
+      this._wcNative.finish(scratch,scratch.captureFinishMetadata());scratch.diffusePending=false
+      return
+    }
     if (this._wcAsyncFinish && !owned && scratch === this._ribbonStrokeScratch) {
       const finish = scratch.captureCanonicalFinish()
       if (!finish) return

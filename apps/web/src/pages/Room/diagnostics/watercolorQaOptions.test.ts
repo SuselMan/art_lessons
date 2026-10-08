@@ -12,3 +12,10 @@ it('DEV enables exact explicit bits and rejects ambiguous/unsupported configs',(
  for(const search of ['?wcMrt=1','?wcGl2=yes','?wcFrontBatch=2','?wcGl2=1&wcGl2=0'])expect(()=>parse(true,search)).toThrow()
  expect(parse(true,'?wcGl2=0&wcMrt=0&wcFrontBatch=0').diagnosticWebgl2).toBe(false)
 })
+
+it('native Room renderer is OFF by default and production ignores it',()=>{
+ expect(parse(true,'').nativeWatercolor).toBe(false)
+ expect(parse(false,'?wcNative=1').nativeWatercolor).toBe(false)
+ expect(parse(true,'?wcNative=1').nativeWatercolor).toBe(true)
+ expect(()=>parse(true,'?wcNative=1&wcNative=0')).toThrow()
+})

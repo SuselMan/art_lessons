@@ -130,14 +130,14 @@ export class CanonicalRoomWatercolorExecutor {
   if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile,()=>!this.retired)
   else await this.bridge.copyByReadback(this.target.buffer.field,this.glTile,field=>this.backend.readField(field),()=>!this.retired)
  }
- retire(reason:Parameters<RoomNativeCentralOwner['cancel']>[0]):Promise<void> {
+ retire(reason:Parameters<RoomNativeCentralOwner['cancel']>[0],cancelCentral=true):Promise<void> {
   if(this.retirement)return this.retirement
   this.retired=true
-  this.retirement=this.release(reason)
+  this.retirement=this.release(reason,cancelCentral)
   return this.retirement
  }
- private async release(reason:Parameters<RoomNativeCentralOwner['cancel']>[0]) {
-  await this.central.cancel(reason);await this.backend.whenIdle()
+ private async release(reason:Parameters<RoomNativeCentralOwner['cancel']>[0],cancelCentral:boolean) {
+  if(cancelCentral)await this.central.cancel(reason);await this.backend.whenIdle()
   this.adapter.disposeCarryOracle();this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fields.destroy();this.pool.destroy();this.bridge.destroy()
  }
  private assertLive(){if(this.retired)throw new Error('Native Room tile generation retired')}
