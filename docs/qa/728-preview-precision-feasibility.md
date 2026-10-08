@@ -30,3 +30,13 @@ Q8+signedfloat residual хранит значение q+r и сохраняет 
 ## Следующий минимальный actual gate
 
 DEFAULT-OFF isolated Float32-vsQ8 preview pair: тот же retainedsource8/paper/domain/recipe;16/64/113steps; full128 perchannel totals, extrema/finite/negative; radial support and final pendingmaterial/canvasimages; canonical8hash unchanged; zeroP/Cwatercontrol; proportionalcolour3channels+weak1Q8; actualGLcapability/errors/loss;3slotbudget. Float shader blending forbidden and aliasOLD/NEW forbidden. Timing cohort без readbacks отдельно. Runtime сейчас не изменён, candidate не включён.
+
+## OFF allocator READY, без runtime интеграции
+
+`PreviewPairedFloatAllocator.mjs` — отдельный кандидат только для четырёх P/C preview fields. enabled defaultfalse, принимает explicit existingQ8 allocator и excluded physical inputs. В ON требует total three-slot budget16121856bytes (15.375MiB), WebGL1 renderableFloat32 extensions, highp23; каждое actual128FBO проверяется. Неподдержка/неполныйFBO откатывает все частично приобретённыеhandles и возвращает **четыре Q8 поля**, не смешанную пару. Setup framebuffer/activeTexture/binding восстанавливаются. Draw seam повторяет beginReplaceDraw/endDraw production buffer, blendingOFF. destroyAfterKnownIdle идемпотентен; caller обязан доказатьidle до вызова — allocator не добавляет input fence.
+
+FakeGL3tests PASS: OFF/unsupported/budget;4floatfields/state restore/releaseonce; thirdFBO failure rollback6handles→allQ8. Это не capability proof реальногоGPU. WebGL2/diagnostic wrapper этим allocator пока не поддерживается; отдельный raw-WebGL2 форматRGBA32F потребует нового gate, не полагаться на WebGL1 FLOATtexImage signature там.
+
+Actual `WC_DIFFUSE_FRAG:3885–3983` не делает floor/round/channelwiseUNORM conversion. Действительные сохранённые guards: domainalpha≤.002→dry; clamp(domainalpha,0,1); finalmax(out4,0). Отрицательный numerical хвост clamp всё ещё может менять сумму; он остаётся literal. `wcResample mode0` имеет spatial sample-coordinate floor дляtexel selection, не quantization значения. Float storage поэтому удаляет framebufferQ8 write, а не эти guards. Composite depth/ink умножение2, thinPrior, coverage thresholds и finalpendingRGBA8 **сохраняются**. Не обещать идеальную непрерывную массу/видимость.
+
+Existing `SealedPreviewTransport` требует lease.bytes===старыйPREVIEW_BYTES, existingpool тожефиксирован. Allocator намеренно не подключён: следующая интеграция должна изменить только typedphysical preview ledger/format, сохранить pool exclusions/epoch/fence/P-C pair и fallback ledger Q8. Нельзя просто передать новое поле под старым bytes и считатьbudgetподтверждённым. Перед hardware нужен tiny actualFloatFBO write/read/finite/copy init, затем paired113diffusion; скоростьотдельно.
