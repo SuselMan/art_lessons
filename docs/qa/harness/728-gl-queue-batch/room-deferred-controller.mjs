@@ -26,6 +26,7 @@ try{
   await evaluate(()=>{const s=window.__roomStore.getState();s.setTool('watercolor');s.setToolSetting('watercolor','size',400);s.setToolSetting('watercolor','water',1);s.setToolSetting('watercolor','pigment',1);s.setToolSetting('watercolor','nib','round')})
   await page.waitForFunction(()=>{const c=[...document.querySelectorAll('canvas')].find(c=>c.width>500);return !window.__engine._locked&&c&&getComputedStyle(c).pointerEvents!=='none'})
   const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/roomScenario.mjs';const scenario=await evaluate(async url=>{const probe= (await import(url.replace('roomScenario.mjs','room-phaseProbe.mjs'))).installRoomPhaseProbe(window.__engine,{maxRows:8192});try{const scene=await(await import(url)).runRoomPointerScenario({onPhase:p=>probe.setPhase(p)});return{...scene,phaseTrace:probe.snapshot()}}finally{probe.detach()}},moduleUrl)
+  if(!scenario.flags.solver||!scenario.flags.joinedTouch||!scenario.flags.joinedMixed||scenario.flags.deferred!==deferred||scenario.flags.asyncFinish||scenario.flags.material)throw Error('Explicit deferred cohort flag mismatch');
   const row={enabled,mixed,deferred,room,scenario};rows.push(row);save();console.log(JSON.stringify({enabled,elapsedMs:scenario.elapsedMs,onsets:scenario.rows.map(r=>({name:r.name,downCpuMs:r.downCpuMs,pending:r.beforeDown.settle,draw:r.firstDrawSubmitMs})),over33:scenario.over33,max:scenario.frameMax}))
   clearInterval(interval);interval=null;await page.goto('about:blank');await closeOwn()
  }

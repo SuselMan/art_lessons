@@ -20,7 +20,7 @@ try{
   await wait(()=>evaluate('document.readyState!=="loading"'));
   await evaluate(()=>{const root=document.createElement('div');root.id='surface';document.body.replaceChildren(root)});
   const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/mixedQuality.mjs';
-  const report=await evaluate(async({url,on,deferred})=>(await import(url)).runMixedQuality({on,deferred,kind:'water-pigment',engineUrl:'/src/engine/index.ts'}),{url:moduleUrl,on:mixed,deferred});rows.push({mixed,deferred,report});save();console.log(JSON.stringify({mixed,fields:report.fields.length,history:report.history}));clearInterval(interval);interval=null;await closeOwn();
+  const report=await evaluate(async({url,on,deferred})=>(await import(url)).runMixedQuality({on,deferred,kind:'water-pigment',engineUrl:'/src/engine/index.ts'}),{url:moduleUrl,on:mixed,deferred});if(!report.model.joined||!report.model.mixed||report.model.deferred!==deferred||report.model.async||report.model.material)throw Error('Explicit deferred quality flags mismatch');rows.push({mixed,deferred,report});save();console.log(JSON.stringify({mixed,fields:report.fields.length,history:report.history}));clearInterval(interval);interval=null;await closeOwn();
  }
  const canonical=r=>JSON.stringify({fields:r.fields,whole:r.whole,material:r.material});result={rows,memory,memoryAbort,exact:canonical(rows[0].report)===canonical(rows[1].report),valid:!memoryAbort&&rows.every(r=>r.report.gl===0&&r.report.history.undoMeaningful&&r.report.history.redoExact)};fs.writeFileSync(out,JSON.stringify(result,null,2));
 }catch(e){result={rows,memory,memoryAbort,error:String(e),valid:false};fs.writeFileSync(out,JSON.stringify(result,null,2));process.exitCode=1}
