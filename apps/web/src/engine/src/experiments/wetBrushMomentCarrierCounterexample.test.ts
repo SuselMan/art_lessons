@@ -64,3 +64,13 @@ it('neither fixed nor jointly transported optical snapshots automatically conser
  expect(laid.reduce((s,v,i)=>s+v-settled[i],0)).toBe(0)
  expect(mixedLaid.reduce((s,v,i)=>s+v-mixedSettled[i],0)).toBe(0)
 })
+it('independent source fit loses the prefit scale; normalized records alone cannot reconstruct material amount',()=>{
+ const once=land([255,0,0,255],[0,0,0,0]),twice=land([255,0,0,255],[255,0,0,255])
+ expect(once).toEqual(twice)
+ expect([...once]).toEqual([255,0,0,255])
+ const prefitAmountOnce=255,prefitAmountTwice=510
+ expect(prefitAmountOnce).not.toBe(prefitAmountTwice)
+ // Both source inputs are legitimate u8; equal output has two different
+ // source histories. No function of this single fitted record can recover
+ // both prefit totals. This is not a proposal to change source fit.
+})
