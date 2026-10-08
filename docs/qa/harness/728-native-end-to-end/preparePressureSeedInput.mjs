@@ -19,3 +19,12 @@ export function addFirstFrontRecipe(input,{tracePath,partitionCheckpoint,pressur
  if(!pressure.valid||!r?.exact||r.producerCode!==input.producerCode||r.inputHashes.pigment!==input.pigment.sha256||r.inputHashes.coverageSource!==input.coverage.sha256||r.expectedSha256!==r.actualSha256||e?.length!==4||e.some(row=>row[0]!=='front'||row[1].w!==1536||row[1].h!==1536)||trace.packetSha256!==input.checkpointSha256||packet.config.paperScale!==1)throw Error('Actual pressure/front recipe proof')
  const f=e[0];return{...input,front:{x0:f[2],y0:f[3],scale:f[11],dryCost:f[4],max:f[7],climb:f[8],floor:f[9],stride:f[10],paperWorld:packet.config.paperWorld,paperScale:packet.config.paperScale,pressureSeedSha256:r.expectedSha256}}
 }
+
+/** Select only the actual first four-call quantum, never approximate later branches. */
+export function addFirstFrontQuantum(input,{tracePath}){
+ const trace=JSON.parse(fs.readFileSync(tracePath)),events=trace.ops.find(o=>o.index===3)?.events
+ if(!input.front||trace.packetSha256!==input.checkpointSha256||events?.length!==4)throw Error('First quantum passport')
+ const first=events[0],pressure=first[5].buffer,a=first[6].buffer
+ for(let i=0;i<4;i++){const e=events[i];if(e[0]!=='front'||e[5].buffer!==(i%2?a:pressure)||e[6].buffer!==(i%2?pressure:a)||JSON.stringify(e.slice(7))!==JSON.stringify(first.slice(7))||e[2]!==first[2]||e[3]!==first[3]||e[4]!==first[4])throw Error('Original alternating first quantum changed')}
+ return{...input,front:{...input.front,steps:4}}
+}
