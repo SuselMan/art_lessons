@@ -1,0 +1,128 @@
+{
+  "task": "#728: Первый brush68, реальный общий вход",
+  "status": "CPU/code candidate; actual software GL prefix and compressed payload PASS. Hardware/native comparison pending.",
+  "softwareRaw": "temp/native-source-offline/pre-brush68-software3.json",
+  "softwareSourceLimit": "Dirty worktree bundle, local software-only integration; frozen hardware passport will be separate.",
+  "scope": "Reuse existing durable ALL-source packet5f2, original ops0..68 only. Before/after oldP=a,oldC=cc,water=coverage; original paired order cc then a, same precontact references.",
+  "roi": {
+    "x": 269,
+    "y": 261,
+    "width": 127,
+    "height": 108
+  },
+  "fieldDimensions": [
+    1536,
+    1536
+  ],
+  "rowConvention": "world-top",
+  "flow": {
+    "width": 31,
+    "height": 26,
+    "filter": "linear",
+    "rawBytes": 3224,
+    "sha256": "3be5473ac4b1fbe38bc49c2ffc943126572e988416f5b9b3694cd6e511bee43b"
+  },
+  "movement": [
+    {
+      "role": "a",
+      "channels": [
+        {
+          "changed": 5069,
+          "max": 17,
+          "sum": 11568
+        },
+        {
+          "changed": 5069,
+          "max": 17,
+          "sum": 11568
+        },
+        {
+          "changed": 5069,
+          "max": 17,
+          "sum": 11568
+        },
+        {
+          "changed": 5069,
+          "max": 17,
+          "sum": 11568
+        }
+      ]
+    },
+    {
+      "role": "cc",
+      "channels": [
+        {
+          "changed": 3307,
+          "max": 6,
+          "sum": 5050
+        },
+        {
+          "changed": 4046,
+          "max": 9,
+          "sum": 7084
+        },
+        {
+          "changed": 1595,
+          "max": 3,
+          "sum": 1882
+        },
+        {
+          "changed": 5069,
+          "max": 17,
+          "sum": 11568
+        }
+      ]
+    },
+    {
+      "role": "coverage",
+      "channels": [
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        },
+        {
+          "changed": 0,
+          "max": 0,
+          "sum": 0
+        }
+      ]
+    }
+  ],
+  "packedBytes": 86926,
+  "serializedChecksums": "All7 gzip+raw length/SHA verified independently in Python",
+  "guards": [
+    "Original operation SHA",
+    "Original source role/null/aliases/filter/metadata/scalars",
+    "Original paper and planner flags",
+    "Original two identical flow uploads",
+    "Original old P/C shared references and C-before-P order",
+    "Original radius/scale/gain/flowRect/scissor",
+    "6 ROI roles exact order, dimensions, filter, compressed/raw bounds and checksums"
+  ],
+  "checks": [
+    "3 unit tests",
+    "Harness TypeScript",
+    "oxlint",
+    "Actual software GL prefix NONidentity"
+  ],
+  "hardwareBudget": {
+    "captureRawBytes": 332408,
+    "captureCapBytes": 8388608,
+    "preflightMiB": 1700,
+    "abortMiB": 500,
+    "hardSeconds": 120,
+    "repeat": false
+  },
+  "limits": "No native comparison, whole-final result, fullfield SHA, Room or performance claim. Cropped ROI includes2px halo, no field/UV resolution change."
+}
