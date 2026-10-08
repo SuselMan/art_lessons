@@ -1,0 +1,13 @@
+# Surface: реальные existing fences, четыре400px старта
+
+Immutable runtime `5466356c`, observer `2aa2cc41`; finite/float OFF. Первый разрешённый прогон остановлен до input: own Vite launch не имел SERVER_PORT=4558 и proxy использовал default4000, giving502. Ошибка инфраструктуры сохранена отдельно; shared backend не менялся. После явного разрешения parent исправлен только own launch env, source неизменён, `/api/me` smoke200 JSON, выполнен один новый bounded запуск.
+
+Четыре старта подтверждены, дополнительных finish на DOWN=0. Все **16** `_syncContinuationGpu` вызовов — `_advanceAsyncCanonical`. Внутри каждого был **gl.finish**, не readPixels: этот runtime не включал continuationGpuFence. Время всех existing sync **8.60 ms**, median0.10 ms, max6.80 ms. Error.stack/setup observer суммарно1.90 ms. Эти числа — CPU elapsed existing wait, не GPU timestamp.
+
+Четыре повторных serial пары (records1/5/9/13) не видели промежуточной submission:132/1853/2519/3199. Их суммарное время **0.20 ms**; остальные12 —8.40ms. Partial command coverage/cached/extension обходы не доказаны, поэтому никаких барьеров не убрано. Даже идеальное устранение этих четырёх даёт здесь лишь0.20ms, **не решает UX-задержку**. Большие промежутки~1.5s между source/finish стадиями требуют отдельной attribution execution/scheduling; их нельзя приписывать fence, который занял0–6.8ms.
+
+Final admitted0, mainFree=previewFree=3, submitted=completed8344. GL0/lostfalse/pageErrors0. Material endpoint nonzero248666, SHA256 `53c2e1f9d52f93a4b28cd023e57473d6fc51b3dbaab3a6b1182bde02b3d71bc3` сохранён **до** resource verdict. Четыре packed operations сохранены. Endpoint/replay parity с baseline не проверена.
+
+Общий verdict **FAIL**: browser теперь точно зафиксировал POST `/api/rooms/:id/thumbnail`403; других HTTP errors/404 в этом запуске нет. Этот маршрут не объявляется ожидаемым: actual server `thumbnailRoutes.ts` разрешает live membership либо persisted owner/participant fallback с block/visibility guard. Room exit thumbnail upload может приходить после socket disconnect, поэтому fallback специально существует. Нужны actual requester identity/ownership/membership и server-source provenance, чтобы объяснить отказ. Подмена user/whitelist запрещены; runtime/nonempty endpoint отдельно от общей сетевой ошибки.
+
+RAM pre2021/min905/post1621MiB. Own context/pages закрыты, Surface RELEASE. Diagnostic raw `temp/fast-watercolor-night/owner-reuse-fences-corrected-surface-20261009/report.json`; предыдущий proxy failure — sibling `owner-reuse-fences-surface-20261009`. Privately saved route/passport/launch metadata; адреса не коммитятся. Новых аппаратных запусков нет.
