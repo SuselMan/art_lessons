@@ -19,3 +19,12 @@ RING_STAGE_URL — приватный существующий QA каталог
 **Граница stage profile:** existing `728-live-onset-current/temp/onset/sheet3-stage-function.js` нельзя запускать как currentOFF: он принудительно включает private asyncFinish/sourceFilmRebase/gradient и warm, задаётphase. Его `sheet3-profiles.py` уже имеет нужный фиксированный алгоритм: Manhattan signed distance −20..20 от pre-carry original-P.b>0 и wet-V.r>0, averages P.b/C.a/V.r/coverage.g/cost.r. Перед вторым stage шагом нужно перенести только wrapper/capture на current planner без этих flag assignments и проверить5meaningfulstages/ONEtarget/matchinginput maps. Этот endpoint harness НЕ выдаёт недостающие plane bytes и НЕ притворяется готовым stage gate. Первый OFF endpoint нужен, чтобы вообще подтвердить остаточное кольцо после уже принятого density fix; затем root решает stage/ADD A/B.
 
 Синтаксис обоих scripts проверен; actual build PASS. Hardware/render/profile ещё не выполнены. Устройство, доступ, GPU shader validation и визуальный endpoint этим не подтверждаются.
+
+
+## Actual Surface OFF endpoint, 08.10
+
+После разрешения root один frozen00ce current42 завершён, GL0/lostfalse, Intel IrisXe; engine уничтожен и own target закрыт. RAM2566.2→minimum1051.5MiB, noabort. Последний page event207637.6мс — длительность диагностического replay+exports, не Room load/performance benchmark. Target61GEiXT33N5K material capture выполнен58610мс,12records; конечные3508×2480 opaque/transparentPNG сохранены private own `temp/ring-current-off`.
+
+Визуальный просмотр полного opaque endpoint и nearest2× ROI910,455–1264,721: у targetslot2 резкая левая граница пятна/мокрого домена, ядро и наружный halo присутствуют. Замкнутая светлая valley старой density-регрессии в этом OFF endpoint не воспроизвелась явно. У2/4/5 пятен sharp left contour,1/3/6 мягче; root независимо согласился с наблюдением. Это не «всё исправлено» и не отсутствие проблемы у текущих пользовательских мазков.
+
+Поэтому ADD A/B не запущен: positive reproduction прежнего закрытого кольца отсутствует. Следующий минимальный gate — pre-target чистая water/coverage contour plane на тех же worldcoordinates плюс target source mask/aftercarry/diffuse profiles, чтобы отделить исходный резкий домен от solver-created boundary. Существующий endpoint capture имеет только sums/read/map, plane bytes не записывает; заявлять signedprofile PASS нельзя. Контроллер проверяет memoryread-onlyкаждые10сек, preflight1700/abort500; секретныеURL и исходныйжурнал не коммитятся.
