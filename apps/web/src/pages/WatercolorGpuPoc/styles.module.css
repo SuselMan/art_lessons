@@ -16,3 +16,4 @@
 @media (max-width: 600px) { .page { padding: 12px; } .controls label { width: 100%; } .controls input[type="range"] { flex: 1; } }
 
 .canvases canvas[hidden] { display: none; }
+.canvases canvas.nativeCanvas { aspect-ratio: 1; max-width: 900px; }

@@ -9512,3 +9512,9 @@ export class PencilEngine implements PencilEngineAPI {
 export async function runCanonicalStageDiagnostic() {
   return (await import('./src/webgpuCanonical/stageDiagnostic')).runCanonicalStageDiagnostic()
 }
+
+export type { CanonicalSceneSession, CanonicalSceneSettings, CanonicalSceneCallbacks } from './src/webgpuCanonical/sceneFactory'
+/** Standalone native QA scene; production Room continues to use PencilEngine. */
+export async function createCanonicalWatercolorScene(canvas: HTMLCanvasElement, callbacks: import('./src/webgpuCanonical/sceneFactory').CanonicalSceneCallbacks) {
+  return (await import('./src/webgpuCanonical/sceneFactory')).createCanonicalSceneSession(canvas, callbacks)
+}
