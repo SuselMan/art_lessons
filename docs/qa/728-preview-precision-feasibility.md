@@ -76,3 +76,24 @@ ONE own128 WebGL1 page, immutable5887packet/HTTP SHA checked. Persistent raw: `t
 Retiredlease освобождается только когда lastref≤completedserial. Newcommandsaftercapture автоматически получают laterreference и не покрываются старымcertificate. Attachedlease не освобождается даже послеidle. Stalegenerationevents ignored; lossfailclosed, oldpoolневозвращаетсявnewgeneration. Callbackreleasefault сохраняетstate release-failed инеавтоповторяет/нереюзаетдвусмысленноосвобождённуюlease.
 
 5Node testsPASS: cap4reject→existingidle→fourthadmitted; stalecertificateafternewcommand; generation/loss;detachguard/releasefault; actualcurrentphysicalpool+SealedPreviewTransport proofreusetoken/epoch exactlyaftercertificate. GPU/runtimefilesнеизменены. Следующийintegration должен убрать lifetimepreviewAdmissions толькосовместно сcoordinatoractualrefs+existing-syncnotification, иначеcapacityguard ослабленбезproof. Hardware≥4strokes/undo/rebase/loss отдельныйgate, поканеclaimcontinuousUX.
+
+## Важное уточнение: coordinator e731 только preview, НЕ main-owner safety
+
+`PreviewLeaseCoordinator` изe731 контролирует **только переданный release callback**. Предыдущиеactualpoolfixtures использовали маленькийpreviewpool. Они не доказывают безопасностьчетвёртогоRoomstroke, не покрывают156MiBmainownerpool илиpreparedpayload. Root правильнопотребовал отдельныйboth-ownercontract.
+
+Actualreadonlymapping `728-solvent-init`:
+
+| Ресурс | Физический владелец/размер | Текущее retirement |
+|---|---|---|
+| Main13×1024RGBA8 |PrewarmedGlOwnerPool:52MiB/slot,156MiB3|installercoordinator.land/cancel→lease.releasewrapper→morph.retire+source.retire→mainpoollease.release|
+| SourcepreparedCPUchunks |OwnedGlPreparedSource:explicit16MiBpayload/owner max|source.retire():chunksclear+counter0, затемmainlease.release (`:82`)|
+| PreviewP/C/water/domain/pending |Q8pool13.125MiB3/Float15.375MiB3|preview.retire detachstop→retiredlist; existingcurrentruntime освобождаеттолькоприdispose/fence|
+| Held.before/wetMask |Engine revealpool |morph.retire возвращаетrevealfields черезguard; ownpendingguardнепускаетpreviewfieldвenginepool|
+
+Installerland (`owner-fifo-install:128–129`) выполняет rebase всехnextowners, previewretire(owner), coordinator.land(owner), owners.delete. Releasewrapper (`:72`) вызываетsource.retire. `_advanceAsyncCanonical` существующийsync возвращается **позже**, послеwork.next завершилэтотland. Mainpoolavailable можетлогическипоявитьсядоsync, но JSнеобрабатываетновыйDOWNвнутриэтойсинхроннойцепочки. Нельзявыдатьэто за globalidle, а previewfuturetick/heldread всёравнодолжныбытьснятыдоmainoverwrite. Existingpooltake делает13copy/clear и можетчитатьpreviousownerfields (`PrewarmedGlOwnerPool:23–29`), этоещёодинconsumer.
+
+Конкретный общийbundle candidate: admissiontoken имеетmainlease+sourceCPUchunks+optionalpreviewlease; **один** shared serial/generationledger учитывает всеmain13GPUreads/writes (sourceemit, inherit/copyinitial, rebase всехsuccessors, canonicalcopy/settleconsumers, material composite original/coverage), previewP/C/target reads/writes, morphtransfer/presentationpending/heldbefore и actualprobe/readback. Наlogicalland/cancel сначала снятьproducer/display refs/зафиксироватьhandoff, пометитьbundle retired; **не** source.retire/mainpool.release немедленно. Existing-known-idle certificate послеsync покрываетmax(lastmainRef,lastpreviewRef,lastpresentationRef). Толькопосле него releasepreviewtransport, clearpreparedchunks/source.retire→mainlease.release, удалитьretiredledger. Еслиcanonicaljob ещёимеетбудущиеCPUchunks/source ссылки, retireпокаотклоняется дажееслиGPUidle.
+
+Одинсертификат нельзяполучить из preview-onlycounter: mainqueuedcopy послеpreviewtick долженувеличивать тотжесerial. Cap4дообщегоcertificate/backpressure; noresetviaUndo. Отдельныепулы могут иметьразныйretireмомент, поэтомуadmitRoom требует freeMAINslot **и** freePREVIEWslot; либоgenericledgercapacity считаетbundle дообоихrelease. Ошибкаодногоресурсногоrelease блокируетreusebundle, не частичныйadmission.
+
+Runtimeне менялся. Этот mapping выявляетнедостающуюintegrationproof, а не утверждаетcurrentmainreuseGPUcorruption. СледующийNodefixture долженвключитьlateMAINcopyпослеpreviewcertificate иpreparedfutureCPUreference: обаобязаныблокироватьbundle reuse. Hardwarecontinuous≥4strokes не разрешёноднимиe731previewтестами.
