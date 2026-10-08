@@ -3,9 +3,9 @@ import crypto from 'node:crypto'
 export const CHUNK_CHARS=65536
 export function chunkPlan(length){if(!Number.isInteger(length)||length<0||length>2*1024*1024)throw Error('Bounded stage base64 length required');return Array.from({length:Math.ceil(length/CHUNK_CHARS)},(_,i)=>({offset:i*CHUNK_CHARS,length:Math.min(CHUNK_CHARS,length-i*CHUNK_CHARS)}))}
 /** Small CDP replies; one artifact/contact at a time, explicit ACK releases page strings. */
-export async function transferStages(evaluate,out,{sourceOnly=false}={}){
+export async function transferStages(evaluate,out,{sourceOnly=false,zeroState=false}={}){
  const meta=await evaluate(()=>window.__momentStageResults)
- if(meta.length!==3||meta.some(r=>!r.published||r.observerError||r.stages.length!==(sourceOnly?3:8)||(sourceOnly&&(r.recipe!==null||r.stages.map(s=>s.stage).join(',')!=='source-P,source-C,presentation-after-sourcepublish'))))throw Error('Incomplete bounded stage cohort')
+ if(meta.length!==3||meta.some(r=>!r.published||r.observerError||r.stages.length!==(sourceOnly?(zeroState?13:3):8)||(sourceOnly&&(r.recipe!==null||r.stages.map(s=>s.stage).join(',')!==(zeroState?'source-P,source-C,source-inkBase,source-colorBase,source-strokeInk,source-strokeColor,post-P,post-C,post-inkBase,post-colorBase,post-strokeInk,post-strokeColor,presentation-after-sourcepublish':'source-P,source-C,presentation-after-sourcepublish')))))throw Error('Incomplete bounded stage cohort')
  let total=0
  for(let i=0;i<meta.length;i++)for(let j=0;j<meta[i].stages.length;j++){
   const s=meta[i].stages[j],file=`stage-${i}-${j}.bin`,fd=fs.openSync(out+'/'+file,'wx'),hash=crypto.createHash('sha256');let bytes=0
