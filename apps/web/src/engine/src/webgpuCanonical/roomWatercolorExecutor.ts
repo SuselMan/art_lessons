@@ -127,8 +127,8 @@ export class CanonicalRoomWatercolorExecutor {
  publishCurrentToGl():Promise<void> {return this.publishWithoutDrain()}
  private async publishWithoutDrain():Promise<void> {
   this.assertLive()
-  if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile)
-  else await this.bridge.copyByReadback(this.target.buffer.field,this.glTile,field=>this.backend.readField(field))
+  if(this.bridgeMode==='canvas')await this.bridge.copyByCanvas(this.target.buffer.field,this.glTile,()=>!this.retired)
+  else await this.bridge.copyByReadback(this.target.buffer.field,this.glTile,field=>this.backend.readField(field),()=>!this.retired)
  }
  retire(reason:Parameters<RoomNativeCentralOwner['cancel']>[0]):Promise<void> {
   if(this.retirement)return this.retirement
