@@ -1,0 +1,193 @@
+{
+  "scope": "Linux Node actual RibbonStrokePainter final8 with mocked GL primitive/copy/clear/upload command collection. NOT actual GPU/Room timing. Includes collector overhead and resource-owner CPU logic; stage timestamps nested, do not sum.",
+  "results": [
+    {
+      "profiled": false,
+      "band": false,
+      "elapsedMs": 39.20433000000003,
+      "deliveryMs": 2.50339299999996,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "93303f1fd3ee548d100dd46610b76a386267e65d1b7dd1d78656f026d2948eea",
+      "stages": null
+    },
+    {
+      "profiled": true,
+      "band": false,
+      "elapsedMs": 25.852208000000246,
+      "deliveryMs": 1.4845459999992272,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "93303f1fd3ee548d100dd46610b76a386267e65d1b7dd1d78656f026d2948eea",
+      "stages": {
+        "prepareDrawableRibbonDabs": {
+          "calls": 8,
+          "totalMs": 0.19619200000033743,
+          "maxMs": 0.050297000000227854,
+          "verticesBytes": 0
+        },
+        "noteRibbonWetContacts": {
+          "calls": 8,
+          "totalMs": 0.04001300000027186,
+          "maxMs": 0.015213000000130705,
+          "verticesBytes": 0
+        },
+        "prepareRibbonGestureScalars": {
+          "calls": 1,
+          "totalMs": 0.05362299999978859,
+          "maxMs": 0.05362299999978859,
+          "verticesBytes": 0
+        },
+        "prepareRibbonDelivery": {
+          "calls": 8,
+          "totalMs": 1.3543620000004921,
+          "maxMs": 0.4220690000001923,
+          "verticesBytes": 0
+        },
+        "prepareRibbonHalo": {
+          "calls": 8,
+          "totalMs": 0.23109699999986333,
+          "maxMs": 0.10847199999989243,
+          "verticesBytes": 0
+        },
+        "buildRibbonBands": {
+          "calls": 24,
+          "totalMs": 14.292033999999148,
+          "maxMs": 2.9322559999995974,
+          "verticesBytes": 1976832
+        }
+      }
+    },
+    {
+      "profiled": false,
+      "band": true,
+      "elapsedMs": 17.378634000000147,
+      "deliveryMs": 0.5619059999999081,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "93303f1fd3ee548d100dd46610b76a386267e65d1b7dd1d78656f026d2948eea",
+      "stages": null
+    },
+    {
+      "profiled": true,
+      "band": true,
+      "elapsedMs": 10.974469999999656,
+      "deliveryMs": 0.5144629999999779,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "93303f1fd3ee548d100dd46610b76a386267e65d1b7dd1d78656f026d2948eea",
+      "stages": {
+        "prepareDrawableRibbonDabs": {
+          "calls": 8,
+          "totalMs": 0.0819870000004812,
+          "maxMs": 0.02243899999984933,
+          "verticesBytes": 0
+        },
+        "noteRibbonWetContacts": {
+          "calls": 8,
+          "totalMs": 0.026336999999784894,
+          "maxMs": 0.006995000000188156,
+          "verticesBytes": 0
+        },
+        "prepareRibbonGestureScalars": {
+          "calls": 1,
+          "totalMs": 0.03976600000032704,
+          "maxMs": 0.03976600000032704,
+          "verticesBytes": 0
+        },
+        "prepareRibbonDelivery": {
+          "calls": 8,
+          "totalMs": 0.42878399999972316,
+          "maxMs": 0.09812000000010812,
+          "verticesBytes": 0
+        },
+        "prepareRibbonHalo": {
+          "calls": 8,
+          "totalMs": 0.06912099999999555,
+          "maxMs": 0.011255000000346627,
+          "verticesBytes": 0
+        },
+        "buildRibbonBandBatch": {
+          "calls": 8,
+          "totalMs": 4.9236420000002,
+          "maxMs": 1.4647820000000138,
+          "verticesBytes": 0
+        }
+      }
+    }
+  ],
+  "bench": [
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 11.367471000000478,
+      "on": 9.603008000000045
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 10.90761300000031,
+      "off": 13.6484760000003
+    },
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 7.710038000000168,
+      "on": 6.536773999999241
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 6.464531000000534,
+      "off": 7.845084999999926
+    },
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 7.798453000000336,
+      "on": 7.882698999999775
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 7.252142000000276,
+      "off": 8.1610699999992
+    },
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 8.666928000000553,
+      "on": 15.727640999999494
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 9.564769000000524,
+      "off": 11.139562000000296
+    }
+  ],
+  "summary": {
+    "medianOffMs": 8.413998999999876,
+    "medianOnMs": 8.72373400000015,
+    "pairedMedianRatio": 0.8532285242796571,
+    "fasterOnRows": 6,
+    "rows": 8,
+    "hardwareRun": false
+  }
+}
