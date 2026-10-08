@@ -32,3 +32,5 @@ it('new-model transport is DEV OFF and requires actual native Room owner',()=>{
  expect(()=>parse(true,'?wcNative=1&wcMomentTransport=yes')).toThrow('Invalid')
  expect(parse(true,'?wcNative=1&wcMomentTransport=1')).toMatchObject({nativeWatercolor:true,diagnosticMomentTransport:true})
 })
+
+it('GPU moment audit requires explicit DEV transport and remains OFF in production',()=>{expect(parse(false,'?wcMomentGpuAudit=1')).toMatchObject({diagnosticMomentGpuAudit:false});expect(parse(true,'').diagnosticMomentGpuAudit).toBe(false);expect(()=>parse(true,'?wcNative=1&wcMomentGpuAudit=1')).toThrow('requires wcMomentTransport');expect(()=>parse(true,'?wcNative=1&wcMomentTransport=1&wcMomentGpuAudit=yes')).toThrow('Invalid');expect(parse(true,'?wcNative=1&wcMomentTransport=1&wcMomentGpuAudit=1')).toMatchObject({diagnosticMomentGpuAudit:true,diagnosticMomentTransport:true})})
