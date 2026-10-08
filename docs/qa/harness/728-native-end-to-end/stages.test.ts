@@ -24,3 +24,11 @@ test('stage comparator rejects changed alpha, missing native/GL roles and unequa
  assert.equal((compareStages([],[s])[0] as any).missingNative,true)
  assert.equal((compareStages([s],[{...s,w:2}])[0] as any).dimensionMismatch,true)
 })
+test('brush oracle ignores stale outside scissor; top-row bytes respect bottom-up GL rect; changed written pixel rejects',()=>{
+ const clean={key:'first:brush',w:1,h:2,bytes:Uint8Array.from([0,0,0,0,1,2,3,4]),writtenRect:[0,0,1,1] as const}
+ const poisoned={...clean,bytes:Uint8Array.from([200,200,200,200,1,2,3,4])}
+ assert.equal((compareStages([clean],[poisoned])[0] as any).exact,true)
+ poisoned.bytes[7]=5
+ const diff=compareStages([clean],[poisoned])[0] as any;assert.equal(diff.changed,1);assert.equal(diff.comparedBytes,4)
+ assert.equal((compareStages([clean],[{...clean,writtenRect:[0,1,1,1]}])[0] as any).writtenRectMismatch,true)
+})

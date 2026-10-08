@@ -53,7 +53,7 @@ first front/diffuse/brush outputs, then reads all independent copies after norma
 completion. Native copies are encoded in the original owner scope; GL copies
 restore framebuffer/current active-unit texture binding. Original method arguments,
 returns and chronology are preserved. No per-pass synchronous readback, no PNG
-paper composition and no injected physics. Snapshot cap64MiB is enforced; two
+paper composition and no injected physics. Snapshot cap96MiB is enforced; two
 large source jobs can exceed it and explicitly fail instead of allocating without
 bound. Use100 first. All snapshots are destroyed after readback.
 
@@ -69,3 +69,10 @@ output differences relative to the clean author control in this same scenario.
 
 Node controller invariants (not GPU pixel proof):
 `npx tsx --test docs/qa/harness/728-native-end-to-end/stages.test.ts`.
+
+Stage oracle revision: first diffuse is normally the COLOR leg, not pigment.
+Additional copies preserve first diffuse input and water gate BEFORE execution;
+primitive metadata identifies actual channel, filters and prepared stencil. Brush
+comparison now restricts to the written production scissor; stale outside output
+bytes are excluded, and unequal scissor rectangles reject comparison. Full final
+layer remains unrestricted. See `../../728-native-stage-review.md`.
