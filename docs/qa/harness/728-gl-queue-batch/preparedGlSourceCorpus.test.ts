@@ -1,4 +1,5 @@
 import { describe,it,expect,vi } from 'vitest'
+import {RibbonStrokePainter as OwnerRibbonStrokePainter} from '../../../../temp/owner-fifo-runtime/OwnerRibbonStrokePainter'
 import {createPreparedGlSourcePort} from './PreparedGlSourceDraw'
 import type {RibbonPasses,RibbonPassesContext} from '../../../../apps/web/src/engine/src/raster/RibbonPasses'
 import type { Dab } from '@grafetto/shared'
@@ -16,7 +17,7 @@ import { createCanonicalStrokeChunkState,prepareCanonicalStrokeChunk,type Canoni
 type Probe={_ribbonPainter:RibbonStrokePainter;_ribbonScratchPool:RibbonScratchPool;_layers:Map<string,ILayerBuffer>;_resolvePreset(t:string,p:string):PencilPreset}
 describe('actual production CPU source to prepared GL ordered API corpus',()=>{
  it.each(['round','chisel'].flatMap(nib=>[false,true].flatMap(segmented=>[false,true].flatMap(film=>[1,4].map(count=>({nib,segmented,film,count}))))))('production exact commands $nib segment=$segmented film=$film count=$count',({nib,segmented,film,count})=>{
-  const {engine}=createTestEngine({paper:'flat'},{width:64,height:64});engine.initLayer('L');const probe=engine as unknown as Probe,painter=probe._ribbonPainter,ctx=(painter as unknown as {ctx:RibbonStrokePainterContext}).ctx;
+  const {engine}=createTestEngine({paper:'flat',pageWidth:1024,pageHeight:1024},{width:64,height:64});engine.initLayer('L');const probe=engine as unknown as Probe,painter=probe._ribbonPainter,ctx=(painter as unknown as {ctx:RibbonStrokePainterContext}).ctx;
   painter.diagnosticSegmentDelivery=segmented?'combined':false;painter.diagnosticForeignSolvent=false;painter.diagnosticSolventField=segmented;painter.diagnosticPigmentRecord=true;
   const minmax=vi.spyOn(ctx,'minmaxExt').mockReturnValue(film?{MAX_EXT:0x8008}:null);
   const scratch=new RibbonStrokeScratch(probe._ribbonScratchPool,true,true),commands:CanonicalDrawCommand[]=[],captures:{kind:'stamp'|'ribbon';args:unknown[]}[]=[];
@@ -31,6 +32,16 @@ describe('actual production CPU source to prepared GL ordered API corpus',()=>{
    for(const _ of painter.paint(probe._layers.get('L')!,dabs,preset,name,profile,[.2,.1,.5],scratch,undefined,'0f37'.slice(0,count),[1,2]))void _;
    const native=prepareCanonicalStrokeChunk(createCanonicalStrokeChunkState(),{dabs,preset,presetName:name,profile,color:[.2,.1,.5],wetProfile:'0f37'.slice(0,count),strokeSeed:[1,2],tile:{originX:0,originY:0,buffer:{width:1024,height:1024}},film,segmentMode:segmented?'combined':false,options:{diagnosticWaterPolicy:painter.diagnosticWaterPolicy,diagnosticSharedFluid:painter.diagnosticSharedFluid,diagnosticLandingReservoir:painter.diagnosticLandingReservoir,diagnosticLandingPolicy:painter.diagnosticLandingPolicy,diagnosticCanonicalSettleRadius:painter.diagnosticCanonicalSettleRadius,diagnosticSolventField:segmented,diagnosticPigmentRecord:true}});
    expect(native.commands).toEqual(commands);
+   const generated=new OwnerRibbonStrokePainter(ctx);for(const key of Object.keys(painter))if(typeof (painter as any)[key]==='boolean'||typeof(painter as any)[key]==='string')(generated as any)[key]=(painter as any)[key]
+   const ownScratch=new RibbonStrokeScratch(probe._ribbonScratchPool,true,true),requests:any[]=[]
+   const beforeCommands=commands.length,resolve=vi.spyOn(ctx,'resolveWithinSheet')
+   try{
+    for(const _ of generated.paint(probe._layers.get('L')!,dabs,preset,name,profile,[.2,.1,.5],ownScratch,undefined,'0f37'.slice(0,count),[1,2],true,0,{waterOnly:false,segmented:false,deferMaterial:request=>requests.push(request)}))void _
+    expect(requests.flatMap(request=>request.typedSource.commands)).toEqual(native.commands)
+    expect(commands.length).toBe(beforeCommands);expect(resolve).not.toHaveBeenCalled()
+    for(const request of requests)request.cancel(false)
+   }finally{resolve.mockRestore();ownScratch.destroy()}
+
    expect(captures.length).toBe(native.commands.length)
    const ribbon=(engine as unknown as {_ribbonPasses:RibbonPasses})._ribbonPasses,rctx=(ribbon as unknown as {ctx:RibbonPassesContext}).ctx,gl=(engine as unknown as {gl:WebGLRenderingContext}).gl
    let calls:unknown[][]=[]
