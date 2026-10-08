@@ -26,3 +26,13 @@ it('spatial solvent gate preserves GL reveal axes and counts outside bytes',()=>
  expect(spatialSummary(bytes,4,4,[1,3,1,1])).toEqual({bbox:[1,0,2,4],nonzeroOutsideRevealRect:1,revealRectGL:[1,3,1,1]})
  expect(spatialSummary(new Uint8Array(64),4,4,null).bbox).toBeNull()
 })
+
+it('solvent init snapshots are encoded synchronously and reject resource aliasing',async()=>{
+ const {captureSolventInit}=await import('../../../../../../docs/qa/harness/728-paired-carry-plan/solventInit')
+ Object.assign(globalThis,{GPUBufferUsage:{COPY_DST:1,MAP_READ:2}})
+ const events:string[]=[],device={createBuffer:()=>({destroy:()=>events.push('destroy')})} as unknown as GPUDevice
+ const encoder={copyTextureToBuffer:()=>events.push('copy')} as unknown as GPUCommandEncoder
+ const load={width:4,height:4,texture:{}} as unknown as CanonicalFieldBuffer,base={width:4,height:4,texture:{}} as unknown as CanonicalFieldBuffer
+ const pending=captureSolventInit(device,encoder,{load,base});expect(events).toEqual(['copy','copy']);pending.dispose();expect(events).toEqual(['copy','copy','destroy','destroy'])
+ expect(()=>captureSolventInit(device,encoder,{load,base:load})).toThrow('alias')
+})
