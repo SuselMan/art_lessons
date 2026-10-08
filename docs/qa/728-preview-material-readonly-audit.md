@@ -79,3 +79,19 @@ ThinPrior (`:1618–1635`) стабилизирует цвет соседним 
 Даже положительное finite поглощение может дать0 после финального RGBA8: например pigmentMass2/255, tau0.05, thickness=mass*0.55/0.54 дают density≈0.000399 и round(255*density)=0. Production final alpha дополнительно умножает coverage, opacity и другие факторы (`:2207`), поэтому это пример возможной невидимости, не доказательство суммарной потери пигмента. Глобальный mass не измерялся.
 
 Не исправлять автоматически пороги/дозу. Сначала отделить silhouette-clipping от low-depth/Q8 исчезновения в actual radial probe; после него нужен отдельный визуальный preview-domain контракт, который не подменяет материальную across/standing coverage бинарным support.
+
+## Feasibility: отдельная visual render coverage, не transport domain
+
+Это предложение **до actual radial proof**, не runtime patch. Маска нужна только если radial показывает ненулевые P/C за source silhouette и composite coverage-return скрывает их.
+
+Разделить три значения: immutable material coverage1024, transport-domain128 и **собственный** render-coverage1024. Composite получает последний; solver/source/canonical никогда его не читают. Нельзя расширить source.coverage на месте, нельзя использовать бинарную water-mask как pigment-alpha.
+
+Минимальный причинный диагностический вариант: materialSupport=true только когда sampled P.B>0 **и** C.A>0 **и** max(C.RGB)>0. C.A не обязана≤P.B. Water-only имеет P.B=0/C=0, поэтому не расширяет coverage и не рисует белую краску. Positive P с нулевым optical-depth RGB также не расширяет силуэт: production tauHere=0 при пустом local-depth даёт белый/нулевую плотность. Это строгий diagnostic guard; prior может восстановить тон там, где локальный RGB0 — такие случаи здесь сознательно не включены, требуют отдельного low-depth probe.
+
+На материальном support diagnostic ставит A'=max(Aold,1). Это не новая доза: плотность продолжает определяться P.B/C moments/Beer–Lambert; A лишь открывает existing composite coverage-return. Сам composite spread/dry-contact всё ещё может уменьшить итоговую coverage, поэтому маска не гарантирует видимость.
+
+Для исходного Aold>.004 сохранить decoded across и pool: R'=Rold*A'/Aold, G'=Gold*A'/Aold. При внестаромконтуре R'=0.5*A', G'=0 задают neutral across/no historical pool. **B'=Bold** без нормировки: production standingHere читает B напрямую. На новых пикселях Bold0 остаётся0; вода читается из P.R/P.A, а V.R/A не превращается в thickness. Изменять standing вне footprint можно только после отдельного dose-контракта. Если внутри старой coverage A не меняется, literal RGB/Q8 остаются прежними; при росте A сохраняются ratios с неизбежной≤0.5code округлённостью — это visual-only изменение, не exactsame-model.
+
+Budget: один own RGBA8 render field1024² =4MiB/lease; до3slots ещё12MiB, общий pool≈25.125MiB вместо13.125MiB. Один full1024 draw на update (чтения sourcecoverage+P+C), без CPU readback; стоимость аппаратно неизвестна. 128 output экономит память, но ломает обещание исходных Q8 across/standing, поэтому не выдавать его за preserved material geometry. Reset render field из immutable coverage при новом epoch; retirer/fence по тому же ledger.
+
+`preview-render-extension-oracle.mjs` PASS: исходное поле не меняется; water-only/zero-optical-depth не расширяются; outside нейтральное across; standing exact; non-C<=P.B vector принят; decoded ratios сохранены в пределах Q8. Это тест ограничений предложения, не доказательство натуральности или shader качества. Runtime/GPU не изменены.
