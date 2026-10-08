@@ -22,3 +22,23 @@ it('wrapper preserves CPU class and cancellation preserves owner lifecycle',()=>
  const wrapped=()=>op();inheritSettleOpTags(op,wrapped);expect(diagnosticSettleOpTag(wrapped)).toBe('cpu-prepare')
  f.q.start(f.scratch,[()=>{},wrapped],finish,{isAlive:()=>true,abort});f.q.cancel();expect(abort).toHaveBeenCalledTimes(1);expect(finish).not.toHaveBeenCalled()
 })
+it('OFF diagnostic still admits one CPU unit per frame',()=>{const f=fixture(),seen:string[]=[];f.q.diagnosticCpuPrepareBatchEnabled=false
+ f.q.start(f.scratch,[()=>{},cpuPrepareOp(()=>seen.push('a')),cpuPrepareOp(()=>seen.push('b'))],()=>{})
+ f.frame();expect(seen).toEqual(['a']);expect(f.q.diagnosticCpuPrepareCounts.units).toBe(0);f.q.cancel()
+})
+it('late and drawing ticks retain the original single unit policy',()=>{const f=fixture(),seen:number[]=[]
+ f.q.start(f.scratch,[()=>{},()=>{},...Array.from({length:5},(_,i)=>cpuPrepareOp(()=>seen.push(i)))],()=>{})
+ f.frame();f.advance(21);f.frame();expect(seen).toEqual([0]);f.drawing(true);f.frame();expect(seen).toEqual([0,1]);f.q.cancel()
+})
+it('actual generated plan uses the installed queue module CPU tag and no physical calls in its CPU step',async()=>{
+ const {traceFixture}=await import('../../../../apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.fixture');
+ const {CanonicalWatercolorSettlePlan:Original}=await import('../../../../apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan');
+ const {installCpuPrepareCandidate}=await import('./installCpuPrepareCandidate.mjs');
+ const f=fixture(),p=traceFixture(true,true,true,true,true),engine={_settleQueue:f.q,_settlePlan:new Original(p.context)};
+ await installCpuPrepareCandidate(engine,true,process.cwd()+'/temp/device-runs');
+ const plan=engine._settlePlan;const metadata={...p.scratch,brushTravel:p.scratch.brushTravel.map(d=>({...d}))};
+ const job=plan.prepare(p.scratch,[{buffer:p.tile,originX:0,originY:0}],{minX:0,minY:0,maxX:p.width,maxY:p.width},.6,200,1,.8,1,.8,0,undefined,false,metadata,false)!;
+ const cpu=job.ops.find(op=>diagnosticSettleOpTag(op)==='cpu-prepare');expect(cpu).toBeDefined();
+ const previous=p.events.length;cpu!();expect(p.events.slice(previous)).toEqual([]);
+ expect(engine._settleQueue.diagnosticCpuPrepareBatchEnabled).toBe(true);job.dispose();plan.destroyTextures();
+})
