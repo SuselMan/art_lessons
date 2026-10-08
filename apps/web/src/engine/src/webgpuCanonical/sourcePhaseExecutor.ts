@@ -23,10 +23,11 @@ export class CanonicalSourcePhaseExecutor {
  private readonly backend:CanonicalWatercolorWebGpu
  private readonly passes:CanonicalSourcePassOwner
  private readonly imported=new Set<number|string>()
- constructor(backend:CanonicalWatercolorWebGpu,scratch:CanonicalTileScratch,tiles:readonly CanonicalLayerTile[],passes:CanonicalSourcePassOwner){
+ private readonly trackRunningCoverage:()=>boolean
+ constructor(backend:CanonicalWatercolorWebGpu,scratch:CanonicalTileScratch,tiles:readonly CanonicalLayerTile[],passes:CanonicalSourcePassOwner,trackRunningCoverage:()=>boolean=()=>false){
   if(tiles.length!==1)throw new Error('Native source executor supports exactly one bounded tile; multi-tile delivery is not implemented')
   if(tiles[0].buffer.owner!==backend||scratch.pool.owner!==backend)throw new Error('Native source executor owner mismatch')
-  this.backend=backend;this.scratch=scratch;this.tile=tiles[0];this.passes=passes
+  this.backend=backend;this.scratch=scratch;this.tile=tiles[0];this.passes=passes;this.trackRunningCoverage=trackRunningCoverage
  }
  /** Donor must have been replayed from unique recorded foreign chunks through the same source protocol. */
  importForeign(gesture:number|string,donor:{coverage:CanonicalFieldBuffer;solventLoad?:CanonicalFieldBuffer|null}):void {
@@ -47,7 +48,7 @@ export class CanonicalSourcePhaseExecutor {
   * landing, source delivery or foreign import. Caller owns its separate quantum. */
  initialize(segment:PreparedSourceSegment,materialGesture:number):void {
   const tile=this.tile.buffer,e=this.scratch.getOrCreate(tile)
-  this.scratch.runningCoverage(tile,materialGesture)
+  if(this.trackRunningCoverage())this.scratch.runningCoverage(tile,materialGesture)
   if(segment.film&&e.inkLoad)this.scratch.filmBuffers(tile,materialGesture)
   if(segment.commands.some(command=>command.phase==='solvent'))this.scratch.solventFilm(tile,materialGesture)
  }
@@ -59,7 +60,7 @@ export class CanonicalSourcePhaseExecutor {
    previous=rank[command.phase]
   }
   const tile=this.tile.buffer,e=this.scratch.getOrCreate(tile),transient:GPUBuffer[]=[]
-  this.scratch.runningCoverage(tile,materialGesture)
+  if(this.trackRunningCoverage())this.scratch.runningCoverage(tile,materialGesture)
   const fb=segment.film&&e.inkLoad?this.scratch.filmBuffers(tile,materialGesture):null
   let solvent:ReturnType<CanonicalTileScratch['solventFilm']>|undefined
   let solventLanded=false,materialStarted=false

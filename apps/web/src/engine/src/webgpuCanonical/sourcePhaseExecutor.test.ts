@@ -2,7 +2,7 @@ import { expect,it,vi } from 'vitest'
 import { CanonicalSourcePhaseExecutor } from './sourcePhaseExecutor'
 import type { CanonicalDrawCommand } from '../dabs/canonicalStrokeChunk'
 
-function fixture(){
+function fixture(trackRunningCoverage=()=>true){
  const events:string[]=[],backend={encodePreparedStamp:vi.fn((_encoder,stamp,phase,targets)=>{events.push(`${stamp.tag}:${phase}:${targets.pigment.label}:${targets.color.label}`);return[]}),encodePreparedRibbon:vi.fn(()=>[])} as any
  const buffer=(label:string)=>({width:32,height:32,owner:backend,field:{label},clear(){events.push(`clear:${label}`)},copyTo(out:any){events.push(`copy:${label}:${out.field.label}`)}})
  const e={coverage:buffer('cov'),inkLoad:buffer('P'),inkColor:buffer('C'),foreignSolventLoad:null} as any
@@ -11,7 +11,7 @@ function fixture(){
  const scratch={pool,getOrCreate:()=>e,runningCoverage:()=>{},filmBuffers:()=>film,solventFilm:()=>solvent} as any
  const passes={fieldOp(out:any,a:any,b:any,mode:number){events.push(`field:${out.field.label}:${a.field.label}:${b.field.label}:${mode}`)}}
  const tile={originX:100,originY:200,buffer:buffer('tile')} as any
- return{events,backend,e,film,solvent,scratch,passes,tile,owner:new CanonicalSourcePhaseExecutor(backend,scratch,[tile],passes),buffer}
+ return{events,backend,e,film,solvent,scratch,passes,tile,owner:new CanonicalSourcePhaseExecutor(backend,scratch,[tile],passes,trackRunningCoverage),buffer}
 }
 const stamp=(phase:CanonicalDrawCommand['phase'],tag=phase)=>({kind:'stamp',phase,stamp:{tag}} as unknown as CanonicalDrawCommand)
 it('source phases land V before P/C and P/C only after halo, preserving material pair',()=>{
@@ -43,4 +43,13 @@ it('split initialization uses actual predicates without source commands or landi
  f.owner.initialize({commands:[stamp('coverage'),stamp('solvent')],rect:[0,0,32,32],film:true,waterOnly:false},1)
  expect(calls).toEqual(['coverage','film','solvent']);expect(f.events).toEqual([])
  calls.length=0;f.owner.initialize({commands:[stamp('coverage')],rect:null,film:false,waterOnly:true},1);expect(calls).toEqual(['coverage']);expect(f.events).toEqual([])
+})
+
+it('running coverage follows owner metadata predicate in both initialization and emission',()=>{
+ let track=false;const f=fixture(()=>track),running=vi.fn((_tile,gesture)=>{f.e.coverageFilm=f.buffer('running');f.e.coverageFilmGesture=gesture});f.scratch.runningCoverage=running
+ const segment={commands:[stamp('coverage')],rect:null,film:false,waterOnly:true}
+ f.owner.initialize(segment,7);f.owner.execute({} as any,segment,7)
+ expect(running).not.toHaveBeenCalled();expect(f.e.coverageFilm).toBeUndefined();expect(f.e.coverageFilmGesture).toBeUndefined()
+ track=true;f.owner.initialize(segment,8);f.owner.execute({} as any,segment,8)
+ expect(running).toHaveBeenCalledTimes(2);expect(f.e.coverageFilmGesture).toBe(8);expect(f.events).toEqual(['coverage:coverage:cov:cov','coverage:coverage:cov:cov'])
 })

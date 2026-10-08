@@ -88,7 +88,7 @@ export class CanonicalBoundedSceneRunner {
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])
   this.finish=new CanonicalSingleTileFinish(backend,this.scratch.tiles,[this.target])
   this.preview=new CanonicalPlannerPreviewBridge(backend,this.scratch.tiles,this.target)
-  this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})})
+  this.source=new CanonicalSourcePhaseExecutor(backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})},()=>this.scratch.trackRunningSource)
   this.planner=new CanonicalWatercolorSettlePlan({fieldFor:(w,h,c)=>this.fieldOwner.fieldFor(w,h,c),paperWorldSize:()=>({w:backend.paper.texSize[0],h:backend.paper.texSize[1]}),pool:()=>this.pool,supportsFilm:()=>true,ab:()=>({noDiffuse:false,noCarry:false,opDry:false}),shouldPreview:()=>this.previewEnabled,passes:()=>this.adapter,uploads:this.adapter.uploads})
   this.gesture=new CanonicalWatercolorGesture({paperWet:this.paperWet,now:options.now,timestamp:options.timestamp,operationId:options.operationId,onPreparedChunk:chunk=>this.prepare(chunk),onLocalStroke:(op)=>options.onLocalOperation?.(op),onChunkBoundary:()=>{this.settle();this.scratch.newFilm();this.scratch.activateMaterialFilm(this.scratch.gesture)}})
  }
@@ -105,7 +105,7 @@ export class CanonicalBoundedSceneRunner {
   if(this.active)throw new Error('Finish the active native gesture before clearing')
   await this.drain();this.scratch.tiles.destroy();this.target.buffer.clear();this.paperWet.clear();this.geometry.dabSpacing=0;this.replayStrokeId=undefined;this.layerId=undefined;this.washId=undefined
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])
-  this.source=new CanonicalSourcePhaseExecutor(this.backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})})
+  this.source=new CanonicalSourcePhaseExecutor(this.backend,this.scratch.tiles,[this.target],{fieldOp:(out,a,b,mode,k,scissor)=>this.adapter.fieldOp(out,a,b,mode,k,{scissor:scissor?[...scissor]:undefined})},()=>this.scratch.trackRunningSource)
   this.finish=new CanonicalSingleTileFinish(this.backend,this.scratch.tiles,[this.target]);this.preview=new CanonicalPlannerPreviewBridge(this.backend,this.scratch.tiles,this.target);await this.backend.device.queue.onSubmittedWorkDone()
  }
  attach(canvas:HTMLCanvasElement,getStroke:()=>{settings:WatercolorGestureSettings;provenance:GestureProvenance},transform:(x:number,y:number)=>{x:number;y:number},pressureMap:PressureMap|null=null):()=>void {

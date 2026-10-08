@@ -1,0 +1,35 @@
+{
+  "scope": "Source topology only; no import and no solver ops or final quality claim",
+  "producerCode": "439294bc3d0b89cfad17c05ce785509aa13dc8c2",
+  "consumerCode": "c5edfaf9c37e9eb4e09a0c8381c810c547ed0bfb",
+  "bundleSha256": "3f78f6faea69972d68c3142da45760a9893773ca0df0fbd8f0f5b63f5237294a",
+  "softwareValid": true,
+  "firstDifference": {
+    "role": "coverageFilm",
+    "expected": {
+      "role": "coverageFilm",
+      "presence": "absent",
+      "alias": null,
+      "width": null,
+      "height": null,
+      "filter": null
+    },
+    "actual": {
+      "role": "coverageFilm",
+      "presence": "field",
+      "alias": 2,
+      "width": 1024,
+      "height": 1024,
+      "filter": "nearest"
+    }
+  },
+  "physicalBytes": {
+    "gl": 50331648,
+    "native": 54525952
+  },
+  "filmGesture": {
+    "gl": 1,
+    "native": 1
+  },
+  "interpretation": "Native source executor allocated running coverage unconditionally; GL scratch.runningCoverage returns undefined when trackRunningSource=false. Extra buffer shifts later alias IDs; other roles/filter/null unchanged. This is topology/lifetime mismatch, not proof of whole RGBA divergence: planner film read additionally requires nonempty runningSourceCommands."
+}
