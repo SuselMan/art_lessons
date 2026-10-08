@@ -187,7 +187,7 @@ struct V { @builtin(position) p:vec4f,@location(0) uv:vec2f }
   const encoder = this.device.createCommandEncoder()
   const transient:GPUBuffer[]=[]
   for (const field of Object.values(this.fields)) transient.push(...this.encodeClearField(encoder,field))
-  this.device.queue.submit([encoder.finish()]);void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(b=>b.destroy()),()=>transient.forEach(b=>b.destroy()))
+  this.device.queue.submit([encoder.finish()]);if(transient.length)void this.device.queue.onSubmittedWorkDone().then(()=>transient.forEach(b=>b.destroy()),()=>transient.forEach(b=>b.destroy()))
  }
  /** Exact field view for stage tests. This is deliberately NOT a substitute
   * for production DAB_FRAG watercolor composite. Room must supply that pass. */
