@@ -67,6 +67,7 @@ export const CANONICAL_DIFFUSE_WGSL = CANONICAL_PASS_HEADER + `
 }
 `;
 export const CANONICAL_WATER_FRONT_WGSL = CANONICAL_PASS_HEADER + `
+override DIAGNOSTIC_LAZY_CLIMB:bool=false;
 fn lattice(p:vec2f)->f32 {
  let wrapped=p-251.0*floor(p/251.0);
  return textureLoad(noise,vec2i(wrapped),0).r;
@@ -81,11 +82,13 @@ fn fbm(p:vec2f)->f32 { return 0.63*wcNoise(p)+0.37*wcNoise(p*2.7+vec2f(31.4,17.9
  let q=tid.xy;if(any(q>=vec2u(u.resolution))){return;}
  let px=vec2f(f32(q.x)+0.5,u.resolution.y-f32(q.y)-0.5);let uv=px/u.resolution;
  let source=fieldAt(input,uv);var best=source.r*u.coefficients.z;let hj=heightAt(px);
- let climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));
+ var climb=0.0;var climbReady=false;
+ if(!DIAGNOSTIC_LAZY_CLIMB){climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));climbReady=true;}
  for(var k=0;k<8;k++) {
   let o=offset(k,false);let stride=u.coefficients.w;let uvj=uv+o*stride/u.resolution;
   if(any(uvj<vec2f(0))||any(uvj>vec2f(1))){continue;}
   let ci=fieldAt(input,uvj).r;if(ci>=0.999){continue;}
+  if(!climbReady){climb=u.coefficients.x*(1.0+4.0*smoothstep(0.5,0.64,fbm((px+u.paperOrigin)*0.025+vec2f(41,7))));climbReady=true;}
   var len=1.41421356;if(k<4){len=1;}
   let relief=max(u.coefficients.y*stride,stride+climb*(hj-heightAt(px+o*stride)));
   let film=smoothstep(0.02,0.15,max(fieldAt(coverage,uv).a,u.wet.y*fieldLinear(foreignFilm,uv).r));
