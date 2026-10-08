@@ -44,11 +44,20 @@ export class CanonicalRoomTileBridge {
  }
  async copyByCanvas(field:CanonicalGpuField,target:AccumulationBuffer,current:()=>boolean=()=>true):Promise<void> {
   this.guard(field,target)
+  await this.submitCanvas(field)
+  this.guard(field,target);if(!current())throw new Error('Room tile bridge publication retired');target.restoreCanvasPixels(this.canvas)
+ }
+ /** Detached QA warmup: same render pipeline, no GL publication or Room target. */
+ async warmDetachedCanvas(field:CanonicalGpuField):Promise<void> {
+  if(this.disposed||field.width!==this.canvas.width||field.height!==this.canvas.height)throw new Error('Detached bridge dimensions or lifetime mismatch')
+  await this.submitCanvas(field)
+  if(this.disposed)throw new Error('Detached bridge retired during warmup')
+ }
+ private async submitCanvas(field:CanonicalGpuField):Promise<void> {
   const encoder=this.device.createCommandEncoder({label:'DEV raw tile to Room bridge'})
   const pass=encoder.beginRenderPass({colorAttachments:[{view:this.context.getCurrentTexture().createView(),clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]})
   pass.setPipeline(this.pipeline);pass.setBindGroup(0,this.device.createBindGroup({layout:this.pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:field.view}]}));pass.draw(3);pass.end()
   this.device.queue.submit([encoder.finish()]);await this.device.queue.onSubmittedWorkDone()
-  this.guard(field,target);if(!current())throw new Error('Room tile bridge publication retired');target.restoreCanvasPixels(this.canvas)
  }
  private guard(field:CanonicalGpuField,target:AccumulationBuffer) {
   if(this.disposed)throw new Error('Room tile bridge disposed')
