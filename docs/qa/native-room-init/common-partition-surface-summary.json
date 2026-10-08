@@ -1,0 +1,176 @@
+{
+  "code": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "bundleSha256": "d13b4dbc39a227a74aa8293f3ac5a2bc4b10e8acf8ddbe7ebbdb38709fee2c77",
+  "scope": "Surface Intel; same original single-color100 stroke; ALLsource imported; actual1536 fields",
+  "functionalPass": true,
+  "boundaryPass": true,
+  "wholeParityPass": false,
+  "boundary": {
+    "index": 1,
+    "traceExact": true,
+    "trace": [
+      {
+        "kind": "fieldOp",
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "a": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "b": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "mode": 0,
+        "k": 1
+      },
+      {
+        "kind": "fieldOp",
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "a": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "b": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "mode": 4,
+        "k": 0.002
+      },
+      {
+        "kind": "fieldOp",
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "a": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "b": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "mode": 1,
+        "k": -1
+      }
+    ],
+    "rows": [
+      {
+        "role": "c",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "expectedSha256": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "actualSha256": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "channels": [
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          }
+        ],
+        "exact": true
+      },
+      {
+        "role": "cc",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "expectedSha256": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43",
+        "actualSha256": "d2ee4703cd9698945ca7b9fe1689ea3095597eac1a0afd8dba00cac7894fdc43",
+        "channels": [
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          }
+        ],
+        "exact": true
+      }
+    ],
+    "scope": "One original operator boundary, two actual1536 Q8 fields; field filter checked. No whole solver/Room claim."
+  },
+  "nonzeroExpectedBytes": {
+    "c": 384896,
+    "cc": 0
+  },
+  "materialFinal": {
+    "key": "material",
+    "w": 1024,
+    "h": 1024,
+    "comparedBytes": 4194304,
+    "changed": 49052,
+    "max": 36,
+    "mean": 0.01647663116455078,
+    "exact": false
+  },
+  "raw": {
+    "producer": {
+      "path": "temp/device-runs/common-partition-5f2/producer/report.json",
+      "sha256": "0d38ea18675328248dfb11bc3e177e03c8d9fb19fbf4a766db50104c676888bf",
+      "memoryMiB": [
+        2041.5,
+        1477.3,
+        1344.8
+      ],
+      "errors": []
+    },
+    "common": {
+      "path": "temp/device-runs/common-partition-5f2/common/report.json",
+      "sha256": "13af26fbf537807dd893d345589661acc781d9580fb00f9dc5c2f5c9d2ac1965",
+      "memoryMiB": [
+        1975.5,
+        1050.9
+      ],
+      "errors": []
+    }
+  },
+  "postReleaseMiB": 1903.1,
+  "conclusion": "Initial pigment partition c is nonempty and byte-exact. cc is zero: paints.size=1 disables paired-color partition; this is not evidence of nontrivial color transport parity. Next boundary is pressure mode10 seed and then first front relaxation; no wholefinal repeat needed."
+}
