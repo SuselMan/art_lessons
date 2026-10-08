@@ -14,9 +14,9 @@ import { CanonicalBoundedSceneRunner } from './boundedSceneRunner'
 import type { PointerData } from '../input/PointerInput'
 import type { WatercolorGestureSettings } from '../input/CanonicalWatercolorGesture'
 const options={diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true} as const
-function fixture(groupedSettleSubmission=false){
+function fixture(groupedSettleSubmission=false,progressiveSettle=false,yieldSettleFrame=()=>Promise.resolve()){
  const backend={paper:{texSize:[1024,1024]},device:{queue:{onSubmittedWorkDone:()=>Promise.resolve()}},createField:(label:string,width:number,height:number)=>({label,width,height,texture:{},view:{},format:'rgba8unorm'}),clearField:()=>{},copyField:()=>{},destroyField:()=>{},encodePreparedStamp:(_encoder:any,stamp:any,phase:any)=>{trace.commands.push({stamp,phase});return[]},encodePreparedRibbon:(_encoder:any,batch:any,phase:any)=>{trace.commands.push({batch,phase});return[]}} as any
- const operations:Operation[]=[],runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions:options,groupedSettleSubmission,now:()=>1000,timestamp:()=>100,operationId:()=>`op${operations.length}`,onLocalOperation:op=>operations.push(op)})
+ const operations:Operation[]=[],runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions:options,groupedSettleSubmission,progressiveSettle,yieldSettleFrame,now:()=>1000,timestamp:()=>100,operationId:()=>`op${operations.length}`,onLocalOperation:op=>operations.push(op)})
  const settings:WatercolorGestureSettings={tool:'watercolor',preset:'normal:100:0:PB29:round',size:100,opacity:1,color:[.3,.4,.5],nibAngle:{angle:0,anchor:'canvas'},tiltResponse:'smooth'}
  const pointer=(x:number,t:number):PointerData=>({x,y:500,pressure:.8,tiltX:0,tiltY:0,speed:.2,timeStamp:t,pointerType:'pen'})
  return{runner,settings,pointer,operations}
@@ -69,4 +69,18 @@ it('diagnostic grouping changes only settle scopes in a real CPU gesture',async(
  expect(grouped.commands).toEqual(serial.commands)
  expect(grouped.events.filter(e=>e!=='quantum')).toEqual(serial.events.filter(e=>e!=='quantum'))
  expect(serial.events.filter(e=>e==='quantum').length-grouped.events.filter(e=>e==='quantum').length).toBe(2)
+})
+
+it('progressive settle blocks begin and waits for yielded job before drain/replay',async()=>{
+ trace.events=[];let release!:()=>void
+ const frame=new Promise<void>(resolve=>{release=resolve})
+ const {runner,settings,pointer}=fixture(false,true,()=>frame)
+ runner.begin(pointer(440,0),settings,{strokeId:'progressive',layerId:'L',userId:'u'});runner.end(pointer(450,40))
+ expect(trace.events).toContain('settleOp');expect(trace.events).not.toContain('settleFinish')
+ expect(()=>runner.begin(pointer(440,60),settings,{strokeId:'second',layerId:'L',userId:'u'})).toThrow('busy')
+ let drained=false;const waiting=runner.drain().then(()=>{drained=true});await Promise.resolve();expect(drained).toBe(false)
+ release();await waiting;expect(trace.events).toContain('settleFinish');expect(trace.events).toContain('dispose');expect(runner.isIdle).toBe(true);runner.destroy()
+})
+it('rejects simultaneous grouped and progressive modes before allocating resources',()=>{
+ expect(()=>fixture(true,true)).toThrow('incompatible')
 })
