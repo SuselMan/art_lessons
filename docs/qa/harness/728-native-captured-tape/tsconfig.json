@@ -1,0 +1,5 @@
+{
+ "extends": "../../../../apps/web/tsconfig.app.json",
+ "compilerOptions": {"tsBuildInfoFile": "../../../../temp/native-captured-tape/harness.tsbuildinfo"},
+ "include": ["run.ts"]
+}
