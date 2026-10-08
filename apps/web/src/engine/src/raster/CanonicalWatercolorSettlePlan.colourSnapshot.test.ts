@@ -48,4 +48,14 @@ describe('dead half-resolution single-paint colour snapshot',()=>{
   expect(on.events).toEqual(elideDeadReference(off.events,dead))
  })
 
+ it('dispose before capture counts avoided allocation but no executed copy',()=>{
+  const f=traceFixture(true,false,true,true,true),builder=new CanonicalWatercolorSettlePlan(f.context)
+  builder.diagnosticSkipSinglePaintColourSnapshot=true
+  const job=builder.prepare(f.scratch,[{buffer:f.tile,originX:0,originY:0,contentRect:null}],{minX:1000,minY:1000,maxX:1048,maxY:1048},.2,400,1,1,1,1)!
+  job.dispose();builder.destroyTextures()
+  expect(builder.colourSnapshotStats.skipped).toBe(1)
+  expect(builder.colourSnapshotStats.storageBytesAvoided).toBeGreaterThan(0)
+  expect(builder.colourSnapshotStats.copyPixelsAvoided).toBe(0)
+ })
+
 })
