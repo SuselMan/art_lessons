@@ -19,6 +19,6 @@ try{
  stage='module-import';
  const moduleUrl='/@fs/'+process.cwd()+'/docs/qa/harness/728-gl-queue-batch/'+(carry?'previewFrontCarryGpu.mjs':'sealedPreviewGpu.mjs');
  const report=await evaluate(async({url,carry})=>{const m=await import(url);return carry?m.runPreviewFrontCarryGpu():m.runSealedPreviewGpu()},{url:moduleUrl,carry});rows.push(report);
- result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,valid:!memoryAbort&&!report.glError&&!report.lost&&report.sourceReadonly&&report.disconnected&&(carry?report.pairedAlpha&&report.evolved.outside===0:report.faint70Nonzero&&report.materialMoved)};fs.writeFileSync(out,JSON.stringify(result,null,2));
+ result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,valid:!memoryAbort&&!report.glError&&!report.lost&&report.sourceReadonly&&report.disconnected&&(carry?report.pairedAlpha&&report.evolved.outside===0&&report.materialMoved:report.faint70Nonzero&&report.materialMoved)};fs.writeFileSync(out,JSON.stringify(result,null,2));
 }catch(e){result={computedPassport,tapeSHA,rows,memory,memoryAbort,browserEvents,stage,navigation:{expected:navigationGate?.navigation,frame:navigationGate?.frame,contextId:navigationGate?.contextId,contexts:[...(navigationGate?.contexts.values()??[])]},error:String(e),valid:false};fs.writeFileSync(out,JSON.stringify(result,null,2));process.exitCode=1}
 finally{clearInterval(interval);await closeOwn();console.log(JSON.stringify({out,valid:result.valid,error:result.error}))}
