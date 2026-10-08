@@ -65,3 +65,17 @@ Fixture material теперь отдельно проверяет frozen6aeec405
 Existing pool уже поддерживает idempotent lease.release→available; transport releaseAfterFence проверяет token/epoch. Нужен drain retired (удалять released entries), а не dispose всего pool. Installer previewAdmissions должен стать количеством **активных/retired-not-completed** slots, а не lifetime-total; DOWN только pool.take/strict backpressure. Без certificate четвёртый admission отклоняется. Если canonical заблокирован и все3 slot retired, capacity может временно сохраняться: это честный bounded backpressure, не повод вставлять finish на DOWN.
 
 Node `preview-idle-reuse-audit.mjs` PASS на actual pool/transport: cap4 отклоняется до idle; land/retire не достаточно; partial certificate освобождает только2 из3; четвёртый lease не alias pending третьего; поздние команды не покрываются старым certificate; повторный drain не удваивает release. Это **план и CPU ledger**, runtime не изменён и реальный coverage всех GPU read paths серийным счётчиком ещё требует интеграционного теста.
+
+## Moving P/C, неподвижный DOT: конкретные composite gates
+
+Readonly `preview-fringe-math-audit.mjs` PASS на выбранных literal формулах, без runtime изменений.
+
+Главный проверяемый барьер: composite silhouette строится из **исходной coverage1024**, её ring blur и u_spreadPx (`shaders.ts:1676–1774`). После spread/dry-contact coverage<0.004 (`:1912`) возвращает original при rectComposite. Ненулевые транспортированные P/C не отменяют этот return. Поэтому diffusion может расширить P/C в общий мокрый domain128, но за исходной coverage+малой spread-кромкой картинка остаётся прежней. Radial probe должен сопоставить в одних мировых координатах transported P.B/C.A, source coverage, computed spread coverage и final alpha. Это сильная гипотеза видимости, не установленная причина actual109/113-step результата.
+
+Q8 thresholds не следует объединять: raw coverage1/255=0.003922 ниже0.004; ink/depth в composite умножаются2 (`:1589,1600`), поэтому несглаженный1code=0.007843 проходит ink.a>0.004. Но wcInkAvg center-only даёт4/(14*255)=0.00112: при изолированной слабой ячейке smoothing может вернуть fallback water/strength. Соседние taps находятся в pixelUV назначения1024 и обычно попадают в тот же128texel; пример center-only — возможный boundary pattern, не факт actual равномерного поля.
+
+ThinPrior (`:1618–1635`) стабилизирует цвет соседним **depth**, не гарантирует видимость P.B. Если C.rgb и локальный C.rgb округлились в0, tauPrior/tauHere=0, paint=white, density=0 даже при P.B>0. Если вокруг есть ненулевой depth, prior восстанавливает finite поглощение. На128 nearest texture offset2/1024 меньше texel1/128: четыре prior taps часто читают тот же пустой cell и не достигают ближайшего ненулевого цвета. Это осмысленный отдельный probe.
+
+Даже положительное finite поглощение может дать0 после финального RGBA8: например pigmentMass2/255, tau0.05, thickness=mass*0.55/0.54 дают density≈0.000399 и round(255*density)=0. Production final alpha дополнительно умножает coverage, opacity и другие факторы (`:2207`), поэтому это пример возможной невидимости, не доказательство суммарной потери пигмента. Глобальный mass не измерялся.
+
+Не исправлять автоматически пороги/дозу. Сначала отделить silhouette-clipping от low-depth/Q8 исчезновения в actual radial probe; после него нужен отдельный визуальный preview-domain контракт, который не подменяет материальную across/standing coverage бинарным support.
