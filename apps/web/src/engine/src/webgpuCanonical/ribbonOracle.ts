@@ -2,9 +2,10 @@ import { RIBBON_VERT, RIBBON_FRAG, DAB_VERT, DAB_FRAG } from '../raster/shaders'
 import noiseAsset from '../raster/watercolorNoise.txt?raw'
 import type { CanonicalRibbonBatch, CanonicalStamp } from './types'
 /** Diagnostic only: production GL program, exact prepared triangle/uniform input. */
-export function ribbonGlOracle(batch: CanonicalRibbonBatch, width: number, height: number) {
+export function ribbonGlOracle(batch: CanonicalRibbonBatch, width: number, height: number, diagnosticDither?:boolean) {
  const canvas = document.createElement('canvas'); canvas.width=width;canvas.height=height
  const gl=canvas.getContext('webgl',{antialias:false,preserveDrawingBuffer:true});if(!gl)throw new Error('WebGL oracle unavailable')
+ if(diagnosticDither!==undefined){if(diagnosticDither)gl.enable(gl.DITHER);else gl.disable(gl.DITHER)}
  const max=gl.getExtension('EXT_blend_minmax');if(batch.inkBlend==='max'&&!max)throw new Error('WebGL MAX oracle unavailable')
  const compile=(type:number,code:string)=>{const shader=gl.createShader(type)!;gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader)||'GL shader');return shader}
  const program=gl.createProgram()!;gl.attachShader(program,compile(gl.VERTEX_SHADER,RIBBON_VERT));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,RIBBON_FRAG));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'GL link');gl.useProgram(program)
@@ -24,9 +25,10 @@ export function ribbonGlOracle(batch: CanonicalRibbonBatch, width: number, heigh
  return outputs
 }
 
-export function stampGlOracle(batch: CanonicalStamp, width: number, height: number) {
+export function stampGlOracle(batch: CanonicalStamp, width: number, height: number, diagnosticDither?:boolean) {
  const canvas = document.createElement('canvas'); canvas.width=width;canvas.height=height
  const gl=canvas.getContext('webgl',{antialias:false,preserveDrawingBuffer:true});if(!gl)throw new Error('WebGL oracle unavailable')
+ if(diagnosticDither!==undefined){if(diagnosticDither)gl.enable(gl.DITHER);else gl.disable(gl.DITHER)}
  const max=gl.getExtension('EXT_blend_minmax');if(batch.inkBlend==='max'&&!max)throw new Error('WebGL MAX oracle unavailable')
  const compile=(type:number,code:string)=>{const shader=gl.createShader(type)!;gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader)||'GL shader');return shader}
  const program=gl.createProgram()!;gl.attachShader(program,compile(gl.VERTEX_SHADER,DAB_VERT));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,DAB_FRAG));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'GL link');gl.useProgram(program)
