@@ -1,0 +1,85 @@
+{
+  "scope": "Captured actual single-color c + source coverage, proved copyRect reconstructed into cleared1536 field. Only actual fieldOp10 shaders. No paper/noise access in this branch; no full solver/Room/performance claim.",
+  "code": "2c2da566b1ea1a50d9ebfee1e72420485b15b504",
+  "producerCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "bundleSha256": "fb85ce2c7d0e36f9d6ad738621b04bba7086067505934012d31945385cdc605d",
+  "functionalPass": true,
+  "primitiveExact": true,
+  "wholeParityPass": false,
+  "mode": 10,
+  "dims": [
+    1536,
+    1536
+  ],
+  "filter": "nearest",
+  "glDither": true,
+  "inputHashes": {
+    "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+    "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+    "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+  },
+  "recipe": {
+    "k": 0.003,
+    "band": [
+      0.009563970380090697,
+      1
+    ],
+    "size": [
+      0.9521801480995465,
+      0
+    ]
+  },
+  "copyRect": [
+    0,
+    158,
+    0,
+    710,
+    969,
+    826
+  ],
+  "channels": [
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "glSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+  "nativeSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+  "pigmentNonzeroBytes": 384896,
+  "glError": 0,
+  "lost": false,
+  "errors": [],
+  "validation": null,
+  "postReleaseMiB": 1984.1,
+  "memory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 2081.2
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 2070.2
+    }
+  ],
+  "raw": {
+    "path": "temp/device-runs/pressure-seed-2c2/report.json",
+    "sha256": "e0954f8d45fb3d8a2fbf2ea981b20c809bbb2ac06e65700a1fb81ef75a87a2ad"
+  },
+  "conclusion": "On this actual Surface, pressure mode10 with the immutable captured pigment and reconstructed proven coverage is byte-exact. Source stitch and initial pigment partition were also exact. Next earliest operator is the first water-front relaxation, using the same pressure seed and exact paper transform; no wholefinal repeat necessary."
+}
