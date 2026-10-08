@@ -1,0 +1,13 @@
+# Наблюдение существующих continuation fences
+
+В четырёх стартах Surface подтверждены 16 `_syncContinuationGpu` return, но прошлый trace содержит только число: caller и длительности неизвестны. Из этого нельзя объявить 16 calls доминирующим временем или убрать барьеры.
+
+Actual source ROOT: `PencilEngine._runSlice` синхронизируется после группы (index.ts:4630), затем безусловно в хвосте (:4642). `work.next()` между ними может выполнять GPU-записи, включая завершение generator; `done` не доказывает отсутствие работы. `_advanceAsyncCanonical` (:8426) синхронизируется после каждого next, даже done. `WatercolorSettleQueue.ts:218–223` синхронизируется после каждого advance в continuation loop для реального budget-clock. `_syncContinuationGpu` (:4690) при OFF использует finish; при continuation fence — `GpuBudgetFence.sync` с существующим 1×1 readPixels, сохранением framebuffer/pack state. Барьер влияет на scheduling, не только ресурсную сертификацию.
+
+Кандидат без изменения canonical: повторный существующий barrier разрешено рассматривать только при неизменном watermark ВСЕХ GPU submissions после успешного предыдущего completion и той же живой generation. Нельзя выводить это из done, пустой CPU queue или только draw count. Даже доказанный redundant wait должен сохранять timer/budget branching, failure/loss и выдачу reuse certificate. Сейчас runtime не меняется.
+
+OFF модуль `ContinuationFenceProbe.mjs` оборачивает только instance methods: draw/copy/clear, texture и buffer uploads, readPixels/finish и реальный sync. До 128 CPU records: caller label, performance timestamp/duration, between-fence submission serial, существующие GPU calls внутри sync. Никаких новых GPU calls/fences/readbacks, console или state queries. Error.stack — только диагностическая attribution с CPU overhead; unresolved остаётся явным. Upload bindings/ANGLE/cached direct function обходы не покрыты полностью: этот probe НЕ является production dirty certificate и НЕ разрешает пропуск барьеров.
+
+Минимальный следующий dataset: те же четыре bounded starts, records со временем/label/serial и отдельными console HTTP paths; финальный material/tape даже при известном noncritical resource status только после строгой классификации каждого ресурса. Old 404 не классифицирован, blanket-ignore запрещён. Freeze исходники новых probe/controller через immutable manifest, старый5365 не изменять. Аппаратного запуска сейчас нет.
+
+Два Node fixtures проверяют реальные existing readPixels mock calls (ровно три, без новых), между ними draw invalidation, throw preservation, bounded records и restoration. Это CPU orchestration proof, не измерение Surface latency.
