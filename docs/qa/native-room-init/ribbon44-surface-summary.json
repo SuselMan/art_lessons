@@ -1,0 +1,1367 @@
+{
+  "source": "4b123e4ee31382fd574b5941e74f1cb120c846bd",
+  "bundleSha256": "ee740c01883114b58ac02458e46cc98a20bf8ba48077f4eb471b437d441fe2a0",
+  "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+  "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "minAvailableMiB": 1563.4,
+  "valid": true,
+  "errors": [],
+  "rows": [
+    {
+      "index": 44,
+      "dither": true,
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            9,
+            9
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            6,
+            6
+          ]
+        }
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 4,
+        "max": 1,
+        "mean": 9.5367431640625e-07,
+        "exact": false
+      },
+      "changedChannels": [
+        2,
+        0,
+        1,
+        1
+      ],
+      "ribbonDiagnostics": {
+        "rows": [
+          {
+            "triangle": 9,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0,
+                "gl": 0,
+                "nativeBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 9,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 9,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0018292070525411995,
+                "gl": 0.0018304587501560897,
+                "nativeBytes": [
+                  0,
+                  119,
+                  225,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  119,
+                  246,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 9,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0018292070525411995,
+                "gl": 0.0018304587501560897,
+                "nativeBytes": [
+                  0,
+                  119,
+                  225,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  119,
+                  246,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0,
+                "gl": 0,
+                "nativeBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.12597651040414037,
+                "gl": 0.12574572120581395,
+                "nativeBytes": [
+                  32,
+                  63,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  32,
+                  48,
+                  223,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002358794352936408,
+                "gl": 0.002365708492142468,
+                "nativeBytes": [
+                  0,
+                  154,
+                  150,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  155,
+                  10,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002358794352936408,
+                "gl": 0.002365708492142468,
+                "nativeBytes": [
+                  0,
+                  154,
+                  150,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  155,
+                  10,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.14257807389367066,
+                "gl": 0.14243502273768321,
+                "nativeBytes": [
+                  36,
+                  127,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  36,
+                  118,
+                  159,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002409458304015297,
+                "gl": 0.002416849280407982,
+                "nativeBytes": [
+                  0,
+                  157,
+                  232,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  158,
+                  100,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002409458304015297,
+                "gl": 0.002416849280407982,
+                "nativeBytes": [
+                  0,
+                  157,
+                  232,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  158,
+                  100,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.056152287492292376,
+                "gl": 0.05660432914521272,
+                "nativeBytes": [
+                  14,
+                  95,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  14,
+                  125,
+                  159,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.8710322303195137,
+                "gl": 0.8710323495288104,
+                "nativeBytes": [
+                  222,
+                  251,
+                  247,
+                  255
+                ],
+                "glBytes": [
+                  222,
+                  251,
+                  249,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0021519662232378856,
+                "gl": 0.0021604300833004764,
+                "nativeBytes": [
+                  0,
+                  141,
+                  8,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  141,
+                  150,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0018744469806222309,
+                "gl": 0.0018818379570149158,
+                "nativeBytes": [
+                  0,
+                  122,
+                  216,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  123,
+                  84,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.8354492089420086,
+                "gl": 0.8356370827935388,
+                "nativeBytes": [
+                  213,
+                  223,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  213,
+                  236,
+                  79,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.4756457493094056,
+                "gl": 0.4756456897047573,
+                "nativeBytes": [
+                  121,
+                  195,
+                  235,
+                  255
+                ],
+                "glBytes": [
+                  121,
+                  195,
+                  234,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.004985332786162661,
+                "gl": 0.004995644390323423,
+                "nativeBytes": [
+                  1,
+                  70,
+                  184,
+                  255
+                ],
+                "glBytes": [
+                  1,
+                  71,
+                  101,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0023712517244369818,
+                "gl": 0.0023761393055998863,
+                "nativeBytes": [
+                  0,
+                  155,
+                  103,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  155,
+                  185,
+                  255
+                ]
+              }
+            ]
+          }
+        ],
+        "scope": "Single actual triangles; unchanged inputs/functions/varyings; diagnostic24-bit RGB quantization, alpha1 replacement, not exact float readback or production blend"
+      },
+      "validation": null
+    },
+    {
+      "index": 44,
+      "dither": false,
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            9,
+            9
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            6,
+            6
+          ]
+        }
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 4,
+        "max": 1,
+        "mean": 9.5367431640625e-07,
+        "exact": false
+      },
+      "changedChannels": [
+        2,
+        0,
+        1,
+        1
+      ],
+      "ribbonDiagnostics": {
+        "rows": [
+          {
+            "triangle": 9,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0,
+                "gl": 0,
+                "nativeBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 9,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 9,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0018292070525411995,
+                "gl": 0.0018304587501560897,
+                "nativeBytes": [
+                  0,
+                  119,
+                  225,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  119,
+                  246,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 9,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0018292070525411995,
+                "gl": 0.0018304587501560897,
+                "nativeBytes": [
+                  0,
+                  119,
+                  225,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  119,
+                  246,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0,
+                "gl": 0,
+                "nativeBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  0,
+                  0,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 58,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.001959025976599811,
+                "gl": 0.0019673110227174176,
+                "nativeBytes": [
+                  0,
+                  128,
+                  99,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  128,
+                  238,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.12597651040414037,
+                "gl": 0.12574572120581395,
+                "nativeBytes": [
+                  32,
+                  63,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  32,
+                  48,
+                  223,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002358794352936408,
+                "gl": 0.002365708492142468,
+                "nativeBytes": [
+                  0,
+                  154,
+                  150,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  155,
+                  10,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 155,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002358794352936408,
+                "gl": 0.002365708492142468,
+                "nativeBytes": [
+                  0,
+                  154,
+                  150,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  155,
+                  10,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.14257807389367066,
+                "gl": 0.14243502273768321,
+                "nativeBytes": [
+                  36,
+                  127,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  36,
+                  118,
+                  159,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 1,
+                "gl": 1,
+                "nativeBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  255,
+                  255,
+                  255,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002409458304015297,
+                "gl": 0.002416849280407982,
+                "nativeBytes": [
+                  0,
+                  157,
+                  232,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  158,
+                  100,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 207,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.002409458304015297,
+                "gl": 0.002416849280407982,
+                "nativeBytes": [
+                  0,
+                  157,
+                  232,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  158,
+                  100,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.056152287492292376,
+                "gl": 0.05660432914521272,
+                "nativeBytes": [
+                  14,
+                  95,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  14,
+                  125,
+                  159,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.8710322303195137,
+                "gl": 0.8710323495288104,
+                "nativeBytes": [
+                  222,
+                  251,
+                  247,
+                  255
+                ],
+                "glBytes": [
+                  222,
+                  251,
+                  249,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0021519662232378856,
+                "gl": 0.0021604300833004764,
+                "nativeBytes": [
+                  0,
+                  141,
+                  8,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  141,
+                  150,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 255,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0018744469806222309,
+                "gl": 0.0018818379570149158,
+                "nativeBytes": [
+                  0,
+                  122,
+                  216,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  123,
+                  84,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 0,
+            "quantity": "amplifiedAcross",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.8354492089420086,
+                "gl": 0.8356370827935388,
+                "nativeBytes": [
+                  213,
+                  223,
+                  255,
+                  255
+                ],
+                "glBytes": [
+                  213,
+                  236,
+                  79,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 1,
+            "quantity": "edge/3",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.4756457493094056,
+                "gl": 0.4756456897047573,
+                "nativeBytes": [
+                  121,
+                  195,
+                  235,
+                  255
+                ],
+                "glBytes": [
+                  121,
+                  195,
+                  234,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 2,
+            "quantity": "tip",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.004985332786162661,
+                "gl": 0.004995644390323423,
+                "nativeBytes": [
+                  1,
+                  70,
+                  184,
+                  255
+                ],
+                "glBytes": [
+                  1,
+                  71,
+                  101,
+                  255
+                ]
+              }
+            ]
+          },
+          {
+            "triangle": 303,
+            "group": 3,
+            "quantity": "amount",
+            "points": [
+              {
+                "x": 572,
+                "yTop": 435,
+                "native": 0.0023712517244369818,
+                "gl": 0.0023761393055998863,
+                "nativeBytes": [
+                  0,
+                  155,
+                  103,
+                  255
+                ],
+                "glBytes": [
+                  0,
+                  155,
+                  185,
+                  255
+                ]
+              }
+            ]
+          }
+        ],
+        "scope": "Single actual triangles; unchanged inputs/functions/varyings; diagnostic24-bit RGB quantization, alpha1 replacement, not exact float readback or production blend"
+      },
+      "validation": null
+    }
+  ],
+  "amountThresholdAudit": [
+    {
+      "triangle": 9,
+      "native": 0.0018292070525411995,
+      "gl": 0.0018304587501560897,
+      "nativeTimes255": 0.4664477983980059,
+      "glTimes255": 0.4667669812898029,
+      "sourceQ8Native": 0,
+      "sourceQ8Gl": 0
+    },
+    {
+      "triangle": 58,
+      "native": 0.001959025976599811,
+      "gl": 0.0019673110227174176,
+      "nativeTimes255": 0.49955162403295184,
+      "glTimes255": 0.5016643107929415,
+      "sourceQ8Native": 0,
+      "sourceQ8Gl": 1
+    },
+    {
+      "triangle": 155,
+      "native": 0.002358794352936408,
+      "gl": 0.002365708492142468,
+      "nativeTimes255": 0.601492559998784,
+      "glTimes255": 0.6032556654963294,
+      "sourceQ8Native": 1,
+      "sourceQ8Gl": 1
+    },
+    {
+      "triangle": 207,
+      "native": 0.002409458304015297,
+      "gl": 0.002416849280407982,
+      "nativeTimes255": 0.6144118675239008,
+      "glTimes255": 0.6162965665040354,
+      "sourceQ8Native": 1,
+      "sourceQ8Gl": 1
+    },
+    {
+      "triangle": 255,
+      "native": 0.0018744469806222309,
+      "gl": 0.0018818379570149158,
+      "nativeTimes255": 0.4779839800586689,
+      "glTimes255": 0.47986867903880354,
+      "sourceQ8Native": 0,
+      "sourceQ8Gl": 0
+    },
+    {
+      "triangle": 303,
+      "native": 0.0023712517244369818,
+      "gl": 0.0023761393055998863,
+      "nativeTimes255": 0.6046691897314304,
+      "glTimes255": 0.605915522927971,
+      "sourceQ8Native": 1,
+      "sourceQ8Gl": 1
+    }
+  ]
+}

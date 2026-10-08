@@ -17,3 +17,13 @@ Read-only source audit: stride44, offsets0/8/12/16/20/24/28/32 и Float32 лок
 CPU barycentric анализ исходной команды44 в центре world572.5/435.5 обнаружил шесть перекрывающихся треугольников:9,58,155,207,255,303. Первые четыре имеют edge≈3, последние edge≈2.613097 и1.426937. Across лежит около−0.53664, pressure0.8; standing1. Значит наблюдаемая Q8 alpha зависит от контакта щетины и шести последовательных OVER, а не только от края геометрии.
 
 Callable следующей проверки: runSourceCoverage({operation:fixture.operation,indices:[44],probeSites:[[572,435]],ditherBoth:true,debugRibbonTriangles:[9,58,155,207,255,303]}). Только диагностический fragment output заменён24-bit RGB encoding для amplifiedAcross/edge/tip/amount, alpha1; geometry, uniforms и функции unchanged. Это не float framebuffer:24-bit наблюдения имеют собственную границу округления. GL DITHER ON/OFF проверяется отдельно в штатной последовательности. Software WGSL compilation+render pipelines4/4 PASS; CPU guards2tests PASS; hardware этого диагностического шага ещё не запускался.
+
+## Actual Surface triangle diagnostics, 4b123e4e
+
+Immutable bundle SHA ee740c01883114b58ac02458e46cc98a20bf8ba48077f4eb471b437d441fe2a0, Fine and operation unchanged. ONE gate completed, errors[], min available1563.4MiB, own tab closed. DITHER ON/OFF both reproduce native9/GL10 in target: dithering does not explain this site.
+
+Actual triangle58 amount: native0.00195902598 versus GL0.00196731102. The Q8 source half-byte threshold1/510≈0.00196078431 lies between them: ×255 gives0.4995516 versus0.5016643. All other five intersecting triangles stay on the same source-Q8 side. This is concrete threshold localization, not an artistic water discrepancy or stamp trig.
+
+Across/edge show tiny backend differences; edge/3 equals1 for triangle58. GL tip equals amount (fully covered). The exact responsible stage remains interpolation versus FBM/mix arithmetic. Amplified across diagnostic saturates at0 on triangles9/58; it cannot establish their equality. Need next diagnostic with unsaturated across and hair/noise components before changing arithmetic. Native/GL fragment compiler may optimize the diagnostic return differently;24-bit floor encoding is not exact float readback. Q8 source-before-blend interpretation is consistent with observed9/10, not yet a separate isolated driver blend proof.
+
+Machine-readable actual results: ribbon44-surface-summary.json. Raw temp/device-runs/native-ribbon44-surface/report.json. No default/source/physics change, no Room or timing claim.
