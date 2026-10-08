@@ -1,0 +1,163 @@
+{
+  "scope": "CPU F32 hypothetical contraction sensitivity of polynomial rimNoise at actual mode6G mismatch cells; NOT actual GPU float values",
+  "rows": [
+    {
+      "field": [
+        324,
+        267
+      ],
+      "actualQ8G": {
+        "gl": 26,
+        "native": 25
+      },
+      "cpuSequential": {
+        "wp": [
+          3.8940000534057617,
+          -3.690000057220459
+        ],
+        "second": [
+          41.91379928588867,
+          7.936999320983887
+        ],
+        "firstNoise": 0.24802693724632263,
+        "secondNoise": 0.7900541424751282,
+        "n": 0.44857701659202576,
+        "rimPatch": 0.10000000149011612
+      },
+      "cpuFusedHypothesis": {
+        "wp": [
+          3.8940000534057617,
+          -3.690000057220459
+        ],
+        "second": [
+          41.91379928588867,
+          7.936999320983887
+        ],
+        "firstNoise": 0.24802693724632263,
+        "secondNoise": 0.7955089807510376,
+        "n": 0.45059528946876526,
+        "rimPatch": 0.10004241019487381
+      }
+    },
+    {
+      "field": [
+        326,
+        267
+      ],
+      "actualQ8G": {
+        "gl": 27,
+        "native": 26
+      },
+      "cpuSequential": {
+        "wp": [
+          3.9179999828338623,
+          -3.690000057220459
+        ],
+        "second": [
+          41.978599548339844,
+          7.936999320983887
+        ],
+        "firstNoise": 0.2495122253894806,
+        "secondNoise": 0.8014313578605652,
+        "n": 0.4537223279476166,
+        "rimPatch": 0.10163518786430359
+      },
+      "cpuFusedHypothesis": {
+        "wp": [
+          3.9179999828338623,
+          -3.690000057220459
+        ],
+        "second": [
+          41.978599548339844,
+          7.936999320983887
+        ],
+        "firstNoise": 0.2495122253894806,
+        "secondNoise": 0.8069958686828613,
+        "n": 0.4557811915874481,
+        "rimPatch": 0.10390762984752655
+      }
+    },
+    {
+      "field": [
+        327,
+        267
+      ],
+      "actualQ8G": {
+        "gl": 27,
+        "native": 26
+      },
+      "cpuSequential": {
+        "wp": [
+          3.930000066757202,
+          -3.690000057220459
+        ],
+        "second": [
+          42.01100158691406,
+          7.936999320983887
+        ],
+        "firstNoise": 0.25012487173080444,
+        "secondNoise": 0.8021767735481262,
+        "n": 0.45438408851623535,
+        "rimPatch": 0.1022614985704422
+      },
+      "cpuFusedHypothesis": {
+        "wp": [
+          3.930000066757202,
+          -3.690000057220459
+        ],
+        "second": [
+          42.01100158691406,
+          7.936999320983887
+        ],
+        "firstNoise": 0.25012487173080444,
+        "secondNoise": 0.8077496290206909,
+        "n": 0.4564460515975952,
+        "rimPatch": 0.10484334826469421
+      }
+    },
+    {
+      "field": [
+        324,
+        268
+      ],
+      "actualQ8G": {
+        "gl": 26,
+        "native": 25
+      },
+      "cpuSequential": {
+        "wp": [
+          3.8940000534057617,
+          -3.702000141143799
+        ],
+        "second": [
+          41.91379928588867,
+          7.904599189758301
+        ],
+        "firstNoise": 0.2473718822002411,
+        "secondNoise": 0.7925322651863098,
+        "n": 0.4490812420845032,
+        "rimPatch": 0.10000000149011612
+      },
+      "cpuFusedHypothesis": {
+        "wp": [
+          3.8940000534057617,
+          -3.702000141143799
+        ],
+        "second": [
+          41.91379928588867,
+          7.904599189758301
+        ],
+        "firstNoise": 0.2473718822002411,
+        "secondNoise": 0.7979346513748169,
+        "n": 0.4510800838470459,
+        "rimPatch": 0.100139319896698
+      }
+    }
+  ],
+  "limits": [
+    "Contraction toggled in hash multiply-add and second coordinates together; does not isolate an instruction",
+    "CPU mix chosen a*(1-t)+b*t; GL/WGSL optimizer choices not observed",
+    "No inside/pressure float captured; actualQ8G is not identified as rimPatch alone",
+    "No cause, shaderchange, FMAcandidate or portability claim"
+  ]
+}
