@@ -1,4 +1,4 @@
-import type{Dab}from '@grafetto/shared'
+import type{Dab,StrokeOperation}from '@grafetto/shared'
 import{createCanonicalStrokeChunkState,prepareCanonicalStrokeChunk,type CanonicalDrawCommand}from '../../../../apps/web/src/engine/src/dabs/canonicalStrokeChunk'
 import{presetForTool}from '../../../../apps/web/src/engine/src/presets/resolvePreset'
 import{ribbonProfileFor}from '../../../../apps/web/src/engine/src/dabs/ribbonProfile'
@@ -24,3 +24,5 @@ export function movingContactSegments():CanonicalDrawCommand[][]{
  const state=createCanonicalStrokeChunkState(),name='normal:100:100:PB29:round',preset=presetForTool('watercolor',name),profile=ribbonProfileFor('watercolor',name,0)
  return MOVING_CONTACT_DABS.map(dab=>prepareCanonicalStrokeChunk(state,{dabs:[dab],previous:state.lastKept,preset,presetName:name,profile,color:[.2,0,.6],wetProfile:'0',strokeSeed:[76.17525773195877,164.67415730337078],tile:{originX:0,originY:0,buffer:{width:1024,height:1024}},film:true,segmentMode:'combined',segmented:true,options}).commands)
 }
+
+export function movingSettleOperation():StrokeOperation{return{id:'qa-728-tip-moving',strokeId:'qa-728-tip-moving',userId:'qa-728-tip',layerId:'qa-layer',washId:'qa-wash',timestamp:1791480000000,type:'stroke',tool:'watercolor',preset:'normal:100:100:PB29:round',color:[.2,0,.6],dabs:MOVING_CONTACT_DABS.map(d=>({...d})),wet:'00000000'}}
