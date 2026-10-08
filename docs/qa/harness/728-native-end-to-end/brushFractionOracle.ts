@@ -2,6 +2,7 @@
 import {DISPLAY_VERT} from '../../../../apps/web/src/engine/src/raster/shaders'
 import {decodePreBrush68Checkpoint} from './preBrush68Codec'
 import {BRUSH68_ROI as R,BRUSH68_FLOW_RECT} from './preBrush68Checkpoint'
+import {runPreBrush68NativeGate} from './preBrush68NativeGate'
 import {brushFractionGlShader,brushFractionWgslShader,brushFractionRows} from './brushFractionProbe'
 /** 16 directed faces at TWO actual mismatch cells. Output RGBA32F only,
  * not material replacement. GL full viewport is translated into1x1 FBO to
@@ -25,4 +26,15 @@ export async function runBrushFractionOracle(packet:unknown){
   const uniform=device.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),out=device.createBuffer({size:256,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC}),read=device.createBuffer({size:256,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});buffers.push(uniform,out,read);const values=new Float32Array(20);values.set([1/1536,1/1536,1/1536,1/1536,...BRUSH68_FLOW_RECT,.6437950134277344,0,0,0]);device.queue.writeBuffer(uniform,0,values);const module=device.createShaderModule({code:brushFractionWgslShader()}),pipeline=device.createComputePipeline({layout:'auto',compute:{module,entryPoint:'probe'}}),sampler=device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'clamp-to-edge',addressModeV:'clamp-to-edge'}),group=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},...[p,c,flow,water].map((v,i)=>({binding:i+1,resource:v})),{binding:5,resource:sampler},{binding:6,resource:{buffer:out}}]}),encoder=device.createCommandEncoder(),pass=encoder.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(1);pass.end();encoder.copyBufferToBuffer(out,0,read,0,256);device.queue.submit([encoder.finish()]);await read.mapAsync(GPUMapMode.READ);const actual=new Float32Array(read.getMappedRange()).slice();read.unmap();const glBits=new Uint32Array(expected.buffer),nativeBits=new Uint32Array(actual.buffer),validation=(await device.popErrorScope())?.message??null
   return{code:'__SOURCE_CODE__',producerCode:(packet as any).code,flowSha256:(packet as any).flow.sha256,rows:rows.map((r,i)=>({...r,gl:Array.from(expected.subarray(i*4,i*4+4)),native:Array.from(actual.subarray(i*4,i*4+4)),glBits:Array.from(glBits.subarray(i*4,i*4+4)),nativeBits:Array.from(nativeBits.subarray(i*4,i*4+4))})),columns:['raw','fraction','P.rByte*fraction','floor(P.rByte*fraction)'],glOwnerRetired:true,errors,lost,validation,scope:'TWO actual brush68 mismatch cells ×8 directed donor faces. Same unchanged helper bodies; different float output pipeline can change compiler optimisation. Compare transfers to original material pipeline before calling this a cause. No physical/Q8 output replacement, epsilon, Room, whole solver or performance claim.'}
  }finally{await device.queue.onSubmittedWorkDone().catch(()=>{});buffers.forEach(b=>b.destroy());nativeTextures.forEach(t=>t.destroy());device.destroy()}
+}
+
+/** Corroborate diagnostic floats against the unchanged material shader.
+ * All THREE owners retire sequentially; no ordinary source reprepare. */
+export async function runBrushFractionGate(packet:unknown){
+ const floats=await runBrushFractionOracle(packet)
+ if(floats.validation||floats.errors.length||floats.lost)throw Error('Fraction float pipeline invalid')
+ const material=await runPreBrush68NativeGate(packet),input=await decodePreBrush68Checkpoint(packet)
+ if(material.validation||material.errors.length||material.lost)throw Error('Fraction original material pipeline invalid')
+ const reconstruction=[0,1].map(i=>{const rows=floats.rows.slice(i*8,i*8+8),x=rows[0].fieldX,y=rows[0].fieldY,k=((y-R.y)*R.width+x-R.x)*4,old=input.rows[0].bytes[k],gl=old+rows.slice(4).reduce((a,r)=>a+r.gl[3],0)-rows.slice(0,4).reduce((a,r)=>a+r.gl[3],0),native=old+rows.slice(4).reduce((a,r)=>a+r.native[3],0)-rows.slice(0,4).reduce((a,r)=>a+r.native[3],0),glOriginal=input.rows[3].bytes[k],nativeOriginal=material.comparisons[0].witnesses[i].actual[0];return{x,y,old,glFloatReconstruction:gl,nativeFloatReconstruction:native,glOriginal,nativeOriginal,glAgrees:gl===glOriginal,nativeAgrees:native===nativeOriginal}})
+ return{code:'__SOURCE_CODE__',floats,material,reconstruction,floatMaterialAgreement:reconstruction.every(r=>r.glAgrees&&r.nativeAgrees),errors:[],lost:false,validation:null,scope:'TWO mismatch cells only. Float-helper diagnosis is causal candidate ONLY if both reconstructions match original Q8 material pipelines. No epsilon, changed fraction/floor, portfix, whole solver or Room claim.'}
 }
