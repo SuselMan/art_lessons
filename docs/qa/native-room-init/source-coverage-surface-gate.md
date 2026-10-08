@@ -9,3 +9,11 @@ Surface hardware gate завершён без validation errors, minimum availab
 Stamp37 также имеет32 B и32 A различия в других точках (max5), но целевые probes там совпадают. Поэтому единая гипотеза stamp sin/cos недостаточна. Следующий шаг: supplied ribbon44 vertices/interpolation/fragment math при том же previousGL input. Отдельно необходимы координаты первого B/A mismatch stamp37.
 
 Полный raw: temp/device-runs/native-source-only-surface/report.json (игнорируется Git). Машиночитаемые выбранные строки: source-coverage-surface-summary.json. Это source-only primitive fidelity, не обычная Room400, не показатель производительности и не исправление качества.
+
+## Следующая диагностическая граница
+
+Read-only source audit: stride44, offsets0/8/12/16/20/24/28/32 и Float32 локализация совпадают с production GL. Snapped позиция1/64 и resolution1024 сохраняют двоичные координаты при обоих вариантах clip; generic literal clip rewrite без данных здесь не оправдан.
+
+CPU barycentric анализ исходной команды44 в центре world572.5/435.5 обнаружил шесть перекрывающихся треугольников:9,58,155,207,255,303. Первые четыре имеют edge≈3, последние edge≈2.613097 и1.426937. Across лежит около−0.53664, pressure0.8; standing1. Значит наблюдаемая Q8 alpha зависит от контакта щетины и шести последовательных OVER, а не только от края геометрии.
+
+Callable следующей проверки: runSourceCoverage({operation:fixture.operation,indices:[44],probeSites:[[572,435]],ditherBoth:true,debugRibbonTriangles:[9,58,155,207,255,303]}). Только диагностический fragment output заменён24-bit RGB encoding для amplifiedAcross/edge/tip/amount, alpha1; geometry, uniforms и функции unchanged. Это не float framebuffer:24-bit наблюдения имеют собственную границу округления. GL DITHER ON/OFF проверяется отдельно в штатной последовательности. Software WGSL compilation+render pipelines4/4 PASS; CPU guards2tests PASS; hardware этого диагностического шага ещё не запускался.
