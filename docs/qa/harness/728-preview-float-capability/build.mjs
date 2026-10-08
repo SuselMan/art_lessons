@@ -1,0 +1,6 @@
+import{mkdir,copyFile,readFile,writeFile}from'node:fs/promises';import{createHash}from'node:crypto';import{resolve,dirname}from'node:path';import{fileURLToPath}from'node:url';import{execFileSync}from'node:child_process';
+const here=dirname(fileURLToPath(import.meta.url)),out=resolve(process.argv[2]??'temp/preview-float-capability');await mkdir(out,{recursive:true});
+const src=await readFile(here+'/run.mjs','utf8');await writeFile(out+'/run.mjs',src.replace("../728-room-moment/PreviewPairedFloatAllocator.mjs","./PreviewPairedFloatAllocator.mjs"));
+await copyFile(here+'/../728-room-moment/PreviewPairedFloatAllocator.mjs',out+'/PreviewPairedFloatAllocator.mjs');await copyFile(here+'/index.html',out+'/index.html');
+const files=[];for(const name of['index.html','run.mjs','PreviewPairedFloatAllocator.mjs']){const bytes=await readFile(out+'/'+name);files.push({name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')})}
+await writeFile(out+'/manifest.json',JSON.stringify({schemaVersion:1,sourceHead:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),scope:'OFF own128 Float32 capability only',files},null,2));console.log(JSON.stringify({out,files,totalBytes:files.reduce((s,f)=>s+f.bytes,0)}));
