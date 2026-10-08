@@ -137,3 +137,16 @@ bounded decompression validate before creating nativeGPU. CPU comparisons return
 R/G/B/A changed-count/max/sum separately; diagnostic queries/copies are excluded
 from performance claims. Hardware remains pending until a separately allocated
 Surface slot. Maximum per-stage deadline120s, preflight1700MiB/abort500MiB.
+
+Pressure seed mode10 reuses the durable nonempty `ops[1].c` and original coverage;
+`preparePressureSeedInput.mjs` rejects changed producer/checkpoint/field checksums
+or rectangle proof. `commonSourcePlannerTrace.ts` computes the CPU recipe from
+that packet and verifies the producer's planner source is byte-identical to the
+current source. The trace describes call arguments, not shader pixel execution.
+`GATE_API=pressure` uses the existing guarded Surface controller and a gzip-only
+options file. One serial GL then WebGPU primitive draw at1536, without rerunning
+the source/full solver. The actual mode10 branch does not access paper/noise;
+results explicitly preserve this narrow scope. GL uses its default enabled
+DITHER; Q8 inputs/nearest samplers and Float32 uniforms match both APIs. GPU
+fields:27MiB perAPI, plus native9MiB readback; GL retires before native allocation.
+No large numeric arrays are sent through CDP. Deadline120s/preflight1700/abort500.
