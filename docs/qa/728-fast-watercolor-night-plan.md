@@ -304,3 +304,22 @@ Production/main не изменены. Новые варианты остают�
   и проверяет новый wash, сохраняя ограничения области применения.
 - Original GL контроль учитывает активный и фоновый слой;3 CPU теста проходят.
   Аппаратное равенство с native пока не проверено. Push/main/deploy не выполнялись.
+
+### Аппаратные проверки той же контрольной точки
+
+- Finite preview ONE на Surface завершён:13 stages, GL0/lostfalse, внутренний
+  Dry/Undo/Redo exact. Малое ядро сохраняется, широкого растекания нет.
+  Причина: отсутствуют front/carry/remobilization, выполняемые canonical до
+  diffusion. Кандидат ещё не готов для смотрины; следующий primitive OFF
+  воспроизводит pressure и paired carry на собственных полях.
+- Original GL replay той же native packed tape завершён без GL ошибок.
+  Strict material equality не пройдена:91297 pixels отличаются; maxRGB255
+  нельзя интерпретировать как типичную видимую ошибку из-за low-alpha PNG.
+  Снимки визуально близки. Площадь nonzero-alpha отличается всего на7pixels
+  по count, не XOR. Premultiplied/material attribution ещё открыта.
+- Corrected full-idle reuse:4started, DOWNfinish0, free main/preview3/3 после
+  idle; GL0/lostfalse, tape4. Общий verdict FAIL из-за HTTP403/404 console,
+  итоговый RGBA не снят. Поэтому endpoint и аппаратная совместимость
+  finite+reuse не доказаны. Агент локализует запросы без общего подавления
+  ошибок. PostRAM1595MiB: новые аппаратные прогоны до свежего preflight
+  не выполняются; независимая offline работа всех трёх направлений продолжается.
