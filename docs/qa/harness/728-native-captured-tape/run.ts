@@ -1,3 +1,4 @@
+import './pointerPerf'
 import './centreFixture'
 import {runWetPresentationSnapshot} from '../728-native-wet-presentation/run'
 import {runEndToEnd} from '../728-native-end-to-end/run'
