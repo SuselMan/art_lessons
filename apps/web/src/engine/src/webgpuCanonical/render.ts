@@ -16,7 +16,7 @@ export class CanonicalComposite {
   this.clamp=device.createSampler({minFilter:'nearest',magFilter:'nearest'})
   this.repeat=device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'repeat',addressModeV:'repeat'})
  }
- encode(encoder:GPUCommandEncoder,fields:CanonicalWatercolorFields,original:CanonicalGpuField,paper:CanonicalGpuField,noise:CanonicalGpuField,out:CanonicalGpuField,v:CanonicalCompositeUniforms,scissor?:readonly[number,number,number,number]):GPUBuffer[] {
+ encode(encoder:GPUCommandEncoder,fields:Pick<CanonicalWatercolorFields,'coverage'|'pigment'|'color'>,original:CanonicalGpuField,paper:CanonicalGpuField,noise:CanonicalGpuField,out:CanonicalGpuField,v:CanonicalCompositeUniforms,scissor?:readonly[number,number,number,number]):GPUBuffer[] {
   return withTransientGpuBuffers(retain=>{
   if(v.migrate!==0)throw new Error('Canonical composite migration is unsupported; production profile requires migrate=0')
   if([original,fields.coverage,fields.pigment,fields.color,paper,noise].some(field=>field.texture===out.texture))throw new Error('Canonical composite requires a distinct output texture')

@@ -66,6 +66,6 @@ export class CanonicalSingleTileFinish {
   const x1=Math.min(tile.buffer.width,Math.ceil(input.bounds.maxX)+1-tile.originX),y1=Math.min(tile.buffer.height,Math.ceil(input.bounds.maxY)+1-tile.originY)
   if(x1<=x0||y1<=y0)return[]
   const v:CanonicalCompositeUniforms={paperOrigin:[tile.originX,-tile.originY||0],paperTexSize:this.backend.paper.texSize,paperScale:[this.backend.paper.scale,this.backend.paper.scale],fieldOffset:input.fieldSeed,inkSmoothPx,water:input.water,inkStrength:p.pigmentStrength,spreadPx:input.spreadPx,edgeWander:p.edgeWander,edgeSoft:p.edgeSoft,bristleCombs:ribbonBristleCombs(p,input.bristleRadiusPx),dryContact:p.dryContact,granulation:p.granulation,wetEdge:p.wetEdge,wetEdgeRadiusPx:p.wetEdgeRadiusPx,tideLo:p.tideLo,tideHi:p.tideHi,paperRim:p.paperRim,opacity:input.opacity,pigmentOpacity:p.pigmentOpacity,debugView:input.debugView??0,rectComposite:true,migrate:0}
-  return this.composite.encode(encoder,{...this.backend.fields,coverage:source.coverage.field,pigment:source.pigment.field,color:source.color.field},source.original.field,this.backend.paper.field,this.backend.noise,tile.buffer.field,v,[x0,tile.buffer.height-y1,x1-x0,y1-y0])
+  return this.composite.encode(encoder,{coverage:source.coverage.field,pigment:source.pigment.field,color:source.color.field},source.original.field,this.backend.paper.field,this.backend.noise,tile.buffer.field,v,[x0,tile.buffer.height-y1,x1-x0,y1-y0])
  }
 }
