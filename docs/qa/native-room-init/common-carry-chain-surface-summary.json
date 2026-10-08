@@ -1,0 +1,133 @@
+{
+  "task": "#728: точность переноса акварели",
+  "raw": "temp/device-runs/carry-chain-023/report.json",
+  "source": "023824329a091ca3ba7076f354fc064d6b9e8556",
+  "scope": "Surface: 14 оригинальных carry Q8 проходов, общий исходный GL input, собственный ping-pong каждой API без oracle reset; pressure hardware LINEAR, mobile NEAREST. Не доказательство Room/full solver.",
+  "result": {
+    "operator": "carryChain14CommonLiveInputs",
+    "strides": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32,
+      64,
+      64,
+      32,
+      16,
+      8,
+      4,
+      2,
+      1
+    ],
+    "firstReferenceSha256": "d70fae52c63d1ec6bf8930cc258f503656a418a32659b43fd334a0e5b33f0d11",
+    "noPerStepReset": true,
+    "sourceFilter": "hardware LINEAR pressure / NEAREST mobile",
+    "channels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "exact": true,
+    "expectedSha256": "e7a47a642667998b8fb91762fd3dc5aaca295114306b6fc412a00acbf86b0264",
+    "actualSha256": "e7a47a642667998b8fb91762fd3dc5aaca295114306b6fc412a00acbf86b0264",
+    "glOwnerRetired": true,
+    "glError": 0,
+    "errors": [],
+    "lost": false,
+    "validation": null,
+    "inputManifest": [
+      {
+        "role": "mobile",
+        "filter": "nearest",
+        "sha256": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "width": 1536,
+        "height": 1536,
+        "bytes": 9437184,
+        "rowConvention": "world-top",
+        "sourceApi": "GL",
+        "packetSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f"
+      },
+      {
+        "role": "pressure",
+        "filter": "linear",
+        "sha256": "288caf3f8a39735b582e759b2f72dd4f295d5590674d8c59bfea7f11b3012e50",
+        "width": 1536,
+        "height": 1536,
+        "bytes": 9437184,
+        "rowConvention": "world-top",
+        "sourceApi": "GL",
+        "packetSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f"
+      }
+    ],
+    "producerPassport": {
+      "inputHashes": {
+        "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+        "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+      },
+      "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "checkpointSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+      "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+      "traceSha256": "f30a15e912c11297b310b7db05037cfe2dd211f28364f8305b8cd62072ff13a6",
+      "frontRecipe": {
+        "x0": 0,
+        "y0": 40,
+        "scale": 1,
+        "dryCost": 50.27954292297363,
+        "max": 104.55908584594727,
+        "climb": 30,
+        "floor": 0.85,
+        "stride": 1,
+        "paperWorld": {
+          "w": 1024,
+          "h": 1024
+        },
+        "paperScale": 1,
+        "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+        "steps": 141
+      }
+    }
+  },
+  "movement": [
+    {
+      "changed": 33350,
+      "max": 207,
+      "sum": 867376
+    },
+    {
+      "changed": 33350,
+      "max": 207,
+      "sum": 867376
+    },
+    {
+      "changed": 33350,
+      "max": 207,
+      "sum": 867376
+    },
+    {
+      "changed": 33350,
+      "max": 207,
+      "sum": 867376
+    }
+  ],
+  "next": "Общий фактический P/C/water/flow input перед первым brush68; без повторного whole-end."
+}
