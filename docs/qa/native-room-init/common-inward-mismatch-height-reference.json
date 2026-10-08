@@ -66,7 +66,9 @@
             29
           ],
           "heightDouble": 0.296078431372549,
-          "heightDeltaDouble": 0.18039215686274507
+          "heightDeltaDouble": 0.18039215686274507,
+          "reliefDouble": 12.742030141493643,
+          "minimumWetEdgeCostDouble": 12.742030141493643
         },
         {
           "field": [
@@ -92,7 +94,9 @@
             137
           ],
           "heightDouble": 0.49607843137254903,
-          "heightDeltaDouble": -0.019607843137254943
+          "heightDeltaDouble": -0.019607843137254943,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -118,7 +122,9 @@
             179
           ],
           "heightDouble": 0.6225490196078431,
-          "heightDeltaDouble": -0.14607843137254906
+          "heightDeltaDouble": -0.14607843137254906,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -144,7 +150,9 @@
             124
           ],
           "heightDouble": 0.40588235294117647,
-          "heightDeltaDouble": 0.07058823529411762
+          "heightDeltaDouble": 0.07058823529411762,
+          "reliefDouble": 5.594707446671424,
+          "minimumWetEdgeCostDouble": 5.594707446671424
         },
         {
           "field": [
@@ -170,7 +178,9 @@
             187
           ],
           "heightDouble": 0.6588235294117647,
-          "heightDeltaDouble": -0.1823529411764706
+          "heightDeltaDouble": -0.1823529411764706,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.70710678
         },
         {
           "field": [
@@ -196,7 +206,9 @@
             113
           ],
           "heightDouble": 0.5166666666666667,
-          "heightDeltaDouble": -0.04019607843137263
+          "heightDeltaDouble": -0.04019607843137263,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.70710678
         },
         {
           "field": [
@@ -222,7 +234,9 @@
             119
           ],
           "heightDouble": 0.4764705882352941,
-          "heightDeltaDouble": 0.0
+          "heightDeltaDouble": 0.0,
+          "reliefDouble": 1.0,
+          "minimumWetEdgeCostDouble": 1.41421356
         },
         {
           "field": [
@@ -248,9 +262,22 @@
             9
           ],
           "heightDouble": 0.37941176470588234,
-          "heightDeltaDouble": 0.09705882352941175
+          "heightDeltaDouble": 0.09705882352941175,
+          "reliefDouble": 7.3177227391732105,
+          "minimumWetEdgeCostDouble": 10.348822726059097
         }
-      ]
+      ],
+      "noiseDoubleReference": {
+        "coords": [
+          58.087500000000006,
+          -2.6625000000000014
+        ],
+        "first": 0.5991095396423354,
+        "second": 0.6120707023297195,
+        "fbm": 0.6039051698366675,
+        "smooth": 0.8348614804640867,
+        "climb": 65.0916888278452
+      }
     },
     {
       "centre": {
@@ -303,7 +330,9 @@
             124
           ],
           "heightDouble": 0.40588235294117647,
-          "heightDeltaDouble": -0.026470588235294135
+          "heightDeltaDouble": -0.026470588235294135,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -329,7 +358,9 @@
             159
           ],
           "heightDouble": 0.4676470588235294,
-          "heightDeltaDouble": -0.08823529411764708
+          "heightDeltaDouble": -0.08823529411764708,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -355,7 +386,9 @@
             137
           ],
           "heightDouble": 0.49607843137254903,
-          "heightDeltaDouble": -0.1166666666666667
+          "heightDeltaDouble": -0.1166666666666667,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -381,7 +414,9 @@
             177
           ],
           "heightDouble": 0.5137254901960784,
-          "heightDeltaDouble": -0.13431372549019605
+          "heightDeltaDouble": -0.13431372549019605,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -407,7 +442,9 @@
             73
           ],
           "heightDouble": 0.4764705882352941,
-          "heightDeltaDouble": -0.09705882352941175
+          "heightDeltaDouble": -0.09705882352941175,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.70710678
         },
         {
           "field": [
@@ -433,7 +470,9 @@
             137
           ],
           "heightDouble": 0.5313725490196078,
-          "heightDeltaDouble": -0.1519607843137255
+          "heightDeltaDouble": -0.1519607843137255,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.70710678
         },
         {
           "field": [
@@ -459,7 +498,9 @@
             51
           ],
           "heightDouble": 0.30392156862745096,
-          "heightDeltaDouble": 0.07549019607843138
+          "heightDeltaDouble": 0.07549019607843138,
+          "reliefDouble": 6.219488437040912,
+          "minimumWetEdgeCostDouble": 8.795684883926464
         },
         {
           "field": [
@@ -485,9 +526,22 @@
             87
           ],
           "heightDouble": 0.4264705882352941,
-          "heightDeltaDouble": -0.047058823529411764
+          "heightDeltaDouble": -0.047058823529411764,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.70710678
         }
-      ]
+      ],
+      "noiseDoubleReference": {
+        "coords": [
+          58.0625,
+          -2.6875
+        ],
+        "first": 0.6186633035248401,
+        "second": 0.6031911252827222,
+        "fbm": 0.6129385975752565,
+        "smooth": 0.9023545899960452,
+        "climb": 69.14127539976272
+      }
     },
     {
       "centre": {
@@ -540,7 +594,9 @@
             119
           ],
           "heightDouble": 0.4764705882352941,
-          "heightDeltaDouble": -0.07058823529411762
+          "heightDeltaDouble": -0.07058823529411762,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -566,7 +622,9 @@
             9
           ],
           "heightDouble": 0.37941176470588234,
-          "heightDeltaDouble": 0.026470588235294135
+          "heightDeltaDouble": 0.026470588235294135,
+          "reliefDouble": 2.704597183134471,
+          "minimumWetEdgeCostDouble": 2.704597183134471
         },
         {
           "field": [
@@ -592,7 +650,9 @@
             73
           ],
           "heightDouble": 0.4764705882352941,
-          "heightDeltaDouble": -0.07058823529411762
+          "heightDeltaDouble": -0.07058823529411762,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.5
         },
         {
           "field": [
@@ -618,7 +678,9 @@
             51
           ],
           "heightDouble": 0.30392156862745096,
-          "heightDeltaDouble": 0.10196078431372552
+          "heightDeltaDouble": 0.10196078431372552,
+          "reliefDouble": 7.56585581651796,
+          "minimumWetEdgeCostDouble": 7.56585581651796
         },
         {
           "field": [
@@ -644,7 +706,9 @@
             29
           ],
           "heightDouble": 0.296078431372549,
-          "heightDeltaDouble": 0.10980392156862745
+          "heightDeltaDouble": 0.10980392156862745,
+          "reliefDouble": 8.070921648557801,
+          "minimumWetEdgeCostDouble": 11.414006837087998
         },
         {
           "field": [
@@ -670,7 +734,9 @@
             137
           ],
           "heightDouble": 0.49607843137254903,
-          "heightDeltaDouble": -0.09019607843137256
+          "heightDeltaDouble": -0.09019607843137256,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.70710678
         },
         {
           "field": [
@@ -696,7 +762,9 @@
             77
           ],
           "heightDouble": 0.33725490196078434,
-          "heightDeltaDouble": 0.06862745098039214
+          "heightDeltaDouble": 0.06862745098039214,
+          "reliefDouble": 5.419326030348624,
+          "minimumWetEdgeCostDouble": 7.664084358179996
         },
         {
           "field": [
@@ -722,14 +790,30 @@
             177
           ],
           "heightDouble": 0.5137254901960784,
-          "heightDeltaDouble": -0.10784313725490191
+          "heightDeltaDouble": -0.10784313725490191,
+          "reliefDouble": 0.5,
+          "minimumWetEdgeCostDouble": 0.70710678
         }
-      ]
+      ],
+      "noiseDoubleReference": {
+        "coords": [
+          58.087500000000006,
+          -2.6875
+        ],
+        "first": 0.6198702024422442,
+        "second": 0.5729465767788284,
+        "fbm": 0.6025084609467803,
+        "smooth": 0.8232648930846662,
+        "climb": 64.39589358507997
+      }
     }
   ],
   "limits": [
     "Ideal native center transform yields half-texel bilerp weights .5/.5 here; GL interpolated UV precision not captured.",
     "Raw scalar height comparison does not include FBM climb or cost neighbors; no cause or FMA claim.",
-    "Q8 G exact does not establish equal prequantized GPU height."
-  ]
+    "Q8 G exact does not establish equal prequantized GPU height.",
+    "CPU DOUBLE FBM and relief references appended; they are neither measured GL/WGSL values nor F32 threshold proof.",
+    "Actual film smoothstep and predecessor costs absent; minimumWetEdgeCost is full-wet factor1, not actual chosen edge."
+  ],
+  "noiseAssetTextSha256": "e9f8daa19424c91c5b1785b8cbcaeabb8ec82daa3ec6d20d3099b81dd2c61203"
 }
