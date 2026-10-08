@@ -9,7 +9,7 @@ export function installSchedulerGapProbe(e,{limit=768,now=()=>performance.now(),
   object[key]=wrapper;hooks.push(()=>{if(object[key]!==wrapper)throw Error('Scheduler probe overwritten '+label);object[key]=original});
  };
  for(const [key,p]of[['_handleDown','down'],['_handleMove','move'],['_handleUp','up']])wrap(e._pointer,key,'PointerInput.'+key,p);
- for(const key of ['_onStart','_onMove','_onEnd','_advanceAsyncCanonical','_runSlice','_finishRibbonStroke','_prepareRibbonSettle','_scheduleDisplay','_render'])wrap(e,key,'Engine.'+key);
+ for(const key of ['_onStart','_onMove','_onEnd','_advanceAsyncCanonical','_runSlice','_finishRibbonStroke','_prepareRibbonSettle','_display'])wrap(e,key,'Engine.'+key);
  for(const key of ['enqueue','advance','cancel'])wrap(e._wcCanonical,key,'CanonicalFIFO.'+key);
  for(const key of ['start','tick','advance','complete'])wrap(e._settleQueue,key,'SettleQueue.'+key);
  const tick=at=>{if(closed)return;append({kind:'raf',at,gapMs:lastFrame===null?null:at-lastFrame,state:state()});lastFrame=at;if(records.length<limit)frame=raf(tick);else frame=0};frame=raf(tick);
