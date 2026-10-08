@@ -13,6 +13,7 @@ export async function runMovingContactVariant(variant:TipVariant){
  device.addEventListener('uncapturederror',e=>errors.push(e.error.message))
  // Context-owned facade; global GPU prototypes and other pages are untouched.
  const scoped=new Proxy(device,{get(target,key){if(key==='createShaderModule')return(desc:GPUShaderModuleDescriptor)=>{const code=desc.code.includes('fn paint(')&&desc.code.includes('fn wcTipContact')?tipVariantShader(desc.code,variant):desc.code;if(code!==desc.code)patches.push(desc.label??'source module');return target.createShaderModule({...desc,code})};const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value}})
+ try {
  const backend=Reflect.construct(CanonicalWatercolorWebGpu,[scoped,{roomOwnedResources:true,canvas:document.createElement('canvas'),width:1024,height:1024,paper:{bytes:new Uint8Array([255,255,255,255]),width:1,height:1,origin:[0,0],texSize:[1024,1024],scale:1}}]) as CanonicalWatercolorWebGpu
  const pool=new CanonicalScratchPool(backend),scratch=new CanonicalTileScratch(pool),tile=new CanonicalFieldBuffer(backend,1024,1024),target={buffer:tile,originX:0,originY:0,contentRect:null},plan=new CanonicalPlanAdapter(backend)
  device.pushErrorScope('validation')
@@ -28,4 +29,5 @@ export async function runMovingContactVariant(variant:TipVariant){
   const error=await device.popErrorScope();if(error)errors.push(error.message)
   return{variant,groups,errors,patches,roi:{x:272,yTop:352,w:384,h:192},segments:segments.map(c=>c.map(v=>({kind:v.kind,phase:v.phase}))),commandSha256:Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(commandFingerprint(segments.flat())))),x=>x.toString(16).padStart(2,'0')).join(''),scope:'Actual canonical CPU/source GPU phases, controlled fixed-radius8dab fixture; no settle/presentation/Room/live-input/quality claim. Flat paper unused by this source-only comparison.'}
  }finally{scratch.destroy();pool.destroy();tile.destroy();backend.destroy()}
+ } finally {device.destroy()}
 }
