@@ -73,6 +73,14 @@ test('OFF source copies actual P/C after emit, survives until successful publica
  e.emitPrepared({ordinal:8,strokeId:'common',metadata:{gesture:8},materialGesture:8,segment:{rect:[220,494,260,260],film:true,commands:[]}})
  await e.publishCurrentToGl();const common=window.__momentStageResults[0]
  assert.equal(common.stages.length,20);assert.deepEqual(common.capture,{x:182,y:82,width:78,height:96});assert(origins.every(o=>o.origin[0]===402&&o.origin[1]===352&&o.stride===512));assert.equal(common.stages.find(s=>s.stage==='source-solventLoad').byteLength,78*96*4);assert.equal(common.stages.find(s=>s.stage==='post-foreignSolventLoad').absent,true);assert.deepEqual(common.sourceMetadata.history.foreignSourcesKey,['priorWater'])
+
+ // One actual observer -> padded readback -> strict decoder -> durable ACK
+ // pipeline, rather than independently fabricated decoder metadata.
+ window.__engine={_display(){},canvas:{width:1024,height:1024},_camera:{screenToWorldMatrix:()=>[1,0,0,0,1,0,0,0,1]},gl:{RGBA:1,UNSIGNED_BYTE:2,readPixels(x,y,w,h,format,type,pixels){pixels.fill(23)},getError:()=>0}}
+ window.__momentStageResults.length=0;window.__momentStagePayloads.clear()
+ for(const x of [270,220,320]){e.emitPrepared({ordinal:8,strokeId:'common-'+x,metadata:{gesture:8},materialGesture:8,segment:{rect:[x,494,260,260],film:true,commands:[]}});await e.publishCurrentToGl()}
+ const fs=await import('node:fs'),os=await import('node:os'),path=await import('node:path'),{transferStages}=await import('./stage-transfer.mjs'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'observer-transfer-'))
+ try{const decoded=await transferStages(async(f,a)=>f(a),dir,{sourceOnly:true,activeSnapshot:true,waterHistory:true,worldROI:[402,352,78,96]});assert.equal(decoded.meta.length,3);assert(decoded.meta.every(r=>r.stages.length===21));assert.equal(window.__momentStagePayloads.size,0);assert.equal(fs.statSync(dir+'/stage-0-8.bin').size,78*96*4);assert.equal(fs.statSync(dir+'/stage-0-9.bin').size,0);assert(decoded.byteLength<3*1024*1024)}finally{fs.rmSync(dir,{recursive:true,force:true});delete window.__engine}
  assert.throws(()=>e.emitPrepared({ordinal:9,segment:{rect:[0,924,100,100],commands:[]}}),/outside actual source/)
  window.__restoreMomentStageProbe()
  await assert.rejects(install(false,{activeSnapshot:true}),/source-only/)
