@@ -59,7 +59,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,di
  // Conservative soft policy, NOT available VRAM measurement. Full canonical1536 fields remain enabled.
  const memoryGiB=(navigator as Navigator&{deviceMemory?:number}).deviceMemory??null
  const estimatedPeakMiB=512
- if(size===400&&(!allowLarge||memoryGiB!==null&&memoryGiB<4))return{skipped:true,reason:'400 requires explicit allowLarge and >=4GiB reported system memory when available',memoryGiB,estimatedPeakMiB}
+ if(size===400&&(!allowLarge||memoryGiB!==null&&memoryGiB<4))return{code:'__CODE__',skipped:true,reason:'400 requires explicit allowLarge and >=4GiB reported system memory when available',memoryGiB,estimatedPeakMiB}
  const surface=document.querySelector('#surface')!;surface.replaceChildren()
  const canvas=document.createElement('canvas');surface.append(canvas)
  const la=await getPaperBytes('fine'),side=Math.sqrt(la.length/2)
@@ -172,6 +172,6 @@ export async function runSourceCoverage({operation,indices,blank=false,cpuTrig=f
 export async function runSourceContribution({operation,substitutions=[]}:{operation:import('@grafetto/shared').StrokeOperation;substitutions?:number[]}){
  const commands=replaySourceCoverage(operation,sourceOptions),la=await getPaperBytes('fine'),side=Math.sqrt(la.length/2),paper=new Uint8Array(side*side*4)
  for(let i=0;i<la.length/2;i++){paper[i*4]=paper[i*4+1]=paper[i*4+2]=la[i*2];paper[i*4+3]=la[i*2+1]}
- return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),sourceCommands:sourceCommandManifest(commands),oracle:await sourceContribution(commands,paper,side,substitutions),limits:'All original coverage commands only; GL Q8 coverage replacement immediately after selected command; no P/C/settle or Room fidelity/performance claim. Readbacks and recreated GL contexts invalidate timing comparisons.'}
+ return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),sourceCommands:sourceCommandManifest(commands),oracle:await sourceContribution(commands,paper,side,substitutions),limits:'All original coverage commands only; GL Q8 coverage replacement immediately after selected command; no P/C/settle or Room fidelity/performance claim. Persistent GL target with three readback checkpoints; readbacks invalidate timing comparisons.'}
 }
 Object.assign(window,{runEndToEnd,runSourceCoverage,runSourceContribution})
