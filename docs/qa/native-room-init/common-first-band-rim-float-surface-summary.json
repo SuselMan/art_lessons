@@ -1,0 +1,182 @@
+{
+  "scope": "Surface tiny extracted original rimNoise helpers, four points; no full mode6 or Room proof",
+  "source": "d4bf78b25b98567f867f3a7fe1841f1129d70e39",
+  "bundleSha256": "6f7149d44fb71c20e5444c5161878ddd0029230fd90dcf7aa0a8e62f9324ff4d",
+  "memory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 1934.1
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 1935.8
+    }
+  ],
+  "rows": [
+    {
+      "x": 324,
+      "y": 267,
+      "values": [
+        {
+          "name": "firstNoise",
+          "gl": 0.24806107580661774,
+          "native": 0.24802690744400024,
+          "glBits": 1048445881,
+          "nativeBits": 1048443588,
+          "difference": -3.4168362617492676e-05
+        },
+        {
+          "name": "secondNoise",
+          "gl": 0.7954109907150269,
+          "native": 0.7900540232658386,
+          "glBits": 1061920782,
+          "nativeBits": 1061830907,
+          "difference": -0.005356967449188232
+        },
+        {
+          "name": "weightedNoise",
+          "gl": 0.45058053731918335,
+          "native": 0.4485769271850586,
+          "glBits": 1055306366,
+          "nativeBits": 1055239136,
+          "difference": -0.002003610134124756
+        },
+        {
+          "name": "rimPatch",
+          "gl": 0.10004033893346786,
+          "native": 0.10000000149011612,
+          "glBits": 1036837363,
+          "nativeBits": 1036831949,
+          "difference": -4.0337443351745605e-05
+        }
+      ]
+    },
+    {
+      "x": 326,
+      "y": 267,
+      "values": [
+        {
+          "name": "firstNoise",
+          "gl": 0.24954652786254883,
+          "native": 0.2495122253894806,
+          "glBits": 1048545568,
+          "nativeBits": 1048543266,
+          "difference": -3.4302473068237305e-05
+        },
+        {
+          "name": "secondNoise",
+          "gl": 0.806895911693573,
+          "native": 0.8014313578605652,
+          "glBits": 1062113467,
+          "nativeBits": 1062021787,
+          "difference": -0.0054645538330078125
+        },
+        {
+          "name": "weightedNoise",
+          "gl": 0.45576581358909607,
+          "native": 0.4537223279476166,
+          "glBits": 1055480355,
+          "nativeBits": 1055411787,
+          "difference": -0.002043485641479492
+        },
+        {
+          "name": "rimPatch",
+          "gl": 0.10388714075088501,
+          "native": 0.10163518786430359,
+          "glBits": 1037353672,
+          "nativeBits": 1037051420,
+          "difference": -0.002251952886581421
+        }
+      ]
+    },
+    {
+      "x": 327,
+      "y": 267,
+      "values": [
+        {
+          "name": "firstNoise",
+          "gl": 0.25015920400619507,
+          "native": 0.25012484192848206,
+          "glBits": 1048581342,
+          "nativeBits": 1048580189,
+          "difference": -3.4362077713012695e-05
+        },
+        {
+          "name": "secondNoise",
+          "gl": 0.8077496290206909,
+          "native": 0.8021767139434814,
+          "glBits": 1062127790,
+          "nativeBits": 1062034292,
+          "difference": -0.005572915077209473
+        },
+        {
+          "name": "weightedNoise",
+          "gl": 0.4564676582813263,
+          "native": 0.4543840289115906,
+          "glBits": 1055503905,
+          "nativeBits": 1055433990,
+          "difference": -0.0020836293697357178
+        },
+        {
+          "name": "rimPatch",
+          "gl": 0.10487540066242218,
+          "native": 0.10226143896579742,
+          "glBits": 1037486314,
+          "nativeBits": 1037135474,
+          "difference": -0.002613961696624756
+        }
+      ]
+    },
+    {
+      "x": 327,
+      "y": 271,
+      "values": [
+        {
+          "name": "firstNoise",
+          "gl": 0.24769850075244904,
+          "native": 0.2476612776517868,
+          "glBits": 1048421549,
+          "nativeBits": 1048419051,
+          "difference": -3.7223100662231445e-05
+        },
+        {
+          "name": "secondNoise",
+          "gl": 0.8218424320220947,
+          "native": 0.8165934085845947,
+          "glBits": 1062364228,
+          "nativeBits": 1062276164,
+          "difference": -0.0052490234375
+        },
+        {
+          "name": "weightedNoise",
+          "gl": 0.46013176441192627,
+          "native": 0.4581661522388458,
+          "glBits": 1055626852,
+          "nativeBits": 1055560897,
+          "difference": -0.0019656121730804443
+        },
+        {
+          "name": "rimPatch",
+          "gl": 0.11176364868879318,
+          "native": 0.10771191120147705,
+          "glBits": 1038410839,
+          "nativeBits": 1037867024,
+          "difference": -0.004051737487316132
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "glError": 0,
+  "lost": false,
+  "validation": null,
+  "findings": [
+    "All four points differ before Q8, without varyings or sampled input textures.",
+    "Second octave dominates: absolute noise delta .005249..005573 versus first octave .0000342..0000372.",
+    "At (324,267), weightedNoise GL .45058054 versus native .44857693 straddles original .45 threshold.",
+    "Full mode6 rim-off control previously removed G3254/max5; this witness localizes helper arithmetic but does not establish exact instruction or whole-image amplification."
+  ],
+  "next": "Decompose second-octave lattice corner hashes and coordinate arithmetic separately; OFF shared-corner-table control remains different arithmetic semantics, not default fix.",
+  "limits": "Extracted original helpers on identical uniforms/no varying/inputtextures. Optimizer may differ from fullmode6; not finalQ8/Room/performance or instruction cause proof.",
+  "raw": "temp/device-runs/rim-float-d4/report.json"
+}
