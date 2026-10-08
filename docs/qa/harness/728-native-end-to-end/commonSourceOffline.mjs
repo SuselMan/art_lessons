@@ -4,17 +4,17 @@ import http from 'node:http'
 import crypto from 'node:crypto'
 import zlib from 'node:zlib'
 import {chromium} from 'playwright'
-const [bundleArg,outputArg,arm='producer']=process.argv.slice(2)
+const [bundleArg,outputArg,arm='producer',expectedProducerCode]=process.argv.slice(2)
 if(!bundleArg||!outputArg||!['producer','baseline','common'].includes(arm))throw Error('Usage: node commonSourceOffline.mjs BUNDLE OUTPUT producer|baseline|common')
 const bundle=path.resolve(bundleArg),output=path.resolve(outputArg),sha=b=>crypto.createHash('sha256').update(b).digest('hex')
 const provenance=JSON.parse(fs.readFileSync(path.join(bundle,'provenance.json'))),js=fs.readFileSync(path.join(bundle,'run.js'))
 if(!/^[a-f0-9]{40}$/.test(provenance.code)||/__SOURCE_CODE__|__CODE__/.test(js.toString()))throw Error('Unfrozen source passport')
 fs.mkdirSync(output,{recursive:true})
 if(fs.statfsSync(output).bavail*fs.statfsSync(output).bsize<512*1024*1024)throw Error('Disk guard: need512MiB free')
-const artifact=path.join(output,'checkpoint.json'),reportPath=path.join(output,arm+'-report.json')
+const artifact=path.join(output,'checkpoint.json'),reportPath=path.join(output,arm+(expectedProducerCode?'-paired':'')+'-report.json')
 if(fs.existsSync(reportPath))throw Error('Immutable report already exists')
 if(arm==='producer'&&fs.existsSync(artifact))throw Error('Checkpoint already exists; never recapture GL')
-if(arm!=='producer'){const captured=JSON.parse(fs.readFileSync(path.join(output,'producer-report.json')));if(!captured.valid||captured.stage!=='complete'||captured.code!==provenance.code||captured.bundleSha256!==sha(js)||captured.checkpointSha256!==sha(fs.readFileSync(artifact)))throw Error('Durable checkpoint/source passport differs before browser allocation')}
+if(arm!=='producer'){const captured=JSON.parse(fs.readFileSync(path.join(output,'producer-report.json')));if(!captured.valid||captured.stage!=='complete'||captured.code!==(expectedProducerCode??provenance.code)||(!expectedProducerCode&&captured.bundleSha256!==sha(js))||captured.checkpointSha256!==sha(fs.readFileSync(artifact)))throw Error('Durable checkpoint/source passport differs before browser allocation')}
 const report={code:provenance.code,bundleSha256:sha(js),softwareOnly:true,arm,stage:'preflight',valid:false,errors:[]},save=()=>fs.writeFileSync(reportPath,JSON.stringify(report,null,2))
 save()
 const server=http.createServer((req,res)=>{const file=path.resolve(bundle,'.'+new URL(req.url,'http://localhost').pathname);if(!file.startsWith(bundle+'/'))return res.writeHead(403).end();try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.json')?'application/json':'text/html');res.end(fs.readFileSync(file.endsWith('/')?file+'index.html':file))}catch{res.writeHead(404).end()}})
@@ -30,8 +30,8 @@ try{
  await page.waitForFunction(()=>typeof prepareCommonSourceCheckpoint==='function'&&typeof runCommonSourceSolver==='function')
  const operation=JSON.parse(fs.readFileSync('docs/qa/harness/728-native-end-to-end/sourceReplay.fixture.json')).operation
  report.stage='running';save()
- const packed=arm==='producer'?null:JSON.parse(fs.readFileSync(artifact));if(packed&&packed.code!==provenance.code)throw Error('Checkpoint source mismatch')
- const work=page.evaluate(async({operation,packed,arm})=>{const encode=b=>{let s='';for(let i=0;i<b.length;i+=32768)s+=String.fromCharCode(...b.subarray(i,i+32768));return btoa(s)};if(arm==='producer'){const c=await prepareCommonSourceCheckpoint({operation,timeoutMs:300000});return persistCommonSourceCheckpoint(c,(meta,b)=>writeCheckpointChunk(meta,encode(b)))}const c=await restoreCommonSourceCheckpoint(packed,async file=>Uint8Array.from(atob(await readCheckpointChunk(file)),x=>x.charCodeAt(0)));return runCommonSourceSolver({operation,checkpoint:c,commonSource:arm==='common'})},{operation,packed,arm})
+ const packed=arm==='producer'?null:JSON.parse(fs.readFileSync(artifact));if(packed&&packed.code!==(expectedProducerCode??provenance.code))throw Error('Checkpoint source mismatch')
+ const work=page.evaluate(async({operation,packed,arm,expectedProducerCode})=>{const encode=b=>{let s='';for(let i=0;i<b.length;i+=32768)s+=String.fromCharCode(...b.subarray(i,i+32768));return btoa(s)};if(arm==='producer'){const c=await prepareCommonSourceCheckpoint({operation,timeoutMs:300000});return persistCommonSourceCheckpoint(c,(meta,b)=>writeCheckpointChunk(meta,encode(b)))}const c=await restoreCommonSourceCheckpoint(packed,async file=>Uint8Array.from(atob(await readCheckpointChunk(file)),x=>x.charCodeAt(0)));return runCommonSourceSolver({operation,checkpoint:c,commonSource:arm==='common',producerCode:expectedProducerCode})},{operation,packed,arm,expectedProducerCode})
  const result=await Promise.race([work,new Promise((_,reject)=>setTimeout(()=>reject(Error('Bounded '+arm+' timeout')),arm==='producer'?360000:300000).unref())])
  if(result.code!==provenance.code)throw Error('Result source mismatch')
  if(arm==='producer'){if(result.chunks.length!==chunkFiles.size)throw Error('Manifest chunk count mismatch');fs.writeFileSync(artifact,JSON.stringify(result),{flag:'wx'});report.checkpointSha256=sha(fs.readFileSync(artifact));report.sourcePhysicalBytes=result.payload.physicalBytes}else {report.result=result;if(result.gl.error!==0||result.gl.lost||result.arms.length!==1||result.arms.some(a=>a.errors.length||a.lost||a.validation)||(arm==='common'&&result.arms[0].importCalls!==1))throw Error('Actual solver/validation gate incomplete')} 

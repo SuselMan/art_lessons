@@ -31,5 +31,14 @@
     "gl": 1,
     "native": 1
   },
-  "interpretation": "Native source executor allocated running coverage unconditionally; GL scratch.runningCoverage returns undefined when trackRunningSource=false. Extra buffer shifts later alias IDs; other roles/filter/null unchanged. This is topology/lifetime mismatch, not proof of whole RGBA divergence: planner film read additionally requires nonempty runningSourceCommands."
+  "interpretation": "Native source executor allocated running coverage unconditionally; GL scratch.runningCoverage returns undefined when trackRunningSource=false. Extra buffer shifts later alias IDs; other roles/filter/null unchanged. This is topology/lifetime mismatch, not proof of whole RGBA divergence: planner film read additionally requires nonempty runningSourceCommands.",
+  "afterPredicate": {
+    "consumerCode": "f36c8b3cb7afcdc55b082d732ab831c7c7634b47",
+    "producerCode": "439294bc3d0b89cfad17c05ce785509aa13dc8c2",
+    "bundleSha256": "3adccf03aac22c8fe0045d4136a12f41064662f2a7a787745dd08608ebcb9002",
+    "softwareValid": true,
+    "allRolesNullAliasesFiltersFilmExact": true,
+    "physicalBytes": 50331648,
+    "scope": "Source topology only; no import and no solver ops or final quality claim"
+  }
 }

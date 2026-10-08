@@ -30,8 +30,8 @@ export async function prepareCommonSourceCheckpoint({operation,timeoutMs=300000}
  return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),payload:payload!,glBytes:glBytes!,glFields:glFields!,gl,glOwnerRetired:true,config:config!}
 }
 /** Separate arms reuse exact durable source without another GL job. */
-export async function runCommonSourceSolver({operation,checkpoint,commonSource}:{operation:StrokeOperation;checkpoint:CommonSourceCheckpoint;commonSource:boolean}){
- if(checkpoint.code!=='__SOURCE_CODE__'||checkpoint.operationSha256!==await hash(new TextEncoder().encode(JSON.stringify(operation)))||!checkpoint.glOwnerRetired)throw Error('Immutable common-source provenance differs')
+export async function runCommonSourceSolver({operation,checkpoint,commonSource,producerCode}:{operation:StrokeOperation;checkpoint:CommonSourceCheckpoint;commonSource:boolean;producerCode?:string}){
+ if(!/^[a-f0-9]{40}$/.test(checkpoint.code)||checkpoint.code!==(producerCode??'__SOURCE_CODE__')||checkpoint.operationSha256!==await hash(new TextEncoder().encode(JSON.stringify(operation)))||!checkpoint.glOwnerRetired)throw Error('Immutable common-source provenance differs')
  const la=await getPaperBytes('fine');if(await hash(la)!==checkpoint.paperSha256)throw Error('Actual paper differs')
  const {payload,glBytes,glFields,gl}=checkpoint,surface=document.querySelector('#surface')!,side=Math.sqrt(la.length/2),paper=new Uint8Array(side*side*4);for(let i=0;i<la.length/2;i++){paper[i*4]=paper[i*4+1]=paper[i*4+2]=la[i*2];paper[i*4+3]=la[i*2+1]}
  const manifest=await Promise.all(payload!.fields.map(async f=>({...f,bytes:undefined,sha256:f.bytes?await hash(f.bytes):null}))),arms=[]
@@ -47,7 +47,7 @@ export async function runCommonSourceSolver({operation,checkpoint,commonSource}:
    arms.push({commonSource,sha256:await hash(bytes),comparisonVsGl:compareStages([{key:'material',w:1024,h:1024,bytes}],[{key:'material',w:1024,h:1024,bytes:glBytes!}])[0],fields,importCalls:control?.calls??0,uploadedBytes:control?.uploadedBytes??0,errors,lost,validation})
   }finally{control?.detach();try{await runner?.retire();await backend.device.queue.onSubmittedWorkDone().catch(()=>{})}finally{backend.destroy();surface.replaceChildren()}}
  }
- return{code:'__SOURCE_CODE__',operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),config:checkpoint.config,sourceManifest:manifest,sourcePhysicalBytes:payload!.physicalBytes,sourceMetadata:payload!.metadataJson,sourceScalars:payload!.scalarsJson,gl:{...gl,sha256:await hash(glBytes!),fields:glFields!},arms,limits:'One original100 operation; actualGL source ALL17named roles+target, strict null/alias/filter/film/CPUrequest check before native import; native source CPU delivery still runs once. Sequential owners, actual1536 solver. Diagnostic only; no Room/multiwash/performance claim.'}
+ return{code:'__SOURCE_CODE__',producerCode:checkpoint.code,operationSha256:await hash(new TextEncoder().encode(JSON.stringify(operation))),paperSha256:await hash(la),config:checkpoint.config,sourceManifest:manifest,sourcePhysicalBytes:payload!.physicalBytes,sourceMetadata:payload!.metadataJson,sourceScalars:payload!.scalarsJson,gl:{...gl,sha256:await hash(glBytes!),fields:glFields!},arms,limits:'One original100 operation; actualGL source ALL17named roles+target, strict null/alias/filter/film/CPUrequest check before native import; native source CPU delivery still runs once. Sequential owners, actual1536 solver. Diagnostic only; no Room/multiwash/performance claim.'}
 }
 /** Topology-only consumer: stops before planner ops/import, never claims solver equality.
  * Producer and consumer passports are intentionally separate and both returned. */
