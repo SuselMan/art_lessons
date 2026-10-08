@@ -1,0 +1,1 @@
+import fs from 'node:fs';import {build} from 'esbuild';const out=process.argv[2]??'temp/gl-static-paper';fs.mkdirSync(out,{recursive:true});await build({entryPoints:['docs/qa/harness/728-gl-static-paper/run.ts'],bundle:true,format:'esm',outfile:out+'/run.js'});fs.copyFileSync('docs/qa/harness/728-gl-static-paper/index.html',out+'/index.html');console.log(out)
