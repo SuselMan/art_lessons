@@ -26,6 +26,8 @@ export interface BoundedSceneOptions {
  sourceOptions:CanonicalStrokeChunkInput['options']
  /** Diagnostic only: same serial passes/Q8 order, fewer submissions. Default false. */
  groupedSettleSubmission?:boolean
+ diagnosticPairedCarry?:boolean
+ diagnosticHardwareLinearInputs?:boolean
  /** OFF by default. Same solver with actual intermediate presentation; incompatible with grouped. */
  progressiveSettle?:boolean
  onSettlePreview?():void
@@ -69,7 +71,7 @@ export class CanonicalBoundedSceneRunner {
  private readonly geometry={dabSpacing:0}
  constructor(backend:CanonicalWatercolorWebGpu,options:BoundedSceneOptions){
   if(options.progressiveSettle&&options.groupedSettleSubmission)throw new Error('Progressive and grouped native settle are incompatible')
-  this.backend=backend;this.options=options;this.adapter=new CanonicalPlanAdapter(backend);this.fieldOwner=new CanonicalPlanFieldOwner(backend);this.pool=new CanonicalScratchPool(backend)
+  this.backend=backend;this.options=options;this.adapter=new CanonicalPlanAdapter(backend);this.adapter.diagnosticPairedCarry=options.diagnosticPairedCarry===true;this.adapter.diagnosticHardwareLinearInputs=options.diagnosticHardwareLinearInputs===true;this.fieldOwner=new CanonicalPlanFieldOwner(backend);this.pool=new CanonicalScratchPool(backend)
   const buffer=new CanonicalFieldBuffer(backend,1024,1024,'linear','bounded native layer');buffer.clear()
   this.target={buffer,originX:0,originY:0,contentRect:null}
   this.scratch=new CanonicalStrokeScratchMetadata(new CanonicalTileScratch(this.pool),createCanonicalStrokeChunkState(),[this.target])

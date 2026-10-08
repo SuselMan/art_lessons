@@ -736,8 +736,11 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
           ops.push(frontStepOp(() => {
             for (const p of plan) {
               const opts = { path: p.path, pathPacked: packedPaths, d: field.pressure, e: plateauPhase ? solvent! : undefined, dir: [p.s, p.s] as [number, number], band: [(budgetPx - 1.5) / costMax, effectiveWet] as [number, number], size: [WC_CARRY_POW, costMax] as [number, number], tau: [WC_BLOOM_WET_LO, WC_BLOOM_WET_HI, plateauPhase ? 1 : 0] as [number, number, number], origin: [p.s, WC_CARRY_TRAVEL] as [number, number], additiveZeroFaces }
-              if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
-              this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
+              const paired = p.csrc && p.cdst && this.ctx.passes().carryPair?.(p.dst, p.src, p.cdst, p.csrc, b, WC_CARRY_RATE, opts)
+              if (!paired) {
+                if (p.csrc && p.cdst) this.ctx.passes().fieldOp(p.cdst, p.csrc, b, 16, WC_CARRY_RATE, { ...opts, c: p.src })
+                this.ctx.passes().fieldOp(p.dst, p.src, b, 15, WC_CARRY_RATE, opts)
+              }
             }
             const last = plan[plan.length - 1]
             if (!splitQuanta || (i + n) % 4 === 0 || i + n === carry.length) present(last.dst, b, last.cdst, colour?.b)

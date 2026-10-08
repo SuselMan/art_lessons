@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>Native paired settle A/B</title>
+<button id="small">Run 100 A/B</button><button id="large">Run 400 A/B (full fields)</button>
+<div id="surface"></div><pre id="output">Sequential native OFF/ON; full1536 solver. Captures excluded from timing. No Room claim.</pre>
+<script type="module">
+import {runPairedCarryAB} from './run.js';
+const buttons=[...document.querySelectorAll('button')],output=document.querySelector('#output');
+async function run(size){buttons.forEach(b=>b.disabled=true);output.textContent='Running sequential owners…';try{const result=await runPairedCarryAB({size,allowLarge:size===400});window.__pairedABResult=result;output.textContent=JSON.stringify({...result,tape:result.tape?.map(op=>({id:op.id,strokeId:op.strokeId,wet:op.wet}))},null,2)}catch(e){window.__pairedABError=String(e);output.textContent=String(e)}finally{buttons.forEach(b=>b.disabled=false)}}
+document.querySelector('#small').onclick=()=>run(100);document.querySelector('#large').onclick=()=>run(400);
+</script>
