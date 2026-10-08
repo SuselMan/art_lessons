@@ -39,3 +39,11 @@ Root выбралA. CPU `wetBrushMomentVector.ts`:10000 deterministic arbitrary-
 Frozen source `16a63a31`, bundle SHA256 `d145f499e16fd214382c84300758b64ef47869940f6a2082f55610039c28e6aa`: все восемь actual GPU вариантов PASS. Zero full/partial in-place, coupled copy/in-place, source-fit P.B170/C.G180/C.A200 partial copy/in-place и zero-P.B/zero-C.A positive RGB partial copy/in-place совпали с CPU oracle побайтно. Все восемь сумм каналов P/C сохранены; за пределами ROI изменений нет; GPU validation errors отсутствуют. Старый недействительный bind-group прогон сохранён отдельно.
 
 Raw: `temp/fast-watercolor-night/moment-vector-layout-surface-20261008.json`. Собственная страница закрыта; свободная RAM после закрытия 1796 MiB. Это проверка маленьких 17×13 текстур и контракта оператора. Натуральность картинки, реальный многодабовый Room, author/replay и скорость пользовательского рисования пока не подтверждены. Следующий gate — сохранённый actual 12-dab packed tape в отдельном frozen Room с DEV vector flag; существующие 5354/5355 неизменны.
+
+## Actual Room: исходный 12-dab packed replay
+
+Отдельный frozen `ab1dd3db` Room vector candidate выполнил сохранённый DB stroke без изменения packed bytes/params/ID. Structural fixture явно добавляет layer с original layerId до stroke: исходный export не содержал layer_add. Все ordinal0–11 supported/applied, auditMode gpu-vector, violations0. Canonical owner fields nonempty gate PASS, actual GL framebuffer и прозрачный whole export содержат пигмент (export alpha103425), errors[], lostfalse.
+
+Raw `temp/fast-watercolor-night/room-vector-fixed12-surface-20261008/report.json`. RAM preflight2024/min884/после собственного закрытия1744 MiB. Controller atom `c7251b40`, runtime source `ab1dd3db`; source manifest SHA256 `7b4765198c3e0018a24890fb69a3c920c2ce20995ec673446c289e5caf6b88ea`. Существующие frozen candidates не изменены.
+
+Это actual remote packed replay и устранение ложного carrier rejection на ordinal2. Не проверка live author/replay, не доказательство натуральности картинки, скорости или массовой/цветовой сохранности после последующего production fit/settle. Чтение полей и framebuffer диагностическое и влияет на wall time. Следующий независимый gate — live author и fresh original packed replay с одинаковыми recipe/fields/material/export.
