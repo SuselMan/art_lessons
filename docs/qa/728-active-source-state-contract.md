@@ -164,3 +164,21 @@ Decoder теперь явно поддерживает17-stage activeSnapshot sc
 Opt-in контроллера: `QA_SETTLE_BOUNDARY=1`, только существующая tip-wetmix серия A/momentOFF/frozen5362. Максимум три job, два снимка по десять полей, не более2MiB бинарных данных; теоретический максимум1 797 120 байт. Предыдущий source-пакет ≤3MiB остаётся отдельным и общий readback≤32MiB. ASCII/base64 снимается последовательными bounded chunks с SHA/fsync/ACK, буферы освобождаются после чтения, dispose или восстановления хуков. Дедлайн120 и guard1700/500 сохраняются. Офлайн единая интеграция snapshot→padded512/tight312→decoder→ACK проверена, включая отсутствие settled и неуспешный настоящий publish. Новая аппаратная серия не выполнялась.
 
 Цель сравнения: previous source/post → before-prepare → after-finish → next base на **одинаковых мировых пикселях**. Только после такого совпадения можно приписать локальную разницу конкретной фазе. Даже тогда ROI не представляет полный баланс массы wash.
+
+### Surface: граница settle локализована (09.10)
+
+Один разрешённый прогон `room-tip-A-settle-boundary-surface-20261009` frozen5362/source6a54 завершён: source21packet плюс три фактических settle-job, 1 257 984 байта boundary payload (<2MiB), SHA/ACK/absence/epochs/scalars прошли. Перед началом2030.78MiB, минимум1059.19MiB, собственная страница закрыта; после закрытия2057.98MiB. GL0/contextlostfalse/errors[]. Новая серия использует собственные фактически записанные штрихи/seed; её абсолютные суммы не являются побайтным сравнением с предыдущей живой серией.
+
+| Граница того же мирового ROI | P | C |
+|---|---|---|
+| source/post → before-prepare, все3 | exact | exact |
+| фиолетовый before → after-finish | 29524 отличных байта, max56 | 28741 байт, max56 |
+| фиолетовый after-finish → новый жёлтый base | exact | exact |
+| вода before → after-finish → новый фиолетовый base | нули exact | нули exact |
+| жёлтый before → after-finish | 29916 байт, max66 | 28436 байт, max58 |
+
+Фиолетовый P.B340376→307492 внутри settle; следующий жёлтый base.P.B=307492 exact. На жёлтом base.P.B307492 + strokeInk.P.B670061 = source.P.B977553; после settle load.P.B810385. Это **локальные суммы записей**. Прежний base и MAX-film при settle не изменились: они сохраняют производственную декомпозицию, тогда как load содержит новый результат solver. Следующий materialGesture копирует этот load в свой base. Никакой rebase/clear/новой физики наблюдатель не выполнял.
+
+OwnV before/after-finish совпал во всех3 job: R=A466986/842237/1312331, G=B0. ForeignV и оба settled-слота отсутствуют всё время. Film/solvent epochs стабильны внутри job:1,2,3; параметр landedWet/wetPeak у воды0/0, у обоих последующих пигментных контактов1/1. WaterLevel/standing/water=1, spreadPx3, dwellMs0; параметры и seed на обеих границах равны. Таким образом прежняя вода для контакта2 действительно доступна через сохранённый общий ownV; отсутствие foreignV не означает отсутствие воды, а отсутствие settled не означает нулевой ранее нанесённый пигмент.
+
+Причина измеренной sourcepurple→baseyellow разницы теперь отнесена к интервалу canonical settle, а не к readonly публикации или копированию нового film. Какой оператор внутри settle перераспределяет эти мировые пиксели, данная проверка не разделяет; глобальная потеря/сохранение массы и натуральность этим не подтверждаются. `settle-causal-analysis.json` содержит отдельные observed/exact/absence статусы, signed Q8 разницы и связывание по actualgesture/commonROI; для последнего контакта nextbase честно не измерен.
