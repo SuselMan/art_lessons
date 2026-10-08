@@ -30,7 +30,7 @@ describe('QA separate presentation owners / serial canonical FIFO', () => {
   it('cannot overtake an unsealed source; cancel releases exactly once and isolates other layer', () => {
     const q=create(), first=lease(), second=lease(), a=admit(q,1,first), b=admit(q,2,second,'other');q.publishSource(b);q.seal(b,{values:[2]})
     expect(q.takeCanonical()).toBeNull(); q.cancelLayer('L');expect(q.cancel(a)).toBe(false);expect(first.count()).toBe(1);expect(q.visible()).toEqual([b])
-    expect(q.takeCanonical()?.token).toBe(b);q.dispose();q.dispose();expect(second.count()).toBe(1);expect(q.snapshot().bytes).toBe(0)
+    expect(q.takeCanonical()?.token).toBe(b);q.dispose();q.dispose();expect(second.count()).toBe(0);expect(q.takeCanonical()).toBeNull();q.completeCancellation(b);expect(second.count()).toBe(1);expect(q.snapshot().bytes).toBe(0)
   })
   it('rejects shared writable physical sources across owners and false byte accounting', () => {
     const q=create(),a=lease();admit(q,1,a);expect(()=>q.admit('L',2,a)).toThrow('resource alias');const wrong=lease();expect(()=>q.admit('L',2,{...wrong,bytes:4})).toThrow('resource ledger')
@@ -38,6 +38,13 @@ describe('QA separate presentation owners / serial canonical FIFO', () => {
   it('detaches lease accounting and disposes other owners even when one release fails', () => {
     const q=create(),a=lease(),b=lease();const token=admit(q,1,a);admit(q,2,b);a.resources.length=0;a.bytes=0;q.cancel(token);expect(q.snapshot().bytes).toBe(8);expect(a.count()).toBe(1);q.dispose();expect(b.count()).toBe(1)
     const r=create(),bad={...lease(),release(){throw Error('bad')}};admit(r,1,bad);const other=lease();admit(r,2,other);expect(()=>r.dispose()).toThrow('Owner release failures');expect(other.count()).toBe(1);expect(r.snapshot().bytes).toBe(0)
+  })
+  it('active cancellation holds lease and blocks the next job until its explicit fence', () => {
+    const q=create(),aLease=lease(),a=admit(q,1,aLease),b=admit(q,2);q.publishSource(b);q.seal(a,{values:[1]});q.seal(b,{values:[2]});q.takeCanonical();q.cancel(a);expect(aLease.count()).toBe(0);expect(q.takeCanonical()).toBeNull();expect(q.land(a)).toBe(false);expect(q.visible()).toEqual([b]);q.completeCancellation(a);expect(aLease.count()).toBe(1);expect(q.takeCanonical()?.token).toBe(b);expect(q.land(a)).toBe(false);expect(q.snapshot().active).toBe(b)
+    expect(()=>q.completeCancellation(a)).toThrow();
+  })
+  it('rejects multiplication/sum overflow in resource byte accounting', () => {
+    const q=create(),l=lease();l.resources[0].width=Number.MAX_SAFE_INTEGER;expect(()=>q.admit('L',1,l)).toThrow('overflow')
   })
   it('a throwing old-owner release cannot remove newer source or corrupt accounting', () => {
     const q=create(),a=admit(q,1,{...lease(),release(){throw Error('release failed')}}),b=admit(q,2);q.publishSource(b);q.seal(a,{values:[1]});q.takeCanonical()

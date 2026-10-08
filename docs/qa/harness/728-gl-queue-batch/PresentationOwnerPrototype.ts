@@ -10,7 +10,7 @@ interface Entry<F> {
   token: OwnerToken
   lease: OwnedPresentationLease
   visible: boolean
-  status: 'drawing' | 'ready' | 'canonical'
+  status: 'drawing' | 'ready' | 'canonical' | 'retiring'
   finish?: Readonly<F>
 }
 export type Admission = { readonly accepted: true; readonly token: OwnerToken } |
@@ -23,6 +23,7 @@ export class PresentationOwnerPrototype<F> {
   private readonly budgetBytes: number
   private sequence = 0
   private bytes = 0
+  private readonly cancelled = new WeakSet<OwnerToken>()
   private readonly resources = new Set<object>()
   private active: OwnerToken | null = null
 
@@ -41,7 +42,9 @@ export class PresentationOwnerPrototype<F> {
     for (const resource of lease.resources) {
       if (!Number.isSafeInteger(resource.width) || resource.width < 1 || !Number.isSafeInteger(resource.height) || resource.height < 1) throw Error('Invalid RGBA8 resource')
       if (identities.has(resource.identity) || this.resources.has(resource.identity)) throw Error('Physical owner resource alias')
-      identities.add(resource.identity); actualBytes += resource.width * resource.height * 4
+      const resourceBytes = resource.width * resource.height * 4
+      if (!Number.isSafeInteger(resourceBytes) || !Number.isSafeInteger(actualBytes + resourceBytes)) throw Error('Resource byte ledger overflow')
+      identities.add(resource.identity); actualBytes += resourceBytes
     }
     if (actualBytes !== lease.bytes || !lease.resources.some(r => r.role === 'presentation') || !lease.resources.some(r => r.role === 'canonical-source')) throw Error('Independent presentation/source resource ledger required')
     if (this.entries.size >= this.maxOwners) return { accepted: false, reason: 'capacity' }
@@ -76,17 +79,29 @@ export class PresentationOwnerPrototype<F> {
   }
 
   /** Caller must atomically publish this owner's canonical material before retiring its overlay. */
-  land(token: OwnerToken): void {
+  land(token: OwnerToken): boolean {
+    if (this.cancelled.has(token)) return false
     if (this.active !== token || this.require(token).status !== 'canonical') throw Error('Stale/out-of-order canonical landing')
     this.active = null
     this.retire(token)
+    return true
   }
 
   cancel(token: OwnerToken): boolean {
-    if (!this.entries.has(token)) return false
-    if (this.active === token) this.active = null
+    if (!this.entries.has(token) || this.cancelled.has(token)) return false
+    this.cancelled.add(token)
+    if (this.active === token) {
+      const entry = this.require(token); entry.status = 'retiring'; entry.visible = false
+      return true
+    }
     this.retire(token)
     return true
+  }
+  /** Required after the old canonical submission is cancelled AND GPU-safe idle is proven. */
+  completeCancellation(token: OwnerToken): void {
+    if (this.active !== token || this.require(token).status !== 'retiring') throw Error('Cancellation fence owner mismatch')
+    this.active = null
+    this.retire(token)
   }
   cancelLayer(layerId: string): void {
     this.cancelTokens([...this.entries.keys()].filter(token => token.layerId === layerId))
