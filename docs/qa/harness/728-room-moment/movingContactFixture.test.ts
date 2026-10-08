@@ -1,4 +1,6 @@
 import{it,expect}from'vitest'
-import{movingContactCommands,commandFingerprint,MOVING_CONTACT_DABS}from'./movingContactFixture'
+import{movingContactCommands,commandFingerprint,MOVING_CONTACT_DABS,movingSettleOperation}from'./movingContactFixture'
 it('moving controlled tape exercises caps and ribbons with pressure release',()=>{const commands=movingContactCommands(true);expect(commands.some(c=>c.kind==='stamp')).toBe(true);expect(commands.some(c=>c.kind==='ribbon')).toBe(true);expect(MOVING_CONTACT_DABS.at(-1)?.pressure).toBe(0);expect(commands.some(c=>c.phase==='coverage')).toBe(true);expect(commands.some(c=>c.phase==='pigment')).toBe(true)})
 it('same CPU delivery is independent of combined vs retained segmentation',()=>expect(commandFingerprint(movingContactCommands(true))).toBe(commandFingerprint(movingContactCommands(false))))
+
+it('settle arms use frozen safe bounded geometry and independent replay objects',()=>{const a=movingSettleOperation(),b=movingSettleOperation();expect(a).toEqual(b);expect(a.dabs).not.toBe(b.dabs);expect(a.wet?.length).toBe(a.dabs?.length);for(const d of a.dabs!){expect(d.x-d.size/2).toBeGreaterThanOrEqual(0);expect(d.y-d.size/2).toBeGreaterThanOrEqual(0);expect(d.x+d.size/2).toBeLessThanOrEqual(1024);expect(d.y+d.size/2).toBeLessThanOrEqual(1024)}expect(a.dabs!.map(d=>d.pressure)).toEqual([.7,.7,.7,.7,.7,.1,.02,0])})
