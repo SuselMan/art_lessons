@@ -1,0 +1,3 @@
+export function androidAvailableMiB(text){const match=text.match(/^MemAvailable:\s+(\d+)\s+kB\s*$/m);if(!match)throw Error('Android MemAvailable missing');const bytes=Number(match[1]);if(!Number.isSafeInteger(bytes)||bytes<=0)throw Error('Android MemAvailable invalid');return bytes/1024;}
+export function assertOwnedAndroidIdentity(model,serial){if(model!=='SM-T970'||serial!=='R52RB0JXVSY')throw Error('Android identity mismatch');}
+export function expectedOwnerGestures(material){if(typeof material!=='boolean')throw Error('Explicit material flag required');return material?4:3;}
