@@ -25,6 +25,7 @@ import { ribbonWaterDelivery } from '../dabs/ribbonStrokeMath'
 export interface BoundedSceneOptions {
  sourceOptions:CanonicalStrokeChunkInput['options']
  /** Diagnostic only: same serial passes/Q8 order, fewer submissions. Default false. */
+ diagnosticSplitFirstSourceInit?:boolean
  groupedSettleSubmission?:boolean
  /** OFF by default; source and live draws share one encoder, without fusing passes. */
  diagnosticSourceLiveSubmission?:boolean
@@ -75,6 +76,7 @@ export class CanonicalBoundedSceneRunner {
  private replayStrokeId?:string
  private layerId?:string
  private washId?:string
+ private sourceInitSplit=false
  private readonly geometry={dabSpacing:0}
  constructor(backend:CanonicalWatercolorWebGpu,options:BoundedSceneOptions){
   this.options=options
@@ -143,7 +145,9 @@ export class CanonicalBoundedSceneRunner {
    if(!result.drawable.length)continue
    state.landedWet??=wetAt(wet,0)
    const geometry=canonicalSourceGeometry(result.drawable,previous,preset,profile,wet,state,this.geometry,{w:1024,h:1024},this.options.sourceOptions.diagnosticCanonicalSettleRadius)
-   const encodeSource=(ctx:CanonicalGpuContext)=>this.adapter.retain(this.source.execute(ctx.encoder,{commands:result.commands,rect:canonicalSourceRevealRect(this.target,geometry.compositeBounds),film:true,waterOnly:false},this.scratch.materialGesture))
+   const segment={commands:result.commands,rect:canonicalSourceRevealRect(this.target,geometry.compositeBounds),film:true,waterOnly:false}
+   if(this.options.diagnosticSplitFirstSourceInit&&!this.sourceInitSplit){this.adapter.runQuantum(()=>this.source.initialize(segment,this.scratch.materialGesture));this.sourceInitSplit=true}
+   const encodeSource=(ctx:CanonicalGpuContext)=>this.adapter.retain(this.source.execute(ctx.encoder,segment,this.scratch.materialGesture))
    const encodeLive=(ctx:CanonicalGpuContext)=>this.adapter.retain(this.finish.encodeLive(ctx.encoder,{profile,opacity:result.drawable[0].opacity,fieldSeed:geometry.scalars.fieldSeed,spreadPx:geometry.scalars.spreadPx,water:geometry.scalars.water,bristleRadiusPx:geometry.scalars.bristleRadiusPx,inkSmoothPx:this.geometry.dabSpacing,bounds:geometry.compositeBounds}))
    if(this.options.diagnosticSourceLiveSubmission===true)this.adapter.runQuantum(ctx=>{encodeSource(ctx);encodeLive(ctx)})
    else{this.adapter.runQuantum(encodeSource);this.adapter.runQuantum(encodeLive)}

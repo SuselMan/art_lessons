@@ -43,6 +43,14 @@ export class CanonicalSourcePhaseExecutor {
    this.imported.add(gesture)
   }finally{this.scratch.pool.release(temp)}
  }
+ /** Diagnostic preparation only: same resource init predicates, no raster,
+  * landing, source delivery or foreign import. Caller owns its separate quantum. */
+ initialize(segment:PreparedSourceSegment,materialGesture:number):void {
+  const tile=this.tile.buffer,e=this.scratch.getOrCreate(tile)
+  this.scratch.runningCoverage(tile,materialGesture)
+  if(segment.film&&e.inkLoad)this.scratch.filmBuffers(tile,materialGesture)
+  if(segment.commands.some(command=>command.phase==='solvent'))this.scratch.solventFilm(tile,materialGesture)
+ }
  execute(encoder:GPUCommandEncoder,segment:PreparedSourceSegment,materialGesture:number):GPUBuffer[]{
   const rank={coverage:0,solvent:1,pigment:2,color:3,halo:4};let previous=-1
   for(const command of segment.commands){
