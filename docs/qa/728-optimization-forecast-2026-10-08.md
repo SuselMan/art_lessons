@@ -14,7 +14,7 @@
 | Native WebGPU static cache | Отдельные front/diffuse kernels34%/29%; прогретый whole100 около8% в малой серии | Перспективный локальный кандидат; переносить на Room400/Samsung нельзя |
 | Native progressive queue | Pointer400 release→idle в последовательной серии39–73% быстрее | Потенциал очереди есть; unperturbed400 material parity и actual Room ещё не закрыты |
 | WebGPU→GL canvas bridge | Surface1024 warm4.2/6.9ms против readback17.6/16.4ms; premultiplied fixture exact | Перенос без CPU RGBA readback дешевле, но это часть стоимости, не общий прирост WebGPU |
-| WebGPU в Grafetto | Actual Room routing подключён, один origin-zero tile; foreign wash пока unsupported. Samsung pen40 записал stroke, затем общий GPU process exit0 | Прогноз общего выигрыша отсутствует; Samsung gate FAIL, причина driver/OOM/watchdog/compiler пока не установлена |
+| WebGPU в Grafetto | Actual Room routing подключён, один origin-zero tile; foreign-water auxiliary реализован, аппаратно не проверен. Surface a83 INIT прошёл, first40 остановлен ошибкой standalone fields в live composite; Samsung прежний pen40 завершился GPU process exit0 | Прогноз общего выигрыша отсутствует; Samsung gate FAIL, причина driver/OOM/watchdog/compiler пока не установлена |
 | Удаление dead colour snapshot | Surface6arms GL400 все26fields/material/export/tape exact;9MiB storage,18MiB copytraffic, removed copy0.598msGPU | Whole OFF2984.0/ON2988.5ms: общего выигрыша не обнаружено; memory-only benefit, кандидат OFF |
 
 ## Проверки перед включением
@@ -32,5 +32,5 @@
 
 - Сначала закрыть production-path admission/peer/history матрицу и физический первый видимый пигмент. Для непрерывного рисования это важнее процентного выигрыша dry replay.
 - GPU: измерить долю carry15/16 и проверить MRT именно этих двух операторов с общими OLD inputs, сохранив каждую Q8 границу. Brush MRT дал небольшой whole gain; переносить40% на carry нельзя.
-- Native Room: Surface pre-input init guard остановил запуск1751→364MiB (конкретный await не установлен), Samsung first40 GPU process потерян. Устранять доказанные ненужные eager resources/allocations, сохранять init markers до abort, затем повторить ограниченный gate. Не списывать1.4GiB на28MiB полей или объявлять compiler причиной без трассы.
+- Native Room: a83 убирает28MiB ненужных standalone ресурсов и eager pipelines. Surface INIT прошёл: runtime519.8ms, RAM2218→1819MiB. Реальный first40 выявил обращение live composite к standalone fields; исправляется явная передача owner coverage/P/C. Это API ошибка, не доказанная GPU арифметика или driver причина. [First40 FAIL](728-room-native-first40-surface.md), [INIT PASS](harness/728-room-native-init/README.md). Samsung прежний first40 GPU process потерян; причина не установлена.
 - Native foreign-water auxiliary импорт реализован по прежней CPU chronology/modes20/1, но ещё не прошёл аппаратный Room gate. Production build исключает backend explicit DEV guard; default flags OFF.
