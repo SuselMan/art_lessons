@@ -1,6 +1,6 @@
 --- a/docs/qa/harness/728-room-native400/controller.mjs
 +++ b/docs/qa/harness/728-room-native400/controller.mjs
-@@ -2,13 +2,14 @@
+@@ -2,56 +2,91 @@
  import crypto from 'node:crypto'
  import path from 'node:path'
  import {parseInitConsoleEvent} from '../728-room-native-init/init-events.mjs'
@@ -18,12 +18,34 @@
 +if(!app||!base||!out||!process.env.QA_ORIGIN_MANIFEST||!entry||new URL(entry).protocol!=='https:'||!process.env.QA_MANIFEST||!process.env.QA_PAPER_MANIFEST||!process.env.QA_RUNTIME)throw Error('Explicit trusted QA_ENTRY_FILE, frozen QA_ORIGIN_MANIFEST, QA_APP and output required')
  if(fs.existsSync(out+'/report.json'))throw Error('Refuse to overwrite existing evidence');fs.mkdirSync(out,{recursive:true})
  const report={source:process.env.QA_SOURCE,stage:'preflight',errors:[],scenario,events:[],strokeObservations:[],initMarkers:[],memoryTimeline:[],paperSizing:{resolution:2048,LABytes:8388608,RGBABytes:16777216,scope:'Expected production baked layout; actual preload byte count separately recorded'},limitations:['Actual Room pointer/GL display test, not full parity','Foreign auxiliary water-to-pigment supported only by explicit scenario gate; multitile/multiuser not validated; no GPU duration from wall time']}
- let target,ws,seq=0;const pending=new Map()
-@@ -18,40 +19,47 @@
+-let target,ws,seq=0;const pending=new Map()
++let target,ws,ownedContext,browserSession,seq=0;const pending=new Map()
+ const save=()=>fs.writeFileSync(out+'/report.json',JSON.stringify(report,null,2))
+ const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq,timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout '+method))},45000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params}))})
+ const evaluate=async(fn,arg)=>{const r=await send('Runtime.evaluate',{expression:typeof fn==='function'?'('+fn.toString()+')('+JSON.stringify(arg??null)+')':fn,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description??r.exceptionDetails.text);return r.result.value}
  async function wait(fn,ms=45000){const end=Date.now()+ms;while(Date.now()<end){if(await evaluate(fn))return;await new Promise(r=>setTimeout(r,150))}throw Error('Bounded Room readiness timeout')}
  const memory=()=>{const raw=execFileSync('ssh',['-o','BatchMode=yes','-o','ConnectTimeout=5','surface','powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory"'],{encoding:'utf8',timeout:12000});const value=Number(raw.trim())/1024;if(!Number.isFinite(value))throw Error('Surface RAM unavailable');report.memoryTimeline.push({at:new Date().toISOString(),MiB:value,stage:report.stage});save();return value}
  
 -async function census(){return evaluate(()=>{const e=window.__engine;return{url:location.href,secure:isSecureContext,gpu:!!navigator.gpu,ua:navigator.userAgent,engine:!!e,native:e?._wcNativeEnabled,ready:!!e?._wcNative,pending:e?._wcCanonical?.pending,error:e?._wcAsyncError?String(e._wcAsyncError):null,ops:e?._log.entries.map(x=>({type:x.op.type,tool:x.op.tool,state:x.state,dabs:x.op.dabs?.length,packedBytes:x.op.dabsPacked?.length,preset:x.op.preset,wet:x.op.wet})),lost:e?.gl.isContextLost(),gl:e?.gl.getError(),nativeCounters:e?._wcNative?.backend?.submissionStats,nativeOwner:!!e?._wcNative?.owner}})}
++async function browserConnection(url){
++ const socket=new WebSocket(url),requests=new Map();let next=0
++ await new Promise((resolve,reject)=>{socket.once('open',resolve);socket.once('error',reject)})
++ socket.on('message',raw=>{const m=JSON.parse(raw),p=requests.get(m.id);if(!p)return;requests.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result)})
++ const rejectAll=()=>{for(const p of requests.values()){clearTimeout(p.timer);p.reject(Error('Owned browser connection closed'))}requests.clear()};socket.on('close',rejectAll)
++ return{request(method,params={}){return new Promise((resolve,reject)=>{const id=++next,timer=setTimeout(()=>{requests.delete(id);reject(Error('Browser CDP timeout '+method))},10000);requests.set(id,{resolve,reject,timer});socket.send(JSON.stringify({id,method,params}))})},close(){socket.close();rejectAll()}}
++}
++async function createOwnTarget(url){
++ const v=await(await fetch(base+'/json/version')).json();if(!v.webSocketDebuggerUrl)throw Error('Browser websocket required for isolated context')
++ browserSession=await browserConnection(v.webSocketDebuggerUrl)
++ const result=await browserSession.request('Target.createBrowserContext',{disposeOnDetach:true});ownedContext=result.browserContextId;if(!ownedContext)throw Error('Isolated browser context absent')
++ report.ownedBrowserContext=ownedContext;save()
++ const created=await browserSession.request('Target.createTarget',{url,browserContextId:ownedContext});if(!created.targetId)throw Error('Owned isolated target absent')
++ target={id:created.targetId}
++ const deadline=Date.now()+10000
++ while(Date.now()<deadline){const rows=await(await fetch(base+'/json/list')).json(),page=rows.find(p=>p.id===target.id);if(page?.webSocketDebuggerUrl){target=page;return page}await new Promise(resolve=>setTimeout(resolve,100))}
++ throw Error('Owned isolated target websocket timeout')
++}
++
 +async function census(){return evaluate(()=>{const e=window.__engine;return{url:location.href,secure:isSecureContext,gpu:!!navigator.gpu,ua:navigator.userAgent,engine:!!e,native:e?._wcNativeEnabled,ready:!!e?._wcNative,pending:e?._wcCanonical?.pending,error:e?._wcAsyncError?String(e._wcAsyncError):null,ops:e?._log.entries.map(x=>({type:x.op.type,tool:x.op.tool,state:x.state,dabs:x.op.dabs?.length,packedBytes:x.op.dabsPacked?.length,preset:x.op.preset,wet:x.op.wet})),lost:e?.gl.isContextLost(),gl:e?.gl.getError(),nativeCounters:e?._wcNative?.backend?.submissionStats,nativeOwner:!!e?._wcNative?.owner,carryPressure:e?._wcNative?.carryPressureDiagnostics??null}})}
  async function idle(){await wait(()=>{const e=window.__engine;return!!e&&(!e._wcCanonical.pending&&!e._settle||!!e._wcAsyncError)},60000);const result=await census();report.events.push(result);save();if(result.error)throw Error(result.error)}
  
@@ -42,8 +64,17 @@
  async function framebuffer(label){return evaluate(async label=>{const e=window.__engine;await new Promise(r=>requestAnimationFrame(()=>r()));e._display();const g=e.gl,w=e.canvas.width,h=e.canvas.height,data=new Uint8Array(w*h*4);g.readPixels(0,0,w,h,g.RGBA,g.UNSIGNED_BYTE,data);const baseline=window.__nativeGateDisplayBaseline;let changed=0,purple=0;for(let i=0;i<data.length;i+=4){purple+=data[i+2]-data[i]>25&&data[i+2]-data[i+1]>15;if(baseline&&(data[i]!==baseline[i]||data[i+1]!==baseline[i+1]||data[i+2]!==baseline[i+2]||data[i+3]!==baseline[i+3]))changed++}if(label==='baseline')window.__nativeGateDisplayBaseline=data;const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',data)),x=>x.toString(16).padStart(2,'0')).join('');return{label,width:w,height:h,changed,purple,sha,gl:g.getError(),scope:'Actual default framebuffer diagnostic readback; observer effect, NOT physical latency'}} ,label)}
  
 -let monitor,closed=false
+-const closeOwn=async()=>{if(!target?.id||closed)return;closed=true;report.ownTargetCloseRequested=true;save();await fetch(base+'/json/close/'+target.id);for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('Owned target closed'))}pending.clear()}
 +let monitor,hardTimer,closed=false
- const closeOwn=async()=>{if(!target?.id||closed)return;closed=true;report.ownTargetCloseRequested=true;save();await fetch(base+'/json/close/'+target.id);for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('Owned target closed'))}pending.clear()}
++const closeOwn=async()=>{
++ if(closed)return;closed=true
++ try{if(target?.id){report.ownTargetCloseRequested=true;save();await fetch(base+'/json/close/'+target.id)}}
++ finally{
++  for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('Owned target closed'))}pending.clear()
++  if(ownedContext&&browserSession){try{await browserSession.request('Target.disposeBrowserContext',{browserContextId:ownedContext});report.ownedContextDisposed=true}catch(error){report.ownedContextDisposeError=String(error)}finally{browserSession.close();browserSession=null;save()}}else browserSession?.close()
++ }
++}
++
  try{
 - const source=JSON.parse(fs.readFileSync(process.env.QA_MANIFEST)),paper=JSON.parse(fs.readFileSync(process.env.QA_PAPER_MANIFEST));if(source.head!==process.env.QA_SOURCE)throw Error('Frozen head mismatch');for(const f of source.files){if(crypto.createHash('sha256').update(fs.readFileSync(path.join(process.env.QA_RUNTIME,f.path))).digest('hex')!==f.sha256)throw Error('Frozen source SHA '+f.path)}for(const f of paper.files){if(crypto.createHash('sha256').update(fs.readFileSync(path.join(process.env.QA_RUNTIME,'apps/web/public/paper',f.path))).digest('hex')!==f.sha256)throw Error('Paper SHA '+f.path)}report.paperPassport=paper;report.sourceFileCount=source.files.length;report.httpSource=[];for(const f of ['apps/web/src/engine/index.ts','apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts','apps/web/src/engine/src/webgpuCanonical/backend.ts']){const r=await fetch(app+'/'+f.slice('apps/web/'.length)+'?raw',{signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('HTTP source '+r.status);const line=(await r.text()).split('\n').find(x=>x.startsWith('export default '));if(!line)throw Error('HTTP not raw source');const sha=crypto.createHash('sha256').update(JSON.parse(line.slice(15).replace(/;$/,''))).digest('hex');if(sha!==source.files.find(x=>x.path===f)?.sha256)throw Error('HTTP SHA '+f);report.httpSource.push({path:f,sha,status:r.status})}
 - report.ramStart=memory();if(report.ramStart<1700)throw Error('RAM preflight below1700MiB');save()
@@ -51,7 +82,7 @@
 + const originManifest=JSON.parse(fs.readFileSync(process.env.QA_ORIGIN_MANIFEST));if(!/^[a-f0-9]{64}$/.test(originManifest.paperLaSha256)||originManifest.head!==process.env.QA_SOURCE||originManifest.origin!==new URL(app).origin||new URL(entry).origin!==originManifest.origin||!originManifest.sourceOrigin||new URL(originManifest.sourceOrigin).origin!==originManifest.sourceOrigin)throw Error('Trusted frozen origin/head mismatch');
 + const source=JSON.parse(fs.readFileSync(process.env.QA_MANIFEST)),paper=JSON.parse(fs.readFileSync(process.env.QA_PAPER_MANIFEST));if(source.head!==process.env.QA_SOURCE)throw Error('Frozen head mismatch');for(const f of source.files){if(crypto.createHash('sha256').update(fs.readFileSync(path.join(process.env.QA_RUNTIME,f.path))).digest('hex')!==f.sha256)throw Error('Frozen source SHA '+f.path)}for(const f of paper.files){if(crypto.createHash('sha256').update(fs.readFileSync(path.join(process.env.QA_RUNTIME,'apps/web/public/paper',f.path))).digest('hex')!==f.sha256)throw Error('Paper SHA '+f.path)}report.paperPassport=paper;report.sourceFileCount=source.files.length;report.httpSource=[];for(const f of ['apps/web/src/engine/index.ts','apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts','apps/web/src/engine/src/webgpuCanonical/backend.ts','apps/web/src/engine/src/webgpuCanonical/roomWatercolorExecutor.ts']){const r=await fetch(originManifest.sourceOrigin+'/'+f.slice('apps/web/'.length)+'?raw',{signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('HTTP source '+r.status);const line=(await r.text()).split('\n').find(x=>x.startsWith('export default '));if(!line)throw Error('HTTP not raw source');const sha=crypto.createHash('sha256').update(JSON.parse(line.slice(15).replace(/;$/,''))).digest('hex');if(sha!==source.files.find(x=>x.path===f)?.sha256)throw Error('HTTP SHA '+f);report.httpSource.push({path:f,sha,status:r.status})}
 + report.ramStart=memory();if(report.ramStart<1700)throw Error('RAM preflight below1700MiB');save();hardTimer=setTimeout(()=>{report.hardAbort=true;report.error='Room400 hard120s deadline';save();void closeOwn()},120000)
-+ target=await(await fetch(base+'/json/new?'+encodeURIComponent(entry),{method:'PUT'})).json();if(!target.id)throw Error('Own tab creation failed')
++ target=await createOwnTarget(entry);if(!target.id)throw Error('Own isolated tab creation failed')
   ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.once('open',r);ws.once('error',j)});ws.on('message',raw=>{const x=JSON.parse(raw),p=pending.get(x.id);if(p){pending.delete(x.id);clearTimeout(p.timer);x.error?p.reject(Error(x.error.message)):p.resolve(x.result)}else if(x.method==='Runtime.consoleAPICalled'){const event=parseInitConsoleEvent(x);if(event){report.initMarkers.push({...event,receivedAt:new Date().toISOString()});fs.appendFileSync(out+'/init-markers.jsonl',JSON.stringify(report.initMarkers.at(-1))+'\n');save()}}else if(x.method==='Runtime.exceptionThrown'){report.errors.push(x.params.exceptionDetails.exception?.description??x.params.exceptionDetails.text);save()}})
 - await send('Security.enable');await send('Security.setIgnoreCertificateErrors',{ignore:true});await send('Page.navigate',{url:app+'/create'});await send('Page.enable');await send('Runtime.enable');await send('Page.bringToFront')
 + await send('Page.navigate',{url:entry});await send('Page.enable');await send('Runtime.enable');await send('Page.bringToFront')
