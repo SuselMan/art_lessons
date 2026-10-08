@@ -1,0 +1,41 @@
+{
+  "scope": "Extracted original rimNoise helpers, identical four world/pixel uniforms, raw32bit float outputs; NOT fullmode6 capture",
+  "module": "docs/qa/harness/728-native-end-to-end/rimNoiseFloatOracle.ts",
+  "entry": "runPressureSeedOracle with diagnosticFirstBandNoiseProbe=true,diagnosticFirstBand=6",
+  "points": [
+    [
+      324,
+      267
+    ],
+    [
+      326,
+      267
+    ],
+    [
+      327,
+      267
+    ],
+    [
+      327,
+      271
+    ]
+  ],
+  "gpuOutputBytesEachApi": 64,
+  "nativeReadbackAllocationBytes": 256,
+  "glRequirement": "OES_texture_float + WEBGL_color_buffer_float + actual framebuffer COMPLETE; unsupported explicitly",
+  "ownership": "GL retired before native adapter/device allocation; all own buffers/context destroyed finally",
+  "softwareWiring": {
+    "raw": "temp/native-source-offline/rim-float-software.json",
+    "rows": 4,
+    "errors": [],
+    "glError": 0,
+    "validation": null,
+    "lost": false
+  },
+  "limitations": [
+    "Actual same-input fullmode6 world0 control establishes branch contribution; helper-only float values can be compiled differently than fullmode6.",
+    "No varying/texture samples in this float probe; no Q8/raster/Room/FPS/final-image equivalence claim.",
+    "No explicit fma/integerhash or model/default changes yet.",
+    "No actual Surface float values collected."
+  ]
+}
