@@ -13,3 +13,5 @@
 Лёгкий настоящий browsergate нового staticinstaller PASS: planTagger===queueTagger, пять syntheticCPUunits выполняются в прежнемпорядке, OFFunits0, ONunits5/ticks2. Собственнаястраница безEngine/GPUcontext закрыта. Это подтверждает browsermoduleidentity и действие класса, НЕ actual400/GPUquality/перформанс. Полныйпрогон только при отдельномdeviceслоте.
 
 Дополнительно9/9 CPUtests: вставляемые в живой массивops продолжения наследуютCPUtag и выполняются до4/кадр безпересеченияследующейuploadграницы. Ужесуществующий9мс CPUunit признаётсямягкимoverrun: пакет сразуостанавливаетсяпосленего, maxMs9; runtimeнеобещаетhard8мс. НикакогоновогобюджетаGPUневыдано.
+
+StaticactualRoomONarm пока INVALIDfixture: RAFtimestamp оказалсяраньше DOWNperformance.now; прежнийf=min(1,dt/duration) сталотрицательным, points[-1] далTypeError. ЭтоНЕperformanceFAIL. OFFscene9530,5мс сохранён, сравнительного результата нет. НовыйimmutableClockSafe clamps[0,1]; шестьCPUfixtures timestamp<DOWN/==/>deadline иinvalidclock прошли. Reviewruntime не изменён. ПовторполногоRoomтолькопоследругихвыделенныхdeviceслотов.
