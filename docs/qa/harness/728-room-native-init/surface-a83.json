@@ -1,0 +1,221 @@
+{
+  "source": "a83f501e",
+  "stage": "complete",
+  "complete": true,
+  "errors": [],
+  "initMarkers": [
+    {
+      "stage": "getPaperBytes:preload-start",
+      "ms": 16235.299999952316,
+      "receivedAt": "2026-10-08T08:21:24.158Z"
+    },
+    {
+      "stage": "getPaperBytes:preload-end",
+      "ms": 16235.599999964237,
+      "bytes": 8388608,
+      "receivedAt": "2026-10-08T08:21:24.234Z"
+    },
+    {
+      "stage": "hooks:ready",
+      "ms": 16235.699999988079,
+      "receivedAt": "2026-10-08T08:21:24.235Z"
+    },
+    {
+      "stage": "RoomNativeRuntime.create:start",
+      "ms": 16839.099999964237,
+      "args": [
+        {
+          "paper": "fine",
+          "board": {
+            "w": 1754,
+            "h": 2480
+          },
+          "paperScale": 1,
+          "paperWorld": {
+            "w": 1754,
+            "h": 2480
+          }
+        }
+      ],
+      "receivedAt": "2026-10-08T08:21:24.771Z"
+    },
+    {
+      "stage": "paper:load-start",
+      "ms": 1791447684870.445,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:24.773Z"
+    },
+    {
+      "stage": "paper:expand-start",
+      "ms": 1791447684870.532,
+      "source": "native-room-init",
+      "values": [
+        8388608
+      ],
+      "receivedAt": "2026-10-08T08:21:24.774Z"
+    },
+    {
+      "stage": "paper:expand-done",
+      "ms": 1791447684903.115,
+      "source": "native-room-init",
+      "values": [
+        16777216
+      ],
+      "receivedAt": "2026-10-08T08:21:24.881Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.create:start",
+      "ms": 16872.399999976158,
+      "args": [
+        {
+          "paper": {
+            "width": 2048,
+            "height": 2048,
+            "bytes": 16777216
+          },
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "receivedAt": "2026-10-08T08:21:24.883Z"
+    },
+    {
+      "stage": "adapter:request-start",
+      "ms": 1791447684903.672,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:24.884Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.support:start",
+      "ms": 16872.799999952316,
+      "args": [],
+      "receivedAt": "2026-10-08T08:21:24.884Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.support:end",
+      "ms": 17051.69999998808,
+      "supported": true,
+      "receivedAt": "2026-10-08T08:21:25.003Z"
+    },
+    {
+      "stage": "device:request-start",
+      "ms": 1791447685082.818,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:25.004Z"
+    },
+    {
+      "stage": "device:request-done",
+      "ms": 1791447685326.963,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:25.220Z"
+    },
+    {
+      "stage": "backend:start",
+      "ms": 1791447685327.8,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:25.253Z"
+    },
+    {
+      "stage": "backend:material-resources",
+      "ms": 1791447685330.53,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:25.254Z"
+    },
+    {
+      "stage": "backend:paper-noise",
+      "ms": 1791447685360.659,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:25.287Z"
+    },
+    {
+      "stage": "backend:ready",
+      "ms": 1791447685360.857,
+      "source": "native-room-init",
+      "values": [],
+      "receivedAt": "2026-10-08T08:21:25.287Z"
+    },
+    {
+      "stage": "CanonicalWatercolorWebGpu.create:end",
+      "ms": 17358.599999964237,
+      "receivedAt": "2026-10-08T08:21:25.289Z"
+    },
+    {
+      "stage": "RoomNativeRuntime.create:end",
+      "ms": 17358.899999976158,
+      "receivedAt": "2026-10-08T08:21:25.289Z"
+    }
+  ],
+  "memoryTimeline": [
+    {
+      "at": "2026-10-08T08:20:33.267Z",
+      "MiB": 2217.65625,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:20:48.426Z",
+      "MiB": 2063.5,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:20:58.256Z",
+      "MiB": 1998.0546875,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:21:07.770Z",
+      "MiB": 1608.94140625,
+      "stage": "preflight"
+    },
+    {
+      "at": "2026-10-08T08:21:18.222Z",
+      "MiB": 1819.640625,
+      "stage": "native-init"
+    }
+  ],
+  "paperSizing": {
+    "resolution": 2048,
+    "LABytes": 8388608,
+    "RGBABytes": 16777216,
+    "scope": "Expected production baked layout; actual preload byte count separately recorded"
+  },
+  "httpSource": [
+    {
+      "path": "apps/web/src/engine/index.ts",
+      "sha": "fba9aff57326807984478d75b8d9cf3a5081f7c9440dee4ef8da67958a32054c",
+      "status": 200
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/roomNativeRuntime.ts",
+      "sha": "ed77e3e9d332a5863e5b2d19da34726f37dfbc95b17450a3de70157863810cbc",
+      "status": 200
+    },
+    {
+      "path": "apps/web/src/engine/src/webgpuCanonical/backend.ts",
+      "sha": "70ba01286f6cc55042799b93157b21a5b87ce0117a5178edd7fc7ea76578e649",
+      "status": 200
+    }
+  ],
+  "sourceFileCount": 1137,
+  "final": {
+    "secure": true,
+    "gpu": true,
+    "native": true,
+    "ready": true,
+    "pending": false,
+    "lost": false,
+    "gl": 0,
+    "error": null
+  },
+  "limitations": [
+    "INIT-only, no pointer strokes, no quality/undo/multiuser validation.",
+    "Fine preload before Join changes cold-init conditions.",
+    "Prior2c observed memory abort cause not proven; no repeated baseline."
+  ]
+}
