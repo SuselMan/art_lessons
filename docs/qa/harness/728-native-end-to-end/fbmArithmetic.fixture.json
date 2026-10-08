@@ -1,0 +1,10 @@
+{
+  "scope": "CPU separate-F32 prediction of captured24bit outputs; actual70-row coordinate decomposition still pending, not portable source fix",
+  "surfaceNoiseSource": "9c7586bee3be0f4fbe1091e216087edab747b961",
+  "surfaceBundleSha256": "2709f71e45700e0bdba890b20d91c95f4fb00ee477a6ec06019a7d023a4fb55d",
+  "p": [-4.666445255279541,29.47861099243164],
+  "sequential": [18.80059814453125,97.49225616455078],
+  "fused": [18.80059814453125,97.49224853515625],
+  "surfaceNativeRgb": [82,47,32],
+  "surfaceGlRgb": [82,47,63]
+}
