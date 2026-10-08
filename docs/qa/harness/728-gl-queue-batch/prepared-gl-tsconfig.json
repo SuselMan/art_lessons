@@ -1,0 +1,6 @@
+{
+ "extends":"../../../../apps/web/tsconfig.app.json",
+ "compilerOptions":{"tsBuildInfoFile":"../../../../temp/device-runs/prepared-gl.tsbuildinfo"},
+ "include":["PreparedGlSourceDraw.ts","preparedGlSourceDraw.test.ts","TypedGlSourceReplayPrototype.ts"],
+ "exclude":[]
+}
