@@ -1,0 +1,291 @@
+{
+  "issue": "#728 — native Room vs original GL same geometry control",
+  "runtimeSource": "731733c908245b80caf7c172823019f5f3e949e4",
+  "controllerScope": "SAME requested pen geometry/pressure/settings, newly generated dabs/timestamps/seeds; NOT exact packed-tape parity",
+  "complete": true,
+  "gl": 0,
+  "lost": false,
+  "errors": [],
+  "ownedContextDisposed": true,
+  "memoryMiB": {
+    "preflight": 2122.203125,
+    "minimum": 946.40625,
+    "post": 1857.28125
+  },
+  "tapeShaCanonicalJson": {
+    "native": "d09053e367e040063d056a575bb0913a1847853832a2d142b485154d23292d91",
+    "glLive": "1e61a6705e4f32e70c95b0b9169468f78e2847fe03a239e9a293fa0624310c48",
+    "originalGlReplayMapped": "d09053e367e040063d056a575bb0913a1847853832a2d142b485154d23292d91"
+  },
+  "packedInputsEqual": false,
+  "decodedDabs": [
+    {
+      "id": "UbOQ5gk6SV",
+      "preset": "normal:100:0:PB29:round",
+      "color": [
+        0.2,
+        0,
+        0.6
+      ],
+      "count": 17,
+      "sizeMin": 134.36253356933594,
+      "sizeMax": 298.58343505859375,
+      "pressureMin": 0,
+      "pressureMax": 0.699999988079071
+    },
+    {
+      "id": "hPbLa-BJGT",
+      "preset": "normal:100:70:PB29:round",
+      "color": [
+        0.2,
+        0,
+        0.6
+      ],
+      "count": 1,
+      "sizeMin": 238.86672973632812,
+      "sizeMax": 238.86672973632812,
+      "pressureMin": 0.699999988079071,
+      "pressureMax": 0.699999988079071
+    },
+    {
+      "id": "TX3IJfdimO",
+      "preset": "normal:100:70:PB29:round",
+      "color": [
+        0.2,
+        0,
+        0.6
+      ],
+      "count": 17,
+      "sizeMin": 134.36253356933594,
+      "sizeMax": 298.58343505859375,
+      "pressureMin": 0,
+      "pressureMax": 0.699999988079071
+    },
+    {
+      "id": "Cpsduib_Be",
+      "preset": "normal:100:70:PB29:round",
+      "color": [
+        0.9,
+        0.1,
+        0.05
+      ],
+      "count": 17,
+      "sizeMin": 134.36253356933594,
+      "sizeMax": 298.58343505859375,
+      "pressureMin": 0,
+      "pressureMax": 0.699999988079071
+    }
+  ],
+  "comparison": {
+    "width": 1754,
+    "height": 2480,
+    "pixels": 138449,
+    "channels": [
+      {
+        "changed": 123123,
+        "max": 255,
+        "sum": 494231
+      },
+      {
+        "changed": 5945,
+        "max": 50,
+        "sum": 11119
+      },
+      {
+        "changed": 112508,
+        "max": 255,
+        "sum": 363214
+      },
+      {
+        "changed": 80429,
+        "max": 229,
+        "sum": 159424
+      }
+    ],
+    "premultiplied": [
+      {
+        "changed": 131810,
+        "max": 89.07450980392156,
+        "sum": 441490.2196078648
+      },
+      {
+        "changed": 7546,
+        "max": 47.67450980392157,
+        "sum": 9933.996078431628
+      },
+      {
+        "changed": 121821,
+        "max": 101.18823529411765,
+        "sum": 331758.20392158604
+      }
+    ],
+    "whiteComposite": [
+      {
+        "changed": 131810,
+        "max": 150.87058823529412,
+        "sum": 501179.10588243644
+      },
+      {
+        "changed": 81287,
+        "max": 229,
+        "sum": 160948.8274509825
+      },
+      {
+        "changed": 128813,
+        "max": 137.39999999999998,
+        "sum": 372789.46666669584
+      }
+    ],
+    "alphaBins": {
+      "zero": {
+        "pixels": 4208585,
+        "rgbaSum": 0,
+        "premultipliedSum": 0
+      },
+      "33..128": {
+        "pixels": 377,
+        "rgbaSum": 12321,
+        "premultipliedSum": 4684.176470588231
+      },
+      "129..255": {
+        "pixels": 140856,
+        "rgbaSum": 1010907,
+        "premultipliedSum": 778182.9372552695
+      },
+      "1..8": {
+        "pixels": 47,
+        "rgbaSum": 3011,
+        "premultipliedSum": 67.0235294117647
+      },
+      "9..32": {
+        "pixels": 55,
+        "rgbaSum": 1749,
+        "premultipliedSum": 248.2823529411765
+      }
+    },
+    "supportNative": 141333,
+    "supportGl": 141325,
+    "supportXor": 12,
+    "glPngBytes": 448250,
+    "glPngOmitted": null,
+    "nativeSha": "019fea567d01ae7fd9301b7a2e24f67fe9365c806d0bde1f94dfa0769606f118",
+    "glSha": "ecf5508a210160f3203deb6cdecbd33f59d4d4ebc4dacb39cbb0cebc843578e9",
+    "scope": "Decoded original engine material exports, same endpoint; browser PNG unpremultiplication can hide low-alpha stored RGB differences; no framebuffer/physics exactness claim"
+  },
+  "normalizedMeans": {
+    "premultipliedRgbPerAllBoardPixels": [
+      0.10149387106150569,
+      0.002283719258844215,
+      0.0762676563986432
+    ],
+    "whiteRgbPerAllBoardPixels": [
+      0.11521570646872505,
+      0.03700041091582891,
+      0.08570030406690142
+    ],
+    "premultipliedRgbPerMaxNonzeroSupport": [
+      3.1237589211851784,
+      0.07028787387539802,
+      2.3473513186699924
+    ],
+    "whiteRgbPerMaxNonzeroSupport": [
+      3.5460869427694623,
+      1.1387915593030822,
+      2.637667541668937
+    ]
+  },
+  "raf": {
+    "GLlive": {
+      "intervals": 855,
+      "medianMs": 16.69999999999891,
+      "p95Ms": 16.900000000001455,
+      "maxMs": 116.69999999999891
+    },
+    "nativePrior": {
+      "p95Ms": 66.7,
+      "maxMs": 3383.2
+    }
+  },
+  "strokeWallsMs": {
+    "glLive": [
+      {
+        "label": "water400",
+        "ms": 2807.463789999998
+      },
+      {
+        "label": "pigment70-on-water400",
+        "ms": 2395.4614129999973
+      },
+      {
+        "label": "colorA70-400",
+        "ms": 4450.670033000002
+      },
+      {
+        "label": "colorB70-400",
+        "ms": 4308.401677000002
+      }
+    ],
+    "native": [
+      {
+        "label": "water400",
+        "ms": 7713.729839
+      },
+      {
+        "label": "pigment70-on-water400",
+        "ms": 1939.528843
+      },
+      {
+        "label": "colorA70-400",
+        "ms": 3074.4872120000036
+      },
+      {
+        "label": "colorB70-400",
+        "ms": 2727.204254000004
+      }
+    ]
+  },
+  "sameTapeOriginalGlReplay": {
+    "comparison": {
+      "width": 1754,
+      "height": 2480,
+      "pixels": 91297,
+      "channels": [
+        {
+          "changed": 71665,
+          "max": 255,
+          "sum": 234026
+        },
+        {
+          "changed": 2068,
+          "max": 37,
+          "sum": 3074
+        },
+        {
+          "changed": 68686,
+          "max": 255,
+          "sum": 198683
+        },
+        {
+          "changed": 42414,
+          "max": 180,
+          "sum": 86603
+        }
+      ],
+      "nativeSha": "019fea567d01ae7fd9301b7a2e24f67fe9365c806d0bde1f94dfa0769606f118",
+      "glSha": "44d0a7699fc06904769cd08063241795451ab15f6cb2afb3476c912ccf9ec866",
+      "scope": "Decoded original engine material exports, same endpoint; browser PNG unpremultiplication can hide low-alpha stored RGB differences; no framebuffer/physics exactness claim"
+    },
+    "nonzeroAlphaNative": 141333,
+    "nonzeroAlphaGl": 141326,
+    "glMaterialPngSaved": false,
+    "premultipliedUnavailable": true
+  },
+  "limits": [
+    "Strict native/originalGL same-tape endpoint NOT byteexact; visually close",
+    "GLlive NEW timestamps/IDs/seeds/wet/dabs, not exact same-input model comparison",
+    "Premultiplied/white metrics derived existing material exports, not arbitrary rawP/C fields",
+    "rAF observer is scheduling, not physicalpen latency or GPUduration",
+    "GLlive firstwater2807ms versus native7714ms cannot be attributed solely toGPU solver",
+    "No newdevicegate beyond designated ONE; single-origin1024/one-layer scope"
+  ]
+}
