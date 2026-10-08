@@ -1,0 +1,556 @@
+{
+  "hardware": "Surface Intel actual, ONE original14contacts68..81 common GL oldinput",
+  "code": "00ca636ef929e6a44352e6edabeec4e1de39456f",
+  "bundleSha256": "8316bf4b9178dab2d9a08c9d5fb45177a273559191e164eed012771f4995e4f3",
+  "raw": "temp/device-runs/brush14-chain-00ca/report.json",
+  "valid": true,
+  "memoryPreflightMiB": [
+    2242.5,
+    2231.3
+  ],
+  "glCheckpoints": [
+    {
+      "pulse": 1,
+      "sha256": [
+        "ab2aa158216c23046d8f862b0831980d23fed88a8cdbeebfccd3a6a0efc5bed3",
+        "4791febbbd06b1e3e3cba1c543ae2a5cea2faacf0385fb9a6e2d1bb811e57087"
+      ]
+    },
+    {
+      "pulse": 4,
+      "sha256": [
+        "676bb822c88fd65473876a26778fd41f8b6602d895c5cf0834cb8e29aa695f6e",
+        "9171c35022cf84c7ea3a3a953477df983d1a0ba91733f40f8920ae9b08f6c960"
+      ]
+    },
+    {
+      "pulse": 14,
+      "sha256": [
+        "71ec93d6af53ca5edefeb875f5c81963228128d299d3e3e27a4221f0e525d871",
+        "59a8f60dfbe29d266fa4a35d565e881f0a3236c6edce47a79d0eae6892376b8a"
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "role": "a",
+      "channels": [
+        {
+          "changed": 1912,
+          "max": 7,
+          "sum": 3186
+        },
+        {
+          "changed": 1912,
+          "max": 7,
+          "sum": 3186
+        },
+        {
+          "changed": 1912,
+          "max": 7,
+          "sum": 3186
+        },
+        {
+          "changed": 1912,
+          "max": 7,
+          "sum": 3186
+        }
+      ],
+      "examples": [
+        {
+          "x": 320,
+          "y": 286,
+          "channel": 0,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 320,
+          "y": 286,
+          "channel": 1,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 320,
+          "y": 286,
+          "channel": 2,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 320,
+          "y": 286,
+          "channel": 3,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 0,
+          "expected": 174,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 1,
+          "expected": 174,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 2,
+          "expected": 174,
+          "actual": 172
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 3,
+          "expected": 174,
+          "actual": 172
+        },
+        {
+          "x": 327,
+          "y": 286,
+          "channel": 0,
+          "expected": 172,
+          "actual": 173
+        },
+        {
+          "x": 327,
+          "y": 286,
+          "channel": 1,
+          "expected": 172,
+          "actual": 173
+        },
+        {
+          "x": 327,
+          "y": 286,
+          "channel": 2,
+          "expected": 172,
+          "actual": 173
+        },
+        {
+          "x": 327,
+          "y": 286,
+          "channel": 3,
+          "expected": 172,
+          "actual": 173
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 0,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 1,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 2,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 0,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 1,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 2,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 0,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 1,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 2,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 0,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 1,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 2,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 0,
+          "expected": 172,
+          "actual": 170
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 1,
+          "expected": 172,
+          "actual": 170
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 2,
+          "expected": 172,
+          "actual": 170
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 3,
+          "expected": 172,
+          "actual": 170
+        }
+      ],
+      "expectedSha256": "71ec93d6af53ca5edefeb875f5c81963228128d299d3e3e27a4221f0e525d871",
+      "actualSha256": "4befe313c18059109d8f92947e7e0897d095e624d3fcfa7ae14a001c497fd3fa",
+      "exact": false
+    },
+    {
+      "role": "cc",
+      "channels": [
+        {
+          "changed": 1458,
+          "max": 6,
+          "sum": 1934
+        },
+        {
+          "changed": 1784,
+          "max": 6,
+          "sum": 2616
+        },
+        {
+          "changed": 496,
+          "max": 4,
+          "sum": 602
+        },
+        {
+          "changed": 1912,
+          "max": 7,
+          "sum": 3186
+        }
+      ],
+      "examples": [
+        {
+          "x": 320,
+          "y": 286,
+          "channel": 3,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 0,
+          "expected": 70,
+          "actual": 69
+        },
+        {
+          "x": 326,
+          "y": 286,
+          "channel": 3,
+          "expected": 174,
+          "actual": 172
+        },
+        {
+          "x": 327,
+          "y": 286,
+          "channel": 0,
+          "expected": 67,
+          "actual": 68
+        },
+        {
+          "x": 327,
+          "y": 286,
+          "channel": 3,
+          "expected": 172,
+          "actual": 173
+        },
+        {
+          "x": 328,
+          "y": 286,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 323,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 1,
+          "expected": 101,
+          "actual": 100
+        },
+        {
+          "x": 324,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 1,
+          "expected": 101,
+          "actual": 102
+        },
+        {
+          "x": 325,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 170
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 0,
+          "expected": 71,
+          "actual": 72
+        },
+        {
+          "x": 326,
+          "y": 287,
+          "channel": 3,
+          "expected": 172,
+          "actual": 170
+        },
+        {
+          "x": 327,
+          "y": 287,
+          "channel": 0,
+          "expected": 71,
+          "actual": 70
+        },
+        {
+          "x": 327,
+          "y": 287,
+          "channel": 1,
+          "expected": 99,
+          "actual": 100
+        },
+        {
+          "x": 327,
+          "y": 287,
+          "channel": 3,
+          "expected": 172,
+          "actual": 171
+        },
+        {
+          "x": 328,
+          "y": 287,
+          "channel": 1,
+          "expected": 98,
+          "actual": 97
+        },
+        {
+          "x": 329,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 335,
+          "y": 287,
+          "channel": 3,
+          "expected": 166,
+          "actual": 165
+        },
+        {
+          "x": 337,
+          "y": 287,
+          "channel": 0,
+          "expected": 68,
+          "actual": 67
+        },
+        {
+          "x": 337,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 169
+        },
+        {
+          "x": 338,
+          "y": 287,
+          "channel": 0,
+          "expected": 68,
+          "actual": 69
+        },
+        {
+          "x": 338,
+          "y": 287,
+          "channel": 3,
+          "expected": 170,
+          "actual": 171
+        },
+        {
+          "x": 340,
+          "y": 287,
+          "channel": 3,
+          "expected": 171,
+          "actual": 172
+        },
+        {
+          "x": 341,
+          "y": 287,
+          "channel": 3,
+          "expected": 172,
+          "actual": 173
+        },
+        {
+          "x": 351,
+          "y": 287,
+          "channel": 0,
+          "expected": 74,
+          "actual": 75
+        },
+        {
+          "x": 317,
+          "y": 288,
+          "channel": 3,
+          "expected": 180,
+          "actual": 179
+        },
+        {
+          "x": 318,
+          "y": 288,
+          "channel": 1,
+          "expected": 103,
+          "actual": 102
+        },
+        {
+          "x": 318,
+          "y": 288,
+          "channel": 3,
+          "expected": 178,
+          "actual": 179
+        },
+        {
+          "x": 319,
+          "y": 288,
+          "channel": 1,
+          "expected": 102,
+          "actual": 103
+        },
+        {
+          "x": 319,
+          "y": 288,
+          "channel": 3,
+          "expected": 175,
+          "actual": 176
+        },
+        {
+          "x": 320,
+          "y": 288,
+          "channel": 1,
+          "expected": 100,
+          "actual": 99
+        }
+      ],
+      "expectedSha256": "59a8f60dfbe29d266fa4a35d565e881f0a3236c6edce47a79d0eae6892376b8a",
+      "actualSha256": "92f142176699d40f08dd3e65edfe4d43027ebaa85ed0e9ad611e7665ae992033",
+      "exact": false
+    }
+  ],
+  "glOwnerRetired": true,
+  "errors": [],
+  "validation": null,
+  "lost": false,
+  "noPerContactReset": true,
+  "previousFirstContact": {
+    "raw": "temp/device-runs/pre-brush68-4901-native/report.json",
+    "PChangedPerChannel": 303,
+    "maxP": 2
+  },
+  "interpretation": "Actual Surface paired-Q8 differences accumulate: P first303/max2 becomes1912/max7 after14 original contacts. Does NOT establish cause of whole drymax36 or all463contacts. Noepsilon/floorbias or defaultflow change. Same oldP/C pair retained for C-before-P everycontact; individual APIs evolve their own state.",
+  "memoryPostCloseMiB": 2064.9
+}
