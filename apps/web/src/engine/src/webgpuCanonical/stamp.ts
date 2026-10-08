@@ -53,15 +53,31 @@ fn paint(v:V)->InkOut {
 @fragment fn colorOnly(v:V)->@location(0) vec4f{return paint(v).color;}
 
 `;
+/** OFF diagnostic retaining production DAB_VERT arithmetic order; hardware parity unproven. */
+export function canonicalStampShader(literalVertex=false):string {
+ if(!literalVertex)return CANONICAL_STAMP_WGSL
+ const old=` let c=cos(u.shape.x);let s=sin(u.shape.x);let scaled=uv*vec2f(u.pose.w,1.0);
+ let p=vec2f(scaled.x*c-scaled.y*s,scaled.x*s+scaled.y*c)*u.pose.z+u.pose.xy;
+ var o:V;o.position=vec4f(p/u.resolution*vec2f(2.0,-2.0)+vec2f(-1.0,1.0),0,1);o.local=uv;return o;`
+ if(!CANONICAL_STAMP_WGSL.includes(old))throw new Error('Canonical stamp vertex anchor missing')
+ return CANONICAL_STAMP_WGSL.replace(old,` let position=uv*0.5;
+ let c=cos(u.shape.x);let s=sin(u.shape.x);
+ let scaled=vec2f(position.x*u.pose.w,position.y);
+ let rotated=vec2f(scaled.x*c-scaled.y*s,scaled.x*s+scaled.y*c);
+ let screenPos=rotated*u.pose.z*2.0+u.pose.xy;
+ var clip=(screenPos/u.resolution)*2.0-1.0;clip.y=-clip.y;
+ var o:V;o.position=vec4f(clip,0,1);o.local=position*2.0;return o;`)
+}
+
 export class CanonicalStampDeposit {
  private readonly device:GPUDevice
  private readonly noise:CanonicalGpuField
  private readonly module:GPUShaderModule
  private readonly pipelines=new Map<string,GPURenderPipeline>()
  private get coverage(){return this.pipeline('coverage')}
- constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false){
+ constructor(device:GPUDevice,noise:CanonicalGpuField,lazy=false,literalVertex=false){
   this.device=device;this.noise=noise
-  this.module=device.createShaderModule({label:'production watercolor nib deposit',code:CANONICAL_STAMP_WGSL})
+  this.module=device.createShaderModule({label:'production watercolor nib deposit',code:canonicalStampShader(literalVertex)})
   if(!lazy)for(const key of ['coverage','inkmax','inkadd','pigmentOnlymax','pigmentOnlyadd','colorOnlymax','colorOnlyadd'])this.pipeline(key)
  }
  private pipeline(key:string){

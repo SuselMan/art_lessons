@@ -26,12 +26,12 @@ export async function coveragePrimitiveOracle(commands:readonly CanonicalDrawCom
 }
 
 /** Ordered Q8 blend oracle; no changes to production source state or draw grouping. */
-export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false,consistentNoise?:ConsistentNoiseVariant,blankSelected=false){
+export async function coverageSequenceOracle(commands:readonly CanonicalDrawCommand[],paper:Uint8Array,side:number,sameInputIndices?:readonly number[],debugStamps=false,consistentNoise?:ConsistentNoiseVariant,blankSelected=false,literalStampVertex=false){
  if(blankSelected&&sameInputIndices?.length!==1)throw new Error('Blank/accum gate requires exactly one selected command')
  if(sameInputIndices&&(!sameInputIndices.length||sameInputIndices.some(i=>!Number.isInteger(i)||i<0||i>=commands.length)))throw new Error('Same-input indices must identify actual ordered commands')
  if(!commands.length||commands.length>200)throw new Error('Coverage sequence must contain 1..200 complete commands')
  for(const command of commands){const u=command.kind==='ribbon'?command.batch.uniforms:command.stamp.uniforms;if(u.useAvailableWater)throw new Error('Coverage sequence requires captured availability for this command; blank substitution refused')}
- const owner=await CanonicalWatercolorWebGpu.create({canvas:document.createElement('canvas'),width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
+ const owner=await CanonicalWatercolorWebGpu.create({canvas:document.createElement('canvas'),width:1024,height:1024,diagnosticLiteralStampVertex:literalStampVertex,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
  const out=new CanonicalFieldBuffer(owner,1024,1024,'nearest','sequence coverage'),empty=new CanonicalFieldBuffer(owner,1024,1024,'nearest','sequence availability')
  const errors:string[]=[];owner.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));const rows=[]
  try{for(const dither of (blankSelected?[true]:[true,false])){
