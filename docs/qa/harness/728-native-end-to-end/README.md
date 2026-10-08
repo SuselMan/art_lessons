@@ -35,3 +35,13 @@ There is no per-frame full field dump, no all-transient-field parity assertion.
 Elapsed times include CPU submission, queue wait and orchestration; they are not
 GPU timer measurements. Software output differences do not establish hardware
 exactness or performance. No Room concurrency, undo/redo or animation claim.
+
+Third-owner isolation: after native author disposal, a fresh native runner replays
+the same original packed tape with end timestamps preserved. It must not emit new
+operation IDs or mutate the tape. Report adds `authorVsNativeReplay`,
+`nativeReplayVsLegacy`, `nativeReplaySha256`, `replayPreservedTape`, nonempty
+and elapsed time. Existing `wholeLayer` remains author-versus-GL. If author/replay
+differs, input delivery/batch boundaries already differ before comparing GPU
+backends; if they match but packed-native/GL differs, investigate raster/settle
+backend parity. Both can differ, so neither implication is a complete proof of
+a single faulty method. All three GPU owners remain strictly sequential.
