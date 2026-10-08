@@ -36,9 +36,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
  let now=1000,timestamp=1791400001000,index=0
  const create=async(paired:boolean,record=false)=>{
   const canvas=document.createElement('canvas');surface.append(canvas)
-  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
-  let computeFullClears=0
-  if(diagnosticComputeFullClear){const clear=backend.encodeClearField.bind(backend);backend.encodeClearField=(encoder,field,rect)=>{if(!rect){computeFullClears++;return clear(encoder,field,[0,0,field.width,field.height])}return clear(encoder,field,rect)}}
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,diagnosticComputeFullClear,paper:{bytes:paper,width:side,height:side,origin:[0,0],texSize:[1024,1024],scale:1}})
   const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));let lost=false
   void backend.device.lost.then(info=>{if(info.reason!=='destroyed')lost=true})
   const runnerOptions={sourceOptions,groupedSettleSubmission:false,diagnosticPairedCarry:paired,diagnosticCarryOracleIndex:paired?oraclePairIndex:undefined,diagnosticHardwareLinearInputs:hardwareLinear,progressiveSettle:progressive,now:()=>now,timestamp:()=>timestamp,operationId:()=>`paired-fixed-${index++}`,onLocalOperation:(op:Operation)=>{if(record){if(op.type!=='stroke')throw new Error('Nonstroke capture');tape.push(structuredClone(op))}}}
@@ -52,7 +50,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    runner.scratch.tiles.solventFilm=(tile,gesture)=>{initializingSolvent=true;try{return film(tile,gesture)}finally{initializingSolvent=false}}
   }
   const destroy=async()=>{try{await runner.drain();runner.destroy()}finally{backend.destroy();canvas.remove()}}
-  return{backend,runner,errors,get computeFullClears(){return computeFullClears},get computeSolventInitClears(){return computeSolventInitClears},get lost(){return lost},destroy}
+  return{backend,runner,errors,get computeFullClears(){return backend.diagnosticComputeFullClearCalls},get computeSolventInitClears(){return computeSolventInitClears},get lost(){return lost},destroy}
  }
  if(!provided){
   // Untimed canonical pointer authoring produces ONE authoritative packed tape.
