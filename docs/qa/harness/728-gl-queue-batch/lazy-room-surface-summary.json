@@ -1,0 +1,175 @@
+{
+  "scope": "ONE Surface actual Room 400 pair; queue/mixed/deferred ON; no input readback; CPU markers perturb timing; final parity separate fixed tape",
+  "valid": true,
+  "rows": [
+    {
+      "lazy": false,
+      "counts": {
+        "enabled": false,
+        "prepares": 4,
+        "captured": 4,
+        "fallback": 0,
+        "travel": [
+          23,
+          15,
+          9,
+          9
+        ]
+      },
+      "elapsedMs": 8882.899999976158,
+      "maxRafMs": 100,
+      "over33": 25,
+      "phases": {
+        "first-pigment": [
+          {
+            "name": "prepare",
+            "cpuMs": 36.40000003576279,
+            "argumentStats": {
+              "travel": 23,
+              "foreign": null
+            }
+          },
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 39.80000001192093,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 83.79999995231628,
+            "argumentStats": null
+          }
+        ],
+        "second-pigment-during-settle": [
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 0.800000011920929,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 39,
+            "argumentStats": null
+          }
+        ],
+        "pure-water": [
+          {
+            "name": "prepare",
+            "cpuMs": 5.100000023841858,
+            "argumentStats": {
+              "travel": 9,
+              "foreign": 0
+            }
+          },
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 6.199999988079071,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 31.69999998807907,
+            "argumentStats": null
+          }
+        ],
+        "pigment-over-water": [
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 0.40000003576278687,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 30.900000035762787,
+            "argumentStats": null
+          }
+        ]
+      }
+    },
+    {
+      "lazy": true,
+      "counts": {
+        "enabled": true,
+        "prepares": 4,
+        "captured": 4,
+        "fallback": 0,
+        "travel": [
+          25,
+          15,
+          9,
+          9
+        ]
+      },
+      "elapsedMs": 9947.599999964237,
+      "maxRafMs": 116.80000000000291,
+      "over33": 29,
+      "phases": {
+        "first-pigment": [
+          {
+            "name": "prepare",
+            "cpuMs": 7.599999964237213,
+            "argumentStats": {
+              "travel": 25,
+              "foreign": null
+            }
+          },
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 10.900000035762787,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 38.10000002384186,
+            "argumentStats": null
+          }
+        ],
+        "second-pigment-during-settle": [
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 0.6000000238418579,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 38,
+            "argumentStats": null
+          }
+        ],
+        "pure-water": [
+          {
+            "name": "prepare",
+            "cpuMs": 1,
+            "argumentStats": {
+              "travel": 9,
+              "foreign": 0
+            }
+          },
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 2,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 25.30000001192093,
+            "argumentStats": null
+          }
+        ],
+        "pigment-over-water": [
+          {
+            "name": "_finishRibbonStroke",
+            "cpuMs": 0.3999999761581421,
+            "argumentStats": null
+          },
+          {
+            "name": "_onEnd",
+            "cpuMs": 33.19999998807907,
+            "argumentStats": null
+          }
+        ]
+      }
+    }
+  ],
+  "minimumFreeMiB": 1025
+}
