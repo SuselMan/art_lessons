@@ -1,0 +1,73 @@
+{
+  "scope": "OFF QA isolated sampler-only native pressure control in original first carry mode15 stride1. No shader expression/flags/artistic change.",
+  "baseline": {
+    "source": "4d403b391173a5c4b684c48b4f8822ae0301454c",
+    "glSha256": "d70fae52c63d1ec6bf8930cc258f503656a418a32659b43fd334a0e5b33f0d11",
+    "nativeSha256": "09179dd2fc62586a0faf00f9339046557880c223870c84423fda4c2d3efe205d",
+    "mismatch": "65cells\u00d74channels/max38 beforebrush"
+  },
+  "change": "Existing CanonicalFieldOps diagnosticHardwareLinearInputs true. Only D pressure has LINEAR metadata; A/B/C/E/path NEAREST, inferredmask8. D hardwaretextureSampleLevel LINEAR CLAMP replaces manualbilerp; mobile NEAREST unchanged. Same P/cost bytes and scalar arithmetic order.",
+  "guard": "Frozen GL reference SHA mandatory for hardware flag; verify after GLretire but BEFORE nativeallocate. Common mobile/pressure SHA/filter/dimensions already strict.",
+  "entry": "runPressureSeedOracle diagnosticFirstCarry:true+diagnosticFirstCarryHardwareLinear:true+diagnosticFirstCarryReferenceSha256=d70fa...; original outbound141, nofirstBand/inwardflags",
+  "software": {
+    "scope": "EXPLICIT synthetic64 firstcarry wiring only; modified fixture passport/dimensions, NOT actual Surface1536/model parity",
+    "channels": [
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      }
+    ],
+    "movementChannels": [
+      {
+        "changed": 29,
+        "max": 1,
+        "sum": 29
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 0,
+        "max": 0,
+        "sum": 0
+      },
+      {
+        "changed": 29,
+        "max": 1,
+        "sum": 29
+      }
+    ],
+    "expectedReferenceSha256": "0dc2fc0708f3ea2a895667554218e6ad2068567429b28988a751775db3587b9e",
+    "referenceMatched": true,
+    "errors": [],
+    "validation": null,
+    "glError": 0
+  },
+  "budget": {
+    "preflightMiB": 1700,
+    "abortMiB": 500,
+    "deadlineSeconds": 120,
+    "arms": 1,
+    "GPU": "producer62MiBretire ->GL27retire ->native36",
+    "CPUConservativeMiB": 160
+  },
+  "limits": "READY not actual device proof. If improved, isolates sampler path for this case, not entire hardware portability or final max36. capillary mix(1,1,...) optimization deferred until fidelity cause established."
+}

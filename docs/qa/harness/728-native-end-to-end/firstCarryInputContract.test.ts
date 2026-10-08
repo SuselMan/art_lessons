@@ -8,3 +8,10 @@ it('isolates literal original first stride before later carry and brush amplific
 import{firstCarryReferenceFragment}from'./firstCarryOracle'
 import{WC_FIELD_OP_CARRY_FRAG,WC_FIELD_OP_HIGH_FRAG}from'../../../../apps/web/src/engine/src/raster/shaders'
 it('uses production dedicated carry program, not bookkeeping HIGH identity branch',()=>{expect(firstCarryReferenceFragment).toBe(WC_FIELD_OP_CARRY_FRAG);expect(firstCarryReferenceFragment).toContain('#define FIELD_OP_CARRY');expect(firstCarryReferenceFragment).not.toBe(WC_FIELD_OP_HIGH_FRAG)})
+
+import {runPressureSeedOracle} from './pressureSeedOracle'
+it('rejects a hardware sampler pair without frozen GL reference before browser/GPU access',async()=>{
+ const input={producerCode:'1'.repeat(40),checkpointSha256:packet,operationSha256:'1'.repeat(64),paperSha256:'1'.repeat(64),traceSha256:'1'.repeat(64),diagnosticFirstCarry:true,diagnosticFirstCarryHardwareLinear:true}
+ await expect(runPressureSeedOracle(input as never)).rejects.toThrow('Sampler pair requires frozen GL output reference')
+ await expect(runPressureSeedOracle({...input,diagnosticFirstCarryReferenceSha256:'bad'} as never)).rejects.toThrow('First carry reference SHA')
+})
