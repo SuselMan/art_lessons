@@ -7,11 +7,13 @@ export function installOwnedMorphFilmstrip(engine,canvas,{maxFrames=6,maxBytes=1
   if(start===null&&reveals.length)start=now;
   // No screenshot/readback in DOWN/MOVE, including the new gesture during a reveal.
   if(start!==null&&!engine._strokeId&&frames.length<maxFrames&&now-start>=offsets[frames.length]){
+   // Redraw before capture: WebGL drawing buffer may be discarded between frames.
+   engine._display();
    const out=makeCanvas(),scale=Math.min(1,640/canvas.width,640/canvas.height);out.width=Math.max(1,Math.round(canvas.width*scale));out.height=Math.max(1,Math.round(canvas.height*scale));out.getContext('2d').drawImage(canvas,0,0,out.width,out.height);
    const png=out.toDataURL('image/png');bytes+=png.length;if(bytes>maxBytes){stopped=true;return;}
    frames.push({at:now,elapsed:now-start,canonicalPending:!!engine._wcCanonical.pending,reveals:reveals.length,width:out.width,height:out.height,png});
   }
   if(frames.length<maxFrames)id=raf(tick);
  };
- id=raf(tick);return{stop(){stopped=true;cancel(id);return{frames,bytes,truncated:bytes>maxBytes,limitations:'Six post-UP rendered canvas thumbnails; readback perturbs queue/cadence, not onset or quality oracle'};}};
+ id=raf(tick);return{stop(){stopped=true;cancel(id);return{frames,bytes,truncated:bytes>maxBytes,limitations:'Six post-UP rendered canvas thumbnails; readback perturbs queue/cadence, diagnostic display/readback, not onset or quality oracle'};}};
 }
