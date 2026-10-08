@@ -3,5 +3,5 @@ export function validateSourceProvenance(expected,provenance){
 }
 export function retainGateResult(report,row,save,api){
  report.rows.push(row);save()
- if(api==='source'&&row.report.code!==report.code)throw Error('Source code passport differs')
+ if((api==='source'||api==='contribution')&&row.report.code!==report.code)throw Error('Source code passport differs')
 }
