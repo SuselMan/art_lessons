@@ -1,0 +1,5 @@
+# Prepared bandBatch аппаратный gate
+
+Новые immutable `room-band-batch-controller.mjs` и `band-batch-quality-controller.mjs` используют исходный actual Engine, без generated lazy/CPU installer. В обеих arm queue/joined/mixed/deferred ON, единственное отличие existing bandBatch false/true. Room использует ClockSafe pointer fixture. Captured SHA вычисляется из текущего source. Constructor/parser actual flag проверяется явно; ordered CPU geometry proof отдельно показывает 24→8 на recorded final8.
+
+Standalone `bandBatchQuality.mjs` сравнивает fixed400 water→pigment: 24 named roles, material, wholeRGBA, meaningful undo/redo. Это отдельная серия после естественного completion; не pixel readback во время Room drawing. Производственные defaults и review5352 не меняются. Контроллеры syntax PASS; hardware ещё не запускался, требуется отдельная выдача слота и preflight1700/abort500. Использовать existing own5353 и genuine Fine paper. Нельзя считать Node ~20% builder gain прогнозом whole Room gain.
