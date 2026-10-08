@@ -1,0 +1,78 @@
+{
+  "scope": "ONE Surface actual Room1024/Fine rapid3 pigment400, owner FIFO opt-in; not artist-ready",
+  "valid": false,
+  "passport": {
+    "apps/web/src/engine/index.ts": "ad8687731c626d52921c1cbef4a96fb2eddbf221f83cd42db62031cedb90d6d3",
+    "apps/web/src/engine/src/dabs/RibbonStrokePainter.ts": "2b62d469fd8175b74cefc937fd748668e5f0367109c9cc9c8103d53f3f576c96",
+    "apps/web/src/engine/src/dabs/canonicalStrokeChunk.ts": "d5bfd4ed0f1896c39dd3fa21232b9cc5c92d96c799cb686dfbc4af26b2334197",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-install.mjs": "33468264fe5348b979095367e15563c2babdf2914b987be3270206c8a884d933",
+    "docs/qa/harness/728-gl-queue-batch/owner-fifo-entry.html": "727fe7339a44b92d3bb093e43e51e582b795cad3923c60695bb451ed09c921ee",
+    "docs/qa/harness/728-gl-queue-batch/ownerFifoRoomScenario.mjs": "a17264d9f302da52f65abaf32b4129b1ee2530f1973e44021dbd7724978ec797",
+    "temp/owner-fifo-runtime/source-passport.json": "f413afd46dd5e3e53a5f3a4f6ba3834faef757ddcad7de4a0fdf2b8bce9dbf4d"
+  },
+  "memory": {
+    "preMiB": 2112,
+    "minMiB": 893,
+    "afterCloseMiB": 1980
+  },
+  "down": [
+    {
+      "name": "first-pigment",
+      "cpuMs": 56.30000001192093,
+      "completeSettle": 0,
+      "textureAllocations": 1,
+      "firstDrawSubmitMs": 25.700000047683716,
+      "started": true
+    },
+    {
+      "name": "second-pigment-during-settle",
+      "cpuMs": 6.400000035762787,
+      "completeSettle": 0,
+      "textureAllocations": 0,
+      "firstDrawSubmitMs": 4.300000011920929,
+      "started": true
+    },
+    {
+      "name": "third-pigment-held-future",
+      "cpuMs": 2.600000023841858,
+      "completeSettle": 0,
+      "textureAllocations": 0,
+      "firstDrawSubmitMs": 1.5,
+      "started": true
+    }
+  ],
+  "quality": {
+    "before": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 755087,
+      "sha": "5a639da914f55d6f08f3f4281ae245b766b1310e4c8dc9190f4079c2135cac08"
+    },
+    "undone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 765006,
+      "sha": "1d22806283c40ce621b2949631460dfbf2ec5bc3d9888f9759d8649020f1708c"
+    },
+    "redone": {
+      "width": 1024,
+      "height": 1024,
+      "nonzero": 766824,
+      "sha": "45dc5b53248b3fcff749513743c2f8442e8f7af0f65ff036ed180c6bb7ec9b2a"
+    },
+    "meaningful": true,
+    "exact": false,
+    "glError": 0,
+    "lost": false,
+    "limitations": [
+      "Final target exact history gate; working scratch fields are not asserted across rebuild",
+      "Readback AFTER measured drawing only"
+    ]
+  },
+  "scopeLimits": [
+    "CPU draw submission is not first scanned-out pigment",
+    "No original same-packed baseline parity yet",
+    "Morphing not integrated",
+    "History exactness failed; defaults remain OFF"
+  ]
+}
