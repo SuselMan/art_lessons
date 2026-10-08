@@ -1,0 +1,266 @@
+{
+  "evidence": "native-pointer400-surface-1791423488414.json",
+  "events": 8288,
+  "operations": 4,
+  "preparationMs": 1362.300000011921,
+  "strokes": [
+    {
+      "stroke": 1,
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.4,
+        0.2,
+        0.6
+      ],
+      "accepted": true,
+      "eventDeliveryMs": 1.5999999642372131,
+      "beginCpuMs": 19.600000023841858,
+      "downToFirstNonScreenSubmitMs": 18.100000023841858,
+      "firstNonScreenLabels": [
+        "canonical planner quantum"
+      ],
+      "downToFirstScreenSubmitMs": 37.10000002384186,
+      "downToDependencyCompletionMs": 46.5,
+      "downToFirstScreenDependencyCompletionMs": 50.30000001192093,
+      "downToFirstRafOpportunityMs": 21.900000035762787,
+      "upToIdleMs": 4751.699999988079,
+      "inputWallMs": 1757.300000011921,
+      "cpuByMethod": {
+        "begin": {
+          "count": 1,
+          "totalMs": 19.600000023841858,
+          "medianMs": 19.600000023841858,
+          "p95Ms": 19.600000023841858,
+          "maxMs": 19.600000023841858
+        },
+        "move": {
+          "count": 32,
+          "totalMs": 20.200000047683716,
+          "medianMs": 0.10000002384185791,
+          "p95Ms": 4.300000011920929,
+          "maxMs": 7.599999964237213
+        },
+        "end": {
+          "count": 1,
+          "totalMs": 69.60000002384186,
+          "medianMs": 69.60000002384186,
+          "p95Ms": 69.60000002384186,
+          "maxMs": 69.60000002384186
+        }
+      },
+      "submitCpu": {
+        "count": 620,
+        "totalMs": 18.400000631809235,
+        "medianMs": 0,
+        "p95Ms": 0.10000002384185791,
+        "maxMs": 0.20000004768371582
+      },
+      "existingCompletionWait": {
+        "count": 623,
+        "totalMs": 12152.699999153614,
+        "medianMs": 5.100000023841858,
+        "p95Ms": 113.60000002384186,
+        "maxMs": 239.39999997615814
+      },
+      "submissionCount": 620
+    },
+    {
+      "stroke": 2,
+      "preset": "normal:100:0:PB29:round",
+      "color": [
+        0.4,
+        0.2,
+        0.6
+      ],
+      "accepted": true,
+      "eventDeliveryMs": 0.6000000238418579,
+      "beginCpuMs": 3,
+      "downToFirstNonScreenSubmitMs": 2.5,
+      "firstNonScreenLabels": [
+        "canonical planner quantum"
+      ],
+      "downToFirstScreenSubmitMs": 16.19999998807907,
+      "downToDependencyCompletionMs": 9.600000023841858,
+      "downToFirstScreenDependencyCompletionMs": 21.30000001192093,
+      "downToFirstRafOpportunityMs": 15.199999988079071,
+      "upToIdleMs": 4713.599999964237,
+      "inputWallMs": 1790.6000000238419,
+      "cpuByMethod": {
+        "begin": {
+          "count": 1,
+          "totalMs": 3,
+          "medianMs": 3,
+          "p95Ms": 3,
+          "maxMs": 3
+        },
+        "move": {
+          "count": 32,
+          "totalMs": 17.69999998807907,
+          "medianMs": 0,
+          "p95Ms": 2.199999988079071,
+          "maxMs": 10.399999976158142
+        },
+        "end": {
+          "count": 1,
+          "totalMs": 43.40000003576279,
+          "medianMs": 43.40000003576279,
+          "p95Ms": 43.40000003576279,
+          "maxMs": 43.40000003576279
+        }
+      },
+      "submitCpu": {
+        "count": 663,
+        "totalMs": 21.299999713897705,
+        "medianMs": 0,
+        "p95Ms": 0.10000002384185791,
+        "maxMs": 0.19999998807907104
+      },
+      "existingCompletionWait": {
+        "count": 666,
+        "totalMs": 6825.100000798702,
+        "medianMs": 4.900000035762787,
+        "p95Ms": 30,
+        "maxMs": 232
+      },
+      "submissionCount": 663
+    },
+    {
+      "stroke": 3,
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.4,
+        0.2,
+        0.6
+      ],
+      "accepted": true,
+      "eventDeliveryMs": 1,
+      "beginCpuMs": 2.099999964237213,
+      "downToFirstNonScreenSubmitMs": 1.800000011920929,
+      "firstNonScreenLabels": [
+        "canonical planner quantum"
+      ],
+      "downToFirstScreenSubmitMs": 5.600000023841858,
+      "downToDependencyCompletionMs": 6.200000047683716,
+      "downToFirstScreenDependencyCompletionMs": 9.900000035762787,
+      "downToFirstRafOpportunityMs": 4.100000023841858,
+      "upToIdleMs": 1591,
+      "inputWallMs": 73.80000001192093,
+      "cpuByMethod": {
+        "begin": {
+          "count": 1,
+          "totalMs": 2.099999964237213,
+          "medianMs": 2.099999964237213,
+          "p95Ms": 2.099999964237213,
+          "maxMs": 2.099999964237213
+        },
+        "move": {
+          "count": 0,
+          "totalMs": 0,
+          "medianMs": null,
+          "p95Ms": null,
+          "maxMs": null
+        },
+        "end": {
+          "count": 1,
+          "totalMs": 3.199999988079071,
+          "medianMs": 3.199999988079071,
+          "p95Ms": 3.199999988079071,
+          "maxMs": 3.199999988079071
+        }
+      },
+      "submitCpu": {
+        "count": 182,
+        "totalMs": 6.200000166893005,
+        "medianMs": 0,
+        "p95Ms": 0.10000002384185791,
+        "maxMs": 0.20000004768371582
+      },
+      "existingCompletionWait": {
+        "count": 183,
+        "totalMs": 2995.3999999165535,
+        "medianMs": 5.399999976158142,
+        "p95Ms": 78.20000004768372,
+        "maxMs": 94.79999995231628
+      },
+      "submissionCount": 182
+    },
+    {
+      "stroke": 4,
+      "preset": "normal:100:100:PB29:round",
+      "color": [
+        0.1,
+        0.6,
+        0.2
+      ],
+      "accepted": true,
+      "eventDeliveryMs": 0.800000011920929,
+      "beginCpuMs": 2.699999988079071,
+      "downToFirstNonScreenSubmitMs": 2.199999988079071,
+      "firstNonScreenLabels": [
+        "canonical planner quantum"
+      ],
+      "downToFirstScreenSubmitMs": 4.800000011920929,
+      "downToDependencyCompletionMs": 5.399999976158142,
+      "downToFirstScreenDependencyCompletionMs": 9.100000023841858,
+      "downToFirstRafOpportunityMs": 3.199999988079071,
+      "upToIdleMs": 1585.6000000238419,
+      "inputWallMs": 73.69999998807907,
+      "cpuByMethod": {
+        "begin": {
+          "count": 1,
+          "totalMs": 2.699999988079071,
+          "medianMs": 2.699999988079071,
+          "p95Ms": 2.699999988079071,
+          "maxMs": 2.699999988079071
+        },
+        "move": {
+          "count": 0,
+          "totalMs": 0,
+          "medianMs": null,
+          "p95Ms": null,
+          "maxMs": null
+        },
+        "end": {
+          "count": 1,
+          "totalMs": 1.899999976158142,
+          "medianMs": 1.899999976158142,
+          "p95Ms": 1.899999976158142,
+          "maxMs": 1.899999976158142
+        }
+      },
+      "submitCpu": {
+        "count": 174,
+        "totalMs": 5.600000023841858,
+        "medianMs": 0,
+        "p95Ms": 0.10000002384185791,
+        "maxMs": 0.10000002384185791
+      },
+      "existingCompletionWait": {
+        "count": 175,
+        "totalMs": 3775.699999988079,
+        "medianMs": 11.600000023841858,
+        "p95Ms": 98.60000002384186,
+        "maxMs": 148.5
+      },
+      "submissionCount": 174
+    }
+  ],
+  "replay": {
+    "wallMs": 12605.5,
+    "submitCpu": {
+      "count": 1466,
+      "totalMs": 41.300001204013824,
+      "medianMs": 0,
+      "p95Ms": 0.10000002384185791,
+      "maxMs": 0.20000004768371582
+    }
+  },
+  "rejectedStatuses": [],
+  "limits": [
+    "No GPU timestamp duration: queue completion is wall-clock dependency latency, not GPU execution time",
+    "Source/presentation submission and rAF are visibility proxies, not first visible pigment proof",
+    "No readPixels/readback during primary timeline",
+    "Instrumentation CPU overhead included; use uninstrumented control separately",
+    "Real pointer input; no synthetic dabs; source/paper/model/factory options unchanged"
+  ]
+}
