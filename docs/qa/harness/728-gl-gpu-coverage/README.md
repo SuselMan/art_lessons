@@ -75,3 +75,21 @@ Upload/raw draw/CPU finish явно отсутствуют в targets; cpuApi={}
 `node build.mjs frozenBundle out`, затем существующий private preview,
 `GATE_URL=... GATE_OUT=... node controller.mjs`. Требуется эксклюзивное
 согласование Surface, preflight1700/abort500; URL не хранится в Git.
+
+Baseline queueCapture: 334 ticks, continuation0, contact204/front70/barrier60,
+presentation0; flags front/presentation/contact/continuation OFF. Tick bodies
+суммарно140.6мс, максимум46.3мс. Queue sync callback0: это не доказательство
+отсутствия других gl.finish/fences. Per-operation phase wall:
+layer_add19.6 / stroke2850 / stroke2900 / paper_dry50.4мс. После каждой
+операции idle ждёт3стабильныхrAF; в конце есть ещё один idle. Snapshot не
+содержит timestamp начала tick и не измеряет межкадровые интервалы, поэтому
+нельзя объявить оставшиеся wall milliseconds «CPU» или чистым ожиданиемrAF.
+
+Но 334 раздельных ticks при двух strokes по≈2.9с показывают конкретное
+направление следующего замера: timestamps начала/end ticks, frame cadence,
+readyQueue/deadline/GPUcompletion overlap. Прежний baseline делает по одной
+канонической единице в tick; уменьшение GPU времени единицы может сохранять
+то же количество кадров. Proof-safe группировка должна сохранить каждый
+Q8 pass/оператор и достаточную отзывчивость, сравнить output вместе с live
+animation/input latency. TickElapsed140.6мс — наблюдаемое CPU+sync тело,
+не вся CPU подготовка и не GPU time; суммы из разных часов не вычитаются.

@@ -316,5 +316,51 @@
     "Browser composition/vsync",
     "CPU preparation outside measured outer methods",
     "No Room/livepointer/network"
-  ]
+  ],
+  "baselineScheduler": {
+    "phaseMs": [
+      19.600000023841858,
+      2850,
+      2900,
+      50.39999997615814
+    ],
+    "operationTypes": [
+      "layer_add",
+      "stroke",
+      "stroke",
+      "paper_dry"
+    ],
+    "tickCount": 334,
+    "truncated": false,
+    "continuationTicks": 0,
+    "tickElapsedSumMs": 140.59999978542328,
+    "tickElapsedMaxMs": 46.30000001192093,
+    "tagOps": {
+      "contact": 204,
+      "front": 70,
+      "presentation": 0,
+      "barrier": 60
+    },
+    "outsideOps": {
+      "contact": 0,
+      "front": 0,
+      "presentation": 0,
+      "barrier": 0
+    },
+    "syncCount": 0,
+    "syncMs": 0,
+    "outsideSyncCount": 0,
+    "outsideSyncMs": 0,
+    "flags": {
+      "front": false,
+      "presentation": false,
+      "contact": false,
+      "continuation": false
+    },
+    "limitations": [
+      "tick elapsed is JS+sync wall time, not GPU timestamp",
+      "synchronous complete drains bypass advance and are not counted as tick ops",
+      "records stop at timed boundary before diagnostic readbacks and undo"
+    ]
+  }
 }
