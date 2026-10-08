@@ -9518,3 +9518,8 @@ export type { CanonicalSceneSession, CanonicalSceneSettings, CanonicalSceneCallb
 export async function createCanonicalWatercolorScene(canvas: HTMLCanvasElement, callbacks: import('./src/webgpuCanonical/sceneFactory').CanonicalSceneCallbacks) {
   return (await import('./src/webgpuCanonical/sceneFactory')).createCanonicalSceneSession(canvas, callbacks)
 }
+
+/** DEV primitive gate, not a Room renderer option. */
+export async function runCanonicalRoomTileBridgeDiagnostic(size = 1024) {
+  return (await import('./src/webgpuCanonical/roomTileBridgeDiagnostic')).runCanonicalRoomTileBridgeDiagnostic(size)
+}
