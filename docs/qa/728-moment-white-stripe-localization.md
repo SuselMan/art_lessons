@@ -69,3 +69,9 @@ Crop metadata matches ZERO exactly. Contact0 and FIRST purple contact1 each have
 Contact2 is NOT equivalent: OFF/ZERO P36521 differing bytes/max61, C35818/max61, framebuffer22147/max125. Preserve this separate continuation/source-state question; do not advertise ZERO as globally identical to OFF. The source observer captures before publication; ZERO captures after operator, so some chronological metadata differs even though crops match. This result is not native-versus-WebGL quality evidence.
 
 Upstream candidate: held stamp transverse `across` feeds `wcHairField`/`wcTipContact`, which can form approximately horizontal contacts when brush axis is vertical. The actual source shader also multiplies cloud/settling/film blot. None has yet been causally identified: isolate actual prepared stamp parameters and mask channels before changing noise/pressure/fit, and retain same-tape source proof. The operator and default source arithmetic remain unchanged.
+
+## Zero-state contract candidate (offline)
+
+Actual Room GPU-audit publication previously rebased `inkLoad→inkBase`, `inkColor→colorBase`, cleared current film even at both rates0. Planner capture selects those bases when `filmGesture===gesture` and splits mobile from `(laid−settled)`. Scalar counterexample: load120/base20 gives mobile100; rebasing preserves displayed120 but gives mobile0. Thus zero-rate texture equality alone is insufficient for future settle/state equality.
+
+A narrow candidate skips ONLY this continuation rebase when both recipe rates are exactly0. Transport shader/defaults unchanged; nonzero candidate behavior unchanged. Actual owner regression retains full P/C/base/film/coverage state, mobile partition and resource release/publication,11 tests PASS. Hardware full-state/stage comparison still required, frozen5358 unchanged. This is a contract repair candidate, not proof that all active-operator naturalness issues are fixed.

@@ -182,7 +182,10 @@ export class CanonicalRoomWatercolorExecutor {
      }else{
       // Counter validation precedes continuation bookkeeping. Invalid or retired
       // contacts must never absorb/clear the current production MAX film.
-      if(this.diagnosticMomentGpuAudit){
+      // A zero-rate diagnostic must preserve the settle decomposition, not
+      // merely the displayed records. Rebasing makes inkBase==inkLoad and
+      // changes the planner's (laid - settled) mobile inputs.
+      if(this.diagnosticMomentGpuAudit&&(chunk.momentRecipe!.mixRate!==0||chunk.momentRecipe!.advectionRate!==0)){
        this.adapter.runQuantum(()=>{if(chunk.segment.film){e.inkLoad!.copyTo(e.inkBase!);e.inkColor!.copyTo(e.colorBase!);e.strokeInk!.clear();e.strokeColor!.clear()}})
        await this.backend.whenIdle();this.assertLive()
       }
