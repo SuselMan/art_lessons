@@ -18,3 +18,17 @@ export function decodeInwardFloatProbe(bytes:ArrayBuffer){
  const a=new Float32Array(bytes);if(a.some(v=>!Number.isFinite(v)))throw Error('Nonfinite front intermediate')
  return INWARD_PROBE_CELLS.map(([x,y],i)=>({x,y,values:Object.fromEntries(INWARD_PROBE_FIELDS.map((name,k)=>[name,a[i*INWARD_PROBE_FLOATS+k]]))}))
 }
+/** Native-like scalar layout, GL counterpart. Caller needs actual float framebuffer support.
+ * u_probeView=-1 preserves original Q8 output; 0..3 emits raw vec4 diagnostics.
+ * Tiny viewport crop MUST match full-view Q8 reference before values are interpreted. */
+export function inwardGlFloatProbeShader(source:string){
+ const start='float best = texture2D(u_cost, v_uv).r * u_costMax;'
+ const edge='best = min(best, ci * u_costMax + edge);'
+ const output='gl_FragColor = vec4(min(best, u_costMax) / u_costMax, hj, texture2D(u_cost, v_uv).b, 1.0);'
+ if([start,edge,output].some(a=>source.split(a).length!==2)||source.includes('u_probeView'))throw Error('Exact baseline GL front probe anchors required')
+ let s=source.replace('uniform float u_stride;','uniform float u_stride;\n uniform float u_probeView;')
+ s=s.replace(start,start+'float debugInitial=best;vec4 debugWinner=vec4(0.0);vec4 debugMore=vec4(0.0);vec2 debugUv=vec2(0.0);')
+ s=s.replace(edge,'float debugCandidate=ci*u_costMax+edge;if(debugCandidate<best){debugWinner=vec4(o,ci,relief);debugMore=vec4(film,edge,debugCandidate,1.0);debugUv=uvj;}'+edge)
+ s=s.replace(output,output+'if(u_probeView> -0.5){if(u_probeView<0.5)gl_FragColor=vec4(debugInitial,best,hj,climb);else if(u_probeView<1.5)gl_FragColor=debugWinner;else if(u_probeView<2.5)gl_FragColor=debugMore;else gl_FragColor=vec4(v_uv,debugUv);}')
+ return s
+}

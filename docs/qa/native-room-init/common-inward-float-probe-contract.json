@@ -3,10 +3,40 @@
   "module": "docs/qa/harness/728-native-end-to-end/inwardFloatProbe.ts",
   "shader": "Exact canonical baseline front source anchors; original min expression and Q8 store retained",
   "binding": 9,
-  "recordCellsFieldTop": [[683,346],[682,347],[683,347]],
+  "recordCellsFieldTop": [
+    [
+      683,
+      346
+    ],
+    [
+      682,
+      347
+    ],
+    [
+      683,
+      347
+    ]
+  ],
   "recordBytesPerStep": 192,
   "recordLayout": "Three cells, four vec4f per cell; decode function maps16 named scalar fields",
-  "floatFields": ["initialCost","finalCost","height","climb","winnerDx","winnerDy","winnerCostNormalized","winnerRelief","winnerFilm","winnerEdge","winnerCandidate","winnerFound","uvX","uvY","winnerUvX","winnerUvY"],
+  "floatFields": [
+    "initialCost",
+    "finalCost",
+    "height",
+    "climb",
+    "winnerDx",
+    "winnerDy",
+    "winnerCostNormalized",
+    "winnerRelief",
+    "winnerFilm",
+    "winnerEdge",
+    "winnerCandidate",
+    "winnerFound",
+    "uvX",
+    "uvY",
+    "winnerUvX",
+    "winnerUvY"
+  ],
   "ownership": [
     "Allocate one storage/copySrc buffer per captured step; immutable192bytes after that dispatch",
     "Retain buffers until encoder submission and queue completion; do not overwrite same records before copying",
@@ -20,7 +50,50 @@
     "WinnerFound0 means initial cost won; zero winner fields must not be interpreted as sampled neighbor values",
     "GL rawfloat capture counterpart is not implemented yet; these are native-only intermediates until explicitly paired"
   ],
-  "validation": {"unitTests":3,"harnessTypecheck":"PASS","oxlint":"PASS","softwareShaderCompilationMessages":[],"softwarePipelineValidationError":null},
-  "nextStopControls": {"existingFrozenCode":"4ec4d259c5a49c36c9bb4faf641c5e6865ed2f1e","stopAfter":[3,4],"sourceFilter":"OFF legacy","inputMode12Mask":"9f44c7d06acd3b66e460cb7e806c59faeb4af74152d4739bb7a63de8f2a54eb2"},
-  "limits": ["No Surface allocation used","No Samsung access","No cause claim for3Rbytes or final49052/max36","No production kernel/model/default changes"]
+  "validation": {
+    "unitTests": 4,
+    "harnessTypecheck": "PASS",
+    "oxlint": "PASS",
+    "softwareShaderCompilationMessages": [],
+    "softwarePipelineValidationError": null,
+    "softwareGlCompileMessages": [],
+    "softwareGlFloatTexture": true,
+    "softwareGlFloatColorBuffer": true
+  },
+  "nextStopControls": {
+    "existingFrozenCode": "4ec4d259c5a49c36c9bb4faf641c5e6865ed2f1e",
+    "stopAfter": [
+      3,
+      4
+    ],
+    "sourceFilter": "OFF legacy",
+    "inputMode12Mask": "9f44c7d06acd3b66e460cb7e806c59faeb4af74152d4739bb7a63de8f2a54eb2"
+  },
+  "limits": [
+    "No Surface allocation used",
+    "No Samsung access",
+    "No cause claim for3Rbytes or final49052/max36",
+    "No production kernel/model/default changes"
+  ],
+  "glCounterpart": {
+    "module": "inwardGlFloatProbeShader",
+    "uniform": "u_probeView=-1 originalQ8;0..3 four rawvec4views",
+    "tinyTarget": [
+      2,
+      2
+    ],
+    "viewport": [
+      -682,
+      -1188,
+      1536,
+      1536
+    ],
+    "readbackBytes": 256,
+    "requirements": [
+      "Actual OES_texture_float and float framebuffer COMPLETE; unsupported explicitly",
+      "Tiny crop OFF Q8 equals corresponding full baseline cells before rawvalues interpreted",
+      "Instrumented full baseline Q8 same-input final exact guard",
+      "GLfloatcompile support softwareonly verified; no actual GPU values yet"
+    ]
+  }
 }
