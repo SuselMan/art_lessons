@@ -1,0 +1,78 @@
+{
+  "scope": "Surface Intel; one original100 stroke; actual1024 tile/1536 solver; no Room integration/performance claim",
+  "code": "941ae06d5fdc2e01dc4a298dc0754478606fbbc5",
+  "bundleSha256": "d08186dfa3cf030a4420fe77b3bc20ec240c25494ed5e1a183e9b1994ea05b49",
+  "checkpointSha256": "272786b5bf2e708e50d07949ac661ccd66a3699dc5b9eba2777e13c27ea945fe",
+  "functionalPass": true,
+  "parityPass": false,
+  "sourceUploadedBytes": 50331648,
+  "sourceImportCalls": 1,
+  "arms": {
+    "baseline": {
+      "material": {
+        "key": "material",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 49090,
+        "max": 36,
+        "mean": 0.016485214233398438,
+        "exact": false
+      },
+      "matchingFinalFields": [],
+      "errors": [],
+      "lost": false,
+      "validation": null
+    },
+    "common": {
+      "material": {
+        "key": "material",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 49052,
+        "max": 36,
+        "mean": 0.01647663116455078,
+        "exact": false
+      },
+      "matchingFinalFields": [
+        "coverage",
+        "mask",
+        "band"
+      ],
+      "errors": [],
+      "lost": false,
+      "validation": null
+    }
+  },
+  "raw": {
+    "producer": {
+      "path": "temp/device-runs/common-surface-941/producer/report.json",
+      "sha256": "0814a28feea64d8427077ba64fb741ffcb31a4c4765b2321f91f3e0b39163efb",
+      "memoryMiB": [
+        2004.9,
+        1424,
+        1423.4
+      ]
+    },
+    "baseline": {
+      "path": "temp/device-runs/common-surface-941/baseline/report.json",
+      "sha256": "698c899f2d01d82ae08e8ef39c3d42070a031b5e0ea22bf26c8b779240e98182",
+      "memoryMiB": [
+        1891.8,
+        1493.2,
+        1063.6
+      ]
+    },
+    "common": {
+      "path": "temp/device-runs/common-surface-941/common/report.json",
+      "sha256": "31901dd24f0d3b5314253cd0ad135afd19d1d6dedd8b3246cfe1bdcfc904955f",
+      "memoryMiB": [
+        1766.6,
+        986.3
+      ]
+    }
+  },
+  "postReleaseMiB": 1768.1,
+  "conclusion": "ALL common source removes only38 differing final material bytes; max36 persists. Coverage/mask/band match GL at end. Seven other field hashes differ; locate earliest solver operation before attributing arithmetic cause."
+}
