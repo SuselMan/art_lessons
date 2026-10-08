@@ -1,0 +1,200 @@
+{
+  "issue": "#728 — native Room publication attribution",
+  "runtimeSource": "731733c908245b80caf7c172823019f5f3e949e4",
+  "controllerRoot": "de43b79f",
+  "rawReportSha": "f2f39eeeefdbd6647241ca1b7612925877450d336cd5a5587764641822c44595",
+  "rawPath": "temp/device-runs/room-publication-ui731/report.json",
+  "complete": true,
+  "errors": [],
+  "gl": 0,
+  "lost": false,
+  "ownTargetCloseRequested": true,
+  "ownedContextDisposed": true,
+  "memoryMiB": {
+    "preflight": 2254.82421875,
+    "minimum": 1050.93359375,
+    "post": 1983.69921875
+  },
+  "carryPressure": {
+    "enabled": true,
+    "counters": {
+      "mode15": 64,
+      "mode16": 16,
+      "other": 371
+    }
+  },
+  "materialExport": {
+    "width": 1754,
+    "height": 2480,
+    "alpha": 141333,
+    "sha": "019fea567d01ae7fd9301b7a2e24f67fe9365c806d0bde1f94dfa0769606f118",
+    "pngBytes": 448880,
+    "comparisonReady": true
+  },
+  "nativeMaterialPngSha": "603978ca186cb6ef48d95b52a473f001964ba5bc65e22902c48d7c59e1e093c4",
+  "traceOverflow": false,
+  "publication": {
+    "bridgeCount": 35,
+    "firstBridge": {
+      "label": "bridge.canvas",
+      "start": 7273.699999988079,
+      "end": 10678.099999964237,
+      "wallMs": 3404.399999976158,
+      "rejected": false,
+      "submit": [
+        {
+          "start": 7274.099999964237,
+          "end": 7274.199999988079,
+          "wallMs": 0.10000002384185791,
+          "rejected": false
+        }
+      ],
+      "completionWait": [
+        {
+          "start": 7274.199999988079,
+          "end": 10676.799999952316,
+          "wallMs": 3402.599999964237,
+          "rejected": false
+        }
+      ],
+      "syncGlRestore": [
+        {
+          "start": 10677.099999964237,
+          "end": 10678,
+          "wallMs": 0.9000000357627869,
+          "rejected": false
+        }
+      ],
+      "readback": []
+    },
+    "syncRestoreMaxMs": 0.9000000357627869,
+    "syncRestoreMedianMs": 0.10000002384185791,
+    "completionWaitMaxMs": 3402.599999964237
+  },
+  "raf": {
+    "count": 517,
+    "medianMs": 16.700000000000728,
+    "p95Ms": 66.69999999999982,
+    "maxMs": 3383.2000000000007
+  },
+  "strokes": [
+    {
+      "label": "water400",
+      "wallMs": 7713.729839
+    },
+    {
+      "label": "pigment70-on-water400",
+      "wallMs": 1939.528843
+    },
+    {
+      "label": "colorA70-400",
+      "wallMs": 3074.4872120000036
+    },
+    {
+      "label": "colorB70-400",
+      "wallMs": 2727.204254000004
+    }
+  ],
+  "decodedDabs": [
+    {
+      "id": "12wrO6v4eK",
+      "preset": "normal:100:0:PB29:round",
+      "color": [
+        0.2,
+        0,
+        0.6
+      ],
+      "count": 17,
+      "sizeMin": 134.36253356933594,
+      "sizeMax": 298.58343505859375,
+      "pressureMin": 0,
+      "pressureMax": 0.699999988079071
+    },
+    {
+      "id": "dPZUJ9sIrn",
+      "preset": "normal:100:70:PB29:round",
+      "color": [
+        0.2,
+        0,
+        0.6
+      ],
+      "count": 1,
+      "sizeMin": 238.86672973632812,
+      "sizeMax": 238.86672973632812,
+      "pressureMin": 0.699999988079071,
+      "pressureMax": 0.699999988079071
+    },
+    {
+      "id": "IHkXAaSlfc",
+      "preset": "normal:100:70:PB29:round",
+      "color": [
+        0.2,
+        0,
+        0.6
+      ],
+      "count": 17,
+      "sizeMin": 134.36253356933594,
+      "sizeMax": 298.58343505859375,
+      "pressureMin": 0,
+      "pressureMax": 0.699999988079071
+    },
+    {
+      "id": "RGL9X2aYu_",
+      "preset": "normal:100:70:PB29:round",
+      "color": [
+        0.9,
+        0.1,
+        0.05
+      ],
+      "count": 17,
+      "sizeMin": 134.36253356933594,
+      "sizeMax": 298.58343505859375,
+      "pressureMin": 0,
+      "pressureMax": 0.699999988079071
+    }
+  ],
+  "actualColorCommands": [
+    {
+      "color": [
+        0.2,
+        0,
+        0.6
+      ],
+      "tau": [
+        1.6094379124341003,
+        3.912023005428146,
+        0.5108256237659907
+      ],
+      "actualColorCommandBatches": 11,
+      "materialGestures": [
+        2,
+        3
+      ]
+    },
+    {
+      "color": [
+        0.9,
+        0.1,
+        0.05
+      ],
+      "tau": [
+        0.10536051565782628,
+        2.3025850929940455,
+        2.995732273553991
+      ],
+      "actualColorCommandBatches": 10,
+      "materialGestures": [
+        4
+      ]
+    }
+  ],
+  "visual": "Watercolor400 actual UI visible; both blue/purple and red regions; not equivalent to GL parity proof",
+  "conclusion": "First3.4s publication dominated by completion wait, synchronousGLrestore0.9ms. Does not identify shader/compiler versus driver/GPU/compositor cause; experience remains not smooth.",
+  "limits": [
+    "Observed instrumented JS/Promise wall spans; not GPU duration or physical pen latency",
+    "Overlapping completion waits are not additive",
+    "Equal requested blue/red span120 and both17dabs, geometry/orientation differs",
+    "No originalGL arm yet; single origin-zero1024 tile scope only",
+    "Paper/display/export endpoint; no multiplayer/Undo/Redo parity claim"
+  ]
+}
