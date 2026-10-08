@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>Exact dispatch scissor gate</title>
+<button id="gate">Run 32×40 byte gate</button><button id="timing">Run 1536² brush microbenchmark</button><pre id="output">Frozen9d6f41f1 vs current. No Room/whole experience claim.</pre>
+<script type="module">
+import {runDispatchScissor,runDispatchTiming} from './run.js';
+const buttons=[...document.querySelectorAll('button')],out=document.querySelector('#output');
+async function run(fn){buttons.forEach(b=>b.disabled=true);out.textContent='Running…';try{const result=await fn();window.__dispatchResult=result;out.textContent=JSON.stringify(result,null,2)}catch(e){window.__dispatchError=String(e);out.textContent=String(e)}finally{buttons.forEach(b=>b.disabled=false)}}
+document.querySelector('#gate').onclick=()=>run(runDispatchScissor);document.querySelector('#timing').onclick=()=>run(()=>runDispatchTiming());
+</script>

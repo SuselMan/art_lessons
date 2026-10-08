@@ -1,0 +1,6 @@
+import {build} from 'esbuild';import fs from 'node:fs/promises';import path from 'node:path';import {execFileSync} from 'node:child_process';
+const out=path.resolve(process.argv[2]??'temp/dispatch-scissor-hosted');await fs.mkdir(out,{recursive:true});
+const code=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+for(const old of [false,true])await build({stdin:{contents:"export {CanonicalBrushContact} from './apps/web/src/engine/src/webgpuCanonical/brush';export {CanonicalFieldOps} from './apps/web/src/engine/src/webgpuCanonical/passes/fieldOps';",resolveDir:process.cwd()},outfile:path.join(out,(old?'old':'new')+'.js'),bundle:true,format:'esm',plugins:old?[{name:'frozen-baseline',setup(b){b.onLoad({filter:/(?:brush|fieldOps)\.ts$/},args=>({contents:execFileSync('git',['show','9d6f41f1:'+path.relative(process.cwd(),args.path)],{encoding:'utf8'}),loader:'ts'}))}}]:[]});
+for(const file of ['run.js','index.html'])await fs.copyFile('docs/qa/harness/728-dispatch-scissor/'+file,path.join(out,file));
+await fs.writeFile(path.join(out,'provenance.json'),JSON.stringify({baseline:'9d6f41f1',current:code,scope:'brush/fieldOps dispatch scissor only',devicesUntested:true},null,2));console.log(out);

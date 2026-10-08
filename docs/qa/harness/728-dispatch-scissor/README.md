@@ -35,3 +35,23 @@ checks across259 rectangles/331520 pixel centres, app+SW typecheck and oxlint.
 For field1536² and scissor100×200 the launched invocation budget becomes20800
 instead of2359296. That is an INVOCATION count reduction, not a measured speedup.
 Root owns actual Samsung/Surface quality and performance checks.
+
+Hosted hardware gate (root controls device ownership):
+
+```sh
+node docs/qa/harness/728-dispatch-scissor/build.mjs
+node docs/qa/harness/728-dispatch-scissor/hosted-check.mjs
+```
+
+Serve the resulting `temp/dispatch-scissor-hosted` directory. Its page exposes
+`window.runDispatchScissor()` for the same 40 byte fixtures, and
+`window.runDispatchTiming({width:1536,height:1536,iterations:8,
+scissor:[600,650,100,200],newFirst:false})` for an isolated single-P brush contact.
+Repeat with `newFirst:true` to control ordering/cache effects. Both versions use
+the same fixed Q8 inputs and perform the same writes; outputs are compared after
+timing. Warmup, output reset, query resolution and readback are excluded from
+wallMs. CPU encoding, submit and completion wait are separate. Optional GPU
+queries measure first compute start through last compute end. This benchmark
+measures contact dispatch only and does not predict Room or whole-runner speed.
+The hosted small SwiftShader smoke passes both APIs with validation/errors zero;
+its timing is not hardware evidence. No full1536 software timing is required.
