@@ -15,3 +15,23 @@ it('unchanged coherent source fits preserve this fixture carrier; independent P/
  // RGB is optical moment normalized by its OWN C.A carrier, not P.B.
  expect([...nextC.subarray(0,3)].every(x=>x<=nextC[3])).toBe(true)
 })
+it('finite premultiplied optical base need not be a pointwise subset of fitted load',()=>{
+ const base=[255,0,0,255],film=[0,255,0,255],load=land(base,film)
+ expect([...load]).toEqual([128,128,0,255])
+ expect(base[0]).toBeGreaterThan(load[0])
+ expect(base.every(Number.isFinite)&&[...load].every(Number.isFinite)).toBe(true)
+ expect(base.slice(0,3).every(x=>x<=base[3])).toBe(true)
+ expect([...load.subarray(0,3)].every(x=>x<=load[3])).toBe(true)
+ // A bounded nonnegative film over an unchanged red base cannot represent
+ // a target whose red optical moment has been completely transported out.
+ const target=[0,128,0,128]
+ for(const green of [0,1,127,255])expect(land(base,[0,green,0,255])[0]).toBeGreaterThan(target[0])
+})
+it('conservative active transport does not justify declaring the whole current load settled',()=>{
+ const beforeLoad=[100,0],settledSnapshot=[0,0],afterLoad=[75,25]
+ expect(afterLoad.reduce((a,b)=>a+b,0)).toBe(beforeLoad.reduce((a,b)=>a+b,0))
+ const mobile=afterLoad.map((x,i)=>Math.max(0,x-settledSnapshot[i]))
+ const rebasedMobile=afterLoad.map((x,i)=>Math.max(0,x-afterLoad[i]))
+ expect(mobile.reduce((a,b)=>a+b,0)).toBe(100)
+ expect(rebasedMobile).toEqual([0,0])
+})
