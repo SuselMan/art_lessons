@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>Canonical settle tape parity</title>
+<button id="run">Run captured-input parity</button><pre id="result">128² fixture. Hardware performance is not measured.</pre>
+<script type="module">
+import { runWholePlan } from './run.js';
+const button=document.querySelector('#run'), output=document.querySelector('#result');
+button.onclick=async()=>{button.disabled=true;output.textContent='Running…';try{const result=await runWholePlan();window.__settleTapeResult=result;output.textContent=JSON.stringify(result,null,2)}catch(error){window.__settleTapeError=String(error);output.textContent=String(error)}finally{button.disabled=false}};
+</script>
