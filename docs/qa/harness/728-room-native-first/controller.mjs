@@ -7,9 +7,9 @@ import {execFileSync} from 'node:child_process'
 const require=createRequire(new URL('../../../../package.json',import.meta.url)),WebSocket=require('ws')
 const app=process.env.QA_APP,base=process.env.CDP_BASE,out=process.env.QA_OUT,scenario=process.env.QA_SCENARIO??'first40'
 if(!['first40','water-pigment40'].includes(scenario))throw Error('Explicit supported scenario required')
-if(!app||!base||!out||!['5349','5350'].includes(new URL(app).port)||!process.env.QA_MANIFEST||!process.env.QA_PAPER_MANIFEST||!process.env.QA_RUNTIME)throw Error('Explicit frozen native QA_APP:5349, CDP_BASE and QA_OUT required')
+if(!app||!base||!out||!['5349','5350','5351'].includes(new URL(app).port)||!process.env.QA_MANIFEST||!process.env.QA_PAPER_MANIFEST||!process.env.QA_RUNTIME)throw Error('Explicit frozen native QA_APP:5349/5350/5351, CDP_BASE and QA_OUT required')
 if(fs.existsSync(out+'/report.json'))throw Error('Refuse to overwrite existing evidence');fs.mkdirSync(out,{recursive:true})
-const report={source:process.env.QA_SOURCE,stage:'preflight',errors:[],scenario,events:[],strokeObservations:[],initMarkers:[],memoryTimeline:[],paperSizing:{resolution:2048,LABytes:8388608,RGBABytes:16777216,scope:'Expected production baked layout; actual preload byte count separately recorded'},limitations:['Actual Room pointer/GL display test, not full parity','foreign wash/multitile explicit unsupported; no GPU duration from wall time']}
+const report={source:process.env.QA_SOURCE,stage:'preflight',errors:[],scenario,events:[],strokeObservations:[],initMarkers:[],memoryTimeline:[],paperSizing:{resolution:2048,LABytes:8388608,RGBABytes:16777216,scope:'Expected production baked layout; actual preload byte count separately recorded'},limitations:['Actual Room pointer/GL display test, not full parity','Foreign auxiliary water-to-pigment supported only by explicit scenario gate; multitile/multiuser not validated; no GPU duration from wall time']}
 let target,ws,seq=0;const pending=new Map()
 const save=()=>fs.writeFileSync(out+'/report.json',JSON.stringify(report,null,2))
 const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq,timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout '+method))},45000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params}))})
