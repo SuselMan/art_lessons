@@ -1,0 +1,2261 @@
+{
+  "source": "182c5644d4ff3fe528ddd7936fd766a347db0a18",
+  "bundleSha256": "bcfbb97e5fff64609eb1850b8232f96dd36ec8a2f38d8a0984f808f673149884",
+  "operationSha256": "9f2b887738937d3c4cd440bfa7404c3620d2ba359cb11c1c0c167260ac03d411",
+  "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "valid": true,
+  "minAvailableMiB": 1496,
+  "errors": [],
+  "selectedRows": [
+    {
+      "index": 23,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 1,
+        "max": 1,
+        "mean": 2.384185791015625e-07,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          561.5929565429688,
+          387.37042236328125
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.141897052526474,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.4527370597404362,
+        "pigmentPool": 0.4527370597404362,
+        "acrossLocal": [
+          -1.9731609851008708e-07,
+          0.9999999999999806
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 25,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 1,
+        "max": 1,
+        "mean": 2.384185791015625e-07,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          583.4483032226562,
+          390.49261474609375
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.141897052526474,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.4518196463651931,
+        "pigmentPool": 0.4518196463651931,
+        "acrossLocal": [
+          -2.0776899587979915e-09,
+          1
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 27,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          605.267578125,
+          393.6096496582031
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.141897052526474,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.4512105489132704,
+        "pigmentPool": 0.4512105489132704,
+        "acrossLocal": [
+          1.937336318648698e-07,
+          0.9999999999999812
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 28,
+      "kind": "ribbon",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": null,
+      "vertexCount": 156,
+      "vertexBytesSha256": "2195c35638300745b613618a77433101b7329ee568a3c508a6523b9422d2d9ca",
+      "validation": null
+    },
+    {
+      "index": 30,
+      "kind": "ribbon",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": null,
+      "vertexCount": 156,
+      "vertexBytesSha256": "e3720af5a3e88385bca26b81aef741bcdd6a0317523fb7e369ee25f556bafcab",
+      "validation": null
+    },
+    {
+      "index": 35,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        96,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 96,
+        "max": 1,
+        "mean": 2.288818359375e-05,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          608.549560546875,
+          405.9214782714844
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.141897052526474,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.45025015710661664,
+        "pigmentPool": 0.45025015710661664,
+        "acrossLocal": [
+          -0.27999924577626506,
+          -0.9600002199816012
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 37,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        178,
+        0,
+        32,
+        32
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 242,
+        "max": 5,
+        "mean": 6.628036499023438e-05,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "gl": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          586.612060546875,
+          409.055419921875
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.141897052526474,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.45016605390568365,
+        "pigmentPool": 0.45016605390568365,
+        "acrossLocal": [
+          -0.2800005589027598,
+          -0.9599998369865185
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 38,
+      "kind": "ribbon",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "gl": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "previousGl": [
+            0,
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "gl": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "previousGl": [
+            0,
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": null,
+      "vertexCount": 156,
+      "vertexBytesSha256": "6e590c03dbd825b1016fd0c3ecce2624d3a9bd254b4c402745bbc3f869062463",
+      "validation": null
+    },
+    {
+      "index": 39,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            2,
+            2
+          ],
+          "gl": [
+            0,
+            0,
+            2,
+            2
+          ],
+          "previousGl": [
+            0,
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            2,
+            2
+          ],
+          "gl": [
+            0,
+            0,
+            2,
+            2
+          ],
+          "previousGl": [
+            0,
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          564.5922241210938,
+          412.20111083984375
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.141897052526474,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.45011005693685824,
+        "pigmentPool": 0.45011005693685824,
+        "acrossLocal": [
+          -0.2799999980054179,
+          -0.960000000581753
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 40,
+      "kind": "ribbon",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            4,
+            4
+          ],
+          "gl": [
+            0,
+            0,
+            4,
+            4
+          ],
+          "previousGl": [
+            0,
+            0,
+            2,
+            2
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            3,
+            3
+          ],
+          "gl": [
+            0,
+            0,
+            3,
+            3
+          ],
+          "previousGl": [
+            0,
+            0,
+            2,
+            2
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": null,
+      "vertexCount": 156,
+      "vertexBytesSha256": "ddb8717ea72f0d859128f81d59f780801c2128df0b8a97dcf0ed669a220f17bc",
+      "validation": null
+    },
+    {
+      "index": 41,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 1,
+        "max": 1,
+        "mean": 2.384185791015625e-07,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            5,
+            5
+          ],
+          "gl": [
+            0,
+            0,
+            5,
+            5
+          ],
+          "previousGl": [
+            0,
+            0,
+            4,
+            4
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            3,
+            3
+          ],
+          "gl": [
+            0,
+            0,
+            3,
+            3
+          ],
+          "previousGl": [
+            0,
+            0,
+            3,
+            3
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          542.7666015625,
+          415.3190612792969
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.141897052526474,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.45007320845896714,
+        "pigmentPool": 0.45007320845896714,
+        "acrossLocal": [
+          -0.2800001859295994,
+          -0.959999945770514
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 42,
+      "kind": "ribbon",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            6,
+            6
+          ],
+          "gl": [
+            0,
+            0,
+            6,
+            6
+          ],
+          "previousGl": [
+            0,
+            0,
+            5,
+            5
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            5,
+            5
+          ],
+          "gl": [
+            0,
+            0,
+            5,
+            5
+          ],
+          "previousGl": [
+            0,
+            0,
+            3,
+            3
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": null,
+      "vertexCount": 156,
+      "vertexBytesSha256": "c85c09af5ae0817e93f765ff664bf918a728d9e916cdd4b9002a90d072e03acb",
+      "validation": null
+    },
+    {
+      "index": 43,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        3,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 3,
+        "max": 1,
+        "mean": 7.152557373046875e-07,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            6,
+            6
+          ],
+          "gl": [
+            0,
+            0,
+            6,
+            6
+          ],
+          "previousGl": [
+            0,
+            0,
+            6,
+            6
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            5,
+            5
+          ],
+          "gl": [
+            0,
+            0,
+            5,
+            5
+          ],
+          "previousGl": [
+            0,
+            0,
+            5,
+            5
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          521.0481567382812,
+          418.42169189453125
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 2.943408489227295,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.45004879491631866,
+        "pigmentPool": 0.45004879491631866,
+        "acrossLocal": [
+          -0.05625758904164499,
+          0.9984162877653897
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 44,
+      "kind": "ribbon",
+      "sameInput": true,
+      "changedChannels": [
+        2,
+        0,
+        1,
+        1
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 4,
+        "max": 1,
+        "mean": 9.5367431640625e-07,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            9,
+            9
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            6,
+            6
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            5,
+            5
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": null,
+      "vertexCount": 1872,
+      "vertexBytesSha256": "0f021d0a8afb035435a50504da99edd02215912b1c9823b398292c23e0242ce4",
+      "validation": null
+    },
+    {
+      "index": 83,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        2,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 2,
+        "max": 1,
+        "mean": 4.76837158203125e-07,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          514.8386840820312,
+          480.6912536621094
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.15407437086105347,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.4500000155179267,
+        "pigmentPool": 0.4500000155179267,
+        "acrossLocal": [
+          0.012177015302774903,
+          0.9999258574005955
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 85,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 0,
+        "max": 0,
+        "mean": 0,
+        "exact": true
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          536.5592651367188,
+          483.794189453125
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.15050064027309418,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.45000001034259873,
+        "pigmentPool": 0.45000001034259873,
+        "acrossLocal": [
+          0.008603676221104318,
+          0.9999629876927858
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    },
+    {
+      "index": 87,
+      "kind": "stamp",
+      "sameInput": true,
+      "changedChannels": [
+        2,
+        0,
+        1,
+        1
+      ],
+      "comparison": {
+        "key": "coverage",
+        "w": 1024,
+        "h": 1024,
+        "comparedBytes": 4194304,
+        "changed": 4,
+        "max": 1,
+        "mean": 9.5367431640625e-07,
+        "exact": false
+      },
+      "probes": [
+        {
+          "x": 572,
+          "y": 435,
+          "native": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        {
+          "x": 565,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "gl": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "previousGl": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        {
+          "x": 566,
+          "y": 436,
+          "native": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gl": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "previousGl": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "stamp": {
+        "center": [
+          558.5709228515625,
+          486.9386901855469
+        ],
+        "radius": 45.065650939941406,
+        "aspect": 1,
+        "angle": 0.14799104630947113,
+        "pressure": 0.800000011920929,
+        "opacity": 0,
+        "nibShape": "ellipse",
+        "cornerRadius": 0,
+        "inkEdge": 0,
+        "inkWater": 1,
+        "paperWet": 0,
+        "inkStrength": 1,
+        "puddle": 0.45000000685589847,
+        "pigmentPool": 0.45000000685589847,
+        "acrossLocal": [
+          0.006094924468581532,
+          0.9999814257753602
+        ],
+        "inkClip": 0,
+        "inkBlend": "max",
+        "uniforms": {
+          "aaPx": 3,
+          "washWater": 1,
+          "waterRetain": 1,
+          "bristleCombs": 14.285714643669085,
+          "bristleInk": 0,
+          "tau": [
+            0,
+            0,
+            0
+          ],
+          "worldOrigin": [
+            0,
+            0
+          ],
+          "mottleSeed": [
+            0,
+            0
+          ],
+          "cloudDeposit": 0.19,
+          "granDeposit": 0.1375,
+          "poolBlot": 1,
+          "useAvailableWater": false
+        }
+      },
+      "vertexCount": null,
+      "vertexBytesSha256": null,
+      "validation": null
+    }
+  ],
+  "firstTargetDifference": {
+    "probes": [
+      {
+        "x": 572,
+        "y": 435,
+        "native": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "gl": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "previousGl": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "x": 565,
+        "y": 436,
+        "native": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gl": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "previousGl": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "x": 566,
+        "y": 436,
+        "native": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gl": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "previousGl": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ],
+    "index": 37,
+    "kind": "stamp",
+    "changedChannels": [
+      178,
+      0,
+      32,
+      32
+    ],
+    "sameInput": true,
+    "stamp": {
+      "center": [
+        586.612060546875,
+        409.055419921875
+      ],
+      "radius": 45.065650939941406,
+      "aspect": 1,
+      "angle": 0.141897052526474,
+      "pressure": 0.800000011920929,
+      "opacity": 0,
+      "nibShape": "ellipse",
+      "cornerRadius": 0,
+      "inkEdge": 0,
+      "inkWater": 1,
+      "paperWet": 0,
+      "inkStrength": 1,
+      "puddle": 0.45016605390568365,
+      "pigmentPool": 0.45016605390568365,
+      "acrossLocal": [
+        -0.2800005589027598,
+        -0.9599998369865185
+      ],
+      "inkClip": 0,
+      "inkBlend": "max",
+      "uniforms": {
+        "aaPx": 3,
+        "washWater": 1,
+        "waterRetain": 1,
+        "bristleCombs": 14.285714643669085,
+        "bristleInk": 0,
+        "tau": [
+          0,
+          0,
+          0
+        ],
+        "worldOrigin": [
+          0,
+          0
+        ],
+        "mottleSeed": [
+          0,
+          0
+        ],
+        "cloudDeposit": 0.19,
+        "granDeposit": 0.1375,
+        "poolBlot": 1,
+        "useAvailableWater": false
+      }
+    },
+    "vertexCount": null,
+    "vertexBytesSha256": null,
+    "comparison": {
+      "key": "coverage",
+      "w": 1024,
+      "h": 1024,
+      "comparedBytes": 4194304,
+      "changed": 242,
+      "max": 5,
+      "mean": 6.628036499023438e-05,
+      "exact": false
+    },
+    "validation": null
+  }
+}
