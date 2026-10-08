@@ -19,6 +19,7 @@ type BufferField = Pick<SettlePlanField<CanonicalFieldBuffer>, 'w' | 'h' | 'cove
 export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuffer, CanonicalUploadSlot> {
  readonly diagnosticBrushMrt = false
  /** Diagnostic-only hardware sampling arm for existing LINEAR non-paper field inputs. */
+ diagnosticFrontSourceFilter?:import('./passes/frontSampling').CanonicalFrontSourceSampling
  diagnosticHardwareLinearInputs=false
  /** OFF-default paired carry, no planner cadence/presentation changes. */
  diagnosticStaticDiffuseHeight=false
@@ -130,7 +131,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
   const size = this.owner.paper.texSize
   const paper = { ...resources.paper, origin: [x0 / scale, -(y0 / scale + field.h)] as const, texSize: [size[0] / scale, size[1] / scale] as const }
   if (foreignWater && (!foreignWater.field || foreignWater.destroyed)) throw new Error('Foreign water slot has not been uploaded')
-  this.transient.push(this.commands.encode(this.ctx(), { kind: 'waterFront', resources: { ...resources, paper }, noise: this.owner.noise, params: { diagnosticStaticCache:this.diagnosticStaticFrontCache,diagnosticLazyClimb:this.diagnosticLazyFrontClimb,dryCost, costMax: max, climb, floor, stride, foreignFilm: foreignWater?.field ?? undefined } }))
+  this.transient.push(this.commands.encode(this.ctx(), { kind: 'waterFront', resources: { ...resources, paper }, noise: this.owner.noise, params: { diagnosticSourceFilter:this.diagnosticFrontSourceFilter,diagnosticStaticCache:this.diagnosticStaticFrontCache,diagnosticLazyClimb:this.diagnosticLazyFrontClimb,dryCost, costMax: max, climb, floor, stride, foreignFilm: foreignWater?.field ?? undefined } }))
  }
  wcResample(out: CanonicalFieldBuffer, dx: number, dy: number, width: number, height: number, source: CanonicalFieldBuffer, sx: number, sy: number, ratio: number, mode: 0 | 1 | 2, old: CanonicalFieldBuffer | null = null, base: CanonicalFieldBuffer | null = null, clamp: SettlePlanRect | null = null) {
   if (width <= 0 || height <= 0) return

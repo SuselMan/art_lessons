@@ -32,3 +32,13 @@ it('validates finite prepared uniforms',()=>{
   const f=fixture()
   expect(()=>packPassUniforms(f.resources,[NaN,0,1,0],[0,0,0,0])).toThrow(/finite/)
 })
+
+it('front source LINEAR diagnostic records exact source filter without changing default coefficients',()=>{
+ const f=fixture(),p=new CanonicalFieldPasses(f.device)
+ f.resources.a.filter='linear'
+ p.waterFront(f.ctx,f.resources,field(251,251),{dryCost:5,costMax:20,climb:3,floor:.2,stride:1,diagnosticSourceFilter:'manual'})
+ expect(Array.from(f.writes[0].slice(12))).toEqual([5,0,1,0])
+ const g=fixture();g.resources.a.filter='linear'
+ new CanonicalFieldPasses(g.device).waterFront(g.ctx,g.resources,field(251,251),{dryCost:5,costMax:20,climb:3,floor:.2,stride:1})
+ expect(Array.from(g.writes[0].slice(12))).toEqual([5,0,0,0])
+})
