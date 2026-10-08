@@ -1,0 +1,50 @@
+{
+  "operationId": "renderer-only-fixed-input",
+  "origin": [
+    448,
+    480
+  ],
+  "width": 128,
+  "height": 128,
+  "clock": 1000,
+  "dry": {
+    "changed": 0,
+    "max": 0
+  },
+  "wet": {
+    "changed": 0,
+    "max": 0
+  },
+  "nativeWetEffect": {
+    "changed": 33200,
+    "max": 15
+  },
+  "glWetEffect": {
+    "changed": 33200,
+    "max": 15
+  },
+  "errors": [],
+  "glError": 0,
+  "metadata": {
+    "materialSha256": "1b4c5a6f68bdec9b084bfdf4c33c0f6e84992d9cf974df6f84a82439e312b1c5",
+    "coverageSha256": "e291b543fb4ad4d48189ce192ccc4ed1af09c7732294a2f39c3d8739b2220014",
+    "wetSha256": "633eb56682547166cda15df7655f0f544259742ea96d443cb16135e94431afaa",
+    "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+    "material": "premultRGBA8 topdown, GL upload flipped",
+    "coverage": "actual solver coverage channels, no presentation substitution",
+    "paper": "actual Fine raw asset rows LINEAR_REPEAT period1024 scale1",
+    "wet": "actual CPU overlay raw rows LINEAR_CLAMP",
+    "wetRect": [
+      448,
+      480,
+      576,
+      608
+    ],
+    "wetDims": [
+      16,
+      16
+    ],
+    "noise": "unused by PAPER_COMPOSE; no invented noise",
+    "camera": "identity unrotated, no sharp resample, no page boundary"
+  }
+}
