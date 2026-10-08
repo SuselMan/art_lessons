@@ -1,0 +1,309 @@
+{
+  "scope": "Linux Node actual RibbonStrokePainter final8 with mocked GL primitive/copy/clear/upload command collection. NOT actual GPU/Room timing. Includes collector overhead and resource-owner CPU logic; stage timestamps nested, do not sum.",
+  "results": [
+    {
+      "profiled": false,
+      "band": false,
+      "elapsedMs": 76.6310309999999,
+      "deliveryMs": 6.557442000001629,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "dd39bd4d32bdea3859a14bed2da3bfaf31773e33253ad8b392908687f22a664c",
+      "stages": null,
+      "builderBench": null
+    },
+    {
+      "profiled": true,
+      "band": false,
+      "elapsedMs": 24.12800900000002,
+      "deliveryMs": 1.5843520000003082,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "dd39bd4d32bdea3859a14bed2da3bfaf31773e33253ad8b392908687f22a664c",
+      "stages": {
+        "prepareDrawableRibbonDabs": {
+          "calls": 8,
+          "totalMs": 0.2235160000000178,
+          "maxMs": 0.045367000000169355,
+          "verticesBytes": 0
+        },
+        "noteRibbonWetContacts": {
+          "calls": 8,
+          "totalMs": 0.05592800000067655,
+          "maxMs": 0.018401999999696272,
+          "verticesBytes": 0
+        },
+        "prepareRibbonGestureScalars": {
+          "calls": 1,
+          "totalMs": 0.0666230000001633,
+          "maxMs": 0.0666230000001633,
+          "verticesBytes": 0
+        },
+        "prepareRibbonDelivery": {
+          "calls": 8,
+          "totalMs": 1.417494999999235,
+          "maxMs": 0.4270449999999073,
+          "verticesBytes": 0
+        },
+        "prepareRibbonHalo": {
+          "calls": 8,
+          "totalMs": 0.24190700000053766,
+          "maxMs": 0.1348809999999503,
+          "verticesBytes": 0
+        },
+        "buildRibbonBands": {
+          "calls": 24,
+          "totalMs": 11.900267000000895,
+          "maxMs": 0.9562259999997877,
+          "verticesBytes": 1976832
+        }
+      },
+      "builderBench": null
+    },
+    {
+      "profiled": false,
+      "band": true,
+      "elapsedMs": 19.136961000000156,
+      "deliveryMs": 0.6158510000004753,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "dd39bd4d32bdea3859a14bed2da3bfaf31773e33253ad8b392908687f22a664c",
+      "stages": null,
+      "builderBench": null
+    },
+    {
+      "profiled": true,
+      "band": true,
+      "elapsedMs": 11.621960999999828,
+      "deliveryMs": 0.46732799999881536,
+      "deliveryCalls": 8,
+      "commandCount": 188,
+      "commandSHA": "dd39bd4d32bdea3859a14bed2da3bfaf31773e33253ad8b392908687f22a664c",
+      "stages": {
+        "prepareDrawableRibbonDabs": {
+          "calls": 8,
+          "totalMs": 0.0989209999988816,
+          "maxMs": 0.021036999999523687,
+          "verticesBytes": 0
+        },
+        "noteRibbonWetContacts": {
+          "calls": 8,
+          "totalMs": 0.028898999998091313,
+          "maxMs": 0.006539999999404245,
+          "verticesBytes": 0
+        },
+        "prepareRibbonGestureScalars": {
+          "calls": 1,
+          "totalMs": 0.03467900000032387,
+          "maxMs": 0.03467900000032387,
+          "verticesBytes": 0
+        },
+        "prepareRibbonDelivery": {
+          "calls": 8,
+          "totalMs": 0.4357609999997294,
+          "maxMs": 0.07646500000009837,
+          "verticesBytes": 0
+        },
+        "prepareRibbonHalo": {
+          "calls": 8,
+          "totalMs": 0.06163899999955902,
+          "maxMs": 0.011379999999917345,
+          "verticesBytes": 0
+        },
+        "buildRibbonBandBatch": {
+          "calls": 8,
+          "totalMs": 5.564018000000033,
+          "maxMs": 1.8909379999995508,
+          "verticesBytes": 1976832
+        }
+      },
+      "builderBench": {
+        "inputs": 8,
+        "repeats": 8,
+        "rows": [
+          {
+            "order": [
+              false,
+              true
+            ],
+            "off": 32.650534000000334,
+            "bytes": 15814656,
+            "on": 30.30394199999955
+          },
+          {
+            "order": [
+              true,
+              false
+            ],
+            "on": 27.420466999999917,
+            "bytes": 15814656,
+            "off": 48.834256000000096
+          },
+          {
+            "order": [
+              false,
+              true
+            ],
+            "off": 36.96699400000034,
+            "bytes": 15814656,
+            "on": 49.023621999999705
+          },
+          {
+            "order": [
+              true,
+              false
+            ],
+            "on": 31.942184000000452,
+            "bytes": 15814656,
+            "off": 39.147861999999805
+          },
+          {
+            "order": [
+              false,
+              true
+            ],
+            "off": 30.658074000000852,
+            "bytes": 15814656,
+            "on": 29.479449999999815
+          },
+          {
+            "order": [
+              true,
+              false
+            ],
+            "on": 24.514686000000438,
+            "bytes": 15814656,
+            "off": 34.39037300000018
+          },
+          {
+            "order": [
+              false,
+              true
+            ],
+            "off": 30.70745099999931,
+            "bytes": 15814656,
+            "on": 17.330189000000246
+          },
+          {
+            "order": [
+              true,
+              false
+            ],
+            "on": 26.036950000000616,
+            "bytes": 15814656,
+            "off": 30.49333099999967
+          },
+          {
+            "order": [
+              false,
+              true
+            ],
+            "off": 33.928085999999894,
+            "bytes": 15814656,
+            "on": 21.831672999999682
+          },
+          {
+            "order": [
+              true,
+              false
+            ],
+            "on": 32.34293400000024,
+            "bytes": 15814656,
+            "off": 32.113914999999906
+          },
+          {
+            "order": [
+              false,
+              true
+            ],
+            "off": 33.60157799999979,
+            "bytes": 15814656,
+            "on": 25.549842000000353
+          },
+          {
+            "order": [
+              true,
+              false
+            ],
+            "on": 26.33890799999972,
+            "bytes": 15814656,
+            "off": 33.388148
+          }
+        ]
+      }
+    }
+  ],
+  "bench": [
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 15.657013000000006,
+      "on": 18.428342000000157
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 11.477351000000453,
+      "off": 13.28896799999984
+    },
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 7.867224999999962,
+      "on": 12.842430000000604
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 6.674596999999267,
+      "off": 19.2327120000009
+    },
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 10.838294999999562,
+      "on": 9.18207799999982
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 9.045035999999527,
+      "off": 8.652049000000261
+    },
+    {
+      "order": [
+        false,
+        true
+      ],
+      "off": 8.441850000001068,
+      "on": 7.520931999999448
+    },
+    {
+      "order": [
+        true,
+        false
+      ],
+      "on": 7.222270000000208,
+      "off": 10.928453000000445
+    }
+  ],
+  "builderSummary": {
+    "offMedianMs": 33.494862999999896,
+    "onMedianMs": 26.879687499999818,
+    "pairedMedianRatio": 0.8024034304763151,
+    "fasterRows": 10,
+    "hardware": false
+  }
+}
