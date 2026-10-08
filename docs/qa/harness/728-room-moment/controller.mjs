@@ -15,7 +15,7 @@ const liveVectorGate=process.env.QA_LIVE_VECTOR==='1'
 if(liveVectorGate&&(!vector||!replayGate))throw Error('Live vector gate requires vector and fresh replay')
 const app=process.env.QA_APP,base=process.env.CDP_BASE,out=process.env.QA_OUT,scenario=process.env.QA_SCENARIO??'first400',captureFields=process.env.QA_CAPTURE_FIELDS==='1'
 if(!['first400','water-pigment400','zigzag400','short400','fixed12','wetmix400','fixedwetmix'].includes(scenario))throw Error('Explicit supported scenario required')
-if(!app||!base||!out||!['5354','5355','5356'].includes(new URL(app).port)||!process.env.QA_MANIFEST||!process.env.QA_PAPER_MANIFEST||!process.env.QA_RUNTIME)throw Error('Explicit frozen native QA_APP:5354|5355|5356, CDP_BASE and QA_OUT required')
+if(!app||!base||!out||!['5354','5355','5356','5357'].includes(new URL(app).port)||!process.env.QA_MANIFEST||!process.env.QA_PAPER_MANIFEST||!process.env.QA_RUNTIME)throw Error('Explicit frozen native QA_APP:5354|5355|5356|5357, CDP_BASE and QA_OUT required')
 if(fs.existsSync(out+'/report.json'))throw Error('Refuse to overwrite existing evidence');fs.mkdirSync(out,{recursive:true})
 const report={source:process.env.QA_SOURCE,moment,stage:'preflight',errors:[],scenario,events:[],strokeObservations:[],initMarkers:[],memoryTimeline:[],paperSizing:{resolution:2048,LABytes:8388608,RGBABytes:16777216,scope:'Expected production baked layout; actual preload byte count separately recorded'},limitations:['Actual Room pointer/GL display test, not full parity','Foreign auxiliary water-to-pigment supported only by explicit scenario gate; multitile/multiuser not validated; no GPU duration from wall time']}
 let target,ws,seq=0;const pending=new Map()
