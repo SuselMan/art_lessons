@@ -67,3 +67,9 @@ Fresh replay НЕ запущен: после перехода собственн
 Raw `temp/fast-watercolor-night/room-vector-savedauthor-replay-fixed-surface-20261008/report.json`. RAM pre1916/min971/после закрытия1804 MiB; own target закрыт. Controller `90903e80` сохраняет fields/export до semantic verdict.
 
 Закрыта конкретная bounded one-layer/one-tile short400 author/replay сцена нового оператора. Не закрыты натуральность, физическая latency/FPS, общий multitile/multiuser/undo, arbitrary gestures и влияние source fit/settle на физическую массу. Предыдущие RAM/comparator остановки сохранены и не объявлены model failures.
+
+## Wetmix OFF/ON подготовка: OFF readiness остановлен до рисования
+
+Разрешённый bounded cohort начат с OFF. На scoped512² diagnostic viewport native init завершён, engine ready=true/pending=false, secure GPU=true, GL0/lostfalse, ops0. Следующий обязательный Room input readiness (!locked и nonlocal user) истёк; controller остановился ДО любого штриха. ON не запускался, повторов нет. Raw `temp/fast-watercolor-night/room-vector-wetmix-off-surface-20261008/report.json` иfailure.png; RAM pre1903/min1576/после own close1911 MiB. Натуральность/mixing никаким этим результатом не оценены.
+
+При preparation установлен32MiB cumulative framebuffer/export readback budget; viewport не меняет canonical world/source geometry. `4b5c5a4d` теперь сохраняет locked/user/active layer вcensus: старый raw не содержит этих отдельных значений, потому точный блокирующий predicate не установлен. Production useLayerStateSync устанавливает locked по layer lock/visibility/tool, не поGPUsettle; обходить этот guard без evidence нельзя.
