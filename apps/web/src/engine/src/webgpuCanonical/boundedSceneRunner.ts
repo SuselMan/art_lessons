@@ -90,7 +90,7 @@ export class CanonicalBoundedSceneRunner {
   this.scratch.activateMaterialFilm(this.scratch.gesture)
  }
  private prepare(chunk:BakedWatercolorChunk){
-  const s=this.settings!,preset=presetForTool('watercolor',s.preset),state=this.scratch.delivery,profile=ribbonProfileFor('watercolor',s.preset,wetAt(chunk.wet,0))
+  const s=this.settings!,preset=presetForTool('watercolor',s.preset),state=this.scratch.delivery,profile=ribbonProfileFor('watercolor',s.preset,this.scratch.finishContext?.landedWet??wetAt(chunk.wet,0))
   state.standing.clear()
   const canonical=chunk.dabs.map(codecDab)
   for(let i=0;i<chunk.dabs.length;i++){
@@ -131,5 +131,5 @@ export class CanonicalBoundedSceneRunner {
   if(age<WET_DRY_MS){const at=this.options.now()-age,preset=presetForTool('watercolor',operation.preset),water=watercolorMixFromPreset(operation.preset).water;for(const dab of dabs)this.paperWet.deposit(operation.layerId,dab.x,dab.y,dab.size*.5*preset.sizeMultiplier*Math.max(dab.aspectRatio,1),prepared.standing.get(dab)??water,at,false,prepared.dabPool.get(dab)??0)}
   this.settle();this.busy=true
  }
- destroy(){if(this.active||this.busy)throw new Error('Drain native scene before destroy');this.scratch.tiles.destroy();this.target.buffer.destroy();this.fieldOwner.destroy();this.pool.destroy()}
+ destroy(){if(this.active||this.busy)throw new Error('Drain native scene before destroy');this.planner.destroyTextures();this.scratch.tiles.destroy();this.target.buffer.destroy();this.fieldOwner.destroy();this.pool.destroy()}
 }

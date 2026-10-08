@@ -1,13 +1,15 @@
 import { expect,it,vi } from 'vitest'
 import type { Operation } from '@grafetto/shared'
-const trace=vi.hoisted(()=>({events:[] as string[],commands:[] as any[]}))
+const trace=vi.hoisted(()=>({events:[] as string[],commands:[] as any[],liveProfiles:[] as any[]}))
 vi.mock('./settlePlanAdapter',()=>({CanonicalPlanAdapter:class {
  uploads={};runQuantum(task:any){trace.events.push('quantum');return task({encoder:{}})}retain(){}fieldOp(){trace.events.push('sourceField')}
 }}))
 vi.mock('../raster/CanonicalWatercolorSettlePlan',()=>({CanonicalWatercolorSettlePlan:class{
+ destroyTextures(){trace.events.push('destroyTextures')}
  prepare(_scratch:any,_targets:any,bounds:any){return{ops:[()=>trace.events.push('settleOp')],finish:()=>trace.events.push('settleFinish'),dispose:()=>trace.events.push('dispose'),compositeDomain:bounds}}
 }}))
-vi.mock('./finishTile',()=>({CanonicalSingleTileFinish:class{encode(){trace.events.push('composite');return[]}encodeLive(){trace.events.push('live');return[]}}}))
+vi.mock('./finishTile',()=>({CanonicalSingleTileFinish:class{encode(){trace.events.push('composite');return[]}encodeLive(_encoder:any,input:any){trace.events.push('live');trace.liveProfiles.push(input.profile);return[]}}}))
+import { ribbonProfileFor } from '../dabs/ribbonProfile'
 import { CanonicalBoundedSceneRunner } from './boundedSceneRunner'
 import type { PointerData } from '../input/PointerInput'
 import type { WatercolorGestureSettings } from '../input/CanonicalWatercolorGesture'
@@ -39,4 +41,18 @@ it('recorded float32 operation replay generates identical source commands to poi
  const original=structuredClone(trace.commands),operation=operations.at(-1)!
  expect(operation.type).toBe('stroke');await runner.clear();trace.commands=[]
  runner.replay(operation as any);await runner.drain();expect(trace.commands).toEqual(original);runner.destroy()
+})
+
+it('anchors the source and live profile to gesture landing while later chunks enter water',async()=>{
+ trace.events=[];trace.commands=[];trace.liveProfiles=[]
+ const {runner,settings,pointer}=fixture(),preset='normal:10:100:PB29:round'
+ const sampling=vi.spyOn(runner.paperWet,'sampleUnderNib').mockReturnValue(0)
+ runner.begin(pointer(440,0),{...settings,preset},{strokeId:'dry-to-wet',washId:'wash',layerId:'L',userId:'u'})
+ sampling.mockReturnValue(1)
+ runner.move(pointer(500,40));runner.move(pointer(560,70));runner.end(pointer(560,80));await runner.drain()
+ expect(trace.liveProfiles.length).toBeGreaterThan(1)
+ expect(ribbonProfileFor('watercolor',preset,0)).not.toEqual(ribbonProfileFor('watercolor',preset,1))
+ for(const profile of trace.liveProfiles)expect(profile).toEqual(ribbonProfileFor('watercolor',preset,0))
+ expect(runner.scratch.finishContext?.wetPeak).toBeGreaterThan(0)
+ runner.destroy();expect(trace.events.at(-1)).toBe('destroyTextures')
 })
