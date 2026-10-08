@@ -2,7 +2,7 @@
 
 Offline enhancement, no hardware result for the enhanced scenarios yet.
 
-Each run requires QA_APP (new frozen port5349/5350), CDP_BASE, fresh QA_OUT,
+Each run requires QA_APP (new frozen port5349/5350/5351), CDP_BASE, fresh QA_OUT,
 QA_SOURCE, QA_RUNTIME, QA_MANIFEST and QA_PAPER_MANIFEST. Never change runtimea83
 in place. Source HTTP and paper SHA are checked before owned target creation.
 Use actual public dev CA in NODE_EXTRA_CA_CERTS. Private endpoints/raw are not Git.
