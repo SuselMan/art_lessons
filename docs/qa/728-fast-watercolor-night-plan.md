@@ -183,3 +183,11 @@ bilinear и аппаратный LINEAR только для pressure; input pass
   diffusion проверены, но primitive ещё не подключён к Room. Уменьшение 8×
   четырьмя samples — аппроксимация; actual inherited water domain, faint dab,
   readonly source SHA и GPU timing остаются обязательными gates.
+
+Исправление проверки preview: первоначальный synthetic fixture задавал воду
+в B/A, хотя raw solventLoad в обоих backend имеет R=A, G=B=0. Поэтому его
+расширение 60→334 ячейки не подтверждает работу на настоящей воде. Ошибка
+найдена при review каналов, domain исправлен на порог A и support R/A.
+Это support-mask, а не толщина или значение wetness. Actual retained V до
+predecessor land и исправленный GPU/Room gate ещё необходимы. Исторический
+synthetic результат и дрейф массы −2,904% сохранены с этим ограничением.
