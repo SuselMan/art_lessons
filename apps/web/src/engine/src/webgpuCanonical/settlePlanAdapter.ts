@@ -36,6 +36,10 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  private readonly owner: CanonicalWatercolorWebGpu
  private readonly commands: CanonicalSettleCommands
  private readonly brush: CanonicalBrushContact
+ /** Diagnostic CPU submission count only; not total backend draws or GPU time. */
+ diagnosticCountSubmissions=false
+ private diagnosticSubmittedQuanta=0
+ get submissionCounters(){return {submittedQuanta:this.diagnosticSubmittedQuanta}}
  private context: CanonicalGpuContext | null = null
  private transient: GPUBuffer[] = []
  constructor(owner: CanonicalWatercolorWebGpu) {
@@ -63,6 +67,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
    releaseOwner = owned.release
    const transient = this.transient
    this.owner.device.queue.submit([encoder.finish()])
+   if(this.diagnosticCountSubmissions)this.diagnosticSubmittedQuanta++
    const release = () => { owned.release(); transient.forEach(buffer => buffer.destroy()) }
    void this.owner.device.queue.onSubmittedWorkDone().then(release, release)
    return owned.value
