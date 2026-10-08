@@ -82,3 +82,5 @@ Optional `captureFirstSolventInit:true` (requires firstOpSolventStages) records 
 
 `diagnosticComputeFullClear:true` replaces ALL backend.encodeClearField full-clear invocations after backend construction with existing full-rectangle compute clears. It is isolated OFF/OFF (no solvent-only arm/init copies), default OFF, and reports computeFullClears. Solver/source formulas and queue boundaries remain unchanged. Backend constructor-owned initial fields retain their original constructor initialization; all runner layer/scratch clears go through this hook.
 `window.runFullClearFixture()` is a tiny 17x19 nonzero-upload → full-clear → immediate-copy → render-load gate, comparing original render clear and compute clear. Readback occurs only after the original queue completion.
+
+The full-clear arm now uses explicit backend create option diagnosticComputeFullClear, including the five constructor-owned field clears. The per-instance option is OFF by default; no prototype/global patch. computeFullClears includes constructor calls.
