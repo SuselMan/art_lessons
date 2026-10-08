@@ -15,6 +15,7 @@ export class PrewarmedGlOwnerPool {
   const empty=Object.fromEntries(roles.map(role=>[role,null]))as Record<OwnedGlRole,AccumulationBuffer|null>
   try{for(let n=0;n<capacity;n++){const owner=createOwnedGlSourceFields(gl,empty,fields=>{for(const field of fields)field.destroy()});this.owners.push(owner);this.available.push(owner)}}catch(error){for(const owner of this.owners)owner.release();throw error}
  }
+ get physicalIdentities():ReadonlySet<object>{return new Set(this.owners.flatMap(owner=>owner.resources.map(resource=>resource.identity)))}
  get free():number{return this.available.length}
  take(initial:Readonly<Record<OwnedGlRole,AccumulationBuffer|null>>):OwnedGlSourceFields|null{
   if(this.disposed)throw Error('Disposed owner pool')
