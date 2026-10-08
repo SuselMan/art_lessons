@@ -35,3 +35,13 @@ export function exchangeMomentPair(a:MomentCarrier,b:MomentCarrier,wet255:number
  source.mass-=moved;target.mass+=moved;for(let c=0;c<4;c++){source.moments[c]-=moments[c];target.moments[c]+=moments[c]}
  assertMomentCarrier(aa);assertMomentCarrier(bb);return{a:aa,b:bb,exchanged:q,advected:moved}
 }
+
+/** Production source segment guard. A source transport quantum is ONE retained
+ * canonical dab; a live packet may contain many such quanta. Gesture/film epoch
+ * is deliberately NOT a reset signal because newFilm changes at chunk flush. */
+export function prepareMomentSegment(state:MomentContactState|undefined,drawable:readonly Dab[],previous?:Dab):{state:MomentContactState;recipe:MomentContactRecipe} {
+ if(drawable.length!==1)throw Error('DEV moment transport requires canonical per-dab segmentation; do not vary model by live chunk')
+ if(!state||!previous){state=momentContactState();if(previous){state.lastX=Math.round(previous.x*256);state.lastY=Math.round(previous.y*256)}}
+ else if(state.lastX!==Math.round(previous.x*256)||state.lastY!==Math.round(previous.y*256))throw Error('DEV moment retained canonical continuity mismatch')
+ return{state,recipe:prepareMomentContacts(state,drawable,true)[0]}
+}

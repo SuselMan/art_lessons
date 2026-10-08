@@ -1,3 +1,4 @@
+import {prepareMomentSegment,type MomentContactState} from '../experiments/wetBrushMomentRecipe'
 import {expandCanonicalPaperLa} from './paperExpansion'
 import type {PaperType} from '@grafetto/shared'
 import type {PaintTarget,ILayerBuffer} from '../buffers/ILayerBuffer'
@@ -14,6 +15,7 @@ import {RoomNativeCentralAdapter} from './roomNativeCentralAdapter'
 import {canonicalSourceRevealRect} from './strokeScratchMetadata'
 
 export interface RoomNativeRuntimeContext {
+ diagnosticMomentTransport?:boolean
  fifo:WatercolorCanonicalFIFO
  paper:PaperType;paperScale:number;paperWorld:{w:number;h:number};board:{w:number;h:number}
  resolve(target:ILayerBuffer,bounds:PreparedRibbonCpuDelivery['compositeBounds']):PaintTarget[]
@@ -32,6 +34,7 @@ export class RoomNativeRuntime {
  private tile:PaintTarget|null=null
  private targetLayer:ILayerBuffer|null=null
  private readonly foreignPrepared=new WeakMap<RibbonStrokeScratch,Set<string>>()
+ private readonly momentStates=new WeakMap<RibbonStrokeScratch,MomentContactState>()
  private generation=0
  private ordinal=0
  private retired=false
@@ -62,6 +65,11 @@ export class RoomNativeRuntime {
   const tile=targets[0],scratch=request.scratch,scalars={...request.input.scalars},ordinal=this.ordinal++
   const live={profile:request.input.profile,opacity:request.input.drawable[0].opacity,fieldSeed:scalars.fieldSeed,spreadPx:scalars.spreadPx,water:scalars.water,bristleRadiusPx:scalars.bristleRadiusPx,inkSmoothPx:scalars.inkSmoothPx,bounds:{...bounds}}
   const film=request.input.film,waterOnly=request.input.waterOnly===true
+  let momentRecipe:import('../experiments/wetBrushMomentRecipe').MomentContactRecipe|undefined
+  if(this.ctx.diagnosticMomentTransport&&!request.auxiliary){
+   const prepared=prepareMomentSegment(this.momentStates.get(scratch),request.input.drawable,request.input.previous)
+   this.momentStates.set(scratch,prepared.state);momentRecipe=prepared.recipe
+  }
   if(request.auxiliary){
    const auxiliary=request.auxiliary
    let prepared=this.foreignPrepared.get(auxiliary.recipient);if(!prepared){prepared=new Set();this.foreignPrepared.set(auxiliary.recipient,prepared)}prepared.add(auxiliary.gesture)
@@ -74,7 +82,7 @@ export class RoomNativeRuntime {
   this.queued=true
   this.central.enqueueSource(()=>{
    const owner=this.ownerFor(scratch,tile,layerId,target);sourceOwner=owner
-   owner.emitPrepared({path,layerId,generation:this.generation,strokeId:`cpu-gesture-${metadata.gesture}`,ordinal,segment:{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly},materialGesture:metadata.gesture,metadata,live})
+   owner.emitPrepared({path,layerId,generation:this.generation,strokeId:`cpu-gesture-${metadata.gesture}`,ordinal,segment:{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly},materialGesture:metadata.gesture,metadata,live,momentRecipe})
   },async()=>{if(sourceOwner)await sourceOwner.publishCurrentToGl()})
   return true
  }
