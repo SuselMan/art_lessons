@@ -75,7 +75,7 @@ export class RoomNativeRuntime {
   return true
  }
  importForeign(recipient:RibbonStrokeScratch,target:ILayerBuffer,gesture:string):void {
-  if(!this.foreignPrepared.get(recipient)?.has(gesture))return // Every selected auxiliary source was wholly off this tile.
+  if(!this.foreignPrepared.get(recipient)?.delete(gesture))return // Every selected auxiliary source was wholly off this tile.
   this.queued=true
   this.central.enqueueSource(()=>{if(this.scratch!==recipient||this.targetLayer!==target||!this.owner)throw new Error('Native foreign-water recipient layer/generation mismatch');this.owner.importForeign(gesture)},async()=>{})
  }
