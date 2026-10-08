@@ -16,3 +16,11 @@ it('keeps every segment sum boundary; rejects flattened multi-segment order and 
 })
 
 it('water-only preserves V landing and never sums material P/C',()=>{const c=commands().slice(0,2),record=new TypedGlSourceReplayPrototype({segments:[{commands:c,rect:[0,0,1,1],waterOnly:true}],expectedPredecessorVersion:1,film:true,captureRunningCoverage:false}),events:string[]=[],p=makePort(events);p.land();record.execute(p.port);expect(events.filter(x=>x.startsWith('sum:'))).toEqual(['sum:solventLoad@new:solventBase@new+solventFilm@new'])})
+
+ it('continuation retains predecessor chunk films and sums without any new clear/base copy',()=>{
+ const events:string[]=[],p=makePort(events);p.land();
+ const first=new TypedGlSourceReplayPrototype({segments:[{commands:commands(),rect:[0,0,1,1]}],expectedPredecessorVersion:1,film:true,captureRunningCoverage:true});first.execute(p.port);
+ const split=events.length;
+ const continuation=new TypedGlSourceReplayPrototype({segments:[{commands:commands(),rect:[0,0,1,1]}],expectedPredecessorVersion:1,film:true,captureRunningCoverage:false,initializeMaterialFilm:false,initializeSolventFilm:false});continuation.execute(p.port);
+ const tail=events.slice(split);expect(tail.filter(x=>x.startsWith('clear:')||x.startsWith('copy:'))).toEqual([]);expect(tail.filter(x=>x.startsWith('draw:'))).toHaveLength(5);expect(tail.filter(x=>x.startsWith('sum:'))).toHaveLength(3);
+ })

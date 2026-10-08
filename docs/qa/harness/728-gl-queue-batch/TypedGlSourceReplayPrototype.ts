@@ -17,8 +17,11 @@ export class TypedGlSourceReplayPrototype {
   private readonly expectedPredecessorVersion: number
   private readonly film:boolean
   private readonly captureRunningCoverage:boolean
+  private readonly initializeMaterialFilm:boolean
+  private readonly initializeSolventFilm:boolean
   private used=false
-  constructor(input:{segments:readonly TypedSourceSegment[];expectedPredecessorVersion:number;film:boolean;captureRunningCoverage:boolean}){
+  constructor(input:{segments:readonly TypedSourceSegment[];expectedPredecessorVersion:number;film:boolean;captureRunningCoverage:boolean;initializeMaterialFilm?:boolean;initializeSolventFilm?:boolean}){
+    this.initializeMaterialFilm=input.initializeMaterialFilm??true;this.initializeSolventFilm=input.initializeSolventFilm??true
     this.expectedPredecessorVersion=input.expectedPredecessorVersion;this.film=input.film;this.captureRunningCoverage=input.captureRunningCoverage
     this.segments=input.segments.map(segment=>{
       let previous=-1
@@ -42,11 +45,11 @@ export class TypedGlSourceReplayPrototype {
     this.used=true
     const f=binding.fields
     // First-gesture initialization matches filmBuffers P/C clear/copy order. No old base snapshot.
-    let initialized=false,solventInitialized=false
+    let initialized=false,solventInitialized=!this.initializeSolventFilm
     for(const segment of this.segments){
       if(!initialized){
         if(this.captureRunningCoverage)port.copy(f.coverage,f.coverageFilm)
-        if(this.film){port.clear(f.pigmentFilm);port.copy(f.pigmentLoad,f.pigmentBase);port.clear(f.colourFilm);port.copy(f.colourLoad,f.colourBase)}
+        if(this.film&&this.initializeMaterialFilm){port.clear(f.pigmentFilm);port.copy(f.pigmentLoad,f.pigmentBase);port.clear(f.colourFilm);port.copy(f.colourLoad,f.colourBase)}
         initialized=true
       }
       let solventPending=false
