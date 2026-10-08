@@ -14,12 +14,13 @@ export async function installMomentStageProbe(){
   return lease
  }
  executor.publishCurrentToGl=async function(...args){
-  try{return await oldPublish.apply(this,args)}finally{
-   while(pending.length){const item=pending.shift(),record={recipe:item.recipe,operatorRect:item.operatorRect,capture:item.capture,stages:[]};try{
+  let published=false
+  try{const value=await oldPublish.apply(this,args);published=true;return value}finally{
+   while(pending.length){const item=pending.shift(),record={recipe:item.recipe,operatorRect:item.operatorRect,capture:item.capture,published,stages:[]};try{
     for(const stage of item.stages){await stage.buffer.mapAsync(GPUMapMode.READ);const bytes=new Uint8Array(stage.buffer.getMappedRange().slice(0));stage.buffer.unmap();const stride=stage.bytesPerRow??stage.width*stage.bytesPerRecord,tight=new Uint8Array(stage.width*stage.height*stage.bytesPerRecord);for(let row=0;row<stage.height;row++)tight.set(bytes.subarray(row*stride,row*stride+stage.width*stage.bytesPerRecord),row*stage.width*stage.bytesPerRecord);const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',tight)),x=>x.toString(16).padStart(2,'0')).join('');record.stages.push({stage:stage.stage,sha,width:stage.width,height:stage.height,bytesPerRecord:stage.bytesPerRecord,byteLength:tight.length,base64:base64(tight),scope:'Actual bounded stage bytes; observer, not performance'})}
-    const e=window.__engine,roi=window.__wetmixRoi;if(e&&roi){e._display();const pixels=new Uint8Array(roi.w*roi.h*4);e.gl.readPixels(roi.x,roi.y,roi.w,roi.h,e.gl.RGBA,e.gl.UNSIGNED_BYTE,pixels);const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',pixels)),x=>x.toString(16).padStart(2,'0')).join('');record.stages.push({stage:'presentation-after-sourcepublish',sha,width:roi.w,height:roi.h,bytesPerRecord:4,byteLength:pixels.length,base64:base64(pixels),glError:e.gl.getError(),scope:'GL default framebuffer diagnostic observer, not timing'})}
+    const e=window.__engine;if(e&&published){e._display();const m=e._camera.screenToWorldMatrix(),dx=450-m[6],dy=400-m[7],det=m[0]*m[4]-m[3]*m[1],cx=(m[4]*dx-m[3]*dy)/det,cy=(-m[1]*dx+m[0]*dy)/det,w=Math.min(96,e.canvas.width),h=Math.min(96,e.canvas.height),roi={x:Math.max(0,Math.min(e.canvas.width-w,Math.floor(cx-w/2))),y:Math.max(0,Math.min(e.canvas.height-h,Math.floor(e.canvas.height-cy-h/2))),w,h};const pixels=new Uint8Array(w*h*4);e.gl.readPixels(roi.x,roi.y,w,h,e.gl.RGBA,e.gl.UNSIGNED_BYTE,pixels);const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',pixels)),x=>x.toString(16).padStart(2,'0')).join('');record.stages.push({stage:'presentation-after-sourcepublish',sha,width:roi.w,height:roi.h,bytesPerRecord:4,byteLength:pixels.length,base64:base64(pixels),glError:e.gl.getError(),scope:'GL default framebuffer diagnostic observer, not timing'})}
     results.push(record)
-   }finally{for(const stage of item.stages)stage.buffer.destroy()}}
+   }catch(error){record.observerError=String(error);if(!results.includes(record))results.push(record)}finally{for(const stage of item.stages)stage.buffer.destroy()}}
   }
  }
  window.__restoreMomentStageProbe=()=>{seam.encodeAfterLanding=oldEncode;executor.publishCurrentToGl=oldPublish;for(const item of pending)for(const stage of item.stages)stage.buffer.destroy();pending.length=0}
