@@ -1,0 +1,380 @@
+{
+  "code": "f603f9ae6ac8cfdec3f8b02b97fcbf13b76489fa",
+  "tapeSha256": "c9d2d5be9b82f9bf74e89611cde1a541e1c173db7449349702c5f47f14f2ca0a",
+  "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "qualityAll": true,
+  "wall": [
+    {
+      "cycle": 0,
+      "backend": "webgl1",
+      "schedule": "baseline",
+      "paintMs": 21126.900000035763,
+      "initMs": 1271.199999988079,
+      "queueTicks": 1239,
+      "queueTickWallSumMs": 383.4000012874603,
+      "queueTickMaxMs": 71,
+      "syncCount": 0,
+      "syncMs": 0,
+      "mrt": {
+        "pairs": 0,
+        "fallbacks": 0,
+        "pixels": 0
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    },
+    {
+      "cycle": 0,
+      "backend": "mrt",
+      "schedule": "baseline",
+      "paintMs": 21069.700000047684,
+      "initMs": 378.80000001192093,
+      "queueTicks": 1237,
+      "queueTickWallSumMs": 380.20000034570694,
+      "queueTickMaxMs": 62.09999996423721,
+      "syncCount": 0,
+      "syncMs": 0,
+      "mrt": {
+        "pairs": 2560,
+        "fallbacks": 0,
+        "pixels": 540297680
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    },
+    {
+      "cycle": 0,
+      "backend": "mrt",
+      "schedule": "front",
+      "paintMs": 19647.69999998808,
+      "initMs": 320.5999999642372,
+      "queueTicks": 1147,
+      "queueTickWallSumMs": 383.900000333786,
+      "queueTickMaxMs": 48.89999997615814,
+      "syncCount": 123,
+      "syncMs": 2.299999952316284,
+      "mrt": {
+        "pairs": 2560,
+        "fallbacks": 0,
+        "pixels": 540297680
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    },
+    {
+      "cycle": 0,
+      "backend": "webgl1",
+      "schedule": "front",
+      "paintMs": 20015.69999998808,
+      "initMs": 220.10000002384186,
+      "queueTicks": 1145,
+      "queueTickWallSumMs": 302.59999781847,
+      "queueTickMaxMs": 49.30000001192093,
+      "syncCount": 124,
+      "syncMs": 1.6999996900558472,
+      "mrt": {
+        "pairs": 0,
+        "fallbacks": 0,
+        "pixels": 0
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    },
+    {
+      "cycle": 1,
+      "backend": "webgl1",
+      "schedule": "front",
+      "paintMs": 19979.899999976158,
+      "initMs": 244.10000002384186,
+      "queueTicks": 1143,
+      "queueTickWallSumMs": 242.10000067949295,
+      "queueTickMaxMs": 30.80000001192093,
+      "syncCount": 122,
+      "syncMs": 0.9999998807907104,
+      "mrt": {
+        "pairs": 0,
+        "fallbacks": 0,
+        "pixels": 0
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    },
+    {
+      "cycle": 1,
+      "backend": "mrt",
+      "schedule": "front",
+      "paintMs": 19602.19999998808,
+      "initMs": 335.5,
+      "queueTicks": 1145,
+      "queueTickWallSumMs": 367.9999997019768,
+      "queueTickMaxMs": 57.09999996423721,
+      "syncCount": 124,
+      "syncMs": 2.7999998331069946,
+      "mrt": {
+        "pairs": 2560,
+        "fallbacks": 0,
+        "pixels": 540297680
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    },
+    {
+      "cycle": 1,
+      "backend": "mrt",
+      "schedule": "baseline",
+      "paintMs": 21198.899999976158,
+      "initMs": 326.7000000476837,
+      "queueTicks": 1237,
+      "queueTickWallSumMs": 363.800000667572,
+      "queueTickMaxMs": 50.69999998807907,
+      "syncCount": 0,
+      "syncMs": 0,
+      "mrt": {
+        "pairs": 2560,
+        "fallbacks": 0,
+        "pixels": 540297680
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    },
+    {
+      "cycle": 1,
+      "backend": "webgl1",
+      "schedule": "baseline",
+      "paintMs": 22115.400000035763,
+      "initMs": 197.10000002384186,
+      "queueTicks": 1235,
+      "queueTickWallSumMs": 305.4000029563904,
+      "queueTickMaxMs": 55.5,
+      "syncCount": 0,
+      "syncMs": 0,
+      "mrt": {
+        "pairs": 0,
+        "fallbacks": 0,
+        "pixels": 0
+      },
+      "quality": {
+        "parity": {
+          "tapeSha256": true,
+          "code": true,
+          "materialWholeLayer": true,
+          "rgbaSha256": true,
+          "exportSize": true,
+          "undo": true,
+          "redo": true,
+          "operations": true
+        },
+        "valid": true
+      },
+      "fieldQuality": true,
+      "wholeSha256": "b1f264b847f6547069dfc3e0cd9de0f9c04b5f2e07f5ba0b678b1941353339d5"
+    }
+  ],
+  "gpu": [
+    {
+      "backend": "mrt",
+      "schedule": "baseline",
+      "summary": {
+        "brushPair": {
+          "validSampleCount": 1024,
+          "invalidSampleCount": 0,
+          "medianMs": 1.388958,
+          "p90Ms": 1.486927,
+          "maxMs": 1.618177
+        }
+      },
+      "counts": {
+        "brushPair": {
+          "calls": 1024,
+          "sampled": 1024,
+          "nested": 0,
+          "capacity": 0
+        }
+      },
+      "sampledOuterGpuSumMs": 1333.910318,
+      "sampledCpuSubmissionSumMs": 224.60000079870224,
+      "lost": false,
+      "glError": 0,
+      "wholeMatches": true,
+      "fieldsMatch": true,
+      "unavailable": null
+    },
+    {
+      "backend": "mrt",
+      "schedule": "front",
+      "summary": {
+        "brushPair": {
+          "validSampleCount": 1024,
+          "invalidSampleCount": 0,
+          "medianMs": 1.38875,
+          "p90Ms": 1.497968,
+          "maxMs": 1.616979
+        }
+      },
+      "counts": {
+        "brushPair": {
+          "calls": 1024,
+          "sampled": 1024,
+          "nested": 0,
+          "capacity": 0
+        }
+      },
+      "sampledOuterGpuSumMs": 1350.174252,
+      "sampledCpuSubmissionSumMs": 220.59999972581863,
+      "lost": false,
+      "glError": 0,
+      "wholeMatches": true,
+      "fieldsMatch": true,
+      "unavailable": null
+    },
+    {
+      "backend": "webgl1",
+      "schedule": "front",
+      "summary": {
+        "brush": {
+          "validSampleCount": 2048,
+          "invalidSampleCount": 0,
+          "medianMs": 1.110312,
+          "p90Ms": 1.187604,
+          "maxMs": 1.83276
+        }
+      },
+      "counts": {
+        "brush": {
+          "calls": 2048,
+          "sampled": 2048,
+          "nested": 0,
+          "capacity": 0
+        }
+      },
+      "sampledOuterGpuSumMs": 2175.632474,
+      "sampledCpuSubmissionSumMs": 233.29999887943268,
+      "lost": false,
+      "glError": 0,
+      "wholeMatches": true,
+      "fieldsMatch": true,
+      "unavailable": null
+    },
+    {
+      "backend": "webgl1",
+      "schedule": "baseline",
+      "summary": {
+        "brushPass": {
+          "validSampleCount": 2048,
+          "invalidSampleCount": 0,
+          "medianMs": 1.182864,
+          "p90Ms": 1.241718,
+          "maxMs": 1.454791
+        }
+      },
+      "counts": {
+        "brushPass": {
+          "calls": 2048,
+          "sampled": 2048,
+          "nested": 0,
+          "capacity": 0
+        }
+      },
+      "sampledOuterGpuSumMs": 2229.571402,
+      "sampledCpuSubmissionSumMs": 232.80000120401382,
+      "lost": false,
+      "glError": 0,
+      "wholeMatches": true,
+      "fieldsMatch": true,
+      "unavailable": null
+    }
+  ],
+  "memoryMinimumMiB": 915.546875,
+  "instrumentCorrection": "Initial query GL1baseline had no samples (typo brush); discarded. Later GL1front brush alias maps to actual brushPass; separate GL1baseline uses actual brushPass directly. Wall cohort never wrapped methods."
+}
