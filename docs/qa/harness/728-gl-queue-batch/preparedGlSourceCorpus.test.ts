@@ -38,6 +38,9 @@ describe('actual production CPU source to prepared GL ordered API corpus',()=>{
    try{
     for(const _ of generated.paint(probe._layers.get('L')!,dabs,preset,name,profile,[.2,.1,.5],ownScratch,undefined,'0f37'.slice(0,count),[1,2],true,0,{waterOnly:false,segmented:false,deferMaterial:request=>requests.push(request)}))void _
     expect(requests.flatMap(request=>request.typedSource.commands)).toEqual(native.commands)
+    expect(requests.flatMap(request=>request.typedSource.foreignImport.dabs)).toEqual(dabs)
+    expect(requests.map(request=>request.typedSource.foreignImport.wetProfile).join('')).toBe('0f37'.slice(0,count))
+    for(const request of requests){expect(request.typedSource.foreignImport.enabled).toBe(segmented&&generated.diagnosticForeignSolvent&&generated.diagnosticSolventField);expect(request.typedSource.foreignImport.dabs.length).toBe(segmented?1:count)}
     expect(commands.length).toBe(beforeCommands);expect(resolve).not.toHaveBeenCalled()
     for(const request of requests)request.cancel(false)
    }finally{resolve.mockRestore();ownScratch.destroy()}

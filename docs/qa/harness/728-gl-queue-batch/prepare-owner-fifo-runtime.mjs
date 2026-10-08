@@ -31,7 +31,7 @@ fs.writeFileSync(path.join(out,'PreparedSourceCommands.ts'),header+definition+bo
 const originalPath=path.join(root,'apps/web/src/engine/src/dabs/RibbonStrokePainter.ts');let painter=fs.readFileSync(originalPath,'utf8');
 painter=painter.replace(/from '([.][^']+)'/g,(_m,p)=>`from '${rel(path.resolve(path.dirname(originalPath),p))}'`);
 painter=`import {recordPreparedSource} from './PreparedSourceCommands'\nimport type {CanonicalDrawCommand} from '${rel(path.join(base,'canonicalStrokeChunk'))}'\n`+painter;
-painter=painter.replace('  readonly presentationDabs: readonly Dab[]','  readonly typedSource?: {readonly commands:readonly CanonicalDrawCommand[];readonly rect:readonly[number,number,number,number]|null;readonly composite:Readonly<Record<string,unknown>>}\n  readonly presentationDabs: readonly Dab[]');
+painter=painter.replace('  readonly presentationDabs: readonly Dab[]','  readonly typedSource?: {readonly commands:readonly CanonicalDrawCommand[];readonly rect:readonly[number,number,number,number]|null;readonly composite:Readonly<Record<string,unknown>>;readonly foreignImport:{readonly enabled:boolean;readonly dabs:readonly Dab[];readonly wetProfile?:string}}\n  readonly presentationDabs: readonly Dab[]');
 const anchor='        metadata: captured,\n        presentationDabs:';
 if(!painter.includes(anchor))throw Error('Prepared material metadata anchor missing');
 painter=painter.replace(anchor,`        metadata: captured,
@@ -40,7 +40,7 @@ painter=painter.replace(anchor,`        metadata: captured,
           const tile={originX:0,originY:0,buffer:{width:1024,height:1024}}
           const x0=Math.max(0,Math.floor(compositeBounds.minX)),y0=Math.max(0,Math.floor(compositeBounds.minY)),x1=Math.min(1024,Math.ceil(compositeBounds.maxX)),y1=Math.min(1024,Math.ceil(compositeBounds.maxY))
           const rect=x1>x0&&y1>y0?[x0,1024-y1,x1-x0,y1-y0]as const:null
-          return {commands:recordPreparedSource({drawable,preset,profile,tile,delivery:{deposits,waterByDab,acrossByDab,paperWetByDab,puddleByDab,pigmentPoolByDab,movingByDab},bands:{bands,waterBands,solventBands},haloDabs,haloDose:haloDoseByDab,haloShed:haloShedByDab,combs,tau,strokeSeed,film,segmentMode,waterOnly:mode.waterOnly,options:{diagnosticSolventField:this.diagnosticSolventField,diagnosticSharedFluid:this.diagnosticSharedFluid,diagnosticPigmentRecord:this.diagnosticPigmentRecord},wetOf}),rect,composite:structuredClone({bounds:compositeBounds,preset,profile,color,opacity:drawable[0].opacity,fieldSeed,spreadPx,fringeWater,migratePx,dabSpacing,strokeDir,bristleRadiusPx})}
+          return {foreignImport:structuredClone({enabled:!!importForeign,dabs,wetProfile}),commands:recordPreparedSource({drawable,preset,profile,tile,delivery:{deposits,waterByDab,acrossByDab,paperWetByDab,puddleByDab,pigmentPoolByDab,movingByDab},bands:{bands,waterBands,solventBands},haloDabs,haloDose:haloDoseByDab,haloShed:haloShedByDab,combs,tau,strokeSeed,film,segmentMode,waterOnly:mode.waterOnly,options:{diagnosticSolventField:this.diagnosticSolventField,diagnosticSharedFluid:this.diagnosticSharedFluid,diagnosticPigmentRecord:this.diagnosticPigmentRecord},wetOf}),rect,composite:structuredClone({bounds:compositeBounds,preset,profile,color,opacity:drawable[0].opacity,fieldSeed,spreadPx,fringeWater,migratePx,dabSpacing,strokeDir,bristleRadiusPx})}
         })(),
         presentationDabs:`);
 fs.writeFileSync(path.join(out,'OwnerRibbonStrokePainter.ts'),painter);
