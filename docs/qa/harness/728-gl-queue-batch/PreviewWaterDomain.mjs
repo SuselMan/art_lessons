@@ -1,7 +1,7 @@
-/** QA-only visual domain. Retained solvent record b/a defines water, not brush silhouette. */
+/** QA-only visual domain. Retained solvent record r/a defines water, not brush silhouette. */
 export const PREVIEW_WATER_DOMAIN_FRAG = `precision highp float;
 uniform sampler2D u_solvent; varying vec2 v_uv;
-void main(){vec4 v=texture2D(u_solvent,v_uv);float wet=v.a>0.002?clamp(v.b/max(v.a,0.002),0.0,1.0):0.0;gl_FragColor=vec4(0.0,0.0,0.0,wet);}`;
+void main(){vec4 v=texture2D(u_solvent,v_uv);float wet=v.a>0.002?clamp(v.r/max(v.a,0.002),0.0,1.0):0.0;gl_FragColor=vec4(0.0,0.0,0.0,wet);}`;
 export async function createPreviewWaterDomain(passes){
  const [{DISPLAY_VERT},{createProgram}]=await Promise.all([import('/src/engine/src/raster/shaders.ts'),import('/src/engine/src/raster/utils.ts')]);
  const ctx=passes.ctx,gl=ctx.gl(),program=createProgram(gl,DISPLAY_VERT,PREVIEW_WATER_DOMAIN_FRAG),position=gl.getAttribLocation(program,'a_position'),uniform=gl.getUniformLocation(program,'u_solvent');let disposed=false;

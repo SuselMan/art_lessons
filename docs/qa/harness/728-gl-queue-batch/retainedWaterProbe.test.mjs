@@ -1,0 +1,3 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {retainedWaterSummary} from './RetainedWaterProbe.mjs';import {PREVIEW_WATER_DOMAIN_FRAG} from './PreviewWaterDomain.mjs';
+test('actual GL solvent RA positive/B0 remains wet outside pigment footprint',()=>{const v=new Uint8Array([80,0,0,80,40,0,0,40]),p=new Uint8Array([1,1,1,1,0,0,0,0]);const s=retainedWaterSummary(v,p,2,1);assert.deepEqual(s.sum,[120,0,0,120]);assert.equal(s.wet,2);assert.equal(s.outsidePigment,1);assert.equal(s.rEqualsA,2);assert.match(PREVIEW_WATER_DOMAIN_FRAG,/clamp\(v\.r\/max/);assert.doesNotMatch(PREVIEW_WATER_DOMAIN_FRAG,/v\.b\/max/)})
+test('reject empty/different field false-positive',()=>assert.throws(()=>retainedWaterSummary(new Uint8Array(4),new Uint8Array(8),2,1)))

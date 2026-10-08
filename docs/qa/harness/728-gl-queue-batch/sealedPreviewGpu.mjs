@@ -10,7 +10,7 @@ export async function runSealedPreviewGpu(){
  const upload=(f,bytes)=>{e.gl.bindTexture(e.gl.TEXTURE_2D,f.texture);e.gl.texSubImage2D(e.gl.TEXTURE_2D,0,0,0,f.width,f.height,e.gl.RGBA,e.gl.UNSIGNED_BYTE,bytes)};
  try{await e.paperReady();const source=Object.fromEntries(['original','coverage','pigmentLoad','pigmentBase','colourLoad','colourBase','solventLoad','solventBase'].map(k=>[k,make(1024)]));const v=new Uint8Array(1024*1024*4),p=new Uint8Array(v.length),c=new Uint8Array(v.length);
  // Two wet ponds separated by >=4 preview cells; pigment only left pond.
- for(let y=256;y<768;y++)for(let x=128;x<896;x++){const i=(y*1024+x)*4;if(x<480||x>=544){v[i+2]=255;v[i+3]=255}if((x-320)**2+(y-512)**2<35**2){p.set([70,80,90,100],i);c.set([90,60,30,100],i)}}
+ for(let y=256;y<768;y++)for(let x=128;x<896;x++){const i=(y*1024+x)*4;if(x<480||x>=544){v[i]=255;v[i+3]=255}if((x-320)**2+(y-512)**2<35**2){p.set([70,80,90,100],i);c.set([90,60,30,100],i)}}
  upload(source.solventLoad,v);upload(source.pigmentLoad,p);upload(source.colourLoad,c);
  const before=Object.fromEntries(await Promise.all(Object.entries(source).map(async([k,f])=>[k,await hash(f)])));
  const lease=Object.fromEntries(['p0','c0','p1','c1','water','coverage'].map(k=>[k,make(128)]));lease.pending=make(1024);lease.bytes=PREVIEW_BYTES;lease.release=()=>{};

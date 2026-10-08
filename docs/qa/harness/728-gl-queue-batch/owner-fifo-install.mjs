@@ -1,3 +1,4 @@
+import {readRetainedWater} from './RetainedWaterProbe.mjs';
 import {prewarmWetOverlayTexture} from './PrewarmWetOverlayTexture.mjs';
 import {watercolorWashSignature} from '../../../../apps/web/src/engine/src/presets/watercolorPresets.ts';
 import {RibbonStrokePainter as OwnerPainter} from '../../../../temp/owner-fifo-runtime/OwnerRibbonStrokePainter.ts';
@@ -30,7 +31,7 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  const drawContext={gl:()=>e.gl,stamps:()=>e._stamps,paperTex:()=>e._paperTex,quadBuf:()=>e._quadBuf,minmaxExt:()=>e._minmaxExt};
  const trace=[];const event=(kind,data={})=>{if(trace.length<2048)trace.push({kind,at:performance.now(),...data})};
  const morph=diagnosticMaterialRebase?new OwnedPresentationMorphBridge(e,{event,scratch:visualScratchPrewarm}):null;
- let probeCount=0;const probe=(owner,phase)=>{if(!globalThis.__ownerMorphProbe||probeCount>=16||!owner?.probePoint)return;const data=readOwnedVisibleProbe(e,owner,phase,morph?morph.visibleField(owner):owner.lease.fields.presentation);if(data){probeCount++;event('owned-visible-probe',data)}};
+ let probeCount=0;const probe=(owner,phase)=>{if(globalThis.__ownerRetainedWaterProbe&&phase==='sealed-source')event('owned-retained-water',readRetainedWater(owner));if(!globalThis.__ownerMorphProbe||probeCount>=16||!owner?.probePoint)return;const data=readOwnedVisibleProbe(e,owner,phase,morph?morph.visibleField(owner):owner.lease.fields.presentation);if(data){probeCount++;event('owned-visible-probe',data)}};
  const latest=layerId=>[...owners.values()].filter(o=>o.token.layerId===layerId&&coordinator.visible().includes(o.token)).at(-1);
  const mapFor=scratch=>{let map=byScratch.get(scratch);if(!map){map=new Map();byScratch.set(scratch,map)}return map};
  const cancelOwner=owner=>{
