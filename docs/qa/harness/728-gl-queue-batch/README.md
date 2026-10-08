@@ -111,3 +111,26 @@ CPU probe добавляет preset/tool, вложенность и allocation h
 _makeLayerBuffer/_createBuffer/_destroyBuffer. Его два unit gate проверяют
 порядок drain→source, неизменные return/throw и bounded recorder/detach;
 GPU/экранную задержку эти тесты не измеряют.
+
+### ONE CPU phase probe на Surface
+
+Frozen `b63329bd`, ON ordinary Room, те же четыре PointerInput gestures.
+988 bounded rows, dropped0; GLerrors0/lostfalse. MinRAM1280MiB,
+после закрытия своей страницы2029MiB. Scene6675.8ms — instrumented,
+не новая сравнительная оценка ускорения. RAW сохранён отдельно
+`temp/device-runs/queue-room-phase-surface.json`; sanitized compact
+`room-phase-surface-summary.json`.
+
+Pigment-over-water: old settle next34/187 перед DOWN; _completeSettle4.8ms,
+DOWN7.6ms. rAF +15.7,+65.8,+82.5,+99.2,+515.9ms: gap416.7ms снова есть.
+_handleMove перед ним начинается на +99.5ms и занимает0.1ms; следующий
+начинается на +528.1ms и занимает1.1ms. Внутри промежутка нет выполнявшихся
+покрытых _paintDabs/_paintRibbonDabs/_runSlice/allocation/upload/finish/
+_display методов. UP37.9ms выполняется позднее. Следовательно этот gap
+не объясняется CPU длительностью этих вызовов. Это не доказательство
+конкретного browser/GPU виновника: предшествующая GPU очередь, browser
+scheduling или непокрытый task остаются возможны. Начальный drain старой
+воды отправляет GPU работу быстро на CPU; время её GPU исполнения этим
+probe не измерено. Generator resume/pool internals отдельно не покрыты.
+Inclusive nested CPU durations не суммировать. rAF timestamp не равен
+моменту исполнения callback и не показывает реальную задержку экрана.

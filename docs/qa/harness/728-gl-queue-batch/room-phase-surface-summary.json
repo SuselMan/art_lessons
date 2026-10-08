@@ -1,0 +1,254 @@
+{
+  "source": "b63329bd",
+  "device": "Surface",
+  "conditions": {
+    "ordinaryRoom": true,
+    "solverBatch": true,
+    "joinedTouch": true,
+    "joinedMixed": false,
+    "pureWaterPreset": "normal:100:0:PB29:round",
+    "brushSize": 400,
+    "paper": "Fine",
+    "canvas": [
+      1024,
+      1024
+    ],
+    "instrumentation": "CPU-only nested instance hooks; no added GPU query, readback or fence"
+  },
+  "valid": true,
+  "rowCount": 988,
+  "dropped": 0,
+  "coverage": [
+    {
+      "name": "_onStart",
+      "installed": true
+    },
+    {
+      "name": "_onMove",
+      "installed": true
+    },
+    {
+      "name": "_onEnd",
+      "installed": true
+    },
+    {
+      "name": "_completeSettle",
+      "installed": true
+    },
+    {
+      "name": "_paintStrokeDabs",
+      "installed": true
+    },
+    {
+      "name": "_paintDabs",
+      "installed": true
+    },
+    {
+      "name": "_runSlice",
+      "installed": true
+    },
+    {
+      "name": "_syncBuffersToLog",
+      "installed": true
+    },
+    {
+      "name": "_makeLayerBuffer",
+      "installed": true
+    },
+    {
+      "name": "_createBuffer",
+      "installed": true
+    },
+    {
+      "name": "_destroyBuffer",
+      "installed": true
+    },
+    {
+      "name": "_paintRibbonDabs",
+      "installed": true
+    },
+    {
+      "name": "_diffuseFieldFor",
+      "installed": true
+    },
+    {
+      "name": "_display",
+      "installed": true
+    },
+    {
+      "name": "_handleDown",
+      "installed": true
+    },
+    {
+      "name": "_handleMove",
+      "installed": true
+    },
+    {
+      "name": "_handleUp",
+      "installed": true
+    },
+    {
+      "name": "finish",
+      "installed": true
+    },
+    {
+      "name": "flush",
+      "installed": true
+    },
+    {
+      "name": "texImage2D",
+      "installed": true
+    },
+    {
+      "name": "texSubImage2D",
+      "installed": true
+    }
+  ],
+  "sceneMs": 6675.800000011921,
+  "glError": 0,
+  "lost": false,
+  "waterPigment": {
+    "beforeDown": {
+      "settle": true,
+      "settleNext": 34,
+      "settleOps": 187,
+      "canonicalQueued": 0,
+      "locked": false
+    },
+    "downCpuMs": 7.600000023841858,
+    "rAFRelativeToDownMs": [
+      15.7,
+      65.8,
+      82.5,
+      99.2,
+      515.9
+    ],
+    "methodStats": {
+      "texImage2D": {
+        "count": 4,
+        "inclusiveCpuMs": 0.30000007152557373,
+        "maxCpuMs": 0.20000004768371582
+      },
+      "_completeSettle": {
+        "count": 1,
+        "inclusiveCpuMs": 4.800000011920929,
+        "maxCpuMs": 4.800000011920929
+      },
+      "_paintRibbonDabs": {
+        "count": 2,
+        "inclusiveCpuMs": 22.399999976158142,
+        "maxCpuMs": 21.80000001192093
+      },
+      "_paintDabs": {
+        "count": 2,
+        "inclusiveCpuMs": 22.5,
+        "maxCpuMs": 21.80000001192093
+      },
+      "_paintStrokeDabs": {
+        "count": 2,
+        "inclusiveCpuMs": 29.0,
+        "maxCpuMs": 27.80000001192093
+      },
+      "_display": {
+        "count": 4,
+        "inclusiveCpuMs": 2.600000023841858,
+        "maxCpuMs": 1.699999988079071
+      },
+      "_onStart": {
+        "count": 1,
+        "inclusiveCpuMs": 7.199999988079071,
+        "maxCpuMs": 7.199999988079071
+      },
+      "_handleDown": {
+        "count": 1,
+        "inclusiveCpuMs": 7.600000023841858,
+        "maxCpuMs": 7.600000023841858
+      },
+      "_onMove": {
+        "count": 10,
+        "inclusiveCpuMs": 0.30000001192092896,
+        "maxCpuMs": 0.10000002384185791
+      },
+      "_handleMove": {
+        "count": 5,
+        "inclusiveCpuMs": 1.6000000834465027,
+        "maxCpuMs": 1.100000023841858
+      },
+      "_diffuseFieldFor": {
+        "count": 1,
+        "inclusiveCpuMs": 0,
+        "maxCpuMs": 0
+      },
+      "texSubImage2D": {
+        "count": 1,
+        "inclusiveCpuMs": 0,
+        "maxCpuMs": 0
+      },
+      "_onEnd": {
+        "count": 1,
+        "inclusiveCpuMs": 37.5,
+        "maxCpuMs": 37.5
+      },
+      "_handleUp": {
+        "count": 1,
+        "inclusiveCpuMs": 37.89999997615814,
+        "maxCpuMs": 37.89999997615814
+      }
+    },
+    "criticalWindow": [
+      {
+        "name": "_onMove",
+        "parent": "_handleMove",
+        "cpuMs": 0.10000002384185791,
+        "relativeStartMs": 99.5
+      },
+      {
+        "name": "_onMove",
+        "parent": "_handleMove",
+        "cpuMs": 0,
+        "relativeStartMs": 99.6
+      },
+      {
+        "name": "_handleMove",
+        "parent": null,
+        "cpuMs": 0.10000002384185791,
+        "relativeStartMs": 99.5
+      },
+      {
+        "name": "_onMove",
+        "parent": "_handleMove",
+        "cpuMs": 0,
+        "relativeStartMs": 528.2
+      },
+      {
+        "name": "_onMove",
+        "parent": "_handleMove",
+        "cpuMs": 0,
+        "relativeStartMs": 528.2
+      },
+      {
+        "name": "_handleMove",
+        "parent": null,
+        "cpuMs": 1.100000023841858,
+        "relativeStartMs": 528.1
+      }
+    ]
+  },
+  "ram": {
+    "minimumMiB": 1280,
+    "releaseMiB": 2029
+  },
+  "findings": [
+    "Long rAF gap reproduced between several MOVE callbacks, not a slow first MOVE",
+    "No instrumented CPU method occupied the 416.7ms rAF timestamp gap; handleMove before it 0.1ms",
+    "DOWN drains remaining old-water job synchronously in 4.8ms; queued GPU execution is not measured by CPU duration",
+    "UP37.9ms happens after gap; cannot explain earlier gap"
+  ],
+  "limits": [
+    "One instrumented ON scene; timing perturbation, not statistical performance comparison",
+    "Nested inclusive CPU intervals overlap and cannot be summed as exclusive time",
+    "rAF timestamps differ from callback execution start; no physical screen latency measured",
+    "Browser scheduling, previously queued GPU work, or an uninstrumented task remain unresolved",
+    "No shader compile/upload inner driver attribution; generator resume and pool internals not independently bracketed"
+  ]
+}
