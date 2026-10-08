@@ -1,0 +1,238 @@
+{
+  "code": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "bundleSha256": "d13b4dbc39a227a74aa8293f3ac5a2bc4b10e8acf8ddbe7ebbdb38709fee2c77",
+  "scope": "Surface Intel, original100 stroke, actual1024 source→actual1536 field, strict ALLsource import",
+  "functionalPass": true,
+  "boundaryPass": true,
+  "wholeParityPass": false,
+  "boundary": {
+    "index": 0,
+    "traceExact": true,
+    "trace": [
+      {
+        "kind": "copyRegionInto",
+        "source": {
+          "w": 1024,
+          "h": 1024,
+          "filter": "nearest"
+        },
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "args": [
+          0,
+          158,
+          0,
+          710,
+          969,
+          826
+        ]
+      },
+      {
+        "kind": "copyRegionInto",
+        "source": {
+          "w": 1024,
+          "h": 1024,
+          "filter": "nearest"
+        },
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "args": [
+          0,
+          158,
+          0,
+          710,
+          969,
+          826
+        ]
+      },
+      {
+        "kind": "copyRegionInto",
+        "source": {
+          "w": 1024,
+          "h": 1024,
+          "filter": "nearest"
+        },
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "args": [
+          0,
+          158,
+          0,
+          710,
+          969,
+          826
+        ]
+      },
+      {
+        "kind": "copyRegionInto",
+        "source": {
+          "w": 1024,
+          "h": 1024,
+          "filter": "nearest"
+        },
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "args": [
+          0,
+          158,
+          0,
+          710,
+          969,
+          826
+        ]
+      },
+      {
+        "kind": "copyRegionInto",
+        "source": {
+          "w": 1024,
+          "h": 1024,
+          "filter": "nearest"
+        },
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "args": [
+          0,
+          158,
+          0,
+          710,
+          969,
+          826
+        ]
+      },
+      {
+        "kind": "copyRegionInto",
+        "source": {
+          "w": 1024,
+          "h": 1024,
+          "filter": "nearest"
+        },
+        "out": {
+          "w": 1536,
+          "h": 1536,
+          "filter": "nearest"
+        },
+        "args": [
+          0,
+          158,
+          0,
+          710,
+          969,
+          826
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "role": "a",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "expectedSha256": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "actualSha256": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+        "channels": [
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          }
+        ],
+        "exact": true
+      },
+      {
+        "role": "ca",
+        "w": 1536,
+        "h": 1536,
+        "filter": "nearest",
+        "expectedSha256": "37236eb102cee15e04f42b51b5b8b672ee195887ce2a90ca5b56660706b7a96e",
+        "actualSha256": "37236eb102cee15e04f42b51b5b8b672ee195887ce2a90ca5b56660706b7a96e",
+        "channels": [
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          },
+          {
+            "changed": 0,
+            "max": 0,
+            "sum": 0
+          }
+        ],
+        "exact": true
+      }
+    ],
+    "scope": "One original operator boundary, two actual1536 Q8 fields; field filter checked. No whole solver/Room claim."
+  },
+  "materialFinal": {
+    "key": "material",
+    "w": 1024,
+    "h": 1024,
+    "comparedBytes": 4194304,
+    "changed": 49052,
+    "max": 36,
+    "mean": 0.01647663116455078,
+    "exact": false
+  },
+  "raw": {
+    "producer": {
+      "path": "temp/device-runs/common-stitch-5f2/producer/report.json",
+      "sha256": "bddbf4b9a016a30416699d7b78635fb31e4b5e307ca1280c114094348584a22c",
+      "memoryMiB": [
+        2082.6,
+        1534.4,
+        1538.4,
+        1616.8
+      ],
+      "errors": []
+    },
+    "common": {
+      "path": "temp/device-runs/common-stitch-5f2/common/report.json",
+      "sha256": "530d8c6dcda6e0eeba25890ce28e2fdca4ce75250a41487e56996f856efea991",
+      "memoryMiB": [
+        2030.9,
+        1537.6
+      ],
+      "errors": []
+    }
+  },
+  "conclusion": "Original ops0 six copy rectangles/filters match exactly; full1536 pigment a and color ca match byte-for-byte on all four channels. Final49052/max36 persists after same source, so source stitching is excluded for this case. Next isolated ops1 c/cc snapshot, not a physics change."
+}
