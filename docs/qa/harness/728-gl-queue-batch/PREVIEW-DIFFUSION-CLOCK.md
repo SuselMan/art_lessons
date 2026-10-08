@@ -25,3 +25,22 @@ Keep paired fixed and moving moment fields, reconstruct `fixed + afloat*moving` 
 Two extra128 RGBA32F core/accumulator fields add524288B/owner, three prewarmed owners+1.5MiB above15.375MiB float preview (16.875MiB total preview, excluding156+32+8MiB other QA resources and driver memory). Both channels use identical weights; sum-fixed plus afloat remains mass-consistent up to float rounding. Mobile ping-pong and fixed accumulator must never alias a live source/output; implement explicit role rotations or separate scratch, not borrowed canonical buffers. Shader reconstruction may need additional texture units, to audit before claiming feasibility.
 
 A fractional visual exchange `old + alpha*(T(old)-old)` with0≤alpha≤1 is a convex combination of identity and fixed-gate donor operator, preserving positivity/paired mass in exact arithmetic. Target fine3world king delta9.72 can be represented by alpha=.140625 of one8world king full exchange; a2world knight delta14.4 uses alpha=.0625 of8world knight. Same paper/gate/neighbor sampling still differs from the fine grid: fractional gain repairs time variance, not spatial fidelity. This would require a separate OFF visual shader/gain binder; production diffuse defaults and shader arithmetic stay untouched. No hardware evidence yet.
+
+### Следующий OFF контракт: finite paired settling
+
+`PreviewSettlingBudget.mjs` задаёт конечные 13 стадий с CORE=.45 после двух
+smooth-стадий и STEP=.2 после каждой из шести puddle-стадий. Это только CPU
+контракт: GL ещё не подключён, качество/время кадра аппаратно не проверены.
+Длительность передаётся явно; тестовые 1300 ms не являются настройкой продукта.
+Пауза пера и freeze не накапливают dt, за один tick допускается одна операция,
+потеря контекста завершает контракт. Постоянная сумма fixed+mobile=1 и одинаковые
+веса P/C проверены для положительных моментов; это не доказательство сохранения
+массы пространственным GPU stencil.
+
+Для накопления нужны **четыре** дополнительных RGBA32F128 поля: старые fixedP/C
+читаются, новые fixedP/C записываются, затем пары меняются ролями. Это 1 MiB на
+owner, 3 MiB на три owner; полный float preview ledger растёт с 15.375 до
+18.375 MiB, отдельно от существующих source/reveal/прочих ресурсов. Предыдущее
+предложение двух полей недостаточно для feedback-free накопления. Float ADD
+blend не предполагается. Noise уже занимает texture unit7: fixed samplers
+должны использовать свободные units5/6 собственного composite-program.
