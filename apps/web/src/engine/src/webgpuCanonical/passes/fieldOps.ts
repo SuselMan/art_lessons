@@ -162,16 +162,25 @@ fn evaluate(uv:vec2f,px:vec2f)->vec4f {
  textureStore(outTex,vec2i(q),evaluate(px/dims,px));
 }
 `;
+/** Diagnostic sampler arm only. The frozen manual baseline remains unchanged.
+ * Applies ONLY to non-paper fields already marked LINEAR by the existing mask. */
+export const CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL=CANONICAL_FIELD_OPS_WGSL
+ .replace('@group(0) @binding(8) var<uniform> u:Params;', '@group(0) @binding(8) var<uniform> u:Params;\n@group(0) @binding(9) var diagnosticLinear:sampler;')
+ .replace('return mix(mix(texel(t,i),texel(t,i+vec2i(1,0)),f.x),mix(texel(t,i+vec2i(0,1)),texel(t,i+vec2i(1,1)),f.x),f.y);',
+  'return textureSampleLevel(t,diagnosticLinear,vec2f(uv.x,1.0-uv.y),0.0);')
 export interface CanonicalFieldOptions {
  c?: CanonicalGpuField; d?: CanonicalGpuField; e?: CanonicalGpuField; path?: CanonicalGpuField; noise?: CanonicalGpuField
  dir?: readonly [number, number]; tau?: readonly [number, number, number]; scissor?: readonly [number, number, number, number]
  origin?: readonly [number, number]; size?: readonly [number, number]; band?: readonly [number, number]; world?: readonly [number, number, number]
  gradientFibres?: boolean; pathPacked?: boolean; additiveZeroFaces?: boolean
  /** Explicit override for component oracle; defaults to field.filter metadata. */
+ diagnosticHardwareLinearInputs?: boolean
  linearInputMask?: number
 }
 export class CanonicalFieldOps {
  private pipeline: GPUComputePipeline | null=null
+ private hardwareLinearPipeline:GPUComputePipeline|null=null
+ private hardwareLinearSampler:GPUSampler|null=null
  private readonly device: GPUDevice
  private readonly specializeModes: boolean
  private readonly omitDeadCapillary: boolean
@@ -206,11 +215,13 @@ export class CanonicalFieldOps {
   values.set([w,h,(o.dir?.[0]??0)/w,(o.dir?.[1]??0)/h,...(o.tau??[0,0,0]),0,k,mode,o.path?(o.pathPacked?2:1):0,o.gradientFibres?1:0,...(o.scissor??[0,0,w,h]),...(o.origin??[0,0]),...(o.size??[w,h]),...(o.band??[0,0]),o.world?.[0]??0,o.world?.[1]??0,o.world?.[2]??0,o.additiveZeroFaces?1:0,linearMask,0])
   const rect=canonicalDispatchRect(w,h,o.scissor);new Uint32Array(values.buffer).set(rect,28)
   if(values.slice(0,28).some(v=>!Number.isFinite(v)))throw new Error('Canonical uniforms must be finite')
-  const pipeline=this.pipelineFor(mode)
+  if(o.diagnosticHardwareLinearInputs&&this.specializeModes)throw new Error('Combined sampler and specialization diagnostics are not supported')
+  if(o.diagnosticHardwareLinearInputs&&!this.hardwareLinearPipeline)this.hardwareLinearPipeline=this.device.createComputePipeline({label:'DIAGNOSTIC canonical hardware LINEAR fields',layout:'auto',compute:{module:this.device.createShaderModule({code:CANONICAL_FIELD_OPS_HARDWARE_LINEAR_WGSL}),entryPoint:'main'}})
+  const pipeline=o.diagnosticHardwareLinearInputs?this.hardwareLinearPipeline!:this.pipelineFor(mode)
   const uniform=this.device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});this.device.queue.writeBuffer(uniform,0,values)
-  // All sampled fields have distinct output storage; preserve packed path semantics.
   const entries:GPUBindGroupEntry[]=fields.map((f,binding)=>({binding,resource:f.view}))
   entries.push({binding:7,resource:r.out.view},{binding:8,resource:{buffer:uniform}})
+  if(o.diagnosticHardwareLinearInputs){this.hardwareLinearSampler??=this.device.createSampler({minFilter:'linear',magFilter:'linear',addressModeU:'clamp-to-edge',addressModeV:'clamp-to-edge'});entries.push({binding:9,resource:this.hardwareLinearSampler})}
   const bind=this.device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries});const pass=ctx.encoder.beginComputePass({label:'Canonical fieldOp '+mode});pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(rect[2]/8),Math.ceil(rect[3]/8));pass.end();return uniform
  }
 }

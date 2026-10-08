@@ -16,6 +16,8 @@ type BufferField = Pick<SettlePlanField<CanonicalFieldBuffer>, 'w' | 'h' | 'cove
  * uploads join the same encoder, preserving their position between passes. */
 export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuffer, CanonicalUploadSlot> {
  readonly diagnosticBrushMrt = false
+ /** Diagnostic-only hardware sampling arm for existing LINEAR non-paper field inputs. */
+ diagnosticHardwareLinearInputs=false
  readonly uploads: SettlePlanUploads<CanonicalUploadSlot>
  private readonly owner: CanonicalWatercolorWebGpu
  private readonly commands: CanonicalSettleCommands
@@ -78,7 +80,7 @@ export class CanonicalPlanAdapter implements SettlePlanPasses<CanonicalFieldBuff
  }
  fieldOp(out: CanonicalFieldBuffer, a: CanonicalFieldBuffer, b: CanonicalFieldBuffer, mode: Parameters<SettlePlanPasses<CanonicalFieldBuffer, CanonicalUploadSlot>['fieldOp']>[3], k: number, options: SettlePlanFieldOptions<CanonicalFieldBuffer> = {}) {
   const { c, d, e, path, ...scalars } = options
-  this.transient.push(this.commands.encode(this.ctx(), { kind: 'fieldOp', resources: this.resources(out, a, b), mode, k, options: { ...scalars, c: c?.field, d: d?.field, e: e?.field, path: path?.field, noise: this.owner.noise } }))
+  this.transient.push(this.commands.encode(this.ctx(), { kind: 'fieldOp', resources: this.resources(out, a, b), mode, k, options: { ...scalars, diagnosticHardwareLinearInputs:this.diagnosticHardwareLinearInputs, c: c?.field, d: d?.field, e: e?.field, path: path?.field, noise: this.owner.noise } }))
  }
  pigmentColor(out: CanonicalFieldBuffer, deposit: CanonicalFieldBuffer, tau: readonly number[]) {
   if (tau.length < 3) throw new Error('Canonical absorption requires three channels')
