@@ -1,0 +1,306 @@
+{
+  "source": "00ce885e4d7f53d5fdd7f14c86d245dcb72e5ea2",
+  "journalSHA": "ecbb146ddd9ecf3b6c3c46cc289245d92cbf246cf8225490eea70a9dee3ce1d9",
+  "bundleSHA": "c31a5fe0c9a84c3d3d66461deea69b17aaec3d42557d14f09d09cd035cccb16c",
+  "target": {
+    "id": "GEiXT33N5K",
+    "seq": 61,
+    "preset": "normal:100:100:PB29:chisel"
+  },
+  "gpu": {
+    "gl": 0,
+    "lost": false,
+    "renderer": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "completed": true,
+  "ownedTargetClosed": true,
+  "engineClosed": true,
+  "ramPreflightMiB": 2566.2,
+  "ramMinimumMiB": 1051.5,
+  "materialAt": {
+    "id": "GEiXT33N5K",
+    "seq": 61,
+    "at": 58610
+  },
+  "material": [
+    {
+      "key": "CEiuPnsbmF",
+      "name": "inkLoad",
+      "origin": [
+        0,
+        0
+      ],
+      "read": [
+        910,
+        303,
+        114,
+        266
+      ],
+      "sum": [
+        107335,
+        107335,
+        107335,
+        107335
+      ],
+      "nonzero": 7144
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "inkColor",
+      "origin": [
+        0,
+        0
+      ],
+      "read": [
+        910,
+        303,
+        114,
+        266
+      ],
+      "sum": [
+        29035,
+        105899,
+        2012,
+        107335
+      ],
+      "nonzero": 7144
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "inkDry",
+      "origin": [
+        0,
+        0
+      ],
+      "read": [
+        910,
+        303,
+        114,
+        266
+      ],
+      "sum": [
+        104743,
+        104743,
+        104743,
+        104743
+      ],
+      "nonzero": 7144
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "colorDry",
+      "origin": [
+        0,
+        0
+      ],
+      "read": [
+        910,
+        303,
+        114,
+        266
+      ],
+      "sum": [
+        28500,
+        103362,
+        1921,
+        104743
+      ],
+      "nonzero": 7144
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "coverage",
+      "origin": [
+        0,
+        0
+      ],
+      "read": [
+        910,
+        303,
+        114,
+        266
+      ],
+      "sum": [
+        505844,
+        0,
+        1788397,
+        1807795
+      ],
+      "nonzero": 7212
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "solventLoad",
+      "origin": [
+        0,
+        0
+      ],
+      "read": [
+        910,
+        303,
+        114,
+        266
+      ],
+      "sum": [
+        441414,
+        0,
+        0,
+        441414
+      ],
+      "nonzero": 7199
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "inkLoad",
+      "origin": [
+        1024,
+        0
+      ],
+      "read": [
+        0,
+        303,
+        240,
+        266
+      ],
+      "sum": [
+        628638,
+        628638,
+        628638,
+        628638
+      ],
+      "nonzero": 32372
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "inkColor",
+      "origin": [
+        1024,
+        0
+      ],
+      "read": [
+        0,
+        303,
+        240,
+        266
+      ],
+      "sum": [
+        170534,
+        618016,
+        13172,
+        628638
+      ],
+      "nonzero": 32372
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "inkDry",
+      "origin": [
+        1024,
+        0
+      ],
+      "read": [
+        0,
+        303,
+        240,
+        266
+      ],
+      "sum": [
+        615860,
+        615860,
+        615860,
+        615860
+      ],
+      "nonzero": 32372
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "colorDry",
+      "origin": [
+        1024,
+        0
+      ],
+      "read": [
+        0,
+        303,
+        240,
+        266
+      ],
+      "sum": [
+        167020,
+        605773,
+        12962,
+        615860
+      ],
+      "nonzero": 32372
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "coverage",
+      "origin": [
+        1024,
+        0
+      ],
+      "read": [
+        0,
+        303,
+        240,
+        266
+      ],
+      "sum": [
+        5173986,
+        9640,
+        8740635,
+        8745056
+      ],
+      "nonzero": 34679
+    },
+    {
+      "key": "CEiuPnsbmF",
+      "name": "solventLoad",
+      "origin": [
+        1024,
+        0
+      ],
+      "read": [
+        0,
+        303,
+        240,
+        266
+      ],
+      "sum": [
+        2404233,
+        0,
+        0,
+        2404233
+      ],
+      "nonzero": 34648
+    }
+  ],
+  "model": {
+    "page": {
+      "w": 3508,
+      "h": 2480
+    },
+    "paper": "medium",
+    "canvas": [
+      1280,
+      900
+    ],
+    "ab": {
+      "noSpread": false,
+      "noMigrate": false,
+      "noDiffuse": false,
+      "noCarry": false,
+      "opDry": false
+    },
+    "phase": false,
+    "ADD": false
+  },
+  "lastPageEventMs": 207637.60000002384,
+  "limitations": [
+    "Single standalone current OFF42, not Room/ACK or latency benchmark.",
+    "Endpoint visual closed white valley not reproduced; sharp left water-domain contour observed.",
+    "No pre-target water/coverage plane bytes or original signed-mask profiles captured.",
+    "No paired endpoint equality or whole mass claim."
+  ]
+}
