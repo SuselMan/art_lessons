@@ -1,0 +1,144 @@
+{
+  "scope": "Actual prepared GL source commands versus fresh late-bound owner. Predecessor is a source-material fixture; no canonical settle/Room/morph proof.",
+  "sourceCommit": "d4760ee8",
+  "raw": "temp/device-runs/owned-material-rebase-surface-d476.json",
+  "valid": true,
+  "comparison": {
+    "exact": true,
+    "differences": [],
+    "changed": [
+      "presentation",
+      "coverage",
+      "coverageFilm",
+      "pigmentLoad",
+      "pigmentBase",
+      "colourLoad",
+      "colourBase",
+      "solventLoad",
+      "solventBase",
+      "solventFilm"
+    ],
+    "negativeDetected": true,
+    "meaningful": true
+  },
+  "fields": [
+    {
+      "role": "presentation",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 844318,
+      "sha": "5a5b8383dc6ac732dcb8f9c416cd0d85f01b4f7a13cea4cffd60beacde371ae0"
+    },
+    {
+      "role": "original",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 0,
+      "sha": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+    },
+    {
+      "role": "coverage",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 842029,
+      "sha": "6f84a48a21b8337a48ab33254abfd143453b35345003633d1b0d8e4e5abdf34c"
+    },
+    {
+      "role": "coverageFilm",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 690775,
+      "sha": "d2d67ed46bbba37d4502eeb3b5b46a70929e1b2081908189566f2e268f6919ab"
+    },
+    {
+      "role": "pigmentLoad",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 1114644,
+      "sha": "6b9f9a7a32c3f7e7e2efe1517a917b4a84cd724562ec5ba614ab61e7d9e61f95"
+    },
+    {
+      "role": "pigmentBase",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 914848,
+      "sha": "be6a248d0f9c47402525e27ad30af9f7d29ce28915a92dd7bae5041f31dbe141"
+    },
+    {
+      "role": "pigmentFilm",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 829264,
+      "sha": "226056319f0bd27e093a9b2ec486334a591e6d608917d32183da70a246adcdaf"
+    },
+    {
+      "role": "colourLoad",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 1110652,
+      "sha": "8ed277fd355d6ba94e079693e931e93f56c8ad4f577faf48b1b0c30de8e54665"
+    },
+    {
+      "role": "colourBase",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 911868,
+      "sha": "e7f09322151544322f8361f0c96b3521ef729c8d278a2dd517af1becd5326574"
+    },
+    {
+      "role": "colourFilm",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 825935,
+      "sha": "e4e42876929f82b68c9fdbd601c3fe461b2b6933dceb921a5898a20828245a5a"
+    },
+    {
+      "role": "solventLoad",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 560442,
+      "sha": "8b234773d55e042a46e1c126f0ba0f9fe8982fed1ae303fa88fa2af36f18352d"
+    },
+    {
+      "role": "solventBase",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 459866,
+      "sha": "41e33dd530d5fdac53d1a100ecd6d5829d96a402563e122e33dd856cacbc59ef"
+    },
+    {
+      "role": "solventFilm",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 4194304,
+      "nonzero": 417366,
+      "sha": "41d1bde4580081dcbee284eeffdbfb4df85ad548097d33715aa71418cd1e06f7"
+    }
+  ],
+  "epoch": 1,
+  "retainedPayloadBytes": 759744,
+  "commands": 28,
+  "glError": 0,
+  "lost": false,
+  "preflightFreeMiB": 2075,
+  "minimumFreeMiB": 1565,
+  "afterCloseFreeMiB": 2039,
+  "ownTargetClosed": true,
+  "limits": [
+    "One source-only GPU fixture, no timing claim",
+    "Predecessor source material, not canonical solver finish",
+    "No Room, morph, pointer or all-device proof"
+  ]
+}
