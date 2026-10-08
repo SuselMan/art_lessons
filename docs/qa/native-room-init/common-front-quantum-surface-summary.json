@@ -1,0 +1,83 @@
+{
+  "scope": "Actual Surface ONE first four-step quantum, common captured pressure/coverage/Fine/lattice; no Room/whole solver/performance claim",
+  "code": "c9c9aac3c9b6663a7563cd27b726092d88e94645",
+  "bundleSha256": "0efdbb96a3c19ace031d20dfefde4d1b533704a0c14ad5579d4053df91f5d988",
+  "valid": true,
+  "operator": "waterFront",
+  "steps": 4,
+  "inputHashes": {
+    "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+    "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+    "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+  },
+  "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+  "frontRecipe": {
+    "x0": 0,
+    "y0": 40,
+    "scale": 1,
+    "dryCost": 50.27954292297363,
+    "max": 104.55908584594727,
+    "climb": 30,
+    "floor": 0.85,
+    "stride": 1,
+    "paperWorld": {
+      "w": 1024,
+      "h": 1024
+    },
+    "paperScale": 1,
+    "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+    "steps": 4
+  },
+  "sourceFilters": [
+    "LINEAR pressure",
+    "NEAREST a",
+    "LINEAR pressure",
+    "NEAREST a"
+  ],
+  "exact": true,
+  "channels": [
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "expectedSha256": "b3fbfeb400c6e8ce02cc0bb888744fbf5e7e80aa408d79d89a6a7d058851da6e",
+  "actualSha256": "b3fbfeb400c6e8ce02cc0bb888744fbf5e7e80aa408d79d89a6a7d058851da6e",
+  "errors": [],
+  "glError": 0,
+  "lost": false,
+  "validation": null,
+  "memoryPre": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 2073.5
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 2073
+    }
+  ],
+  "memoryPostCloseMiB": 1940.2,
+  "raw": "temp/device-runs/front-quantum-c9/report.json",
+  "limits": [
+    "Software R6/G119058 max1 did not reproduce on actual Surface",
+    "First four outbound steps exact; remaining137 outbound and inward/band/carry still unlocalized",
+    "Common-source final49052/max36 remains FAIL"
+  ]
+}
