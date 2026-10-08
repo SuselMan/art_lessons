@@ -1,0 +1,289 @@
+{
+  "source": "ca9f8bc2",
+  "device": "Surface Intel Iris Xe",
+  "roomApplication": "ordinary Room, isolated backend4558 PG55549, own DEV frontend5352",
+  "rows": [
+    {
+      "enabled": false,
+      "elapsedMs": 10931.5,
+      "frameP95": 17,
+      "frameMax": 550.2000000000007,
+      "over33": 18,
+      "over100": 2,
+      "phases": {
+        "between": {
+          "frames": 472,
+          "maxMs": 550.2000000000007,
+          "over33": 14,
+          "over100": 1
+        },
+        "first-pigment": {
+          "frames": 29,
+          "maxMs": 33.29999999999927,
+          "over33": 2,
+          "over100": 0
+        },
+        "second-pigment-during-settle": {
+          "frames": 31,
+          "maxMs": 16.80000000000291,
+          "over33": 0,
+          "over100": 0
+        },
+        "pure-water": {
+          "frames": 27,
+          "maxMs": 33.5,
+          "over33": 1,
+          "over100": 0
+        },
+        "pigment-over-water": {
+          "frames": 6,
+          "maxMs": 533.4000000000015,
+          "over33": 1,
+          "over100": 1
+        }
+      },
+      "onsets": [
+        {
+          "name": "first-pigment",
+          "pigment": 1,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 9.5,
+          "firstDisplaySubmitMs": 16.200000047683716,
+          "downCpuMs": 17.30000001192093,
+          "started": true,
+          "upCpuMs": 66.10000002384186,
+          "settleAfterUp": true
+        },
+        {
+          "name": "second-pigment-during-settle",
+          "pigment": 1,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 12,
+            "settleOps": 363,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 3.5,
+          "firstDisplaySubmitMs": 5.800000011920929,
+          "downCpuMs": 6.400000035762787,
+          "started": true,
+          "upCpuMs": 49.80000001192093,
+          "settleAfterUp": true
+        },
+        {
+          "name": "pure-water",
+          "pigment": 0,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 1.899999976158142,
+          "firstDisplaySubmitMs": 3.399999976158142,
+          "downCpuMs": 4.100000023841858,
+          "started": true,
+          "upCpuMs": 33.90000003576279,
+          "settleAfterUp": true
+        },
+        {
+          "name": "pigment-over-water",
+          "pigment": 1,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 14,
+            "settleOps": 187,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 0.7000000476837158,
+          "firstDisplaySubmitMs": 9,
+          "downCpuMs": 9.5,
+          "started": true,
+          "upCpuMs": 38.90000003576279,
+          "settleAfterUp": true
+        }
+      ],
+      "undoMeaningful": true,
+      "redoExact": true,
+      "reentryExact": true,
+      "reentryReadyCorrected": true,
+      "passport": {
+        "ops": 7,
+        "error": 0,
+        "lost": false,
+        "paper": "fine",
+        "canvas": [
+          1024,
+          1024
+        ],
+        "flags": {
+          "solver": false,
+          "joinedTouch": true,
+          "mixed": false,
+          "deferred": false,
+          "async": false,
+          "material": false
+        },
+        "drawable": true
+      },
+      "materialTiles": 1,
+      "materialNonzero": 740092
+    },
+    {
+      "enabled": true,
+      "elapsedMs": 6650.800000011921,
+      "frameP95": 49.80000000000291,
+      "frameMax": 450.1000000000022,
+      "over33": 24,
+      "over100": 2,
+      "phases": {
+        "between": {
+          "frames": 208,
+          "maxMs": 450.1000000000022,
+          "over33": 19,
+          "over100": 1
+        },
+        "first-pigment": {
+          "frames": 30,
+          "maxMs": 33.16399999999703,
+          "over33": 1,
+          "over100": 0
+        },
+        "second-pigment-during-settle": {
+          "frames": 25,
+          "maxMs": 83.5,
+          "over33": 2,
+          "over100": 0
+        },
+        "pure-water": {
+          "frames": 28,
+          "maxMs": 17.100000000002183,
+          "over33": 0,
+          "over100": 0
+        },
+        "pigment-over-water": {
+          "frames": 6,
+          "maxMs": 450,
+          "over33": 2,
+          "over100": 1
+        }
+      },
+      "onsets": [
+        {
+          "name": "first-pigment",
+          "pigment": 1,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 10,
+          "firstDisplaySubmitMs": 20,
+          "downCpuMs": 21.19999998807907,
+          "started": true,
+          "upCpuMs": 66.60000002384186,
+          "settleAfterUp": true
+        },
+        {
+          "name": "second-pigment-during-settle",
+          "pigment": 1,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 33,
+            "settleOps": 363,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 2.100000023841858,
+          "firstDisplaySubmitMs": 3.699999988079071,
+          "downCpuMs": 4.199999988079071,
+          "started": true,
+          "upCpuMs": 63.30000001192093,
+          "settleAfterUp": true
+        },
+        {
+          "name": "pure-water",
+          "pigment": 0,
+          "beforeDown": {
+            "settle": false,
+            "settleNext": null,
+            "settleOps": 0,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 2.399999976158142,
+          "firstDisplaySubmitMs": 4.399999976158142,
+          "downCpuMs": 5.199999988079071,
+          "started": true,
+          "upCpuMs": 36.19999998807907,
+          "settleAfterUp": true
+        },
+        {
+          "name": "pigment-over-water",
+          "pigment": 1,
+          "beforeDown": {
+            "settle": true,
+            "settleNext": 30,
+            "settleOps": 187,
+            "canonicalQueued": 0,
+            "locked": false
+          },
+          "firstDrawSubmitMs": 0.6000000238418579,
+          "firstDisplaySubmitMs": 9.900000035762787,
+          "downCpuMs": 10.600000023841858,
+          "started": true,
+          "upCpuMs": 25.600000023841858,
+          "settleAfterUp": true
+        }
+      ],
+      "undoMeaningful": true,
+      "redoExact": true,
+      "reentryExact": true,
+      "reentryReadyCorrected": true,
+      "passport": {
+        "ops": 7,
+        "error": 0,
+        "lost": false,
+        "paper": "fine",
+        "canvas": [
+          1024,
+          1024
+        ],
+        "flags": {
+          "solver": true,
+          "joinedTouch": true,
+          "mixed": false,
+          "deferred": false,
+          "async": false,
+          "material": false
+        },
+        "drawable": true
+      },
+      "materialTiles": 1,
+      "materialNonzero": 744634
+    }
+  ],
+  "observedElapsedReduction": 0.39159310250085344,
+  "validHistoryAndRestore": true,
+  "minimumFreeMiBReentry": 1277,
+  "limitations": [
+    "One OFF/ON live scene, different rAF input samples not byte-exact cross-arm oracle",
+    "First draw includes old pending canonical commands before own pigment; CPU API timestamps are NOT first visible pigment",
+    "No during-animation image sequence; separate final dry screenshots only",
+    "Frame100ms gate FAIL for both; ON second-pigment gesture83.5ms versus OFF16.8ms, unresolved single-cohort quality risk",
+    "Standalone frozen SAMEtape26fields+material+RGBA exact proof is separate",
+    "Peer not tested under RAM guards; Samsung ordinary Room not tested",
+    "Initial OFF reentry read before backfill yielded ops0, corrected readiness replay restored7ops exactly; failed artifact retained"
+  ]
+}
