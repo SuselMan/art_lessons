@@ -1,0 +1,176 @@
+{
+  "code": "5cda12c35078ad819144363e00140be3cca40d02",
+  "bundleSha256": "ee1bafe84ee82cbc44d74d68cb3620b9f1d883957b53c109b75f28b10b3ef4ad",
+  "baselineMemory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 1908.9
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 1909.4
+    }
+  ],
+  "after44Memory": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 1762.6
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 1775.4
+    }
+  ],
+  "baseline": {
+    "rows": [
+      {
+        "index": 37,
+        "kind": "stamp",
+        "substituted": false,
+        "nativeSha256": "36168b1e5f63afcda54655f1782399629220bc94270079432caf40515e92ec39",
+        "glSha256": "f5499a104c670394a121e70e6729344dac57bee3e339b1f8d08cc35a74cf0232",
+        "comparisonBeforeSubstitution": {
+          "key": "coverage",
+          "w": 1024,
+          "h": 1024,
+          "comparedBytes": 4194304,
+          "changed": 257,
+          "max": 5,
+          "mean": 0.00007009506225585938,
+          "exact": false
+        }
+      },
+      {
+        "index": 44,
+        "kind": "ribbon",
+        "substituted": false,
+        "nativeSha256": "7db0c3303cd71a5e29e0354f4b1c32a261532355f7df356d4780b5a79576c6e7",
+        "glSha256": "536273d0942c7f0fb569d8764d07c6da6fb4e20429204cacc3a31b3cd07b571b",
+        "comparisonBeforeSubstitution": {
+          "key": "coverage",
+          "w": 1024,
+          "h": 1024,
+          "comparedBytes": 4194304,
+          "changed": 21,
+          "max": 1,
+          "mean": 0.0000050067901611328125,
+          "exact": false
+        }
+      },
+      {
+        "index": 144,
+        "kind": "ribbon",
+        "substituted": false,
+        "nativeSha256": "243af86dbcc3963de99b6945f44d4e86518bd0d574ba5f78e4cc105fa7aee764",
+        "glSha256": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+        "comparisonBeforeSubstitution": {
+          "key": "coverage",
+          "w": 1024,
+          "h": 1024,
+          "comparedBytes": 4194304,
+          "changed": 29,
+          "max": 1,
+          "mean": 0.0000069141387939453125,
+          "exact": false
+        }
+      }
+    ],
+    "errors": [],
+    "validation": null,
+    "commands": 145,
+    "substitutions": [],
+    "readbackBytes": 25165824,
+    "uploadBytes": 0,
+    "limits": "Persistent GL Q8 source only; checkpoints37/44/144. Accumulated substitution removes all prior error, not solely selected-operator error. No P/C/settle/Room/timing claim."
+  },
+  "after44": {
+    "rows": [
+      {
+        "index": 37,
+        "kind": "stamp",
+        "substituted": false,
+        "nativeSha256": "36168b1e5f63afcda54655f1782399629220bc94270079432caf40515e92ec39",
+        "glSha256": "f5499a104c670394a121e70e6729344dac57bee3e339b1f8d08cc35a74cf0232",
+        "comparisonBeforeSubstitution": {
+          "key": "coverage",
+          "w": 1024,
+          "h": 1024,
+          "comparedBytes": 4194304,
+          "changed": 257,
+          "max": 5,
+          "mean": 0.00007009506225585938,
+          "exact": false
+        }
+      },
+      {
+        "index": 44,
+        "kind": "ribbon",
+        "substituted": true,
+        "nativeSha256": "7db0c3303cd71a5e29e0354f4b1c32a261532355f7df356d4780b5a79576c6e7",
+        "glSha256": "536273d0942c7f0fb569d8764d07c6da6fb4e20429204cacc3a31b3cd07b571b",
+        "comparisonBeforeSubstitution": {
+          "key": "coverage",
+          "w": 1024,
+          "h": 1024,
+          "comparedBytes": 4194304,
+          "changed": 21,
+          "max": 1,
+          "mean": 0.0000050067901611328125,
+          "exact": false
+        }
+      },
+      {
+        "index": 144,
+        "kind": "ribbon",
+        "substituted": false,
+        "nativeSha256": "a810044257330ebb8e31cc78222bdc303e13ffe6fca4abb6ce48a53d2fe3aa68",
+        "glSha256": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+        "comparisonBeforeSubstitution": {
+          "key": "coverage",
+          "w": 1024,
+          "h": 1024,
+          "comparedBytes": 4194304,
+          "changed": 13,
+          "max": 1,
+          "mean": 0.0000030994415283203125,
+          "exact": false
+        }
+      }
+    ],
+    "errors": [],
+    "validation": null,
+    "commands": 145,
+    "substitutions": [
+      44
+    ],
+    "readbackBytes": 25165824,
+    "uploadBytes": 4194304,
+    "limits": "Persistent GL Q8 source only; checkpoints37/44/144. Accumulated substitution removes all prior error, not solely selected-operator error. No P/C/settle/Room/timing claim."
+  },
+  "comparison": {
+    "scope": "Cumulative source coverage before44 reset; not FBM-only or full material/Room gain",
+    "baseline": {
+      "key": "coverage",
+      "w": 1024,
+      "h": 1024,
+      "comparedBytes": 4194304,
+      "changed": 29,
+      "max": 1,
+      "mean": 0.0000069141387939453125,
+      "exact": false
+    },
+    "after44": {
+      "key": "coverage",
+      "w": 1024,
+      "h": 1024,
+      "comparedBytes": 4194304,
+      "changed": 13,
+      "max": 1,
+      "mean": 0.0000030994415283203125,
+      "exact": false
+    },
+    "changedBytesRemoved": 16,
+    "changedByteReduction": 0.5517241379310345,
+    "finalGlSha256": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7"
+  }
+}
