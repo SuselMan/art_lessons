@@ -47,3 +47,9 @@ Raw: `temp/fast-watercolor-night/moment-vector-layout-surface-20261008.json`. С
 Raw `temp/fast-watercolor-night/room-vector-fixed12-surface-20261008/report.json`. RAM preflight2024/min884/после собственного закрытия1744 MiB. Controller atom `c7251b40`, runtime source `ab1dd3db`; source manifest SHA256 `7b4765198c3e0018a24890fb69a3c920c2ce20995ec673446c289e5caf6b88ea`. Существующие frozen candidates не изменены.
 
 Это actual remote packed replay и устранение ложного carrier rejection на ordinal2. Не проверка live author/replay, не доказательство натуральности картинки, скорости или массовой/цветовой сохранности после последующего production fit/settle. Чтение полей и framebuffer диагностическое и влияет на wall time. Следующий независимый gate — live author и fresh original packed replay с одинаковыми recipe/fields/material/export.
+
+## Actual live author: видимость подтверждена, fresh replay остановлен RAM guard
+
+ONE controlled PointerInput short400 на том же frozen `ab1dd3db` дал12 retained contacts: все supported/applied gpu-vector, violations0. В диагностическом framebuffer после отрыва visible pigment35609 pixels, после settle37359; обе meaningfulPigmentVisible=true, GL0. Canonical author fields nonempty gate PASS; исходная новая author tape сохранена перед replay. Это наблюдение видимости, не физическая pen-to-photon latency/FPS.
+
+Fresh replay НЕ запущен: после перехода собственной страницы в about:blank и2s retirement RAM938 MiB ниже обязательных1700. Guard сохранил FAIL/остановку; автоматического повтора и ослабления порога не было. RAM preflight1892/min735/после окончательного own close1884 MiB. Raw `temp/fast-watercolor-night/room-vector-live-replay-surface-20261008/report.json`; `original-tape.json` рядом. Full author/replay parity остаётся открытой. Controller `394c936c` + negative visibility/range tests `a918945a`; runtime/source не менялись.
