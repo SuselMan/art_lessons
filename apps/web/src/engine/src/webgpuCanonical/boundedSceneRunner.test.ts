@@ -1,13 +1,13 @@
 import { expect,it,vi } from 'vitest'
 import type { Operation } from '@grafetto/shared'
-const trace=vi.hoisted(()=>({events:[] as string[],commands:[] as any[],liveProfiles:[] as any[]}))
+const trace=vi.hoisted(()=>({events:[] as string[],commands:[] as any[],liveProfiles:[] as any[],opCount:1}))
 vi.mock('./settlePlanAdapter',()=>({CanonicalPlanAdapter:class {
  disposeCarryOracle(){trace.events.push('disposeCarryOracle')}
  uploads={};runQuantum(task:any){trace.events.push('quantum');return task({encoder:{}})}retain(){}fieldOp(){trace.events.push('sourceField')}
 }}))
 vi.mock('../raster/CanonicalWatercolorSettlePlan',()=>({CanonicalWatercolorSettlePlan:class{
  destroyTextures(){trace.events.push('destroyTextures')}
- prepare(_scratch:any,_targets:any,bounds:any){return{ops:[()=>trace.events.push('settleOp')],finish:()=>trace.events.push('settleFinish'),dispose:()=>trace.events.push('dispose'),compositeDomain:bounds}}
+ prepare(_scratch:any,_targets:any,bounds:any){return{ops:Array.from({length:trace.opCount},()=>()=>trace.events.push('settleOp')),finish:()=>trace.events.push('settleFinish'),dispose:()=>trace.events.push('dispose'),compositeDomain:bounds}}
 }}))
 vi.mock('./finishTile',()=>({CanonicalSingleTileFinish:class{encode(){trace.events.push('composite');return[]}encodeLive(_encoder:any,input:any){trace.events.push('live');trace.liveProfiles.push(input.profile);return[]}}}))
 import { ribbonProfileFor } from '../dabs/ribbonProfile'
@@ -104,4 +104,26 @@ it('active owner retirement creates no synthetic pen-up or recorded operation',a
  await runner.retire();expect(operations).toHaveLength(before)
  expect(()=>runner.end(pointer(450,40))).toThrow('retired');expect(()=>runner.move(pointer(450,20))).toThrow('retired')
  expect(trace.events).not.toContain('settleFinish');runner.destroy()
+})
+
+it('bounded progressive turns preserve original ops/source/final order and reduce yields',async()=>{
+ const run=async(bounded:boolean)=>{
+  trace.events=[];trace.commands=[];trace.opCount=7;let yields=0
+  const {runner,settings,pointer}=fixture(false,true,()=>{yields++;return Promise.resolve()})
+  if(bounded)runner.setDiagnosticProgressiveQuantum({maxOps:3,cpuBudgetMs:12})
+  runner.begin(pointer(440,0),settings,{strokeId:'bounded',layerId:'L',userId:'u'});runner.end(pointer(450,40))
+  expect(()=>runner.begin(pointer(460,50),settings,{strokeId:'blocked',layerId:'L',userId:'u'})).toThrow('busy')
+  await runner.drain();const result={events:trace.events.filter(e=>e!=='quantum'),commands:structuredClone(trace.commands),yields,metrics:{...runner.progressiveMetrics}};runner.destroy();trace.opCount=1;return result
+ }
+ const off=await run(false),on=await run(true);expect(on.commands).toEqual(off.commands);expect(on.events).toEqual(off.events);expect(off.yields).toBe(7);expect(on.yields).toBe(3);expect(on.metrics.maxOpsInTurn).toBe(3)
+})
+it('bounded retirement cancels subsequent ops and disposes once without finish',async()=>{
+ trace.events=[];trace.opCount=7
+ const {runner,settings,pointer}=fixture(false,true,()=>new Promise<void>(()=>{}));runner.setDiagnosticProgressiveQuantum({maxOps:3,cpuBudgetMs:12})
+ runner.begin(pointer(440,0),settings,{strokeId:'retire-bounded',layerId:'L',userId:'u'});runner.end(pointer(450,40))
+ expect(trace.events.filter(e=>e==='settleOp')).toHaveLength(3);await runner.retire();expect(trace.events.filter(e=>e==='dispose')).toHaveLength(1);expect(trace.events).not.toContain('settleFinish');runner.destroy();trace.opCount=1
+})
+it('bounded diagnostics reject unsupported budgets and serial mode',()=>{
+ const {runner}=fixture(false,true);expect(()=>runner.setDiagnosticProgressiveQuantum({maxOps:17,cpuBudgetMs:4})).toThrow('maxOps');expect(()=>runner.setDiagnosticProgressiveQuantum({maxOps:8,cpuBudgetMs:0})).toThrow('CPUbudget');runner.destroy()
+ const serial=fixture().runner;expect(()=>serial.setDiagnosticProgressiveQuantum({maxOps:8,cpuBudgetMs:4})).toThrow('progressive mode');serial.destroy()
 })
