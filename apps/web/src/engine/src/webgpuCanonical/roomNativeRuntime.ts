@@ -32,11 +32,11 @@ export class RoomNativeRuntime {
  private generation=0
  private ordinal=0
  private retired=false
+ private queued=false
  private finishScalars:PreparedRibbonCpuDelivery['input']['scalars']|null=null
  private retirements:Promise<void>[]=[]
  private constructor(backend:CanonicalWatercolorWebGpu,ctx:RoomNativeRuntimeContext){this.backend=backend;this.ctx=ctx;this.central=new RoomNativeCentralAdapter(ctx.fifo,ctx.changed)}
  static async create(ctx:RoomNativeRuntimeContext){
-  if(ctx.board.w!==1024||ctx.board.h!==1024)throw new Error('DEV WebGPU Room currently requires an actual 1024×1024 bounded board')
   const la=await getPaperBytes(ctx.paper),resolution=Math.sqrt(la.length/2),bytes=new Uint8Array(resolution*resolution*4)
   for(let i=0;i<la.length/2;i++)bytes.set([la[i*2],la[i*2],la[i*2],la[i*2+1]],i*4)
   const canvas=document.createElement('canvas')
@@ -59,6 +59,7 @@ export class RoomNativeRuntime {
   const film=request.input.film,waterOnly=request.input.waterOnly===true
   this.finishScalars=scalars
   // Freeze command geometry and metadata NOW, before subsequent CPU delivery advances.
+  this.queued=true
   this.central.enqueueSource(()=>{
    const owner=this.ownerFor(scratch,tile,layerId);sourceOwner=owner
    owner.emitPrepared({path,layerId,generation:this.generation,strokeId:`cpu-gesture-${metadata.gesture}`,ordinal,segment:{commands,rect:canonicalSourceRevealRect(owner.target,bounds),film,waterOnly},materialGesture:metadata.gesture,metadata,live})
@@ -66,7 +67,7 @@ export class RoomNativeRuntime {
   return true
  }
  private ownerFor(scratch:RibbonStrokeScratch,tile:PaintTarget,layerId:string){
-  if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer))throw new Error('DEV WebGPU Room retained wash/generation switch requires explicit invalidation')
+  if(this.owner&&(this.scratch!==scratch||this.tile?.buffer!==tile.buffer)){this.retirements.push(this.owner.retire('rebuild',false));this.owner=null}
   if(!this.owner){this.generation++;this.scratch=scratch;this.tile=tile;this.owner=new CanonicalRoomWatercolorExecutor(this.backend,{tile:tile.buffer,originX:tile.originX,originY:tile.originY,layerId,generation:this.generation,delivery:scratch,central:this.central,bridgeMode:'canvas',bridgeCanvas:document.createElement('canvas')})}
   return this.owner
  }
@@ -74,17 +75,33 @@ export class RoomNativeRuntime {
   const context=metadata.finish,scalars=this.finishScalars
   if(!context||!scalars)return
   const delivery=ribbonWaterDelivery(context.profile),standing=delivery.water*(delivery.retain+(1-delivery.retain)*Math.min(1,context.landedWet))
+  const prevDry=scratch.dryCtx
+  scratch.dryCtx={...context,bounds:prevDry?{minX:Math.min(prevDry.bounds.minX,context.bounds.minX),minY:Math.min(prevDry.bounds.minY,context.bounds.minY),maxX:Math.max(prevDry.bounds.maxX,context.bounds.maxX),maxY:Math.max(prevDry.bounds.maxY,context.bounds.maxY)}:{...context.bounds},radiusPx:Math.max(prevDry?.radiusPx??0,context.radiusPx),standing:Math.max(prevDry?.standing??0,standing)}
+  const dryCtx=scratch.dryCtx
   // Queue the logical boundary AFTER all prepared source packets. It must not
   // await a nested FIFO request from inside its current generator.
+  this.queued=true
   void this.central.admitFactory(()=>{
    if(this.retired)return null
    if(this.scratch!==scratch||!this.owner)throw new Error('Native Room finish has no matching source owner')
+   this.owner.scratch.dryCtx=dryCtx
    return this.owner.prepareSettle({profile:context.profile,opacity:context.opacity,fieldSeed:context.fieldSeed,spreadPx:scalars.spreadPx,water:scalars.water,bristleRadiusPx:scalars.bristleRadiusPx,bounds:{...context.bounds},bloom:watercolorBloomStrength(context.landedWet,context.profile.pigmentLevel)*watercolorBloomPush(context.profile.pigmentLevel),radiusPx:context.radiusPx,waterLevel:context.profile.waterLevel,landedWet:context.landedWet,standing,wetPeak:context.wetPeak,dwellMs:context.dwellMs})
   }).catch(e=>{if(!this.retired)this.ctx.failed(e)})
  }
+ /** Tool/wash changes land preceding packets, then retire material ownership.
+  * Destructive restore/rebuild cancels preceding packets and prevents late upload. */
+ invalidateAtBoundary(reason:'clear'|'rebuild'|'snapshot'|'context-loss'):void {
+  const old=this.owner;this.owner=null;this.scratch=null;this.tile=null;this.finishScalars=null
+  if(old)this.retirements.push(old.retire(reason,false))
+ }
+ invalidate(reason:'clear'|'rebuild'|'snapshot'|'context-loss',cancel=false):void {
+  const release=()=>{this.invalidateAtBoundary(reason);return null}
+  if(cancel){this.ctx.fifo.cancel(reason==='context-loss');release()}
+  else void this.central.admitFactory(release).catch(e=>{if(!this.retired)this.ctx.failed(e)})
+ }
  async retire(reason:'clear'|'rebuild'|'snapshot'|'context-loss'|'unmount'){
   if(this.retired)return;this.retired=true
-  if(this.owner)this.retirements.push(this.owner.retire(reason));else await this.central.cancel(reason)
+  if(this.owner)this.retirements.push(this.owner.retire(reason));else if(this.queued)await this.central.cancel(reason)
   await Promise.allSettled(this.retirements);this.backend.destroy()
  }
 }
