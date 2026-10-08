@@ -66,3 +66,36 @@ owner token + epoch. Старый preview не может перезаписат
 Если existing passes требуют полного canonical solve/domain и не имеют
 безопасного отдельного material transport — сначала отрицательный feasibility
 отчёт; не подменять их случайным blur/fade ради движения.
+
+## Concrete offline port 4f9e2020
+
+`SealedPreviewGlPort` calls shipped `wcResample` mode0 and `diffuseStep`, two
+separate P/C outputs. S=8, radiusPx=8 produce one preview texel radius, king
+stencil only; world origin and paper dimensions are divided by the same S.
+Coverage alpha is the existing diffusion domain; reduced solvent is retained
+separately but **not read by this operator**, exactly as production diffuse.
+Therefore an inherited water-puddle coverage is required. A pigment-only
+footprint cannot expand outside its existing domain with this pass alone.
+
+Important negative boundary: production resample mode0 reads four texels near
+q=8*destination center, not the full 8x8 source block. This is a sparse visual
+reduction and may miss faint/small dabs. It is NOT mass-preserving reduction.
+Do not claim source-to-preview mass equality; measure it and require nonzero
+70px dab and connected water domain. If this fails, an explicit area reduction
+pass or finer grid is needed; do not silently change canonical resampling.
+
+Within a diffusion step, shared coverage/paper donor fractions move each vec4
+independently; each pair flux is antisymmetric before Q8 storage, total drift
+from quantization remains measured. Production bound 8*(D+B)<=.96 supports
+nonnegativity; clamp and RGBA8 quantization remain the shipped expressions.
+Radius1 still allows an existing diagonal endpoint face; no claim of supercover
+wet-path gating. Disconnected-puddle negative must include a dry gap >=2 cells,
+and separately document diagonal touching as the shipped primitive semantics.
+
+CPU 5 tests PASS: resource aliases rejected before commands, immutable bindings
+(not immutable GPU contents), old PC ordered outputs, explicit paper world
+transform, idempotent retirement, no release before a matching fence ticket.
+Port must supply a real GPU-idle fence; metadata does not prove completion.
+Next GPU fixture MUST hash all eight original source fields before/after
+init/step/reset/cancel, compare positivity/mass drift and separated domains,
+then original2 saved-tape endpoint. No Room wiring and no hardware gain claimed.
