@@ -1,0 +1,19 @@
+{
+  "issue": "#728 — Native Room first-use queue",
+  "scope": "OFF-by-default DEV raw canvas pipeline isolation; no source, pressure, composite or dry planner warmup",
+  "commits": {"primitive":"f42b60e8","readyCallbackPatch":"e6c59d42","flagForwardingPatch":"9224e45a"},
+  "query": "wcNative=1&wcRawCanvasWarmup=1",
+  "lifetime": "Runtime.create awaits literal raw-canvas queue completion before returning ready. A separate detached canvas is unconfigured and all one-field scratch resources retired. No GL target, operation/history or CPU delivery is passed to the warm module.",
+  "resourceLedger": {"incrementalFieldBytes":4194304,"width":1024,"height":1024,"format":"rgba8unorm","filter":"nearest","output":"zero raw material; not published"},
+  "validation": {"moduleAppTypecheck":"PASS","moduleLifecycleTests":5,"bothPatchesApplyCheckCurrentRoot":"PASS","patchedActualParserControls":6,"parserCaveat":"Unrelated joined/deferred helper predicates stubbed for transpile execution","mergedTypecheck":"PENDING ROOT APPLICATION","actualGpu":"NOT RUN"},
+  "controllerRequirements": [
+    "Fresh immutable runtime/source/paper passport; preserve protected endpoints",
+    "Strict UI watercolor400/options guards before input",
+    "Require raw-warm:completed earlier than runtime ready and first DOWN, peakBytes exactly4194304",
+    "Record total load/ready wall and warm wall separately; no net improvement claim from shifted pause",
+    "Require no warm material publication/oplog entry and ordinary4stroke endpoint control separately",
+    "Fresh owned incognito, parent Surface allocation, RAM1700/abort500/hard120, no repeats"
+  ],
+  "hypothesis": "Only isolates compilation/use of literal raw bridge pipeline on a detached canvas. The observed first queue stall may originate elsewhere; a negative result is valid.",
+  "limitations": ["Subsequent owner creates another pipeline object; any cache benefit is implementation dependent","No actual GPU duration, physical pen latency or visible frame proof","Warmup may increase total readiness time without reducing drawing cost"]
+}
