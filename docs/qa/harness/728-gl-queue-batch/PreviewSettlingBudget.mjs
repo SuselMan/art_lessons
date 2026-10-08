@@ -2,6 +2,7 @@
 export class PreviewSettlingBudget {
  constructor({durationMs, smooth, puddle, fine, core, settleStep}) {
   if(!Number.isFinite(durationMs)||durationMs<=0||![core,settleStep].every(v=>Number.isFinite(v)&&v>=0&&v<=1))throw Error('Invalid settling budget');
+  if(![...smooth,...puddle,...fine].every(s=>Number.isFinite(s.radius)&&s.radius>0&&typeof s.knight==='boolean'))throw Error('Invalid stencil');
   this.stages=[...smooth.map(step=>({step,land:core,smooth:true})),...puddle.map(step=>({step,land:settleStep})),...fine.map(step=>({step,land:0}))];
   if(!this.stages.length)throw Error('Empty settling budget');
   // Core is landed once, after the last smoothing step.

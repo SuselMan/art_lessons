@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {PreviewSettlingBudget,addPairedSlice,PREVIEW_FIXED_PAIR_BYTES,PREVIEW_FIXED_THREE_OWNER_BYTES} from './PreviewSettlingBudget.mjs';
-const make=()=>new PreviewSettlingBudget({durationMs:1300,smooth:[1,2],puddle:[3,4,5,6,7,8],fine:[9,10,11,12,13],core:.45,settleStep:.2});
+const make=()=>new PreviewSettlingBudget({durationMs:1300,smooth:[1,2].map(radius=>({radius,knight:false})),puddle:[3,4,5,6,7,8].map(radius=>({radius,knight:false})),fine:[9,10,11,12,13].map(radius=>({radius,knight:false})),core:.45,settleStep:.2});
 test('finite production weights, paired positive moments and explicit ping-pong bytes',()=>{
  const b=make();b.tick(0);let outputs=[];for(let t=100;t<=1300;t+=100)outputs.push(b.tick(t));
  assert.equal(outputs.length,13);assert.equal(outputs[0].landWeight,0);assert.equal(outputs[1].landWeight,.45);
