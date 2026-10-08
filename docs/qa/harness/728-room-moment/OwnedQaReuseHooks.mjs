@@ -1,10 +1,11 @@
 import{OwnedQaBundleRetirement}from'./OwnedQaBundleRetirement.mjs';
 /** OFF integration proposal. Explicit instance hooks only, never GL prototype. */
-export function installOwnedQaReuseHooks({engine,generation,mainFree,previewFree,syncSites=[],consumerSites=[]}){
- if(!engine||typeof mainFree!=='function'||typeof previewFree!=='function'||!syncSites.length||!consumerSites.length)throw Error('Explicit main/preview capacity, existing sync and ALL consumer sites required');
+export function installOwnedQaReuseHooks({engine,generation,mainFree,previewFree,syncSites=[],consumerSites=[],conservativeGl=false}){
+ if(!engine||typeof mainFree!=='function'||typeof previewFree!=='function'||!syncSites.length||(!consumerSites.length&&!conservativeGl))throw Error('Explicit main/preview capacity, existing sync and ALL consumer sites required');
  const bundles=new OwnedQaBundleRetirement({generation}),tracked=new Map(),restore=[];
  const wrap=(target,name,make)=>{const original=target?.[name];if(typeof original!=='function')throw Error('Missing hook '+name);const wrapped=make(original);target[name]=wrapped;restore.push(()=>{if(target[name]===wrapped)target[name]=original})};
  try{
+  if(conservativeGl){for(const name of ['drawArrays','copyTexSubImage2D','copyTexImage2D','clear','readPixels'])wrap(engine.gl,name,original=>function(...args){bundles.ledger.conservativeSubmission();return original.apply(this,args)})}
   for(const {target,name}of syncSites)wrap(target,name,original=>function(...args){
    const certificate=bundles.captureBeforeExistingSync();const result=original.apply(this,args);
    if(result?.then)throw Error('Async sync is not a completed GPU certificate');
@@ -15,7 +16,7 @@ export function installOwnedQaReuseHooks({engine,generation,mainFree,previewFree
  }catch(error){for(const r of restore.reverse())r();throw error}
  return{
   bundles,
-  canAdmit(){return !engine.gl.isContextLost()&&bundles.snapshot().admitted<3&&mainFree()>0&&previewFree()>0},
+  canAdmit(){return !engine.gl.isContextLost()&&!bundles.snapshot().lost&&bundles.snapshot().admitted<3&&mainFree()>0&&previewFree()>0},
   track(owner,{detachPresentation,releasePreview,hasFutureCpuJobs}){
    const original=owner.source.retire,source=owner.source;
    if(tracked.has(owner.token))throw Error('Owner tracked twice');

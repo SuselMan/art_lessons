@@ -14,7 +14,7 @@ export class OwnedQaBundleRetirement{
  requestLandOrCancel(owner){const r=this.owners.get(owner.token);if(!r)return false;r.requested=true;return this.tryRetire(r)}
  tryRetire(r){if(r.retired)return true;if(r.hasFutureCpuJobs())return false;
   // Explicit callback stops preview/visibility refs and performs required handoff.
-  r.detachPresentation();this.ledger.reference(r.owner.token); //conservative lastref covers handoff GPU writes
+  const detached=r.detachPresentation();if(detached?.gpuWrites!==false)this.ledger.reference(r.owner.token); //conservative lastref covers handoff GPU writes
   this.ledger.retire(r.owner.token,{detached:true});r.retired=true;return true;
  }
  refreshAfterJobs(){for(const r of this.owners.values())if(r.requested&&!r.retired)this.tryRetire(r)}

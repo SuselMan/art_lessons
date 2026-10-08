@@ -6,6 +6,7 @@ export class PreviewLeaseCoordinator{
  admit(key,releaseAfterKnownIdle){if(this.lost)throw Error('Lost generation');if(this.records.has(key)||typeof releaseAfterKnownIdle!=='function')throw Error('Unique lease/release callback required');if(this.records.size>=this.capacity)return false;this.records.set(key,{lastReference:0,state:'attached',releaseAfterKnownIdle});return true}
  reference(key,generation=this.generation){if(generation!==this.generation||this.lost)return null;const record=this.records.get(key);if(!record||record.state!=='attached')throw Error('No GPU reference after retire/unknown lease');record.lastReference=++this.submitted;return record.lastReference}
  retire(key,{detached,generation=this.generation}={}){if(generation!==this.generation||this.lost)return false;const record=this.records.get(key);if(!record)return false;if(detached!==true)throw Error('Detach pending and stop tick before retirement');if(record.state==='attached')record.state='retired';return true}
+ conservativeSubmission(){if(this.lost)throw Error('Lost generation submission');for(const r of this.records.values())if(['attached','retired'].includes(r.state))r.lastReference=++this.submitted}
  captureExistingIdleBoundary(){if(this.lost)throw Error('Lost generation');return Object.freeze({generation:this.generation,serial:this.submitted})}
  completeExistingIdle(certificate,kind){
   if(certificate?.generation!==this.generation||this.lost)return{accepted:false,released:0};
