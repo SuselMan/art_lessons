@@ -39,7 +39,7 @@ export function CanonicalScenePage() {
  }
  return <main className={styles.page}>
   <h1>Акварель Grafetto · WebGPU</h1>
-  <p className={styles.notice}>Эксперимент с текущей моделью акварели. Один холст, следующий штрих после завершения расчёта предыдущего. Морфинг высыхания ещё не подключён.</p>
+  <p className={styles.notice}>Эксперимент с текущей моделью акварели. Один холст, следующий штрих после завершения расчёта предыдущего. Во время осадка показываются промежуточные поля растекания.</p>
   <div className={styles.controls}>
    <label>Кисть <input aria-label="Размер кисти" type="range" min="20" max="400" value={size} onChange={e => setSize(+e.target.value)} />{size}</label>
    <label>Вода <input aria-label="Вода" type="range" min="0" max="100" value={water} onChange={e => setWater(+e.target.value)} />{water}%</label>

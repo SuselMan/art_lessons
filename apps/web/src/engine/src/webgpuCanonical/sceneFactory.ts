@@ -33,6 +33,7 @@ export class CanonicalSceneSession {
   backend.device.addEventListener('uncapturederror', this.gpuError)
   void backend.device.lost.then(info => { if (!this.disposed) this.fail(`WebGPU device lost: ${info.reason} ${info.message}`) })
   this.runner = new CanonicalBoundedSceneRunner(backend, {
+   progressiveSettle: true,
    now: () => performance.now(), timestamp: () => Date.now(), operationId: () => crypto.randomUUID(),
    onLocalOperation: callbacks.onOperation,
    sourceOptions: { diagnosticWaterPolicy: 'bottomless', diagnosticSharedFluid: true, diagnosticLandingReservoir: true, diagnosticLandingPolicy: 'fluid', diagnosticCanonicalSettleRadius: true, diagnosticSolventField: true, diagnosticPigmentRecord: true },
