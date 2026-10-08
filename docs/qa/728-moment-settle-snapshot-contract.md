@@ -4,7 +4,7 @@
 
 ## Установленный контрактный дефект и граница доказательства
 
-`roomWatercolorExecutor.publishCurrentToGl` после успешного GPU audit копирует текущие P/C в base и очищает stroke. `CanonicalWatercolorSettlePlan` выбирает base как settled вход, когда filmGesture соответствует gesture, и считает mobile из laid−settled. Это меняет разложение даже при нулевых rates. Узкий zero candidate73a2f68a сохраняет всю film/base структуру; аппаратный full-state контроль пока не завершён из-за исправленного QA observer дефекта.
+`roomWatercolorExecutor.publishCurrentToGl` после успешного GPU audit копирует текущие P/C в base и очищает stroke. `CanonicalWatercolorSettlePlan` выбирает base как settled вход, когда filmGesture соответствует gesture, и считает mobile из laid−settled. Это меняет разложение даже при нулевых rates. Узкий zero candidate73a2f68a сохраняет всю film/base структуру; аппаратный corrected5359 full-state контроль завершён: все3контакта совпали с OFF по шести pre/post ролям, source P/C и публикации, финальный decoded export SHA совпал. Подробный отчёт — [728-moment-white-stripe-localization.md](728-moment-white-stripe-localization.md).
 
 Активный пример: load[100,0]→[75,25] сохраняет сумму100; историческая settled база[0,0] даёт mobile[75,25]. Rebase даёт mobile[0,0], хотя видимые records и сумма не изменились. Это математический counterexample, не аппаратное доказательство причины финальных полос.
 
@@ -25,3 +25,10 @@
 ## Gates до выбора активного варианта
 
 Zero: все cropped P/C/base/film до/после неизменны, отсутствие полей/epochs совпадает; следующий контакт и final export совпадают с той же OFF tape. Active: отдельно суммы каждого raw operator channel, у8/finite, outsideROI; laid/settled/mobile inputs до front/diffuse; current brush contact и previous-water state; fixed author→packed replay. Между вариантами сравниваются реальные картинки и латентность, без ожидания same-model exact. Source-mask decomposition требует фактического prepared-uniform census, не предположенного profile anchor. Nonzero defaults/формулы сейчас не меняются.
+
+
+## Следующий минимальный proof до активной интеграции
+
+Дополнительные CPU tests (5 всего PASS) показывают: snapshot[20,0], transported load[75,25] дают mobile[55,25]; continuation base[75,25] даёт0. Snapshot должен быть сохранён до первого переноса и пережить partition/live chunks; поздний capture не подходит. При этом даже перенос обоих records общим линейным оператором не доказывает сохранение clamp-mobile: laid[100,0],settled[0,100] имеют positive100; mixed load[50,50] с фиксированным snapshot даёт50, с mixed snapshot[50,50] даёт0, хотя обе raw суммы100 и signed difference sum0 сохранены.
+
+Поэтому следующий read-only gate — actual contact2 planner capture: отдельно bounded historical settled P/C до переноса, technical base после rebase и laid на входе planner. Зафиксировать роль/epochs/absence/SHA и exact operator delta, затем вычислить signed и positive per-channel differences. Без выбора snapshot формулы на основании одних raw sums. Это независимый от first-stamp маски контракт и не исправление физики.
