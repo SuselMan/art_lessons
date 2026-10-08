@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
-import { WatercolorSettleQueue, presentationStepOp, inheritSettleOpTags } from './WatercolorSettleQueue'
+import { WatercolorSettleQueue, presentationStepOp, inheritSettleOpTags, contactPulseOp, frontStepOp } from './WatercolorSettleQueue'
 
 function fixture() {
   const frames = new Map<number, FrameRequestCallback>()
@@ -252,4 +252,34 @@ it('dead-owner cleanup throwing cannot invoke abort twice through the advance ca
  const f=fixture(),cleanup=Error('abort'),abort=vi.fn(()=>{throw cleanup});let alive=true
  f.queue.start(f.scratch,[()=>{},()=>{}],()=>{},{isAlive:()=>alive,abort});alive=false
  expect(()=>f.queue.advance()).toThrow(cleanup);expect(abort).toHaveBeenCalledOnce();expect(f.queue.current).toBeNull()
+})
+
+
+describe('bounded diagnostic solver batching', () => {
+ function solverFixture(){
+  const f=fixture(),events:string[]=[];let time=100,drawing=false
+  vi.spyOn(performance,'now').mockImplementation(()=>time)
+  const sync=vi.fn(()=>{events.push('sync');time+=1})
+  Object.assign(f.queue,{ctx:{beforeStart(){},perf:()=>({settleStart:0,settleOps:0,settleMs:0}),isDrawing:()=>drawing,backlogSize:()=>0,backlogMax:()=>4,noteActivity(){},scheduleFieldRelease(){},syncGpu:sync}})
+  Object.assign(f.scratch,{live:true});return{...f,events,sync,setDrawing:(v:boolean)=>{drawing=v},addTime:(n:number)=>{time+=n}}
+ }
+ it('default performs one unit; ON preserves original operation order and every Q8 boundary',()=>{
+  const execute=(enabled:boolean)=>{const f=solverFixture();f.queue.diagnosticSolverBatchEnabled=enabled;let q8=31;const results:number[]=[]
+   const ops=[()=>{},...Array.from({length:8},(_,i)=>contactPulseOp(()=>{q8=Math.round((q8*0.71+i*5.3)%256);results.push(q8)}))]
+   f.queue.start(f.scratch,ops,()=>results.push(q8));f.frame();const firstCount=results.length;while(f.queue.current)f.frame();return{results,firstCount,syncs:f.sync.mock.calls.length}}
+  const off=execute(false),on=execute(true);expect(off.results).toEqual(on.results);expect(off.firstCount).toBe(1);expect(on.firstCount).toBe(4);expect(off.syncs).toBe(0);expect(on.syncs).toBe(8)
+ })
+ it('never crosses capture/upload, class change or presentation token barriers',()=>{
+  const f=solverFixture();f.queue.diagnosticSolverBatchEnabled=true;const c=(v:string)=>contactPulseOp(()=>f.events.push(v)),p=(v:string)=>frontStepOp(()=>f.events.push(v))
+  f.queue.start(f.scratch,[()=>f.events.push('capture'),c('c1'),c('c2'),()=>f.events.push('upload'),p('f1'),p('f2'),presentationStepOp(()=>f.events.push('reveal'),{})],()=>f.events.push('finish'))
+  f.frame();expect(f.events).toEqual(['capture','c1','sync','c2','sync']);f.frame();expect(f.events.at(-1)).toBe('upload');f.frame();expect(f.events.slice(-4)).toEqual(['f1','sync','f2','sync']);f.frame();expect(f.events.slice(-2)).toEqual(['reveal','finish'])
+ })
+ it('bounds synced wall budget and drawing admission without swallowing pending work',()=>{
+  const f=solverFixture();f.queue.diagnosticSolverBatchEnabled=true;f.sync.mockImplementation(()=>{f.events.push('sync');f.addTime(3)})
+  f.queue.start(f.scratch,[()=>{},...Array.from({length:7},(_,i)=>contactPulseOp(()=>f.events.push(String(i))))],()=>{})
+  f.frame();expect(f.sync).toHaveBeenCalledTimes(3);f.setDrawing(true);f.frame();expect(f.events.at(-1)).toBe('3');expect(f.sync).toHaveBeenCalledTimes(3)
+ })
+ it('stops after ownership loss, throwing operator or cancellation',()=>{
+  const f=solverFixture();f.queue.diagnosticSolverBatchEnabled=true;const abort=vi.fn(),finish=vi.fn();f.queue.start(f.scratch,[()=>{},contactPulseOp(()=>{f.events.push('first');f.queue.cancel()}),contactPulseOp(()=>f.events.push('forbidden'))],finish,{isAlive:()=>true,abort});f.frame();expect(f.events).not.toContain('forbidden');expect(abort).toHaveBeenCalledTimes(1);expect(finish).not.toHaveBeenCalled()
+ })
 })
