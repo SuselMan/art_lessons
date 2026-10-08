@@ -13,3 +13,9 @@ Offline proof: 20 сочетаний round/chisel × coverage/solvent/pigment/co
 ## Actual CPU source corpus
 
 Дополнительный `preparedGlSourceCorpus.test.ts` использует настоящий RibbonStrokePainter и prepareCanonicalStrokeChunk: 16 combinations round/chisel × combined-segment OFF/ON × film OFF/ON × 1/4 input dabs. Каждая подготовленная команда сначала совпадает с записью реального painter, затем настоящий RibbonPasses оригинально исполняет сохранённые исходные аргументы и prepared GL port исполняет canonical record. Все упорядоченные GL calls совпадают; Float32 bufferData сравнивается по uint32 bit pattern. Исходные stamp begin/end/MAX/add и ribbon вызовы сохраняются. Цель — CPU/API equivalence, MockGL не является доказательством реальных texture pixels. Общий suite теперь 34 tests PASS.
+
+## Подготовленный аппаратный gate
+
+`prepared-gl-source-controller.mjs` запускает отдельные source-only engines, Fine/1024, 4 dabs кисти ~400. Round/chisel combined+film, и round unsegmented+add; каждая пара original/prepared получает одинаковые входы. Оригинальный painter сохраняет resource allocation, phase, clear/copy/sum/scissor и composite; заменяются только stamp/ribbon binders. Для stamp внутри уже открытого painter target binder `ownStampTarget=false`, что offline trace также проверяет. Это узкая проверка binder, не вся typed owner state machine.
+
+Собираются SHA256, размер и nonzero всех 12 target/source roles; readback только после source. Отрицательный контроль меняет tau всех color-команд на 0.3 и обязан нарушить сравнение полей. Computed source SHA passport и RAM guard 1700/500; созданные страницы закрываются. Аппаратный результат пока отсутствует.
