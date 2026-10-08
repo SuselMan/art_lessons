@@ -1,22 +1,23 @@
+import {withPreviewMaterialLinear} from './PreviewMaterialSampling.mjs';
 import {PrewarmedPreviewPool} from './PrewarmedPreviewPool.mjs';
 import {SealedPreviewTransport,PREVIEW_BYTES} from './SealedPreviewTransport.mjs';
 import {SealedPreviewGlPort} from './SealedPreviewGlPort.mjs';
 import {createPreviewWaterDomain} from './PreviewWaterDomain.mjs';
 /** OFF-only runtime, no canonical callbacks/resources. Construction awaited before input. */
-export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetBytes=3*PREVIEW_BYTES,excluded=[],observe=null,directDisplay=false,createBuffer=null,createDomain=createPreviewWaterDomain}={}){
+export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetBytes=3*PREVIEW_BYTES,excluded=[],observe=null,directDisplay=false,materialLinear=false,createBuffer=null,createDomain=createPreviewWaterDomain}={}){
  const AccumulationBuffer=createBuffer?null:(await import('/src/engine/src/buffers/AccumulationBuffer.ts')).AccumulationBuffer;
  const pool=new PrewarmedPreviewPool({create:(w,h,filter)=>createBuffer?createBuffer(w,h,filter):new AccumulationBuffer(e.gl,w,h,filter),destroy:f=>f.destroy()},{budgetBytes,excluded});let domain;
  try{domain=await createDomain(e._watercolorPasses);
- const paper=e._watercolorPasses.ctx.paperWorldSize(),port=new SealedPreviewGlPort(e._watercolorPasses,{paperWidth:paper.w,paperHeight:paper.h,domainFromWater:domain});return bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event,observe,directDisplay})
+ const paper=e._watercolorPasses.ctx.paperWorldSize(),port=new SealedPreviewGlPort(e._watercolorPasses,{paperWidth:paper.w,paperHeight:paper.h,domainFromWater:domain});return bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event,observe,directDisplay,materialLinear})
  }catch(error){if(!e.gl.isContextLost())e.gl.finish();domain?.disposeAfterFence();pool.disposeAfterFence();throw error}
 }
 /** Testable chronological seam; default factory above supplies real GL resources. */
-export function bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event=()=>{},observe=null,directDisplay=false}){
+export function bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event=()=>{},observe=null,directDisplay=false,materialLinear=false}){
  const states=new Map();let frame=null,disposed=false;
  const material=(s)=>{const f=s.owner.lease.fields,recipe=s.owner.source.chunks.at(-1)?.composite;if(!recipe)throw Error('Preview needs owned immutable composite recipe');const pending=s.transport.lease.pending;f.original.copyTo(pending);const bounds={minX:0,minY:0,maxX:1024,maxY:1024},tile={buffer:pending,originX:0,originY:0,contentRect:bounds},l=s.transport.lease,side=s.transport.front;
   // Transport domain is support-only; production composite MUST read full readonly
   // source coverage (across/pool/standing-water), never the overwritten128 domain.
-  e._ribbonPasses.drawRibbonCompositeRect(tile,bounds,recipe.preset,recipe.profile,f.original,f.coverage,l[`p${side}`],l[`c${side}`],recipe.color,recipe.opacity,recipe.fieldSeed,recipe.spreadPx,recipe.fringeWater,recipe.migratePx,recipe.profile.normalizeDeposit?recipe.dabSpacing:0,recipe.strokeDir,recipe.bristleRadiusPx)
+  const draw=()=>e._ribbonPasses.drawRibbonCompositeRect(tile,bounds,recipe.preset,recipe.profile,f.original,f.coverage,l[`p${side}`],l[`c${side}`],recipe.color,recipe.opacity,recipe.fieldSeed,recipe.spreadPx,recipe.fringeWater,recipe.migratePx,recipe.profile.normalizeDeposit?recipe.dabSpacing:0,recipe.strokeDir,recipe.bristleRadiusPx);if(materialLinear){withPreviewMaterialLinear(e.gl,l[`p${side}`],l[`c${side}`],draw);port.stats.materialLinearDraws=(port.stats.materialLinearDraws??0)+1}else draw();
  };
  const detach=s=>{const held=e._washReveals.get(s.owner.lease.fields.presentation);if(held?.pending===s.transport.lease.pending)held.pending=undefined};
  const retire=s=>{observe?.({stage:'retire',owner:s.owner,lease:s.transport.lease,front:s.transport.front,steps:s.steps});detach(s);s.fence=s.transport.retire();states.delete(s.owner.token);return s};
