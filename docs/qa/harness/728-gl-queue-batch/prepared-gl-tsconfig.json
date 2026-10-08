@@ -10,7 +10,8 @@
   "preparedGlSourceCorpus.test.ts",
   "preparedGlSourceDraw.test.ts",
   "TypedGlSourceReplayPrototype.ts",
-  "OwnedGlSourceFields.ts"
+  "OwnedGlSourceFields.ts",
+  "OwnedGlPreparedSource.ts"
  ],
  "exclude": []
 }
