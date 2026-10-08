@@ -4,6 +4,7 @@ import type { CanonicalWatercolorWebGpu } from './backend'
 import { CanonicalComposite } from './render'
 import type { CanonicalTileScratch, CanonicalLayerTile } from './tileScratch'
 import type { CanonicalCompositeUniforms } from './types'
+import type { CanonicalFieldBuffer } from './fieldBuffer'
 
 export interface CanonicalTileFinishInput {
  /** The canonical planner's job.finish() has already landed all its fields. */
@@ -50,6 +51,11 @@ export class CanonicalSingleTileFinish {
  encodeLive(encoder:GPUCommandEncoder,input:CanonicalTileLiveInput):GPUBuffer[] {
   const entry=this.scratch.peek(this.tile.buffer);if(!entry)throw new Error('Native live composite has no source scratch')
   return this.encodeSelected(encoder,input,{original:entry.original,coverage:entry.coverage,pigment:entry.inkLoad,color:entry.inkColor},input.inkSmoothPx)
+ }
+ /** Planner preview fields are temporary reconstructions, never persisted wash records. */
+ encodePreview(encoder:GPUCommandEncoder,input:Omit<CanonicalTileLiveInput,'inkSmoothPx'>,source:{original:CanonicalFieldBuffer;coverage:CanonicalFieldBuffer;pigment:CanonicalFieldBuffer;color:CanonicalFieldBuffer}):GPUBuffer[] {
+  for(const field of Object.values(source))if(field===this.tile.buffer||field.owner!==this.backend||field.width!==this.tile.buffer.width||field.height!==this.tile.buffer.height)throw new Error('Native planner preview tile/owner mismatch')
+  return this.encodeSelected(encoder,{...input,inkSmoothPx:0},source,0)
  }
  private encodeSelected(encoder:GPUCommandEncoder,input:CanonicalTileLiveInput|CanonicalTileFinishInput,source:Omit<ReturnType<typeof canonicalFinishSources>,'runningFilm'>,inkSmoothPx:number):GPUBuffer[] {
   const p=input.profile,tile=this.tile
