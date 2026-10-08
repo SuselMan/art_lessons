@@ -54,5 +54,18 @@ test('OFF source copies actual P/C after emit, survives until successful publica
  assert.throws(()=>e.emitPrepared({ordinal:6,strokeId:'source',metadata:{gesture:5},materialGesture:5,momentRecipe:{mixRate:64,advectionRate:32},segment:{rect:[270,494,260,260],film:true,commands:[]}}),error=>error===boom)
  assert.equal(window.__momentObserverErrors[0].error,'Error: third observation allocation failed');assert.equal(window.__momentObserverErrors[0].stage,'observer.emitPrepared:reject');assert.equal(window.__momentPreparedCensus.length,1);assert(buffers.every(b=>b.destroyed))
  window.__restoreMomentStageProbe();e.backend.device.createBuffer=allocate
+ // Active snapshot observes nonzero recipes without changing owner math.
+ Executor.prototype.emitPrepared=originalEmit;e.pendingMoment=null
+ state.filmGesture=3;state.inkSettled={texture:'historicalP'};state.colorSettled={texture:'historicalC'}
+ await install(true,{activeSnapshot:true})
+ const activeRecipe={mixRate:64,advectionRate:32}
+ e.emitPrepared({ordinal:7,strokeId:'active',metadata:{gesture:3},materialGesture:3,momentRecipe:activeRecipe,segment:{rect:[270,494,260,260],film:true,commands:[]}})
+ await e.publishCurrentToGl();const active=window.__momentStageResults[0]
+ assert.equal(active.stages.length,16)
+ assert.deepEqual(active.sourceMetadata.settledSelectionBeforeTransport,{ink:'inkBase',color:'colorBase'})
+ assert.deepEqual(window.__momentPreparedCensus[0].actualRecipe,activeRecipe)
+ assert.equal(active.stages.find(s=>s.stage==='source-inkSettled').absent,undefined)
+ assert(buffers.every(b=>b.destroyed));window.__restoreMomentStageProbe()
+ await assert.rejects(install(false,{activeSnapshot:true}),/source-only/)
  delete globalThis.window
 })
