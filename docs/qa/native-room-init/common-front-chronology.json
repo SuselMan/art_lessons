@@ -1,0 +1,71 @@
+{
+  "scope": "CPU chronology only; actual shaders/output not evaluated by this trace",
+  "producerCode": "5f2e8ddd7fea6ab096beb5322070c11100da69cf",
+  "packetSha256": "1cf7698e3d2fa6a713a00dad8d2e7f0d05dbb7f74139c91096e366d74560e76f",
+  "plannerSha256": "ba76fa0a5769b68736fff201b3219dcb7b7c7043447d40f47833b3a23dfae78f",
+  "traceSha256": "fda8405d0662c05534055bf86d0577da413f67113733043a331c46746a620780",
+  "ops": 572,
+  "frontSegmentsBeforeCoverageExtension": [
+    {
+      "firstOp": 3,
+      "lastOp": 38,
+      "steps": 141,
+      "coefficients": [
+        104.55908584594727,
+        30,
+        0.85,
+        1,
+        1
+      ]
+    },
+    {
+      "firstOp": 40,
+      "lastOp": 40,
+      "steps": 2,
+      "coefficients": [
+        12,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "firstOp": 41,
+      "lastOp": 43,
+      "steps": 9,
+      "coefficients": [
+        12,
+        15,
+        0.5,
+        1,
+        1
+      ]
+    }
+  ],
+  "nextBoundaries": [
+    {
+      "op": 39,
+      "mode": 12,
+      "meaning": "inward seed; requires retained outbound pressure"
+    },
+    {
+      "op": 44,
+      "modes": [
+        11,
+        1,
+        6,
+        5,
+        5,
+        5,
+        5,
+        5,
+        1
+      ],
+      "meaning": "coverage extension, band construction and maximum spread; requires both completed pressure and inward mask"
+    }
+  ],
+  "verifiedSurfaceThrough": "pressure mode10 plus FIRST ONE outbound front step exact all RGBA",
+  "aggregate4": "software functional valid, R6/G119058 max1, B/A0; Surface pending",
+  "wholeFidelity": "still FAIL, common-source final49052 bytes/max36"
+}
