@@ -195,3 +195,29 @@ export async function runFullClearFixture(){
  return{rows,exact:rows.every(r=>r.srcNonzero===0&&r.dstNonzero===0&&!r.errors.length)}
 }
 Object.assign(window,{runFullClearFixture})
+/** Minimal production-size allocation/clear/copy sequence; no solver or raster. */
+export async function runTargetCopyFixture({compute=false}:{compute?:boolean}={}){
+ const rows=[]
+ for(let repeat=0;repeat<2;repeat++){
+  const canvas=document.createElement('canvas');document.querySelector('#surface')!.append(canvas)
+  const backend=await CanonicalWatercolorWebGpu.create({canvas,width:1024,height:1024,diagnosticComputeFullClear:compute,paper:{bytes:new Uint8Array(4*4*4).fill(255),width:4,height:4,origin:[0,0],texSize:[1024,1024],scale:1}})
+  const errors:string[]=[];backend.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));backend.device.pushErrorScope('validation')
+  const src=backend.createField('minimal target',1024,1024,'linear'),dst=backend.createField('minimal original',1024,1024)
+  try{
+   // SAME runner order: independent target clear submitted, then original copy
+   // within first source owner scope followed by other scratch allocations.
+   backend.clearField(src)
+   const encoder=backend.device.createCommandEncoder(),extra=[]
+   const owned=backend.encodeOwnerCommands(encoder,()=>{
+    backend.copyField(src,dst)
+    for(let i=0;i<10;i++){const f=backend.createField('minimal scratch '+i,1024,1024);extra.push(f);backend.clearField(f)}
+   })
+   backend.device.queue.submit([encoder.finish()]);await backend.device.queue.onSubmittedWorkDone();owned.release()
+   const a=await backend.readField(src),b=await backend.readField(dst),validation=await backend.device.popErrorScope();if(validation)errors.push(validation.message)
+   const summary=(bytes:Uint8Array)=>({nonzero:bytes.reduce((n,v)=>n+ +(v!==0),0),rgba0:Array.from(bytes.subarray(0,4)),rgbaCenter:Array.from(bytes.subarray(1024*512*4,1024*512*4+4))})
+   rows.push({repeat,src:summary(a),dst:summary(b),srcSha256:await hash(a),dstSha256:await hash(b),errors,computeFullClears:backend.diagnosticComputeFullClearCalls})
+  }finally{backend.destroy();canvas.remove()}
+ }
+ return{compute,rows,exact:rows.every(r=>r.src.nonzero===0&&r.dst.nonzero===0&&!r.errors.length),limitations:['Two fresh devices; production1024 allocation/copy order, no planner/raster','Readback only after submitted original commands finish']}
+}
+Object.assign(window,{runTargetCopyFixture})
