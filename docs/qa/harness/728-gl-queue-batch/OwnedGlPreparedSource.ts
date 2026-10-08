@@ -8,6 +8,7 @@ import type { OwnedGlSourceFields } from './OwnedGlSourceFields'
 import { createPreparedGlSourcePort } from './PreparedGlSourceDraw'
 import { TypedGlSourceReplayPrototype } from './TypedGlSourceReplayPrototype'
 export interface PreparedOwnedComposite {
+ previewSourceGeometry?:Readonly<{firstGap:number;tipDiameter:number}>
  bounds:{minX:number;minY:number;maxX:number;maxY:number};preset:PencilPreset;profile:RibbonProfile
  color:[number,number,number];opacity:number;fieldSeed:[number,number];spreadPx:number;fringeWater:number;migratePx:number;dabSpacing:number;strokeDir:[number,number];bristleRadiusPx:number
 }
