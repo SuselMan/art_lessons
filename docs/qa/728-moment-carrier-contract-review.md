@@ -59,3 +59,11 @@ Fresh replay НЕ запущен: после перехода собственн
 Разрешённый ONE fresh replay-only запуск дошёл до исполнения source, но controller остановился до readback comparison: original seq0 сталseq1 после явного layer fixture. Offline полный diff показывает толькоseq; packed bytes/ID/layer/preset/color/wash/timestamp неизменны. Это ошибка comparator, не render mismatch. Raw `temp/fast-watercolor-night/room-vector-savedauthor-replay-surface-20261008`; failure-original-tape сохранён. Собственная страница закрыта, RAM после1785 MiB. Автоматического повтора нет; fields/material/export parity пока не измерена.
 
 `3884a6b6` исправляет comparator: толькоseq нормализуется как structural log bookkeeping, оба массиваseq записываются отдельно. Negative tests отвергают изменённые packed bytes/ID/layer. Source/render/runtime не изменены.
+
+## Saved actual live author → fresh packed replay: exact PASS
+
+Последний разрешённый instrumental retry на неизменном frozen `ab1dd3db` сравнил fresh remote replay с УЖЕ сохранённой живой авторской частью; авторский штрих не повторялся. All canonical role hashes, material records, retained recipes/rects и decoded whole transparent export exact.12 source contacts supported/applied gpu-vector, errors[]. Packed stroke параметры неизменны; seq0→1 записан отдельно, fixture layer действительно расположен перед stroke.
+
+Raw `temp/fast-watercolor-night/room-vector-savedauthor-replay-fixed-surface-20261008/report.json`. RAM pre1916/min971/после закрытия1804 MiB; own target закрыт. Controller `90903e80` сохраняет fields/export до semantic verdict.
+
+Закрыта конкретная bounded one-layer/one-tile short400 author/replay сцена нового оператора. Не закрыты натуральность, физическая latency/FPS, общий multitile/multiuser/undo, arbitrary gestures и влияние source fit/settle на физическую массу. Предыдущие RAM/comparator остановки сохранены и не объявлены model failures.
