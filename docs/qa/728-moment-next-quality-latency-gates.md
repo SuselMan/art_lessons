@@ -20,3 +20,11 @@ Saved live vector short400:12 source publishes, observed async method wall media
 Cumulative explicit readbacks7×512²×4 +1754×2480×4 =24,739,712bytes (<32MiB). Единственный retained baseline1MiB; остальные arrays локальны/освобождаются после каждого шага. Нет full owner-field dump. Общая native Room память НЕ300MiB: previous OFF pre2016/min975; renderer/process/RAM attribution отдельно не измерена. Снимки тоже observer effects и не timing evidence. После raw own close/EXPLICIT RELEASE; Surface scheduling только root, Samsung запрещён.
 
 Получив ON, сначала внутренняя оценка root: side-by-side источник/мокрая зона/смешение/чужая лужа и явные артефакты. При held-positive result приглашать можно только на экспериментальный стенд с оговорённым bounded контуром; полноценная готовность live transport требует gates2–4. Defaults/prod не меняются.
+
+## ON held wetmix результат: функционально PASS, quality FAIL
+
+Actual ON на неизменном sourceab1 выполнил3 контакта gpu-vector supported/applied/violations0, GL0/errors[], exportalpha66584; wetness f/e совпадает с OFF. RAMpre1919/min1089/послеownclose1801 MiB. Readbacks24739712bytes. Raw `temp/fast-watercolor-night/room-vector-wetmix-on-surface-20261008/report.json`, before/after screenshots рядом.
+
+В ON final screenshot заметны несколько резких горизонтальных белых полос внутри жёлтого/overlap, которых нет в retained OFF; также более гладкий край/тон. Поэтому функциональный PASS НЕ разрешает приглашать на новую художественную версию. Independent live arms имеют разные generated IDs/seeds/timestamps: causality operator vs source noise/timing этим сравнением не изолирована. Нужен same canonical tape/source chronology checkpoint, без произвольного clamp/snap.
+
+Offline `moving-fixture.mjs` задаёт те же3held источника и короткий90px drag6PointerInput samples по мокрой общей зоне; bounds срадиусом200 внутри1024 проверяются, zero-direction fixture отвергается. Это input fixture, не синтез recorded dabs. Будущий quality gate должен сначала заморозить фактическую author tape, затем remote OFF/ON с identical packed operations/paper/wet/seed. Максимум4strokes; framebuffer ROI budget9×1MiB+17.4MiBexport<32MiB, никаких allfield dumps. Не запускался аппаратно и пока не подключён к controller: сначала локализовать белые полосы same-tape/source-stage, чтобы не спутать их с движением.
