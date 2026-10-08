@@ -7,7 +7,11 @@ export async function createOwnedPreviewRuntime(e,morph,{event=()=>{},budgetByte
  const {AccumulationBuffer}=await import('/src/engine/src/buffers/AccumulationBuffer.ts');
  const pool=new PrewarmedPreviewPool({create:(w,h,filter)=>new AccumulationBuffer(e.gl,w,h,filter),destroy:f=>f.destroy()},{budgetBytes,excluded});let domain;
  try{domain=await createPreviewWaterDomain(e._watercolorPasses)}catch(error){pool.disposeAfterFence();throw error}
- const paper=e._watercolorPasses.ctx.paperWorldSize(),port=new SealedPreviewGlPort(e._watercolorPasses,{paperWidth:paper.w,paperHeight:paper.h,domainFromWater:domain}),states=new Map();let frame=null,disposed=false;
+ const paper=e._watercolorPasses.ctx.paperWorldSize(),port=new SealedPreviewGlPort(e._watercolorPasses,{paperWidth:paper.w,paperHeight:paper.h,domainFromWater:domain});return bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event})
+}
+/** Testable chronological seam; default factory above supplies real GL resources. */
+export function bindOwnedPreviewRuntime(e,morph,{pool,port,domain,event=()=>{}}){
+ const states=new Map();let frame=null,disposed=false;
  const material=(s)=>{const f=s.owner.lease.fields,recipe=s.owner.source.chunks.at(-1)?.composite;if(!recipe)throw Error('Preview needs owned immutable composite recipe');const pending=s.transport.lease.pending;f.original.copyTo(pending);const bounds={minX:0,minY:0,maxX:1024,maxY:1024},tile={buffer:pending,originX:0,originY:0,contentRect:bounds},l=s.transport.lease,side=s.transport.front;
   e._ribbonPasses.drawRibbonCompositeRect(tile,bounds,recipe.preset,recipe.profile,f.original,l.coverage,l[`p${side}`],l[`c${side}`],recipe.color,recipe.opacity,recipe.fieldSeed,recipe.spreadPx,recipe.fringeWater,recipe.migratePx,recipe.profile.normalizeDeposit?recipe.dabSpacing:0,recipe.strokeDir,recipe.bristleRadiusPx)
  };
