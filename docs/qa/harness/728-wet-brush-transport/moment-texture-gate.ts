@@ -1,6 +1,6 @@
 /// <reference types="@webgpu/types" />
 import {WetBrushMomentTextureOwner} from '../../../../apps/web/src/engine/src/experiments/wetBrushMomentTextureOwner'
-import {packMomentRecords,momentGpuOracle} from '../../../../apps/web/src/engine/src/experiments/wetBrushMomentGpu'
+import {expectedMomentTexture} from './moment-texture-oracle'
 /** Small actual canonical format gate; zero-rate arm proves pack/unpack fidelity. */
 export async function runMomentTextureGate(transport=false,invalidFixture=false,diagnosticInPlace=false,partialRoi=false){
  if(!navigator.gpu)throw Error('WebGPU required');const adapter=await navigator.gpu.requestAdapter();if(!adapter)throw Error('Adapter unavailable');const device=await adapter.requestDevice(),owned:(GPUTexture|GPUBuffer)[]=[],errors:string[]=[]
@@ -10,9 +10,7 @@ export async function runMomentTextureGate(transport=false,invalidFixture=false,
  const recipe={ordinal:0,x256:0,y256:0,radius256:256,pressure256:256,directionX:256,directionY:-256,mixRate:transport?48:0,advectionRate:transport?80:0}
  const result=owner.encode(encoder,{pigment:pt,color:ct,availableWater:wt,contact:touch,outputPigment:po,outputColor:co,rect,recipe,diagnosticInPlace},true);owned.push(...result.buffers)
  const read=device.createBuffer({size:256*height*2+4,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});owned.push(read);encoder.copyTextureToBuffer({texture:po},{buffer:read,bytesPerRow:256},[width,height]);encoder.copyTextureToBuffer({texture:co},{buffer:read,offset:256*height,bytesPerRow:256},[width,height]);encoder.copyBufferToBuffer(result.invalid!,0,read,256*height*2,4);device.queue.submit([encoder.finish()]);await read.mapAsync(GPUMapMode.READ);const bytes=new Uint8Array(read.getMappedRange().slice(0)),actualP=p.slice(),actualC=c.slice();for(let y=0;y<height;y++){actualP.set(bytes.subarray(y*256,y*256+width*4),y*width*4);actualC.set(bytes.subarray(256*height+y*256,256*height+y*256+width*4),y*width*4)}const invalid=new Uint32Array(bytes.buffer,256*height*2,1)[0];read.unmap()
- let expectedP=p,expectedC=c;if(!invalidFixture){
- const crop=(bytes:Uint8Array)=>{const out=new Uint8Array(rect.width*rect.height*4);for(let row=0;row<rect.height;row++)out.set(bytes.subarray(((rect.y+row)*width+rect.x)*4,((rect.y+row)*width+rect.x+rect.width)*4),row*rect.width*4);return out}
- let oracle:Uint32Array=packMomentRecords(crop(p),crop(c),new Uint8Array(rect.width*rect.height).fill(255),new Uint8Array(rect.width*rect.height).fill(255));for(const axis of [0,1] as const)for(const parity of [0,1] as const)oracle=momentGpuOracle(oracle,{width:rect.width,height:rect.height,axis,parity,mixRate:recipe.mixRate,advectionRate:recipe.advectionRate,direction:axis===0?recipe.directionX:recipe.directionY});expectedP=p.slice();expectedC=c.slice();for(let i=0;i<rect.width*rect.height;i++){const offset=((rect.y+Math.floor(i/rect.width))*width+rect.x+i%rect.width)*4;expectedP.set(oracle.subarray(i*10,i*10+4),offset);expectedC.set(oracle.subarray(i*10+4,i*10+8),offset)}}
+ const {expectedP,expectedC}=expectedMomentTexture(p,c,width,rect,recipe,invalidFixture)
 
  let differences=0,maxDifference=0;for(const [actual,expected]of [[actualP,expectedP],[actualC,expectedC]])for(let i=0;i<actual.length;i++){const delta=Math.abs(actual[i]-expected[i]);if(delta){differences++;maxDifference=Math.max(maxDifference,delta)}}return{valid:differences===0&&errors.length===0&&(invalidFixture?invalid===1:invalid===0),transport,invalidFixture,diagnosticInPlace,partialRoi,invalidChannels:invalid,differences,maxDifference,errors,limitations:['Synthetic actual RGBA8 format gate','Not an actual Room scene or naturalness judgment','No hardware performance claim']}
  }finally{for(const r of owned)r.destroy();device.destroy()}

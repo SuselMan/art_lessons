@@ -70,7 +70,7 @@ export class CanonicalRoomWatercolorExecutor {
  private readonly diagnosticMomentGpuAudit:boolean
  private momentSeam:WetBrushMomentSourceSeam|null=null
  private pendingMoment:{chunk:RoomNativePreparedChunk}|null=null
- readonly momentReport:{ordinal:number;supported:boolean;violations:number;maxExcess:number;examples:unknown[];applied:boolean}[]=[]
+ readonly momentReport:{ordinal:number;supported:boolean;violations:number;maxExcess:number|null;examples:unknown[];applied:boolean;auditMode?:'cpu-rgba'|'gpu-counter'}[]=[]
  private readonly foreignAux=new Map<string,{scratch:CanonicalTileScratch;source:CanonicalSourcePhaseExecutor}>()
  private retired=false
  private retirement:Promise<void>|null=null
@@ -158,8 +158,8 @@ export class CanonicalRoomWatercolorExecutor {
    const p=this.diagnosticMomentGpuAudit?null:await e.inkLoad.readBytes(),c=this.diagnosticMomentGpuAudit?null:await e.inkColor.readBytes();this.assertLive()
    const [x,yGl,w,h]=rect,y=this.target.buffer.height-yGl-h
    const region=(bytes:Uint8Array)=>{const out=new Uint8Array(w*h*4);for(let row=0;row<h;row++)out.set(bytes.subarray(((y+row)*this.target.buffer.width+x)*4,((y+row)*this.target.buffer.width+x+w)*4),row*w*4);return out}
-   const audit=p&&c?auditMomentRecords(region(p),region(c)):{supported:true,violations:0,maxExcess:0,examples:[]}
-   const observation={ordinal:chunk.ordinal,supported:audit.supported,violations:audit.violations,maxExcess:audit.maxExcess,examples:audit.examples,applied:false}
+   const audit=p&&c?auditMomentRecords(region(p),region(c)):{supported:true,violations:0,maxExcess:null,examples:[]}
+   const observation={ordinal:chunk.ordinal,supported:audit.supported,violations:audit.violations,maxExcess:audit.maxExcess,examples:audit.examples,applied:false,auditMode:this.diagnosticMomentGpuAudit?'gpu-counter' as const:'cpu-rgba' as const}
    if(audit.supported){
     this.momentSeam??=new WetBrushMomentSourceSeam(this.backend)
     let lease:ReturnType<WetBrushMomentSourceSeam['encodeAfterLanding']>|undefined,read:GPUBuffer|undefined
