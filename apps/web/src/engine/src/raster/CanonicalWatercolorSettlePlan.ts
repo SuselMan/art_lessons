@@ -26,6 +26,9 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
   diagnosticReuseFlowRaster = false
   readonly flowRasterStats = { allocations: 0, reuses: 0, bytesAllocated: 0, bytesRequested: 0 }
   /** Exact landing candidate: remove temp/copy only without sampler aliasing. */
+  /** Dead half-resolution single-paint colour snapshot; default OFF. */
+  diagnosticSkipSinglePaintColourSnapshot = false
+  readonly colourSnapshotStats = { skipped: 0, storageBytesAvoided: 0, copyPixelsAvoided: 0 }
   diagnosticDirectResample = false
   readonly resampleLandingStats = { direct: 0, temporary: 0, copyPixelsAvoided: 0 }
   readonly flowUploadStats = { allocations: 0, updates: 0, bytes: 0 }
@@ -239,7 +242,13 @@ export class CanonicalWatercolorSettlePlan<B extends SettlePlanBuffer<B>, T> {
       owned.clear()
     }
     const a0 = S > 1 ? acquireInput(field.w, field.h) : null
-    const ca0 = S > 1 ? acquireInput(field.w, field.h) : null
+    const skipColourSnapshot = this.diagnosticSkipSinglePaintColourSnapshot && S > 1 && metadata.paints.size <= 1
+    const ca0 = S > 1 && !skipColourSnapshot ? acquireInput(field.w, field.h) : null
+    if (skipColourSnapshot) {
+      this.colourSnapshotStats.skipped++
+      this.colourSnapshotStats.storageBytesAvoided += field.w * field.h * 4
+      this.colourSnapshotStats.copyPixelsAvoided += field.w * field.h
+    }
     const snapshots = new Map<B, { ink: B; color: B | null }>()
     // The settle's rect in the field's GL cells, for the interpolation's clamp.
     const fieldRect: [number, number, number, number] = [0, field.h - h / S, w / S, field.h]
