@@ -1,0 +1,10 @@
+import {it,expect} from'vitest'
+import {persistCommonSourceCheckpoint,restoreCommonSourceCheckpoint} from'../../../../../../docs/qa/harness/728-native-end-to-end/commonSourceCheckpoint'
+import type {CommonSourceCheckpoint} from'../../../../../../docs/qa/harness/728-native-end-to-end/commonSourceRunner'
+it('persists unique alias bytes sequentially, restores exact Q8 and rejects damaged gzip before use',async()=>{
+ const bytes=new Uint8Array(4194304);bytes[173]=255;const field={role:'coverage' as const,presence:'field' as const,alias:0,width:1024,height:1024,filter:'nearest' as const,bytes},checkpoint={code:'fixture',operationSha256:'op',paperSha256:'paper',glOwnerRetired:true,config:{paperWorld:{w:1024,h:1024},paperScale:1,gradientFibres:true,supportsFilm:true,ab:{noDiffuse:false,noCarry:false,opDry:false},plannerFlags:{}},payload:{fields:[field,{...field,role:'original' as const}],filmGesture:1,coverageFilmGesture:undefined,solventGesture:undefined,physicalBytes:4194304,scalarsJson:'[]',metadataJson:'{}',materialGesture:1,pigmentInputsKnownZero:false,origin:[0,0]},glBytes:bytes.slice(),glFields:[],gl:{error:0,lost:false}} as CommonSourceCheckpoint,files=new Map<string,Uint8Array>()
+ const manifest=await persistCommonSourceCheckpoint(checkpoint,async(meta,gzip)=>{files.set(meta.name,gzip.slice())});expect(files.size).toBe(2);expect(manifest.chunks.every(c=>c.gzipBytes<c.rawBytes)).toBe(true)
+ const restored=await restoreCommonSourceCheckpoint(manifest,async name=>files.get(name)!);expect(restored.payload.fields[0].bytes?.[173]).toBe(255);expect(restored.payload.fields[0].bytes).toBe(restored.payload.fields[1].bytes);expect(restored.glBytes[173]).toBe(255)
+ files.get('source-0.rgba.gz')![1]^=1;await expect(restoreCommonSourceCheckpoint(manifest,async name=>files.get(name)!)).rejects.toThrow(/hash/)
+})
+it('refuses persistence before actual GL retirement',async()=>{await expect(persistCommonSourceCheckpoint({glOwnerRetired:false} as never,async()=>{throw Error('must not write')})).rejects.toThrow(/retire/)})
