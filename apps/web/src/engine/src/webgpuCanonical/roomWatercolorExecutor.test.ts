@@ -53,3 +53,17 @@ describe('GPU-only carrier candidate',()=>{
 })
 
 it('rejects vector without GPU audit before GPU resource initialization',()=>{const backend=new Proxy({},{get(){throw Error('GPU touched')}});expect(()=>new CanonicalRoomWatercolorExecutor(backend as never,{tile:{width:1024,height:1024},originX:0,originY:0,diagnosticMomentVector:true} as never)).toThrow('requires GPU audit')})
+
+it('zero-rate keeps full film/base decomposition, not only displayed P/C',async()=>{
+ Object.assign(globalThis,{GPUBufferUsage:{COPY_DST:1,MAP_READ:2},GPUMapMode:{READ:1}})
+ const owner=Object.create(CanonicalRoomWatercolorExecutor.prototype) as CanonicalRoomWatercolorExecutor
+ const record=(value:number)=>({value,copyTo(dest:{value:number}){dest.value=this.value},clear(){this.value=0}})
+ const entry={inkLoad:record(120),inkColor:record(90),inkBase:record(20),colorBase:record(10),strokeInk:record(100),strokeColor:record(80),coverage:record(200),filmGesture:3}
+ const before=JSON.stringify(entry),mobileBefore=entry.inkLoad.value-entry.inkBase.value,read={mapAsync:async()=>{},getMappedRange:()=>new Uint32Array([0]).buffer,unmap(){},destroy:vi.fn()},release=vi.fn(),publish=vi.fn(async()=>{})
+ Object.assign(owner,{diagnosticMomentGpuAudit:true,retired:false,pendingMoment:{chunk:{ordinal:0,segment:{rect:[0,0,1,1],film:true},momentRecipe:{mixRate:0,advectionRate:0},live:{}}},target:{buffer:{height:1,width:1}},scratch:{tiles:{peek:()=>entry}},backend:{device:{createBuffer:()=>read},whenIdle:async()=>{}},adapter:{retain(){},runQuantum(fn:(ctx:unknown)=>void){fn({encoder:{copyBufferToBuffer(){}}})}},momentSeam:{encodeAfterLanding:()=>({buffers:[],invalid:{},release})},finish:{encodeLive:()=>[]},momentReport:[],publishWithoutDrain:publish})
+ await owner.publishCurrentToGl()
+ expect(JSON.stringify(entry)).toBe(before);expect(entry.inkLoad.value-entry.inkBase.value).toBe(mobileBefore);expect(mobileBefore).toBe(100)
+ expect(release).toHaveBeenCalledOnce();expect(read.destroy).toHaveBeenCalledOnce();expect(publish).toHaveBeenCalledOnce()
+ // Previous unconditional rebase counterexample: same visible120, but mobile0.
+ expect(entry.inkLoad.value-entry.inkLoad.value).toBe(0)
+})
