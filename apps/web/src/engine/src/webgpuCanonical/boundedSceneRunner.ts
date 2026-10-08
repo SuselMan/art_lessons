@@ -17,10 +17,13 @@ import { ribbonProfileFor } from '../dabs/ribbonProfile'
 import { presetForTool } from '../presets/resolvePreset'
 import { PaperWetness,wetAt,wetPeak,WET_DRY_MS } from '../paper/paperWetness'
 import { watercolorBloomStrength,watercolorBloomPush,mottleSeedFromStrokeId,watercolorMixFromPreset } from '../presets/watercolorPresets'
+import { runCanonicalSettleJob } from './runSettleJob'
 import { ribbonWaterDelivery } from '../dabs/ribbonStrokeMath'
 
 export interface BoundedSceneOptions {
  sourceOptions:CanonicalStrokeChunkInput['options']
+ /** Diagnostic only: same serial passes/Q8 order, fewer submissions. Default false. */
+ groupedSettleSubmission?:boolean
  now():number;timestamp():number;operationId():string
  onLocalOperation?(operation:Operation):void
 
@@ -114,7 +117,7 @@ export class CanonicalBoundedSceneRunner {
   const delivery=ribbonWaterDelivery(profile),standing=delivery.water*(delivery.retain+(1-delivery.retain)*Math.min(1,finish.landedWet)),previous=this.scratch.dryCtx
   this.scratch.dryCtx={...finish,bounds:previous?{minX:Math.min(previous.bounds.minX,bounds.minX),minY:Math.min(previous.bounds.minY,bounds.minY),maxX:Math.max(previous.bounds.maxX,bounds.maxX),maxY:Math.max(previous.bounds.maxY,bounds.maxY)}:{...bounds},radiusPx:Math.max(previous?.radiusPx??0,finish.radiusPx),standing:Math.max(previous?.standing??0,standing)}
   const job=this.adapter.runQuantum(()=>this.planner.prepare(this.scratch,[this.target],bounds,watercolorBloomStrength(finish.landedWet,profile.pigmentLevel)*watercolorBloomPush(profile.pigmentLevel),finish.radiusPx,profile.waterLevel,finish.landedWet,standing,finish.wetPeak,finish.dwellMs,undefined,false,this.scratch.captureMetadata(),true))
-  if(job){for(const op of job.ops)this.adapter.runQuantum(()=>op());this.adapter.runQuantum(ctx=>{job.finish();this.adapter.retain(this.finish.encode(ctx.encoder,{settleComplete:true,profile,opacity:finish.opacity as number,fieldSeed:scalars.fieldSeed,spreadPx:scalars.spreadPx,water:scalars.water,bristleRadiusPx:scalars.bristleRadiusPx,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}));});this.adapter.runQuantum(()=>job.dispose())}
+  if(job)runCanonicalSettleJob(this.adapter,job,ctx=>{this.adapter.retain(this.finish.encode(ctx.encoder,{settleComplete:true,profile,opacity:finish.opacity as number,fieldSeed:scalars.fieldSeed,spreadPx:scalars.spreadPx,water:scalars.water,bristleRadiusPx:scalars.bristleRadiusPx,settledGesture:this.scratch.gesture,materialGesture:this.scratch.materialGesture,bounds:job.compositeDomain}));},this.options.groupedSettleSubmission===true)
  }
  replay(operation:StrokeOperation):void {
   if(this.active||this.busy)throw new Error('Native debug scene is busy')
