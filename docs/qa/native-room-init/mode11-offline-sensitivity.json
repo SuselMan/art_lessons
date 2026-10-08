@@ -1,0 +1,193 @@
+{
+  "scope": "Offline actual captured same-pixel arithmetic sensitivity, not new GPU/operator gate",
+  "rawSha256": "8cecd143942fef79cb9dd1d676218f26dafb69a44c0eeae8b5cca7ac2572bf32",
+  "code": "8eba672f4973c8473989d7b02285f9f57231ed8a",
+  "size": 100,
+  "tapeSha256": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+  "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+  "uniforms": {
+    "k": 1,
+    "band": [
+      0.9617441184796373,
+      0
+    ],
+    "size": [
+      0.009563970380090697,
+      1
+    ]
+  },
+  "transitionWidthQ8": 2.438812446923128,
+  "changedPixels": 26,
+  "unexplainedSamePixelInputs": 0,
+  "rows": [
+    {
+      "x": 572,
+      "yTop": 395,
+      "pressure": [
+        100,
+        98
+      ],
+      "coverage": [
+        [
+          0,
+          0,
+          9,
+          9
+        ],
+        [
+          0,
+          0,
+          10,
+          10
+        ]
+      ],
+      "actualOutput": [
+        [
+          0,
+          0,
+          9,
+          255
+        ],
+        [
+          0,
+          0,
+          10,
+          255
+        ]
+      ],
+      "referenceNoFmaF32": [
+        [
+          0,
+          0,
+          9,
+          255
+        ],
+        [
+          0,
+          0,
+          10,
+          255
+        ]
+      ],
+      "referenceDoubleInside": [
+        1,
+        1
+      ]
+    },
+    {
+      "x": 565,
+      "yTop": 396,
+      "pressure": [
+        142,
+        139
+      ],
+      "coverage": [
+        [
+          0,
+          0,
+          9,
+          9
+        ],
+        [
+          0,
+          0,
+          10,
+          10
+        ]
+      ],
+      "actualOutput": [
+        [
+          0,
+          0,
+          9,
+          255
+        ],
+        [
+          0,
+          0,
+          10,
+          255
+        ]
+      ],
+      "referenceNoFmaF32": [
+        [
+          0,
+          0,
+          9,
+          255
+        ],
+        [
+          0,
+          0,
+          10,
+          255
+        ]
+      ],
+      "referenceDoubleInside": [
+        1,
+        1
+      ]
+    },
+    {
+      "x": 566,
+      "yTop": 396,
+      "pressure": [
+        246,
+        243
+      ],
+      "coverage": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "actualOutput": [
+        [
+          98,
+          0,
+          197,
+          197
+        ],
+        [
+          128,
+          0,
+          255,
+          255
+        ]
+      ],
+      "referenceNoFmaF32": [
+        [
+          98,
+          0,
+          197,
+          197
+        ],
+        [
+          128,
+          0,
+          255,
+          255
+        ]
+      ],
+      "referenceDoubleInside": [
+        0.7716934394573709,
+        1
+      ]
+    }
+  ],
+  "matchedObservedChannels": 24,
+  "comparedObservedChannels": 24,
+  "limitations": [
+    "No-FMA Float32 scalar reference cannot prove GPU compiler instruction sequence",
+    "Pressure LINEAR neighbor/UV sampling happened before recorded byte; raw correlation is insufficient to reproduce fractional taps",
+    "Observed input amplification does not identify original source rounding cause or explain complete max36 material residual"
+  ]
+}
