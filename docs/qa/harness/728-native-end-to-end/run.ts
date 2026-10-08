@@ -1,4 +1,6 @@
 import type { CanonicalSourcePhaseExecutor } from '../../../../apps/web/src/engine/src/webgpuCanonical/sourcePhaseExecutor'
+import {prepareCanonicalWetOverlay} from '../../../../apps/web/src/engine/src/webgpuCanonical/wetOverlay'
+import type {WetPresentationSnapshot} from '../728-native-wet-presentation/run'
 import { captureStages,compareStages,correlateMode11,type Stage } from './stages'
 import { PencilEngine } from '../../../../apps/web/src/engine/index'
 import { getPaperBytes } from '../../../../apps/web/src/engine/src/paper/paperLoader'
@@ -38,7 +40,7 @@ function diffPng(a:Uint8Array,b:Uint8Array){
  for(let i=0;i<a.length;i+=4){let d=0;for(let c=0;c<4;c++)d=Math.max(d,Math.abs(a[i+c]-b[i+c]));pixels[i]=Math.min(255,d*8);pixels[i+1]=0;pixels[i+2]=0;pixels[i+3]=255}
  canvas.getContext('2d')!.putImageData(new ImageData(pixels,1024,1024),0,0);return canvas.toDataURL('image/png')
 }
-export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false,suppliedTape,exportImages=false,diagnosticHardwareLinearInputs=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean|'prediffuse'|'coverage';suppliedTape?:readonly Operation[];exportImages?:boolean;diagnosticHardwareLinearInputs?:boolean}={}){
+export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,stages=false,suppliedTape,exportImages=false,diagnosticHardwareLinearInputs=false,exportWetSnapshots=false}:{size?:100|400;allowLarge?:boolean;timeoutMs?:number;stages?:boolean|'prediffuse'|'coverage';suppliedTape?:readonly Operation[];exportImages?:boolean;diagnosticHardwareLinearInputs?:boolean;exportWetSnapshots?:boolean}={}){
  const tape:Operation[]=suppliedTape?structuredClone([...suppliedTape]):[];
  const layerId=tape.find(op=>op.type==='stroke')?.layerId??'L';
  if(suppliedTape&&(!tape.length||tape.some(op=>op.type!=='stroke'||op.tool!=='watercolor'||op.layerId!==layerId)))throw new Error('Captured comparison supports one nonempty watercolor layer only')
@@ -57,6 +59,10 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
  let time=1000,index=0
  const runner=new CanonicalBoundedSceneRunner(backend,{sourceOptions,now:()=>time,timestamp:()=>1791400000000+time,operationId:()=>`fixed-operation-${index++}`,onLocalOperation:op=>tape.push(op)})
  configureDiagnosticSampling(runner,diagnosticHardwareLinearInputs)
+ const wetSnapshots:WetPresentationSnapshot[]=[]
+ const b64=(bytes:Uint8Array)=>{let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text)}
+ const crop=(bytes:Uint8Array)=>{const out=new Uint8Array(128*128*4);for(let y=0;y<128;y++)out.set(bytes.subarray(((y+480)*1024+448)*4,((y+480)*1024+576)*4),y*128*4);return out}
+ const captureWet=async(operationId:string)=>{const entry=runner.scratch.tiles.peek(runner.target.buffer);if(!entry)throw new Error('Missing captured coverage');const map=prepareCanonicalWetOverlay([runner.paperWet],time);wetSnapshots.push({operationId,origin:[448,480],width:128,height:128,layerRgbaB64:b64(crop(await runner.target.buffer.readBytes())),coverageRgbaB64:b64(crop(await entry.coverage.readBytes())),wet:map?{w:map.w,h:map.h,rect:map.rect,rgbaB64:b64(map.rgba)}:null,clock:time})}
  let native:Uint8Array
  console.info('E2E native owner ready');const started=performance.now()
  try{
@@ -68,7 +74,7 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
    for(const [x,y] of points.slice(1)){time+=16;runner.move(pointer(x,y,time))}
    time+=16;runner.end(pointer(points.at(-1)![0],points.at(-1)![1],time));await runner.drain();console.info('E2E native stroke drained',id)
   }
-  if(suppliedTape){for(const operation of tape){if(operation.type!=='stroke')throw new Error('Only stroke tape supported');time=operation.timestamp-1791400000000;runner.replay(operation);await runner.drain();console.info('E2E supplied native stroke drained',operation.id)}}
+  if(suppliedTape){for(const operation of tape){if(operation.type!=='stroke')throw new Error('Only stroke tape supported');time=operation.timestamp-1791400000000;runner.replay(operation);await runner.drain();if(exportWetSnapshots)await captureWet(operation.id);console.info('E2E supplied native stroke drained',operation.id)}}
   else if(size===400){await draw('fixed-water',[[400,500],[500,500],[600,500]],0);await draw('fixed-pigment',[[440,500],[500,500],[560,500]],100)}
   else await draw('fixed-zigzag',[[300,350],[650,400],[300,450],[650,500],[300,550]],100)
   native=await runner.target.buffer.readBytes()
@@ -110,6 +116,6 @@ export async function runEndToEnd({size=100,allowLarge=false,timeoutMs=600000,st
   glStages=await glCapture?.read()??[]
   const ext=probe.gl.getExtension('WEBGL_debug_renderer_info');renderer=ext?String(probe.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):null;glError=probe.gl.getError()
  }finally{glCapture?.detach();glCapture?.destroy();engine.destroy();surface.replaceChildren()}
- return{images:exportImages?{nativeLayer:layerPng(nativeReplay!),productionGlLayer:layerPng(legacy),diff:diffPng(nativeReplay!,legacy)}:undefined,inputKind:suppliedTape?'supplied captured packed tape':'generated pointer fixture',code:'__CODE__',size,diagnosticHardwareLinearInputs,diagnosticSamplingScope:'Native settle only; source and GL baseline unchanged',mode11Correlation:stages==='coverage'?correlateMode11(nativeStages,glStages):null,stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata,nativeChronology:nativeCapture?.chronology,glChronology:glCapture?.chronology}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
+ return{wetSnapshots:exportWetSnapshots?wetSnapshots:undefined,images:exportImages?{nativeLayer:layerPng(nativeReplay!),productionGlLayer:layerPng(legacy),diff:diffPng(nativeReplay!,legacy)}:undefined,inputKind:suppliedTape?'supplied captured packed tape':'generated pointer fixture',code:'__CODE__',size,diagnosticHardwareLinearInputs,diagnosticSamplingScope:'Native settle only; source and GL baseline unchanged',mode11Correlation:stages==='coverage'?correlateMode11(nativeStages,glStages):null,stageComparison:stages?compareStages(nativeStages,glStages):null,stageMetadata:stages?{native:nativeCapture?.metadata,gl:glCapture?.metadata,nativePrimitives:nativeCapture?.primitiveMetadata,glPrimitives:glCapture?.primitiveMetadata,nativeChronology:nativeCapture?.chronology,glChronology:glCapture?.chronology}:null,memoryGiB,estimatedPeakMiB,nativeMs,nativeReplayMs,replayPreservedTape,nativeReplaySha256:await hash(nativeReplay!),authorVsNativeReplay:difference(native!,nativeReplay!),nativeReplayVsLegacy:difference(nativeReplay!,legacy),nativeReplayNonzero:nativeReplay!.some(x=>x!==0),legacyMs:performance.now()-glStarted,renderer,software:/swiftshader|llvmpipe/i.test(renderer??''),tape,tapeSha256:await hash(new TextEncoder().encode(JSON.stringify(tape))),paperSha256:await hash(la),nativeSha256:await hash(native!),legacySha256:await hash(legacy),wholeLayer:difference(native!,legacy),nativeNonzero:native!.some(x=>x!==0),legacyNonzero:legacy.some(x=>x!==0),errors,lost,glError,limitations:['Single1024 tile/layer/wash; serial settle; no Room/server/concurrency claim','Software difference is an observation, not hardware exactness','Final whole material layer; no claim of all transient fields parity','Native pointer event batches vs authoritative GL packed operation replay; batch-boundary discrepancy is detectable']}
 }
 Object.assign(window,{runEndToEnd})
