@@ -53,3 +53,9 @@ Raw `temp/fast-watercolor-night/room-vector-fixed12-surface-20261008/report.json
 ONE controlled PointerInput short400 на том же frozen `ab1dd3db` дал12 retained contacts: все supported/applied gpu-vector, violations0. В диагностическом framebuffer после отрыва visible pigment35609 pixels, после settle37359; обе meaningfulPigmentVisible=true, GL0. Canonical author fields nonempty gate PASS; исходная новая author tape сохранена перед replay. Это наблюдение видимости, не физическая pen-to-photon latency/FPS.
 
 Fresh replay НЕ запущен: после перехода собственной страницы в about:blank и2s retirement RAM938 MiB ниже обязательных1700. Guard сохранил FAIL/остановку; автоматического повтора и ослабления порога не было. RAM preflight1892/min735/после окончательного own close1884 MiB. Raw `temp/fast-watercolor-night/room-vector-live-replay-surface-20261008/report.json`; `original-tape.json` рядом. Full author/replay parity остаётся открытой. Controller `394c936c` + negative visibility/range tests `a918945a`; runtime/source не менялись.
+
+## Отдельный saved-author replay: недействительный seq comparator
+
+Разрешённый ONE fresh replay-only запуск дошёл до исполнения source, но controller остановился до readback comparison: original seq0 сталseq1 после явного layer fixture. Offline полный diff показывает толькоseq; packed bytes/ID/layer/preset/color/wash/timestamp неизменны. Это ошибка comparator, не render mismatch. Raw `temp/fast-watercolor-night/room-vector-savedauthor-replay-surface-20261008`; failure-original-tape сохранён. Собственная страница закрыта, RAM после1785 MiB. Автоматического повтора нет; fields/material/export parity пока не измерена.
+
+`3884a6b6` исправляет comparator: толькоseq нормализуется как structural log bookkeeping, оба массиваseq записываются отдельно. Negative tests отвергают изменённые packed bytes/ID/layer. Source/render/runtime не изменены.
