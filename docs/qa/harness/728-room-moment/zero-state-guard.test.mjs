@@ -7,5 +7,6 @@ test('visible equality cannot hide base/film state change or next-contact source
  const {records,reference}=fixture();assert.equal(compareZeroStateStages(records,reference).valid,true)
  records[0].stages.find(s=>s.stage==='post-inkBase').sha='P';assert.equal(compareZeroStateStages(records,reference).valid,false)
  const next=fixture();next.reference[2].stages[0].sha='wrong source';assert.equal(compareZeroStateStages(next.records,next.reference).valid,false)
+ const absence=fixture();absence.records[0].stages.find(s=>s.stage==='post-inkBase').absent=true;assert.equal(compareZeroStateStages(absence.records,absence.reference).valid,false)
  const crop=fixture();crop.reference[0].capture.x=1;assert.equal(compareZeroStateStages(crop.records,crop.reference).valid,false)
 })

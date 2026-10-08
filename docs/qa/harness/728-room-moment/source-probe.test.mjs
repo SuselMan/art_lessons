@@ -46,5 +46,13 @@ test('OFF source copies actual P/C after emit, survives until successful publica
  await e.publishCurrentToGl();const water=window.__momentStageResults[0]
  assert.equal(water.stages.filter(s=>s.absent).length,8);assert(water.stages.filter(s=>s.absent).every(s=>s.byteLength===0));assert.equal(window.__momentPreparedCensus[0].film,false);assert.deepEqual(window.__momentPreparedCensus[0].actualRecipe,{mixRate:0,advectionRate:0})
  assert(buffers.every(b=>b.destroyed));window.__restoreMomentStageProbe()
+ // A setup allocation failure keeps the primary error even if a FIFO
+ // subsequently reports cancellation; both known observation leases retire.
+ await install(true,{zeroState:true});for(const role of ['inkBase','colorBase','strokeInk','strokeColor'])state[role]={texture:role}
+ const allocate=e.backend.device.createBuffer,boom=new Error('third observation allocation failed');let allocations=0
+ e.backend.device.createBuffer=args=>{if(++allocations===3)throw boom;return allocate(args)}
+ assert.throws(()=>e.emitPrepared({ordinal:6,strokeId:'source',metadata:{gesture:5},materialGesture:5,momentRecipe:{mixRate:64,advectionRate:32},segment:{rect:[270,494,260,260],film:true,commands:[]}}),error=>error===boom)
+ assert.equal(window.__momentObserverErrors[0].error,'Error: third observation allocation failed');assert.equal(window.__momentObserverErrors[0].stage,'observer.emitPrepared:reject');assert.equal(window.__momentPreparedCensus.length,1);assert(buffers.every(b=>b.destroyed))
+ window.__restoreMomentStageProbe();e.backend.device.createBuffer=allocate
  delete globalThis.window
 })
