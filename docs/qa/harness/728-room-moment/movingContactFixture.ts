@@ -19,3 +19,8 @@ export function movingContactCommands(partitioned:boolean):CanonicalDrawCommand[
 export function commandFingerprint(commands:readonly CanonicalDrawCommand[]):string{
  return JSON.stringify(commands.map(c=>c.kind==='stamp'?c:{...c,batch:{...c.batch,vertices:Array.from(c.batch.vertices)}}))
 }
+
+export function movingContactSegments():CanonicalDrawCommand[][]{
+ const state=createCanonicalStrokeChunkState(),name='normal:100:100:PB29:round',preset=presetForTool('watercolor',name),profile=ribbonProfileFor('watercolor',name,0)
+ return MOVING_CONTACT_DABS.map(dab=>prepareCanonicalStrokeChunk(state,{dabs:[dab],previous:state.lastKept,preset,presetName:name,profile,color:[.2,0,.6],wetProfile:'0',strokeSeed:[76.17525773195877,164.67415730337078],tile:{originX:0,originY:0,buffer:{width:1024,height:1024}},film:true,segmentMode:'combined',segmented:true,options}).commands)
+}
