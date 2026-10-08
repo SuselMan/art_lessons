@@ -44,8 +44,9 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
    if(entry){initial.coverage=entry.coverage;initial.pigmentLoad=entry.inkLoad;initial.colourLoad=entry.inkColor;initial.solventLoad=entry.solventLoad??null}
   }
   const lease=pool.take(initial);if(!lease)throw Error('QA owner capacity exhausted before source');
-  const admission=coordinator.admit(layerId,gesture,lease);if(!admission.accepted){lease.release();throw Error('QA owner admission '+admission.reason)}
-  owner={token:admission.token,scratch,lease,source:new OwnedGlPreparedSource({lease,context:drawContext,ribbon:e._ribbonPasses,watercolor:e._watercolorPasses}),canonicalStarted:false};
+  const source=new OwnedGlPreparedSource({lease,context:drawContext,ribbon:e._ribbonPasses,watercolor:e._watercolorPasses});
+  const admission=coordinator.admit(layerId,gesture,{...lease,release:()=>source.retire()});if(!admission.accepted){source.retire();throw Error('QA owner admission '+admission.reason)}
+  owner={token:admission.token,scratch,lease,source,canonicalStarted:false};
   map.set(gesture,owner);owners.set(owner.token,owner);event('admit',{sequence:owner.token.sequence,bytes:coordinator.snapshot().bytes});return owner;
  };
  e._ribbonPainter=painter;e._wcAsyncFinish=true;
