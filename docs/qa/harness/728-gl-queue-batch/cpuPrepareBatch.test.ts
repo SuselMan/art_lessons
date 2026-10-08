@@ -42,3 +42,10 @@ it('actual generated plan uses the installed queue module CPU tag and no physica
  const previous=p.events.length;cpu!();expect(p.events.slice(previous)).toEqual([]);
  expect(engine._settleQueue.diagnosticCpuPrepareBatchEnabled).toBe(true);job.dispose();plan.destroyTextures();
 })
+it('missing finish metadata keeps eager fallback without any CPU tag',async()=>{
+ const {traceFixture}=await import('../../../../apps/web/src/engine/src/raster/CanonicalWatercolorSettlePlan.fixture');
+ const {CanonicalWatercolorSettlePlan}=await import('../../../../temp/device-runs/CanonicalCpuContacts');
+ const f=traceFixture(true,true,true,true,true),p=new CanonicalWatercolorSettlePlan(f.context);p.diagnosticLazyCapturedContacts=true;
+ const job=p.prepare(f.scratch,[{buffer:f.tile,originX:0,originY:0}],{minX:0,minY:0,maxX:f.width,maxY:f.width},.6,200,1,.8,1,.8)!;
+ expect(job.ops.some(op=>diagnosticSettleOpTag(op)==='cpu-prepare')).toBe(false);job.dispose();p.destroyTextures();
+})

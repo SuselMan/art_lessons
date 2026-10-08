@@ -9,5 +9,8 @@ export async function installCpuPrepareCandidate(engine,enabled,baseUrl){
  queue.contactBatchMax=previousQueue.contactBatchMax;
  queue.diagnosticCpuPrepareBatchEnabled=enabled;plan.diagnosticLazyCapturedContacts=true;
  previousPlan.destroyTextures();engine._settleQueue=queue;engine._settlePlan=plan;
- return queue.diagnosticCpuPrepareCounts;
+ const meta={enabled,prepares:0,captured:0,fallback:0,travel:[],counts:queue.diagnosticCpuPrepareCounts};
+ const prepare=plan.prepare;plan.prepare=function(...args){meta.prepares++;const m=args[12];if(m?.brushTravel){meta.captured++;meta.travel.push(m.brushTravel.length)}else meta.fallback++;return prepare.apply(this,args)};
+ engine.__cpuPrepareDiagnostic=meta;
+ return meta;
 }
