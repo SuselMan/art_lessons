@@ -4,7 +4,7 @@ root=Path('/home/suselman/projects/pencil-agents/680-water-wet-tone')
 base=root/'docs/qa/harness/728-gl-queue-batch/owner-fifo-install.mjs'
 s=base.read_text();n=s
 n="import {installOwnedQaReuseHooks} from '../728-room-moment/OwnedQaReuseHooks.mjs';\nimport {diagnosticWebgl2Raw} from '../../../../apps/web/src/engine/src/raster/diagnosticWebgl2.ts';\n"+n
-n=n.replace('diagnosticFloatPreview=false,previewBudgetBytes','diagnosticFloatPreview=false,qaReuseOwners=false,previewBudgetBytes')
+n=n.replace('installOwnerFifo(e,{capacity=3,','installOwnerFifo(e,{qaReuseOwners=false,capacity=3,')
 n=n.replace(' const page=e._pageSize();'," if(qaReuseOwners&&diagnosticWebgl2Raw(e.gl))throw Error('Reuse requires dynamic WebGL1 routes');\n const page=e._pageSize();")
 n=n.replace(' let preview=null,previewAdmissions=0;',' let reuse=null,lostTeardown=false;\n let preview=null,previewAdmissions=0;')
 n=n.replace(' const previewLost=()=>preview?.handleContextLoss();if(diagnosticEarlyPreview)e.gl.canvas.addEventListener(\'webglcontextlost\',previewLost);', ''' const previewLost=()=>{
@@ -18,7 +18,7 @@ n=n.replace(' const previewLost=()=>preview?.handleContextLoss();if(diagnosticEa
  if(diagnosticEarlyPreview||qaReuseOwners)e.gl.canvas.addEventListener('webglcontextlost',previewLost);
  if(qaReuseOwners)reuse=installOwnedQaReuseHooks({engine:e,generation:1,mainFree:()=>pool.free,previewFree:()=>diagnosticEarlyPreview?(preview?.freeSlots??0):3,conservativeGl:true,syncSites:[{target:e,name:'_syncContinuationGpu'}]});''')
 n=n.replace('if(owner)morph?.retire(owner);source.retire()', 'if(!reuse&&owner)morph?.retire(owner);source.retire()')
-n=n.replace('  map.set(gesture,owner);',"  if(reuse&&!reuse.track(owner,{detachPresentation:()=>{preview?.beforeRebase(owner);morph?.retire(owner);return{gpuWrites:false}},releasePreview:()=>{if(diagnosticEarlyPreview)preview.releaseRetiredOwnerAfterKnownIdle(owner)},hasFutureCpuJobs:()=>coordinator.snapshot().owners.some(entry=>entry.token===owner.token)}))throw Error('Reuse bundle capacity');\n  map.set(gesture,owner);")
+n=n.replace('  map.set(gesture,owner);',"  if(reuse&&!reuse.track(owner,{detachPresentation:()=>{preview?.retire(owner);morph?.retire(owner);return{gpuWrites:false}},releasePreview:()=>{if(diagnosticEarlyPreview)preview.releaseRetiredOwnerAfterKnownIdle(owner)},hasFutureCpuJobs:()=>coordinator.snapshot().owners.some(entry=>entry.token===owner.token)}))throw Error('Reuse bundle capacity');\n  map.set(gesture,owner);")
 n=n.replace('  if(disposed)return;','  if(disposed||lostTeardown)return;\n  if(qaReuseOwners&&e._opts.tool!==\'watercolor\'){status(\'Reuse supports watercolor dynamic WebGL1 only\');return}')
 n=n.replace('(!preview||previewAdmissions>=3)','(!preview||(!reuse&&previewAdmissions>=3))')
 n=n.replace("  if(pool.free===0)","  if(reuse&&!reuse.canAdmit()){status('Wait for existing GPU idle');return}\n  if(pool.free===0)")
