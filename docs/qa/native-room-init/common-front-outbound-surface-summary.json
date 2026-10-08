@@ -1,0 +1,75 @@
+{
+  "scope": "Actual Surface common-input outbound141 ONLY; no inward/band/carry/full Room or performance claim",
+  "code": "d6c68360596cda394ec57e325bc24d36fec29376",
+  "runJsSha256": "6f3d94cf0f24f70ea20c4decd21d724aaf24efb2cbdf5f25192c5454fdd00a98",
+  "valid": true,
+  "steps": 141,
+  "exact": true,
+  "channels": [
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    },
+    {
+      "changed": 0,
+      "max": 0,
+      "sum": 0
+    }
+  ],
+  "expectedSha256": "288caf3f8a39735b582e759b2f72dd4f295d5590674d8c59bfea7f11b3012e50",
+  "actualSha256": "288caf3f8a39735b582e759b2f72dd4f295d5590674d8c59bfea7f11b3012e50",
+  "inputHashes": {
+    "pigment": "844fc54407736a493f21c5d0b594c4a78326788507b7ddea509f3368cc5d0641",
+    "coverageSource": "45feaa58e002e127f5d85bb607f733e5977f90e53db5a26694a45ba574266fc7",
+    "coverageField": "b6e964b3ad23708a40d25ecc68ab8c4daf91d651e2f01948e6787489dc8515bb"
+  },
+  "frontRecipe": {
+    "x0": 0,
+    "y0": 40,
+    "scale": 1,
+    "dryCost": 50.27954292297363,
+    "max": 104.55908584594727,
+    "climb": 30,
+    "floor": 0.85,
+    "stride": 1,
+    "paperWorld": {
+      "w": 1024,
+      "h": 1024
+    },
+    "paperScale": 1,
+    "pressureSeedSha256": "d9c25185217f838a6afe0c05e93d6985993f084cc98f8ba5bbcc60aa5e19863d",
+    "steps": 141
+  },
+  "glError": 0,
+  "errors": [],
+  "lost": false,
+  "validation": null,
+  "memoryPre": [
+    {
+      "stage": "before-own-tab",
+      "availableMiB": 1947.8
+    },
+    {
+      "stage": "arm-0-preflight",
+      "availableMiB": 1959.3
+    }
+  ],
+  "memoryPostCloseMiB": 1891,
+  "raw": "temp/device-runs/front-outbound-d6/report.json",
+  "limits": [
+    "defaultnative LEGACYnearest sampler preserved, GLpressureLINEAR/aNEAREST",
+    "Software141 timeout did not predict a hardware failure",
+    "Common-source final49052/max36 stillFAIL; nextmode12/inward/carry localization"
+  ]
+}
