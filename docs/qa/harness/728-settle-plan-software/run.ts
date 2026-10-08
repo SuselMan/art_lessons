@@ -21,7 +21,7 @@ function sourceBytes(role: 'coverage' | 'pigment' | 'color' | 'zero') {
  const out = new Uint8Array(W * H * 4)
  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   const i = (y * W + x) * 4, wet = Math.hypot(x - 32, y - 32) < 24, ink = Math.hypot(x - 30, y - 31) < 8
-  if (role === 'coverage' && wet) out.set([112, 16, 195, 224], i)
+  if (role === 'coverage' && wet) out.set([112, 16, 255, 224], i)
   if (role === 'pigment' && ink) out.set([180 + ((x + y) % 5), 135, 105, 224], i)
   if (role === 'color' && ink) out.set([160, 150 + (x % 3), 120, 224], i)
  }
@@ -49,6 +49,44 @@ function compare(expected: Uint8Array, actual: Uint8Array) {
  for (let k = 0; k < expected.length; k++) { const d = Math.abs(expected[k] - actual[k]); if (d) different++; max = Math.max(max, d); total += d }
  return { different, max, total, nonzero: actual.reduce((n, v) => n + +(v > 0), 0), expectedNonzero: expected.reduce((n, v) => n + +(v > 0), 0) }
 }
+function mismatchSamples(expected: Uint8Array, actual: Uint8Array) {
+ const channels = [0, 0, 0, 0], samples: { x: number; y: number; channel: number; gl: number; native: number }[] = []
+ for (let i = 0; i < expected.length; i++) if (expected[i] !== actual[i]) { channels[i % 4]++; if (samples.length < 8) samples.push({ x: Math.floor(i / 4) % W, y: Math.floor(i / 4 / W), channel: i % 4, gl: expected[i], native: actual[i] }) }
+ return { channels, samples }
+}
+async function frontPrimitive(gl: WebGLRenderingContext, glPasses: WatercolorPasses, glField: SettleField, owner: CanonicalWatercolorWebGpu, adapter: CanonicalPlanAdapter, nativeField: ReturnType<typeof createCanonicalSettleField>) {
+ const seed = new Uint8Array(W * H * 4)
+ for (let i = 0; i < W * H; i++) seed.set([255, 0, 0, 255], i * 4)
+ seed[(32 * W + 32) * 4] = 0
+ const foreign = new Uint8Array(W * H)
+ for (let y = 20; y < 60; y++) for (let x = 20; x < 60; x++) foreign[y * W + x] = 255
+ const texture = gl.createTexture()!; gl.bindTexture(gl.TEXTURE_2D, texture)
+ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+ const bottom = new Uint8Array(foreign.length); for (let y = 0; y < H; y++) bottom.set(foreign.subarray(y * W, (y + 1) * W), (H - 1 - y) * W)
+ gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, W, H, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, bottom)
+ const slot = adapter.uploads.create(); adapter.runQuantum(() => adapter.uploads.uploadForeign(slot, W, H, bottom)); await owner.whenIdle()
+ const results: Uint8Array[] = []; const rows = []; const divergences = []
+ for (const wet of [false, true]) {
+  glField.coverage.clear(); nativeField.coverage.clear()
+  glField.a.restorePixels(flip(seed)); nativeField.a.upload(seed)
+  let gs = glField.a, gd = glField.b, ns = nativeField.a, nd = nativeField.b
+  for (let step = 0; step < 12; step++) {
+   glPasses.waterFrontStep(glField, originX, originY, 16, gs, gd, 64, 0, 1, 1, 1, wet ? texture : null)
+   adapter.runQuantum(() => adapter.waterFrontStep(nativeField, originX, originY, 16, ns, nd, 64, 0, 1, 1, 1, wet ? slot : null)); await owner.whenIdle()
+   const expected = flip(gd.readPixels()), actual = await nd.readBytes(), diff = compare(expected, actual)
+   if (diff.different) divergences.push({ foreign: wet, step, difference: diff, samples: mismatchSamples(expected, actual) })
+   ;[gs, gd] = [gd, gs]; [ns, nd] = [nd, ns]
+  }
+  const bytes = await ns.readBytes(); results.push(bytes)
+  let reached = 0, min = 255, radius = 0
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const cost = bytes[(y * W + x) * 4]; if (cost < 255) { reached++; min = Math.min(min, cost); radius = Math.max(radius, Math.hypot(x - 32, y - 32)) } }
+  rows.push({ foreign: wet, reached, min, radius })
+ }
+ gl.deleteTexture(texture); adapter.uploads.destroy(slot)
+ const effect = compare(results[0], results[1]); if (!effect.different || rows[1].reached <= rows[0].reached) throw new Error('Inactive foreign primitive')
+ return { rows, effect, divergences, exact: !divergences.length }
+}
 export async function runWholePlan() {
  const paperLA = await getPaperBytes('medium'), paperResolution = Math.sqrt(paperLA.length / 2), paper = new Uint8Array(paperResolution ** 2 * 4)
  for (let k = 0; k < paperLA.length / 2; k++) paper.set([paperLA[k * 2], paperLA[k * 2], paperLA[k * 2], paperLA[k * 2 + 1]], k * 4)
@@ -56,6 +94,7 @@ export async function runWholePlan() {
  const rows = []
  const landed: Uint8Array[] = []
  const checkpoints: number[][] = []
+ let primitive: Awaited<ReturnType<typeof frontPrimitive>> | null = null
  for (const spec of [{ name: 'single', mixed: false, contacts: false, foreign: false }, { name: 'mixed-static', mixed: true, contacts: false, foreign: false }, { name: 'mixed-contact', mixed: true, contacts: true, foreign: false }, { name: 'mixed-contact-foreign', mixed: true, contacts: true, foreign: true }]) {
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H
   const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true })!
@@ -88,11 +127,12 @@ export async function runWholePlan() {
   const nativeField = createCanonicalSettleField(owner, W, H)
   const glBuilder = new WatercolorSettlePlan({ gl: () => gl, pool: () => glPool, fieldFor: () => glField, paperWorldSize: () => ({ w: paperResolution, h: paperResolution }), minmaxExt: () => ({ MAX_EXT: 32776 }), ab: () => ({ noDiffuse: false, noCarry: false, opDry: false }), shouldPreview: () => false, passes: () => glPasses })
   const nativeBuilder = new CanonicalWatercolorSettlePlan({ pool: () => nativePool, fieldFor: () => nativeField, paperWorldSize: () => ({ w: paperResolution, h: paperResolution }), supportsFilm: () => true, ab: () => ({ noDiffuse: false, noCarry: false, opDry: false }), shouldPreview: () => false, passes: () => nativeAdapter, uploads: nativeAdapter.uploads })
+  if (!primitive) primitive = await frontPrimitive(gl, glPasses, glField, owner, nativeAdapter, nativeField)
   const bounds = { minX: originX + 20, minY: originY + 20, maxX: originX + 44, maxY: originY + 44 }
   const glPlan = glBuilder.prepare(a.scratch as unknown as RibbonStrokeScratch, [{ buffer: glTile, originX, originY, contentRect: null }], bounds, .2, 8, 1, 1, 1, 1)!
   const nativePlan = nativeBuilder.prepare(b.scratch, [{ buffer: nativeTile, originX, originY, contentRect: null }], bounds, .2, 8, 1, 1, 1, 1)!
   const roles = ['a','b','c','ca','cb','cc','coverage','mask','pressure','band'] as const
-  let firstDivergence: { index: number; tag: string; role: string; difference: ReturnType<typeof compare> } | null = null
+  let firstDivergence: { index: number; tag: string; role: string; difference: ReturnType<typeof compare>; samples: ReturnType<typeof mismatchSamples> } | null = null
   const tags: Record<string, number> = {}
   const fingerprints: number[] = []
   for (let index = 0; index < glPlan.ops.length; index++) {
@@ -105,7 +145,7 @@ export async function runWholePlan() {
     let fingerprint = 2166136261; for (const byte of nativeBytes) fingerprint = Math.imul(fingerprint ^ byte, 16777619) >>> 0
     fingerprints.push(fingerprint)
     const difference = compare(flip(glField[role].readPixels()), nativeBytes)
-    if (difference.different) { firstDivergence = { index, tag, role, difference }; break }
+    if (difference.different) { firstDivergence = { index, tag, role, difference, samples: mismatchSamples(flip(glField[role].readPixels()), nativeBytes) }; break }
    }
   }
   glPlan.finish(); nativeAdapter.runQuantum(nativePlan.finish); await owner.whenIdle()
@@ -124,5 +164,5 @@ export async function runWholePlan() {
  const contactEffect = compare(landed[1], landed[2]), foreignEffect = compare(landed[2], landed[3])
  const foreignWorkingEffect = checkpoints[2].reduce((n, hash, i) => n + +(hash !== checkpoints[3][i]), 0)
  const pixelParity = rows.every(row => !row.firstDivergence && Object.values(row.final).every(r => !r.different) && !row.gpuErrors.length && !row.glError)
- return { pixelParity, contactEffect, foreignEffect, foreignWorkingEffect, hardwareParityNotPreviouslyProven: true, fieldPolicy: '128x128 component fixture; production 1536 field sizing not claimed', paper: { type: 'medium', resolution: paperResolution }, rows, exact: rows.every(row => !row.firstDivergence && Object.values(row.final).every(r => !r.different) && !row.gpuErrors.length && !row.glError && row.changedPigment > 0 && row.final.inkLoad.nonzero > 0 && row.final.inkColor.nonzero > 0) && rows[2].brushMovedBytes > 0 && contactEffect.different > 0 && foreignWorkingEffect > 0 }
+ return { primitive, pixelParity, contactEffect, foreignEffect, foreignWorkingEffect, hardwareParityNotPreviouslyProven: true, fieldPolicy: '128x128 component fixture; production 1536 field sizing not claimed', paper: { type: 'medium', resolution: paperResolution }, rows, exact: primitive?.exact && rows.every(row => !row.firstDivergence && Object.values(row.final).every(r => !r.different) && !row.gpuErrors.length && !row.glError && row.changedPigment > 0 && row.final.inkLoad.nonzero > 0 && row.final.inkColor.nonzero > 0) && rows[2].brushMovedBytes > 0 && contactEffect.different > 0 && foreignWorkingEffect > 0 }
 }

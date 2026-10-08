@@ -36,9 +36,24 @@ fails the gate even if GL/native outputs agree, so an inert fixture cannot silen
 claim foreign-water coverage. Final foreign pigment equality alone is not a failure
 if a meaningful intermediate effect exists.
 
-Software result (SwiftShader): all four tapes have pixelParity=true and zero
-validation errors. Operations 59/58/88/88; contacts change 11748 brush bytes and
-694 landed P bytes (maximum difference 23) versus static. Foreign sensitivity
-remains unproven: both an offset radius20 and centered radius50 foreign stencil
-produce no intermediate/final change. Therefore the overall exact gate remains
-false. This honest incomplete gate must not be presented as foreign-water proof.
+Software result (SwiftShader), deep-water capture: exact=true and pixelParity=true
+for all four tapes, zero validation errors. Operations 59/58/88/88. Contact motion
+changes 7589 brush bytes and 488 landed P bytes (maximum 11) versus static. Foreign
+water changes 605 working-role checkpoints and 11613 landed P bytes (maximum 19).
+
+The separate front primitive uses a cost-zero seed, dry coverage, and a foreign
+rectangle. After 12 canonical steps the dry control reaches 45 cells/radius3.606;
+the foreign case reaches625/radius16.971. All 24 step outputs are byte exact on
+SwiftShader. The final cost difference is624 bytes/max239. Per-step mismatch
+samples/channels and the whole-tape first divergence are retained for hardware
+rounding diagnosis; hardware arithmetic differences do not abort the trace.
+
+The former film-only input had standing195/255=.7647 below WC_SEED_DEEP_LO=.78.
+Its seeds sat near the budget and its own wet disk enclosed them. Both offset and
+centered foreign stencils had no effect before saturation. Changing the CAPTURED
+standing record to255 produces a real deep-water case; no model constants changed.
+
+Actual Samsung checks of the PREVIOUS film-only fixture differed from GL at the
+first front quantum by59 bytes/max1 and final dry roles by up to7. Software exact
+proof does not override that hardware evidence. Run the new per-channel primitive
+diagnostic on the device before attributing differences to Q8 or paper sampling.
