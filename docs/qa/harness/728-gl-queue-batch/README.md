@@ -47,7 +47,7 @@ GapP95ON16.9–17ms, max64–70ms: разница числа ticks реальн�
 Defaults OFF; перед actual Room включением нужны animation/source preview,
 первый/следующий контакт пера, вода→пигмент, большой зигзаг, zoom, concurrent
 participants/undo/reentry на целевых устройствах. Изменение расчёта не означает
-доказанно удовлетворительную анимацию промежуточных frames. Samsung не проверен.
+доказанно удовлетворительную анимацию промежуточных frames. Samsung отдельно прошёл fixed replay gate: [53.7% wall / exact26fields](../728-gl-queue-samsung/README.md). Живой Room на Samsung пока не проверен.
 RAM preflight≥1700, минимум 1013 MiB при abort 500; после close free 1893 MiB.
 Raw ignored temp/device-runs/gl-queue-surface.json, compact surface-summary.json.
 

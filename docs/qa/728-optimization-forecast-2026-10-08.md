@@ -7,7 +7,7 @@
 | WebGL2 + MRT | Surface, весь фиксированный engine400 replay: среднее2.25%; sampled GPU brush P/C около40% | Небольшое ускорение всего сценария, не40% приложения |
 | Front batching | Тот же Surface replay: среднее7.5%; Samsung отдельная серия около16.5% | Наиболее подтверждённый общий выигрыш, при этом длинный CPU slice может ухудшить отдельный кадр |
 | MRT + batching | Surface forward/reverse:7–11.4%, среднее9.2% | Реалистичный текущий ориентир для этого сценария; Room/device matrix обязательна |
-| Bounded solver queue batching | Surface400/Fine OFF/ON/ON/OFF: mean5986.7→2451.9ms (~59%),334→133–134ticks,26fields/material/RGBA/tape exact и meaningfulUndo/exactRedo | Существенный replay выигрыш; actualRoom/live/animation/Samsung проверяются, defaultOFF |
+| Bounded solver queue batching | Surface400/Fine OFF/ON/ON/OFF: mean5986.7→2451.9ms (~59%),334→133–134ticks,26fields/material/RGBA/tape exact и meaningfulUndo/exactRedo | Samsung replay5796.7→2681.9ms (~53.7%), exact26fields/material/RGBA/history. Существенный replay выигрыш; actualRoom/live/animation проверяются, defaultOFF |
 | Mixed admission | Actual Surface Room400 DOWN→sync readback715→63ms; Samsung standalone1246→157ms | Устранение конкретного барьера старта мокрого штриха; это верхняя граница readback, не физическая задержка пера |
 | CPU contact cache | Подготовка заметно быстрее, whole replay без устойчивого выигрыша | Пока0 в плане общего ускорения; OFF |
 | Bounded SMT superoptimization |105 max-деревьев, все эквивалентны в заданном домене; исходное уже оптимально по числу операций/глубине | Выигрыш не найден; это завершённый отрицательный поиск, не предел всех оптимизаций |
