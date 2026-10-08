@@ -74,3 +74,27 @@ Row gaps286→210, blankpixels between first/lastrowsupport858→692, maxrun32un
 `wcNative=1&wcTipA=1` / constructor diagnosticTipContactA выбирает A лишь в DEV. OFF/production оставляет тот же originaldevice и sourcebytes. DEV installer после backendcreate с roomOwnedResources и до lazy sourcecompile присваивает этому backend scopedGPUDevice facade; только source stamp/ribbon `fn paint` programs заменяют один literalthreshold endpoint0.34→0.28. Backend/stamp/deposit files/defaultconstants не меняются. Unsupported/eager source owner отклоняется до изменения. Runtime `tipContactQa` хранит реально скомпилированные family и baseline/patched SHA для actual gate. New context disposal сохраняет backend lifecycle; init installerthrow уничтожает backend.
 
 12installer/parsertests PASS, full apps/web tsconfig.app+sw PASS, targeted oxlint0errors. Room actual pointer/pressuretaper/undo/redo ещё не проверены; пользовательский готовый link не объявляется. Новый5360 immutable runtime будет иметь отдельный sourcepassport; старые5354–5359 не меняются. Kernel/formula source change новая модель дозировки только этого QA варианта, не производительность/same-model parity.
+
+### Actual Room opt-in integration gate (5360)
+
+Frozen source `4ddf800bd511f18866c9a49dae18b0fc73e263d3`, controller `7269995d`.
+The initial command failed its local full-SHA passport check before device access.
+The corrected allocated run passed source/paper verification and RAM preflight
+(2120 MiB), but stopped during the moving stroke: `GPUCanvasContext.configure`
+rejected the Proxy used as `GPUDevice` by the DEV installer. `source.ownerFor`
+reported the original WebIDL conversion error; the controller stopped pointer
+input and closed its own page. No completed stroke/UndoRedo/quality gate exists.
+Evidence: ignored `temp/fast-watercolor-night/room-tipA-fullsha-surface-20261008`.
+
+The follow-up installer fix preserves the original native device identity and
+shadows only that owner device's `createShaderModule` method. No global prototype,
+backend formula or default changes. A unit regression verifies device identity,
+compiler receiver and stamp/ribbon specialization. Frozen 5360 remains unchanged;
+the repaired candidate requires a new frozen runtime and allocated hardware gate.
+
+Actual software WebGPU follow-up: owner device is extensible, own compiler shadow
+installed, native canvas `configure` accepted the original device, a real trivial
+compute pipeline compiled without validation errors, and owner destruction
+restored the original compiler method. This is an identity/lifetime smoke only;
+it does not establish actual Room drawing or A image quality. Repro:
+`node docs/qa/harness/728-tip-device-identity/check.mjs` (45s bounded).
