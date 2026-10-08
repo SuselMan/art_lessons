@@ -14,7 +14,7 @@ try{
  const page=await browser.newPage();page.on('pageerror',e=>report.errors.push(String(e)))
  await page.goto('http://127.0.0.1:'+server.address().port)
  for(const args of [[false,false,true,false,true,false],[false,false,true,true,true,false],[true,false,false,false,true,false],[true,false,true,false,true,false],[true,true,false,true,true,false],[true,true,true,true,true,false],[true,false,false,true,true,true],[true,false,true,true,true,true]]){
-  const result=await page.evaluate(async args=>{const module=await import('./run.js');return module.runMomentTextureGate(...args)},args)
+  const result=await page.evaluate(async args=>{const module=await import('./run.js');return module.runMomentTextureGate(...args)},process.env.QA_STAGE_CAPTURE==='1'?[...args,true]:args)
   report.arms.push(result);fs.writeFileSync(out,JSON.stringify(report,null,2))
   if(!result.valid)throw Error('Vector software arm FAIL')
  }
