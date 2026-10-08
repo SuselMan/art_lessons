@@ -65,3 +65,15 @@ equal-mass hue mixing, mass/moment conservation over capacities/directions,
 drygate и explicit unsupported optical record. Actualapp typecheck PASS.
 GPU реализации/Room подключения в этом коммите пока нет; это следующий
 reviewable CPU-contract шаг, не готовая интеграция.
+
+## Реальный coupled GPU оператор (следующий атом)
+
+`wetBrushMomentGpu.ts` содержит WGSL compute pass для Q8 P.B + C.RGBA, CPU oracle и строгий аудит записей. Хранение временно integer storage, десять u32 на пиксель: P.RGBA, C.RGBA, общий wet Q8, реальный контакт Q8. P.R/G/A, wet/contact сохраняются побайтно; перемещаются только масса P.B и четыре оптических момента. Соседние пары не пересекаются, каждый выходной пиксель имеет одного писателя, включая непарные границы нечётных размеров. Все операции деления целочисленные и имеют тот же порядок, что CPU oracle. Вход неподходящего carrier не исправляется: CPU pack отказывает, GPU дополнительно считает invalid pairs и сохраняет такую пару неизменной. Любой invalid pair делает эксперимент неуспешным: его результат нельзя публиковать в обычную Room.
+
+В production `pigmentOptics.ts` ограничивает transmittance снизу .02 и использует depth scale 4: τ/4 ≤ .978006. Source stamp/ribbon записывают C.rgb=amount·strength·τ/4, C.a=amount·strength, P.b=amount·strength. Это доказывает непрерывный source bound, **не** доказывает bound после независимых Q8 растеризаций, MAX/ADD и settle. Поэтому `auditMomentRecords` проверяет каждый actual пиксель, сохраняет count/maxExcess/первые координаты нарушений; агрегатные sums/max недостаточны. В исходных сохранённых отчётах есть агрегаты, но нет пары полных исходных P/C byte arrays для такого доказательства.
+
+Общую воду production shader декодирует как `available.b / max(available.a,.002)` из фактической карты availableWater; P.R и coverage.A по отдельности этим источником не являются. Моментный оператор пока принимает уже подготовленный wet Q8 и реальный контакт, не выбирает запись по имени и не повторяет delivery.
+
+`runMomentGate(actualFixture?)` доступен из `run.js`: 32 actual compute passes, полный integer output vs CPU oracle, invalid count и WebGPU errors. Без actualFixture результат явно synthetic. submitAndReadbackMs включает fence/readback и не является GPU timing. Офлайн пройдены 4 unit tests, полный apps/web typecheck, strict harness TS, oxlint; GPU компиляция и hardware gate ещё не выполнялись.
+
+Обычная Room должна вызвать будущий owner seam после once-prepared source landing и до production settle: фактические inkLoad/inkColor (либо согласованная running-film пара), availableWater и canonical contact footprint; записанный contact ordinal и направление определяют четыре pair passes. Нельзя вызывать seam ещё раз на каждый tile с повторным CPU advance. DEV OFF возвращает до создания pipeline/buffers и оставляет прежнюю последовательность владельца без дополнительных команд. Следующий необходимый атом — GPU texture pack + глобальный bound audit + pair passes + guarded unpack, иначе текущий integer-storage kernel не является Room интеграцией. Cross-tile flux, насыщенные/неподходящие carriers и foreign ownership требуют явного отказа, не молчаливой подстановки.
