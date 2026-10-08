@@ -1,0 +1,98 @@
+{
+  "evidence": "native-static-ab-surface-1791425709156.json",
+  "runs": [
+    {
+      "enabled": false,
+      "nativeMs": 1237.300000011921,
+      "nativeReplayMs": 957,
+      "hash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "replayHash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeHash": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "errors": [],
+      "lost": false,
+      "counters": null
+    },
+    {
+      "enabled": true,
+      "nativeMs": 1049.8999999761581,
+      "nativeReplayMs": 850.1999999880791,
+      "hash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "replayHash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeHash": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "errors": [],
+      "lost": false,
+      "counters": {
+        "prep": 1,
+        "hits": 153,
+        "fallbacks": 22
+      }
+    },
+    {
+      "enabled": true,
+      "nativeMs": 858.6000000238419,
+      "nativeReplayMs": 859.2999999523163,
+      "hash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "replayHash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeHash": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "errors": [],
+      "lost": false,
+      "counters": {
+        "prep": 1,
+        "hits": 153,
+        "fallbacks": 22
+      }
+    },
+    {
+      "enabled": false,
+      "nativeMs": 940,
+      "nativeReplayMs": 930.6999999880791,
+      "hash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "replayHash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeHash": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "errors": [],
+      "lost": false,
+      "counters": null
+    },
+    {
+      "enabled": false,
+      "nativeMs": 935.1999999880791,
+      "nativeReplayMs": 914.8000000119209,
+      "hash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "replayHash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeHash": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "errors": [],
+      "lost": false,
+      "counters": null
+    },
+    {
+      "enabled": true,
+      "nativeMs": 863.9000000357628,
+      "nativeReplayMs": 827.1000000238419,
+      "hash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "replayHash": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeHash": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "errors": [],
+      "lost": false,
+      "counters": {
+        "prep": 1,
+        "hits": 153,
+        "fallbacks": 22
+      }
+    }
+  ],
+  "allHashExact": true,
+  "warm": [
+    {
+      "enabled": false,
+      "n": 2,
+      "authorMedianMs": 937.5999999940395,
+      "replayMedianMs": 922.75
+    },
+    {
+      "enabled": true,
+      "n": 2,
+      "authorMedianMs": 861.2500000298023,
+      "replayMedianMs": 843.1999999880791
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "note": "Root confirmed both identical to frozen OFF baseline; times are separate correctness runs, not fair AB",
+  "runs": [
+    {
+      "evidence": "native-static-whole-surface-1791425220987.json",
+      "code": "9daeacaa8c73544d5056942773406ac6f1572fba",
+      "nativeSha256": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "nativeReplaySha256": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeSha256": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "nativeMs": 1383.800000011921,
+      "replayMs": 833.2999999523163,
+      "counters": {
+        "author": {
+          "prep": 1,
+          "hits": 140,
+          "fallbacks": 22
+        },
+        "replay": {
+          "prep": 1,
+          "hits": 140,
+          "fallbacks": 22
+        }
+      },
+      "errors": [],
+      "lost": false
+    },
+    {
+      "evidence": "native-static-combined-whole-surface-1791425581311.json",
+      "code": "4d309520063a9ca0435fd52eb84474980c3d6d49",
+      "nativeSha256": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "nativeReplaySha256": "8ddd7f1b2e2c1446708b7a7bff056b41679ddcadabd248e5a28f0b680210801d",
+      "tapeSha256": "3000d2378db11c11b99010f35c9d99890cf5fa70e85b759e36bfc02985a47d56",
+      "paperSha256": "aeaef351114f00eb372208f68ff9ed809ab4cd3d0c86c02bb60e31fb21df8521",
+      "nativeMs": 1103.1000000238419,
+      "replayMs": 917.9000000357628,
+      "counters": {
+        "author": {
+          "prep": 1,
+          "hits": 153,
+          "fallbacks": 22
+        },
+        "replay": {
+          "prep": 1,
+          "hits": 153,
+          "fallbacks": 22
+        }
+      },
+      "errors": [],
+      "lost": false
+    }
+  ]
+}

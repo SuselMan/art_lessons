@@ -1,0 +1,45 @@
+{
+  "evidence": "native-static-diffuse-surface-1791425497575.json",
+  "code": "4d309520063a9ca0435fd52eb84474980c3d6d49",
+  "dimensions": [
+    1536,
+    1536
+  ],
+  "iterations": 171,
+  "exact": true,
+  "errors": [],
+  "metadata": {
+    "field": [
+      1536,
+      1536
+    ],
+    "x0": 0,
+    "y0": 40,
+    "scale": 1,
+    "paper": [
+      1024,
+      1024
+    ],
+    "radius": 3,
+    "preparedRadius": 3,
+    "knight": false,
+    "sourceRole": "pigment",
+    "sourceFilter": "nearest",
+    "gateFilter": "nearest"
+  },
+  "prepMs": 1.769472,
+  "baseline": {
+    "n": 32,
+    "minMs": 1.048576,
+    "medianMs": 1.114112,
+    "p95Ms": 1.245184,
+    "maxMs": 1.245184
+  },
+  "cached": {
+    "n": 32,
+    "minMs": 0.786432,
+    "medianMs": 0.786432,
+    "p95Ms": 0.851968,
+    "maxMs": 0.851968
+  }
+}
