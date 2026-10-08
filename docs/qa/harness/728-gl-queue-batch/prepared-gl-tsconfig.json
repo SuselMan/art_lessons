@@ -12,7 +12,9 @@
   "TypedGlSourceReplayPrototype.ts",
   "OwnedGlSourceFields.ts",
   "OwnedGlPreparedSource.ts",
-  "PrewarmedGlOwnerPool.ts"
+  "PrewarmedGlOwnerPool.ts",
+  "PrewarmedEngineRevealSlots.ts",
+  "prewarmedEngineRevealSlots.test.ts"
  ],
  "exclude": []
 }

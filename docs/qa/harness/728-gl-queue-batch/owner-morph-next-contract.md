@@ -21,3 +21,17 @@ CPU state machine: old finish не меняет new overlay; canonical land и r
 ## Первая DOWN allocation
 
 Prewarmed owner pool даёт0texture allocations при DOWN2/3, но DOWN1 всё ещё1. Источник пока не доказан: engine `_updateWetTexture`/tip/preview или другой original allocation. Opt-in `collectAllocationStacks` сохраняет ≤8caller stacks в QA scenario (defaultfalse), это отдельная диагностическая серия; её timings не сравнивать с passive latency cohort. Не prewarm произвольные ресурсы до actual caller evidence.
+
+## Реализованный diagnostic-only этап
+
+`diagLastOwnerMorph=1` добавляет4existing-engine reveal slots по4MiB, всего16MiB отдельного explicit бюджета. Source pool156MiB и reveal pool не алиасят; physical identities source раскрыты read-only. Reveal fields передаются engine lifecycle и не уничтожаются при возврате source lease. При ошибке setup source pool после GPU-safe fence освобождается; partial reveal acquire возвращается engine pool ровно1раз.
+
+В owned original finish только lastowner/no-younger `_revealWash` создаёт настоящий held.before, и actual source presentation копируется в него GPU→GPU. После передачи preview больше не затеняет existing reveal, а canonical pass list/order не меняется. Old finish с младшим visible owner не передаёт старую картинку и не снимает новый overlay. CPU tests подтверждают порядок copy/preview и эти token guards; аппаратная morph/transparency/target проверка пока не выполнена.
+
+Режим **не пользовательский кандидат**: новый DOWN во время transferred reveal явно отвергается с QA сообщением. Это instrumentation gate для исходной visible-before передачи, не решение непрерывного рисования. Defaultfalse и исходный5352не меняется.
+
+## Younger без остановки рисования: следующий proof
+
+Нельзя переносить RGB delta `oldLayerAfter−oldLayerBefore` поверх нового fullsnapshot: composite нелинеен по P/C/coverage, clamp/Q8 и optical-depth нормализация нарушают такое сложение. Нужен retained per-gesture **material** contribution: собственные MAX P/C/V film и own coverage command record отдельно от predecessor base. При old land видимые younger P/C base можно latebind к реально landed prior материалу и пересчитать presentation `base+ownfilm` теми же mode1 passes; canonical FIFO input остаётся неизменным. Coverage union нельзя получить вычитанием — нужен own coverage film/typed command replay над обновлённой predecessor coverage.
+
+Сначала CPU/gpu same-record два epoch: predecessor changes, own film unchanged, no doubleprepare/no canonical writes, oldland cannot retire younger; затем visual timeline. Только после proof разрешается убрать diagnostic backpressure. Это отдельная работа, не реализована текущим fullsnapshot adapter.

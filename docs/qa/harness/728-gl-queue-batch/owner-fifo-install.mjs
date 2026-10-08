@@ -5,20 +5,22 @@ import {PrewarmedGlOwnerPool} from './PrewarmedGlOwnerPool.ts';
 import {OwnedGlPreparedSource} from './OwnedGlPreparedSource.ts';
 import {TypedGlSourceReplayPrototype} from './TypedGlSourceReplayPrototype.ts';
 import {createPreparedGlSourcePort} from './PreparedGlSourceDraw.ts';
+import {prewarmEngineRevealSlots} from './PrewarmedEngineRevealSlots.ts';
 const roles=['presentation','original','coverage','coverageFilm','pigmentLoad','pigmentBase','pigmentFilm','colourLoad','colourBase','colourFilm','solventLoad','solventBase','solventFilm'];
 /** QA runtime only: never imported by production or the existing 5352 review. */
-export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=()=>{}}={}){
+export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=()=>{},diagnosticLastOwnerMorph=false,revealBudgetBytes=16*1024*1024}={}){
  const page=e._pageSize();
  if(e._infinite||page.w!==1024||page.h!==1024||e._strokeLayerId||e._settle||e._wcCanonical.pending)throw Error('Owner FIFO requires idle bounded1024 Room');
  if(!e._minmaxExt)throw Error('Owner FIFO requires original MAX capability');
  const canonicalLayer=e._layers?.get(e._activeId);if(!canonicalLayer)throw Error('Owner FIFO requires loaded active layer');
  const canonicalTiles=e._ribbonPainterContext.resolveWithinSheet(canonicalLayer,{minX:0,minY:0,maxX:1024,maxY:1024});if(canonicalTiles.length!==1||canonicalTiles[0].originX||canonicalTiles[0].originY)throw Error('Owner prewarm requires one canonical tile');
  const pool=new PrewarmedGlOwnerPool(e.gl,capacity,budgetBytes);
+ let revealPrewarm=null;try{revealPrewarm=diagnosticLastOwnerMorph?prewarmEngineRevealSlots({acquire:(w,h)=>e._revealPoolAcquire(w,h),release:f=>e._revealPoolRelease(f)},pool.physicalIdentities,revealBudgetBytes):null}catch(error){if(!e.gl.isContextLost())e.gl.finish();pool.disposeAfterFence();throw error}
  const coordinator=new PresentationOwnerPrototype({maxOwners:capacity,budgetBytes,detachFinish:finish=>Object.freeze({...finish})});
  const painter=new OwnerPainter(e._ribbonPainterContext),originalPainter=e._ribbonPainter;
  for(const key of Object.keys(originalPainter))if(key!=='ctx'&&(typeof originalPainter[key]==='boolean'||typeof originalPainter[key]==='string'))painter[key]=originalPainter[key];
  const originals={asyncFinish:e._wcAsyncFinish,work:e._ribbonStrokeWork,finish:e._finishRibbonStroke,start:e._onStart,previews:e._asyncLocalPreviewTiles,enqueue:e._wcCanonical.enqueue,blocked:e._wcCanonical.ctx.blocked};
- const owners=new Map(),byScratch=new WeakMap();let landedVersion=0,disposed=false;
+ const owners=new Map(),byScratch=new WeakMap();let landedVersion=0,disposed=false,morphHold=null;
  const drawContext={gl:()=>e.gl,stamps:()=>e._stamps,paperTex:()=>e._paperTex,quadBuf:()=>e._quadBuf,minmaxExt:()=>e._minmaxExt};
  const trace=[];const event=(kind,data={})=>{if(trace.length<2048)trace.push({kind,at:performance.now(),...data})};
  const latest=layerId=>[...owners.values()].filter(o=>o.token.layerId===layerId&&coordinator.visible().includes(o.token)).at(-1);
@@ -53,6 +55,7 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  e._wcCanonical.ctx.blocked=()=>originals.blocked()||coordinator.snapshot().owners[0]?.status==='drawing';
  e._onStart=function(...args){
   if(disposed)return;
+  if(diagnosticLastOwnerMorph&&morphHold){const held=e._washReveals.get(morphHold.buffer);if(held&&e._revealHold(held,performance.now())>0){status('QA diagnostic morph: новый DOWN пока не поддержан; не пользовательский режим');event('diagnostic-morph-backpressure');return}morphHold=null}
   const open=e._wash,previous=[...owners.values()].at(-1);
   if(e._opts.tool!=='watercolor'&&!previous){e._wcAsyncFinish=false;return originals.start.apply(e,args)}
   e._wcAsyncFinish=true;
@@ -85,11 +88,15 @@ export function installOwnerFifo(e,{capacity=3,budgetBytes=156*1024*1024,status=
  };
  e._finishRibbonStroke=function(scratch,...args){
   const owner=mapFor(scratch).get(scratch.gesture);
+  if(args[3]&&owner&&diagnosticLastOwnerMorph&&!([...owners.values()].some(next=>next.token.sequence>owner.token.sequence))){
+   const reveal=e._revealWash;e._revealWash=function(tile,layer){reveal.call(e,tile,layer);const held=e._washReveals.get(tile.buffer);if(!held)throw Error('Original reveal owner missing');owner.lease.fields.presentation.copyTo(held.before);owner.presentationTransferred=true;morphHold={buffer:tile.buffer,sequence:owner.token.sequence};event('diagnostic-morph-transfer',{sequence:owner.token.sequence})};
+   try{return originals.finish.call(e,scratch,...args)}finally{e._revealWash=reveal}
+  }
   if(!owner||args[3])return originals.finish.call(e,scratch,...args);
   coordinator.seal(owner.token,scratch.captureFinishMetadata());event('seal',{sequence:owner.token.sequence});
   const enqueue=e._wcCanonical.enqueue;e._wcCanonical.enqueue=function(request){return enqueue.call(this,{execute:function*(){yield* request.execute();landedVersion++;coordinator.land(owner.token);owners.delete(owner.token);e._invalidateSplitCache();e._scheduleDisplay();event('land',{sequence:owner.token.sequence,landedVersion})},cancel:lost=>{request.cancel(lost);cancelOwner(owner)}})};
   try{return originals.finish.call(e,scratch,...args)}finally{e._wcCanonical.enqueue=enqueue}
  };
- e._asyncLocalPreviewTiles=function(){const result=new Map(originals.previews.call(e));for(const token of coordinator.visible()){const owner=owners.get(token);if(owner)result.set(token.layerId,[{buffer:owner.lease.fields.presentation,originX:0,originY:0}])}return result};
- return{trace,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,dispose(){if(disposed)return;disposed=true;e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();if(!e.gl.isContextLost())e.gl.finish();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked}};
+ e._asyncLocalPreviewTiles=function(){const result=new Map(originals.previews.call(e));for(const token of coordinator.visible()){const owner=owners.get(token);if(owner&&!owner.presentationTransferred)result.set(token.layerId,[{buffer:owner.lease.fields.presentation,originX:0,originY:0}])}return result};
+ return{trace,snapshot:()=>coordinator.snapshot(),prewarmedBytes:pool.bytes,prewarmedRevealBytes:revealPrewarm?.bytes??0,diagnosticLastOwnerMorph,dispose(){if(disposed)return;disposed=true;e._wcCanonical.cancel(e.gl.isContextLost());coordinator.dispose();if(!e.gl.isContextLost())e.gl.finish();const active=coordinator.snapshot().active;if(active)coordinator.completeCancellation(active);pool.disposeAfterFence();e._wcAsyncFinish=originals.asyncFinish;e._ribbonPainter=originalPainter;e._ribbonStrokeWork=originals.work;e._finishRibbonStroke=originals.finish;e._onStart=originals.start;e._asyncLocalPreviewTiles=originals.previews;e._wcCanonical.ctx.blocked=originals.blocked}};
 }
