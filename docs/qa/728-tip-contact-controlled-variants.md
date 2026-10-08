@@ -98,3 +98,26 @@ compute pipeline compiled without validation errors, and owner destruction
 restored the original compiler method. This is an identity/lifetime smoke only;
 it does not establish actual Room drawing or A image quality. Repro:
 `node docs/qa/harness/728-tip-device-identity/check.mjs` (45s bounded).
+
+### Corrected actual Room gate (5361)
+
+Frozen `efe8a9524a166a932955d67b0b7da2ee0be7de5c`, controller `6233bee2`:
+one allocated Surface run completed. Real PointerInput moving400 with supplied
+pressure .7→.02 produced visible pigment both after lift and after native idle
+(43,094/44,555 purple framebuffer pixels). The actual owner compiled both stamp
+and ribbon specialized sources with distinct baseline/patched SHA values.
+GL error0, context not lost, recorded errors empty. Undo selected the real stroke
+and reduced exported alpha support122,251→0; Redo selected the same stroke and
+restored exact whole decoded export SHA
+`4e39807f889e44a9b01b714b463bb9d81711636e5ee8da965747d2d178ede6c2`.
+RAM preflight2045MiB/min1025MiB, own target closed. Evidence is ignored
+`temp/fast-watercolor-night/room-tipA-identity-surface-20261008`.
+
+The screenshot was inspected: visible purple broad stroke with continuous outer
+silhouette and paper texture; no obvious large white internal stripe in this
+single case. This is functional integration/history evidence, not paired OFF/ON
+Room artistic superiority, physical latency or multiuser proof. Existing bounded
+native1024/serial limitations remain; water→pigment and additional colors were
+not tested in this run. UI sliders retain their store values while this diagnostic
+controller uses real engine setters; the screenshot sliders are not a parameter
+passport. Production/default contact remains literal.
