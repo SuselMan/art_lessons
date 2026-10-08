@@ -1,3 +1,4 @@
+import {captureSolventInit} from './solventInit'
 import { StageAudit,compareStages,type StageRow } from './stageAudit'
 import type { Operation,StrokeOperation } from '@grafetto/shared'
 import { getPaperBytes } from '../../../../apps/web/src/engine/src/paper/paperLoader'
@@ -14,9 +15,10 @@ const hash=async(bytes:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtl
 const diff=(a:Uint8Array,b:Uint8Array)=>{if(a.length!==b.length)throw new Error('Capture dimensions changed');let changed=0,max=0,total=0;for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);changed+=+(d>0);max=Math.max(max,d);total+=d}return{changed,max,total}}
 interface Counts {submits:number;commandBuffers:number;submitCpuMs:number;quanta:number;encodeCpuMs:number}
 interface RoleCapture {width:number;height:number;nonzero:number;sha256:string;difference:ReturnType<typeof diff>}
-interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;stages:StageRow[];carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
+interface RunRow {paired:boolean;metrics:Record<'source'|'live'|'prepare'|'settle',Counts>;replayCpuMs:number;waitWallMs:number;wallMs:number;readbackWallMs:number;roles:Record<string,RoleCapture>;solventCheckpoints:Record<string,RoleCapture>;errors:string[];lost:boolean;pairedCarryCalls:number;stages:StageRow[];solventInitialization:unknown;carryOracle:Awaited<ReturnType<CanonicalBoundedSceneRunner['adapter']['readCarryOracle']>>}
 const count=():Counts=>({submits:0,commandBuffers:0,submitCpuMs:0,quanta:0,encodeCpuMs:0})
-export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,perOperationStages=false,firstOpSolventStages=false,oraclePairIndex}:{firstOpSolventStages?:boolean;perOperationStages?:boolean;controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,pairedFirst=false,captureSolvent=false,hardwareLinear=false,progressive=false,controlRepeat=false,perOperationStages=false,firstOpSolventStages=false,captureFirstSolventInit=false,oraclePairIndex}:{captureFirstSolventInit?:boolean;firstOpSolventStages?:boolean;perOperationStages?:boolean;controlRepeat?:boolean;oraclePairIndex?:number;hardwareLinear?:boolean;progressive?:boolean;captureSolvent?:boolean;size?:100|400;allowLarge?:boolean;tape?:StrokeOperation[];pairedFirst?:boolean}={}){
+ if(captureFirstSolventInit&&!firstOpSolventStages)throw new Error('Solvent init capture requires firstOpSolventStages')
  if(firstOpSolventStages&&!perOperationStages)throw new Error('First-op solvent gate requires perOperationStages')
  if(perOperationStages&&(!controlRepeat||progressive||captureSolvent||oraclePairIndex!==undefined))throw new Error('Per-op stage gate is isolated serial OFF/OFF only')
  if(progressive&&captureSolvent)throw new Error('Solvent source/finish captures require serial synchronous settle; progressive final-role gate remains supported')
@@ -73,6 +75,18 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
   // QA-only inspection/instrumentation. Source metadata/solver values unchanged.
   const internals=runner as unknown as {source:{execute:(...args:any[])=>GPUBuffer[]};finish:{encodeLive:(...args:any[])=>GPUBuffer[]};planner:{prepare:(...args:any[])=>unknown};settle:()=>void}
   let replayIndex=0
+  let activeSourceEncoder:GPUCommandEncoder|null=null,initRead:ReturnType<typeof captureSolventInit>|null=null
+  if(captureFirstSolventInit){
+   const scope=backend.encodeOwnerCommands.bind(backend)
+   backend.encodeOwnerCommands=(encoder,task)=>scope(encoder,()=>{activeSourceEncoder=encoder;try{return task()}finally{activeSourceEncoder=null}})
+   const solventFilm=runner.scratch.tiles.solventFilm.bind(runner.scratch.tiles)
+   runner.scratch.tiles.solventFilm=(tile,gesture)=>{
+    const result=solventFilm(tile,gesture)
+    if(replayIndex===1&&!initRead){if(!activeSourceEncoder)throw new Error('Solvent init requires actual active encoder');initRead=captureSolventInit(backend.device,activeSourceEncoder,{load:result.load,base:result.base,film:result.film})}
+    return result
+   }
+  }
+  let solventInitialization:unknown=null
   const pendingSolvent:Array<{key:string;width:number;height:number;bytes:Promise<Uint8Array>}>=[]
   const capture= (stage:string)=>{
    if(!captureSolvent)return
@@ -109,7 +123,7 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    await runner.drain();for(const m of Object.values(metrics))Object.assign(m,count())
    backend.device.pushErrorScope('validation')
    const started=performance.now()
-   for(const operation of tape){audit?.reset();revealRect=null;replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id);if(audit){const sources=sourceStages.splice(0);for(const pending of sources)stages.push(await pending);stages.push(await audit.snapshot(replayIndex,'after-finish',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));}}
+   for(const operation of tape){audit?.reset();revealRect=null;replayIndex++;timestamp=operation.timestamp;now+=100;const t=performance.now();runner.replay(structuredClone(operation));replayCpuMs+=performance.now()-t;const waiting=performance.now();await runner.drain();waitWallMs+=performance.now()-waiting;if(replayIndex===1&&initRead)solventInitialization=await (initRead as ()=>Promise<Record<string,unknown>>)();progress('replay drained '+(paired?'ON':'OFF')+' '+operation.id);if(audit){const sources=sourceStages.splice(0);for(const pending of sources)stages.push(await pending);stages.push(await audit.snapshot(replayIndex,'after-finish',stageBuffers(),stageRead,firstOpSolventStages&&replayIndex===1?revealRect:undefined));}}
    wallMs=performance.now()-started;progress('readback '+(paired?'ON':'OFF'))
    if(!field)throw new Error('No canonical settle field captured')
    const capturedField=field as CanonicalSettleField
@@ -138,12 +152,12 @@ export async function runPairedCarryAB({size=100,allowLarge=false,tape:provided,
    if(paired&&oraclePairIndex!==undefined&&!carryOracle)throw new Error('Selected actual carry pair was not exercised')
    readbackWallMs=performance.now()-readStarted
    const validation=await backend.device.popErrorScope();if(validation)run.errors.push(validation.message)
-   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls,stages,carryOracle})
-  }finally{queue.submit=submit;await run.destroy()}
+   rows.push({paired,metrics,replayCpuMs,waitWallMs,wallMs,readbackWallMs,roles,solventCheckpoints,errors:[...run.errors],lost:run.lost,pairedCarryCalls:runner.adapter.pairedCarryCalls,stages,solventInitialization,carryOracle})
+  }finally{(initRead as ReturnType<typeof captureSolventInit>|null)?.dispose();queue.submit=submit;await run.destroy()}
  }
  surface.replaceChildren()
  const stageComparison=perOperationStages?compareStages(rows[0].stages,rows[1].stages):null
  const exact=(!stageComparison||stageComparison.exact)&&(controlRepeat||rows.some(row=>row.paired&&row.pairedCarryCalls>0))&&rows.length===2&&rows.every(row=>!row.errors.length&&!row.lost&&(!row.carryOracle||row.carryOracle.exact)&&[...Object.values(row.roles),...Object.values(row.solventCheckpoints)].every(r=>r.difference.changed===0))&&['layer','tile.inkLoad','tile.inkColor','tile.coverage'].every(role=>rows[0].roles[role]?.nonzero)
- return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,controlRepeat,perOperationStages,stageComparison,timingPerturbedByStages:perOperationStages,oraclePairIndex,timingPerturbedByOracle:oraclePairIndex!==undefined,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
+ return{code:'__CODE__',order:rows.map(row=>row.paired?'ON':'OFF'),size,controlRepeat,perOperationStages,firstOpSolventStages,captureFirstSolventInit,stageComparison,timingPerturbedByStages:perOperationStages,oraclePairIndex,timingPerturbedByOracle:oraclePairIndex!==undefined,hardwareLinear,progressive,captureSolvent,timingPerturbedByCapture:captureSolvent,memoryGiB,tape,tapeSha256,paperSha256:await hash(la),rows,exact,limitations:['Native OFF/ON internal equivalence, not GL parity or Room integration','Full1536 fields, single1024 tile/layer/wash; owners sequential','Capture after last canonical operation only; no intermediate history','wallMs excludes readback, hashing, setup and untimed pointer authoring','encodeCpuMs/replayCpuMs are CPU wall intervals, not shader GPU time; waitWallMs is completion wait','Paired carry defaults OFF; grouped submissions disabled in both arms']}
 }
 Object.assign(window,{runPairedCarryAB})
