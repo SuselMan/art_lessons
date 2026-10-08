@@ -26,6 +26,7 @@ export function canonicalFinishSources(entry:NonNullable<ReturnType<CanonicalTil
  const runningFilm=entry.filmGesture!==settledGesture&&entry.filmGesture===materialGesture&&!!entry.strokeInk
  return {original:entry.original,coverage:entry.coverage,pigment:runningFilm?entry.inkLoad:entry.inkDry??entry.inkLoad,color:runningFilm?entry.inkColor:entry.colorDry??entry.inkColor,runningFilm}
 }
+export type CanonicalTileLiveInput=Omit<CanonicalTileFinishInput,'settleComplete'|'settledGesture'|'materialGesture'>&{inkSmoothPx:number}
 export class CanonicalSingleTileFinish {
  private readonly backend:CanonicalWatercolorWebGpu
  private readonly scratch:CanonicalTileScratch
@@ -40,15 +41,25 @@ export class CanonicalSingleTileFinish {
   * frees returned uniforms after GPU completion; caller owns film release. */
  encode(encoder:GPUCommandEncoder,input:CanonicalTileFinishInput):GPUBuffer[] {
   if(input.settleComplete!==true)throw new Error('Native finish requires completed canonical settle')
-  const p=input.profile
-  if(!p.normalizeDeposit||p.compositeInkMode!==9||p.migrate!==0)throw new Error('Native finish supports normalized watercolor inkMode9 with migrate=0 only')
   const tile=this.tile,entry=this.scratch.peek(tile.buffer);if(!entry)throw new Error('Native finish has no source scratch for tile')
   const source=canonicalFinishSources(entry,input.settledGesture,input.materialGesture)
-  if(!source.pigment||!source.color)throw new Error('Native finish requires canonical pigment/color records')
+  return this.encodeSelected(encoder,input,source,0)
+ }
+ /** Production live composite: read the current landed inkLoad/inkColor,
+  * preserving the caller's actual dab-spacing smoothing before settlement. */
+ encodeLive(encoder:GPUCommandEncoder,input:CanonicalTileLiveInput):GPUBuffer[] {
+  const entry=this.scratch.peek(this.tile.buffer);if(!entry)throw new Error('Native live composite has no source scratch')
+  return this.encodeSelected(encoder,input,{original:entry.original,coverage:entry.coverage,pigment:entry.inkLoad,color:entry.inkColor},input.inkSmoothPx)
+ }
+ private encodeSelected(encoder:GPUCommandEncoder,input:CanonicalTileLiveInput|CanonicalTileFinishInput,source:Omit<ReturnType<typeof canonicalFinishSources>,'runningFilm'>,inkSmoothPx:number):GPUBuffer[] {
+  const p=input.profile,tile=this.tile
+  if(!p.normalizeDeposit||p.compositeInkMode!==9||p.migrate!==0)throw new Error('Native composite supports normalized watercolor inkMode9 with migrate=0 only')
+  if(!source.pigment||!source.color)throw new Error('Native composite requires canonical pigment/color records')
+  if(!Number.isFinite(inkSmoothPx)||inkSmoothPx<0)throw new Error('Native live composite needs finite nonnegative supplied smoothing')
   const x0=Math.max(0,Math.floor(input.bounds.minX)-1-tile.originX),y0=Math.max(0,Math.floor(input.bounds.minY)-1-tile.originY)
   const x1=Math.min(tile.buffer.width,Math.ceil(input.bounds.maxX)+1-tile.originX),y1=Math.min(tile.buffer.height,Math.ceil(input.bounds.maxY)+1-tile.originY)
   if(x1<=x0||y1<=y0)return[]
-  const v:CanonicalCompositeUniforms={paperOrigin:[tile.originX,-tile.originY||0],paperTexSize:this.backend.paper.texSize,paperScale:[this.backend.paper.scale,this.backend.paper.scale],fieldOffset:input.fieldSeed,inkSmoothPx:0,water:input.water,inkStrength:p.pigmentStrength,spreadPx:input.spreadPx,edgeWander:p.edgeWander,edgeSoft:p.edgeSoft,bristleCombs:ribbonBristleCombs(p,input.bristleRadiusPx),dryContact:p.dryContact,granulation:p.granulation,wetEdge:p.wetEdge,wetEdgeRadiusPx:p.wetEdgeRadiusPx,tideLo:p.tideLo,tideHi:p.tideHi,paperRim:p.paperRim,opacity:input.opacity,pigmentOpacity:p.pigmentOpacity,debugView:input.debugView??0,rectComposite:true,migrate:0}
+  const v:CanonicalCompositeUniforms={paperOrigin:[tile.originX,-tile.originY||0],paperTexSize:this.backend.paper.texSize,paperScale:[this.backend.paper.scale,this.backend.paper.scale],fieldOffset:input.fieldSeed,inkSmoothPx,water:input.water,inkStrength:p.pigmentStrength,spreadPx:input.spreadPx,edgeWander:p.edgeWander,edgeSoft:p.edgeSoft,bristleCombs:ribbonBristleCombs(p,input.bristleRadiusPx),dryContact:p.dryContact,granulation:p.granulation,wetEdge:p.wetEdge,wetEdgeRadiusPx:p.wetEdgeRadiusPx,tideLo:p.tideLo,tideHi:p.tideHi,paperRim:p.paperRim,opacity:input.opacity,pigmentOpacity:p.pigmentOpacity,debugView:input.debugView??0,rectComposite:true,migrate:0}
   return this.composite.encode(encoder,{...this.backend.fields,coverage:source.coverage.field,pigment:source.pigment.field,color:source.color.field},source.original.field,this.backend.paper.field,this.backend.noise,tile.buffer.field,v,[x0,tile.buffer.height-y1,x1-x0,y1-y0])
  }
 }

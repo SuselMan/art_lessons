@@ -110,3 +110,11 @@ base records: 4 отличных байта/max1 против настоящег
 вне finish bounds изменений0. Dry presentation против независимой CPU формулы:
 max0. GPU validation errors0. Это проверка ресурсов/формулы, не доказательство
 полной акварели или аппаратной эквивалентности.
+
+Живой композит: тот же `CanonicalSingleTileFinish.encodeLive(encoder, input)`.
+Input содержит production profile/scalars/bounds и `inkSmoothPx` от действительного
+шага дабов; settleComplete/epochs не нужны. Источники — `original/coverage` и
+текущие `inkLoad/inkColor`, а не dry/settled поля. Это немедленный показ того, что
+уже отложено кистью, без замены будущим сухим результатом и без opacity fade.
+Software fixture с smoothing2.5 и отличающимися live/dry records совпадает с
+настоящим GL composite по всем байтам; аппаратная эквивалентность не доказана.
